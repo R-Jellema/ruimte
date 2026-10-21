@@ -324,6 +324,16 @@ and its device token. `apps/pulsar-worker/APNS.md` has the environments and secr
 - [ ] `ruimte-context provider limits` in a Claude and in a Codex chat lists the windows the usage page shows for that
   account, with the same even-pace mark; a chat on a second account reads that account's windows.
 
+## Waiting and changes at a glance
+
+- [ ] With the git panel closed, the git button carries a gray dot while the project folder has a change (staged,
+  unstaged or untracked) and its tooltip says "Git, N changes"; it goes once everything is committed, also when an
+  agent made or committed the change. Light and dark, pressed and not.
+- [ ] Mod+Alt+P, from a canvas, a chat composer, a terminal and a file editor, goes to the chat or terminal that waited
+  longest, in another view too, with its prompt in front; pressed again it goes to the next one, and answering one
+  goes on to the next rather than back to the start. With nothing waiting it does nothing, and the palette row says so.
+- [ ] Go > Next That Needs You does the same from the menu, and Settings, Keyboard lists the key under Prompts.
+
 ## React Compiler
 
 The client and ADE CORE's React sources are compiled in the Electron dev app and in a build. Compare with `77bed5fa3`,
@@ -337,6 +347,10 @@ the last commit without the compiler, through React DevTools' highlight updates 
 - [ ] Switch the language and the region in Settings, Appearance: every visible label, date and number follows,
   the canvas, the sidebar and an open chat included, without a reload.
 - [ ] Toasts: a git failure, a node made the default size and a deletion with Undo each show and go.
+- [ ] Settings, Machines: "Checked 2m ago" under Reachable from other devices, and the last seen and last used times
+  under Apps with access and Linked machines, count on while the pane stays open.
+- [ ] A paused child task in a chat says "Paused until" with the day while the time is tomorrow, and with the time
+  alone once midnight passed, without reopening the chat.
 
 ## Apple Foundation Models
 
