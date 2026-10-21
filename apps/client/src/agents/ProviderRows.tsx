@@ -1,13 +1,12 @@
 import { ChevronRight, Bot, LoaderCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ProviderInfo } from '@ruimte/contracts';
-import { modelName } from '@adecore/agents-react/providers';
+import { AgentIcon, modelName } from '@adecore/agents-react/providers';
 import { startingSelection, useChatPreferences } from '@adecore/agents-react/chat';
 import { useProviders } from '@adecore/agents-react/state';
 import { Icon, SectionLabel } from '@adecore/ui';
 import { availableAgents } from './creation';
 import { useUi } from '@/state/ui';
-import { AgentMark } from './AgentMark';
 
 export function ProviderRows({ onPick }: { onPick(provider: ProviderInfo): void }) {
     const { t } = useTranslation('agents');
@@ -31,7 +30,7 @@ export function ProviderRows({ onPick }: { onPick(provider: ProviderInfo): void 
                             onClick={() => onPick(provider)}
                         >
                             <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-lg bg-surface">
-                                <AgentMark kind={provider.kind} size={20} className={provider.kind === 'claude' ? 'text-chart-claude' : undefined} />
+                                <AgentIcon kind={provider.kind} size={20} className={provider.kind === 'claude' ? 'text-chart-claude' : undefined} />
                             </span>
                             <span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-0.5">
                                 <span className="max-w-full text-sm font-medium break-words text-text">{provider.name}</span>

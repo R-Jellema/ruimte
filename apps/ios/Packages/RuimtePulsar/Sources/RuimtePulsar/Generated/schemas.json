@@ -31305,6 +31305,22 @@
         "additionalProperties": {
           "type": "string"
         }
+      },
+      "chatLogins": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "x-open-enum": [
+            "claude",
+            "codex",
+            "gemini",
+            "copilot",
+            "apple"
+          ]
+        }
       }
     },
     "required": [
@@ -31542,6 +31558,22 @@
         "additionalProperties": {
           "type": "string"
         }
+      },
+      "chatLogins": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "x-open-enum": [
+            "claude",
+            "codex",
+            "gemini",
+            "copilot",
+            "apple"
+          ]
+        }
       }
     },
     "required": [
@@ -31712,6 +31744,22 @@
         },
         "additionalProperties": {
           "type": "string"
+        }
+      },
+      "chatLogins": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "x-open-enum": [
+            "claude",
+            "codex",
+            "gemini",
+            "copilot",
+            "apple"
+          ]
         }
       }
     },
@@ -31909,6 +31957,22 @@
         },
         "additionalProperties": {
           "type": "string"
+        }
+      },
+      "chatLogins": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "x-open-enum": [
+            "claude",
+            "codex",
+            "gemini",
+            "copilot",
+            "apple"
+          ]
         }
       },
       "id": {
@@ -73740,6 +73804,22 @@
         },
         "additionalProperties": {
           "type": "string"
+        }
+      },
+      "chatLogins": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "x-open-enum": [
+            "claude",
+            "codex",
+            "gemini",
+            "copilot",
+            "apple"
+          ]
         }
       }
     },

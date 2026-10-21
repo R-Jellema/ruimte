@@ -90,10 +90,10 @@ export const ANTIGRAVITY_MODES: AcpModeMap = {
 
 /*
  * The server keeps its sessions and its sign-in under `GEMINI_HOME` (`~/.gemini` without it), so an account is
- * a folder of its own there. It signs in through ACP `authenticate` in a chat, never from a terminal.
- * TODO(Bas): drop the cast once ADE CORE lets a home go without `loginCommand` (basmilius/adecore#102).
+ * a folder of its own there. It signs in through ACP `authenticate` in a chat, never from a terminal, so it has
+ * no `loginCommand` and its accounts are offered as chat logins.
  */
-const ANTIGRAVITY_HOME = { env: 'GEMINI_HOME', fallback: '.gemini', loginEnv: [] } as Omit<ProviderHome, 'loginCommand'> as ProviderHome;
+const ANTIGRAVITY_HOME: ProviderHome = { env: 'GEMINI_HOME', fallback: '.gemini', loginEnv: [] };
 
 const ANTIGRAVITY_SPEC: AcpProviderSpec = {
     kind: 'antigravity',

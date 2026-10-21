@@ -2,14 +2,13 @@ import { Fragment, type ReactNode } from 'react';
 import { Bot, MessageSquare } from 'lucide-react';
 import type { ProviderInfo } from '@ruimte/contracts';
 import { useTranslation } from 'react-i18next';
-import { AccountDot, accountsOfKind } from '@adecore/agents-react/providers';
+import { AccountDot, AgentIcon, accountsOfKind } from '@adecore/agents-react/providers';
 import { agentTargetLabel, type AgentTarget } from '@/agents/nodes';
 import { runtimeModeLabel, useAccountChoice, useChatPreferences } from '@adecore/agents-react/chat';
 import { useProviderAccounts, useProviders } from '@adecore/agents-react/state';
 import { availableAgents } from './creation';
 import { useUi } from '@/state/ui';
 import { Icon, Menu } from '@adecore/ui';
-import { AgentMark } from './AgentMark';
 
 function Submenu({ label, icon, children }: { label: string; icon: ReactNode; children: ReactNode }) {
     return (
@@ -33,7 +32,7 @@ function ProviderItems({ target, provider, hint, onPick }: { target: AgentTarget
     if (choice === null) {
         return (
             <Menu.Item onClick={() => onPick(target, provider)}>
-                <AgentMark kind={provider.kind} />
+                <AgentIcon kind={provider.kind} />
                 {provider.name}
                 <Menu.Hint>{hint}</Menu.Hint>
             </Menu.Item>
@@ -42,7 +41,7 @@ function ProviderItems({ target, provider, hint, onPick }: { target: AgentTarget
     return (
         <Menu.Group>
             <Menu.GroupLabel className="flex items-center gap-2">
-                <AgentMark kind={provider.kind} />
+                <AgentIcon kind={provider.kind} />
                 {provider.name}
             </Menu.GroupLabel>
             {choice.offered.map((entry) => (

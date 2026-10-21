@@ -2,7 +2,7 @@ import { createElement } from 'react';
 import i18next from 'i18next';
 import { codeHighlighter } from '@/code-highlighter';
 import DiffSyntaxWorker from '@/chat/diff-syntax.worker?worker';
-import { configureChatStorage, type ChatActions, type ChatHost, setLazyPrefetch } from '@adecore/agents-react';
+import { type AgentMark, configureAgentMarks, configureChatStorage, type ChatActions, type ChatHost, setLazyPrefetch } from '@adecore/agents-react';
 import { useChats } from '@adecore/agents-react/state';
 import { perform, PERSON_PROMPT_CLIENTS } from '@/actions/client-actions';
 import { askBeforeStoppingSubagents, askBeforeStoppingTask } from '@/agents/end-children';
@@ -33,7 +33,7 @@ import { readResource } from '@/transport/byte-transfer';
 import { readPiece } from '@/transport/piece';
 import { useMachineUrl } from '@/transport/machine-url';
 import { prefetcher } from '@adecore/ui';
-import { CHAT_MODEL_MAX_BYTES } from '@ruimte/contracts';
+import { type AgentKind, CHAT_MODEL_MAX_BYTES } from '@ruimte/contracts';
 
 /* Every action goes through the registry as the person who clicked, the same door Voice uses. */
 const PERSON_CHAT_ACTIONS: ChatActions = {
@@ -79,9 +79,28 @@ function requireTransport(endpointId: string): Transport {
     return transport;
 }
 
+/*
+ * The marks of the CLIs the shared `AgentIcon` has none for. Grok's is a ring crossed by a slash, drawn here
+ * because no icon set this app takes carries it; its slash runs the ring's way round, so the nonzero fill keeps
+ * the crossing solid. Antigravity's is the one Google lists in the ACP registry
+ * (agentclientprotocol/registry, `antigravity-acp/icon.svg`).
+ */
+const AGENT_MARKS: Partial<Record<AgentKind, AgentMark>> = {
+    antigravity: {
+        title: 'Antigravity',
+        viewBox: '0 0 16 16',
+        path: 'M14.1452 14.6818C14.9937 15.3182 16.2664 14.894 15.0997 13.7273C11.5998 10.3333 12.3421 1 7.99366 1C3.64518 1 4.3876 10.3333 0.887603 13.7273C-0.385123 15 0.993664 15.3182 1.84215 14.6818C5.13002 12.4545 4.9179 8.5303 7.99366 8.5303C11.0694 8.5303 10.8573 12.4545 14.1452 14.6818Z'
+    },
+    grok: {
+        title: 'Grok',
+        path: 'M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 1 0 0-17Zm0 2a6.5 6.5 0 1 1 0 13 6.5 6.5 0 1 1 0-13ZM2.6 20 4 21.4 21.4 4 20 2.6Z'
+    }
+};
+
 /* The stores every chat view shares, set up before the first render. */
 export function configureChat(): void {
     configureChatStorage({ namespace: 'ruimte' });
+    configureAgentMarks(AGENT_MARKS);
     setLazyPrefetch((load) => prefetcher.register(load));
 }
 
