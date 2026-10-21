@@ -29,6 +29,7 @@ type SessionErrorCode =
     | 'agent-resuming'
     | 'shell-busy'
     | 'login-unavailable'
+    | 'client-shell-command'
     | 'git-bash-missing';
 
 /*
