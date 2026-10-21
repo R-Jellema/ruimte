@@ -56,6 +56,11 @@ export function offersKind(kind: AgentKind): boolean {
 // The executable a terminal of a CLI starts where its provider's command is a chat server instead.
 const TERMINAL_EXECUTABLES: Partial<Record<AgentKind, string>> = { antigravity: 'agy' };
 
+/* The executable a terminal of this kind starts. */
+export function terminalExecutable(kind: AgentKind): string {
+    return TERMINAL_EXECUTABLES[kind] ?? providerFor(kind).command[0]!;
+}
+
 // The flag that names a model, for the CLIs whose catalog the client can pick from.
 const MODEL_FLAG: Partial<Record<AgentKind, string>> = {
     claude: '--model',
@@ -171,7 +176,7 @@ export function terminalCommand(launch: AgentLaunch, firstPrompt?: string, note?
         return resumeCommand(launch, launch.resume);
     }
     // Only the executable: the arguments on a provider are the ones its chat backend needs.
-    const parts = [TERMINAL_EXECUTABLES[launch.kind] ?? provider.command[0]!, ...launchFlags(launch, launch.runtimeMode ?? DEFAULT_RUNTIME_MODE)];
+    const parts = [terminalExecutable(launch.kind), ...launchFlags(launch, launch.runtimeMode ?? DEFAULT_RUNTIME_MODE)];
     const noteFlags = NOTE_FLAGS[launch.kind];
     if (note && noteFlags) {
         parts.push(...noteFlags(note));
