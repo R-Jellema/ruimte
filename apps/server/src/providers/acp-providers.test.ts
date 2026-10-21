@@ -119,7 +119,7 @@ describe('Grok', () => {
 
 describe('Copilot', () => {
     test('runs its ACP server over stdio beside its terminal', () => {
-        expect(copilotProvider.command).toEqual(['copilot', '--acp', '--stdio', '--no-auto-update']);
+        expect(copilotProvider.command).toEqual(['copilot', '--acp', '--stdio', '--no-auto-update', '--allow-tool=shell(ruimte-context:*)']);
         expect(copilotProvider.capabilities.chat).toBe(true);
         expect(copilotProvider.capabilities.terminal).toBe(true);
         expect(copilotProvider.firstPromptArgs('go')).toEqual(['-i', 'go']);

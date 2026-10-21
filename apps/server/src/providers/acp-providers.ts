@@ -34,6 +34,14 @@ export const GROK_MODES: AcpModeMap = { supervised: ['default'] };
  */
 export const COPILOT_MODES: AcpModeMap = { supervised: ['https://agentclientprotocol.com/protocol/session-modes#agent'] };
 
+/*
+ * Every `ruimte-context` call goes through without a prompt, in every mode, since the daemon already enforces each
+ * verb. Grok 1.0.62 takes allow rules on its TUI only (`grok agent stdio` has no such flag), and a chained command
+ * passes only when every segment is allowed. Copilot's `:*` matches the command followed by a space.
+ */
+export const GROK_ALLOW_CONTEXT = '--allow=Bash(ruimte-context *)';
+export const COPILOT_ALLOW_CONTEXT = '--allow-tool=shell(ruimte-context:*)';
+
 /* The login Grok is asked to use: the key in the environment where there is one, else the one `grok login` left. */
 export function grokAuthMethod(env: Record<string, string | undefined>): string {
     return env.XAI_API_KEY ? 'xai.api_key' : 'cached_token';
@@ -87,7 +95,7 @@ export const copilotProvider: ChatProvider = createAcpProvider({
     kind: 'copilot',
     name: 'GitHub Copilot',
     command: 'copilot',
-    args: ['--acp', '--stdio', '--no-auto-update'],
+    args: ['--acp', '--stdio', '--no-auto-update', COPILOT_ALLOW_CONTEXT],
     catalog: agentDefaultCatalog(),
     model: agentModel,
     modes: COPILOT_MODES,

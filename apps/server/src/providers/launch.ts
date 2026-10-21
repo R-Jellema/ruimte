@@ -1,4 +1,5 @@
 import { resumeCommandFor, type AgentKind, type AgentLaunch, type RuntimeMode } from '@ruimte/contracts';
+import { COPILOT_ALLOW_CONTEXT, GROK_ALLOW_CONTEXT } from './acp-providers.ts';
 import { CLAUDE_ALLOW_CONTEXT } from './claude-provider.ts';
 import { BUILT_IN_KINDS } from './kinds.ts';
 import { providerFor } from './registry.ts';
@@ -111,10 +112,18 @@ export async function probeCodexNoDaemon(
     }
 }
 
+// The flag that lets `ruimte-context` run without a prompt, for the CLIs that take one on the line.
+const ALLOW_CONTEXT: Partial<Record<AgentKind, string>> = {
+    claude: CLAUDE_ALLOW_CONTEXT,
+    copilot: COPILOT_ALLOW_CONTEXT,
+    grok: GROK_ALLOW_CONTEXT
+};
+
 // What a CLI gets on every line, fresh or resumed, whatever the mode.
 function alwaysFlags(kind: AgentKind): string[] {
-    if (kind === 'claude') {
-        return [quote(CLAUDE_ALLOW_CONTEXT)];
+    const allow = ALLOW_CONTEXT[kind];
+    if (allow !== undefined) {
+        return [quote(allow)];
     }
     return kind === 'codex' && codexNoDaemon ? ['--no-daemon'] : [];
 }
