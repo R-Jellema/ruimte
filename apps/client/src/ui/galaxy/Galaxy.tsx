@@ -314,6 +314,9 @@ const finish = (gl: WebGL2RenderingContext, program: WebGLProgram): Program | nu
     return { program, uniforms };
 };
 
+// WebGL's `useProgram` reads as a hook to the React Compiler, which would leave the component as written.
+const bindProgram = (gl: WebGL2RenderingContext, program: WebGLProgram) => gl.useProgram(program);
+
 const Galaxy = ({
     onUnavailable,
     maxFps = 60,
@@ -495,7 +498,7 @@ const Galaxy = ({
             const program = (repel || warp ? variant(palette, repel, warp, false) : null) ?? base;
             const u = program.uniforms;
             gl.viewport(0, 0, canvas.width, canvas.height);
-            gl.useProgram(program.program);
+            bindProgram(gl, program.program);
             gl.bindVertexArray(vao);
             gl.uniform1f(u.uTime, state.time);
             gl.uniform2f(u.uResolution, canvas.width, canvas.height);

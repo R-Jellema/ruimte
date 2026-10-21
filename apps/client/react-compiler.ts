@@ -24,8 +24,7 @@ export const REACT_COMPILED_PACKAGES = ['@adecore/ui', '@adecore/terminal', '@ad
 /* A linked checkout (`adecore/packages/ui/src`) or an install (`node_modules/@adecore/ui/src`). */
 const ADECORE_SOURCES = /[\\/](?:adecore[\\/]packages|node_modules[\\/]@adecore)[\\/](?:ui|terminal|agents-react|editor-react)[\\/]src[\\/].*\.tsx?(?:$|\?)/;
 
-/* Where a streamed token, a keystroke or a status push draws first; the rest of the client follows once these hold. */
-const CLIENT_SOURCES = new RegExp(`^${escaped(fileURLToPath(new URL('./src/', import.meta.url)))}(?:chat|canvas|nodes|terminal)[\\\\/].*\\.tsx?(?:$|\\?)`);
+const CLIENT_SOURCES = new RegExp(`^${escaped(fileURLToPath(new URL('./src/', import.meta.url)))}.*\\.tsx?(?:$|\\?)`);
 
 export const REACT_COMPILED = [CLIENT_SOURCES, ADECORE_SOURCES];
 
