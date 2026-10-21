@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import type { ProjectSummary } from '@ruimte/contracts';
-import { canRunProviderCommand, typedLine, typeWhenReady, type Clock } from '@/chat/provider-command';
+import { typedLine, typeWhenReady, type Clock } from '@/chat/provider-command';
 
 /* Timers that run only when the test moves the time on. */
 function manualClock() {
@@ -95,19 +94,5 @@ describe('a provider command typed into a new terminal', () => {
         sessions.mounted = true;
         advance(10_000);
         expect(writes).toEqual([]);
-    });
-});
-
-describe('where a provider command can run', () => {
-    const project = { projectId: 'p1', folder: '/work/app' } as ProjectSummary;
-
-    test('in the project the window shows, on the machine whose providers are shown', () => {
-        expect(canRunProviderCommand({ current: project, currentEndpointId: 'local' }, 'local')).toBe(true);
-    });
-
-    test('not on the start screen, in the Chats project or for another machine', () => {
-        expect(canRunProviderCommand({ current: null, currentEndpointId: null }, 'local')).toBe(false);
-        expect(canRunProviderCommand({ current: { ...project, scratch: true } as ProjectSummary, currentEndpointId: 'local' }, 'local')).toBe(false);
-        expect(canRunProviderCommand({ current: project, currentEndpointId: 'local' }, 'studio')).toBe(false);
     });
 });

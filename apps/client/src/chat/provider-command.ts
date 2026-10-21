@@ -1,12 +1,4 @@
-import { isCanvasView } from '@ruimte/contracts';
-import { createNodeAction, createViewAction, focusNodeAction } from '@/actions/client-actions';
-import { liveCanvas } from '@/state/canvas';
-import { activeViewOf, useDocument } from '@/state/document';
-import { isScratchProject, useProject, type ProjectState } from '@/state/project';
-import { useUi } from '@/state/ui';
-import { focusTerminal } from '@/terminal/registry';
 import type { SessionClient } from '@/terminal/session-client';
-import { sessionClientFor } from '@/transport/connections';
 
 // How long a shell stays silent before its prompt counts as drawn.
 const QUIET_MS = 300;
@@ -66,37 +58,4 @@ export function typeWhenReady(
     giveUp = clock.set(stop, GIVE_UP_MS);
     wait(FIRST_MS);
     return stop;
-}
-
-/* Where a provider's command can be typed: the project the window shows, on the machine whose providers are in scope. */
-export function canRunProviderCommand(project: Pick<ProjectState, 'current' | 'currentEndpointId'>, endpointId: string): boolean {
-    return project.current !== null && !isScratchProject(project.current) && project.currentEndpointId === endpointId;
-}
-
-/*
- * A provider's install or sign-in command in a new terminal of the open project: a node on the canvas in
- * front, else a terminal view. Typed and left for the person to run, since nothing starts a command a
- * person did not approve.
- */
-export async function runProviderCommand(endpointId: string, command: string): Promise<void> {
-    const sessions = sessionClientFor(endpointId);
-    if (!canRunProviderCommand(useProject.getState(), endpointId) || sessions === null) {
-        return;
-    }
-    // The terminal takes the keyboard, which a dialog over it would keep.
-    useUi.getState().setSettings({ open: false });
-    const active = activeViewOf(useDocument.getState());
-    const canvasId = active !== null && isCanvasView(active) ? active.id : null;
-    const id = canvasId === null ? await createViewAction('terminal') : await createNodeAction('terminal', { viewId: canvasId });
-    if (id === null) {
-        return;
-    }
-    typeWhenReady(sessions, id, command, () => {
-        if (canvasId !== null) {
-            focusNodeAction(canvasId, id);
-            liveCanvas(canvasId)?.setBodyFocus(id);
-        }
-        useDocument.getState().setBodyFocused(true);
-        focusTerminal(endpointId, id);
-    });
 }

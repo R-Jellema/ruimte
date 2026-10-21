@@ -246,6 +246,8 @@ export const CHAT_HOST: Partial<ChatHost> = {
     fork: openForkDialog,
     openSettings: (section) => useUi.getState().setSettings({ open: true, section }),
     useMachineLabel: (endpointId) => useEndpoints((s) => s.endpoints.find((endpoint) => endpoint.id === endpointId)?.label ?? null),
+    // A shell of its own over the settings, so it works with no project open; the command waits for the person's Enter.
+    runProviderCommand: (endpointId, kind, command) => useUi.getState().setProviderCommand({ endpointId, kind, command }),
     useMachinePlatform,
     providerKeyNote: () => i18next.t('settings:providers.keyNote'),
     useResumeAtReset: (endpointId) => useServers((s) => s.byEndpoint[endpointId]?.resumeAtReset === true),
