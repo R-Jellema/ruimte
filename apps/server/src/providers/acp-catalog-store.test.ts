@@ -21,15 +21,20 @@ describe('acpCatalogStore', () => {
         expect(acpCatalogStore(await home(), 'grok').load()).toBeNull();
     });
 
-    test('keeps a value per kind in the machine folder, readable only by its owner', async () => {
+    test('keeps a value per kind in the machine folder', async () => {
         const folder = await home();
         acpCatalogStore(folder, 'grok').save({ commands: ['compact'] });
         expect(acpCatalogStore(folder, 'grok').load()).toEqual({ commands: ['compact'] });
         expect(acpCatalogStore(folder, 'copilot').load()).toBeNull();
         const path = acpCatalogPath(folder, 'grok');
         expect(path).toBe(join(folder, 'models', 'agents', 'grok.json'));
-        expect((await stat(path)).mode & 0o777).toBe(0o600);
         expect(JSON.parse(await readFile(path, 'utf8'))).toEqual({ commands: ['compact'] });
+    });
+
+    test.skipIf(process.platform === 'win32')('a value it keeps is readable only by its owner', async () => {
+        const folder = await home();
+        acpCatalogStore(folder, 'grok').save({});
+        expect((await stat(acpCatalogPath(folder, 'grok'))).mode & 0o777).toBe(0o600);
     });
 
     test('a file that does not read as JSON counts as none', async () => {
