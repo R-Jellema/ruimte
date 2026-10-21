@@ -30968,6 +30968,40 @@
             },
             "resumeCommand": {
               "type": "string"
+            },
+            "install": {
+              "type": "object",
+              "properties": {
+                "description": {
+                  "type": "string"
+                },
+                "commands": {
+                  "type": "object",
+                  "properties": {
+                    "darwin": {
+                      "type": "string"
+                    },
+                    "linux": {
+                      "type": "string"
+                    },
+                    "win32": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "guideUrl": {
+                  "type": "string"
+                },
+                "signIn": {
+                  "type": "array",
+                  "items": {}
+                }
+              },
+              "required": [
+                "description",
+                "commands",
+                "signIn"
+              ]
             }
           },
           "required": [
@@ -31242,6 +31276,40 @@
             },
             "resumeCommand": {
               "type": "string"
+            },
+            "install": {
+              "type": "object",
+              "properties": {
+                "description": {
+                  "type": "string"
+                },
+                "commands": {
+                  "type": "object",
+                  "properties": {
+                    "darwin": {
+                      "type": "string"
+                    },
+                    "linux": {
+                      "type": "string"
+                    },
+                    "win32": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "guideUrl": {
+                  "type": "string"
+                },
+                "signIn": {
+                  "type": "array",
+                  "items": {}
+                }
+              },
+              "required": [
+                "description",
+                "commands",
+                "signIn"
+              ]
             }
           },
           "required": [
