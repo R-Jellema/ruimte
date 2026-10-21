@@ -50,6 +50,8 @@
     "panel": {
         "fallback": "Paneel",
         "close": "{{name}} sluiten",
+        "gitChanges_one": "Git, {{count}} wijziging",
+        "gitChanges_other": "Git, {{count}} wijzigingen",
         "failed": "Dit paneel kon niet worden getekend",
         "names": {
             "files": "Bestanden",

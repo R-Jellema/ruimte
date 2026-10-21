@@ -50,6 +50,8 @@
     "panel": {
         "fallback": "Panel",
         "close": "Close {{name}}",
+        "gitChanges_one": "Git, {{count}} change",
+        "gitChanges_other": "Git, {{count}} changes",
         "failed": "This panel failed to render",
         "names": {
             "files": "Files",
