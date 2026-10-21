@@ -91,7 +91,9 @@ describe('a zip unpacked from disk', () => {
         expect((await extractZipFile(file, target)).sort()).toEqual(['bin/server', 'docs/readme.txt', 'empty.txt']);
         expect(await readFile(join(target, 'docs/readme.txt'), 'utf8')).toBe('hello');
         expect(await readFile(join(target, 'empty.txt'), 'utf8')).toBe('');
-        expect((await stat(join(target, 'bin/server'))).mode & 0o777).toBe(0o755);
+        if (process.platform !== 'win32') {
+            expect((await stat(join(target, 'bin/server'))).mode & 0o777).toBe(0o755);
+        }
         expect(await Bun.file(join(folder, 'escape.txt')).exists()).toBe(false);
     });
 

@@ -86,8 +86,10 @@ describe('installing the server', () => {
         const folder = join(home, 'agent-servers', 'antigravity');
         expect(install.launch()).toEqual([join(folder, '1.4.1', 'agy_acp_server.par'), '--uid=']);
         expect(install.detection()).toEqual({ installed: true, version: '1.4.1' });
-        expect((await stat(join(folder, '1.4.1', 'agy_acp_server.par'))).mode & 0o111).not.toBe(0);
-        expect((await stat(join(folder, '1.4.1', 'localharness_external'))).mode & 0o111).not.toBe(0);
+        if (process.platform !== 'win32') {
+            expect((await stat(join(folder, '1.4.1', 'agy_acp_server.par'))).mode & 0o111).not.toBe(0);
+            expect((await stat(join(folder, '1.4.1', 'localharness_external'))).mode & 0o111).not.toBe(0);
+        }
         expect((await readdir(folder)).sort()).toEqual(['1.4.1', 'installed.json']);
     });
 
