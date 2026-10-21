@@ -14,7 +14,12 @@ export interface DetectableProviders {
  * A client asks this when a person comes back (a window's focus, the Providers pane, a menu that starts an
  * agent), so a CLI installed meanwhile shows up without the daemon polling on a clock. Any client may ask.
  */
-export function registerProviderDetectHandler(dispatcher: Dispatcher, providers: DetectableProviders, now: () => number = Date.now): void {
+export function registerProviderDetectHandler(
+    dispatcher: Dispatcher,
+    providers: DetectableProviders,
+    accounts: { refresh(): Promise<unknown> } | null = null,
+    now: () => number = Date.now
+): void {
     let forgotAt: number | null = null;
     dispatcher.register('provider.detect', async () => {
         if (forgotAt === null || now() - forgotAt >= PROVIDER_DETECT_INTERVAL_MS) {
@@ -22,6 +27,8 @@ export function registerProviderDetectHandler(dispatcher: Dispatcher, providers:
             for (const kind of providers.kinds()) {
                 providers.invalidate(kind);
             }
+            // An account reads its CLI on a clock of its own, so a login made meanwhile would wait for it; its new state reaches clients as an event.
+            void accounts?.refresh().catch(() => undefined);
         }
         return { providers: await providers.list() };
     });

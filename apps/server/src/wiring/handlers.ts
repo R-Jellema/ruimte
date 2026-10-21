@@ -335,7 +335,7 @@ export function registerEditorHandlers(dispatcher: Dispatcher, input: EditorHand
     const store = projects.store;
     registerLanguageHandlers(dispatcher, language.host);
     registerAgentServerHandlers(dispatcher, providers.servers);
-    registerProviderDetectHandler(dispatcher, providers.providers);
+    registerProviderDetectHandler(dispatcher, providers.providers, providers.accounts);
     registerOnDeviceHandlers(dispatcher, language.onDevice);
     registerProvenanceHandlers(dispatcher, language.provenance, machine.machineHome);
     registerDatabaseHandlers(dispatcher, databases.service, databases.connections, databases.agents, databases.sqlAnalysis);

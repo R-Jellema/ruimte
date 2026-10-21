@@ -10,11 +10,13 @@ let dispatcher: Dispatcher;
 let clock: number;
 let probes: string[];
 let grokInstalled: boolean;
+let accountChecks: number;
 
 beforeEach(() => {
     clock = 1_000_000;
     probes = [];
     grokInstalled = false;
+    accountChecks = 0;
     const providers = new ProviderRegistry({
         detect: async (command) => {
             probes.push(command);
@@ -22,7 +24,12 @@ beforeEach(() => {
         }
     });
     dispatcher = new Dispatcher();
-    registerProviderDetectHandler(dispatcher, providers, () => clock);
+    const accounts = {
+        refresh: async () => {
+            accountChecks += 1;
+        }
+    };
+    registerProviderDetectHandler(dispatcher, providers, accounts, () => clock);
 });
 
 async function detect(): Promise<ProviderInfo[]> {
@@ -54,5 +61,16 @@ describe('provider.detect', () => {
         clock += 1;
         expect(grokOf(await detect())).toBe(true);
         expect(probes.length).toBe(first * 2);
+    });
+
+    test('checks the accounts again whenever it probes, so a login made meanwhile shows', async () => {
+        await detect();
+        expect(accountChecks).toBe(1);
+        clock += PROVIDER_DETECT_INTERVAL_MS - 1;
+        await detect();
+        expect(accountChecks).toBe(1);
+        clock += 1;
+        await detect();
+        expect(accountChecks).toBe(2);
     });
 });
