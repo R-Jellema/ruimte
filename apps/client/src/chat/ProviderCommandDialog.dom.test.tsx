@@ -31,7 +31,8 @@ describe('a provider command run from its install page', () => {
         expect(created.command).toBeUndefined();
         expect(created.agent).toBeUndefined();
         expect(created.cwd).toBeUndefined();
-        expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Read it and press Enter to run it.');
+        expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Press Enter to run the command.');
+        expect(document.querySelector('[role="dialog"] h2')?.textContent).toBe('grok');
         expect(machine.requests('session.write').filter((write) => /[\r\n]/.test(write.data))).toEqual([]);
 
         act(() => useUi.getState().setProviderCommand(null));

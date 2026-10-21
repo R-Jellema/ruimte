@@ -158,7 +158,7 @@ function CommandTerminal({ request, onRetry }: { request: ProviderCommandRequest
                     <CliMark kind={kind} size={16} />
                 </span>
                 <div className="min-w-0 grow">
-                    <Dialog.Title className="truncate">{t('providerCommand.title', { cli })}</Dialog.Title>
+                    <Dialog.Title className="truncate">{cli}</Dialog.Title>
                     <Dialog.Description size="xs">{t('providerCommand.description')}</Dialog.Description>
                 </div>
                 <CloseButton label={t('common:action.close')} dialog />

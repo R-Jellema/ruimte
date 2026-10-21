@@ -87,8 +87,7 @@
         "usedAny_other": "{{count}} keer Ruimte gebruikt"
     },
     "providerCommand": {
-        "title": "{{cli}} in een terminal",
-        "description": "Het commando staat al klaar. Lees het en druk op Enter om het uit te voeren. Sluit je dit venster, dan stopt de terminal.",
+        "description": "Druk op Enter om het commando uit te voeren.",
         "ended": "De terminal is gestopt.",
         "dropped": "De verbinding met de machine viel weg, waardoor de terminal stopte.",
         "failed": "De terminal kon niet starten: {{reason}}"

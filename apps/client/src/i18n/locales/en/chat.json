@@ -87,8 +87,7 @@
         "usedAny_other": "Used Ruimte {{count}} times"
     },
     "providerCommand": {
-        "title": "{{cli}} in a terminal",
-        "description": "The command is typed for you. Read it and press Enter to run it. Closing this window ends the terminal.",
+        "description": "Press Enter to run the command.",
         "ended": "The terminal ended.",
         "dropped": "The connection to the machine dropped, which ended the terminal.",
         "failed": "The terminal could not start: {{reason}}"
