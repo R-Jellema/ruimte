@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { BackendEvent, BackendLaunch } from '@adecore/agents/chat';
-import { ProviderAccountsService, ProviderRegistry, type ChatProvider } from '@adecore/agents/providers';
+import { ModelCatalog, ProviderAccountsService, ProviderRegistry, type ChatProvider } from '@adecore/agents/providers';
 import { fakeAcpWith, inProcess, type FakeAcpOptions } from '@adecore/agents/testing';
 import { UsageService } from '@adecore/agents/usage';
 import {
@@ -11,6 +11,7 @@ import {
     ANTIGRAVITY_MODES,
     COPILOT_MODES,
     GROK_MODES,
+    adoptGrokModels,
     allowsContextCommand,
     copilotProvider,
     createAntigravityProvider,
@@ -18,7 +19,8 @@ import {
     copilotUsageDirectory,
     createGrokProvider,
     grokAuthMethod,
-    grokProvider
+    grokProvider,
+    readGrokModels
 } from './acp-providers.ts';
 import type { AcpServerLaunch } from './acp-server.ts';
 import { ProviderRegistry as RuimteProviderRegistry } from './registry.ts';
@@ -91,6 +93,10 @@ describe('Grok', () => {
         expect(grokAuthMethod({})).toBe('cached_token');
     });
 
+    test('asks `grok models` who is signed in, which opens no session, instead of probing over ACP', () => {
+        expect(grokProvider.askAccount).toBeDefined();
+    });
+
     test('a turn goes through and back, signed in with the stored login and left on its own model', async () => {
         const { backend, events, methods, fake, turnDone } = run(grokProvider, { authMethod: 'cached_token', modes: GROK_SESSION_MODES });
         await backend.start();
@@ -138,6 +144,86 @@ describe('Grok', () => {
         await backend.start();
         expect(methods).not.toContain('session/set_mode');
         await backend.dispose();
+    });
+});
+
+// As Grok 1.0.62 prints `grok models`.
+const GROK_MODELS = [
+    'You are logged in with grok.com.',
+    '',
+    'Default model: grok-4.7',
+    '',
+    'Available models:',
+    '  * grok-4.7 (default)',
+    '  - grok-4.7-build-fast',
+    '  - grok-4.6',
+    ''
+].join('\n');
+
+describe('grok models', () => {
+    test('a login on the first line is signed in, with the listed models and the default', () => {
+        expect(readGrokModels(GROK_MODELS)).toEqual({ signedIn: true, defaultModel: 'grok-4.7', models: ['grok-4.7', 'grok-4.7-build-fast', 'grok-4.6'] });
+        expect(readGrokModels(GROK_MODELS.replace('You are logged in with grok.com.', 'You are using XAI_API_KEY.')).signedIn).toBe(true);
+    });
+
+    test('"not authenticated" is signed out, and a first line it does not know is no answer', () => {
+        expect(readGrokModels(GROK_MODELS.replace('You are logged in with grok.com.', 'You are not authenticated.')).signedIn).toBe(false);
+        expect(() => readGrokModels('error: something broke\n')).toThrow('Grok did not say who is signed in');
+        expect(() => readGrokModels('')).toThrow('Grok did not say who is signed in');
+    });
+
+    test('a slug that reads as a flag is left out', () => {
+        expect(readGrokModels(GROK_MODELS.replace('grok-4.6', '--yolo')).models).toEqual(['grok-4.7', 'grok-4.7-build-fast']);
+    });
+
+    test('the listed models replace the catalog, with the names and reasoning effort a chat learned kept', () => {
+        const effort = {
+            id: 'effort',
+            label: 'Reasoning',
+            type: 'select' as const,
+            defaultChoice: 'high',
+            choices: [
+                { id: 'low', label: 'Low' },
+                { id: 'high', label: 'High' }
+            ]
+        };
+        let stored: unknown = {
+            commands: ['compact'],
+            models: { defaultModel: 'grok-4.6', models: [{ slug: 'grok-4.6', name: 'Grok 4.6', contextWindow: 256000 }], options: [effort] }
+        };
+        const store = {
+            load: () => stored,
+            save: (value: unknown) => {
+                stored = value;
+            }
+        };
+        const catalog = new ModelCatalog({
+            defaultModel: 'default',
+            profiles: { agent: { options: [], contextWindowTokens: {} } },
+            models: [{ slug: 'default', name: 'Default', profile: 'agent' }]
+        });
+
+        expect(adoptGrokModels(catalog, store, readGrokModels(GROK_MODELS))).toBe(true);
+        expect(catalog.defaultModel).toBe('grok-4.7');
+        expect(catalog.list().map((model) => [model.slug, model.name])).toEqual([
+            ['grok-4.7', 'grok-4.7'],
+            ['grok-4.7-build-fast', 'grok-4.7-build-fast'],
+            ['grok-4.6', 'Grok 4.6']
+        ]);
+        expect(catalog.list()[0]!.options).toEqual([effort]);
+        expect(stored).toEqual({
+            commands: ['compact'],
+            models: {
+                defaultModel: 'grok-4.7',
+                models: [
+                    { slug: 'grok-4.7', name: 'grok-4.7' },
+                    { slug: 'grok-4.7-build-fast', name: 'grok-4.7-build-fast' },
+                    { slug: 'grok-4.6', name: 'Grok 4.6', contextWindow: 256000 }
+                ],
+                options: [effort]
+            }
+        });
+        expect(adoptGrokModels(catalog, store, readGrokModels(GROK_MODELS))).toBe(false);
     });
 });
 
