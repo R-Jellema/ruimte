@@ -1,7 +1,6 @@
 import {
     useEffect,
     useLayoutEffect,
-    useMemo,
     useRef,
     useState,
     useSyncExternalStore,
@@ -158,24 +157,21 @@ export function Canvas() {
             aiming: s.linkDraft?.aiming === true
         }))
     );
-    const textIds = useMemo(() => Object.keys(texts), [texts]);
+    const textIds = Object.keys(texts);
     const lineTool = useCanvas((s) => s.lineTool);
     const lines = useCanvas((s) => s.lines);
     const nodes = useCanvas((s) => s.nodes);
     const selection = useCanvas((s) => s.selection);
     const hidden = useCanvas((s) => s.hidden);
     const gesturing = useCanvas((s) => s.gesturing);
-    const frames = useMemo(() => gapFrames({ nodes, lines, hidden }), [nodes, lines, hidden]);
-    const editable = useMemo(
-        () => gapEdit ?? (!altDown || activeGesture !== null || gesturing ? [] : editableGaps(Object.values(frames), selection)),
-        [frames, selection, gapEdit, altDown, activeGesture, gesturing]
-    );
+    const frames = gapFrames({ nodes, lines, hidden });
+    const editable = gapEdit ?? (!altDown || activeGesture !== null || gesturing ? [] : editableGaps(Object.values(frames), selection));
     /* The nodes are drawn in a fixed order and stacked with a z-index instead of being reordered in
        the DOM: moving an element takes it out of the document for a moment, and a body that had the
        keyboard loses it. Bringing a node to the front is a click in it, so that is exactly when it
        may not happen. */
-    const drawIds = useMemo(() => [...order].sort(), [order]);
-    const stacking = useMemo(() => stackingOrder(nodes, order), [order, nodes]);
+    const drawIds = [...order].sort();
+    const stacking = stackingOrder(nodes, order);
     const maximizedId = useCanvas(maximizedNodeOf);
 
     useLayoutEffect(() => {

@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pencil, Trash, X } from 'lucide-react';
 import { MAX_TITLE_LENGTH } from '@ruimte/actions';
@@ -129,7 +129,7 @@ function DraftLine({ draft, from, obstacles }: { draft: NonNullable<CanvasState[
 }
 
 /* Memoized with no props: it reads the store itself, so what renders the canvas above moves nothing drawn here. */
-export const EdgeLayer = memo(function EdgeLayer() {
+export function EdgeLayer() {
     const { t } = useTranslation('canvas');
     const canvasStore = useCanvasStore();
     const edges = useCanvas((s) => s.edges);
@@ -259,4 +259,4 @@ export const EdgeLayer = memo(function EdgeLayer() {
             ))}
         </>
     );
-});
+}

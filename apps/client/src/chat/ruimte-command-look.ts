@@ -1,5 +1,5 @@
 import i18next from 'i18next';
-import { createElement, useCallback } from 'react';
+import { createElement } from 'react';
 import type { CommandLook, CommandLookMatch, CommandName } from '@adecore/agents-react';
 import type { ContextVerb } from '@ruimte/contracts';
 import { Icon } from '@adecore/ui';
@@ -104,16 +104,13 @@ const projectNames = memoByIdentity((source: SidebarSource): ReadonlyMap<string,
 export function useContextNames(endpointId: string, chatId: string): (word: string, option: string | null) => CommandName | null {
     const names = projectNames(useSidebarSource());
     const here = endpointId === currentEndpointId() && names.has(chatId);
-    return useCallback(
-        (word: string, option: string | null): CommandName | null => {
-            const named = here ? names.get(word) : undefined;
-            if (named === undefined || named.name === '' || !(NODE_ID.test(word) || (named.view && option === '--view'))) {
-                return null;
-            }
-            return { name: named.name, icon: named.icon };
-        },
-        [names, here]
-    );
+    return (word: string, option: string | null): CommandName | null => {
+        const named = here ? names.get(word) : undefined;
+        if (named === undefined || named.name === '' || !(NODE_ID.test(word) || (named.view && option === '--view'))) {
+            return null;
+        }
+        return { name: named.name, icon: named.icon };
+    };
 }
 
 /* `ruimte-context` as a tool of Ruimte's own in a chat, with the mark, the name of the part it works on and titles for ids. */

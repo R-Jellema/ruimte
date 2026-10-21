@@ -1,6 +1,6 @@
 import { MAX_TITLE_LENGTH } from '@ruimte/actions';
 import { notePaperOf, type CanvasNodeKind } from '@ruimte/contracts';
-import { memo, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { memo, useState, type CSSProperties, type ReactNode } from 'react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import {
@@ -383,7 +383,7 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
     /* Where a file node's controls go: its own header, so the body draws no second bar under it.
        Every other node hands its body an empty slot, which keeps the canvas out of the window's. */
     const [fileControls, setFileControls] = useState<HTMLElement | null>(null);
-    const toolbarSlot = useMemo(() => fixedSlot(fileControls), [fileControls]);
+    const toolbarSlot = fixedSlot(fileControls);
     const status = useNodeStatus(node);
     const work = useNodeWork(node);
     const endpointId = useEndpointId();

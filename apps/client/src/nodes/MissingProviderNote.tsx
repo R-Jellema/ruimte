@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AgentKind } from '@ruimte/contracts';
 import { useProvidersStore } from '@adecore/agents-react/state';
@@ -10,7 +9,7 @@ import { useUi } from '@/state/ui';
 export function MissingProviderNote({ endpointId, kind }: { endpointId: string; kind: AgentKind | undefined }) {
     const { t } = useTranslation('canvas');
     const row = useProvidersStore((s) => s.byScope[endpointId]);
-    const missing = useMemo(() => missingProvider(row, kind), [row, kind]);
+    const missing = missingProvider(row, kind);
     if (missing === null) {
         return null;
     }
