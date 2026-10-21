@@ -62,6 +62,11 @@ with the next push to main, which starts Xcode Cloud.
 - [ ] The October 2 audit scenarios against current code: ACT-04, NAT-05, CLI-04, SRV-05, AGT-03, ACT-02, ACT-08,
   CLI-03, and the iOS fixtures in UnifiedProjectsTests, WorkspaceVisualTests, SessionVisualTests,
   AttentionStoreTests and PhaseZeroTests.
+- [ ] Chat controls from ADE CORE: a Claude chat over 100k tokens offers "Prompt cache expired" above the composer
+  once the cache it named runs out, and Compact compacts; Mod+Shift+. and Mod+Shift+, step the reasoning effort with
+  the notice line and the pill following, also from the Chat menu and the palette; a star in the composer's model menu
+  and in a new agent's picker puts a model first; the even-pace mark on the usage page, the sidebar card and the
+  account rows of the model menu, and what a screen reader says for each bar.
 
 ## Measurements
 
