@@ -1,4 +1,4 @@
-import { createAcpBackend, type AcpClientInfo, type AcpModeMap } from '@adecore/agents/chat';
+import type { AcpClientInfo, AcpModeMap } from '@adecore/agents/chat';
 import { ModelCatalog, createAcpProvider, type AcpProviderSpec, type ChatProvider, type ProviderHome } from '@adecore/agents/providers';
 import antigravityRelease from './antigravity-acp-release.json' with { type: 'json' };
 import { parseAcpServerRelease, type AcpServerLaunch } from './acp-server.ts';
@@ -69,10 +69,19 @@ const GROK_SPEC: AcpProviderSpec = {
     firstPromptArgs: (prompt) => [prompt]
 };
 
-export const grokProvider: ChatProvider = {
-    ...createAcpProvider(GROK_SPEC),
-    createBackend: (launch, host) => createAcpBackend({ ...GROK_SPEC, authMethod: grokAuthMethod(launch.env) })(launch, host)
-};
+/*
+ * Grok's login follows the launch's environment, so each chat's backend comes from a provider made for it.
+ * It shares the catalog, so the models a session reports still reach the picker.
+ */
+export function createGrokProvider(): ChatProvider {
+    const spec: AcpProviderSpec = { ...GROK_SPEC, catalog: agentDefaultCatalog() };
+    return {
+        ...createAcpProvider(spec),
+        createBackend: (launch, host) => createAcpProvider({ ...spec, authMethod: grokAuthMethod(launch.env) }).createBackend(launch, host)
+    };
+}
+
+export const grokProvider: ChatProvider = createGrokProvider();
 
 export const copilotProvider: ChatProvider = createAcpProvider({
     kind: 'copilot',

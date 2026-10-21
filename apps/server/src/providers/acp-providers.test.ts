@@ -12,6 +12,7 @@ import {
     GROK_MODES,
     copilotProvider,
     createAntigravityProvider,
+    createGrokProvider,
     grokAuthMethod,
     grokProvider
 } from './acp-providers.ts';
@@ -96,6 +97,15 @@ describe('Grok', () => {
         expect(text).toBe('echo: hello');
         expect(events).toContainEqual(expect.objectContaining({ type: 'turn.done', promptId: 'p1', state: 'done' }));
         expect(methods).not.toContain('session/set_model');
+        await backend.dispose();
+    });
+
+    test('the models a chat reports fill the catalog, with the current one as the default', async () => {
+        const provider = createGrokProvider();
+        const { backend } = run(provider, { authMethod: 'cached_token', modes: GROK_SESSION_MODES });
+        await backend.start();
+        expect(provider.catalog.list().map((model) => model.slug)).toEqual(['fake-small', 'fake-large']);
+        expect(provider.catalog.defaultModel).toBe('fake-small');
         await backend.dispose();
     });
 
