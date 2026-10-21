@@ -51,8 +51,11 @@ for (const module of [address, broker, signaling, direct, server, envelope, push
  * reads those shapes through the dynamic `WireSchema` tables anyway.
  */
 const vocabularies: Record<string, z.ZodType> = {};
+// Open on the wire, so its Swift enum holds the kinds this version knows by name and a newer one decodes as nil.
+const KnownAgentKindSchema = z.enum(agent.KNOWN_AGENT_KINDS);
 for (const module of [agent, task, plan, chat]) {
-    for (const [name, value] of Object.entries(module)) {
+    for (const [name, rawValue] of Object.entries(module)) {
+        const value = rawValue === agent.AgentKindSchema ? KnownAgentKindSchema : rawValue;
         if (name.endsWith('Schema') && value instanceof z.ZodEnum) {
             vocabularies[name] = value;
             roots[name] = value;
@@ -257,7 +260,7 @@ const constantSource = Object.entries(constants)
  * are any string, and the known words ride along as `x-open-enum` for the app to fall back from.
  */
 const openVocabularies: ReadonlyMap<unknown, readonly string[]> = new Map<unknown, readonly string[]>([
-    [agent.AgentKindSchema, agent.AgentKindSchema.options],
+    [agent.AgentKindSchema, agent.KNOWN_AGENT_KINDS],
     [agent.AgentStatusSchema, agent.AgentStatusSchema.options],
     [RuntimeModeSchema, RuntimeModeSchema.options],
     [chat.ChatRequestKindSchema, chat.ChatRequestKindSchema.options],

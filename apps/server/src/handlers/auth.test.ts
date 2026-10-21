@@ -742,7 +742,7 @@ describe('auth handlers', () => {
     });
 
     test('a provider without hooks is unknown', async () => {
-        expect(await ask(LOCAL, 'endpoint.setAgentIntegration', { provider: 'gemini', on: true })).toMatchObject({
+        expect(await ask(LOCAL, 'endpoint.setAgentIntegration', { provider: 'antigravity', on: true })).toMatchObject({
             ok: false,
             error: { code: 'unknown-provider' }
         });

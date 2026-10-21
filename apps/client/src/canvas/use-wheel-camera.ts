@@ -5,6 +5,7 @@ import { isApplePlatform } from '@/desktop/bridge';
 import { isModHeld } from '@adecore/ui';
 import { createPanBatch } from '@/canvas/pan-batch';
 import { createWheelPanSession, PAN_IDLE_MS } from '@/canvas/wheel-pan-session';
+import { createZoomGlide, wheelZoomOf } from '@/canvas/wheel-zoom';
 
 /* How long after the last wheel event a zoom settles on a whole percent. */
 const ZOOM_SETTLE_MS = 160;
@@ -26,7 +27,8 @@ export interface WheelCameraOptions {
 
 /*
  * The wheel over a canvas, a drawing or a diagram: two fingers pan, a pinch zooms around the pointer
- * and the zoom settles on a whole percent once the fingers stop. React's wheel listeners are passive
+ * and the zoom settles on a whole percent once the fingers stop. A notch of a mouse wheel with the
+ * modifier is a small step the camera glides to (`wheel-zoom.ts`). React's wheel listeners are passive
  * and cannot stop the browser's pinch zoom, so this is a native one, in the capture phase because a
  * scrollable body inside (a terminal's scrollback, a thread) would otherwise scroll and pan at once.
  */
@@ -50,6 +52,9 @@ export function useWheelCamera(rootRef: RefObject<HTMLElement | null>, store: St
         const pan = createPanBatch((dx, dy) => store.getState().panBy(dx, dy));
         flushRef.current = pan.flush;
         const session = createWheelPanSession();
+        const glide = createZoomGlide({ zoom: () => store.getState().camera.zoom, zoomAt: (factor, at) => store.getState().zoomAt(factor, at) }, (at) =>
+            store.getState().settleZoom(at)
+        );
         let panTimer: number | null = null;
         const endPan = (): void => {
             session.reset();
@@ -88,12 +93,21 @@ export function useWheelCamera(rootRef: RefObject<HTMLElement | null>, store: St
                 panTimer = null;
             }
             endPan();
-            store.getState().zoomAt(Math.exp(-e.deltaY * 0.01), at);
-            anchor = at;
-            zoomed = true;
             if (timer !== null) {
                 window.clearTimeout(timer);
+                timer = null;
             }
+            const step = wheelZoomOf(e);
+            if (step.kind === 'notch') {
+                // The glide settles once it arrives, so a settle due from an earlier pinch would only cut it short.
+                zoomed = false;
+                glide.add(step.factor, at);
+                return;
+            }
+            glide.stop();
+            store.getState().zoomAt(step.factor, at);
+            anchor = at;
+            zoomed = true;
             timer = window.setTimeout(() => {
                 if (zoomed) {
                     store.getState().settleZoom(anchor);
@@ -115,6 +129,7 @@ export function useWheelCamera(rootRef: RefObject<HTMLElement | null>, store: St
         document.addEventListener('gesturechange', swallowGesture);
         return () => {
             pan.flush();
+            glide.stop();
             flushRef.current = null;
             if (panTimer !== null) {
                 window.clearTimeout(panTimer);

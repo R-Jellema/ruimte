@@ -1,13 +1,14 @@
 import { uiSessionNote } from '@adecore/intelligent-ui/text';
-import { AgentKindSchema, type ContextSource } from '@ruimte/contracts';
+import type { ContextSource } from '@ruimte/contracts';
 import { MAX_AGENT_DEPTH, MAX_TEAM_DEPTH } from '../canvas/depth.ts';
+import { BUILT_IN_KINDS } from '../providers/kinds.ts';
 import { NODE_VERB_KINDS } from '../canvas/node-kinds.ts';
 import { RUIMTE_UI_FENCE } from '../chat/ui-fence.ts';
 import { uiSourceExamples } from '../chat/ui-source-args.ts';
 
 /* Asked for a CLI by name, a model that has not read the names goes looking through its own tools
    for one and reports back that this machine has none, so the verb names them where it is offered. */
-const CLI_NAMES = AgentKindSchema.options.join(', ');
+const CLI_NAMES = BUILT_IN_KINDS.join(', ');
 
 /* Told only that it places "nodes", a model asked for a note writes a file with its own tools and
    the canvas stays empty, so the kinds `node new` opens are named where the command is introduced. */

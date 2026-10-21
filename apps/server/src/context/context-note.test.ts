@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { compileUi } from '@adecore/intelligent-ui';
-import { AgentKindSchema, type ContextSource } from '@ruimte/contracts';
+import type { ContextSource } from '@ruimte/contracts';
+import { BUILT_IN_KINDS } from '../providers/kinds.ts';
 import { NODE_VERB_KINDS } from '../canvas/node-verb.ts';
 import { RUIMTE_UI_FENCE } from '../chat/ui-fence.ts';
 import { ruimteUiSources, type UiSourceHosts } from '../chat/ui-sources.ts';
@@ -151,7 +152,7 @@ describe('verbsNote', () => {
         expect(helper).not.toContain('`team`');
         expect(helper).toContain('--task');
         // Named where the verb is offered, since a prompt asks for a CLI by name and never by flag.
-        for (const cli of AgentKindSchema.options) {
+        for (const cli of BUILT_IN_KINDS) {
             expect(VERBS_NOTE).toContain(cli);
             expect(helper).toContain(cli);
         }

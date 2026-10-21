@@ -130,7 +130,8 @@ describe('session requests', () => {
         const { payload, result } = REQUEST_SCHEMAS['session.login'];
         expect(payload.safeParse({ sessionId: 'login-1', kind: 'claude', cols: 80, rows: 24 }).success).toBe(true);
         expect(payload.safeParse({ sessionId: 'login-1', kind: 'codex', account: 'codex_work', cols: 80, rows: 24 }).success).toBe(true);
-        expect(payload.safeParse({ sessionId: 'login-1', kind: 'vim', cols: 80, rows: 24 }).success).toBe(false);
+        expect(payload.safeParse({ sessionId: 'login-1', kind: 'grok', cols: 80, rows: 24 }).success).toBe(true);
+        expect(payload.safeParse({ sessionId: 'login-1', kind: 'Vim!', cols: 80, rows: 24 }).success).toBe(false);
         expect(payload.safeParse({ sessionId: 'login-1', kind: 'claude', account: '~/.claude', cols: 80, rows: 24 }).success).toBe(false);
         expect(payload.safeParse({ sessionId: 'login-1', kind: 'claude' }).success).toBe(false);
         expect(result.safeParse(info).success).toBe(true);
@@ -613,7 +614,7 @@ describe('usage', () => {
     test('an unpriced model keeps a null cost and a provider outside the readers is refused', () => {
         const { result } = REQUEST_SCHEMAS['usage.summary'];
         expect(result.safeParse({ ...summary, models: [{ ...summary.models[0], costUsd: null, priceBasis: 'unknown', pricedAs: null }] }).success).toBe(true);
-        expect(result.safeParse({ ...summary, buckets: [{ ...summary.buckets[0], provider: 'gemini' }] }).success).toBe(false);
+        expect(result.safeParse({ ...summary, buckets: [{ ...summary.buckets[0], provider: 'antigravity' }] }).success).toBe(false);
         expect(result.safeParse({ ...summary, buckets: [{ ...summary.buckets[0], totals: { ...totals, output: -1 } }] }).success).toBe(false);
         // A page without a rate shows dollars; a rate of zero would divide an amount away.
         expect(result.safeParse({ ...summary, rate: null }).success).toBe(true);

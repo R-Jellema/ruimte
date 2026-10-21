@@ -350,6 +350,12 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
         description: 'settings:agents.chats.mapTiles.description'
     },
     { id: 'providers.apple', section: 'providers', label: 'settings:providers.apple.label', description: 'settings:providers.apple.description' },
+    {
+        id: 'providers.acpServer',
+        section: 'providers',
+        label: 'settings:providers.acpServer.searchLabel',
+        description: 'settings:providers.acpServer.description'
+    },
     { id: 'agents.resumeAtReset', section: 'agents', label: 'settings:agents.resumeAtReset.label', description: 'settings:agents.resumeAtReset.description' },
     { id: 'agents.visualReplies', section: 'agents', label: 'settings:agents.visualReplies.label', description: 'settings:agents.visualReplies.description' },
     { id: 'agents.deleteAnyView', section: 'agents', label: 'settings:agents.deleteAnyView.label', description: 'settings:agents.deleteAnyView.description' },

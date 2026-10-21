@@ -423,7 +423,8 @@ describe('AI in the editor', () => {
 
     test('reads a stored pick, and falls back for an agent or a mode it does not know', () => {
         expect(settingsFrom({ aiInlineAgent: { provider: 'codex', model: 'gpt-5' } }).aiInlineAgent).toEqual({ provider: 'codex', model: 'gpt-5' });
-        expect(settingsFrom({ aiInlineAgent: { provider: 'nobody', model: 4 } as never }).aiInlineAgent).toEqual({ provider: 'claude', model: null });
+        expect(settingsFrom({ aiInlineAgent: { provider: 'future-cli', model: null } }).aiInlineAgent).toEqual({ provider: 'future-cli', model: null });
+        expect(settingsFrom({ aiInlineAgent: { provider: 'No one', model: 4 } as never }).aiInlineAgent).toEqual({ provider: 'claude', model: null });
         expect(settingsFrom({ aiAgentChanges: 'review' }).aiAgentChanges).toBe('review');
         expect(settingsFrom({ aiAgentChanges: 'loud' as never }).aiAgentChanges).toBe('gutter');
         expect(settingsFrom({ aiAttribution: false }).aiAttribution).toBe(false);

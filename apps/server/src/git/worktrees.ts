@@ -442,10 +442,7 @@ export class Worktrees {
 
     /* Every checkout of the repository, the main one first, with the branch each has out. */
     async checkouts(repo: string): Promise<Array<{ path: string; branch: string | null }>> {
-        await toplevel(repo);
-        return parsePorcelain(await run(['worktree', 'list', '--porcelain'], repo))
-            .filter((entry) => !entry.prunable)
-            .map((entry) => ({ path: entry.path, branch: entry.branch }));
+        return (await this.porcelain(repo)).filter((entry) => !entry.prunable).map((entry) => ({ path: entry.path, branch: entry.branch }));
     }
 
     /* `remove` for a caller that already holds the repository through `exclusive`. */
@@ -496,13 +493,25 @@ export class Worktrees {
 
     /* The main checkout of the repository a path is in, and every other worktree git lists. */
     private async read(repo: string): Promise<{ main: string; entries: Listed[] }> {
-        await toplevel(repo);
-        const entries = parsePorcelain(await run(['worktree', 'list', '--porcelain'], repo));
+        const entries = await this.porcelain(repo);
         const main = entries[0]?.path;
         if (main === undefined) {
             throw new GitError('not-a-repo', `${repo} is not inside a git repository`);
         }
         return { main, entries: entries.slice(1) };
+    }
+
+    /* Asks git once, without a `toplevel` first: a merge reads the list many times, and a process is
+       what costs on Windows. Code 128 is git's answer outside a repository. */
+    private async porcelain(repo: string): Promise<Listed[]> {
+        const listed = await runGit(['worktree', 'list', '--porcelain'], repo);
+        if (listed.code === 128) {
+            throw new GitError('not-a-repo', `${repo} is not inside a git repository`);
+        }
+        if (listed.code !== 0) {
+            throw new GitError('git-failed', listed.stderr.trim() || 'git worktree failed');
+        }
+        return parsePorcelain(listed.stdout);
     }
 
     private async branchExists(main: string, branch: string): Promise<boolean> {

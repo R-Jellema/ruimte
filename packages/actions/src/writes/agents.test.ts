@@ -57,7 +57,7 @@ describeWrites('agents', {
         actors: ['agent'],
         input: start,
         refused: {
-            'a CLI it does not know': { ...start, provider: 'cursor' },
+            'a CLI that is no identifier': { ...start, provider: 'Cursor CLI' },
             'a mode it has not': { ...start, mode: 'root' },
             'a request id with a space': { ...start, requestId: 'start 1' },
             'a title past the title limit': { ...start, title: 'x'.repeat(MAX_TITLE_LENGTH + 1) },

@@ -97,7 +97,7 @@ for (const mode of [
                     const request = JSON.parse(raw) as { id: string; type: string };
                     calls.push(request.type);
                     if (request.type === 'endpoint.info') {
-                        socket.send(JSON.stringify({ id: request.id, ok: true, result: { protocol: PROTOCOL_VERSION } }));
+                        socket.send(JSON.stringify({ id: request.id, ok: true, result: { protocol: PROTOCOL_VERSION, features: dispatcher.types() } }));
                         return;
                     }
                     let reply: unknown;

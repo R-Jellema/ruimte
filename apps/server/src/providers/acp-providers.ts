@@ -1,0 +1,133 @@
+import { createAcpBackend, type AcpClientInfo, type AcpModeMap } from '@adecore/agents/chat';
+import { ModelCatalog, createAcpProvider, type AcpProviderSpec, type ChatProvider, type ProviderHome } from '@adecore/agents/providers';
+import antigravityRelease from './antigravity-acp-release.json' with { type: 'json' };
+import { parseAcpServerRelease, type AcpServerLaunch } from './acp-server.ts';
+
+// How the daemon names itself to every ACP agent it starts.
+export const RUIMTE_ACP_CLIENT: AcpClientInfo = { name: 'ruimte', title: 'Ruimte', version: '0.1.0' };
+
+// The model these CLIs pick themselves; the agent is then left its own choice instead of being told one.
+export const AGENT_DEFAULT_MODEL = 'default';
+
+function agentDefaultCatalog(): ModelCatalog {
+    return new ModelCatalog({
+        defaultModel: AGENT_DEFAULT_MODEL,
+        profiles: { agent: { options: [], contextWindowTokens: {} } },
+        models: [{ slug: AGENT_DEFAULT_MODEL, name: 'Default', profile: 'agent' }]
+    });
+}
+
+function agentModel(selection: { model: string }): string | null {
+    return selection.model === AGENT_DEFAULT_MODEL ? null : selection.model;
+}
+
+/*
+ * Grok's session modes (`default`, `plan`, `ask`) choose what a turn does, not what it may do without
+ * asking, so only `supervised` names one; every wider runtime mode runs in `default` and the backend
+ * answers the permission requests that mode allows. Ids from xai-org/grok-build (`SessionMode`).
+ */
+export const GROK_MODES: AcpModeMap = { supervised: ['default'] };
+
+/*
+ * Copilot's ACP modes are agent, plan and autopilot; autopilot keeps a turn going but still asks for
+ * every tool (github/copilot-cli#2942), so it is no permission level and `supervised` names the agent mode.
+ */
+export const COPILOT_MODES: AcpModeMap = { supervised: ['https://agentclientprotocol.com/protocol/session-modes#agent'] };
+
+/* The login Grok is asked to use: the key in the environment where there is one, else the one `grok login` left. */
+export function grokAuthMethod(env: Record<string, string | undefined>): string {
+    return env.XAI_API_KEY ? 'xai.api_key' : 'cached_token';
+}
+
+const GROK_SPEC: AcpProviderSpec = {
+    kind: 'grok',
+    name: 'Grok',
+    command: 'grok',
+    // A chat must not wait on an update check; the flag belongs before the subcommand.
+    args: ['--no-auto-update', 'agent', 'stdio'],
+    catalog: agentDefaultCatalog(),
+    model: agentModel,
+    modes: GROK_MODES,
+    loginHint: 'Run `grok login` in a terminal, or set `XAI_API_KEY`.',
+    client: RUIMTE_ACP_CLIENT,
+    capabilities: { terminal: true },
+    resumeCommand: 'grok {flags} --resume {id}',
+    home: { env: 'GROK_HOME', fallback: '.grok', loginEnv: ['XAI_API_KEY'], loginCommand: 'grok login' },
+    firstPromptArgs: (prompt) => [prompt]
+};
+
+export const grokProvider: ChatProvider = {
+    ...createAcpProvider(GROK_SPEC),
+    createBackend: (launch, host) => createAcpBackend({ ...GROK_SPEC, authMethod: grokAuthMethod(launch.env) })(launch, host)
+};
+
+export const copilotProvider: ChatProvider = createAcpProvider({
+    kind: 'copilot',
+    name: 'GitHub Copilot',
+    command: 'copilot',
+    args: ['--acp', '--stdio', '--no-auto-update'],
+    catalog: agentDefaultCatalog(),
+    model: agentModel,
+    modes: COPILOT_MODES,
+    loginHint: 'Run `copilot login` in a terminal.',
+    client: RUIMTE_ACP_CLIENT,
+    capabilities: { terminal: true },
+    resumeCommand: 'copilot {flags} --resume={id}',
+    // `-p` answers and exits; `-i` runs the prompt and stays.
+    firstPromptArgs: (prompt) => ['-i', prompt]
+});
+
+/* Google's ACP server for Antigravity, pinned to the release the ACP registry lists (`antigravity-acp`). */
+export const ANTIGRAVITY_ACP_RELEASE = parseAcpServerRelease(antigravityRelease);
+
+/* The server's session modes (`default`, `auto_edit`, `yolo`); it has none between accepting edits and accepting everything. */
+export const ANTIGRAVITY_MODES: AcpModeMap = {
+    supervised: ['default'],
+    'auto-accept-edits': ['auto_edit'],
+    auto: ['auto_edit'],
+    'full-access': ['yolo']
+};
+
+/*
+ * The server keeps its sessions and its sign-in under `GEMINI_HOME` (`~/.gemini` without it), so an account is
+ * a folder of its own there. It signs in through ACP `authenticate` in a chat, never from a terminal.
+ * TODO(Bas): drop the cast once ADE CORE lets a home go without `loginCommand` (basmilius/adecore#102).
+ */
+const ANTIGRAVITY_HOME = { env: 'GEMINI_HOME', fallback: '.gemini', loginEnv: [] } as Omit<ProviderHome, 'loginCommand'> as ProviderHome;
+
+const ANTIGRAVITY_SPEC: AcpProviderSpec = {
+    kind: 'antigravity',
+    name: 'Antigravity',
+    // Only stands in until the server is installed; the terminal starts `agy` (`TERMINAL_EXECUTABLES` in `launch.ts`).
+    command: 'agy',
+    catalog: agentDefaultCatalog(),
+    model: agentModel,
+    modes: ANTIGRAVITY_MODES,
+    // The server runs the browser sign-in itself, on a callback server of its own.
+    authMethod: 'oauth-personal',
+    loginHint: 'Sign in to Antigravity in the browser the chat opens.',
+    client: RUIMTE_ACP_CLIENT,
+    capabilities: { terminal: true },
+    resumeCommand: 'agy {flags} --conversation {id}',
+    home: ANTIGRAVITY_HOME,
+    // Antigravity CLI 1.4 reads a prompt only from `-p` (answers and exits), `-i` (runs it and stays) or stdin.
+    firstPromptArgs: (prompt) => ['-i', prompt]
+};
+
+/* Antigravity's chat runs on the server a person installed; without one it is listed as not installed and starts nothing. */
+export function createAntigravityProvider(server: AcpServerLaunch | null): ChatProvider {
+    const base = createAcpProvider(ANTIGRAVITY_SPEC);
+    return {
+        ...base,
+        get command() {
+            return server?.launch() ?? base.command;
+        },
+        detect: () => Promise.resolve(server?.detection() ?? { installed: false, version: null }),
+        createBackend: (launch, host) => {
+            if (server?.launch() == null) {
+                throw new Error('Install the Antigravity server in Settings, Providers first.');
+            }
+            return base.createBackend(launch, host);
+        }
+    };
+}

@@ -11,7 +11,7 @@ import { makeHarness, type Harness } from './test-helpers.ts';
 
 const LOGINS: LoginCommands = {
     commandOf: (kind: AgentKind) => ({ claude: 'claude auth login', codex: 'codex login' })[kind as 'claude' | 'codex'],
-    nameOf: (kind: AgentKind) => ({ claude: 'Claude Code', codex: 'Codex', gemini: 'Gemini CLI' })[kind as 'claude' | 'codex' | 'gemini'] ?? kind
+    nameOf: (kind: AgentKind) => ({ claude: 'Claude Code', codex: 'Codex', antigravity: 'Antigravity' })[kind as 'claude' | 'codex' | 'antigravity'] ?? kind
 };
 
 let harness: Harness;
@@ -67,7 +67,7 @@ describe('a login outside every project', () => {
     });
 
     test('refuses a CLI without a login of its own and an account the machine does not have', async () => {
-        expect(await login('desktop', 'login-gemini', 'gemini')).toMatchObject({ ok: false, error: { code: 'login-unavailable' } });
+        expect(await login('desktop', 'login-antigravity', 'antigravity')).toMatchObject({ ok: false, error: { code: 'login-unavailable' } });
         expect(await login('desktop', 'login-gone', 'claude', 'claude_gone')).toMatchObject({ ok: false, error: { code: 'account-unavailable' } });
         expect(harness.manager.list()).toEqual([]);
     });

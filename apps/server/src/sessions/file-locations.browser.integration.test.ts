@@ -86,7 +86,7 @@ for (const mode of [
                     const raw = String(message);
                     const request = JSON.parse(raw) as { id: string; type: string };
                     if (request.type === 'endpoint.info') {
-                        socket.send(JSON.stringify({ id: request.id, ok: true, result: { protocol: PROTOCOL_VERSION } }));
+                        socket.send(JSON.stringify({ id: request.id, ok: true, result: { protocol: PROTOCOL_VERSION, features: dispatcher.types() } }));
                         return;
                     }
                     if (request.type === 'session.attach') {
@@ -321,7 +321,7 @@ async function openLocation(view: View, prefix: string, path: string | null, men
         expect(await view.evaluate<unknown>('window.files.getState().revealLine')).toBeNull();
         if (menu) {
             expect(
-                await view.evaluate<boolean>(`[...document.querySelectorAll('[role=menuitem]')].some(item=>item.textContent.includes('Open file in preview'))`)
+                await view.evaluate<boolean>(`[...document.querySelectorAll('[role=menuitem]')].some(item=>item.textContent.includes('Open in preview'))`)
             ).toBe(false);
             await view.cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
             await view.cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
@@ -331,7 +331,7 @@ async function openLocation(view: View, prefix: string, path: string | null, men
     }
     if (menu) {
         const menuPoint = await view.evaluate<{ x: number; y: number }>(
-            `(()=>{const item=[...document.querySelectorAll('[role=menuitem]')].find(item=>item.textContent.includes('Open file in preview'));if(!item)throw new Error('No preview item');const rect=item.getBoundingClientRect();return {x:rect.x+rect.width/2,y:rect.y+rect.height/2}})()`
+            `(()=>{const item=[...document.querySelectorAll('[role=menuitem]')].find(item=>item.textContent.includes('Open in preview'));if(!item)throw new Error('No preview item');const rect=item.getBoundingClientRect();return {x:rect.x+rect.width/2,y:rect.y+rect.height/2}})()`
         );
         await click(menuPoint, 'left', 0);
     }

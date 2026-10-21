@@ -10,7 +10,7 @@ final class ChatPreferences {
     static let shared = ChatPreferences()
     static let storageKey = "ruimte.chat.preferences"
     static let runtimeModes = ["supervised", "auto-accept-edits", "auto", "full-access"]
-    static let providers = ["claude", "codex", "gemini", "copilot"]
+    static let providers = ["claude", "codex", "antigravity", "copilot", "grok"]
 
     private(set) var runtimeMode = "full-access"
     private(set) var selections: [String: JSONValue] = [:]

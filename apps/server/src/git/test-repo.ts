@@ -68,7 +68,7 @@ export async function repoTemplate(prefix: string, build: (root: string) => Prom
             return root;
         },
         async dispose() {
-            await rm(template, { recursive: true, force: true });
+            await rm(template, { recursive: true, force: true, maxRetries: 5 });
         }
     };
 }

@@ -6,7 +6,7 @@ import type { AgentStore } from '../agents/agent-store.ts';
 import { codexIndexIn } from '../agents/codex-title.ts';
 import { modeOfHook, normalizeHook, requestOfHook, settleWaiting } from '../agents/hooks.ts';
 import { isTerminalReply } from './terminal-replies.ts';
-import { DEFAULT_RUNTIME_MODE, freshCommand, launchedMode, resumeCommand, resumeOrFreshCommand, terminalCommand } from '../providers/launch.ts';
+import { DEFAULT_RUNTIME_MODE, freshCommand, launchedMode, offersKind, resumeCommand, resumeOrFreshCommand, terminalCommand } from '../providers/launch.ts';
 import { narrowerMode, launchEnv, storedAccount, type AccountLaunches } from '@adecore/agents/providers';
 import { contextHint, verbsNote } from '../context/context-note.ts';
 import { defaultShell, defaultShellArgs, gitBash, type PtyAdapter } from '../pty/pty.ts';
@@ -306,7 +306,9 @@ export class SessionManager {
             : await this.agents?.readRecord(options.sessionId);
         const restoredAgent: AgentInfo | undefined = restored?.agent;
         const ranUnder = restoredAgent?.kind === options.agent?.kind ? restored?.account : undefined;
-        const launch = this.startingLaunch(options.sessionId, options.agent, restoredAgent !== undefined, ranUnder);
+        // A node of a CLI this daemon does not offer keeps its shell, and its stored kind, and is told why nothing started.
+        const unoffered = options.agent !== undefined && !offersKind(options.agent.kind) ? options.agent.kind : null;
+        const launch = unoffered === null ? this.startingLaunch(options.sessionId, options.agent, restoredAgent !== undefined, ranUnder) : undefined;
         // On the shell and not on the typed line, so a resume and whatever a person types there run under the same account.
         const env = launch ? launchEnv(this.accounts, launch.kind, launch.account, this.env) : this.env;
         if (launch) {
@@ -341,6 +343,9 @@ export class SessionManager {
             env: options.env ? { ...env, ...options.env } : env
         });
         session.heldCommand = held;
+        if (unoffered !== null) {
+            session.notice(`Ruimte: ${unoffered} is not available on this machine, so this terminal started without it.`);
+        }
         this.sessions.set(session.id, session);
         // A launch runs its command through `exec` and counts as a launch, not as a terminal.
         if (options.exec === undefined) {

@@ -85,19 +85,19 @@ export function countVerb(name: string): void {
     }
 }
 
-function chatCountersOf(provider: AgentKind): { chats: UsageCounterName; turns: UsageCounterName } | undefined {
-    return (USAGE_CHAT_COUNTERS as Partial<Record<AgentKind, { chats: UsageCounterName; turns: UsageCounterName }>>)[provider];
+function chatCounters(provider: AgentKind): { chats: UsageCounterName; turns: UsageCounterName } | undefined {
+    return (USAGE_CHAT_COUNTERS as Readonly<Record<string, { chats: UsageCounterName; turns: UsageCounterName }>>)[provider];
 }
 
 export function countChatStarted(provider: AgentKind): void {
-    const counters = chatCountersOf(provider);
+    const counters = chatCounters(provider);
     if (counters !== undefined) {
         countUsage(counters.chats);
     }
 }
 
 export function countTurn(provider: AgentKind): void {
-    const counters = chatCountersOf(provider);
+    const counters = chatCounters(provider);
     if (counters !== undefined) {
         countUsage(counters.turns);
     }

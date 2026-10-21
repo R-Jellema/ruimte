@@ -20,7 +20,6 @@ Reviewed on October 17, 2026.
 | 10. Remote access and media     | Next                                        | Measurements from 3                           |
 | 11. iOS devices                 | Next                                        | Nothing                                       |
 | 12. Intelligent UI              | Next                                        | Nothing                                       |
-| 14. Copilot and Gemini chat     | Later                                       | 9; compatibility checks below                 |
 | 15. Language servers            | Per server                                  | Decision 15.4                                 |
 | 16. Plugins                     | After 1.0                                   | A compatibility release                       |
 | 17. Linux and Windows           | Windows per its plan                        | Platform spikes and CI                        |
@@ -87,7 +86,7 @@ Done when geometry changes undo cleanly and image, line and note data survive sa
 4. Drop the background behind the machine tiles in the Account pane.
 
 Accepted limits: a Claude chat cannot move to an account with another folder after its first turn (fork instead);
-Gemini and Copilot only have their default account.
+Copilot only has its default account.
 
 ## 10. Remote access and media
 
@@ -105,18 +104,6 @@ Gemini and Copilot only have their default account.
    accent once over 800 ms, not under reduced motion.
 4. Newly written words fade in in a growing native block, without changing an input's identity or focus.
 5. Phase 2 of the Generative UI report: the diff and schema views and the host components.
-
-## 14. Copilot and Gemini chat
-
-Source: [the provider research](reports/2026-09-25-provider-research.html).
-
-1. Copilot's terminal first prompt still uses `-p` (`terminal-providers.ts`); use the interactive flag of the
-   installed CLI so the session stays open.
-2. Bounded spikes: Copilot SDK against ACP, and Gemini ACP; pick from permission, question, resume and packaged-Bun
-   behavior.
-3. One backend and protocol mapper per provider in `@adecore/agents`.
-4. Unknown-provider handling in `@adecore/agent-contracts` so an older desktop does not reject a whole answer; a new
-   enum word only after the iPhone's open-enum build shipped.
 
 ## 15. Language servers
 

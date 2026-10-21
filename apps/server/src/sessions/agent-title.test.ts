@@ -83,10 +83,10 @@ describe('the name of a terminal agent', () => {
     });
 
     test('a CLI that writes no name down is never asked for one', async () => {
-        await writeFile(transcript, `${JSON.stringify({ type: 'ai-title', aiTitle: 'Not for gemini' })}\n`);
-        await harness.manager.applyHook('gemini', token(), hook('Stop'));
+        await writeFile(transcript, `${JSON.stringify({ type: 'ai-title', aiTitle: 'Not for antigravity' })}\n`);
+        await harness.manager.applyHook('antigravity', token(), hook('Stop'));
         expect(reads.started).toEqual([]);
-        expect(lastAgent()).toMatchObject({ kind: 'gemini', status: 'idle' });
+        expect(lastAgent()).toMatchObject({ kind: 'antigravity', status: 'idle' });
         expect(lastAgent()?.suggestedTitle).toBeUndefined();
     });
 

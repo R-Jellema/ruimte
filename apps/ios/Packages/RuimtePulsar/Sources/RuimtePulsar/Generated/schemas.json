@@ -5966,8 +5966,7 @@
       "codex",
       "gemini",
       "copilot",
-      "apple",
-      "nanogpt"
+      "apple"
     ]
   },
   "AgentStatusSchema": {
@@ -6406,14 +6405,9 @@
                   "properties": {
                     "provider": {
                       "type": "string",
-                      "enum": [
-                        "claude",
-                        "codex",
-                        "gemini",
-                        "copilot",
-                        "apple",
-                        "nanogpt"
-                      ]
+                      "minLength": 1,
+                      "maxLength": 32,
+                      "pattern": "^[a-z][a-z0-9-]*$"
                     },
                     "state": {
                       "type": "string",
@@ -6651,13 +6645,15 @@
         "properties": {
           "kind": {
             "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "pattern": "^[a-z][a-z0-9-]*$",
             "x-open-enum": [
               "claude",
               "codex",
               "gemini",
               "copilot",
-              "apple",
-              "nanogpt"
+              "apple"
             ]
           },
           "runtimeMode": {
@@ -6742,13 +6738,15 @@
             "properties": {
               "kind": {
                 "type": "string",
+                "minLength": 1,
+                "maxLength": 32,
+                "pattern": "^[a-z][a-z0-9-]*$",
                 "x-open-enum": [
                   "claude",
                   "codex",
                   "gemini",
                   "copilot",
-                  "apple",
-                  "nanogpt"
+                  "apple"
                 ]
               },
               "agentSessionId": {
@@ -7401,13 +7399,15 @@
             },
             "provider": {
               "type": "string",
+              "minLength": 1,
+              "maxLength": 32,
+              "pattern": "^[a-z][a-z0-9-]*$",
               "x-open-enum": [
                 "claude",
                 "codex",
                 "gemini",
                 "copilot",
-                "apple",
-                "nanogpt"
+                "apple"
               ]
             },
             "providerFixed": {
@@ -7581,13 +7581,15 @@
       },
       "provider": {
         "type": "string",
+        "minLength": 1,
+        "maxLength": 32,
+        "pattern": "^[a-z][a-z0-9-]*$",
         "x-open-enum": [
           "claude",
           "codex",
           "gemini",
           "copilot",
-          "apple",
-          "nanogpt"
+          "apple"
         ]
       },
       "terminal": {
@@ -8616,13 +8618,15 @@
                   "properties": {
                     "kind": {
                       "type": "string",
+                      "minLength": 1,
+                      "maxLength": 32,
+                      "pattern": "^[a-z][a-z0-9-]*$",
                       "x-open-enum": [
                         "claude",
                         "codex",
                         "gemini",
                         "copilot",
-                        "apple",
-                        "nanogpt"
+                        "apple"
                       ]
                     },
                     "agentSessionId": {
@@ -8951,13 +8955,15 @@
       },
       "kind": {
         "type": "string",
+        "minLength": 1,
+        "maxLength": 32,
+        "pattern": "^[a-z][a-z0-9-]*$",
         "x-open-enum": [
           "claude",
           "codex",
           "gemini",
           "copilot",
-          "apple",
-          "nanogpt"
+          "apple"
         ]
       },
       "account": {
@@ -9031,13 +9037,15 @@
             "properties": {
               "kind": {
                 "type": "string",
+                "minLength": 1,
+                "maxLength": 32,
+                "pattern": "^[a-z][a-z0-9-]*$",
                 "x-open-enum": [
                   "claude",
                   "codex",
                   "gemini",
                   "copilot",
-                  "apple",
-                  "nanogpt"
+                  "apple"
                 ]
               },
               "agentSessionId": {
@@ -12547,13 +12555,15 @@
       },
       "provider": {
         "type": "string",
+        "minLength": 1,
+        "maxLength": 32,
+        "pattern": "^[a-z][a-z0-9-]*$",
         "x-open-enum": [
           "claude",
           "codex",
           "gemini",
           "copilot",
-          "apple",
-          "nanogpt"
+          "apple"
         ]
       },
       "account": {
@@ -12615,13 +12625,15 @@
       },
       "provider": {
         "type": "string",
+        "minLength": 1,
+        "maxLength": 32,
+        "pattern": "^[a-z][a-z0-9-]*$",
         "x-open-enum": [
           "claude",
           "codex",
           "gemini",
           "copilot",
-          "apple",
-          "nanogpt"
+          "apple"
         ]
       },
       "account": {
@@ -14972,13 +14984,15 @@
           },
           "provider": {
             "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "pattern": "^[a-z][a-z0-9-]*$",
             "x-open-enum": [
               "claude",
               "codex",
               "gemini",
               "copilot",
-              "apple",
-              "nanogpt"
+              "apple"
             ]
           },
           "account": {
@@ -20740,13 +20754,15 @@
                     },
                     "provider": {
                       "type": "string",
+                      "minLength": 1,
+                      "maxLength": 32,
+                      "pattern": "^[a-z][a-z0-9-]*$",
                       "x-open-enum": [
                         "claude",
                         "codex",
                         "gemini",
                         "copilot",
-                        "apple",
-                        "nanogpt"
+                        "apple"
                       ]
                     },
                     "account": {
@@ -21397,13 +21413,15 @@
                     },
                     "provider": {
                       "type": "string",
+                      "minLength": 1,
+                      "maxLength": 32,
+                      "pattern": "^[a-z][a-z0-9-]*$",
                       "x-open-enum": [
                         "claude",
                         "codex",
                         "gemini",
                         "copilot",
-                        "apple",
-                        "nanogpt"
+                        "apple"
                       ]
                     },
                     "account": {
@@ -24770,13 +24788,15 @@
       },
       "provider": {
         "type": "string",
+        "minLength": 1,
+        "maxLength": 32,
+        "pattern": "^[a-z][a-z0-9-]*$",
         "x-open-enum": [
           "claude",
           "codex",
           "gemini",
           "copilot",
-          "apple",
-          "nanogpt"
+          "apple"
         ]
       },
       "account": {
@@ -25431,13 +25451,15 @@
         "type": "object",
         "propertyNames": {
           "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-z][a-z0-9-]*$",
           "x-open-enum": [
             "claude",
             "codex",
             "gemini",
             "copilot",
-            "apple",
-            "nanogpt"
+            "apple"
           ]
         },
         "additionalProperties": {
@@ -25470,13 +25492,15 @@
         "type": "object",
         "propertyNames": {
           "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-z][a-z0-9-]*$",
           "x-open-enum": [
             "claude",
             "codex",
             "gemini",
             "copilot",
-            "apple",
-            "nanogpt"
+            "apple"
           ]
         },
         "additionalProperties": {
@@ -25665,13 +25689,15 @@
       },
       "provider": {
         "type": "string",
+        "minLength": 1,
+        "maxLength": 32,
+        "pattern": "^[a-z][a-z0-9-]*$",
         "x-open-enum": [
           "claude",
           "codex",
           "gemini",
           "copilot",
-          "apple",
-          "nanogpt"
+          "apple"
         ]
       },
       "selection": {
@@ -25722,13 +25748,15 @@
           },
           "provider": {
             "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "pattern": "^[a-z][a-z0-9-]*$",
             "x-open-enum": [
               "claude",
               "codex",
               "gemini",
               "copilot",
-              "apple",
-              "nanogpt"
+              "apple"
             ]
           },
           "account": {
@@ -26492,13 +26520,15 @@
               },
               "provider": {
                 "type": "string",
+                "minLength": 1,
+                "maxLength": 32,
+                "pattern": "^[a-z][a-z0-9-]*$",
                 "x-open-enum": [
                   "claude",
                   "codex",
                   "gemini",
                   "copilot",
-                  "apple",
-                  "nanogpt"
+                  "apple"
                 ]
               },
               "account": {
@@ -29126,13 +29156,15 @@
         "properties": {
           "provider": {
             "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "pattern": "^[a-z][a-z0-9-]*$",
             "x-open-enum": [
               "claude",
               "codex",
               "gemini",
               "copilot",
-              "apple",
-              "nanogpt"
+              "apple"
             ]
           },
           "cwd": {
@@ -29867,13 +29899,15 @@
           "properties": {
             "provider": {
               "type": "string",
+              "minLength": 1,
+              "maxLength": 32,
+              "pattern": "^[a-z][a-z0-9-]*$",
               "x-open-enum": [
                 "claude",
                 "codex",
                 "gemini",
                 "copilot",
-                "apple",
-                "nanogpt"
+                "apple"
               ]
             },
             "account": {
@@ -29910,13 +29944,15 @@
           "properties": {
             "provider": {
               "type": "string",
+              "minLength": 1,
+              "maxLength": 32,
+              "pattern": "^[a-z][a-z0-9-]*$",
               "x-open-enum": [
                 "claude",
                 "codex",
                 "gemini",
                 "copilot",
-                "apple",
-                "nanogpt"
+                "apple"
               ]
             },
             "reason": {
@@ -30693,13 +30729,15 @@
           "properties": {
             "kind": {
               "type": "string",
+              "minLength": 1,
+              "maxLength": 32,
+              "pattern": "^[a-z][a-z0-9-]*$",
               "x-open-enum": [
                 "claude",
                 "codex",
                 "gemini",
                 "copilot",
-                "apple",
-                "nanogpt"
+                "apple"
               ]
             },
             "name": {
@@ -30949,6 +30987,160 @@
       "providers"
     ]
   },
+  "request.provider.server.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "provider": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 32,
+        "pattern": "^[a-z][a-z0-9-]*$",
+        "x-open-enum": [
+          "claude",
+          "codex",
+          "gemini",
+          "copilot",
+          "apple"
+        ]
+      }
+    },
+    "required": [
+      "provider"
+    ]
+  },
+  "request.provider.server.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "server": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "x-open-enum": [
+              "claude",
+              "codex",
+              "gemini",
+              "copilot",
+              "apple"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "installing",
+              "installed",
+              "failed",
+              "unsupported"
+            ]
+          },
+          "version": {
+            "type": "string"
+          },
+          "installed": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "state",
+          "version",
+          "installed"
+        ]
+      }
+    },
+    "required": [
+      "server"
+    ]
+  },
+  "request.provider.installServer.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "provider": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 32,
+        "pattern": "^[a-z][a-z0-9-]*$",
+        "x-open-enum": [
+          "claude",
+          "codex",
+          "gemini",
+          "copilot",
+          "apple"
+        ]
+      }
+    },
+    "required": [
+      "provider"
+    ]
+  },
+  "request.provider.installServer.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "server": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "x-open-enum": [
+              "claude",
+              "codex",
+              "gemini",
+              "copilot",
+              "apple"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "installing",
+              "installed",
+              "failed",
+              "unsupported"
+            ]
+          },
+          "version": {
+            "type": "string"
+          },
+          "installed": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "state",
+          "version",
+          "installed"
+        ]
+      }
+    },
+    "required": [
+      "server"
+    ]
+  },
   "request.accounts.list.payload": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -31099,13 +31291,15 @@
         "type": "object",
         "propertyNames": {
           "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-z][a-z0-9-]*$",
           "x-open-enum": [
             "claude",
             "codex",
             "gemini",
             "copilot",
-            "apple",
-            "nanogpt"
+            "apple"
           ]
         },
         "additionalProperties": {
@@ -31334,13 +31528,15 @@
         "type": "object",
         "propertyNames": {
           "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-z][a-z0-9-]*$",
           "x-open-enum": [
             "claude",
             "codex",
             "gemini",
             "copilot",
-            "apple",
-            "nanogpt"
+            "apple"
           ]
         },
         "additionalProperties": {
@@ -31503,13 +31699,15 @@
         "type": "object",
         "propertyNames": {
           "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-z][a-z0-9-]*$",
           "x-open-enum": [
             "claude",
             "codex",
             "gemini",
             "copilot",
-            "apple",
-            "nanogpt"
+            "apple"
           ]
         },
         "additionalProperties": {
@@ -31528,13 +31726,15 @@
     "properties": {
       "kind": {
         "type": "string",
+        "minLength": 1,
+        "maxLength": 32,
+        "pattern": "^[a-z][a-z0-9-]*$",
         "x-open-enum": [
           "claude",
           "codex",
           "gemini",
           "copilot",
-          "apple",
-          "nanogpt"
+          "apple"
         ]
       },
       "label": {
@@ -31696,13 +31896,15 @@
         "type": "object",
         "propertyNames": {
           "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-z][a-z0-9-]*$",
           "x-open-enum": [
             "claude",
             "codex",
             "gemini",
             "copilot",
-            "apple",
-            "nanogpt"
+            "apple"
           ]
         },
         "additionalProperties": {
@@ -32271,13 +32473,15 @@
                         "anyOf": [
                           {
                             "type": "string",
+                            "minLength": 1,
+                            "maxLength": 32,
+                            "pattern": "^[a-z][a-z0-9-]*$",
                             "x-open-enum": [
                               "claude",
                               "codex",
                               "gemini",
                               "copilot",
-                              "apple",
-                              "nanogpt"
+                              "apple"
                             ]
                           },
                           {
@@ -32328,13 +32532,15 @@
                               "anyOf": [
                                 {
                                   "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 32,
+                                  "pattern": "^[a-z][a-z0-9-]*$",
                                   "x-open-enum": [
                                     "claude",
                                     "codex",
                                     "gemini",
                                     "copilot",
-                                    "apple",
-                                    "nanogpt"
+                                    "apple"
                                   ]
                                 },
                                 {
@@ -32392,13 +32598,15 @@
                                 "anyOf": [
                                   {
                                     "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 32,
+                                    "pattern": "^[a-z][a-z0-9-]*$",
                                     "x-open-enum": [
                                       "claude",
                                       "codex",
                                       "gemini",
                                       "copilot",
-                                      "apple",
-                                      "nanogpt"
+                                      "apple"
                                     ]
                                   },
                                   {
@@ -33555,13 +33763,15 @@
                           },
                           "provider": {
                             "type": "string",
+                            "minLength": 1,
+                            "maxLength": 32,
+                            "pattern": "^[a-z][a-z0-9-]*$",
                             "x-open-enum": [
                               "claude",
                               "codex",
                               "gemini",
                               "copilot",
-                              "apple",
-                              "nanogpt"
+                              "apple"
                             ]
                           },
                           "account": {
@@ -34266,13 +34476,15 @@
                         },
                         "provider": {
                           "type": "string",
+                          "minLength": 1,
+                          "maxLength": 32,
+                          "pattern": "^[a-z][a-z0-9-]*$",
                           "x-open-enum": [
                             "claude",
                             "codex",
                             "gemini",
                             "copilot",
-                            "apple",
-                            "nanogpt"
+                            "apple"
                           ]
                         },
                         "account": {
@@ -34563,13 +34775,15 @@
                         },
                         "provider": {
                           "type": "string",
+                          "minLength": 1,
+                          "maxLength": 32,
+                          "pattern": "^[a-z][a-z0-9-]*$",
                           "x-open-enum": [
                             "claude",
                             "codex",
                             "gemini",
                             "copilot",
-                            "apple",
-                            "nanogpt"
+                            "apple"
                           ]
                         },
                         "account": {
@@ -37181,13 +37395,15 @@
                           },
                           "provider": {
                             "type": "string",
+                            "minLength": 1,
+                            "maxLength": 32,
+                            "pattern": "^[a-z][a-z0-9-]*$",
                             "x-open-enum": [
                               "claude",
                               "codex",
                               "gemini",
                               "copilot",
-                              "apple",
-                              "nanogpt"
+                              "apple"
                             ]
                           },
                           "account": {
@@ -37892,13 +38108,15 @@
                         },
                         "provider": {
                           "type": "string",
+                          "minLength": 1,
+                          "maxLength": 32,
+                          "pattern": "^[a-z][a-z0-9-]*$",
                           "x-open-enum": [
                             "claude",
                             "codex",
                             "gemini",
                             "copilot",
-                            "apple",
-                            "nanogpt"
+                            "apple"
                           ]
                         },
                         "account": {
@@ -38189,13 +38407,15 @@
                         },
                         "provider": {
                           "type": "string",
+                          "minLength": 1,
+                          "maxLength": 32,
+                          "pattern": "^[a-z][a-z0-9-]*$",
                           "x-open-enum": [
                             "claude",
                             "codex",
                             "gemini",
                             "copilot",
-                            "apple",
-                            "nanogpt"
+                            "apple"
                           ]
                         },
                         "account": {
@@ -41262,13 +41482,15 @@
     "properties": {
       "provider": {
         "type": "string",
+        "minLength": 1,
+        "maxLength": 32,
+        "pattern": "^[a-z][a-z0-9-]*$",
         "x-open-enum": [
           "claude",
           "codex",
           "gemini",
           "copilot",
-          "apple",
-          "nanogpt"
+          "apple"
         ]
       },
       "account": {
@@ -41586,13 +41808,15 @@
       },
       "provider": {
         "type": "string",
+        "minLength": 1,
+        "maxLength": 32,
+        "pattern": "^[a-z][a-z0-9-]*$",
         "x-open-enum": [
           "claude",
           "codex",
           "gemini",
           "copilot",
-          "apple",
-          "nanogpt"
+          "apple"
         ]
       },
       "model": {
@@ -51018,13 +51242,15 @@
       },
       "provider": {
         "type": "string",
+        "minLength": 1,
+        "maxLength": 32,
+        "pattern": "^[a-z][a-z0-9-]*$",
         "x-open-enum": [
           "claude",
           "codex",
           "gemini",
           "copilot",
-          "apple",
-          "nanogpt"
+          "apple"
         ]
       }
     },
@@ -51167,13 +51393,15 @@
         "anyOf": [
           {
             "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "pattern": "^[a-z][a-z0-9-]*$",
             "x-open-enum": [
               "claude",
               "codex",
               "gemini",
               "copilot",
-              "apple",
-              "nanogpt"
+              "apple"
             ]
           },
           {
@@ -51201,13 +51429,15 @@
       },
       "provider": {
         "type": "string",
+        "minLength": 1,
+        "maxLength": 32,
+        "pattern": "^[a-z][a-z0-9-]*$",
         "x-open-enum": [
           "claude",
           "codex",
           "gemini",
           "copilot",
-          "apple",
-          "nanogpt"
+          "apple"
         ]
       }
     },
@@ -51492,8 +51722,7 @@
               "type": "string",
               "enum": [
                 "claude",
-                "codex",
-                "nanogpt"
+                "codex"
               ]
             },
             "model": {
@@ -51587,8 +51816,7 @@
               "type": "string",
               "enum": [
                 "claude",
-                "codex",
-                "nanogpt"
+                "codex"
               ]
             },
             "model": {
@@ -51702,8 +51930,7 @@
                 "type": "string",
                 "enum": [
                   "claude",
-                  "codex",
-                  "nanogpt"
+                  "codex"
                 ]
               },
               "additionalProperties": {
@@ -51898,8 +52125,7 @@
               "type": "string",
               "enum": [
                 "claude",
-                "codex",
-                "nanogpt"
+                "codex"
               ]
             },
             "path": {
@@ -51941,8 +52167,7 @@
               "type": "string",
               "enum": [
                 "claude",
-                "codex",
-                "nanogpt"
+                "codex"
               ]
             },
             "label": {
@@ -52013,8 +52238,7 @@
               "type": "string",
               "enum": [
                 "claude",
-                "codex",
-                "nanogpt"
+                "codex"
               ]
             },
             "account": {
@@ -52198,8 +52422,7 @@
               "type": "string",
               "enum": [
                 "claude",
-                "codex",
-                "nanogpt"
+                "codex"
               ]
             },
             "account": {
@@ -54354,13 +54577,15 @@
               "properties": {
                 "provider": {
                   "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32,
+                  "pattern": "^[a-z][a-z0-9-]*$",
                   "x-open-enum": [
                     "claude",
                     "codex",
                     "gemini",
                     "copilot",
-                    "apple",
-                    "nanogpt"
+                    "apple"
                   ]
                 },
                 "state": {
@@ -55178,13 +55403,15 @@
               "properties": {
                 "provider": {
                   "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32,
+                  "pattern": "^[a-z][a-z0-9-]*$",
                   "x-open-enum": [
                     "claude",
                     "codex",
                     "gemini",
                     "copilot",
-                    "apple",
-                    "nanogpt"
+                    "apple"
                   ]
                 },
                 "state": {
@@ -55789,13 +56016,15 @@
               "properties": {
                 "provider": {
                   "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32,
+                  "pattern": "^[a-z][a-z0-9-]*$",
                   "x-open-enum": [
                     "claude",
                     "codex",
                     "gemini",
                     "copilot",
-                    "apple",
-                    "nanogpt"
+                    "apple"
                   ]
                 },
                 "state": {
@@ -56358,13 +56587,15 @@
               "properties": {
                 "provider": {
                   "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32,
+                  "pattern": "^[a-z][a-z0-9-]*$",
                   "x-open-enum": [
                     "claude",
                     "codex",
                     "gemini",
                     "copilot",
-                    "apple",
-                    "nanogpt"
+                    "apple"
                   ]
                 },
                 "state": {
@@ -56460,13 +56691,15 @@
               "properties": {
                 "provider": {
                   "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32,
+                  "pattern": "^[a-z][a-z0-9-]*$",
                   "x-open-enum": [
                     "claude",
                     "codex",
                     "gemini",
                     "copilot",
-                    "apple",
-                    "nanogpt"
+                    "apple"
                   ]
                 },
                 "state": {
@@ -56504,13 +56737,15 @@
           "properties": {
             "provider": {
               "type": "string",
+              "minLength": 1,
+              "maxLength": 32,
+              "pattern": "^[a-z][a-z0-9-]*$",
               "x-open-enum": [
                 "claude",
                 "codex",
                 "gemini",
                 "copilot",
-                "apple",
-                "nanogpt"
+                "apple"
               ]
             },
             "path": {
@@ -56551,13 +56786,15 @@
     "properties": {
       "provider": {
         "type": "string",
+        "minLength": 1,
+        "maxLength": 32,
+        "pattern": "^[a-z][a-z0-9-]*$",
         "x-open-enum": [
           "claude",
           "codex",
           "gemini",
           "copilot",
-          "apple",
-          "nanogpt"
+          "apple"
         ]
       },
       "on": {
@@ -56583,13 +56820,15 @@
               "properties": {
                 "provider": {
                   "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32,
+                  "pattern": "^[a-z][a-z0-9-]*$",
                   "x-open-enum": [
                     "claude",
                     "codex",
                     "gemini",
                     "copilot",
-                    "apple",
-                    "nanogpt"
+                    "apple"
                   ]
                 },
                 "state": {
@@ -57119,13 +57358,15 @@
               "properties": {
                 "provider": {
                   "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32,
+                  "pattern": "^[a-z][a-z0-9-]*$",
                   "x-open-enum": [
                     "claude",
                     "codex",
                     "gemini",
                     "copilot",
-                    "apple",
-                    "nanogpt"
+                    "apple"
                   ]
                 },
                 "state": {
@@ -57875,13 +58116,15 @@
             },
             "provider": {
               "type": "string",
+              "minLength": 1,
+              "maxLength": 32,
+              "pattern": "^[a-z][a-z0-9-]*$",
               "x-open-enum": [
                 "claude",
                 "codex",
                 "gemini",
                 "copilot",
-                "apple",
-                "nanogpt"
+                "apple"
               ]
             },
             "account": {
@@ -59446,13 +59689,15 @@
             },
             "provider": {
               "type": "string",
+              "minLength": 1,
+              "maxLength": 32,
+              "pattern": "^[a-z][a-z0-9-]*$",
               "x-open-enum": [
                 "claude",
                 "codex",
                 "gemini",
                 "copilot",
-                "apple",
-                "nanogpt"
+                "apple"
               ]
             },
             "at": {
@@ -59562,121 +59807,6 @@
     },
     "required": [
       "updated"
-    ]
-  },
-  "request.nanogpt.status.payload": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "type": "object",
-    "properties": {}
-  },
-  "request.nanogpt.status.result": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "type": "object",
-    "properties": {
-      "configured": {
-        "type": "boolean"
-      },
-      "models": {
-        "type": "integer",
-        "minimum": 0,
-        "maximum": 9007199254740991
-      },
-      "settings": {
-        "type": "object",
-        "properties": {
-          "autoContinue": {
-            "type": "boolean"
-          },
-          "roundsPerRun": {
-            "type": "integer",
-            "minimum": 5,
-            "maximum": 200
-          },
-          "runs": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 20
-          }
-        },
-        "required": [
-          "autoContinue",
-          "roundsPerRun",
-          "runs"
-        ]
-      }
-    },
-    "required": [
-      "configured",
-      "models"
-    ]
-  },
-  "request.nanogpt.configure.payload": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "type": "object",
-    "properties": {
-      "apiKey": {
-        "type": "string",
-        "maxLength": 4096
-      },
-      "settings": {
-        "type": "object",
-        "properties": {
-          "autoContinue": {
-            "type": "boolean"
-          },
-          "roundsPerRun": {
-            "type": "integer",
-            "minimum": 5,
-            "maximum": 200
-          },
-          "runs": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 20
-          }
-        }
-      }
-    }
-  },
-  "request.nanogpt.configure.result": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "type": "object",
-    "properties": {
-      "configured": {
-        "type": "boolean"
-      },
-      "models": {
-        "type": "integer",
-        "minimum": 0,
-        "maximum": 9007199254740991
-      },
-      "settings": {
-        "type": "object",
-        "properties": {
-          "autoContinue": {
-            "type": "boolean"
-          },
-          "roundsPerRun": {
-            "type": "integer",
-            "minimum": 5,
-            "maximum": 200
-          },
-          "runs": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 20
-          }
-        },
-        "required": [
-          "autoContinue",
-          "roundsPerRun",
-          "runs"
-        ]
-      }
-    },
-    "required": [
-      "configured",
-      "models"
     ]
   },
   "event.push.attention": {
@@ -59935,13 +60065,15 @@
             "properties": {
               "kind": {
                 "type": "string",
+                "minLength": 1,
+                "maxLength": 32,
+                "pattern": "^[a-z][a-z0-9-]*$",
                 "x-open-enum": [
                   "claude",
                   "codex",
                   "gemini",
                   "copilot",
-                  "apple",
-                  "nanogpt"
+                  "apple"
                 ]
               },
               "agentSessionId": {
@@ -62419,13 +62551,15 @@
                   },
                   "provider": {
                     "type": "string",
+                    "minLength": 1,
+                    "maxLength": 32,
+                    "pattern": "^[a-z][a-z0-9-]*$",
                     "x-open-enum": [
                       "claude",
                       "codex",
                       "gemini",
                       "copilot",
-                      "apple",
-                      "nanogpt"
+                      "apple"
                     ]
                   },
                   "account": {
@@ -63076,13 +63210,15 @@
                   },
                   "provider": {
                     "type": "string",
+                    "minLength": 1,
+                    "maxLength": 32,
+                    "pattern": "^[a-z][a-z0-9-]*$",
                     "x-open-enum": [
                       "claude",
                       "codex",
                       "gemini",
                       "copilot",
-                      "apple",
-                      "nanogpt"
+                      "apple"
                     ]
                   },
                   "account": {
@@ -65380,13 +65516,15 @@
           },
           "provider": {
             "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "pattern": "^[a-z][a-z0-9-]*$",
             "x-open-enum": [
               "claude",
               "codex",
               "gemini",
               "copilot",
-              "apple",
-              "nanogpt"
+              "apple"
             ]
           },
           "account": {
@@ -66508,13 +66646,15 @@
               "properties": {
                 "provider": {
                   "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32,
+                  "pattern": "^[a-z][a-z0-9-]*$",
                   "x-open-enum": [
                     "claude",
                     "codex",
                     "gemini",
                     "copilot",
-                    "apple",
-                    "nanogpt"
+                    "apple"
                   ]
                 },
                 "state": {
@@ -67414,13 +67554,15 @@
                           },
                           "provider": {
                             "type": "string",
+                            "minLength": 1,
+                            "maxLength": 32,
+                            "pattern": "^[a-z][a-z0-9-]*$",
                             "x-open-enum": [
                               "claude",
                               "codex",
                               "gemini",
                               "copilot",
-                              "apple",
-                              "nanogpt"
+                              "apple"
                             ]
                           },
                           "account": {
@@ -68125,13 +68267,15 @@
                         },
                         "provider": {
                           "type": "string",
+                          "minLength": 1,
+                          "maxLength": 32,
+                          "pattern": "^[a-z][a-z0-9-]*$",
                           "x-open-enum": [
                             "claude",
                             "codex",
                             "gemini",
                             "copilot",
-                            "apple",
-                            "nanogpt"
+                            "apple"
                           ]
                         },
                         "account": {
@@ -68422,13 +68566,15 @@
                         },
                         "provider": {
                           "type": "string",
+                          "minLength": 1,
+                          "maxLength": 32,
+                          "pattern": "^[a-z][a-z0-9-]*$",
                           "x-open-enum": [
                             "claude",
                             "codex",
                             "gemini",
                             "copilot",
-                            "apple",
-                            "nanogpt"
+                            "apple"
                           ]
                         },
                         "account": {
@@ -70667,13 +70813,15 @@
               "anyOf": [
                 {
                   "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32,
+                  "pattern": "^[a-z][a-z0-9-]*$",
                   "x-open-enum": [
                     "claude",
                     "codex",
                     "gemini",
                     "copilot",
-                    "apple",
-                    "nanogpt"
+                    "apple"
                   ]
                 },
                 {
@@ -70724,13 +70872,15 @@
                     "anyOf": [
                       {
                         "type": "string",
+                        "minLength": 1,
+                        "maxLength": 32,
+                        "pattern": "^[a-z][a-z0-9-]*$",
                         "x-open-enum": [
                           "claude",
                           "codex",
                           "gemini",
                           "copilot",
-                          "apple",
-                          "nanogpt"
+                          "apple"
                         ]
                       },
                       {
@@ -70788,13 +70938,15 @@
                       "anyOf": [
                         {
                           "type": "string",
+                          "minLength": 1,
+                          "maxLength": 32,
+                          "pattern": "^[a-z][a-z0-9-]*$",
                           "x-open-enum": [
                             "claude",
                             "codex",
                             "gemini",
                             "copilot",
-                            "apple",
-                            "nanogpt"
+                            "apple"
                           ]
                         },
                         {
@@ -73141,8 +73293,7 @@
               "type": "string",
               "enum": [
                 "claude",
-                "codex",
-                "nanogpt"
+                "codex"
               ]
             },
             "account": {
@@ -73453,13 +73604,15 @@
         "type": "object",
         "propertyNames": {
           "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-z][a-z0-9-]*$",
           "x-open-enum": [
             "claude",
             "codex",
             "gemini",
             "copilot",
-            "apple",
-            "nanogpt"
+            "apple"
           ]
         },
         "additionalProperties": {

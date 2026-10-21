@@ -1,7 +1,6 @@
 import { useStore } from 'zustand';
 import { useTranslation } from 'react-i18next';
 import { EditorRenderingProvider, LanguagePopups, type HoverView } from '@adecore/editor-react';
-import { AgentIcon } from '@adecore/agents-react/providers';
 import { Button, ContextMenu, Icon, Kbd, Tooltip } from '@adecore/ui';
 import { Bot, Cpu, MessageSquarePlus, Sparkles } from 'lucide-react';
 import { InlineEditLayer } from '@/editor-ai/InlineEditLayer';
@@ -10,6 +9,7 @@ import { highlightCode } from '@/shell/panels/highlight';
 import { useCodeTheme } from '@/state/code-theme';
 import { useAskAgents } from './ask-agents';
 import type { EditorLanguage } from './ruimte-editor-language';
+import { AgentMark } from '@/agents/AgentMark';
 
 function HoverActions({ language, view }: { language: EditorLanguage; view: HoverView }) {
     const { t } = useTranslation('panels');
@@ -51,7 +51,7 @@ function HoverActions({ language, view }: { language: EditorLanguage; view: Hove
                                     language.selectionChat.askAboutProblem(problem, agent.kind);
                                 }}
                             >
-                                <AgentIcon kind={agent.kind} size={12} /> {chat('selection.ask', { provider: agent.name })}
+                                <AgentMark kind={agent.kind} size={12} /> {chat('selection.ask', { provider: agent.name })}
                             </Button>
                         ))
                     )}
@@ -76,7 +76,7 @@ function MenuActions({ language }: { language: EditorLanguage }) {
             {agents.length === 1 &&
                 agents.map((agent) => (
                     <ContextMenu.Item key={agent.kind} onClick={() => language.selectionChat.askAbout(agent.kind)}>
-                        <AgentIcon kind={agent.kind} /> {chat('selection.ask', { provider: agent.name })}
+                        <AgentMark kind={agent.kind} /> {chat('selection.ask', { provider: agent.name })}
                     </ContextMenu.Item>
                 ))}
             {agents.length > 1 && (
@@ -87,7 +87,7 @@ function MenuActions({ language }: { language: EditorLanguage }) {
                     <ContextMenu.Popup>
                         {agents.map((agent) => (
                             <ContextMenu.Item key={agent.kind} onClick={() => language.selectionChat.askAbout(agent.kind)}>
-                                <AgentIcon kind={agent.kind} /> {agent.name}
+                                <AgentMark kind={agent.kind} /> {agent.name}
                             </ContextMenu.Item>
                         ))}
                     </ContextMenu.Popup>

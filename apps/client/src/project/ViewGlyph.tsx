@@ -15,10 +15,10 @@ import {
     type LucideIcon
 } from 'lucide-react';
 import type { AgentKind, ProjectIconChoice, ProjectViewKind } from '@ruimte/contracts';
-import { AgentIcon } from '@adecore/agents-react/providers';
 import { Favicon } from '@/browser/Favicon';
 import { projectIconGlyphOf } from '@/project/project-icons';
 import { FileIcon, Icon } from '@adecore/ui';
+import { AgentMark } from '@/agents/AgentMark';
 
 /* The default mark for a view, when nobody picked an icon. */
 const VIEW_KIND_GLYPHS: Record<ProjectViewKind, LucideIcon> = {
@@ -67,7 +67,7 @@ export function ViewGlyph({ id, kind, icon = null, provider = null, path = null,
         return <FileIcon path={path} size={size} className={className} />;
     }
     if (provider && (kind === 'chat' || kind === 'terminal')) {
-        return <AgentIcon kind={provider} size={size} className={className} />;
+        return <AgentMark kind={provider} size={size} className={className} />;
     }
     return <Icon icon={VIEW_KIND_GLYPHS[kind]} size={size} className={className} />;
 }

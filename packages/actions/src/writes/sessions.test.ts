@@ -59,7 +59,7 @@ describeWrites('sessions', {
         actors: ['person', 'voice'],
         input: { chatId: 'chat-1', provider: 'codex', model: null },
         refused: {
-            'a CLI it does not know': { chatId: 'chat-1', provider: 'cursor', model: null },
+            'a CLI that is no identifier': { chatId: 'chat-1', provider: 'Cursor CLI', model: null },
             'no model at all': { chatId: 'chat-1', provider: 'codex' }
         },
         restricted: {

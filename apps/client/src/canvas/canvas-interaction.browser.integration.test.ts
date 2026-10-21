@@ -152,6 +152,20 @@ test('the canvas keeps selection anchored during scroll, pans over focused bodie
             await view.evaluate('window.canvas.getState().undo()');
             expect(await view.evaluate<number[]>('Object.values(window.canvas.getState().nodes).map(node=>node.x)')).toEqual([20, 152, 284]);
             await view.cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Alt', code: 'AltLeft', windowsVirtualKeyCode: 18 });
+
+            await view.evaluate('window.canvas.setState({camera:{x:0,y:0,zoom:1}})');
+            await view.cdp('Input.dispatchMouseEvent', { type: 'mouseWheel', x: 400, y: 300, deltaX: 0, deltaY: -100, modifiers: 2 });
+            await view.evaluate('new Promise(resolve => requestAnimationFrame(resolve))');
+            const gliding = await view.evaluate<number>('window.canvas.getState().camera.zoom');
+            expect(gliding).toBeGreaterThan(1);
+            expect(gliding).toBeLessThan(1.1);
+            await view.evaluate('new Promise(resolve => setTimeout(resolve, 500))');
+            expect(await view.evaluate<number>('window.canvas.getState().camera.zoom')).toBeCloseTo(1.1, 6);
+            for (let i = 0; i < 3; i++) {
+                await view.cdp('Input.dispatchMouseEvent', { type: 'mouseWheel', x: 400, y: 300, deltaX: 0, deltaY: 100, modifiers: 2 });
+            }
+            await view.evaluate('new Promise(resolve => setTimeout(resolve, 500))');
+            expect(await view.evaluate<number>('window.canvas.getState().camera.zoom')).toBeCloseTo(0.83, 6);
             expect(await view.evaluate<string[]>('window.errors')).toEqual([]);
         }
     );

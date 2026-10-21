@@ -4167,11 +4167,11 @@ public struct PairResultEndpointAgentIntegrations: Codable, Sendable, Equatable 
 }
 
 public struct PairResultEndpointAgentIntegrationsProvidersItem: Codable, Sendable, Equatable {
-    public let `provider`: AgentKind
+    public let `provider`: String
     public let `state`: PairResultEndpointAgentIntegrationsProvidersItemState
     public let `reviewed`: Bool
 
-    public init(`provider`: AgentKind, `state`: PairResultEndpointAgentIntegrationsProvidersItemState, `reviewed`: Bool) {
+    public init(`provider`: String, `state`: PairResultEndpointAgentIntegrationsProvidersItemState, `reviewed`: Bool) {
         self.`provider` = `provider`
         self.`state` = `state`
         self.`reviewed` = `reviewed`
@@ -4179,7 +4179,7 @@ public struct PairResultEndpointAgentIntegrationsProvidersItem: Codable, Sendabl
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        `provider` = try container.decode(AgentKind.self, forKey: .`provider`)
+        `provider` = try container.decode(String.self, forKey: .`provider`)
         `state` = try container.decode(PairResultEndpointAgentIntegrationsProvidersItemState.self, forKey: .`state`)
         `reviewed` = try container.decode(Bool.self, forKey: .`reviewed`)
     }

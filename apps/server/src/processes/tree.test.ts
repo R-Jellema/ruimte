@@ -70,6 +70,8 @@ describe('the families', () => {
         expect(ownFamilyOf('2.1.269', '/Users/x/.local/share/claude/versions/2.1.269')).toBe('claude');
         expect(ownFamilyOf('node', '/opt/homebrew/bin/node', ['node', '/usr/local/lib/node_modules/@openai/codex/bin/codex.js'])).toBe('codex');
         expect(ownFamilyOf('zsh', '/bin/zsh')).toBeNull();
+        expect(ownFamilyOf('agy', '/Users/x/.local/bin/agy')).toBe('antigravity');
+        expect(ownFamilyOf('Antigravity', '/Applications/Antigravity.app/Contents/MacOS/Antigravity')).toBe('antigravity');
         // A word inside another word is not a family.
         expect(ownFamilyOf('precursor', '/usr/bin/precursor')).toBeNull();
     });

@@ -4,11 +4,15 @@ import { ProviderRegistry as AgentProviderRegistry } from '@adecore/agents/provi
 import { createAppleProvider, appleProvider } from './apple-provider.ts';
 import { claudeProvider } from './claude-provider.ts';
 import { codexProvider } from './codex-provider.ts';
+import { copilotProvider, createAntigravityProvider, grokProvider } from './acp-providers.ts';
+import type { AcpServerLaunch } from './acp-server.ts';
 import { nanoGptProvider } from './nanogpt-provider.ts';
-import { copilotProvider, geminiProvider } from './terminal-providers.ts';
 
-// The CLIs the daemon ships with, in the order every menu lists them. A new one is one more value here.
-const BUILT_IN_PROVIDERS: ChatProvider[] = [claudeProvider, codexProvider, geminiProvider, copilotProvider];
+// The CLIs the daemon ships with, in the order of `BUILT_IN_KINDS`. A new one is one more value in both.
+const BUILT_IN_PROVIDERS: ChatProvider[] = [claudeProvider, codexProvider, createAntigravityProvider(null), copilotProvider, grokProvider];
+
+// Offers nothing, so it answers a kind this version does not know with a provider that starts nothing.
+const UNOFFERED = new AgentProviderRegistry({ providers: [] });
 
 /* The provider of a kind, for the places that have no registry at hand (the hooks). */
 export function providerFor(kind: AgentKind): ChatProvider {
@@ -18,12 +22,14 @@ export function providerFor(kind: AgentKind): ChatProvider {
     if (kind === 'nanogpt') {
         return nanoGptProvider;
     }
-    return BUILT_IN_PROVIDERS.find((provider) => provider.kind === kind) ?? claudeProvider;
+    return BUILT_IN_PROVIDERS.find((provider) => provider.kind === kind) ?? UNOFFERED.get(kind);
 }
 
 interface ProviderRegistryOptions {
     providers?: ChatProvider[];
     appleEnabled?: () => boolean;
+    // Where Antigravity's chat server is installed; without it Antigravity is a terminal only.
+    antigravityServer?: AcpServerLaunch;
     // The executables to probe, when they are not the ones the providers name.
     commands?: Partial<Record<AgentKind, string>>;
     // How to probe; a test answers without spawning anything.
@@ -38,7 +44,13 @@ export class ProviderRegistry extends AgentProviderRegistry {
 
     constructor(options: ProviderRegistryOptions = {}) {
         super({
-            providers: options.providers ?? [...BUILT_IN_PROVIDERS, createAppleProvider(options.appleEnabled ?? (() => false)), nanoGptProvider],
+            providers: options.providers ?? [
+                ...BUILT_IN_PROVIDERS.map((provider) =>
+                    provider.kind === 'antigravity' ? createAntigravityProvider(options.antigravityServer ?? null) : provider
+                ),
+                createAppleProvider(options.appleEnabled ?? (() => false)),
+                nanoGptProvider
+            ],
             ...(options.commands ? { commands: options.commands } : {}),
             ...(options.detect ? { detect: options.detect } : {})
         });

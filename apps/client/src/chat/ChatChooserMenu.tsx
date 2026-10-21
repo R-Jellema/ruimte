@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';
-import { AgentIcon } from '@adecore/agents-react/providers';
 import { useProviders } from '@adecore/agents-react/state';
 import { ContextMenu, Kbd } from '@adecore/ui';
 import { availableAgents } from '@/agents/creation';
 import { useChatChooser, useChooserSections, type ChooserChat } from '@/chat/chat-chooser';
 import { linkedChatsOfNode, sendToChat, startLinkedChatOrTell, type SelectionOffer } from '@/chat/selection-to-chat';
+import { AgentMark } from '@/agents/AgentMark';
 
 function ChatRows({
     chats,
@@ -21,7 +21,7 @@ function ChatRows({
         <>
             {chats.map((chat) => (
                 <ContextMenu.Item key={chat.id} onClick={() => onPick(chat.id)}>
-                    {chat.provider !== null && <AgentIcon kind={chat.provider} />}
+                    {chat.provider !== null && <AgentMark kind={chat.provider} />}
                     <span className="min-w-0 truncate">{chat.title}</span>
                     <ContextMenu.Hint>{providerName(chat.provider)}</ContextMenu.Hint>
                 </ContextMenu.Item>

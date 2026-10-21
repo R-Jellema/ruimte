@@ -3,6 +3,9 @@ import { ProviderAccountsService } from '@adecore/agents/providers';
 import { AgentIntegrations } from '../agents/integrations.ts';
 import type { EndpointIdentity } from '../endpoint-id.ts';
 import { RUIMTE_ACCOUNTS_HOST } from '../providers/accounts-host.ts';
+import { ANTIGRAVITY_ACP_RELEASE } from '../providers/acp-providers.ts';
+import { AcpServerInstall } from '../providers/acp-server.ts';
+import type { AgentServers } from '../handlers/agent-servers.ts';
 import { RUIMTE_CODEX_CLIENT } from '../providers/codex-provider.ts';
 import { ModelCatalogFeed } from '../providers/model-catalogs.ts';
 import { ProviderRegistry } from '../providers/registry.ts';
@@ -17,6 +20,8 @@ export interface ProvidersBundle {
     modelCatalogs: ModelCatalogFeed;
     integrations: AgentIntegrations;
     accounts: ProviderAccountsService;
+    // The chat servers a person installs apart from their CLI (Antigravity's).
+    servers: AgentServers;
     nameOfCli(kind: AgentKind): string;
 }
 
@@ -32,8 +37,10 @@ export async function wireProviders(
 ): Promise<ProvidersBundle> {
     const nanogpt = nanoGptService;
     await nanogpt.load(config.home);
+    const antigravityServer = new AcpServerInstall({ provider: 'antigravity', home: config.home, release: ANTIGRAVITY_ACP_RELEASE });
     const providers = new ProviderRegistry({
         appleEnabled: () => identity.appleFoundationEnabled,
+        antigravityServer,
         onList: () => {
             void modelCatalogs.refresh();
             fetched();
@@ -42,7 +49,7 @@ export async function wireProviders(
     const modelCatalogs = new ModelCatalogFeed({
         home: config.home,
         allowFetch: config.modelFetch,
-        catalogs: { claude: providers.catalogFor('claude'), codex: providers.catalogFor('codex') }
+        catalogs: Object.fromEntries((['claude', 'codex', 'antigravity', 'copilot', 'grok'] as const).map((kind) => [kind, providers.catalogFor(kind)]))
     });
     // What a person allowed in the CLIs' global settings; the accounts below ask it before they write anywhere.
     const integrations = new AgentIntegrations({
@@ -67,5 +74,9 @@ export async function wireProviders(
         install: (kind, folder) => integrations.installFolder(kind, folder)
     });
     await accounts.load();
-    return { nanogpt, providers, modelCatalogs, integrations, accounts, nameOfCli: (kind) => providers.get(kind).name };
+    const servers: AgentServers = {
+        of: (kind) => (kind === 'antigravity' ? antigravityServer : undefined),
+        installed: (kind) => providers.invalidate(kind)
+    };
+    return { nanogpt, providers, modelCatalogs, integrations, accounts, servers, nameOfCli: (kind) => providers.get(kind).name };
 }

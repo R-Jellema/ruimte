@@ -201,6 +201,8 @@
     "chat.proposalDecline",
     "skills.list",
     "provider.list",
+    "provider.server",
+    "provider.installServer",
     "accounts.list",
     "accounts.save",
     "accounts.refresh",
