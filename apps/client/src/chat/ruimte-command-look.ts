@@ -46,6 +46,7 @@ const VERB_LOOKS: Record<ContextVerb, VerbLook> = {
     project: { name: 'Project', from: 1 },
     database: { name: 'Database', from: 1 },
     language: { name: 'Language', from: 1 },
+    provider: { name: 'Providers', from: 1 },
     computer: { name: 'Computer Use', from: 1 }
 };
 

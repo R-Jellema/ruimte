@@ -8,12 +8,14 @@ import {
     type ChatAttachment,
     type ChatForkResult,
     type ChatVisual,
+    type CliVersion,
     type GitDiffResult,
     type LaunchConfigKind,
     type LaunchStartResult,
     type LaunchStatus,
     type ProjectCanvasView,
     type ProjectContent,
+    type RegistryCatalog,
     type RuntimeMode,
     type ModelSelection,
     type VisualAppearance,
@@ -81,6 +83,12 @@ export type WorktreeWant = ({ fresh: string } | { branch: string }) & { base?: s
  * call of it, so a new capability is a method of its service and a name here. An interface so a
  * test can hand in a store of its own.
  */
+/* What an agent may read of the CLIs a person installs and updates in Settings, Providers. */
+export interface ProviderInstallHost {
+    catalog(refresh: boolean): Promise<RegistryCatalog>;
+    versions(refresh: boolean): Promise<CliVersion[]>;
+}
+
 export interface CanvasHost {
     projects: ProjectHost;
     hiddenAgents?: HiddenAgentStore;
@@ -125,6 +133,8 @@ export interface CanvasHost {
     databases?: DatabaseAgentHost;
     /* The project's running language servers as an agent may ask them; absent on a host without them. */
     language?: LanguageAgentHost;
+    /* The ACP registry and the versions of the agent CLIs, which an agent reads and only a person installs from; absent on a host without them. */
+    providerInstalls?: ProviderInstallHost;
     /* The cards in which an agent asks a person for a launch's secret; absent on a host that keeps none. */
     secrets?: SecretHost;
     /* The cards in which an agent in Chats suggests a project; absent on a host that keeps none. */

@@ -1,4 +1,6 @@
 import {
+    CliVersionSchema,
+    RegistryCatalogSchema,
     TerminalPrepareSourceSchema,
     TerminalPreparePreviewResultSchema,
     TerminalPrepareResultSchema,
@@ -4100,6 +4102,29 @@ export const ACTION_DEFINITIONS = {
             command: z.string(),
             installed: z.boolean()
         })
+    },
+    'provider.catalog': {
+        title: 'Read the ACP registry',
+        description:
+            "Reads the agents of the public ACP registry this machine can run, with the version the registry names and whether each is installed here. Installing one stays a person's, in Settings, Providers.",
+        effect: 'read',
+        domain: 'machine',
+        actors: AGENT,
+        input: z.object({
+            search: z.string().nullable().describe('Words the name, id or description of an agent holds; every agent without it'),
+            refresh: z.boolean().nullable().describe('Reads the registry again instead of the copy of the last hour')
+        }),
+        output: RegistryCatalogSchema
+    },
+    'provider.versions': {
+        title: 'Read the versions of the agent CLIs',
+        description:
+            "Reads the version of each agent CLI on this machine, how it was installed and whether that route offers a newer one. Updating one stays a person's, in Settings, Providers.",
+        effect: 'read',
+        domain: 'machine',
+        actors: AGENT,
+        input: z.object({ refresh: z.boolean().nullable().describe('Asks each route for its newest version again instead of the answer of the last hour') }),
+        output: z.object({ versions: z.array(CliVersionSchema) })
     },
     'usage.summary': {
         title: 'Read AI usage',
