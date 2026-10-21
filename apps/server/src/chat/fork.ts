@@ -41,7 +41,7 @@ import type { ChatManager } from './chat-manager.ts';
 import { forkClaudeTranscript, type TranscriptCutPoint } from './claude-fork.ts';
 import { forkThreadOnce, ChatError as AgentChatError } from '@adecore/agents/chat';
 import { ChatError } from './errors.ts';
-import { handoffText } from './handoff.ts';
+import { handoffBudget, handoffText } from './handoff.ts';
 import { errorText } from '../error-text.ts';
 
 /* Where a Codex fork goes on after (the turn Codex named, the n-th turn when it named none, or all of it). */
@@ -415,19 +415,24 @@ export async function forkChat(deps: ChatForkDeps, payload: ChatForkPayload, ope
     const now = deps.now();
     const original = { id: payload.chatId, title: originalTitle, view: place.canvasId === null };
     const copied = itemsThrough(source.items, turn.id);
+    const start = forkStart(deps, info, provider, switching, payload.selection, opener?.ceiling);
     let notes = forkNotes(cut, original, files);
     if (handoff) {
-        const text = handoffText(copied, {
-            fromName: nameOf(info.provider),
-            originalId: payload.chatId,
-            originalTitle,
-            view: original.view,
-            turnNumber: cut.number,
-            totalTurns: cut.total,
-            at: now,
-            cwd,
-            worktree: files.kind === 'worktree' ? { branch: files.branch, afterTurn: files.afterTurn } : null
-        });
+        const text = handoffText(
+            copied,
+            {
+                fromName: nameOf(info.provider),
+                originalId: payload.chatId,
+                originalTitle,
+                view: original.view,
+                turnNumber: cut.number,
+                totalTurns: cut.total,
+                at: now,
+                cwd,
+                worktree: files.kind === 'worktree' ? { branch: files.branch, afterTurn: files.afterTurn } : null
+            },
+            handoffBudget(start.contextWindow)
+        );
         const to = switching ? nameOf(provider) : `${nameOf(provider)} under the account '${deps.accounts?.label(provider, account) ?? account}'`;
         notes = { note: switchNote(cut, original, files, { to, turns: text.turns, all: text.all }), preamble: text.text };
     }
@@ -439,7 +444,7 @@ export async function forkChat(deps: ChatForkDeps, payload: ChatForkPayload, ope
         cwd,
         agentSessionId,
         switching,
-        start: forkStart(deps, info, provider, switching, payload.selection, opener?.ceiling),
+        start,
         cut,
         now
     });
@@ -503,11 +508,11 @@ function forkStartOf(deps: ChatForkDeps, info: ChatInfo, provider: AgentKind, sw
         // Going on with another CLI is no way to be allowed more than the original was.
         return { ...point, runtimeMode: narrowerMode(point.runtimeMode ?? info.runtimeMode, info.runtimeMode) };
     }
-    return {
-        selection: selection === undefined ? info.selection : deps.startingPoint(provider, selection).selection,
-        runtimeMode: info.runtimeMode,
-        contextWindow: info.usage.contextWindow
-    };
+    if (selection === undefined) {
+        return { selection: info.selection, runtimeMode: info.runtimeMode, contextWindow: info.usage.contextWindow };
+    }
+    const point = deps.startingPoint(provider, selection);
+    return { selection: point.selection, runtimeMode: info.runtimeMode, contextWindow: point.contextWindow ?? info.usage.contextWindow };
 }
 
 function forkInfoOf(
