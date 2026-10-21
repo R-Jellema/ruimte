@@ -7,6 +7,7 @@ import { useProviders } from '@adecore/agents-react/state';
 import { Icon, SectionLabel } from '@adecore/ui';
 import { availableAgents } from './creation';
 import { useUi } from '@/state/ui';
+import { useDetectProviders } from '@/transport/provider-detection';
 
 export function ProviderRows({ onPick }: { onPick(provider: ProviderInfo): void }) {
     const { t } = useTranslation('agents');
@@ -14,6 +15,7 @@ export function ProviderRows({ onPick }: { onPick(provider: ProviderInfo): void 
     const loaded = useProviders((s) => s.loaded);
     const preferences = useChatPreferences();
     const agents = availableAgents(providers, 'chat');
+    useDetectProviders();
     return (
         <section className="flex flex-col gap-2">
             <SectionLabel render={<h2 />} className="px-1">

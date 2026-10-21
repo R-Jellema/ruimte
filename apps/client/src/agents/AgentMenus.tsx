@@ -8,6 +8,7 @@ import { runtimeModeLabel, useAccountChoice, useChatPreferences } from '@adecore
 import { useProviderAccounts, useProviders } from '@adecore/agents-react/state';
 import { availableAgents } from './creation';
 import { useUi } from '@/state/ui';
+import { useDetectProviders } from '@/transport/provider-detection';
 import { Icon, Menu } from '@adecore/ui';
 
 function Submenu({ label, icon, children }: { label: string; icon: ReactNode; children: ReactNode }) {
@@ -68,6 +69,7 @@ function AgentRows({ target, onPick }: { target: AgentTarget; onPick: PickAgent 
     const accounts = useProviderAccounts((row) => row.accounts);
     const runtimeMode = useChatPreferences((s) => s.terminalRuntimeMode);
     const rows = availableAgents(providers, target);
+    useDetectProviders();
     const hint = target === 'terminal' ? runtimeModeLabel(runtimeMode) : null;
     // Mirrors the choice `useAccountChoice` makes, so a separator sets each group apart from its neighbors.
     const grouped = rows.map((provider) => accountsOfKind(accounts, provider.kind).filter((entry) => entry.account.enabled !== false).length >= 2);
