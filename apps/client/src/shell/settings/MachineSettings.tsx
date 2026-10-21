@@ -5,7 +5,7 @@ import { Trans, useTranslation } from 'react-i18next';
 import { brokerHostOf, brokerUrlProblem, type BrokerSetting } from '@ruimte/pulsar';
 import type { AuthSession, LanDoor, PeerLink, ReachCheck, RuntimeMode } from '@ruimte/contracts';
 import { RUNTIME_MODES, runtimeModeLabel } from '@adecore/agents-react/chat';
-import { messageOf, Segmented, Select, Skeleton, Switch, Button, IconButton, Tooltip, FormError, Input } from '@adecore/ui';
+import { messageOf, Segmented, Select, Skeleton, Switch, Button, IconButton, Tooltip, FormError, Input, useNow } from '@adecore/ui';
 import { formatNumericDate, formatAgo } from '@adecore/ui/format';
 import { ConfirmDialog, SettingsRow } from '@adecore/ui/settings';
 import { perform } from '@/actions/client-actions';
@@ -19,6 +19,8 @@ import { useToasts } from '@/state/toasts';
 import { pool, transportFor } from '@/transport';
 import { useMachineAnswers } from '@/transport/features';
 import { useEndpointConnection } from '@/transport/status';
+
+const MINUTE_MS = 60_000;
 
 /* A disabled control does not take the pointer, so the reason sits on a wrapper around it. */
 export function WithReason({ reason, children }: { reason: string | null; children: ReactElement }) {
@@ -280,6 +282,7 @@ export function ReachRow({ endpoint, reason }: { endpoint: Endpoint; reason: str
     const answers = useMachineAnswers(endpoint.id, 'endpoint.reach');
     const [reach, setReach] = useState<ReachState>({ state: 'checking', last: null });
     const [attempt, setAttempt] = useState<{ check: boolean; n: number }>({ check: false, n: 0 });
+    const now = useNow(MINUTE_MS);
 
     useEffect(() => {
         const transport = transportFor(endpoint.id);
@@ -315,7 +318,7 @@ export function ReachRow({ endpoint, reason }: { endpoint: Endpoint; reason: str
         if (text === null || shown === null) {
             return reach.state === 'checking' ? t('machine.reach.checking') : null;
         }
-        const sentence = [text.problem, text.fix, t('machine.reach.checkedAt', { when: ago(shown.checkedAt) })].filter((part) => part !== null).join(' ');
+        const sentence = [text.problem, text.fix, t('machine.reach.checkedAt', { when: ago(shown.checkedAt, now) })].filter((part) => part !== null).join(' ');
         return shown.severity === 'unreachable' ? (
             <span className="text-status-error" role="alert">
                 {sentence}
@@ -435,8 +438,8 @@ export function UsageStatsRow({ endpoint, reason }: { endpoint: Endpoint; reason
     );
 }
 
-function ago(timestamp: number): string {
-    return formatAgo(Date.now() - timestamp);
+function ago(timestamp: number, now: number): string {
+    return formatAgo(now - timestamp);
 }
 
 /* The browsers and apps one machine let in, each with a way to cut it off. */
@@ -447,6 +450,7 @@ export function MachineAccess({ endpoint }: { endpoint: Endpoint }) {
     const [sessions, setSessions] = useState<AuthSession[] | null>(null);
     const [failure, setFailure] = useState<string | null>(null);
     const [target, setTarget] = useState<AuthSession | null>(null);
+    const now = useNow(MINUTE_MS);
 
     const load = (): void => {
         const transport = transportFor(endpoint.id);
@@ -516,7 +520,7 @@ export function MachineAccess({ endpoint }: { endpoint: Endpoint }) {
                                   ? t('machine.access.origin.statement')
                                   : t('machine.access.origin.link'),
                         date: formatNumericDate(session.createdAt),
-                        ago: ago(session.lastSeenAt)
+                        ago: ago(session.lastSeenAt, now)
                     })}
                     control={
                         <IconButton
@@ -567,6 +571,7 @@ export function MachineLinks({ endpoint }: { endpoint: Endpoint }) {
     const [links, setLinks] = useState<PeerLink[] | null>(null);
     const [failure, setFailure] = useState<string | null>(null);
     const [target, setTarget] = useState<PeerLink | null>(null);
+    const now = useNow(MINUTE_MS);
 
     const load = (): void => {
         const transport = transportFor(endpoint.id);
@@ -648,7 +653,7 @@ export function MachineLinks({ endpoint }: { endpoint: Endpoint }) {
                     description={t(link.lastUsedAt === undefined ? 'machine.links.unused' : 'machine.links.used', {
                         machine: link.label,
                         date: formatNumericDate(link.createdAt),
-                        ago: link.lastUsedAt === undefined ? '' : ago(link.lastUsedAt)
+                        ago: link.lastUsedAt === undefined ? '' : ago(link.lastUsedAt, now)
                     })}
                     control={
                         <div className="flex shrink-0 items-center gap-1">

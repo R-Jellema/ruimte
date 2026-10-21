@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
 import { act } from 'react';
 import { REQUEST_SCHEMAS, type EndpointInfo, type ReachCheck, type RequestType } from '@ruimte/contracts';
 import type { DesktopBridge } from '@/desktop/bridge';
@@ -10,6 +10,7 @@ import { clickOn, mount, until, type Mounted } from '../../../testing/dom';
 import { connectFakeMachine, FakeMachine } from '../../../testing/fake-machine';
 
 const NOW = Date.UTC(2026, 9, 1);
+const MINUTE_MS = 60_000;
 
 const scope = globalThis as unknown as { window: { ruimteDesktop?: DesktopBridge } };
 
@@ -69,7 +70,18 @@ afterEach(async () => {
     await page.unmount();
     release();
     delete scope.window.ruimteDesktop;
+    jest.useRealTimers();
 });
+
+/* `until` waits on a timer, which a fake clock never runs on its own; this waits on turns of the event loop instead. */
+async function untilUnderFakeClock(condition: () => boolean): Promise<void> {
+    for (let turn = 0; turn < 200 && !condition(); turn++) {
+        await act(async () => {
+            await new Promise((resolve) => setImmediate(resolve));
+        });
+    }
+    expect(condition()).toBe(true);
+}
 
 describe('Settings > Machines > this machine > Reachable from other devices', () => {
     test('says what the machine found and what to do, and checks again on request', async () => {
@@ -83,6 +95,16 @@ describe('Settings > Machines > this machine > Reachable from other devices', ()
         await clickOn(checkAgain());
         await until(() => everything().includes('Other devices reach this machine, directly or through the relay.'));
         expect(machine.requests('endpoint.reach')).toEqual([{}, { check: true }]);
+    });
+
+    test('says how long ago the machine checked, and counts on while the row stays open', async () => {
+        jest.useFakeTimers({ now: NOW + 2 * MINUTE_MS });
+        await open((fake) => fake.answer('endpoint.reach', () => ({ reach: reach('ok', 'ok') })));
+        await untilUnderFakeClock(() => everything().includes('Checked 2m ago.'));
+
+        await act(async () => jest.advanceTimersByTime(3 * MINUTE_MS));
+        expect(everything()).toContain('Checked 5m ago.');
+        expect(machine.requests('endpoint.reach')).toEqual([{}]);
     });
 
     test('a check that fails says why', async () => {
