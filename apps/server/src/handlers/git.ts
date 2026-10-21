@@ -15,6 +15,7 @@ import { IdentityReader } from '../git/identity.ts';
 import { readLog } from '../git/log.ts';
 import { suggestMessage } from '../git/message.ts';
 import { parseIssueRef, readIssue, readPullRequest, runGh } from '../git/github.ts';
+import { prSplits } from '../git/pr-split.ts';
 import { GitError } from '../git/run.ts';
 import type { MachineHome } from '../fs/machine-home.ts';
 import type { PrWatchStore } from '../github/pr-watch.ts';
@@ -183,7 +184,10 @@ export function registerGitHandlers(
         return await readIssue(runGh, payload.cwd, ref);
     });
 
-    dispatcher.register('git.pr', async (payload) => ({ pr: await readPullRequest(runGh, payload.cwd, payload.number) }));
+    dispatcher.register('git.pr', async (payload) => {
+        const pr = await readPullRequest(runGh, payload.cwd, payload.number);
+        return { pr: pr === null ? null : await prSplits.withSplit(payload.cwd, pr) };
+    });
 
     const watching = (): PrWatchStore => {
         if (!prWatches) {
