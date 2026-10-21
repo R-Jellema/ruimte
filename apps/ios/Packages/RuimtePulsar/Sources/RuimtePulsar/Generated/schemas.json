@@ -968,6 +968,9 @@
                   "minCliVersion": {
                     "type": "string",
                     "pattern": "^\\d+\\.\\d+(\\.\\d+)?$"
+                  },
+                  "tools": {
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -30865,6 +30868,9 @@
                   },
                   "minCliVersion": {
                     "type": "string"
+                  },
+                  "tools": {
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -31173,6 +31179,9 @@
                   },
                   "minCliVersion": {
                     "type": "string"
+                  },
+                  "tools": {
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -74413,6 +74422,9 @@
                   },
                   "minCliVersion": {
                     "type": "string"
+                  },
+                  "tools": {
+                    "type": "boolean"
                   }
                 },
                 "required": [
