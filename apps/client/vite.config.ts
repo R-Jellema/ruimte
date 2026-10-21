@@ -2,10 +2,12 @@ import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, normalize } from 'node:path';
 import { fileURLToPath, URL } from 'node:url';
-import react from '@vitejs/plugin-react';
+import babel from '@rolldown/plugin-babel';
+import react, { reactCompilerPreset } from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-import { build, defaultClientConditions, defineConfig, searchForWorkspaceRoot, type Plugin } from 'vite';
+import { build, defaultClientConditions, defineConfig, searchForWorkspaceRoot, type Plugin, type PluginOption } from 'vite';
 import { adecoreSources } from './adecore-sources.ts';
+import { COMPILER_RUNTIME, REACT_COMPILED, REACT_COMPILED_PACKAGES, REACT_COMPILER_LEFT_OUT, REACT_COMPILER_OPTIONS } from './react-compiler.ts';
 import { scriptFilesGuard } from './inline-scripts.ts';
 import { shikiModules, shikiOnce } from './shiki-once.ts';
 import { startChunkGuard } from './start-chunk.ts';
@@ -137,12 +139,35 @@ function pdfjsAssets(): Plugin {
     };
 }
 
+/*
+ * The React Compiler (`react-compiler.ts` says over what). The Babel plugin, since the native compiler
+ * of the Vite React plugin is still experimental; Babel 7, since 8 bails on every destructuring default.
+ */
+function reactCompiler(): PluginOption[] {
+    const compiler = babel({
+        presets: [reactCompilerPreset(REACT_COMPILER_OPTIONS)],
+        include: REACT_COMPILED,
+        // In place of the default, which leaves out everything under `node_modules`, where the packages sit when they come from npm.
+        exclude: [...REACT_COMPILER_LEFT_OUT, /^\0rolldown\/runtime\.js$/]
+    });
+    const runtime: Plugin = {
+        name: 'ruimte-compiler-runtime',
+        enforce: 'pre',
+        resolveId: {
+            filter: { id: /^react\/compiler-runtime$/ },
+            handler: (_source, importer) => (importer === COMPILER_RUNTIME ? null : COMPILER_RUNTIME)
+        }
+    };
+    return [compiler, runtime];
+}
+
 const shiki = shikiModules();
 
 export default defineConfig(({ mode }) => ({
     plugins: [
         adecoreSources(),
         react(),
+        ...reactCompiler(),
         tailwindcss(),
         bytesWorker(),
         pdfjsAssets(),
@@ -190,7 +215,8 @@ export default defineConfig(({ mode }) => ({
     optimizeDeps: {
         // Source exports in the shared React packages are TSX and can import CommonJS dependencies.
         extensions: ['.tsx'],
-        include: ['@base-ui/react/menu', '@base-ui/react/dialog', 'lucide-react', 'clsx']
+        include: ['@base-ui/react/menu', '@base-ui/react/dialog', 'lucide-react', 'clsx'],
+        exclude: REACT_COMPILED_PACKAGES
     },
     server: {
         port,

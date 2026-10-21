@@ -3,4 +3,4 @@
 pathIgnorePatterns = ["**/*.integration.test.ts", "**/*.dom.test.tsx"]
 # The client's English words, so a pure function that reads one off i18next is testable
 # without every test file initializing it first.
-preload = ["@adecore/ui/testing/dedupe", "./test-preload.ts"]
+preload = ["./testing/react-compiler-preload.ts", "@adecore/ui/testing/dedupe", "./test-preload.ts"]
