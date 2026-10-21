@@ -52190,7 +52190,7 @@
             },
             "provider": {
               "type": "string",
-              "enum": [
+              "x-open-enum": [
                 "claude",
                 "codex",
                 "nanogpt",
@@ -52286,7 +52286,7 @@
           "properties": {
             "provider": {
               "type": "string",
-              "enum": [
+              "x-open-enum": [
                 "claude",
                 "codex",
                 "nanogpt",
@@ -52402,7 +52402,7 @@
               "type": "object",
               "propertyNames": {
                 "type": "string",
-                "enum": [
+                "x-open-enum": [
                   "claude",
                   "codex",
                   "nanogpt",
@@ -52599,7 +52599,7 @@
           "properties": {
             "provider": {
               "type": "string",
-              "enum": [
+              "x-open-enum": [
                 "claude",
                 "codex",
                 "nanogpt",
@@ -52643,7 +52643,7 @@
             },
             "kind": {
               "type": "string",
-              "enum": [
+              "x-open-enum": [
                 "claude",
                 "codex",
                 "nanogpt",
@@ -52716,7 +52716,7 @@
           "properties": {
             "kind": {
               "type": "string",
-              "enum": [
+              "x-open-enum": [
                 "claude",
                 "codex",
                 "nanogpt",
@@ -52902,7 +52902,7 @@
           "properties": {
             "kind": {
               "type": "string",
-              "enum": [
+              "x-open-enum": [
                 "claude",
                 "codex",
                 "nanogpt",
@@ -73775,7 +73775,7 @@
           "properties": {
             "kind": {
               "type": "string",
-              "enum": [
+              "x-open-enum": [
                 "claude",
                 "codex",
                 "nanogpt",
