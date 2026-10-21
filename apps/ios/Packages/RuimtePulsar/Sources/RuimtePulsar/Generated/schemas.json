@@ -52193,7 +52193,8 @@
               "enum": [
                 "claude",
                 "codex",
-                "nanogpt"
+                "nanogpt",
+                "grok"
               ]
             },
             "model": {
@@ -52288,7 +52289,8 @@
               "enum": [
                 "claude",
                 "codex",
-                "nanogpt"
+                "nanogpt",
+                "grok"
               ]
             },
             "model": {
@@ -52403,7 +52405,8 @@
                 "enum": [
                   "claude",
                   "codex",
-                  "nanogpt"
+                  "nanogpt",
+                  "grok"
                 ]
               },
               "additionalProperties": {
@@ -52599,7 +52602,8 @@
               "enum": [
                 "claude",
                 "codex",
-                "nanogpt"
+                "nanogpt",
+                "grok"
               ]
             },
             "path": {
@@ -52642,7 +52646,8 @@
               "enum": [
                 "claude",
                 "codex",
-                "nanogpt"
+                "nanogpt",
+                "grok"
               ]
             },
             "label": {
@@ -52714,7 +52719,8 @@
               "enum": [
                 "claude",
                 "codex",
-                "nanogpt"
+                "nanogpt",
+                "grok"
               ]
             },
             "account": {
@@ -52899,7 +52905,8 @@
               "enum": [
                 "claude",
                 "codex",
-                "nanogpt"
+                "nanogpt",
+                "grok"
               ]
             },
             "account": {
@@ -73771,7 +73778,8 @@
               "enum": [
                 "claude",
                 "codex",
-                "nanogpt"
+                "nanogpt",
+                "grok"
               ]
             },
             "account": {
