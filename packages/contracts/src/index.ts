@@ -422,6 +422,7 @@ export * from './context.ts';
 export * from './direct.ts';
 export * from './direct-liveness.ts';
 export * from './device.ts';
+export * from './change-split.ts';
 export * from './context-sources.ts';
 export * from './database.ts';
 export * from './diagram-host.ts';

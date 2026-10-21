@@ -51440,6 +51440,108 @@
                     "comments"
                   ]
                 }
+              },
+              "added": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "deleted": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "changedFiles": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "split": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "object",
+                    "properties": {
+                      "added": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "deleted": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "added",
+                      "deleted"
+                    ]
+                  },
+                  "tests": {
+                    "type": "object",
+                    "properties": {
+                      "added": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "deleted": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "added",
+                      "deleted"
+                    ]
+                  },
+                  "mocks": {
+                    "type": "object",
+                    "properties": {
+                      "added": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "deleted": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "added",
+                      "deleted"
+                    ]
+                  },
+                  "generated": {
+                    "type": "object",
+                    "properties": {
+                      "added": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "deleted": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "added",
+                      "deleted"
+                    ]
+                  }
+                },
+                "required": [
+                  "code",
+                  "tests",
+                  "mocks",
+                  "generated"
+                ]
               }
             },
             "required": [

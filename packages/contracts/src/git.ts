@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { AgentKindSchema } from './agent.ts';
 import { WorktreeSchema } from '@adecore/agent-contracts/worktree';
 import { BYTES_CHUNK_MAX } from './bytes.ts';
+import { ChangeSplitSchema } from './change-split.ts';
 
 // Made under the app data dir when the branch has no worktree yet.
 export const WorktreeAddPayloadSchema = z.object({
@@ -418,7 +419,13 @@ export const GitPullRequestSchema = z.object({
     reviewDecision: z.string().nullable(),
     checks: z.array(GitPrCheckSchema),
     checkState: z.enum(['pending', 'success', 'failure', 'none']),
-    threads: z.array(GitPrThreadSchema)
+    threads: z.array(GitPrThreadSchema),
+    // GitHub's own totals for the whole pull request; a machine from before them leaves them out.
+    added: z.number().int().nonnegative().optional(),
+    deleted: z.number().int().nonnegative().optional(),
+    changedFiles: z.number().int().nonnegative().optional(),
+    // Left out when GitHub's file list could not be read whole, so it never disagrees with the totals.
+    split: ChangeSplitSchema.optional()
 });
 export type GitPullRequest = z.infer<typeof GitPullRequestSchema>;
 
