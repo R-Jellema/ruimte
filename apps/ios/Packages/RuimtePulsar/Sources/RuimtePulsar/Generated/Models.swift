@@ -6912,13 +6912,17 @@ public struct ChatInfoUsage: Codable, Sendable, Equatable {
     public let `costUsd`: Double
     public let `turns`: Int64
     public let `breakdown`: ChatInfoUsageBreakdown?
+    public let `cacheTtlMs`: Int64?
+    public let `cacheExpiresAt`: Double?
 
-    public init(`contextTokens`: Int64, `contextWindow`: Int64?, `costUsd`: Double, `turns`: Int64, `breakdown`: ChatInfoUsageBreakdown? = nil) {
+    public init(`contextTokens`: Int64, `contextWindow`: Int64?, `costUsd`: Double, `turns`: Int64, `breakdown`: ChatInfoUsageBreakdown? = nil, `cacheTtlMs`: Int64? = nil, `cacheExpiresAt`: Double? = nil) {
         self.`contextTokens` = `contextTokens`
         self.`contextWindow` = `contextWindow`
         self.`costUsd` = `costUsd`
         self.`turns` = `turns`
         self.`breakdown` = `breakdown`
+        self.`cacheTtlMs` = `cacheTtlMs`
+        self.`cacheExpiresAt` = `cacheExpiresAt`
     }
 
     public init(from decoder: Decoder) throws {
@@ -6928,6 +6932,8 @@ public struct ChatInfoUsage: Codable, Sendable, Equatable {
         `costUsd` = try container.decode(Double.self, forKey: .`costUsd`)
         `turns` = try container.decode(Int64.self, forKey: .`turns`)
         `breakdown` = try container.decodeIfPresent(ChatInfoUsageBreakdown.self, forKey: .`breakdown`)
+        `cacheTtlMs` = try container.decodeIfPresent(Int64.self, forKey: .`cacheTtlMs`)
+        `cacheExpiresAt` = try container.decodeIfPresent(Double.self, forKey: .`cacheExpiresAt`)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -6937,6 +6943,8 @@ public struct ChatInfoUsage: Codable, Sendable, Equatable {
         try container.encode(`costUsd`, forKey: .`costUsd`)
         try container.encode(`turns`, forKey: .`turns`)
         try container.encodeIfPresent(`breakdown`, forKey: .`breakdown`)
+        try container.encodeIfPresent(`cacheTtlMs`, forKey: .`cacheTtlMs`)
+        try container.encodeIfPresent(`cacheExpiresAt`, forKey: .`cacheExpiresAt`)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -6945,6 +6953,8 @@ public struct ChatInfoUsage: Codable, Sendable, Equatable {
         case `costUsd` = "costUsd"
         case `turns` = "turns"
         case `breakdown` = "breakdown"
+        case `cacheTtlMs` = "cacheTtlMs"
+        case `cacheExpiresAt` = "cacheExpiresAt"
     }
 }
 

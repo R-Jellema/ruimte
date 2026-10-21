@@ -12996,6 +12996,14 @@
               "conversation",
               "system"
             ]
+          },
+          "cacheTtlMs": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "cacheExpiresAt": {
+            "type": "number"
           }
         },
         "required": [
@@ -15355,6 +15363,14 @@
                   "conversation",
                   "system"
                 ]
+              },
+              "cacheTtlMs": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "cacheExpiresAt": {
+                "type": "number"
               }
             },
             "required": [
@@ -21125,6 +21141,14 @@
                             "conversation",
                             "system"
                           ]
+                        },
+                        "cacheTtlMs": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "cacheExpiresAt": {
+                          "type": "number"
                         }
                       },
                       "required": [
@@ -21784,6 +21808,14 @@
                             "conversation",
                             "system"
                           ]
+                        },
+                        "cacheTtlMs": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "cacheExpiresAt": {
+                          "type": "number"
                         }
                       },
                       "required": [
@@ -25159,6 +25191,14 @@
               "conversation",
               "system"
             ]
+          },
+          "cacheTtlMs": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "cacheExpiresAt": {
+            "type": "number"
           }
         },
         "required": [
@@ -26119,6 +26159,14 @@
                   "conversation",
                   "system"
                 ]
+              },
+              "cacheTtlMs": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "cacheExpiresAt": {
+                "type": "number"
               }
             },
             "required": [
@@ -26891,6 +26939,14 @@
                       "conversation",
                       "system"
                     ]
+                  },
+                  "cacheTtlMs": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "cacheExpiresAt": {
+                    "type": "number"
                   }
                 },
                 "required": [
@@ -58984,6 +59040,14 @@
                     "conversation",
                     "system"
                   ]
+                },
+                "cacheTtlMs": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "cacheExpiresAt": {
+                  "type": "number"
                 }
               },
               "required": [
@@ -63534,6 +63598,14 @@
                           "conversation",
                           "system"
                         ]
+                      },
+                      "cacheTtlMs": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "cacheExpiresAt": {
+                        "type": "number"
                       }
                     },
                     "required": [
@@ -64193,6 +64265,14 @@
                           "conversation",
                           "system"
                         ]
+                      },
+                      "cacheTtlMs": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "cacheExpiresAt": {
+                        "type": "number"
                       }
                     },
                     "required": [
@@ -66499,6 +66579,14 @@
                   "conversation",
                   "system"
                 ]
+              },
+              "cacheTtlMs": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "cacheExpiresAt": {
+                "type": "number"
               }
             },
             "required": [

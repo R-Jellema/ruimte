@@ -549,7 +549,16 @@ function forkInfoOf(
         running: false,
         activeTurnId: null,
         // The turns before the cut are what fixes a chat to its CLI; what they cost stays the original's.
-        usage: { ...info.usage, contextWindow: fork.start.contextWindow, contextTokens: 0, breakdown: undefined, costUsd: 0, turns: fork.cut.number },
+        usage: {
+            ...info.usage,
+            contextWindow: fork.start.contextWindow,
+            contextTokens: 0,
+            breakdown: undefined,
+            costUsd: 0,
+            turns: fork.cut.number,
+            cacheTtlMs: undefined,
+            cacheExpiresAt: undefined
+        },
         forkOf: { chatId: fork.originalId, turnId: fork.cut.turn.id, at: fork.now },
         createdAt: fork.now
     };
