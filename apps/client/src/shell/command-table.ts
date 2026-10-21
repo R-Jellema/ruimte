@@ -47,6 +47,7 @@ import {
     Globe,
     Group,
     Heading,
+    Hourglass,
     Inbox,
     Info,
     Keyboard,
@@ -788,6 +789,15 @@ const TABLE = {
         binds: 'workspace',
         palette: false,
         menu: { menu: 'go', group: 'prompts', order: 10 }
+    },
+    // From anywhere, a terminal included, as the prompts key is.
+    'needs-you-next': {
+        key: 'nextNeedsYou',
+        icon: Hourglass,
+        shortcut: CANVAS_SHORTCUTS.nextNeedsYou,
+        binds: 'workspace',
+        palette: true,
+        menu: { menu: 'go', group: 'prompts', order: 20 }
     },
     'launch-run': {
         key: 'launch',

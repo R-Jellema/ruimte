@@ -578,7 +578,8 @@
             "rememberLayout": "Onthoud waar alles staat",
             "usage": "Kosten, tokens en limieten van je abonnement",
             "remote": "Je machines en je account",
-            "toggleFlag": "De geselecteerde nodes, anders deze weergave"
+            "toggleFlag": "De geselecteerde nodes, anders deze weergave",
+            "nothingWaits": "Niets wacht op je"
         },
         "commands": {
             "openFolder": "Een map als project openen",
@@ -716,6 +717,7 @@
             "restartAgentSession": "Agentsessie herstarten",
             "raiseEffort": "Denkniveau verhogen",
             "lowerEffort": "Denkniveau verlagen",
+            "nextNeedsYou": "Naar wat op je wacht, oudste eerst",
             "makeProject": "Project maken van deze chat",
             "moveToProject": "Deze chat naar een project verplaatsen",
             "addChat": "Nieuwe chat",
@@ -1060,6 +1062,7 @@
         "restartAgentSession": "Agentsessie herstarten",
         "raiseEffort": "Denkniveau verhogen",
         "lowerEffort": "Denkniveau verlagen",
+        "nextNeedsYou": "Volgende die op je wacht",
         "drawingCopyPng": "Kopiëren als PNG",
         "drawingCopySvg": "Kopiëren als SVG",
         "drawingSavePng": "Opslaan als PNG…",

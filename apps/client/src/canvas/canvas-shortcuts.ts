@@ -38,6 +38,7 @@ import { focusedDiagram } from '@/state/diagram';
 import { drawingHasSomethingToClear, focusedDrawing } from '@/state/drawing';
 import { isScratchProject, useProject } from '@/state/project';
 import { commandForKey, type WorkspaceCommandId } from '@/shell/command-table';
+import { revealNextWaiting } from '@/shell/next-waiting';
 import { focusViewRow } from '@/shell/sidebar-focus';
 import { isLeaveNodeShortcut } from '@/terminal/keymap';
 import { transportFor } from '@/transport';
@@ -346,6 +347,12 @@ function answerWindowKey(e: KeyboardEvent, s: CanvasState, is: Matches, command:
     // From anywhere, a terminal included: the point is to answer without first leaving what you type in.
     if (command === 'prompts') {
         if (focusPromptStack()) {
+            e.preventDefault();
+        }
+        return true;
+    }
+    if (command === 'needs-you-next') {
+        if (revealNextWaiting()) {
             e.preventDefault();
         }
         return true;

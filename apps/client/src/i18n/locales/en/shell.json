@@ -578,7 +578,8 @@
             "rememberLayout": "Remember where everything sits",
             "usage": "Cost, tokens and plan limits",
             "remote": "Your machines and your account",
-            "toggleFlag": "The selected nodes, or else this view"
+            "toggleFlag": "The selected nodes, or else this view",
+            "nothingWaits": "Nothing needs you"
         },
         "commands": {
             "openFolder": "Open a folder as a project",
@@ -716,6 +717,7 @@
             "restartAgentSession": "Restart agent session",
             "raiseEffort": "Raise reasoning effort",
             "lowerEffort": "Lower reasoning effort",
+            "nextNeedsYou": "Go to what needs you, oldest first",
             "makeProject": "Make a project from this chat",
             "moveToProject": "Move this chat to a project",
             "addChat": "New chat",
@@ -1060,6 +1062,7 @@
         "restartAgentSession": "Restart Agent Session",
         "raiseEffort": "Raise Reasoning Effort",
         "lowerEffort": "Lower Reasoning Effort",
+        "nextNeedsYou": "Next That Needs You",
         "drawingCopyPng": "Copy as PNG",
         "drawingCopySvg": "Copy as SVG",
         "drawingSavePng": "Save as PNG…",

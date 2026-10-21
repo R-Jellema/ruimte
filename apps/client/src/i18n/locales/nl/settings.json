@@ -645,6 +645,7 @@
         "prompts": {
             "title": "Prompts",
             "answerFront": "De voorste prompt van het canvas beantwoorden",
+            "nextNeedsYou": "Naar wat op je wacht, oudste eerst, daarna de volgende",
             "primary": "Toestaan, Volgende of Antwoorden",
             "previous": "Vorige prompt in de stapel",
             "next": "Volgende prompt in de stapel",

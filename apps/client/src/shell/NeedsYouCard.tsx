@@ -13,6 +13,7 @@ import { useProposals } from '@/state/proposals';
 import { useSecrets } from '@/state/secrets';
 import { endpointKey, useEndpointId } from '@/state/keys';
 import { useSessions } from '@/state/sessions';
+import { useWaitingSince } from '@/state/waiting';
 import { machineTransport } from '@/transport';
 import { chatScopeOf } from '@/transport/chat-scope';
 import { chatClientFor } from '@/transport/connections';
@@ -69,6 +70,7 @@ interface WaitingPrompts {
 function useWaitingPrompts(endpointId: string, node: SidebarNode): WaitingPrompts {
     const key = endpointKey(endpointId, node.id);
     const session = useSessions((state) => (node.kind === 'terminal' ? state.byKey[key] : undefined));
+    const since = useWaitingSince((state) => state.byKey.get(key));
     const local = useEndpointId() === endpointId;
     const [held] = useState(() => node.kind === 'chat' && (chatClientFor(endpointId)?.isMounted(node.id) ?? false));
     const inspects = node.kind === 'chat' && !held;
@@ -129,9 +131,9 @@ function useWaitingPrompts(endpointId: string, node: SidebarNode): WaitingPrompt
             computer,
             secrets,
             proposals,
-            waitingSince: new Map()
+            waitingSince: new Map(since === undefined ? [] : [[key, since]])
         }).prompts;
-    }, [inspects, read, chat, session, computer, secrets, proposals, endpointId, key, node.id, node.kind, node.title, node.provider]);
+    }, [inspects, read, chat, session, since, computer, secrets, proposals, endpointId, key, node.id, node.kind, node.title, node.provider]);
 
     return { prompts, failed: read?.failed ?? false, reread: () => setRevision((before) => before + 1) };
 }

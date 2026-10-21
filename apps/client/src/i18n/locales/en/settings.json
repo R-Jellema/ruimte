@@ -645,6 +645,7 @@
         "prompts": {
             "title": "Prompts",
             "answerFront": "Answer the front prompt of the canvas",
+            "nextNeedsYou": "Go to what needs you, oldest first, then the next",
             "primary": "Allow, Next or Answer",
             "previous": "Previous prompt in the stack",
             "next": "Next prompt in the stack",

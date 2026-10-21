@@ -21,6 +21,7 @@ export const CANVAS_SHORTCUTS = {
     launchRun: shortcut('Mod+Alt+R'),
     launchStop: shortcut('Mod+Alt+.'),
     focusPrompts: shortcut('Mod+Shift+P'),
+    nextNeedsYou: shortcut('Mod+Alt+P'),
     previousTab: shortcut('Ctrl+Shift+Tab'),
     nextTab: shortcut('Ctrl+Tab'),
     moveTabLeft: shortcut('Mod+Alt+Shift+ArrowLeft'),
