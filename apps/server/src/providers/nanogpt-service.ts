@@ -2,7 +2,8 @@ import { appendFile, mkdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { isNotFound, Serializer, writeAtomic } from '@adecore/agents';
-import { apiUsageLine, readNanoGptUsage, type ProbeResult } from '@adecore/agents/usage';
+import { hostUsageLine, type ProbeResult } from '@adecore/agents/usage';
+import { readNanoGptUsage } from '../usage/nanogpt-plan.ts';
 import { ModelCatalog } from '@adecore/agents/providers';
 import { DEFAULT_NANOGPT_SETTINGS, NanoGptSettingsSchema, type NanoGptSettings, type NanoGptStatus } from '@ruimte/contracts';
 import { nanoGptVendorOf } from './nanogpt-vendor.ts';
@@ -136,7 +137,7 @@ export class NanoGptService {
             const at = Date.now();
             const month = new Date(at).toISOString().slice(0, 7);
             const cacheRead = Math.min(call.prompt, call.cached);
-            const line = apiUsageLine({
+            const line = hostUsageLine({
                 at,
                 model: call.model,
                 session: call.session,
