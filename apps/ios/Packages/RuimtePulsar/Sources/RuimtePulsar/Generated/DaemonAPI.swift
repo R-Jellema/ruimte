@@ -333,6 +333,7 @@ public enum WireEvent: String, CaseIterable, Sendable {
     case `usageChanged` = "usage.changed"
     case `usageLimitsChanged` = "usage.limitsChanged"
     case `accountsChanged` = "accounts.changed"
+    case `providerChanged` = "provider.changed"
     case `processesSample` = "processes.sample"
     case `processesAlerts` = "processes.alerts"
     case `computerStatus` = "computer.status"

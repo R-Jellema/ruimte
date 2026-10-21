@@ -13,6 +13,7 @@ import {
     allowsContextCommand,
     copilotProvider,
     createAntigravityProvider,
+    createCopilotProvider,
     createGrokProvider,
     grokAuthMethod,
     grokProvider
@@ -110,6 +111,25 @@ describe('Grok', () => {
         await backend.dispose();
     });
 
+    test('what a chat signed in with the key learns reaches the listed provider and its listeners', async () => {
+        const provider = createGrokProvider();
+        let changes = 0;
+        provider.onChange?.(() => {
+            changes += 1;
+        });
+        const { backend } = run(
+            provider,
+            { authMethod: 'xai.api_key', modes: GROK_SESSION_MODES, commands: ['compact', 'goal'] },
+            { env: { XAI_API_KEY: 'key' } }
+        );
+        await backend.start();
+        expect(provider.capabilities.compaction).toBe('prompt');
+        expect(provider.capabilities.goals).toBe('command');
+        expect(provider.catalog.list().map((model) => model.slug)).toEqual(['fake-small', 'fake-large']);
+        expect(changes).toBeGreaterThan(0);
+        await backend.dispose();
+    });
+
     test('a full-access chat stays in the default session mode', async () => {
         const { backend, methods } = run(grokProvider, { modes: GROK_SESSION_MODES }, { runtimeMode: 'full-access' });
         await backend.start();
@@ -133,6 +153,34 @@ describe('Copilot', () => {
         await backend.start();
         expect(methods).toContain('session/set_mode');
         await backend.dispose();
+    });
+});
+
+describe('a catalog store', () => {
+    test('keeps what a chat reported, so a provider made after a restart offers it before any chat', async () => {
+        let stored: unknown = null;
+        const store = {
+            load: () => stored,
+            save: (value: unknown) => {
+                stored = value;
+            }
+        };
+        const first = createCopilotProvider(store);
+        const { backend } = run(first, { modes: [], commands: ['compact'] });
+        await backend.start();
+        await backend.dispose();
+        const again = createCopilotProvider(store);
+        expect(again.catalog.list().map((model) => model.slug)).toEqual(['fake-small', 'fake-large']);
+        expect(again.catalog.defaultModel).toBe('fake-small');
+        expect(again.capabilities.compaction).toBe('prompt');
+    });
+
+    test('a provider without one starts from its own default model every time', () => {
+        expect(
+            createCopilotProvider()
+                .catalog.list()
+                .map((model) => model.slug)
+        ).toEqual([AGENT_DEFAULT_MODEL]);
     });
 });
 

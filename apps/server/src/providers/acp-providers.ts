@@ -1,5 +1,13 @@
 import type { AcpClientInfo, AcpModeMap, AcpPermissionRequest } from '@adecore/agents/chat';
-import { ModelCatalog, createAcpProvider, isOnlyCommands, type AcpProviderSpec, type ChatProvider, type ProviderHome } from '@adecore/agents/providers';
+import {
+    ModelCatalog,
+    createAcpProvider,
+    isOnlyCommands,
+    type AcpCatalogStore,
+    type AcpProviderSpec,
+    type ChatProvider,
+    type ProviderHome
+} from '@adecore/agents/providers';
 import antigravityRelease from './antigravity-acp-release.json' with { type: 'json' };
 import { parseAcpServerRelease, type AcpServerLaunch } from './acp-server.ts';
 
@@ -92,21 +100,61 @@ const GROK_SPEC: AcpProviderSpec = {
     firstPromptArgs: (prompt) => [prompt]
 };
 
+function storing(catalogStore: AcpCatalogStore | undefined): Pick<AcpProviderSpec, 'catalogStore'> {
+    return catalogStore ? { catalogStore } : {};
+}
+
+/* Lays the capabilities one provider learned over another's, in place, since a host may hold the object itself. */
+function copyCapabilities(target: ChatProvider, source: ChatProvider): void {
+    const capabilities = target.capabilities as unknown as Record<string, unknown>;
+    for (const key of Object.keys(capabilities)) {
+        delete capabilities[key];
+    }
+    Object.assign(capabilities, source.capabilities);
+}
+
 /*
- * Grok's login follows the launch's environment, so each chat's backend comes from a provider made for it.
- * It shares the catalog, so the models a session reports still reach the picker.
+ * Grok's login follows the launch's environment, so a chat runs on the provider of its login: the stored one or the key.
+ * Both share the catalog and the store, and what either learns is laid over the listed one and told to its listeners.
  */
-export function createGrokProvider(): ChatProvider {
-    const spec: AcpProviderSpec = { ...GROK_SPEC, catalog: agentDefaultCatalog() };
+export function createGrokProvider(catalogStore?: AcpCatalogStore): ChatProvider {
+    const catalog = agentDefaultCatalog();
+    const listeners = new Set<() => void>();
+    const byLogin = new Map<string, ChatProvider>();
+    const learned = (source: ChatProvider): void => {
+        if (source !== listed) {
+            copyCapabilities(listed, source);
+        }
+        for (const listener of [...listeners]) {
+            listener();
+        }
+    };
+    const forLogin = (authMethod: string): ChatProvider => {
+        const known = byLogin.get(authMethod);
+        if (known !== undefined) {
+            return known;
+        }
+        const provider = createAcpProvider({ ...GROK_SPEC, catalog, authMethod, ...storing(catalogStore) });
+        provider.onChange?.(() => learned(provider));
+        byLogin.set(authMethod, provider);
+        return provider;
+    };
+    const listed = forLogin(grokAuthMethod({}));
     return {
-        ...createAcpProvider(spec),
-        createBackend: (launch, host) => createAcpProvider({ ...spec, authMethod: grokAuthMethod(launch.env) }).createBackend(launch, host)
+        ...listed,
+        onChange: (listener) => {
+            listeners.add(listener);
+            return () => {
+                listeners.delete(listener);
+            };
+        },
+        createBackend: (launch, host) => forLogin(grokAuthMethod(launch.env)).createBackend(launch, host)
     };
 }
 
 export const grokProvider: ChatProvider = createGrokProvider();
 
-export const copilotProvider: ChatProvider = createAcpProvider({
+const COPILOT_SPEC: AcpProviderSpec = {
     kind: 'copilot',
     name: 'GitHub Copilot',
     command: 'copilot',
@@ -130,7 +178,13 @@ export const copilotProvider: ChatProvider = createAcpProvider({
     },
     // `-p` answers and exits; `-i` runs the prompt and stays.
     firstPromptArgs: (prompt) => ['-i', prompt]
-});
+};
+
+export function createCopilotProvider(catalogStore?: AcpCatalogStore): ChatProvider {
+    return createAcpProvider({ ...COPILOT_SPEC, catalog: agentDefaultCatalog(), ...storing(catalogStore) });
+}
+
+export const copilotProvider: ChatProvider = createCopilotProvider();
 
 /* Google's ACP server for Antigravity, pinned to the release the ACP registry lists (`antigravity-acp`). */
 export const ANTIGRAVITY_ACP_RELEASE = parseAcpServerRelease(antigravityRelease);
@@ -183,8 +237,8 @@ const ANTIGRAVITY_SPEC: AcpProviderSpec = {
 };
 
 /* Antigravity's chat runs on the server a person installed; without one it is listed as not installed and starts nothing. */
-export function createAntigravityProvider(server: AcpServerLaunch | null): ChatProvider {
-    const base = createAcpProvider(ANTIGRAVITY_SPEC);
+export function createAntigravityProvider(server: AcpServerLaunch | null, catalogStore?: AcpCatalogStore): ChatProvider {
+    const base = createAcpProvider({ ...ANTIGRAVITY_SPEC, catalog: agentDefaultCatalog(), ...storing(catalogStore) });
     return {
         ...base,
         get command() {

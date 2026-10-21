@@ -421,6 +421,7 @@
     "usage.changed",
     "usage.limitsChanged",
     "accounts.changed",
+    "provider.changed",
     "processes.sample",
     "processes.alerts",
     "computer.status",

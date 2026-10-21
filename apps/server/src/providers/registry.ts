@@ -4,10 +4,11 @@ import { ProviderRegistry as AgentProviderRegistry } from '@adecore/agents/provi
 import { createAppleProvider, appleProvider } from './apple-provider.ts';
 import { claudeProvider } from './claude-provider.ts';
 import { codexProvider } from './codex-provider.ts';
-import { copilotProvider, createAntigravityProvider, grokProvider } from './acp-providers.ts';
+import { acpCatalogStore } from './acp-catalog-store.ts';
+import { copilotProvider, createAntigravityProvider, createCopilotProvider, createGrokProvider, grokProvider } from './acp-providers.ts';
 import type { AcpServerLaunch } from './acp-server.ts';
 
-// The CLIs the daemon ships with, in the order of `BUILT_IN_KINDS`. A new one is one more value in both.
+// The CLIs the daemon ships with, in the order of `BUILT_IN_KINDS`. A new one is one more value there, here and in `builtInProviders`.
 const BUILT_IN_PROVIDERS: ChatProvider[] = [claudeProvider, codexProvider, createAntigravityProvider(null), copilotProvider, grokProvider];
 
 // Offers nothing, so it answers a kind this version does not know with a provider that starts nothing.
@@ -29,6 +30,21 @@ interface ProviderRegistryOptions {
     detect?: (command: string) => Promise<CliDetection>;
     // Called on every `provider.list`, which is when a newer model catalog is worth asking for.
     onList?: () => void;
+    // Where the ACP agents keep what they reported across a restart; absent keeps it in memory only.
+    home?: string;
+}
+
+/* The providers of one registry; the ACP agents are made for it, so what one learns is kept in its home and reaches its listeners. */
+function builtInProviders(options: ProviderRegistryOptions): ChatProvider[] {
+    const store = (kind: AgentKind) => (options.home === undefined ? undefined : acpCatalogStore(options.home, kind));
+    return [
+        claudeProvider,
+        codexProvider,
+        createAntigravityProvider(options.antigravityServer ?? null, store('antigravity')),
+        createCopilotProvider(store('copilot')),
+        createGrokProvider(store('grok')),
+        createAppleProvider(options.appleEnabled ?? (() => false))
+    ];
 }
 
 /* What the daemon knows about each agent CLI: the chat CLIs, the ones it only starts in a terminal and the local model. */
@@ -37,12 +53,7 @@ export class ProviderRegistry extends AgentProviderRegistry {
 
     constructor(options: ProviderRegistryOptions = {}) {
         super({
-            providers: options.providers ?? [
-                ...BUILT_IN_PROVIDERS.map((provider) =>
-                    provider.kind === 'antigravity' ? createAntigravityProvider(options.antigravityServer ?? null) : provider
-                ),
-                createAppleProvider(options.appleEnabled ?? (() => false))
-            ],
+            providers: options.providers ?? builtInProviders(options),
             ...(options.commands ? { commands: options.commands } : {}),
             ...(options.detect ? { detect: options.detect } : {})
         });
@@ -51,6 +62,11 @@ export class ProviderRegistry extends AgentProviderRegistry {
 
     override list(): Promise<ProviderInfo[]> {
         this.onList?.();
+        return super.list();
+    }
+
+    /* The list as it stands, without the fetches a client's `provider.list` sets off. */
+    current(): Promise<ProviderInfo[]> {
         return super.list();
     }
 

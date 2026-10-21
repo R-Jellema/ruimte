@@ -9,12 +9,15 @@ import type { AgentServers } from '../handlers/agent-servers.ts';
 import { RUIMTE_CODEX_CLIENT } from '../providers/codex-provider.ts';
 import { terminalExecutable } from '../providers/launch.ts';
 import { ModelCatalogFeed } from '../providers/model-catalogs.ts';
+import { ProviderFeed } from '../providers/provider-feed.ts';
 import { ProviderRegistry } from '../providers/registry.ts';
 import type { ServerConfig } from '../config.ts';
 
 /* The agent CLIs of this machine, their accounts and what a person allowed in their settings. */
 export interface ProvidersBundle {
     providers: ProviderRegistry;
+    // The provider list again, to every client, when an agent reported something new about itself.
+    feed: ProviderFeed;
     modelCatalogs: ModelCatalogFeed;
     integrations: AgentIntegrations;
     accounts: ProviderAccountsService;
@@ -37,6 +40,7 @@ export async function wireProviders(
     const providers = new ProviderRegistry({
         appleEnabled: () => identity.appleFoundationEnabled,
         antigravityServer,
+        home: config.home,
         onList: () => {
             void integrations.refreshInstalled();
             void modelCatalogs.refresh();
@@ -80,5 +84,5 @@ export async function wireProviders(
             void integrations.refreshInstalled();
         }
     };
-    return { providers, modelCatalogs, integrations, accounts, servers, nameOfCli: (kind) => providers.get(kind).name };
+    return { providers, feed: new ProviderFeed(providers), modelCatalogs, integrations, accounts, servers, nameOfCli: (kind) => providers.get(kind).name };
 }

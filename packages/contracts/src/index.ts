@@ -834,6 +834,8 @@ export const EVENT_SCHEMAS = {
     'usage.changed': AGENT_EVENT_SCHEMAS['usage.changed'],
     'usage.limitsChanged': AGENT_EVENT_SCHEMAS['usage.limitsChanged'],
     'accounts.changed': AGENT_EVENT_SCHEMAS['accounts.changed'],
+    // The list `provider.list` answers, to every client, whenever an agent reported models or abilities the machine did not know.
+    'provider.changed': AGENT_REQUEST_SCHEMAS['provider.list'].result,
     'processes.sample': ProcessesSampleEventSchema,
     'processes.alerts': ProcessesAlertsSchema,
     'computer.status': ComputerUseStatusSchema,
