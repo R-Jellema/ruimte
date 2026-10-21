@@ -279,6 +279,17 @@ and its device token. `apps/pulsar-worker/APNS.md` has the environments and secr
 - [ ] Native undo after dictating into a prompt answer.
 - [ ] A signed, packaged build downloads the model, dictates and removes the model again.
 
+## Providers from the ACP registry and CLI updates
+
+- [ ] Settings, Providers, Add provider lists the registry's agents for this Mac without a search, and the search narrows
+  them. Install one with a download (goose or OpenCode) and one npm package (Kilo); each opens as a chat and answers.
+- [ ] With the network off, the page shows the last catalog with the reason; on a fresh `RUIMTE_HOME` it says the registry
+  could not be reached and Try again reads it once the network is back.
+- [ ] Remove an installed registry agent; the pane moves to another CLI and the agent is gone from the new chat menu.
+- [ ] The Version section of Copilot (npm under Homebrew's prefix) offers an update when one exists and Update brings it;
+  Claude Code from its own installer shows only its version. A Homebrew formula or cask, if one is installed, says so.
+- [ ] From a remote client the Install, Update and Remove buttons are off and the section says why.
+
 ## Apple Foundation Models
 
 `apps/foundation-models/verification.json` holds the recorded runs.
