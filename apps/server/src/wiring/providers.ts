@@ -1,10 +1,13 @@
 import type { AgentKind } from '@ruimte/contracts';
-import { ProviderAccountsService, detectCli } from '@adecore/agents/providers';
+import { ProviderAccountsService } from '@adecore/agents/providers';
 import { AgentIntegrations } from '../agents/integrations.ts';
 import type { EndpointIdentity } from '../endpoint-id.ts';
 import { RUIMTE_ACCOUNTS_HOST } from '../providers/accounts-host.ts';
 import { ANTIGRAVITY_ACP_RELEASE } from '../providers/acp-providers.ts';
+import { AcpRegistry } from '../providers/acp-registry.ts';
 import { AcpServerInstall } from '../providers/acp-server.ts';
+import { CliVersions, type OwnInstall } from '../providers/cli-versions.ts';
+import { RegistryAgents } from '../providers/registry-agents.ts';
 import type { AgentServers } from '../handlers/agent-servers.ts';
 import { RUIMTE_CODEX_CLIENT } from '../providers/codex-provider.ts';
 import { terminalExecutable } from '../providers/launch.ts';
@@ -26,6 +29,10 @@ export interface ProvidersBundle {
     accounts: ProviderAccountsService;
     // The chat servers a person installs apart from their CLI (Antigravity's).
     servers: AgentServers;
+    // The agents of the ACP registry a person installed, each a provider of its own.
+    registryAgents: RegistryAgents;
+    // How each CLI was installed, its version and an update through that route.
+    versions: CliVersions;
     nameOfCli(kind: AgentKind): string;
 }
 
@@ -65,7 +72,7 @@ export async function wireProviders(
             Object.entries(accounts.snapshot().accounts)
                 .filter(([id, account]) => account.kind === kind && id !== kind && account.home !== undefined)
                 .map(([, account]) => account.home!),
-        installed: async (kind) => (await detectCli(terminalExecutable(kind))).installed
+        installed: async (kind) => (await providers.get(kind).detect(terminalExecutable(kind), process.env)).installed
     });
     await Promise.all([integrations.load(), modelCatalogs.load(), alongside()]);
     void modelCatalogs.refresh();
@@ -89,6 +96,47 @@ export async function wireProviders(
             void integrations.refreshInstalled();
         }
     };
+    const registry = new AcpRegistry({ home: config.home });
+    const registryAgents = new RegistryAgents({ home: config.home, registry, providers });
+    registryAgents.load();
+    const ownInstall = (kind: AgentKind): OwnInstall | null => {
+        if (kind === 'antigravity') {
+            const status = antigravityServer.status();
+            return {
+                version: status.installed,
+                path: antigravityServer.launch()?.[0] ?? null,
+                latest: () => Promise.resolve(ANTIGRAVITY_ACP_RELEASE.version),
+                update: async () => {
+                    const after = await antigravityServer.install();
+                    servers.installed(kind);
+                    if (after.state === 'failed') {
+                        throw new Error(after.error ?? 'The Antigravity server did not install');
+                    }
+                }
+            };
+        }
+        const agent = registryAgents.installed().find((candidate) => candidate.kind === kind);
+        if (agent === undefined) {
+            return null;
+        }
+        return {
+            version: agent.version,
+            path: registryAgents.launch(agent)[0] ?? null,
+            latest: async (refresh) => (await registry.read(refresh)).entries.find((entry) => entry.id === agent.id)?.version ?? null,
+            update: async () => {
+                const after = await registryAgents.install(agent.id);
+                if (after.state === 'failed') {
+                    throw new Error(after.error ?? `${agent.name} did not install`);
+                }
+            }
+        };
+    };
+    const versions = new CliVersions({
+        executables: { claude: 'claude', codex: 'codex', grok: 'grok', copilot: 'copilot' },
+        own: ownInstall,
+        ownKinds: () => ['antigravity', ...registryAgents.installed().map((agent) => agent.kind)],
+        providers
+    });
     // Before the feed listens, so the list it sends reads the new key instead of the cached detection.
     nanogpt.onChange(() => providers.invalidate('nanogpt'));
     return {
@@ -99,6 +147,8 @@ export async function wireProviders(
         integrations,
         accounts,
         servers,
+        registryAgents,
+        versions,
         nameOfCli: (kind) => providers.get(kind).name
     };
 }

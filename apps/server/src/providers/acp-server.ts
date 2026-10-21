@@ -33,7 +33,7 @@ export function parseAcpServerRelease(descriptor: unknown): AcpServerRelease {
 /* Writes the body at the address to the file. The default streams it; tests answer from memory. */
 export type ServerDownload = (url: string, destination: string) => Promise<void>;
 
-const streamDownload: ServerDownload = async (url, destination) => {
+export const downloadFile: ServerDownload = async (url, destination) => {
     const response = await fetch(url, { redirect: 'follow' });
     if (!response.ok) {
         throw new Error(`${url} answered ${response.status}`);
@@ -41,7 +41,7 @@ const streamDownload: ServerDownload = async (url, destination) => {
     await Bun.write(destination, response);
 };
 
-async function sha256OfFile(path: string): Promise<string> {
+export async function sha256OfFile(path: string): Promise<string> {
     const hash = createHash('sha256');
     await pipeline(createReadStream(path), hash);
     return hash.digest('hex');
@@ -86,7 +86,7 @@ export class AcpServerInstall implements AcpServerLaunch {
         this.folder = join(options.home, 'agent-servers', options.provider);
         this.release = options.release;
         this.asset = options.release.assets[`${options.platform ?? process.platform}-${options.arch ?? process.arch}`];
-        this.download = options.download ?? streamDownload;
+        this.download = options.download ?? downloadFile;
     }
 
     launch(): string[] | null {

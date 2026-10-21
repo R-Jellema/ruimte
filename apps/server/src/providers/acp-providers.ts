@@ -6,6 +6,7 @@ import type { AcpClientInfo, AcpModeMap, AcpPermissionRequest } from '@adecore/a
 import {
     ModelCatalog,
     createAcpProvider,
+    detectCli,
     isOnlyCommands,
     type AccountReading,
     type AcpCatalogStore,
@@ -22,7 +23,7 @@ export const RUIMTE_ACP_CLIENT: AcpClientInfo = { name: 'ruimte', title: 'Ruimte
 // The model these CLIs pick themselves; the agent is then left its own choice instead of being told one.
 export const AGENT_DEFAULT_MODEL = 'default';
 
-function agentDefaultCatalog(): ModelCatalog {
+export function agentDefaultCatalog(): ModelCatalog {
     return new ModelCatalog({
         defaultModel: AGENT_DEFAULT_MODEL,
         profiles: { agent: { options: [], contextWindowTokens: {} } },
@@ -30,7 +31,7 @@ function agentDefaultCatalog(): ModelCatalog {
     });
 }
 
-function agentModel(selection: { model: string }): string | null {
+export function agentModel(selection: { model: string }): string | null {
     return selection.model === AGENT_DEFAULT_MODEL ? null : selection.model;
 }
 
@@ -74,6 +75,11 @@ export function grokAuthMethod(env: Record<string, string | undefined>): string 
     return env.XAI_API_KEY ? 'xai.api_key' : 'cached_token';
 }
 
+// A version probe must never be the start that updates the CLI; Grok and Copilot take the flag before anything else.
+function probeWithoutUpdate(command: string, env: Record<string, string | undefined>) {
+    return detectCli(command, env, undefined, ['--no-auto-update']);
+}
+
 const GROK_SPEC: AcpProviderSpec = {
     kind: 'grok',
     name: 'Grok',
@@ -102,6 +108,7 @@ const GROK_SPEC: AcpProviderSpec = {
             { kind: 'env', variable: 'XAI_API_KEY' }
         ]
     },
+    detect: probeWithoutUpdate,
     // An ACP probe leaves a session folder in the account's home every time, so `grok models` answers instead (`askGrokModels`).
     accountProbe: false,
     // Headless Grok refuses every call that would ask, so the default mode keeps a title or a message from writing anything.
@@ -296,6 +303,7 @@ const COPILOT_SPEC: AcpProviderSpec = {
     capabilities: { terminal: true, hooks: true },
     autoAllow: allowsContextCommand,
     resumeCommand: 'copilot {flags} --resume={id}',
+    detect: probeWithoutUpdate,
     install: {
         description: "GitHub's coding agent, in a terminal and in a chat.",
         commands: { darwin: 'npm install -g @github/copilot', linux: 'npm install -g @github/copilot', win32: 'npm install -g @github/copilot' },

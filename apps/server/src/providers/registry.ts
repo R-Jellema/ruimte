@@ -16,6 +16,7 @@ import {
     grokProvider
 } from './acp-providers.ts';
 import type { AcpServerLaunch } from './acp-server.ts';
+import { BUILT_IN_KINDS } from './kinds.ts';
 import { nanoGptProvider } from './nanogpt-provider.ts';
 
 // The CLIs the daemon ships with, in the order of `BUILT_IN_KINDS`. A new one is one more value there, here and in `builtInProviders`.
@@ -27,6 +28,9 @@ const AGY_DETECTION_TTL_MS = 60_000;
 // Offers nothing, so it answers a kind this version does not know with a provider that starts nothing.
 const UNOFFERED = new AgentProviderRegistry({ providers: [] });
 
+// The providers a person installed while the daemon runs (agents of the ACP registry), kept in step by the registry that offers them.
+const ADDED_PROVIDERS = new Map<AgentKind, ChatProvider>();
+
 /* The provider of a kind, for the places that have no registry at hand (the hooks). */
 export function providerFor(kind: AgentKind): ChatProvider {
     if (kind === 'apple') {
@@ -35,7 +39,12 @@ export function providerFor(kind: AgentKind): ChatProvider {
     if (kind === 'nanogpt') {
         return nanoGptProvider;
     }
-    return BUILT_IN_PROVIDERS.find((provider) => provider.kind === kind) ?? UNOFFERED.get(kind);
+    return BUILT_IN_PROVIDERS.find((provider) => provider.kind === kind) ?? ADDED_PROVIDERS.get(kind) ?? UNOFFERED.get(kind);
+}
+
+/* The kinds an agent may name: the CLIs the daemon ships with, then the agents a person installed from the ACP registry. */
+export function offeredAgentKinds(): AgentKind[] {
+    return [...BUILT_IN_KINDS, ...ADDED_PROVIDERS.keys()];
 }
 
 interface ProviderRegistryOptions {
@@ -82,6 +91,19 @@ export class ProviderRegistry extends AgentProviderRegistry {
         });
         this.onList = options.onList ?? null;
         this.probe = options.detect ?? ((command) => detectCli(command));
+    }
+
+    /* A provider a person installed since the start, which `providerFor` answers too while this registry offers it. */
+    override add(provider: ChatProvider): void {
+        super.add(provider);
+        if (!(BUILT_IN_KINDS as readonly string[]).includes(provider.kind)) {
+            ADDED_PROVIDERS.set(provider.kind, provider);
+        }
+    }
+
+    override remove(kind: AgentKind): void {
+        super.remove(kind);
+        ADDED_PROVIDERS.delete(kind);
     }
 
     override list(): Promise<ProviderInfo[]> {

@@ -31551,6 +31551,577 @@
       "server"
     ]
   },
+  "request.provider.registry.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "refresh": {
+        "type": "boolean"
+      }
+    }
+  },
+  "request.provider.registry.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "catalog": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "live",
+              "cached",
+              "unavailable"
+            ]
+          },
+          "fetchedAt": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "platform": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "agents": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32,
+                  "pattern": "^[a-z][a-z0-9-]*$",
+                  "x-open-enum": [
+                    "claude",
+                    "codex",
+                    "gemini",
+                    "copilot",
+                    "apple"
+                  ]
+                },
+                "name": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "website": {
+                  "type": "string"
+                },
+                "repository": {
+                  "type": "string"
+                },
+                "license": {
+                  "type": "string"
+                },
+                "distribution": {
+                  "type": "string",
+                  "enum": [
+                    "binary",
+                    "npm",
+                    "uv"
+                  ]
+                },
+                "checksum": {
+                  "type": "boolean"
+                },
+                "installed": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "missing",
+                    "installing",
+                    "installed",
+                    "failed"
+                  ]
+                },
+                "error": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "name",
+                "version",
+                "description",
+                "distribution",
+                "checksum",
+                "installed",
+                "state"
+              ]
+            }
+          }
+        },
+        "required": [
+          "source",
+          "fetchedAt",
+          "platform",
+          "agents"
+        ]
+      }
+    },
+    "required": [
+      "catalog"
+    ]
+  },
+  "request.provider.installAgent.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required": [
+      "id"
+    ]
+  },
+  "request.provider.installAgent.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "agent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "x-open-enum": [
+              "claude",
+              "codex",
+              "gemini",
+              "copilot",
+              "apple"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "website": {
+            "type": "string"
+          },
+          "repository": {
+            "type": "string"
+          },
+          "license": {
+            "type": "string"
+          },
+          "distribution": {
+            "type": "string",
+            "enum": [
+              "binary",
+              "npm",
+              "uv"
+            ]
+          },
+          "checksum": {
+            "type": "boolean"
+          },
+          "installed": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "installing",
+              "installed",
+              "failed"
+            ]
+          },
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "version",
+          "description",
+          "distribution",
+          "checksum",
+          "installed",
+          "state"
+        ]
+      }
+    },
+    "required": [
+      "agent"
+    ]
+  },
+  "request.provider.removeAgent.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required": [
+      "id"
+    ]
+  },
+  "request.provider.removeAgent.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "agent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "x-open-enum": [
+              "claude",
+              "codex",
+              "gemini",
+              "copilot",
+              "apple"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "website": {
+            "type": "string"
+          },
+          "repository": {
+            "type": "string"
+          },
+          "license": {
+            "type": "string"
+          },
+          "distribution": {
+            "type": "string",
+            "enum": [
+              "binary",
+              "npm",
+              "uv"
+            ]
+          },
+          "checksum": {
+            "type": "boolean"
+          },
+          "installed": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "installing",
+              "installed",
+              "failed"
+            ]
+          },
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "version",
+          "description",
+          "distribution",
+          "checksum",
+          "installed",
+          "state"
+        ]
+      }
+    },
+    "required": [
+      "agent"
+    ]
+  },
+  "request.provider.versions.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "provider": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 32,
+        "pattern": "^[a-z][a-z0-9-]*$",
+        "x-open-enum": [
+          "claude",
+          "codex",
+          "gemini",
+          "copilot",
+          "apple"
+        ]
+      },
+      "refresh": {
+        "type": "boolean"
+      }
+    }
+  },
+  "request.provider.versions.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "versions": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "provider": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32,
+              "pattern": "^[a-z][a-z0-9-]*$",
+              "x-open-enum": [
+                "claude",
+                "codex",
+                "gemini",
+                "copilot",
+                "apple"
+              ]
+            },
+            "method": {
+              "type": "string",
+              "enum": [
+                "homebrew",
+                "homebrew-cask",
+                "npm",
+                "pnpm",
+                "bun",
+                "ruimte",
+                "unknown"
+              ]
+            },
+            "package": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "path": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "version": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "latest": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "updatable": {
+              "type": "boolean"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "idle",
+                "updating",
+                "failed"
+              ]
+            },
+            "error": {
+              "type": "string"
+            },
+            "checkedAt": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "provider",
+            "method",
+            "package",
+            "path",
+            "version",
+            "latest",
+            "updatable",
+            "state",
+            "checkedAt"
+          ]
+        }
+      }
+    },
+    "required": [
+      "versions"
+    ]
+  },
+  "request.provider.update.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "provider": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 32,
+        "pattern": "^[a-z][a-z0-9-]*$",
+        "x-open-enum": [
+          "claude",
+          "codex",
+          "gemini",
+          "copilot",
+          "apple"
+        ]
+      }
+    },
+    "required": [
+      "provider"
+    ]
+  },
+  "request.provider.update.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "version": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "x-open-enum": [
+              "claude",
+              "codex",
+              "gemini",
+              "copilot",
+              "apple"
+            ]
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "homebrew",
+              "homebrew-cask",
+              "npm",
+              "pnpm",
+              "bun",
+              "ruimte",
+              "unknown"
+            ]
+          },
+          "package": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "latest": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updatable": {
+            "type": "boolean"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "idle",
+              "updating",
+              "failed"
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "checkedAt": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "provider",
+          "method",
+          "package",
+          "path",
+          "version",
+          "latest",
+          "updatable",
+          "state",
+          "checkedAt"
+        ]
+      }
+    },
+    "required": [
+      "version"
+    ]
+  },
   "request.accounts.list.payload": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",

@@ -6,6 +6,16 @@ import {
 } from './terminal-prepare.ts';
 export * from './terminal-prepare.ts';
 import { AgentIntegrationSetPayloadSchema, AgentIntegrationSetResultSchema, AgentIntegrationsResultSchema } from './agent-integrations.ts';
+import {
+    CliUpdatePayloadSchema,
+    CliUpdateResultSchema,
+    CliVersionsPayloadSchema,
+    CliVersionsResultSchema,
+    RegistryAgentPayloadSchema,
+    RegistryAgentResultSchema,
+    RegistryCatalogPayloadSchema,
+    RegistryCatalogResultSchema
+} from './agent-registry.ts';
 import { AgentServerPayloadSchema, AgentServerResultSchema } from './agent-server.ts';
 import { AGENT_EVENT_SCHEMAS, AGENT_REQUEST_SCHEMAS, EmptySchema } from '@adecore/agent-contracts/protocol';
 import {
@@ -391,6 +401,7 @@ import { SecretAnswerResultSchema, SecretDeclinePayloadSchema, SecretRequestsSch
 
 export * from './agent.ts';
 export * from './agent-integrations.ts';
+export * from './agent-registry.ts';
 export * from './agent-server.ts';
 export * from './archive.ts';
 export * from './auth.ts';
@@ -578,6 +589,13 @@ export const REQUEST_SCHEMAS = {
     // The chat server of a CLI that ships one apart (Antigravity), and a person's Install of it; the daemon never installs one itself.
     'provider.server': { payload: AgentServerPayloadSchema, result: AgentServerResultSchema },
     'provider.installServer': { payload: AgentServerPayloadSchema, result: AgentServerResultSchema },
+    // The agents of the public ACP registry with a build for this machine, and a person's Install or removal of one; the daemon never installs one itself.
+    'provider.registry': { payload: RegistryCatalogPayloadSchema, result: RegistryCatalogResultSchema },
+    'provider.installAgent': { payload: RegistryAgentPayloadSchema, result: RegistryAgentResultSchema },
+    'provider.removeAgent': { payload: RegistryAgentPayloadSchema, result: RegistryAgentResultSchema },
+    // How each CLI was installed, its version and the newest its route offers, and a person's update through that route.
+    'provider.versions': { payload: CliVersionsPayloadSchema, result: CliVersionsResultSchema },
+    'provider.update': { payload: CliUpdatePayloadSchema, result: CliUpdateResultSchema },
     'accounts.list': AGENT_REQUEST_SCHEMAS['accounts.list'],
     'accounts.save': AGENT_REQUEST_SCHEMAS['accounts.save'],
     'accounts.refresh': AGENT_REQUEST_SCHEMAS['accounts.refresh'],

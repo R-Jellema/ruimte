@@ -26,6 +26,7 @@ import { registerDrawingHandlers } from '../handlers/drawing.ts';
 import { registerFsHandlers } from '../handlers/fs.ts';
 import { registerGitHandlers } from '../handlers/git.ts';
 import { registerLanguageHandlers } from '../handlers/language.ts';
+import { registerAgentRegistryHandlers } from '../handlers/agent-registry.ts';
 import { registerAgentServerHandlers } from '../handlers/agent-servers.ts';
 import { registerProviderDetectHandler } from '../handlers/provider-detect.ts';
 import { registerLaunchHandlers } from '../handlers/launches.ts';
@@ -351,6 +352,7 @@ export function registerEditorHandlers(dispatcher: Dispatcher, input: EditorHand
     const store = projects.store;
     registerLanguageHandlers(dispatcher, language.host);
     registerAgentServerHandlers(dispatcher, providers.servers);
+    registerAgentRegistryHandlers(dispatcher, providers.registryAgents, providers.versions);
     registerProviderDetectHandler(dispatcher, providers.providers, providers.accounts);
     registerOnDeviceHandlers(dispatcher, language.onDevice);
     registerProvenanceHandlers(dispatcher, language.provenance, machine.machineHome);
