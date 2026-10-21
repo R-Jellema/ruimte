@@ -7,20 +7,22 @@ import { errorText } from '../error-text.ts';
 import {
     CODEX_RULES,
     HookFileRefused,
+    antigravitySettingsPathIn,
     codexRulesPathIn,
+    hasAntigravityRules,
     defaultConfigFolder,
+    holdsOurHook,
     hookPathIn,
     installInFolder,
-    isOurs,
     isRecord,
     type FolderInstall
 } from './install.ts';
-import { revokeCodexRules, revokeHooks, type LedgerEntry } from './revoke.ts';
+import { revokeAntigravityRules, revokeCodexRules, revokeHooks, type LedgerEntry } from './revoke.ts';
 
 export const AGENT_INTEGRATIONS_FILE = 'agent-integrations.json';
 
 /* The CLIs whose global settings the daemon can wire. */
-export const INTEGRATION_KINDS = ['claude', 'codex'] as const satisfies readonly AgentKind[];
+export const INTEGRATION_KINDS = ['claude', 'codex', 'antigravity', 'copilot', 'grok'] as const satisfies readonly AgentKind[];
 
 export function isIntegrationKind(kind: string): kind is (typeof INTEGRATION_KINDS)[number] {
     return (INTEGRATION_KINDS as readonly string[]).includes(kind);
@@ -51,6 +53,8 @@ export interface AgentIntegrationsOptions {
     env?: Record<string, string | undefined>;
     // The config folders of the accounts of a kind besides the default one; asked lazily, since accounts load after this.
     accountHomes: (kind: AgentKind) => string[];
+    // Whether a CLI is on the machine; one that is not is left out of the summary, so nobody is asked about it. Absent counts all.
+    installed?: (kind: AgentKind) => Promise<boolean>;
 }
 
 function unset(): ProviderState {
@@ -77,16 +81,10 @@ async function jsonOrNull(path: string): Promise<unknown> {
     }
 }
 
-function hasOurHook(config: unknown): boolean {
-    if (!isRecord(config) || !isRecord(config.hooks)) {
-        return false;
+async function hasOurRules(kind: AgentKind, path: string): Promise<boolean> {
+    if (kind === 'antigravity') {
+        return hasAntigravityRules(await jsonOrNull(path));
     }
-    return Object.values(config.hooks).some(
-        (groups) => Array.isArray(groups) && groups.some((group) => isRecord(group) && Array.isArray(group.hooks) && group.hooks.some(isOurs))
-    );
-}
-
-async function hasOurRules(path: string): Promise<boolean> {
     return (await readFile(path, 'utf8').catch(() => null)) === CODEX_RULES;
 }
 
@@ -100,6 +98,10 @@ export class AgentIntegrations {
     private readonly fixed: boolean;
     private readonly env: Record<string, string | undefined>;
     private readonly accountHomes: (kind: AgentKind) => string[];
+    private readonly installed: ((kind: AgentKind) => Promise<boolean>) | null;
+    // The kinds found on the machine at the last look; none until the first one.
+    private present: ReadonlySet<string> = new Set();
+    private looking: Promise<void> | null = null;
     private readonly queue = new Serializer();
     private readonly listeners = new Set<() => void>();
     private providers: Record<string, ProviderState> = {};
@@ -111,6 +113,7 @@ export class AgentIntegrations {
         this.fixed = options.fixed;
         this.env = options.env ?? process.env;
         this.accountHomes = options.accountHomes;
+        this.installed = options.installed ?? null;
     }
 
     /* Reads the choice, or on a home without one works it out from what the CLIs' folders hold and writes it. */
@@ -160,9 +163,33 @@ export class AgentIntegrations {
 
     summary(): AgentIntegrationsSummary {
         return {
-            providers: INTEGRATION_KINDS.map((kind) => ({ provider: kind, state: this.stateOf(kind).state, reviewed: this.stateOf(kind).reviewed })),
+            providers: INTEGRATION_KINDS.filter((kind) => this.installed === null || this.present.has(kind)).map((kind) => ({
+                provider: kind,
+                state: this.stateOf(kind).state,
+                reviewed: this.stateOf(kind).reviewed
+            })),
             fixed: this.fixed
         };
+    }
+
+    /* Looks again which CLIs are on the machine, and tells the listeners when that changed what a person is asked. */
+    refreshInstalled(): Promise<void> {
+        const installed = this.installed;
+        if (installed === null) {
+            return Promise.resolve();
+        }
+        this.looking ??= (async () => {
+            const found = await Promise.all(INTEGRATION_KINDS.map(async (kind) => ((await installed(kind).catch(() => false)) ? [kind] : [])));
+            const next = new Set<string>(found.flat());
+            const same = next.size === this.present.size && [...next].every((kind) => this.present.has(kind));
+            this.present = next;
+            if (!same) {
+                this.changed();
+            }
+        })().finally(() => {
+            this.looking = null;
+        });
+        return this.looking;
     }
 
     allows(kind: AgentKind): boolean {
@@ -239,7 +266,8 @@ export class AgentIntegrations {
                         () => true,
                         () => false
                     );
-                    const ours = present && (target.kind === 'rules' ? await hasOurRules(target.path) : hasOurHook(await jsonOrNull(target.path)));
+                    const ours =
+                        present && (target.kind === 'rules' ? await hasOurRules(kind, target.path) : holdsOurHook(await jsonOrNull(target.path), kind));
                     files.push({ provider: kind, path: target.path, kind: target.kind, present, ours });
                 }
             }
@@ -265,10 +293,11 @@ export class AgentIntegrations {
 
     private targetsIn(kind: AgentKind, folder: string): { path: string; kind: 'hooks' | 'rules' }[] {
         const hooks = hookPathIn(kind, folder);
-        if (hooks === null) {
-            return [];
-        }
-        return [{ path: hooks, kind: 'hooks' }, ...(kind === 'codex' ? [{ path: codexRulesPathIn(folder), kind: 'rules' as const }] : [])];
+        return [
+            ...(kind === 'antigravity' ? [{ path: antigravitySettingsPathIn(folder), kind: 'rules' as const }] : []),
+            ...(hooks === null ? [] : [{ path: hooks, kind: 'hooks' as const }]),
+            ...(kind === 'codex' ? [{ path: codexRulesPathIn(folder), kind: 'rules' as const }] : [])
+        ];
     }
 
     /* Whether the CLI's default folder already holds something of Ruimte's, which is how an earlier release left it. */
@@ -278,10 +307,13 @@ export class AgentIntegrations {
             return false;
         }
         const hooks = hookPathIn(kind, folder);
-        if (hooks !== null && hasOurHook(await jsonOrNull(hooks))) {
+        if (hooks !== null && holdsOurHook(await jsonOrNull(hooks), kind)) {
             return true;
         }
-        return kind === 'codex' && (await hasOurRules(codexRulesPathIn(folder)));
+        if (kind === 'antigravity') {
+            return await hasOurRules(kind, antigravitySettingsPathIn(folder));
+        }
+        return kind === 'codex' && (await hasOurRules(kind, codexRulesPathIn(folder)));
     }
 
     private async installEverywhere(kind: AgentKind): Promise<AgentIntegrationReport[]> {
@@ -297,8 +329,8 @@ export class AgentIntegrations {
         try {
             installs = await installInFolder(kind, folder);
         } catch (e) {
-            const hooks = hookPathIn(kind, folder) ?? folder;
-            return [{ path: hooks, kind: 'hooks', outcome: e instanceof HookFileRefused ? 'refused' : 'failed', message: errorText(e) }];
+            const target = this.targetsIn(kind, folder)[0] ?? { path: folder, kind: 'hooks' };
+            return [{ path: target.path, kind: target.kind, outcome: e instanceof HookFileRefused ? 'refused' : 'failed', message: errorText(e) }];
         }
         for (const install of installs) {
             this.remember(kind, install);
@@ -337,10 +369,17 @@ export class AgentIntegrations {
         const reports: AgentIntegrationReport[] = [];
         for (const [key, target] of targets) {
             const entry: LedgerEntry = ledger.get(key) ?? { createdFile: false, createdHooksKey: false };
-            reports.push(target.kind === 'rules' ? await revokeCodexRules(target.path) : await revokeHooks(target.path, kind, entry));
+            reports.push(await this.revokeTarget(kind, target, entry));
         }
         this.providers[kind] = { ...this.stateOf(kind), written: [] };
         return reports;
+    }
+
+    private revokeTarget(kind: AgentKind, target: { path: string; kind: 'hooks' | 'rules' }, entry: LedgerEntry): Promise<AgentIntegrationReport> {
+        if (target.kind === 'hooks') {
+            return revokeHooks(target.path, kind, entry);
+        }
+        return kind === 'antigravity' ? revokeAntigravityRules(target.path, entry) : revokeCodexRules(target.path);
     }
 
     private async persist(): Promise<void> {

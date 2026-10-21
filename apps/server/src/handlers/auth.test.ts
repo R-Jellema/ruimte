@@ -81,9 +81,11 @@ beforeEach(async () => {
         home,
         fixed: false,
         env: { HOME: join(home, 'user'), CLAUDE_CONFIG_DIR: join(home, 'claude'), CODEX_HOME: join(home, 'codex') },
-        accountHomes: () => []
+        accountHomes: () => [],
+        installed: async (kind) => kind !== 'antigravity'
     });
     await integrations.load();
+    await integrations.refreshInstalled();
     peerKey = new PeerKey(home);
     registerAuthHandlers(dispatcher, store, {
         identity,
@@ -709,7 +711,9 @@ describe('auth handlers', () => {
                     fixed: false,
                     providers: [
                         { provider: 'claude', state: 'unset' },
-                        { provider: 'codex', state: 'unset' }
+                        { provider: 'codex', state: 'unset' },
+                        { provider: 'copilot', state: 'unset' },
+                        { provider: 'grok', state: 'unset' }
                     ]
                 }
             }
@@ -730,7 +734,9 @@ describe('auth handlers', () => {
                 summary: {
                     providers: [
                         { provider: 'claude', state: 'on', reviewed: true },
-                        { provider: 'codex', state: 'unset', reviewed: false }
+                        { provider: 'codex', state: 'unset', reviewed: false },
+                        { provider: 'copilot', state: 'unset', reviewed: false },
+                        { provider: 'grok', state: 'unset', reviewed: false }
                     ]
                 }
             }
@@ -741,8 +747,8 @@ describe('auth handlers', () => {
         });
     });
 
-    test('a provider without hooks is unknown', async () => {
-        expect(await ask(LOCAL, 'endpoint.setAgentIntegration', { provider: 'antigravity', on: true })).toMatchObject({
+    test('a provider whose settings Ruimte does not write is unknown', async () => {
+        expect(await ask(LOCAL, 'endpoint.setAgentIntegration', { provider: 'apple', on: true })).toMatchObject({
             ok: false,
             error: { code: 'unknown-provider' }
         });

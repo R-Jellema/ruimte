@@ -573,6 +573,8 @@ export const REQUEST_SCHEMAS = {
     'chat.proposalDecline': { payload: ProjectProposalDeclinePayloadSchema, result: ProjectProposalDeclineResultSchema },
     'skills.list': AGENT_REQUEST_SCHEMAS['skills.list'],
     'provider.list': AGENT_REQUEST_SCHEMAS['provider.list'],
+    // The same list after the machine looked for its CLIs again, at most once every ten seconds; what a person coming back asks.
+    'provider.detect': AGENT_REQUEST_SCHEMAS['provider.list'],
     // The chat server of a CLI that ships one apart (Antigravity), and a person's Install of it; the daemon never installs one itself.
     'provider.server': { payload: AgentServerPayloadSchema, result: AgentServerResultSchema },
     'provider.installServer': { payload: AgentServerPayloadSchema, result: AgentServerResultSchema },
@@ -836,6 +838,8 @@ export const EVENT_SCHEMAS = {
     'usage.changed': AGENT_EVENT_SCHEMAS['usage.changed'],
     'usage.limitsChanged': AGENT_EVENT_SCHEMAS['usage.limitsChanged'],
     'accounts.changed': AGENT_EVENT_SCHEMAS['accounts.changed'],
+    // The list `provider.list` answers, to every client, whenever an agent reported models or abilities the machine did not know.
+    'provider.changed': AGENT_REQUEST_SCHEMAS['provider.list'].result,
     'processes.sample': ProcessesSampleEventSchema,
     'processes.alerts': ProcessesAlertsSchema,
     'computer.status': ComputerUseStatusSchema,

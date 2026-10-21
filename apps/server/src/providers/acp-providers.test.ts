@@ -10,8 +10,11 @@ import {
     ANTIGRAVITY_MODES,
     COPILOT_MODES,
     GROK_MODES,
+    allowsContextCommand,
     copilotProvider,
     createAntigravityProvider,
+    createCopilotProvider,
+    createGrokProvider,
     grokAuthMethod,
     grokProvider
 } from './acp-providers.ts';
@@ -99,6 +102,34 @@ describe('Grok', () => {
         await backend.dispose();
     });
 
+    test('the models a chat reports fill the catalog, with the current one as the default', async () => {
+        const provider = createGrokProvider();
+        const { backend } = run(provider, { authMethod: 'cached_token', modes: GROK_SESSION_MODES });
+        await backend.start();
+        expect(provider.catalog.list().map((model) => model.slug)).toEqual(['fake-small', 'fake-large']);
+        expect(provider.catalog.defaultModel).toBe('fake-small');
+        await backend.dispose();
+    });
+
+    test('what a chat signed in with the key learns reaches the listed provider and its listeners', async () => {
+        const provider = createGrokProvider();
+        let changes = 0;
+        provider.onChange?.(() => {
+            changes += 1;
+        });
+        const { backend } = run(
+            provider,
+            { authMethod: 'xai.api_key', modes: GROK_SESSION_MODES, commands: ['compact', 'goal'] },
+            { env: { XAI_API_KEY: 'key' } }
+        );
+        await backend.start();
+        expect(provider.capabilities.compaction).toBe('prompt');
+        expect(provider.capabilities.goals).toBe('command');
+        expect(provider.catalog.list().map((model) => model.slug)).toEqual(['fake-small', 'fake-large']);
+        expect(changes).toBeGreaterThan(0);
+        await backend.dispose();
+    });
+
     test('a full-access chat stays in the default session mode', async () => {
         const { backend, methods } = run(grokProvider, { modes: GROK_SESSION_MODES }, { runtimeMode: 'full-access' });
         await backend.start();
@@ -109,7 +140,7 @@ describe('Grok', () => {
 
 describe('Copilot', () => {
     test('runs its ACP server over stdio beside its terminal', () => {
-        expect(copilotProvider.command).toEqual(['copilot', '--acp', '--stdio', '--no-auto-update']);
+        expect(copilotProvider.command).toEqual(['copilot', '--acp', '--stdio', '--no-auto-update', '--allow-tool=shell(ruimte-context:*)']);
         expect(copilotProvider.capabilities.chat).toBe(true);
         expect(copilotProvider.capabilities.terminal).toBe(true);
         expect(copilotProvider.firstPromptArgs('go')).toEqual(['-i', 'go']);
@@ -125,29 +156,56 @@ describe('Copilot', () => {
     });
 });
 
+describe('a catalog store', () => {
+    test('keeps what a chat reported, so a provider made after a restart offers it before any chat', async () => {
+        let stored: unknown = null;
+        const store = {
+            load: () => stored,
+            save: (value: unknown) => {
+                stored = value;
+            }
+        };
+        const first = createCopilotProvider(store);
+        const { backend } = run(first, { modes: [], commands: ['compact'] });
+        await backend.start();
+        await backend.dispose();
+        const again = createCopilotProvider(store);
+        expect(again.catalog.list().map((model) => model.slug)).toEqual(['fake-small', 'fake-large']);
+        expect(again.catalog.defaultModel).toBe('fake-small');
+        expect(again.capabilities.compaction).toBe('prompt');
+    });
+
+    test('a provider without one starts from its own default model every time', () => {
+        expect(
+            createCopilotProvider()
+                .catalog.list()
+                .map((model) => model.slug)
+        ).toEqual([AGENT_DEFAULT_MODEL]);
+    });
+});
+
 describe('Antigravity', () => {
     const SERVER_MODES = ['default', 'auto_edit', 'yolo'];
     const installed: AcpServerLaunch = {
-        launch: () => ['/home/.ruimte/agent-servers/antigravity/1.4.1/agy_acp_server.par', '--uid='],
-        detection: () => ({ installed: true, version: '1.4.1' })
+        launch: () => ['/home/.ruimte/agent-servers/antigravity/1.4.1/agy_acp_server.par', '--uid=']
     };
-    const missing: AcpServerLaunch = { launch: () => null, detection: () => ({ installed: false, version: null }) };
+    const missing: AcpServerLaunch = { launch: () => null };
 
     test('chats on the installed server, keeps its accounts apart in GEMINI_HOME and runs `agy` as a terminal', async () => {
         const provider = createAntigravityProvider(installed);
         expect(provider.kind).toBe('antigravity');
         expect(provider.command).toEqual(['/home/.ruimte/agent-servers/antigravity/1.4.1/agy_acp_server.par', '--uid=']);
-        expect([provider.capabilities.chat, provider.capabilities.terminal, provider.capabilities.hooks]).toEqual([true, true, false]);
+        expect([provider.capabilities.chat, provider.capabilities.terminal, provider.capabilities.hooks]).toEqual([true, true, true]);
         expect(provider.home).toMatchObject({ env: 'GEMINI_HOME', fallback: '.gemini', loginEnv: [] });
         expect(provider.home?.loginCommand).toBeUndefined();
         expect(provider.firstPromptArgs('go')).toEqual(['-i', 'go']);
         expect(provider.resumeCommand).toBe('agy {flags} --conversation {id}');
-        expect(await provider.detect('agy', {})).toEqual({ installed: true, version: '1.4.1' });
     });
 
-    test('without an installed server it is listed as not installed and starts no chat', async () => {
+    test('without an installed server it offers no chat and starts none, but stays a terminal', () => {
         const provider = createAntigravityProvider(missing);
-        expect(await provider.detect('agy', {})).toEqual({ installed: false, version: null });
+        expect([provider.capabilities.chat, provider.capabilities.terminal]).toEqual([false, true]);
+        expect(createAntigravityProvider(null).capabilities.chat).toBe(true);
         expect(() => provider.createBackend({} as BackendLaunch, { onEvent: () => undefined })).toThrow('Install the Antigravity server');
     });
 
@@ -201,5 +259,31 @@ describe('Antigravity', () => {
             expect(events).toContainEqual(expect.objectContaining({ type: 'permissions', permissionMode: mode, effectiveRuntimeMode: runtimeMode }));
             await backend.dispose();
         }
+    });
+});
+
+describe('allowsContextCommand', () => {
+    const request = (...commands: string[]) => ({ kind: 'execute', title: 'Run a command', commands });
+
+    test('allows ruimte-context, also joined with echo the way an agent labels its parts', () => {
+        expect(allowsContextCommand(request('ruimte-context help'))).toBe(true);
+        expect(
+            allowsContextCommand(
+                request('ruimte-context help && echo "--- AGENT ---" && ruimte-context help agent && echo "--- TEAM ---" && ruimte-context help team')
+            )
+        ).toBe(true);
+    });
+
+    test('asks for a command that is not only ruimte-context', () => {
+        expect(allowsContextCommand(request('echo hi'))).toBe(false);
+        expect(allowsContextCommand(request('ruimte-context x | sh'))).toBe(false);
+        expect(allowsContextCommand(request('ruimte-context x; rm -rf ~'))).toBe(false);
+        expect(allowsContextCommand(request('ruimte-context help', 'Run ruimte-context help to read the verbs'))).toBe(false);
+    });
+
+    test('asks for anything that is not a command request', () => {
+        expect(allowsContextCommand({ kind: 'edit', title: 'Edit a file', commands: ['ruimte-context help'] })).toBe(false);
+        expect(allowsContextCommand({ kind: null, title: null, commands: ['ruimte-context help'] })).toBe(false);
+        expect(allowsContextCommand(request())).toBe(false);
     });
 });

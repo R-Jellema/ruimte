@@ -11,6 +11,7 @@ import { searchFiles } from '@/chat/file-search';
 import { RUIMTE_COMMAND_LOOKS } from '@/chat/ruimte-command-look';
 import { openLogin } from '@/chat/login';
 import { openForkDialog } from '@/chat/open-fork';
+import { useMachinePlatform } from '@/chat/machine-platform';
 import { gitStatusConcernsChat } from '@/chat/ui-refresh';
 import { useMapSource } from '@/chat/use-map-source';
 import { visualHostFor } from '@/chat/visuals';
@@ -80,10 +81,8 @@ function requireTransport(endpointId: string): Transport {
 }
 
 /*
- * The marks of the CLIs the shared `AgentIcon` has none for. Grok's is a ring crossed by a slash, drawn here
- * because no icon set this app takes carries it; its slash runs the ring's way round, so the nonzero fill keeps
- * the crossing solid. Antigravity's is the one Google lists in the ACP registry
- * (agentclientprotocol/registry, `antigravity-acp/icon.svg`).
+ * The marks of the CLIs the shared `AgentIcon` has none for. Grok's is the xAI logo. Antigravity's is the one
+ * Google lists in the ACP registry (agentclientprotocol/registry, `antigravity-acp/icon.svg`).
  */
 const AGENT_MARKS: Partial<Record<AgentKind, AgentMark>> = {
     antigravity: {
@@ -93,7 +92,7 @@ const AGENT_MARKS: Partial<Record<AgentKind, AgentMark>> = {
     },
     grok: {
         title: 'Grok',
-        path: 'M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 1 0 0-17Zm0 2a6.5 6.5 0 1 1 0 13 6.5 6.5 0 1 1 0-13ZM2.6 20 4 21.4 21.4 4 20 2.6Z'
+        path: 'M6.469 8.776 16.512 23h-4.464L2.005 8.776H6.47Zm-.004 7.9 2.233 3.164L6.467 23H2l4.465-6.324ZM22 2.582V23h-3.659V7.764L22 2.582ZM22 1l-9.952 14.095-2.233-3.163L17.533 1H22Z'
     }
 };
 
@@ -247,6 +246,10 @@ export const CHAT_HOST: Partial<ChatHost> = {
     fork: openForkDialog,
     openSettings: (section) => useUi.getState().setSettings({ open: true, section }),
     useMachineLabel: (endpointId) => useEndpoints((s) => s.endpoints.find((endpoint) => endpoint.id === endpointId)?.label ?? null),
+    // A shell of its own over the settings, so it works with no project open; the command waits for the person's Enter.
+    runProviderCommand: (endpointId, kind, command) => useUi.getState().setProviderCommand({ endpointId, kind, command }),
+    useMachinePlatform,
+    providerKeyNote: () => i18next.t('settings:providers.keyNote'),
     useResumeAtReset: (endpointId) => useServers((s) => s.byEndpoint[endpointId]?.resumeAtReset === true),
     // A chat on screen belongs to the project the window shows, and the Chats project shows none of its folders.
     useHidesFolder: () => useProject((s) => isScratchProject(s.current)),

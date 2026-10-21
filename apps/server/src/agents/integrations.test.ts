@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, sep } from 'node:path';
+import { dirname, join, sep } from 'node:path';
 import { AgentIntegrations, IntegrationsFixed } from './integrations.ts';
-import { CODEX_RULES, hookEntry, installHooks } from './install.ts';
+import { ANTIGRAVITY_RULES, CODEX_RULES, hookEntry, installHooks } from './install.ts';
 
 let root: string;
 let home: string;
@@ -35,7 +35,7 @@ beforeEach(async () => {
     root = await mkdtemp(join(tmpdir(), 'ruimte-integrations-'));
     home = join(root, 'ruimte-home');
     await mkdir(home);
-    env = { HOME: join(root, 'user'), CLAUDE_CONFIG_DIR: join(root, 'claude'), CODEX_HOME: join(root, 'codex') };
+    env = { HOME: join(root, 'user'), CLAUDE_CONFIG_DIR: join(root, 'claude'), CODEX_HOME: join(root, 'codex'), GEMINI_HOME: join(root, 'gemini') };
     accountHomes = [];
     await mkdir(env.CLAUDE_CONFIG_DIR!);
     await mkdir(env.CODEX_HOME!);
@@ -55,7 +55,10 @@ describe('AgentIntegrations', () => {
         expect(fresh.summary()).toEqual({
             providers: [
                 { provider: 'claude', state: 'unset', reviewed: false },
-                { provider: 'codex', state: 'unset', reviewed: false }
+                { provider: 'codex', state: 'unset', reviewed: false },
+                { provider: 'antigravity', state: 'unset', reviewed: false },
+                { provider: 'copilot', state: 'unset', reviewed: false },
+                { provider: 'grok', state: 'unset', reviewed: false }
             ],
             fixed: false
         });
@@ -70,7 +73,10 @@ describe('AgentIntegrations', () => {
 
         expect(migrated.summary().providers).toEqual([
             { provider: 'claude', state: 'on', reviewed: false },
-            { provider: 'codex', state: 'unset', reviewed: false }
+            { provider: 'codex', state: 'unset', reviewed: false },
+            { provider: 'antigravity', state: 'unset', reviewed: false },
+            { provider: 'copilot', state: 'unset', reviewed: false },
+            { provider: 'grok', state: 'unset', reviewed: false }
         ]);
         expect(migrated.allows('claude')).toBe(true);
         expect(migrated.allows('codex')).toBe(false);
@@ -85,7 +91,10 @@ describe('AgentIntegrations', () => {
 
         expect(subject.summary().providers).toEqual([
             { provider: 'claude', state: 'unset', reviewed: false },
-            { provider: 'codex', state: 'unset', reviewed: false }
+            { provider: 'codex', state: 'unset', reviewed: false },
+            { provider: 'antigravity', state: 'unset', reviewed: false },
+            { provider: 'copilot', state: 'unset', reviewed: false },
+            { provider: 'grok', state: 'unset', reviewed: false }
         ]);
         const files = await readdir(home);
         const aside = files.find((name) => name.startsWith('agent-integrations.json.corrupt-'));
@@ -152,7 +161,7 @@ describe('AgentIntegrations', () => {
         const config = JSON.parse(await readFile(settingsPath(), 'utf8'));
         for (const groups of Object.values(config.hooks) as { hooks: { timeout: number }[] }[][]) {
             for (const group of groups) {
-                group.hooks[0]!.timeout = hookEntry('claude').timeout + 20;
+                group.hooks[0]!.timeout = Number(hookEntry('claude').timeout) + 20;
             }
         }
         await writeFile(settingsPath(), JSON.stringify(config));
@@ -189,6 +198,138 @@ describe('AgentIntegrations', () => {
             { path: rules, kind: 'rules', outcome: 'kept-edited' }
         ]);
         expect(await exists(rules)).toBe(true);
+    });
+
+    test("Antigravity's rule joins a person's settings and leaves with only Ruimte's entries", async () => {
+        const settings = join(env.GEMINI_HOME!, 'antigravity-cli', 'settings.json');
+        await mkdir(dirname(settings), { recursive: true });
+        await writeFile(settings, JSON.stringify({ theme: 'dark', permissions: { allow: ['command(git)'], deny: ['command(sudo)'] } }));
+        const subject = integrations();
+        await subject.load();
+
+        const on = await subject.set('antigravity', true);
+        const again = await subject.set('antigravity', true);
+
+        const hooks = join(env.GEMINI_HOME!, 'config', 'hooks.json');
+        expect(on).toEqual([
+            { path: settings, kind: 'rules', outcome: 'written' },
+            { path: hooks, kind: 'hooks', outcome: 'written' }
+        ]);
+        expect(again).toEqual([
+            { path: settings, kind: 'rules', outcome: 'unchanged' },
+            { path: hooks, kind: 'hooks', outcome: 'unchanged' }
+        ]);
+        expect(JSON.parse(await readFile(settings, 'utf8'))).toEqual({
+            theme: 'dark',
+            permissions: { allow: ['command(git)', ...ANTIGRAVITY_RULES], deny: ['command(sudo)'] }
+        });
+        expect(await subject.files()).toContainEqual({ provider: 'antigravity', path: settings, kind: 'rules', present: true, ours: true });
+
+        const off = await subject.set('antigravity', false);
+
+        expect(off).toEqual([
+            { path: settings, kind: 'rules', outcome: 'removed' },
+            { path: hooks, kind: 'hooks', outcome: 'deleted' }
+        ]);
+        expect(await exists(hooks)).toBe(false);
+        expect(JSON.parse(await readFile(settings, 'utf8'))).toEqual({
+            theme: 'dark',
+            permissions: { allow: ['command(git)'], deny: ['command(sudo)'] }
+        });
+    });
+
+    test('an Antigravity settings file Ruimte created goes back to absent', async () => {
+        const settings = join(env.GEMINI_HOME!, 'antigravity-cli', 'settings.json');
+        const subject = integrations();
+        await subject.load();
+
+        await subject.set('antigravity', true);
+        expect(JSON.parse(await readFile(settings, 'utf8'))).toEqual({ permissions: { allow: [...ANTIGRAVITY_RULES] } });
+        const off = await subject.set('antigravity', false);
+
+        expect(off).toEqual([
+            { path: settings, kind: 'rules', outcome: 'deleted' },
+            { path: join(env.GEMINI_HOME!, 'config', 'hooks.json'), kind: 'hooks', outcome: 'deleted' }
+        ]);
+        expect(await exists(settings)).toBe(false);
+    });
+
+    test("Antigravity's hook joins a person's hooks under a name of its own, and an edited one stays", async () => {
+        const hooks = join(env.GEMINI_HOME!, 'config', 'hooks.json');
+        await mkdir(dirname(hooks), { recursive: true });
+        const theirs = { PostToolUse: [{ matcher: 'run_command', hooks: [{ type: 'command', command: './lint.sh' }] }] };
+        await writeFile(hooks, JSON.stringify({ lint: theirs }));
+        const subject = integrations();
+        await subject.load();
+
+        await subject.set('antigravity', true);
+        const written = JSON.parse(await readFile(hooks, 'utf8')) as Record<string, { Stop: Array<Record<string, unknown>> }>;
+        expect(written.lint).toEqual(theirs as never);
+        written.ruimte!.Stop[0]!.timeout = 30;
+        await writeFile(hooks, JSON.stringify(written));
+
+        const off = await subject.set('antigravity', false);
+        expect(off).toContainEqual({ path: hooks, kind: 'hooks', outcome: 'kept-edited' });
+        expect(Object.keys(JSON.parse(await readFile(hooks, 'utf8')))).toEqual(['lint', 'ruimte']);
+    });
+
+    test("Grok and Copilot get a hooks file of Ruimte's own, which goes back to absent", async () => {
+        const subject = integrations();
+        await subject.load();
+        const grok = join(env.HOME!, '.grok', 'hooks', 'ruimte.json');
+        const copilot = join(env.HOME!, '.copilot', 'hooks', 'ruimte.json');
+
+        expect(await subject.set('grok', true)).toEqual([{ path: grok, kind: 'hooks', outcome: 'written' }]);
+        expect(await subject.set('copilot', true)).toEqual([{ path: copilot, kind: 'hooks', outcome: 'written' }]);
+        expect(await subject.files()).toContainEqual({ provider: 'copilot', path: copilot, kind: 'hooks', present: true, ours: true });
+
+        expect(await subject.set('grok', false)).toEqual([{ path: grok, kind: 'hooks', outcome: 'deleted' }]);
+        expect(await subject.set('copilot', false)).toEqual([{ path: copilot, kind: 'hooks', outcome: 'deleted' }]);
+        expect([await exists(grok), await exists(copilot)]).toEqual([false, false]);
+    });
+
+    test('a Grok home that already has the hooks counts as on, in GROK_HOME', async () => {
+        env.GROK_HOME = join(root, 'grok');
+        await installHooks(join(env.GROK_HOME, 'hooks', 'ruimte.json'), 'grok');
+
+        const migrated = integrations();
+        await migrated.load();
+
+        expect(migrated.allows('grok')).toBe(true);
+        expect(migrated.allows('copilot')).toBe(false);
+    });
+
+    test('an Antigravity settings file whose permissions are not the shape agy reads is left alone', async () => {
+        const settings = join(env.GEMINI_HOME!, 'antigravity-cli', 'settings.json');
+        await mkdir(dirname(settings), { recursive: true });
+        await writeFile(settings, '{"permissions":{"allow":"command(*)"}}');
+        const subject = integrations();
+        await subject.load();
+
+        const reports = await subject.set('antigravity', true);
+
+        expect(reports.map((report) => [report.kind, report.outcome])).toEqual([['rules', 'refused']]);
+        expect(await readFile(settings, 'utf8')).toBe('{"permissions":{"allow":"command(*)"}}');
+    });
+
+    test('a CLI that is not on the machine is not asked about until it is installed', async () => {
+        const found = new Set(['claude', 'codex']);
+        const subject = new AgentIntegrations({ home, fixed: false, env, accountHomes: () => [], installed: async (kind) => found.has(kind) });
+        await subject.load();
+        let heard = 0;
+        subject.onChanged(() => (heard += 1));
+        expect(subject.summary().providers).toEqual([]);
+
+        await subject.refreshInstalled();
+        expect(subject.summary().providers.map((entry) => entry.provider)).toEqual(['claude', 'codex']);
+        await subject.refreshInstalled();
+        expect(heard).toBe(1);
+
+        found.add('antigravity');
+        await subject.refreshInstalled();
+
+        expect(subject.summary().providers).toContainEqual({ provider: 'antigravity', state: 'unset', reviewed: false });
+        expect(heard).toBe(2);
     });
 
     test('account homes are written and revoked with the provider', async () => {

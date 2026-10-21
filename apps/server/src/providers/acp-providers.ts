@@ -1,5 +1,13 @@
-import { createAcpBackend, type AcpClientInfo, type AcpModeMap } from '@adecore/agents/chat';
-import { ModelCatalog, createAcpProvider, type AcpProviderSpec, type ChatProvider, type ProviderHome } from '@adecore/agents/providers';
+import type { AcpClientInfo, AcpModeMap, AcpPermissionRequest } from '@adecore/agents/chat';
+import {
+    ModelCatalog,
+    createAcpProvider,
+    isOnlyCommands,
+    type AcpCatalogStore,
+    type AcpProviderSpec,
+    type ChatProvider,
+    type ProviderHome
+} from '@adecore/agents/providers';
 import antigravityRelease from './antigravity-acp-release.json' with { type: 'json' };
 import { parseAcpServerRelease, type AcpServerLaunch } from './acp-server.ts';
 
@@ -21,6 +29,20 @@ function agentModel(selection: { model: string }): string | null {
     return selection.model === AGENT_DEFAULT_MODEL ? null : selection.model;
 }
 
+const CONTEXT_COMMANDS = ['ruimte-context', 'echo'];
+
+/*
+ * Lets an agent run `ruimte-context` in every runtime mode without a card, the way Claude Code's `Bash(ruimte-context *)`
+ * does: the daemon checks every verb itself. `echo` may join it, since agents label the parts of one call with it.
+ */
+export function allowsContextCommand(request: AcpPermissionRequest): boolean {
+    if (request.kind !== 'execute' || request.commands.length === 0) {
+        return false;
+    }
+    const everyPasses = request.commands.every((command) => isOnlyCommands(command, CONTEXT_COMMANDS));
+    return everyPasses && request.commands.some((command) => !isOnlyCommands(command, ['echo']));
+}
+
 /*
  * Grok's session modes (`default`, `plan`, `ask`) choose what a turn does, not what it may do without
  * asking, so only `supervised` names one; every wider runtime mode runs in `default` and the backend
@@ -33,6 +55,14 @@ export const GROK_MODES: AcpModeMap = { supervised: ['default'] };
  * every tool (github/copilot-cli#2942), so it is no permission level and `supervised` names the agent mode.
  */
 export const COPILOT_MODES: AcpModeMap = { supervised: ['https://agentclientprotocol.com/protocol/session-modes#agent'] };
+
+/*
+ * Every `ruimte-context` call goes through without a prompt, in every mode, since the daemon already enforces each
+ * verb. Grok 1.0.62 takes allow rules on its TUI only (`grok agent stdio` has no such flag), and a chained command
+ * passes only when every segment is allowed. Copilot's `:*` matches the command followed by a space.
+ */
+export const GROK_ALLOW_CONTEXT = '--allow=Bash(ruimte-context *)';
+export const COPILOT_ALLOW_CONTEXT = '--allow-tool=shell(ruimte-context:*)';
 
 /* The login Grok is asked to use: the key in the environment where there is one, else the one `grok login` left. */
 export function grokAuthMethod(env: Record<string, string | undefined>): string {
@@ -50,32 +80,121 @@ const GROK_SPEC: AcpProviderSpec = {
     modes: GROK_MODES,
     loginHint: 'Run `grok login` in a terminal, or set `XAI_API_KEY`.',
     client: RUIMTE_ACP_CLIENT,
-    capabilities: { terminal: true },
+    capabilities: { terminal: true, hooks: true },
+    autoAllow: allowsContextCommand,
     resumeCommand: 'grok {flags} --resume {id}',
     home: { env: 'GROK_HOME', fallback: '.grok', loginEnv: ['XAI_API_KEY'], loginCommand: 'grok login' },
+    install: {
+        description: "xAI's coding agent, in a terminal and in a chat.",
+        commands: {
+            darwin: 'curl -fsSL https://x.ai/cli/install.sh | bash',
+            linux: 'curl -fsSL https://x.ai/cli/install.sh | bash',
+            win32: 'irm https://x.ai/cli/install.ps1 | iex'
+        },
+        guideUrl: 'https://github.com/xai-org/grok-build',
+        signIn: [
+            { kind: 'command', command: 'grok login' },
+            { kind: 'env', variable: 'XAI_API_KEY' }
+        ]
+    },
+    // Headless Grok refuses every call that would ask, so the default mode keeps a title or a message from writing anything.
+    oneShotArgs: (prompt) => ['--no-auto-update', '-p', prompt, '--output-format', 'plain', '--permission-mode', 'default', '--disallowed-tools', 'Agent'],
     firstPromptArgs: (prompt) => [prompt]
 };
 
-export const grokProvider: ChatProvider = {
-    ...createAcpProvider(GROK_SPEC),
-    createBackend: (launch, host) => createAcpBackend({ ...GROK_SPEC, authMethod: grokAuthMethod(launch.env) })(launch, host)
-};
+function storing(catalogStore: AcpCatalogStore | undefined): Pick<AcpProviderSpec, 'catalogStore'> {
+    return catalogStore ? { catalogStore } : {};
+}
 
-export const copilotProvider: ChatProvider = createAcpProvider({
+/* Lays the capabilities one provider learned over another's, in place, since a host may hold the object itself. */
+function copyCapabilities(target: ChatProvider, source: ChatProvider): void {
+    const capabilities = target.capabilities as unknown as Record<string, unknown>;
+    for (const key of Object.keys(capabilities)) {
+        delete capabilities[key];
+    }
+    Object.assign(capabilities, source.capabilities);
+}
+
+/*
+ * Grok's login follows the launch's environment, so a chat runs on the provider of its login: the stored one or the key.
+ * Both share the catalog and the store, and what either learns is laid over the listed one and told to its listeners.
+ */
+export function createGrokProvider(catalogStore?: AcpCatalogStore): ChatProvider {
+    const catalog = agentDefaultCatalog();
+    const listeners = new Set<() => void>();
+    const byLogin = new Map<string, ChatProvider>();
+    const learned = (source: ChatProvider): void => {
+        if (source !== listed) {
+            copyCapabilities(listed, source);
+        }
+        for (const listener of [...listeners]) {
+            listener();
+        }
+    };
+    const forLogin = (authMethod: string): ChatProvider => {
+        const known = byLogin.get(authMethod);
+        if (known !== undefined) {
+            return known;
+        }
+        const provider = createAcpProvider({ ...GROK_SPEC, catalog, authMethod, ...storing(catalogStore) });
+        provider.onChange?.(() => learned(provider));
+        byLogin.set(authMethod, provider);
+        return provider;
+    };
+    const listed = forLogin(grokAuthMethod({}));
+    return {
+        ...listed,
+        onChange: (listener) => {
+            listeners.add(listener);
+            return () => {
+                listeners.delete(listener);
+            };
+        },
+        createBackend: (launch, host) => forLogin(grokAuthMethod(launch.env)).createBackend(launch, host)
+    };
+}
+
+export const grokProvider: ChatProvider = createGrokProvider();
+
+const COPILOT_ONE_SHOT = ['-s', '--no-ask-user', '--deny-tool=shell, write'];
+
+const COPILOT_SPEC: AcpProviderSpec = {
     kind: 'copilot',
     name: 'GitHub Copilot',
     command: 'copilot',
-    args: ['--acp', '--stdio', '--no-auto-update'],
+    args: ['--acp', '--stdio', '--no-auto-update', COPILOT_ALLOW_CONTEXT],
     catalog: agentDefaultCatalog(),
     model: agentModel,
     modes: COPILOT_MODES,
     loginHint: 'Run `copilot login` in a terminal.',
     client: RUIMTE_ACP_CLIENT,
-    capabilities: { terminal: true },
+    capabilities: { terminal: true, hooks: true },
+    autoAllow: allowsContextCommand,
     resumeCommand: 'copilot {flags} --resume={id}',
+    install: {
+        description: "GitHub's coding agent, in a terminal and in a chat.",
+        commands: { darwin: 'npm install -g @github/copilot', linux: 'npm install -g @github/copilot', win32: 'npm install -g @github/copilot' },
+        guideUrl: 'https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli',
+        signIn: [
+            { kind: 'command', command: 'copilot login' },
+            { kind: 'env', variable: 'COPILOT_GITHUB_TOKEN' }
+        ]
+    },
+    // `-s` prints only the answer; without shell and file writes it can only read. A prompt piped in runs the same way.
+    oneShotArgs: (prompt) => ['--no-auto-update', '-p', prompt, ...COPILOT_ONE_SHOT],
+    oneShotStdinArgs: ['--no-auto-update', ...COPILOT_ONE_SHOT],
     // `-p` answers and exits; `-i` runs the prompt and stays.
     firstPromptArgs: (prompt) => ['-i', prompt]
-});
+};
+
+export function createCopilotProvider(catalogStore?: AcpCatalogStore): ChatProvider {
+    return createAcpProvider({ ...COPILOT_SPEC, catalog: agentDefaultCatalog(), ...storing(catalogStore) });
+}
+
+export const copilotProvider: ChatProvider = createCopilotProvider();
+
+// Google's CLI, which a terminal starts and a single prompt goes to; the chat runs on a server of its own.
+export const ANTIGRAVITY_CLI = 'agy';
 
 /* Google's ACP server for Antigravity, pinned to the release the ACP registry lists (`antigravity-acp`). */
 export const ANTIGRAVITY_ACP_RELEASE = parseAcpServerRelease(antigravityRelease);
@@ -99,7 +218,7 @@ const ANTIGRAVITY_SPEC: AcpProviderSpec = {
     kind: 'antigravity',
     name: 'Antigravity',
     // Only stands in until the server is installed; the terminal starts `agy` (`TERMINAL_EXECUTABLES` in `launch.ts`).
-    command: 'agy',
+    command: ANTIGRAVITY_CLI,
     catalog: agentDefaultCatalog(),
     model: agentModel,
     modes: ANTIGRAVITY_MODES,
@@ -107,22 +226,49 @@ const ANTIGRAVITY_SPEC: AcpProviderSpec = {
     authMethod: 'oauth-personal',
     loginHint: 'Sign in to Antigravity in the browser the chat opens.',
     client: RUIMTE_ACP_CLIENT,
-    capabilities: { terminal: true },
+    capabilities: { terminal: true, hooks: true },
+    autoAllow: allowsContextCommand,
     resumeCommand: 'agy {flags} --conversation {id}',
     home: ANTIGRAVITY_HOME,
+    // The CLI only; the chat's server is the step after it, installed from the Providers pane.
+    install: {
+        description: "Google's coding agent, in a terminal and in a chat.",
+        commands: {
+            darwin: 'curl -fsSL https://antigravity.google/cli/install.sh | bash',
+            linux: 'curl -fsSL https://antigravity.google/cli/install.sh | bash',
+            win32: 'irm https://antigravity.google/cli/install.ps1 | iex'
+        },
+        guideUrl: 'https://antigravity.google/docs/cli',
+        // The first start of `agy` signs it in in the browser, and so does a chat's first turn.
+        signIn: [{ kind: 'chat' }, { kind: 'command', command: 'agy' }]
+    },
     // Antigravity CLI 1.4 reads a prompt only from `-p` (answers and exits), `-i` (runs it and stays) or stdin.
     firstPromptArgs: (prompt) => ['-i', prompt]
 };
 
-/* Antigravity's chat runs on the server a person installed; without one it is listed as not installed and starts nothing. */
-export function createAntigravityProvider(server: AcpServerLaunch | null): ChatProvider {
-    const base = createAcpProvider(ANTIGRAVITY_SPEC);
+/*
+ * A single prompt to `agy`, which is apart from the chat's server. Headless it soft-denies every call that would ask
+ * (antigravity.google/docs/cli/headless), so it reads and answers.
+ */
+export function antigravityOneShotArgs(prompt: string): string[] {
+    return ['-p', prompt, '--output-format', 'text'];
+}
+
+/*
+ * Antigravity is installed once `agy` is, which is all its terminal needs. Its chat runs on the server a person
+ * installed apart from it, so without one it offers no chat and starts none.
+ */
+export function createAntigravityProvider(server: AcpServerLaunch | null, catalogStore?: AcpCatalogStore): ChatProvider {
+    const base = createAcpProvider({ ...ANTIGRAVITY_SPEC, catalog: agentDefaultCatalog(), ...storing(catalogStore) });
     return {
         ...base,
         get command() {
             return server?.launch() ?? base.command;
         },
-        detect: () => Promise.resolve(server?.detection() ?? { installed: false, version: null }),
+        // `providerFor` has no server at hand, so it keeps what the CLI can do once one is there.
+        get capabilities() {
+            return server === null || server.launch() !== null ? base.capabilities : { ...base.capabilities, chat: false };
+        },
         createBackend: (launch, host) => {
             if (server?.launch() == null) {
                 throw new Error('Install the Antigravity server in Settings, Providers first.');

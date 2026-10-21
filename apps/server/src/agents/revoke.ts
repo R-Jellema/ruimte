@@ -3,7 +3,22 @@ import { dirname } from 'node:path';
 import type { AgentIntegrationReport, AgentKind } from '@ruimte/contracts';
 import { isNotFound, writeAtomic } from '@adecore/agents';
 import { errorText } from '../error-text.ts';
-import { CODEX_RULES, HOOK_FILE_RETRIES, editingHookFile, hookEntry, isOurs, isRecord, sameEntry, textOrNull } from './install.ts';
+import {
+    CODEX_RULES,
+    HOOK_FILE_RETRIES,
+    NAMED_HOOK,
+    editingHookFile,
+    hookEntry,
+    isOurs,
+    isOursNamed,
+    isRecord,
+    mergeHooks,
+    removeAntigravityRules,
+    sameEntry,
+    shapeOf,
+    textOrNull,
+    type SettingsMerge
+} from './install.ts';
 
 /* What the ledger remembers of a file Ruimte wrote into. */
 export interface LedgerEntry {
@@ -25,9 +40,13 @@ export interface HooksRemoval {
  * the last hook in them; a key or group that was there before, or holds anything else, stays.
  */
 export function removeHooks(config: unknown, kind: AgentKind, ledger: Pick<LedgerEntry, 'createdHooksKey'>): HooksRemoval {
+    if (shapeOf(kind) === 'named') {
+        return removeNamedHook(config, kind);
+    }
     if (!isRecord(config) || (config.hooks !== undefined && !isRecord(config.hooks))) {
         return { config: {}, removed: 0, keptEdited: 0, refused: true };
     }
+    const entries = shapeOf(kind) === 'entries';
     const wanted = hookEntry(kind);
     const root: Record<string, unknown> = { ...config };
     let removed = 0;
@@ -41,6 +60,13 @@ export function removeHooks(config: unknown, kind: AgentKind, ledger: Pick<Ledge
             const before = removed;
             const nextGroups: unknown[] = [];
             for (const group of groups) {
+                if (entries && sameEntry(group, wanted)) {
+                    removed++;
+                    continue;
+                }
+                if (entries && isOurs(group)) {
+                    keptEdited++;
+                }
                 if (!isRecord(group) || !Array.isArray(group.hooks)) {
                     nextGroups.push(group);
                     continue;
@@ -72,6 +98,10 @@ export function removeHooks(config: unknown, kind: AgentKind, ledger: Pick<Ledge
         }
         if (Object.keys(hooks).length === 0 && ledger.createdHooksKey) {
             delete root.hooks;
+            // Copilot's version came with the hooks Ruimte wrote, so it goes with them when nothing else is left.
+            if (entries && root.version === 1 && Object.keys(root).length === 1) {
+                delete root.version;
+            }
         } else {
             root.hooks = hooks;
         }
@@ -79,12 +109,45 @@ export function removeHooks(config: unknown, kind: AgentKind, ledger: Pick<Ledge
     return { config: root, removed, keptEdited, refused: false };
 }
 
+/* Antigravity's hook goes while it is exactly what Ruimte writes; a person's change to it keeps it. */
+function removeNamedHook(config: unknown, kind: AgentKind): HooksRemoval {
+    if (!isRecord(config)) {
+        return { config: {}, removed: 0, keptEdited: 0, refused: true };
+    }
+    const current = config[NAMED_HOOK];
+    if (current === undefined || !isOursNamed(current)) {
+        return { config, removed: 0, keptEdited: 0, refused: false };
+    }
+    if (mergeHooks(config, kind).changed) {
+        return { config, removed: 0, keptEdited: 1, refused: false };
+    }
+    const { [NAMED_HOOK]: _ours, ...rest } = config;
+    return { config: rest, removed: 1, keptEdited: 0, refused: false };
+}
+
 /* Takes Ruimte's hooks out of one settings file, with the same queue and re-read check as the install. */
-export async function revokeHooks(link: string, kind: AgentKind, entry: LedgerEntry): Promise<AgentIntegrationReport> {
+export function revokeHooks(link: string, kind: AgentKind, entry: LedgerEntry): Promise<AgentIntegrationReport> {
+    return removeFromSettings(link, 'hooks', entry, (config) => {
+        const removal = removeHooks(config, kind, entry);
+        return { ...removal, changed: removal.removed > 0 };
+    });
+}
+
+/* Takes Ruimte's rules out of `agy`'s settings; a rule a person added themselves reads the same and goes too. */
+export function revokeAntigravityRules(link: string, entry: LedgerEntry): Promise<AgentIntegrationReport> {
+    return removeFromSettings(link, 'rules', entry, (config) => ({ ...removeAntigravityRules(config, entry.createdHooksKey), keptEdited: 0 }));
+}
+
+async function removeFromSettings(
+    link: string,
+    kind: AgentIntegrationReport['kind'],
+    entry: LedgerEntry,
+    remove: (config: unknown) => SettingsMerge & { keptEdited: number }
+): Promise<AgentIntegrationReport> {
     const path = await realpath(link).catch(() => link);
     const report = (outcome: AgentIntegrationReport['outcome'], message?: string): AgentIntegrationReport => ({
         path: link,
-        kind: 'hooks',
+        kind,
         outcome,
         ...(message === undefined ? {} : { message })
     });
@@ -101,11 +164,11 @@ export async function revokeHooks(link: string, kind: AgentKind, entry: LedgerEn
                 } catch {
                     return report('refused');
                 }
-                const removal = removeHooks(parsed, kind, entry);
+                const removal = remove(parsed);
                 if (removal.refused) {
                     return report('refused');
                 }
-                if (removal.removed === 0) {
+                if (!removal.changed) {
                     return removal.keptEdited > 0 ? report('kept-edited') : report('none');
                 }
                 if ((await textOrNull(path)) !== text) {
