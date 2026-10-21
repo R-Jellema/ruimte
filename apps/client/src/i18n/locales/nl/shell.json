@@ -1064,6 +1064,55 @@
         "drawingSaveSvg": "Opslaan als SVG…",
         "drawingOnCanvas": "Op het canvas tonen"
     },
+    "addToMachine": {
+        "title": "Toevoegen aan een andere machine",
+        "intro": "De andere machine cloont deze repository van de remote. Daarna kies je welke bestanden die git hier negeert, zoals .env, je meekopieert.",
+        "failedToRender": "Dit venster kon niet worden weergegeven",
+        "machine": "Machine",
+        "noMachines": "Geen andere machine op je account",
+        "unreachable": "{{machine}} antwoordt niet.",
+        "updateThere": "{{machine}} draait een oudere Ruimte die niet kan clonen. Werk die eerst bij.",
+        "updateHere": "Deze machine draait een oudere Ruimte die de genegeerde bestanden niet kan tonen. Werk die eerst bij.",
+        "folder": "Map op {{machine}}",
+        "noFolder": "Geen map gekozen",
+        "chooseFolder": "Kies…",
+        "name": "Naam van de nieuwe map",
+        "into": "Cloont naar {{path}}",
+        "reading": "Deze repository lezen…",
+        "notARepository": "Ruimte kon deze repository niet lezen. {{message}}",
+        "noRemote": "Deze repository heeft geen remote, dus de andere machine kan nergens van clonen. Push hem eerst naar een remote.",
+        "remote": "Remote",
+        "protocols": {
+            "ssh": "SSH",
+            "https": "HTTPS"
+        },
+        "clone": "Clonen",
+        "cloningShort": "Clonen…",
+        "cloning": "Clonen op {{machine}}…",
+        "cloneFailed": "{{machine}} kon de repository niet clonen.",
+        "retry": "Opnieuw proberen",
+        "files": {
+            "intro": "Git negeert deze bestanden hier, dus de clone op {{machine}} heeft ze niet. Kies welke je kopieert.",
+            "label": "Genegeerde bestanden",
+            "none": "Git negeert hier geen bestand dat de clone zou missen.",
+            "truncated": "Er zijn meer genegeerde bestanden dan deze lijst toont.",
+            "skip": "Overslaan",
+            "copy_one": "{{count}} bestand kopiëren",
+            "copy_other": "{{count}} bestanden kopiëren"
+        },
+        "copying": "{{done}} van {{total}} kopiëren…",
+        "skip": {
+            "link": "Link, niet gekopieerd",
+            "too-large": "Groter dan 1 MB, niet gekopieerd",
+            "binary": "Geen tekst, niet gekopieerd",
+            "failed": "Kon niet worden gekopieerd"
+        },
+        "done": "{{machine}} heeft het project in {{path}}.",
+        "copied_one": "{{count}} bestand gekopieerd.",
+        "copied_other": "{{count}} bestanden gekopieerd.",
+        "notCopied": "Niet gekopieerd",
+        "continue": "Verder"
+    },
     "remoteNode": {
         "title": "Nieuwe {{kind}} op {{machine}}",
         "relinkTitle": "{{machine}} opnieuw koppelen",
@@ -1079,6 +1128,7 @@
         "otherRepository": "Een andere repository",
         "none": "Geen checkout van deze repository",
         "choose": "Kies een map…",
+        "clone": "Clonen op {{machine}}…",
         "unreachable": "{{machine}} antwoordt niet.",
         "retry": "Opnieuw proberen",
         "startFrom": "Beginnen vanaf",

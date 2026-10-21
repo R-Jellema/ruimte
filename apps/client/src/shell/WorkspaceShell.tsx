@@ -107,6 +107,13 @@ const RemoteNodeDialog = lazyDialog(
     (s) => s.remoteNodeDialog !== null
 );
 
+const AddToMachineDialog = lazyDialog(
+    () => import('@/shell/AddToMachineDialog'),
+    'AddToMachineDialog',
+    useUi,
+    (s) => s.addToMachineDialog !== null
+);
+
 const MoveChatDialog = lazyDialog(
     () => import('@/project/MoveChatDialog'),
     'MoveChatDialog',
@@ -256,6 +263,7 @@ export function WorkspaceShell({ workspace }: { workspace: Workspace }) {
                 </ErrorBoundary>
                 <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
                     <RemoteNodeDialog />
+                    <AddToMachineDialog />
                     <EraseDeviceDialog />
                 </ErrorBoundary>
                 <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>

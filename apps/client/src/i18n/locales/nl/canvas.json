@@ -313,6 +313,7 @@
     },
     "otherMachine": {
         "group": "Op een andere machine",
+        "addProject": "Toevoegen aan een andere machine…",
         "notAnswering": "Antwoordt niet",
         "needsUpdate": "Heeft een update nodig",
         "needsUpdateTip": "Op {{machine}} draait een oudere Ruimte",

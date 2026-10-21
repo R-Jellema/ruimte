@@ -180,6 +180,12 @@ export interface RemoteNodeRequest {
     handoff?: { chatId: string; turnId: string; title: string; provider?: AgentKind; source?: string };
 }
 
+/* A project being put on another machine; `then` is the node that was being made there, which opens again once the clone is in. */
+export interface AddToMachineRequest {
+    machineId: string | null;
+    then?: RemoteNodeRequest;
+}
+
 export type PaletteMode = 'default' | 'grep' | 'chats' | 'file';
 
 /* What a picked file becomes. A node carries where it lands, in world units, because the menu that
@@ -266,6 +272,7 @@ interface UiStore {
     pullRequestDialog: { cwd: string } | null;
     /* A node on another machine being made, or made over for a machine that no longer links the project. */
     remoteNodeDialog: RemoteNodeRequest | null;
+    addToMachineDialog: AddToMachineRequest | null;
     /* What a view is being asked about, from the sidebar, the breadcrumb or the palette alike. */
     viewDialog: ViewDialog;
     /* The sidebar row the caret is in, which is how a new heading opens. */
@@ -293,6 +300,7 @@ interface UiStore {
     setIssueStartOpen(open: boolean): void;
     setPullRequestDialog(request: { cwd: string } | null): void;
     setRemoteNodeDialog(request: RemoteNodeRequest | null): void;
+    setAddToMachineDialog(request: AddToMachineRequest | null): void;
     setViewDialog(dialog: ViewDialog): void;
     setRenamingViewId(viewId: string | null): void;
     setSidebarOpen(open: boolean): void;
@@ -359,6 +367,7 @@ export const useUi = create<UiStore>((set, get) => ({
     issueStartOpen: false,
     pullRequestDialog: null,
     remoteNodeDialog: null,
+    addToMachineDialog: null,
     viewDialog: null,
     renamingViewId: null,
     projectSettingsAsked: false,
@@ -421,6 +430,9 @@ export const useUi = create<UiStore>((set, get) => ({
     },
     setRemoteNodeDialog(request) {
         set({ remoteNodeDialog: request });
+    },
+    setAddToMachineDialog(request) {
+        set({ addToMachineDialog: request });
     },
     setViewDialog(dialog) {
         set({ viewDialog: dialog });

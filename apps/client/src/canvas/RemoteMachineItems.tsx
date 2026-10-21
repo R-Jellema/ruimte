@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Monitor } from 'lucide-react';
+import { Monitor, MonitorUp } from 'lucide-react';
 import type { RemoteLink } from '@ruimte/contracts';
 import { MachineGlyph } from '@/endpoint/MachineGlyph';
 import type { Point } from '@/canvas/math';
@@ -42,8 +42,9 @@ function useLinks(): RemoteLink[] {
 
 /*
  * "On another machine": one row per machine of the account, in a submenu below the node kinds, so the
- * menu does not grow with every machine. A node of another machine goes on a canvas only you have,
- * so on a shared canvas each row says why it is off.
+ * menu does not grow with every machine, and the way to put this project on a machine that has no
+ * checkout of it yet. A node of another machine goes on a canvas only you have, so on a shared canvas
+ * each row says why it is off.
  */
 export function RemoteMachineItems({ at }: { at: () => Point }) {
     const { t } = useTranslation('canvas');
@@ -72,6 +73,10 @@ export function RemoteMachineItems({ at }: { at: () => Point }) {
                         }}
                     />
                 ))}
+                <ContextMenu.Separator />
+                <ContextMenu.Item onClick={() => useUi.getState().setAddToMachineDialog({ machineId: null })}>
+                    <Icon icon={MonitorUp} size={14} /> {t('otherMachine.addProject')}
+                </ContextMenu.Item>
             </ContextMenu.Popup>
         </ContextMenu.SubmenuRoot>
     );

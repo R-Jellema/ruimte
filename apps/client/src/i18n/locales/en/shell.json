@@ -1064,6 +1064,55 @@
         "drawingSaveSvg": "Save as SVG…",
         "drawingOnCanvas": "Show on Canvas"
     },
+    "addToMachine": {
+        "title": "Add to another machine",
+        "intro": "The other machine clones this repository from its remote. Then you choose which files git ignores here, such as .env, to copy over.",
+        "failedToRender": "This dialog failed to render",
+        "machine": "Machine",
+        "noMachines": "No other machine on your account",
+        "unreachable": "{{machine}} is not answering.",
+        "updateThere": "{{machine}} runs an older Ruimte that cannot clone. Update it first.",
+        "updateHere": "This machine runs an older Ruimte that cannot list its ignored files. Update it first.",
+        "folder": "Folder on {{machine}}",
+        "noFolder": "No folder chosen",
+        "chooseFolder": "Choose…",
+        "name": "Name of the new folder",
+        "into": "Clones into {{path}}",
+        "reading": "Reading this repository…",
+        "notARepository": "Ruimte could not read this repository. {{message}}",
+        "noRemote": "This repository has no remote, so the other machine has nothing to clone from. Push it to a remote first.",
+        "remote": "Remote",
+        "protocols": {
+            "ssh": "SSH",
+            "https": "HTTPS"
+        },
+        "clone": "Clone",
+        "cloningShort": "Cloning…",
+        "cloning": "Cloning on {{machine}}…",
+        "cloneFailed": "{{machine}} could not clone the repository.",
+        "retry": "Try again",
+        "files": {
+            "intro": "Git ignores these files here, so the clone on {{machine}} does not have them. Choose which to copy.",
+            "label": "Ignored files",
+            "none": "Git ignores no file here that the clone would miss.",
+            "truncated": "There are more ignored files than this list shows.",
+            "skip": "Skip",
+            "copy_one": "Copy {{count}} file",
+            "copy_other": "Copy {{count}} files"
+        },
+        "copying": "Copying {{done}} of {{total}}…",
+        "skip": {
+            "link": "Link, not copied",
+            "too-large": "Over 1 MB, not copied",
+            "binary": "Not text, not copied",
+            "failed": "Could not be copied"
+        },
+        "done": "{{machine}} has the project in {{path}}.",
+        "copied_one": "Copied {{count}} file.",
+        "copied_other": "Copied {{count}} files.",
+        "notCopied": "Not copied",
+        "continue": "Continue"
+    },
     "remoteNode": {
         "title": "New {{kind}} on {{machine}}",
         "relinkTitle": "Link {{machine}} again",
@@ -1079,6 +1128,7 @@
         "otherRepository": "Another repository",
         "none": "No checkout of this repository",
         "choose": "Choose a folder…",
+        "clone": "Clone it on {{machine}}…",
         "unreachable": "{{machine}} is not answering.",
         "retry": "Try again",
         "startFrom": "Start from",

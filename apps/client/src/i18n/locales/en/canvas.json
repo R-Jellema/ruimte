@@ -313,6 +313,7 @@
     },
     "otherMachine": {
         "group": "On another machine",
+        "addProject": "Add to another machine…",
         "notAnswering": "Not answering",
         "needsUpdate": "Needs an update",
         "needsUpdateTip": "{{machine}} runs an older Ruimte",

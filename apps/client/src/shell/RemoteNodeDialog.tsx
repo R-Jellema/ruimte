@@ -141,6 +141,9 @@ function RemoteNodeForm({
     const canLink = canSign && canConnect && canTake;
     const bundlesHere = useMachineAnswers(workspace?.connection.endpointId ?? '', 'git.bundle');
     const bundlesThere = useMachineAnswers(machineEndpointId, 'git.fetchBundle');
+    const clonesThere = useMachineAnswers(machineEndpointId, 'git.clone');
+    const listsHere = useMachineAnswers(hereId, 'git.ignoredFiles');
+    const canClone = clonesThere && listsHere;
     const checkout = useCheckoutState(here, project?.folder ?? null, !request.relink && kind !== 'device' && bundlesHere && bundlesThere);
     const options = startOptions(
         checkout,
@@ -374,6 +377,14 @@ function RemoteNodeForm({
                     opening={opening}
                     onPick={setPicked}
                     onChoose={() => setBrowsing(true)}
+                    onClone={
+                        canClone
+                            ? () => {
+                                  onDone();
+                                  useUi.getState().setAddToMachineDialog({ machineId: request.machineId, then: request });
+                              }
+                            : null
+                    }
                     onRetry={retry}
                 />
             )}
@@ -463,11 +474,13 @@ interface CheckoutFieldProps {
     opening: boolean;
     onPick(projectId: string): void;
     onChoose(): void;
+    /* Puts this project on that machine first; null when one of the two machines cannot. */
+    onClone: (() => void) | null;
     onRetry(): void;
 }
 
 /* The four states of the checkout: looking, found, none, and a machine that does not answer. */
-function CheckoutField({ checkouts, candidates, candidate, machine, seen, opening, onPick, onChoose, onRetry }: CheckoutFieldProps) {
+function CheckoutField({ checkouts, candidates, candidate, machine, seen, opening, onPick, onChoose, onClone, onRetry }: CheckoutFieldProps) {
     const { t } = useTranslation('shell');
     if (checkouts.state === 'loading') {
         return (
@@ -494,10 +507,15 @@ function CheckoutField({ checkouts, candidates, candidate, machine, seen, openin
         return (
             <div className="mt-1 flex flex-col gap-2">
                 <span className="text-sm text-text-muted">{t('remoteNode.none')}</span>
-                <div>
+                <div className="flex gap-2">
                     <Button size="sm" variant="secondary" disabled={opening} onClick={onChoose}>
                         {opening ? t('remoteNode.folders.opening') : t('remoteNode.choose')}
                     </Button>
+                    {onClone !== null && (
+                        <Button size="sm" variant="secondary" onClick={onClone}>
+                            {t('remoteNode.clone', { machine })}
+                        </Button>
+                    )}
                 </div>
             </div>
         );

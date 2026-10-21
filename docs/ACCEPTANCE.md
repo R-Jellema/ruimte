@@ -290,6 +290,16 @@ and its device token. `apps/pulsar-worker/APNS.md` has the environments and secr
   Claude Code from its own installer shows only its version. A Homebrew formula or cask, if one is installed, says so.
 - [ ] From a remote client the Install, Update and Remove buttons are off and the section says why.
 
+## Add to another machine
+
+- [ ] On a canvas, On another machine, Add to another machine: pick the other Mac, a folder there and SSH, and the clone
+  shows its progress; Cancel stops it and leaves no folder. HTTPS on a private repository fails with git's reason, and Try
+  again after fixing it clones.
+- [ ] The ignored files list `.env` checked and leaves out `node_modules`; Copy writes them in the clone, a link or a
+  file over 1 MB is listed as not copied, and the clone shows under the other machine's projects.
+- [ ] A new chat on a machine without a checkout offers Clone it on that machine, and Continue comes back to the new
+  chat with the clone picked.
+
 ## Reachable from other devices
 
 - [ ] Settings, Machines, this machine shows Reachable from other devices with a verdict, and Check again runs a new check.
