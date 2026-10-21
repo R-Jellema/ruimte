@@ -9,6 +9,7 @@ import {
     ANTIGRAVITY_CLI,
     antigravityOneShotArgs,
     copilotProvider,
+    copilotUsageDirectory,
     createAntigravityProvider,
     createCopilotProvider,
     createGrokProvider,
@@ -59,7 +60,7 @@ function builtInProviders(options: ProviderRegistryOptions): ChatProvider[] {
         claudeProvider,
         codexProvider,
         createAntigravityProvider(options.antigravityServer ?? null, store('antigravity')),
-        createCopilotProvider(store('copilot')),
+        createCopilotProvider(store('copilot'), options.home === undefined ? undefined : copilotUsageDirectory(options.home)),
         createGrokProvider(store('grok')),
         createAppleProvider(options.appleEnabled ?? (() => false)),
         nanoGptProvider

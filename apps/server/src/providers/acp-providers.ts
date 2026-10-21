@@ -1,3 +1,4 @@
+import { join } from 'node:path';
 import type { AcpClientInfo, AcpModeMap, AcpPermissionRequest } from '@adecore/agents/chat';
 import {
     ModelCatalog,
@@ -187,8 +188,13 @@ const COPILOT_SPEC: AcpProviderSpec = {
     firstPromptArgs: (prompt) => ['-i', prompt]
 };
 
-export function createCopilotProvider(catalogStore?: AcpCatalogStore): ChatProvider {
-    return createAcpProvider({ ...COPILOT_SPEC, catalog: agentDefaultCatalog(), ...storing(catalogStore) });
+/* Where every Copilot turn's usage is logged: its CLI keeps no file the usage page can read. */
+export function copilotUsageDirectory(home: string): string {
+    return join(home, 'usage', 'copilot');
+}
+
+export function createCopilotProvider(catalogStore?: AcpCatalogStore, usageLog?: string): ChatProvider {
+    return createAcpProvider({ ...COPILOT_SPEC, catalog: agentDefaultCatalog(), ...storing(catalogStore), ...(usageLog === undefined ? {} : { usageLog }) });
 }
 
 export const copilotProvider: ChatProvider = createCopilotProvider();

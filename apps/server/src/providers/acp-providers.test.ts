@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import type { BackendEvent, BackendLaunch } from '@adecore/agents/chat';
 import { ProviderAccountsService, ProviderRegistry, type ChatProvider } from '@adecore/agents/providers';
 import { fakeAcpWith, inProcess, type FakeAcpOptions } from '@adecore/agents/testing';
+import { UsageService } from '@adecore/agents/usage';
 import {
     AGENT_DEFAULT_MODEL,
     ANTIGRAVITY_MODES,
@@ -14,11 +15,13 @@ import {
     copilotProvider,
     createAntigravityProvider,
     createCopilotProvider,
+    copilotUsageDirectory,
     createGrokProvider,
     grokAuthMethod,
     grokProvider
 } from './acp-providers.ts';
 import type { AcpServerLaunch } from './acp-server.ts';
+import { ProviderRegistry as RuimteProviderRegistry } from './registry.ts';
 
 const GROK_SESSION_MODES = ['default', 'plan', 'ask'];
 
@@ -153,6 +156,33 @@ describe('Copilot', () => {
         await backend.start();
         expect(methods).toContain('session/set_mode');
         await backend.dispose();
+    });
+
+    test("a turn's usage is logged in the machine's folder and shows on the usage page under Copilot", async () => {
+        const home = await mkdtemp(join(tmpdir(), 'copilot-usage-'));
+        try {
+            const copilot = new RuimteProviderRegistry({ home, detect: async () => ({ installed: true, version: '1.0.0' }) }).get('copilot');
+            const turnUsage = { totalTokens: 1500, inputTokens: 1100, outputTokens: 400, cachedReadTokens: 1000 };
+            const { backend, turnDone } = run(copilot, { turnUsage });
+            await backend.start();
+            backend.sendTurn({ promptId: 'p1', text: 'hello', preamble: null, attachments: [], mentions: [], skills: [] });
+            await turnDone;
+            await backend.dispose();
+
+            const usage = new UsageService({
+                home,
+                allowPriceFetch: false,
+                knownProjects: async () => [],
+                roots: () => [{ provider: 'copilot', path: copilotUsageDirectory(home) }]
+            });
+            const today = new Date().toISOString().slice(0, 10);
+            const summary = await usage.summary({ from: today, to: today, resolution: 'day', timeZone: 'UTC' });
+            usage.stop();
+            expect(summary.models).toEqual([expect.objectContaining({ provider: 'copilot' })]);
+            expect(summary.models[0]!.totals).toMatchObject({ calls: 1, input: 100, cacheRead: 1000, output: 400 });
+        } finally {
+            await rm(home, { recursive: true, force: true });
+        }
     });
 });
 

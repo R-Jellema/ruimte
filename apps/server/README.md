@@ -228,6 +228,7 @@ $RUIMTE_HOME/
     stats.json                     0600, the usage counts of today and the seven days before it, with the first day and the last week and month (see "Usage statistics")
     prices.json                    the last LiteLLM price table
     exchange-rate.json             the last euro rate for a dollar
+    copilot/<session>.jsonl        0600, the usage of every Copilot chat turn, which its CLI keeps nowhere the scanner reads
   models/catalogs.json             0700, the last model catalogs from the address book
   models/agents/<kind>.json        0600, the models, effort and commands an ACP agent (Grok, Copilot, Antigravity) last reported
   power/closed-lid-held            0700 folder, present while sleep is off for a closed lid
@@ -604,6 +605,7 @@ Root `CLAUDE.md` holds the product rules for agents, and `src/canvas/CLAUDE.md` 
 `@adecore/agents/usage` answers what the CLIs cost and what is left of their plans. Nothing here calls a vendor API or reads a credential.
 
 - The scanner reads the transcripts of every account (`~/.claude/projects` and `~/.codex/sessions`, honoring `CLAUDE_CONFIG_DIR` and `CODEX_HOME`) and keeps its place per file in `usage/index.json`. Throwing that file away costs one cold scan.
+- Copilot keeps no usage the scanner can read, so the daemon logs every turn of a Copilot chat to `usage/copilot`, a file per session, read like a transcript. A Copilot terminal is not counted.
 - Prices come from LiteLLM's `model_prices_and_context_window.json`, refreshed every 24 hours and kept in `usage/prices.json`, with a snapshot bundled as the offline fallback. A model the table does not price shows as unknown, never as free.
 - The daemon fetches the ECB reference rate from frankfurter.app on the same schedule into `usage/exchange-rate.json`, so the client can show euros.
 - `--no-price-fetch` turns off both network calls.

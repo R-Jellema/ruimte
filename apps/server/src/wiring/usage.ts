@@ -1,6 +1,7 @@
 import { limitAccountsOf, usageAccountsOf, usageRootsOf, UsageMonitor, UsageService } from '@adecore/agents/usage';
 import type { ServerConfig } from '../config.ts';
 import type { ProjectStore } from '../projects/project-store.ts';
+import { copilotUsageDirectory } from '../providers/acp-providers.ts';
 import { RUIMTE_CODEX_CLIENT } from '../providers/codex-provider.ts';
 import { followPlan } from '../usage/nanogpt-live.ts';
 import { sessionAccountsOf } from '../usage/session-accounts.ts';
@@ -19,8 +20,12 @@ export function wireUsage(config: ServerConfig, providers: ProvidersBundle, agen
         home: config.home,
         allowPriceFetch: config.priceFetch,
         knownProjects: () => projects.known(),
-        // The calls of a subscription API have no transcript of a CLI's, so the daemon keeps a log of them that the scan reads.
-        roots: () => [...usageRootsOf(providers.accounts), { provider: 'nanogpt', path: providers.nanogpt.usageDirectory }],
+        // A subscription API and Copilot leave no transcript the scan reads, so the daemon keeps a log of their turns.
+        roots: () => [
+            ...usageRootsOf(providers.accounts),
+            { provider: 'nanogpt', path: providers.nanogpt.usageDirectory },
+            { provider: 'copilot', path: copilotUsageDirectory(config.home) }
+        ],
         sessionAccounts: () =>
             sessionAccountsOf(
                 chats.list(),
