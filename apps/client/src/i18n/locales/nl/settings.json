@@ -1383,17 +1383,17 @@
         },
         "acpServer": {
             "title": "Chatserver van {{name}}",
-            "description": "Chats met Antigravity draaien op de ACP-server van Google, die Ruimte bij Google downloadt, tegen de vastgelegde checksum controleert en op deze machine bewaart. Je logt in vanuit de eerste chat, in de browser die die opent.",
-            "label": "ACP-server {{version}}",
+            "description": "Chats met Antigravity hebben de chatserver van Google nodig op deze machine. Je logt in vanuit je eerste chat.",
+            "label": "Chatserver {{version}}",
             "install": "Installeren",
             "update": "Bijwerken naar {{version}}",
             "localOnly": "Installeer hem in de Ruimte-app op die machine.",
             "state": {
                 "missing": "Niet geïnstalleerd.",
-                "installing": "Downloaden en controleren…",
+                "installing": "Installeren…",
                 "installed": "Versie {{version}} is geïnstalleerd.",
                 "failed": "De installatie is mislukt.",
-                "unsupported": "Er is geen build van de server voor deze machine."
+                "unsupported": "De chatserver is niet beschikbaar voor deze machine."
             },
             "searchLabel": "Chatserver van Antigravity",
             "step": "Installeer de chatserver"

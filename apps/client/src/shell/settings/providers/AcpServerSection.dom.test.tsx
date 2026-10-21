@@ -51,7 +51,7 @@ describe('the Antigravity chat server in Settings, Providers', () => {
     test('says it is not installed and installs it on a press, then asks the machine for its providers again', async () => {
         await page.render(<Section />);
         await until(() => button('Install') !== null);
-        expect(document.body.textContent).toContain('ACP server 1.4.1');
+        expect(document.body.textContent).toContain('Chat server 1.4.1');
         expect(document.body.textContent).toContain('Not installed.');
 
         const listsBefore = machine.requests('provider.list').length;
