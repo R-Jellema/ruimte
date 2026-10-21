@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
 import { act } from 'react';
 import { REQUEST_SCHEMAS, type EndpointInfo, type ReachCheck, type RequestType } from '@ruimte/contracts';
 import type { DesktopBridge } from '@/desktop/bridge';
-import { LOCAL_ENDPOINT_ID } from '@/state/endpoints';
+import { endpointById, LOCAL_ENDPOINT_ID } from '@/state/endpoints';
+import { ReachRow } from '@/shell/settings/MachineSettings';
 import { useUi } from '@/state/ui';
 import { useWindow } from '@/state/window';
 import { adoptEndpointInfo } from '@/transport/server-info';
@@ -98,8 +99,13 @@ describe('Settings > Machines > this machine > Reachable from other devices', ()
     });
 
     test('says how long ago the machine checked, and counts on while the row stays open', async () => {
+        machine = new FakeMachine();
+        machine.answer('endpoint.reach', () => ({ reach: reach('ok', 'ok') }));
+        release = connectFakeMachine(machine);
+        // Only the row runs on the fake clock: a timer the whole window set on it would be lost for the files after this one.
         jest.useFakeTimers({ now: NOW + 2 * MINUTE_MS });
-        await open((fake) => fake.answer('endpoint.reach', () => ({ reach: reach('ok', 'ok') })));
+        page = mount();
+        await page.render(<ReachRow endpoint={endpointById(LOCAL_ENDPOINT_ID)!} reason={null} />);
         await untilUnderFakeClock(() => everything().includes('Checked 2m ago.'));
 
         await act(async () => jest.advanceTimersByTime(3 * MINUTE_MS));
