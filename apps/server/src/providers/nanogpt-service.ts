@@ -277,7 +277,7 @@ export class NanoGptService {
                 slug: model.id,
                 name: model.name ?? model.id,
                 profile: model.id,
-                badge: model.capabilities?.tool_calling ? 'Subscription · Tools' : 'Subscription',
+                tools: model.capabilities?.tool_calling === true,
                 vendor: nanoGptVendorOf(model.id)
             }))
         });

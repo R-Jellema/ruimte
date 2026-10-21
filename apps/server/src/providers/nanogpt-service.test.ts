@@ -58,6 +58,11 @@ describe('NanoGPT subscription', () => {
         expect(service.catalog.contextWindowFor({ model: 'tool-model', options: {} })).toBe(128_000);
         expect(service.supportsTools('tool-model')).toBe(true);
         expect(service.supportsTools('plain-chat')).toBe(false);
+        // The picker marks the models that can use tools; every model here is the subscription's, so none carries a badge.
+        expect(service.catalog.list().map((model) => [model.tools, model.badge])).toEqual([
+            [false, undefined],
+            [true, undefined]
+        ]);
     });
 
     test('the key survives a restart and only the owner of the file reads it', async () => {
