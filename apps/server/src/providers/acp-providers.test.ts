@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, setSystemTime, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -246,6 +246,7 @@ describe('Copilot', () => {
 
     test("a turn's usage is logged in the machine's folder and shows on the usage page under Copilot", async () => {
         const home = await mkdtemp(join(tmpdir(), 'copilot-usage-'));
+        setSystemTime(Date.UTC(2026, 9, 1, 12));
         try {
             const copilot = new RuimteProviderRegistry({ home, detect: async () => ({ installed: true, version: '1.0.0' }) }).get('copilot');
             const turnUsage = { totalTokens: 1500, inputTokens: 1100, outputTokens: 400, cachedReadTokens: 1000 };
@@ -261,12 +262,12 @@ describe('Copilot', () => {
                 knownProjects: async () => [],
                 roots: () => [{ provider: 'copilot', path: copilotUsageDirectory(home) }]
             });
-            const today = new Date().toISOString().slice(0, 10);
-            const summary = await usage.summary({ from: today, to: today, resolution: 'day', timeZone: 'UTC' });
+            const summary = await usage.summary({ from: '2026-10-01', to: '2026-10-01', resolution: 'day', timeZone: 'UTC' });
             usage.stop();
             expect(summary.models).toEqual([expect.objectContaining({ provider: 'copilot' })]);
             expect(summary.models[0]!.totals).toMatchObject({ calls: 1, input: 100, cacheRead: 1000, output: 400 });
         } finally {
+            setSystemTime();
             await rm(home, { recursive: true, force: true });
         }
     });

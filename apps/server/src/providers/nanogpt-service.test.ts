@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, setSystemTime, test } from 'bun:test';
 import { mkdtemp, readdir, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -7,6 +7,7 @@ import { NANOGPT_URL, NanoGptService, type NanoFetch } from './nanogpt-service.t
 
 const homes: string[] = [];
 afterEach(async () => {
+    setSystemTime();
     await Promise.all(homes.splice(0).map((home) => rm(home, { recursive: true, force: true })));
 });
 
@@ -272,6 +273,7 @@ describe('NanoGPT usage', () => {
     });
 
     test('a call that was logged shows on the usage page under NanoGPT, with its tokens and no price', async () => {
+        setSystemTime(Date.UTC(2026, 9, 1, 12));
         const folder = await home();
         const service = new NanoGptService(api().request);
         await service.load(folder);
@@ -283,8 +285,7 @@ describe('NanoGPT usage', () => {
             knownProjects: async () => [],
             roots: () => [{ provider: 'nanogpt', path: service.usageDirectory }]
         });
-        const today = new Date().toISOString().slice(0, 10);
-        const summary = await usage.summary({ from: today, to: today, resolution: 'day', timeZone: 'UTC' });
+        const summary = await usage.summary({ from: '2026-10-01', to: '2026-10-01', resolution: 'day', timeZone: 'UTC' });
         usage.stop();
 
         expect(summary.roots).toEqual([expect.objectContaining({ provider: 'nanogpt', status: 'ok' })]);

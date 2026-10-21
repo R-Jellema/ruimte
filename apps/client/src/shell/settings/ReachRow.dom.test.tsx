@@ -9,13 +9,15 @@ import { adoptEndpointInfo } from '@/transport/server-info';
 import { clickOn, mount, until, type Mounted } from '../../../testing/dom';
 import { connectFakeMachine, FakeMachine } from '../../../testing/fake-machine';
 
+const NOW = Date.UTC(2026, 9, 1);
+
 const scope = globalThis as unknown as { window: { ruimteDesktop?: DesktopBridge } };
 
 const INFO: EndpointInfo = { id: 'machine-1', label: 'Studio', platform: 'darwin', version: '1.0.0', reachability: 'loopback', authenticated: false };
 
 function reach(cause: string, severity: ReachCheck['severity']): ReachCheck {
     return {
-        checkedAt: Date.now(),
+        checkedAt: NOW,
         cause,
         severity,
         facts: {

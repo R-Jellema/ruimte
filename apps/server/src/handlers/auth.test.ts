@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, setSystemTime, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -63,7 +63,10 @@ async function ask(access: ClientAccess | undefined, type: string, payload: unkn
     return frames[0]!;
 }
 
+const NOW = Date.UTC(2026, 9, 1);
+
 beforeEach(async () => {
+    setSystemTime(NOW);
     home = await mkdtemp(join(tmpdir(), 'ruimte-auth-handlers-'));
     store = new AuthStore(home);
     identity = lendNothing(await readOrCreateEndpointIdentity(home, 'box'));
@@ -127,6 +130,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+    setSystemTime();
     await rm(home, { recursive: true, force: true });
 });
 
@@ -608,7 +612,7 @@ describe('auth handlers', () => {
                 publicKey: key.publicKey,
                 label: 'Studio',
                 nonce: 'p'.repeat(22),
-                keepNonceUntil: Date.now() + 60_000,
+                keepNonceUntil: NOW + 60_000,
                 accountId: 'owner',
                 peer: { machineId: 'machine-a', machinePublicKey: generateKeyPair().publicKey }
             });
@@ -656,7 +660,7 @@ describe('auth handlers', () => {
                     publicKey: peer.publicKey,
                     label: 'Studio',
                     nonce: 'q'.repeat(22),
-                    keepNonceUntil: Date.now() + 60_000,
+                    keepNonceUntil: NOW + 60_000,
                     accountId: 'owner',
                     peer: { machineId: 'machine-a', machinePublicKey: generateKeyPair().publicKey }
                 })
@@ -678,7 +682,7 @@ describe('auth handlers', () => {
             publicKey: phone.publicKey,
             label: 'Phone',
             nonce: 'n'.repeat(22),
-            keepNonceUntil: Date.now() + 1_000,
+            keepNonceUntil: NOW + 1_000,
             accountId: 'account-1'
         });
 
@@ -693,7 +697,7 @@ describe('auth handlers', () => {
             publicKey: colleague.publicKey,
             label: 'Colleague',
             nonce: 'c'.repeat(22),
-            keepNonceUntil: Date.now() + 1_000,
+            keepNonceUntil: NOW + 1_000,
             accountId: 'colleague'
         });
         expect(await ask(LOCAL, 'endpoint.signRegistration', { accountId: 'owner' })).toMatchObject({ ok: true });

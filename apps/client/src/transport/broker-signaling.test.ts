@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, setSystemTime, test } from 'bun:test';
 import { createPublicKey, generateKeyPairSync, sign, verify } from 'node:crypto';
 import { BrokerPeerFrameSchema, brokerHelloMessage, signalMessage, type BrokerPeerFrame, type SignalAccess, type SignalEnvelope } from '@ruimte/pulsar';
 import type { ClientKey } from '@/endpoint/client-key';
@@ -7,6 +7,7 @@ import type { Signal, SignalingEvents } from './signaling';
 
 const BROKER_URL = 'wss://broker.example.com';
 const NONCE = 'n'.repeat(32);
+const NOW = Date.UTC(2026, 9, 1);
 
 function newKey() {
     const pair = generateKeyPairSync('ed25519');
@@ -89,7 +90,7 @@ function setup(access?: (key: ClientKey) => Promise<SignalAccess>) {
         await settle();
         const ice = socket.sent.at(-1) as Extract<BrokerPeerFrame, { type: 'ice' }>;
         expect(ice.type).toBe('ice');
-        socket.deliver({ type: 'ice', id: ice.id, servers, expiresAt: servers.length > 0 ? Date.now() + 3_600_000 : null });
+        socket.deliver({ type: 'ice', id: ice.id, servers, expiresAt: servers.length > 0 ? NOW + 3_600_000 : null });
         await settle();
         return socket;
     };
@@ -103,6 +104,9 @@ function setup(access?: (key: ClientKey) => Promise<SignalAccess>) {
 }
 
 describe('brokerSignaling', () => {
+    beforeEach(() => setSystemTime(NOW));
+    afterEach(() => setSystemTime());
+
     test('announces the client key, signs the offer for the machine, and passes on an answer the machine signed', async () => {
         const { client, machine, attempt, announce, answerFrom } = setup();
         const { signaling, log } = attempt('attempt-0001');

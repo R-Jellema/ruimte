@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, setSystemTime, test } from 'bun:test';
 import { startPulsarAccount, usePulsarAccount } from './account';
 import { deleteAccountHere, type LocalLeave } from './account-deletion';
 import { useAccountConfirmation } from './confirmation';
@@ -6,6 +6,7 @@ import type { PulsarPlatform } from './desktop';
 
 const account = { id: 'account-1', provider: 'github' as const, login: 'someone', displayName: null };
 const realFetch = globalThis.fetch;
+const NOW = Date.UTC(2026, 9, 1);
 
 interface Sent {
     method: string;
@@ -21,8 +22,8 @@ function platformWith() {
             exchange: async () => {
                 throw new Error('not used');
             },
-            refresh: async () => ({ accessToken: 'a'.repeat(43), accessExpiresAt: Date.now() + 900_000, expiresAt: Date.now() + 86_400_000, account }),
-            restore: async () => ({ account, expiresAt: Date.now() + 86_400_000 }),
+            refresh: async () => ({ accessToken: 'a'.repeat(43), accessExpiresAt: NOW + 900_000, expiresAt: NOW + 86_400_000, account }),
+            restore: async () => ({ account, expiresAt: NOW + 86_400_000 }),
             signOut: async () => {
                 calls.signOuts += 1;
             }
@@ -46,10 +47,12 @@ function answerDeleteWith(response: () => Response): Sent[] {
 
 describe('deleting the account', () => {
     beforeEach(() => {
+        setSystemTime(NOW);
         useAccountConfirmation.setState({ text: null });
     });
 
     afterEach(() => {
+        setSystemTime();
         globalThis.fetch = realFetch;
     });
 
