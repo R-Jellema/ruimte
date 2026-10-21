@@ -4140,7 +4140,20 @@ export const ACTION_DEFINITIONS = {
                     plan: z.string().nullable(),
                     checkedAt: z.number(),
                     unavailable: z.string().nullable(),
-                    windows: z.array(z.object({ label: z.string(), kind: z.string(), usedPercent: z.number(), resetsAt: z.number().nullable() }))
+                    windows: z.array(
+                        z.object({
+                            label: z.string(),
+                            kind: z.string(),
+                            usedPercent: z.number(),
+                            resetsAt: z.number().nullable(),
+                            evenPacePercent: z
+                                .number()
+                                .nullable()
+                                .describe(
+                                    'Where usedPercent would stand had the window been spent evenly from its start; above it is ahead of that pace. Null when the CLI named no reset or length'
+                                )
+                        })
+                    )
                 })
             )
         })
