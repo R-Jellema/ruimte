@@ -196,7 +196,7 @@ describe('Antigravity', () => {
         const provider = createAntigravityProvider(installed);
         expect(provider.kind).toBe('antigravity');
         expect(provider.command).toEqual(['/home/.ruimte/agent-servers/antigravity/1.4.1/agy_acp_server.par', '--uid=']);
-        expect([provider.capabilities.chat, provider.capabilities.terminal, provider.capabilities.hooks]).toEqual([true, true, false]);
+        expect([provider.capabilities.chat, provider.capabilities.terminal, provider.capabilities.hooks]).toEqual([true, true, true]);
         expect(provider.home).toMatchObject({ env: 'GEMINI_HOME', fallback: '.gemini', loginEnv: [] });
         expect(provider.home?.loginCommand).toBeUndefined();
         expect(provider.firstPromptArgs('go')).toEqual(['-i', 'go']);
