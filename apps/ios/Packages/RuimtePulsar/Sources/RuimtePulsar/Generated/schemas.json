@@ -30987,6 +30987,160 @@
       "providers"
     ]
   },
+  "request.provider.server.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "provider": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 32,
+        "pattern": "^[a-z][a-z0-9-]*$",
+        "x-open-enum": [
+          "claude",
+          "codex",
+          "gemini",
+          "copilot",
+          "apple"
+        ]
+      }
+    },
+    "required": [
+      "provider"
+    ]
+  },
+  "request.provider.server.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "server": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "x-open-enum": [
+              "claude",
+              "codex",
+              "gemini",
+              "copilot",
+              "apple"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "installing",
+              "installed",
+              "failed",
+              "unsupported"
+            ]
+          },
+          "version": {
+            "type": "string"
+          },
+          "installed": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "state",
+          "version",
+          "installed"
+        ]
+      }
+    },
+    "required": [
+      "server"
+    ]
+  },
+  "request.provider.installServer.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "provider": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 32,
+        "pattern": "^[a-z][a-z0-9-]*$",
+        "x-open-enum": [
+          "claude",
+          "codex",
+          "gemini",
+          "copilot",
+          "apple"
+        ]
+      }
+    },
+    "required": [
+      "provider"
+    ]
+  },
+  "request.provider.installServer.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "server": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "x-open-enum": [
+              "claude",
+              "codex",
+              "gemini",
+              "copilot",
+              "apple"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "installing",
+              "installed",
+              "failed",
+              "unsupported"
+            ]
+          },
+          "version": {
+            "type": "string"
+          },
+          "installed": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "state",
+          "version",
+          "installed"
+        ]
+      }
+    },
+    "required": [
+      "server"
+    ]
+  },
   "request.accounts.list.payload": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",

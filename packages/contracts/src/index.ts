@@ -6,6 +6,7 @@ import {
 } from './terminal-prepare.ts';
 export * from './terminal-prepare.ts';
 import { AgentIntegrationSetPayloadSchema, AgentIntegrationSetResultSchema, AgentIntegrationsResultSchema } from './agent-integrations.ts';
+import { AgentServerPayloadSchema, AgentServerResultSchema } from './agent-server.ts';
 import { AGENT_EVENT_SCHEMAS, AGENT_REQUEST_SCHEMAS, EmptySchema } from '@adecore/agent-contracts/protocol';
 import {
     ChatExternalPayloadSchema,
@@ -388,6 +389,7 @@ import { SecretAnswerResultSchema, SecretDeclinePayloadSchema, SecretRequestsSch
 
 export * from './agent.ts';
 export * from './agent-integrations.ts';
+export * from './agent-server.ts';
 export * from './archive.ts';
 export * from './auth.ts';
 export * from './browser.ts';
@@ -569,6 +571,9 @@ export const REQUEST_SCHEMAS = {
     'chat.proposalDecline': { payload: ProjectProposalDeclinePayloadSchema, result: ProjectProposalDeclineResultSchema },
     'skills.list': AGENT_REQUEST_SCHEMAS['skills.list'],
     'provider.list': AGENT_REQUEST_SCHEMAS['provider.list'],
+    // The chat server of a CLI that ships one apart (Antigravity), and a person's Install of it; the daemon never installs one itself.
+    'provider.server': { payload: AgentServerPayloadSchema, result: AgentServerResultSchema },
+    'provider.installServer': { payload: AgentServerPayloadSchema, result: AgentServerResultSchema },
     'accounts.list': AGENT_REQUEST_SCHEMAS['accounts.list'],
     'accounts.save': AGENT_REQUEST_SCHEMAS['accounts.save'],
     'accounts.refresh': AGENT_REQUEST_SCHEMAS['accounts.refresh'],

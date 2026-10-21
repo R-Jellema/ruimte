@@ -26,6 +26,7 @@ import { registerDrawingHandlers } from '../handlers/drawing.ts';
 import { registerFsHandlers } from '../handlers/fs.ts';
 import { registerGitHandlers } from '../handlers/git.ts';
 import { registerLanguageHandlers } from '../handlers/language.ts';
+import { registerAgentServerHandlers } from '../handlers/agent-servers.ts';
 import { registerLaunchHandlers } from '../handlers/launches.ts';
 import { registerOnDeviceHandlers } from '../handlers/ondevice.ts';
 import { registerPeerHandlers } from '../handlers/peer.ts';
@@ -332,6 +333,7 @@ export function registerEditorHandlers(dispatcher: Dispatcher, input: EditorHand
     const { machine, providers, projects, work, launches, git, devices, databases, usage, processes, language, agents } = input;
     const store = projects.store;
     registerLanguageHandlers(dispatcher, language.host);
+    registerAgentServerHandlers(dispatcher, providers.servers);
     registerOnDeviceHandlers(dispatcher, language.onDevice);
     registerProvenanceHandlers(dispatcher, language.provenance, machine.machineHome);
     registerDatabaseHandlers(dispatcher, databases.service, databases.connections, databases.agents, databases.sqlAnalysis);

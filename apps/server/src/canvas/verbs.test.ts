@@ -1527,12 +1527,12 @@ describe('agent', () => {
         expect(started).toEqual([{ projectId, nodeId: id!, openedBy: 'term-1', node: 'chat', provider: 'codex', cwd: folder }]);
     });
 
-    test('a CLI without a chat backend opens as a terminal, with or without --terminal', async () => {
+    test('Antigravity opens as a chat, and as a terminal with --terminal', async () => {
         const plain = await post('agent', ['antigravity']);
         const asked = await post('agent', ['antigravity', '--terminal']);
         expect([plain.status, asked.status]).toEqual([200, 200]);
-        expect([plain.lines[0]!.split('\t')[1], asked.lines[0]!.split('\t')[1]]).toEqual(['terminal', 'terminal']);
-        expect(started.map((start) => start.node)).toEqual(['terminal', 'terminal']);
+        expect([plain.lines[0]!.split('\t')[1], asked.lines[0]!.split('\t')[1]]).toEqual(['chat', 'terminal']);
+        expect(started.map((start) => start.node)).toEqual(['chat', 'terminal']);
     });
 
     test('a CLI that is not installed is refused with the ones that are', async () => {
@@ -1795,7 +1795,7 @@ describe('team', () => {
     const THREE = [
         { title: 'Lexer', prompt: 'fix the tokenizer', provider: 'claude', terminal: true },
         { title: 'Parser', prompt: 'fix the parser', provider: 'codex' },
-        { title: 'Docs', prompt: 'write the docs', provider: 'antigravity' }
+        { title: 'Docs', prompt: 'write the docs', provider: 'antigravity', terminal: true }
     ];
 
     const args = (roles: unknown, label = 'Crew'): string[] => ['--label', label, '--roles', JSON.stringify(roles)];

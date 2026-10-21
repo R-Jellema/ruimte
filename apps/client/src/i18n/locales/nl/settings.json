@@ -1380,6 +1380,22 @@
             "unavailable": "Het lokale model is niet beschikbaar.",
             "saveFailed": "Apple Foundation Models kon niet worden gewijzigd",
             "requiresMac": "Vereist een Mac met Apple silicon."
+        },
+        "acpServer": {
+            "title": "Chatserver van {{name}}",
+            "description": "Chats met Antigravity draaien op de ACP-server van Google, die Ruimte bij Google downloadt, tegen de vastgelegde checksum controleert en op deze machine bewaart. Je logt in vanuit de eerste chat, in de browser die die opent.",
+            "label": "ACP-server {{version}}",
+            "install": "Installeren",
+            "update": "Bijwerken naar {{version}}",
+            "localOnly": "Installeer hem in de Ruimte-app op die machine.",
+            "state": {
+                "missing": "Niet geïnstalleerd.",
+                "installing": "Downloaden en controleren…",
+                "installed": "Versie {{version}} is geïnstalleerd.",
+                "failed": "De installatie is mislukt.",
+                "unsupported": "Er is geen build van de server voor deze machine."
+            },
+            "searchLabel": "Chatserver van Antigravity"
         }
     }
 }

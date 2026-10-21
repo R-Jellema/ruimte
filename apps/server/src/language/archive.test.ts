@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
-import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { extractEntries, readArchive } from './archive.ts';
+import { extractEntries, extractZipFile, readArchive } from './archive.ts';
 import { tarGz, zip, type FixtureFile } from './test-archives.ts';
 
 let folder = '';
@@ -80,5 +80,24 @@ describe('archives', () => {
     it('refuses something that is no zip and an archive that ends early', () => {
         expect(() => readArchive(new Uint8Array(40), 'zip')).toThrow('not a zip');
         expect(() => readArchive(tarGz([{ path: 'a', text: 'x'.repeat(2000) }]).subarray(0, 40), 'tar.gz')).toThrow();
+    });
+});
+
+describe('a zip unpacked from disk', () => {
+    it('streams every file out with its mode and skips a path that climbs out', async () => {
+        const file = join(folder, 'release.zip');
+        await writeFile(file, zip([...FILES, { path: '../escape.txt', text: 'out' }, { path: 'empty.txt', text: '' }]));
+        const target = join(folder, 'out');
+        expect((await extractZipFile(file, target)).sort()).toEqual(['bin/server', 'docs/readme.txt', 'empty.txt']);
+        expect(await readFile(join(target, 'docs/readme.txt'), 'utf8')).toBe('hello');
+        expect(await readFile(join(target, 'empty.txt'), 'utf8')).toBe('');
+        expect((await stat(join(target, 'bin/server'))).mode & 0o777).toBe(0o755);
+        expect(await Bun.file(join(folder, 'escape.txt')).exists()).toBe(false);
+    });
+
+    it('refuses a file that is no zip', async () => {
+        const file = join(folder, 'release.zip');
+        await writeFile(file, 'not a zip');
+        await expect(extractZipFile(file, join(folder, 'out'))).rejects.toThrow('not a zip file');
     });
 });

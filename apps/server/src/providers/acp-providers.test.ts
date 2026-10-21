@@ -2,7 +2,17 @@ import { describe, expect, test } from 'bun:test';
 import type { BackendEvent, BackendLaunch } from '@adecore/agents/chat';
 import type { ChatProvider } from '@adecore/agents/providers';
 import { fakeAcpWith, inProcess, type FakeAcpOptions } from '@adecore/agents/testing';
-import { AGENT_DEFAULT_MODEL, COPILOT_MODES, GROK_MODES, copilotProvider, grokAuthMethod, grokProvider } from './acp-providers.ts';
+import {
+    AGENT_DEFAULT_MODEL,
+    ANTIGRAVITY_MODES,
+    COPILOT_MODES,
+    GROK_MODES,
+    copilotProvider,
+    createAntigravityProvider,
+    grokAuthMethod,
+    grokProvider
+} from './acp-providers.ts';
+import type { AcpServerLaunch } from './acp-server.ts';
 
 const GROK_SESSION_MODES = ['default', 'plan', 'ask'];
 
@@ -109,5 +119,60 @@ describe('Copilot', () => {
         await backend.start();
         expect(methods).toContain('session/set_mode');
         await backend.dispose();
+    });
+});
+
+describe('Antigravity', () => {
+    const SERVER_MODES = ['default', 'auto_edit', 'yolo'];
+    const installed: AcpServerLaunch = {
+        launch: () => ['/home/.ruimte/agent-servers/antigravity/1.4.1/agy_acp_server.par', '--uid='],
+        detection: () => ({ installed: true, version: '1.4.1' })
+    };
+    const missing: AcpServerLaunch = { launch: () => null, detection: () => ({ installed: false, version: null }) };
+
+    test('chats on the installed server, keeps its accounts apart in GEMINI_HOME and runs `agy` as a terminal', async () => {
+        const provider = createAntigravityProvider(installed);
+        expect(provider.kind).toBe('antigravity');
+        expect(provider.command).toEqual(['/home/.ruimte/agent-servers/antigravity/1.4.1/agy_acp_server.par', '--uid=']);
+        expect([provider.capabilities.chat, provider.capabilities.terminal, provider.capabilities.hooks]).toEqual([true, true, false]);
+        expect(provider.home).toMatchObject({ env: 'GEMINI_HOME', fallback: '.gemini', loginEnv: [] });
+        expect(provider.home?.loginCommand).toBeUndefined();
+        expect(provider.firstPromptArgs('go')).toEqual(['-i', 'go']);
+        expect(provider.resumeCommand).toBe('agy {flags} --conversation {id}');
+        expect(await provider.detect('agy', {})).toEqual({ installed: true, version: '1.4.1' });
+    });
+
+    test('without an installed server it is listed as not installed and starts no chat', async () => {
+        const provider = createAntigravityProvider(missing);
+        expect(await provider.detect('agy', {})).toEqual({ installed: false, version: null });
+        expect(() => provider.createBackend({} as BackendLaunch, { onEvent: () => undefined })).toThrow('Install the Antigravity server');
+    });
+
+    test("each runtime mode names the server's own mode, the two between sharing auto_edit", () => {
+        expect(ANTIGRAVITY_MODES).toEqual({ supervised: ['default'], 'auto-accept-edits': ['auto_edit'], auto: ['auto_edit'], 'full-access': ['yolo'] });
+    });
+
+    test("a turn goes through and back, signed in through the server's own browser sign-in", async () => {
+        const provider = createAntigravityProvider(installed);
+        const { backend, events, methods, fake, turnDone } = run(provider, { authMethod: 'oauth-personal', modes: SERVER_MODES });
+        await backend.start();
+        expect(fake.started[0]?.argv).toEqual(['--uid=']);
+        expect(methods).toEqual(['initialize', 'session/new', 'authenticate', 'session/new']);
+        backend.sendTurn({ promptId: 'p1', text: 'hello', preamble: null, attachments: [], mentions: [], skills: [] });
+        await turnDone;
+        expect(events.flatMap((event) => (event.type === 'text.done' ? [event.text] : [])).join('')).toBe('echo: hello');
+        await backend.dispose();
+    });
+
+    test('a full-access chat switches the server to yolo, and an auto chat to auto_edit', async () => {
+        for (const [runtimeMode, mode] of [
+            ['full-access', 'yolo'],
+            ['auto', 'auto_edit']
+        ] as const) {
+            const { backend, events } = run(createAntigravityProvider(installed), { modes: SERVER_MODES }, { runtimeMode });
+            await backend.start();
+            expect(events).toContainEqual(expect.objectContaining({ type: 'permissions', permissionMode: mode, effectiveRuntimeMode: runtimeMode }));
+            await backend.dispose();
+        }
     });
 });

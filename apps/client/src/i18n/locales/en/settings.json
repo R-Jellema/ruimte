@@ -1380,6 +1380,22 @@
             "unavailable": "The local model is not available.",
             "saveFailed": "Could not change Apple Foundation Models",
             "requiresMac": "Requires a Mac with Apple silicon."
+        },
+        "acpServer": {
+            "title": "{{name}} chat server",
+            "description": "Chats with Antigravity run on Google's ACP server, which Ruimte downloads from Google, checks against its pinned checksum and keeps on this machine. You sign in from the first chat, in the browser it opens.",
+            "label": "ACP server {{version}}",
+            "install": "Install",
+            "update": "Update to {{version}}",
+            "localOnly": "Install it in the Ruimte app on that machine.",
+            "state": {
+                "missing": "Not installed.",
+                "installing": "Downloading and checking…",
+                "installed": "Version {{version}} is installed.",
+                "failed": "The install failed.",
+                "unsupported": "There is no build of the server for this machine."
+            },
+            "searchLabel": "Antigravity chat server"
         }
     }
 }

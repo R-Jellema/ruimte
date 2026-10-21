@@ -4,11 +4,11 @@ import { ProviderRegistry as AgentProviderRegistry } from '@adecore/agents/provi
 import { createAppleProvider, appleProvider } from './apple-provider.ts';
 import { claudeProvider } from './claude-provider.ts';
 import { codexProvider } from './codex-provider.ts';
-import { copilotProvider, grokProvider } from './acp-providers.ts';
-import { antigravityProvider } from './terminal-providers.ts';
+import { copilotProvider, createAntigravityProvider, grokProvider } from './acp-providers.ts';
+import type { AcpServerLaunch } from './acp-server.ts';
 
 // The CLIs the daemon ships with, in the order of `BUILT_IN_KINDS`. A new one is one more value in both.
-const BUILT_IN_PROVIDERS: ChatProvider[] = [claudeProvider, codexProvider, antigravityProvider, copilotProvider, grokProvider];
+const BUILT_IN_PROVIDERS: ChatProvider[] = [claudeProvider, codexProvider, createAntigravityProvider(null), copilotProvider, grokProvider];
 
 // Offers nothing, so it answers a kind this version does not know with a provider that starts nothing.
 const UNOFFERED = new AgentProviderRegistry({ providers: [] });
@@ -21,6 +21,8 @@ export function providerFor(kind: AgentKind): ChatProvider {
 interface ProviderRegistryOptions {
     providers?: ChatProvider[];
     appleEnabled?: () => boolean;
+    // Where Antigravity's chat server is installed; without it Antigravity is a terminal only.
+    antigravityServer?: AcpServerLaunch;
     // The executables to probe, when they are not the ones the providers name.
     commands?: Partial<Record<AgentKind, string>>;
     // How to probe; a test answers without spawning anything.
@@ -35,7 +37,12 @@ export class ProviderRegistry extends AgentProviderRegistry {
 
     constructor(options: ProviderRegistryOptions = {}) {
         super({
-            providers: options.providers ?? [...BUILT_IN_PROVIDERS, createAppleProvider(options.appleEnabled ?? (() => false))],
+            providers: options.providers ?? [
+                ...BUILT_IN_PROVIDERS.map((provider) =>
+                    provider.kind === 'antigravity' ? createAntigravityProvider(options.antigravityServer ?? null) : provider
+                ),
+                createAppleProvider(options.appleEnabled ?? (() => false))
+            ],
             ...(options.commands ? { commands: options.commands } : {}),
             ...(options.detect ? { detect: options.detect } : {})
         });

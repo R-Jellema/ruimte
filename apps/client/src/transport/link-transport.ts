@@ -49,7 +49,8 @@ const UNBOUNDED_REQUESTS: ReadonlySet<RequestType> = new Set<RequestType>([
     'git.worktree-merge',
     'language.install',
     'language.rollback',
-    'ondevice.generate'
+    'ondevice.generate',
+    'provider.installServer'
 ]);
 
 /* Where the next connection opens. A function, because the address carries a credential that is signed for per connection. */
