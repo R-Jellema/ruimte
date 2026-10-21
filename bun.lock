@@ -17,17 +17,17 @@
       "name": "@ruimte/client",
       "version": "0.0.0",
       "dependencies": {
-        "@adecore/agents-react": "0.31.11",
-        "@adecore/database": "0.31.11",
-        "@adecore/diagram": "0.31.11",
-        "@adecore/drawing": "0.31.11",
-        "@adecore/editor": "0.31.11",
-        "@adecore/editor-react": "0.31.11",
-        "@adecore/lsp": "0.31.11",
-        "@adecore/merge": "0.31.11",
-        "@adecore/plan": "0.31.11",
-        "@adecore/terminal": "0.31.11",
-        "@adecore/ui": "0.31.11",
+        "@adecore/agents-react": "0.31.12",
+        "@adecore/database": "0.31.12",
+        "@adecore/diagram": "0.31.12",
+        "@adecore/drawing": "0.31.12",
+        "@adecore/editor": "0.31.12",
+        "@adecore/editor-react": "0.31.12",
+        "@adecore/lsp": "0.31.12",
+        "@adecore/merge": "0.31.12",
+        "@adecore/plan": "0.31.12",
+        "@adecore/terminal": "0.31.12",
+        "@adecore/ui": "0.31.12",
         "@base-ui/react": "^1.9.0",
         "@codemirror/commands": "^6.11.1",
         "@codemirror/language": "^6.12.4",
@@ -74,7 +74,7 @@
         "zustand": "^5.0.15",
       },
       "devDependencies": {
-        "@adecore/agents": "0.31.11",
+        "@adecore/agents": "0.31.12",
         "@happy-dom/global-registrator": "^20.14.5",
         "@tailwindcss/typography": "^0.5.20",
         "@tailwindcss/vite": "^4.3.3",
@@ -94,8 +94,8 @@
       "name": "@ruimte/desktop",
       "version": "0.0.0",
       "dependencies": {
-        "@adecore/service": "0.31.11",
-        "@adecore/shell": "0.31.11",
+        "@adecore/service": "0.31.12",
+        "@adecore/shell": "0.31.12",
         "@ruimte/actions": "workspace:*",
         "@ruimte/contracts": "workspace:*",
         "@ruimte/csp": "workspace:*",
@@ -143,7 +143,7 @@
       "name": "@ruimte/pulsar-worker",
       "version": "0.0.0",
       "dependencies": {
-        "@adecore/agents": "0.31.11",
+        "@adecore/agents": "0.31.12",
         "@ruimte/pulsar": "workspace:*",
         "zod": "^4.6.5",
       },
@@ -159,15 +159,15 @@
       "name": "@ruimte/server",
       "version": "0.0.0",
       "dependencies": {
-        "@adecore/agents": "0.31.11",
-        "@adecore/database": "0.31.11",
-        "@adecore/diagram": "0.31.11",
-        "@adecore/drawing": "0.31.11",
-        "@adecore/intelligent-ui": "0.31.11",
-        "@adecore/lsp": "0.31.11",
-        "@adecore/merge": "0.31.11",
-        "@adecore/plan": "0.31.11",
-        "@adecore/service": "0.31.11",
+        "@adecore/agents": "0.31.12",
+        "@adecore/database": "0.31.12",
+        "@adecore/diagram": "0.31.12",
+        "@adecore/drawing": "0.31.12",
+        "@adecore/intelligent-ui": "0.31.12",
+        "@adecore/lsp": "0.31.12",
+        "@adecore/merge": "0.31.12",
+        "@adecore/plan": "0.31.12",
+        "@adecore/service": "0.31.12",
         "@modelcontextprotocol/client": "^2.1.0",
         "@ruimte/actions": "workspace:*",
         "@ruimte/contracts": "workspace:*",
@@ -253,10 +253,10 @@
       "name": "@ruimte/contracts",
       "version": "0.0.0",
       "dependencies": {
-        "@adecore/agent-contracts": "0.31.11",
-        "@adecore/diagram": "0.31.11",
-        "@adecore/drawing": "0.31.11",
-        "@adecore/plan": "0.31.11",
+        "@adecore/agent-contracts": "0.31.12",
+        "@adecore/diagram": "0.31.12",
+        "@adecore/drawing": "0.31.12",
+        "@adecore/plan": "0.31.12",
         "@ruimte/pulsar": "workspace:*",
         "zod": "^4.6.5",
       },
@@ -278,7 +278,7 @@
       "name": "@ruimte/desktop-bridge",
       "version": "0.0.0",
       "dependencies": {
-        "@adecore/shell": "0.31.11",
+        "@adecore/shell": "0.31.12",
         "@ruimte/contracts": "workspace:*",
         "@ruimte/pulsar": "workspace:*",
       },
@@ -299,7 +299,7 @@
       "name": "@ruimte/pulsar",
       "version": "0.0.0",
       "dependencies": {
-        "@adecore/agent-contracts": "0.31.11",
+        "@adecore/agent-contracts": "0.31.12",
         "zod": "^4.6.5",
       },
       "devDependencies": {
@@ -311,7 +311,7 @@
       "name": "@ruimte/service",
       "version": "0.0.0",
       "dependencies": {
-        "@adecore/service": "0.31.11",
+        "@adecore/service": "0.31.12",
       },
       "devDependencies": {
         "@types/bun": "^1.4.2",
@@ -334,47 +334,47 @@
     "werift@0.24.4": "patches/werift@0.24.4.patch",
   },
   "packages": {
-    "@adecore/agent-contracts": ["@adecore/agent-contracts@0.31.11", "", { "dependencies": { "@adecore/intelligent-ui": "0.31.11", "zod": "^4.6.5" } }, "sha512-6CZZMkObHTSt4r9emdhq32oA0JxN60gDx/e7jr6F3il/OWWu5MgTGXCPX/ohH/CsQjH7Pg/NE6Nhobz6elW+CQ=="],
+    "@adecore/agent-contracts": ["@adecore/agent-contracts@0.31.12", "", { "dependencies": { "@adecore/intelligent-ui": "0.31.12", "zod": "^4.6.5" } }, "sha512-eb3vdtBKttH5oLr1og3dW4jy8rJv7BtjlAJwYFar1JbOuTy0FlitqnqUy1Uf10Sa3n2QKyAPhd33Mbyf6xtJdw=="],
 
-    "@adecore/agents": ["@adecore/agents@0.31.11", "", { "dependencies": { "@adecore/agent-contracts": "0.31.11", "@adecore/intelligent-ui": "0.31.11", "zod": "^4.6.5" } }, "sha512-5KZaEfc8XhbMwuLGIhHS/4sSRyX4sRKLIqBUyZQrY6TeHH0VXHzO2WolVETTd8xWDkrv4AzNPtHLdt7qdY4u/g=="],
+    "@adecore/agents": ["@adecore/agents@0.31.12", "", { "dependencies": { "@adecore/agent-contracts": "0.31.12", "@adecore/intelligent-ui": "0.31.12", "zod": "^4.6.5" } }, "sha512-IRlgbeaE/8POKyZW9EL/gZ3CTlqJiD0Qe669Uol90B52APwuDgSN6qSPdZ7o6yJjcS+gE+HdVavZ9/GRPdASyw=="],
 
-    "@adecore/agents-react": ["@adecore/agents-react@0.31.11", "", { "dependencies": { "@adecore/agent-contracts": "0.31.11", "@adecore/editor": "0.31.11", "@adecore/editor-react": "0.31.11", "@adecore/intelligent-ui": "0.31.11", "@adecore/merge": "0.31.11", "@codemirror/commands": "^6.11.1", "@codemirror/language": "^6.12.4", "@codemirror/state": "^6.7.6", "@codemirror/view": "^6.43.13", "@lezer/common": "^1.5.2", "@lezer/highlight": "^1.2.3", "@lezer/markdown": "^1.7.2", "@pierre/diffs": "^1.4.3", "@tanstack/react-virtual": "^3.14.13", "clsx": "^2.1.1", "lucide-react": "^1.47.0", "maplibre-gl": "^6.14.0", "mermaid": "^12.2.0", "react-markdown": "^10.1.0", "remark-breaks": "^4.0.0", "remark-gfm": "^4.0.1", "shiki": "^4.4.3", "simple-icons": "^16.32.0", "zod": "^4.6.5", "zustand": "^5.0.15" }, "peerDependencies": { "@adecore/ui": "^0.31.11", "i18next": "^26.4.2", "react": "^19.3.0", "react-dom": "^19.3.0", "react-i18next": "^17.0.15" } }, "sha512-37TRxiiwpveIZD37jtFDxrXguaOdBbFMk95RP2QTn8XYaL4Ti3qi4eL1FcU2d79AGGn2PTQtRy0RBCP+sK1fFQ=="],
+    "@adecore/agents-react": ["@adecore/agents-react@0.31.12", "", { "dependencies": { "@adecore/agent-contracts": "0.31.12", "@adecore/editor": "0.31.12", "@adecore/editor-react": "0.31.12", "@adecore/intelligent-ui": "0.31.12", "@adecore/merge": "0.31.12", "@codemirror/commands": "^6.11.1", "@codemirror/language": "^6.12.4", "@codemirror/state": "^6.7.6", "@codemirror/view": "^6.43.13", "@lezer/common": "^1.5.2", "@lezer/highlight": "^1.2.3", "@lezer/markdown": "^1.7.2", "@pierre/diffs": "^1.4.3", "@tanstack/react-virtual": "^3.14.13", "clsx": "^2.1.1", "lucide-react": "^1.47.0", "maplibre-gl": "^6.14.0", "mermaid": "^12.2.0", "react-markdown": "^10.1.0", "remark-breaks": "^4.0.0", "remark-gfm": "^4.0.1", "shiki": "^4.4.3", "simple-icons": "^16.32.0", "zod": "^4.6.5", "zustand": "^5.0.15" }, "peerDependencies": { "@adecore/ui": "^0.31.12", "i18next": "^26.4.2", "react": "^19.3.0", "react-dom": "^19.3.0", "react-i18next": "^17.0.15" } }, "sha512-8QiWmFrtxNsPusGnNrUhlqoNegqfefK6RZMtepPep1+Pyb5+j8/1bUei5XdiawsWVMblmw0aDOo6ihfPh+YdOA=="],
 
-    "@adecore/database": ["@adecore/database@0.31.11", "", { "dependencies": { "@base-ui/react": "^1.9.0", "clsx": "^2.1.1", "lucide-react": "^1.47.0" }, "optionalDependencies": { "@adecore/database-darwin-arm64": "0.31.11", "@adecore/database-linux-arm64": "0.31.11", "@adecore/database-linux-x64": "0.31.11", "@adecore/database-win32-x64": "0.31.11" }, "peerDependencies": { "@adecore/ui": "^0.31.11", "i18next": "^26.4.2", "react": "^19.3.0", "react-dom": "^19.3.0", "react-i18next": "^17.0.15" } }, "sha512-aptgKhRzy2qfKE9xdlEU9Vv3HYL8U1JYa5YzfbJXLL/4EyG5TUaNxidd+W9axhE+OSJb0x+jJFnsf5EPLesvJg=="],
+    "@adecore/database": ["@adecore/database@0.31.12", "", { "dependencies": { "@base-ui/react": "^1.9.0", "clsx": "^2.1.1", "lucide-react": "^1.47.0" }, "optionalDependencies": { "@adecore/database-darwin-arm64": "0.31.12", "@adecore/database-linux-arm64": "0.31.12", "@adecore/database-linux-x64": "0.31.12", "@adecore/database-win32-x64": "0.31.12" }, "peerDependencies": { "@adecore/ui": "^0.31.12", "i18next": "^26.4.2", "react": "^19.3.0", "react-dom": "^19.3.0", "react-i18next": "^17.0.15" } }, "sha512-U323nxolBBbHbNVdLb8irFzD3zYes3nBx1l2+hH90SnPH8+3WobO23PMPnpW+fhScgp+IYL9jqvbwFBxWQ8wNA=="],
 
-    "@adecore/database-darwin-arm64": ["@adecore/database-darwin-arm64@0.31.11", "", { "os": "darwin", "cpu": "arm64" }, "sha512-eMU8R4HYxAZHKi+SuwO8oWhztW2iAvo2wOXAcc6hPruY/r3nd0GVm1nUrSlYu3Lyt//qZerik+7pSVVJLpQPQQ=="],
+    "@adecore/database-darwin-arm64": ["@adecore/database-darwin-arm64@0.31.12", "", { "os": "darwin", "cpu": "arm64" }, "sha512-L5bdBAlS8ddnie8ZnC6IbZOyOps1XEjdoDKOTz10XfbIkKaaAg8YI/PRCIpqSeUm8j7BBgvUrhzvuD9zU6gZgA=="],
 
-    "@adecore/database-linux-arm64": ["@adecore/database-linux-arm64@0.31.11", "", { "os": "linux", "cpu": "arm64" }, "sha512-Iw5q+Q0LXyJR80jMS5Lr6RR/j2AlR6R3TpadrhIltADoqKPIcP4C3Hw+66OE34vy8IzDPwLkOxldKlvXMBCRzg=="],
+    "@adecore/database-linux-arm64": ["@adecore/database-linux-arm64@0.31.12", "", { "os": "linux", "cpu": "arm64" }, "sha512-NdAxfFmLS2EcdZ8bs4fgoHcDTuSvBDLTYwqYI2edL5xOVSz54JuYmtY+9lXjXjlNulQsbBatcMqUXDyQ1KwvyA=="],
 
-    "@adecore/database-linux-x64": ["@adecore/database-linux-x64@0.31.11", "", { "os": "linux", "cpu": "x64" }, "sha512-Zz3Vy1VTyoHmtGpBTOvRAsZxkcE5V+PUIaaInSJq8Uqad3WnoKLNN8DYmvO1+M90a15GfRsM0FU7OeXEITS0sw=="],
+    "@adecore/database-linux-x64": ["@adecore/database-linux-x64@0.31.12", "", { "os": "linux", "cpu": "x64" }, "sha512-YM3fqgQ2y6bYyyLFVlOTLiEnNF5YzCgG13RJykw0b3MOdGu9xHe39+czA2FCKeyF9m5IVKGWMJ/Zt6R3Mit9dw=="],
 
-    "@adecore/database-win32-x64": ["@adecore/database-win32-x64@0.31.11", "", { "os": "win32", "cpu": "x64" }, "sha512-10Kdy5dff3OW0D5ZbZX2+PueHzOk9z9KDNqBKbiE8++rmkkegasTi/F1uqAuMC7xOUJZZnlfYNGwez5LjYAsqg=="],
+    "@adecore/database-win32-x64": ["@adecore/database-win32-x64@0.31.12", "", { "os": "win32", "cpu": "x64" }, "sha512-plu9U01CPDnD8rRVS9L4UzIumSttH3REruRtB9xP6n/idqNigwcLt3EE5P+3kx56doJZqt9OP4Zeg0MJv8sDMQ=="],
 
-    "@adecore/diagram": ["@adecore/diagram@0.31.11", "", { "dependencies": { "@adecore/drawing": "0.31.11", "zod": "^4.6.5" } }, "sha512-eOKl4Jewz5cNMJ1LTcq7F/aaaiJnfyVsPlIWdLyRtxOJFToSUoq3hpM/J5HPifgeZ4Vlu1fnQZUkttcKum3ZLg=="],
+    "@adecore/diagram": ["@adecore/diagram@0.31.12", "", { "dependencies": { "@adecore/drawing": "0.31.12", "zod": "^4.6.5" } }, "sha512-f5O74Z9Bux3v4SS6TX9kwoeXoswTFjdBauBXPOCLIziNJIbVO7OOwZQAIc5shgsWHDnvx+swXGGR/PKfAKPCkg=="],
 
-    "@adecore/drawing": ["@adecore/drawing@0.31.11", "", { "dependencies": { "perfect-freehand": "^1.2.3", "roughjs": "^4.6.6", "zod": "^4.6.5" } }, "sha512-jelBxl6jqmSyue3HQaOTXlVt0YerskzlQuhcTJ4XUc/YdF8t6U95Yrf7zR99tsRanARxDBL/fogNfwfmAc4K0A=="],
+    "@adecore/drawing": ["@adecore/drawing@0.31.12", "", { "dependencies": { "perfect-freehand": "^1.2.3", "roughjs": "^4.6.6", "zod": "^4.6.5" } }, "sha512-Xc9zMuURIpEXmFTZfmHiKOfS1erIPSeSQpsJ7R8h1tM/oiP76Ybltan588+QX4m7EA/E5AMp5n26pnNXRdyl7w=="],
 
-    "@adecore/editor": ["@adecore/editor@0.31.11", "", { "dependencies": { "@adecore/editor-core": "0.31.11", "linkedom": "^0.18.13", "shiki": "^4.4.3" } }, "sha512-IRJm9sMhCnG2NNd0x9hNhqrd9INK5CfO1IG1o/sTj4u2yYaa9WqnvJfCeJYcqz1N6ZoPjjovEYyvAxc2M7g6nQ=="],
+    "@adecore/editor": ["@adecore/editor@0.31.12", "", { "dependencies": { "@adecore/editor-core": "0.31.12", "linkedom": "^0.18.13", "shiki": "^4.4.3" } }, "sha512-CEpCz2SsYee6Ljwyx0ilf7yN2LyMnzNoIv4uMb7tRglwIV93SsFg3LSi4heNHq8dmqKsVLiHw8oaysVskTaoGA=="],
 
-    "@adecore/editor-core": ["@adecore/editor-core@0.31.11", "", {}, "sha512-AEcqpxH4uS/iG/Y2BFLUvj5UDSQSTSWBqreylb7IsSmP563GUY9cOKJ4bu8th2g8kH12NPV/a1V3sMfQs9yndg=="],
+    "@adecore/editor-core": ["@adecore/editor-core@0.31.12", "", {}, "sha512-kaMH7lHijeZvdiXp0YlJyqpBTdRFFm3gMm5kQiXYsF3SsH2eeZS6FEUP97GUfpARBG9yK7bGlIl90a+OL5w34w=="],
 
-    "@adecore/editor-react": ["@adecore/editor-react@0.31.11", "", { "dependencies": { "@adecore/editor": "0.31.11", "@adecore/lsp": "0.31.11", "@adecore/merge": "0.31.11", "lucide-react": "^1.47.0", "react-markdown": "^10.1.0", "remark-breaks": "^4.0.0", "remark-gfm": "^4.0.1", "zustand": "^5.0.15" }, "peerDependencies": { "@adecore/ui": "^0.31.11", "i18next": "^26.4.2", "react": "^19.3.0", "react-dom": "^19.3.0", "react-i18next": "^17.0.15" } }, "sha512-nXy5BccXB3AYLvva+bOCB1cV/6KexDgtYbRVoJNyw4MMfaDzfkQafe05bf3akXb4gBQE8VZNOB9OHGd7lt1XsQ=="],
+    "@adecore/editor-react": ["@adecore/editor-react@0.31.12", "", { "dependencies": { "@adecore/editor": "0.31.12", "@adecore/lsp": "0.31.12", "@adecore/merge": "0.31.12", "lucide-react": "^1.47.0", "react-markdown": "^10.1.0", "remark-breaks": "^4.0.0", "remark-gfm": "^4.0.1", "zustand": "^5.0.15" }, "peerDependencies": { "@adecore/ui": "^0.31.12", "i18next": "^26.4.2", "react": "^19.3.0", "react-dom": "^19.3.0", "react-i18next": "^17.0.15" } }, "sha512-9RyNopT02F2yJoP69QsjRZeKhfnvtk5y/PnkN2R+RMUA36ZjqmXuth+/up/TyFogncFv2b2EYiyrL59U9tzk2Q=="],
 
-    "@adecore/intelligent-ui": ["@adecore/intelligent-ui@0.31.11", "", { "dependencies": { "zod": "^4.6.5" } }, "sha512-hA5+UNsWVMCcUherR5nSOIyFH5zy1D5ZV451/9io6iBxZAo3TLtRn9w84RVayLDsFJ4bE4+vcrVUZmvam73wTg=="],
+    "@adecore/intelligent-ui": ["@adecore/intelligent-ui@0.31.12", "", { "dependencies": { "zod": "^4.6.5" } }, "sha512-rlNj9cmyBTjuaugERAPHncWGFS2pD/peVpLpH6oGfC+LYmR0BlM8TpHE5tqJOwuTv0BXA+zJIXMqUzgNQCr+Jw=="],
 
-    "@adecore/lsp": ["@adecore/lsp@0.31.11", "", {}, "sha512-AwvztlvrT0FMX3LmtyXOt83fEDTZvLrLiWR6kx8Efhh9o43dv4hozddKn4nbmYNO8pLDLHiPjLzPKMNUeEFL1g=="],
+    "@adecore/lsp": ["@adecore/lsp@0.31.12", "", {}, "sha512-L4UEJaFUe745WUSQ86MzD5T0XTiiqgiviSoMPvGJYYk7VBwDZPjze2STpWeCfZsWspW+1rDcylEGf7uywQIt/A=="],
 
-    "@adecore/merge": ["@adecore/merge@0.31.11", "", {}, "sha512-0xxTq4e8Z9o+OwUyezfeN26dSMzb3jOEYzMYfuX7y9/O1jUF2hO+uKWEe61bEOkwFHK2TzblF0f2yohRzdyGew=="],
+    "@adecore/merge": ["@adecore/merge@0.31.12", "", {}, "sha512-gHXcsvmTqWnIsYl8BZQsVKyw63WuJ4Q8KdF8BNO7ORKAPgx7N/Jc5eWdW/LC5QEsqfgUg0WgmDMubU+RsSLulw=="],
 
-    "@adecore/plan": ["@adecore/plan@0.31.11", "", { "dependencies": { "zod": "^4.6.5" } }, "sha512-6fW6tgTA6F+NTosEqQXrOnqN2GES5NwSa7Vw+k9decm5I8iwqFOnAzB2aXSQ4gqIOU4ercg4Vw7R1VguT6D3Lw=="],
+    "@adecore/plan": ["@adecore/plan@0.31.12", "", { "dependencies": { "zod": "^4.6.5" } }, "sha512-C8mkd7jTWwjj1y97wM1jgi9p+8aLGIVXc+bxKSRMOV/f6mWSoDWky61BWmNbSMkBO7CzduhqXei5VDc+NEL+Bg=="],
 
-    "@adecore/service": ["@adecore/service@0.31.11", "", {}, "sha512-K89fIxQxpc/s0ejOWD0LlxyWoPwEpLHlyJm82dpbnVvkaHcnjXRPPKkgZMrev9cttZKSu5SD97rih20AzSGNgQ=="],
+    "@adecore/service": ["@adecore/service@0.31.12", "", {}, "sha512-F/HkNqDPc3K6UL5CL68cr4ooDhfYd3BM6slaHMdarRNaT6ef8bhAkxblromy4WO853sKeXJbodWjG7X92gjpIA=="],
 
-    "@adecore/shell": ["@adecore/shell@0.31.11", "", { "peerDependencies": { "electron": ">=44", "electron-updater": "^6.8.9" }, "optionalPeers": ["electron", "electron-updater"] }, "sha512-6zt3AGvKlfyMUApe7eLdzs7fuaiohRoT/SeB6S72c6ZYCpYyrmHM1pw46PtsHtrwM/2TXjzAiZfLa8uUT77YrA=="],
+    "@adecore/shell": ["@adecore/shell@0.31.12", "", { "peerDependencies": { "electron": ">=44", "electron-updater": "^6.8.9" }, "optionalPeers": ["electron", "electron-updater"] }, "sha512-yb5HpT05vhZid3HuacBwNfrj0NPHDGpLcgdOW9N4R19o81zhOlRwT2znNH4CeNQgGQf6172JEiue67k8GraPkg=="],
 
-    "@adecore/terminal": ["@adecore/terminal@0.31.11", "", { "dependencies": { "clsx": "^2.1.1" }, "peerDependencies": { "@xterm/addon-fit": "^0.11.0", "@xterm/addon-web-links": "^0.12.0", "@xterm/addon-webgl": "^0.19.0", "@xterm/xterm": "^6.0.0", "react": "^19.3.0", "react-dom": "^19.3.0" } }, "sha512-e0k05E+2SizJ5ONjpKnt32xLXRuwaUlcNBlkrghCeVE6ptRjESbIdNbmlead2tNZM88JTsBpIOBCF6VYJvQGZg=="],
+    "@adecore/terminal": ["@adecore/terminal@0.31.12", "", { "dependencies": { "clsx": "^2.1.1" }, "peerDependencies": { "@xterm/addon-fit": "^0.11.0", "@xterm/addon-web-links": "^0.12.0", "@xterm/addon-webgl": "^0.19.0", "@xterm/xterm": "^6.0.0", "react": "^19.3.0", "react-dom": "^19.3.0" } }, "sha512-f7BcOmH4srg8yhorRS6mCjdqWnIcd0+a+E/iz5OzgU1Kj3htj2GgrfhWwRi8uNKLiEawD+LcxPlqhoq7nJmyWw=="],
 
-    "@adecore/ui": ["@adecore/ui@0.31.11", "", { "dependencies": { "@base-ui/react": "^1.9.0", "@pierre/trees": "1.0.0-beta.6", "clsx": "^2.1.1", "lucide-react": "^1.47.0", "zustand": "^5.0.15" }, "peerDependencies": { "i18next": "^26.4.2", "react": "^19.3.0", "react-dom": "^19.3.0", "react-i18next": "^17.0.15" } }, "sha512-FbV5j3htYltQj75wxhkdAiKnl80mKhuGZL6CN1TBqeC9cOcuxxDhiMjkb5SDBl/FKi5GbZDH2C7WIjDtP+Ajvw=="],
+    "@adecore/ui": ["@adecore/ui@0.31.12", "", { "dependencies": { "@base-ui/react": "^1.9.0", "@pierre/trees": "1.0.0-beta.6", "clsx": "^2.1.1", "lucide-react": "^1.47.0", "zustand": "^5.0.15" }, "peerDependencies": { "i18next": "^26.4.2", "react": "^19.3.0", "react-dom": "^19.3.0", "react-i18next": "^17.0.15" } }, "sha512-hw7XuU7hN3fow4FOzYNvYIdWVH1x4tk2BI2a9UL6TPFjVRkTLy8wNZWOH2hE+xUQFGGTofiA+aweO0Ui/phCJw=="],
 
     "@alloc/quick-lru": ["@alloc/quick-lru@5.3.0", "", {}, "sha512-U4+70Pc5ZS9osnCBCE5Jha/ciHM+Yp+CNMNC/7HvYbNRk1Ldd+f7qO65W5qfhu/TCv+/ozljlXXe9Nj8419DMA=="],
 
