@@ -17,6 +17,7 @@ import { linkActions } from './link-actions.ts';
 import { nodeActions } from './node-actions.ts';
 import { operationActions } from './operation-actions.ts';
 import { planActions } from './plan-actions.ts';
+import { projectIgnoredActions } from './project-ignored-actions.ts';
 import { projectProposalActions } from './project-proposal-actions.ts';
 import { providerActions } from './provider-actions.ts';
 import { checkProjectRevision } from './revision.ts';
@@ -53,6 +54,7 @@ export const serverActions = new ActionRegistry<ServerActionContext>(
         ...launchActions,
         ...secretActions,
         ...projectProposalActions,
+        ...projectIgnoredActions,
         ...databaseActions,
         ...languageActions,
         ...providerActions,

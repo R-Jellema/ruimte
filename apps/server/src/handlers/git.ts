@@ -1,8 +1,11 @@
+import { dirname } from 'node:path';
 import type { AgentKind, GitActionPhase } from '@ruimte/contracts';
 import { RequestError, sendEvent, type ClientConnection, type Dispatcher } from '../dispatcher.ts';
 import { fetchBundle, makeBundle, type BundleStore } from '../git/bundles.ts';
 import type { CheckpointService } from '../git/checkpoints.ts';
 import { GitActions } from '../git/actions.ts';
+import { cloneRepository } from '../git/clone.ts';
+import { listIgnoredFiles } from '../git/ignored.ts';
 import { blameFile } from '../git/blame.ts';
 import { readCapabilities } from '../git/capabilities.ts';
 import { readConflict, readConflicts, resolveConflict, runOperation } from '../git/conflict.ts';
@@ -211,6 +214,40 @@ export function registerGitHandlers(
 
     /* Progress streams while the git runs; the reply lands after. */
     dispatcher.register('git.action', (payload, client) => actions.run(payload, progressTo(client, payload.cwd, payload.actionId)));
+
+    /*
+     * A person's client putting a project on this machine: the folder is judged like a file request's
+     * path, before git makes it. Not on a peer's list, and no agent reaches it.
+     */
+    dispatcher.register('git.clone', async (payload, client) => {
+        await Promise.all([machineHome?.refuse(payload.path), machineHome?.refuse(dirname(payload.path))]);
+        const slot = actions.claim(payload.actionId);
+        let canceled = false;
+        try {
+            return await cloneRepository({
+                url: payload.url,
+                path: payload.path,
+                job: {
+                    hold: (kill) =>
+                        slot.hold(() => {
+                            canceled = true;
+                            kill();
+                        }),
+                    get canceled() {
+                        return canceled;
+                    }
+                },
+                onProgress: progressTo(client, payload.path, payload.actionId)
+            });
+        } finally {
+            slot.release();
+        }
+    });
+
+    dispatcher.register('git.ignoredFiles', async (payload) => {
+        await machineHome?.refuse(payload.cwd);
+        return listIgnoredFiles(payload.cwd);
+    });
 
     dispatcher.register('git.cancel', (payload) => {
         actions.cancel(payload.actionId);

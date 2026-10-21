@@ -52142,6 +52142,103 @@
     "type": "object",
     "properties": {}
   },
+  "request.git.clone.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "actionId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "url": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2048
+      },
+      "path": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      }
+    },
+    "required": [
+      "actionId",
+      "url",
+      "path"
+    ]
+  },
+  "request.git.clone.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "path": {
+        "type": "string"
+      },
+      "output": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "path",
+      "output"
+    ]
+  },
+  "request.git.ignoredFiles.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "cwd": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required": [
+      "cwd"
+    ]
+  },
+  "request.git.ignoredFiles.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "root": {
+        "type": "string"
+      },
+      "prefix": {
+        "type": "string"
+      },
+      "files": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "size": {
+              "type": "number"
+            },
+            "link": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "path",
+            "size",
+            "link"
+          ]
+        }
+      },
+      "truncated": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "root",
+      "prefix",
+      "files",
+      "truncated"
+    ]
+  },
   "request.git.conflicts.payload": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",

@@ -577,6 +577,51 @@ export const GitCancelPayloadSchema = z.object({
 });
 export type GitCancelPayload = z.infer<typeof GitCancelPayloadSchema>;
 
+/*
+ * `git.clone`: a repository from a remote into a new folder, with its progress over `git.progress` under
+ * `actionId` (phase `fetch`, then `done` or `failed`) and `git.cancel` to stop it. Only a remote URL is
+ * taken (HTTPS, SSH, git), never a local path; the folder must not exist yet or be empty, and its parent must.
+ */
+export const GitClonePayloadSchema = z.object({
+    actionId: z.string().min(1),
+    url: z.string().min(1).max(2048),
+    path: z.string().min(1).max(4096)
+});
+export type GitClonePayload = z.infer<typeof GitClonePayloadSchema>;
+
+export const GitCloneResultSchema = z.object({
+    path: z.string(),
+    // Everything git wrote.
+    output: z.string()
+});
+export type GitCloneResult = z.infer<typeof GitCloneResultSchema>;
+
+// The largest file the client copies from the ignored files of one checkout into a clone of it on another machine.
+export const IGNORED_COPY_MAX_BYTES = 1024 * 1024;
+
+export const GitIgnoredFilesPayloadSchema = z.object({ cwd: z.string().min(1) });
+export type GitIgnoredFilesPayload = z.infer<typeof GitIgnoredFilesPayloadSchema>;
+
+/*
+ * `git.ignoredFiles`: the files git ignores in a checkout, a folder ignored whole (`node_modules/`) left
+ * out. Paths are relative to `root`, the checkout's top level, and `prefix` is where `cwd` sits in it.
+ */
+export const GitIgnoredFilesResultSchema = z.object({
+    root: z.string(),
+    prefix: z.string(),
+    files: z.array(
+        z.object({
+            path: z.string(),
+            size: z.number(),
+            // A symbolic link, which is never copied: where it points means nothing on another machine.
+            link: z.boolean()
+        })
+    ),
+    // More files than one answer lists.
+    truncated: z.boolean()
+});
+export type GitIgnoredFilesResult = z.infer<typeof GitIgnoredFilesResultSchema>;
+
 export const GitCapabilitiesResultSchema = z.object({
     // Whether `gh` is on the daemon's PATH, which is what opening a pull request needs.
     gh: z.boolean(),

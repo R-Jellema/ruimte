@@ -223,6 +223,8 @@ public enum WireRequest: String, CaseIterable, Sendable {
     case `gitLog` = "git.log"
     case `gitAction` = "git.action"
     case `gitCancel` = "git.cancel"
+    case `gitClone` = "git.clone"
+    case `gitIgnoredFiles` = "git.ignoredFiles"
     case `gitConflicts` = "git.conflicts"
     case `gitConflict` = "git.conflict"
     case `gitResolve` = "git.resolve"

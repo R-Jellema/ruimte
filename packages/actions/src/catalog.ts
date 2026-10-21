@@ -599,6 +599,22 @@ export const ACTION_DEFINITIONS = {
             outcome: z.enum(['declined', 'waiting'])
         })
     },
+    'project.ignoredFiles': {
+        title: 'List the ignored files of the project',
+        description:
+            'Lists the files git ignores in the repository of the project (.env files, local settings), which a clone elsewhere does not bring. A folder ignored whole, such as node_modules, is left out.',
+        agentDescription: 'Lists the files git ignores in the project repository: path, size, link; folders ignored whole are left out',
+        effect: 'read',
+        domain: 'projects',
+        actors: AGENT,
+        input: z.object({}),
+        output: z.object({
+            // The repository's top level, which every path is relative to.
+            root: z.string(),
+            files: z.array(z.object({ path: z.string(), size: z.number().int(), link: z.boolean() })),
+            truncated: z.boolean()
+        })
+    },
     'project.delete': {
         title: 'Delete project',
         description: 'Removes a project from its machine after confirmation. A folder keeps every file but, when asked, its canvas file.',

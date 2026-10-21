@@ -41,6 +41,7 @@ const UNBOUNDED_REQUESTS: ReadonlySet<RequestType> = new Set<RequestType>([
     'device.boot',
     'git.action',
     'git.bundle',
+    'git.clone',
     'git.fetchBundle',
     'git.operation',
     'git.resolveAi',

@@ -315,6 +315,8 @@
     "git.log",
     "git.action",
     "git.cancel",
+    "git.clone",
+    "git.ignoredFiles",
     "git.conflicts",
     "git.conflict",
     "git.resolve",
