@@ -308,6 +308,14 @@ and its device token. `apps/pulsar-worker/APNS.md` has the environments and secr
 - [ ] With the broker off the row says so; with another process on the door's port it says the port is taken.
 - [ ] `ruimte status --check --json` prints the whole check, and the TURN servers of the default broker allocate (`answers`).
 
+## Size of a pull request
+
+- [ ] The pull request dialog shows `+N -N` beside the state, the same totals GitHub shows; on hover it says how many
+  files changed and the lines per kind (code, tests, mocks, generated), which add up to the totals.
+- [ ] A pull request of more than 1000 files shows the totals and the number of files without the kinds.
+- [ ] A commit tab and an "Everything ... changed since ..." tab name the kinds in their hint when not every line is code.
+- [ ] A watched pull request's checks wake names its size and the kinds in the chat's prompt.
+
 ## React Compiler
 
 The client and ADE CORE's React sources are compiled in the Electron dev app and in a build. Compare with `77bed5fa3`,

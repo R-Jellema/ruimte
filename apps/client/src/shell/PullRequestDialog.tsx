@@ -15,6 +15,8 @@ import { useProject } from '@/state/project';
 import { useUi } from '@/state/ui';
 import { useTransport } from '@/transport/context';
 import { AgentIcon } from '@adecore/agents-react/providers';
+import { formatNumber } from '@adecore/ui/format';
+import { splitRows } from '@/shell/change-size';
 
 /*
  * A pull request read-only: its checks, how it stands to merge and its review threads. A thread can be
@@ -214,7 +216,47 @@ function PullRequestMeta({ pr }: { pr: PullRequest }) {
             </span>
             <span aria-hidden>·</span>
             <Pill tone={tone}>{pr.isDraft ? t('git.pr.draft') : t(`git.pr.state.${pr.state.toLowerCase()}`, { defaultValue: pr.state })}</Pill>
+            <PullRequestSize pr={pr} />
         </div>
+    );
+}
+
+function Lines({ added, deleted }: { added: number; deleted: number }) {
+    return (
+        <span className="flex shrink-0 items-center gap-1 font-mono tabular-nums">
+            <span className="text-term-green">+{formatNumber(added)}</span>
+            <span className="text-term-red">-{formatNumber(deleted)}</span>
+        </span>
+    );
+}
+
+/* GitHub's `+N -N` for the whole pull request, and on hover how many files and the lines per kind of file. A machine from before the totals shows none. */
+function PullRequestSize({ pr }: { pr: PullRequest }) {
+    const { t } = useTranslation('panels');
+    if (pr.added === undefined || pr.deleted === undefined || pr.changedFiles === undefined) {
+        return null;
+    }
+    const details = (
+        <span className="flex flex-col items-stretch gap-0.5">
+            <span>{t('git.pr.files', { count: pr.changedFiles })}</span>
+            {pr.split !== undefined &&
+                splitRows(pr.split).map((row) => (
+                    <span key={row.kind} className="flex items-center justify-between gap-4">
+                        <span className="text-text-muted">{row.label}</span>
+                        <Lines added={row.added} deleted={row.deleted} />
+                    </span>
+                ))}
+        </span>
+    );
+    return (
+        <>
+            <span aria-hidden>·</span>
+            <Tooltip label={details}>
+                <span className="flex">
+                    <Lines added={pr.added} deleted={pr.deleted} />
+                </span>
+            </Tooltip>
+        </>
     );
 }
 

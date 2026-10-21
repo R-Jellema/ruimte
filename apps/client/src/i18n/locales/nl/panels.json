@@ -454,6 +454,12 @@
             "stashGroup": "Stash",
             "pullRequestGroup": "Pull request"
         },
+        "changeKind": {
+            "code": "Code",
+            "tests": "Tests",
+            "mocks": "Mocks",
+            "generated": "Gegenereerd"
+        },
         "pr": {
             "title": "Pull request",
             "loading": "De pull request lezen…",
@@ -467,6 +473,8 @@
                 "merged": "Samengevoegd",
                 "closed": "Gesloten"
             },
+            "files_one": "{{count}} bestand gewijzigd",
+            "files_other": "{{count}} bestanden gewijzigd",
             "noChecks": "Op deze commit zijn geen checks gedraaid.",
             "status": "Status",
             "noThreads": "Geen reviewdraden",
