@@ -1,14 +1,24 @@
 import { useTranslation } from 'react-i18next';
-import type { ProviderInfo } from '@ruimte/contracts';
+import type { AgentKind, ProviderInfo } from '@ruimte/contracts';
 import { ProvidersPane as Pane } from '@adecore/agents-react/providers';
 import { AcpServerSection, AcpServerStepBody } from '@/shell/settings/providers/AcpServerSection';
 import { useAcpServer } from '@/shell/settings/providers/use-acp-server';
 import { AppleFoundationSection } from '@/shell/settings/providers/AppleFoundationSection';
+import { CliVersionSection } from '@/shell/settings/providers/CliVersionSection';
 import { NanoGptSection } from '@/shell/settings/providers/NanoGptSection';
+import { RegistryCatalogPage } from '@/shell/settings/providers/RegistryCatalogPage';
+import { useCliVersions, useRegistryCatalog } from '@/shell/settings/providers/use-provider-installs';
+import { useMachineAnswers } from '@/transport/features';
 import { useEndpointId } from '@/state/keys';
 import { useServers } from '@/state/server';
 import { useUi } from '@/state/ui';
 import { useDetectProviders } from '@/transport/provider-detection';
+
+/* The registry is read only once a person opens the page to add a provider. */
+function RegistryCatalog({ endpointId, onOpen }: { endpointId: string; onOpen(kind: AgentKind): void }) {
+    const registry = useRegistryCatalog(endpointId);
+    return <RegistryCatalogPage registry={registry} onOpen={onOpen} />;
+}
 
 /* The providers of the machine in scope, with the model that machine runs on its own drawn by Ruimte. */
 export function ProvidersPane() {
@@ -17,6 +27,8 @@ export function ProvidersPane() {
     const target = useUi((s) => s.settings.target);
     const antigravity = useAcpServer(endpointId, 'antigravity');
     const machine = useServers((s) => s.byEndpoint[endpointId]);
+    const registryAnswers = useMachineAnswers(endpointId, 'provider.registry');
+    const versions = useCliVersions(endpointId);
     useDetectProviders();
     const detailOf = (provider: ProviderInfo) => {
         if (provider.kind === 'nanogpt') {
@@ -50,5 +62,18 @@ export function ProvidersPane() {
         }
         return null;
     };
-    return <Pane target={target} detailOf={detailOf} installStepOf={installStepOf} setupStatusOf={setupStatusOf} />;
+    const sectionsOf = (provider: ProviderInfo) => {
+        const version = versions.versionOf(provider.kind);
+        return version === null ? null : <CliVersionSection provider={provider} versions={versions} version={version} />;
+    };
+    return (
+        <Pane
+            target={target}
+            detailOf={detailOf}
+            installStepOf={installStepOf}
+            setupStatusOf={setupStatusOf}
+            sectionsOf={sectionsOf}
+            {...(registryAnswers ? { addPage: (added: (kind: AgentKind) => void) => <RegistryCatalog endpointId={endpointId} onOpen={added} /> } : {})}
+        />
+    );
 }

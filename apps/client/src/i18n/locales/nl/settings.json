@@ -1436,6 +1436,53 @@
             "searchLabel": "Chatserver van Antigravity",
             "step": "Installeer de chatserver"
         },
-        "keyNote": "Ruimte leest deze sleutel nooit."
+        "keyNote": "Ruimte leest deze sleutel nooit.",
+        "registry": {
+            "title": "Provider toevoegen",
+            "subtitle": "Agents uit de ACP-registry die op deze machine draaien",
+            "refresh": "De registry opnieuw lezen",
+            "search": "Agents zoeken",
+            "listTitle": "ACP-registry",
+            "listDescription": "Elke agent draait als chat op deze machine. Ruimte downloadt de versie die de registry noemt en controleert de download als de registry een checksum geeft.",
+            "install": "Installeren",
+            "update": "Bijwerken naar {{version}}",
+            "open": "Openen",
+            "version": "Versie {{version}}",
+            "distribution": {
+                "binary": "Download",
+                "npm": "npm-pakket",
+                "uv": "Python-pakket"
+            },
+            "checksum": "checksum gecontroleerd",
+            "cached": "De registry was niet bereikbaar ({{error}}). Dit is de catalogus van {{date}}.",
+            "unavailable": "De ACP-registry was niet bereikbaar",
+            "tryAgain": "Opnieuw proberen",
+            "empty": "De registry noemt geen agent voor deze machine.",
+            "noMatch": "Geen agent past bij \"{{search}}\".",
+            "localOnly": "Installeer agents in de Ruimte-app op die machine."
+        },
+        "version": {
+            "title": "Versie",
+            "method": {
+                "homebrew": "Geïnstalleerd met Homebrew ({{package}})",
+                "homebrew-cask": "Geïnstalleerd met Homebrew als cask ({{package}})",
+                "npm": "Geïnstalleerd met npm ({{package}})",
+                "pnpm": "Geïnstalleerd met pnpm ({{package}})",
+                "bun": "Geïnstalleerd met Bun ({{package}})",
+                "ruimte": "Geïnstalleerd door Ruimte",
+                "unknown": "Op een andere manier geïnstalleerd"
+            },
+            "current": "Versie {{version}}.",
+            "noVersion": "Geen versie gevonden.",
+            "available": "Versie {{version}} is beschikbaar.",
+            "upToDate": "Bijgewerkt.",
+            "ownInstaller": "De eigen installer houdt hem bij.",
+            "update": "Bijwerken naar {{version}}",
+            "check": "Zoeken naar een nieuwere versie",
+            "localOnly": "Werk hem bij in de Ruimte-app op die machine.",
+            "remove": "Van deze machine verwijderen",
+            "removeDescription": "Haalt {{name}} van deze machine. De chats blijven en starten weer zodra hij geïnstalleerd is.",
+            "removeButton": "Verwijderen"
+        }
     }
 }

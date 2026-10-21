@@ -1436,6 +1436,53 @@
             "searchLabel": "Antigravity chat server",
             "step": "Install the chat server"
         },
-        "keyNote": "Ruimte never reads this key."
+        "keyNote": "Ruimte never reads this key.",
+        "registry": {
+            "title": "Add provider",
+            "subtitle": "Agents from the ACP registry that run on this machine",
+            "refresh": "Read the registry again",
+            "search": "Search agents",
+            "listTitle": "ACP registry",
+            "listDescription": "Each one runs as a chat on this machine. Ruimte downloads the version the registry names, and checks the download where the registry gives a checksum.",
+            "install": "Install",
+            "update": "Update to {{version}}",
+            "open": "Open",
+            "version": "Version {{version}}",
+            "distribution": {
+                "binary": "Download",
+                "npm": "npm package",
+                "uv": "Python package"
+            },
+            "checksum": "checksum checked",
+            "cached": "The registry could not be reached ({{error}}). This is the catalog read {{date}}.",
+            "unavailable": "The ACP registry could not be reached",
+            "tryAgain": "Try again",
+            "empty": "The registry lists no agent for this machine.",
+            "noMatch": "No agent matches \"{{search}}\".",
+            "localOnly": "Install agents in the Ruimte app on that machine."
+        },
+        "version": {
+            "title": "Version",
+            "method": {
+                "homebrew": "Installed with Homebrew ({{package}})",
+                "homebrew-cask": "Installed with Homebrew as a cask ({{package}})",
+                "npm": "Installed with npm ({{package}})",
+                "pnpm": "Installed with pnpm ({{package}})",
+                "bun": "Installed with Bun ({{package}})",
+                "ruimte": "Installed by Ruimte",
+                "unknown": "Installed some other way"
+            },
+            "current": "Version {{version}}.",
+            "noVersion": "No version found.",
+            "available": "Version {{version}} is available.",
+            "upToDate": "Up to date.",
+            "ownInstaller": "Its own installer keeps it up to date.",
+            "update": "Update to {{version}}",
+            "check": "Check for a newer version",
+            "localOnly": "Update it in the Ruimte app on that machine.",
+            "remove": "Remove from this machine",
+            "removeDescription": "Takes {{name}} off this machine. Its chats stay and start again once it is installed.",
+            "removeButton": "Remove"
+        }
     }
 }
