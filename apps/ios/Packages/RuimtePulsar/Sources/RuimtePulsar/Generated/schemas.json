@@ -52197,7 +52197,8 @@
                 "claude",
                 "codex",
                 "nanogpt",
-                "grok"
+                "grok",
+                "copilot"
               ]
             },
             "model": {
@@ -52293,7 +52294,8 @@
                 "claude",
                 "codex",
                 "nanogpt",
-                "grok"
+                "grok",
+                "copilot"
               ]
             },
             "model": {
@@ -52409,7 +52411,8 @@
                   "claude",
                   "codex",
                   "nanogpt",
-                  "grok"
+                  "grok",
+                  "copilot"
                 ]
               },
               "additionalProperties": {
@@ -52606,7 +52609,8 @@
                 "claude",
                 "codex",
                 "nanogpt",
-                "grok"
+                "grok",
+                "copilot"
               ]
             },
             "path": {
@@ -52650,7 +52654,8 @@
                 "claude",
                 "codex",
                 "nanogpt",
-                "grok"
+                "grok",
+                "copilot"
               ]
             },
             "label": {
@@ -52723,7 +52728,8 @@
                 "claude",
                 "codex",
                 "nanogpt",
-                "grok"
+                "grok",
+                "copilot"
               ]
             },
             "account": {
@@ -52909,7 +52915,8 @@
                 "claude",
                 "codex",
                 "nanogpt",
-                "grok"
+                "grok",
+                "copilot"
               ]
             },
             "account": {
@@ -73897,7 +73904,8 @@
                 "claude",
                 "codex",
                 "nanogpt",
-                "grok"
+                "grok",
+                "copilot"
               ]
             },
             "account": {
