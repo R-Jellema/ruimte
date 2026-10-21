@@ -10,7 +10,9 @@ import type { PluginOptions } from 'babel-plugin-react-compiler';
 export const REACT_COMPILER_OPTIONS = {
     target: '19',
     // A function the compiler cannot prove safe stays as written instead of failing the build.
-    panicThreshold: 'none'
+    panicThreshold: 'none',
+    // The compiler's own default leaves out everything under `node_modules`, where the packages sit when they come from npm.
+    sources: (filename: string) => compiledByReactCompiler(filename)
 } satisfies Partial<PluginOptions>;
 
 /* What the compiled code imports in place of `react/compiler-runtime`. */
