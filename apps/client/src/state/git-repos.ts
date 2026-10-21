@@ -209,12 +209,12 @@ export function useProjectRepos(folder: string | null): ProjectRepos {
         });
     }, [transport, folder, key, nonce]);
 
-    const reload = useCallback((): void => {
+    const reload = (): void => {
         freshRef.current = true;
         setNonce((count) => count + 1);
-    }, []);
+    };
     const shown = list?.key === key ? list : lastRepos.get(key);
-    const repos = useMemo(() => shown?.repos ?? [], [shown]);
+    const repos = shown?.repos ?? [];
     return { repos, truncated: shown?.truncated === true, reload };
 }
 

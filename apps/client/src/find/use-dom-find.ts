@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type RefObject } from 'react';
 import { findRanges } from '@/find/dom-text';
 import { clearFindHighlights, setFindHighlights } from '@/find/highlights';
 import { compileFind, stepIndex } from '@adecore/editor-react/models';
@@ -37,7 +37,7 @@ function markOf(scroller: HTMLElement, range: Range): number {
  */
 export function useDomFind(find: FindState, contentRef: RefObject<HTMLElement | null>): DomFind {
     const owner = useId();
-    const compiled = useMemo(() => compileFind(find.query), [find.query]);
+    const compiled = compileFind(find.query);
     const pattern = find.open && compiled.kind === 'pattern' ? compiled.pattern : null;
     const ranges = useRef<Range[]>([]);
     const currentRef = useRef<number | null>(null);

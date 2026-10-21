@@ -1,6 +1,6 @@
 import { useFileActions } from '@/shell/panels/file-actions';
 import { useFiles } from '@/state/files';
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Code, Eye, FileWarning } from 'lucide-react';
 import type { FsReadText } from '@ruimte/contracts';
@@ -94,7 +94,7 @@ export function HtmlFile({ path, name, read }: { path: string; name: string; rea
     const page = useRef<PreviewWebview | null>(null);
     const cell = useContext(CellViewContext);
     const url = localFileUrl(path);
-    const staticDocument = useMemo(() => staticPreviewDocument(read.text), [read.text]);
+    const staticDocument = staticPreviewDocument(read.text);
     const surface = useRef<HTMLDivElement>(null);
     // The source is the editor's to search.
     const find = useFind(surface, view === 'preview');
@@ -169,10 +169,10 @@ export function HtmlFile({ path, name, read }: { path: string; name: string; rea
         });
     }, [transport, nativePreview, path]);
 
-    const retry = useCallback(() => {
+    const retry = () => {
         setError(null);
         page.current?.reload();
-    }, []);
+    };
 
     const controls = (
         <ButtonGroup>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 import {
@@ -187,17 +187,14 @@ export function ProcessesPanel() {
     const row = useProcesses((s) => s.byEndpoint[endpointId] ?? EMPTY_PROCESSES);
     const alerts = useProcessAlerts(endpointId);
     const projectRows = useProjectList((s) => s.projects);
-    const projectNames = useMemo(
-        () => new Map(projectRows.filter((entry) => entry.endpointId === endpointId).map((entry) => [entry.summary.projectId, entry.summary.name])),
-        [projectRows, endpointId]
-    );
+    const projectNames = new Map(projectRows.filter((entry) => entry.endpointId === endpointId).map((entry) => [entry.summary.projectId, entry.summary.name]));
     // Titles come from the project; these two subscriptions are what redraws a row after a rename.
     useDocument((s) => s.views);
     useCanvas((s) => s.nodes);
     const [toggled, setToggled] = useState<ReadonlySet<string>>(new Set());
     const [highlight, setHighlight] = useState<Target | null>(null);
     const [forcing, setForcing] = useState<Target | null>(null);
-    const scopes = useMemo(() => SCOPES.map((id) => ({ id, label: id === 'ruimte' ? 'Ruimte' : t('processes.scope.all') })), [t]);
+    const scopes = SCOPES.map((id) => ({ id, label: id === 'ruimte' ? 'Ruimte' : t('processes.scope.all') }));
 
     const header = (
         <PanelHeaderSlot>

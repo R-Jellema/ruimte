@@ -96,13 +96,13 @@ export function useFind(surfaceRef: RefObject<HTMLElement | null>, enabled = tru
         });
     }, [surfaceRef, enabled, setQuery]);
 
-    const close = useCallback((): void => {
+    const close = (): void => {
         openRef.current = false;
         setOpen(false);
         const target = findReturnTarget(returnTo.current, surfaceRef.current);
         returnTo.current = null;
         target?.focus({ preventScroll: true });
-    }, [surfaceRef]);
+    };
 
     // A surface that can no longer be searched (a chat that shows a sub-agent in its place) drops its bar.
     useEffect(() => {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, type ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronRight, Database, Unplug } from 'lucide-react';
 import { StructureView, TableDesigner, TableView, useDatabaseClient, type Connection } from '@adecore/database';
@@ -87,7 +87,7 @@ export function DatabaseBody({
 /* One database tab of a tab host. */
 export function DatabaseTabBody({ tab }: { tab: DatabaseTab }) {
     const { t } = useTranslation('databases');
-    const onTableKind = useCallback((kind: TableKind) => useFiles.getState().setTableKind(tab.key, kind), [tab.key]);
+    const onTableKind = (kind: TableKind) => useFiles.getState().setTableKind(tab.key, kind);
     return (
         <DatabaseBody
             stateKey={tab.key}

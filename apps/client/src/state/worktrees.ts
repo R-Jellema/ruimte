@@ -166,7 +166,7 @@ export function useWorktreeOf(cwd: string | undefined): Worktree | null {
     const folder = useProject((s) => s.current?.folder ?? null);
     const wanted = cwd !== undefined && folder !== null && cwd !== folder;
     const worktrees = useWorktrees(wanted ? (connection?.transport ?? null) : null, endpointId, wanted ? folder : null);
-    return useMemo(() => (wanted ? worktreeOfPath(worktrees, cwd) : null), [wanted, worktrees, cwd]);
+    return wanted ? worktreeOfPath(worktrees, cwd) : null;
 }
 
 /* A node of the project as the worktree list names it. */

@@ -1,5 +1,5 @@
 import { revealFile } from './reveal-file';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CornerUpRight, FileText, Maximize, Scan } from 'lucide-react';
 import { getDocument, GlobalWorkerOptions, TextLayer, version, type PDFDocumentProxy, type PDFPageProxy } from 'pdfjs-dist';
@@ -106,12 +106,9 @@ export function PdfFile({ source: origin, name, read }: { source: FileSource; na
 
     const doc = opened !== null && opened.source === source ? opened.doc : null;
     const count = doc?.numPages ?? 0;
-    const scales = useMemo(
-        () => Array.from({ length: count }, (_, i) => pdfPageScale(zoom, sizes.get(i) ?? opened?.first ?? { width: 0, height: 0 }, available)),
-        [count, zoom, sizes, opened, available]
-    );
-    const boxes = useMemo(() => scales.map((scale, i) => pdfPageBox(sizes.get(i) ?? opened?.first ?? { width: 0, height: 0 }, scale)), [scales, sizes, opened]);
-    const tops = useMemo(() => pdfPageTops(boxes.map((box) => box.height)), [boxes]);
+    const scales = Array.from({ length: count }, (_, i) => pdfPageScale(zoom, sizes.get(i) ?? opened?.first ?? { width: 0, height: 0 }, available));
+    const boxes = scales.map((scale, i) => pdfPageBox(sizes.get(i) ?? opened?.first ?? { width: 0, height: 0 }, scale));
+    const tops = pdfPageTops(boxes.map((box) => box.height));
     const page = pdfReadingPage(tops, scroll);
 
     useEffect(() => {
@@ -171,7 +168,7 @@ export function PdfFile({ source: origin, name, read }: { source: FileSource; na
         };
     }, [scroller]);
 
-    const learnSize = useCallback((index: number, size: PdfPageSize): void => {
+    const learnSize = (index: number, size: PdfPageSize): void => {
         setSizes((current) => {
             const known = current.get(index);
             if (known && known.width === size.width && known.height === size.height) {
@@ -179,7 +176,7 @@ export function PdfFile({ source: origin, name, read }: { source: FileSource; na
             }
             return new Map(current).set(index, size);
         });
-    }, []);
+    };
 
     const reveal = (): void => {
         if (path !== null) {

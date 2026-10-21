@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ChatAttachResult, ComputerApproval, ProjectProposal, SecretRequest } from '@ruimte/contracts';
@@ -228,7 +228,7 @@ export function NeedsYouCard({ endpointId, node, onOpen, children }: { endpointI
     const local = useEndpointId() === endpointId;
     const asksForApp = useComputer((state) => local && (state.approvals[endpointId] ?? NO_APPROVALS).some((approval) => approval.nodeId === node.id));
     const [open, setOpen] = useState(false);
-    const close = useCallback(() => setOpen(false), []);
+    const close = () => setOpen(false);
     return (
         <PreviewCard.Root open={open && (node.kind === 'chat' || asksForApp)} onOpenChange={setOpen}>
             <PreviewCard.Trigger delay={300} closeDelay={200} render={<div />}>

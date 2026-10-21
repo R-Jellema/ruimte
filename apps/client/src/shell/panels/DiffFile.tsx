@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import i18next from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { Columns2, FileWarning, GitCompare, RefreshCw, Rows2 } from 'lucide-react';
@@ -99,8 +99,8 @@ function FileDiffView({ tabKey, path, name, view }: { tabKey: string; path: stri
         };
     }, [transport, asked, nonce, signal, relative, tabKey, view.cwd, view.scope, view.staged, view.base, whitespace]);
 
-    const refresh = useCallback(() => setNonce((count) => count + 1), []);
-    const actions = useMemo(() => ({ path, name, on: 'tab' as const, tabKey, refresh }), [tabKey, path, name, refresh]);
+    const refresh = () => setNonce((count) => count + 1);
+    const actions = { path, name, on: 'tab' as const, tabKey, refresh };
 
     const setScope = (scope: GitDiffScope): void => {
         useGit.getState().setScope(scope);
@@ -242,11 +242,11 @@ function CommitDiff({ tabKey, cwd, commit, base }: { tabKey: string; cwd: string
 
     const ready = state.status === 'ready' ? state.diff : null;
     const meta = ready?.commit;
-    const files = useMemo<readonly GitDiffFile[]>(() => ready?.files ?? [], [ready]);
+    const files: readonly GitDiffFile[] = ready?.files ?? [];
     const since = base ?? t('worktree.baseBranch');
     const picked = useGit((s) => s.commitFiles[tabKey]);
     const shown = pickedFile(files, picked);
-    const pick = useCallback((path: string) => useGit.getState().setCommitFile(tabKey, path), [tabKey]);
+    const pick = (path: string) => useGit.getState().setCommitFile(tabKey, path);
     const treeWidth = useGit((s) => s.commitTreeWidth);
     const bodyRef = useRef<HTMLDivElement>(null);
     const treeRef = useRef<HTMLElement>(null);

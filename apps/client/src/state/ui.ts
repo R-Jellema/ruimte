@@ -1,5 +1,4 @@
 import type { AgentKind, ProjectPanelKind, ProjectPanels } from '@ruimte/contracts';
-import { useMemo } from 'react';
 import { create } from 'zustand';
 import { z } from 'zod';
 import { isScratchProject, useProject } from '@/state/project';
@@ -535,5 +534,5 @@ export const useUi = create<UiStore>((set, get) => ({
 export function useShownPanel(): PanelState {
     const panel = useUi((s) => s.panel);
     const scratch = useProject((s) => isScratchProject(s.current));
-    return useMemo(() => shownPanel(panel, scratch), [panel, scratch]);
+    return shownPanel(panel, scratch);
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useImperativeHandle, useRef, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useImperativeHandle, useRef, useSyncExternalStore, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, Database } from 'lucide-react';
 import type { Editor } from '@adecore/editor';
@@ -19,7 +19,7 @@ const AS_FILE = '';
 
 /* The text of the editor as it is now, or what the file read as while there is no editor, such as on a touch screen. */
 function useEditorText(editor: Editor | null, fallback: string): string {
-    const subscribe = useCallback((listener: () => void) => (editor === null ? () => undefined : editor.onChange(listener)), [editor]);
+    const subscribe = (listener: () => void) => (editor === null ? () => undefined : editor.onChange(listener));
     return useSyncExternalStore(subscribe, () => editor?.getText() ?? fallback);
 }
 
