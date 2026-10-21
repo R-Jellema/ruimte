@@ -31663,6 +31663,22 @@
             "apple"
           ]
         }
+      },
+      "silentLogins": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "x-open-enum": [
+            "claude",
+            "codex",
+            "gemini",
+            "copilot",
+            "apple"
+          ]
+        }
       }
     },
     "required": [
@@ -31916,6 +31932,22 @@
             "apple"
           ]
         }
+      },
+      "silentLogins": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "x-open-enum": [
+            "claude",
+            "codex",
+            "gemini",
+            "copilot",
+            "apple"
+          ]
+        }
       }
     },
     "required": [
@@ -32089,6 +32121,22 @@
         }
       },
       "chatLogins": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "x-open-enum": [
+            "claude",
+            "codex",
+            "gemini",
+            "copilot",
+            "apple"
+          ]
+        }
+      },
+      "silentLogins": {
         "type": "array",
         "items": {
           "type": "string",
@@ -32302,6 +32350,22 @@
         }
       },
       "chatLogins": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "x-open-enum": [
+            "claude",
+            "codex",
+            "gemini",
+            "copilot",
+            "apple"
+          ]
+        }
+      },
+      "silentLogins": {
         "type": "array",
         "items": {
           "type": "string",
@@ -74034,6 +74098,22 @@
         }
       },
       "chatLogins": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "x-open-enum": [
+            "claude",
+            "codex",
+            "gemini",
+            "copilot",
+            "apple"
+          ]
+        }
+      },
+      "silentLogins": {
         "type": "array",
         "items": {
           "type": "string",
