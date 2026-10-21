@@ -1395,7 +1395,9 @@
                 "failed": "The install failed.",
                 "unsupported": "There is no build of the server for this machine."
             },
-            "searchLabel": "Antigravity chat server"
-        }
+            "searchLabel": "Antigravity chat server",
+            "step": "Install the chat server"
+        },
+        "keyNote": "Ruimte never reads this key."
     }
 }

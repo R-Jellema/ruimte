@@ -1395,7 +1395,9 @@
                 "failed": "De installatie is mislukt.",
                 "unsupported": "Er is geen build van de server voor deze machine."
             },
-            "searchLabel": "Chatserver van Antigravity"
-        }
+            "searchLabel": "Chatserver van Antigravity",
+            "step": "Installeer de chatserver"
+        },
+        "keyNote": "Ruimte leest deze sleutel nooit."
     }
 }

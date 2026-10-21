@@ -11,6 +11,7 @@ import { searchFiles } from '@/chat/file-search';
 import { RUIMTE_COMMAND_LOOKS } from '@/chat/ruimte-command-look';
 import { openLogin } from '@/chat/login';
 import { openForkDialog } from '@/chat/open-fork';
+import { useMachinePlatform } from '@/chat/machine-platform';
 import { gitStatusConcernsChat } from '@/chat/ui-refresh';
 import { useMapSource } from '@/chat/use-map-source';
 import { visualHostFor } from '@/chat/visuals';
@@ -245,6 +246,8 @@ export const CHAT_HOST: Partial<ChatHost> = {
     fork: openForkDialog,
     openSettings: (section) => useUi.getState().setSettings({ open: true, section }),
     useMachineLabel: (endpointId) => useEndpoints((s) => s.endpoints.find((endpoint) => endpoint.id === endpointId)?.label ?? null),
+    useMachinePlatform,
+    providerKeyNote: () => i18next.t('settings:providers.keyNote'),
     useResumeAtReset: (endpointId) => useServers((s) => s.byEndpoint[endpointId]?.resumeAtReset === true),
     // A chat on screen belongs to the project the window shows, and the Chats project shows none of its folders.
     useHidesFolder: () => useProject((s) => isScratchProject(s.current)),

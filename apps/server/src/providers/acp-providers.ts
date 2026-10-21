@@ -53,6 +53,19 @@ const GROK_SPEC: AcpProviderSpec = {
     capabilities: { terminal: true },
     resumeCommand: 'grok {flags} --resume {id}',
     home: { env: 'GROK_HOME', fallback: '.grok', loginEnv: ['XAI_API_KEY'], loginCommand: 'grok login' },
+    install: {
+        description: "xAI's coding agent, in a terminal and in a chat.",
+        commands: {
+            darwin: 'curl -fsSL https://x.ai/cli/install.sh | bash',
+            linux: 'curl -fsSL https://x.ai/cli/install.sh | bash',
+            win32: 'irm https://x.ai/cli/install.ps1 | iex'
+        },
+        guideUrl: 'https://github.com/xai-org/grok-build',
+        signIn: [
+            { kind: 'command', command: 'grok login' },
+            { kind: 'env', variable: 'XAI_API_KEY' }
+        ]
+    },
     firstPromptArgs: (prompt) => [prompt]
 };
 
@@ -73,6 +86,15 @@ export const copilotProvider: ChatProvider = createAcpProvider({
     client: RUIMTE_ACP_CLIENT,
     capabilities: { terminal: true },
     resumeCommand: 'copilot {flags} --resume={id}',
+    install: {
+        description: "GitHub's coding agent, in a terminal and in a chat.",
+        commands: { darwin: 'npm install -g @github/copilot', linux: 'npm install -g @github/copilot', win32: 'npm install -g @github/copilot' },
+        guideUrl: 'https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli',
+        signIn: [
+            { kind: 'command', command: 'copilot login' },
+            { kind: 'env', variable: 'COPILOT_GITHUB_TOKEN' }
+        ]
+    },
     // `-p` answers and exits; `-i` runs the prompt and stays.
     firstPromptArgs: (prompt) => ['-i', prompt]
 });
@@ -110,6 +132,18 @@ const ANTIGRAVITY_SPEC: AcpProviderSpec = {
     capabilities: { terminal: true },
     resumeCommand: 'agy {flags} --conversation {id}',
     home: ANTIGRAVITY_HOME,
+    // The CLI only; the chat's server is the step after it, installed from the Providers pane.
+    install: {
+        description: "Google's coding agent, in a terminal and in a chat.",
+        commands: {
+            darwin: 'curl -fsSL https://antigravity.google/cli/install.sh | bash',
+            linux: 'curl -fsSL https://antigravity.google/cli/install.sh | bash',
+            win32: 'irm https://antigravity.google/cli/install.ps1 | iex'
+        },
+        guideUrl: 'https://antigravity.google/docs/cli',
+        // The first start of `agy` signs it in in the browser, and so does a chat's first turn.
+        signIn: [{ kind: 'chat' }, { kind: 'command', command: 'agy' }]
+    },
     // Antigravity CLI 1.4 reads a prompt only from `-p` (answers and exits), `-i` (runs it and stays) or stdin.
     firstPromptArgs: (prompt) => ['-i', prompt]
 };
