@@ -125,6 +125,28 @@ describe('NanoGPT subscription', () => {
         expect(new Headers(calls[2]!.init?.headers).get('authorization')).toBe('Bearer nano-key');
         expect(service.apiKey).toBe('nano-key');
     });
+
+    test('a saved or removed key tells the provider list, a refused one does not', async () => {
+        const folder = await home();
+        const service = new NanoGptService(api().request);
+        await service.load(folder);
+        let changes = 0;
+        service.onChange(() => {
+            changes += 1;
+        });
+
+        await service.configure('nano-key');
+        await service.configure('');
+        expect(changes).toBe(2);
+
+        const refused = new NanoGptService(api(401).request);
+        await refused.load(folder);
+        refused.onChange(() => {
+            changes += 1;
+        });
+        await expect(refused.configure('wrong-key')).rejects.toThrow();
+        expect(changes).toBe(2);
+    });
 });
 
 describe('NanoGPT settings', () => {

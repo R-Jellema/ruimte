@@ -89,5 +89,16 @@ export async function wireProviders(
             void integrations.refreshInstalled();
         }
     };
-    return { nanogpt, providers, feed: new ProviderFeed(providers), modelCatalogs, integrations, accounts, servers, nameOfCli: (kind) => providers.get(kind).name };
+    // Before the feed listens, so the list it sends reads the new key instead of the cached detection.
+    nanogpt.onChange(() => providers.invalidate('nanogpt'));
+    return {
+        nanogpt,
+        providers,
+        feed: new ProviderFeed(providers),
+        modelCatalogs,
+        integrations,
+        accounts,
+        servers,
+        nameOfCli: (kind) => providers.get(kind).name
+    };
 }

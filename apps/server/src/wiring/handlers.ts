@@ -114,9 +114,7 @@ export async function registerHandlers(dispatcher: Dispatcher, input: HandlersIn
                     return saved;
                 }
             }
-            const result = await providers.nanogpt.configure(apiKey);
-            providers.providers.invalidate('nanogpt');
-            return result;
+            return await providers.nanogpt.configure(apiKey);
         },
         { owner: true }
     );

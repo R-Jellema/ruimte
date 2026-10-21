@@ -40,6 +40,7 @@ export function createNanoGptProvider(service: NanoGptService): ChatProvider {
         firstPromptArgs: () => {
             throw new Error('NanoGPT is only available as a chat.');
         },
+        onChange: (listener) => service.onChange(listener),
         createBackend: (launch, host) => new NanoGptBackend(launch, host, service)
     };
 }

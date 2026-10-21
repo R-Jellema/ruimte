@@ -78,6 +78,7 @@ export class NanoGptService {
     private settings: NanoGptSettings = DEFAULT_NANOGPT_SETTINGS;
     private readonly writes = new Serializer();
     private readonly callListeners = new Set<() => void>();
+    private readonly changeListeners = new Set<() => void>();
 
     constructor(request: NanoFetch = fetch) {
         this.request = request;
@@ -124,6 +125,12 @@ export class NanoGptService {
     onCall(listener: () => void): () => void {
         this.callListeners.add(listener);
         return () => this.callListeners.delete(listener);
+    }
+
+    /* Told when the key or the models changed, so the provider list goes out again. */
+    onChange(listener: () => void): () => void {
+        this.changeListeners.add(listener);
+        return () => this.changeListeners.delete(listener);
     }
 
     /*
@@ -274,5 +281,8 @@ export class NanoGptService {
                 vendor: nanoGptVendorOf(model.id)
             }))
         });
+        for (const listener of this.changeListeners) {
+            listener();
+        }
     }
 }
