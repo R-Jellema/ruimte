@@ -6,6 +6,9 @@ import { GitError, runGit } from './run.ts';
 // More than a checkout keeps beside its code; a list past it is cut and says so.
 export const MAX_IGNORED_FILES = 2_000;
 
+// The project's own state, which the daemon keeps out of git and never hands to another machine.
+const RUIMTE_STATE = /(^|\/)\.ruimte\//;
+
 const LIST = ['ls-files', '--others', '--ignored', '--exclude-standard', '--directory', '-z'];
 
 /* The folders a rule of the checkout ignores themselves (`node_modules/`), of these; git answers 1 when it matched none. */
@@ -65,9 +68,9 @@ export async function listIgnoredFiles(cwd: string): Promise<GitIgnoredFilesResu
     const folders = entries.filter((path) => path.endsWith('/'));
     const whole = await ignoredWhole(root, folders);
     const inWhole = (path: string): boolean => [...whole].some((folder) => path.startsWith(folder));
-    const paths = new Set(entries.filter((path) => !path.endsWith('/') && !inWhole(path)));
+    const paths = new Set(entries.filter((path) => !path.endsWith('/') && !inWhole(path) && !RUIMTE_STATE.test(path)));
     // Git lists a folder whose every file is ignored as the folder alone, whether or not a rule names it.
-    for (const folder of folders.filter((path) => !inWhole(path))) {
+    for (const folder of folders.filter((path) => !inWhole(path) && !RUIMTE_STATE.test(path))) {
         if (paths.size > MAX_IGNORED_FILES) {
             break;
         }

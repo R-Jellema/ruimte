@@ -23,6 +23,9 @@ beforeAll(async () => {
     await writeFile(join(root, 'node_modules', 'left-pad', 'index.js'), '');
     await writeFile(join(root, 'untracked.ts'), '');
     await symlink('/etc/hosts', join(root, 'link'));
+    await mkdir(join(root, '.ruimte', 'private'), { recursive: true });
+    await writeFile(join(root, '.ruimte', 'private', '.gitignore'), '*\n');
+    await writeFile(join(root, '.ruimte', 'private', 'project.json'), '{}');
 }, 30_000);
 
 afterAll(async () => {
