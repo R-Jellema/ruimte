@@ -58834,6 +58834,173 @@
       "ending"
     ]
   },
+  "request.endpoint.reach.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "check": {
+        "type": "boolean"
+      }
+    }
+  },
+  "request.endpoint.reach.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "reach": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "checkedAt": {
+                "type": "number"
+              },
+              "cause": {
+                "type": "string"
+              },
+              "severity": {
+                "type": "string",
+                "enum": [
+                  "ok",
+                  "relayed",
+                  "limited",
+                  "unreachable"
+                ]
+              },
+              "facts": {
+                "type": "object",
+                "properties": {
+                  "broker": {
+                    "type": "object",
+                    "properties": {
+                      "url": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "connected": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "url",
+                      "connected"
+                    ]
+                  },
+                  "granted": {
+                    "type": "boolean"
+                  },
+                  "probes": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "stun",
+                            "turn"
+                          ]
+                        },
+                        "url": {
+                          "type": "string"
+                        },
+                        "transport": {
+                          "type": "string",
+                          "enum": [
+                            "udp",
+                            "tcp",
+                            "tls"
+                          ]
+                        },
+                        "outcome": {
+                          "type": "string",
+                          "enum": [
+                            "ok",
+                            "refused",
+                            "unreachable"
+                          ]
+                        },
+                        "error": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "url",
+                        "transport",
+                        "outcome"
+                      ]
+                    }
+                  },
+                  "lanDoor": {
+                    "type": "object",
+                    "properties": {
+                      "wanted": {
+                        "type": "boolean"
+                      },
+                      "listening": {
+                        "type": "boolean"
+                      },
+                      "port": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "addresses": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "wanted",
+                      "listening",
+                      "port",
+                      "addresses"
+                    ]
+                  },
+                  "tunnel": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "broker",
+                  "granted",
+                  "probes",
+                  "lanDoor",
+                  "tunnel"
+                ]
+              }
+            },
+            "required": [
+              "checkedAt",
+              "cause",
+              "severity",
+              "facts"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "required": [
+      "reach"
+    ]
+  },
   "request.auth.sessions.payload": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",

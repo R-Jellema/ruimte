@@ -237,6 +237,7 @@ import {
     UsageStartupPayloadSchema
 } from './auth.ts';
 import { DirectSignalPayloadSchema } from './direct.ts';
+import { EndpointReachPayloadSchema, EndpointReachResultSchema } from './reach.ts';
 import {
     DatabaseAgentAccessChangedEventSchema,
     DatabaseAgentAccessMapSchema,
@@ -439,6 +440,7 @@ export * from './node-defaults.ts';
 export * from './plan-host.ts';
 export * from './processes.ts';
 export * from './provenance.ts';
+export * from './reach.ts';
 export * from './project.ts';
 export * from './project-flags.ts';
 export * from './project-sidebar.ts';
@@ -765,6 +767,7 @@ export const REQUEST_SCHEMAS = {
     'endpoint.reportUpdate': { payload: MachineUpdateReportSchema, result: EmptySchema },
     // Any client may ask, `update-no-app` without the desktop app and `update-none` with nothing to install.
     'endpoint.installUpdate': { payload: EndpointInstallUpdatePayloadSchema, result: EndpointInstallUpdateResultSchema },
+    'endpoint.reach': { payload: EndpointReachPayloadSchema, result: EndpointReachResultSchema },
     'auth.sessions': { payload: EmptySchema, result: AuthSessionsResultSchema },
     'auth.revoke': { payload: AuthRevokePayloadSchema, result: EmptySchema },
     'direct.signal': { payload: DirectSignalPayloadSchema, result: EmptySchema },

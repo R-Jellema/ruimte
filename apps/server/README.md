@@ -94,7 +94,7 @@ A machine without the desktop app runs the same binary from npm (`packages/npm`)
 ```sh
 npx ruimte                                # the daemon, with every flag above
 npx ruimte login                          # onto an account with a code
-npx ruimte status                         # how clients reach it
+npx ruimte status                         # how clients reach it (--check, --json)
 npx ruimte logout                         # off its account again
 npx ruimte service install [flags]        # the background service for this user
 npx ruimte service status
@@ -109,7 +109,7 @@ A bare `ruimte` at a terminal prints the address it listens on and names the com
 
 `ruimte login` puts the machine on a Pulsar account. Run it as the user and with the `RUIMTE_HOME` of the daemon (and `--port` when it is not `4210`). It prints `https://station.ruimte.app/link?code=BCDF-GHJK`, the code and the machine's key fingerprint. A person opens that page anywhere, signs in, checks the name and the fingerprint, and presses "Add to my account". The command then has the daemon sign a registration for that account and exits 0. A denial, an expired code or a withdrawn code exits 1, and Ctrl+C withdraws the code and exits 130. A machine already on another account refuses (see "One account per machine"). Without a daemon answering, it says how to start one.
 
-`ruimte logout` takes the machine off its account. `ruimte status` asks the daemon on the local secret (`GET /machine/status`). It prints the version, whether it runs as the background service, its name, its account, its broker and whether that broker took its signature, the addresses of its door on the local network, and the keep awake state. It warns when neither the broker nor the door can bring a client in. It exits 0 when the daemon answers and 1 when it does not.
+`ruimte logout` takes the machine off its account. `ruimte status` asks the daemon on the local secret (`GET /machine/status`). It prints the version, whether it runs as the background service, its name, its account, its broker and whether that broker took its signature, the addresses of its door on the local network, and the keep awake state. It ends on whether other devices reach the machine: the daemon checks that when the broker takes it, when its network changed since the last check, and on request (`--check`, or Check again under Settings, Machines, which is `endpoint.reach`). The check asks every STUN and TURN server it knows for a binding or an allocation (released at once), reads whether the door listens and whether the default route leaves through a tunnel, and one classifier (`src/pulsar/reach-classify.ts`) names one cause with a fix. `--json` prints the whole answer for a script or an agent. It exits 0 when the daemon answers and 1 when it does not.
 
 `ruimte notify` raises a notification the way an agent's `ruimte-context alert` does: on every window of the app and as a push to the phones, under the node's title. It asks the daemon on the local secret (`POST /machine/notify`) and refuses without it, so only a process of the person whose `RUIMTE_HOME` that is may notify. The notification opens a node, so it always names one: `--node <id>`, or else the terminal of Ruimte the script runs in (`RUIMTE_SESSION_ID`). The text is at most 500 characters. It exits 0 once the daemon queued it, which does not say a device showed it, and 1 without a secret, a node, a daemon that answers, or a project that holds the node.
 

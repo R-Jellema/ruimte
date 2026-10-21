@@ -361,6 +361,7 @@
     "endpoint.leaveAccount",
     "endpoint.reportUpdate",
     "endpoint.installUpdate",
+    "endpoint.reach",
     "auth.sessions",
     "auth.revoke",
     "direct.signal",

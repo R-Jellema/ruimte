@@ -40,6 +40,9 @@ export interface ServerConfig {
     args: string[];
     // `notify --node`: the node the notification opens.
     node?: string;
+    // `status --json`: the answer as JSON for a script or an agent; `status --check`: check how others reach the machine first.
+    json?: true;
+    check?: true;
 }
 
 /*
@@ -125,6 +128,8 @@ export function parseServerArgs(argv: string[], env: Record<string, string | und
             'lan-port': { type: 'string' },
             'no-lan': { type: 'boolean', default: false },
             node: { type: 'string' },
+            json: { type: 'boolean', default: false },
+            check: { type: 'boolean', default: false },
             version: { type: 'boolean', short: 'v', default: false }
         },
         strict: true,
@@ -152,6 +157,10 @@ export function parseServerArgs(argv: string[], env: Record<string, string | und
 
     if (values.node !== undefined && command !== 'notify') {
         throw new Error('--node only goes with notify');
+    }
+
+    if ((values.json || values.check) && command !== 'status') {
+        throw new Error('--json and --check only go with status');
     }
 
     if (command === 'closed-lid' && positionals.length !== 2) {
@@ -185,6 +194,8 @@ export function parseServerArgs(argv: string[], env: Record<string, string | und
         underService: env.RUIMTE_SERVICE === '1',
         command,
         args: cli || service ? argv.slice(1) : positionals.slice(1),
-        ...(values.node === undefined ? {} : { node: values.node })
+        ...(values.node === undefined ? {} : { node: values.node }),
+        ...(values.json ? { json: true as const } : {}),
+        ...(values.check ? { check: true as const } : {})
     };
 }
