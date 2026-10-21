@@ -51722,7 +51722,8 @@
               "type": "string",
               "enum": [
                 "claude",
-                "codex"
+                "codex",
+                "nanogpt"
               ]
             },
             "model": {
@@ -51816,7 +51817,8 @@
               "type": "string",
               "enum": [
                 "claude",
-                "codex"
+                "codex",
+                "nanogpt"
               ]
             },
             "model": {
@@ -51930,7 +51932,8 @@
                 "type": "string",
                 "enum": [
                   "claude",
-                  "codex"
+                  "codex",
+                  "nanogpt"
                 ]
               },
               "additionalProperties": {
@@ -52125,7 +52128,8 @@
               "type": "string",
               "enum": [
                 "claude",
-                "codex"
+                "codex",
+                "nanogpt"
               ]
             },
             "path": {
@@ -52167,7 +52171,8 @@
               "type": "string",
               "enum": [
                 "claude",
-                "codex"
+                "codex",
+                "nanogpt"
               ]
             },
             "label": {
@@ -52238,7 +52243,8 @@
               "type": "string",
               "enum": [
                 "claude",
-                "codex"
+                "codex",
+                "nanogpt"
               ]
             },
             "account": {
@@ -52422,7 +52428,8 @@
               "type": "string",
               "enum": [
                 "claude",
-                "codex"
+                "codex",
+                "nanogpt"
               ]
             },
             "account": {
@@ -59807,6 +59814,121 @@
     },
     "required": [
       "updated"
+    ]
+  },
+  "request.nanogpt.status.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {}
+  },
+  "request.nanogpt.status.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "configured": {
+        "type": "boolean"
+      },
+      "models": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "settings": {
+        "type": "object",
+        "properties": {
+          "autoContinue": {
+            "type": "boolean"
+          },
+          "roundsPerRun": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 200
+          },
+          "runs": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          }
+        },
+        "required": [
+          "autoContinue",
+          "roundsPerRun",
+          "runs"
+        ]
+      }
+    },
+    "required": [
+      "configured",
+      "models"
+    ]
+  },
+  "request.nanogpt.configure.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "apiKey": {
+        "type": "string",
+        "maxLength": 4096
+      },
+      "settings": {
+        "type": "object",
+        "properties": {
+          "autoContinue": {
+            "type": "boolean"
+          },
+          "roundsPerRun": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 200
+          },
+          "runs": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          }
+        }
+      }
+    }
+  },
+  "request.nanogpt.configure.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "configured": {
+        "type": "boolean"
+      },
+      "models": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "settings": {
+        "type": "object",
+        "properties": {
+          "autoContinue": {
+            "type": "boolean"
+          },
+          "roundsPerRun": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 200
+          },
+          "runs": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          }
+        },
+        "required": [
+          "autoContinue",
+          "roundsPerRun",
+          "runs"
+        ]
+      }
+    },
+    "required": [
+      "configured",
+      "models"
     ]
   },
   "event.push.attention": {
@@ -73293,7 +73415,8 @@
               "type": "string",
               "enum": [
                 "claude",
-                "codex"
+                "codex",
+                "nanogpt"
               ]
             },
             "account": {
