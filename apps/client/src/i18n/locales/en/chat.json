@@ -38,6 +38,7 @@
     "login": {
         "title": "Log in to {{account}}",
         "description": "{{cli}} runs its own login in this terminal. It closes by itself once you are logged in.",
+        "descriptionSilent": "{{cli}} runs its own login in this terminal. Close this window once you are logged in.",
         "landed": "Logged in",
         "landedAs": "Logged in as {{email}}",
         "ended": "The login ended.",

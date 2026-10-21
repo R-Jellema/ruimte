@@ -38,6 +38,7 @@
     "login": {
         "title": "Inloggen bij {{account}}",
         "description": "{{cli}} draait zijn eigen login in deze terminal. Die sluit vanzelf zodra je bent ingelogd.",
+        "descriptionSilent": "{{cli}} draait zijn eigen login in deze terminal. Sluit dit venster zodra je bent ingelogd.",
         "landed": "Ingelogd",
         "landedAs": "Ingelogd als {{email}}",
         "ended": "De login is gestopt.",
