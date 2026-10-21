@@ -1385,7 +1385,8 @@
             "ready": "The local model is ready.",
             "unavailable": "The local model is not available.",
             "saveFailed": "Could not change Apple Foundation Models",
-            "requiresMac": "Requires a Mac with Apple silicon."
+            "requiresMac": "Requires a Mac with Apple silicon.",
+            "off": "Off"
         },
         "nanogpt": {
             "description": "Chat with the models your NanoGPT subscription includes. Requests go only to the subscription API, never to pay as you go.",
@@ -1404,6 +1405,7 @@
             "disconnected": "No key saved on this machine.",
             "unavailable": "This machine does not offer NanoGPT yet. Update Ruimte on it.",
             "failed": "Could not change NanoGPT on this machine.",
+            "noKey": "No key",
             "continue": {
                 "label": "Continue automatically",
                 "description": "When a chat reaches its tool rounds for one run, it goes on by itself. Off, it stops and waits for your message."

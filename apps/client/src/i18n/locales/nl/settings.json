@@ -1385,7 +1385,8 @@
             "ready": "Het lokale model is beschikbaar.",
             "unavailable": "Het lokale model is niet beschikbaar.",
             "saveFailed": "Apple Foundation Models kon niet worden gewijzigd",
-            "requiresMac": "Vereist een Mac met Apple silicon."
+            "requiresMac": "Vereist een Mac met Apple silicon.",
+            "off": "Uit"
         },
         "nanogpt": {
             "description": "Chat met de modellen die je NanoGPT-abonnement bevat. Verzoeken gaan alleen naar de abonnements-API, nooit naar pay as you go.",
@@ -1404,6 +1405,7 @@
             "disconnected": "Geen sleutel opgeslagen op deze machine.",
             "unavailable": "Deze machine biedt NanoGPT nog niet aan. Werk Ruimte daar bij.",
             "failed": "NanoGPT kon niet worden gewijzigd op deze machine.",
+            "noKey": "Geen sleutel",
             "continue": {
                 "label": "Automatisch doorgaan",
                 "description": "Als een chat zijn toolrondes voor één run bereikt, gaat hij zelf verder. Uit, dan stopt hij en wacht op jouw bericht."
