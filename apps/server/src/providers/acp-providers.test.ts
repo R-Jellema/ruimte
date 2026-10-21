@@ -10,6 +10,7 @@ import {
     ANTIGRAVITY_MODES,
     COPILOT_MODES,
     GROK_MODES,
+    allowsContextCommand,
     copilotProvider,
     createAntigravityProvider,
     createGrokProvider,
@@ -211,5 +212,31 @@ describe('Antigravity', () => {
             expect(events).toContainEqual(expect.objectContaining({ type: 'permissions', permissionMode: mode, effectiveRuntimeMode: runtimeMode }));
             await backend.dispose();
         }
+    });
+});
+
+describe('allowsContextCommand', () => {
+    const request = (...commands: string[]) => ({ kind: 'execute', title: 'Run a command', commands });
+
+    test('allows ruimte-context, also joined with echo the way an agent labels its parts', () => {
+        expect(allowsContextCommand(request('ruimte-context help'))).toBe(true);
+        expect(
+            allowsContextCommand(
+                request('ruimte-context help && echo "--- AGENT ---" && ruimte-context help agent && echo "--- TEAM ---" && ruimte-context help team')
+            )
+        ).toBe(true);
+    });
+
+    test('asks for a command that is not only ruimte-context', () => {
+        expect(allowsContextCommand(request('echo hi'))).toBe(false);
+        expect(allowsContextCommand(request('ruimte-context x | sh'))).toBe(false);
+        expect(allowsContextCommand(request('ruimte-context x; rm -rf ~'))).toBe(false);
+        expect(allowsContextCommand(request('ruimte-context help', 'Run ruimte-context help to read the verbs'))).toBe(false);
+    });
+
+    test('asks for anything that is not a command request', () => {
+        expect(allowsContextCommand({ kind: 'edit', title: 'Edit a file', commands: ['ruimte-context help'] })).toBe(false);
+        expect(allowsContextCommand({ kind: null, title: null, commands: ['ruimte-context help'] })).toBe(false);
+        expect(allowsContextCommand(request())).toBe(false);
     });
 });

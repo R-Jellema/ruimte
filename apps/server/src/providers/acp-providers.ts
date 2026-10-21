@@ -1,5 +1,5 @@
-import type { AcpClientInfo, AcpModeMap } from '@adecore/agents/chat';
-import { ModelCatalog, createAcpProvider, type AcpProviderSpec, type ChatProvider, type ProviderHome } from '@adecore/agents/providers';
+import type { AcpClientInfo, AcpModeMap, AcpPermissionRequest } from '@adecore/agents/chat';
+import { ModelCatalog, createAcpProvider, isOnlyCommands, type AcpProviderSpec, type ChatProvider, type ProviderHome } from '@adecore/agents/providers';
 import antigravityRelease from './antigravity-acp-release.json' with { type: 'json' };
 import { parseAcpServerRelease, type AcpServerLaunch } from './acp-server.ts';
 
@@ -19,6 +19,20 @@ function agentDefaultCatalog(): ModelCatalog {
 
 function agentModel(selection: { model: string }): string | null {
     return selection.model === AGENT_DEFAULT_MODEL ? null : selection.model;
+}
+
+const CONTEXT_COMMANDS = ['ruimte-context', 'echo'];
+
+/*
+ * Lets an agent run `ruimte-context` in every runtime mode without a card, the way Claude Code's `Bash(ruimte-context *)`
+ * does: the daemon checks every verb itself. `echo` may join it, since agents label the parts of one call with it.
+ */
+export function allowsContextCommand(request: AcpPermissionRequest): boolean {
+    if (request.kind !== 'execute' || request.commands.length === 0) {
+        return false;
+    }
+    const everyPasses = request.commands.every((command) => isOnlyCommands(command, CONTEXT_COMMANDS));
+    return everyPasses && request.commands.some((command) => !isOnlyCommands(command, ['echo']));
 }
 
 /*
@@ -59,6 +73,7 @@ const GROK_SPEC: AcpProviderSpec = {
     loginHint: 'Run `grok login` in a terminal, or set `XAI_API_KEY`.',
     client: RUIMTE_ACP_CLIENT,
     capabilities: { terminal: true },
+    autoAllow: allowsContextCommand,
     resumeCommand: 'grok {flags} --resume {id}',
     home: { env: 'GROK_HOME', fallback: '.grok', loginEnv: ['XAI_API_KEY'], loginCommand: 'grok login' },
     install: {
@@ -102,6 +117,7 @@ export const copilotProvider: ChatProvider = createAcpProvider({
     loginHint: 'Run `copilot login` in a terminal.',
     client: RUIMTE_ACP_CLIENT,
     capabilities: { terminal: true },
+    autoAllow: allowsContextCommand,
     resumeCommand: 'copilot {flags} --resume={id}',
     install: {
         description: "GitHub's coding agent, in a terminal and in a chat.",
@@ -147,6 +163,7 @@ const ANTIGRAVITY_SPEC: AcpProviderSpec = {
     loginHint: 'Sign in to Antigravity in the browser the chat opens.',
     client: RUIMTE_ACP_CLIENT,
     capabilities: { terminal: true },
+    autoAllow: allowsContextCommand,
     resumeCommand: 'agy {flags} --conversation {id}',
     home: ANTIGRAVITY_HOME,
     // The CLI only; the chat's server is the step after it, installed from the Providers pane.
