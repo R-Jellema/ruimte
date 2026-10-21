@@ -124,6 +124,7 @@ export async function startDaemon(config: ServerConfig, launcher: Launcher = 'st
         devices,
         databases,
         remote,
+        usage,
         later: { language: () => language.host, push: () => push }
     });
 

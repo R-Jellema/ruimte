@@ -316,6 +316,14 @@ and its device token. `apps/pulsar-worker/APNS.md` has the environments and secr
 - [ ] A commit tab and an "Everything ... changed since ..." tab name the kinds in their hint when not every line is code.
 - [ ] A watched pull request's checks wake names its size and the kinds in the chat's prompt.
 
+## Agents reading usage
+
+- [ ] A parent chat runs `ruimte-context read <child>` on a Claude child: the first line names the model, the context
+  of the window and how long the prompt cache stays warm, matching the child's own header; read again after the cache
+  lifetime and it says the cache went cold and how long ago. `--json` carries the same under `usage`.
+- [ ] `ruimte-context provider limits` in a Claude and in a Codex chat lists the windows the usage page shows for that
+  account, with the same even-pace mark; a chat on a second account reads that account's windows.
+
 ## React Compiler
 
 The client and ADE CORE's React sources are compiled in the Electron dev app and in a build. Compare with `77bed5fa3`,

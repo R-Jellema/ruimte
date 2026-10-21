@@ -525,7 +525,7 @@ describe('help', () => {
             'detail',
             'refusal'
         ]);
-        expect(lines[2]).toBe('verb\tread\t<id> [--tail N] [--subagent T] [--view V]\tPrints one linked source, whole or its last lines.');
+        expect(lines[2]).toBe('verb\tread\t<id> [--tail N] [--subagent T] [--view V] [--json]\tPrints one linked source, whole or its last lines.');
         expect(lines).toContain(
             'noun\tnode\tlist|new|edit|rename|color|delete|group|arrange\tLists, adds, writes in, renames, colors, removes, frames and lays out the nodes of a canvas'
         );

@@ -25,6 +25,10 @@ const daemon = {
         if (url.pathname === '/context') {
             return Response.json({ sources });
         }
+        if (url.pathname === '/context/c2') {
+            const text = '> Usage: claude opus\n\nthe thread';
+            return url.searchParams.has('json') ? Response.json({ text, usage: { contextTokens: 10 } }) : new Response(text);
+        }
         if (url.pathname === '/context/n1') {
             const tail = url.searchParams.get('tail');
             if (tail === null) {
@@ -146,12 +150,20 @@ describe('runContext', () => {
         expect(seen).toEqual([]);
     });
 
+    test('--json asks the daemon for one object and prints it, and a daemon that answers text alone gives that as its text', async () => {
+        expect(await runContext(['read', 'c2', '--json'], env)).toBe(0);
+        expect(JSON.parse(stdout)).toEqual({ text: '> Usage: claude opus\n\nthe thread', usage: { contextTokens: 10 } });
+        stdout = '';
+        expect(await runContext(['read', 'n1', '--json'], env)).toBe(0);
+        expect(JSON.parse(stdout)).toEqual({ text: 'the plan' });
+    });
+
     test('read without an id is a refusal that lists what there is to read', async () => {
         expect(await runContext(['read'], env)).toBe(3);
         expect(stderr).toBe(
             [
                 'refused\tbad-arguments\tread takes the id of a linked source',
-                'usage\tread\t<id> [--tail N] [--subagent T] [--view V]',
+                'usage\tread\t<id> [--tail N] [--subagent T] [--view V] [--json]',
                 'detail\truimte-context help read',
                 'n1\ttext\tPlan'
             ].join('\n') + '\n'

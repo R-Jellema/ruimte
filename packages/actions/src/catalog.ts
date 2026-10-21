@@ -436,6 +436,26 @@ const listedProjectId = z.string().min(1).describe('The project, by the projectI
 
 const usageDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
+/* A chat as the agent reading it sees its spend: the model, how full its context is and whether its prompt cache is still warm. */
+const chatReadUsage = z.object({
+    provider: AgentKindSchema,
+    model: z.string().describe('The model the CLI reported, else the one picked for the chat'),
+    contextTokens: z.number().int(),
+    contextWindow: z.number().int().nullable().describe('Null when the CLI named no window'),
+    contextPercent: z.number().int().nullable().describe('How much of the window the context fills, in whole percent; null without a window'),
+    cache: z
+        .object({
+            ttlMs: z.number().int().nullable().describe('How long the cache lives, in milliseconds'),
+            expiresAt: z.iso.datetime(),
+            expiresInMs: z.number().int().describe('Negative once the cache went cold'),
+            expired: z.boolean()
+        })
+        .nullable()
+        .describe('Null while the CLI names no prompt cache lifetime')
+});
+
+const PaceSchema = z.enum(['ahead', 'behind', 'even']);
+
 export const TARGET_KINDS = ['view', 'node', 'chat', 'agent', 'project'] as const;
 const resolvedTarget = z.object({
     id: z.string(),
@@ -2709,7 +2729,10 @@ export const ACTION_DEFINITIONS = {
                     `The whole conversation of one subagent of a chat the caller may read instead of the chat, read from ${ChatSubagentSourceSchema.options.join(' or ')}`
                 )
         }),
-        output: z.object({ text: z.string() })
+        output: z.object({
+            text: z.string(),
+            usage: chatReadUsage.optional().describe('Only on a chat read whole or by its tail, not on a subagent of it')
+        })
     },
     'agent.start': {
         title: 'Start an agent',
@@ -4141,6 +4164,36 @@ export const ACTION_DEFINITIONS = {
         actors: AGENT,
         input: z.object({ refresh: z.boolean().nullable().describe('Asks each route for its newest version again instead of the answer of the last hour') }),
         output: z.object({ versions: z.array(CliVersionSchema) })
+    },
+    'provider.limits': {
+        title: 'Read the plan of my own account',
+        description:
+            'Reads the plan windows of the account the calling agent runs on, as its CLI last reported them: how much of each is used, when it resets and how that stands against an even pace. Nothing reads a credential or asks the provider.',
+        effect: 'read',
+        domain: 'machine',
+        actors: AGENT,
+        input: z.object({}),
+        output: z.object({
+            provider: AgentKindSchema,
+            account: z.string().nullable().describe('The account by name; null on a machine without accounts'),
+            plan: z.string().nullable(),
+            checkedAt: z.iso.datetime().nullable().describe('When these numbers came in; null before the first read'),
+            unavailable: z.string().nullable().describe('Why there are no windows, when there are none for a reason'),
+            windows: z.array(
+                z.object({
+                    label: z.string(),
+                    kind: z.string(),
+                    usedPercent: z.number().int(),
+                    resetsAt: z.iso.datetime().nullable(),
+                    evenPacePercent: z
+                        .number()
+                        .int()
+                        .nullable()
+                        .describe('Where usedPercent would stand had the window been spent evenly from its start; null when the CLI named no reset or length'),
+                    pace: PaceSchema.nullable().describe('ahead uses more than that even pace, behind less; null without one')
+                })
+            )
+        })
     },
     'usage.summary': {
         title: 'Read AI usage',

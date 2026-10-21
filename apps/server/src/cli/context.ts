@@ -90,6 +90,10 @@ async function runRead(url: string, id: string | undefined, flags: string[], hea
     if (subagent !== null) {
         query.set('subagent', subagent);
     }
+    const json = flags.includes('--json');
+    if (json) {
+        query.set('json', '');
+    }
     let response: Response;
     try {
         response = await fetch(`${url}/${encodeURIComponent(id)}${query.size === 0 ? '' : `?${query}`}`, { headers });
@@ -113,8 +117,14 @@ async function runRead(url: string, id: string | undefined, flags: string[], hea
         console.error(`The daemon answered ${response.status}`);
         return 1;
     }
-    process.stdout.write(`${await response.text()}\n`);
+    process.stdout.write(`${json ? await readJson(response) : await response.text()}\n`);
     return 0;
+}
+
+/* A daemon from before `--json` answers the text alone, which then stands as the one field it would have had. */
+async function readJson(response: Response): Promise<string> {
+    const body = response.headers.get('content-type')?.startsWith('application/json') ? await response.json() : { text: await response.text() };
+    return JSON.stringify(body, null, 2);
 }
 
 /*
@@ -212,7 +222,7 @@ interface ContextRow {
     snoozedUntil?: string;
 }
 
-const READ_USAGE = 'usage\tread\t<id> [--tail N] [--subagent T] [--view V]';
+const READ_USAGE = 'usage\tread\t<id> [--tail N] [--subagent T] [--view V] [--json]';
 const READ_HELP = 'detail\truimte-context help read';
 
 /* What follows `--name` or `--name=`: null when the flag is not there, empty when it has no value. */

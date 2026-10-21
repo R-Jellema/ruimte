@@ -16,6 +16,7 @@ import {
     type ProjectCanvasView,
     type ProjectContent,
     type RegistryCatalog,
+    type UsageLimitsSnapshot,
     type RuntimeMode,
     type ModelSelection,
     type VisualAppearance,
@@ -35,6 +36,7 @@ import type { DeviceDriver } from '../devices/agent-driver.ts';
 import type { DatabaseAgentHost } from '../database/agent-databases.ts';
 import type { AgentLanguage } from '../language/agent-language.ts';
 import type { AgentLineageStore, Notice, ChatRequests, TaskVerbs } from '@adecore/agents/coordination';
+import type { ContextReading } from '../context/context-store.ts';
 import type { NoticeDelivery } from '../context/notices.ts';
 import type { PlanStore } from '../plans/plan-store.ts';
 import type { IndexedPlace } from '../projects/project-index.ts';
@@ -89,6 +91,12 @@ export interface ProviderInstallHost {
     versions(refresh: boolean): Promise<CliVersion[]>;
 }
 
+/* The plan windows the CLIs of this machine reported, as last read; a verb only reports them and never asks again. */
+export interface PlanLimitsHost {
+    snapshot(): UsageLimitsSnapshot;
+    now(): number;
+}
+
 export interface CanvasHost {
     projects: ProjectHost;
     hiddenAgents?: HiddenAgentStore;
@@ -135,6 +143,8 @@ export interface CanvasHost {
     language?: LanguageAgentHost;
     /* The ACP registry and the versions of the agent CLIs, which an agent reads and only a person installs from; absent on a host without them. */
     providerInstalls?: ProviderInstallHost;
+    /* What the plans of this machine's accounts have left; absent on a host that reads none. */
+    planLimits?: PlanLimitsHost;
     /* The cards in which an agent asks a person for a launch's secret; absent on a host that keeps none. */
     secrets?: SecretHost;
     /* The cards in which an agent in Chats suggests a project; absent on a host that keeps none. */
@@ -276,9 +286,9 @@ export interface LaunchHost {
 export interface ContextHost {
     list(targetId: string): Pick<ContextSource, 'id' | 'kind' | 'title'>[];
     /* One linked source as text; a source it cannot answer throws a `CodedError` that says why. */
-    answer(targetId: string, sourceId: string, tail: number | null, subagent: string | null): Promise<string>;
+    answer(targetId: string, sourceId: string, tail: number | null, subagent: string | null): Promise<ContextReading>;
     /* A source the caller reads without a line, such as a node of the canvas a chat view names. */
-    answerSource(targetId: string, source: ContextSource, tail: number | null, subagent: string | null): Promise<string>;
+    answerSource(targetId: string, source: ContextSource, tail: number | null, subagent: string | null): Promise<ContextReading>;
 }
 
 /*

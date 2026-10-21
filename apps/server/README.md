@@ -585,7 +585,7 @@ A line on the canvas into a terminal or chat lets that agent read the source. Ev
 - a bearer token: `RUIMTE_HOOK_TOKEN` in a shell, `RUIMTE_CONTEXT_TOKEN` in a chat
 - the folder of `ruimte-context` in front of its PATH (`apps/server/bin` in a checkout, the app's `bin` resource when packaged)
 
-`ruimte-context` lists the linked sources and `ruimte-context read <id>` prints one; `--tail N` prints only the last N lines. What each kind reads as is in `ruimte-context help read`. The daemon derives what a node may read from the project documents (`src/projects/project-index.ts`).
+`ruimte-context` lists the linked sources and `ruimte-context read <id>` prints one; `--tail N` prints only the last N lines, and `--json` prints one object with the text. A chat starts with a `> Usage` line (its model, its context of the window and when its prompt cache goes or went cold), which `--json` also carries as `usage` (`src/context/chat-usage.ts`). What each kind reads as is in `ruimte-context help read`. The daemon derives what a node may read from the project documents (`src/projects/project-index.ts`).
 
 No line can run to a chat that is a view of its own. Such a chat names a canvas with `--view` instead, and then reads every node and text on it (`read <id> --view <canvas>`) and drives its browser and device nodes the same way; without `--view` a node of a canvas refuses with `view-required` (`src/canvas/chat-view.ts`).
 
@@ -617,7 +617,7 @@ Root `CLAUDE.md` holds the product rules for agents, and `src/canvas/CLAUDE.md` 
 - Prices come from LiteLLM's `model_prices_and_context_window.json`, refreshed every 24 hours and kept in `usage/prices.json`, with a snapshot bundled as the offline fallback. A model the table does not price shows as unknown, never as free.
 - The daemon fetches the ECB reference rate from frankfurter.app on the same schedule into `usage/exchange-rate.json`, so the client can show euros.
 - `--no-price-fetch` turns off both network calls.
-- Plan limits come from the CLIs themselves (`get_usage` over Claude Code's stream-json protocol, `account/rateLimits/read` over Codex's app-server), every five minutes, backing off to an hour after a failure.
+- Plan limits come from the CLIs themselves (`get_usage` over Claude Code's stream-json protocol, `account/rateLimits/read` over Codex's app-server), every five minutes, backing off to an hour after a failure. An agent reads the windows of the account its own chat or terminal runs on with `ruimte-context provider limits`, each against an even pace; that reports the last reading and asks nothing again.
 
 ## Smoke test
 

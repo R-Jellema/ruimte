@@ -95,12 +95,60 @@ const versionsAction = defineActionVerb('provider', {
     }
 });
 
+const limitsAction = defineActionVerb('provider', {
+    name: 'limits',
+    action: 'provider.limits',
+    usage: '[--json]',
+    params: [JSON_PARAM],
+    detail: [
+        'prints\tplan\tkind\taccount\tplan\tchecked at\tthe account you run on, its plan and when the numbers came in; account and plan a dash where the CLI names none, checked at a dash before the first read',
+        'prints\twindow\tlabel\tkind\tused\tresets at\teven pace\tpace\tone line per window; used and even pace in percent, pace ahead, behind or even against an evenly spent window, a dash where the CLI named no reset or length',
+        'prints\tunavailable\treason\twhy there are no windows, when there is a reason',
+        'source\tWhat the CLIs last reported, read again every few minutes and on every turn; this verb asks no provider and reads no credential',
+        'own\tOnly the account your own chat or terminal runs on; the plans of other accounts stay with the person',
+        'refusals\tno-agent\tno-limits\tthe codes this action refuses with'
+    ],
+    positionals: z.tuple([]),
+    flags: z.object({}),
+    switches: ['json'],
+    async run({ switches }, call) {
+        const limits = await runAction(call, 'provider.limits', {});
+        if (switches.has('json')) {
+            return json(limits);
+        }
+        const windows = limits.windows.map((window) =>
+            [
+                'window',
+                field(window.label),
+                window.kind,
+                `${window.usedPercent}%`,
+                window.resetsAt ?? '-',
+                window.evenPacePercent === null ? '-' : `${window.evenPacePercent}%`,
+                window.pace ?? '-'
+            ].join('\t')
+        );
+        return [
+            [
+                'plan',
+                limits.provider,
+                limits.account === null ? '-' : field(limits.account),
+                limits.plan === null ? '-' : field(limits.plan),
+                limits.checkedAt ?? '-'
+            ].join('\t'),
+            ...(limits.unavailable === null
+                ? orNote(windows, 'The CLI reported no plan windows for this account yet')
+                : [...windows, `unavailable\t${field(limits.unavailable)}`])
+        ];
+    }
+});
+
 export const PROVIDER_SUMMARY =
-    "Reads the agents of the public ACP registry this machine can run and the versions of its agent CLIs; installing and updating stay a person's";
+    "Reads the agents of the public ACP registry this machine can run, the versions of its agent CLIs and the plan windows of the account you run on; installing and updating stay a person's";
 
 export const PROVIDER_DETAIL: readonly string[] = [
     'when\tBefore you suggest another agent or an update to the person: catalog lists what the registry offers here, versions what is installed and whether its route has a newer one',
+    'when\tBefore you start long or parallel work: limits says how much of your plan is used and whether you spend it faster than an even pace',
     PERSON_INSTALLS
 ];
 
-export const PROVIDER_ACTIONS = [catalogAction, versionsAction] as const;
+export const PROVIDER_ACTIONS = [catalogAction, versionsAction, limitsAction] as const;
