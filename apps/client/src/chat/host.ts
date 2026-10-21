@@ -80,10 +80,8 @@ function requireTransport(endpointId: string): Transport {
 }
 
 /*
- * The marks of the CLIs the shared `AgentIcon` has none for. Grok's is a ring crossed by a slash, drawn here
- * because no icon set this app takes carries it; its slash runs the ring's way round, so the nonzero fill keeps
- * the crossing solid. Antigravity's is the one Google lists in the ACP registry
- * (agentclientprotocol/registry, `antigravity-acp/icon.svg`).
+ * The marks of the CLIs the shared `AgentIcon` has none for. Grok's is the xAI logo. Antigravity's is the one
+ * Google lists in the ACP registry (agentclientprotocol/registry, `antigravity-acp/icon.svg`).
  */
 const AGENT_MARKS: Partial<Record<AgentKind, AgentMark>> = {
     antigravity: {
@@ -93,7 +91,7 @@ const AGENT_MARKS: Partial<Record<AgentKind, AgentMark>> = {
     },
     grok: {
         title: 'Grok',
-        path: 'M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 1 0 0-17Zm0 2a6.5 6.5 0 1 1 0 13 6.5 6.5 0 1 1 0-13ZM2.6 20 4 21.4 21.4 4 20 2.6Z'
+        path: 'M6.469 8.776 16.512 23h-4.464L2.005 8.776H6.47Zm-.004 7.9 2.233 3.164L6.467 23H2l4.465-6.324ZM22 2.582V23h-3.659V7.764L22 2.582ZM22 1l-9.952 14.095-2.233-3.163L17.533 1H22Z'
     }
 };
 
