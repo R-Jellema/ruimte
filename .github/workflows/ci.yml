@@ -86,10 +86,12 @@ jobs:
       - uses: ./.github/actions/install
       - run: bun run test --shard=${{ matrix.shard }}/2
 
-  # Holds nothing up until Windows ships: the worktree tests still flake there (docs/WINDOWS.md). Out of
-  # the final check for a pull request, and continue-on-error for release.yml, whose verify fails on any job.
+  # Skipped until Windows ships, on the same switch as the Windows release (WINDOWS_RELEASE); the worktree
+  # tests still flake there (docs/WINDOWS.md). Out of the final check, and continue-on-error for
+  # release.yml, whose verify fails on any job.
   windows:
     name: unit (Windows)
+    if: vars.WINDOWS_RELEASE == 'true'
     runs-on: windows-latest
     continue-on-error: true
     steps:
