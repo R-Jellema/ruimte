@@ -308,6 +308,20 @@ and its device token. `apps/pulsar-worker/APNS.md` has the environments and secr
 - [ ] With the broker off the row says so; with another process on the door's port it says the port is taken.
 - [ ] `ruimte status --check --json` prints the whole check, and the TURN servers of the default broker allocate (`answers`).
 
+## React Compiler
+
+The client and ADE CORE's React sources are compiled in the Electron dev app and in a build. Compare with `77bed5fa3`,
+the last commit without the compiler, through React DevTools' highlight updates or its profiler.
+
+- [ ] A long chat streaming: only the turn being written redraws, the rows above it and the sidebar stay still.
+- [ ] Typing in a busy composer (a long draft, mentions, a model picker open once): no lag, and the thread above does
+  not redraw per key.
+- [ ] Panning and zooming a full canvas (twenty nodes, lines, a group): smooth, and a node's body redraws only when its
+  own state changes; a `chat.status` or `session.status` push redraws only that node's frame and the sidebar row.
+- [ ] Switch the language and the region in Settings, Appearance: every visible label, date and number follows,
+  the canvas, the sidebar and an open chat included, without a reload.
+- [ ] Toasts: a git failure, a node made the default size and a deletion with Undo each show and go.
+
 ## Apple Foundation Models
 
 `apps/foundation-models/verification.json` holds the recorded runs.
