@@ -73,7 +73,9 @@ export const CANVAS_SHORTCUTS = {
     suggestInline: requiredShortcut('suggestInline'),
     acceptGhostWord: requiredShortcut('acceptGhostWord'),
     previousMessage: shortcut('Alt+ArrowUp'),
-    nextMessage: shortcut('Alt+ArrowDown')
+    nextMessage: shortcut('Alt+ArrowDown'),
+    raiseEffort: shortcut('Mod+Shift+.'),
+    lowerEffort: shortcut('Mod+Shift+,')
 } as const;
 
 export const NODE_NAVIGATION_SHORTCUTS: Record<SplitDirection, Shortcut> = {

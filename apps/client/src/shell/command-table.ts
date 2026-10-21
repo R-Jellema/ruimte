@@ -9,8 +9,10 @@ import {
     Braces,
     Cable,
     ChartSpline,
+    ChevronsDown,
     ChevronsLeft,
     ChevronsRight,
+    ChevronsUp,
     CircleAlert,
     CircleDot,
     CircleOff,
@@ -990,6 +992,22 @@ const TABLE = {
         menu: { menu: 'kind', group: 'chat', order: 10 }
     },
     'chat-restart': { key: 'restartAgentSession', icon: RotateCw, palette: true, menu: { menu: 'kind', group: 'chat', order: 20 } },
+    'chat-effort-up': {
+        key: 'raiseEffort',
+        icon: ChevronsUp,
+        shortcut: CANVAS_SHORTCUTS.raiseEffort,
+        binds: 'workspace',
+        palette: true,
+        menu: { menu: 'kind', group: 'chat', order: 30 }
+    },
+    'chat-effort-down': {
+        key: 'lowerEffort',
+        icon: ChevronsDown,
+        shortcut: CANVAS_SHORTCUTS.lowerEffort,
+        binds: 'workspace',
+        palette: true,
+        menu: { menu: 'kind', group: 'chat', order: 40 }
+    },
     'view-fork': {
         key: 'fork',
         icon: GitFork,

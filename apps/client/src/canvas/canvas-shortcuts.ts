@@ -31,7 +31,7 @@ import { followSpaceRelease, holdSpace, releaseSpace, spaceWorksTarget } from '@
 import { setGapModifierDown } from '@/canvas/gap-modifier';
 import { cancelCanvasGesture } from '@/canvas/gesture-cancel';
 import { focusPromptStack, isInPromptStack, leavePromptStack } from '@/canvas/prompt-stack';
-import { useSubagentView, stepTimelineMessage } from '@adecore/agents-react/chat';
+import { useSubagentView, stepEffortFromComposer, stepTimelineMessage } from '@adecore/agents-react/chat';
 import { openFocusedFind } from '@/find/hosts';
 import { focusedCanvas, maximizeTargetOf, zoomNodeTargetOf, type CanvasState } from '@/state/canvas';
 import { focusedDiagram } from '@/state/diagram';
@@ -321,6 +321,14 @@ function answerWindowKey(e: KeyboardEvent, s: CanvasState, is: Matches, command:
     if (is(CANVAS_SHORTCUTS.previousMessage) || is(CANVAS_SHORTCUTS.nextMessage)) {
         const key = focusedChatKey();
         if (key !== null && !isInFloatingLayer(e.target) && stepTimelineMessage(key, is(CANVAS_SHORTCUTS.nextMessage) ? 1 : -1)) {
+            e.preventDefault();
+            return true;
+        }
+    }
+    // While the keyboard is in a chat, its composer included; elsewhere the menu's row acts on the chat that has the focus.
+    if (command === 'chat-effort-up' || command === 'chat-effort-down') {
+        const key = focusedChatKey();
+        if (key !== null && !isInFloatingLayer(e.target) && stepEffortFromComposer(key, command === 'chat-effort-up' ? 'up' : 'down')) {
             e.preventDefault();
             return true;
         }

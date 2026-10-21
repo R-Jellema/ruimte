@@ -72,7 +72,7 @@ import { activeViewFacts } from '@/shell/menu/context';
 import { runAppShortcut } from '@/shell/app-shortcuts';
 import { canSplit, cellAt, cellCount, cellsRightOf, isTabHost, maximizedCell } from '@/shell/split';
 import type { Shortcut } from '@adecore/ui';
-import { sendFromComposer } from '@adecore/agents-react/chat';
+import { sendFromComposer, stepEffortFromComposer } from '@adecore/agents-react/chat';
 import { focusedChatId } from '@/chat/focused-chat';
 import { restartChatSession } from '@/chat/restart-session';
 import { COMMANDS, type PaletteCommandId } from '@/shell/command-table';
@@ -336,7 +336,9 @@ export function appCommands(prRepos: readonly PrRepo[] = prReposOfCurrent()): Co
                       'chat-send-new',
                       afterPaletteCloses(() => sendFromComposer(endpointKey(endpointOfNodeId(chat), chat), 'and-new'))
                   ),
-                  row('chat-restart', () => void restartChatSession(chat))
+                  row('chat-restart', () => void restartChatSession(chat)),
+                  row('chat-effort-up', () => stepEffortFromComposer(endpointKey(endpointOfNodeId(chat), chat), 'up')),
+                  row('chat-effort-down', () => stepEffortFromComposer(endpointKey(endpointOfNodeId(chat), chat), 'down'))
               ]
             : []),
         ...(leavingChatId !== null
