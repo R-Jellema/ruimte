@@ -80,4 +80,41 @@ describe('ProviderRegistry', () => {
             expect.objectContaining({ kind: 'future-cli' })
         );
     });
+
+    describe('a single prompt', () => {
+        const only = (...commands: string[]) => new ProviderRegistry({ detect: async (command) => ({ installed: commands.includes(command), version: null }) });
+
+        test('goes to Grok or Copilot when that is the one CLI here, read-only and without asking', async () => {
+            const grok = await only('grok').oneShotProvider();
+            expect(grok?.kind).toBe('grok');
+            expect(grok?.oneShotArgs?.('name it')).toEqual([
+                '--no-auto-update',
+                '-p',
+                'name it',
+                '--output-format',
+                'plain',
+                '--permission-mode',
+                'default',
+                '--disallowed-tools',
+                'Agent'
+            ]);
+            const copilot = await only('copilot').oneShotProvider();
+            expect(copilot?.kind).toBe('copilot');
+            expect(copilot?.oneShotArgs?.('name it')).toEqual(['--no-auto-update', '-p', 'name it', '-s', '--no-ask-user', '--deny-tool=shell, write']);
+            expect(copilot?.oneShotStdinArgs).toEqual(['--no-auto-update', '-s', '--no-ask-user', '--deny-tool=shell, write']);
+        });
+
+        test("goes to `agy` for Antigravity, whatever its chat's server", async () => {
+            const agy = await only('agy').oneShotProvider();
+            expect(agy?.kind).toBe('antigravity');
+            expect([agy?.command[0], ...(agy?.oneShotArgs?.('name it') ?? [])]).toEqual(['agy', '-p', 'name it', '--output-format', 'text']);
+        });
+
+        test('keeps the CLI a chat runs on first, and the order of the list after it', async () => {
+            expect((await only('claude', 'agy').oneShotProvider('antigravity'))?.command[0]).toBe('agy');
+            expect((await only('claude', 'agy').oneShotProvider())?.kind).toBe('claude');
+            expect((await only('grok', 'copilot').oneShotProvider('grok'))?.kind).toBe('grok');
+            expect(await only().oneShotProvider()).toBeNull();
+        });
+    });
 });

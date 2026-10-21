@@ -97,6 +97,8 @@ const GROK_SPEC: AcpProviderSpec = {
             { kind: 'env', variable: 'XAI_API_KEY' }
         ]
     },
+    // Headless Grok refuses every call that would ask, so the default mode keeps a title or a message from writing anything.
+    oneShotArgs: (prompt) => ['--no-auto-update', '-p', prompt, '--output-format', 'plain', '--permission-mode', 'default', '--disallowed-tools', 'Agent'],
     firstPromptArgs: (prompt) => [prompt]
 };
 
@@ -154,6 +156,8 @@ export function createGrokProvider(catalogStore?: AcpCatalogStore): ChatProvider
 
 export const grokProvider: ChatProvider = createGrokProvider();
 
+const COPILOT_ONE_SHOT = ['-s', '--no-ask-user', '--deny-tool=shell, write'];
+
 const COPILOT_SPEC: AcpProviderSpec = {
     kind: 'copilot',
     name: 'GitHub Copilot',
@@ -176,6 +180,9 @@ const COPILOT_SPEC: AcpProviderSpec = {
             { kind: 'env', variable: 'COPILOT_GITHUB_TOKEN' }
         ]
     },
+    // `-s` prints only the answer; without shell and file writes it can only read. A prompt piped in runs the same way.
+    oneShotArgs: (prompt) => ['--no-auto-update', '-p', prompt, ...COPILOT_ONE_SHOT],
+    oneShotStdinArgs: ['--no-auto-update', ...COPILOT_ONE_SHOT],
     // `-p` answers and exits; `-i` runs the prompt and stays.
     firstPromptArgs: (prompt) => ['-i', prompt]
 };
@@ -185,6 +192,9 @@ export function createCopilotProvider(catalogStore?: AcpCatalogStore): ChatProvi
 }
 
 export const copilotProvider: ChatProvider = createCopilotProvider();
+
+// Google's CLI, which a terminal starts and a single prompt goes to; the chat runs on a server of its own.
+export const ANTIGRAVITY_CLI = 'agy';
 
 /* Google's ACP server for Antigravity, pinned to the release the ACP registry lists (`antigravity-acp`). */
 export const ANTIGRAVITY_ACP_RELEASE = parseAcpServerRelease(antigravityRelease);
@@ -208,7 +218,7 @@ const ANTIGRAVITY_SPEC: AcpProviderSpec = {
     kind: 'antigravity',
     name: 'Antigravity',
     // Only stands in until the server is installed; the terminal starts `agy` (`TERMINAL_EXECUTABLES` in `launch.ts`).
-    command: 'agy',
+    command: ANTIGRAVITY_CLI,
     catalog: agentDefaultCatalog(),
     model: agentModel,
     modes: ANTIGRAVITY_MODES,
@@ -235,6 +245,14 @@ const ANTIGRAVITY_SPEC: AcpProviderSpec = {
     // Antigravity CLI 1.4 reads a prompt only from `-p` (answers and exits), `-i` (runs it and stays) or stdin.
     firstPromptArgs: (prompt) => ['-i', prompt]
 };
+
+/*
+ * A single prompt to `agy`, which is apart from the chat's server. Headless it soft-denies every call that would ask
+ * (antigravity.google/docs/cli/headless), so it reads and answers.
+ */
+export function antigravityOneShotArgs(prompt: string): string[] {
+    return ['-p', prompt, '--output-format', 'text'];
+}
 
 /* Antigravity's chat runs on the server a person installed; without one it is listed as not installed and starts nothing. */
 export function createAntigravityProvider(server: AcpServerLaunch | null, catalogStore?: AcpCatalogStore): ChatProvider {
