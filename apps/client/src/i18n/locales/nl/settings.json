@@ -511,7 +511,7 @@
     "views": {
         "nodeSizes": {
             "title": "Nieuwe nodes op {{machine}}",
-            "description": "Begingrootte per soort node, ook voor nodes van agents. Typ hem hier, of klik met rechts op een node en kies Maak dit de standaardgrootte.",
+            "description": "Begingrootte per soort node, ook voor nodes van agents. Typ hem hier, of klik met rechts op een node en kies Als standaardgrootte instellen.",
             "searchLabel": "Standaardgrootte van nodes",
             "builtIn": "Ingebouwd",
             "custom": "Eigen grootte, ingebouwd {{builtIn}}",

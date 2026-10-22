@@ -86,7 +86,7 @@ export const nodeNewAction = defineActionVerb('node', {
         'paths\t--path and --cwd are resolved against the project folder, never against your own directory; both may also be absolute',
         'paths\t--cwd has to stay inside the project folder or a worktree of its repository; --path may point outside and is then stored absolute',
         `limit\tA canvas holds at most ${MAX_CANVAS_NODES} nodes; a terminal or chat starts no process until a client shows it`,
-        "size\tA new node takes the size a person on this machine gave its kind (Make this the default size, in a node's menu), else the built-in size of the kind; agent and team size their nodes the same way, and no verb changes it",
+        "size\tA new node takes the size a person on this machine gave its kind (Set as default size, in a node's menu), else the built-in size of the kind; agent and team size their nodes the same way, and no verb changes it",
         TITLE_LINE
     ],
     positionals: z.tuple([z.enum(NODE_VERB_KINDS, { error: KIND_MESSAGE })], {

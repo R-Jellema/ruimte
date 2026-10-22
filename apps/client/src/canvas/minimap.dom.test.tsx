@@ -20,7 +20,7 @@ let workspace: FakeWorkspace;
 let page: Mounted;
 
 function theMap(): SVGSVGElement | null {
-    return document.querySelector('svg[role="img"][aria-label="Map of the canvas"]');
+    return document.querySelector('svg[role="img"][aria-label="Canvas map"]');
 }
 
 function mapSwitch(): HTMLElement | null {

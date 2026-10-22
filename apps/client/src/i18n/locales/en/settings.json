@@ -511,7 +511,7 @@
     "views": {
         "nodeSizes": {
             "title": "New nodes on {{machine}}",
-            "description": "Starting size per node kind, also for nodes agents add. Type it here, or right-click a node and choose Make this the default size.",
+            "description": "Starting size per node kind, also for nodes agents add. Type it here, or right-click a node and choose Set as default size.",
             "searchLabel": "Default node sizes",
             "builtIn": "Built in",
             "custom": "Custom, built in {{builtIn}}",

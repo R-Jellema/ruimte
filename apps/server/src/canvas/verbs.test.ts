@@ -1101,7 +1101,7 @@ describe('node new', () => {
         expect(sizeOf(note)).toEqual({ w: 400, h: 320 });
         expect(sizeOf(browser)).toEqual(NODE_SIZE.browser);
         expect(sizeOf(chat)).toEqual({ w: 640, h: 720 });
-        expect((await post('help', ['node', 'new'])).lines.some((line) => line.startsWith('size\t') && line.includes('Make this the default size'))).toBe(true);
+        expect((await post('help', ['node', 'new'])).lines.some((line) => line.startsWith('size\t') && line.includes('Set as default size'))).toBe(true);
     });
 
     test('draws a line from the caller into what it made, context into an agent node and origin into anything else', async () => {
