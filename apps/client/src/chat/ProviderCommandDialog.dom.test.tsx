@@ -33,7 +33,7 @@ describe('a provider command run from its install page', () => {
         expect(created.cwd).toBeUndefined();
         // So the shell also ends when the window goes without the dialog closing.
         expect(created.endsWithClient).toBe(true);
-        expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Press Enter to run the command.');
+        expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Press Enter to run.');
         expect(document.querySelector('[role="dialog"] h2')?.textContent).toBe('grok');
         expect(machine.requests('session.write').filter((write) => /[\r\n]/.test(write.data))).toEqual([]);
 
