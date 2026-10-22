@@ -190,13 +190,14 @@ export function useGroupWorktrees(groupId: string | null): readonly Worktree[] {
     const connection = useOptionalConnection();
     const endpointId = useEndpointId();
     const folder = useProject((s) => s.current?.folder ?? null);
-    const nodes = useCanvas((s) => s.nodes);
-    const texts = useCanvas((s) => s.texts);
-    const group = groupId === null ? undefined : nodes[groupId];
+    // Every node's frame asks, and only a group reads the canvas: the rest would render again on any change of any node.
+    const nodes = useCanvas((s) => (groupId === null ? null : s.nodes));
+    const texts = useCanvas((s) => (groupId === null ? null : s.texts));
+    const group = groupId === null || nodes === null ? undefined : nodes[groupId];
     const wanted = group?.kind === 'group' && folder !== null;
     const worktrees = useWorktrees(wanted ? (connection?.transport ?? null) : null, endpointId, wanted ? folder : null);
     return useMemo(() => {
-        if (!wanted || group === undefined || worktrees.length === 0) {
+        if (!wanted || group === undefined || nodes === null || texts === null || worktrees.length === 0) {
             return NONE;
         }
         const found: Worktree[] = [];
