@@ -76,12 +76,19 @@ async function compileOn(pool: CompilerPool, path: string): Promise<string> {
     return result === null ? compile(path) : (result.code ?? code);
 }
 
+const STOCK_RUNTIME = /(from\s*)(["'])react\/compiler-runtime\2/g;
+
+/* Bun's runtime plugins leave a bare import to the package, whatever `onResolve` says, so a test points the compiled code at the client's runtime itself. */
+function withClientRuntime(path: string, code: string): string {
+    return path === COMPILER_RUNTIME ? code : code.replace(STOCK_RUNTIME, (_, from: string) => `${from}${JSON.stringify(COMPILER_RUNTIME)}`);
+}
+
 export const reactCompilerPlugin: BunPlugin = {
     name: 'react-compiler',
     setup(build) {
         build.onResolve({ filter: /^react\/compiler-runtime$/ }, (args) => (args.importer === COMPILER_RUNTIME ? undefined : { path: COMPILER_RUNTIME }));
         build.onLoad({ filter: new RegExp(REACT_COMPILED.map((pattern) => pattern.source).join('|')) }, async (args) => ({
-            contents: await compiledOnce(args.path),
+            contents: withClientRuntime(args.path, await compiledOnce(args.path)),
             loader: args.path.endsWith('.tsx') ? 'tsx' : 'ts'
         }));
     }
