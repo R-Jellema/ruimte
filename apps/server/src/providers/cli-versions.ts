@@ -68,19 +68,45 @@ export function classifyInstall(real: string, readText: (path: string) => string
     return global === null ? UNKNOWN : { method: 'npm', ...base, prefix: global[1]! };
 }
 
-/* -1, 0 or 1 by the numbers of two versions, part by part; a part that is no number weighs as text. */
+/*
+ * -1, 0 or 1 by semver precedence: the numbers part by part, then a release above its own prereleases, whose
+ * identifiers compare as numbers where both are numbers and as text otherwise. Build metadata after `+` weighs nothing.
+ */
 export function compareVersions(left: string, right: string): number {
-    const parts = (version: string) => version.replace(/^v/, '').split(/[.+-]/);
-    const [a, b] = [parts(left), parts(right)];
-    for (let i = 0; i < Math.max(a.length, b.length); i++) {
-        const [x, y] = [a[i] ?? '0', b[i] ?? '0'];
-        const [numberX, numberY] = [Number(x), Number(y)];
-        const order = Number.isFinite(numberX) && Number.isFinite(numberY) ? Math.sign(numberX - numberY) : x.localeCompare(y);
+    const split = (version: string) => {
+        const plain = version.replace(/^v/, '').split('+')[0]!;
+        const dash = plain.indexOf('-');
+        return dash === -1 ? { core: plain.split('.'), pre: [] } : { core: plain.slice(0, dash).split('.'), pre: plain.slice(dash + 1).split('.') };
+    };
+    const [a, b] = [split(left), split(right)];
+    for (let i = 0; i < Math.max(a.core.length, b.core.length); i++) {
+        const order = compareIdentifiers(a.core[i] ?? '0', b.core[i] ?? '0');
         if (order !== 0) {
             return order;
         }
     }
-    return 0;
+    if (a.pre.length === 0 || b.pre.length === 0) {
+        return Math.sign(b.pre.length - a.pre.length);
+    }
+    for (let i = 0; i < Math.min(a.pre.length, b.pre.length); i++) {
+        const order = compareIdentifiers(a.pre[i]!, b.pre[i]!);
+        if (order !== 0) {
+            return order;
+        }
+    }
+    return Math.sign(a.pre.length - b.pre.length);
+}
+
+// A numeric identifier ranks below one with letters, as semver has it.
+function compareIdentifiers(left: string, right: string): number {
+    const [numeric, numericRight] = [/^\d+$/.test(left), /^\d+$/.test(right)];
+    if (numeric && numericRight) {
+        return Math.sign(Number(left) - Number(right));
+    }
+    if (numeric !== numericRight) {
+        return numeric ? -1 : 1;
+    }
+    return left < right ? -1 : left > right ? 1 : 0;
 }
 
 /* What a route answers for the newest version it offers. */
