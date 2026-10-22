@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'bun:test';
+import { afterEach, describe, test } from 'bun:test';
 import { act } from 'react';
 import type { ProjectCanvasView, ProjectView } from '@ruimte/contracts';
 import { useChats } from '@adecore/agents-react/state';
