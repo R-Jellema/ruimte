@@ -13,6 +13,8 @@ export interface CliInstall {
     version: string | null;
     // Homebrew's prefix, or npm's global prefix, which the update runs through.
     prefix: string | null;
+    // The revision Homebrew gives a formula rebuilt at the same version (`_2` in `1.2.3_2`).
+    revision?: number;
 }
 
 const UNKNOWN: CliInstall = { method: 'unknown', package: null, version: null, prefix: null };
@@ -43,9 +45,9 @@ function nodePackage(path: string, readText: (path: string) => string | null): {
  */
 export function classifyInstall(real: string, readText: (path: string) => string | null): CliInstall {
     const path = real.replaceAll('\\', '/');
-    const cellar = /^(.*)\/Cellar\/([^/]+)\/([^/]+)\//.exec(path);
+    const cellar = /^(.*)\/Cellar\/([^/]+)\/([^/]+?)(?:_(\d+))?\//.exec(path);
     if (cellar !== null) {
-        return { method: 'homebrew', package: cellar[2]!, version: cellar[3]!.replace(/_\d+$/, ''), prefix: cellar[1]! };
+        return { method: 'homebrew', package: cellar[2]!, version: cellar[3]!, prefix: cellar[1]!, revision: Number(cellar[4] ?? 0) };
     }
     const cask = /^(.*)\/Caskroom\/([^/]+)\/([^/]+)\//.exec(path);
     if (cask !== null) {
@@ -240,6 +242,7 @@ export class CliVersions {
 
     private async updateNow(kind: AgentKind): Promise<CliVersion> {
         const before = await this.one(kind, true);
+        const revisionBefore = this.revisionOf(kind);
         this.failures.delete(kind);
         if (!before.updatable || before.latest === null) {
             throw new Error(before.error ?? `${kind} has no update to install`);
@@ -257,7 +260,11 @@ export class CliVersions {
         this.checked.delete(kind);
         this.options.providers.invalidate(kind);
         const after = await this.one(kind, true);
-        if (!this.failures.has(kind) && after.version !== null && before.version !== null && compareVersions(after.version, before.version) <= 0) {
+        const grew =
+            after.version === null ||
+            before.version === null ||
+            (compareVersions(after.version, before.version) || Math.sign(this.revisionOf(kind) - revisionBefore)) > 0;
+        if (!this.failures.has(kind) && !grew) {
             this.failures.set(kind, `${METHOD_NAMES[before.method]} kept version ${after.version}; its own settings may hold back newer versions`);
         }
         return this.failures.has(kind) ? { ...after, state: 'failed', error: this.failures.get(kind)! } : { ...after, state: 'idle' };
@@ -368,6 +375,10 @@ export class CliVersions {
             return readBrewInfo(result.stdout, cask);
         }
         return { latest: await this.npmLatest(name) };
+    }
+
+    private revisionOf(kind: AgentKind): number {
+        return this.options.own(kind) === null ? (this.locate(kind)?.revision ?? 0) : 0;
     }
 
     private locate(kind: AgentKind): CliInstall | null {

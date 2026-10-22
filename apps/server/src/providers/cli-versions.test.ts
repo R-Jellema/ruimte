@@ -13,13 +13,15 @@ const FILES: Record<string, string> = {
 const readText = (path: string): string | null => FILES[path] ?? null;
 
 describe('classifyInstall', () => {
-    test('a Homebrew formula, by its Cellar path, without the revision', () => {
+    test('a Homebrew formula, by its Cellar path, with the revision apart from the version', () => {
         expect(classifyInstall('/opt/homebrew/Cellar/codex/0.160.0_1/bin/codex', readText)).toEqual({
             method: 'homebrew',
             package: 'codex',
             version: '0.160.0',
-            prefix: '/opt/homebrew'
+            prefix: '/opt/homebrew',
+            revision: 1
         });
+        expect(classifyInstall('/opt/homebrew/Cellar/codex/0.160.0/bin/codex', readText)).toMatchObject({ version: '0.160.0', revision: 0 });
     });
 
     test('a formula of an npm package is still Homebrew', () => {
@@ -115,7 +117,7 @@ const REAL: Record<string, string> = {
     '/opt/homebrew/bin/codex': '/opt/homebrew/Cellar/codex/0.160.0/bin/codex'
 };
 
-function versions(options: { run?: VersionRun; latest?: string; own?: OwnInstall | null } = {}) {
+function versions(options: { run?: VersionRun; latest?: string; own?: OwnInstall | null; real?: (path: string) => string | undefined } = {}) {
     const ran: string[][] = [];
     const invalidated: string[] = [];
     let copilot = '1.0.101';
@@ -127,7 +129,7 @@ function versions(options: { run?: VersionRun; latest?: string; own?: OwnInstall
         ownKinds: () => (options.own ? ['antigravity'] : []),
         providers: { current: async () => PROVIDERS, invalidate: (kind) => invalidated.push(kind) },
         which: (command) => PATHS[command] ?? null,
-        realpath: (path) => REAL[path] ?? path,
+        realpath: (path) => options.real?.(path) ?? REAL[path] ?? path,
         readText: reader,
         exists: (path) => path === '/opt/homebrew/bin/brew',
         npmLatest: async () => options.latest ?? '1.0.110',
@@ -171,6 +173,32 @@ describe('CliVersions', () => {
         const after = await cli.update('copilot');
         expect(after.state).toBe('failed');
         expect(after.error).toContain('npm kept version 1.0.101');
+    });
+
+    test('a Homebrew upgrade that only rebuilds the formula at the same version succeeds', async () => {
+        let codex = '/opt/homebrew/Cellar/codex/0.160.0_1/bin/codex';
+        const { cli } = versions({
+            real: (path) => (path === '/opt/homebrew/bin/codex' ? codex : undefined),
+            run: async (command) => {
+                if (command.includes('info')) {
+                    return { exitCode: 0, stdout: JSON.stringify({ formulae: [{ versions: { stable: '0.160.0' }, outdated: true }] }), stderr: '' };
+                }
+                codex = '/opt/homebrew/Cellar/codex/0.160.0_2/bin/codex';
+                return { exitCode: 0, stdout: '', stderr: '' };
+            }
+        });
+        expect(await cli.update('codex')).toMatchObject({ method: 'homebrew', version: '0.160.0', state: 'idle' });
+    });
+
+    test('a Homebrew upgrade that kept the same revision is reported', async () => {
+        const { cli } = versions({
+            real: (path) => (path === '/opt/homebrew/bin/codex' ? '/opt/homebrew/Cellar/codex/0.160.0_1/bin/codex' : undefined),
+            run: async (command) =>
+                command.includes('info')
+                    ? { exitCode: 0, stdout: JSON.stringify({ formulae: [{ versions: { stable: '0.160.0' }, outdated: true }] }), stderr: '' }
+                    : { exitCode: 0, stdout: '', stderr: '' }
+        });
+        expect(await cli.update('codex')).toMatchObject({ state: 'failed', error: expect.stringContaining('Homebrew kept version 0.160.0') });
     });
 
     test('offers no update for a CLI installed some other way', async () => {
