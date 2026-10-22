@@ -24,7 +24,7 @@ function theMap(): SVGSVGElement | null {
 }
 
 function mapSwitch(): HTMLElement | null {
-    return document.querySelector('[role="switch"][aria-label="Map of the canvas"]');
+    return document.querySelector('[role="switch"][aria-label="Canvas map"]');
 }
 
 function canvas() {

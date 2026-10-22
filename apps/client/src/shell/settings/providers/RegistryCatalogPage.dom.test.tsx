@@ -83,7 +83,7 @@ describe('adding a provider from the ACP registry', () => {
         await page.render(<Catalog />);
         await until(() => text().includes('Kilo'));
         expect(text()).toContain('goose');
-        expect(text()).toContain('Version 1.55.0 · Download · checksum checked');
+        expect(text()).toContain('Version 1.55.0 · Download · verified');
         expect(text()).toContain('Version 7.8.15 · npm package');
 
         await typeInto(document.querySelector('input')!, 'open source');
@@ -109,7 +109,7 @@ describe('adding a provider from the ACP registry', () => {
     test('shows the last good catalog when the registry cannot be reached, and says why', async () => {
         machine.answer('provider.registry', () => ({ catalog: { ...LIVE, source: 'cached' as const, error: 'The ACP registry answered 503' } }));
         await page.render(<Catalog />);
-        await until(() => text().includes('The registry could not be reached (The ACP registry answered 503).'));
+        await until(() => text().includes('Could not reach the agent registry (The ACP registry answered 503).'));
         expect(text()).toContain('Kilo');
     });
 
@@ -118,7 +118,7 @@ describe('adding a provider from the ACP registry', () => {
             catalog: { source: 'unavailable' as const, fetchedAt: null, error: 'offline', platform: 'darwin-aarch64', agents: [] }
         }));
         await page.render(<Catalog />);
-        await until(() => text().includes('The ACP registry could not be reached'));
+        await until(() => text().includes('Could not reach the agent registry'));
         expect(text()).toContain('offline');
         machine.answer('provider.registry', () => ({ catalog: LIVE }));
         await clickOn(button('Try again'));
