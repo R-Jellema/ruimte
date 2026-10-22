@@ -28,15 +28,20 @@ export function isQuickLookKey(event: { key: string; repeat: boolean; shiftKey: 
 
 /*
  * Whether Quick Look is up, as far as this page can tell. The shell says nothing when Quick Look
- * closes on its own keys, but it holds the keyboard while it is up, so the window getting it back
- * (`released`) means it closed or a person clicked past it.
+ * closes on its own keys, so the window getting the keyboard back (`released`) means it closed or a
+ * person clicked past it, except right after a show, when the shell hands the keys back itself.
  */
+const REFOCUS_GRACE_MS = 1000;
+
 export class QuickLook {
     private showing: string | null = null;
+    private shownAt = Number.NEGATIVE_INFINITY;
     private readonly shell: QuickLookShell;
+    private readonly now: () => number;
 
-    constructor(shell: QuickLookShell) {
+    constructor(shell: QuickLookShell, now: () => number = () => performance.now()) {
         this.shell = shell;
+        this.now = now;
     }
 
     get open(): boolean {
@@ -69,11 +74,14 @@ export class QuickLook {
     }
 
     released(): void {
-        this.showing = null;
+        if (this.now() - this.shownAt > REFOCUS_GRACE_MS) {
+            this.showing = null;
+        }
     }
 
     private show(path: string): void {
         this.showing = path;
+        this.shownAt = this.now();
         const forget = (): void => {
             if (this.showing === path) {
                 this.showing = null;

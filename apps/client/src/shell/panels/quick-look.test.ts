@@ -63,11 +63,25 @@ describe('quick look', () => {
 
     test('once the window has the keyboard back, the next Space shows the file again', () => {
         const shell = recordingShell();
-        const quickLook = new QuickLook(shell);
+        let now = 0;
+        const quickLook = new QuickLook(shell, () => now);
         quickLook.toggle('/work/a.png');
+        now = 5_000;
         quickLook.released();
         quickLook.toggle('/work/a.png');
         expect(shell.calls).toEqual(['show /work/a.png', 'show /work/a.png']);
+    });
+
+    test('the keyboard the shell hands back right after a show leaves Quick Look open, so the arrows step on', () => {
+        const shell = recordingShell();
+        let now = 0;
+        const quickLook = new QuickLook(shell, () => now);
+        quickLook.toggle('/work/a.png');
+        now = 200;
+        quickLook.released();
+        quickLook.follow('/work/b.png');
+        expect(quickLook.open).toBe(true);
+        expect(shell.calls).toEqual(['show /work/a.png', 'show /work/b.png']);
     });
 
     test('a file the shell refuses leaves Quick Look closed', async () => {
