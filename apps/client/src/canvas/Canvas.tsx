@@ -31,6 +31,7 @@ import { resizedText } from '@/canvas/text-resize';
 import { framePressHandsKeyboard } from '@/canvas/frame-press';
 import { stackingOrder } from '@/canvas/stacking';
 import { useWheelCamera } from '@/canvas/use-wheel-camera';
+import { farNodeKey } from '@/canvas/culling';
 import { notePointer } from '@/canvas/pointer';
 import { carriedByGroups, isNodeActive, maximizedNodeOf, useCanvas, useCanvasStore, type CanvasState } from '@/state/canvas';
 import { useEndpointId } from '@/state/keys';
@@ -170,8 +171,10 @@ export function Canvas() {
     /* The nodes are drawn in a fixed order and stacked with a z-index instead of being reordered in
        the DOM: moving an element takes it out of the document for a moment, and a body that had the
        keyboard loses it. Bringing a node to the front is a click in it, so that is exactly when it
-       may not happen. */
-    const drawIds = [...order].sort();
+       may not happen. A note or a file far from sight is not drawn at all (`farNodeKey`). */
+    const far = useCanvas(farNodeKey);
+    const farIds = new Set(far === '' ? [] : far.split('\n'));
+    const drawIds = order.filter((id) => !farIds.has(id)).sort();
     const stacking = stackingOrder(nodes, order);
     const maximizedId = useCanvas(maximizedNodeOf);
 
@@ -795,13 +798,13 @@ export function Canvas() {
                         <TextElementView key={id} id={id} />
                     ))}
                     {drawIds.map((id) => (
-                        <NodeFrame key={id} id={id} z={id === maximizedId ? drawIds.length + 1 : (stacking[id] ?? 1)} />
+                        <NodeFrame key={id} id={id} z={id === maximizedId ? order.length + 1 : (stacking[id] ?? 1)} />
                     ))}
                     {/* Over the nodes, so a port beside one is never covered by the node standing next to it. */}
                     {maximizedId === null && <PortHints rootRef={rootRef} />}
                     {maximizedId === null && <ResizeHandles rootRef={rootRef} />}
                 </div>
-                {drawIds.length === 0 && textIds.length === 0 && Object.keys(lines).length === 0 && <EmptyCanvas />}
+                {order.length === 0 && textIds.length === 0 && Object.keys(lines).length === 0 && <EmptyCanvas />}
                 {lineTool !== null && maximizedId === null && <CanvasLineTool key={lineTool} onDraftChange={setLineDraft} />}
                 {/* Over the pages, which the canvas itself cannot draw over. */}
                 <CellOverlay slot="view">
