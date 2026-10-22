@@ -414,8 +414,9 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
     const isGroup = node.kind === 'group';
     const isNote = node.kind === 'note';
     const frameAccent = !isGroup && !isNote ? accent : undefined;
-    // A note's border takes the hue of its paper the way a colored node's takes its accent; the neutral paper has none.
-    const borderAccent = isNote ? accentColor(notePaperOf(node) ?? 'yellow') : frameAccent;
+    // A note is colored the way a colored node's header is, all over; only the neutral paper keeps a sheet of its own.
+    const noteAccent = isNote ? accentColor(notePaperOf(node) ?? 'yellow') : undefined;
+    const borderAccent = isNote ? noteAccent : frameAccent;
     // A newer Ruimte's node: it moves, resizes and goes away like any other, and nothing else about it is this version's to change.
     const isUnknown = node.kind === 'unknown';
     const collapsed = isGroup && node.collapsed === true;
@@ -429,6 +430,7 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
             <ContextMenu.Trigger
                 render={<div />}
                 data-node-id={id}
+                data-paper={isNote ? (notePaperOf(node) ?? 'yellow') : undefined}
                 className={clsx(
                     // isolate: xterm's layers carry z-indexes; without a stacking context they would paint over a node added later.
                     'absolute isolate flex flex-col overflow-hidden focus-visible:outline-none',
@@ -436,7 +438,7 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                     isGroup
                         ? GROUP_FRAME
                         : isNote
-                          ? clsx(!maximized && 'shadow-node', notePaperClass(notePaperOf(node)))
+                          ? clsx(!maximized && 'shadow-node', noteAccent ? 'bg-clip-padding' : notePaperClass(notePaperOf(node)))
                           : clsx('bg-surface', !maximized && 'shadow-node'),
                     (selected || linkTarget) && !maximized && 'node-selected',
                     /* Never transparent: a surface clips to its padding box, so that would show a line of
@@ -451,6 +453,7 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                     ...maximizedPlace,
                     zIndex: z,
                     ...(borderAccent ? { borderColor: `color-mix(in srgb, ${borderAccent} 45%, var(--border))` } : {}),
+                    ...(noteAccent ? { backgroundColor: `color-mix(in srgb, ${noteAccent} 20%, var(--surface-raised))` } : {}),
                     ...(isGroup && accent ? { '--group-accent': accent } : {})
                 }}
                 tabIndex={0}
@@ -483,7 +486,9 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                                   backgroundColor: `color-mix(in srgb, ${frameAccent} 20%, var(--surface-raised))`,
                                   borderColor: `color-mix(in srgb, ${frameAccent} 35%, var(--border))`
                               }
-                            : undefined
+                            : noteAccent
+                              ? { borderColor: `color-mix(in srgb, ${noteAccent} 35%, var(--border))` }
+                              : undefined
                     }
                 >
                     {isGroup && (

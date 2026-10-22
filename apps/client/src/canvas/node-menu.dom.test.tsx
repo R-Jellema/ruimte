@@ -149,7 +149,7 @@ describe('the menu of a chat node', () => {
 
 describe('the menu of a note', () => {
     test('offers one Color, checked on the paper an old note shows, and no Note color', async () => {
-        expect(frameOf(OLD_NOTE.id).className).toContain('bg-paper-blue');
+        expect(frameOf(OLD_NOTE.id).dataset.paper).toBe('blue');
         await openNodeMenu(OLD_NOTE.id);
 
         expect(menuItem('Note color')).toBeNull();
@@ -164,7 +164,7 @@ describe('the menu of a note', () => {
         await openSubmenu('Color');
         await clickOn(menuItem('Teal'));
 
-        await until(() => frameOf(OLD_NOTE.id).className.includes('bg-paper-teal'));
+        await until(() => frameOf(OLD_NOTE.id).dataset.paper === 'teal');
         await act(async () => windowWorkspace()!.connection.projects.flush());
         expect(sentNode(OLD_NOTE.id)).toMatchObject({ accent: 'teal', body: 'Buy milk' });
         expect(sentNode(OLD_NOTE.id)).not.toHaveProperty('color');
@@ -175,7 +175,7 @@ describe('the menu of a note', () => {
         await openSubmenu('Color');
         await clickOn(menuItem('None'));
 
-        await until(() => frameOf(OLD_NOTE.id).className.includes('bg-paper-yellow'));
+        await until(() => frameOf(OLD_NOTE.id).dataset.paper === 'yellow');
         await act(async () => windowWorkspace()!.connection.projects.flush());
         expect(sentNode(OLD_NOTE.id)).toMatchObject({ id: OLD_NOTE.id, body: 'Buy milk' });
         expect(sentNode(OLD_NOTE.id)).not.toHaveProperty('accent');
