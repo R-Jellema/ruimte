@@ -14264,6 +14264,18 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "lastToolSummary": {
+                            "type": "string"
+                          },
+                          "promptPreview": {
+                            "type": "string"
+                          },
+                          "resultPreview": {
+                            "type": "string"
+                          },
+                          "error": {
+                            "type": "string"
                           }
                         },
                         "required": [
@@ -16603,6 +16615,18 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "lastToolSummary": {
+                            "type": "string"
+                          },
+                          "promptPreview": {
+                            "type": "string"
+                          },
+                          "resultPreview": {
+                            "type": "string"
+                          },
+                          "error": {
+                            "type": "string"
                           }
                         },
                         "required": [
@@ -18182,6 +18206,18 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "lastToolSummary": {
+                            "type": "string"
+                          },
+                          "promptPreview": {
+                            "type": "string"
+                          },
+                          "resultPreview": {
+                            "type": "string"
+                          },
+                          "error": {
+                            "type": "string"
                           }
                         },
                         "required": [
@@ -19755,6 +19791,18 @@
                                       "string",
                                       "null"
                                     ]
+                                  },
+                                  "lastToolSummary": {
+                                    "type": "string"
+                                  },
+                                  "promptPreview": {
+                                    "type": "string"
+                                  },
+                                  "resultPreview": {
+                                    "type": "string"
+                                  },
+                                  "error": {
+                                    "type": "string"
                                   }
                                 },
                                 "required": [
@@ -23048,6 +23096,18 @@
                                         "string",
                                         "null"
                                       ]
+                                    },
+                                    "lastToolSummary": {
+                                      "type": "string"
+                                    },
+                                    "promptPreview": {
+                                      "type": "string"
+                                    },
+                                    "resultPreview": {
+                                      "type": "string"
+                                    },
+                                    "error": {
+                                      "type": "string"
                                     }
                                   },
                                   "required": [
@@ -28390,6 +28450,18 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "lastToolSummary": {
+                            "type": "string"
+                          },
+                          "promptPreview": {
+                            "type": "string"
+                          },
+                          "resultPreview": {
+                            "type": "string"
+                          },
+                          "error": {
+                            "type": "string"
                           }
                         },
                         "required": [
@@ -63696,6 +63768,18 @@
                                     "string",
                                     "null"
                                   ]
+                                },
+                                "lastToolSummary": {
+                                  "type": "string"
+                                },
+                                "promptPreview": {
+                                  "type": "string"
+                                },
+                                "resultPreview": {
+                                  "type": "string"
+                                },
+                                "error": {
+                                  "type": "string"
                                 }
                               },
                               "required": [
@@ -66989,6 +67073,18 @@
                                       "string",
                                       "null"
                                     ]
+                                  },
+                                  "lastToolSummary": {
+                                    "type": "string"
+                                  },
+                                  "promptPreview": {
+                                    "type": "string"
+                                  },
+                                  "resultPreview": {
+                                    "type": "string"
+                                  },
+                                  "error": {
+                                    "type": "string"
                                   }
                                 },
                                 "required": [

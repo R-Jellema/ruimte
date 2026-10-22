@@ -5593,8 +5593,12 @@ public struct ChatToolItemWorkflowAgentsItem: Codable, Sendable, Equatable {
     public let `startedAt`: Double?
     public let `durationMs`: Int64?
     public let `lastTool`: String?
+    public let `lastToolSummary`: String?
+    public let `promptPreview`: String?
+    public let `resultPreview`: String?
+    public let `error`: String?
 
-    public init(`index`: Int64, `label`: String, `phaseIndex`: Int64?, `agentId`: String?, `status`: ChatSubagentStatus, `startedAt`: Double?, `durationMs`: Int64?, `lastTool`: String?) {
+    public init(`index`: Int64, `label`: String, `phaseIndex`: Int64?, `agentId`: String?, `status`: ChatSubagentStatus, `startedAt`: Double?, `durationMs`: Int64?, `lastTool`: String?, `lastToolSummary`: String? = nil, `promptPreview`: String? = nil, `resultPreview`: String? = nil, `error`: String? = nil) {
         self.`index` = `index`
         self.`label` = `label`
         self.`phaseIndex` = `phaseIndex`
@@ -5603,6 +5607,10 @@ public struct ChatToolItemWorkflowAgentsItem: Codable, Sendable, Equatable {
         self.`startedAt` = `startedAt`
         self.`durationMs` = `durationMs`
         self.`lastTool` = `lastTool`
+        self.`lastToolSummary` = `lastToolSummary`
+        self.`promptPreview` = `promptPreview`
+        self.`resultPreview` = `resultPreview`
+        self.`error` = `error`
     }
 
     public init(from decoder: Decoder) throws {
@@ -5615,6 +5623,10 @@ public struct ChatToolItemWorkflowAgentsItem: Codable, Sendable, Equatable {
         `startedAt` = try container.decode(Double?.self, forKey: .`startedAt`)
         `durationMs` = try container.decode(Int64?.self, forKey: .`durationMs`)
         `lastTool` = try container.decode(String?.self, forKey: .`lastTool`)
+        `lastToolSummary` = try container.decodeIfPresent(String.self, forKey: .`lastToolSummary`)
+        `promptPreview` = try container.decodeIfPresent(String.self, forKey: .`promptPreview`)
+        `resultPreview` = try container.decodeIfPresent(String.self, forKey: .`resultPreview`)
+        `error` = try container.decodeIfPresent(String.self, forKey: .`error`)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -5627,6 +5639,10 @@ public struct ChatToolItemWorkflowAgentsItem: Codable, Sendable, Equatable {
         try container.encode(`startedAt`, forKey: .`startedAt`)
         try container.encode(`durationMs`, forKey: .`durationMs`)
         try container.encode(`lastTool`, forKey: .`lastTool`)
+        try container.encodeIfPresent(`lastToolSummary`, forKey: .`lastToolSummary`)
+        try container.encodeIfPresent(`promptPreview`, forKey: .`promptPreview`)
+        try container.encodeIfPresent(`resultPreview`, forKey: .`resultPreview`)
+        try container.encodeIfPresent(`error`, forKey: .`error`)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -5638,6 +5654,10 @@ public struct ChatToolItemWorkflowAgentsItem: Codable, Sendable, Equatable {
         case `startedAt` = "startedAt"
         case `durationMs` = "durationMs"
         case `lastTool` = "lastTool"
+        case `lastToolSummary` = "lastToolSummary"
+        case `promptPreview` = "promptPreview"
+        case `resultPreview` = "resultPreview"
+        case `error` = "error"
     }
 }
 
