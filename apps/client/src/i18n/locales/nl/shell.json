@@ -70,8 +70,8 @@
         "namePlaceholder": "Naam"
     },
     "machineLost": {
-        "retrying": "Bezig de machine opnieuw te bereiken…",
-        "silent": "Deze machine antwoordt niet.",
+        "retrying": "{{machine}} opnieuw proberen te bereiken…",
+        "silent": "{{machine}} antwoordt niet. Misschien slaapt hij.",
         "openAnother": "Ander project openen",
         "restart": "Machine herstarten"
     },

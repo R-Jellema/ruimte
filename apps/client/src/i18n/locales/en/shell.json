@@ -70,8 +70,8 @@
         "namePlaceholder": "Name"
     },
     "machineLost": {
-        "retrying": "Trying to reach the machine again…",
-        "silent": "This machine is not answering.",
+        "retrying": "Trying to reach {{machine}} again…",
+        "silent": "{{machine}} is not answering. It may be asleep.",
         "openAnother": "Open another project",
         "restart": "Restart machine"
     },

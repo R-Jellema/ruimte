@@ -2,21 +2,16 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { desktop, type BackgroundServiceState } from '@/desktop/bridge';
 import { leaveWorkspace, showStart } from '@/transport/connections';
-import { MachineGlyph } from '@/endpoint/MachineGlyph';
 import { useProjectSwitch } from '@/project/open';
-import { describeLastSeen } from '@/shell/connection-info';
+import { MachineCard } from '@/shell/MachineCard';
 import { machineLost, offersMachineRestart } from '@/shell/machine-lost';
-import { StatusCard } from '@/shell/StatusCard';
 import { useMachineEntry } from '@/shell/use-machine-entry';
-import { useMachineIcon } from '@/shell/settings/machine-icon';
 import { nameOf } from '@/shell/settings/machine-list';
 import { useEndpointId } from '@/state/keys';
 import { pool } from '@/transport';
-import { useEndpointConnection, useLastSeenAt } from '@/transport/status';
-import { Button, useNow } from '@adecore/ui';
+import { useEndpointConnection } from '@/transport/status';
+import { Button } from '@adecore/ui';
 import { ConfirmDialog } from '@adecore/ui/settings';
-
-const MINUTE_MS = 60_000;
 
 /*
  * Stands over the cells while the machine of the open project does not answer. Nothing of the
@@ -29,9 +24,6 @@ export function MachineLostScreen() {
     const connection = useEndpointConnection(endpointId);
     const switching = useProjectSwitch((s) => s.kind !== 'idle');
     const entry = useMachineEntry(endpointId);
-    const icon = useMachineIcon(entry);
-    const lastSeen = useLastSeenAt(endpointId);
-    const now = useNow(MINUTE_MS);
     const [confirming, setConfirming] = useState(false);
     const service = desktop()?.backgroundService ?? null;
     const [serviceState, setServiceState] = useState<BackgroundServiceState | null>(null);
@@ -57,15 +49,13 @@ export function MachineLostScreen() {
     if (switching || !machineLost(connection)) {
         return null;
     }
-    const seen = describeLastSeen(lastSeen, now);
     const retrying = connection.status === 'connecting';
+    const machine = nameOf(entry);
     return (
         <div className="absolute inset-0 z-10 grid place-items-center bg-surface" role="status" aria-live="polite">
-            <StatusCard
-                glyph={<MachineGlyph icon={icon} size={24} className="text-text-faint" />}
-                title={nameOf(entry)}
-                meta={seen && <span className="text-xs text-text-muted">{seen}</span>}
-                line={retrying ? t('machineLost.retrying') : (connection.failure ?? t('machineLost.silent'))}
+            <MachineCard
+                machine={endpointId}
+                line={retrying ? t('machineLost.retrying', { machine }) : (connection.failure ?? t('machineLost.silent', { machine }))}
                 failed={!retrying}
             >
                 <Button
@@ -98,7 +88,7 @@ export function MachineLostScreen() {
                         }
                     }}
                 />
-            </StatusCard>
+            </MachineCard>
         </div>
     );
 }
