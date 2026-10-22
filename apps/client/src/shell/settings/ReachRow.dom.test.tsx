@@ -89,12 +89,12 @@ describe('Settings > Machines > this machine > Reachable from other devices', ()
         await open((fake) =>
             fake.answer('endpoint.reach', (payload) => ({ reach: payload.check === true ? reach('ok', 'ok') : reach('vpn-blocks-udp', 'relayed') }))
         );
-        await until(() => everything().includes('Traffic leaves through utun4'));
-        expect(everything()).toContain('Let Ruimte bypass the VPN (split tunneling)');
+        await until(() => everything().includes('utun4 blocks the direct route'));
+        expect(everything()).toContain('Let Ruimte bypass the VPN');
         expect(machine.requests('endpoint.reach')).toEqual([{}]);
 
         await clickOn(checkAgain());
-        await until(() => everything().includes('Other devices reach this machine, directly or through the relay.'));
+        await until(() => everything().includes('Your other devices can reach this machine.'));
         expect(machine.requests('endpoint.reach')).toEqual([{}, { check: true }]);
     });
 

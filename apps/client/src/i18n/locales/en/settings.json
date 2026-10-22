@@ -98,7 +98,7 @@
         },
         "sidebar": {
             "label": "Sidebar",
-            "description": "Projects in the sidebar and Needs attention, across all machines.",
+            "description": "Projects in the sidebar and under Needs you, across all machines.",
             "current": "Current project",
             "all-open": "All open projects"
         },
@@ -1147,55 +1147,55 @@
         },
         "reach": {
             "label": "Reachable from other devices",
-            "search": "Checks whether other devices can reach the machine through the broker, its relay or the local network.",
+            "search": "Checks whether your other devices can reach this machine.",
             "checking": "Checking reachability…",
             "checkAgain": "Check again",
             "checkAgainLabel": "Check again whether other devices reach {{machine}}",
             "failed": "The check did not finish: {{message}}",
             "checkedAt": "Checked {{when}}.",
             "causes": {
-                "ok": { "problem": "Other devices reach this machine, directly or through the relay." },
+                "ok": { "problem": "Your other devices can reach this machine." },
                 "brokerOff": {
-                    "problem": "The broker is off, so no device away from this network can reach the machine.",
+                    "problem": "No broker is set, so devices outside this network cannot reach the machine.",
                     "fix": "Choose a broker above."
                 },
                 "brokerUnreachable": {
-                    "problem": "The machine cannot reach the broker at {{broker}}, so no device away from this network can find it.",
-                    "fix": "Check its internet connection, and that a firewall or proxy lets it open a secure WebSocket to the broker."
+                    "problem": "The machine cannot reach the broker at {{broker}}, so devices outside this network cannot find it.",
+                    "fix": "Check the internet connection of the machine, and whether a firewall or proxy blocks the broker."
                 },
                 "noRelay": {
-                    "problem": "The broker hands out no relay, so a device behind a strict NAT or firewall cannot connect.",
-                    "fix": "Use a broker that hands out a relay, such as the default one."
+                    "problem": "The broker offers no relay, so devices on some networks cannot connect.",
+                    "fix": "Use a broker with a relay, such as the default one."
                 },
                 "turnUnreachable": {
-                    "problem": "No relay answers, so a device behind a strict NAT or firewall cannot connect.",
-                    "fix": "Let the machine reach the relay on UDP 3478 and TCP 3478 or 5349 through its firewall."
+                    "problem": "The relay does not answer, so devices on some networks cannot connect.",
+                    "fix": "Let the machine reach the relay through its firewall, on UDP 3478 and TCP 3478 or 5349."
                 },
                 "turnRefused": {
-                    "problem": "The relay answers but does not take the credentials the broker gave, so a device behind a strict NAT or firewall cannot connect.",
-                    "fix": "Whoever runs the broker has to give it the secret its relay expects. On the default broker, try again later."
+                    "problem": "The relay refuses the machine, so devices on some networks cannot connect.",
+                    "fix": "If you run the broker, give it the secret its relay expects. On the default broker, try again later."
                 },
                 "udpBlocked": {
-                    "problem": "UDP is blocked on this network, so every connection goes through the relay over TCP, which is slower.",
+                    "problem": "This network blocks the direct route, so every connection goes through the relay and is slower.",
                     "fix": "Allow outgoing UDP on this network, at least to port 3478."
                 },
                 "vpnRelayed": {
-                    "problem": "Traffic leaves through {{tunnel}}, a VPN or exit node that drops UDP, so connections only work through the relay over TCP.",
-                    "fix": "Let Ruimte bypass the VPN (split tunneling), turn off the exit node, or allow UDP through it."
+                    "problem": "{{tunnel}} blocks the direct route, so every connection goes through the relay and is slower.",
+                    "fix": "Let Ruimte bypass the VPN, turn off the exit node, or allow UDP through it."
                 },
                 "vpnBlocked": {
-                    "problem": "Traffic leaves through {{tunnel}}, a VPN or exit node that drops UDP, so other devices cannot connect.",
-                    "fix": "Let Ruimte bypass the VPN (split tunneling), turn off the exit node, or allow UDP through it."
+                    "problem": "{{tunnel}} blocks the routes other devices need, so they cannot connect.",
+                    "fix": "Let Ruimte bypass the VPN, turn off the exit node, or allow UDP through it."
                 },
                 "blocked": {
-                    "problem": "Neither UDP nor the relay over TCP gets out of this network, so other devices cannot connect.",
-                    "fix": "Check the firewall or proxy of this network. It has to let out UDP, or TCP to the relay on 3478 or 5349."
+                    "problem": "This network blocks the routes other devices need, so they cannot connect.",
+                    "fix": "Check the firewall or proxy of this network. It has to allow UDP, or TCP to the relay on port 3478 or 5349."
                 },
                 "lanDoorDown": {
-                    "problem": "The machine is not listening on the local network because port {{port}} is taken, so devices on this network go through the broker.",
-                    "fix": "Stop what holds the port, or start the machine with another --lan-port."
+                    "problem": "Port {{port}} is taken, so devices on this network connect through the broker.",
+                    "fix": "Stop what uses the port, or start the machine with another --lan-port."
                 },
-                "unknown": { "problem": "The machine reports {{cause}}, which this version of Ruimte does not know yet." }
+                "unknown": { "problem": "The machine reports a problem this version of Ruimte does not know: {{cause}}." }
             }
         },
         "worktreeFolder": {
@@ -1501,10 +1501,10 @@
         "registry": {
             "title": "Add provider",
             "subtitle": "Agents you can install on this machine",
-            "refresh": "Read the registry again",
+            "refresh": "Refresh the list",
             "search": "Search agents",
-            "listTitle": "Agent registry",
-            "listDescription": "Each one runs as a chat on this machine. Ruimte installs the version the registry lists and verifies it where it can.",
+            "listTitle": "Available agents",
+            "listDescription": "Install one to chat with it on this machine.",
             "install": "Install",
             "update": "Update to {{version}}",
             "open": "Open",
@@ -1515,10 +1515,10 @@
                 "uv": "Python package"
             },
             "checksum": "verified",
-            "cached": "Could not reach the agent registry ({{error}}). This list was read {{date}}.",
-            "unavailable": "Could not reach the agent registry",
+            "cached": "Could not refresh the list ({{error}}). This one is from {{date}}.",
+            "unavailable": "Could not load the agents",
             "tryAgain": "Try again",
-            "empty": "The agent registry lists no agent for this machine.",
+            "empty": "No agent is available for this machine.",
             "noMatch": "No agent matches \"{{search}}\".",
             "localOnly": "Install agents in the Ruimte app on that machine."
         },
@@ -1526,7 +1526,7 @@
             "title": "Version",
             "method": {
                 "homebrew": "Installed with Homebrew ({{package}})",
-                "homebrew-cask": "Installed with Homebrew as a cask ({{package}})",
+                "homebrew-cask": "Installed with Homebrew ({{package}})",
                 "npm": "Installed with npm ({{package}})",
                 "pnpm": "Installed with pnpm ({{package}})",
                 "bun": "Installed with Bun ({{package}})",

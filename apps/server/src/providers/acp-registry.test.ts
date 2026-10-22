@@ -80,7 +80,7 @@ describe('readRegistry', () => {
     });
 
     test('refuses a document that is no registry', () => {
-        expect(() => readRegistry({ nope: true }, 'linux-x86_64')).toThrow('not a registry');
+        expect(() => readRegistry({ nope: true }, 'linux-x86_64')).toThrow('unreadable');
     });
 });
 

@@ -26,7 +26,7 @@
         "loading": "Laden",
         "empty": "Hier staat nog niets",
         "error": "Er ging iets mis",
-        "sidebarFailed": "De sidebar kon niet worden getekend",
+        "sidebarFailed": "De zijbalk kon niet worden getekend",
         "failed": {
             "toolbar": "De toolbar kon niet worden getekend",
             "pages": "De browserpagina's konden niet worden getekend",

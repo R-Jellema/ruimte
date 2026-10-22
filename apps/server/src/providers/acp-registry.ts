@@ -119,7 +119,7 @@ function distributionOf(agent: z.infer<typeof AgentSchema>, platform: string | n
 export function readRegistry(document: unknown, platform: string | null): RegistryEntry[] {
     const parsed = RegistrySchema.safeParse(document);
     if (!parsed.success) {
-        throw new Error('The ACP registry answered something that is not a registry');
+        throw new Error('The list of agents came back unreadable');
     }
     return parsed.data.agents.flatMap((raw) => {
         const agent = AgentSchema.safeParse(raw);
@@ -154,7 +154,7 @@ export type RegistryFetch = (url: string) => Promise<unknown>;
 const fetchRegistry: RegistryFetch = async (url) => {
     const response = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
     if (!response.ok) {
-        throw new Error(`The ACP registry answered ${response.status}`);
+        throw new Error(`The list of agents is unavailable (${response.status})`);
     }
     return await response.json();
 };

@@ -97,8 +97,8 @@
             }
         },
         "sidebar": {
-            "label": "Sidebar",
-            "description": "Projecten in de sidebar en Needs attention, over al je machines.",
+            "label": "Zijbalk",
+            "description": "Projecten in de zijbalk en onder Wacht op jou, over al je machines.",
             "current": "Huidig project",
             "all-open": "Alle open projecten"
         },
@@ -108,7 +108,7 @@
         },
         "projectGlow": {
             "label": "Gloed in projectkleur",
-            "description": "Kleurt de bovenkant van de sidebar in de kleur van het huidige project, of de werkbalk als de sidebar dicht is."
+            "description": "Kleurt de bovenkant van de zijbalk in de kleur van het huidige project, of de werkbalk als de zijbalk dicht is."
         }
     },
     "editor": {
@@ -1147,55 +1147,55 @@
         },
         "reach": {
             "label": "Bereikbaar voor andere apparaten",
-            "search": "Controleert of andere apparaten de machine bereiken via de broker, de relay of het lokale netwerk.",
+            "search": "Controleert of je andere apparaten deze machine kunnen bereiken.",
             "checking": "Bereikbaarheid controleren…",
             "checkAgain": "Opnieuw controleren",
             "checkAgainLabel": "Opnieuw controleren of andere apparaten {{machine}} bereiken",
             "failed": "De controle is niet afgerond: {{message}}",
             "checkedAt": "Gecontroleerd {{when}}.",
             "causes": {
-                "ok": { "problem": "Andere apparaten bereiken deze machine, direct of via de relay." },
+                "ok": { "problem": "Je andere apparaten kunnen deze machine bereiken." },
                 "brokerOff": {
-                    "problem": "De broker staat uit, dus geen apparaat buiten dit netwerk bereikt de machine.",
+                    "problem": "Er is geen broker gekozen, dus apparaten buiten dit netwerk bereiken de machine niet.",
                     "fix": "Kies hierboven een broker."
                 },
                 "brokerUnreachable": {
-                    "problem": "De machine bereikt de broker op {{broker}} niet, dus geen apparaat buiten dit netwerk vindt hem.",
-                    "fix": "Controleer de internetverbinding, en of een firewall of proxy een beveiligde WebSocket naar de broker doorlaat."
+                    "problem": "De machine bereikt de broker op {{broker}} niet, dus apparaten buiten dit netwerk vinden hem niet.",
+                    "fix": "Controleer de internetverbinding van de machine, en of een firewall of proxy de broker blokkeert."
                 },
                 "noRelay": {
-                    "problem": "De broker geeft geen relay, dus een apparaat achter een strikte NAT of firewall kan niet verbinden.",
-                    "fix": "Gebruik een broker die een relay geeft, zoals de standaardbroker."
+                    "problem": "De broker biedt geen relay, dus apparaten op sommige netwerken kunnen niet verbinden.",
+                    "fix": "Gebruik een broker met een relay, zoals de standaardbroker."
                 },
                 "turnUnreachable": {
-                    "problem": "Geen relay antwoordt, dus een apparaat achter een strikte NAT of firewall kan niet verbinden.",
-                    "fix": "Laat de machine de relay bereiken op UDP 3478 en TCP 3478 of 5349 door de firewall."
+                    "problem": "De relay antwoordt niet, dus apparaten op sommige netwerken kunnen niet verbinden.",
+                    "fix": "Laat de machine de relay bereiken door de firewall, op UDP 3478 en TCP 3478 of 5349."
                 },
                 "turnRefused": {
-                    "problem": "De relay antwoordt maar neemt de gegevens van de broker niet aan, dus een apparaat achter een strikte NAT of firewall kan niet verbinden.",
-                    "fix": "Wie de broker beheert, moet hem het geheim geven dat de relay verwacht. Probeer het bij de standaardbroker later opnieuw."
+                    "problem": "De relay weigert de machine, dus apparaten op sommige netwerken kunnen niet verbinden.",
+                    "fix": "Beheer je de broker zelf, geef hem dan het geheim dat de relay verwacht. Probeer het bij de standaardbroker later opnieuw."
                 },
                 "udpBlocked": {
-                    "problem": "UDP is op dit netwerk geblokkeerd, dus elke verbinding gaat via de relay over TCP, en dat is trager.",
+                    "problem": "Dit netwerk blokkeert de directe route, dus elke verbinding gaat via de relay en is trager.",
                     "fix": "Sta uitgaand UDP toe op dit netwerk, in elk geval naar poort 3478."
                 },
                 "vpnRelayed": {
-                    "problem": "Verkeer gaat via {{tunnel}}, een VPN of exit node die UDP laat vallen, dus verbindingen werken alleen via de relay over TCP.",
-                    "fix": "Laat Ruimte buiten de VPN om gaan (split tunneling), zet de exit node uit, of laat UDP erdoor."
+                    "problem": "{{tunnel}} blokkeert de directe route, dus elke verbinding gaat via de relay en is trager.",
+                    "fix": "Laat Ruimte buiten de VPN om gaan, zet de exit node uit, of laat UDP erdoor."
                 },
                 "vpnBlocked": {
-                    "problem": "Verkeer gaat via {{tunnel}}, een VPN of exit node die UDP laat vallen, dus andere apparaten kunnen niet verbinden.",
-                    "fix": "Laat Ruimte buiten de VPN om gaan (split tunneling), zet de exit node uit, of laat UDP erdoor."
+                    "problem": "{{tunnel}} blokkeert de routes die andere apparaten nodig hebben, dus die kunnen niet verbinden.",
+                    "fix": "Laat Ruimte buiten de VPN om gaan, zet de exit node uit, of laat UDP erdoor."
                 },
                 "blocked": {
-                    "problem": "UDP komt dit netwerk niet uit en de relay over TCP ook niet, dus andere apparaten kunnen niet verbinden.",
-                    "fix": "Controleer de firewall of proxy van dit netwerk. Die moet UDP doorlaten, of TCP naar de relay op 3478 of 5349."
+                    "problem": "Dit netwerk blokkeert de routes die andere apparaten nodig hebben, dus die kunnen niet verbinden.",
+                    "fix": "Controleer de firewall of proxy van dit netwerk. Die moet UDP doorlaten, of TCP naar de relay op poort 3478 of 5349."
                 },
                 "lanDoorDown": {
-                    "problem": "De machine luistert niet op het lokale netwerk omdat poort {{port}} bezet is, dus apparaten op dit netwerk gaan via de broker.",
-                    "fix": "Stop wat de poort bezet houdt, of start de machine met een andere --lan-port."
+                    "problem": "Poort {{port}} is bezet, dus apparaten op dit netwerk verbinden via de broker.",
+                    "fix": "Stop wat de poort gebruikt, of start de machine met een andere --lan-port."
                 },
-                "unknown": { "problem": "De machine meldt {{cause}}, en deze versie van Ruimte kent dat nog niet." }
+                "unknown": { "problem": "De machine meldt een probleem dat deze versie van Ruimte niet kent: {{cause}}." }
             }
         },
         "worktreeFolder": {
@@ -1501,10 +1501,10 @@
         "registry": {
             "title": "Provider toevoegen",
             "subtitle": "Agents die je op deze machine kunt installeren",
-            "refresh": "De registry opnieuw lezen",
+            "refresh": "Lijst vernieuwen",
             "search": "Agents zoeken",
-            "listTitle": "Agent-registry",
-            "listDescription": "Elke agent draait als chat op deze machine. Ruimte installeert de versie die de registry noemt en controleert die waar het kan.",
+            "listTitle": "Beschikbare agents",
+            "listDescription": "Installeer er een om ermee te chatten op deze machine.",
             "install": "Installeren",
             "update": "Bijwerken naar {{version}}",
             "open": "Openen",
@@ -1515,10 +1515,10 @@
                 "uv": "Python-pakket"
             },
             "checksum": "gecontroleerd",
-            "cached": "Kon de agent-registry niet bereiken ({{error}}). Dit is de lijst van {{date}}.",
-            "unavailable": "Kon de agent-registry niet bereiken",
+            "cached": "Kon de lijst niet vernieuwen ({{error}}). Deze is van {{date}}.",
+            "unavailable": "Kon de agents niet laden",
             "tryAgain": "Opnieuw proberen",
-            "empty": "De agent-registry noemt geen agent voor deze machine.",
+            "empty": "Er is geen agent beschikbaar voor deze machine.",
             "noMatch": "Geen agent past bij \"{{search}}\".",
             "localOnly": "Installeer agents in de Ruimte-app op die machine."
         },
@@ -1526,7 +1526,7 @@
             "title": "Versie",
             "method": {
                 "homebrew": "Geïnstalleerd met Homebrew ({{package}})",
-                "homebrew-cask": "Geïnstalleerd met Homebrew als cask ({{package}})",
+                "homebrew-cask": "Geïnstalleerd met Homebrew ({{package}})",
                 "npm": "Geïnstalleerd met npm ({{package}})",
                 "pnpm": "Geïnstalleerd met pnpm ({{package}})",
                 "bun": "Geïnstalleerd met Bun ({{package}})",

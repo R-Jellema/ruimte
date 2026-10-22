@@ -215,7 +215,7 @@ export class RegistryAgents {
     private async installNow(id: string): Promise<RegistryEntry> {
         const entry = this.registry.known(id) ?? (await this.registry.read()).entries.find((candidate) => candidate.id === id);
         if (entry === undefined) {
-            throw new Error(`The ACP registry lists no ${id} for this machine`);
+            throw new Error(`${id} is not available for this machine`);
         }
         this.failures.delete(id);
         const folder = this.folderOf(id);
