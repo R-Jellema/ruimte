@@ -1121,29 +1121,28 @@
             "toggle": "Direct verbinden met {{machine}} (experimenteel)"
         },
         "broker": {
-            "label": "Broker",
+            "label": "Verbindingsdienst",
             "modes": {
                 "default": "Standaard",
                 "custom": "Eigen",
                 "off": "Uit"
             },
-            "description": "Hoe een ingelogd apparaat de machine vindt zonder het adres. {{where}}{{fixed}}",
-            "on": "Op {{host}}.",
-            "none": "Geen broker.",
-            "fixed": " De machine is gestart met een brokerinstelling, dus deze keuze geldt pas als hij zonder start.",
-            "selectLabel": "Broker voor {{machine}}",
-            "urlLabel": "Broker-URL voor {{machine}}"
+            "description": "Hoe je ingelogde apparaten deze machine vinden als ze niet op zijn netwerk zitten.",
+            "none": "Uit, dus alleen apparaten op zijn netwerk bereiken hem.",
+            "fixed": "De machine is gestart met een eigen keuze hiervoor, dus jouw keuze geldt pas als hij zonder start.",
+            "selectLabel": "Verbindingsdienst voor {{machine}}",
+            "urlLabel": "Adres van de verbindingsdienst voor {{machine}}"
         },
         "lanDoor": {
             "label": "Lokaal netwerk",
-            "search": "Laat een apparaat op hetzelfde netwerk verbinden met de machine zonder de broker.",
-            "open": "Een apparaat op hetzelfde netwerk verbindt hier zonder de broker. Open op {{addresses}}.",
-            "noAddress": "Open op poort {{port}}, maar de machine heeft geen adres op het lokale netwerk.",
+            "search": "Laat een apparaat op hetzelfde netwerk direct verbinden met de machine.",
+            "open": "Een apparaat op hetzelfde netwerk verbindt hier direct.",
+            "noAddress": "Open, maar de machine heeft geen adres op een lokaal netwerk.",
             "notListening": "Niet open: de poort is bezet, of de machine is zonder gestart.",
-            "closed": "Dicht. Elk apparaat bereikt deze machine via de broker.",
+            "closed": "Dicht. Elk apparaat bereikt deze machine via je account.",
             "fixed": "De machine is hiermee gestart, dus de schakelaar geldt pas als hij zonder start",
             "fixedNote": "De machine is hiermee gestart, dus de schakelaar geldt pas als hij zonder start.",
-            "toggle": "{{machine}} bereikbaar maken voor een apparaat op het lokale netwerk, zonder de broker"
+            "toggle": "{{machine}} direct bereikbaar maken voor een apparaat op het lokale netwerk"
         },
         "reach": {
             "label": "Bereikbaar voor andere apparaten",
@@ -1156,16 +1155,16 @@
             "causes": {
                 "ok": { "problem": "Je andere apparaten kunnen deze machine bereiken." },
                 "brokerOff": {
-                    "problem": "Er is geen broker gekozen, dus apparaten buiten dit netwerk bereiken de machine niet.",
-                    "fix": "Kies hierboven een broker."
+                    "problem": "De verbindingsdienst staat uit, dus apparaten buiten dit netwerk bereiken de machine niet.",
+                    "fix": "Zet de verbindingsdienst hierboven aan."
                 },
                 "brokerUnreachable": {
-                    "problem": "De machine bereikt de broker op {{broker}} niet, dus apparaten buiten dit netwerk vinden hem niet.",
-                    "fix": "Controleer de internetverbinding van de machine, en of een firewall of proxy de broker blokkeert."
+                    "problem": "De machine bereikt de verbindingsdienst niet, dus apparaten buiten dit netwerk vinden hem niet.",
+                    "fix": "Controleer de internetverbinding van de machine, en of een firewall of proxy {{broker}} blokkeert."
                 },
                 "noRelay": {
-                    "problem": "De broker biedt geen relay, dus apparaten op sommige netwerken kunnen niet verbinden.",
-                    "fix": "Gebruik een broker met een relay, zoals de standaardbroker."
+                    "problem": "De verbindingsdienst biedt geen relay, dus apparaten op sommige netwerken kunnen niet verbinden.",
+                    "fix": "Gebruik een verbindingsdienst met een relay, zoals de standaarddienst."
                 },
                 "turnUnreachable": {
                     "problem": "De relay antwoordt niet, dus apparaten op sommige netwerken kunnen niet verbinden.",
@@ -1173,7 +1172,7 @@
                 },
                 "turnRefused": {
                     "problem": "De relay weigert de machine, dus apparaten op sommige netwerken kunnen niet verbinden.",
-                    "fix": "Beheer je de broker zelf, geef hem dan het geheim dat de relay verwacht. Probeer het bij de standaardbroker later opnieuw."
+                    "fix": "Beheer je de verbindingsdienst zelf, geef hem dan het geheim dat de relay verwacht. Probeer het bij de standaarddienst later opnieuw."
                 },
                 "udpBlocked": {
                     "problem": "Dit netwerk blokkeert de directe route, dus elke verbinding gaat via de relay en is trager.",
@@ -1192,7 +1191,7 @@
                     "fix": "Controleer de firewall of proxy van dit netwerk. Die moet UDP doorlaten, of TCP naar de relay op poort 3478 of 5349."
                 },
                 "lanDoorDown": {
-                    "problem": "Poort {{port}} is bezet, dus apparaten op dit netwerk verbinden via de broker.",
+                    "problem": "Poort {{port}} is bezet, dus apparaten op dit netwerk verbinden via je account.",
                     "fix": "Stop wat de poort gebruikt, of start de machine met een andere --lan-port."
                 },
                 "unknown": { "problem": "De machine meldt een probleem dat deze versie van Ruimte niet kent: {{cause}}." }
@@ -1509,12 +1508,12 @@
             "update": "Bijwerken naar {{version}}",
             "open": "Openen",
             "version": "Versie {{version}}",
+            "checksum": "gecontroleerd",
             "distribution": {
                 "binary": "Download",
                 "npm": "npm-pakket",
                 "uv": "Python-pakket"
             },
-            "checksum": "gecontroleerd",
             "cached": "Kon de lijst niet vernieuwen ({{error}}). Deze is van {{date}}.",
             "unavailable": "Kon de agents niet laden",
             "tryAgain": "Opnieuw proberen",

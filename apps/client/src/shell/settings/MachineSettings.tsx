@@ -2,8 +2,8 @@ import { useEffect, useRef, useState, type ReactElement, type ReactNode } from '
 import i18next from 'i18next';
 import { Trash } from 'lucide-react';
 import { Trans, useTranslation } from 'react-i18next';
-import { brokerHostOf, brokerUrlProblem, type BrokerSetting } from '@ruimte/pulsar';
-import type { AuthSession, LanDoor, PeerLink, ReachCheck, RuntimeMode } from '@ruimte/contracts';
+import { brokerUrlProblem, type BrokerSetting } from '@ruimte/pulsar';
+import type { AuthSession, PeerLink, ReachCheck, RuntimeMode } from '@ruimte/contracts';
 import { RUNTIME_MODES, runtimeModeLabel } from '@adecore/agents-react/chat';
 import { messageOf, Segmented, Select, Skeleton, Switch, Button, IconButton, Tooltip, FormError, Input, useNow } from '@adecore/ui';
 import { formatNumericDate, formatAgo } from '@adecore/ui/format';
@@ -114,7 +114,7 @@ type BrokerMode = BrokerSetting['mode'];
 
 const MODES: readonly BrokerMode[] = ['default', 'custom', 'off'];
 
-/* Which broker the machine announces itself to. It lives on the machine because the daemon is the one that dials it. */
+/* Which broker the machine announces itself to, a connection service to a person. It lives on the machine because the daemon is the one that dials it. */
 export function BrokerRow({ endpoint, reason }: { endpoint: Endpoint; reason: string | null }) {
     const { t } = useTranslation('settings');
     const info = useServers((s) => s.byEndpoint[endpoint.id]);
@@ -161,9 +161,14 @@ export function BrokerRow({ endpoint, reason }: { endpoint: Endpoint; reason: st
         if (reason !== null) {
             return t('machine.notAnswering');
         }
-        const where = endpoint.brokerUrl ? t('machine.broker.on', { host: brokerHostOf(endpoint.brokerUrl) }) : t('machine.broker.none');
-        const fixed = info?.brokerFixed ? t('machine.broker.fixed') : '';
-        return t('machine.broker.description', { where, fixed });
+        const parts = [t('machine.broker.description')];
+        if (!endpoint.brokerUrl) {
+            parts.push(t('machine.broker.none'));
+        }
+        if (info?.brokerFixed) {
+            parts.push(t('machine.broker.fixed'));
+        }
+        return parts.join(' ');
     };
 
     return (
@@ -215,11 +220,6 @@ export function BrokerRow({ endpoint, reason }: { endpoint: Endpoint; reason: st
     );
 }
 
-/* Where the door listens, as addresses a person could type: a port is no quantity, so it is not formatted as a number. */
-function doorAddresses(lan: LanDoor): string {
-    return lan.addresses.map((address) => (address.includes(':') ? `[${address}]:${lan.port}` : `${address}:${lan.port}`)).join(', ');
-}
-
 /*
  * Whether the machine keeps its door on the local network open, so a client on the same network
  * reaches it without the broker. It lives on the machine because the daemon is the one that listens.
@@ -245,9 +245,7 @@ export function LanDoorRow({ endpoint, reason }: { endpoint: Endpoint; reason: s
         const where =
             lan === null
                 ? t(kept ? 'machine.lanDoor.notListening' : 'machine.lanDoor.closed')
-                : lan.addresses.length > 0
-                  ? t('machine.lanDoor.open', { addresses: doorAddresses(lan) })
-                  : t('machine.lanDoor.noAddress', { port: String(lan.port) });
+                : t(lan.addresses.length > 0 ? 'machine.lanDoor.open' : 'machine.lanDoor.noAddress');
         return fixed ? `${where} ${t('machine.lanDoor.fixedNote')}` : where;
     };
 

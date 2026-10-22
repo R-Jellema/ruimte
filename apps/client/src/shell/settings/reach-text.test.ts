@@ -32,8 +32,10 @@ describe('the reach row', () => {
         );
     });
 
-    test('the broker is named by its host', () => {
-        expect(reachText(check({ cause: 'broker-unreachable', severity: 'unreachable' })).problem).toContain('the broker at broker.ruimte.app');
+    test('the connection service is named by its host only where the fix needs it', () => {
+        const text = reachText(check({ cause: 'broker-unreachable', severity: 'unreachable' }));
+        expect(text.problem).toBe('The machine cannot reach the connection service, so devices outside this network cannot find it.');
+        expect(text.fix).toContain('blocks broker.ruimte.app.');
     });
 
     test('a cause a newer machine names is told as it is, without a fix', () => {

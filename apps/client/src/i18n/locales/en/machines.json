@@ -342,13 +342,13 @@
         "daemon-newer": "This machine runs a newer Ruimte than this app. Update this app."
     },
     "broker": {
-        "badUrl": "The broker URL {{url}} does not open",
-        "limited": "The broker at {{host}} is limiting this device; trying again in {{seconds}} seconds",
-        "refusedClient": "The broker at {{host}} refused this device: {{reason}}",
-        "unreachable": "Could not reach the broker at {{host}}",
-        "machineAbsent": "The machine is not connected to the broker at {{host}}. It needs to run with the broker switched on.",
-        "refusedSignal": "The broker at {{host}} refused the connection: {{reason}}",
-        "signInFailed": "Could not sign in to the broker: {{reason}}",
+        "badUrl": "The address {{url}} of the connection service does not open",
+        "limited": "The connection service is limiting this device. Trying again in {{seconds}} seconds.",
+        "refusedClient": "The connection service refused this device: {{reason}}",
+        "unreachable": "Could not reach the connection service at {{host}}",
+        "machineAbsent": "The machine is not connected through your account. Turn its connection service on.",
+        "refusedSignal": "The connection service refused the connection: {{reason}}",
+        "signInFailed": "Could not sign in to the connection service: {{reason}}",
         "noVouch": "Your account could not confirm this device: {{reason}}"
     },
     "direct": {

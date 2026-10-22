@@ -342,13 +342,13 @@
         "daemon-newer": "Deze machine draait een nieuwere Ruimte dan deze app. Werk deze app bij."
     },
     "broker": {
-        "badUrl": "De broker-URL {{url}} gaat niet open",
-        "limited": "De broker op {{host}} beperkt dit apparaat; nieuwe poging over {{seconds}} seconden",
-        "refusedClient": "De broker op {{host}} weigerde dit apparaat: {{reason}}",
-        "unreachable": "Kon de broker op {{host}} niet bereiken",
-        "machineAbsent": "De machine is niet verbonden met de broker op {{host}}. Hij moet draaien met de broker aan.",
-        "refusedSignal": "De broker op {{host}} weigerde de verbinding: {{reason}}",
-        "signInFailed": "Kon niet inloggen op de broker: {{reason}}",
+        "badUrl": "Het adres {{url}} van de verbindingsdienst gaat niet open",
+        "limited": "De verbindingsdienst beperkt dit apparaat. Nieuwe poging over {{seconds}} seconden.",
+        "refusedClient": "De verbindingsdienst weigerde dit apparaat: {{reason}}",
+        "unreachable": "Kon de verbindingsdienst op {{host}} niet bereiken",
+        "machineAbsent": "De machine is niet via je account verbonden. Zet zijn verbindingsdienst aan.",
+        "refusedSignal": "De verbindingsdienst weigerde de verbinding: {{reason}}",
+        "signInFailed": "Kon niet inloggen bij de verbindingsdienst: {{reason}}",
         "noVouch": "Je account kon dit apparaat niet bevestigen: {{reason}}"
     },
     "direct": {

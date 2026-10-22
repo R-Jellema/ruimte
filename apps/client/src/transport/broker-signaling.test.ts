@@ -154,7 +154,7 @@ describe('brokerSignaling', () => {
         const relay = socket.sent[3] as Extract<BrokerPeerFrame, { type: 'relay' }>;
         socket.deliver({ type: 'error', code: 'not-connected', message: 'Nobody with that key is connected', id: relay.id });
         await settle();
-        expect(log.failures).toEqual(['The machine is not connected to the broker at broker.example.com. It needs to run with the broker switched on.']);
+        expect(log.failures).toEqual(['The machine is not connected through your account. Turn its connection service on.']);
     });
 
     test('asks the broker for ICE servers before signals go out, and hands them to every attempt on the socket', async () => {
@@ -223,13 +223,13 @@ describe('brokerSignaling', () => {
         const first = attempt('attempt-0001');
         const socket = await announce();
         socket.onclose?.();
-        expect(first.log.failures).toEqual(['Could not reach the broker at broker.example.com']);
+        expect(first.log.failures).toEqual(['Could not reach the connection service at broker.example.com']);
 
         const second = attempt('attempt-0002');
         const next = await announce();
         next.deliver({ type: 'error', code: 'replaced', message: 'The same key announced on another socket' });
         await settle();
-        expect(second.log.failures).toEqual(['The broker at broker.example.com refused this device: The same key announced on another socket']);
+        expect(second.log.failures).toEqual(['The connection service refused this device: The same key announced on another socket']);
     });
     test('an offer to a machine that needs a statement carries one asked for with this client key, signed along with the offer', async () => {
         const asked: string[] = [];

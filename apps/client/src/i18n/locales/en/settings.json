@@ -1121,29 +1121,28 @@
             "toggle": "Connect directly to {{machine}} (experimental)"
         },
         "broker": {
-            "label": "Broker",
+            "label": "Connection service",
             "modes": {
                 "default": "Default",
                 "custom": "Custom",
                 "off": "Off"
             },
-            "description": "How a signed-in device finds the machine without its address. {{where}}{{fixed}}",
-            "on": "On {{host}}.",
-            "none": "No broker.",
-            "fixed": " The machine was started with a broker setting, so this choice applies once it starts without one.",
-            "selectLabel": "Broker for {{machine}}",
-            "urlLabel": "Broker URL for {{machine}}"
+            "description": "How your signed-in devices find this machine when they are not on its network.",
+            "none": "Off, so only devices on its network reach it.",
+            "fixed": "The machine was started with its own choice here, so yours applies once it starts without it.",
+            "selectLabel": "Connection service for {{machine}}",
+            "urlLabel": "Address of the connection service for {{machine}}"
         },
         "lanDoor": {
             "label": "Local network",
-            "search": "Lets a device on the same network connect to the machine without the broker.",
-            "open": "A device on the same network connects here without the broker. Open on {{addresses}}.",
-            "noAddress": "Open on port {{port}}, but the machine has no local network address.",
+            "search": "Lets a device on the same network connect to the machine directly.",
+            "open": "A device on the same network connects here directly.",
+            "noAddress": "Open, but the machine has no address on a local network.",
             "notListening": "Not open: the port is taken, or the machine started without it.",
-            "closed": "Closed. Every device reaches this machine through the broker.",
+            "closed": "Closed. Every device reaches this machine through your account.",
             "fixed": "The machine was started with this set, so the switch applies once it starts without it",
             "fixedNote": "The machine was started with this set, so the switch applies once it starts without it.",
-            "toggle": "Let a device on the local network reach {{machine}} without the broker"
+            "toggle": "Let a device on the local network reach {{machine}} directly"
         },
         "reach": {
             "label": "Reachable from other devices",
@@ -1156,16 +1155,16 @@
             "causes": {
                 "ok": { "problem": "Your other devices can reach this machine." },
                 "brokerOff": {
-                    "problem": "No broker is set, so devices outside this network cannot reach the machine.",
-                    "fix": "Choose a broker above."
+                    "problem": "The connection service is off, so devices outside this network cannot reach the machine.",
+                    "fix": "Turn the connection service on above."
                 },
                 "brokerUnreachable": {
-                    "problem": "The machine cannot reach the broker at {{broker}}, so devices outside this network cannot find it.",
-                    "fix": "Check the internet connection of the machine, and whether a firewall or proxy blocks the broker."
+                    "problem": "The machine cannot reach the connection service, so devices outside this network cannot find it.",
+                    "fix": "Check the internet connection of the machine, and whether a firewall or proxy blocks {{broker}}."
                 },
                 "noRelay": {
-                    "problem": "The broker offers no relay, so devices on some networks cannot connect.",
-                    "fix": "Use a broker with a relay, such as the default one."
+                    "problem": "The connection service offers no relay, so devices on some networks cannot connect.",
+                    "fix": "Use a connection service with a relay, such as the default one."
                 },
                 "turnUnreachable": {
                     "problem": "The relay does not answer, so devices on some networks cannot connect.",
@@ -1173,7 +1172,7 @@
                 },
                 "turnRefused": {
                     "problem": "The relay refuses the machine, so devices on some networks cannot connect.",
-                    "fix": "If you run the broker, give it the secret its relay expects. On the default broker, try again later."
+                    "fix": "If you run the connection service yourself, give it the secret its relay expects. On the default one, try again later."
                 },
                 "udpBlocked": {
                     "problem": "This network blocks the direct route, so every connection goes through the relay and is slower.",
@@ -1192,7 +1191,7 @@
                     "fix": "Check the firewall or proxy of this network. It has to allow UDP, or TCP to the relay on port 3478 or 5349."
                 },
                 "lanDoorDown": {
-                    "problem": "Port {{port}} is taken, so devices on this network connect through the broker.",
+                    "problem": "Port {{port}} is taken, so devices on this network connect through your account.",
                     "fix": "Stop what uses the port, or start the machine with another --lan-port."
                 },
                 "unknown": { "problem": "The machine reports a problem this version of Ruimte does not know: {{cause}}." }
@@ -1509,12 +1508,12 @@
             "update": "Update to {{version}}",
             "open": "Open",
             "version": "Version {{version}}",
+            "checksum": "verified",
             "distribution": {
                 "binary": "Download",
                 "npm": "npm package",
                 "uv": "Python package"
             },
-            "checksum": "verified",
             "cached": "Could not refresh the list ({{error}}). This one is from {{date}}.",
             "unavailable": "Could not load the agents",
             "tryAgain": "Try again",
