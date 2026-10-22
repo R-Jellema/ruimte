@@ -38,6 +38,31 @@ export function mappedNodes(nodes: Readonly<Record<string, CanvasNode>>, hidden:
     return [...shown.filter((node) => node.kind === 'group'), ...shown.filter((node) => node.kind !== 'group')];
 }
 
+/* The nodes that carry a dot for what waits: a node the map draws carries its own, a member of a collapsed group the group it is shown as. */
+export function waitingOnMap(nodes: Readonly<Record<string, CanvasNode>>, hidden: ReadonlySet<string>, waiting: Iterable<string>): CanvasNode[] {
+    const heldBy = new Map<string, string>();
+    for (const node of Object.values(nodes)) {
+        if (node.kind === 'group' && node.collapsed) {
+            for (const id of node.memberIds ?? []) {
+                heldBy.set(id, node.id);
+            }
+        }
+    }
+    const marked = new Map<string, CanvasNode>();
+    for (const id of waiting) {
+        let shown: string | undefined = id;
+        // A group collapsed inside another collapsed group is hidden in turn; the bound stops a cycle a hand-edited file could hold.
+        for (let i = 0; shown !== undefined && hidden.has(shown) && i < heldBy.size; i++) {
+            shown = heldBy.get(shown);
+        }
+        const node = shown === undefined || hidden.has(shown) ? undefined : nodes[shown];
+        if (node !== undefined) {
+            marked.set(node.id, node);
+        }
+    }
+    return [...marked.values()];
+}
+
 /* The part of the world the map shows: every node and the view, so the frame never leaves the map. */
 export function minimapWorld(nodes: Rect | null, visible: Rect): Rect {
     return nodes === null ? visible : unionOf([nodes, visible])!;

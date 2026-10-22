@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { CanvasNode } from '@/state/canvas-model';
-import { cameraLookingAt, mappedNodes, MINIMAP_SIZE, minimapFits, minimapScale, minimapWorld, rectOnMap, worldOnMap } from './minimap-geometry';
+import { cameraLookingAt, mappedNodes, MINIMAP_SIZE, minimapFits, minimapScale, minimapWorld, rectOnMap, waitingOnMap, worldOnMap } from './minimap-geometry';
 
 function node(id: string, kind: CanvasNode['kind'], x: number, y: number): CanvasNode {
     return { id, kind, title: id, x, y, w: 100, h: 50 } as CanvasNode;
@@ -17,6 +17,25 @@ describe('the map of a canvas', () => {
     test('draws groups under the nodes and leaves out the members of a collapsed group', () => {
         const nodes = { a: node('a', 'note', 0, 0), g: node('g', 'group', 0, 0), b: node('b', 'terminal', 200, 0) };
         expect(mappedNodes(nodes, new Set(['b'])).map((entry) => entry.id)).toEqual(['g', 'a']);
+    });
+
+    test('puts the dot of a node that waits inside a collapsed group on the group, once, and on the outer group when it is collapsed too', () => {
+        const outer = { ...node('outer', 'group', 0, 0), collapsed: true, memberIds: ['inner', 'c'] };
+        const inner = { ...node('inner', 'group', 0, 0), collapsed: true, memberIds: ['b'] };
+        const group = { ...node('g', 'group', 0, 0), collapsed: true, memberIds: ['a', 'd'] };
+        const nodes = {
+            a: node('a', 'note', 0, 0),
+            b: node('b', 'note', 0, 0),
+            c: node('c', 'note', 0, 0),
+            d: node('d', 'note', 0, 0),
+            e: node('e', 'note', 0, 0),
+            g: group,
+            inner,
+            outer
+        };
+        const hidden = new Set(['a', 'b', 'c', 'd', 'inner']);
+        expect(waitingOnMap(nodes, hidden, ['a', 'd', 'b', 'c', 'e']).map((entry) => entry.id)).toEqual(['g', 'outer', 'e']);
+        expect(waitingOnMap(nodes, hidden, ['gone']).map((entry) => entry.id)).toEqual([]);
     });
 
     test('shows the view beside the nodes, so its frame never leaves the map', () => {

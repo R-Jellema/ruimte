@@ -12,6 +12,7 @@ import {
     minimapScale,
     minimapWorld,
     rectOnMap,
+    waitingOnMap,
     worldOnMap,
     type MinimapScale
 } from '@/canvas/minimap-geometry';
@@ -34,27 +35,25 @@ interface MapDrag {
 }
 
 /* A dot on every node that waits on a person, in its own render so a status change leaves the rects alone. */
-function NeedsYouDots({ nodes }: { readonly nodes: readonly CanvasNode[] }) {
+function NeedsYouDots({ nodes, hidden }: { readonly nodes: Readonly<Record<string, CanvasNode>>; readonly hidden: ReadonlySet<string> }) {
     const endpointId = useEndpointId();
     const sessions = useSessions((s) => s.byKey);
     const chats = useChats((s) => s.statusByKey);
     const snoozes = useSnoozes((s) => s.byKey);
-    const waiting = new Set(groupAttention(nodes, sessions, chats, endpointId, NO_UNSEEN, snoozes).needsYou);
-    return nodes
-        .filter((node) => waiting.has(node.id))
-        .map((node) => (
-            /* A path of no length with a round cap draws a dot the size of its stroke, which keeps its
-               screen size under the layer's scale where a circle's radius would not. */
-            <path
-                key={node.id}
-                data-minimap-waiting={node.id}
-                d={`M${node.x + node.w / 2} ${node.y + node.h / 2}h0`}
-                stroke="var(--status-needs-you)"
-                strokeWidth={6}
-                strokeLinecap="round"
-                vectorEffect="non-scaling-stroke"
-            />
-        ));
+    const waiting = groupAttention(Object.values(nodes), sessions, chats, endpointId, NO_UNSEEN, snoozes).needsYou;
+    return waitingOnMap(nodes, hidden, waiting).map((node) => (
+        /* A path of no length with a round cap draws a dot the size of its stroke, which keeps its
+           screen size under the layer's scale where a circle's radius would not. */
+        <path
+            key={node.id}
+            data-minimap-waiting={node.id}
+            d={`M${node.x + node.w / 2} ${node.y + node.h / 2}h0`}
+            stroke="var(--status-needs-you)"
+            strokeWidth={6}
+            strokeLinecap="round"
+            vectorEffect="non-scaling-stroke"
+        />
+    ));
 }
 
 /*
@@ -217,7 +216,7 @@ export function Minimap() {
                             />
                         )
                     )}
-                    <NeedsYouDots nodes={mapped} />
+                    <NeedsYouDots nodes={nodes} hidden={hidden} />
                 </g>
                 <rect ref={frameRef} data-minimap-frame rx={2} fill="var(--text)" fillOpacity={0.06} stroke="var(--text-muted)" strokeWidth={1} />
             </svg>
