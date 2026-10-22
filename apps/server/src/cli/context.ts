@@ -44,8 +44,8 @@ async function verbArgv(command: string, args: string[], stdin: () => Promise<st
     if (command === 'plan' && args[1] === 'new') {
         return ['new', ...(await withStdinPlan(rest, stdin))];
     }
-    if (command === 'node' && args[1] === 'new') {
-        return ['new', ...(await withStdinJson(rest, stdin))];
+    if (command === 'node' && (args[1] === 'new' || args[1] === 'edit' || args[1] === 'rename')) {
+        return [args[1], ...(await withStdinJson(rest, stdin))];
     }
     return withStdinText(args.slice(1), stdin);
 }
@@ -361,7 +361,7 @@ async function withStdinText(argv: string[], stdin: () => Promise<string>): Prom
     return words;
 }
 
-/* `node new --json -` reads its array of nodes from stdin as it is: JSON has escapes of its own. */
+/* `--json -` on node new, edit and rename reads its array from stdin as it is: JSON has escapes of its own. */
 async function withStdinJson(argv: string[], stdin: () => Promise<string>): Promise<string[]> {
     const words: string[] = [];
     for (let i = 0; i < argv.length; i++) {

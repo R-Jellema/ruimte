@@ -320,6 +320,18 @@ describe('runContext', () => {
         ]);
     });
 
+    test('node edit and node rename take --json - from stdin the same way, and node edit keeps --text - as it was', async () => {
+        const edits = '[{"id":"note-1","text":"a\\nb"}]\n';
+        expect(await runContext(['node', 'edit', '--json', '-'], env, async () => edits)).toBe(0);
+        expect(await runContext(['node', 'rename', '--json=-', '--view', 'board'], env, async () => edits)).toBe(0);
+        expect(await runContext(['node', 'edit', 'note-1', '--text', '-'], env, async () => 'a\\b')).toBe(0);
+        expect(seen.map((call) => call.argv)).toEqual([
+            ['edit', `--json=${edits}`],
+            ['rename', `--json=${edits}`, '--view', 'board'],
+            ['edit', 'note-1', '--text=a\\\\b']
+        ]);
+    });
+
     test('--result - takes the result of a task from stdin the same way', async () => {
         const body = 'Found it\nin two places\n';
         expect(await runContext(['done', '--result', '-'], env, async () => body)).toBe(0);
