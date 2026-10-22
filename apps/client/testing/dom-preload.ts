@@ -1,5 +1,5 @@
 import { GlobalRegistrator } from '@happy-dom/global-registrator';
-import { compileReactSourcesAhead } from './react-compiler-preload';
+import { compileReactSourcesAhead } from './react-compiler-transform';
 
 /*
  * The page for `*.dom.test.tsx`, which run through `bun run test:dom` (`dom.bunfig.toml`) and never in the

@@ -1,6 +1,7 @@
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { reactCompilerPlugin } from './react-compiler-transform';
 
 export const clientDirectory = join(import.meta.dir, '..');
 
@@ -33,6 +34,8 @@ export async function withBrowserFixture(entryCode: string, styles: string, run:
             conditions: ['source'],
             define: viteEnv,
             plugins: [
+                // The suite tests what ships, which the compiler made.
+                reactCompilerPlugin,
                 {
                     name: 'fixture-imports',
                     setup(builder) {
