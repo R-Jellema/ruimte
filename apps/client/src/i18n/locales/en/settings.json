@@ -476,7 +476,7 @@
         },
         "views": {
             "label": "Views",
-            "description": "What new nodes start at, and how drawings and browser pages behave."
+            "description": "What new nodes start at, the map of a canvas, and how drawings and browser pages behave."
         },
         "files": {
             "label": "Files and Git",
@@ -524,6 +524,13 @@
             "tooLarge": "{{side}} is at most {{max}} pixels",
             "reset": "Reset",
             "resetLabel": "Reset the size of {{kind}} nodes on {{machine}}"
+        },
+        "canvas": {
+            "title": "Canvas",
+            "minimap": {
+                "label": "Map of the canvas",
+                "description": "A small map in the bottom right corner shows every node and the part you look at. Click it to look there, or drag the frame to pan. A canvas too narrow to keep it beside the dock leaves it out."
+            }
         },
         "drawing": {
             "title": "Drawing",

@@ -335,6 +335,9 @@
         "drawHint": "Drag to draw. Hold Shift for straight or diagonal lines. Escape cancels.",
         "defaultColor": "Default line color"
     },
+    "minimap": {
+        "label": "Map of the canvas"
+    },
     "missingProvider": {
         "notInstalled": "{{name}} is not installed on this machine.",
         "notOffered": "{{name}} is not available on this machine.",

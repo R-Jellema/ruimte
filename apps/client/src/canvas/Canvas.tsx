@@ -46,6 +46,7 @@ import { NodeFrame } from '@/canvas/NodeFrame';
 import { TextElementView } from '@/canvas/TextElementView';
 import { TextToolbar } from '@/canvas/TextToolbar';
 import { CanvasLineLayer, CanvasLineTool, CanvasLineToolbar } from '@/canvas/CanvasLines';
+import { Minimap } from '@/canvas/Minimap';
 import { CellOverlay } from '@/shell/CellOverlay';
 import { isInFloatingLayer, ContextMenu } from '@adecore/ui';
 
@@ -798,6 +799,7 @@ export function Canvas() {
                     )}
                     <TextToolbar />
                     {maximizedId === null && <CanvasLineToolbar />}
+                    <Minimap />
                     {dropping && <div className="pointer-events-none absolute inset-0 rounded-lg ring-2 ring-accent ring-inset" aria-hidden />}
                     {box && (
                         <div

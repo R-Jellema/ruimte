@@ -335,6 +335,9 @@
         "drawHint": "Sleep om te tekenen. Houd Shift ingedrukt voor rechte of diagonale lijnen. Escape annuleert.",
         "defaultColor": "Standaardlijnkleur"
     },
+    "minimap": {
+        "label": "Kaart van het canvas"
+    },
     "missingProvider": {
         "notInstalled": "{{name}} is niet geïnstalleerd op deze machine.",
         "notOffered": "{{name}} is niet beschikbaar op deze machine.",

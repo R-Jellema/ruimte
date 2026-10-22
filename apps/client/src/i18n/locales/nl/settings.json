@@ -476,7 +476,7 @@
         },
         "views": {
             "label": "Weergaven",
-            "description": "Hoe groot nieuwe nodes beginnen, en hoe tekeningen en browserpagina's zich gedragen."
+            "description": "Hoe groot nieuwe nodes beginnen, de kaart van een canvas, en hoe tekeningen en browserpagina's zich gedragen."
         },
         "files": {
             "label": "Bestanden en Git",
@@ -524,6 +524,13 @@
             "tooLarge": "{{side}} is hoogstens {{max}} pixels",
             "reset": "Herstellen",
             "resetLabel": "De grootte van {{kind}}-nodes op {{machine}} herstellen"
+        },
+        "canvas": {
+            "title": "Canvas",
+            "minimap": {
+                "label": "Kaart van het canvas",
+                "description": "Een kleine kaart rechtsonder toont elke node en het deel waar je naar kijkt. Klik erop om daar te kijken, of sleep het kader om te schuiven. Op een canvas dat te smal is om hem naast het dock te houden, blijft hij weg."
+            }
         },
         "drawing": {
             "title": "Tekening",

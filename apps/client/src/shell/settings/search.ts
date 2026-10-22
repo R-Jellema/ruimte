@@ -280,6 +280,7 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
         description: 'settings:views.nodeSizes.description',
         available: () => Object.keys(useServers.getState().byEndpoint).length > 0
     },
+    { id: 'views.canvas.minimap', section: 'views', label: 'settings:views.canvas.minimap.label', description: 'settings:views.canvas.minimap.description' },
     { id: 'views.drawing.snap', section: 'views', label: 'settings:views.drawing.snap.label', description: 'settings:views.drawing.snap.description' },
     {
         id: 'views.browser.swipe',
