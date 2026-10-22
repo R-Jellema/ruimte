@@ -1,5 +1,7 @@
 import type { ProjectDocument, ProjectLocal, ProjectSummary } from '@ruimte/contracts';
+import { forgetCachedList } from '@/project/list';
 import { LOCAL_ENDPOINT_ID, useEndpoints, type Endpoint } from '@/state/endpoints';
+import { useProjectList } from '@/state/project-list';
 import { dropMachine, enterWorkspace, showStart } from '@/transport/connections';
 import { connectFakeMachine, type FakeMachine } from './fake-machine';
 
@@ -62,6 +64,10 @@ export async function openFakeWorkspace(
             useEndpoints.getState().setActive(LOCAL_ENDPOINT_ID);
             if (endpointId === ENDPOINT.id) {
                 useEndpoints.getState().remove(ENDPOINT.id);
+            } else {
+                // The row of this machine stays for the next test, so what it listed goes instead.
+                useProjectList.getState().setProjects(endpointId, []);
+                forgetCachedList(endpointId);
             }
         }
     };
