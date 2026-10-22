@@ -7,7 +7,7 @@ import type { Point } from '@/canvas/math';
 import { iconOfEntry } from '@/shell/settings/machine-icon';
 import { nameOf, type MachineEntry } from '@/shell/settings/machine-list';
 import { useOtherMachines } from '@/canvas/use-other-machines';
-import { useCanvasStore } from '@/state/canvas';
+import { useCanvas } from '@/state/canvas';
 import { useDocument } from '@/state/document';
 import { useProjectList } from '@/state/project-list';
 import { useProject } from '@/state/project';
@@ -48,8 +48,7 @@ function useLinks(): RemoteLink[] {
  */
 export function RemoteMachineItems({ at }: { at: () => Point }) {
     const { t } = useTranslation('canvas');
-    const canvasStore = useCanvasStore();
-    const viewId = canvasStore.getState().viewId;
+    const viewId = useCanvas((s) => s.viewId);
     const shared = useDocument((s) => viewId !== null && s.shared.includes(viewId));
     const machines = useOtherMachines();
     const links = useLinks();

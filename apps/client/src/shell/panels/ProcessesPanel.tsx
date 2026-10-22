@@ -33,13 +33,11 @@ import {
 } from '@/processes/format';
 import { ignoreRefusal, perform } from '@/actions/client-actions';
 import { messageOf, Segmented, Button, Icon, IconButton, ListRow, Menu, Tooltip, PanelEmpty, PromptDialog, SectionLabel, ContextMenu } from '@adecore/ui';
-import { projectNodes } from '@/project/view-nodes';
+import { useProjectNodes } from '@/project/view-nodes';
 import { revealNode } from '@/project/views';
 import { PanelHeaderSlot } from '@/shell/PanelHeaderSlot';
 import { ProcessChart } from '@/shell/panels/ProcessChart';
 import { niceScale } from '@adecore/agents-react/usage';
-import { useCanvas } from '@/state/canvas';
-import { useDocument } from '@/state/document';
 import { useEndpoints } from '@/state/endpoints';
 import { useEndpointId } from '@/state/keys';
 import { useProjectList } from '@/state/project-list';
@@ -188,9 +186,7 @@ export function ProcessesPanel() {
     const alerts = useProcessAlerts(endpointId);
     const projectRows = useProjectList((s) => s.projects);
     const projectNames = new Map(projectRows.filter((entry) => entry.endpointId === endpointId).map((entry) => [entry.summary.projectId, entry.summary.name]));
-    // Titles come from the project; these two subscriptions are what redraws a row after a rename.
-    useDocument((s) => s.views);
-    useCanvas((s) => s.nodes);
+    const nodes = useProjectNodes();
     const [toggled, setToggled] = useState<ReadonlySet<string>>(new Set());
     const [highlight, setHighlight] = useState<Target | null>(null);
     const [forcing, setForcing] = useState<Target | null>(null);
@@ -228,7 +224,7 @@ export function ProcessesPanel() {
     }
 
     const now = sample.at;
-    const titles = new Map(projectNodes().map((node) => [node.id, node.title]));
+    const titles = new Map(nodes.map((node) => [node.id, node.title]));
     const groups = sample.groups;
     const series = chartSeries(row.fine, row.coarse);
     const { machine } = sample;

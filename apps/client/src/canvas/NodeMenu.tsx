@@ -107,6 +107,7 @@ function NodeMenuContent({ id, viewId: targetViewId, node, onRename, snooze, fin
     const waitingTask = useUnstartedTask(id, node?.machine);
     const maximized = useCanvas((s) => maximizedNodeOf(s) === id);
     const moveLocked = useCanvas((s) => s.locks.move);
+    const canvasViewId = useCanvas((s) => s.viewId);
     const agent = useSessionRow(id, (row) => row?.agent);
     const sessionAccount = useSessionRow(id, (row) => row?.account);
     const chatSession = useChatRow(id, (row) => row?.info.agentSessionId);
@@ -130,7 +131,7 @@ function NodeMenuContent({ id, viewId: targetViewId, node, onRename, snooze, fin
         return snooze ? <ContextMenu.Popup>{snooze}</ContextMenu.Popup> : null;
     }
 
-    const viewId = targetViewId ?? canvasStore.getState().viewId;
+    const viewId = targetViewId ?? canvasViewId;
     const canvas = () => {
         if (viewId !== null) {
             showView(viewId);

@@ -8,7 +8,7 @@ import { FindBar } from '@/find/FindBar';
 import { clearFindHighlights, setFindHighlights } from '@/find/highlights';
 import { compileFind, stepIndex } from '@adecore/editor-react/models';
 import { useFind, type FindState } from '@/find/use-find';
-import { currentEndpointId } from '@/state/keys';
+import { useEndpointId } from '@/state/keys';
 
 // A fold that opens but still hides the hit would otherwise be asked again on every render.
 const MAX_SEEK_STEPS = 4;
@@ -37,7 +37,7 @@ export function useChatFind(options: TimelineFindOptions): ChatFind {
     const { chatId, rows, structure, order } = options;
     const find = useFind(options.frame, options.enabled);
     // The thread of a workspace is a chat of the machine this window works on.
-    const nameOf = useContextNames(currentEndpointId(), chatId);
+    const nameOf = useContextNames(useEndpointId(), chatId);
     // The structure and not the items, so a streamed word does not search the whole thread again; a reply is searched once it settles.
     const search = useMemo(() => {
         if (!find.open || structure === undefined || order === undefined) {
