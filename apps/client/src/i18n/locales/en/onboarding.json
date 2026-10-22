@@ -55,7 +55,7 @@
     "providers": {
         "info": "Ruimte starts the agent CLIs on this machine. Each CLI keeps its own login. Logging in opens a terminal. You need one provider to start.",
         "checkAgain": "Check again",
-        "looking": "Looking for agent CLIs",
+        "looking": "Looking for agent CLIs…",
         "none": "No agent CLIs found on this machine.",
         "notLoggedIn": "Not logged in.",
         "chatAndTerminal": "chat and terminal",

@@ -23,7 +23,7 @@
     },
     "menu": {
         "none": "No agent CLI found",
-        "connecting": "Connecting",
+        "connecting": "Connecting…",
         "onAccount": "{{provider}} ({{account}})",
         "newChat": "New chat",
         "setup": "Set up agents",

@@ -272,14 +272,14 @@ describe('while the accounts load', () => {
         let answer: (accounts: ProviderAccounts) => void = () => {};
         await start(() => new Promise((resolve) => (answer = resolve)));
         await openAgentChatMenu();
-        await until(() => submenuLabels().includes('Connecting'));
-        expect(submenuLabels()).toEqual(['Connecting']);
+        await until(() => submenuLabels().includes('Connecting…'));
+        expect(submenuLabels()).toEqual(['Connecting…']);
         expect(submenuRows()[0]?.getAttribute('aria-disabled')).toBe('true');
 
         await act(async () => answer({ accounts: DEFAULT_OFF, statuses: [] }));
         await until(() => groupRows('Claude Code').length > 0);
         expect(groupRows('Claude Code')).toEqual(['Work', 'Side']);
-        expect(submenuLabels()).not.toContain('Connecting');
+        expect(submenuLabels()).not.toContain('Connecting…');
     });
 });
 

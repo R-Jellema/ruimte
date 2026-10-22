@@ -4,7 +4,7 @@
         "subtitle": "Benchmarks van Artificial Analysis",
         "description": "Vergelijk intelligentie, coderen, agentprestaties, kosten en snelheid. Filter modellen en denkniveaus en kies twee meetpunten.",
         "close": "Modelvergelijking sluiten",
-        "failed": "De modelvergelijking kon niet worden getekend",
+        "failed": "Kon de modelvergelijking niet tonen",
         "scale": "Schaal horizontale as",
         "scales": {
             "log": "Log",
