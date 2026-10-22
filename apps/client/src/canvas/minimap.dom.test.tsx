@@ -96,4 +96,19 @@ describe('the map of a canvas', () => {
         expect(canvas().getState().selection).toEqual([]);
         expect(canvas().getState().panning).toBe(false);
     });
+
+    test('a drag the map leaves halfway, when it goes, stops panning the canvas', async () => {
+        useSettings.getState().update({ canvasMinimap: true });
+        await open();
+        await until(() => theMap() !== null);
+
+        await act(async () => {
+            theMap()!.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, pointerId: 1, clientX: 20, clientY: 20 }));
+        });
+        expect(canvas().getState().panning).toBe(true);
+
+        await act(async () => useSettings.getState().update({ canvasMinimap: false }));
+        await until(() => theMap() === null);
+        expect(canvas().getState().panning).toBe(false);
+    });
 });

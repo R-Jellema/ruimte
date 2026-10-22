@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 import { Surface } from '@adecore/ui';
@@ -103,6 +103,19 @@ export function Minimap() {
             }
         });
     });
+
+    // The map can go mid-drag (the cell narrows, a node is maximized, the setting goes off), and no pointer up reaches it then.
+    useEffect(() => {
+        if (!shown) {
+            return;
+        }
+        return () => {
+            if (dragRef.current !== null) {
+                dragRef.current = null;
+                canvasStore.getState().setPanning(false);
+            }
+        };
+    }, [shown, canvasStore]);
 
     if (!shown) {
         return null;
