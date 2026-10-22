@@ -329,6 +329,8 @@ and its device token. `apps/pulsar-worker/APNS.md` has the environments and secr
 - [ ] With the git panel closed, the git button carries a gray dot while the project folder has a change (staged,
   unstaged or untracked) and its tooltip says "Git, N changes"; it goes once everything is committed, also when an
   agent made or committed the change. Light and dark, pressed and not.
+- [ ] A project on another machine and a folder on this machine that is no git repository show the git button without a
+  dot, and the git panel still opens on them as before.
 - [ ] Mod+Alt+P, from a canvas, a chat composer, a terminal and a file editor, goes to the chat or terminal that waited
   longest, in another view too, with its prompt in front; pressed again it goes to the next one, and answering one
   goes on to the next rather than back to the start. With nothing waiting it does nothing, and the palette row says so.

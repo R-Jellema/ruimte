@@ -1,6 +1,9 @@
 import { useTranslation } from 'react-i18next';
 import { toolbarPanels } from '@/shell/panels';
+import { useFolderInRepo } from '@/state/git-repos';
 import { useGitStatus } from '@/state/git-watch';
+import { useEndpointId } from '@/state/keys';
+import { isThisMachine } from '@/state/local-machine';
 import { isScratchProject, useProject } from '@/state/project';
 import { useShownPanel, useUi } from '@/state/ui';
 import { IconButton } from '@adecore/ui';
@@ -14,8 +17,12 @@ export function PanelControls() {
     const scratch = useProject((s) => isScratchProject(s.current));
     const folder = useProject((s) => s.current?.folder ?? null);
     const entries = toolbarPanels(scratch);
+    const endpointId = useEndpointId();
+    // Only a checkout of this machine is watched for the dot: a project elsewhere would hold a watch on that machine all the while.
+    const candidate = entries.some((entry) => entry.kind === 'git') && isThisMachine(endpointId) ? folder : null;
+    const repo = useFolderInRepo(candidate);
     /* The project folder's own checkout, which is what the panel shows first; it shares the watch the git and files panels hold. */
-    const changes = useGitStatus(entries.some((entry) => entry.kind === 'git') ? folder : null)?.files.length ?? 0;
+    const changes = useGitStatus(repo ? candidate : null)?.files.length ?? 0;
 
     return (
         <>
