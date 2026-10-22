@@ -381,9 +381,7 @@ describe('a secret store that fails', () => {
         await model.edit([at(SHOP, { password: 'hunter2' })]);
         expect(fake.document().connections).toEqual([SHOP]);
         expect(model.list(model.store.getState())[0]!.config.password).toBe('hunter2');
-        expect(notes).toEqual([
-            { title: 'Could not save the password of Shop', description: 'The disk is full', id: 'database-secrets-writeFailed' }
-        ]);
+        expect(notes).toEqual([{ title: 'Could not save the password of Shop', description: 'The disk is full', id: 'database-secrets-writeFailed' }]);
         expect(await savedPassword(secrets, 'shop')).toBeNull();
 
         fail.write = false;
@@ -397,9 +395,7 @@ describe('a secret store that fails', () => {
         await savePassword(secrets, SHOP, 'hunter2');
         const { model, notes } = await noted({ rev: 1, connections: [SHOP] }, failing(secrets, { write: true }));
         await model.edit([]);
-        expect(notes).toEqual([
-            { title: 'Could not remove the password of Shop', description: 'The disk is full', id: 'database-secrets-removeFailed' }
-        ]);
+        expect(notes).toEqual([{ title: 'Could not remove the password of Shop', description: 'The disk is full', id: 'database-secrets-removeFailed' }]);
     });
 });
 
