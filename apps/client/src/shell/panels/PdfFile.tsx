@@ -273,6 +273,12 @@ function PdfPage({ doc, index, box, scale, root, onSize }: PdfPageProps) {
     const text = useRef<HTMLDivElement>(null);
     const [near, setNear] = useState(false);
     const [page, setPage] = useState<PDFPageProxy | null>(null);
+    // Read when the page arrives, so a caller's new function never loads the page again.
+    const sizeRef = useRef(onSize);
+
+    useEffect(() => {
+        sizeRef.current = onSize;
+    });
 
     useEffect(() => {
         const target = frame.current;
@@ -297,7 +303,7 @@ function PdfPage({ doc, index, box, scale, root, onSize }: PdfPageProps) {
                 }
                 loaded = proxy;
                 const viewport = proxy.getViewport({ scale: 1 });
-                onSize(index, { width: viewport.width, height: viewport.height });
+                sizeRef.current(index, { width: viewport.width, height: viewport.height });
                 setPage(proxy);
             },
             // A document torn down while the page was on its way; the document's own failure is shown above.
@@ -308,7 +314,7 @@ function PdfPage({ doc, index, box, scale, root, onSize }: PdfPageProps) {
             setPage(null);
             loaded?.cleanup();
         };
-    }, [near, doc, index, onSize]);
+    }, [near, doc, index]);
 
     useEffect(() => {
         const target = canvas.current;
