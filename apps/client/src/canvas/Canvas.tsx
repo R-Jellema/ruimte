@@ -254,10 +254,22 @@ export function Canvas() {
                 setBox(boxScreenRect(gesture, camera));
             }
         };
+        /* While a pan runs the world is a layer of its own, so a frame moves pixels already drawn
+           instead of drawing every node again. Only then: a layer kept through a zoom stays drawn at
+           the scale it had, and its text goes soft. */
+        const lift = (panning: boolean): void => {
+            if (worldRef.current) {
+                worldRef.current.style.willChange = panning ? 'transform' : '';
+            }
+        };
         follow(canvasStore.getState().camera);
+        lift(canvasStore.getState().panning);
         return canvasStore.subscribe((state, previous) => {
             if (state.camera !== previous.camera) {
                 follow(state.camera);
+            }
+            if (state.panning !== previous.panning) {
+                lift(state.panning);
             }
         });
     }, [canvasStore]);
