@@ -182,7 +182,7 @@ struct MachinePage: View {
                 Text(
                     endpoint.lanDoorFixed
                         ? String(localized: "A flag this machine started with decides this.")
-                        : String(localized: "Devices on the same network connect directly, without the broker."))
+                        : String(localized: "Devices on the same network connect directly."))
             }
             .disabled(endpoint.lanDoorFixed || endpoint.savingLanDoor || !session.connected)
         }

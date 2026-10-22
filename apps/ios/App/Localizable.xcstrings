@@ -1068,12 +1068,12 @@
         }
       }
     },
-    "Devices on the same network connect directly, without the broker." : {
+    "Devices on the same network connect directly." : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Apparaten op hetzelfde netwerk verbinden rechtstreeks, zonder de broker."
+            "value" : "Apparaten op hetzelfde netwerk verbinden rechtstreeks."
           }
         }
       }
