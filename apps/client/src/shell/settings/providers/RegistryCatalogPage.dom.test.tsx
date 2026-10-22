@@ -83,8 +83,9 @@ describe('adding a provider from the ACP registry', () => {
         await page.render(<Catalog />);
         await until(() => text().includes('Kilo'));
         expect(text()).toContain('goose');
-        expect(text()).toContain('Version 1.55.0 · Download · verified');
-        expect(text()).toContain('Version 7.8.15 · npm package');
+        expect(text()).toContain('Version 1.55.0 · verified');
+        expect(text()).toContain('Version 7.8.15');
+        expect(text()).not.toContain('npm package');
 
         await typeInto(document.querySelector('input')!, 'open source');
         await until(() => !text().includes('A local, extensible agent'));

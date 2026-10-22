@@ -1509,11 +1509,6 @@
             "open": "Open",
             "version": "Version {{version}}",
             "checksum": "verified",
-            "distribution": {
-                "binary": "Download",
-                "npm": "npm package",
-                "uv": "Python package"
-            },
             "cached": "Could not refresh the list ({{error}}). This one is from {{date}}.",
             "unavailable": "Could not load the agents",
             "tryAgain": "Try again",

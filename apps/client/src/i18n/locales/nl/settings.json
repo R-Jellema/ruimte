@@ -1509,11 +1509,6 @@
             "open": "Openen",
             "version": "Versie {{version}}",
             "checksum": "gecontroleerd",
-            "distribution": {
-                "binary": "Download",
-                "npm": "npm-pakket",
-                "uv": "Python-pakket"
-            },
             "cached": "Kon de lijst niet vernieuwen ({{error}}). Deze is van {{date}}.",
             "unavailable": "Kon de agents niet laden",
             "tryAgain": "Opnieuw proberen",

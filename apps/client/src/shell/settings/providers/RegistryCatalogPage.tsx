@@ -32,7 +32,6 @@ function AgentRow({ agent, registry, onOpen }: { agent: RegistryAgent; registry:
     const { t } = useTranslation('settings');
     const facts = [
         t('providers.registry.version', { version: agent.installed ?? agent.version }),
-        t(`providers.registry.distribution.${agent.distribution}`),
         ...(agent.checksum ? [t('providers.registry.checksum')] : [])
     ].join(' · ');
     return (
