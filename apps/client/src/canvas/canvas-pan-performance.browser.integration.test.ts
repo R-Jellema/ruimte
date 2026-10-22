@@ -277,7 +277,42 @@ test('a canvas of a chat and a hundred lined notes pans without React work and t
                     window.project.setState({ rev: window.project.getState().rev + 1 });
                 })()`);
             });
+            // An agent adding the hundred notes the way it did: one change per node, each drawn before the next arrives.
+            const emptied = `window.canvas.getState().loadView(${JSON.stringify({ ...canvas, nodes: canvas.nodes.slice(0, 1), edges: [] })}, { camera: { center: { x: 1200, y: 400 }, zoom: 1 } })`;
+            const grow = (from: number, to: number): string =>
+                JSON.stringify({
+                    nodes: Array.from({ length: to - from }, (_, i) => note(from + i)),
+                    texts: [],
+                    edges: Array.from({ length: to - from }, (_, i) => edge(from + i)),
+                    removed: { nodes: [], texts: [], edges: [] },
+                    layouts: null
+                });
+            await view.evaluate(emptied);
+            const oneByOne = await scenario('a hundred notes, one change each', async () => {
+                for (let i = 0; i < 100; i++) {
+                    await view.evaluate(`(() => {
+                        const state = window.canvas.getState();
+                        const patch = ${grow(i, i + 1)};
+                        state.applyExternal({ ...patch, order: [...state.order, ...patch.nodes.map((node) => node.id)] });
+                    })()`);
+                    await view.evaluate('new Promise(resolve => requestAnimationFrame(resolve))');
+                }
+            });
+            await view.evaluate(emptied);
+            const together = await scenario('a hundred notes in one change', async () => {
+                await view.evaluate(`(() => {
+                    const state = window.canvas.getState();
+                    const patch = ${grow(0, 100)};
+                    state.applyExternal({ ...patch, order: [...state.order, ...patch.nodes.map((node) => node.id)] });
+                })()`);
+            });
             if (report) {
+                console.log(
+                    JSON.stringify({
+                        hundredOneByOneMs: oneByOne.taskMs,
+                        hundredTogetherMs: together.taskMs
+                    })
+                );
                 console.log(
                     JSON.stringify({
                         msPerFrame: [wheel, drag, overview].map((measured) => Math.round((measured.taskMs / panFrames) * 10) / 10),
@@ -308,6 +343,8 @@ test('a canvas of a chat and a hundred lined notes pans without React work and t
             expect(drag.taskMs / panFrames).toBeLessThan(BUDGET.dragFrameMs);
             expect(hover.scriptMs / panFrames).toBeLessThan(BUDGET.pointerMoveScriptMs);
             expect(added.taskMs).toBeLessThan(BUDGET.addMs);
+            // A hundred notes that arrive in one change cost about what one does (1.3 s before).
+            expect(together.taskMs).toBeLessThan(BUDGET.addMs);
             // The new note and its line, not the hundred that were there.
             expect(added.renders.NodeFrameContent ?? 0).toBeLessThanOrEqual(2);
             expect(added.renders.EdgeRow ?? 0).toBeLessThanOrEqual(4);

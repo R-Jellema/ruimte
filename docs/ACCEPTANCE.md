@@ -392,7 +392,10 @@ A chat that added a hundred notes in a row with `ruimte-context node new`, a lin
 2" shape), in the Electron dev app. `apps/client/src/canvas/canvas-pan-performance.browser.integration.test.ts` holds
 the same canvas to a budget in a headless browser; these are what it cannot feel.
 
-- [ ] An agent adding the notes one by one: each lands at once and the canvas keeps panning while they arrive.
+- [ ] Ask a chat to "add 100 random notes to this canvas": it makes them with one `node new --json` call, they land
+  together, and the canvas draws once.
+- [ ] An agent adding the notes one by one anyway (a loop of `node new`): each lands at once and the canvas keeps
+  panning while they arrive.
 - [ ] Moving the pointer over the canvas, near a node and across lines, and hovering a line: the port dots and the
   resize pill follow without a stall, and only the hovered line thickens.
 - [ ] Panning with two fingers and with the middle button, at 100% and zoomed out to the whole row: smooth, the notes
