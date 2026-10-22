@@ -172,6 +172,11 @@ describe('isComposerShortcut', () => {
         expect(isAppShortcut(shortcut('>', { code: 'Period', metaKey: true, shiftKey: true }), true)).toBe(false);
     });
 
+    test('keeps Alt+Up and Alt+Down, which recall earlier prompts there instead of stepping between messages', () => {
+        expect(isComposerShortcut(shortcut('ArrowUp', { code: 'ArrowUp', altKey: true }), true)).toBe(false);
+        expect(isComposerShortcut(shortcut('ArrowDown', { code: 'ArrowDown', altKey: true }), false)).toBe(false);
+    });
+
     test('hands back what every text field does', () => {
         expect(isComposerShortcut(shortcut('k', { code: 'KeyK', metaKey: true }), true)).toBe(true);
         expect(isComposerShortcut(shortcut('s', { code: 'KeyS', metaKey: true }), true)).toBe(false);

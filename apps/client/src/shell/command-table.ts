@@ -9,10 +9,12 @@ import {
     Braces,
     Cable,
     ChartSpline,
+    ChevronDown,
     ChevronsDown,
     ChevronsLeft,
     ChevronsRight,
     ChevronsUp,
+    ChevronUp,
     CircleAlert,
     CircleDot,
     CircleOff,
@@ -1018,6 +1020,10 @@ const TABLE = {
         palette: true,
         menu: { menu: 'kind', group: 'chat', order: 40 }
     },
+    /* No key here: Alt+Up and Alt+Down are the Go menu's node rows, and the canvas listener steps the
+       messages first while the keyboard is in a chat's thread. */
+    'chat-message-previous': { key: 'previousMessage', icon: ChevronUp, palette: true, menu: { menu: 'kind', group: 'chat', order: 50 } },
+    'chat-message-next': { key: 'nextMessage', icon: ChevronDown, palette: true, menu: { menu: 'kind', group: 'chat', order: 60 } },
     'view-fork': {
         key: 'fork',
         icon: GitFork,

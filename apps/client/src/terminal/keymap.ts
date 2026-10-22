@@ -122,6 +122,7 @@ export function isShellShortcut(event: KeyLike, apple: boolean): boolean {
 }
 
 /* The chat's own keys, which the composer hands back besides those so a chat steps its reasoning effort while you type. */
+// Not Alt+Up or Alt+Down: in the composer they recall your earlier prompts, and stepping between messages is the thread's, the menu's and the palette's.
 const COMPOSER_HANDED_BACK: readonly Shortcut[] = [CANVAS_SHORTCUTS.raiseEffort, CANVAS_SHORTCUTS.lowerEffort];
 
 export function isComposerShortcut(event: KeyLike, apple: boolean): boolean {
