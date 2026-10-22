@@ -78,7 +78,10 @@ function Theirs({ conflict, editor, block }: { conflict: ConflictResolution; edi
 /* The rows of a conflict in the editor: portals into the elements it hands out, so the editor owns where they stand. */
 export function ConflictLayer({ conflict, editor }: { conflict: ConflictResolution; editor: Editor }) {
     const { blocks } = useStore(conflict.store);
-    const rows = useSyncExternalStore(conflict.rows.subscribe, conflict.rows.getContainers);
+    const rows = useSyncExternalStore(
+        (listener) => conflict.rows.subscribe(listener),
+        () => conflict.rows.getContainers()
+    );
 
     return (
         <>
