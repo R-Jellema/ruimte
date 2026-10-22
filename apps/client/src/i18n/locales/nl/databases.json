@@ -18,7 +18,7 @@
     },
     "view": {
         "manage": "Verbindingen beheren",
-        "gone": "De verbinding van {{table}} staat niet op deze machine. Voeg hem toe, of vraag het aan wie deze view deelde.",
+        "gone": "De verbinding van {{table}} staat niet op deze machine. Voeg hem toe, of vraag het aan wie deze weergave deelde.",
         "withheld": "Voer het wachtwoord van de verbinding opnieuw in om {{table}} te openen."
     },
     "console": {
