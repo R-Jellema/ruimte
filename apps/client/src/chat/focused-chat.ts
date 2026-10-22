@@ -23,3 +23,21 @@ export function focusedChatComposerKey(): string | null {
     const chat = focusedChatId();
     return chat === null ? null : endpointKey(endpointOfNodeId(chat), chat);
 }
+
+/*
+ * The chat the keyboard is in, keyed on the machine it runs on: a chat view whose body has it, or the
+ * chat node with it. Narrower than `focusedChatId`, since a chat that is only selected leaves the arrow
+ * keys and Escape to the canvas.
+ */
+export function keyboardChatKey(): string | null {
+    const documentState = useDocument.getState();
+    const view = activeViewOf(documentState);
+    if (view === null) {
+        return null;
+    }
+    if (!isCanvasView(view)) {
+        return view.kind === 'chat' && documentState.bodyFocused ? endpointKey(endpointOfNodeId(view.id), view.id) : null;
+    }
+    const { bodyFocusId, nodes } = focusedCanvas().getState();
+    return bodyFocusId !== null && nodes[bodyFocusId]?.kind === 'chat' ? endpointKey(endpointOfNodeId(bodyFocusId), bodyFocusId) : null;
+}
