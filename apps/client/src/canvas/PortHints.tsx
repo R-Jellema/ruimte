@@ -1,6 +1,5 @@
 import { type RefObject } from 'react';
-import { textRect } from '@/canvas/edge-lines';
-import type { Rect } from '@/canvas/math';
+import { lineRoutes } from '@/canvas/line-routes';
 import { HINT_HOT, HINT_REACH, portHints, portKey, takenPorts } from '@/canvas/port-hints';
 import { useWorldPointer } from '@/canvas/use-world-pointer';
 import { useCanvas } from '@/state/canvas';
@@ -26,20 +25,7 @@ export function PortHints({ rootRef }: { rootRef: RefObject<HTMLDivElement | nul
     const hints = point === null || quiet ? [] : portHints(open, point, HINT_REACH / zoom);
 
     /* A side a line already leaves from has its dot drawn by that line, so this one only takes the press. */
-    const rectOf = (id: string): Rect | null => {
-        if (hidden.has(id)) {
-            return null;
-        }
-        const text = texts[id];
-        return nodes[id] ?? (text === undefined ? null : textRect(text));
-    };
-    const taken = quiet
-        ? new Set<string>()
-        : takenPorts(
-              edges,
-              rectOf,
-              open.map(({ id, x, y, w, h }) => ({ id, x, y, w, h }))
-          );
+    const taken = quiet ? new Set<string>() : takenPorts(lineRoutes(edges, nodes, texts, hidden));
 
     if (hints.length === 0) {
         return null;
