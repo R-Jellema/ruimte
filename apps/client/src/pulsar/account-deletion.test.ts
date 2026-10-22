@@ -72,7 +72,7 @@ describe('deleting the account', () => {
         expect(calls.signOuts).toBe(1);
         expect(left).toEqual(['account-1']);
         expect(usePulsarAccount.getState()).toMatchObject({ status: 'signed-out', account: null });
-        expect(useAccountConfirmation.getState().text).toBe("Your Ruimte account is deleted, this app signed out and this computer's machine left the account");
+        expect(useAccountConfirmation.getState().text).toBe("Account deleted, signed out, and this computer's machine left it");
     });
 
     test('says when this computer was on no account, and when it could not leave', async () => {
@@ -82,9 +82,9 @@ describe('deleting the account', () => {
             await deleteAccountHere('someone', async () => outcome);
             return useAccountConfirmation.getState().text;
         };
-        expect(await said('not-on-it')).toBe('Your Ruimte account is deleted, and this app signed out');
+        expect(await said('not-on-it')).toBe('Account deleted and signed out');
         expect(await said('failed')).toBe(
-            "Your Ruimte account is deleted and this app signed out, but this computer's machine is still on it. Take it off in its settings under Machines before you sign in again."
+            "Account deleted and signed out, but this computer's machine is still on it. Remove it under Settings › Account before signing in again."
         );
     });
 

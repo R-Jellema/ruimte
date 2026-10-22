@@ -141,7 +141,7 @@ describe('brokerSignaling', () => {
         socket.deliver(answerFrom(newKey(), { connectionId: 'attempt-0001', signal: { kind: 'answer', sdp: 'v=0' } }));
         await settle();
         expect(log.signals).toEqual([]);
-        expect(log.failures).toEqual(['A signal on the broker names the machine but is not signed by it']);
+        expect(log.failures).toEqual(['A connection request claims to come from the machine but cannot be verified']);
         expect(socket.closed).toBe(true);
     });
 
@@ -223,13 +223,13 @@ describe('brokerSignaling', () => {
         const first = attempt('attempt-0001');
         const socket = await announce();
         socket.onclose?.();
-        expect(first.log.failures).toEqual(['The broker at broker.example.com could not be reached']);
+        expect(first.log.failures).toEqual(['Could not reach the broker at broker.example.com']);
 
         const second = attempt('attempt-0002');
         const next = await announce();
         next.deliver({ type: 'error', code: 'replaced', message: 'The same key announced on another socket' });
         await settle();
-        expect(second.log.failures).toEqual(['The broker at broker.example.com refused this client: The same key announced on another socket']);
+        expect(second.log.failures).toEqual(['The broker at broker.example.com refused this device: The same key announced on another socket']);
     });
     test('an offer to a machine that needs a statement carries one asked for with this client key, signed along with the offer', async () => {
         const asked: string[] = [];
@@ -253,13 +253,13 @@ describe('brokerSignaling', () => {
 
     test('an account that cannot vouch ends the attempt with why, and sends no offer', async () => {
         const { attempt, announce } = setup(async () => {
-            throw new Error('Sign in to your account first');
+            throw new Error('Sign in first');
         });
         const { signaling, log } = attempt('attempt-0001');
         const socket = await announce();
         signaling.send({ kind: 'offer', sdp: 'v=0' });
         await settle();
-        expect(log.failures).toEqual(['Your account could not vouch for this client: Sign in to your account first']);
+        expect(log.failures).toEqual(['Your account could not confirm this device: Sign in first']);
         expect(socket.sent.filter((frame) => frame.type === 'relay')).toEqual([]);
     });
 });
