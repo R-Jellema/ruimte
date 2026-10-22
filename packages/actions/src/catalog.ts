@@ -1003,7 +1003,7 @@ export const ACTION_DEFINITIONS = {
         })
     },
     'group.arrange': {
-        title: 'Arrange group members',
+        title: 'Arrange group',
         description:
             'Tidies the nodes that stand directly in a group into a grid under its title bar. The frame only grows, and nothing is moved into or out of another group.',
         effect: 'shared',
