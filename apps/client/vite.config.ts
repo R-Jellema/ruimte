@@ -7,7 +7,7 @@ import react, { reactCompilerPreset } from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { build, defaultClientConditions, defineConfig, searchForWorkspaceRoot, type Plugin, type PluginOption } from 'vite';
 import { adecoreSources } from './adecore-sources.ts';
-import { compiledInDev } from './react-compiler-dev.ts';
+import { compiledThroughCache } from './react-compiler-vite.ts';
 import { COMPILER_RUNTIME, REACT_COMPILED, REACT_COMPILED_PACKAGES, REACT_COMPILER_LEFT_OUT, REACT_COMPILER_OPTIONS } from './react-compiler.ts';
 import { scriptFilesGuard } from './inline-scripts.ts';
 import { shikiModules, shikiOnce } from './shiki-once.ts';
@@ -150,16 +150,13 @@ function pdfjsAssets(): Plugin {
  * of the Vite React plugin is still experimental; Babel 7, since 8 bails on every destructuring default.
  */
 function reactCompiler(): PluginOption[] {
-    const compiler = compiledInDev(
+    const compiler = compiledThroughCache(
         babel({
             presets: [reactCompilerPreset(REACT_COMPILER_OPTIONS)],
             include: REACT_COMPILED,
             // In place of the default, which leaves out everything under `node_modules`, where the packages sit when they come from npm.
             exclude: [...REACT_COMPILER_LEFT_OUT, /^\0rolldown\/runtime\.js$/]
-        }),
-        [new URL('../../bun.lock', import.meta.url), new URL('./react-compiler.ts', import.meta.url)].map((file) =>
-            existsSync(file) ? readFileSync(file, 'utf8') : ''
-        )
+        })
     );
     const runtime: Plugin = {
         name: 'ruimte-compiler-runtime',

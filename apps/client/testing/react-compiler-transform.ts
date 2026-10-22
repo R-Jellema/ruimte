@@ -1,16 +1,18 @@
 import { realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import type { BunPlugin } from 'bun';
+import type { Compiled } from '../react-compiler-babel';
+import { CompilerCache } from '../react-compiler-cache';
 import { CompilerPool } from '../react-compiler-pool';
-import { COMPILER_RUNTIME, compiledByReactCompiler, MAY_HOLD_REACT, REACT_COMPILED, REACT_COMPILED_PACKAGES, REACT_COMPILER_OPTIONS } from '../react-compiler';
+import { COMPILER_RUNTIME, compiledByReactCompiler, MAY_HOLD_REACT, REACT_COMPILED, REACT_COMPILED_PACKAGES } from '../react-compiler';
 
 /*
  * The React Compiler over the client and ADE CORE's React sources the way Vite hands it them
- * (`react-compiler.ts`), with the runtime behind the client's own: for the test preload and the
- * browser fixture's bundle alike.
+ * (`react-compiler.ts`), with the runtime behind the client's own: for the DOM run's preload and the
+ * browser fixture's bundle alike. What it made is kept on disk with Vite's (`react-compiler-cache.ts`).
  */
 
-const compiler = Bun.fileURLToPath(import.meta.resolve('babel-plugin-react-compiler'));
+const cache = new CompilerCache();
 
 const compiled = new Map<string, Promise<string>>();
 
@@ -19,17 +21,20 @@ async function compile(path: string): Promise<string> {
     if (!compiledByReactCompiler(path) || !MAY_HOLD_REACT.test(code)) {
         return code;
     }
-    // Loaded only once a test reaches a component, so a run that never does skips Babel.
-    const { transformAsync } = await import('@babel/core');
-    const result = await transformAsync(code, {
-        filename: path,
-        babelrc: false,
-        configFile: false,
-        sourceType: 'module',
-        parserOpts: { plugins: path.endsWith('.tsx') ? ['typescript', 'jsx'] : ['typescript'] },
-        plugins: [[compiler, REACT_COMPILER_OPTIONS]]
-    });
-    return result?.code ?? code;
+    const cached = await cache.read(path, code);
+    if (cached !== null) {
+        return cached.code ?? code;
+    }
+    // Loaded only once a test reaches a module the cache lacks, so a warm run skips Babel.
+    const { compileWithBabel } = await import('../react-compiler-babel');
+    return kept(path, code, await compileWithBabel(code, path));
+}
+
+async function kept(path: string, code: string, result: Compiled): Promise<string> {
+    if (result.code !== null) {
+        await cache.write(path, code, result);
+    }
+    return result.code ?? code;
 }
 
 export function compiledOnce(path: string): Promise<string> {
@@ -72,8 +77,12 @@ async function compileOn(pool: CompilerPool, path: string): Promise<string> {
     if (!MAY_HOLD_REACT.test(code)) {
         return code;
     }
+    const cached = await cache.read(path, code);
+    if (cached !== null) {
+        return cached.code ?? code;
+    }
     const result = await pool.compile(code, path);
-    return result === null ? compile(path) : (result.code ?? code);
+    return result === null ? compile(path) : kept(path, code, result);
 }
 
 const STOCK_RUNTIME = /(from\s*)(["'])react\/compiler-runtime\2/g;

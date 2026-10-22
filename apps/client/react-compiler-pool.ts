@@ -1,11 +1,6 @@
 import { availableParallelism } from 'node:os';
 import { Worker } from 'node:worker_threads';
-
-export interface Compiled {
-    code: string | null;
-    /* A Babel source map. */
-    map: object | null;
-}
+import type { Compiled } from './react-compiler-babel.ts';
 
 /*
  * The React Compiler on a few worker threads (`react-compiler-worker.ts`), started at the first module.
