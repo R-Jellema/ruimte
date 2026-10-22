@@ -588,7 +588,7 @@ async function landFork(
 ): Promise<ProjectMutation<ChatForkResult>> {
     const { deps, payload, place, forkId, forkInfo, title, provider, account, opener } = fork;
     if (content.views.some((view) => view.id === forkId || (isCanvasView(view) && view.nodes.some((node) => node.id === forkId)))) {
-        throw new ChatError('fork-failed', `The id ${forkId} was taken while the fork was made; try again`);
+        throw new ChatError('fork-failed', 'Could not make the fork. Try again.');
     }
     opener?.recount();
     const nodeCwd = fork.cwd === place.folder ? undefined : fork.cwd;
@@ -666,10 +666,10 @@ async function filesTree(deps: ChatForkDeps, cwd: string, turns: readonly ChatTu
         if (index === turns.length - 1) {
             return await deps.takeTree(cwd);
         }
-        throw new ChatError('checkpoint-missing', 'No tree of the files after this turn was taken, so the fork can only start from HEAD');
+        throw new ChatError('checkpoint-missing', 'The files of this turn were not saved, so the fork starts from the latest commit');
     }
     if (!(await deps.treeExists(cwd, tree))) {
-        throw new ChatError('checkpoint-missing', 'The files of this turn are no longer in the repository, so the fork can only start from HEAD');
+        throw new ChatError('checkpoint-missing', 'The files of this turn are no longer in the repository, so the fork starts from the latest commit');
     }
     return tree;
 }
@@ -771,7 +771,7 @@ export function chatForkDeps(wiring: {
         takeTree: async (cwd) => (wiring.checkpoints ? wiring.checkpoints.take(cwd) : null),
         restoreTree: async (cwd, tree) => {
             if (!wiring.checkpoints) {
-                throw new ChatError('checkpoint-missing', 'This machine keeps no trees of turns');
+                throw new ChatError('checkpoint-missing', 'The files of this turn were not saved, so the fork cannot start from it');
             }
             await wiring.checkpoints.restore(cwd, tree);
         },
