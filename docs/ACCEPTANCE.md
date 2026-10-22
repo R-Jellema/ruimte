@@ -334,6 +334,18 @@ and its device token. `apps/pulsar-worker/APNS.md` has the environments and secr
   goes on to the next rather than back to the start. With nothing waiting it does nothing, and the palette row says so.
 - [ ] Go > Next That Needs You does the same from the menu, and Settings, Keyboard lists the key under Prompts.
 
+## Quick Look from the files panel
+
+macOS, a project on this machine, in the Electron dev app.
+
+- [ ] Space on a file in the files panel tree opens Quick Look on it over the window; Space again closes it, and so
+  does Escape. Try a PDF, an image, a video and a file Ruimte does not draw itself.
+- [ ] Space on a folder row does nothing, nor does Space in the filter field, in a canvas or in an editor.
+- [ ] Once Quick Look closed by its own Space or Escape, one Space in the tree opens it again. Note whether the arrows
+  in the tree move an open Quick Look on to the next file, and what Space does after a click back in the window.
+- [ ] A project on another machine gets no Quick Look: Space on a file there does nothing.
+- [ ] Switching the project or closing the files panel while Quick Look is open closes it.
+
 ## React Compiler
 
 The client and ADE CORE's React sources are compiled in the Electron dev app and in a build. Compare with `77bed5fa3`,
