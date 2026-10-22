@@ -36,6 +36,7 @@ import { WorkingMark } from '@/attention/WorkingMark';
 import { TaskMark } from '@/tasks/TaskMark';
 import { useChildTask } from '@/state/tasks';
 import { useUnseen } from '@/state/attention';
+import { useHiddenNeedsYou } from '@/canvas/use-group-waits';
 import { deleteSelectionAsking } from '@/canvas/delete-selection';
 import { useWorkspace } from '@/transport/connections';
 import { markPeerLapsed, usePeerLapse } from '@/project/peer-lapse';
@@ -400,6 +401,7 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
     const nodeWorktree = useWorktreeOf(node?.kind === 'terminal' || node?.kind === 'chat' ? node.cwd : undefined);
     const groupWorktrees = useGroupWorktrees(node?.kind === 'group' && !node.worktree ? id : null);
     const hidden = useCanvas((s) => s.hidden.has(id));
+    const hiddenNeedsYou = useHiddenNeedsYou(node?.kind === 'group' && node.collapsed === true ? id : null);
     const browserTitle = useBrowserDisplayTitle(id, node?.title ?? '', node?.titleSource);
     const unsavedFile = useUnsavedStoredPath(node?.kind === 'file' ? (node.path ?? null) : null);
 
@@ -512,6 +514,7 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                     </span>
                     {!renaming && <FlagMarkOf id={id} />}
                     {collapsed && <Pill className="tabular-nums">{t('group.inside', { count: node.memberIds?.length ?? 0 })}</Pill>}
+                    {hiddenNeedsYou && <StatusDot status="needs-you" />}
                     {node.kind === 'chat' && !renaming && (
                         <>
                             <AccountPill chatId={id} />
