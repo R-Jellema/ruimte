@@ -565,7 +565,7 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                         </Tooltip>
                     )}
                     {node.kind === 'file' && <ButtonGroup ref={setFileControls} render={<span />} className="shrink-0" />}
-                    {node.kind === 'device' && <DeviceToolbar id={id} />}
+                    {node.kind === 'device' && <DeviceToolbar id={id} narrow={node.w < MACHINE_PILL_MIN_WIDTH} />}
                     <ButtonGroup className="shrink-0">
                         {maximized ? (
                             <IconButton icon={Shrink} size="sm" label={t('node.restore')} onClick={() => canvasStore.getState().toggleMaximizedNode(id)} />

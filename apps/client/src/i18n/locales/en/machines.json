@@ -30,6 +30,23 @@
         "notInstalled": "{{name}} with {{runtime}} is not installed on this machine.",
         "plate": "Device",
         "listFailed": "Could not read devices",
+        "power": {
+            "battery": "On battery",
+            "low": "Battery low · not on power",
+            "plugged": "On power",
+            "pluggedFrom": "On power ({{source}})",
+            "charging": "charging",
+            "notCharging": "not charging",
+            "full": "full",
+            "simulated": "simulated",
+            "simulatedTooltip": "Simulated: apps see {{level}}. Reset it in the tools.",
+            "source": {
+                "ac": "AC",
+                "usb": "USB",
+                "wireless": "wireless",
+                "dock": "dock"
+            }
+        },
         "stream": {
             "screen": "{{name}} screen",
             "starting": "Starting device…",
