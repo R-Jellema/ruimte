@@ -142,7 +142,7 @@ export type ViewDialog =
    folder, searching the messages of the project's chats, or picking one file out of it. The mode is a
    step inside the same dialog, not a dialog of its own. */
 /*
- * A chat in Chats that leaves it. `make` starts a new project from the chat ("Make a project…"); `pick`
+ * A chat in Chats that leaves it. `make` starts a new project from the chat ("Make project…"); `pick`
  * moves it into a project that already exists, `projectId` being the one chosen beforehand, if any.
  */
 export interface MoveChatRequest {

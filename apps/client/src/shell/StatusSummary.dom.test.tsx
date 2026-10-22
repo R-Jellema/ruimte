@@ -23,7 +23,7 @@ let workspace: FakeWorkspace;
 let page: Mounted;
 
 function waitingCount(): string | null {
-    return page.host.querySelector('button[aria-label="Go to the next node that needs you, in any view"]')?.textContent ?? null;
+    return page.host.querySelector('button[aria-label="Next node that needs you, in any view"]')?.textContent ?? null;
 }
 
 afterEach(async () => {
