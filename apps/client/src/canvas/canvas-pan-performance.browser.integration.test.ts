@@ -103,6 +103,27 @@ interface Measured {
     styleMs: number;
 }
 
+/* Measures what an act costs the page: React's commits and renders through the probe, and main-thread time through CDP. */
+async function measurerOf(view: InstanceType<typeof Bun.WebView>): Promise<(act: () => Promise<void>) => Promise<Measured>> {
+    await view.cdp('Performance.enable', {});
+    const metrics = async (): Promise<Record<string, number>> => {
+        const { metrics } = await view.cdp<{ metrics: { name: string; value: number }[] }>('Performance.getMetrics', {});
+        return Object.fromEntries(metrics.map((metric) => [metric.name, metric.value]));
+    };
+    return async (act) => {
+        await view.evaluate('(() => { window.probe.commits = 0; window.probe.renders = {}; window.probe.recording = true; })()');
+        const before = await metrics();
+        await act();
+        await view.evaluate(frame);
+        const after = await metrics();
+        const probe = await view.evaluate<{ commits: number; renders: Record<string, number> }>(
+            '(() => { window.probe.recording = false; return { commits: window.probe.commits, renders: window.probe.renders }; })()'
+        );
+        const ms = (name: string): number => Math.round((after[name]! - before[name]!) * 10000) / 10;
+        return { ...probe, taskMs: ms('TaskDuration'), scriptMs: ms('ScriptDuration'), layoutMs: ms('LayoutDuration'), styleMs: ms('RecalcStyleDuration') };
+    };
+}
+
 /*
  * Budgets for the canvas that was slow: a pan that does no React work beyond the nodes it brings into
  * sight, and a new node that routes and renders only what it changed. Each budget sits several times
@@ -147,29 +168,7 @@ test('a canvas of a chat and a hundred lined notes pans without React work and t
         async (view) => {
             await view.resize(1280, 800);
             await view.evaluate(frame);
-            await view.cdp('Performance.enable', {});
-            const metrics = async (): Promise<Record<string, number>> => {
-                const { metrics } = await view.cdp<{ metrics: { name: string; value: number }[] }>('Performance.getMetrics', {});
-                return Object.fromEntries(metrics.map((metric) => [metric.name, metric.value]));
-            };
-            const measure = async (act: () => Promise<void>): Promise<Measured> => {
-                await view.evaluate('(() => { window.probe.commits = 0; window.probe.renders = {}; window.probe.recording = true; })()');
-                const before = await metrics();
-                await act();
-                await view.evaluate(frame);
-                const after = await metrics();
-                const probe = await view.evaluate<{ commits: number; renders: Record<string, number> }>(
-                    '(() => { window.probe.recording = false; return { commits: window.probe.commits, renders: window.probe.renders }; })()'
-                );
-                const ms = (name: string): number => Math.round((after[name]! - before[name]!) * 10000) / 10;
-                return {
-                    ...probe,
-                    taskMs: ms('TaskDuration'),
-                    scriptMs: ms('ScriptDuration'),
-                    layoutMs: ms('LayoutDuration'),
-                    styleMs: ms('RecalcStyleDuration')
-                };
-            };
+            const measure = await measurerOf(view);
             const profile = process.env.RUIMTE_CANVAS_PROFILE === '1';
             const report = profile || process.env.RUIMTE_CANVAS_TRACE === '1' || process.env.RUIMTE_CANVAS_REPORT === '1';
             const script = profile ? await (await fetch(await view.evaluate<string>('new URL("/entry.js", location.href).href'))).text() : '';
@@ -353,6 +352,126 @@ test('a canvas of a chat and a hundred lined notes pans without React work and t
         { head: renderProbe, production: process.env.RUIMTE_CANVAS_DEVELOPMENT !== '1' }
     );
 }, 120000);
+
+/*
+ * An agent's shell loop of a hundred `node new` calls, as the window hears it: one `project.changed`
+ * with the whole project every 50 to 150 ms, through the project client the app runs. Paced, a burst
+ * is taken in at most once per `CHANGE_PACE_MS`; unpaced (`changeClock: null`), once per event.
+ */
+async function hundredCallLoop(paced: boolean): Promise<Measured> {
+    const { view: canvas, note, edge } = canvasView(100);
+    const documentAt = (count: number) => ({
+        version: 3,
+        rev: count + 1,
+        name: 'Project',
+        color: '#000000',
+        views: [
+            {
+                ...canvas,
+                nodes: [canvas.nodes[0], ...Array.from({ length: count }, (_, i) => note(i))],
+                edges: Array.from({ length: count }, (_, i) => edge(i))
+            }
+        ]
+    });
+    let measured: Measured | null = null;
+    await withBrowserFixture(
+        `
+        import { Canvas } from ${JSON.stringify(join(import.meta.dir, 'Canvas.tsx'))};
+        import { ProjectClient } from ${JSON.stringify(join(import.meta.dir, '../project/project-client.ts'))};
+        import { PanelsPort } from ${JSON.stringify(join(import.meta.dir, '../project/panels-port.ts'))};
+        import { defaultWorkspaceStores } from ${JSON.stringify(join(import.meta.dir, '../state/workspace.ts'))};
+        import { useProject } from ${JSON.stringify(join(import.meta.dir, '../state/project.ts'))};
+        import { ChatScopeProvider } from ${JSON.stringify(join(import.meta.dir, '../transport/ChatScopeProvider.tsx'))};
+        import { ConnectionContext } from ${JSON.stringify(join(import.meta.dir, '../transport/context.ts'))};
+        import { machineTransport } from ${JSON.stringify(join(import.meta.dir, '../transport/index.ts'))};
+        import canvasWords from ${JSON.stringify(join(import.meta.dir, '../i18n/locales/en/canvas.json'))};
+        import commonWords from ${JSON.stringify(join(import.meta.dir, '../i18n/locales/en/common.json'))};
+        i18next.addResourceBundle('en', 'canvas', canvasWords, true, true);
+        i18next.addResourceBundle('en', 'common', commonWords, true, true);
+        const summary = { projectId: 'project', name: 'Project', color: '#000000', folder: '/project', lastOpenedAt: 0, available: true, icon: { kind: 'initial', value: 'P' }, nameSource: 'chosen' };
+        const handlers = new Map();
+        let rev = 1;
+        const transport = {
+            status: 'open',
+            request: async (type) => {
+                if (type === 'project.list') return { projects: [summary] };
+                if (type === 'project.open') return { summary, document: ${JSON.stringify(documentAt(0))}, local: { activeViewId: 'view-canvas', views: { 'view-canvas': { camera: { center: { x: 1200, y: 400 }, zoom: 1 }, focusedNodeId: null } } } };
+                if (type === 'project.save') return { rev: ++rev };
+                return {};
+            },
+            on: (event, handler) => { handlers.set(event, handler); return () => handlers.delete(event); },
+            subscribeStatus: () => () => undefined
+        };
+        const state = { current: null, rev: 0, chosenIcon: null, dirty: false, conflict: null };
+        const sink = {
+            setProjects() {}, patchProject() {}, setChosenIcon() {}, setSummary() {}, setError() {}, setSwitching() {},
+            setCurrent(current, next) { Object.assign(state, { current, rev: next, dirty: false, conflict: null }); useProject.setState({ current: { ...current, id: current?.projectId }, rev: next }); },
+            setRev(next) { state.rev = next; useProject.setState({ rev: next }); },
+            setDirty(dirty) { state.dirty = dirty; },
+            setConflict(conflict) { state.conflict = conflict; },
+            getState: () => state
+        };
+        const stores = defaultWorkspaceStores;
+        const client = new ProjectClient(transport, stores.canvases, stores.document, new PanelsPort(), sink, { window: null${paced ? '' : ', changeClock: null'} });
+        await client.openProject('project');
+        window.emitChange = (document) => handlers.get('project.changed')?.({ projectId: 'project', document });
+        window.sink = state;
+        createRoot(document.getElementById('root')).render(<UIProvider i18n={i18next}><ConnectionContext.Provider value={{endpointId:'fixture',transport:machineTransport('fixture')}}><ChatScopeProvider><Canvas/></ChatScopeProvider></ConnectionContext.Provider></UIProvider>);
+        `,
+        `${await builtStyles()}#root{width:1280px;height:800px}`,
+        async (view) => {
+            await view.resize(1280, 800);
+            await view.evaluate(frame);
+            const measure = await measurerOf(view);
+            const documents = JSON.stringify(Array.from({ length: 100 }, (_, i) => documentAt(i + 1)));
+            measured = await measure(async () => {
+                // The gaps a shell loop leaves between two writes: a process start, a request and a write, 50 to 150 ms.
+                await view.evaluate(`(async () => {
+                    const documents = ${documents};
+                    for (const [index, document] of documents.entries()) {
+                        await new Promise((resolve) => setTimeout(resolve, 50 + ((index * 37) % 101)));
+                        window.emitChange(document);
+                    }
+                    await new Promise((resolve) => setTimeout(resolve, 300));
+                })()`);
+            });
+            expect(await view.evaluate<number>('window.sink.rev')).toBe(101);
+            expect(await view.evaluate<number>('document.querySelectorAll("[data-edge-layer=lines] path").length')).toBeGreaterThan(0);
+            expect(await view.evaluate<string[]>('window.errors')).toEqual([]);
+        },
+        { head: renderProbe, production: process.env.RUIMTE_CANVAS_DEVELOPMENT !== '1' }
+    );
+    return measured!;
+}
+
+test('a hundred node new calls in a row are drawn in fewer passes than there are calls, ending on the last', async () => {
+    const unpaced = await hundredCallLoop(false);
+    const paced = await hundredCallLoop(true);
+    if (process.env.RUIMTE_CANVAS_REPORT === '1') {
+        console.log(
+            JSON.stringify({
+                unpaced: {
+                    canvasRenders: unpaced.renders.Canvas ?? 0,
+                    edgeLayerRenders: unpaced.renders.EdgeLayer ?? 0,
+                    commits: unpaced.commits,
+                    taskMs: unpaced.taskMs
+                },
+                paced: {
+                    canvasRenders: paced.renders.Canvas ?? 0,
+                    edgeLayerRenders: paced.renders.EdgeLayer ?? 0,
+                    commits: paced.commits,
+                    taskMs: paced.taskMs
+                }
+            })
+        );
+    }
+    // One pass per call without the pace. With it every change still lands and the last one is drawn (checked in the fixture),
+    // but a pace of 100 ms merges two changes only when they come less than 50 ms apart, so a loop like this one keeps its passes.
+    expect(unpaced.renders.EdgeLayer ?? 0).toBeGreaterThanOrEqual(100);
+    expect(paced.renders.EdgeLayer ?? 0).toBeLessThanOrEqual(unpaced.renders.EdgeLayer ?? 0);
+    // Each pass is cheap now: the whole loop costs the window under 2 s of main thread (34 s before).
+    expect(paced.taskMs).toBeLessThan(BUDGET.addMs * 10);
+}, 180000);
 
 interface CpuProfile {
     nodes: { id: number; callFrame: { functionName: string; url: string; lineNumber: number }; children?: number[] }[];
