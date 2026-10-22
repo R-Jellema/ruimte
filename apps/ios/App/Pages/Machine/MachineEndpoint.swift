@@ -101,8 +101,8 @@ struct MachineUpdate: Equatable, Sendable {
             }
         case "ready": String(localized: "\(named) is ready on this machine.")
         case "error":
-            error.map { String(localized: "The update failed: \($0)") }
-                ?? String(localized: "The update failed on this machine.")
+            error.map { String(localized: "Could not update: \($0)") }
+                ?? String(localized: "Could not update this machine.")
         default: nil
         }
     }
@@ -340,7 +340,7 @@ final class MachineEndpoint {
             problem = nil
         } catch {
             keepAwake = previous
-            problem = String(localized: "Keep awake could not be changed. \(error.localizedDescription)")
+            problem = String(localized: "Could not change keep awake. \(error.localizedDescription)")
         }
     }
 
@@ -357,7 +357,7 @@ final class MachineEndpoint {
             problem = nil
         } catch {
             info = previous
-            problem = String(localized: "The local network setting could not be changed. \(error.localizedDescription)")
+            problem = String(localized: "Could not change the local network setting. \(error.localizedDescription)")
         }
     }
 
@@ -423,7 +423,7 @@ extension LinkRoute {
     var label: String {
         switch self {
         case .localNetwork: String(localized: "Local network", comment: "A machine reached on the local network")
-        case .broker: String(localized: "Via broker", comment: "A machine reached through the broker")
+        case .broker: String(localized: "Through your account", comment: "A machine reached through the broker")
         case .relayed: String(localized: "Relayed", comment: "A machine whose connection runs through a relay")
         }
     }

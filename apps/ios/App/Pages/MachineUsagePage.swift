@@ -297,13 +297,13 @@ struct MachineUsagePage: View {
         switch section.quiet {
         case .signedOut:
             if loginCommands[section.kind] != nil {
-                Text("Not logged in. Log in to see its limits.").font(.callout).foregroundStyle(MobileStyle.muted)
+                Text("Not logged in. Log in to see limits.").font(.callout).foregroundStyle(MobileStyle.muted)
                 Button(String(localized: "Log in"), lucideIcon: "log-in") {
                     login = UsageLogin(kind: section.kind, accountID: section.id, name: section.name)
                 }
                 .buttonStyle(.bordered)
             } else {
-                Text("Not logged in. Log in on the machine to see its limits.").font(.callout)
+                Text("Not logged in. Log in on the machine to see limits.").font(.callout)
                     .foregroundStyle(MobileStyle.muted)
             }
         case .notRead(let message):
@@ -330,7 +330,7 @@ struct MachineUsagePage: View {
             let scanned = Date(timeIntervalSince1970: (scan?.number("at") ?? 0) / 1000)
             let files = Int(scan?.number("files") ?? 0)
             let prices = summary["pricing"]?["fetchedAt"]?.numberValue.map {
-                String(localized: "Prices from LiteLLM, \(Format.day(Date(timeIntervalSince1970: $0 / 1000)))")
+                String(localized: "Prices of \(Format.day(Date(timeIntervalSince1970: $0 / 1000)))")
             } ?? String(localized: "Bundled prices")
             let rate =
                 money.currencyCode == "EUR"

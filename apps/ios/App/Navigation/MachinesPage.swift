@@ -30,7 +30,7 @@ struct MachinesPage: View {
             }
             Section {
                 Button(action: addMachine) {
-                    MachineLinkLabel(title: String(localized: "Add a machine"), icon: "plus")
+                    MachineLinkLabel(title: String(localized: "Add machine"), icon: "plus")
                 }
                 .foregroundStyle(MobileStyle.text)
             }
@@ -143,7 +143,7 @@ struct PadMachinesPage: View {
                     .toolbar {
                         ToolbarItem(placement: .topBarTrailing) {
                             Button(action: addMachine) {
-                                Image(lucide: "plus").accessibilityLabel("Add a machine")
+                                Image(lucide: "plus").accessibilityLabel("Add machine")
                             }
                         }
                     }

@@ -290,7 +290,7 @@ final class MachinePageTests: XCTestCase {
         XCTAssertEqual(
             MachineReach.line(
                 connected: true, connecting: false, route: .broker, latency: 12, problem: nil, lastSeen: nil),
-            "Via broker · 12 ms")
+            "Through your account · 12 ms")
         XCTAssertEqual(
             MachineReach.line(
                 connected: true, connecting: false, route: nil, latency: nil, problem: nil, lastSeen: nil),
@@ -458,7 +458,7 @@ final class MachinePageTests: XCTestCase {
                     ("gone", "claude", "Gone", true, "not-found"), ("codex", "codex", nil, true, "ready"),
                 ])))
         XCTAssertEqual(card.lines.map(\.accountID), ["claude", "old", "broken"])
-        XCTAssertEqual(card.lines.dropFirst().map(\.content), [.status("Signed out"), .status("Unavailable")])
+        XCTAssertEqual(card.lines.dropFirst().map(\.content), [.status("Not logged in"), .status("Unavailable")])
     }
 
     @MainActor func testTheAccountListDecidesWhichAccountsThereAre() {
@@ -642,12 +642,12 @@ final class MachinePageTests: XCTestCase {
             MachineDevices.notes(unavailable, platform: "darwin"),
             [
                 "Install Xcode to use iOS simulators and iPhones.",
-                "The Android SDK was not found on this machine. Install it to use Android emulators and devices.",
+                "Install the Android SDK to use Android emulators and devices.",
             ])
         XCTAssertEqual(
             MachineDevices.notes(unavailable, platform: "linux"),
             [
-                "The Android SDK was not found on this machine. Install it to use Android emulators and devices.",
+                "Install the Android SDK to use Android emulators and devices.",
                 "iOS simulators need a Mac.",
             ])
     }

@@ -233,7 +233,7 @@ struct MachinePage: View {
             }
             if keepAwake.mode == .always {
                 Toggle(
-                    "Keep the display on",
+                    "Keep display on",
                     isOn: Binding(
                         get: { keepAwake.displayApplies && keepAwake.display },
                         set: { value in changeKeepAwake { $0.display = value } }))
