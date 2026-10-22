@@ -157,6 +157,7 @@
     "device.importCapture",
     "device.record",
     "device.clipboard",
+    "device.power",
     "agent.resume",
     "chat.create",
     "chat.history",

@@ -12533,6 +12533,79 @@
       "text"
     ]
   },
+  "request.device.power.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "deviceId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "backendId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "platform": {
+        "type": "string",
+        "enum": [
+          "ios",
+          "android"
+        ]
+      }
+    },
+    "required": [
+      "deviceId",
+      "backendId",
+      "platform"
+    ]
+  },
+  "request.device.power.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "power": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "level": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "plugged": {
+                "type": "boolean"
+              },
+              "charging": {
+                "type": "boolean"
+              },
+              "source": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 16
+              },
+              "simulated": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "level",
+              "plugged",
+              "charging"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "required": [
+      "power"
+    ]
+  },
   "request.agent.resume.payload": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",

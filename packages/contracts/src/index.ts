@@ -71,6 +71,7 @@ import {
     DeviceOpenResultSchema,
     DeviceOperatedSchema,
     DeviceOperationsResultSchema,
+    DevicePowerResultSchema,
     DeviceRecordPayloadSchema,
     DeviceRecordResultSchema,
     DeviceTargetPayloadSchema
@@ -547,6 +548,7 @@ export const REQUEST_SCHEMAS = {
     'device.importCapture': { payload: DeviceImportCapturePayloadSchema, result: DeviceCaptureResultSchema },
     'device.record': { payload: DeviceRecordPayloadSchema, result: DeviceRecordResultSchema },
     'device.clipboard': { payload: DeviceClipboardPayloadSchema, result: DeviceClipboardResultSchema },
+    'device.power': { payload: DeviceTargetPayloadSchema, result: DevicePowerResultSchema },
     'agent.resume': { payload: AgentResumePayloadSchema, result: EmptySchema },
     'chat.create': AGENT_REQUEST_SCHEMAS['chat.create'],
     'chat.history': AGENT_REQUEST_SCHEMAS['chat.history'],
