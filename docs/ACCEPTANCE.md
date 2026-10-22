@@ -345,8 +345,8 @@ macOS, a project on this machine, in the Electron dev app.
 - [ ] Space on a file in the files panel tree opens Quick Look on it over the window; Space again closes it, and so
   does Escape. Try a PDF, an image, a video and a file Ruimte does not draw itself.
 - [ ] Space on a folder row does nothing, nor does Space in the filter field, in a canvas or in an editor.
-- [ ] Once Quick Look closed by its own Space or Escape, one Space in the tree opens it again. Note whether the arrows
-  in the tree move an open Quick Look on to the next file, and what Space does after a click back in the window.
+- [ ] Once Quick Look closed by its own Space or Escape, one Space in the tree opens it again. The arrows do not move an
+  open Quick Look on: the panel keeps the keyboard, and macOS takes it straight back when the window asks for it.
 - [ ] A project on another machine gets no Quick Look: Space on a file there does nothing.
 - [ ] Switching the project or closing the files panel while Quick Look is open closes it.
 
