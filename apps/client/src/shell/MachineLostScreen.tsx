@@ -6,7 +6,7 @@ import { MachineGlyph } from '@/endpoint/MachineGlyph';
 import { useProjectSwitch } from '@/project/open';
 import { describeLastSeen } from '@/shell/connection-info';
 import { machineLost, offersMachineRestart } from '@/shell/machine-lost';
-import { StatusCard } from '@/shell/ProjectSwitchScreen';
+import { StatusCard } from '@/shell/StatusCard';
 import { useMachineEntry } from '@/shell/use-machine-entry';
 import { useMachineIcon } from '@/shell/settings/machine-icon';
 import { nameOf } from '@/shell/settings/machine-list';

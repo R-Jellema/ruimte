@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { MachineGlyph } from '@/endpoint/MachineGlyph';
 import { describeLastSeen } from '@/shell/connection-info';
-import { StatusCard } from '@/shell/ProjectSwitchScreen';
+import { StatusCard } from '@/shell/StatusCard';
 import { useMachineEntry } from '@/shell/use-machine-entry';
 import { useMachineIcon } from '@/shell/settings/machine-icon';
 import { nameOf } from '@/shell/settings/machine-list';
