@@ -635,7 +635,7 @@ describe('help', () => {
     test('help node new says what it prints, which flag goes with which kind, and where a node lands', async () => {
         const { lines } = await post('help', ['node', 'new']);
         expect(lines).toContain(
-            'prints\tid\tkind\tview\tedge\tthe id of the new node, its kind, the canvas it landed on and the id of the line drawn from you into it (- when none was drawn)'
+            'prints\tid\tkind\tview\tedge\tthe id of the new node, its kind, the canvas it landed on and the id of the line drawn from you into it (- when none was drawn); one line per node, in the order given'
         );
         expect(lines).toContain('kind\tnote\t--text\tcalled "Note" without --title');
         expect(lines).toContain('kind\tbrowser\t--url (required)\tcalled "Browser" without --title');
@@ -805,7 +805,8 @@ describe('refusals', () => {
                 verb: 'node new',
                 argv: ['note', '--cmd', 'ls'],
                 code: 'unknown-flag',
-                message: '--cmd is not one of --title, --text, --url, --path, --source, --device, --cwd, --view, --beside, --color, --revision, --dry-run'
+                message:
+                    '--cmd is not one of --title, --text, --url, --path, --source, --device, --cwd, --view, --beside, --color, --json, --revision, --dry-run'
             },
             { verb: 'view list', argv: ['--view', 'main'], code: 'unknown-flag', message: '--view is not a flag here; this verb takes none' },
             {
@@ -3925,5 +3926,85 @@ describe('alert', () => {
             expect((await post('alert', args)).status).toBe(422);
         }
         expect(alerts).toEqual([]);
+    });
+});
+
+describe('node new --json', () => {
+    test('makes every node in one write, each with its line from the caller, in the order given', async () => {
+        const rev = (await onDisk()).rev;
+        const changed: number[] = [];
+        store.subscribe('client-2', (event) => {
+            if (event.event === 'project.changed') {
+                changed.push(event.payload.document.rev);
+            }
+        });
+        store.hold('client-2', projectId);
+        const nodes = [
+            { kind: 'note', title: 'First', text: 'one\ntwo', color: 'teal' },
+            { kind: 'note', title: 'Second' },
+            { kind: 'browser', url: 'https://example.com' }
+        ];
+        const { status, lines } = await post('node', ['new', '--json', JSON.stringify(nodes)]);
+        expect(status).toBe(200);
+        expect(lines.map((line) => line.split('\t').slice(1, 3))).toEqual([
+            ['note', 'main'],
+            ['note', 'main'],
+            ['browser', 'main']
+        ]);
+        expect((await onDisk()).rev).toBe(rev + 1);
+        expect(changed).toEqual([rev + 1]);
+        const canvas = await canvasOnDisk();
+        const made = lines.map((line) => canvas.nodes.find((node) => node.id === line.split('\t')[0])!);
+        expect(made.map((node) => node.title)).toEqual(['First', 'Second', 'Browser']);
+        expect(made[0]).toMatchObject({ body: 'one\ntwo', accent: 'teal', titleSource: 'user' });
+        // Placed one after the other, so no two land on the same spot.
+        expect(new Set(made.map((node) => `${node.x},${node.y}`)).size).toBe(3);
+        expect(lines.map((line) => canvas.edges.find((edge) => edge.id === line.split('\t')[3])).map((edge) => [edge?.from, edge?.to])).toEqual(
+            made.map((node) => ['term-1', node.id])
+        );
+        expect(made.map((node) => lineage.madeBy(node.id))).toEqual(['term-1', 'term-1', 'term-1']);
+    });
+
+    test('makes none when one is refused, and says which one', async () => {
+        const before = await onDisk();
+        const nodes = [{ kind: 'note', title: 'Fine' }, { kind: 'browser' }];
+        const { status, lines } = await post('node', ['new', '--json', JSON.stringify(nodes)]);
+        expect(status).toBe(422);
+        expect(lines[0]).toBe('refused\tmissing-flag\tNode 2: A browser node needs --url');
+        expect((await onDisk()).rev).toBe(before.rev);
+        expect((await canvasOnDisk()).nodes).toHaveLength((before.views[0] as ProjectCanvasView).nodes.length);
+    });
+
+    test('previews with --dry-run and writes nothing', async () => {
+        const rev = (await onDisk()).rev;
+        const { lines } = await post('node', ['new', '--json', '[{"kind":"note"},{"kind":"note"}]', '--dry-run']);
+        expect(lines).toEqual(['dry-run\tnote\tmain\tterm-1 -> (new)', 'dry-run\tnote\tmain\tterm-1 -> (new)'].map((line) => line.replace('(new)', NEW_NODE)));
+        expect((await onDisk()).rev).toBe(rev);
+    });
+
+    test('refuses what it cannot read, by the place of the node in the array', async () => {
+        const refused = async (argv: string[]): Promise<string> => (await post('node', argv)).lines[0]!;
+        expect(await refused(['new', '--json', 'not json'])).toBe('refused\tbad-json\t--json is not JSON; it takes an array of nodes');
+        expect(await refused(['new', '--json', '{"kind":"note"}'])).toBe('refused\tbad-json\t--json needs an array of nodes');
+        expect(await refused(['new', '--json', '[]'])).toBe('refused\tbad-json\t--json needs at least one node');
+        expect(await refused(['new', '--json', '[{"kind":"note"},{"kind":"group"}]'])).toBe(
+            'refused\tbad-json\tNode 2: node new needs a kind: note, browser, drawing, diagram, file, device, terminal, chat'
+        );
+        expect(await refused(['new', '--json', '[{"kind":"note","colour":"teal"}]'])).toStartWith('refused\tbad-json\tNode 1: ');
+        expect(await refused(['new', 'note', '--json', '[{"kind":"note"}]'])).toBe(
+            'refused\tbad-arguments\t--json carries every node with its own fields; leave out the kind'
+        );
+        expect(await refused(['new', '--title', 'T', '--json', '[{"kind":"note"}]'])).toBe(
+            'refused\tbad-arguments\t--json carries every node with its own fields; leave out --title'
+        );
+        expect(await refused(['new', '--json', JSON.stringify(Array.from({ length: 101 }, () => ({ kind: 'note' })))])).toBe(
+            'refused\tbad-json\t--json takes at most 100 nodes; split the rest over another call'
+        );
+    });
+
+    test('help node new says that several nodes go in one call', async () => {
+        const { lines } = await post('help', ['node', 'new']);
+        expect(lines.some((line) => line.startsWith('many\tTo add several nodes, give them all to one call with --json'))).toBe(true);
+        expect(lines.some((line) => line.startsWith('example\truimte-context node new --json '))).toBe(true);
     });
 });

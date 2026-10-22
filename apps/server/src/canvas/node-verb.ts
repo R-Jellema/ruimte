@@ -1,4 +1,5 @@
 import { NODE_ACCENT_NAMES, isCanvasView, isNodeAccent } from '@ruimte/contracts';
+import { MAX_NODES_PER_CALL } from '@ruimte/actions';
 import { COLOR_LINES } from '../actions/node-actions.ts';
 import { z } from 'zod';
 import { canvasIdFor, defineActionVerb, runAction } from './action-verb.ts';
@@ -31,10 +32,53 @@ const REQUIRED_NOTE = `${Object.entries(REQUIRED_FLAG)
 
 const LISTED = 'ruimte-context view list lists them';
 
+const NEW_USAGE = `(<${NODE_VERB_KINDS.join('|')}> [--title T] [--text B] [--url U] [--path P] [--source V] [--device D] [--cwd P] [--color C] [--beside N] | --json J) [--view V] [--dry-run]`;
+
+// What the parser answers a call it cannot read with, for the two it cannot catch on its own: no kind, and a kind beside --json.
+const NEW_USAGE_LINES = [`usage\tnode new\t${NEW_USAGE}`, 'detail\truimte-context help node new'];
+
+/* One node of a --json call: the kind and the fields of the flags a single call takes, by their flag names. */
+const JsonNodeSchema = z.strictObject({
+    kind: z.enum(NODE_VERB_KINDS, { error: KIND_MESSAGE }),
+    title: titleField('title', 'title needs a title').optional(),
+    text: z.string().optional(),
+    url: z.string().min(1, 'url needs an http or https address').optional(),
+    path: z.string().min(1, 'path needs the path of a file').optional(),
+    source: z.string().min(1, 'source needs the id of a drawing or diagram view').optional(),
+    device: z.string().min(1, 'device needs the id of a device of this machine').optional(),
+    cwd: z.string().min(1, 'cwd needs the path of a directory').optional(),
+    beside: z.string().min(1, 'beside needs the id of a node on that canvas').optional(),
+    color: z.enum(NODE_ACCENT_NAMES, { error: `color takes one of the ${NODE_ACCENT_NAMES.length} colors` }).optional()
+});
+
+const JsonNodesSchema = z
+    .array(JsonNodeSchema, { error: '--json needs an array of nodes' })
+    .min(1, '--json needs at least one node')
+    .max(MAX_NODES_PER_CALL, `--json takes at most ${MAX_NODES_PER_CALL} nodes; split the rest over another call`);
+
+const JSON_EXAMPLE = `ruimte-context node new --json '[{"kind":"note","title":"Idea","text":"Body","color":"teal"},{"kind":"browser","url":"https://example.com"}]'`;
+
+/* The nodes of a --json call, refused by the path of what is wrong, never dropped. */
+function jsonNodes(json: string) {
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(json);
+    } catch {
+        throw new VerbRefusal('bad-json', '--json is not JSON; it takes an array of nodes', [`example\t${JSON_EXAMPLE}`]);
+    }
+    const result = JsonNodesSchema.safeParse(parsed);
+    if (!result.success) {
+        const issue = result.error.issues[0]!;
+        const [index] = issue.path;
+        throw new VerbRefusal('bad-json', typeof index === 'number' ? `Node ${index + 1}: ${issue.message}` : issue.message, [`example\t${JSON_EXAMPLE}`]);
+    }
+    return result.data;
+}
+
 export const nodeNewAction = defineActionVerb('node', {
     name: 'new',
     action: 'node.create',
-    usage: `<${NODE_VERB_KINDS.join('|')}> [--title T] [--text B] [--url U] [--path P] [--source V] [--device D] [--cwd P] [--color C] [--view V] [--beside N] [--dry-run]`,
+    usage: NEW_USAGE,
     note: REQUIRED_NOTE,
     dryRun: true,
     params: [
@@ -69,10 +113,19 @@ export const nodeNewAction = defineActionVerb('node', {
         { syntax: '--source V', need: kindsFor('source'), field: 'source', more: LISTED },
         { syntax: '--path P', need: kindsFor('path'), field: 'path', more: 'it has to exist' },
         { syntax: '--device D', need: kindsFor('device'), field: 'device', more: 'ruimte-context device list lists the ones of this machine' },
-        { syntax: '--cwd P', need: kindsFor('cwd'), field: 'cwd' }
+        { syntax: '--cwd P', need: kindsFor('cwd'), field: 'cwd' },
+        {
+            syntax: '--json J',
+            need: 'in place of <kind>',
+            text: `Several nodes in one call: an array of up to ${MAX_NODES_PER_CALL} objects, each with kind and the fields of the flags above by their names (title, text, url, path, source, device, cwd, beside, color)`,
+            more: '--json - takes the array from stdin, a heredoc included'
+        }
     ],
     detail: [
-        'prints\tid\tkind\tview\tedge\tthe id of the new node, its kind, the canvas it landed on and the id of the line drawn from you into it (- when none was drawn)',
+        'prints\tid\tkind\tview\tedge\tthe id of the new node, its kind, the canvas it landed on and the id of the line drawn from you into it (- when none was drawn); one line per node, in the order given',
+        `many\tTo add several nodes, give them all to one call with --json instead of calling once per node: one write, one update of the canvas on every screen, and the call makes all of them or, refused, none`,
+        `many\tEach node is checked the way a single call checks it, placed after the ones before it, and gets its own line from you; a refusal names the node by its place in the array, counted from 1`,
+        `example\t${JSON_EXAMPLE}`,
         ...NODE_VERB_KINDS.map(kindLine),
         EVERY_KIND_LINE,
         'edge\tA line is drawn from you into the new node, so the canvas says where it came from and not only that it is there',
@@ -89,7 +142,7 @@ export const nodeNewAction = defineActionVerb('node', {
         "size\tA new node takes the size a person on this machine gave its kind (Set as default size, in a node's menu), else the built-in size of the kind; agent and team size their nodes the same way, and no verb changes it",
         TITLE_LINE
     ],
-    positionals: z.tuple([z.enum(NODE_VERB_KINDS, { error: KIND_MESSAGE })], {
+    positionals: z.tuple([z.enum(NODE_VERB_KINDS, { error: KIND_MESSAGE }).optional()], {
         error: (issue) => (issue.code === 'too_big' ? 'node new takes one kind and nothing else; a title goes in --title' : KIND_MESSAGE)
     }),
     flags: z.object({
@@ -102,9 +155,51 @@ export const nodeNewAction = defineActionVerb('node', {
         cwd: z.string().min(1, '--cwd needs the path of a directory').optional(),
         view: z.string().min(1, '--view needs the id of a canvas').optional(),
         beside: z.string().min(1, '--beside needs the id of a node on that canvas').optional(),
-        color: z.string().min(1, '--color needs one of the colors').optional()
+        color: z.string().min(1, '--color needs one of the colors').optional(),
+        json: z.string().min(1, '--json needs an array of nodes').optional()
     }),
     async run({ positionals: [kind], flags, dryRun }, call) {
+        if (flags.json !== undefined) {
+            const single = (['title', 'text', 'url', 'path', 'source', 'device', 'cwd', 'beside', 'color'] as const).filter(
+                (flag) => flags[flag] !== undefined
+            );
+            if (kind !== undefined || single.length > 0) {
+                throw new VerbRefusal(
+                    'bad-arguments',
+                    `--json carries every node with its own fields; leave out ${kind === undefined ? single.map((flag) => `--${flag}`).join(', ') : 'the kind'}`,
+                    NEW_USAGE_LINES
+                );
+            }
+            const nodes = jsonNodes(flags.json);
+            const made = await runAction(
+                call,
+                'node.createMany',
+                {
+                    viewId: await canvasIdFor(call, placeOf(call), flags.view, OPENING_OFF_CANVAS),
+                    nodes: nodes.map((node) => ({
+                        kind: node.kind,
+                        title: node.title ?? null,
+                        content: node.text ?? null,
+                        url: node.url ?? null,
+                        path: node.path ?? null,
+                        source: node.source ?? null,
+                        cwd: node.cwd ?? null,
+                        beside: node.beside ?? null,
+                        device: node.device ?? null,
+                        color: node.color ?? null
+                    }))
+                },
+                dryRun
+            );
+            return made.nodes.map((node) =>
+                dryRun
+                    ? `dry-run\t${node.kind}\t${made.viewId}\t${node.edge ? `${node.edge.from} -> ${node.edge.to}` : '-'}`
+                    : `${node.nodeId}\t${node.kind}\t${made.viewId}\t${node.edge?.edgeId ?? '-'}`
+            );
+        }
+        if (kind === undefined) {
+            throw new VerbRefusal('bad-arguments', KIND_MESSAGE, NEW_USAGE_LINES);
+        }
         if (flags.color !== undefined && !isNodeAccent(flags.color)) {
             throw new VerbRefusal('unknown-color', `${flags.color} is not one of the ${NODE_ACCENT_NAMES.length} colors a node takes`, [...COLOR_LINES]);
         }

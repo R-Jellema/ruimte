@@ -38,7 +38,7 @@ const TERMINAL_VIEW_NOTE =
 const CANVAS_NODE_NOTE =
     'You are working in a node on a canvas. ' +
     '`ruimte-context list` lists your linked context, and `ruimte-context read <id>` reads a source. ' +
-    `\`ruimte-context node new\` creates nodes in this view: ${NODE_KINDS}. ` +
+    `\`ruimte-context node new\` creates nodes in this view: ${NODE_KINDS}; several at once go in one call with \`--json\`, never a loop of calls. ` +
     'Use these commands for notes or drawings the person requests in this view.';
 
 /* The brake below reads as "use your own means" exactly when the person asked for a second agent

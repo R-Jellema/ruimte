@@ -310,6 +310,16 @@ describe('runContext', () => {
         expect(unescapeText((sent[0] as string[])[2]!.slice('--text='.length))).toBe(body);
     });
 
+    test('node new --json - takes the array of nodes from stdin as it is, since JSON has escapes of its own', async () => {
+        const nodes = '[{"kind":"note","text":"a\\nb"}]\n';
+        expect(await runContext(['node', 'new', '--json', '-', '--view', 'board'], env, async () => nodes)).toBe(0);
+        expect(await runContext(['node', 'new', '--json=-'], env, async () => nodes)).toBe(0);
+        expect(seen.map((call) => call.argv)).toEqual([
+            ['new', `--json=${nodes}`, '--view', 'board'],
+            ['new', `--json=${nodes}`]
+        ]);
+    });
+
     test('--result - takes the result of a task from stdin the same way', async () => {
         const body = 'Found it\nin two places\n';
         expect(await runContext(['done', '--result', '-'], env, async () => body)).toBe(0);
