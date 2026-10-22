@@ -3159,7 +3159,7 @@ export const ACTION_DEFINITIONS = {
         output: gitRunOutput
     },
     'git.createPullRequest': {
-        title: 'Open a pull request',
+        title: 'Create pull request',
         description: 'Publishes the branch when needed and opens a pull request with a title and body, after confirmation. Needs gh on the machine.',
         effect: 'external',
         domain: 'developer',
