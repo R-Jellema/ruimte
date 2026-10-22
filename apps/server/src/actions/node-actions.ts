@@ -115,6 +115,61 @@ function ownLinesInto(edges: readonly ProjectEdge[], held: ReadonlySet<string>, 
     );
 }
 
+/* A rename on the canvas as it stands, refused for a node it does not hold or a kind it cannot write back. */
+function renamedOn(content: ProjectContent, canvas: ProjectCanvasView, nodeId: string, name: string) {
+    const [node] = nodesNamed(content, canvas, [nodeId], { cannot: 'there is no node to rename' });
+    if (!node || isUnknownNode(node)) {
+        throw new VerbRefusal('unknown-node', `${nodeId} is not a renameable node on ${canvas.id}`);
+    }
+    const previousName = node.title;
+    const previousSource = node.titleSource ?? null;
+    const changed = previousName !== name || previousSource !== 'user';
+    const nodes = changed
+        ? canvas.nodes.map((candidate) => (candidate.id === nodeId ? { ...candidate, title: name, titleSource: 'user' as const } : candidate))
+        : canvas.nodes;
+    return { canvas: changed ? { ...canvas, nodes } : canvas, kind: node.kind, previousName, previousSource, changed };
+}
+
+/* A note written on the canvas as it stands, refused for anything but a note the caller may write in. */
+function writtenOn(
+    content: ProjectContent,
+    canvas: ProjectCanvasView,
+    { nodeId, text, append }: { nodeId: string; text: string; append: boolean },
+    caller: VerbCall,
+    chatView: boolean
+) {
+    const node = canvas.nodes.find((candidate) => candidate.id === nodeId);
+    if (!node) {
+        throw refuseMissingNodes(content, [nodeId], canvas.id, 'there is no node to write in', writableLines(canvas, caller, chatView));
+    }
+    refuseOtherMachine(caller.host, nodeId);
+    if (node.kind !== 'note') {
+        throw new VerbRefusal(
+            'not-a-note',
+            `${nodeId} is a ${node.kind} node and only a note holds a body to write; what a file, a browser, a terminal or a chat shows is not yours to set`,
+            writableLines(canvas, caller, chatView)
+        );
+    }
+    if (!mayTouch(canvas, node, caller, chatView)) {
+        throw new VerbRefusal('not-linked', `${nodeId} is a note you did not make and no line joins you to it: draw that line and you can write in it`, [
+            ...writableLines(canvas, caller, chatView),
+            `see\truimte-context link new --to ${nodeId}\tdraws the line this needs`
+        ]);
+    }
+    /*
+     * The body is read here and nowhere earlier. `mutate` runs under the project's lock
+     * against the document as it stands, so two agents appending in the same breath queue
+     * up and the second one writes its line under the first instead of over it.
+     */
+    const body = node.body ?? '';
+    const next = append ? withLine(body, text) : text;
+    const output = { nodeId, lines: next === '' ? 0 : next.split('\n').length, characters: next.length, changed: next !== body };
+    if (next === body) {
+        return { canvas, output };
+    }
+    return { canvas: { ...canvas, nodes: canvas.nodes.map((candidate) => (candidate.id === nodeId ? { ...candidate, body: next } : candidate)) }, output };
+}
+
 /* Where a node stands, said in the words a refusal needs: a frame by id, or the canvas itself. */
 function placeName(container: ProjectNode | undefined): string {
     return container === undefined ? 'on the canvas itself' : `in group ${container.id}`;
@@ -327,21 +382,12 @@ export const nodeActions: ActionHandlers<ServerActionContext> = {
     'node.rename': async ({ viewId, nodeId, name }, { context }) => {
         const { host, place } = context;
         return host.projects.mutate(place.projectId, (content) => {
-            const canvas = canvasNamed(content, viewId);
-            const [node] = nodesNamed(content, canvas, [nodeId], { cannot: 'there is no node to rename' });
-            if (!node || isUnknownNode(node)) {
-                throw new VerbRefusal('unknown-node', `${nodeId} is not a renameable node on ${viewId}`);
-            }
-            const previousName = node.title;
-            const previousSource = node.titleSource ?? null;
-            const changed = previousName !== name || previousSource !== 'user';
-            const nodes = changed
-                ? canvas.nodes.map((candidate) => (candidate.id === nodeId ? { ...candidate, title: name, titleSource: 'user' as const } : candidate))
-                : canvas.nodes;
+            const renamed = renamedOn(content, canvasNamed(content, viewId), nodeId, name);
+            const { previousName, previousSource, changed } = renamed;
             return {
-                content: changed ? withCanvas(content, { ...canvas, nodes }) : null,
+                content: changed ? withCanvas(content, renamed.canvas) : null,
                 result: {
-                    output: { viewId, nodeId, kind: node.kind, previousName, name, changed },
+                    output: { viewId, nodeId, kind: renamed.kind, previousName, name, changed },
                     ...(changed
                         ? {
                               undo: async () => {
@@ -360,6 +406,22 @@ export const nodeActions: ActionHandlers<ServerActionContext> = {
                           }
                         : {})
                 }
+            };
+        });
+    },
+    'node.renameMany': async ({ viewId, nodes: renames }, { context }) => {
+        const { host, place } = context;
+        return host.projects.mutate(place.projectId, (content) => {
+            let canvas = canvasNamed(content, viewId);
+            const nodes: ActionOutput<'node.renameMany'>['nodes'] = [];
+            for (const { nodeId, name } of renames) {
+                const renamed = renamedOn(content, canvas, nodeId, name);
+                canvas = renamed.canvas;
+                nodes.push({ nodeId, kind: renamed.kind, previousName: renamed.previousName, name, changed: renamed.changed });
+            }
+            return {
+                content: nodes.some((node) => node.changed) ? withCanvas(content, canvas) : null,
+                result: { output: { viewId: canvas.id, nodes } }
             };
         });
     },
@@ -439,39 +501,36 @@ export const nodeActions: ActionHandlers<ServerActionContext> = {
         }
         return host.projects.mutate(place.projectId, (content) => {
             const canvas = canvasNamed(content, viewId);
+            const written = writtenOn(content, canvas, { nodeId, text, append }, caller, isChatView(content, caller.caller));
+            return {
+                content: written.output.changed ? withCanvas(content, written.canvas) : null,
+                result: { output: { viewId: canvas.id, ...written.output } }
+            };
+        });
+    },
+    'node.updateMany': async ({ viewId, nodes: edits }, call) => {
+        const { host, place } = call.context;
+        const caller = verbCallOf(call);
+        const empty = edits.find((edit) => edit.append && edit.text === '');
+        if (empty) {
+            throw new VerbRefusal(
+                'bad-arguments',
+                `${empty.nodeId} has append and nothing to add, since its text is empty; leave append off to empty the note`
+            );
+        }
+        return host.projects.mutate(place.projectId, (content) => {
+            let canvas = canvasNamed(content, viewId);
             const chatView = isChatView(content, caller.caller);
-            const node = canvas.nodes.find((candidate) => candidate.id === nodeId);
-            if (!node) {
-                throw refuseMissingNodes(content, [nodeId], canvas.id, 'there is no node to write in', writableLines(canvas, caller, chatView));
+            const nodes: ActionOutput<'node.updateMany'>['nodes'] = [];
+            for (const edit of edits) {
+                const written = writtenOn(content, canvas, edit, caller, chatView);
+                canvas = written.canvas;
+                nodes.push(written.output);
             }
-            refuseOtherMachine(host, nodeId);
-            if (node.kind !== 'note') {
-                throw new VerbRefusal(
-                    'not-a-note',
-                    `${nodeId} is a ${node.kind} node and only a note holds a body to write; what a file, a browser, a terminal or a chat shows is not yours to set`,
-                    writableLines(canvas, caller, chatView)
-                );
-            }
-            if (!mayTouch(canvas, node, caller, chatView)) {
-                throw new VerbRefusal(
-                    'not-linked',
-                    `${nodeId} is a note you did not make and no line joins you to it: draw that line and you can write in it`,
-                    [...writableLines(canvas, caller, chatView), `see\truimte-context link new --to ${nodeId}\tdraws the line this needs`]
-                );
-            }
-            /*
-             * The body is read here and nowhere earlier. `mutate` runs under the project's lock
-             * against the document as it stands, so two agents appending in the same breath queue
-             * up and the second one writes its line under the first instead of over it.
-             */
-            const body = node.body ?? '';
-            const next = append ? withLine(body, text) : text;
-            const output = { viewId: canvas.id, nodeId, lines: next === '' ? 0 : next.split('\n').length, characters: next.length, changed: next !== body };
-            if (next === body) {
-                return { content: null, result: { output } };
-            }
-            const nodes = canvas.nodes.map((candidate) => (candidate.id === nodeId ? { ...candidate, body: next } : candidate));
-            return { content: withCanvas(content, { ...canvas, nodes }), result: { output } };
+            return {
+                content: nodes.some((node) => node.changed) ? withCanvas(content, canvas) : null,
+                result: { output: { viewId: canvas.id, nodes } }
+            };
         });
     },
     'node.setColor': async ({ viewId, nodeId, color }, call) => {

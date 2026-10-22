@@ -1,5 +1,5 @@
 import { NODE_ACCENT_NAMES, isCanvasView, isNodeAccent } from '@ruimte/contracts';
-import { MAX_NODES_PER_CALL } from '@ruimte/actions';
+import { MAX_PER_CALL } from '@ruimte/actions';
 import { COLOR_LINES } from '../actions/node-actions.ts';
 import { z } from 'zod';
 import { canvasIdFor, defineActionVerb, runAction } from './action-verb.ts';
@@ -54,7 +54,7 @@ const JsonNodeSchema = z.strictObject({
 const JsonNodesSchema = z
     .array(JsonNodeSchema, { error: '--json needs an array of nodes' })
     .min(1, '--json needs at least one node')
-    .max(MAX_NODES_PER_CALL, `--json takes at most ${MAX_NODES_PER_CALL} nodes; split the rest over another call`);
+    .max(MAX_PER_CALL, `--json takes at most ${MAX_PER_CALL} nodes; split the rest over another call`);
 
 const JSON_EXAMPLE = `ruimte-context node new --json '[{"kind":"note","title":"Idea","text":"Body","color":"teal"},{"kind":"browser","url":"https://example.com"}]'`;
 
@@ -117,7 +117,7 @@ export const nodeNewAction = defineActionVerb('node', {
         {
             syntax: '--json J',
             need: 'in place of <kind>',
-            text: `Several nodes in one call: an array of up to ${MAX_NODES_PER_CALL} objects, each with kind and the fields of the flags above by their names (title, text, url, path, source, device, cwd, beside, color)`,
+            text: `Several nodes in one call: an array of up to ${MAX_PER_CALL} objects, each with kind and the fields of the flags above by their names (title, text, url, path, source, device, cwd, beside, color)`,
             more: '--json - takes the array from stdin, a heredoc included'
         }
     ],

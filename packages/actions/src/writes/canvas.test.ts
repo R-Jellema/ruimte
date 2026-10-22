@@ -1,4 +1,4 @@
-import { MAX_NODES_PER_CALL, MAX_TITLE_LENGTH } from '../index.ts';
+import { MAX_PER_CALL, MAX_TITLE_LENGTH } from '../index.ts';
 import { describeWrites, without } from './harness.ts';
 
 const note = {
@@ -40,6 +40,25 @@ describeWrites('canvas', {
             'a name past the title limit': { viewId: 'board', nodeId: 'chat-1', name: 'x'.repeat(MAX_TITLE_LENGTH + 1) }
         }
     },
+    'node.renameMany': {
+        actors: ['agent'],
+        input: {
+            viewId: 'board',
+            nodes: [
+                { nodeId: 'chat-1', name: 'Reviewer' },
+                { nodeId: 'note-1', name: 'Plan' }
+            ]
+        },
+        refused: {
+            'no nodes at all': { viewId: 'board', nodes: [] },
+            'more nodes than one call renames': {
+                viewId: 'board',
+                nodes: Array.from({ length: MAX_PER_CALL + 1 }, () => ({ nodeId: 'note-1', name: 'Plan' }))
+            },
+            'a blank name': { viewId: 'board', nodes: [{ nodeId: 'note-1', name: ' ' }] },
+            'a node without a name': { viewId: 'board', nodes: [{ nodeId: 'note-1' }] }
+        }
+    },
     'node.create': {
         actors: ['person', 'voice', 'agent', 'automation'],
         input: note,
@@ -73,7 +92,7 @@ describeWrites('canvas', {
         },
         refused: {
             'no nodes at all': { viewId: 'board', nodes: [] },
-            'more nodes than one call adds': { viewId: 'board', nodes: Array.from({ length: MAX_NODES_PER_CALL + 1 }, () => manyNote) },
+            'more nodes than one call adds': { viewId: 'board', nodes: Array.from({ length: MAX_PER_CALL + 1 }, () => manyNote) },
             'a kind no action makes': { viewId: 'board', nodes: [{ ...manyNote, kind: 'unknown' }] },
             'a color off the set': { viewId: 'board', nodes: [{ ...manyNote, color: '#ff0000' }] },
             'a node without its fields': { viewId: 'board', nodes: [{ kind: 'note' }] }
@@ -181,5 +200,14 @@ describeWrites('canvas', {
         actors: ['agent'],
         input: { viewId: 'board', edgeId: 'edge-1' },
         refused: { 'an empty line': { viewId: 'board', edgeId: '' } }
+    },
+    'link.deleteMany': {
+        actors: ['agent'],
+        input: { viewId: 'board', edgeIds: ['edge-1', 'edge-2'] },
+        refused: {
+            'no lines at all': { viewId: 'board', edgeIds: [] },
+            'an empty line': { viewId: 'board', edgeIds: ['edge-1', ''] },
+            'more lines than one call removes': { viewId: 'board', edgeIds: Array.from({ length: MAX_PER_CALL + 1 }, (_, i) => `edge-${i}`) }
+        }
     }
 });

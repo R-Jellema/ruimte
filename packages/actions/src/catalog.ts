@@ -87,15 +87,7 @@ import {
     WorktreeSchema
 } from '@ruimte/contracts';
 import { z } from 'zod';
-import {
-    MAX_KEY_COMBOS,
-    MAX_NODES_PER_CALL,
-    MAX_NOTICE_LENGTH,
-    MAX_OPENED_PER_CALLER,
-    MAX_PROMPT_LENGTH,
-    MAX_TITLE_LENGTH,
-    MAX_TYPED_LENGTH
-} from './limits.ts';
+import { MAX_KEY_COMBOS, MAX_NOTICE_LENGTH, MAX_OPENED_PER_CALLER, MAX_PER_CALL, MAX_PROMPT_LENGTH, MAX_TITLE_LENGTH, MAX_TYPED_LENGTH } from './limits.ts';
 
 export const ACTION_ACTOR_KINDS = ['person', 'voice', 'agent', 'automation'] as const;
 export const ActionActorKindSchema = z.enum(ACTION_ACTOR_KINDS);
@@ -859,6 +851,28 @@ export const ACTION_DEFINITIONS = {
             changed: z.boolean()
         })
     },
+    'node.renameMany': {
+        title: 'Rename canvas nodes',
+        description:
+            'Renames several nodes of one canvas in one write, each the way node.rename renames one. Every node is checked before any is renamed, so a refusal renames none.',
+        agentDescription: 'Renames several nodes in one write; nothing a node hosts renames over its new title again.',
+        effect: 'shared',
+        domain: 'canvas',
+        actors: AGENT,
+        input: z.object({
+            viewId,
+            nodes: z
+                .array(z.object({ nodeId: z.string().min(1), name: givenName }))
+                .min(1)
+                .max(MAX_PER_CALL)
+        }),
+        output: z.object({
+            viewId,
+            nodes: z.array(
+                z.object({ nodeId: z.string().min(1), kind: ActionCanvasNodeKindSchema, previousName: z.string(), name: viewName, changed: z.boolean() })
+            )
+        })
+    },
     'node.setColor': {
         title: 'Color canvas node',
         description: 'Gives a node on a canvas one of the colors, or takes its color off with null. A note takes its paper from it.',
@@ -952,7 +966,7 @@ export const ACTION_DEFINITIONS = {
                     })
                 )
                 .min(1)
-                .max(MAX_NODES_PER_CALL)
+                .max(MAX_PER_CALL)
         }),
         output: z.object({
             viewId,
@@ -1765,6 +1779,32 @@ export const ACTION_DEFINITIONS = {
         }),
         output: z.object({ viewId, nodeId, lines: z.number().int(), characters: z.number().int(), changed: z.boolean() })
     },
+    'node.updateMany': {
+        title: 'Write in notes',
+        description:
+            'Writes the bodies of several notes of one canvas in one write, each the way node.update writes one. Every note is checked before any is written, so a refusal writes none.',
+        agentDescription: 'Writes in several notes in one write, each a note you made or a line joins you to, or any note of the canvas a chat view names.',
+        effect: 'shared',
+        domain: 'content',
+        actors: AGENT,
+        input: z.object({
+            viewId,
+            nodes: z
+                .array(
+                    z.object({
+                        nodeId,
+                        text: z.string().describe('What to write'),
+                        append: z.boolean().describe('Adds the text as a line under what is there instead of replacing the body')
+                    })
+                )
+                .min(1)
+                .max(MAX_PER_CALL)
+        }),
+        output: z.object({
+            viewId,
+            nodes: z.array(z.object({ nodeId, lines: z.number().int(), characters: z.number().int(), changed: z.boolean() }))
+        })
+    },
     'flag.set': {
         title: 'Flag',
         description: 'Puts a colored flag on views and nodes, or takes it off with null. A flag is personal: it never goes into the shared project file.',
@@ -1845,6 +1885,16 @@ export const ACTION_DEFINITIONS = {
         actors: AGENT,
         input: z.object({ viewId, edgeId: z.string().min(1) }),
         output: z.object({ viewId, edgeId: z.string(), from: nodeId, to: nodeId, label: z.string().nullable() })
+    },
+    'link.deleteMany': {
+        title: 'Remove canvas lines',
+        description:
+            'Removes several lines of one canvas in one write, each the way link.delete removes one. Every line is checked before any goes, so a refusal removes none.',
+        effect: 'shared',
+        domain: 'canvas',
+        actors: AGENT,
+        input: z.object({ viewId, edgeIds: z.array(z.string().min(1)).min(1).max(MAX_PER_CALL) }),
+        output: z.object({ viewId, edges: z.array(z.object({ edgeId: z.string(), from: nodeId, to: nodeId, label: z.string().nullable() })) })
     },
     'agent.alert': {
         title: 'Notify the person',
