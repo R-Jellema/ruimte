@@ -3,8 +3,6 @@ import { basename, join } from 'node:path';
 import { quickLookPath, type QuickLookFiles } from '../quick-look';
 import type { AppIpc } from './ipc';
 
-const REFOCUS_AFTER_MS = 150;
-
 function diskFiles(ruimteHome: string): QuickLookFiles {
     return {
         registry: () => readFile(join(ruimteHome, 'projects.json'), 'utf8').catch(() => null),
@@ -34,13 +32,6 @@ export function installQuickLook(ipc: AppIpc, options: { ruimteHome: string; key
             return false;
         }
         window.previewFile(path, basename(path));
-        // The panel takes the keys once it is up; give them back so the arrows of the files panel step on to the next file.
-        setTimeout(() => {
-            if (!window.isDestroyed()) {
-                window.focus();
-                window.webContents.focus();
-            }
-        }, REFOCUS_AFTER_MS);
         return true;
     });
 
