@@ -414,6 +414,8 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
     const isGroup = node.kind === 'group';
     const isNote = node.kind === 'note';
     const frameAccent = !isGroup && !isNote ? accent : undefined;
+    // A note's border takes the hue of its paper the way a colored node's takes its accent; the neutral paper has none.
+    const borderAccent = isNote ? accentColor(notePaperOf(node) ?? 'yellow') : frameAccent;
     // A newer Ruimte's node: it moves, resizes and goes away like any other, and nothing else about it is this version's to change.
     const isUnknown = node.kind === 'unknown';
     const collapsed = isGroup && node.collapsed === true;
@@ -448,7 +450,7 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                     height: node.h,
                     ...maximizedPlace,
                     zIndex: z,
-                    ...(frameAccent ? { borderColor: `color-mix(in srgb, ${frameAccent} 45%, var(--border))` } : {}),
+                    ...(borderAccent ? { borderColor: `color-mix(in srgb, ${borderAccent} 45%, var(--border))` } : {}),
                     ...(isGroup && accent ? { '--group-accent': accent } : {})
                 }}
                 tabIndex={0}
