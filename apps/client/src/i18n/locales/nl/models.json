@@ -22,7 +22,7 @@
         "totalCost": "Totale kosten"
     },
     "chart": {
-        "point": "{{model}}, {{effort}}: Intelligence Index {{intelligence}}, {{metric}} {{value}",
+        "point": "{{model}}, {{effort}}: Intelligence Index {{intelligence}}, {{metric}} {{value}}",
         "frontier": "Meetpunten die binnen deze selectie niet op beide assen worden verslagen.",
         "pareto": "Niet verslagen op beide assen",
         "logarithmic": "logaritmisch",
@@ -33,7 +33,7 @@
         "grouped": "Gegroepeerd",
         "ranked": "Gerangschikt",
         "order": "Grafiekvolgorde",
-        "point": "{{model}}, {{effort}}: {{metric}} {{value}"
+        "point": "{{model}}, {{effort}}: {{metric}} {{value}}"
     },
     "metrics": {
         "intelligence": "Intelligence Index",

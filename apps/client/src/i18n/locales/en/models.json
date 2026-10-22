@@ -22,7 +22,7 @@
         "totalCost": "Total cost"
     },
     "chart": {
-        "point": "{{model}}, {{effort}}: Intelligence Index {{intelligence}}, {{metric}} {{value}",
+        "point": "{{model}}, {{effort}}: Intelligence Index {{intelligence}}, {{metric}} {{value}}",
         "frontier": "Measurements not beaten within this selection on both axes.",
         "pareto": "Not beaten on both axes",
         "logarithmic": "log scale",
@@ -33,7 +33,7 @@
         "grouped": "Grouped",
         "ranked": "Ranked",
         "order": "Chart ordering",
-        "point": "{{model}}, {{effort}}: {{metric}} {{value}"
+        "point": "{{model}}, {{effort}}: {{metric}} {{value}}"
     },
     "metrics": {
         "intelligence": "Intelligence Index",
