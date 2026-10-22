@@ -133,7 +133,7 @@ const runVersionCommand: VersionRun = (command, env) =>
 const npmRegistryLatest: NpmLatest = async (name) => {
     const response = await fetch(`https://registry.npmjs.org/${name.replace('/', '%2f')}/latest`, { signal: AbortSignal.timeout(LOOKUP_TIMEOUT_MS) });
     if (!response.ok) {
-        throw new Error(`The npm registry answered ${response.status} for ${name}`);
+        throw new Error(`Could not check for updates of ${name}`);
     }
     const body = (await response.json()) as { version?: unknown };
     if (typeof body.version !== 'string') {
@@ -273,7 +273,7 @@ export class CliVersions {
     private async updateThroughRoute(kind: AgentKind, latest: string): Promise<void> {
         const install = this.locate(kind);
         if (install === null || install.package === null) {
-            throw new Error(`${kind} is not installed through a route Ruimte can update`);
+            throw new Error(`Ruimte cannot update ${kind}. Update it the way you installed it.`);
         }
         const name = install.package;
         const command = ((): string[] => {
@@ -292,7 +292,7 @@ export class CliVersions {
                 case 'bun':
                     return [this.tool('bun', join(homedir(), '.bun', 'bin', 'bun')), 'add', '-g', `${name}@${latest}`];
                 default:
-                    throw new Error(`${kind} is not installed through a route Ruimte can update`);
+                    throw new Error(`Ruimte cannot update ${kind}. Update it the way you installed it.`);
             }
         })();
         const result = await this.run(command, {});

@@ -47,7 +47,7 @@ export function nanoHttpError(status: number): Error {
         return new Error('NanoGPT rejected the API key.');
     }
     if (status === 429) {
-        return new Error('NanoGPT subscription or rate limit reached. Wait before trying again; no pay as you go fallback was used.');
+        return new Error('NanoGPT reached a limit. Wait a moment and try again. You were not charged extra.');
     }
     if (status === 402 || status === 403) {
         return new Error('NanoGPT refused subscription access. Check your subscription and use a subscription API key.');

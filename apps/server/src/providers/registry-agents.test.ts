@@ -128,7 +128,7 @@ describe('RegistryAgents', () => {
         await installs.catalog();
         const agent = await installs.install('zipped');
         expect(agent.state).toBe('failed');
-        expect(agent.error).toContain('does not match its checksum');
+        expect(agent.error).toContain('The download is damaged');
         expect(offered.size).toBe(0);
         expect(await readdir(join(home, 'agent-registry', 'agents', 'zipped'))).toEqual([]);
     });

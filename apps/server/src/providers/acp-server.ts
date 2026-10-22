@@ -130,7 +130,7 @@ export class AcpServerInstall implements AcpServerLaunch {
             await this.download(asset.url, archive);
             const actual = await sha256OfFile(archive);
             if (actual !== asset.sha256) {
-                throw new Error(`The download does not match its checksum (expected ${asset.sha256}, got ${actual})`);
+                throw new Error('The download is damaged. Try again.');
             }
             const unpacked = join(partial, 'server');
             const written = await extractZipFile(archive, unpacked);

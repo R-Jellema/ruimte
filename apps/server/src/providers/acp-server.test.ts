@@ -95,7 +95,7 @@ describe('installing the server', () => {
         const install = server('0'.repeat(64));
         const status = await install.install();
         expect(status.state).toBe('failed');
-        expect(status.error).toContain('does not match its checksum');
+        expect(status.error).toContain('The download is damaged');
         expect(install.launch()).toBeNull();
         expect(await readdir(join(home, 'agent-servers', 'antigravity'))).toEqual([]);
     });

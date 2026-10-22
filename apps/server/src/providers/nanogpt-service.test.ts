@@ -269,7 +269,7 @@ describe('NanoGPT usage', () => {
         await service.load(folder);
         await service.configure('nano-key');
         status = 429;
-        await expect(service.readPlan()).rejects.toThrow('rate limit');
+        await expect(service.readPlan()).rejects.toThrow('NanoGPT reached a limit');
     });
 
     test('a call that was logged shows on the usage page under NanoGPT, with its tokens and no price', async () => {

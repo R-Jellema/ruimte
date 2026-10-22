@@ -293,7 +293,7 @@ export class RegistryAgents {
             if (distribution.sha256 !== null) {
                 const actual = await sha256OfFile(archive);
                 if (actual !== distribution.sha256) {
-                    throw new Error(`The download does not match its checksum (expected ${distribution.sha256}, got ${actual})`);
+                    throw new Error('The download is damaged. Try again.');
                 }
             }
             const unpacked = join(partial, 'agent');
