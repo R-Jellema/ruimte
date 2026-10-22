@@ -9,6 +9,7 @@ import { describeRoute } from '@/shell/connection-info';
 import { basenameOf } from '@/shell/panels/files-tree';
 import { useMachineIcon } from '@/shell/settings/machine-icon';
 import { nameOf } from '@/shell/settings/machine-list';
+import { MachineCard } from '@/shell/MachineCard';
 import { StatusCard } from '@/shell/StatusCard';
 import { useMachineEntry } from '@/shell/use-machine-entry';
 import { useProjectList } from '@/state/project-list';
@@ -45,6 +46,25 @@ function SwitchCard({ state }: { state: Exclude<SwitchState, { kind: 'idle' }> }
     // A project the cached list does not have has nothing but its machine's name to show, and saying it twice says nothing.
     const aboutMachine = target.summary === null && target.folder === null && target.name === null;
     const failed = state.kind === 'failed';
+    const actions = failed && (
+        <>
+            <Button size="sm" variant="secondary" onClick={() => void projectSwitch.back()}>
+                {t('switch.goBack')}
+            </Button>
+            <Button size="sm" variant="primary" onClick={() => void projectSwitch.retry()}>
+                {t('common:action.retry')}
+            </Button>
+        </>
+    );
+
+    // The machine never answered, so nothing is known to be wrong with the project: the card is the machine's.
+    if (state.kind === 'failed' && state.step === 'connecting') {
+        return (
+            <MachineCard machine={target.endpointId} line={state.reason} failed>
+                {actions}
+            </MachineCard>
+        );
+    }
 
     return (
         <StatusCard
@@ -81,16 +101,7 @@ function SwitchCard({ state }: { state: Exclude<SwitchState, { kind: 'idle' }> }
                     {t('common:action.cancel')}
                 </Button>
             )}
-            {failed && (
-                <>
-                    <Button size="sm" variant="secondary" onClick={() => void projectSwitch.back()}>
-                        {t('switch.goBack')}
-                    </Button>
-                    <Button size="sm" variant="primary" onClick={() => void projectSwitch.retry()}>
-                        {t('common:action.retry')}
-                    </Button>
-                </>
-            )}
+            {actions}
         </StatusCard>
     );
 }
