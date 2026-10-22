@@ -15,6 +15,9 @@ export const REACT_COMPILER_OPTIONS = {
     sources: (filename: string) => compiledByReactCompiler(filename)
 } satisfies Partial<PluginOptions>;
 
+/* The modules Vite hands the compiler (`reactCompilerPreset`): one that names no component or hook has nothing for it. */
+export const MAY_HOLD_REACT = /forwardRef|memo|\b(?:[A-Z]|use[A-Z0-9])/;
+
 /* What the compiled code imports in place of `react/compiler-runtime`. */
 export const COMPILER_RUNTIME = fileURLToPath(new URL('./src/compiler-runtime.ts', import.meta.url));
 

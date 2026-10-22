@@ -382,6 +382,9 @@ the last commit without the compiler, through React DevTools' highlight updates 
   under Apps with access and Linked machines, count on while the pane stays open.
 - [ ] A paused child task in a chat says "Paused until" with the day while the time is tomorrow, and with the time
   alone once midnight passed, without reopening the chat.
+- [ ] `bun dev` after `rm -rf apps/client/node_modules/.vite` opens the start screen within about ten seconds without a
+  reload of the page, and a second `bun dev` within about five. Editing a component still updates it in place.
+- [ ] Pick another folder in the dialog that saves a generated image: the path under the tree follows it.
 
 ## Apple Foundation Models
 

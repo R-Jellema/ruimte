@@ -7,6 +7,7 @@ import react, { reactCompilerPreset } from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { build, defaultClientConditions, defineConfig, searchForWorkspaceRoot, type Plugin, type PluginOption } from 'vite';
 import { adecoreSources } from './adecore-sources.ts';
+import { compiledInDev } from './react-compiler-dev.ts';
 import { COMPILER_RUNTIME, REACT_COMPILED, REACT_COMPILED_PACKAGES, REACT_COMPILER_LEFT_OUT, REACT_COMPILER_OPTIONS } from './react-compiler.ts';
 import { scriptFilesGuard } from './inline-scripts.ts';
 import { shikiModules, shikiOnce } from './shiki-once.ts';
@@ -31,6 +32,11 @@ const adecore = Object.keys(clientManifest.dependencies)
     .map((name) => fileURLToPath(new URL(`./node_modules/${name}`, import.meta.url)))
     .filter(existsSync)
     .map((path) => searchForWorkspaceRoot(realpathSync(path)));
+
+/* The TypeScript of ADE CORE's React packages, linked or from npm, as globs the dependency scan starts from. */
+const reactCompiledSources = REACT_COMPILED_PACKAGES.map((name) => fileURLToPath(new URL(`./node_modules/${name}`, import.meta.url)))
+    .filter(existsSync)
+    .flatMap((path) => [`${realpathSync(path)}/src/**/*.{ts,tsx}`, `!${realpathSync(path)}/src/**/*.test.{ts,tsx}`, `!${realpathSync(path)}/src/testing/**`]);
 
 /*
  * The web client at `station.ruimte.app` (`vite build --mode station`). It is the same page, plus what
@@ -144,12 +150,17 @@ function pdfjsAssets(): Plugin {
  * of the Vite React plugin is still experimental; Babel 7, since 8 bails on every destructuring default.
  */
 function reactCompiler(): PluginOption[] {
-    const compiler = babel({
-        presets: [reactCompilerPreset(REACT_COMPILER_OPTIONS)],
-        include: REACT_COMPILED,
-        // In place of the default, which leaves out everything under `node_modules`, where the packages sit when they come from npm.
-        exclude: [...REACT_COMPILER_LEFT_OUT, /^\0rolldown\/runtime\.js$/]
-    });
+    const compiler = compiledInDev(
+        babel({
+            presets: [reactCompilerPreset(REACT_COMPILER_OPTIONS)],
+            include: REACT_COMPILED,
+            // In place of the default, which leaves out everything under `node_modules`, where the packages sit when they come from npm.
+            exclude: [...REACT_COMPILER_LEFT_OUT, /^\0rolldown\/runtime\.js$/]
+        }),
+        [new URL('../../bun.lock', import.meta.url), new URL('./react-compiler.ts', import.meta.url)].map((file) =>
+            existsSync(file) ? readFileSync(file, 'utf8') : ''
+        )
+    );
     const runtime: Plugin = {
         name: 'ruimte-compiler-runtime',
         enforce: 'pre',
@@ -215,7 +226,10 @@ export default defineConfig(({ mode }) => ({
     optimizeDeps: {
         // Source exports in the shared React packages are TSX and can import CommonJS dependencies.
         extensions: ['.tsx'],
-        include: ['@base-ui/react/menu', '@base-ui/react/dialog', 'lucide-react', 'clsx'],
+        // Those packages are served as modules, so the first start bundles what they import with the app's own instead of reloading the page for each dependency it finds late.
+        entries: ['index.html', ...reactCompiledSources],
+        // Imported only once a chat draws code or a diagram, which the scan of the entries does not follow.
+        include: ['@base-ui/react/menu', '@base-ui/react/dialog', 'lucide-react', 'clsx', 'shiki/bundle/web', '@adecore/agents-react > mermaid'],
         exclude: REACT_COMPILED_PACKAGES
     },
     server: {
