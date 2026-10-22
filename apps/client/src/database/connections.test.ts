@@ -382,7 +382,7 @@ describe('a secret store that fails', () => {
         expect(fake.document().connections).toEqual([SHOP]);
         expect(model.list(model.store.getState())[0]!.config.password).toBe('hunter2');
         expect(notes).toEqual([
-            { title: 'The password of Shop was not saved on this computer', description: 'The disk is full', id: 'database-secrets-writeFailed' }
+            { title: 'Could not save the password of Shop', description: 'The disk is full', id: 'database-secrets-writeFailed' }
         ]);
         expect(await savedPassword(secrets, 'shop')).toBeNull();
 
@@ -398,7 +398,7 @@ describe('a secret store that fails', () => {
         const { model, notes } = await noted({ rev: 1, connections: [SHOP] }, failing(secrets, { write: true }));
         await model.edit([]);
         expect(notes).toEqual([
-            { title: 'The password of Shop was not removed from this computer', description: 'The disk is full', id: 'database-secrets-removeFailed' }
+            { title: 'Could not remove the password of Shop', description: 'The disk is full', id: 'database-secrets-removeFailed' }
         ]);
     });
 });
@@ -436,7 +436,7 @@ describe('what the agents of the project get', () => {
         const { model, notes } = await opened({ rev: 1, connections: [SHOP] });
         await model.setAgentAccess('shop', 'write');
         expect(model.store.getState().agentAccess).toEqual({});
-        expect(notes).toEqual(['Could not change what agents may do']);
+        expect(notes).toEqual(['Could not change agent access']);
     });
 });
 
