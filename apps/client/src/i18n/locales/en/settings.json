@@ -912,7 +912,7 @@
             "remove": "Remove",
             "notNow": "Not now",
             "migrated": "Ruimte already added these to {{provider}}. Keep or remove them.",
-            "fixed": "This machine was started with --no-hooks, so Ruimte writes nothing into the CLIs' settings.",
+            "fixed": "This machine was started with agent status turned off, so Ruimte leaves the tools' settings alone.",
             "search": "hooks, status, Claude, Codex, Antigravity, Copilot, Grok, settings.json",
             "state": {
                 "on": "Allowed",

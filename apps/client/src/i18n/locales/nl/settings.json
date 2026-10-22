@@ -912,7 +912,7 @@
             "remove": "Verwijderen",
             "notNow": "Niet nu",
             "migrated": "Ruimte heeft deze al aan {{provider}} toegevoegd. Behoud of verwijder ze.",
-            "fixed": "Deze machine is gestart met --no-hooks, dus Ruimte schrijft niets in de instellingen van de CLI's.",
+            "fixed": "Deze machine is gestart met agentstatus uit, dus Ruimte laat de instellingen van de tools met rust.",
             "search": "hooks, status, Claude, Codex, Antigravity, Copilot, Grok, settings.json",
             "state": {
                 "on": "Toegestaan",
