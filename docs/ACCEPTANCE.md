@@ -346,6 +346,21 @@ macOS, a project on this machine, in the Electron dev app.
 - [ ] A project on another machine gets no Quick Look: Space on a file there does nothing.
 - [ ] Switching the project or closing the files panel while Quick Look is open closes it.
 
+## Map of the canvas
+
+Settings, Views, Canvas, "Map of the canvas" turned on, in the Electron dev app.
+
+- [ ] A canvas with nodes far apart shows the map in the bottom right corner: every node a gray rectangle, a group an
+  outline under its nodes, the view a frame. Light and dark, and over a browser node that reaches into the corner.
+- [ ] A click on the map brings that spot to the middle of the view at the same zoom; dragging the frame pans along
+  without the map rescaling under the pointer; Mod+Alt+[ steps back to where the view was. With pan locked nothing moves.
+- [ ] Panning and zooming with the trackpad moves the frame smoothly, and React DevTools shows no render of the map per
+  frame. Moving a node moves its rectangle.
+- [ ] A chat or terminal waiting on you carries a dot in the needs-you color on the map; a snoozed one does not.
+- [ ] The map leaves when the canvas is narrower than about 1030 pixels (a split, a narrow window) or shorter than about
+  420, when a node is maximized and on an empty canvas, and never overlaps the dock or the prompt stack.
+- [ ] A press, a double-click or a right-click on the map starts no box selection, adds no text and opens no menu.
+
 ## React Compiler
 
 The client and ADE CORE's React sources are compiled in the Electron dev app and in a build. Compare with `77bed5fa3`,
