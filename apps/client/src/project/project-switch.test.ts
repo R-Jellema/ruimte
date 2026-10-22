@@ -131,7 +131,7 @@ describe('switching to a project', () => {
         expect(projectSwitch.state).toEqual({
             kind: 'failed',
             target,
-            reason: 'Another copy of this canvas is open on this machine, from another checkout of the same repository. Close that project first, or the two would share their terminals and chats.'
+            reason: 'This canvas is already open from another checkout. Close that project first, or both share terminals and chats.'
         });
     });
 
