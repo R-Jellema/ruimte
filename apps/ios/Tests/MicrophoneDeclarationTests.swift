@@ -1,9 +1,8 @@
 import Foundation
 import XCTest
 
-/// Voice's microphone is in Debug builds only until its use is decided: no Release build, so nothing on TestFlight or
-/// the App Store, declares it. Reads the sources, since a test only ever runs a Debug build; the build phase
-/// "Release declares no microphone" checks the built Info.plist of every Release build as well.
+/// Every build declares Voice's microphone, Release included, so TestFlight and the App Store offer Voice. Reads the
+/// sources as well, since a test only ever runs a Debug build.
 final class MicrophoneDeclarationTests: XCTestCase {
     private static let key = "NSMicrophoneUsageDescription"
     private static let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
@@ -12,34 +11,11 @@ final class MicrophoneDeclarationTests: XCTestCase {
         try String(contentsOf: root.appendingPathComponent(path), encoding: .utf8)
     }
 
-    func testOnlyTheDebugConfigurationOfTheAppDeclaresTheMicrophone() throws {
-        let project = try Self.source("Ruimte.xcodeproj/project.pbxproj")
-        let configuration = try NSRegularExpression(
-            pattern: #"isa = XCBuildConfiguration;\s*buildSettings = \{(.*?)\n\t\t\t\};\s*name = (\w+);"#,
-            options: [.dotMatchesLineSeparators])
-        let range = NSRange(project.startIndex..., in: project)
-        var declaring: [String] = []
-        for match in configuration.matches(in: project, range: range) {
-            guard let settings = Range(match.range(at: 1), in: project),
-                let name = Range(match.range(at: 2), in: project)
-            else { continue }
-            if project[settings].contains("INFOPLIST_KEY_\(Self.key)") { declaring.append(String(project[name])) }
-        }
-        XCTAssertEqual(declaring, ["Debug"], "Only the app's Debug configuration declares the microphone")
-    }
-
-    func testTheSpecAndThePlistLeaveReleaseWithoutAMicrophone() throws {
-        let spec = try Self.source("project.yml")
-        let lines = spec.components(separatedBy: "\n")
-        let declaring = lines.indices.filter { lines[$0].contains("INFOPLIST_KEY_\(Self.key)") }
-        XCTAssertEqual(declaring.count, 1, "project.yml declares the microphone once")
-        let configuration = lines[..<(declaring.first ?? 0)].last {
-            $0.hasSuffix("Debug:") || $0.hasSuffix("Release:")
-        }
-        XCTAssertEqual(configuration?.trimmingCharacters(in: .whitespaces), "Debug:")
+    func testTheSharedInfoPlistDeclaresTheMicrophoneForEveryConfiguration() throws {
         let plist = try Self.source("App/Info.plist")
-        XCTAssertFalse(plist.contains(Self.key), "The shared Info.plist names no microphone")
-        XCTAssertTrue(spec.contains("Release declares no microphone"), "The build phase that checks a Release build")
+        XCTAssertTrue(plist.contains(Self.key), "The Info.plist every configuration uses declares the microphone")
+        let project = try Self.source("Ruimte.xcodeproj/project.pbxproj")
+        XCTAssertFalse(project.contains("INFOPLIST_KEY_\(Self.key)"), "No configuration sets it apart from the others")
     }
 
     func testTheCameraAndTheBackgroundModesStay() throws {
@@ -60,9 +36,7 @@ final class MicrophoneDeclarationTests: XCTestCase {
         XCTAssertNotNil(localizations["nl"])
     }
 
-    #if DEBUG
-    func testThisDebugBuildDeclaresTheMicrophone() {
+    func testThisBuildDeclaresTheMicrophone() {
         XCTAssertNotNil(Bundle.main.object(forInfoDictionaryKey: Self.key))
     }
-    #endif
 }

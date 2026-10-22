@@ -177,8 +177,7 @@ final class VoiceCoordinator {
         self.declaresMicrophone = declaresMicrophone
     }
 
-    /// Only a Debug build asks for the microphone until its use is decided, and asking without the declaration would
-    /// end the app, so a build without it never offers Voice.
+    /// Asking for the microphone without the declaration would end the app, so a build without it never offers Voice.
     static var appDeclaresMicrophone: Bool {
         Bundle.main.object(forInfoDictionaryKey: "NSMicrophoneUsageDescription") != nil
     }

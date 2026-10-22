@@ -271,10 +271,9 @@ its `oai-events` channel is ignored. `RuimteTransport` stays without audio.
   every client of the machine hears), shown per machine in Settings, Voice beside its key. A machine that stores none
   shows the device's language with marin, which a start then sends; the machine's stored choice always comes first.
   The phone keeps no copy of its own.
-- For now only a Debug build declares the microphone (`INFOPLIST_KEY_NSMicrophoneUsageDescription` in the Debug
-  configuration of `project.yml`), until a release carries the privacy label that comes with it (audio data shared
-  with OpenAI). A build without the declaration never offers Voice, the build phase "Release declares no microphone"
-  fails a Release build that does, and `MicrophoneDeclarationTests` holds the spec.
+- Every build declares the microphone (`NSMicrophoneUsageDescription` in the app's `info` of `project.yml`, worded
+  in both languages in `InfoPlist.xcstrings`), so the App Store privacy label lists audio data shared with OpenAI. A
+  build without the declaration would never offer Voice, and `MicrophoneDeclarationTests` holds the spec.
 
 Run the package's tests with `swift test --package-path apps/ios/Packages/RuimteVoice`.
 
