@@ -1,7 +1,8 @@
 import { realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import type { BunPlugin } from 'bun';
-import { COMPILER_RUNTIME, compiledByReactCompiler, REACT_COMPILED, REACT_COMPILED_PACKAGES, REACT_COMPILER_OPTIONS } from '../react-compiler';
+import { CompilerPool } from '../react-compiler-pool';
+import { COMPILER_RUNTIME, compiledByReactCompiler, MAY_HOLD_REACT, REACT_COMPILED, REACT_COMPILED_PACKAGES, REACT_COMPILER_OPTIONS } from '../react-compiler';
 
 /*
  * The React Compiler over the client and ADE CORE's React sources the way Vite hands it them
@@ -10,9 +11,6 @@ import { COMPILER_RUNTIME, compiledByReactCompiler, REACT_COMPILED, REACT_COMPIL
  */
 
 const compiler = Bun.fileURLToPath(import.meta.resolve('babel-plugin-react-compiler'));
-
-/* The modules Vite hands the compiler (`reactCompilerPreset`): one that names no component or hook has nothing for it. */
-const MAY_HOLD_REACT = /forwardRef|memo|\b(?:[A-Z]|use[A-Z0-9])/;
 
 const compiled = new Map<string, Promise<string>>();
 
@@ -44,19 +42,38 @@ export function compiledOnce(path: string): Promise<string> {
 }
 
 /*
- * Compiles every module up front, for a run whose tests draw the window: the lazy views would otherwise
- * be compiled inside the first test that opens them, against its timeout.
+ * Compiles every module up front, for a run whose tests draw the window or bundle the client: the lazy
+ * views would otherwise be compiled inside the first test that opens them, against its timeout. On the
+ * pool's threads, which also keep Babel's stack trace rewriter away from a Vite this run loads after.
  */
 export async function compileReactSourcesAhead(): Promise<void> {
     const client = join(import.meta.dir, '..');
     const roots = [join(client, 'src'), ...REACT_COMPILED_PACKAGES.map((name) => realpathSync(join(client, 'node_modules', name, 'src')))];
-    for (const root of roots) {
-        for await (const file of new Bun.Glob('**/*.{ts,tsx}').scan({ cwd: root, absolute: true })) {
-            if (compiledByReactCompiler(file)) {
-                await compiledOnce(file);
+    const pool = new CompilerPool();
+    const pending: Promise<string>[] = [];
+    try {
+        for (const root of roots) {
+            for await (const file of new Bun.Glob('**/*.{ts,tsx}').scan({ cwd: root, absolute: true })) {
+                if (compiledByReactCompiler(file) && !compiled.has(file)) {
+                    const code = compileOn(pool, file);
+                    compiled.set(file, code);
+                    pending.push(code);
+                }
             }
         }
+        await Promise.all(pending);
+    } finally {
+        pool.close();
     }
+}
+
+async function compileOn(pool: CompilerPool, path: string): Promise<string> {
+    const code = await Bun.file(path).text();
+    if (!MAY_HOLD_REACT.test(code)) {
+        return code;
+    }
+    const result = await pool.compile(code, path);
+    return result === null ? compile(path) : (result.code ?? code);
 }
 
 export const reactCompilerPlugin: BunPlugin = {
