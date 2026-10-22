@@ -87,7 +87,15 @@ import {
     WorktreeSchema
 } from '@ruimte/contracts';
 import { z } from 'zod';
-import { MAX_KEY_COMBOS, MAX_NOTICE_LENGTH, MAX_OPENED_PER_CALLER, MAX_PROMPT_LENGTH, MAX_TITLE_LENGTH, MAX_TYPED_LENGTH } from './limits.ts';
+import {
+    MAX_KEY_COMBOS,
+    MAX_NODES_PER_CALL,
+    MAX_NOTICE_LENGTH,
+    MAX_OPENED_PER_CALLER,
+    MAX_PROMPT_LENGTH,
+    MAX_TITLE_LENGTH,
+    MAX_TYPED_LENGTH
+} from './limits.ts';
 
 export const ACTION_ACTOR_KINDS = ['person', 'voice', 'agent', 'automation'] as const;
 export const ActionActorKindSchema = z.enum(ACTION_ACTOR_KINDS);
@@ -916,6 +924,47 @@ export const ACTION_DEFINITIONS = {
             kind: ActionCanvasNodeKindSchema,
             // The line drawn from the agent into what it made; a dry run has no id for it yet.
             edge: z.object({ edgeId: z.string().nullable(), from: nodeId, to: nodeId }).nullable().optional()
+        })
+    },
+    'node.createMany': {
+        title: 'Create canvas nodes',
+        description:
+            'Creates several nodes on one canvas in one write, each the way node.create makes one, with a line from the caller into each. Every node is checked before any is made, so a refusal makes none.',
+        agentDescription: 'Adds several nodes to a canvas in one write, with a line from you into each.',
+        effect: 'shared',
+        domain: 'canvas',
+        actors: AGENT,
+        input: z.object({
+            viewId,
+            nodes: z
+                .array(
+                    z.object({
+                        kind: z.union([ActionCreatableCanvasNodeKindSchema, z.enum(AGENT_NODE_KINDS)]),
+                        title: givenName.nullable(),
+                        content: z.string().nullable().describe('The body of a note'),
+                        url: z.string().trim().min(1).nullable().describe('An http or https address'),
+                        path: z.string().trim().min(1).nullable().describe('The file the node shows, relative to the project folder or absolute'),
+                        source: viewId.nullable().describe('The id of a view of this project of the same kind as the node'),
+                        cwd: z.string().min(1).nullable().describe('The directory the shell starts in'),
+                        beside: nodeId.nullable().describe('Puts the node directly right of this node, top edges level'),
+                        device: z.string().min(1).nullable().describe('The device a device node shows'),
+                        color: z.enum(NODE_ACCENT_NAMES).nullable().describe('The color of the node; a note takes its paper from it')
+                    })
+                )
+                .min(1)
+                .max(MAX_NODES_PER_CALL)
+        }),
+        output: z.object({
+            viewId,
+            view: viewName,
+            nodes: z.array(
+                z.object({
+                    nodeId: z.string().min(1),
+                    node: z.string(),
+                    kind: ActionCanvasNodeKindSchema,
+                    edge: z.object({ edgeId: z.string().nullable(), from: nodeId, to: nodeId }).nullable()
+                })
+            )
         })
     },
     'node.duplicate': {

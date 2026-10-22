@@ -1,4 +1,4 @@
-import { MAX_TITLE_LENGTH } from '../index.ts';
+import { MAX_NODES_PER_CALL, MAX_TITLE_LENGTH } from '../index.ts';
 import { describeWrites, without } from './harness.ts';
 
 const note = {
@@ -11,6 +11,19 @@ const note = {
     path: null,
     provider: null,
     at: { x: 120, y: -40 }
+} as const;
+
+const manyNote = {
+    kind: 'note',
+    title: null,
+    content: 'Ideas',
+    url: null,
+    path: null,
+    source: null,
+    cwd: null,
+    beside: null,
+    device: null,
+    color: null
 } as const;
 
 describeWrites('canvas', {
@@ -47,6 +60,23 @@ describeWrites('canvas', {
             resume: { value: 'session-1', actors: ['person'] },
             issue: { value: { repo: 'basmilius/ruimte', number: 58, url: 'https://github.com/basmilius/ruimte/issues/58' }, actors: ['person'] },
             color: { value: 'teal', actors: ['agent'] }
+        }
+    },
+    'node.createMany': {
+        actors: ['agent'],
+        input: {
+            viewId: 'board',
+            nodes: [
+                { ...manyNote, title: 'One' },
+                { ...manyNote, title: 'Two', color: 'teal' }
+            ]
+        },
+        refused: {
+            'no nodes at all': { viewId: 'board', nodes: [] },
+            'more nodes than one call adds': { viewId: 'board', nodes: Array.from({ length: MAX_NODES_PER_CALL + 1 }, () => manyNote) },
+            'a kind no action makes': { viewId: 'board', nodes: [{ ...manyNote, kind: 'unknown' }] },
+            'a color off the set': { viewId: 'board', nodes: [{ ...manyNote, color: '#ff0000' }] },
+            'a node without its fields': { viewId: 'board', nodes: [{ kind: 'note' }] }
         }
     },
     'node.setColor': {

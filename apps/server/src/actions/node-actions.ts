@@ -1,5 +1,5 @@
 import { basename } from 'node:path';
-import { ARRANGE_LAYOUTS, ActionRefusal, type ActionHandlers, type ActionOutput } from '@ruimte/actions';
+import { ARRANGE_LAYOUTS, ActionRefusal, type ActionHandlers, type ActionInput, type ActionOutput } from '@ruimte/actions';
 import {
     DEFAULT_TITLES,
     NODE_ACCENT_NAMES,
@@ -30,7 +30,7 @@ import { checkCwd, checkPath, isInside } from '../canvas/project-paths.ts';
 import { refuseOtherMachine } from '../canvas/remote-node.ts';
 import { NEW_NODE, VerbRefusal, canvasNamed, field, orNote, snoozedAt, type VerbCall } from '../canvas/verb.ts';
 import type { IndexedPlace } from '../projects/project-index.ts';
-import { verbCallOf, type ServerActionContext } from './context.ts';
+import { verbCallOf, type ServerActionCall, type ServerActionContext } from './context.ts';
 import { machineDevice } from './device-actions.ts';
 
 /* The set is closed and short enough to print whole, unlike the Lucide names a view picks from. */
@@ -120,6 +120,172 @@ function placeName(container: ProjectNode | undefined): string {
     return container === undefined ? 'on the canvas itself' : `in group ${container.id}`;
 }
 
+/* One node to make, as node.create and node.createMany both take it. */
+type NodeSpec = { [Field in keyof ActionInput<'node.createMany'>['nodes'][number]]?: ActionInput<'node.createMany'>['nodes'][number][Field] | null } & {
+    kind: ActionInput<'node.create'>['kind'];
+    title: string | null;
+    at?: { x: number; y: number } | null;
+};
+
+/* What a spec names on the disk or the machine, looked up before the project's lock is taken. */
+interface Checked {
+    spec: NodeSpec;
+    url: string | undefined;
+    path: string | undefined;
+    cwd: string | undefined;
+    device: ProjectNode['device'];
+}
+
+type Made = ActionOutput<'node.createMany'>['nodes'][number];
+
+/* A refusal about one node of several says which one, counted from 1 the way a person counts them. */
+async function forNode<T>(index: number | null, run: () => Promise<T>): Promise<T> {
+    try {
+        return await run();
+    } catch (error) {
+        if (index !== null && error instanceof VerbRefusal) {
+            throw new VerbRefusal(error.code, `Node ${index + 1}: ${error.message}`, error.lines);
+        }
+        throw error;
+    }
+}
+
+/* Everything that touches the disk or git, which runs before the lock so a slow repository holds up no save. */
+async function checkNode(spec: NodeSpec, call: ServerActionCall): Promise<Checked> {
+    const { host, place } = call.context;
+    const { kind } = spec;
+    if (kind === 'group') {
+        throw new VerbRefusal('bad-arguments', 'node new draws no frame; ruimte-context node group draws one around nodes');
+    }
+    const kindLines = [kindLine(kind), EVERY_KIND_LINE];
+    const given: Record<KindFlag, unknown> = {
+        text: spec.content,
+        url: spec.url,
+        path: spec.path,
+        source: spec.source,
+        device: spec.device,
+        cwd: spec.cwd
+    };
+    for (const flag of ['text', 'url', 'path', 'source', 'device', 'cwd'] as const) {
+        if (given[flag] != null && !KIND_FLAGS[kind].includes(flag)) {
+            throw new VerbRefusal('flag-not-for-kind', `--${flag} does not go with a ${kind} node`, kindLines);
+        }
+    }
+    const required = REQUIRED_FLAG[kind];
+    if (required && given[required] == null) {
+        throw new VerbRefusal('missing-flag', `A ${kind} node needs --${required}`, kindLines);
+    }
+    return {
+        spec,
+        url: spec.url == null ? undefined : checkUrl(spec.url),
+        path: spec.path == null ? undefined : await checkPath(place.folder, spec.path),
+        cwd: spec.cwd == null ? undefined : await checkCwd(place.folder, spec.cwd, (folder) => host.checkouts.paths(folder)),
+        device: spec.device == null ? undefined : await machineDevice(host, spec.device)
+    };
+}
+
+/* The title a drawing or a diagram takes from the view it mirrors, after checking that view is one of its kind. */
+function sourceNameOf(content: ProjectContent, spec: NodeSpec): string | undefined {
+    if (spec.source == null) {
+        return undefined;
+    }
+    // Only a drawing or a diagram takes --source, and each mirrors a view of its own kind.
+    const sourceKind = spec.kind === 'diagram' ? 'diagram' : 'drawing';
+    const ofKind = (view: ProjectView): view is ProjectDrawingView | ProjectDiagramView =>
+        sourceKind === 'diagram' ? isDiagramView(view) : isDrawingView(view);
+    const source = content.views.find((view) => view.id === spec.source);
+    if (!source || !ofKind(source)) {
+        throw new VerbRefusal(
+            `not-a-${sourceKind}`,
+            `${spec.source} is not a ${sourceKind} view of this project`,
+            orNote(
+                content.views.filter(ofKind).map((view) => `${sourceKind}\t${view.id}\t${field(view.name)}`),
+                sourceKind === 'diagram'
+                    ? 'This project has no diagram views; ruimte-context view new --kind diagram makes one'
+                    : 'This project has no drawing views; a person makes one in the sidebar'
+            )
+        );
+    }
+    return source.name;
+}
+
+/*
+ * Makes the nodes in one write, each placed after the ones before it, with a line from the caller
+ * into each. Every node is checked before the lock and again under it before anything is written, so
+ * a refusal of one makes none.
+ */
+async function createNodes(call: ServerActionCall, viewId: string, specs: readonly NodeSpec[], counted: boolean): Promise<ActionOutput<'node.createMany'>> {
+    const { actor, context, dryRun } = call;
+    const { host, place } = context;
+    const checked: Checked[] = [];
+    for (const [index, spec] of specs.entries()) {
+        checked.push(await forNode(counted ? index : null, () => checkNode(spec, call)));
+    }
+    const { output } = await host.projects.mutate<{ output: ActionOutput<'node.createMany'> }>(place.projectId, async (content) => {
+        let canvas = canvasNamed(content, viewId);
+        if (canvas.nodes.length + specs.length > MAX_CANVAS_NODES) {
+            throw canvasFull(canvas, specs.length);
+        }
+        const caller = canvas.nodes.find((node) => node.id === actor.id) ?? null;
+        let current = content;
+        const made: Made[] = [];
+        const owned: string[] = [];
+        for (const [index, { spec, url, path, cwd, device }] of checked.entries()) {
+            const { kind } = spec;
+            const placed = await forNode(counted ? index : null, async () => {
+                const sourceName = sourceNameOf(current, spec);
+                const size = host.machine.nodeSize(kind);
+                const anchor = spec.beside == null ? undefined : canvas.nodes.find((node) => node.id === spec.beside);
+                if (spec.beside != null && !anchor) {
+                    throw refuseMissingNodes(current, [spec.beside], canvas.id, 'the new node has nothing there to stand beside', nodeLines(canvas));
+                }
+                const rect = anchor
+                    ? placeBeside(anchor, size)
+                    : spec.at != null
+                      ? { x: Math.round(spec.at.x - size.w / 2), y: Math.round(spec.at.y - size.h / 2), ...size }
+                      : placeFree(canvas.nodes, size, caller);
+                return { rect, title: spec.title ?? sourceName ?? (path === undefined ? (device?.name ?? DEFAULT_TITLES[kind]) : basename(path)) };
+            });
+            const id = newId(kind, current);
+            const node: ProjectNode = {
+                id,
+                kind,
+                title: placed.title,
+                // A title the agent chose is not one the session may rename, the rule a person's typing follows.
+                ...(spec.title === null ? {} : { titleSource: 'user' as const }),
+                ...placed.rect,
+                ...(spec.color == null ? {} : { accent: spec.color }),
+                ...(spec.content == null ? {} : { body: spec.content }),
+                ...(url === undefined ? {} : { url }),
+                ...(path === undefined ? {} : { path: isInside(place.folder, path) ? storedPathOf(place.folder, path) : path }),
+                ...(spec.source == null ? {} : { viewId: spec.source }),
+                ...(device === undefined ? {} : { device }),
+                ...(cwd === undefined ? {} : { cwd })
+            };
+            const edge = caller ? openingEdge(caller.id, node, current) : null;
+            canvas = { ...canvas, nodes: [...canvas.nodes, node], edges: edge ? [...canvas.edges, edge] : canvas.edges };
+            current = withCanvas(current, canvas);
+            owned.push(id);
+            made.push(
+                dryRun === true
+                    ? { nodeId: NEW_NODE, node: node.title, kind, edge: caller ? { edgeId: null, from: caller.id, to: NEW_NODE } : null }
+                    : { nodeId: id, node: node.title, kind, edge: edge ? { edgeId: edge.id, from: edge.from, to: edge.to } : null }
+            );
+        }
+        const output = { viewId: canvas.id, view: canvas.name, nodes: made };
+        if (dryRun === true) {
+            return { content: null, result: { output } };
+        }
+        /* Written down under the project's lock, before the nodes are on disk: who made a node is
+           the whole of the rule `node delete` follows, and it may not arrive after the node does. */
+        for (const nodeId of owned) {
+            await host.lineage.put({ projectId: place.projectId, nodeId, openedBy: actor.id, depth: 0, agent: false });
+        }
+        return { content: current, result: { output } };
+    });
+    return output;
+}
+
 export const nodeActions: ActionHandlers<ServerActionContext> = {
     'node.list': async ({ viewId }, { actor, context }) => {
         const revision = await context.host.projects.revision(context.place.projectId);
@@ -147,129 +313,16 @@ export const nodeActions: ActionHandlers<ServerActionContext> = {
         };
     },
     'node.create': async (input, call) => {
-        const { actor, context, dryRun } = call;
-        const { host, place } = context;
-        const { kind } = input;
         // Only `agent` starts anything, so a node an agent adds opens empty.
         if (input.command !== null || input.provider !== null) {
             throw new VerbRefusal('starts-nothing', 'node new starts no CLI and no command; ruimte-context agent is what opens an agent');
         }
-        if (kind === 'group') {
-            throw new VerbRefusal('bad-arguments', 'node new draws no frame; ruimte-context node group draws one around nodes');
-        }
-        const kindLines = [kindLine(kind), EVERY_KIND_LINE];
-        const given: Record<KindFlag, unknown> = {
-            text: input.content,
-            url: input.url,
-            path: input.path,
-            source: input.source,
-            device: input.device,
-            cwd: input.cwd
-        };
-        for (const flag of ['text', 'url', 'path', 'source', 'device', 'cwd'] as const) {
-            if (given[flag] != null && !KIND_FLAGS[kind].includes(flag)) {
-                throw new VerbRefusal('flag-not-for-kind', `--${flag} does not go with a ${kind} node`, kindLines);
-            }
-        }
-        const required = REQUIRED_FLAG[kind];
-        if (required && given[required] == null) {
-            throw new VerbRefusal('missing-flag', `A ${kind} node needs --${required}`, kindLines);
-        }
-
-        // Everything that touches the disk or git runs before the lock, so a slow repository holds up no save.
-        const url = input.url === null ? undefined : checkUrl(input.url);
-        const path = input.path === null ? undefined : await checkPath(place.folder, input.path);
-        const cwd = input.cwd == null ? undefined : await checkCwd(place.folder, input.cwd, (folder) => host.checkouts.paths(folder));
-        const device = input.device == null ? undefined : await machineDevice(host, input.device);
-
-        return host.projects.mutate<{ output: ActionOutput<'node.create'> }>(place.projectId, async (content) => {
-            const canvas = canvasNamed(content, input.viewId);
-            if (canvas.nodes.length + 1 > MAX_CANVAS_NODES) {
-                throw canvasFull(canvas, 1);
-            }
-            let sourceName: string | undefined;
-            if (input.source != null) {
-                // Only a drawing or a diagram takes --source, and each mirrors a view of its own kind.
-                const sourceKind = kind === 'diagram' ? 'diagram' : 'drawing';
-                const ofKind = (view: ProjectView): view is ProjectDrawingView | ProjectDiagramView =>
-                    sourceKind === 'diagram' ? isDiagramView(view) : isDrawingView(view);
-                const source = content.views.find((view) => view.id === input.source);
-                if (!source || !ofKind(source)) {
-                    throw new VerbRefusal(
-                        `not-a-${sourceKind}`,
-                        `${input.source} is not a ${sourceKind} view of this project`,
-                        orNote(
-                            content.views.filter(ofKind).map((view) => `${sourceKind}\t${view.id}\t${field(view.name)}`),
-                            sourceKind === 'diagram'
-                                ? 'This project has no diagram views; ruimte-context view new --kind diagram makes one'
-                                : 'This project has no drawing views; a person makes one in the sidebar'
-                        )
-                    );
-                }
-                sourceName = source.name;
-            }
-            const size = host.machine.nodeSize(kind);
-            const anchor = input.beside == null ? undefined : canvas.nodes.find((node) => node.id === input.beside);
-            if (input.beside != null && !anchor) {
-                throw refuseMissingNodes(content, [input.beside], canvas.id, 'the new node has nothing there to stand beside', nodeLines(canvas));
-            }
-            const caller = canvas.nodes.find((node) => node.id === actor.id) ?? null;
-            const rect = anchor
-                ? placeBeside(anchor, size)
-                : input.at !== null
-                  ? { x: Math.round(input.at.x - size.w / 2), y: Math.round(input.at.y - size.h / 2), ...size }
-                  : placeFree(canvas.nodes, size, caller);
-            const title = input.title ?? sourceName ?? (path === undefined ? (device?.name ?? DEFAULT_TITLES[kind]) : basename(path));
-            if (dryRun === true) {
-                return {
-                    content: null,
-                    result: {
-                        output: {
-                            viewId: canvas.id,
-                            view: canvas.name,
-                            nodeId: NEW_NODE,
-                            node: title,
-                            kind,
-                            edge: caller ? { edgeId: null, from: caller.id, to: NEW_NODE } : null
-                        }
-                    }
-                };
-            }
-
-            const id = newId(kind, content);
-            /* Written down under the project's lock, before the node is on disk: who made a node is
-               the whole of the rule `node delete` follows, and it may not arrive after the node does. */
-            await host.lineage.put({ projectId: place.projectId, nodeId: id, openedBy: actor.id, depth: 0, agent: false });
-            const node: ProjectNode = {
-                id,
-                kind,
-                title,
-                // A title the agent chose is not one the session may rename, the rule a person's typing follows.
-                ...(input.title === null ? {} : { titleSource: 'user' as const }),
-                ...rect,
-                ...(input.color == null ? {} : { accent: input.color }),
-                ...(input.content === null ? {} : { body: input.content }),
-                ...(url === undefined ? {} : { url }),
-                ...(path === undefined ? {} : { path: isInside(place.folder, path) ? storedPathOf(place.folder, path) : path }),
-                ...(input.source == null ? {} : { viewId: input.source }),
-                ...(device === undefined ? {} : { device }),
-                ...(cwd === undefined ? {} : { cwd })
-            };
-            const edge = caller ? openingEdge(caller.id, node, content) : null;
-            return {
-                content: withCanvas(content, { ...canvas, nodes: [...canvas.nodes, node], edges: edge ? [...canvas.edges, edge] : canvas.edges }),
-                result: {
-                    output: {
-                        viewId: canvas.id,
-                        view: canvas.name,
-                        nodeId: id,
-                        node: node.title,
-                        kind,
-                        edge: edge ? { edgeId: edge.id, from: edge.from, to: edge.to } : null
-                    }
-                }
-            };
-        });
+        const made = await createNodes(call, input.viewId, [input], false);
+        const [first] = made.nodes;
+        return { output: { viewId: made.viewId, view: made.view, nodeId: first!.nodeId, node: first!.node, kind: first!.kind, edge: first!.edge } };
+    },
+    'node.createMany': async ({ viewId, nodes }, call) => {
+        return { output: await createNodes(call, viewId, nodes, true) };
     },
     'node.rename': async ({ viewId, nodeId, name }, { context }) => {
         const { host, place } = context;

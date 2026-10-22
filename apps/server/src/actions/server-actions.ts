@@ -61,7 +61,7 @@ export const serverActions = new ActionRegistry<ServerActionContext>(
         ...contextActions
     },
     {
-        previews: ['node.create', 'node.setColor', 'plan.create', 'agent.start', 'team.start'],
+        previews: ['node.create', 'node.createMany', 'node.setColor', 'plan.create', 'agent.start', 'team.start'],
         checkRevision: checkProjectRevision,
         // Every refusal the daemon raises is coded, with what to pick instead as its lines.
         refusalOf: (error) => (error instanceof CodedError ? { code: error.code, message: error.message, details: error.lines } : null)

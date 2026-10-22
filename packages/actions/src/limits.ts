@@ -22,3 +22,6 @@ export const MAX_OPENED_PER_CALLER = 16;
  */
 export const MAX_TYPED_LENGTH = 500;
 export const MAX_KEY_COMBOS = 50;
+
+/* Nodes one call adds at once: a loop of single calls writes the project and redraws every client once per node. */
+export const MAX_NODES_PER_CALL = 100;
