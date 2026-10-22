@@ -1,6 +1,17 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ · audio goes to OpenAI via %@" : {
+      "comment" : "The first %@ is where the sound plays, as iOS names it; the second is the name of a machine",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · audio gaat via %2$@ naar OpenAI"
+          }
+        }
+      }
+    },
     "%@ already exists" : {
       "comment" : "%@ is a file name",
       "localizations" : {
@@ -186,6 +197,27 @@
         }
       }
     },
+    "Ask what runs in your projects and chats, have a chat pick up a task, start a new chat or move to another project." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vraag wat er draait in je projecten en chats, laat een chat een taak oppakken, start een nieuwe chat of ga naar een ander project."
+          }
+        }
+      }
+    },
+    "Audio goes to OpenAI via %@" : {
+      "comment" : "%@ is the name of a machine",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audio gaat via %@ naar OpenAI"
+          }
+        }
+      }
+    },
     "Battery" : {
       "localizations" : {
         "nl" : {
@@ -334,6 +366,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Contacten"
+          }
+        }
+      }
+    },
+    "Conversation ended" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gesprek beëindigd"
           }
         }
       }
@@ -648,6 +690,36 @@
         }
       }
     },
+    "Microphone muted" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Microfoon gedempt"
+          }
+        }
+      }
+    },
+    "Mute" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dempen"
+          }
+        }
+      }
+    },
+    "Mute or unmute the microphone" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Microfoon dempen of weer aanzetten"
+          }
+        }
+      }
+    },
     "No map tiles offline. The places stay listed." : {
       "localizations" : {
         "nl" : {
@@ -900,12 +972,32 @@
         }
       }
     },
+    "Ruimte may not use the microphone" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ruimte mag de microfoon niet gebruiken"
+          }
+        }
+      }
+    },
     "Save image to project" : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Afbeelding opslaan in project"
+          }
+        }
+      }
+    },
+    "Talk to your workspace" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Praat met je werkruimte"
           }
         }
       }
@@ -1442,6 +1534,26 @@
         }
       }
     },
+    "Turn on the microphone for Ruimte in Settings to talk to Voice." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zet de microfoon voor Ruimte aan in Instellingen om met Voice te praten."
+          }
+        }
+      }
+    },
+    "Unmute" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dempen opheffen"
+          }
+        }
+      }
+    },
     "Violet" : {
       "localizations" : {
         "nl" : {
@@ -1458,6 +1570,96 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Visuele antwoorden"
+          }
+        }
+      }
+    },
+    "Voice · idle" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voice · stil"
+          }
+        }
+      }
+    },
+    "Voice · listening" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voice · luistert"
+          }
+        }
+      }
+    },
+    "Voice · speaking" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voice · spreekt"
+          }
+        }
+      }
+    },
+    "Voice ended" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voice beëindigd"
+          }
+        }
+      }
+    },
+    "Voice is listening" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voice luistert"
+          }
+        }
+      }
+    },
+    "Voice is on" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voice staat aan"
+          }
+        }
+      }
+    },
+    "Voice is speaking" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voice spreekt"
+          }
+        }
+      }
+    },
+    "Voice is working" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voice is bezig"
+          }
+        }
+      }
+    },
+    "Voice stopped" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voice gestopt"
           }
         }
       }
@@ -7689,6 +7891,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Computer Use"
+          }
+        }
+      }
+    },
+    "Confirm" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bevestigen"
           }
         }
       }
@@ -21945,6 +22157,46 @@
         }
       }
     },
+    "You · idle" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jij · stil"
+          }
+        }
+      }
+    },
+    "You · listening" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jij · luistert"
+          }
+        }
+      }
+    },
+    "You · muted" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jij · gedempt"
+          }
+        }
+      }
+    },
+    "You · speaking" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jij · spreekt"
+          }
+        }
+      }
+    },
     "You stopped after %@" : {
       "localizations" : {
         "nl" : {
@@ -22029,6 +22281,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Je bewerkingen staan er nog. Sla je op over een bestand dat intussen veranderde, dan gaat die wijziging verloren."
+          }
+        }
+      }
+    },
+    "your machine" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "je machine"
           }
         }
       }
@@ -23289,6 +23551,319 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Vijf minuten geen voortgang. Hij loopt nog, en je kunt hem stoppen."
+          }
+        }
+      }
+    },
+    "Voice" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voice"
+          }
+        }
+      }
+    },
+    "Voice runs in another window" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voice loopt in een ander venster"
+          }
+        }
+      }
+    },
+    "Stop it there to talk to Voice here." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop het daar om hier met Voice te praten."
+          }
+        }
+      }
+    },
+    "Open Settings" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Instellingen"
+          }
+        }
+      }
+    },
+    "Stop Voice" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voice stoppen"
+          }
+        }
+      }
+    },
+    "Interrupted" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Onderbroken"
+          }
+        }
+      }
+    },
+    "Voice starts on %@" : {
+      "comment" : "%@ is the name of a machine",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voice start op %@"
+          }
+        }
+      }
+    },
+    "No machine offers Voice" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Geen machine biedt Voice aan"
+          }
+        }
+      }
+    },
+    "A machine offers Voice once it has an OpenAI key." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Een machine biedt Voice aan zodra hij een OpenAI-sleutel heeft."
+          }
+        }
+      }
+    },
+    "Start Voice" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voice starten"
+          }
+        }
+      }
+    },
+    "Show Voice" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voice tonen"
+          }
+        }
+      }
+    },
+    "Ruimte may not use the microphone. Turn it on in Settings to talk to Voice." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ruimte mag de microfoon niet gebruiken. Zet hem aan in Instellingen om met Voice te praten."
+          }
+        }
+      }
+    },
+    "Voice is off" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voice staat uit"
+          }
+        }
+      }
+    },
+    "Connecting to Voice" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verbinden met Voice"
+          }
+        }
+      }
+    },
+    "Listening" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Luistert"
+          }
+        }
+      }
+    },
+    "Stopping Voice" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voice stopt"
+          }
+        }
+      }
+    },
+    "Language" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Taal"
+          }
+        }
+      },
+      "comment" : "The language Voice speaks"
+    },
+    "Changes apply when you start the next conversation. Only an active conversation sends microphone audio to OpenAI." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wijzigingen gelden vanaf het volgende gesprek. Alleen een lopend gesprek stuurt microfoonaudio naar OpenAI."
+          }
+        }
+      }
+    },
+    "OpenAI key" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI-sleutel"
+          }
+        }
+      }
+    },
+    "The key stays on the machine and never reaches this phone. Set it in Ruimte on that computer, under Settings, Voice, or there with ruimte voice key set." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De sleutel blijft op de machine en komt nooit op deze telefoon. Stel hem in Ruimte op die computer in, onder Instellingen, Voice, of daar met ruimte voice key set."
+          }
+        }
+      }
+    },
+    "Set" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ingesteld"
+          }
+        }
+      },
+      "comment" : "An OpenAI key is set on a machine"
+    },
+    "Not set" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Niet ingesteld"
+          }
+        }
+      }
+    },
+    "A call or another app took the audio, so Voice stopped." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Een gesprek of een andere app nam de audio over, dus Voice is gestopt."
+          }
+        }
+      }
+    },
+    "The audio of this device restarted, so Voice stopped." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De audio van dit apparaat is opnieuw gestart, dus Voice is gestopt."
+          }
+        }
+      }
+    },
+    "Something else in Ruimte took the audio, so Voice stopped." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Iets anders in Ruimte nam de audio over, dus Voice is gestopt."
+          }
+        }
+      }
+    },
+    "The audio connection to OpenAI dropped, so Voice stopped." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De audioverbinding met OpenAI viel weg, dus Voice is gestopt."
+          }
+        }
+      }
+    },
+    "The machine did not start Voice in time." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De machine startte Voice niet op tijd."
+          }
+        }
+      }
+    },
+    "Voice stopped on the machine." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voice is gestopt op de machine."
+          }
+        }
+      }
+    },
+    "Voice runs in another window." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voice loopt in een ander venster."
+          }
+        }
+      }
+    },
+    "Ruimte may not use the microphone." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ruimte mag de microfoon niet gebruiken."
+          }
+        }
+      }
+    },
+    "The connection to the machine dropped, so Voice stopped." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De verbinding met de machine viel weg, dus Voice is gestopt."
           }
         }
       }

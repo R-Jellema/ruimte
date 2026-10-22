@@ -1,4 +1,3 @@
-import { VoiceCompletionDelivery } from '@/voice/completion-delivery';
 import { endpointById } from '@/state/endpoints';
 import { splitKey } from '@/state/keys';
 import { pool, transportFor } from '@/transport';
@@ -16,27 +15,30 @@ import { sessionStatus, useSessions } from '@/state/sessions';
 import { activeViewOf, useDocument } from '@/state/document';
 import { useProject } from '@/state/project';
 import { useSettings } from '@/state/settings';
-import { LiveSession, type LiveEvent } from '@/voice/live-session';
+import { LiveSession } from '@/voice/live-session';
 import { MicrophoneMonitor, WaveformMonitor } from '@/audio/microphone';
 import { silentBands } from '@/audio/waveform';
 import { microphoneFailureText } from '@/audio/microphone-failure';
 import { ResponseToolLoop } from '@/voice/response-tool-loop';
-import { chatCompletion, type VoiceChatFollowUp } from '@/voice/chat-follow-up';
+import { chatCompletion, chatWaits } from '@/voice/chat-follow-up';
 import { addTranscriptDelta, nextVoiceTimelineOrder, useVoice, type VoiceAction, type VoiceActionKind } from '@/voice/state';
 import { bypassesQueue, executeVoiceTool } from '@/voice/tools';
 import { currentVoiceDomains } from '@/voice/domains';
+import { voicePreferencesForStart } from '@/voice/machine-preferences';
 import { finishVoiceDiagnostics, noteVoiceError, startVoiceDiagnostics, voiceDeliveryObserver, voiceDiagnosticsObserver } from '@/voice/diagnostics-log';
 import {
-    chatWaits,
     settledPrompt,
     SETTLED_COMMENTARY,
     terminalWaits,
+    VoiceCompletionDelivery,
     VoiceSessionWatch,
     waitingPrompt,
     WAITING_COMMENTARY,
+    type LiveEvent,
+    type VoiceChatFollowUp,
     type VoiceSessionChange,
     type VoiceWatchedSession
-} from '@/voice/session-watch';
+} from '@ruimte/voice';
 
 let session: LiveSession | null = null;
 let releaseMicrophone: (() => void) | null = null;
@@ -317,10 +319,6 @@ export async function startVoice(): Promise<void> {
             }
         }
     );
-    completionDelivery = new VoiceCompletionDelivery((event) => next.send(event), {
-        language: useSettings.getState().voiceLanguage,
-        observer: voiceDeliveryObserver
-    });
     sessionWatch = new VoiceSessionWatch();
     const queue = new VoiceToolQueue(voiceWorkspaceRevision);
     toolQueue = queue;
@@ -356,14 +354,14 @@ export async function startVoice(): Promise<void> {
             stream.getTracks().forEach((track) => track.stop());
             return;
         }
-        const { voiceLanguage, liveVoice } = useSettings.getState();
-        const domains = await currentVoiceDomains();
+        const [{ language, voice }, domains] = await Promise.all([voicePreferencesForStart(), currentVoiceDomains()]);
         if (session !== next) {
             next.close();
             return;
         }
+        completionDelivery = new VoiceCompletionDelivery((event) => next.send(event), { language, observer: voiceDeliveryObserver });
         startVoiceDiagnostics(domains);
-        await next.start(stream, { language: voiceLanguage, voice: liveVoice, domains });
+        await next.start(stream, { language, voice, domains });
         if (session !== next) {
             next.close();
             return;

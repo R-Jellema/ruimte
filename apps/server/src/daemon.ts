@@ -33,6 +33,8 @@ import type { DaemonRuntime } from './wiring/runtime.ts';
 import { wireProcesses } from './wiring/processes.ts';
 import { wireUsage } from './wiring/usage.ts';
 import { wireUsageStats } from './wiring/usage-stats.ts';
+import { wireVoice } from './wiring/voice.ts';
+import { registerVoiceHandlers } from './handlers/voice.ts';
 
 /*
  * Runs the daemon until a signal ends the process. The wiring modules are called in boot order; a
@@ -134,6 +136,8 @@ export async function startDaemon(config: ServerConfig, launcher: Launcher = 'st
     sessions.observe((event) => work.tasks.terminals.sessionEvent(event));
     chats.observe((event) => push.consume(event));
     processes.processes.observeAlerts((alerts) => push.processAlerts(alerts));
+    // Its tools run through the host the agents' verbs reach.
+    const voice = wireVoice({ config, projects: projects.store, machine: identity, canvasHost, chats });
     const power = wirePower(home, identity, agents);
     sessions.observe((event) => computer.observe(event));
     chats.observe((event) => computer.observe(event));
@@ -166,6 +170,7 @@ export async function startDaemon(config: ServerConfig, launcher: Launcher = 'st
         stats,
         later: { network: () => network, clients: () => clients }
     });
+    registerVoiceHandlers(dispatcher, voice);
     const language = await wireLanguage({
         home,
         compiled,
@@ -188,6 +193,8 @@ export async function startDaemon(config: ServerConfig, launcher: Launcher = 'st
         peers: projects.store.peers,
         remote: remote.status,
         peerTasks: work.peerTasks,
+        voice: voice.sessions,
+        voicePreferences: voice.preferences,
         sessions,
         chats,
         browsers: devices.browsers,
@@ -243,7 +250,7 @@ export async function startDaemon(config: ServerConfig, launcher: Launcher = 'st
         chats,
         now: Date.now
     }).catch((e) => console.error('Removing old hidden agent chats failed:', errorText(e)));
-    const server = serveDaemon({ runtime, machine, stores, agents, projects, devices, processes, power, network, clients, canvasHost });
+    const server = serveDaemon({ runtime, machine, stores, agents, projects, devices, processes, power, network, clients, canvasHost, voice });
 
     // The first read runs now, so a page opened straight after a start already has the plan on it.
     usage.limits.start();
@@ -297,6 +304,8 @@ export async function startDaemon(config: ServerConfig, launcher: Launcher = 'st
                 console.error(`${what} on shutdown failed:`, errorText(e));
             }
         };
+        // Before the sessions go: a Voice session left open at OpenAI keeps costing.
+        await step('Ending Voice sessions', async () => voice.sessions.stopAll());
         await step('Settling tasks', () => work.tasks.coordinator.settled());
         await step('Writing terminal snapshots', () => agents.snapshotSchedule.flush());
         await step('Writing chats', () => chats.shutdown());

@@ -49,7 +49,7 @@ final class PadRouter {
         } else {
             navigation = WorkspaceNavigation(workspace: workspace)
             project = navigation
-            inspector = nil
+            leaveProjectInspector()
             file = nil
             subagent = nil
         }
@@ -78,7 +78,7 @@ final class PadRouter {
     /// Leaves the project, for the sidebar's back button, one that was closed or a machine that went.
     func closeProject() {
         project = nil
-        inspector = nil
+        leaveProjectInspector()
         file = nil
         subagent = nil
         if detail == .project { detail = .now }
@@ -133,7 +133,8 @@ final class PadRouter {
 
     /// The inspector only stands beside a project's content.
     var showsInspector: Bool {
-        guard detail == .project, let inspector else { return false }
+        guard let inspector else { return false }
+        guard detail == .project else { return false }
         if case .subagent = inspector { return true }
         return offersFilesAndGit
     }
@@ -141,6 +142,11 @@ final class PadRouter {
     /// A sub-agent of the chat in the content, beside it in the inspector.
     func inspect(_ pane: PadSubagentPane) {
         inspector = .subagent(pane)
+    }
+
+    /// What belongs to the project leaves with it.
+    private func leaveProjectInspector() {
+        inspector = nil
     }
 
     /// A sub-agent belongs to the chat it ran in, so it leaves the inspector with that chat.

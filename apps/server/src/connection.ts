@@ -99,6 +99,10 @@ export interface ConnectionServices {
     remote?: Subscribable;
     /* The projects another machine's channel held for the tasks it gave, which go with the channel. */
     peerTasks?: { channelClosed(clientId: string): void };
+    /* The Voice sessions a client started, which end with its channel: there is no resume. */
+    voice?: { channelClosed(clientId: string): void };
+    /* How Voice on this machine talks, which every client hears change. */
+    voicePreferences?: Subscribable;
 }
 
 export interface OpenConnection {
@@ -195,7 +199,8 @@ export function connectionOpener(services: ConnectionServices): (channel: Client
                       services.snoozes?.subscribe(clientId, sink) ?? (() => undefined),
                       services.prWatches?.subscribe(clientId, sink) ?? (() => undefined),
                       services.peers?.subscribe(clientId, sink) ?? (() => undefined),
-                      services.remote?.subscribe(clientId, sink) ?? (() => undefined)
+                      services.remote?.subscribe(clientId, sink) ?? (() => undefined),
+                      services.voicePreferences?.subscribe(clientId, sink) ?? (() => undefined)
                   ];
 
         channel.onDrain(() => {
@@ -218,6 +223,8 @@ export function connectionOpener(services: ConnectionServices): (channel: Client
             services.statuses.detachAll(clientId);
             if (access.peer !== undefined) {
                 services.peerTasks?.channelClosed(clientId);
+            } else {
+                services.voice?.channelClosed(clientId);
             }
             void services.databases?.release(clientId);
             for (const unsubscribe of unsubscribes) {

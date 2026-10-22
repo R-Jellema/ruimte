@@ -1,11 +1,15 @@
 import {
     isCanvasView,
     isHiddenCanvasView,
+    type AgentInfo,
     type AgentKind,
+    type ChatDelivery,
+    type ChatInfo,
     type ContextSource,
     type AgentStatus,
     type BrowserDriveAction,
     type ChatAttachment,
+    type ChatItem,
     type ChatForkResult,
     type ChatVisual,
     type CliVersion,
@@ -123,6 +127,12 @@ export interface CanvasHost {
     agents?: AgentStateHost;
     /* What the chats of agent nodes ask and wait on, which `answer` reaches. */
     requests?: ChatRequestHost;
+    /* The thread of a chat, loaded or only on disk, for a reader that does not attach and wakes nothing; absent on a host without chats. */
+    chatThreads?: ChatThreadHost;
+    /* What a terminal agent does, which Voice reads where a window would read its status. */
+    terminals?: TerminalAgentHost;
+    /* Prompting or clearing a chat, which only Voice does through an action; an agent sends through `notify`. */
+    chatPrompts?: ChatPromptHost;
     /* Forks a chat an agent opened into a child of that agent; absent on a host that forks none. */
     forks?: AgentForkHost;
     /* Operating the apps of this machine through its helper; absent on a host without one. */
@@ -155,6 +165,25 @@ export interface CanvasHost {
     untrusted?: Pick<UntrustedFolders, 'node' | 'inFolder' | 'fromPeer'>;
     /* When a person's snooze on a node ends, in epoch milliseconds; absent on a host without snoozes. */
     snoozes?: Pick<SnoozeStore, 'until'>;
+}
+
+/* A chat's items and info as they stand, whether its CLI runs or the chat is only a record; null for no chat of that id. */
+export interface ChatThreadHost {
+    items(chatId: string): Promise<ChatItem[] | null>;
+    info?(chatId: string): Promise<ChatInfo | null>;
+}
+
+/* A prompt into a chat the machine runs, the way a person's composer sends one; Voice prompts no chat that is only a record. */
+export interface ChatPromptHost {
+    running(chatId: string): boolean;
+    send(chatId: string, text: string, delivery: ChatDelivery | undefined): Promise<{ queued: boolean; turnId: string }>;
+    /* The daemon's own `chat.clear`, stopping a turn in the way: whoever calls it asked the person first. */
+    clear(chatId: string): Promise<void>;
+}
+
+/* The agent a terminal runs as its hooks last told it; null for a plain shell, undefined for no session of that id. */
+export interface TerminalAgentHost {
+    agentOf(sessionId: string): AgentInfo | null | undefined;
 }
 
 /* The projects of this machine; every write of a verb goes through `mutate`, which refuses a document that moved past `expectedRev`. */

@@ -20,7 +20,7 @@ describe('createOpenAiLiveSession', () => {
         expect(JSON.parse(String(requests[0]?.body))).toMatchObject({
             session: {
                 model: 'gpt-live-1',
-                instructions: expect.stringContaining('standard accent of a native Dutch speaker'),
+                instructions: expect.stringContaining('standard accent of a speaker from the Netherlands, never a Flemish or Belgian accent'),
                 audio: { output: { voice: 'cedar' } },
                 delegation: {
                     type: 'responses',
@@ -93,5 +93,30 @@ describe('liveTools', () => {
     test('sends the tools of the named domains, and every tool to a page that named none', () => {
         expect(liveTools({ language: 'nl', voice: 'marin', domains: ['workspace'] }).map((tool) => tool.name)).toEqual(['inspect_workspace', 'control_action']);
         expect(liveTools({ language: 'nl', voice: 'marin' })).toEqual(voiceToolDefinitions());
+    });
+});
+
+/*
+ * The desktop's tools and mint body are held byte for byte, so a change to how Voice tools are built for
+ * the daemon never changes what the desktop offers without a reviewed snapshot update.
+ */
+describe('the desktop GPT-Live session', () => {
+    test('offers the same tools, byte for byte', () => {
+        expect(JSON.stringify(liveTools({ language: 'nl', voice: 'marin' }))).toMatchSnapshot();
+        expect(JSON.stringify(liveTools({ language: 'nl', voice: 'marin', domains: ['workspace', 'communicate', 'sessions'] }))).toMatchSnapshot();
+    });
+
+    test('mints with the same body, byte for byte', async () => {
+        let body = '';
+        await createOpenAiLiveSession(
+            async (_input, init) => {
+                body = String(init.body);
+                return Response.json({ session: { id: 'live-1' }, transport: { type: 'webrtc', sdp: 'answer' } });
+            },
+            'sk-private',
+            'offer',
+            { language: 'nl', voice: 'cedar', domains: ['workspace', 'agents'] }
+        );
+        expect(body).toMatchSnapshot();
     });
 });

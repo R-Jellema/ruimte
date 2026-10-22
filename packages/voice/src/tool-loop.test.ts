@@ -1,19 +1,29 @@
 import { describe, expect, test } from 'bun:test';
-import type { LiveEvent } from '@/voice/live-session';
-import { ResponseToolLoop, type ToolLoopObserver } from '@/voice/response-tool-loop';
+import { VOICE_CONTROL_TOOL, VOICE_TOOL_ACTIONS } from '@ruimte/actions';
+import type { LiveEvent } from './live-event.ts';
+import { VoiceToolLoop, type ToolLoopObserver, type VoiceToolExecute, type VoiceToolSend } from './tool-loop.ts';
+
+const toolNames = new Set<string>([...VOICE_TOOL_ACTIONS.keys(), VOICE_CONTROL_TOOL]);
+
+/* The loop as the desktop's window builds it, over the tools it offers. */
+class ResponseToolLoop extends VoiceToolLoop {
+    constructor(send: VoiceToolSend, execute: VoiceToolExecute, observer: ToolLoopObserver | null = null) {
+        super(send, execute, { toolNames, observer });
+    }
+}
 
 function flush(): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
-describe('ResponseToolLoop', () => {
+describe('VoiceToolLoop', () => {
     test('executes a completed function call and continues after its response completes', async () => {
         const sent: LiveEvent[] = [];
         const calls: unknown[] = [];
         const loop = new ResponseToolLoop(
             (event) => sent.push(event),
-            async (name, args) => {
-                calls.push({ name, args });
+            async (name, args, callId) => {
+                calls.push({ name, args, callId });
                 return { ok: true, message: 'Focused Chat Test' };
             }
         );
@@ -41,7 +51,8 @@ describe('ResponseToolLoop', () => {
         expect(calls).toEqual([
             {
                 name: 'manage_views',
-                args: '{"action":"view.focus","viewId":"chat-test"}'
+                args: '{"action":"view.focus","viewId":"chat-test"}',
+                callId: 'call-1'
             }
         ]);
         expect(sent[0]).toMatchObject({

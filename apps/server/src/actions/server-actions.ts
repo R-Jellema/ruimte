@@ -26,6 +26,7 @@ import { startActions } from './start-actions.ts';
 import { taskActions } from './task-actions.ts';
 import { viewActions } from './view-actions.ts';
 import { visualActions } from './visual-actions.ts';
+import { voiceActions } from './voice-actions.ts';
 import { worktreeActions } from './worktree-actions.ts';
 
 /*
@@ -58,7 +59,8 @@ export const serverActions = new ActionRegistry<ServerActionContext>(
         ...databaseActions,
         ...languageActions,
         ...providerActions,
-        ...contextActions
+        ...contextActions,
+        ...voiceActions
     },
     {
         previews: ['node.create', 'node.createMany', 'node.setColor', 'plan.create', 'agent.start', 'team.start'],

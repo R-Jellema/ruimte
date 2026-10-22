@@ -170,9 +170,10 @@ extensions are `app.ruimte.mobile.notifications` and `app.ruimte.mobile.activity
 signing. `project.yml` is the source of the committed Xcode project: regenerate it when adding files or
 dependencies, and commit the generated project and resolved packages without user state or build products.
 
-SwiftTerm is pinned to 1.15.0, Highlightr to 2.3.0, Sentry to 9.30.2 and WebRTC to 153.0.0. SwiftTerm's shaders need Apple's
-separate Metal Toolchain. Icons use [LucideSwift](https://github.com/ajaxjiang96/lucide-swift) 0.9.5 with upstream
-icons 1.46.0; the notices are in `App/Design/Lucide-LICENSE.txt`.
+SwiftTerm is pinned to 1.15.0, Highlightr to 2.3.0, Sentry to 9.30.2, WebRTC to 153.0.0 and LiveKit's WebRTC build to
+150.7871.03. SwiftTerm's shaders need Apple's separate Metal Toolchain. Icons use
+[LucideSwift](https://github.com/ajaxjiang96/lucide-swift) 0.9.5 with upstream icons 1.46.0; the notices are in
+`App/Design/Lucide-LICENSE.txt`.
 
 ```sh
 xcodebuild -project apps/ios/Ruimte.xcodeproj -scheme Ruimte -configuration Debug \
@@ -216,6 +217,67 @@ plural variations. Names, paths, git refs, wire values, model and CLI names and 
 are. The Dutch follows the glossary in `apps/client/src/i18n/README.md`. `LocalizationTests` fails when a key has no
 Dutch or when its Dutch drops or adds a placeholder.
 
+## Voice
+
+Voice on a phone is run by the machine (`voice.start`, `voice.stop`, `voice.confirm`, and the `voice.status` and
+`voice.activity` events, in `packages/contracts/src/voice.ts`). The machine mints the GPT-Live session with an OpenAI
+key it holds itself (from the desktop app's settings or `ruimte voice key set`), runs every tool and reports. The
+phone carries only the microphone, the reply and the captions, over a WebRTC peer of its own to OpenAI in
+`RuimteVoice` (`VoiceMediaPeer`, with a factory apart from the machine link's), and runs no tool: a function call on
+its `oai-events` channel is ignored. `RuimteTransport` stays without audio.
+
+- The mic shows on Now and in a project only where the machine answers `voice.start` and `voice.keyStatus` says it
+  holds a key; a machine without a key offers no mic. The mic and ⌘⇧M open the Voice sheet (`VoicePanel`), the same
+  on an iPhone and an iPad, and Start Voice there starts. In a project the sheet proposes that project as the starting
+  point; on Now, or ⌘⇧M without a project, the machine of the project opened last (else the first machine that offers
+  Voice) without one, and the machine starts in its project opened last. As on the desktop there is no project to
+  choose: a session talks about every project in use on its machine and moves between them, and the place the sheet
+  and the Live Activity name follows `project` in `voice.status`. With more than one machine offering Voice, the idle
+  sheet names the machine a start goes to. No machine that offers Voice, no mic.
+- One session per app process, owned by the scene that started it (`VoiceCoordinator`). Every request after
+  `voice.start` names the scene, and the events count only for the owner's scene and session, since the scenes of an
+  iPad share one link. Another scene shows where Voice runs and does not take the microphone over.
+- `AudioSessionController` holds the app's one audio session, `playAndRecord` in `voiceChat` on the speaker, with
+  WebRTC's manual audio on, so the microphone and speaker start only while a session runs and the audio goes back to
+  what played before with `notifyOthersOnDeactivation`. The same configuration is WebRTC's own
+  (`LKRTCAudioSessionConfiguration.setWebRTC`), since its audio unit applies that one when audio turns on and would
+  otherwise drop the speaker for the earpiece. A file that plays while Voice runs keeps Voice's category, and anything
+  that sets another category ends Voice rather than leaving it without a microphone.
+- Voice goes on in the background and on a locked screen: the app declares the `audio` background mode, and while a
+  session runs the coordinator holds the machine links open as a scene of its own (`VoiceCoordinator.linkScene`), so
+  they stay up with every scene in the background. A call or another app taking the audio, the machine link or the
+  media dropping end Voice. What it started on the machine goes on.
+- Mute turns the microphone track off (`VoiceMedia.muted`) and keeps the session, the reply and the audio session.
+- The sheet has one timeline: what was said, and each action under the Voice line that was the last line when the
+  phone first heard of it, or under Voice's answer when the person spoke last (`VoiceTimeline`). The entry's `at` is
+  on the machine's clock and the captions on the phone's, so arrival orders them. An ended conversation stays, with a
+  marker and why it ended, until the next start. The band is the desktop's (`VoiceWaveform`, with the math of
+  `VoiceWaveformBands` held to `idle-waveform.ts` by a fixture): 40 columns, the person above the line and Voice below,
+  eased every frame, the idle patterns while Voice does not listen, still under Reduce Motion. While Voice listens the
+  band is measured as the desktop's `WaveformMonitor` measures it (`VoiceWaveformMeter`, held to `timeDomainBands` and
+  `easeBands` of `apps/client/src/audio/waveform.ts` by a fixture): every 32 ms while the sheet shows, the newest 256
+  samples of each side, in 40 slices. The peer takes the microphone after Apple's voice processing, as the model hears
+  it, from a tap on the node that feeds WebRTC in LiveKit's audio engine, and the reply from a renderer on its track; the
+  engine hands its tap about 100 ms at a time, so the person's half moves a little slower than on the desktop. Only the
+  newest 256 samples of each stay in memory (`VoiceSampleWindow`), and nothing is kept or logged. Voice on a machine
+  deletes nothing yet, so there is no switch for asking before a deletion.
+- The mic in the bar stands out in Voice's color while a session runs; outside the app the Live Activity shows it
+  (`VoiceLiveActivities`, local only, no push). It starts once the session is active, follows the phase (listening,
+  speaking, an action with its label, stopping), whether the microphone is muted, the project and the time, and ends
+  with a short final state when Voice ends. Its Mute and Stop are `LiveActivityIntent`s in `Shared/VoiceLive`, which
+  the app and the widget extension both compile; they run in the app's process. A tap opens the sheet
+  (`ruimte://voice`). `VoiceLiveAttributes` lives in `RuimtePulsar` beside `RuimteActivityAttributes`.
+- Language and voice are the machine's (`voice.preferences`, `voice.setPreferences` and the `voice.preferences` event
+  every client of the machine hears), shown per machine in Settings, Voice beside its key. A machine that stores none
+  shows the device's language with marin, which a start then sends; the machine's stored choice always comes first.
+  The phone keeps no copy of its own.
+- For now only a Debug build declares the microphone (`INFOPLIST_KEY_NSMicrophoneUsageDescription` in the Debug
+  configuration of `project.yml`), until a release carries the privacy label that comes with it (audio data shared
+  with OpenAI). A build without the declaration never offers Voice, the build phase "Release declares no microphone"
+  fails a Release build that does, and `MicrophoneDeclarationTests` holds the spec.
+
+Run the package's tests with `swift test --package-path apps/ios/Packages/RuimteVoice`.
+
 ## Native Apple sign-in
 
 Apple uses the system authorization sheet, with no browser callback. The app asks Pulsar for a one-time nonce and
@@ -245,8 +307,16 @@ web fallback when the native service is unavailable. `apps/pulsar-worker/README.
   pairing, bound to the machine ID and both public keys, so later attempts need no account request. A revoked
   pairing stays a refusal; the app does not regain access through another statement. The statement goes into the
   offer as the address book answered it, v2 fields included, and those fields stay out of the signed signal bytes.
-- `stasel/WebRTC` is pinned to `153.0.0`, commit `4266157cd08f92115de885ab12d87196a8db87e1`. The adapter exchanges
-  no audio or video and declares no microphone, camera or background-audio capability.
+- `stasel/WebRTC` is pinned to `153.0.0`, commit `4266157cd08f92115de885ab12d87196a8db87e1`, in `RuimteTransport`.
+  The machine link exchanges no audio or video and declares no microphone, camera or background-audio capability;
+  only Voice's own peer carries audio.
+- `RuimteVoice` uses LiveKit's build of WebRTC instead (`livekit/webrtc-xcframework`, MIT, pinned to `150.7871.03`,
+  commit `a41df9e9bcc7ab1d62131fda75c123ea391e5188`), since only it hands an app the samples of both sides: a renderer
+  on an audio track, and its AVAudioEngine device (`.audioEngine`), whose observer wires the engine's nodes and may tap
+  the microphone. The platform device hands the microphone to no processing delegate or track sink while Apple's voice
+  processing runs, which was tried on a device. Its classes carry an `LK` prefix (`LKRTCPeerConnectionFactory`), so the
+  two frameworks live side by side, each with its own audio session object; the app ships both, about 12 MB each for
+  an arm64 device. The engine keeps Apple's voice processing.
 - `packages/contracts/scripts/generate-swift.ts` generates the daemon API, JSON schemas, constants and fixtures, and
   the closed vocabularies of the agent, task, plan and chat schemas as Swift enums, so a switch stops compiling when
   a case is added. `AgentKind`, `RuntimeMode`, `AgentStatus` and icon names are open on the wire (`x-open-enum`), so
@@ -265,7 +335,7 @@ exchange. `/v1/providers` decides which sign-in options show.
 - One ed25519 key serves the account session and machine access. There is no separate trusted shell process, so no
   second key as in the desktop app.
 - A visible iPad scene keeps held links alive when another scene backgrounds. Once every scene is in the background,
-  connections close. No background audio, VoIP or other workaround keeps them.
+  connections close, unless Voice runs. No VoIP or other workaround keeps them.
 - `NWPathMonitor` reports path changes only; it does not observe libwebrtc's own sockets.
 - Push alerts use AES-256-GCM because Bun offers no ChaCha20-Poly1305 through `node:crypto`.
 - The app validates `chat.attach` and `chat.history` whole, so a chat item kind or enum value it does not know rejects

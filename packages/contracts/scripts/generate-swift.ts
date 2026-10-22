@@ -13,6 +13,7 @@ import { REQUEST_SCHEMAS, EVENT_SCHEMAS } from '../src/index.ts';
 import { RuntimeModeSchema } from '../src/model.ts';
 import { MachineUpdateStatusSchema } from '../src/machine-update.ts';
 import { PushNotifyKindSchema } from '../src/push.ts';
+import { VoiceActivityKindSchema, VoiceActivityStatusSchema, VoicePhaseSchema } from '../src/voice.ts';
 import { BYTES_CHUNK_MAX, BYTES_READ_MAX_BYTES, BYTES_REPLY_KIND, BYTES_REPLY_MAX_BYTES, CHAT_MODEL_MAX_BYTES } from '../src/bytes.ts';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
@@ -268,7 +269,10 @@ const openVocabularies: ReadonlyMap<unknown, readonly string[]> = new Map<unknow
     [MachineUpdateStatusSchema, MachineUpdateStatusSchema.options],
     [PushNotifyKindSchema, PushNotifyKindSchema.options],
     [ProjectIconNameSchema, PROJECT_ICON_NAMES],
-    [UsageProviderSchema, UsageProviderSchema.options]
+    [UsageProviderSchema, UsageProviderSchema.options],
+    [VoicePhaseSchema, VoicePhaseSchema.options],
+    [VoiceActivityKindSchema, VoiceActivityKindSchema.options],
+    [VoiceActivityStatusSchema, VoiceActivityStatusSchema.options]
 ]);
 // Keep the complete daemon API dynamic: thousands of nested Swift declarations slow every app build.
 const apiRoots: Record<string, z.ZodType> = {};

@@ -102,6 +102,7 @@ npx ruimte service uninstall
 npx ruimte closed-lid install             # let keep awake hold a closed lid on a Mac (asks for sudo)
 npx ruimte closed-lid remove
 npx ruimte notify [--node <id>] <text>   # a notification from a script, which opens that node
+npx ruimte voice key set|clear|status     # the OpenAI key of Voice run by the daemon
 npx ruimte --version
 ```
 
@@ -114,6 +115,8 @@ A bare `ruimte` at a terminal prints the address it listens on and names the com
 `ruimte notify` raises a notification the way an agent's `ruimte-context alert` does: on every window of the app and as a push to the phones, under the node's title. It asks the daemon on the local secret (`POST /machine/notify`) and refuses without it, so only a process of the person whose `RUIMTE_HOME` that is may notify. The notification opens a node, so it always names one: `--node <id>`, or else the terminal of Ruimte the script runs in (`RUIMTE_SESSION_ID`). The text is at most 500 characters. It exits 0 once the daemon queued it, which does not say a device showed it, and 1 without a secret, a node, a daemon that answers, or a project that holds the node.
 
 `ruimte service install` copies `ruimte`, `ruimte-context` and `ruimte.build` to `$RUIMTE_HOME/bin`. It writes the LaunchAgent or systemd user unit the desktop app writes, pointing at that copy and never at the npx cache. The unit carries the flags after `install`, the PATH of the shell it ran in (without npx's own folders) and `RUIMTE_SERVICE=1`. Running it again with a newer version replaces the copy, and the daemon under the service moves to it once idle; different flags restart the service. It refuses to touch a service that runs another program, such as the desktop app's. On Linux it prints `loginctl enable-linger <user>` when lingering is off and leaves turning it on to you. `uninstall` stops the service and removes the definition and the copy, and leaves the rest of `$RUIMTE_HOME` alone. `status` exits 0 only when the service is installed and answers on `--port`.
+
+`ruimte voice key set` saves the OpenAI key Voice run by the daemon mints its sessions with, in `$RUIMTE_HOME/voice/openai.json` (0600 in a 0700 folder, `src/voice/key-store.ts`). It asks for the key without echo at a terminal and otherwise reads it from stdin (`pbpaste | ruimte voice key set`); a key given as an argument is refused, since a shell keeps it in its history. `status` says only whether a key is set and `clear` removes it. The daemon reads the file at every start of a Voice session, so a running daemon needs no restart. The desktop app hands the key from its settings to the daemon it runs (`POST /machine/voice-key`, on the local secret); nothing reads a CLI's credentials.
 
 `ruimte context` is the agent-side CLI behind the `ruimte-context` script (see "Context links").
 
@@ -194,6 +197,8 @@ $RUIMTE_HOME/
   notices/<nodeId>.json            0700, messages left for a node until its agent picks them up
   database-access/<projectId>.json 0700, what agents may do with each connection (see "Databases")
   secrets/<hash>.json              0700 folder, 0600 files: the secrets of a project's launches (see "Launch secrets")
+  voice/openai.json                0700 folder, 0600 file: the OpenAI key of Voice run by the daemon (`ruimte voice key`)
+  voice/preferences.json           the language and voice Voice speaks on this machine (`voice.setPreferences`)
   database-snapshots/<projectId>/<connectionId>/<database>.json
                                    schema snapshots the SQL language servers read
   chats/                           0700
@@ -416,6 +421,29 @@ The key is a 0600 file in `$RUIMTE_HOME/nanogpt` beside the model list, each con
 How far a chat goes alone is the person's to set per machine in Settings, Providers (`nanogpt/settings.json`, `nanogpt.configure` with `settings`): a run is cut after `roundsPerRun` tool rounds (40 by default, 5 to 200) so a loop that never ends cannot spend the subscription, and with automatic continuing on (the default) the chat goes on by itself for up to `runs` runs (5 by default, 1 to 20) and notes it in the thread. A change holds from the next run. Each model carries a `vendor`, the publisher in its slug under one name (`src/providers/nanogpt-vendor.ts`), which the model picker groups by; with more than eight models the picker shows the picked one and the default behind a row that opens all of them.
 
 The usage page reads two things. Every call appends a line to `nanogpt/usage/<year>-<month>.jsonl`, which the scanner reads like a transcript, so tokens per model and per day show without a price (a flat subscription has none). The plan windows (daily and weekly input tokens) come from `/usage` with the key, on the limits monitor's clock.
+
+## Voice for a phone
+
+`src/voice`, `src/wiring/voice.ts` and `src/handlers/voice.ts`. A phone opens its own WebRTC peer to OpenAI for audio and captions; the daemon mints the GPT-Live session with the key it holds (from the desktop app's settings or `ruimte voice key`), attaches to its sideband (`wss://api.openai.com/v1/live/sessions/<id>/attach`) and runs every tool call itself. A phone offers Voice only for a machine whose `voice.keyStatus` says it holds a key.
+
+- `voice.start` answers the phone's offer only once the sideband is attached, within 20 seconds. A `voice.stop` by `startId` cancels a start that has not answered, and the cancel is kept, so a mint that answers late is closed again and never becomes a session. One start is kept per connection, scene and start id; the same id with other fields is `voice-start-conflict`. A scene runs one session and the machine four.
+- How Voice talks is the machine's: `{ language, voice }` in `$RUIMTE_HOME/voice/preferences.json` (`src/voice/preferences-store.ts`), read with `voice.preferences` and set with `voice.setPreferences` by any client but another machine, and every client hears a change as the `voice.preferences` event. A session speaks the stored preferences, else the `language` and `voice` its start names, else English with marin. The desktop's Voice reads them too; Speech to Text keeps its own language.
+- A session belongs to the connection and the scene that started it: only they stop it, answer its questions and hear `voice.status` and `voice.activity`. A connection that goes ends its sessions; there is no resume.
+- A session talks about every project in use on this machine and works in one of them at a time. `projectId` in `voice.start` is only where it starts, the project on the phone's screen; without it the session starts in the project opened last, or in none. `project.list` and `project.switch` move it to another project of this machine, never of another. The session holds its current project the way a client does, without starting its launches, and lets go of it when it moves on or ends. `voice.status` names the current project in `project` (null for none).
+- Tool calls go through the shared `serverActions` as the voice actor (`voiceActionCall` in `src/actions/context.ts`), behind the policy of `src/voice/action-policy.ts`, derived from `DAEMON_VOICE_ACTIONS` in `@ruimte/voice`. It checks the action and its fields before the registry sees a call and again before a confirmation. The reads (`project.list`, `workspace.inspect`, `target.resolve`, `chat.read`, `chat.inspect`, `agents.inspect`), `project.switch`, `chat.send` and `chat.clear` have daemon handlers only the voice actor reaches (`src/actions/voice-actions.ts`), over the current project of the session and the canvas actions land on (the phone's in the project it started in, else the project's first); `agent.start` is the agents' own handler, open to Voice for a supervised AI Chat only.
+- `chat.clear` clears a chat of the current project that runs on this machine through the daemon's own clear, which stops a turn in the way, and keeps its node or view. It always asks first. The `voice.activity` line of that call carries the question (`confirmation`, with its token) while it waits, and the phone answers it with `voice.confirm`; the model answers it with its control tool. Either answer is void once the current project or its revision moved on, and the next line of that id says what became of it.
+- A chat Voice started has the session (`voice:<sessionId>`) as its opener in the lineage, at depth 1 under a `supervised` ceiling, and keeps running when the session ends; in a project without a canvas it is a chat view of its own. `src/voice/voice-follower.ts` follows the turn a prompt or a start set going, by its turn id, and the session reports its end, a failure or a wait on the person over the sideband through `VoiceCompletionDelivery`.
+- Over the sideband the model hears the projects in use with the current one and the phone's time when the session starts, the time every minute, a new context 250 ms after the current project changed and at once after a switch, as quiet `session.thinking.append` events.
+- The sideband carries no audio the daemon keeps: echoed audio events are dropped before anything could log them. OpenAI documents no field that bounds what the phone's data channel may send, so a client event on the sideband that the daemon never sent ends the session (`voice-foreign-client`).
+- `setKey`, `clearKey` and `POST /machine/voice-key` are the local secret's only, like `ruimte voice key`. No `voice.*` request is on a peer's list.
+
+The invariants of `src/voice` are in its `CLAUDE.md`. A dev daemon keeps its key in its own home:
+
+```sh
+cd apps/server && RUIMTE_HOME=~/.ruimte-dev bun src/main.ts voice key set   # asks for the key without echo
+```
+
+Without `RUIMTE_HOME` the CLI writes into `~/.ruimte`, the home of an installed Ruimte.
 
 ## Chats
 

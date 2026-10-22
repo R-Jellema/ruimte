@@ -34,8 +34,8 @@ export interface ServerConfig {
     underService: boolean;
     // `login` puts it on an account with a code; `status` says how the running daemon is reached; `context` is the agent-side CLI (`ruimte-context`);
     // `service` installs, removes or reports the background service; `closed-lid` installs or removes the sudoers rule behind keep awake
-    // with the lid closed; `notify` raises a notification; `version` prints the version.
-    command: 'serve' | 'login' | 'logout' | 'status' | 'context' | 'service' | 'closed-lid' | 'notify' | 'version';
+    // with the lid closed; `notify` raises a notification; `voice` sets the key of Voice run by the daemon; `version` prints the version.
+    command: 'serve' | 'login' | 'logout' | 'status' | 'context' | 'service' | 'closed-lid' | 'notify' | 'voice' | 'version';
     // What follows the command: the words of `context` and `notify`, and the action of `service` followed by the daemon flags its service runs with.
     args: string[];
     // `notify --node`: the node the notification opens.
@@ -145,6 +145,7 @@ export function parseServerArgs(argv: string[], env: Record<string, string | und
         command !== 'service' &&
         command !== 'closed-lid' &&
         command !== 'notify' &&
+        command !== 'voice' &&
         command !== 'version'
     ) {
         throw new Error(`Unknown command: ${command}`);
@@ -161,6 +162,10 @@ export function parseServerArgs(argv: string[], env: Record<string, string | und
 
     if ((values.json || values.check) && command !== 'status') {
         throw new Error('--json and --check only go with status');
+    }
+
+    if (command === 'voice' && positionals.length !== 3) {
+        throw new Error('Usage: ruimte voice key set|clear|status');
     }
 
     if (command === 'closed-lid' && positionals.length !== 2) {
