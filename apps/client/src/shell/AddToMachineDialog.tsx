@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { GitIgnoredFilesResult } from '@ruimte/contracts';
 import { ensureMachine } from '@/endpoint/reach';
@@ -166,10 +166,7 @@ function AddToMachineForm({ request, onDone }: { request: AddToMachineRequest; o
     const folderName = name ?? (remoteUrl === null ? '' : repositoryName(remoteUrl));
     const prefix = source.state === 'ready' ? source.listed.prefix : '';
     // Only what lies in this project's folder, the one the clone is opened as and so the one its writes may reach.
-    const candidates = useMemo(
-        () => (source.state === 'ready' ? copyCandidates(source.listed).filter((file) => prefix === '' || file.path.startsWith(`${prefix}/`)) : []),
-        [source, prefix]
-    );
+    const candidates = source.state === 'ready' ? copyCandidates(source.listed).filter((file) => prefix === '' || file.path.startsWith(`${prefix}/`)) : [];
     const projectFolderIn = (clone: string): string => (prefix === '' ? clone : `${clone}/${prefix}`);
     const picked = checked ?? new Set(candidates.filter((file) => file.checked).map((file) => file.path));
     const clones = there !== null && machineAnswers(there.connection, 'git.clone');
