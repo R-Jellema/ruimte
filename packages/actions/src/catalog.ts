@@ -29,6 +29,7 @@ import {
     DeviceControlPayloadSchema,
     DeviceAppearanceSchema,
     DevicePermissionSchema,
+    DevicePowerSchema,
     DeviceReferenceSchema,
     DeviceStateSchema,
     DeviceStatusBarSchema,
@@ -2561,6 +2562,8 @@ export const ACTION_DEFINITIONS = {
             screen: deviceSize.nullable(),
             buttons: z.array(z.string()),
             can: z.object({ shot: z.boolean(), input: z.boolean(), type: z.boolean(), launch: z.boolean(), tree: z.boolean() }),
+            // A phone's own battery; null for a simulator or an emulator, and for a phone that could not say.
+            power: DevicePowerSchema.nullable(),
             // What the device shows as elements, frames in pixels of its screen; null when it has no tree, and treeError says why when reading one failed.
             tree: z
                 .object({
