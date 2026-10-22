@@ -24,7 +24,7 @@ import { TransportError, type Transport, type TransportStatus } from '../transpo
 import { PanelsPort } from './panels-port';
 import { rekeyLastProject } from './last-project';
 import { setViewShared } from './views';
-import { ProjectClient, type ProjectSink } from './project-client';
+import { CHANGE_PACE_MS, ProjectClient, type ChangeClock, type ProjectSink } from './project-client';
 import { sessionNodesOf } from './project-sessions';
 
 type Call = { type: RequestType; payload: unknown };
@@ -244,6 +244,28 @@ afterEach(() => {
     jest.useRealTimers();
 });
 
+/* A clock a test moves by hand, for the pace a burst of changes is taken in at. */
+function manualClock(): ChangeClock & { advance(ms: number): void; pending(): number } {
+    let now = 1000;
+    const timers: Array<{ at: number; run: () => void }> = [];
+    return {
+        now: () => now,
+        after: (ms, run) => {
+            const timer = { at: now + ms, run };
+            timers.push(timer);
+            return () => void timers.splice(timers.indexOf(timer), 1);
+        },
+        advance(ms) {
+            now += ms;
+            for (const timer of timers.filter((candidate) => candidate.at <= now)) {
+                timers.splice(timers.indexOf(timer), 1);
+                timer.run();
+            }
+        },
+        pending: () => timers.length
+    };
+}
+
 /* The three calls `ProjectClient` makes on the storage it is given, over a map a test can read. */
 function fakeStorage(storage: Map<string, string>) {
     return {
@@ -265,7 +287,7 @@ function setup(
         open?: string | null;
         stores?: WorkspaceStores;
         window?: Pick<Window, 'addEventListener' | 'removeEventListener'>;
-        nextFrame?: (run: () => void) => () => void;
+        changeClock?: ChangeClock;
     } = {}
 ) {
     const stores = options.stores ?? defaultWorkspaceStores;
@@ -291,7 +313,7 @@ function setup(
             forgotten.push({ endpointId: machine, nodes: sessionNodesOf(views).map((node) => `${node.kind}:${node.id}`) }),
         storage: fakeStorage(storage),
         window: options.window ?? null,
-        nextFrame: options.nextFrame ?? null
+        changeClock: options.changeClock ?? null
     });
     if (open !== null) {
         // On the first tick, so a test can still set up what the daemon answers.
@@ -655,39 +677,63 @@ describe('ProjectClient', () => {
         dispose();
     });
 
-    test('changes that come within one frame are taken in once, as the newest, with nothing of the ones before lost', async () => {
-        const frames: Array<() => void> = [];
-        const { transport, state, dispose } = setup({ nextFrame: (run) => (frames.push(run), () => frames.splice(frames.indexOf(run), 1)) });
+    test('a burst of changes goes in at once for the first, then as the newest at most once per pace, ending on the last', async () => {
+        const clock = manualClock();
+        const { transport, state, dispose } = setup({ changeClock: clock });
         const note = (id: string): ProjectCanvasView['nodes'][number] => ({ id, kind: 'note', title: id, x: 0, y: 0, w: 10, h: 10 });
+        const notes = (count: number) => [
+            canvasView(
+                'main',
+                Array.from({ length: count }, (_, i) => note(`n${i}`))
+            )
+        ];
         await tick();
         let merges = 0;
         const off = useDocument.subscribe((next, previous) => {
             merges += next.merging && !previous.merging ? 1 : 0;
         });
 
-        transport.emit('project.changed', { projectId: 'p1', document: document(4, [canvasView('main', [note('a')])]) });
-        transport.emit('project.changed', { projectId: 'p1', document: document(5, [canvasView('main', [note('a'), note('b')])]) });
-        transport.emit('project.changed', { projectId: 'p1', document: document(6, [canvasView('main', [note('a'), note('b'), note('c')])]) });
-        expect(state.rev).toBe(3);
-        expect(frames).toHaveLength(1);
-
-        frames.shift()!();
+        // An agent's shell loop: a write every 60 ms.
+        transport.emit('project.changed', { projectId: 'p1', document: document(4, notes(1)) });
+        expect(state.rev).toBe(4);
         expect(merges).toBe(1);
-        expect(state.rev).toBe(6);
-        expect(focusedCanvas().getState().order).toEqual(['a', 'b', 'c']);
+        clock.advance(60);
+        transport.emit('project.changed', { projectId: 'p1', document: document(5, notes(2)) });
+        expect(state.rev).toBe(4);
+        clock.advance(40);
+        expect(state.rev).toBe(5);
+        expect(merges).toBe(2);
+        clock.advance(20);
+        transport.emit('project.changed', { projectId: 'p1', document: document(6, notes(3)) });
+        clock.advance(60);
+        transport.emit('project.changed', { projectId: 'p1', document: document(7, notes(4)) });
+        expect(state.rev).toBe(5);
+        clock.advance(20);
+        expect(state.rev).toBe(7);
+        expect(merges).toBe(3);
+        expect(focusedCanvas().getState().order).toEqual(['n0', 'n1', 'n2', 'n3']);
+
+        // Once the burst is over the next change goes in as it comes again.
+        clock.advance(CHANGE_PACE_MS);
+        transport.emit('project.changed', { projectId: 'p1', document: document(8, notes(5)) });
+        expect(state.rev).toBe(8);
+        expect(clock.pending()).toBe(0);
         off();
         dispose();
     });
 
     test('a save takes a held change in first, so it writes against the rev that change brought', async () => {
-        const frames: Array<() => void> = [];
-        const { transport, state, client, dispose } = setup({ nextFrame: (run) => (frames.push(run), () => frames.splice(frames.indexOf(run), 1)) });
+        const clock = manualClock();
+        const { transport, state, client, dispose } = setup({ changeClock: clock });
         await tick();
+        transport.rev = 3;
+        transport.emit('project.changed', { projectId: 'p1', document: document(3) });
         transport.rev = 4;
         transport.emit('project.changed', {
             projectId: 'p1',
             document: document(4, [canvasView('main', [{ id: 'theirs', kind: 'note', title: 't', x: 0, y: 0, w: 10, h: 10 }])])
         });
+        expect(state.rev).toBe(3);
         focusedCanvas().getState().addNode('note', { x: 400, y: 0 });
 
         await client.flush();
@@ -695,7 +741,7 @@ describe('ProjectClient', () => {
         expect(save.baseRev).toBe(4);
         expect(save.content.views[0]!.nodes.map((node) => node.id)).toContain('theirs');
         expect(state.conflict).toBeNull();
-        expect(frames).toHaveLength(0);
+        expect(clock.pending()).toBe(0);
         dispose();
     });
 

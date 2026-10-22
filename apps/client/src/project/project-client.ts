@@ -126,29 +126,29 @@ interface ProjectClientOptions {
     remote?: { close(): Promise<void>; release(): void };
     /* Left out in tests, where there is no window to listen on. */
     window?: Pick<Window, 'addEventListener' | 'removeEventListener'> | null;
-    /* When a held `project.changed` is taken in; null takes every one in as it comes, which is what a test without a window gets. */
-    nextFrame?: ((run: () => void) => () => void) | null;
+    /* The clock a burst of `project.changed` is paced on; null takes every one in as it comes, which is what a test without a window gets. */
+    changeClock?: ChangeClock | null;
 }
 
-/* The next frame, or a moment later in a window that is not drawing frames (hidden or minimized). */
-function nextFrame(run: () => void): () => void {
-    let done = false;
-    const once = (): void => {
-        if (!done) {
-            done = true;
-            window.cancelAnimationFrame(frame);
-            window.clearTimeout(timer);
-            run();
-        }
-    };
-    const frame = window.requestAnimationFrame(once);
-    const timer = window.setTimeout(once, 100);
-    return () => {
-        done = true;
-        window.cancelAnimationFrame(frame);
-        window.clearTimeout(timer);
-    };
+export interface ChangeClock {
+    now(): number;
+    /* Runs `run` after `ms`; the answer cancels it. */
+    after(ms: number, run: () => void): () => void;
 }
+
+const windowClock: ChangeClock = {
+    now: () => performance.now(),
+    after: (ms, run) => {
+        const timer = window.setTimeout(run, ms);
+        return () => window.clearTimeout(timer);
+    }
+};
+
+/*
+ * How often a burst of changes from elsewhere is taken in. An agent adding nodes in a shell loop writes
+ * every 50 to 150 ms, and every write would merge the whole project and draw the canvas again.
+ */
+export const CHANGE_PACE_MS = 100;
 
 /* A document without what wraps it. The version and the rev are the daemon's, not the person's. */
 function contentOf(document: ProjectDocument): ProjectContent {
@@ -193,14 +193,15 @@ export class ProjectClient {
     private refusal: string | null = null;
     /* Views that left the trash for good but may still be in the file, until a save without them lands. */
     private purging = new Set<string>();
-    private readonly nextFrame: ((run: () => void) => () => void) | null;
+    private readonly changeClock: ChangeClock | null;
     /*
-     * The newest document that came in, held until the next frame. An agent adding nodes in a loop
-     * writes once per node, and every event is the whole project, so the newest one says everything
-     * the ones before it did and the canvas merges and draws once for all of them.
+     * The newest document that came in while the last one was taken in less than `CHANGE_PACE_MS`
+     * ago. Every event is the whole project, so the newest one says everything the ones before it did,
+     * and the canvas merges and draws once for all of them.
      */
     private heldChange: { projectId: string; document: ProjectDocument } | null = null;
     private cancelHeld: (() => void) | null = null;
+    private changeTakenAt = -Infinity;
 
     constructor(
         transport: Transport,
@@ -223,7 +224,7 @@ export class ProjectClient {
         this.forgetSessions = options.forgetSessions ?? ((): void => undefined);
         this.afterResume = options.afterResume ?? (() => Promise.resolve());
         this.remote = options.remote ?? { close: () => Promise.resolve(), release: (): void => undefined };
-        this.nextFrame = options.nextFrame === undefined ? (typeof window === 'undefined' ? null : nextFrame) : options.nextFrame;
+        this.changeClock = options.changeClock === undefined ? (typeof window === 'undefined' ? null : windowClock) : options.changeClock;
         this.unsubscribe.push(
             transport.on('project.changed', ({ projectId, document }) => this.holdChange(projectId, document)),
             transport.on('project.summary', ({ summary }) => this.applySummary(summary)),
@@ -715,8 +716,10 @@ export class ProjectClient {
         return this.saving;
     }
 
+    /* The first change of a burst goes in at once; while more keep coming, the newest goes in at most once per `CHANGE_PACE_MS`. */
     private holdChange(projectId: string, document: ProjectDocument): void {
-        if (this.nextFrame === null) {
+        const clock = this.changeClock;
+        if (clock === null) {
             this.onChanged(projectId, document);
             return;
         }
@@ -725,7 +728,15 @@ export class ProjectClient {
             this.takeHeldChange();
         }
         this.heldChange = { projectId, document };
-        this.cancelHeld ??= this.nextFrame(() => {
+        if (this.cancelHeld !== null) {
+            return;
+        }
+        const wait = this.changeTakenAt + CHANGE_PACE_MS - clock.now();
+        if (wait <= 0) {
+            this.takeHeldChange();
+            return;
+        }
+        this.cancelHeld = clock.after(wait, () => {
             this.cancelHeld = null;
             this.takeHeldChange();
         });
@@ -738,6 +749,7 @@ export class ProjectClient {
         const held = this.heldChange;
         this.heldChange = null;
         if (held !== null) {
+            this.changeTakenAt = this.changeClock?.now() ?? -Infinity;
             this.onChanged(held.projectId, held.document);
         }
     }
