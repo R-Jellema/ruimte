@@ -41,7 +41,7 @@ import { useWorkspace } from '@/transport/connections';
 import { markPeerLapsed, usePeerLapse } from '@/project/peer-lapse';
 import { linkToPeer } from '@/project/peer-linker';
 import { useUntakenTask, useWaitingMachines } from '@/canvas/remote-wait';
-import { endpointIdOfMachine } from '@/state/endpoints';
+import { useEndpointIdOfMachine } from '@/state/endpoints';
 import { useToasts } from '@/state/toasts';
 import { NodeMachineScope } from '@/transport/node-machine';
 import { MachineGlyph } from '@/endpoint/MachineGlyph';
@@ -62,7 +62,7 @@ import { ComputerIndicator } from '@/computer/ComputerIndicator';
 import { NodeMenuPopup } from '@/canvas/NodeMenu';
 import { FlagMarkOf } from '@/project/FlagMark';
 import { SnoozeMenuItems } from '@/shell/Snooze';
-import { endpointOfNode, useEndpointId } from '@/state/keys';
+import { useEndpointId, useEndpointOfNode } from '@/state/keys';
 import { useUi } from '@/state/ui';
 import { useCellHasFocus } from '@/state/document';
 import { useProject } from '@/state/project';
@@ -213,7 +213,7 @@ function MachinePill({ machineId, endpointId, narrow }: { machineId: string; end
 /* A parent whose task was given to a machine that does not answer yet: the task starts there by itself once it does. */
 function RemoteWaitPill({ machine, count }: { machine: string; count: number }) {
     const { t } = useTranslation('canvas');
-    const entry = useMachineEntry(endpointIdOfMachine(machine));
+    const entry = useMachineEntry(useEndpointIdOfMachine(machine));
     const icon = useMachineIcon(entry);
     const name = nameOf(entry);
     const label = t('remote.waitTooltip', { machine: name, count });
@@ -388,6 +388,7 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
     const work = useNodeWork(node);
     const endpointId = useEndpointId();
     const workspaceId = useWorkspace()?.connection.endpointId;
+    const nodeEndpointId = useEndpointOfNode(node, '');
     // A node of another machine draws a card for that machine in place of its body while the machine is away.
     const remote = useRemoteNodeState(node?.machine, workspaceId);
     const unseen = useUnseen(id);
@@ -523,8 +524,8 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                     )}
                     {node.kind === 'terminal' && !renaming && <SessionPorts id={id} />}
                     {(node.kind === 'chat' || node.kind === 'terminal') && !renaming && <ComputerIndicator nodeId={id} />}
-                    {node.machine !== undefined && endpointOfNode(node, '') !== workspaceId && !renaming && (
-                        <MachinePill machineId={node.machine} endpointId={endpointOfNode(node, '')} narrow={node.w < MACHINE_PILL_MIN_WIDTH} />
+                    {node.machine !== undefined && nodeEndpointId !== workspaceId && !renaming && (
+                        <MachinePill machineId={node.machine} endpointId={nodeEndpointId} narrow={node.w < MACHINE_PILL_MIN_WIDTH} />
                     )}
                     {!renaming && waitingFor.map(({ machine, count }) => <RemoteWaitPill key={machine} machine={machine} count={count} />)}
                     {nodeWorktree && !renaming && <WorktreePill worktree={nodeWorktree} />}
@@ -586,7 +587,7 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                         <NodeBodyBoundary kind={node.kind}>
                             {(remote !== 'ready' || unstarted !== null) && node.machine !== undefined ? (
                                 <RemoteNodeOffline
-                                    machine={endpointOfNode(node, '')}
+                                    machine={nodeEndpointId}
                                     state={remote === 'ready' ? 'unstarted' : remote}
                                     task={unstarted?.title}
                                     onLinkAgain={() =>

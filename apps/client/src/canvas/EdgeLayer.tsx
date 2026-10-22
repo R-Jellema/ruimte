@@ -8,7 +8,8 @@ import { routeDraft, SIDE_NORMAL, type Obstacle, type Side } from '@/canvas/edge
 import { lineRoutes } from '@/canvas/line-routes';
 import { markerPath, type MarkerShape } from '@/canvas/marker-path';
 import type { Point, Rect } from '@/canvas/math';
-import { endpointOfNode, useEndpointId } from '@/state/keys';
+import { endpointOfNodeIn, useEndpointId } from '@/state/keys';
+import { useEndpoints } from '@/state/endpoints';
 import { edgeTask, taskEdgeLabel, useTasks } from '@/state/tasks';
 import { Icon, IconButton, ContextMenu, Input } from '@adecore/ui';
 
@@ -141,6 +142,7 @@ export function EdgeLayer() {
     const [hovered, setHovered] = useState<string | null>(null);
     const [editing, setEditing] = useState<string | null>(null);
     const endpointId = useEndpointId();
+    const endpoints = useEndpoints((s) => s.endpoints);
     const tasks = useTasks((s) => s.byEndpoint);
 
     const { lines, obstacles, routes, rectOf } = lineRoutes(edges, nodes, texts, hidden);
@@ -175,7 +177,7 @@ export function EdgeLayer() {
                             const active = hovered === key || line.ids.some((id) => selection.includes(id));
                             // A line a task went along says how the task stands, and only looks open while it is.
                             // The tasks a machine keeps are about its own nodes, so a line between nodes of another machine reads that machine's.
-                            const machineTasks = tasks[endpointOfNode(nodes[line.edge.from] ?? {}, endpointId)];
+                            const machineTasks = tasks[endpointOfNodeIn(endpoints, nodes[line.edge.from] ?? {}, endpointId)];
                             const task =
                                 edgeTask(machineTasks, line.edge.from, line.edge.to) ??
                                 (line.back === null ? null : edgeTask(machineTasks, line.back.from, line.back.to));

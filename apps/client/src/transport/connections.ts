@@ -174,12 +174,17 @@ function machineOn(endpoint: Endpoint): Machine {
  * must not land on whichever machine happens to be active.
  */
 export function machineFor(endpointId: string): Machine | null {
-    const endpoint = useEndpoints.getState().endpoints.find((entry) => entry.id === endpointId);
-    if (!endpoint) {
+    const machine = machineIn(useEndpoints.getState().endpoints, endpointId);
+    if (machine === null) {
         dropMachine(endpointId);
-        return null;
     }
-    return machineOn(endpoint);
+    return machine;
+}
+
+/* The same machine out of a list a render subscribed to, so what it draws follows a machine that becomes known after it. */
+export function machineIn(endpoints: readonly Endpoint[], endpointId: string): Machine | null {
+    const endpoint = endpoints.find((entry) => entry.id === endpointId);
+    return endpoint ? machineOn(endpoint) : null;
 }
 
 /* The active machine always has a row in the endpoint list, so it always has clients. */

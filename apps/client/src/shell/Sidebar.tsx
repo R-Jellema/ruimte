@@ -18,7 +18,8 @@ import { useDocument } from '@/state/document';
 import { isDatabaseTab, isPromotableTab, useFiles } from '@/state/files';
 import { nodeProvider, nodeStatus, useSessions, type StatusOf } from '@/state/sessions';
 import { useUi } from '@/state/ui';
-import { useEndpointId, endpointOfNode } from '@/state/keys';
+import { useEndpointId, endpointOfNodeIn } from '@/state/keys';
+import { useEndpoints } from '@/state/endpoints';
 import { snoozeOf, useSnoozes } from '@/state/snooze';
 import { buildSidebar, gapIndex, isSessionKind, rowAfterArrow, rowOrder, type SidebarNode, type SidebarProject } from '@/shell/sidebar-rows';
 import { useSidebarSource } from '@/shell/sidebar-source';
@@ -104,6 +105,7 @@ export function Sidebar() {
     const shared = useDocument(useShallow((state) => state.shared));
     const flags = useDocument((state) => state.flags);
     const endpointId = useEndpointId();
+    const endpoints = useEndpoints((s) => s.endpoints);
     const projectMenu = useProjectMenu();
     const sessions = useSessions((s) => s.byKey);
     const chats = useChats((s) => s.statusByKey);
@@ -135,7 +137,7 @@ export function Sidebar() {
             const live = source.nodesOf(view);
             const asRow = (node: StatusOf & { title: string; titleSource?: SidebarNode['titleSource']; provider?: AgentKind }): SidebarNode => {
                 // A node that runs on another machine is that machine's to report on.
-                const machine = endpointOfNode(node, endpointId);
+                const machine = endpointOfNodeIn(endpoints, node, endpointId);
                 return {
                     id: node.id,
                     title: node.title,

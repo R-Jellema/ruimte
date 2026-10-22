@@ -23,7 +23,7 @@ import { useMachineIcon } from '@/shell/settings/machine-icon';
 import { machineIdOf, nameOf } from '@/shell/settings/machine-list';
 import { defaultCanvases } from '@/state/canvas';
 import { useDocument } from '@/state/document';
-import { endpointById, endpointIdOfMachine, useEndpoints } from '@/state/endpoints';
+import { endpointById, endpointIdOfMachine, useEndpointIdOfMachine, useEndpoints } from '@/state/endpoints';
 import { useProject } from '@/state/project';
 import { useUi, type RemoteNodeRequest } from '@/state/ui';
 import { remoteMirror, useWorkspace } from '@/transport/connections';
@@ -68,12 +68,13 @@ export function RemoteNodeDialog() {
 
 function RemoteNodeBody({ request, onDone }: { request: RemoteNodeRequest; onDone(): void }) {
     const { t } = useTranslation(['shell', 'canvas']);
-    const entry = useMachineEntry(endpointIdOfMachine(request.machineId));
+    const endpointId = useEndpointIdOfMachine(request.machineId);
+    const entry = useMachineEntry(endpointId);
     const icon = useMachineIcon(entry);
     const machine = nameOf(entry);
     const [kind, setKind] = useState<Kind>(request.kind);
     // The scope needs the row, which asking for the machine makes; until then nothing under it reads another machine.
-    const row = useEndpoints((state) => state.endpoints.some((candidate) => candidate.id === endpointIdOfMachine(request.machineId)));
+    const row = useEndpoints((state) => state.endpoints.some((candidate) => candidate.id === endpointId));
     return (
         <>
             <Dialog.Title className="flex items-center gap-2">
@@ -108,7 +109,7 @@ function RemoteNodeForm({
     const workspace = useWorkspace();
     const project = useProject((s) => s.current);
     const here = workspace?.connection.transport ?? null;
-    const machineEndpointId = endpointIdOfMachine(request.machineId);
+    const machineEndpointId = useEndpointIdOfMachine(request.machineId);
     const lastSeen = useLastSeenAt(machineEndpointId);
     const now = useNow(MINUTE_MS);
     const { checkouts, retry } = useRemoteCheckouts(request.machineId, project?.projectId ?? null, project?.folder ?? null, here);
