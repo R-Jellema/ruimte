@@ -621,7 +621,9 @@ export const GitIgnoredFilesResultSchema = z.object({
             path: z.string(),
             size: z.number(),
             // A symbolic link, which is never copied: where it points means nothing on another machine.
-            link: z.boolean()
+            link: z.boolean(),
+            // The file's permission bits, which a copy keeps so a private file stays private.
+            mode: z.number().int().optional()
         })
     ),
     // More files than one answer lists.

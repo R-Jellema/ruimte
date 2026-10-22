@@ -1110,6 +1110,7 @@
             "link": "Link, niet gekopieerd",
             "too-large": "Groter dan 1 MB, niet gekopieerd",
             "binary": "Geen tekst, niet gekopieerd",
+            "private": "Privé, niet gekopieerd naar een oudere machine",
             "failed": "Kon niet worden gekopieerd"
         },
         "done": "{{machine}} heeft het project in {{path}}.",

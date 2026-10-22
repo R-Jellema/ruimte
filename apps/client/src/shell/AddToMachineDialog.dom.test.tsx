@@ -14,7 +14,7 @@ const IGNORED: GitIgnoredFilesResult = {
     prefix: '',
     truncated: false,
     files: [
-        { path: '.env', size: 6, link: false },
+        { path: '.env', size: 6, link: false, mode: 0o600 },
         { path: 'config.local.json', size: 2, link: false },
         { path: 'dump.sql', size: 5 * 1024 * 1024, link: false },
         { path: 'current', size: 4, link: true }
@@ -126,7 +126,9 @@ describe('adding a project to another machine', () => {
         await clickOn(button('Copy 1 file'));
         await until(() => text().includes('Copied 1 file.'));
         expect(here.requests('fs.read')).toEqual([{ path: '/work/atlas/.env' }]);
-        expect(there.requests('fs.create')).toEqual([{ path: '/Users/b/atlas/.env', kind: 'file', text: 'contents of /work/atlas/.env', overwrite: true }]);
+        expect(there.requests('fs.create')).toEqual([
+            { path: '/Users/b/atlas/.env', kind: 'file', text: 'contents of /work/atlas/.env', overwrite: true, mode: 0o600 }
+        ]);
         // Opened once to be listed there and once to be written in, and let go both times.
         expect(there.requests('project.open')).toEqual([{ folder: '/Users/b/atlas' }, { folder: '/Users/b/atlas' }]);
         expect(there.requests('project.release')).toEqual([{ projectId: 'atlas-b' }, { projectId: 'atlas-b' }]);

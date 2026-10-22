@@ -233,9 +233,11 @@ function AddToMachineForm({ request, onDone }: { request: AddToMachineRequest; o
                 clone,
                 {
                     read: (path) => here.request('fs.read', { path }),
-                    write: async (path, text) => {
-                        await there.request('fs.create', { path, kind: 'file', text, overwrite: true });
-                    }
+                    write: async (path, text, mode) => {
+                        await there.request('fs.create', { path, kind: 'file', text, overwrite: true, mode });
+                    },
+                    // `fs.create` takes a `mode` from the release that brought `git.clone`; an older machine drops it and writes 0644.
+                    keepsMode: machineAnswers(there.connection, 'git.clone')
                 },
                 (done) => setStep({ step: 'copying', clone, done, total: chosen.length })
             );

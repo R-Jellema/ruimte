@@ -82,7 +82,10 @@ export async function listIgnoredFiles(cwd: string): Promise<GitIgnoredFilesResu
     const files = await Promise.all(
         kept.map(async (path) => {
             const found = await lstat(join(root, path)).catch(() => null);
-            return found === null ? null : { path, size: found.size, link: found.isSymbolicLink() };
+            if (found === null) {
+                return null;
+            }
+            return found.isSymbolicLink() ? { path, size: found.size, link: true } : { path, size: found.size, link: false, mode: found.mode & 0o777 };
         })
     );
     return {

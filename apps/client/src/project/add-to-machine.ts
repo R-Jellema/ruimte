@@ -65,6 +65,8 @@ export type CopySkip = 'link' | 'too-large';
 export interface CopyCandidate {
     path: string;
     size: number;
+    /* The permission bits the copy is made with. */
+    mode: number;
     /* Why it is never copied; null when it can be. */
     skip: CopySkip | null;
     /* Checked when the list opens. */
@@ -76,21 +78,31 @@ function isEnvFile(path: string): boolean {
     return /^\.env/.test(path.split('/').at(-1) ?? '');
 }
 
+// What a file is copied with when its machine did not say: only its owner reads it.
+const PRIVATE_MODE = 0o600;
+
+// Group and others may read it, which is what a machine that writes 0644 gives every file anyway.
+function readableByAll(mode: number): boolean {
+    return (mode & 0o044) === 0o044;
+}
+
 /* The ignored files as the list shows them: `.env*` checked, links and anything over the limit never copied. */
 export function copyCandidates(listed: GitIgnoredFilesResult): CopyCandidate[] {
     return listed.files.map((file) => {
         const skip: CopySkip | null = file.link ? 'link' : file.size > IGNORED_COPY_MAX_BYTES ? 'too-large' : null;
-        return { path: file.path, size: file.size, skip, checked: skip === null && isEnvFile(file.path) };
+        return { path: file.path, size: file.size, mode: file.mode ?? PRIVATE_MODE, skip, checked: skip === null && isEnvFile(file.path) };
     });
 }
 
 export type CopyOutcome =
     | { path: string; copied: true }
-    | { path: string; copied: false; reason: 'binary' | 'too-large' | 'link' | 'failed'; message?: string };
+    | { path: string; copied: false; reason: 'binary' | 'too-large' | 'link' | 'private' | 'failed'; message?: string };
 
 export interface CopyIo {
     read(path: string): Promise<FsReadResult>;
-    write(path: string, text: string): Promise<void>;
+    write(path: string, text: string, mode: number): Promise<void>;
+    /* Whether the machine written to makes a file with the bits it is given; one that does not makes every file 0644. */
+    keepsMode: boolean;
 }
 
 function joined(root: string, path: string): string {
@@ -99,8 +111,9 @@ function joined(root: string, path: string): string {
 
 /*
  * Copies text files from one checkout into its clone through the client: read on the one machine,
- * written on the other, one at a time so a large list never holds every file in memory. A file that is
- * not text, too large or fails says so and the rest go on.
+ * written on the other with the permission bits it has here, one at a time so a large list never holds
+ * every file in memory. A file that is not text, too large, private to a machine that would widen it,
+ * or fails says so and the rest go on.
  */
 export async function copyIgnoredFiles(
     files: readonly CopyCandidate[],
@@ -121,6 +134,9 @@ async function copyOne(file: CopyCandidate, from: string, to: string, io: CopyIo
     if (file.skip !== null) {
         return { path: file.path, copied: false, reason: file.skip };
     }
+    if (!io.keepsMode && !readableByAll(file.mode)) {
+        return { path: file.path, copied: false, reason: 'private' };
+    }
     try {
         const read = await io.read(joined(from, file.path));
         if (read.kind === 'binary') {
@@ -129,7 +145,7 @@ async function copyOne(file: CopyCandidate, from: string, to: string, io: CopyIo
         if (read.kind === 'too-large' || read.size > IGNORED_COPY_MAX_BYTES) {
             return { path: file.path, copied: false, reason: 'too-large' };
         }
-        await io.write(joined(to, file.path), read.text);
+        await io.write(joined(to, file.path), read.text, file.mode);
         return { path: file.path, copied: true };
     } catch (e) {
         return { path: file.path, copied: false, reason: 'failed', message: e instanceof Error ? e.message : String(e) };

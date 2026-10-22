@@ -1110,6 +1110,7 @@
             "link": "Link, not copied",
             "too-large": "Over 1 MB, not copied",
             "binary": "Not text, not copied",
+            "private": "Private, not copied to an older machine",
             "failed": "Could not be copied"
         },
         "done": "{{machine}} has the project in {{path}}.",

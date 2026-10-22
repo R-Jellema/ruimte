@@ -49643,6 +49643,11 @@
       },
       "overwrite": {
         "type": "boolean"
+      },
+      "mode": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 511
       }
     },
     "required": [
@@ -52321,6 +52326,11 @@
             },
             "link": {
               "type": "boolean"
+            },
+            "mode": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
             }
           },
           "required": [

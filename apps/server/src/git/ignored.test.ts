@@ -11,14 +11,14 @@ beforeAll(async () => {
     root = await realpath(await mkdtemp(join(tmpdir(), 'ruimte-ignored-')));
     await mkdir(join(root, 'app'));
     await initRepo(root, { '.gitignore': '.env*\n*.local.json\nnode_modules/\nlink\n', 'app/index.ts': '' });
-    await writeFile(join(root, '.env'), 'KEY=1\n');
-    await writeFile(join(root, '.env.local'), 'KEY=2\n');
+    await writeFile(join(root, '.env'), 'KEY=1\n', { mode: 0o600 });
+    await writeFile(join(root, '.env.local'), 'KEY=2\n', { mode: 0o644 });
     await mkdir(join(root, 'app', 'config'), { recursive: true });
-    await writeFile(join(root, 'app', 'config', 'dev.local.json'), '{}');
+    await writeFile(join(root, 'app', 'config', 'dev.local.json'), '{}', { mode: 0o644 });
     await mkdir(join(root, 'app', 'config', 'node_modules', 'x'), { recursive: true });
     await writeFile(join(root, 'app', 'config', 'node_modules', 'x', 'index.js'), '');
     await mkdir(join(root, 'app', 'config', 'deeper'), { recursive: true });
-    await writeFile(join(root, 'app', 'config', 'deeper', 'keys.local.json'), '{}');
+    await writeFile(join(root, 'app', 'config', 'deeper', 'keys.local.json'), '{}', { mode: 0o644 });
     await mkdir(join(root, 'node_modules', 'left-pad'), { recursive: true });
     await writeFile(join(root, 'node_modules', 'left-pad', 'index.js'), '');
     await writeFile(join(root, 'untracked.ts'), '');
@@ -39,10 +39,10 @@ describe('the ignored files of a checkout', () => {
         expect(listed.prefix).toBe('');
         expect(listed.truncated).toBe(false);
         expect(listed.files.sort((left, right) => left.path.localeCompare(right.path))).toEqual([
-            { path: '.env', size: 6, link: false },
-            { path: '.env.local', size: 6, link: false },
-            { path: 'app/config/deeper/keys.local.json', size: 2, link: false },
-            { path: 'app/config/dev.local.json', size: 2, link: false },
+            { path: '.env', size: 6, link: false, mode: 0o600 },
+            { path: '.env.local', size: 6, link: false, mode: 0o644 },
+            { path: 'app/config/deeper/keys.local.json', size: 2, link: false, mode: 0o644 },
+            { path: 'app/config/dev.local.json', size: 2, link: false, mode: 0o644 },
             { path: 'link', size: expect.any(Number), link: true }
         ]);
     });
