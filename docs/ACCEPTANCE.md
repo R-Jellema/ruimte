@@ -313,6 +313,8 @@ and its device token. `apps/pulsar-worker/APNS.md` has the environments and secr
 - [ ] The pull request dialog shows `+N -N` beside the state, the same totals GitHub shows; on hover it says how many
   files changed and the lines per kind (code, tests, mocks, generated), which add up to the totals.
 - [ ] A pull request of more than 1000 files shows the totals and the number of files without the kinds.
+- [ ] On a pull request of several hundred files the dialog draws its checks and threads at once, and the kinds join the
+  hover a moment later; Refresh on a head that did not move keeps them without a wait.
 - [ ] A commit tab and an "Everything ... changed since ..." tab name the kinds in their hint when not every line is code.
 - [ ] A watched pull request's checks wake names its size and the kinds in the chat's prompt.
 

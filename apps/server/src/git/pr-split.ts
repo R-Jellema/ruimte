@@ -57,16 +57,33 @@ export async function readPrSplit(run: GhRunner, cwd: string, pr: GitPullRequest
  */
 export class PrSplits {
     private readonly known = new Map<string, Promise<ChangeSplit | null>>();
+    // The pull requests `git.pr` answered, by folder and number, so the client's ask for the split needs no second read of one.
+    private readonly answered = new Map<string, GitPullRequest>();
     private readonly run: GhRunner;
 
     constructor(run: GhRunner) {
         this.run = run;
     }
 
-    /* The pull request with its split, or as it was when there is none to give. */
-    async withSplit(cwd: string, pr: GitPullRequest): Promise<GitPullRequest> {
-        const split = await this.of(cwd, pr);
-        return split === null ? pr : { ...pr, split };
+    /* Keeps a pull request a client was answered and starts reading its split, which that client asks for next. */
+    note(cwd: string, pr: GitPullRequest): void {
+        const key = `${cwd}\0${pr.number}`;
+        this.answered.delete(key);
+        this.answered.set(key, pr);
+        for (const oldest of this.answered.keys()) {
+            if (this.answered.size <= KEPT) {
+                break;
+            }
+            this.answered.delete(oldest);
+        }
+        void this.of(cwd, pr);
+    }
+
+    /* The split of a pull request at this head, read again from GitHub when it was not answered here; null once it moved. */
+    async splitAt(cwd: string, number: number, headSha: string, read: () => Promise<GitPullRequest | null>): Promise<ChangeSplit | null> {
+        const noted = this.answered.get(`${cwd}\0${number}`);
+        const pr = noted?.headSha === headSha ? noted : await read();
+        return pr === null || pr.headSha !== headSha ? null : await this.of(cwd, pr);
     }
 
     of(cwd: string, pr: GitPullRequest): Promise<ChangeSplit | null> {

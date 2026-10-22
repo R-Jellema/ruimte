@@ -184,10 +184,18 @@ export function registerGitHandlers(
         return await readIssue(runGh, payload.cwd, ref);
     });
 
+    // The split waits on every page of GitHub's file list, so it is a request of its own and the dialog draws before it.
     dispatcher.register('git.pr', async (payload) => {
         const pr = await readPullRequest(runGh, payload.cwd, payload.number);
-        return { pr: pr === null ? null : await prSplits.withSplit(payload.cwd, pr) };
+        if (pr !== null) {
+            prSplits.note(payload.cwd, pr);
+        }
+        return { pr };
     });
+
+    dispatcher.register('git.prSplit', async (payload) => ({
+        split: await prSplits.splitAt(payload.cwd, payload.number, payload.headSha, () => readPullRequest(runGh, payload.cwd, payload.number))
+    }));
 
     const watching = (): PrWatchStore => {
         if (!prWatches) {

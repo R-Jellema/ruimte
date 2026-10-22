@@ -305,6 +305,7 @@
     "git.stage",
     "git.discard",
     "git.pr",
+    "git.prSplit",
     "git.pr-watch",
     "git.pr-unwatch",
     "git.pr-watches",

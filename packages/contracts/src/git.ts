@@ -423,9 +423,7 @@ export const GitPullRequestSchema = z.object({
     // GitHub's own totals for the whole pull request; a machine from before them leaves them out.
     added: z.number().int().nonnegative().optional(),
     deleted: z.number().int().nonnegative().optional(),
-    changedFiles: z.number().int().nonnegative().optional(),
-    // Left out when GitHub's file list could not be read whole, so it never disagrees with the totals.
-    split: ChangeSplitSchema.optional()
+    changedFiles: z.number().int().nonnegative().optional()
 });
 export type GitPullRequest = z.infer<typeof GitPullRequestSchema>;
 
@@ -440,6 +438,21 @@ export const GitPullRequestResultSchema = z.object({
     pr: GitPullRequestSchema.nullable()
 });
 export type GitPullRequestResult = z.infer<typeof GitPullRequestResultSchema>;
+
+/* `git.prSplit`: the split of a pull request `git.pr` answered, read from every page of GitHub's file list, so it comes after. */
+export const GitPrSplitPayloadSchema = z.object({
+    cwd: z.string().min(1),
+    number: z.number().int().positive(),
+    // The head `git.pr` answered at; a pull request that moved since gives none, since it would disagree with those totals.
+    headSha: z.string().min(1)
+});
+export type GitPrSplitPayload = z.infer<typeof GitPrSplitPayloadSchema>;
+
+export const GitPrSplitResultSchema = z.object({
+    // Null when GitHub's file list could not be read whole, so a split never disagrees with the totals.
+    split: ChangeSplitSchema.nullable()
+});
+export type GitPrSplitResult = z.infer<typeof GitPrSplitResultSchema>;
 
 // A person's watch on one pull request for one chat. The daemon polls it and wakes the chat once per finished state.
 export const GitPrWatchSchema = z.object({

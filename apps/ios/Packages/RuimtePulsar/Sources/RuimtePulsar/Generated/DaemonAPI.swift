@@ -213,6 +213,7 @@ public enum WireRequest: String, CaseIterable, Sendable {
     case `gitStage` = "git.stage"
     case `gitDiscard` = "git.discard"
     case `gitPr` = "git.pr"
+    case `gitPrSplit` = "git.prSplit"
     case `gitPrWatch` = "git.pr-watch"
     case `gitPrUnwatch` = "git.pr-unwatch"
     case `gitPrWatches` = "git.pr-watches"

@@ -96,11 +96,11 @@ describe('PrSplits', () => {
     test('asks once for a head that did not move, and again for a new one', async () => {
         const { run, calls } = answering([FILES]);
         const splits = new PrSplits(run);
-        const first = await splits.withSplit('/p', prOf(FILES));
-        expect(first.split?.generated).toEqual({ added: 200, deleted: 180 });
-        await splits.withSplit('/p', prOf(FILES));
+        const first = await splits.of('/p', prOf(FILES));
+        expect(first?.generated).toEqual({ added: 200, deleted: 180 });
+        await splits.of('/p', prOf(FILES));
         expect(calls).toHaveLength(1);
-        await splits.withSplit('/p', prOf(FILES, { headSha: 'def' }));
+        await splits.of('/p', prOf(FILES, { headSha: 'def' }));
         expect(calls).toHaveLength(2);
     });
 
@@ -112,9 +112,33 @@ describe('PrSplits', () => {
             return fail ? { code: 1, stdout: '', stderr: 'HTTP 502' } : { code: 0, stdout: page(FILES, false), stderr: '' };
         };
         const splits = new PrSplits(run);
-        expect(await splits.withSplit('/p', prOf(FILES))).not.toHaveProperty('split');
+        expect(await splits.of('/p', prOf(FILES))).toBeNull();
         fail = false;
-        expect((await splits.withSplit('/p', prOf(FILES))).split).toBeDefined();
+        expect(await splits.of('/p', prOf(FILES))).not.toBeNull();
         expect(asked).toBe(2);
+    });
+
+    test('starts reading the split of a pull request it was answered, and gives it at that head without reading the pull request again', async () => {
+        const { run, calls } = answering([FILES]);
+        const splits = new PrSplits(run);
+        const reads: number[] = [];
+        const read = async (): Promise<GitPullRequest | null> => {
+            reads.push(1);
+            return prOf(FILES, { headSha: 'def' });
+        };
+        splits.note('/p', prOf(FILES));
+        expect(calls).toHaveLength(1);
+        expect((await splits.splitAt('/p', 12, 'abc', read))?.code).toEqual({ added: 10, deleted: 2 });
+        expect(calls).toHaveLength(1);
+        expect(reads).toEqual([]);
+    });
+
+    test('reads the pull request again for a head it was not answered at, and gives no split once it moved', async () => {
+        const { run } = answering([FILES]);
+        const splits = new PrSplits(run);
+        splits.note('/p', prOf(FILES));
+        expect(await splits.splitAt('/p', 12, 'old', async () => prOf(FILES))).toBeNull();
+        expect(await splits.splitAt('/p', 13, 'abc', async () => prOf(FILES, { number: 13 }))).not.toBeNull();
+        expect(await splits.splitAt('/p', 14, 'abc', async () => null)).toBeNull();
     });
 });
