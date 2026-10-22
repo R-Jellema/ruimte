@@ -48,6 +48,7 @@ import { cellAt, cellCount, isTabHost, type SplitDirection } from '@/shell/split
 import { matchesShortcut, type Shortcut, isInFloatingLayer } from '@adecore/ui';
 import { endpointKey } from '@/state/keys';
 import { windowWorkspace } from '@/state/window';
+import { focusedChatComposerKey } from '@/chat/focused-chat';
 
 function workspaceEndpointId(): string | null {
     return windowWorkspace()?.connection.endpointId ?? null;
@@ -326,9 +327,10 @@ function answerWindowKey(e: KeyboardEvent, s: CanvasState, is: Matches, command:
             return true;
         }
     }
-    // While the keyboard is in a chat, its composer included; elsewhere the menu's row acts on the chat that has the focus.
+    /* The chat the menu's row means: the shell drops an accelerator for a key the page saw, and off
+       macOS registers none, so this listener is the only way the key the menu shows acts. */
     if (command === 'chat-effort-up' || command === 'chat-effort-down') {
-        const key = focusedChatKey();
+        const key = focusedChatComposerKey();
         if (key !== null && !isInFloatingLayer(e.target) && stepEffortFromComposer(key, command === 'chat-effort-up' ? 'up' : 'down')) {
             e.preventDefault();
             return true;

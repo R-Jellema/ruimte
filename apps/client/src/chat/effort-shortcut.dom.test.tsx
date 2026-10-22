@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
-import type { ProviderInfo } from '@ruimte/contracts';
+import type { ProjectCanvasView, ProviderInfo } from '@ruimte/contracts';
 import { isApplePlatform } from '@/desktop/bridge';
-import { useDocument } from '@/state/document';
+import { focusedCanvas } from '@/state/canvas';
 import { chatInfoOf } from '../../testing/chat-info';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
@@ -39,8 +39,6 @@ const CLAUDE = {
     resumeCommand: 'claude --resume {id}'
 } as unknown as ProviderInfo;
 
-const CHAT_ID = 'chat-effort';
-
 let machine: FakeMachine;
 let workspace: FakeWorkspace;
 let page: Mounted;
@@ -50,34 +48,73 @@ afterEach(async () => {
     workspace.close();
 });
 
-/* The key with Shift held, as the physical key a shortcut matches on. */
-async function pressWithShift(key: '>' | '<', code: 'Period' | 'Comma'): Promise<void> {
+// One chat on screen per test, so its composer is the only editor.
+function composer(): HTMLElement | null {
+    return page.host.querySelector<HTMLElement>('.cm-content');
+}
+
+/* The key as a Mac sends it to the composer that has the keyboard: Shift turns the period into `>` and the comma into `<`. */
+async function pressInComposer(key: '>' | '<', code: 'Period' | 'Comma'): Promise<void> {
     const apple = isApplePlatform();
+    const target = composer()!;
     await act(async () => {
-        window.dispatchEvent(new KeyboardEvent('keydown', { key, code, shiftKey: true, metaKey: apple, ctrlKey: !apple, bubbles: true, cancelable: true }));
+        target.focus();
+        target.dispatchEvent(new KeyboardEvent('keydown', { key, code, shiftKey: true, metaKey: apple, ctrlKey: !apple, bubbles: true, cancelable: true }));
     });
 }
 
+function fakeMachine(): FakeMachine {
+    const fake = new FakeMachine();
+    fake.answer('provider.list', () => ({ providers: [CLAUDE] }));
+    fake.answer('chat.attach', ({ chatId }) => ({ info: chatInfoOf(chatId), items: [], seq: 0 }) as never);
+    fake.answer('chat.configure', ({ chatId, selection }) => chatInfoOf(chatId, selection === undefined ? {} : { selection }) as never);
+    return fake;
+}
+
+async function expectStepsFromComposer(chatId: string): Promise<void> {
+    await pressInComposer('>', 'Period');
+    await until(() => machine.requests('chat.configure').length === 1);
+    expect(machine.requests('chat.configure')[0]).toMatchObject({ chatId, selection: { model: 'model', options: { effort: 'high' } } });
+
+    await pressInComposer('<', 'Comma');
+    await until(() => machine.requests('chat.configure').length === 2);
+    expect(machine.requests('chat.configure')[1]).toMatchObject({ chatId, selection: { model: 'model', options: { effort: 'medium' } } });
+}
+
 describe('the reasoning effort of the chat that has the keyboard', () => {
-    test('steps one choice up and down from the keyboard, and the machine is told each step', async () => {
-        machine = new FakeMachine();
-        machine.answer('provider.list', () => ({ providers: [CLAUDE] }));
-        machine.answer('chat.attach', ({ chatId }) => ({ info: chatInfoOf(chatId), items: [], seq: 0 }) as never);
-        machine.answer('chat.configure', ({ chatId, selection }) => chatInfoOf(chatId, selection === undefined ? {} : { selection }) as never);
-        const chat = { kind: 'chat', id: CHAT_ID, name: 'Agent', node: { provider: 'claude' } };
-        workspace = await openFakeWorkspace(machine, { views: [chat] } as never, { activeViewId: CHAT_ID, views: {} });
+    test('steps one choice up and down from the composer of a chat view, and the machine is told each step', async () => {
+        const chatId = 'chat-effort-view';
+        machine = fakeMachine();
+        const chat = { kind: 'chat', id: chatId, name: 'Agent', node: { provider: 'claude' } };
+        workspace = await openFakeWorkspace(machine, { views: [chat] } as never, { activeViewId: chatId, views: {} });
         page = mount();
         await page.renderApp();
-        await until(() => machine.requests('chat.attach').some((request) => request.chatId === CHAT_ID));
-        await until(() => page.host.querySelector('.cm-content') !== null);
-        await act(async () => useDocument.getState().setBodyFocused(true));
+        await until(() => machine.requests('chat.attach').some((request) => request.chatId === chatId));
+        await until(() => composer() !== null);
 
-        await pressWithShift('>', 'Period');
-        await until(() => machine.requests('chat.configure').length === 1);
-        expect(machine.requests('chat.configure')[0]).toMatchObject({ chatId: CHAT_ID, selection: { model: 'model', options: { effort: 'high' } } });
+        await expectStepsFromComposer(chatId);
+    });
 
-        await pressWithShift('<', 'Comma');
-        await until(() => machine.requests('chat.configure').length === 2);
-        expect(machine.requests('chat.configure')[1]).toMatchObject({ chatId: CHAT_ID, selection: { model: 'model', options: { effort: 'medium' } } });
+    test('steps one choice up and down from the composer of a chat node on a canvas', async () => {
+        const chatId = 'chat-effort-node';
+        const main: ProjectCanvasView = {
+            kind: 'canvas',
+            id: 'main',
+            name: 'Main',
+            nodes: [{ id: chatId, kind: 'chat', title: 'Agent', provider: 'claude', x: 0, y: 0, w: 560, h: 360 }],
+            texts: [],
+            edges: [],
+            layouts: []
+        };
+        machine = fakeMachine();
+        workspace = await openFakeWorkspace(machine, { views: [main] }, { activeViewId: main.id, views: {} });
+        page = mount();
+        await page.renderApp();
+        await until(() => machine.requests('chat.attach').some((request) => request.chatId === chatId));
+        await until(() => composer() !== null);
+        // Clicking into the node's body hands it the keyboard.
+        await act(async () => focusedCanvas().getState().setBodyFocus(chatId));
+
+        await expectStepsFromComposer(chatId);
     });
 });

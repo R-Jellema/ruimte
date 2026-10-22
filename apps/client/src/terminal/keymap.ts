@@ -121,6 +121,13 @@ export function isShellShortcut(event: KeyLike, apple: boolean): boolean {
     return matchesAny(shellShortcuts(apple), event, apple);
 }
 
+/* The chat's own keys, which the composer hands back besides those so a chat steps its reasoning effort while you type. */
+const COMPOSER_HANDED_BACK: readonly Shortcut[] = [CANVAS_SHORTCUTS.raiseEffort, CANVAS_SHORTCUTS.lowerEffort];
+
+export function isComposerShortcut(event: KeyLike, apple: boolean): boolean {
+    return isShellShortcut(event, apple) || matchesAny(COMPOSER_HANDED_BACK, event, apple);
+}
+
 /* Home and End in both forms the application cursor keys mode (DECCKM) asks for. */
 const HOME_NORMAL = '\x1b[H';
 const HOME_APPLICATION = '\x1bOH';
