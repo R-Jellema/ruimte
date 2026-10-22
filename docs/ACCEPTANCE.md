@@ -386,6 +386,20 @@ the last commit without the compiler, through React DevTools' highlight updates 
   reload of the page, and a second `bun dev` within about five. Editing a component still updates it in place.
 - [ ] Pick another folder in the dialog that saves a generated image: the path under the tree follows it.
 
+## A canvas of many lines
+
+A chat that added a hundred notes in a row with `ruimte-context node new`, a line from the chat to each (the "Canvas
+2" shape), in the Electron dev app. `apps/client/src/canvas/canvas-pan-performance.browser.integration.test.ts` holds
+the same canvas to a budget in a headless browser; these are what it cannot feel.
+
+- [ ] An agent adding the notes one by one: each lands at once and the canvas keeps panning while they arrive.
+- [ ] Moving the pointer over the canvas, near a node and across lines, and hovering a line: the port dots and the
+  resize pill follow without a stall, and only the hovered line thickens.
+- [ ] Panning with two fingers and with the middle button, at 100% and zoomed out to the whole row: smooth, the notes
+  sharp again the moment the pan stops, and a note further than a screen away is in place before it scrolls in.
+- [ ] A note far out of sight that is selected, edited, being resized or the one a reveal goes to stays where it is;
+  Find in a note being edited still finds; every line still ends at its note.
+
 ## Apple Foundation Models
 
 `apps/foundation-models/verification.json` holds the recorded runs.
