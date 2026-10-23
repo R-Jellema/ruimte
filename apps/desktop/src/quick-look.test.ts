@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { quickLookPath, registryFolderOf, type QuickLookFiles } from './quick-look';
+import { quickLookPath, type QuickLookFiles } from './quick-look';
 
 const REGISTRY = JSON.stringify({
     projects: [
@@ -24,7 +24,12 @@ function disk(entries: { files: string[]; folders: string[]; links?: Record<stri
 const files = disk({
     files: ['/work/app/src/logo.png', '/work/elsewhere/secret.txt', '/work/app-other/a.txt'],
     folders: ['/work/app', '/work/app/src'],
-    links: { '/work/app/out.txt': '/work/elsewhere/secret.txt', '/work/app/inside.png': '/work/app/src/logo.png' }
+    links: {
+        '/work/app/out.txt': '/work/elsewhere/secret.txt',
+        '/work/app/inside.png': '/work/app/src/logo.png',
+        '/work/app/../elsewhere/secret.txt': '/work/elsewhere/secret.txt',
+        relative: '/work/app'
+    }
 });
 
 describe('quick look path', () => {
@@ -49,6 +54,7 @@ describe('quick look path', () => {
         expect(await quickLookPath('abc123:p1', '/work/app/src/logo.png', files)).toBeNull();
         expect(await quickLookPath(null, '/work/app/src/logo.png', files)).toBeNull();
         expect(await quickLookPath('local:p2', '/work/app/src/logo.png', files)).toBeNull();
+        expect(await quickLookPath('local:loose', '/work/app/src/logo.png', files)).toBeNull();
     });
 
     test('a relative path, a path that is gone or anything but a string is refused', async () => {
@@ -57,21 +63,10 @@ describe('quick look path', () => {
         expect(await quickLookPath('local:p1', 4, files)).toBeNull();
     });
 
-    test('without a registry nothing is shown', async () => {
-        expect(await quickLookPath('local:p1', '/work/app/src/logo.png', disk({ files: ['/work/app/src/logo.png'], folders: ['/work/app'] }, null))).toBeNull();
-    });
-});
-
-describe('registry folder', () => {
-    test('reads the absolute folder of a project', () => {
-        expect(registryFolderOf(REGISTRY, 'p1')).toBe('/work/app');
-        expect(registryFolderOf(REGISTRY, 'loose')).toBeNull();
-        expect(registryFolderOf(REGISTRY, 'missing')).toBeNull();
-    });
-
-    test('a registry that does not read names no folder', () => {
-        expect(registryFolderOf('{ not json', 'p1')).toBeNull();
-        expect(registryFolderOf('{"projects":4}', 'p1')).toBeNull();
-        expect(registryFolderOf('null', 'p1')).toBeNull();
+    test('a missing or malformed registry authorizes no file', async () => {
+        for (const registry of [null, '{ not json', '{"projects":4}', 'null']) {
+            const knownFile = disk({ files: ['/work/app/src/logo.png'], folders: ['/work/app'] }, registry);
+            expect(await quickLookPath('local:p1', '/work/app/src/logo.png', knownFile)).toBeNull();
+        }
     });
 });

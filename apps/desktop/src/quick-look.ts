@@ -13,7 +13,7 @@ export interface QuickLookFiles {
 const LOCAL_KEY_PREFIX = 'local:';
 
 /* The folder of a project in the daemon's registry, or null when the registry does not name it. */
-export function registryFolderOf(registry: string, projectId: string): string | null {
+function registryFolderOf(registry: string, projectId: string): string | null {
     try {
         const parsed: unknown = JSON.parse(registry);
         const projects = typeof parsed === 'object' && parsed !== null ? (parsed as { projects?: unknown }).projects : undefined;

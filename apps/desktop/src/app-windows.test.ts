@@ -5,7 +5,9 @@ describe('windowUrl', () => {
     const base = 'http://127.0.0.1:4210/';
 
     test('carries the key whole, colon included', () => {
-        expect(new URL(windowUrl(base, 'local:p1', false)).searchParams.get('project')).toBe('local:p1');
+        for (const first of [false, true]) {
+            expect(new URL(windowUrl(base, 'local:p1', first)).searchParams.get('project')).toBe('local:p1');
+        }
     });
 
     test('opens a window without a key on the start screen', () => {
@@ -14,10 +16,6 @@ describe('windowUrl', () => {
 
     test('leaves the first window of a start without a session to what the page remembers', () => {
         expect(windowUrl(base, null, true)).toBe(base);
-    });
-
-    test('a key wins over a first window', () => {
-        expect(windowUrl(base, 'local:p1', true)).toContain('project=');
     });
 
     test('carries the view a project window shows first, and no view without a project', () => {

@@ -70,15 +70,35 @@ function fixture() {
 test('waits for ready and keeps a finished helper warm for sixty seconds', async () => {
     const run = fixture();
     const started = run.service.start('first', 'nl-NL');
+    let settled = false;
+    void started.then(
+        () => {
+            settled = true;
+        },
+        () => {
+            settled = true;
+        }
+    );
+    // Drain stream callbacks and promise jobs without advancing the fake readiness deadline.
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(settled).toBe(false);
+    expect(run.children[0]!.commands).toEqual([{ type: 'start', sessionId: 'first', language: 'nl-NL' }]);
     run.emit(0, { type: 'ready', sessionId: 'first' });
     await started;
+    expect(settled).toBe(true);
     await run.service.samples('first', new Float32Array([0.25]));
     await run.service.stop('first');
+    expect(run.children[0]!.commands).toEqual([
+        { type: 'start', sessionId: 'first', language: 'nl-NL' },
+        { type: 'samples', sessionId: 'first', audio: 'AACAPg==' },
+        { type: 'stop', sessionId: 'first' }
+    ]);
     run.emit(0, { type: 'transcript', sessionId: 'first', text: 'Hallo.', final: true });
     run.emit(0, { type: 'ended', sessionId: 'first' });
     const next = run.service.start('second', 'en-GB');
     run.emit(0, { type: 'ready', sessionId: 'second' });
     await next;
+    expect(run.children[0]!.commands[3]).toEqual({ type: 'start', sessionId: 'second', language: 'en-GB' });
     expect(run.children).toHaveLength(1);
     run.emit(0, { type: 'ended', sessionId: 'second' });
     run.advance(59_999);
