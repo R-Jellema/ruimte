@@ -780,6 +780,28 @@ describe('what a device chose to hear of', () => {
         await auth.setPush(sessionId, { ...subscription, notify: ['turn'] });
         status('running', 'node', chosen);
         status('needs-you', 'node', chosen);
+        chosen.consume({
+            event: 'chat.event',
+            payload: {
+                chatId: 'node',
+                event: {
+                    type: 'item',
+                    item: {
+                        id: 'approval-no-needs-you',
+                        createdAt: NOW,
+                        turnId: null,
+                        kind: 'approval',
+                        requestId: 'approval-no-needs-you',
+                        toolUseId: null,
+                        toolName: 'Bash',
+                        input: {},
+                        description: 'Run test',
+                        canAllowAlways: false,
+                        decision: 'pending'
+                    }
+                }
+            }
+        });
         chosen.alert('chat', 'node', 'Task failed', 'It failed');
         await chosen.settled();
         expect(alerts()).toEqual([]);

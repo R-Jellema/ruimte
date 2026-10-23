@@ -21,7 +21,9 @@ describe('the preferences of Voice on the machine', () => {
         expect(store.get()).toBeNull();
         expect(store.set({ language: 'nl', voice: 'cedar' })).toEqual({ language: 'nl', voice: 'cedar' });
         expect(JSON.parse(await readFile(join(home, 'voice', 'preferences.json'), 'utf8'))).toEqual({ language: 'nl', voice: 'cedar' });
-        expect((await stat(join(home, 'voice'))).mode & 0o777).toBe(0o700);
+        if (process.platform !== 'win32') {
+            expect((await stat(join(home, 'voice'))).mode & 0o777).toBe(0o700);
+        }
         expect(new VoicePreferencesStore(home).get()).toEqual({ language: 'nl', voice: 'cedar' });
     });
 

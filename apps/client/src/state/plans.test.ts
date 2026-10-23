@@ -145,6 +145,8 @@ describe('a person changing a plan', () => {
         const shown = plansOf('local', 'chat-a')[0]!;
         expect(shown.items[0]).toMatchObject({ state: 'done', by: 'person', at: '2026-09-16T12:00:00Z' });
         expect((await done).id).toBe('p');
+        expect(plansOf('local', 'chat-a')).toEqual([{ ...transport.listed[0]!.plan, rev: 2 }]);
+        expect(plansOf('local', 'chat-a')[0]!.items[0]).not.toHaveProperty('state');
         expect(transport.applied).toEqual([{ chatId: 'chat-a', planId: 'p', ops: [{ op: 'set', ids: ['one'], state: 'done' }] }]);
     });
 

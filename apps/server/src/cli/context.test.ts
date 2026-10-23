@@ -14,6 +14,7 @@ let restore: Array<() => void>;
 let seen: { verb: string; argv: unknown; authorization: string | null }[];
 let sources: { id: string; kind: string; title: string; flag?: string; snoozedUntil?: string }[];
 let tails: string[];
+let fetched: string[];
 
 /* The daemon's side of `/context` and `/canvas`, answered in the process instead of on a port. */
 const daemon = {
@@ -92,6 +93,7 @@ beforeEach(() => {
     env = { RUIMTE_CONTEXT_URL: 'http://daemon.test/context', RUIMTE_HOOK_TOKEN: 'tok' };
     const requests = spyOn(globalThis, 'fetch').mockImplementation(((input: string | URL | Request, init?: RequestInit) => {
         const request = new Request(input, init);
+        fetched.push(request.url);
         // Any other address is a daemon that is not there, which fetch reports by rejecting.
         if (new URL(request.url).host !== 'daemon.test') {
             return Promise.reject(new TypeError('Unable to connect'));
@@ -103,6 +105,7 @@ beforeEach(() => {
     seen = [];
     sources = [{ id: 'n1', kind: 'text', title: 'Plan' }];
     tails = [];
+    fetched = [];
     const out = spyOn(process.stdout, 'write').mockImplementation((chunk) => {
         stdout += String(chunk);
         return true;
@@ -194,8 +197,11 @@ describe('runContext', () => {
         expect(await runContext(['read', 'term-2', '--view', 'main'], env)).toBe(0);
         expect(await runContext(['read', 'term-2', '--view=board'], env)).toBe(0);
         expect(stdout).toBe('the screen of term-2 on main\nthe screen of term-2 on board\n');
+        const beforeRefusal = [...fetched];
+        expect(beforeRefusal).toHaveLength(2);
         expect(await runContext(['read', 'term-2', '--view='], env)).toBe(3);
         expect(stderr).toStartWith('refused\tbad-arguments\t--view needs the id of the canvas the source stands on');
+        expect(fetched).toEqual(beforeRefusal);
     });
 
     test('a --tail that is not a positive whole number is refused before anything is asked', async () => {
@@ -211,6 +217,7 @@ describe('runContext', () => {
             expect(await runContext(argv, env)).toBe(3);
             expect(stderr).toStartWith('refused\tbad-arguments\t--tail needs a positive whole number of lines');
             expect(tails).toEqual([]);
+            expect(fetched).toEqual([]);
         }
     });
 

@@ -29,10 +29,15 @@ describe('backgroundServiceRow', () => {
     });
 
     test('no switch in the dev app, on Windows or for an AppImage, each with its reason', () => {
+        const reasons = {
+            dev: 'The dev app always runs a machine of its own and stops it when it quits.',
+            windows: 'Not available on Windows yet, so this machine stops when Ruimte quits.',
+            appimage: 'Not available in the AppImage. Install the deb or rpm package to keep this machine running.'
+        };
         for (const support of ['dev', 'windows', 'appimage'] as const) {
             const row = backgroundServiceRow(state({ support, keepRunning: false, owner: 'app' }));
             expect(row.toggle).toBeNull();
-            expect(row.unavailable).not.toBeNull();
+            expect(row.unavailable).toBe(reasons[support]);
             expect(row.canStop).toBe(false);
         }
     });

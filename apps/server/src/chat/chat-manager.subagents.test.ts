@@ -416,13 +416,20 @@ describe('a background subagent whose CLI is gone', () => {
         expect(rowOf(manager, 'chat-codex', 'collab_1')).toMatchObject({ status: 'failed', finishedAt: expect.any(Number) });
     });
 
-    test('a CLI that exits before its notification leaves the row done when the transcript shows the end, failed otherwise', async () => {
+    test.each(['end_turn', 'tool_use', null] as const)('a CLI that exits before its notification settles a transcript ending in %s', async (stopReason) => {
         const subagents = join(projects, '-work-demo', SESSION, 'subagents');
         await writeFile(join(subagents, 'agent-afake.meta.json'), JSON.stringify({ agentType: 'general-purpose', toolUseId: 'toolu_agent' }));
+        await writeFile(join(subagents, 'agent-abarrier.meta.json'), JSON.stringify({ agentType: 'general-purpose', toolUseId: 'toolu_barrier' }));
         await writeFile(
-            join(subagents, 'agent-afake.jsonl'),
-            `${JSON.stringify({ type: 'assistant', timestamp: '2026-09-16T09:00:00.000Z', message: { id: 'm', role: 'assistant', content: [{ type: 'text', text: 'All written.' }], stop_reason: 'end_turn' } })}\n`
+            join(subagents, 'agent-abarrier.jsonl'),
+            `${JSON.stringify({ type: 'assistant', timestamp: '2026-09-16T09:00:01.000Z', message: { id: 'barrier', role: 'assistant', content: [{ type: 'text', text: 'Finished reading.' }], stop_reason: 'end_turn' } })}\n`
         );
+        if (stopReason !== null) {
+            await writeFile(
+                join(subagents, 'agent-afake.jsonl'),
+                `${JSON.stringify({ type: 'assistant', timestamp: '2026-09-16T09:00:00.000Z', message: { id: 'm', role: 'assistant', content: [{ type: 'text', text: 'All written.' }], stop_reason: stopReason } })}\n`
+            );
+        }
         await retire(manager);
         manager = makeManager({ subagents: { claudeProjectsDir: projects, seams: new FakeWatch() } });
         manager.subscribe('c1', recorder.sink());
@@ -431,16 +438,18 @@ describe('a background subagent whose CLI is gone', () => {
         await manager.send('chat-exit', 'background: report written');
         await recorder.until(idle);
         expect(rowOf(manager, 'chat-exit', 'toolu_agent')).toMatchObject({ status: 'running' });
+        manager.get('chat-exit')!.thread.upsert(runningRow('toolu_barrier'));
 
         // The CLI goes before the work it put off ever runs, so no notification comes.
         void manager.send('chat-exit', 'crash').catch(() => undefined);
         await claude.started[0]!.exited;
-        await recorder.until(() => recorder.ofKind('subagent')[0]?.status === 'done');
-        expect(rowOf(manager, 'chat-exit', 'toolu_agent')).toMatchObject({
-            status: 'done',
-            result: 'All written.',
-            finishedAt: Date.parse('2026-09-16T09:00:00.000Z')
-        });
+        // The completed sibling is published after all transcript lookups, including an unfinished or missing one.
+        await recorder.until(() => recorder.ofKind('subagent').some((row) => row.toolUseId === 'toolu_barrier' && row.status === 'done'));
+        expect(rowOf(manager, 'chat-exit', 'toolu_agent')).toMatchObject(
+            stopReason === 'end_turn'
+                ? { status: 'done', result: 'All written.', finishedAt: Date.parse('2026-09-16T09:00:00.000Z') }
+                : { status: 'failed', finishedAt: expect.any(Number) }
+        );
     });
 });
 

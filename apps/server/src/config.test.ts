@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { DEFAULT_HOST, DEFAULT_PORT, forgetInheritedSession, parseServerArgs } from './config.ts';
+import { forgetInheritedSession, parseServerArgs } from './config.ts';
 
 describe('forgetInheritedSession', () => {
     test('drops the session variables and keeps the rest', () => {
@@ -21,8 +21,8 @@ describe('forgetInheritedSession', () => {
 describe('parseServerArgs', () => {
     test('defaults', () => {
         const config = parseServerArgs([], { RUIMTE_HOME: '/tmp/ruimte-home' });
-        expect(config.host).toBe(DEFAULT_HOST);
-        expect(config.port).toBe(DEFAULT_PORT);
+        expect(config.host).toBe('127.0.0.1');
+        expect(config.port).toBe(4210);
         expect(config.home).toBe('/tmp/ruimte-home');
         expect(config.installHooks).toBe(true);
     });

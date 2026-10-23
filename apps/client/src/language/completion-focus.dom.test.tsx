@@ -2,6 +2,9 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
 import { typeInto } from '@adecore/editor/testing';
 import { isApplePlatform } from '@/desktop/bridge';
+import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
+import { eventOf } from './key-events';
+import { useSettings } from '@/state/settings';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { mount, pressKey, until, type Mounted } from '../../testing/dom';
@@ -56,6 +59,34 @@ afterEach(async () => {
 });
 
 describe('the completion list of the editor', () => {
+    test('one undo removes a whole accepted ghost suggestion and keeps the text that preceded it', async () => {
+        const before = 'const prior = 1;\n';
+        const suggestion = 'const next = 2;\nconst last = 3;';
+        machine.answer('fs.read', () => ({ kind: 'text', text: before, encoding: 'utf-8', size: before.length, mtime: 1, language: 'typescript' }) as never);
+        machine.answer('ondevice.status', () => ({ available: true }));
+        machine.answer('ondevice.generate', () => ({ state: 'done' as const, text: suggestion }));
+        const previous = useSettings.getState().aiGhostText;
+        useSettings.setState({ aiGhostText: 'request' });
+        try {
+            await page.renderApp();
+            await until(() => input() !== null);
+            await act(async () => input()!.focus());
+            await pressKey(input()!, 'End', isApplePlatform() ? { metaKey: true } : { ctrlKey: true });
+            await act(async () => {
+                input()!.dispatchEvent(new KeyboardEvent('keydown', { ...eventOf(CANVAS_SHORTCUTS.suggestInline), bubbles: true, cancelable: true }));
+            });
+            await until(() => page.host.querySelector('.se-ghost-accessory') !== null);
+            await pressKey(input()!, 'Tab');
+            await pressKey(input()!, 's', isApplePlatform() ? { metaKey: true } : { ctrlKey: true });
+            expect(machine.requests('fs.write').at(-1)?.text).toBe(before + suggestion);
+            await pressKey(input()!, 'z', isApplePlatform() ? { metaKey: true } : { ctrlKey: true });
+            await pressKey(input()!, 's', isApplePlatform() ? { metaKey: true } : { ctrlKey: true });
+            expect(machine.requests('fs.write').at(-1)?.text).toBe(before);
+        } finally {
+            useSettings.setState({ aiGhostText: previous });
+        }
+    });
+
     test('leaves the keyboard in the text, so a key after a tool focused its row lands there', async () => {
         await page.renderApp();
         await until(() => input() !== null);

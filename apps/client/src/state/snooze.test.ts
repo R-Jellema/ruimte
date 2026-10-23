@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, jest, setSystemTime, test } from 'bun:test';
 import type { EventMap, EventType, RequestMap, RequestType, Snooze } from '@ruimte/contracts';
 import type { Transport, TransportStatus } from '@/transport/transport';
-import { isSnoozed, MAX_TICK_MS, snoozeOf, nextWake, snoozeUntil, startSnoozeClock, useSnoozes, watchSnoozes, withoutExpired } from './snooze';
+import { isSnoozed, snoozeOf, nextWake, snoozeUntil, startSnoozeClock, useSnoozes, watchSnoozes, withoutExpired } from './snooze';
 
 function at(year: number, month: number, day: number, hour: number, minute = 0): number {
     return new Date(year, month - 1, day, hour, minute).getTime();
@@ -85,10 +85,10 @@ describe('the snooze clock', () => {
 
     test('reads the wall clock again at least once a minute, so a sleeping machine wakes it late by no more than that', () => {
         stop = startSnoozeClock(() => now);
-        useSnoozes.getState().snooze('local', 't1', 10 * MAX_TICK_MS);
+        useSnoozes.getState().snooze('local', 't1', 600_000);
         // The machine slept: the wall clock jumps past the snooze while the timer has barely moved.
-        now = 11 * MAX_TICK_MS;
-        jest.advanceTimersByTime(MAX_TICK_MS);
+        now = 660_000;
+        jest.advanceTimersByTime(60_000);
         expect(useSnoozes.getState().byKey).toEqual({});
     });
 

@@ -200,7 +200,7 @@ describe('unlinking a project', () => {
 });
 
 describe('the canvas of a linked machine', () => {
-    test('is not listed, not openable, and cannot be shared', async () => {
+    test('is absent from the sidebar and cannot be shared', async () => {
         await store.save(projectId, 0, withPeerCanvas());
         await ask('peer.bind', { machineId: 'machine-a', label: 'MacBook Pro', projectId });
         const sidebar = await store.sidebar();

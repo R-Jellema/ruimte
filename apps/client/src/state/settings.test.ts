@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { bundledThemesInfo } from 'shiki/themes';
 import { DEFAULT_STUN_SERVER } from '@ruimte/pulsar';
 import { DEFAULT_CODE_FOLDING } from './code-folding';
 import { codeLineHeight, codeThemesOf, iceServersFrom, settingsFrom, useSettings, type KeepAwakeMode, type Settings } from './settings';
@@ -378,6 +379,13 @@ describe('the colors of code', () => {
         expect(dark.map((info) => info.id)).toContain('night-owl');
         expect(light.every((info) => info.type === 'light')).toBe(true);
         expect(dark.every((info) => info.type === 'dark')).toBe(true);
+        for (const mode of ['light', 'dark'] as const) {
+            const expected = bundledThemesInfo.filter((info) => info.type === mode).map((info) => info.id);
+            const offered = codeThemesOf(mode)
+                .slice(1)
+                .map((info) => info.id);
+            expect(offered).toEqual(expected);
+        }
     });
 });
 

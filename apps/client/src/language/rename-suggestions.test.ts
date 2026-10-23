@@ -17,10 +17,13 @@ const range = (line: number, start: number, end: number) => ({ start: at(line, s
 
 const TEXT = 'const hits = need.filter((n) => has(n));\nreturn hits.length / need.length;';
 
-async function setup(options: { available?: boolean } = {}) {
+async function setup(options: { available?: boolean; fail?: boolean } = {}) {
     const transport = new FakeLanguageTransport();
     transport.providers = { 'textDocument/rename': { prepareProvider: true }, 'textDocument/references': {} };
     const model = new FakeOnDeviceModel(transport, options.available === false ? { available: false, reason: 'Apple Intelligence is turned off.' } : {});
+    if (options.fail) {
+        transport.answers.set('ondevice.generate', () => Promise.reject(new Error('model failed')));
+    }
     transport.answers.set('language.request', (payload: { method: string }) => {
         const results: Record<string, unknown> = {
             'textDocument/prepareRename': { range: range(0, 6, 10), placeholder: 'hits' },
@@ -59,6 +62,7 @@ describe('rename suggestions', () => {
         expect(model.last.purpose).toBe('names');
         expect(model.last.stream).toBe(false);
         expect(model.last.prompt).toContain('Current name: hits');
+        expect(model.last.prompt).toContain(`Code around it:\n${TEXT}\n\nLines that use it:`);
         expect(model.last.prompt).toContain('Lines that use it:\nconst hits = need.filter((n) => has(n));\nreturn hits.length / need.length;\nlog(hits);');
     });
 
@@ -83,18 +87,32 @@ describe('rename suggestions', () => {
     });
 
     test('drops the answer of a rename that was closed, and cancels the request', async () => {
-        const { model, language } = await setup();
+        const { model, language, transport, editor } = await setup();
+        transport.answers.set('ondevice.cancel', ({ id }: { id: string }) => {
+            model.cancels.push(id);
+            return {};
+        });
         language.rename.cancel();
         await settle();
         expect(model.cancels).toEqual([model.last.id]);
         expect(language.popups.getState().rename).toBeNull();
+        model.answer('matchedSkills');
+        await settle();
+        expect(language.popups.getState().rename).toBeNull();
+        expect(editor.getText()).toBe(TEXT);
+        expect(transport.callsOf('language.request').some((call) => (call.payload as { method: string }).method === 'textDocument/rename')).toBe(false);
     });
 
-    test('a model that fails leaves the input as it is', async () => {
-        const { model, language, transport } = await setup();
-        transport.answers.set('ondevice.cancel', () => ({}));
+    test('invalid output and a failed model leave the input as it is', async () => {
+        const { model, language, editor } = await setup();
         model.answer('!!!');
         await settle();
-        expect(language.popups.getState().rename).toMatchObject({ suggestions: [], phase: 'input' });
+        expect(language.popups.getState().rename).toMatchObject({ suggestions: [], phase: 'input', name: 'hits' });
+        expect(editor.getText()).toBe(TEXT);
+        const failed = await setup({ fail: true });
+        expect(failed.transport.callsOf('ondevice.generate')).toHaveLength(1);
+        expect(failed.language.popups.getState().rename).toMatchObject({ suggestions: [], phase: 'input', name: 'hits' });
+        expect(failed.editor.getText()).toBe(TEXT);
+        expect(failed.transport.callsOf('language.request').some((call) => (call.payload as { method: string }).method === 'textDocument/rename')).toBe(false);
     });
 });

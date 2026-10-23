@@ -49,5 +49,15 @@ describe('a maximized cell', () => {
         await clickOn(indicator());
         await until(() => useDocument.getState().maximized === null);
         expect(indicator()).toBeNull();
+        expect(page.host.querySelector('[data-split-cell][data-maximized]')).toBeNull();
+        for (const view of [LEFT, RIGHT]) {
+            const cell = page.host.querySelector<HTMLElement>(`[data-split-cell][data-view-id="${view.id}"]`)!;
+            expect(cell).not.toBeNull();
+            expect(cell.hidden).toBe(false);
+            expect(cell.closest('[hidden]')).toBeNull();
+            expect(page.host.querySelector(`[data-split-view-id="${view.id}"]`)?.hasAttribute('hidden')).toBe(false);
+            expect(cell.style.display).not.toBe('none');
+            expect(cell.querySelector('.split-cell-body')?.textContent).toContain('const answer = 42;');
+        }
     });
 });

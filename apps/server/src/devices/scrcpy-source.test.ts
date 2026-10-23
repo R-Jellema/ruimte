@@ -270,10 +270,13 @@ describe('ScrcpySource', () => {
         await source.start(() => undefined);
 
         source.keys([0x28]);
+        source.keys([0x2b]);
 
         expect(host.control.map((message) => [message[0], message[1], new DataView(message.buffer).getInt32(2)])).toEqual([
             [0, 0, 66],
-            [0, 1, 66]
+            [0, 1, 66],
+            [0, 0, 61],
+            [0, 1, 61]
         ]);
         expect(() => source.keys([0xe1, 0x64])).toThrow('Ruimte cannot press one of these keys on an Android device');
     });

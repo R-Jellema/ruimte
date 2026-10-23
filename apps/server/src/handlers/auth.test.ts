@@ -685,7 +685,7 @@ describe('auth handlers', () => {
         expect('ok' in paired && paired.ok && 'accountId' in (paired.result as object)).toBe(false);
     });
 
-    test('leaving the account cuts off the clients a statement of it let in, and leaves a client paired by link', async () => {
+    test('leaving the account revokes its statement clients and closes their channels', async () => {
         await ask(LOCAL, 'endpoint.signRegistration', { accountId: 'account-1' });
         const phone = generateKeyPair();
         const admitted = await store.admitStatement({

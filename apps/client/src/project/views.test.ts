@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { ProjectDocument, ProviderInfo } from '@ruimte/contracts';
-import { useDrafts } from '@adecore/agents-react/chat';
+import { readDraft, useDrafts } from '@adecore/agents-react/chat';
 import { focusedCanvas } from '../state/canvas';
 import { useDocument } from '../state/document';
 import { currentEndpointId } from '../state/keys';
@@ -40,6 +40,7 @@ describe('asking an agent to write an empty diagram', () => {
         expect(canvas.nodes[chat!]?.kind).toBe('chat');
         expect(canvas.edges).toEqual([expect.objectContaining({ from: mirror!.id, to: chat })]);
         expect(useDrafts.getState().ids).toContain(chat!);
+        expect(readDraft(chat!).text).toBe('Fill the empty diagram "Flow" with `ruimte-context view diagram flow`. It should show ');
     });
 
     test('a view that is not a diagram or a drawing asks nothing', async () => {

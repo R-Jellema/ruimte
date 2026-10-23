@@ -939,10 +939,14 @@ describe('client actions', () => {
         test('a node moves to another canvas after Voice hears about its lines, and a group or the same canvas is refused', async () => {
             withLine();
             const nodeId = shellId();
-            const moved = await confirmed(
-                clientActions,
-                await clientActions.execute('node.moveToView', { viewId: 'main', nodeId, targetViewId: 'release' }, VOICE_ACTION_CALL)
-            );
+            const nodes = structuredClone(canvas().nodes);
+            const edges = structuredClone(canvas().edges);
+            const views = structuredClone(useDocument.getState().views);
+            const asked = await clientActions.execute('node.moveToView', { viewId: 'main', nodeId, targetViewId: 'release' }, VOICE_ACTION_CALL);
+            expect(canvas().nodes).toEqual(nodes);
+            expect(canvas().edges).toEqual(edges);
+            expect(useDocument.getState().views).toEqual(views);
+            const moved = await confirmed(clientActions, asked);
             expect(moved).toMatchObject({ status: 'completed', output: { node: 'Shell', target: 'Release' } });
             expect(canvas().nodes[nodeId]).toBeUndefined();
             const release = useDocument.getState().views.find((view) => view.id === 'release');
@@ -992,7 +996,9 @@ describe('client actions', () => {
             canvas().saveLayout('Home');
             const before = canvas().layouts[0];
             shift(nodeId);
-            const replaced = await confirmed(clientActions, await clientActions.execute('layout.save', { viewId: 'main', name: 'Home' }, VOICE_ACTION_CALL));
+            const asked = await clientActions.execute('layout.save', { viewId: 'main', name: 'Home' }, VOICE_ACTION_CALL);
+            expect(canvas().layouts).toEqual([before!]);
+            const replaced = await confirmed(clientActions, asked);
             expect(replaced).toMatchObject({ status: 'completed', output: { replaced: true } });
             expect(canvas().layouts[0]).not.toEqual(before);
             if (replaced.status !== 'completed' || !replaced.undoToken) {
@@ -1356,6 +1362,7 @@ describe('client actions', () => {
                 }
             });
             expect(saved).toEqual([]);
+            expect(canvas().order).toEqual(['notes', 'research']);
             expect(await confirmed(registry, asked)).toMatchObject({ status: 'completed', output: { nodes: ['notes.md', 'Research'] } });
             expect(saved).toEqual(['/repo/docs/notes.md']);
             expect(canvas().order).toEqual([]);

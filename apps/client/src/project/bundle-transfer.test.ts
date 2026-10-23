@@ -73,12 +73,23 @@ describe('moveBundle', () => {
         ]);
     });
 
-    test('stops when the bundle changes between two pieces', async () => {
+    test('stops before putting a second piece when the bundle size changes', async () => {
+        const log: string[] = [];
+        const received: Uint8Array[] = [];
+        const original = source(log);
+        let reads = 0;
         const changing: BundleSource = {
-            ...source([]),
-            readBytes: async (payload) => ({ mime: 'x', size: BUNDLE.length + 1, version: 'v2', offset: payload.offset, bytes: new Uint8Array(10) })
+            ...original,
+            readBytes: async (payload) => {
+                const piece = await original.readBytes!(payload);
+                return { ...piece, size: ++reads === 1 ? BUNDLE.length : BUNDLE.length + 1 };
+            }
         };
-        await expect(moveBundle(changing, target([], []), 'bundle-one', BUNDLE.length)).rejects.toThrow('changed');
+        await expect(moveBundle(changing, target(log, received), 'bundle-one', BUNDLE.length)).rejects.toThrow('changed');
+        expect(reads).toBe(2);
+        expect(received).toHaveLength(1);
+        expect(received[0]).toEqual(BUNDLE.slice(0, BYTES_CHUNK_MAX));
+        expect(log).toEqual([`read 0+${BYTES_CHUNK_MAX}`, 'git.bundlePut', `read ${BYTES_CHUNK_MAX}+${BYTES_CHUNK_MAX}`]);
     });
 
     test('stops when the other machine did not keep a piece', async () => {
@@ -90,9 +101,10 @@ describe('moveBundle', () => {
 describe('handOff', () => {
     test('bundles on one machine, moves it, and takes it in on the other with the hash it was written with', async () => {
         const log: string[] = [];
+        const fetched: unknown[] = [];
         const result = await handOff({
             from: source(log),
-            to: target(log, []),
+            to: target(log, [], fetched),
             bundle: { path: '/here', from: 'files', haves: [], name: 'Handoff' },
             projectId: 'there-project',
             branch: 'atlas',
@@ -102,6 +114,9 @@ describe('handOff', () => {
         expect(result.path).toBe('/there/worktree');
         expect(log[0]).toBe('git.bundle');
         expect(log.at(-1)).toBe('git.fetchBundle');
+        expect(fetched).toEqual([
+            { projectId: 'there-project', bundleId: 'bundle-one', sha256: 'a'.repeat(64), branch: 'atlas', into: 'worktree', machine: 'Studio' }
+        ]);
     });
 
     test('tells the machine that takes it in that the machine it came from never vouched for it, and says nothing otherwise', async () => {

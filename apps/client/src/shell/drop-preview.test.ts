@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
-import { dropPreview, HIDE_GRACE_MS, hideDropPreview, showDropPreview } from './drop-preview';
+import { dropPreview, HIDE_GRACE_MS, hideDropPreview, showDropPreview, subscribeDropPreview } from './drop-preview';
 import { rectDropPreview } from '@adecore/ui';
 
 const first = rectDropPreview({ x: 0, y: 0, width: 100, height: 100 });
@@ -35,10 +35,21 @@ describe('the drop preview', () => {
     });
 
     test('says nothing for the shape it already has', () => {
-        showDropPreview(first);
-        const before = dropPreview();
-        showDropPreview({ ...first });
-        expect(dropPreview()).toBe(before);
+        let notifications = 0;
+        const off = subscribeDropPreview(() => notifications++);
+        try {
+            showDropPreview(first);
+            expect(notifications).toBe(1);
+            const before = dropPreview();
+            showDropPreview({ ...first });
+            expect(dropPreview()).toBe(before);
+            expect(notifications).toBe(1);
+            off();
+            showDropPreview(second);
+            expect(notifications).toBe(1);
+        } finally {
+            off();
+        }
     });
 
     test('waits out the grace for a pointer on its way to another cell, and glides there', () => {

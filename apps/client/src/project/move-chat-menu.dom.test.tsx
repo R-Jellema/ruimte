@@ -76,6 +76,9 @@ describe('moving a chat out of Chats, from its view menu', () => {
         await openSubmenu('Move to project');
         await clickOn(makeProjectRow() ?? null);
         expect(useUi.getState().moveChatDialog).toEqual({ chatId: WRITTEN.id, mode: 'make', projectId: null });
+        await until(() => document.querySelector('[role="dialog"] #move-chat-name') !== null);
+        expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Make project');
+        expect(machine.requests('chat.moveInfo')).toEqual([expect.objectContaining({ chatId: WRITTEN.id })]);
         await act(async () => useUi.getState().setMoveChatDialog(null));
     });
 
@@ -134,6 +137,15 @@ describe('moving a chat out of Chats, from its view menu', () => {
             const row = [...document.querySelectorAll('[role="option"]')].find((item) => item.textContent?.includes(label));
             await clickOn(row ?? null);
             expect(useUi.getState().moveChatDialog).toEqual({ chatId: WRITTEN.id, mode, projectId: null });
+            await until(() => document.querySelector('[role="dialog"]') !== null && machine.requests('chat.moveInfo').length > 0);
+            const dialog = document.querySelector('[role="dialog"]')!;
+            expect(dialog.textContent).toContain('Make project');
+            if (mode === 'make') {
+                expect(dialog.querySelector('#move-chat-name')).not.toBeNull();
+            } else {
+                expect(dialog.textContent).toContain('Choose a project');
+            }
+            expect(machine.requests('chat.moveInfo')).toEqual([expect.objectContaining({ chatId: WRITTEN.id })]);
             await act(async () => useUi.getState().setMoveChatDialog(null));
         });
 

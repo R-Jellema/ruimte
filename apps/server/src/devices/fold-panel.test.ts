@@ -106,5 +106,50 @@ describe('FoldPanelMonitor', () => {
 
         expect(spawned).toBe(0);
         expect(panels).toEqual([]);
+
+        const live = Promise.withResolvers<void>();
+        const streaming = Promise.withResolvers<void>();
+        let killed = 0;
+        let waits = 0;
+        const active = new FoldPanelMonitor({
+            udid: 'duo-1',
+            onPanel: (panel) => panels.push(panel),
+            spawn: (command) => {
+                spawned += 1;
+                if (command.includes('show')) {
+                    return logOf([COVER]);
+                }
+                return {
+                    lines: (async function* () {
+                        streaming.resolve();
+                        await live.promise;
+                        yield* [];
+                    })(),
+                    exited: live.promise.then(() => 143),
+                    kill: () => {
+                        killed += 1;
+                        live.resolve();
+                    }
+                };
+            },
+            wait: async () => {
+                waits += 1;
+            }
+        });
+        try {
+            active.start();
+            await streaming.promise;
+            expect(spawned).toBe(2);
+            const stopping = active.stop();
+            expect(killed).toBe(1);
+            await stopping;
+            expect(waits).toBe(0);
+            active.start();
+            await Promise.resolve();
+            expect(spawned).toBe(2);
+        } finally {
+            live.resolve();
+            await active.stop();
+        }
     });
 });

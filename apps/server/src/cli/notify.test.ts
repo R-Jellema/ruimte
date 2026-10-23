@@ -58,12 +58,19 @@ describe('ruimte notify', () => {
     });
 
     test('refuses without a node or a text, before it reads the secret', async () => {
-        const nodeless = harness(() => Response.json({}), { env: {} });
+        const reads: string[] = [];
+        const readSecret = async (home: string) => {
+            reads.push(home);
+            return 'secret';
+        };
+        const nodeless = harness(() => Response.json({}), { env: {}, readSecret });
         expect(await nodeless.run()).toBe(1);
         expect(nodeless.err[0]).toContain('--node');
 
-        const empty = harness(() => Response.json({}), { text: '  ' });
+        const empty = harness(() => Response.json({}), { text: '  ', readSecret });
         expect(await empty.run()).toBe(1);
+        expect(empty.err[0]).toContain('Usage: ruimte notify');
+        expect(reads).toEqual([]);
         expect([...nodeless.asked, ...empty.asked]).toEqual([]);
     });
 

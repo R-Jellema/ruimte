@@ -12,6 +12,7 @@ test('the logo color wins over white paper, black lettering and transparent pixe
 
 test('the dominant color is weighted by coverage and opacity', () => {
     expect(iconAppearanceFromPixels(pixels([0, 150, 137, 255], [0, 150, 137, 255], [231, 0, 11, 128])).color).toBe('#009689');
+    expect(iconAppearanceFromPixels(pixels([0, 150, 137, 255], [231, 0, 11, 80], [231, 0, 11, 80])).color).toBe('#009689');
 });
 
 test('only visible monochrome black artwork is classified as black', () => {

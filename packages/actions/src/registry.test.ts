@@ -182,6 +182,10 @@ describe('ActionRegistry', () => {
             status: 'failed',
             error: { code: 'unknown-confirmation' }
         });
+        expect(await registry.confirm(declined.confirmationToken, true, { ...caller, actor: { kind: 'voice', id: caller.actor.id } })).toMatchObject({
+            status: 'failed',
+            error: { code: 'unknown-confirmation' }
+        });
         expect(await registry.confirm(declined.confirmationToken, false, caller)).toMatchObject({
             status: 'failed',
             action: 'view.delete',

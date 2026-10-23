@@ -17,11 +17,21 @@ describe('stamped', () => {
 describe('stampConsole', () => {
     test('stamps every method of the console it is given', () => {
         const lines: unknown[][] = [];
-        const record = (...data: unknown[]) => lines.push(data);
-        const target = { log: record, info: record, warn: record, error: record, debug: record };
+        const record =
+            (method: string) =>
+            (...data: unknown[]) =>
+                lines.push([method, ...data]);
+        const target = { log: record('log'), info: record('info'), warn: record('warn'), error: record('error'), debug: record('debug') };
         stampConsole(target, () => AT);
-        target.log('a');
-        target.error('b', 1);
-        expect(lines).toEqual([['2026-10-16T08:35:12.000Z a'], ['2026-10-16T08:35:12.000Z b', 1]]);
+        for (const method of ['log', 'info', 'warn', 'error', 'debug'] as const) {
+            target[method]('message %s', method);
+        }
+        expect(lines).toEqual([
+            ['log', '2026-10-16T08:35:12.000Z message %s', 'log'],
+            ['info', '2026-10-16T08:35:12.000Z message %s', 'info'],
+            ['warn', '2026-10-16T08:35:12.000Z message %s', 'warn'],
+            ['error', '2026-10-16T08:35:12.000Z message %s', 'error'],
+            ['debug', '2026-10-16T08:35:12.000Z message %s', 'debug']
+        ]);
     });
 });

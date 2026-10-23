@@ -56,6 +56,9 @@ describe('the axes', () => {
         expect(axis.ticks[0]).toBe(0);
         expect(axis.ticks.at(-1)).toBeGreaterThanOrEqual(7.63);
         expect(axis.at(0)).toBe(0);
+        expect(axis.ticks).toEqual([0, 2, 4, 6, 8]);
+        expect(axis.at(4)).toBe(0.5);
+        expect(axis.at(8)).toBe(1);
     });
 
     test('the index runs in steps of ten around the scores', () => {

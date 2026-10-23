@@ -11,7 +11,7 @@ describe('ui', () => {
         });
     });
 
-    test('the sidebar starts open where no storage answers and follows the toggle', () => {
+    test('the sidebar follows the toggle and an explicit open choice', () => {
         expect(useUi.getState().sidebarOpen).toBe(true);
         useUi.getState().toggleSidebar();
         expect(useUi.getState().sidebarOpen).toBe(false);

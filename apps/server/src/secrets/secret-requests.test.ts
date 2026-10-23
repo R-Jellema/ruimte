@@ -228,9 +228,21 @@ describe('a secret card', () => {
         const one = service.ask(ask, 1_000);
         const two = service.ask({ ...ask, variable: 'OTHER' }, 1_000);
         const three = service.ask({ ...ask, nodeId: 'chat-2' }, 1_000);
+        const four = service.ask({ ...ask, launchId: 'worker', launchName: 'Worker' }, 1_000);
         await flush();
-        expect(service.list()).toHaveLength(3);
-        timers.advance(1_000);
-        await Promise.all([one, two, three]);
+        const cards = service.list();
+        expect(cards.map(({ nodeId, launchId, variable }) => [nodeId, launchId, variable])).toEqual([
+            ['chat-1', 'api', 'API_KEY'],
+            ['chat-1', 'api', 'OTHER'],
+            ['chat-2', 'api', 'API_KEY'],
+            ['chat-1', 'worker', 'API_KEY']
+        ]);
+        expect(new Set(cards.map((card) => card.requestId)).size).toBe(4);
+        for (const card of cards) {
+            expect(service.decline(card.requestId)).toBe(true);
+        }
+        const outcomes = await Promise.all([one, two, three, four]);
+        expect([...outcomes]).toEqual(cards.map(({ requestId }) => ({ requestId, outcome: 'declined' })));
+        expect(service.list()).toEqual([]);
     });
 });

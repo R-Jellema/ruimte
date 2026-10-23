@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { GitBundleResult, GitFetchBundleResult, ServerFrame } from '@ruimte/contracts';
@@ -21,6 +21,7 @@ interface Machine {
     dispatcher: Dispatcher;
     // The folders this machine never vouched for, as `peers.untrustFolder` writes them down.
     untrusted: Array<{ path: string; branch?: string }>;
+    onUntrust?: (path: string) => Promise<void>;
 }
 
 let root: string;
@@ -38,14 +39,18 @@ async function machine(name: string): Promise<Machine> {
     const bundles = new BundleStore(home);
     const repo = join(root, name);
     const dispatcher = new Dispatcher();
+    const result: Machine = { repo, bundles, dispatcher, untrusted };
     registerGitHandlers(dispatcher, worktrees, {} as never, {} as never, {} as never, undefined, undefined, undefined, {
         bundles,
         checkpoints: new Checkpoints(home),
         folderOf: async () => repo,
         untrusted: (path) => untrusted.some((record) => path === record.path || path.startsWith(`${record.path}/`)),
-        untrustFolder: async (path, branch) => void untrusted.push({ path, branch })
+        untrustFolder: async (path, branch) => {
+            untrusted.push({ path, branch });
+            await result.onUntrust?.(path);
+        }
     });
-    return { repo, bundles, dispatcher, untrusted };
+    return result;
 }
 
 async function ask<T>(on: Machine, type: string, payload: unknown): Promise<T> {
@@ -105,11 +110,32 @@ describe('a checkout a person hands to another machine', () => {
 
     test('from a folder its machine never vouched for stays untrusted there, written down before git made it', async () => {
         a.untrusted.push({ path: a.repo });
-
-        const { made, taken } = await handOff(a, b, a.repo, 'worktree');
+        const written = Promise.withResolvers<string>();
+        const proceed = Promise.withResolvers<void>();
+        b.onUntrust = async (path) => {
+            written.resolve(path);
+            await proceed.promise;
+        };
+        const transfer = handOff(a, b, a.repo, 'worktree');
+        let outcome: Awaited<typeof transfer>;
+        try {
+            const path = await Promise.race([
+                written.promise,
+                transfer.then(() => {
+                    throw new Error('git completed before the trust write');
+                })
+            ]);
+            expect(b.untrusted).toEqual([{ path, branch: 'ruimte/atlas' }]);
+            expect(await stat(path).catch(() => null)).toBeNull();
+        } finally {
+            proceed.resolve();
+            outcome = await transfer;
+        }
+        const { made, taken } = outcome;
 
         expect(made.untrusted).toBe(true);
         expect(b.untrusted).toEqual([{ path: taken.path!, branch: taken.branch }]);
+        expect((await stat(join(taken.path!, '.git'))).isFile()).toBe(true);
     });
 
     test('brought back to the machine of the project is untrusted there, whoever asked for it', async () => {

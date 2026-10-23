@@ -26,6 +26,7 @@ import { rekeyLastProject } from './last-project';
 import { setViewShared } from './views';
 import { ProjectClient, type ProjectSink } from './project-client';
 import { sessionNodesOf } from './project-sessions';
+import { withClientClosedProject } from './closed-projects';
 
 type Call = { type: RequestType; payload: unknown };
 
@@ -937,7 +938,13 @@ describe('ProjectClient', () => {
         const { client, storage, dispose } = setup();
         await tick();
         await client.closeProject();
-        expect([...storage.keys()].some((key) => key.startsWith('ruimte.closedProject.'))).toBe(true);
+        const projects = await client.refreshList();
+        const fresh = projects[0]!;
+        const remembered = withClientClosedProject('daemon-a', fresh, fakeStorage(storage));
+        expect(remembered.closedAt).toBeNumber();
+        expect(remembered.closedAt).toBeGreaterThan(0);
+        expect(withClientClosedProject('daemon-b', fresh, fakeStorage(storage)).closedAt).toBeUndefined();
+        expect(withClientClosedProject('daemon-a', summary('other'), fakeStorage(storage)).closedAt).toBeUndefined();
         dispose();
     });
 
@@ -1351,7 +1358,7 @@ describe('fields this version does not know', () => {
         expect(views.find((view) => view.id === 'chat')).toMatchObject({ node: { futureFlag: true } });
     }
 
-    test('a drag of another node saves with all of them', async () => {
+    test('editing another node body saves all newer fields with it', async () => {
         const { transport, dispose } = setup();
         transport.views = newerViews();
         await tick();

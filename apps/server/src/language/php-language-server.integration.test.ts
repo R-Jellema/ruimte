@@ -64,7 +64,7 @@ const FILES: Record<string, string> = {
         '$greeter = new Greeter();',
         "echo $greeter->greet('Ada');",
         'echo strlen("abc");',
-        '$greeter->',
+        '$greeter->shout("Ada");',
         ''
     ].join('\n')
 };
@@ -182,18 +182,34 @@ describe.skipIf(!hasCargo || checkout === null)('the standalone PHP server in Ru
 
         const members = await eventually(
             'the members of the greeter',
-            () => ask('main.php', 'textDocument/completion', { position: positionOf(text, '$greeter->\n', '$greeter->'.length) }),
+            () => ask('main.php', 'textDocument/completion', { position: positionOf(text, '$greeter->shout', '$greeter->'.length) }),
             (reply) => JSON.stringify(reply.result).includes('shout')
         );
         expect(JSON.stringify(members.result)).toContain('greet');
 
+        await eventually('the initial diagnostics', () => events.some((event) => event.event === 'language.diagnostics' && event.payload.path === 'main.php'));
+        expect(diagnosticsOf('main.php').filter((item) => item.severity === 1)).toEqual([]);
+        const reportStart = events.length;
         const end = { line: 8, character: 0 };
-        await host.change({ projectId: 'p1', path: 'main.php', baseVersion: opened.version, changes: [{ range: { start: end, end }, text: 'if (\n' }] });
+        const changed = await host.change({
+            projectId: 'p1',
+            path: 'main.php',
+            baseVersion: opened.version,
+            changes: [{ range: { start: end, end }, text: 'if (\n' }]
+        });
+        expect(changed.version).toBe(opened.version + 1);
         const problems = await eventually(
             'a syntax error',
-            () => diagnosticsOf('main.php'),
-            (list) => list.length > 0
+            () => {
+                const report = events
+                    .slice(reportStart)
+                    .findLast(
+                        (event) => event.event === 'language.diagnostics' && event.payload.path === 'main.php' && event.payload.version === changed.version
+                    );
+                return report && report.event === 'language.diagnostics' ? (report.payload.diagnostics as Diagnostic[]) : [];
+            },
+            (list) => list.some((item) => item.severity === 1 && item.range.start.line >= end.line)
         );
-        expect(problems.some((item) => item.severity === 1)).toBe(true);
+        expect(problems.some((item) => item.severity === 1 && item.range.start.line >= end.line)).toBe(true);
     }, 180_000);
 });

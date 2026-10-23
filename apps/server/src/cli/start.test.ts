@@ -49,8 +49,9 @@ describe('startMachine', () => {
     });
 
     test('any other failure is left to the caller', async () => {
-        const { deps } = fakes({ start: () => Promise.reject(new Error('the home is not writable')) });
-        expect(startMachine(address, deps)).rejects.toThrow('the home is not writable');
+        const failure = new Error('the home is not writable');
+        const { deps } = fakes({ start: () => Promise.reject(failure) });
+        await expect(startMachine(address, deps)).rejects.toBe(failure);
     });
 
     test('port 0 is never looked at', async () => {

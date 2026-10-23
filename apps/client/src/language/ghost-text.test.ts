@@ -122,7 +122,11 @@ describe('ghost text on request', () => {
     });
 
     test('Escape while the model works cancels the request, and a late answer shows nothing', async () => {
-        const { model, editor, language } = await setup();
+        const { model, editor, language, transport } = await setup();
+        transport.answers.set('ondevice.cancel', ({ id }: { id: string }) => {
+            model.cancels.push(id);
+            return {};
+        });
         void language.ghost.request();
         await settle();
         expect(editor.press(key('Escape'))).toBe(true);

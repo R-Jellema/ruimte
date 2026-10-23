@@ -50,8 +50,11 @@ describe('the shared split presentation', () => {
                 );
                 expect(cellForPane(result.focused)).toEqual(saved.focus);
                 if (rows > 1) {
-                    const branch = columns > 1 ? (result.root as SplitBranch).children[0]! : result.root;
-                    expect(columnForSplit(branch.id)).toBe(0);
+                    const branches = columns > 1 ? (result.root as SplitBranch).children : [result.root];
+                    expect(branches.map((branch) => columnForSplit(branch.id))).toEqual(Array.from({ length: columns }, (_, column) => column));
+                }
+                for (const id of ['columns', 'cell:0:0', 'rows:', 'rows:-1', 'rows:1:0', 'old-rows:1']) {
+                    expect(columnForSplit(id)).toBeNull();
                 }
                 expect(coreLayout(saved, 'absent').maximized).toBeNull();
             }

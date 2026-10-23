@@ -44,7 +44,7 @@ describe('sharedSecretTurn', () => {
         secret = 'rotated';
         expect((await provider.iceServersFor({ role: 'machine', publicKey: KEY })).servers[0]!.credential).not.toBe('+K5rTzzn3kTnSvNolHtkqAnigIs=');
         secret = '  ';
-        expect(provider.iceServersFor({ role: 'machine', publicKey: KEY })).rejects.toThrow(/empty/);
+        await expect(provider.iceServersFor({ role: 'machine', publicKey: KEY })).rejects.toThrow(/empty/);
     });
 });
 
@@ -104,16 +104,24 @@ describe('cloudflareTurn', () => {
     });
 
     test('reads the older single object, and refuses an error or an empty answer without caching it', async () => {
-        let response = Response.json({ iceServers: ICE[1] });
-        const { provider, calls } = setup(() => response);
+        const { provider, calls } = setup(() => Response.json({ iceServers: ICE[1] }));
         const peer = { role: 'machine' as const, publicKey: KEY };
         expect((await provider.iceServersFor(peer)).servers).toEqual([ICE[1]!]);
 
-        const failing = setup(() => new Response('nope', { status: 401 }));
-        expect(failing.provider.iceServersFor(peer)).rejects.toThrow(/401/);
-        response = Response.json({ iceServers: [] });
-        const empty = setup(() => Response.json({ iceServers: [] }));
-        expect(empty.provider.iceServersFor(peer)).rejects.toThrow(/without ICE servers/);
+        for (const failure of [
+            { answer: () => new Response('nope', { status: 401 }), error: /401/ },
+            { answer: () => Response.json({ iceServers: [] }), error: /without ICE servers/ }
+        ]) {
+            let answer = failure.answer;
+            const recovering = setup(() => answer());
+            await expect(recovering.provider.iceServersFor(peer)).rejects.toThrow(failure.error);
+            expect(recovering.calls).toHaveLength(1);
+            answer = () => Response.json({ iceServers: ICE });
+            expect(await recovering.provider.iceServersFor(peer)).toEqual({ servers: ICE, expiresAt: 1_900_000 });
+            expect(recovering.calls).toHaveLength(2);
+            await recovering.provider.iceServersFor(peer);
+            expect(recovering.calls).toHaveLength(2);
+        }
         expect(calls).toHaveLength(1);
     });
 });

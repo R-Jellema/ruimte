@@ -395,9 +395,16 @@ describe('documents', () => {
         const { host, spawner } = await installed();
         const unsubscribe = host.subscribe('client-3', () => undefined);
         await openReady(host, 'src/a.ts', 'let a = 1;\n', 'client-3');
+        const server = spawner.processes[0].server;
+        expect([...server.documents.keys()]).toEqual([uri('src/a.ts')]);
         unsubscribe();
         await settle();
-        expect(spawner.processes[0].server.exited).toBe(false);
+        expect(server.paramsOf('textDocument/didClose')).toEqual([{ textDocument: { uri: uri('src/a.ts') } }]);
+        expect(server.documents.size).toBe(0);
+        await expect(host.change({ projectId: 'p1', path: 'src/a.ts', baseVersion: 1, changes: [{ text: '' }] })).rejects.toMatchObject({
+            code: LANGUAGE_ERROR_CODES.documentNotOpen
+        });
+        expect(server.exited).toBe(false);
     });
 
     it('holds no document for a client whose socket went while the open was under way', async () => {
@@ -1765,10 +1772,13 @@ describe('files that are made or deleted', () => {
 
     it('matches a folder as a folder', async () => {
         const { host, server, file } = await rig();
-        await host.createFiles('client-1', 'p1', join(WORK, 'src/gen'), true, true, file);
-        await host.deleteFiles('client-1', 'p1', join(WORK, 'src/gen'), true, file);
+        const folder = join(root, 'src/gen');
+        const folderUri = pathToFileUri(folder);
+        await host.createFiles('client-1', 'p1', folder, true, true, { ...file, move: () => mkdir(folder, { recursive: true }).then(() => undefined) });
+        await host.deleteFiles('client-1', 'p1', folder, true, { ...file, move: () => rm(folder, { recursive: true }) });
         expect(server.paramsOf('workspace/didCreateFiles')).toEqual([]);
         expect(server.paramsOf('workspace/willDeleteFiles')).toEqual([]);
+        expect(server.paramsOf('workspace/didDeleteFiles')).toEqual([{ files: [{ uri: folderUri }] }]);
     });
 
     it('only tells the servers when the caller made the edits itself', async () => {
@@ -1908,6 +1918,13 @@ describe('the SQL of a project', () => {
         await settle();
         expect(process!.server.paramsOf('workspace/didChangeConfiguration').at(-1)).toEqual({
             settings: { phpLanguageServer: { sql: { dialect: 'mariadb', schema: '/snap.json' } } }
+        });
+        await host.restart('p1', 'php-native');
+        await ready(host, 'php-native');
+        const next = spawner.of('php-native');
+        expect(next).toHaveLength(2);
+        expect(next[1]!.server.paramsOf('initialize')[0]).toMatchObject({
+            initializationOptions: { sql: { dialect: 'mariadb', schema: '/snap.json' } }
         });
     });
 

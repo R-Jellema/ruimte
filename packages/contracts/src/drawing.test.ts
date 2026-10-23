@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { type DrawingElement } from './drawing-host.ts';
+import { DrawingDocumentSchema, type DrawingElement } from './drawing-host.ts';
 import { ProjectDocumentSchema } from './project.ts';
 import { duplicateIdIn } from './project-migrate.ts';
 import { REQUEST_SCHEMAS } from './index.ts';
@@ -23,9 +23,19 @@ describe('a drawing view in a project document', () => {
         expect(parsed.views[1]).toEqual({ kind: 'drawing', id: 'view-abc', name: 'Drawing' });
     });
 
-    test('element ids stay out of the project namespace, so only view and node ids collide', () => {
+    test('a separate drawing document keeps element ids that also name project views', () => {
         const parsed = ProjectDocumentSchema.parse(document);
+        const drawing = DrawingDocumentSchema.parse({
+            version: 1,
+            rev: 1,
+            elements: [
+                { ...rect, id: 'main' },
+                { ...rect, id: 'view-abc' }
+            ]
+        });
+        expect(drawing.elements.map((element) => element.id)).toEqual(['main', 'view-abc']);
         expect(duplicateIdIn(parsed.views)).toBeNull();
+        expect(duplicateIdIn([...parsed.views, { kind: 'drawing', id: 'main', name: 'Duplicate' }])).toBe('main');
     });
 });
 

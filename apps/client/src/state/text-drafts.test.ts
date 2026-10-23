@@ -103,6 +103,17 @@ describe('staged text', () => {
         expect(link.writes.map(({ path, text, expectedMtime }) => ({ path, text, expectedMtime }))).toEqual([{ path: OTHER, text: 'three', expectedMtime: 4 }]);
         await link.land(5);
         expect(await saving).toBe(true);
+        const release = drafts.hold(MACHINE, OTHER);
+        drafts.stage(MACHINE, OTHER, { text: 'three', mtime: 5 }, 'four');
+        jest.advanceTimersByTime(AUTOSAVE_DELAY_MS * 3);
+        await flush();
+        expect(link.writes).toHaveLength(1);
+        const heldSave = drafts.save(MACHINE, OTHER);
+        await flush();
+        expect(link.writes.at(-1)).toMatchObject({ path: OTHER, text: 'four', expectedMtime: 5 });
+        await link.land(6);
+        expect(await heldSave).toBe(true);
+        release();
     });
 
     test('stops a save that was due when the staged text lands on a file that is being typed in', async () => {
@@ -118,7 +129,7 @@ describe('staged text', () => {
 describe('autosave', () => {
     test('saves once the typing has paused, over the mtime it read', async () => {
         drafts.edit(MACHINE, PATH, 'one two');
-        jest.advanceTimersByTime(AUTOSAVE_DELAY_MS - 1);
+        jest.advanceTimersByTime(999);
         await flush();
         expect(link.writes).toHaveLength(0);
         expect(drafts.isUnsaved(MACHINE, PATH)).toBe(true);
@@ -308,6 +319,15 @@ describe('surfaces', () => {
 
         drafts.discard(MACHINE, PATH);
         expect(draft()).toBeUndefined();
+        const first = drafts.hold(MACHINE, PATH);
+        const last = drafts.hold(MACHINE, PATH);
+        drafts.open(MACHINE, PATH, { text: 'clean', mtime: 2 });
+        first();
+        first();
+        expect(draft()?.text).toBe('clean');
+        last();
+        last();
+        expect(draft()).toBeUndefined();
     });
 
     test('two editors on one file type into one draft', async () => {
@@ -465,7 +485,19 @@ describe('the version that moved under unsaved text', () => {
         expect(draft()?.incoming).toBeUndefined();
 
         drafts.edit(MACHINE, PATH, 'mine');
-        drafts.received(MACHINE, PATH, { text: 'theirs 2', mtime: 9 });
+        drafts.received(MACHINE, PATH, { text: 'overwrite theirs', mtime: 8 });
+        link.disk = { text: 'overwrite theirs', mtime: 8 };
+        const overwritten = drafts.overwrite(MACHINE, PATH);
+        await flush();
+        expect(draft()?.incoming).toBeUndefined();
+        expect(draft()?.saving).toBe(true);
+        expect(link.writes.at(-1)).toMatchObject({ text: 'mine', expectedMtime: 8 });
+        await link.land(9);
+        expect(await overwritten).toBe(true);
+
+        drafts.edit(MACHINE, PATH, 'mine again');
+        drafts.received(MACHINE, PATH, { text: 'theirs 2', mtime: 10 });
+        expect(draft()?.incoming).toEqual({ text: 'theirs 2', mtime: 10 });
         drafts.discard(MACHINE, PATH);
         expect(draft()?.incoming).toBeUndefined();
     });

@@ -18,6 +18,7 @@ interface Fakes {
 }
 
 interface Recorded {
+    fetched: string[];
     registrationFor: string[];
     completes: unknown[];
     cancels: number;
@@ -34,9 +35,10 @@ function answer(body: unknown, status = 200): Response {
  * payloads, the address book walks through the scripted polls.
  */
 function harness(fakes: Fakes, extra: Partial<LoginOptions> = {}) {
-    const recorded: Recorded = { registrationFor: [], completes: [], cancels: 0, out: [], err: [] };
+    const recorded: Recorded = { fetched: [], registrationFor: [], completes: [], cancels: 0, out: [], err: [] };
     const fetch = async (input: string, init: RequestInit): Promise<Response> => {
         const url = new URL(input);
+        recorded.fetched.push(input);
         const body = typeof init.body === 'string' ? (JSON.parse(init.body) as Record<string, unknown>) : null;
         if (url.hostname === '127.0.0.1') {
             if (fakes.daemon === 'down') {
@@ -212,6 +214,10 @@ describe('ruimte login', () => {
         const forbidden = harness({ polls: [], daemon: 'forbidden' });
         expect(await forbidden.run()).toBe(1);
         expect(forbidden.recorded.err[0]).toContain('set RUIMTE_HOME');
+        expect(noHome.recorded.fetched).toEqual([]);
+        for (const refused of [down, forbidden]) {
+            expect(refused.recorded.fetched).toEqual(['http://127.0.0.1:4210/machine/link-request']);
+        }
     });
 
     test('a machine on another account says so, signs nothing and withdraws the approved code', async () => {

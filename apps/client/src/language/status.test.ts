@@ -38,6 +38,7 @@ describe('language status', () => {
         await tracker.refresh();
         expect(transport.callsOf('language.install')).toEqual([]);
         await tracker.install('php');
+        expect(transport.callsOf('language.install').map((call) => call.payload)).toEqual([{ server: 'php' }]);
         expect(tracker.getSnapshot()[0]).toMatchObject({ state: 'installing' });
         transport.emit('language.status', { projectId: null, status: status('php', 'not-installed', { message: 'The installer exited with code 1' }) });
         expect(tracker.getSnapshot()[0]).toMatchObject({ state: 'not-installed', message: 'The installer exited with code 1', documents: 1 });
@@ -58,6 +59,7 @@ describe('language status', () => {
             servers: [status('php-native', 'ready', { chosen: true }), status('php', 'not-installed', { chosen: true })]
         }));
         await tracker.prefer('php-native');
+        expect(transport.callsOf('language.prefer').map((call) => call.payload)).toEqual([{ server: 'php-native' }]);
         await settle();
         transport.emit('language.status', { projectId: null, status: status('php', 'not-installed', { chosen: false }) });
         expect(tracker.getSnapshot().map((entry) => [entry.server, entry.chosen])).toEqual([
@@ -75,6 +77,8 @@ describe('language status', () => {
         await tracker.restart('typescript');
         expect(tracker.getSnapshot()[0]).toMatchObject({ state: 'ready' });
         expect(await tracker.log('typescript')).toEqual([{ at: 1, stream: 'server', text: 'hello' }]);
+        expect(transport.callsOf('language.restart').map((call) => call.payload)).toEqual([{ projectId: 'p1', server: 'typescript' }]);
+        expect(transport.callsOf('language.log').map((call) => call.payload)).toEqual([{ projectId: 'p1', server: 'typescript' }]);
         transport.setStatus('closed');
         transport.setStatus('open');
         await settle();

@@ -77,6 +77,7 @@ describe('the five drop points of a cell', () => {
     test('a corner belongs to the edge it is nearest to', () => {
         expect(zoneAt(box, { x: 5, y: 20 })).toBe('left');
         expect(zoneAt(box, { x: 20, y: 5 })).toBe('up');
+        expect(zoneAt({ width: 200, height: 600 }, { x: 20, y: 30 })).toBe('up');
     });
 
     test('the strips are capped, so a cell that fills the window keeps a large middle', () => {

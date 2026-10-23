@@ -198,11 +198,15 @@ describe('days as batches', () => {
     });
 
     test('split before a batch grows over the size the ingest takes', () => {
-        const day = dayOn('2026-10-10', 4);
-        const perDay = new TextEncoder().encode(JSON.stringify(day)).byteLength;
-        const fit = Math.floor(USAGE_REPORT_MAX_BYTES / perDay);
-        const many = Array.from({ length: Math.min(fit + 1, 7) }, (_, i) => ({ ...day, date: `2026-10-${String(10 + i)}` }));
-        for (const batch of usageBatchesOf(many)) {
+        // The batcher accepts typed days without validation; stress its byte guard independently of today's schema limits.
+        const day = { ...dayOn('2026-10-10', 4), version: '1.2.3-' + 'x'.repeat(12_000) };
+        const many = Array.from({ length: 3 }, (_, i) => ({ ...day, date: `2026-10-${String(10 + i)}` }));
+        expect(new TextEncoder().encode(JSON.stringify({ days: many.slice(0, 2) })).byteLength).toBeLessThanOrEqual(USAGE_REPORT_MAX_BYTES);
+        expect(new TextEncoder().encode(JSON.stringify({ days: many })).byteLength).toBeGreaterThan(USAGE_REPORT_MAX_BYTES);
+        const batches = usageBatchesOf(many);
+        expect(batches.map((batch) => batch.days.length)).toEqual([2, 1]);
+        expect(batches.flatMap((batch) => batch.days)).toEqual(many);
+        for (const batch of batches) {
             expect(new TextEncoder().encode(JSON.stringify(batch)).byteLength).toBeLessThanOrEqual(USAGE_REPORT_MAX_BYTES);
         }
     });

@@ -205,7 +205,7 @@ describe('closeCell', () => {
         sums(layout!);
     });
 
-    test('a column that loses its last cell goes with it', () => {
+    test('a column with another row survives closing a cell', () => {
         expect(shapeOf(closeCell(gridOf([['a'], ['b', 'c']]), { column: 1, cell: 0 })!)).toEqual([['a'], ['c']]);
     });
 

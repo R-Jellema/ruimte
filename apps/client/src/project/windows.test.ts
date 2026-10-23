@@ -224,6 +224,8 @@ describe('letting go of a tab outside the window', () => {
     test('is outside past any edge and inside on the edge itself', () => {
         expect(outsideViewport(-1, 300, size)).toBe(true);
         expect(outsideViewport(400, 601, size)).toBe(true);
+        expect(outsideViewport(400, -1, size)).toBe(true);
+        expect(outsideViewport(801, 300, size)).toBe(true);
         expect(outsideViewport(0, 0, size)).toBe(false);
         expect(outsideViewport(800, 600, size)).toBe(false);
     });

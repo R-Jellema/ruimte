@@ -131,7 +131,7 @@ describe('what the shell is told', () => {
     afterEach(() => {
         delete scope.window;
         useSessions.setState({ byKey: {} });
-        useChats.setState({ byKey: {} });
+        useChats.setState({ byKey: {}, statusByKey: {} });
         useSettings.setState(settings('off', { keepAwakeDisplay: false, keepAwakeOnBattery: false }));
         useServers.setState({ byEndpoint: {} });
     });
@@ -147,6 +147,8 @@ describe('what the shell is told', () => {
 
     test('nothing at all in a browser, which has no shell to ask', () => {
         expect(startKeepAwake(undefined)).toBeNull();
+        delete scope.window;
+        expect(startKeepAwake()).toBeNull();
     });
 
     test('no block for agents elsewhere when this app runs no machine', () => {
@@ -170,8 +172,12 @@ describe('what the shell is told', () => {
         const stop = startKeepAwake((request) => told.push(request));
         useSettings.setState({ keepAwake: 'working' });
         working('running');
-        useChats.setState({ byKey: { 'local:c1': chat('running') } });
+        useChats.getState().reset('local:c1', chat('running').info, []);
         working('running');
+        working('idle');
+        expect(told).toEqual([SYSTEM]);
+        useChats.getState().status('local:c1', chat('idle').info);
+        expect(told).toEqual([SYSTEM, null]);
         stop?.();
         expect(told).toEqual([SYSTEM, null]);
     });
@@ -235,7 +241,7 @@ describe('where the setting is kept', () => {
 });
 
 describe('moving the setting this client kept to its machine', () => {
-    test('onto a machine still at its defaults, once', () => {
+    test('chooses the local setting only for a machine still at its defaults', () => {
         const local = settings('working', { keepAwakeOnBattery: true });
         expect(keepAwakeToMove(machine({ keepAwake: 'off' }), local)).toEqual(local);
         expect(keepAwakeToMove(machine({ keepAwake: 'off' }), settings('off'))).toBeNull();

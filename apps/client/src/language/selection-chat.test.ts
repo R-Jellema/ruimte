@@ -94,6 +94,7 @@ describe('adding the selection to a chat from the editor', () => {
         language.selectionChat.choose();
         const { request } = useChatChooser.getState();
         expect(request?.offer.label).toBe('score.ts:1-2');
+        expect(request?.offer.block).toBe('src/score.ts:1-2\n```typescript\nlet one = 1;\nlet two = 2;\n```');
         expect(request?.offer.source).toEqual({ path: '/work/app/src/score.ts' });
     });
 

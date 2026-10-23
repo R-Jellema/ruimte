@@ -14,9 +14,9 @@ const otherUri = 'file:///work/app/src/b.ts';
 const at = (line: number, character: number) => ({ line, character });
 const place = (target: string, line: number) => ({ uri: target, range: { start: at(line, 4), end: at(line, 9) } });
 
-async function setup(answer: unknown) {
+async function setup(answer: unknown, providers: Record<string, unknown> = { 'textDocument/references': {} }) {
     const transport = new FakeLanguageTransport();
-    transport.providers = { 'textDocument/references': {} };
+    transport.providers = providers;
     transport.answers.set('language.request', () => ({ result: answer, server: 'typescript', version: 1 }));
     const project = new ProjectLanguage(transport, 'p1', '/work/app', {
         read: async (path) => (path === '/work/app/src/b.ts' ? { text: 'x\ny\nuse(value);', mtime: 1 } : null),
@@ -97,6 +97,8 @@ describe('peek references', () => {
         const { editor, language } = await setup([place(uri, 1), place(otherUri, 2)]);
         editor.moveCaret(at(0, 5));
         await language.peek.open();
+        editor.press({ key: 'ArrowUp' });
+        expect(language.popups.getState().peek!.active).toBe('0:0');
         editor.press({ key: 'ArrowDown' });
         editor.press({ key: 'ArrowDown' });
         expect(language.popups.getState().peek!.active).toBe('1:0');
@@ -142,12 +144,19 @@ describe('peek definition', () => {
         const transport = new FakeLanguageTransport();
         transport.providers = { 'textDocument/definition': {} };
         transport.answers.set('language.request', () => ({ result: [link], server: 'typescript', version: 1 }));
-        const project = new ProjectLanguage(transport, 'p1', '/work/app', {
-            read: async (path) => (path === '/work/app/src/b.ts' ? { text: 'function use() {\n  return 1;\n}\nother();', mtime: 1 } : null),
-            stage: () => undefined,
-            save: async () => null,
-            rename: async () => null
-        });
+        const opened: unknown[] = [];
+        const project = new ProjectLanguage(
+            transport,
+            'p1',
+            '/work/app',
+            {
+                read: async (path) => (path === '/work/app/src/b.ts' ? { text: 'function use() {\n  return 1;\n    }\nother();', mtime: 1 } : null),
+                stage: () => undefined,
+                save: async () => null,
+                rename: async () => null
+            },
+            (...args) => opened.push(args)
+        );
         const editor = new FakeEditorEngine().mount({} as HTMLElement, { text: 'use();', theme: 'light' });
         const language = new EditorLanguage(project, editor, uri, 'typescript');
         await language.document.ready;
@@ -155,15 +164,27 @@ describe('peek definition', () => {
         await settleLanguage();
         const view = language.popups.getState().peek!;
         expect(view.kind).toBe('definitions');
-        expect(view.preview).toMatchObject({ uri: otherUri, startLine: 0, text: 'function use() {\n  return 1;\n}', active: 2 });
+        expect(view.preview).toMatchObject({ uri: otherUri, startLine: 0, text: 'function use() {\n  return 1;\n    }', active: 2 });
         editor.press({ key: 'Enter' });
         expect(language.popups.getState().peek).toBeNull();
+        expect(opened).toEqual([['/work/app', '/work/app/src/b.ts', 3]]);
+        const target = new FakeEditorEngine().mount({} as HTMLElement, { text: 'function use() {\n  return 1;\n    }\nother();', theme: 'light' });
+        target.setCaret(at(2, 0));
+        const targetLanguage = new EditorLanguage(project, target, otherUri, 'typescript');
+        await targetLanguage.document.ready;
+        expect(target.getCaret()).toEqual(at(2, 4));
+        targetLanguage.dispose();
+        language.dispose();
+        project.dispose();
     });
 
     test('says so when there is no definition or no server for it', async () => {
         const { language } = await setup(null);
         await language.peek.openDefinition();
         expect(useToasts.getState().toasts.at(-1)?.title).toBe('Definitions unavailable in this file');
+        const supported = await setup(null, { 'textDocument/definition': {} });
+        await supported.language.peek.openDefinition();
+        expect(useToasts.getState().toasts.at(-1)?.title).toBe('No definition found');
     });
 });
 

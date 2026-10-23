@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { ChatTurnItem, ProjectContent } from '@ruimte/contracts';
-import { ManualClock } from '@adecore/agents/testing';
+import { fakeClaude, ManualClock } from '@adecore/agents/testing';
 import { ProjectStore } from '../projects/project-store.ts';
 import { bootTestDaemon, type TestDaemon } from '../tasks/test-daemon.ts';
 import { projectLinks } from '../projects/project-file-test-helpers.ts';
@@ -45,6 +45,9 @@ let folder: string;
 let store: ProjectStore;
 let projectId: string;
 let daemon: TestDaemon;
+let holdTurn = false;
+let releaseTurn: (() => void) | null = null;
+let heldTurn = Promise.withResolvers<void>();
 
 beforeEach(async () => {
     root = await mkdtemp(join(tmpdir(), 'ruimte-pr-watch-wiring-'));
@@ -55,10 +58,25 @@ beforeEach(async () => {
     projectId = opened.summary.projectId;
     await store.save(projectId, opened.document.rev, content());
     store.release(projectId);
+    holdTurn = false;
+    releaseTurn = null;
+    heldTurn = Promise.withResolvers<void>();
     daemon = await bootTestDaemon({
         home: join(root, 'home'),
         store,
         clock: new ManualClock(),
+        claudeCli: (io) =>
+            fakeClaude({
+                ...io,
+                out: (frame) => {
+                    if (holdTurn && (frame as { type?: string }).type === 'result') {
+                        releaseTurn = () => io.out(frame);
+                        heldTurn.resolve();
+                        return;
+                    }
+                    io.out(frame);
+                }
+            }),
         gh: (args) =>
             Promise.resolve(
                 args[0] === 'pr'
@@ -100,8 +118,18 @@ describe('a pull request watch waking a chat', () => {
 
     test('a chat in a turn keeps the wake until the turn ends, and runs it once', async () => {
         await daemon.chats.create({ chatId: 'chat-watcher', provider: 'claude', cwd: folder });
+        holdTurn = true;
         await daemon.chats.send('chat-watcher', 'plan the work');
+        await heldTurn.promise;
+        expect(releaseTurn).not.toBeNull();
+        await daemon.until(() => turnsOf()[0]?.state === 'running');
         await owe();
+        await daemon.worker.settled();
+        expect(turnsOf()).toHaveLength(1);
+        expect(turnsOf()[0]?.state).toBe('running');
+        expect(daemon.outbox.list()).toMatchObject([{ kind: 'deliver-pr-watch', target: 'chat-watcher', attempts: 0 }]);
+        holdTurn = false;
+        releaseTurn!();
         await daemon.until(() => turnsOf().some((turn) => turn.label === 'PR #12: checks failed' && turn.state === 'done'));
         expect(turnsOf().filter((turn) => turn.label === 'PR #12: checks failed')).toHaveLength(1);
         expect(daemon.outbox.list()).toEqual([]);

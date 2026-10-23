@@ -86,13 +86,31 @@ describe('two editors on one file', () => {
 });
 
 describe('acquireProjectLanguage', () => {
-    test('is one per project on a machine and ends with its last release', () => {
+    test('is one per project on a machine and ends with its last release', async () => {
         const transport = new FakeLanguageTransport();
         const first = acquireProjectLanguage(transport, 'p1', folder);
         const second = acquireProjectLanguage(transport, 'p1', folder);
         expect(second.language).toBe(first.language);
+        const partitions = [
+            acquireProjectLanguage(new FakeLanguageTransport(), 'p1', folder),
+            acquireProjectLanguage(transport, 'p2', folder),
+            acquireProjectLanguage(transport, 'p1', '/work/other')
+        ];
+        expect(new Set([first.language, ...partitions.map((entry) => entry.language)]).size).toBe(4);
         first.release();
+        const editor = new FakeEditorEngine().mount({} as HTMLElement, { text: 'still held', theme: 'light' });
+        const document = second.language.acquire(uri, 'typescript', editor);
+        await document.ready;
+        editor.type('still usable');
+        await settle();
+        expect(transport.documents.get('src/a.ts')?.text).toBe('still usable');
+        document.release();
         second.release();
-        expect(acquireProjectLanguage(transport, 'p1', folder).language).not.toBe(first.language);
+        const replacement = acquireProjectLanguage(transport, 'p1', folder);
+        expect(replacement.language).not.toBe(first.language);
+        replacement.release();
+        for (const entry of partitions) {
+            entry.release();
+        }
     });
 });

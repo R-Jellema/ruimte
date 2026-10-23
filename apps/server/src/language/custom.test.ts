@@ -43,7 +43,7 @@ describe('the language servers of a person', () => {
         expect(saved).toMatchObject({ args: ['--stdio'], env: { ZLS_LOG: '1' }, initializationOptions: { enableSnippets: true }, projects: ['/work/a'] });
     });
 
-    it('refuses a command that is not on this machine, a bad pattern and a server that serves nothing', async () => {
+    it('refuses a missing command, a bad pattern and an unknown server id', async () => {
         const servers = store();
         await expect(servers.save({ ...zig, command: 'nope' })).rejects.toMatchObject({ code: 'invalid-server' });
         await expect(servers.save({ ...zig, patterns: ['*.{a,b'] })).rejects.toMatchObject({ code: 'invalid-server' });

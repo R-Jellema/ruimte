@@ -136,18 +136,33 @@ describe('Worker deployment', () => {
     test('reports an unconfirmed refresh after a network or JSON error without leaking request details', async () => {
         for (const networkError of [true, false]) {
             let requests = 0;
-            await expect(
-                deployPulsarWorker(
-                    async () => {},
-                    async (_url, init) => {
-                        requests++;
-                        if (networkError) {
-                            throw new Error(new Headers(init.headers).get('authorization')!);
-                        }
-                        return new Response('not JSON');
+            let authorization = '';
+            const error = await deployPulsarWorker(
+                async () => {},
+                async (_url, init) => {
+                    requests++;
+                    authorization = new Headers(init.headers).get('authorization')!;
+                    if (networkError) {
+                        throw new Error(authorization);
                     }
-                )
-            ).rejects.toThrow('Worker deployed, but the benchmark refresh');
+                    return new Response(authorization);
+                }
+            ).then(
+                () => null,
+                (error: unknown) => error
+            );
+            expect(error).toBeInstanceOf(Error);
+            if (!(error instanceof Error)) {
+                throw new Error('Expected an unconfirmed refresh error');
+            }
+            expect(error.message).toBe(
+                networkError
+                    ? 'Worker deployed, but the benchmark refresh request failed. Check the live snapshot before deploying again.'
+                    : 'Worker deployed, but the benchmark refresh did not confirm a new snapshot.'
+            );
+            expect(authorization).toMatch(/^Bearer [a-f0-9]{64}$/);
+            expect(String(error)).not.toContain(authorization);
+            expect(String(error)).not.toContain(authorization.slice('Bearer '.length));
             expect(requests).toBe(1);
         }
     });

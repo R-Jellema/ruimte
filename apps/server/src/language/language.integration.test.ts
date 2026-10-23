@@ -271,33 +271,51 @@ describe('TypeScript, on the native server of TypeScript 7', () => {
     }, 180_000);
 
     test('follows an incremental change and completes against the new text', async () => {
+        await install('typescript');
+        const path = 'src/incremental.ts';
         const text = FILES['src/a.ts'];
+        await writeFile(join(plain, path), text);
+        const opened = await host.open('c1', { projectId: 'p2', path, languageId: 'typescript', text });
+        await waitReady('typescript', 'p2');
         const end = positionOf(text, "greet('Ada');\n", "greet('Ada');\n".length);
         const changed = await host.change({
             projectId: 'p2',
-            path: 'src/a.ts',
-            baseVersion: 1,
+            path,
+            baseVersion: opened.version,
             changes: [{ range: { start: end, end }, text: 'add(1, 2).toF' }]
         });
         expect(changed.version).toBe(2);
         const after = { line: end.line, character: 'add(1, 2).toF'.length };
         const completion = await eventually(
             'a completion',
-            () => ask('src/a.ts', 'textDocument/completion', { position: after }, 'p2'),
+            () => ask(path, 'textDocument/completion', { position: after }, 'p2'),
             (reply) => JSON.stringify(reply.result).includes('toFixed')
         );
         expect(completion.version).toBe(2);
-        await expect(host.change({ projectId: 'p2', path: 'src/a.ts', baseVersion: 1, changes: [{ text: '' }] })).rejects.toMatchObject({
+        await expect(host.change({ projectId: 'p2', path, baseVersion: opened.version, changes: [{ text: '' }] })).rejects.toMatchObject({
             code: 'stale-document'
         });
+        await host.closeDocument('c1', { projectId: 'p2', path });
     }, 60_000);
 
     test('reports the diagnostics of the new text by pulling them again', async () => {
+        await install('typescript');
+        const path = 'src/pull-diagnostics.ts';
+        const text = 'export const answer = 1;\n';
+        await writeFile(join(plain, path), text);
+        const opened = await host.open('c1', { projectId: 'p2', path, languageId: 'typescript', text });
+        await waitReady('typescript', 'p2');
+        await eventually('the initial diagnostic pull', () =>
+            events.some((event) => event.event === 'language.diagnostics' && event.payload.path === path && event.payload.server === 'typescript')
+        );
+        expect(diagnosticsOf(path, 'typescript')).toEqual([]);
+        await host.change({ projectId: 'p2', path, baseVersion: opened.version, changes: [{ text: 'export const answer = 1;\nanswer.toF;\n' }] });
         await eventually(
             'a report for the new text',
-            () => diagnosticsOf('src/a.ts'),
+            () => diagnosticsOf(path, 'typescript'),
             (list) => list.some((item) => /toF/.test(item.message))
         );
+        await host.closeDocument('c1', { projectId: 'p2', path });
     }, 60_000);
 
     test('renames across files, formats with the options it is given and gives the ranges around a position', async () => {
@@ -562,7 +580,7 @@ describe('CSS, HTML and JSON, from one package of extracted servers', () => {
         expect(JSON.stringify(hover)).toContain('color');
     }, 180_000);
 
-    test('HTML reports an unclosed element and completes a tag', async () => {
+    test('HTML completes a tag in an unfinished document', async () => {
         await openAndWait('page.html', 'html', 'html', OTHER_FILES['page.html']);
         const completion = await eventually(
             'a tag completion',
@@ -570,6 +588,7 @@ describe('CSS, HTML and JSON, from one package of extracted servers', () => {
             (reply) => JSON.stringify(reply.result).includes('span')
         );
         expect(completion.server).toBe('html');
+        expect(JSON.stringify(completion.result)).toContain('span');
     }, 180_000);
 
     test('JSON reports a syntax error and takes a trailing comma in a tsconfig', async () => {

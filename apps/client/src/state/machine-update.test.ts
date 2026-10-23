@@ -84,9 +84,9 @@ describe('startMachineUpdate', () => {
         const { shell } = shellAt({ status: 'current', currentVersion: '1.0.0' });
         const machine = startMachineUpdate(shell, poolOf({ local, other }));
         machine.apply({ status: 'available', currentVersion: '1.0.0', version: '1.1.0' });
-        expect(local.sent.map((entry) => entry.payload)).toEqual([
-            { status: 'current', currentVersion: '1.0.0' },
-            { status: 'available', currentVersion: '1.0.0', version: '1.1.0' }
+        expect(local.sent).toEqual([
+            { type: 'endpoint.reportUpdate', payload: { status: 'current', currentVersion: '1.0.0' } },
+            { type: 'endpoint.reportUpdate', payload: { status: 'available', currentVersion: '1.0.0', version: '1.1.0' } }
         ]);
         expect(other.sent).toEqual([]);
         machine.stop();

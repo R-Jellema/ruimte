@@ -82,12 +82,14 @@ describe('the Voice wire', () => {
         expect(payload.safeParse({ sceneId: 'scene-1', sessionId: 'voice-1', token: 't', decision: 'maybe' }).success).toBe(false);
     });
 
-    test('a line that waits on the person carries its question, and every other line none', () => {
+    test('activity entries may carry a complete confirmation, and completed entries need none', () => {
         const event = EVENT_SCHEMAS['voice.activity'];
-        const line = { id: 'call-1', at: 1, kind: 'chat', status: 'running', label: 'Clear AI Chat', detail: '' };
+        const line = { id: 'call-1', at: 1, kind: 'chat', status: 'running', label: 'Clear AI Chat', detail: '' } as const;
         expect(event.safeParse({ sessionId: 'voice-1', sceneId: 'scene-1', seq: 2, entry: line }).success).toBe(true);
         const asked = { ...line, confirmation: { token: 't', title: 'Clear AI Chat “Builder”?', consequences: ['It cannot be undone.'] } };
-        expect(event.safeParse({ sessionId: 'voice-1', sceneId: 'scene-1', seq: 2, entry: asked }).success).toBe(true);
+        expect(event.parse({ sessionId: 'voice-1', sceneId: 'scene-1', seq: 2, entry: asked }).entry).toEqual(asked);
+        const completed = { ...line, status: 'completed' as const };
+        expect(event.parse({ sessionId: 'voice-1', sceneId: 'scene-1', seq: 3, entry: completed }).entry).toEqual(completed);
         expect(event.safeParse({ sessionId: 'voice-1', sceneId: 'scene-1', seq: 2, entry: { ...asked, confirmation: { title: 'Clear?' } } }).success).toBe(
             false
         );
