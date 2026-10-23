@@ -92,17 +92,6 @@ export async function secretFor(mode: MachineMode, read: () => Promise<string | 
     return mode === 'local' ? read() : null;
 }
 
-export interface SwitchPlan {
-    write: 'local' | 'none';
-    /* Only leaving `local` has a machine of this app to take down. */
-    stopMachine: boolean;
-}
-
-/* Choosing the mode the app is in still restarts, which is harmless and keeps one path. */
-export function planSwitch(current: MachineMode, next: 'local' | 'none'): SwitchPlan {
-    return { write: next, stopMachine: current === 'local' && next === 'none' };
-}
-
 export function tildeHome(path: string, home: string): string {
     const rest = path.slice(home.length);
     return path.startsWith(home) && (rest === '' || rest[0] === '/' || rest[0] === '\\') ? `~${rest}` : path;

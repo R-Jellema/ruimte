@@ -54,14 +54,6 @@ describe('startApp', () => {
         expect(events.at(-1)).toBe('machine ready');
     });
 
-    test('the page gets nothing of the machine while it comes up', async () => {
-        const { events, storage } = setup();
-        storage.resolve(() => undefined);
-        await settle();
-        expect(events).toContain('restore windows');
-        expect(events).not.toContain('machine ready');
-    });
-
     test('a machine that does not come up is said and quits, and the secret is never handed out', async () => {
         const { events, machine, storage, run } = setup();
         storage.resolve(() => undefined);

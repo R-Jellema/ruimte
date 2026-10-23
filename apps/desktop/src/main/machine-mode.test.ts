@@ -64,10 +64,21 @@ describe('machine:choose', () => {
         expect(shell.events.at(-1)).toBe('relaunch');
     });
 
-    test('a switch from a mode with no machine of this app stops nothing, and says so explicitly', () => {
-        const shell = rig('none');
-        shell.choose('local');
-        expect(shell.events).toEqual(['write local', 'stopOnQuit false']);
+    test('choosing without stopping a machine still writes the choice and defers relaunch', () => {
+        const choices: Array<[MachineMode, 'local' | 'none']> = [
+            ['ask', 'local'],
+            ['ask', 'none'],
+            ['none', 'local'],
+            ['none', 'none'],
+            ['local', 'local']
+        ];
+        for (const [current, next] of choices) {
+            const shell = rig(current);
+            shell.choose(next);
+            expect(shell.events).toEqual([`write ${next}`, 'stopOnQuit false']);
+            shell.runLater();
+            expect(shell.events).toEqual([`write ${next}`, 'stopOnQuit false', 'relaunch']);
+        }
     });
 
     test('a write that fails rejects before anything stopped, and the choice can be made again', () => {

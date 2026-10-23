@@ -1,6 +1,5 @@
-import type { BuildIdentity, MachineWork } from '@ruimte/contracts';
+import { isIdle, type BuildIdentity, type MachineWork } from '@ruimte/contracts';
 import type { DaemonCrash, DaemonOwner, PendingRestart, ServiceSupport, ShellServiceState } from '@ruimte/desktop-bridge';
-import { decideRestart, decideStart, sameBuild } from './decide';
 import { definitionRunsProgram, type ServiceManager } from '@adecore/service';
 import { serviceOwnership } from './ownership';
 import type { KeepRunningSetting } from './settings';
@@ -80,6 +79,34 @@ export const UNPROVEN =
 const RESPAWNS = 5;
 const STAYED_UP_MS = 60_000;
 const FIRST_PAUSE_MS = 1000;
+
+type StartDecision = 'attach' | 'attach-external' | 'restart-service' | 'start-service' | 'spawn';
+
+/* Build ids distinguish compiles of the same version; an unstamped daemon cannot match a stamped bundle. */
+function sameBuild(running: BuildIdentity, expected: BuildIdentity): boolean {
+    if (running.build !== null && expected.build !== null) {
+        return running.build === expected.build;
+    }
+    if (expected.build !== null) {
+        return false;
+    }
+    return running.version === expected.version;
+}
+
+/* Unknown work must wait too: a silent restart could end a terminal or agent. */
+function decideRestart(work: MachineWork | null): 'restart' | 'ask' {
+    return work !== null && isIdle(work) ? 'restart' : 'ask';
+}
+
+function decideStart(health: BuildIdentity | null, expected: BuildIdentity, serviceOn: boolean): StartDecision {
+    if (health === null) {
+        return serviceOn ? 'start-service' : 'spawn';
+    }
+    if (!serviceOn) {
+        return 'attach-external';
+    }
+    return sameBuild(health, expected) ? 'attach' : 'restart-service';
+}
 
 export function createServiceController(deps: ServiceControllerDeps): ServiceController {
     let owner: DaemonOwner | null = null;

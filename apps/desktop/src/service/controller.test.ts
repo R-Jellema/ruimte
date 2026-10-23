@@ -175,10 +175,16 @@ function setup(options: {
 }
 
 describe('start', () => {
-    test('the same build behind the port is attached to, and nothing is spawned', async () => {
-        const { controller, fake, events } = setup({ fake: fakeManager({ installed: true, running: EXPECTED }) });
-        await controller.start();
-        expect(controller.state().owner).toBe('service');
+    test.each([
+        ['matching ids and versions', EXPECTED, EXPECTED],
+        ['matching ids with different versions', { version: '9.9.9', build: 'new' }, EXPECTED],
+        ['matching versions without an expected id', EXPECTED, { version: '0.1.0', build: null }],
+        ['matching versions without either id', { version: '0.1.0', build: null }, { version: '0.1.0', build: null }]
+    ] as const)('attaches without spawning for %s', async (_label, running, expected) => {
+        const { controller, fake, events, deps } = setup({ fake: fakeManager({ installed: true, running }) });
+        deps.expected = expected;
+        expect(await controller.start()).toBe(true);
+        expect(controller.state()).toMatchObject({ owner: 'service', failure: null, pendingRestart: null });
         expect(fake.calls).toEqual([]);
         expect(events).toEqual([]);
     });
@@ -203,19 +209,34 @@ describe('start', () => {
         expect(controller.state()).toMatchObject({ owner: 'service', failure: null });
     });
 
-    test('an older build is restarted onto the binary in the bundle', async () => {
-        const { controller, fake } = setup({ fake: fakeManager({ installed: true, running: { version: '0.0.9', build: 'old' } }) });
-        await controller.start();
+    test.each([
+        ['an older stamped build', { version: '0.0.9', build: 'old' }, EXPECTED],
+        ['a different id with the same version', { version: '0.1.0', build: 'old' }, EXPECTED],
+        ['an unstamped build with the same version', { version: '0.1.0', build: null }, EXPECTED],
+        ['a different version without either id', { version: '0.0.9', build: null }, { version: '0.1.0', build: null }],
+        ['a different version without an expected id', { version: '0.0.9', build: 'old' }, { version: '0.1.0', build: null }]
+    ] as const)('restarts %s onto the binary in the bundle', async (_label, running, expected) => {
+        const { controller, fake, events, deps } = setup({ fake: fakeManager({ installed: true, running }) });
+        deps.expected = expected;
+        expect(await controller.start()).toBe(true);
         expect(fake.calls).toEqual(['restart']);
-        expect(controller.state().owner).toBe('service');
+        expect(events).toEqual([]);
+        expect(fake.service.running).toEqual(EXPECTED);
+        expect(controller.state()).toMatchObject({ owner: 'service', failure: null, pendingRestart: null });
     });
 
-    test('an older build with work running is attached to and the restart is left to the person', async () => {
+    test.each([
+        ['a terminal', { terminals: 1, agents: 0 }],
+        ['agents', { terminals: 0, agents: 2 }],
+        ['both', { terminals: 2, agents: 1 }]
+    ] as const)('an older build running %s is attached to and the restart is left to the person', async (_label, work) => {
         const old = { version: '0.0.9', build: 'old' };
-        const { controller, fake } = setup({ fake: fakeManager({ installed: true, running: old }), work: { terminals: 2, agents: 1 } });
+        const { controller, fake, events } = setup({ fake: fakeManager({ installed: true, running: old }), work });
         await controller.start();
         expect(fake.calls).toEqual([]);
-        expect(controller.state()).toMatchObject({ owner: 'service', pendingRestart: { work: 3, answered: false } });
+        expect(events).toEqual([]);
+        expect(fake.service.running).toEqual(old);
+        expect(controller.state()).toMatchObject({ owner: 'service', pendingRestart: { work: work.terminals + work.agents, answered: false } });
     });
 
     test('an older build that cannot say what runs is asked about too', async () => {
@@ -243,9 +264,14 @@ describe('start', () => {
         });
         await controller.start();
         expect(controller.restartWhenIdle().pendingRestart).toEqual({ work: 1, answered: true });
+        fake.service.running = null;
         expect((await controller.refresh()).pendingRestart).toEqual({ work: 1, answered: true });
-        fake.service.running = EXPECTED;
+        fake.service.running = { version: EXPECTED.version, build: 'old' };
+        expect((await controller.refresh()).pendingRestart).toEqual({ work: 1, answered: true });
+        expect(controller.unsettled()).toBe(true);
+        fake.service.running = { version: '9.9.9', build: EXPECTED.build };
         expect((await controller.refresh()).pendingRestart).toBeNull();
+        expect(controller.unsettled()).toBe(false);
         expect(fake.calls).toEqual([]);
     });
 
@@ -311,8 +337,8 @@ describe('start', () => {
         expect(controller.state().owner).toBe('service');
     });
 
-    test('a changed definition waits for the work on the machine, and the next refresh after it restarts', async () => {
-        const { controller, fake, machine } = setup({
+    test('a changed definition waits for the work on the machine, and the next idle refresh restarts it', async () => {
+        const { controller, fake, machine, events } = setup({
             fake: fakeManager({ onDisk: OLD_PATH, running: EXPECTED }),
             work: { terminals: 1, agents: 1 }
         });
@@ -325,14 +351,20 @@ describe('start', () => {
         await controller.refresh();
         expect(fake.calls).toEqual(['install', 'restart']);
         expect(controller.unsettled()).toBe(false);
+        expect(events).toEqual([]);
+        expect(controller.state()).toMatchObject({ owner: 'service', failure: null });
     });
 
-    test('without service support whatever answers is used and never killed', async () => {
-        const { controller, events } = setup({ support: 'dev', answering: { version: '0.0.9', build: 'old' } });
+    test.each([
+        ['the expected stamped build', EXPECTED],
+        ['an older stamped build', { version: '0.0.9', build: 'old' }]
+    ] as const)('without service support %s is used and never killed', async (_label, answering) => {
+        const { controller, events, fake } = setup({ support: 'dev', answering });
         await controller.start();
         expect(controller.state().owner).toBe('external');
         expect(controller.survivesQuit(true)).toBe(true);
         controller.quit(false);
+        expect(fake.calls).toEqual([]);
         expect(events).toEqual([]);
     });
 
@@ -507,7 +539,7 @@ describe("the app's own daemon", () => {
     });
 
     test('is given up on after five ends in a row, which the windows hear too', async () => {
-        const { controller, events, clock, crash, advance } = setup({ support: 'dev' });
+        const { controller, events, clock, published, crash, advance } = setup({ support: 'dev' });
         await controller.start();
         for (let i = 0; i < 5; i++) {
             crash();
@@ -517,6 +549,7 @@ describe("the app's own daemon", () => {
         expect(clock.timers).toEqual([]);
         expect(events.filter((event) => event === 'spawn')).toHaveLength(6);
         expect(controller.state().crash).toEqual({ total: 6, restarting: false });
+        expect(published.at(-1)?.crash).toEqual({ total: 6, restarting: false });
     });
 
     test('is reported once it is given up on, and not for the ends before', async () => {

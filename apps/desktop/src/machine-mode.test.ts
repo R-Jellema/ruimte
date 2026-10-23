@@ -11,7 +11,6 @@ import {
     machineModeFile,
     parseModeOverride,
     parseStoredMode,
-    planSwitch,
     removeOwnDefinition,
     secretFor,
     tildeHome,
@@ -128,23 +127,6 @@ describe('secretFor', () => {
 
     test('hands out the secret of a local machine', async () => {
         expect(await secretFor('local', async () => 'secret')).toBe('secret');
-    });
-});
-
-describe('planSwitch', () => {
-    test('leaving local for none takes the machine down', () => {
-        expect(planSwitch('local', 'none')).toEqual({ write: 'none', stopMachine: true });
-    });
-
-    test('choosing local from none or ask has no machine to stop', () => {
-        expect(planSwitch('none', 'local')).toEqual({ write: 'local', stopMachine: false });
-        expect(planSwitch('ask', 'local')).toEqual({ write: 'local', stopMachine: false });
-        expect(planSwitch('ask', 'none')).toEqual({ write: 'none', stopMachine: false });
-    });
-
-    test('choosing the current mode again still restarts without stopping anything', () => {
-        expect(planSwitch('local', 'local')).toEqual({ write: 'local', stopMachine: false });
-        expect(planSwitch('none', 'none')).toEqual({ write: 'none', stopMachine: false });
     });
 });
 

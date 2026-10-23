@@ -1,6 +1,5 @@
 import type { MachineMode } from '@ruimte/desktop-bridge';
 import type { MachineModeFile } from '../machine-mode';
-import { planSwitch } from '../machine-mode';
 import type { AppIpc } from './ipc';
 import type { Machine } from './service';
 
@@ -29,12 +28,12 @@ export function installMachineMode(ipc: AppIpc, options: MachineModeOptions): vo
         if (switching) {
             throw new Error('The app is already switching');
         }
-        const plan = planSwitch(options.mode, next);
+        const stopMachine = options.mode === 'local' && next === 'none';
         switching = true;
         try {
             // A write that fails rejects here, before anything stopped.
-            store.write(plan.write);
-            if (plan.stopMachine) {
+            store.write(next);
+            if (stopMachine) {
                 try {
                     machine.removeOwnService();
                 } catch (e) {
@@ -47,7 +46,7 @@ export function installMachineMode(ipc: AppIpc, options: MachineModeOptions): vo
             switching = false;
             throw e;
         }
-        machine.stopOnQuit(plan.stopMachine);
+        machine.stopOnQuit(stopMachine);
         later(options.relaunch);
     });
 }
