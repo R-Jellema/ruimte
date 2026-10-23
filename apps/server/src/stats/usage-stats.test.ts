@@ -91,6 +91,41 @@ describe('counting at the sites', () => {
         expect(counts()).toEqual({ 'actions.device': 1 });
     });
 
+    test('a request counts what it did, from its payload where the type alone does not say', () => {
+        countRequest('git.action', { kind: 'commit-push' });
+        countRequest('git.action', { kind: 'sync' });
+        countRequest('git.action', { kind: 'checkout' });
+        countRequest('git.resolve', {});
+        countRequest('git.pr-watch', {});
+        countRequest('database.request', { id: 'd1', method: 'execute' });
+        countRequest('database.request', { id: 'd2', method: 'tables' });
+        countRequest('fs.write', { path: 'a.ts' });
+        countRequest('device.boot', {});
+        countRequest('voice.start', {});
+        countRequest('peer.taskStart', {});
+        expect(counts()).toEqual({
+            'git.commits': 1,
+            'git.pushes': 2,
+            'git.pulls': 1,
+            'git.conflictsResolved': 1,
+            'prWatches.started': 1,
+            'actions.database': 2,
+            'database.queries': 1,
+            'files.saved': 1,
+            'actions.device': 1,
+            'devices.started': 1,
+            'voice.sessions': 1,
+            'peers.tasks': 1
+        });
+    });
+
+    test('a file read counts once per file a day, however often a client reads it again', () => {
+        countRequest('fs.read', { path: '/work/a.ts' });
+        countRequest('fs.read', { path: '/work/a.ts' });
+        countRequest('fs.read', { path: '/work/b.ts' });
+        expect(counts()).toEqual({ 'files.opened': 2 });
+    });
+
     test('a project counts once a day, however often clients open it again', () => {
         countProjectOpened('p1');
         countProjectOpened('p1');

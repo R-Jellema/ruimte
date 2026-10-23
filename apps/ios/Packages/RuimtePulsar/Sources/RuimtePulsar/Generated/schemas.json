@@ -54264,6 +54264,62 @@
     "type": "object",
     "properties": {}
   },
+  "request.usage.count.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "counter": {
+        "type": "string",
+        "enum": [
+          "dictations",
+          "connections.local",
+          "connections.lan",
+          "connections.direct",
+          "connections.turn",
+          "connectFailures.timeout",
+          "connectFailures.refused",
+          "connectFailures.signaling",
+          "connectFailures.ice",
+          "connectFailures.closed",
+          "connectFailures.other"
+        ]
+      }
+    },
+    "required": [
+      "counter"
+    ]
+  },
+  "request.usage.count.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {}
+  },
+  "request.usage.timing.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "timing": {
+        "type": "string",
+        "enum": [
+          "remoteConnectMs"
+        ]
+      },
+      "ms": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 600000
+      }
+    },
+    "required": [
+      "timing",
+      "ms"
+    ]
+  },
+  "request.usage.timing.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {}
+  },
   "request.processes.subscribe.payload": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",

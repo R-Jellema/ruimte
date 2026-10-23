@@ -77,7 +77,8 @@ Every name comes from the allow-list `USAGE_REPORT_COUNTERS` in `packages/pulsar
 | `views.<kind>` | distinct views shown per day, by kind: a view that is the active view of a client's local state (`project.save-local`), each view of a project once a day |
 | `terminals.started` | a session the session manager starts without `exec`, so not a launch |
 | `chats.<provider>` | a chat that opens with no stored record, by provider (`USAGE_PROVIDERS`) |
-| `turns.<provider>`, `turns.model.<family>`, `turns.mode.<mode>` | the first `running` item of each new turn in a chat, by provider, by the family of its model (`usageModelFamilyOf`, never the id) and by its runtime mode |
+| `turns.<provider>`, `turns.model.<family>`, `turns.mode.<mode>` | the first `running` item of each new turn in a chat, by provider, by the family of its model (`usageModelFamilyOf`, never the id) and by its runtime mode, or `plan` while the chat plans (`src/stats/turn-usage.ts`) |
+| `limits.<provider>`, `limitResumes` | a turn that stopped on a usage limit, once per turn, and the first turn of that chat after it |
 | `verbs.<verb>` | a `ruimte-context` verb that ran, `list` and `read` included |
 | `agents.delegated`, `teams.delegated` | an `agent` or `team` verb that ran |
 | `actions.browser`, `actions.device`, `actions.database`, `actions.computer` | the `browser`, `device`, `database` and `computer` verbs, and a person's `browser.navigate`, `browser.command`, `device.boot`, `device.shutdown`, `device.action`, `device.capture`, `device.record`, `device.clipboard`, `database.request` and `computer.control` |
@@ -85,8 +86,13 @@ Every name comes from the allow-list `USAGE_REPORT_COUNTERS` in `packages/pulsar
 | `worktree.merges` | a worktree merge that landed on the target branch; not one that stopped on a conflict or a hook, or had nothing to merge |
 | `clients.desktop`, `clients.ios`, `clients.station` | a client that is not the local secret, once a day per session its key proved, by the `client` it names in `endpoint.info` |
 | `clients.peer` | another machine working here as a peer, once a day per machine |
+| `files.opened`, `files.saved` | an `fs.read`, each path once a day, and every `fs.write` |
+| `git.commits`, `git.pushes`, `git.pulls`, `git.conflictsResolved` | a `git.action` by its kind (a sync counts a pull and a push, a commit-push a commit and a push), and a `git.resolve` |
+| `prWatches.started`, `database.queries`, `devices.started`, `voice.sessions`, `peers.tasks` | a `git.pr-watch`, a `database.request` that executes, a `device.boot`, a `voice.start` and a `peer.taskStart` |
+| `plans.created`, `visuals.shown` | a plan written to disk (not a dry run), and a visual a chat showed |
+| `dictations`, `connections.<path>`, `connectFailures.<reason>` | what only the app on the machine sees, handed over with `usage.count` (local secret only): a dictation that landed, and each link it opened by path or failed to open by reason |
 | `startupMs` | the median of the day's `usage.startup` (local secret only): the desktop app's time from its start to its page's first connection, handed out once per start by the shell |
-| `timings.<name>` | the median of a day's samples per name in `USAGE_REPORT_TIMINGS`: the first words of a turn per provider, a terminal's attach, a connection to a machine elsewhere |
+| `timings.<name>` | the median of a day's samples per name in `USAGE_REPORT_TIMINGS`: the first words of a turn per provider, a terminal's attach, a connection to a machine elsewhere (the last handed over with `usage.timing`, local secret only) |
 
 `packages/pulsar/fixtures/usage.json` is a batch the daemon's own counter and serializer made (`src/stats/usage-fixture.test.ts`), the contract Observatory builds against. A change to what goes out changes it, and Observatory has to take the new one before the release that sends it.
 

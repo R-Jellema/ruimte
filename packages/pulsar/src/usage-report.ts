@@ -123,6 +123,14 @@ export const USAGE_REPORT_COUNTERS = [
 ] as const;
 export type UsageReportCounter = (typeof USAGE_REPORT_COUNTERS)[number];
 
+// What only the app on the machine sees and hands over (`usage.count`, `usage.timing`): a dictation and how its links went.
+export const USAGE_CLIENT_COUNTERS = [
+    'dictations',
+    ...prefixed('connections', USAGE_CONNECTION_PATHS),
+    ...prefixed('connectFailures', USAGE_CONNECT_FAILURES)
+] as const satisfies readonly UsageReportCounter[];
+export const USAGE_CLIENT_TIMINGS = ['remoteConnectMs'] as const;
+
 // `startupMs` stays the day's own field, as in the address book's batch.
 export const USAGE_REPORT_TIMINGS = [...prefixed('firstTokenMs', USAGE_PROVIDERS), 'terminalAttachMs', 'remoteConnectMs'] as const;
 export type UsageReportTiming = (typeof USAGE_REPORT_TIMINGS)[number];
