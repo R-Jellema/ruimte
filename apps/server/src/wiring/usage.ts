@@ -3,6 +3,7 @@ import type { ServerConfig } from '../config.ts';
 import type { ProjectStore } from '../projects/project-store.ts';
 import { copilotUsageDirectory } from '../providers/acp-providers.ts';
 import { RUIMTE_CODEX_CLIENT } from '../providers/codex-provider.ts';
+import { readGrokPlan } from '../usage/grok-plan.ts';
 import { followPlan } from '../usage/nanogpt-live.ts';
 import { sessionAccountsOf } from '../usage/session-accounts.ts';
 import type { AgentsBundle } from './agents.ts';
@@ -33,11 +34,21 @@ export function wireUsage(config: ServerConfig, providers: ProvidersBundle, agen
             ),
         accounts: () => usageAccountsOf(providers.accounts, providers.nameOfCli)
     });
+    const limitAccounts = withoutNanoGptUntilKeyed(
+        limitAccountsOf(providers.accounts, providers.nameOfCli, process.env),
+        () => providers.nanogpt.apiKey !== ''
+    );
     const limits = new UsageMonitor({
         providers: providers.providers,
-        accounts: withoutNanoGptUntilKeyed(limitAccountsOf(providers.accounts, providers.nameOfCli, process.env), () => providers.nanogpt.apiKey !== ''),
+        accounts: limitAccounts,
         client: RUIMTE_CODEX_CLIENT,
-        plans: { nanogpt: () => providers.nanogpt.readPlan() }
+        plans: {
+            nanogpt: () => providers.nanogpt.readPlan(),
+            grok: async (account) => {
+                const installed = (await providers.providers.list()).some((provider) => provider.kind === 'grok' && provider.installed);
+                return installed ? readGrokPlan(limitAccounts.envFor('grok', account.id)) : { unavailable: { reason: 'not-installed', message: null } };
+            }
+        }
     });
     providers.accounts.listen(() => limits.accountsChanged());
     providers.nanogpt.onChange(() => {
