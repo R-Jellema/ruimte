@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { chmod, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { expectProcessTerminated } from './test-process.ts';
 import { gitIn, initRepo, NO_WORKTREE_AGENTS } from './test-repo.ts';
 import { STILL_WAITING, WorktreeMerge } from './worktree-merge.ts';
 import { Worktrees } from './worktrees.ts';
@@ -68,7 +69,7 @@ test('cancel ends a step a hook holds up, after the merge said it is still waiti
     merges.cancel('merge-1');
 
     await expect(merging).rejects.toThrow('The merge was canceled.');
-    expect(() => process.kill(pid, 0)).toThrow('ESRCH');
+    expectProcessTerminated(pid, 'SIGTERM');
     expect(await worktrees.exclusive(repo, async () => 'free')).toBe('free');
     expect((await gitIn(repo, ['rev-list', '--count', 'main..lexer'])).trim()).toBe('0');
 });

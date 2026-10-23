@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import type { GitIdentity } from '@ruimte/contracts';
 import { IdentityReader } from './identity.ts';
 import { runGit } from './run.ts';
+import { expectProcessTerminated } from './test-process.ts';
 import { gitIn, initRepo } from './test-repo.ts';
 
 let root: string;
@@ -137,7 +138,7 @@ test('a git that left a child holding its pipes is ended with the child, and say
         expect(result.timedOut).toBe(true);
         expect(result.code).toBe(137);
         expect(result.stdout).toBe('child-ready\n');
-        expect(() => process.kill(pid, 0)).toThrow('ESRCH');
+        expectProcessTerminated(pid, 'SIGKILL');
     } finally {
         jest.useRealTimers();
         if (Number.isSafeInteger(pid)) {

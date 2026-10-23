@@ -3,6 +3,7 @@ import { mkdtemp, readFile, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { streamWithTimeout } from './run.ts';
+import { expectProcessTerminated } from './test-process.ts';
 
 let root: string;
 let pidFile: string;
@@ -39,5 +40,5 @@ test('a timeout ends the children that keep the output open, not only the comman
     const result = await running;
     expect(result.stdout).toBe('child-ready\n');
     expect(result.code).toBe(143);
-    expect(() => process.kill(pid, 0)).toThrow('ESRCH');
+    expectProcessTerminated(pid, 'SIGTERM');
 });

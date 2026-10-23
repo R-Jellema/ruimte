@@ -3,6 +3,7 @@ import { chmod, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promi
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { GitActions } from './actions.ts';
+import { expectProcessTerminated } from './test-process.ts';
 import { gitIn, initRepo } from './test-repo.ts';
 
 let root: string;
@@ -59,6 +60,6 @@ test('cancel ends a commit a hook holds up, the hook included', async () => {
     actions.cancel('commit-1');
 
     await expect(committing).rejects.toThrow('The action was canceled.');
-    expect(() => process.kill(pid, 0)).toThrow('ESRCH');
+    expectProcessTerminated(pid, 'SIGTERM');
     expect((await gitIn(repo, ['rev-parse', 'HEAD'])).trim()).toBe(before);
 });
