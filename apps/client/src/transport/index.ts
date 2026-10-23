@@ -8,7 +8,8 @@ import { LOCAL_ENDPOINT_ID, brokerRouteOf, endpointById, useEndpoints, type Endp
 import { iceServersFrom, useSettings } from '@/state/settings';
 import { IS_STATION } from '@/station';
 import type { LinkKind, MachineKind } from '@/telemetry/events';
-import { reportConnectionProblem } from '@/telemetry/report';
+import { linkMetrics } from '@/telemetry/metrics';
+import { recordPageMetric, reportConnectionProblem } from '@/telemetry/report';
 import { ActiveTransport } from './active-transport';
 import { brokerSignaling } from './broker-signaling';
 import { directProof } from './direct-auth';
@@ -116,7 +117,8 @@ export const pool = new TransportPool({
         !hasLocalMachine() && endpoint.id === LOCAL_ENDPOINT_ID
             ? new DormantTransport()
             : new LinkTransport(() => connectionAddressFor(currentId()), linkFor(currentId), {
-                  report: (problem) => reportConnectionProblem({ ...problem, ...linkKindOf(currentId()) })
+                  report: (problem) => reportConnectionProblem({ ...problem, ...linkKindOf(currentId()) }),
+                  meter: linkMetrics(recordPageMetric, () => linkKindOf(currentId()).link === 'socket')
               })
 });
 
