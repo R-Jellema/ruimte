@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import i18next from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { ChartSpline } from 'lucide-react';
 import { AddressBookRequestError, type ModelBenchmarksResult } from '@ruimte/pulsar';
 import { formatNumber } from '@adecore/ui/format';
-import { Skeleton, Button, EmptyState } from '@adecore/ui';
+import { Skeleton, Button, EmptyState, Separator } from '@adecore/ui';
 import { ModelsComparison } from '@/shell/models/ModelsComparison';
 
 // Artificial Analysis requires visible attribution alongside its benchmark visualizations.
@@ -59,13 +59,19 @@ function useBenchmarks(fetchBenchmarks: () => Promise<ModelBenchmarksResult>): [
     return [load, retry];
 }
 
-/* The comparison with its loading and failed states and the attribution, for the dialog and for bench alike. */
-export function ModelsBenchmarks({ fetchBenchmarks }: { fetchBenchmarks: () => Promise<ModelBenchmarksResult> }) {
+/*
+ * The comparison with its loading and failed states and the attribution, for the dialog and for bench alike.
+ * A `brand` leads the row of tabs, or a bar of its own until there are tabs.
+ */
+export function ModelsBenchmarks({ fetchBenchmarks, brand }: { fetchBenchmarks: () => Promise<ModelBenchmarksResult>; brand?: ReactNode }) {
     const { t } = useTranslation('models');
     const [load, retry] = useBenchmarks(fetchBenchmarks);
 
     return (
         <>
+            {brand !== undefined && load.status !== 'ready' && (
+                <header className="flex h-11 shrink-0 items-center border-b border-border px-5 max-[760px]:px-2">{brand}</header>
+            )}
             {load.status === 'loading' && (
                 <div className="grid min-h-0 grow grid-cols-[minmax(0,1fr)_15rem] gap-6 px-6 pt-4 pb-4 max-[760px]:grid-cols-1">
                     <Skeleton className="h-full w-full rounded-lg" />
@@ -91,7 +97,17 @@ export function ModelsBenchmarks({ fetchBenchmarks }: { fetchBenchmarks: () => P
             )}
             {load.status === 'ready' && (
                 <>
-                    <ModelsComparison result={load.result} />
+                    <ModelsComparison
+                        result={load.result}
+                        start={
+                            brand === undefined ? undefined : (
+                                <div className="mr-4 flex items-center gap-4">
+                                    {brand}
+                                    <Separator />
+                                </div>
+                            )
+                        }
+                    />
                     <footer className="flex shrink-0 flex-wrap items-center justify-center gap-x-2 border-t border-border px-6 py-2 text-xs text-text-muted">
                         <a href={SOURCE_URL} target="_blank" rel="noreferrer" className="underline decoration-border-strong underline-offset-2 hover:text-text">
                             {t('footer.source')}
