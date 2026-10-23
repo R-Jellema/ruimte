@@ -60,14 +60,20 @@ final class ChatSubagentsTests: XCTestCase {
         model.attached(
             .object(["info": ChatWire.info(), "items": .array([agentValue("a", started: 10), reply])]), since: nil)
         let derived = SubagentListDerivation()
-        let lists = { derived.lists(revision: model.subagentRevision) { model.items } }
+        var reads = 0
+        let lists = {
+            derived.lists(revision: model.subagentRevision) {
+                reads += 1
+                return model.items
+            }
+        }
         XCTAssertEqual(lists().active.map(\.id), ["a"])
         model.receive(.object(["type": .string("delta"), "itemId": .string("reply"), "text": .string(" there")]))
         _ = lists()
-        XCTAssertEqual(derived.derivations, 1)
+        XCTAssertEqual(reads, 1)
         model.receive(.object(["type": .string("item"), "item": toolValue("t", parent: "use-a", created: 30)]))
         XCTAssertEqual(lists().work["use-a"]?.count, 1)
-        XCTAssertEqual(derived.derivations, 2)
+        XCTAssertEqual(reads, 2)
     }
 
     @MainActor func testTheBarNamesTheModelTheKindWhereItRunsAndWhatItSpent() {
@@ -75,7 +81,8 @@ final class ChatSubagentsTests: XCTestCase {
             "a",
             extra: [
                 "model": .string("claude-haiku-4-5"), "subagentType": .string("Explore"), "background": .bool(true),
-                "usage": .object(["totalTokens": .number(12_300), "toolUses": .number(8), "durationMs": .number(5_000)]),
+                "usage": .object(["totalTokens": .number(12_300), "toolUses": .number(8), "durationMs": .number(5_000)]
+                ),
             ])
         let locale = FormatLocale(region: Locale(identifier: "en_US"), language: Locale(identifier: "en"))
         XCTAssertEqual(
@@ -141,7 +148,8 @@ final class ChatSubagentsTests: XCTestCase {
 
     @MainActor func testTheTimeIsHowLongItRunsOrWhenItEnded() {
         let locale = FormatLocale(
-            region: Locale(identifier: "en_US"), language: Locale(identifier: "en"), timeZone: TimeZone(identifier: "UTC")!)
+            region: Locale(identifier: "en_US"), language: Locale(identifier: "en"),
+            timeZone: TimeZone(identifier: "UTC")!)
         let now = Date(timeIntervalSince1970: 2 * 86_400 + 12 * 3600)
         let nowMs = now.timeIntervalSince1970 * 1000
         XCTAssertEqual(
@@ -166,11 +174,13 @@ final class ChatSubagentsTests: XCTestCase {
         let grown = ChatSubagents.mergeNewest(
             current: held, cursor: "c1", page: [reply("2", "x"), reply("3", "")], pageCursor: "c2")
         XCTAssertEqual(grown.items.map(\.id), ["1", "2", "3"])
+        XCTAssertEqual(grown.items[1].assistantItem?.text, "x")
         XCTAssertEqual(grown.cursor, "c1")
         XCTAssertFalse(grown.replaced)
         let jumped = ChatSubagents.mergeNewest(
             current: held, cursor: "c1", page: [reply("9", "")], pageCursor: "c9")
         XCTAssertEqual(jumped.items.map(\.id), ["9"])
+        XCTAssertEqual(jumped.cursor, "c9")
         XCTAssertTrue(jumped.replaced)
     }
 

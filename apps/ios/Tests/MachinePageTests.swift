@@ -1,3 +1,4 @@
+import Observation
 import RuimtePulsar
 import RuimteTransport
 import XCTest
@@ -6,7 +7,10 @@ import XCTest
 
 final class MachinePageTests: XCTestCase {
     private func defaults() -> UserDefaults {
-        UserDefaults(suiteName: "machine-page-tests-\(UUID().uuidString)") ?? .standard
+        let domain = "machine-page-tests-\(UUID().uuidString)"
+        let store = UserDefaults(suiteName: domain)!
+        addTeardownBlock { UserDefaults(suiteName: domain)?.removePersistentDomain(forName: domain) }
+        return store
     }
 
     private func info(_ extra: [String: JSONValue] = [:]) -> JSONValue {
@@ -23,9 +27,11 @@ final class MachinePageTests: XCTestCase {
     }
 
     @MainActor private func started(_ machine: FakeMachine) async -> MachineEndpoint {
-        let endpoint = MachineEndpoint(client: machine, machineID: "studio", defaults: defaults())
-        endpoint.start()
-        await settle()
+        let endpoint = MachineEndpoint(
+            client: machine, machineID: "studio", defaults: defaults(),
+            clock: { Date(timeIntervalSince1970: 1_800_000_000) })
+        let read = NativeTaskDrain { endpoint.start() }
+        await read.finish()
         return endpoint
     }
 
@@ -34,7 +40,8 @@ final class MachinePageTests: XCTestCase {
         machine.answers["endpoint.info"] = { _ in self.info() }
         let endpoint = await started(machine)
         XCTAssertEqual(endpoint.version, "0.42.1")
-        XCTAssertEqual(endpoint.keepAwake, MachineKeepAwake(mode: .working, onBattery: false, display: false, lidClosed: false))
+        XCTAssertEqual(
+            endpoint.keepAwake, MachineKeepAwake(mode: .working, onBattery: false, display: false, lidClosed: false))
         XCTAssertEqual(endpoint.update?.action, "Restart")
         XCTAssertEqual(endpoint.update?.headline, "Ruimte 0.43.0 is ready on this machine.")
 
@@ -79,7 +86,8 @@ final class MachinePageTests: XCTestCase {
         machine.answers["endpoint.info"] = { _ in self.info(["keepAwakeAvailable": .bool(false)]) }
         let endpoint = await started(machine)
         XCTAssertNil(endpoint.keepAwake)
-        XCTAssertNil(MachineEndpoint.keepAwake(in: info(["keepAwake": .null])), "Without a mode there is nothing to show")
+        XCTAssertNil(
+            MachineEndpoint.keepAwake(in: info(["keepAwake": .null])), "Without a mode there is nothing to show")
         endpoint.stop()
     }
 
@@ -88,7 +96,8 @@ final class MachinePageTests: XCTestCase {
         machine.answers["endpoint.info"] = { _ in self.info() }
         machine.answers["endpoint.setIdentity"] = { payload in
             self.info([
-                "keepAwake": payload["keepAwake"] ?? .null, "keepAwakeOnBattery": payload["keepAwakeOnBattery"] ?? .null,
+                "keepAwake": payload["keepAwake"] ?? .null,
+                "keepAwakeOnBattery": payload["keepAwakeOnBattery"] ?? .null,
             ])
         }
         let endpoint = await started(machine)
@@ -98,7 +107,8 @@ final class MachinePageTests: XCTestCase {
         XCTAssertEqual(sent["icon"], .null)
         XCTAssertEqual(sent["keepAwake"], .string("always"))
         XCTAssertEqual(sent["keepAwakeOnBattery"], .bool(true))
-        XCTAssertEqual(endpoint.keepAwake, MachineKeepAwake(mode: .always, onBattery: true, display: false, lidClosed: false))
+        XCTAssertEqual(
+            endpoint.keepAwake, MachineKeepAwake(mode: .always, onBattery: true, display: false, lidClosed: false))
         XCTAssertTrue(endpoint.keepAwake?.displayApplies == true)
 
         machine.refusals["endpoint.setIdentity"] = "forbidden"
@@ -111,7 +121,10 @@ final class MachinePageTests: XCTestCase {
     @MainActor func testTheClosedLidIsUsableOnlyOnceTheRuleIsOnTheMacAndFollowsItsEvents() async throws {
         let machine = FakeMachine()
         machine.answers["endpoint.info"] = { _ in
-            self.info(["keepAwakeLidAvailable": .bool(true), "keepAwakeLidRule": .bool(false), "keepAwakeLidClosed": .bool(false)])
+            self.info([
+                "keepAwakeLidAvailable": .bool(true), "keepAwakeLidRule": .bool(false),
+                "keepAwakeLidClosed": .bool(false),
+            ])
         }
         machine.answers["endpoint.setIdentity"] = { payload in
             self.info([
@@ -123,7 +136,8 @@ final class MachinePageTests: XCTestCase {
         XCTAssertEqual(endpoint.closedLid, MachineClosedLid(ruleInstalled: false))
 
         machine.emit("endpoint.changed", .object(["keepAwakeLidRule": .bool(true)]))
-        XCTAssertEqual(endpoint.closedLid, MachineClosedLid(ruleInstalled: true), "Installing on the Mac reaches the phone")
+        XCTAssertEqual(
+            endpoint.closedLid, MachineClosedLid(ruleInstalled: true), "Installing on the Mac reaches the phone")
 
         await endpoint.setKeepAwake(MachineKeepAwake(mode: .working, onBattery: false, display: false, lidClosed: true))
         let sent = try XCTUnwrap(machine.sent.last { $0.0 == "endpoint.setIdentity" }?.1)
@@ -150,9 +164,10 @@ final class MachinePageTests: XCTestCase {
         machine.answers["endpoint.info"] = { _ in self.info(["lan": lan, "lanDoor": .bool(true)]) }
         var learned: [LanDoorAddress?] = []
         let endpoint = MachineEndpoint(
-            client: machine, machineID: "studio", defaults: defaults(), learnedLan: { learned.append($0) })
-        endpoint.start()
-        await settle()
+            client: machine, machineID: "studio", defaults: defaults(),
+            clock: { Date(timeIntervalSince1970: 1_800_000_000) }, learnedLan: { learned.append($0) })
+        let read = NativeTaskDrain { endpoint.start() }
+        await read.finish()
         XCTAssertEqual(learned, [LanDoorAddress(port: 4220, addresses: ["192.168.1.20"])])
         machine.emit("endpoint.changed", .object(["id": .string("studio"), "label": .string("Studio")]))
         XCTAssertEqual(
@@ -191,7 +206,9 @@ final class MachinePageTests: XCTestCase {
         await endpoint.setLanDoor(true)
         XCTAssertEqual(endpoint.lanDoor, false, "A refused write puts the switch back")
         XCTAssertNotNil(endpoint.problem)
-        XCTAssertNil(MachineEndpoint(client: machine, machineID: "studio").lanDoor, "Nothing read, nothing to show")
+        XCTAssertNil(
+            MachineEndpoint(client: machine, machineID: "studio", defaults: defaults()).lanDoor,
+            "Nothing read, nothing to show")
         endpoint.stop()
     }
 
@@ -199,7 +216,9 @@ final class MachinePageTests: XCTestCase {
         let machine = FakeMachine()
         machine.answers["endpoint.info"] = { _ in self.info() }
         machine.answers["endpoint.setIdentity"] = { payload in
-            self.info(["label": payload["name"] ?? .null, "nameSource": .string("chosen"), "icon": payload["icon"] ?? .null])
+            self.info([
+                "label": payload["name"] ?? .null, "nameSource": .string("chosen"), "icon": payload["icon"] ?? .null,
+            ])
         }
         let endpoint = await started(machine)
         try await endpoint.setIdentity(name: "  Studio  ", icon: MachineIcon(value: "laptop"))
@@ -227,7 +246,8 @@ final class MachinePageTests: XCTestCase {
         XCTAssertEqual(
             MachineUpdate.restartQuestion(
                 update: endpoint.update, work: MachineWork(terminals: 2, agents: 1), machine: "Studio"),
-            "Ruimte 0.43.0 installs and Ruimte restarts on Studio. That ends 2 terminals and 1 agent running there now.")
+            "Ruimte 0.43.0 installs and Ruimte restarts on Studio. That ends 2 terminals and 1 agent running there now."
+        )
         XCTAssertEqual(
             MachineUpdate.restartQuestion(update: nil, work: MachineWork(terminals: 0, agents: 0), machine: "Studio"),
             "The update downloads, installs and Ruimte restarts on Studio. Nothing that runs there ends.")
@@ -237,8 +257,8 @@ final class MachinePageTests: XCTestCase {
         XCTAssertEqual(endpoint.install, .started)
 
         machine.setConnected(false)
-        machine.setConnected(true)
-        await settle()
+        let reconnected = NativeTaskDrain { machine.setConnected(true) }
+        await reconnected.finish()
         XCTAssertEqual(endpoint.install, .idle, "The machine that comes back after the restart starts over")
         endpoint.stop()
     }
@@ -316,10 +336,13 @@ final class MachinePageTests: XCTestCase {
         let endpoint = await started(machine)
         await endpoint.measureLatency()
         XCTAssertNotNil(endpoint.latency)
+        let pings = machine.sent.filter { $0.0 == "server.ping" }.count
+        XCTAssertEqual(pings, 1)
         machine.setConnected(false)
         XCTAssertNil(endpoint.latency)
         await endpoint.measureLatency()
         XCTAssertNil(endpoint.latency)
+        XCTAssertEqual(machine.sent.filter { $0.0 == "server.ping" }.count, pings)
         endpoint.stop()
     }
 
@@ -520,15 +543,23 @@ final class MachinePageTests: XCTestCase {
         machine.answers["usage.limits"] = { _ in self.limits([]) }
         machine.answers["accounts.list"] = { _ in self.accountList([("claude", "claude", nil, true, "ready")]) }
         let recorder = UsageWidgetRecorder(machineID: "recorder-\(UUID().uuidString)", client: machine)
-        recorder.start()
-        await settle()
+        let initial = NativeTaskDrain { recorder.start() }
+        await initial.finish()
         XCTAssertEqual(recorder.accounts, loaded(accountList([("claude", "claude", nil, true, "ready")])))
-        machine.emit("usage.limitsChanged", limits([reading("claude", windows: [window("session", "Session", 0.4)])]))
+        let changedLimits = NativeTaskDrain {
+            machine.emit(
+                "usage.limitsChanged", limits([reading("claude", windows: [window("session", "Session", 0.4)])]))
+        }
         let changed = accountList([("claude", "claude", nil, true, "ready"), ("work", "claude", "Work", true, "ready")])
         machine.emit("accounts.changed", changed)
-        await settle()
+        await changedLimits.finish()
         XCTAssertEqual(recorder.accounts, loaded(changed))
         XCTAssertEqual(machine.sent.filter { $0.0 == "accounts.list" }.count, 1)
+        machine.setConnected(false)
+        let reconnected = NativeTaskDrain { machine.setConnected(true) }
+        await reconnected.finish()
+        XCTAssertEqual(machine.sent.filter { $0.0 == "accounts.list" }.count, 2)
+        XCTAssertEqual(recorder.accounts, loaded(accountList([("claude", "claude", nil, true, "ready")])))
         recorder.stop()
         XCTAssertNil(recorder.limits)
         XCTAssertEqual(recorder.accounts, .unknown)
@@ -538,8 +569,8 @@ final class MachinePageTests: XCTestCase {
         let machine = FakeMachine()
         machine.refusals["accounts.list"] = "failed"
         let recorder = UsageWidgetRecorder(machineID: "recorder-\(UUID().uuidString)", client: machine)
-        recorder.start()
-        await settle()
+        let initial = NativeTaskDrain { recorder.start() }
+        await initial.finish()
         XCTAssertEqual(recorder.accounts, .failed)
         recorder.stop()
     }
@@ -549,14 +580,22 @@ final class MachinePageTests: XCTestCase {
         let old = limits([reading("claude", windows: [window("session", "Session", 0.1)])])
         let newer = limits([reading("claude", windows: [window("session", "Session", 0.7)])])
         machine.answers["usage.limits"] = { _ in old }
-        machine.delays["usage.limits"] = 5
+        machine.hold("usage.limits")
         let recorder = UsageWidgetRecorder(machineID: "recorder-\(UUID().uuidString)", client: machine)
-        recorder.start()
-        for _ in 0..<2 { await Task.yield() }
+        let initial = NativeTaskDrain { recorder.start() }
+        await machine.waitForRequest("usage.limits")
         machine.emit("usage.limitsChanged", newer)
         XCTAssertEqual(recorder.limits, newer)
-        await settle()
-        await settle()
+        var applied: [JSONValue?] = []
+        let observation = withContinuousObservation(options: .didSet) { event in
+            let value = recorder.limits
+            if event.kind == .didSet { applied.append(value) }
+        }
+        machine.release("usage.limits")
+        await initial.finish()
+        withExtendedLifetime(observation) {
+            XCTAssertFalse(applied.contains(old), "A stale answer must never replace the event, even briefly")
+        }
         XCTAssertEqual(recorder.limits, newer)
         XCTAssertEqual(recorder.providers.first?.windows.first?.used, 0.7)
         recorder.stop()
@@ -586,7 +625,8 @@ final class MachinePageTests: XCTestCase {
                 "devices": .array([
                     self.device("ipad"), self.device("pixel", platform: "android"),
                     self.device("iphone", state: "booted"),
-                    self.device("phone", platform: "android", kind: "physical", state: "booted", reason: "unauthorized"),
+                    self.device(
+                        "phone", platform: "android", kind: "physical", state: "booted", reason: "unauthorized"),
                 ]),
                 "unavailable": .array([]),
             ])
@@ -716,8 +756,9 @@ final class MachinePageTests: XCTestCase {
         XCTAssertNil(report.share(models[0], metric: .dollar), "A model without a price has no share of a cost")
         XCTAssertEqual(report.rows(.day, metric: .dollar).map(\.id), ["2026-10-03", "2026-10-01"])
         XCTAssertEqual(
-            UsagePeriod.today.payload(now: try XCTUnwrap(UsageReport.date("2026-10-03", calendar: calendar)), calendar: calendar)[
-                "resolution"], .string("hour"))
+            UsagePeriod.today.payload(
+                now: try XCTUnwrap(UsageReport.date("2026-10-03", calendar: calendar)), calendar: calendar)[
+                    "resolution"], .string("hour"))
     }
 
     func testProcessesGroupPerProjectWithMachineTasksLast() {
@@ -735,16 +776,14 @@ final class MachinePageTests: XCTestCase {
         XCTAssertEqual(sections[0].groups.map(\.id), ["a", "c"])
     }
 
-    @MainActor private func settle() async {
-        for _ in 0..<20 { await Task.yield() }
-    }
 }
 
 @MainActor private final class FakeMachine: MachineRequesting {
     var answers: [String: (JSONValue) -> JSONValue] = [:]
     var refusals: [String: String] = [:]
-    /// How many turns a request waits before it answers, so an event can come while it is on its way.
-    var delays: [String: Int] = [:]
+    private var held = Set<String>()
+    private var pending: [String: CheckedContinuation<Void, Never>] = [:]
+    private var arrivals: [String: NativeArrival] = [:]
     var sent: [(String, JSONValue)] = []
     private var handlers: [String: [UUID: @MainActor @Sendable (JSONValue) -> Void]] = [:]
     private var connections: [UUID: @MainActor @Sendable (Bool) -> Void] = [:]
@@ -752,9 +791,29 @@ final class MachinePageTests: XCTestCase {
 
     func request(_ type: String, payload: JSONValue) async throws -> JSONValue {
         sent.append((type, payload))
-        for _ in 0..<(delays[type] ?? 0) { await Task.yield() }
+        if held.contains(type) {
+            await withCheckedContinuation {
+                pending[type] = $0
+                arrival(type).record()
+            }
+        } else {
+            arrival(type).record()
+        }
         if let code = refusals[type] { throw MachineClientError.server(code: code, message: code) }
         return answers[type]?(payload) ?? .object([:])
+    }
+
+    func hold(_ type: String) { held.insert(type) }
+    func release(_ type: String) {
+        held.remove(type)
+        pending.removeValue(forKey: type)?.resume()
+    }
+    func waitForRequest(_ type: String) async { await arrival(type).wait() }
+    private func arrival(_ type: String) -> NativeArrival {
+        if let arrival = arrivals[type] { return arrival }
+        let arrival = NativeArrival()
+        arrivals[type] = arrival
+        return arrival
     }
 
     func subscribe(_ event: String, handler: @escaping @MainActor @Sendable (JSONValue) -> Void) -> () -> Void {

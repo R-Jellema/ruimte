@@ -1,3 +1,4 @@
+import Observation
 import RuimtePulsar
 import RuimteTransport
 import XCTest
@@ -332,9 +333,16 @@ final class PlanOutlineTests: XCTestCase {
         let machine = PlanMachine()
         machine.listed = [.object(["chatId": .string("chat"), "plan": plan("p", rev: 6, items: [step("a")])])]
         let store = PlanStore(client: machine)
+        let listed = expectation(description: "The listed plan reaches the store")
+        withObservationTracking {
+            _ = store.plans(for: "chat")
+        } onChange: {
+            listed.fulfill()
+        }
         store.start()
         defer { store.stop() }
-        for _ in 0..<20 where store.plans(for: "chat").isEmpty { await Task.yield() }
+        await fulfillment(of: [listed], timeout: 1)
+        XCTAssertEqual(machine.sent.filter { $0.0 == "plan.list" }.map(\.1), [.object([:])])
         XCTAssertEqual(store.plans(for: "chat").map(\.rev), [6])
     }
 
@@ -362,7 +370,16 @@ final class PlanOutlineTests: XCTestCase {
         try await store.apply(chatID: "chat", planID: "p", ops: [PlanOps.set(["a"], .done)])
         XCTAssertEqual(machine.sent.last?.0, "plan.apply")
         XCTAssertEqual(machine.sent.last?.1["planId"], .string("p"))
+        XCTAssertEqual(
+            machine.sent.last?.1,
+            .object([
+                "chatId": .string("chat"), "planId": .string("p"),
+                "ops": .array([
+                    .object(["op": .string("set"), "ids": .array([.string("a")]), "state": .string("done")])
+                ]),
+            ]))
         XCTAssertEqual(store.plans(for: "chat").first?.steps.first?.state, .done)
+        XCTAssertEqual(store.plans(for: "chat").first?.rev, 5)
     }
 }
 

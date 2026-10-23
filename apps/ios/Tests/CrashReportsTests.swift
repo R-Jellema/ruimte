@@ -96,8 +96,12 @@ final class CrashReportsTests: XCTestCase {
         XCTAssertTrue(dedupe.admit("two"))
         clock.advance(24 * 60 * 60 * 1000)
         XCTAssertTrue(dedupe.admit("one"))
+        clock.advance(1)
         XCTAssertTrue(dedupe.admit("three"))
         XCTAssertEqual(Set(store.all.keys), ["one", "three"])
+        clock.advance(1)
+        XCTAssertTrue(dedupe.admit("four"))
+        XCTAssertEqual(Set(store.all.keys), ["three", "four"])
     }
 
     func testAnEventKeepsOnlyWhatTheAllowListNames() {
@@ -142,7 +146,7 @@ final class CrashReportsTests: XCTestCase {
         XCTAssertEqual(frame.function, "ChatView.body")
     }
 
-    func testOnlyErrorsGoOut() {
+    func testTransactionsAreNotErrorReports() {
         let event = Event(level: .info)
         event.type = "transaction"
         XCTAssertFalse(CrashReports.scrub(event, with: CrashScrubber(home: home)))

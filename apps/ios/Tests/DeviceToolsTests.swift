@@ -29,13 +29,24 @@ import Testing
     }
 
     @Test func aSimulatorThatAnnouncesNoToolsHasTheOldSixteenAndAPhoneNone() {
-        #expect(DeviceTools.tools(Self.device()) == DeviceTools.simulatorFallback)
+        #expect(
+            DeviceTools.tools(Self.device()) == [
+                "openUrl", "launchApp", "terminateApp", "appearance", "textSize", "liquidGlass", "colorFilter",
+                "reduceMotion",
+                "increaseContrast", "reduceTransparency", "showBorders", "voiceOver", "location", "clearLocation",
+                "permissions", "push",
+            ])
         #expect(DeviceTools.tools(Self.device(kind: "physical")).isEmpty)
         #expect(DeviceTools.tools(Self.device(tools: ["capture", "keyboard"])) == ["capture", "keyboard"])
     }
 
     @Test func permissionsKeepTheirOrderAndOnlyWhatTheDeviceNames() {
-        #expect(DeviceTools.permissions(Self.device()) == DeviceTools.permissions)
+        #expect(
+            DeviceTools.permissions(Self.device()) == [
+                "camera", "microphone", "photos", "contacts", "calendar", "reminders", "location", "motion",
+                "media-library",
+                "faceid",
+            ])
         #expect(
             DeviceTools.permissions(Self.device(permissions: ["photos", "camera", "teleport"])) == ["camera", "photos"])
     }
@@ -65,10 +76,15 @@ import Testing
     }
 
     @Test func aScreenshotIsNamedAfterTheDeviceAndTheMoment() {
+        let previous = NSTimeZone.default
+        NSTimeZone.default = TimeZone(secondsFromGMT: 0)!
+        defer { NSTimeZone.default = previous }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
         var components = DateComponents()
         (components.year, components.month, components.day) = (2026, 10, 15)
         (components.hour, components.minute, components.second) = (9, 41, 7)
-        let date = Calendar.current.date(from: components)!
+        let date = calendar.date(from: components)!
         #expect(DeviceTools.captureName("iPad/Pro: 13", at: date) == "iPad-Pro- 13 2026-10-15 at 09.41.07.png")
     }
 
@@ -108,14 +124,20 @@ import Testing
         await model.refresh()
         #expect(model.takesKeys)
         model.key("down", usage: 0x04)
-        for _ in 0..<20 where !machine.requests.contains(where: { $0.0 == "device.input" }) { await Task.yield() }
+        await machine.waitForInput()
         #expect(
             machine.requests.first { $0.0 == "device.input" }?.1["input"]
                 == .object(["kind": .string("key"), "phase": .string("down"), "usage": .number(4)]))
 
-        let plain = DeviceViewModel(client: ToolsMachine(devices: [Self.device()]), reference: Self.reference)
+        let unsupported = ToolsMachine(devices: [Self.device()])
+        let plain = DeviceViewModel(client: unsupported, reference: Self.reference)
         await plain.refresh()
         #expect(!plain.takesKeys)
+        let unsupportedInput = NativeTaskDrain { plain.key("down", usage: 0x04) }
+        await unsupportedInput.finish()
+        model.key("up", usage: 0x04)
+        await machine.waitForInput(count: 2)
+        #expect(!unsupported.requests.contains { $0.0 == "device.input" })
     }
 }
 
@@ -124,11 +146,17 @@ import Testing
     var refusal: String?
     var requests: [(String, JSONValue)] = []
     private var settings: [String: JSONValue] = ["appearance": .string("light")]
+    private let inputArrival = NativeArrival()
+
+    func waitForInput(count: Int = 1) async {
+        await inputArrival.wait(for: count)
+    }
 
     init(devices: [JSONValue]) { self.devices = devices }
 
     func request(_ type: String, payload: JSONValue) async throws -> JSONValue {
         requests.append((type, payload))
+        if type == "device.input" { inputArrival.record() }
         if let refusal, type == "device.action" { throw MachineClientError.server(code: refusal, message: refusal) }
         switch type {
         case "device.list": return .object(["devices": .array(devices)])

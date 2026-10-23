@@ -8,13 +8,13 @@ final class MachineIconTests: XCTestCase {
     @MainActor func testPairedMachineLoadsItsIconAndTracksChangesWithoutRefetching() async throws {
         let client = IconMachine()
         let state = MachineIconState(client: client, fallback: nil)
-        state.start()
+        let initial = NativeTaskDrain { state.start() }
         state.start()
         defer { state.stop() }
         XCTAssertEqual(client.subscriptions, 1)
         await client.waitForRequest(1)
         client.finish(0, icon: "laptop")
-        await settle()
+        await initial.finish()
         XCTAssertEqual(state.icon, MachineIcon(kind: "lucide", value: "laptop"))
         client.change(icon: "server")
         XCTAssertEqual(state.icon, MachineIcon(kind: "lucide", value: "server"))
@@ -26,23 +26,24 @@ final class MachineIconTests: XCTestCase {
     @MainActor func testFreshEventAndConnectionRejectOlderInfoResponses() async throws {
         let client = IconMachine()
         let state = MachineIconState(client: client, fallback: nil)
-        state.start()
+        let initial = NativeTaskDrain { state.start() }
         defer { state.stop() }
         await client.waitForRequest(1)
         client.change(icon: "laptop")
         client.finish(0, icon: "server")
-        await settle()
+        await initial.finish()
         XCTAssertEqual(state.icon?.value, "laptop")
 
         client.setConnected(false)
-        client.setConnected(true)
+        let older = NativeTaskDrain { client.setConnected(true) }
         await client.waitForRequest(2)
         client.setConnected(false)
-        client.setConnected(true)
+        let newer = NativeTaskDrain { client.setConnected(true) }
         await client.waitForRequest(3)
         client.finish(2, icon: "monitor")
         client.finish(1, icon: "pc-case")
-        await settle()
+        await newer.finish()
+        await older.finish()
         XCTAssertEqual(state.icon?.value, "monitor")
     }
 
@@ -50,17 +51,17 @@ final class MachineIconTests: XCTestCase {
         let client = IconMachine()
         let fallback = MachineIcon(value: "rocket")
         let state = MachineIconState(client: client, fallback: fallback)
-        state.start()
+        let initial = NativeTaskDrain { state.start() }
         await client.waitForRequest(1)
         client.fail(0)
-        await settle()
+        await initial.finish()
         XCTAssertEqual(state.icon, fallback)
         client.setConnected(false)
-        client.setConnected(true)
+        let late = NativeTaskDrain { client.setConnected(true) }
         await client.waitForRequest(2)
         state.stop()
         client.finish(1, icon: "laptop")
-        await settle()
+        await late.finish()
         XCTAssertEqual(state.icon, fallback)
         XCTAssertNil(client.event)
         XCTAssertNil(client.connection)
@@ -69,27 +70,26 @@ final class MachineIconTests: XCTestCase {
     @MainActor func testTheMachinesResumeAtResetIsReadAndFollowed() async throws {
         let client = IconMachine()
         let state = MachineIconState(client: client, fallback: nil)
-        state.start()
+        let initial = NativeTaskDrain { state.start() }
         defer { state.stop() }
         await client.waitForRequest(1)
         client.finish(0, icon: "laptop", extra: ["resumeAtReset": .bool(true)])
-        await settle()
+        await initial.finish()
         XCTAssertTrue(state.resumeAtReset)
         client.change(icon: "laptop")
         XCTAssertTrue(state.resumeAtReset, "An event that leaves the switch out leaves it as it was")
         client.change(icon: "laptop", extra: ["resumeAtReset": .bool(false)])
         XCTAssertFalse(state.resumeAtReset)
+        client.change(icon: "laptop", extra: ["resumeAtReset": .bool(true)])
+        XCTAssertTrue(state.resumeAtReset)
         client.setConnected(false)
-        client.setConnected(true)
+        let reconnect = NativeTaskDrain { client.setConnected(true) }
         await client.waitForRequest(2)
         client.finish(1, icon: "laptop")
-        await settle()
+        await reconnect.finish()
         XCTAssertFalse(state.resumeAtReset, "An answer without the switch has it off")
     }
 
-    @MainActor private func settle() async {
-        for _ in 0..<20 { await Task.yield() }
-    }
 }
 
 @MainActor private final class IconMachine: MachineRequesting {
@@ -98,7 +98,7 @@ final class MachineIconTests: XCTestCase {
     var requests = 0
     var subscriptions = 0
     private var pending: [Int: CheckedContinuation<JSONValue, Error>] = [:]
-    private var waiter: (Int, CheckedContinuation<Void, Never>)?
+    private let arrival = NativeArrival()
 
     func request(_ type: String, payload: JSONValue) async throws -> JSONValue {
         XCTAssertEqual(type, "endpoint.info")
@@ -106,10 +106,7 @@ final class MachineIconTests: XCTestCase {
         requests += 1
         return try await withCheckedThrowingContinuation {
             pending[index] = $0
-            if let waiter, requests >= waiter.0 {
-                self.waiter = nil
-                waiter.1.resume()
-            }
+            arrival.record()
         }
     }
 
@@ -129,8 +126,7 @@ final class MachineIconTests: XCTestCase {
     func setConnected(_ value: Bool) { connection?(value) }
 
     func waitForRequest(_ count: Int) async {
-        if requests >= count { return }
-        await withCheckedContinuation { waiter = (count, $0) }
+        await arrival.wait(for: count)
     }
 
     func finish(_ index: Int, icon: String, extra: [String: JSONValue] = [:]) {

@@ -8,7 +8,9 @@ private func launch(
     _ id: String, kind: String = "service", command: String? = "bun dev", cwd: String? = nil, members: [String] = [],
     shared: Bool = false, extra: [String: JSONValue] = [:]
 ) -> JSONValue {
-    var fields: [String: JSONValue] = ["id": .string(id), "name": .string(id), "kind": .string(kind), "shared": .bool(shared)]
+    var fields: [String: JSONValue] = [
+        "id": .string(id), "name": .string(id), "kind": .string(kind), "shared": .bool(shared),
+    ]
     if kind == "group" {
         fields["launches"] = .array(members.map(JSONValue.string))
     } else if let command {
@@ -32,7 +34,9 @@ private func status(
 }
 
 private func document(_ launches: [JSONValue], approved: [String], rev: Int = 3) -> JSONValue {
-    .object(["rev": .number(Double(rev)), "launches": .array(launches), "approved": .array(approved.map(JSONValue.string))])
+    .object([
+        "rev": .number(Double(rev)), "launches": .array(launches), "approved": .array(approved.map(JSONValue.string)),
+    ])
 }
 
 final class LaunchLogicTests: XCTestCase {
@@ -43,7 +47,8 @@ final class LaunchLogicTests: XCTestCase {
                     launch("web"), launch("test", kind: "task", command: "bun test"), launch("api"),
                     launch("all", kind: "group", members: ["web", "api"]),
                 ], approved: approved))
-        let byID = Dictionary(statuses.map(LaunchStatus.init(json:)).map { ($0.launchID, $0) }, uniquingKeysWith: { $1 })
+        let byID = Dictionary(
+            statuses.map(LaunchStatus.init(json:)).map { ($0.launchID, $0) }, uniquingKeysWith: { $1 })
         return LaunchLogic.views(document: doc, statuses: byID)
     }
 
@@ -105,8 +110,10 @@ final class LaunchLogicTests: XCTestCase {
         XCTAssertEqual(sections.map(\.label), [nil, "Core"])
         XCTAssertEqual(sections[0].launches.map(\.id), ["site", "root", "all"])
         XCTAssertEqual(sections[1].launches.map(\.id), ["lib"])
-        XCTAssertEqual(LaunchLogic.sections(Array(launches.prefix(2)), folder: "/work/p", repos: repos).map(\.label), [nil])
-        let overlaid = LaunchEntry(raw: launch("x", cwd: "a", extra: ["overlay": .object(["cwd": .string("/elsewhere")])]))
+        XCTAssertEqual(
+            LaunchLogic.sections(Array(launches.prefix(2)), folder: "/work/p", repos: repos).map(\.label), [nil])
+        let overlaid = LaunchEntry(
+            raw: launch("x", cwd: "a", extra: ["overlay": .object(["cwd": .string("/elsewhere")])]))
         XCTAssertEqual(LaunchLogic.folder(of: overlaid, in: "/work/p"), "/elsewhere")
     }
 }
@@ -136,7 +143,8 @@ final class LaunchEditingTests: XCTestCase {
     }
 
     func testAKindKeepsOnlyTheFieldsItReads() {
-        var draft = LaunchEditing.draft(of: LaunchEntry(raw: launch("t", cwd: ".", extra: ["url": .string("http://x")])))
+        var draft = LaunchEditing.draft(
+            of: LaunchEntry(raw: launch("t", cwd: ".", extra: ["url": .string("http://x")])))
         draft.kind = "task"
         let saved = LaunchEditing.saved([draft])[0]
         XCTAssertNil(saved["url"])
@@ -200,9 +208,11 @@ final class LaunchEditingTests: XCTestCase {
         let existing = [LaunchEntry(raw: launch("mine", command: " bun dev "))]
         let offered = LaunchEditing.newSuggestions(suggestions, existing: existing)
         XCTAssertEqual(offered.map(\.id), ["test", "Docker"])
-        let imported = LaunchEditing.imported(Array(suggestions.prefix(2)), share: true, existing: [
-            LaunchEntry(raw: launch("dev"))
-        ])
+        let imported = LaunchEditing.imported(
+            Array(suggestions.prefix(2)), share: true,
+            existing: [
+                LaunchEntry(raw: launch("dev"))
+            ])
         XCTAssertEqual(imported.map { $0.text("id") }, ["dev-2", "test"])
         XCTAssertEqual(imported.map { $0["shared"] }, [.bool(true), .bool(false)])
         XCTAssertEqual(LaunchEditing.foundText(suggestions), "2 scripts in 2 files.")
@@ -213,7 +223,7 @@ final class LaunchEditingTests: XCTestCase {
         XCTAssertEqual(LaunchEditing.slug("Web: Dev"), "web-dev")
     }
 
-    func testAVSCodeImportReadsAsARunConfigurationAndStaysUnapproved() {
+    @MainActor func testAVSCodeImportReadsAsARunConfigurationAndStaysUnapproved() async throws {
         let suggestion = LaunchSuggestion(
             json: .object([
                 "launch": launch("api", command: "node server.js"), "source": .string("vscode-launch"),
@@ -225,6 +235,16 @@ final class LaunchEditingTests: XCTestCase {
         XCTAssertEqual(LaunchEditing.importedIDs(imported, existing: []), ["api"])
         XCTAssertEqual(LaunchEditing.importedIDs(imported, existing: [LaunchEntry(raw: imported[0])]), [])
         XCTAssertTrue(LaunchEditing.newSuggestions([suggestion], existing: [LaunchEntry(raw: imported[0])]).isEmpty)
+        let machine = LaunchMachine()
+        let store = ProjectLaunches(client: machine, projectID: "p1", folder: "/p")
+        try await store.save(imported, baseRev: 3, imported: LaunchEditing.importedIDs(imported, existing: []))
+        XCTAssertEqual(
+            machine.last("launches.save"),
+            .object([
+                "projectId": .string("p1"), "baseRev": .number(3), "launches": .array(imported),
+                "imported": .array([.string("api")]),
+            ]))
+        XCTAssertFalse(machine.sent.contains { $0.0 == "launch.start" || $0.0 == "launch.restart" })
     }
 }
 
@@ -243,7 +263,9 @@ final class LaunchEditingTests: XCTestCase {
         let machine = LaunchMachine()
         let store = ProjectLaunches(client: machine, projectID: "p1", folder: "/p")
         store.start()
-        machine.emit("launches.changed", .object(["projectId": .string("p1"), "document": document([launch("x")], approved: ["x"])]))
+        machine.emit(
+            "launches.changed",
+            .object(["projectId": .string("p1"), "document": document([launch("x")], approved: ["x"])]))
         machine.emit("launch.status", status("x", state: "running"))
         machine.emit("launch.status", status("x", project: "other", state: "exited", exit: 1))
         XCTAssertEqual(store.views["x"]?.phase, .running)
@@ -270,9 +292,12 @@ final class LaunchEditingTests: XCTestCase {
         XCTAssertEqual(launchID, "api")
         XCTAssertFalse(restart)
         XCTAssertEqual(held.first?.env, ["TOKEN": "x"])
-        machine.outcome = .object(["outcome": .string("busy"), "busy": .object([
-            "projectId": .string("p1"), "launchId": .string("web"), "port": .number(3000),
-        ])])
+        machine.outcome = .object([
+            "outcome": .string("busy"),
+            "busy": .object([
+                "projectId": .string("p1"), "launchId": .string("web"), "port": .number(3000),
+            ]),
+        ])
         await store.run("api", approve: true)
         XCTAssertEqual(machine.last("launch.start")?["approve"], .bool(true))
         XCTAssertEqual(store.ask, .busy(launchID: "api", restart: false, holder: "web", port: 3000, approve: true))
@@ -348,7 +373,8 @@ final class LaunchEditingTests: XCTestCase {
         if let refusal { throw MachineClientError.server(code: refusal, message: refusal) }
         switch type {
         case "launches.read":
-            return read ?? document([launch("web"), launch("api", command: "bun api", shared: true)], approved: ["web"])
+            return read
+                ?? document([launch("web"), launch("api", command: "bun api", shared: true)], approved: ["web"])
         case "launch.list":
             return .object([
                 "launches": .array([status("web", state: "running"), status("dev", project: "p2", state: "running")])

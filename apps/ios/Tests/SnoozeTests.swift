@@ -11,11 +11,11 @@ import XCTest
 
     override func setUp() async throws {
         domain = "SnoozeTests.\(UUID().uuidString)"
-        defaults = UserDefaults(suiteName: domain)
+        defaults = try XCTUnwrap(UserDefaults(suiteName: domain))
     }
 
     override func tearDown() async throws {
-        UserDefaults().removePersistentDomain(forName: domain)
+        defaults.removePersistentDomain(forName: domain)
     }
 
     private var calendar: Calendar {
@@ -29,11 +29,6 @@ import XCTest
     }
 
     private func milliseconds(_ date: Date) -> Double { MachineSnoozes.milliseconds(date) }
-
-    /// Lets the work a change or a fresh link starts run to its end; the fake machine never waits.
-    private func settle() async {
-        for _ in 0..<20 { await Task.yield() }
-    }
 
     func testTheChoicesEndAfterTenMinutesAnHourAndAtTheNextNineOClock() {
         let evening = date(3, 21, 30)
@@ -81,7 +76,8 @@ import XCTest
     }
 
     func testASnoozeAnEarlierBookKeptForTheMachineGoesOverOnceAsAChange() throws {
-        let stored = #"{"listed":{"a":9000},"outbox":{"c":{"clear":{}}},"kept":{"b":5000,"c":6000},"keepsNone":true,"waiting":["b"]}"#
+        let stored =
+            #"{"listed":{"a":9000},"outbox":{"c":{"clear":{}}},"kept":{"b":5000,"c":6000},"keepsNone":true,"waiting":["b"]}"#
         let book = try JSONDecoder().decode(SnoozeBook.self, from: Data(stored.utf8))
         XCTAssertEqual(book.outbox, ["b": .set(until: 5000), "c": .clear])
         XCTAssertEqual(book.standing(at: 1000), ["a": 9000, "b": 5000])
@@ -95,8 +91,10 @@ import XCTest
         let snoozes = MachineSnoozes(machineID: "mac", client: machine, defaults: defaults) { [unowned self] in now }
         snoozes.start()
         let until = now.addingTimeInterval(600)
-        snoozes.snooze("chat-a", until: until)
-        await settle()
+        let offline = NativeTaskDrain { snoozes.snooze("chat-a", until: until) }
+        snoozes.stop()
+        await offline.finish()
+        snoozes.start()
         XCTAssertTrue(machine.sent.isEmpty)
         XCTAssertEqual(snoozes.until("chat-a"), until)
 
@@ -106,7 +104,7 @@ import XCTest
         XCTAssertEqual(restored.book.outbox, ["chat-a": .set(until: milliseconds(until))])
 
         machine.connect()
-        await settle()
+        await waitForNativeState { snoozes.book.outbox.isEmpty }
         XCTAssertEqual(machine.sent.map(\.0), ["snooze.list", "snooze.set"])
         XCTAssertEqual(machine.sent.last?.1["until"], .number(milliseconds(until)))
         XCTAssertTrue(snoozes.book.outbox.isEmpty)
@@ -118,11 +116,15 @@ import XCTest
         let machine = SnoozeMachine()
         let snoozes = MachineSnoozes(machineID: "mac", client: machine, defaults: defaults) { [unowned self] in now }
         snoozes.start()
-        snoozes.snooze("chat-a", until: now.addingTimeInterval(600))
+        let offline = NativeTaskDrain { snoozes.snooze("chat-a", until: now.addingTimeInterval(600)) }
+        snoozes.stop()
+        await offline.finish()
+        snoozes.start()
         now = now.addingTimeInterval(601)
         XCTAssertNil(snoozes.until("chat-a"))
+        machine.listed = [("expired-on-machine", milliseconds(now) - 1)]
         machine.connect()
-        await settle()
+        await waitForNativeState { snoozes.book.listed["expired-on-machine"] != nil }
         XCTAssertEqual(machine.sent.map(\.0), ["snooze.list"])
         snoozes.stop()
     }
@@ -133,12 +135,12 @@ import XCTest
         machine.connect()
         let snoozes = MachineSnoozes(machineID: "mac", client: machine, defaults: defaults) { [unowned self] in now }
         snoozes.start()
-        await settle()
+        await waitForNativeState { snoozes.book.listed["a"] != nil }
         XCTAssertEqual(snoozes.standing.keys.sorted(), ["a"])
         machine.emit([("b", milliseconds(now) + 5000)])
         XCTAssertEqual(snoozes.standing.keys.sorted(), ["b"])
         snoozes.clear("b")
-        await settle()
+        await waitForNativeState { snoozes.book.outbox.isEmpty }
         XCTAssertEqual(machine.sent.last?.0, "snooze.clear")
         XCTAssertTrue(snoozes.standing.isEmpty)
         snoozes.stop()
@@ -149,30 +151,31 @@ import XCTest
     var sent: [(String, JSONValue)] = []
     var listed: [(String, Double)] = []
     private var connected = false
-    private var observers: [@MainActor @Sendable (Bool) -> Void] = []
+    private var observers: [UUID: @MainActor @Sendable (Bool) -> Void] = [:]
     private var changed: (@MainActor @Sendable (JSONValue) -> Void)?
 
     func request(_ type: String, payload: JSONValue) async throws -> JSONValue {
-        guard connected else { throw MachineClientError.disconnected }
         sent.append((type, payload))
+        guard connected else { throw MachineClientError.disconnected }
         if type == "snooze.list" { return Self.list(listed) }
         return .object([:])
     }
 
     func subscribe(_ event: String, handler: @escaping @MainActor @Sendable (JSONValue) -> Void) -> () -> Void {
         if event == "snooze.changed" { changed = handler }
-        return {}
+        return { [weak self] in self?.changed = nil }
     }
 
     func observeConnection(_ handler: @escaping @MainActor @Sendable (Bool) -> Void) -> () -> Void {
-        observers.append(handler)
+        let id = UUID()
+        observers[id] = handler
         handler(connected)
-        return {}
+        return { [weak self] in self?.observers[id] = nil }
     }
 
     func connect() {
         connected = true
-        observers.forEach { $0(true) }
+        for observer in Array(observers.values) { observer(true) }
     }
 
     func emit(_ snoozes: [(String, Double)]) { changed?(Self.list(snoozes)) }

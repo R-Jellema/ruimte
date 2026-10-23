@@ -49,16 +49,17 @@ final class GitSheetTests: XCTestCase {
         XCTAssertEqual(GitPanel.repositoryState(checkout("api")), "clean")
     }
 
-    func testAPullAfterDivergingSaysHowTheBranchesComeTogether() async {
+    func testAPullSendsItsSelectedStrategyToTheRepository() async {
         let machine = GitSheetMachine()
         let repositories = GitRepositories()
         await repositories.act(client: machine, cwd: "/work/api", kind: "pull", extra: ["strategy": .string("rebase")])
         let pull = machine.sent.first { $0.type == "git.action" }
         XCTAssertEqual(pull?.payload["kind"], .string("pull"))
         XCTAssertEqual(pull?.payload["strategy"], .string("rebase"))
+        XCTAssertEqual(pull?.payload["cwd"], .string("/work/api"))
     }
 
-    func testARebaseRunsOnlyOnceThePersonConfirmedIt() async {
+    func testConfirmingARebaseSendsTheTargetAndClearsTheQuestion() async {
         let machine = GitSheetMachine()
         let actions = GitBranchActions(repositories: GitRepositories(), path: "/work/api")
         let pending = GitConfirmation.rebase(cwd: "/work/api", onto: "main")
@@ -70,6 +71,7 @@ final class GitSheetTests: XCTestCase {
         let rebase = machine.sent.first { $0.type == "git.action" }
         XCTAssertEqual(rebase?.payload["kind"], .string("rebase"))
         XCTAssertEqual(rebase?.payload["ref"], .string("main"))
+        XCTAssertEqual(rebase?.payload["cwd"], .string("/work/api"))
         XCTAssertNil(actions.confirmation)
     }
 
@@ -164,6 +166,13 @@ final class GitSheetTests: XCTestCase {
         XCTAssertEqual(GitWorktreeBinding.branchName(fromTitle: "Shopping list"), "shopping-list")
         XCTAssertEqual(GitWorktreeBinding.branchName(fromTitle: "  Fix: login / redirect!  "), "fix-login-/-redirect")
         XCTAssertEqual(GitWorktreeBinding.branchName(fromTitle: "🙂"), "work")
+        for (title, expected) in [
+            ("a..b", "a-b"), ("foo.lock", "foo-lock"), (".hidden//branch/", "hidden/branch"),
+            ("///", "work"), ("topic/.lock", "topic/lock"), ("/-/-branch", "branch"),
+            ("/-.a", "a"), (".-.a", "a"), ("/-/-.a", "a"), ("feature/-name", "feature/-name"),
+        ] {
+            XCTAssertEqual(GitWorktreeBinding.branchName(fromTitle: title), expected, title)
+        }
     }
 
     func testBindingSetsAndClearsTheWorktreeOfOneGroupOnly() {
@@ -199,17 +208,29 @@ final class GitSheetTests: XCTestCase {
                 id: "machine", name: "Machine", icon: nil, publicKey: String(repeating: "A", count: 43),
                 brokerUrl: "wss://broker.test", lastSeenAt: nil),
             runtime: runtime)
-        let workspace = MobileWorkspace(session: session, projectID: "project")
+        let wire = GitBindingWire()
+        session.rpc = wire.client
+        defer { wire.client.shutdown() }
+        let workspace = MobileWorkspace(
+            session: session, projectID: "project",
+            summary: .object([
+                "folder": .string("/work/project")
+            ]))
         await workspace.edit { _ in
             .object([
+                "name": .string("Project"), "color": .string("#155dfc"),
                 "views": .array([
                     .object([
                         "id": .string("main"), "kind": .string("canvas"),
+                        "name": .string("Main"), "texts": .array([]), "edges": .array([]), "layouts": .array([]),
                         "nodes": .array([
-                            .object(["id": .string("g"), "kind": .string("group"), "title": .string("Shopping list")])
+                            .object([
+                                "id": .string("g"), "kind": .string("group"), "title": .string("Shopping list"),
+                                "x": .number(0), "y": .number(0), "w": .number(320), "h": .number(200),
+                            ])
                         ]),
                     ])
-                ])
+                ]),
             ])
         }
         let model = GitWorktreeBindModel(workspace: workspace)
@@ -220,9 +241,35 @@ final class GitSheetTests: XCTestCase {
         let added = machine.sent.first { $0.type == "git.worktree-add" }
         XCTAssertEqual(added?.payload["branch"], .string("shopping-list"))
         XCTAssertEqual(added?.payload["projectId"], .string("project"))
+        XCTAssertEqual(added?.payload["repo"], .string("/work/project"))
         XCTAssertEqual(
             workspace.views[0].list("nodes")[0]["worktree"],
             .object(["path": .string("/wt/shopping-list"), "branch": .string("shopping-list")]))
+        XCTAssertEqual(wire.saves.count, 2)
+        XCTAssertEqual(wire.saves.last?["projectId"], .string("project"))
+        XCTAssertEqual(wire.saves.last?["baseRev"], .number(1))
+        XCTAssertEqual(
+            wire.saves.last?["content"]?["views"]?.arrayValue?.first?["nodes"]?.arrayValue?.first?["worktree"],
+            .object(["path": .string("/wt/shopping-list"), "branch": .string("shopping-list")]))
+        XCTAssertEqual(workspace.document["rev"], .number(2))
+        XCTAssertNil(workspace.problem)
+    }
+}
+
+@MainActor private final class GitBindingWire {
+    var saves: [JSONValue] = []
+    lazy var client = MachineClient(send: { [weak self] text in try self?.receive(text) }, connected: true)
+
+    private func receive(_ text: String) throws {
+        let frame = try JSONValue.decode(Data(text.utf8))
+        guard frame["type"] == .string("project.save"), let payload = frame["payload"] else {
+            throw MachineClientError.invalid("Unexpected worktree binding request")
+        }
+        saves.append(payload)
+        let response: JSONValue = .object([
+            "id": frame["id"]!, "ok": .bool(true), "result": .object(["rev": .number(Double(saves.count))]),
+        ])
+        client.receive(String(decoding: try response.encoded(), as: UTF8.self))
     }
 }
 

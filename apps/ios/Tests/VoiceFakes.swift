@@ -1,7 +1,10 @@
 import Foundation
+import Observation
 import RuimtePulsar
 import RuimteTransport
 import RuimteVoice
+import Testing
+import XCTest
 
 @testable import Ruimte
 
@@ -20,6 +23,7 @@ import RuimteVoice
     /// What `observeConnection` answers at once, as `MachineClient` does with where its link stands.
     var connected = true
     private var heldStart: CheckedContinuation<JSONValue, Error>?
+    private let startArrival = NativeArrival()
     private var heldScene = ""
     private var handlers: [String: [UUID: @MainActor @Sendable (JSONValue) -> Void]] = [:]
     private var connection: [UUID: @MainActor @Sendable (Bool) -> Void] = [:]
@@ -38,7 +42,10 @@ import RuimteVoice
             let scene = payload.text("sceneId")
             guard holdStart else { return Self.answer(scene: scene) }
             heldScene = scene
-            return try await withCheckedThrowingContinuation { heldStart = $0 }
+            return try await withCheckedThrowingContinuation {
+                heldStart = $0
+                startArrival.record()
+            }
         case "voice.stop": return .object(["stopped": .bool(true)])
         case "voice.confirm": return .object(["accepted": .bool(acceptConfirm)])
         case "voice.preferences": return .object(["preferences": preferences])
@@ -55,6 +62,8 @@ import RuimteVoice
         heldStart = nil
         held?.resume(returning: Self.answer(scene: heldScene))
     }
+
+    func waitForStart() async { await startArrival.wait() }
 
     private static func answer(scene: String) -> JSONValue {
         .object([
@@ -151,19 +160,104 @@ import RuimteVoice
 }
 
 @MainActor final class ManualScheduler: TransportScheduling {
-    private var actions: [UUID: @MainActor () -> Void] = [:]
+    private var actions: [UUID: (deadline: Double, action: @MainActor () -> Void)] = [:]
+    private(set) var now = 0.0
 
     func after(milliseconds: Double, _ action: @escaping @MainActor () -> Void) -> () -> Void {
         let id = UUID()
-        actions[id] = action
+        actions[id] = (now + milliseconds, action)
         return { [weak self] in self?.actions.removeValue(forKey: id) }
     }
 
     var pending: Int { actions.count }
 
-    func fire() {
-        let due = Array(actions.values)
-        actions.removeAll()
-        for action in due { action() }
+    func advance(by milliseconds: Double) {
+        let target = now + milliseconds
+        while let next = actions.min(by: { $0.value.deadline < $1.value.deadline }), next.value.deadline <= target {
+            now = next.value.deadline
+            actions.removeValue(forKey: next.key)
+            next.value.action()
+        }
+        now = target
+    }
+}
+
+/// Task-local values live until the inheriting tasks finish, including tasks retained by an owner after completion.
+/// This waits for the owner's response handling, rather than just the fake's request or continuation resumption.
+struct NativeTaskDrain {
+    private let completion: XCTestExpectation
+
+    @TaskLocal private static var lifetime: Lifetime?
+
+    init(_ operation: () -> Void) {
+        completion = XCTestExpectation(description: "Owner tasks completed")
+        Self.$lifetime.withValue(Lifetime(completion: completion), operation: operation)
+    }
+
+    func finish(file: StaticString = #filePath, line: UInt = #line) async {
+        let result = await XCTWaiter.fulfillment(of: [completion], timeout: 2)
+        if result != .completed {
+            if Test.current != nil {
+                Issue.record("Owner tasks did not finish")
+            } else {
+                XCTFail("Owner tasks did not finish", file: file, line: line)
+            }
+        }
+    }
+
+    private final class Lifetime: Sendable {
+        let completion: XCTestExpectation
+        init(completion: XCTestExpectation) { self.completion = completion }
+        deinit { completion.fulfill() }
+    }
+}
+
+@MainActor final class NativeArrival {
+    private var count = 0
+    private var waiting: [(Int, XCTestExpectation)] = []
+
+    func record() {
+        count += 1
+        let ready = waiting.filter { count >= $0.0 }
+        waiting.removeAll { count >= $0.0 }
+        for (_, arrival) in ready { arrival.fulfill() }
+    }
+
+    func wait(for target: Int = 1, file: StaticString = #filePath, line: UInt = #line) async {
+        if count >= target { return }
+        let arrival = XCTestExpectation(description: "Request arrived")
+        waiting.append((target, arrival))
+        let result = await XCTWaiter.fulfillment(of: [arrival], timeout: 2)
+        if result != .completed {
+            if Test.current != nil {
+                Issue.record("Request did not arrive")
+            } else {
+                XCTFail("Request did not arrive", file: file, line: line)
+            }
+        }
+    }
+}
+
+@MainActor func waitForNativeState(
+    file: StaticString = #filePath, line: UInt = #line, _ ready: @escaping @MainActor @Sendable () -> Bool
+) async {
+    await NativeStateObservation(ready: ready).wait(file: file, line: line)
+}
+
+@MainActor private final class NativeStateObservation {
+    private let ready: @MainActor @Sendable () -> Bool
+    private let arrival = NativeArrival()
+
+    init(ready: @escaping @MainActor @Sendable () -> Bool) { self.ready = ready }
+
+    func wait(file: StaticString, line: UInt) async {
+        observe()
+        await arrival.wait(file: file, line: line)
+    }
+
+    private func observe() {
+        if withObservationTracking(ready, onChange: { [weak self] in Task { @MainActor in self?.observe() } }) {
+            arrival.record()
+        }
     }
 }

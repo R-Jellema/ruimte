@@ -223,18 +223,30 @@ enum CanvasEditing {
     /// The view a node becomes when it leaves the canvas. Its id stays the node's, which is the session's, so nothing
     /// restarts.
     static func view(for node: JSONValue) -> JSONValue {
+        // ProjectNodeSchema fields are placed explicitly; newer fields travel as extras, as in withNodeAsView.
+        let known: Set<String> = [
+            "id", "kind", "title", "titleSource", "x", "y", "w", "h", "accent", "cwd", "command", "resume",
+            "provider", "account", "providerFixed", "runtimeMode", "url", "browserOwner", "device", "collapsed",
+            "memberIds", "expandedHeight", "worktree", "issue", "body", "color", "viewId", "path", "raw", "machine",
+        ]
+        let carried = (node.objectValue ?? [:]).filter { !known.contains($0.key) }
         var view: JSONValue = .object([
             "id": .string(node.stableID), "kind": node["kind"] ?? .string("unknown"),
             "name": .string(node.text("title", fallback: node.text("kind").capitalized)),
         ])
         switch node.text("kind") {
         case "browser":
+            for (key, value) in carried where view[key] == nil { view = view.setting(key, value) }
             view = view.setting("url", node["url"] ?? .string(""))
                 .setting("browserOwner", node["browserOwner"])
-        case "device": view = view.setting("device", node["device"])
+        case "device":
+            for (key, value) in carried where view[key] == nil { view = view.setting(key, value) }
+            view = view.setting("device", node["device"])
         default:
-            var metadata: [String: JSONValue] = [:]
-            for key in ["cwd", "command", "resume", "provider", "account", "providerFixed", "runtimeMode", "accent"] {
+            var metadata = carried
+            for key in [
+                "cwd", "command", "resume", "provider", "account", "providerFixed", "runtimeMode", "accent", "issue",
+            ] {
                 metadata[key] = node[key]
             }
             view = view.setting("node", .object(metadata))

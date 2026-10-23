@@ -26,7 +26,8 @@ final class GitConflictTests: XCTestCase {
     }
 
     func testAnAnswerIsWrittenInTheFilesOwnLineEndings() {
-        let file = GitConflictFile(answer: answer(base: "a\r\nb\r\nc", ours: "a\r\nours\r\nc", theirs: "a\r\ntheirs\r\nc"))
+        let file = GitConflictFile(
+            answer: answer(base: "a\r\nb\r\nc", ours: "a\r\nours\r\nc", theirs: "a\r\ntheirs\r\nc"))
         var draft = GitConflictDraft()
         draft.answers[1] = GitBlockAnswer(lines: ["ours", "theirs"])
         XCTAssertTrue(draft.open(in: file).isEmpty)
@@ -56,7 +57,10 @@ final class GitConflictTests: XCTestCase {
             answers: [
                 .object(["index": .number(1), "fingerprint": .string(print), "lines": .array([.string("merged")])]),
                 .object(["index": .number(1), "fingerprint": .string("00000000"), "lines": .array([.string("stale")])]),
-                .object(["index": .number(0), "fingerprint": .string(ThreeWayMerge.fingerprint(file.blocks[0])), "lines": .array([])]),
+                .object([
+                    "index": .number(0), "fingerprint": .string(ThreeWayMerge.fingerprint(file.blocks[0])),
+                    "lines": .array([]),
+                ]),
                 .object(["index": .number(9), "fingerprint": .string(print), "lines": .array([])]),
             ])
         XCTAssertEqual(usable.map(\.index), [1])
@@ -103,7 +107,8 @@ final class GitConflictTests: XCTestCase {
     }
 
     func testOnlyAnsweredConflictsWhoseStretchStayedComeAlong() {
-        let before = GitConflictFile(answer: answer(base: "a\nb\nc\nd\ne\n", ours: "a\nX\nc\nY\ne\n", theirs: "a\nP\nc\nQ\ne\n"))
+        let before = GitConflictFile(
+            answer: answer(base: "a\nb\nc\nd\ne\n", ours: "a\nX\nc\nY\ne\n", theirs: "a\nP\nc\nQ\ne\n"))
         let after = GitConflictFile(
             answer: answer(base: "new\na\nb\nc\nd\ne\n", ours: "new\na\nX\nc\nY2\ne\n", theirs: "new\na\nP\nc\nQ\ne\n"))
         var draft = GitConflictDraft()
@@ -224,10 +229,15 @@ final class GitConflictTests: XCTestCase {
         machine.files = []
         let session = GitConflictSession(cwd: "/repo")
         await session.load(client: machine)
+        machine.files = ["next.ts"]
+        let before = machine.sent.count
         let done = await session.finish(client: machine, action: "continue")
         XCTAssertTrue(done)
         XCTAssertEqual(session.note, "The merge is finished.")
         XCTAssertEqual(machine.sent.first { $0.type == "git.operation" }?.payload["action"], .string("continue"))
+        XCTAssertEqual(Array(machine.sent.dropFirst(before)).map(\.type), ["git.operation", "git.conflicts"])
+        XCTAssertEqual(session.operation, "merge")
+        XCTAssertEqual(session.entries.map(\.path), ["next.ts"])
     }
 }
 
@@ -242,7 +252,8 @@ final class GitConflictTests: XCTestCase {
         switch type {
         case "git.conflicts":
             return .object([
-                "operation": files.isEmpty ? .null : .string("merge"), "ours": .string("main"), "theirs": .string("lexer"),
+                "operation": files.isEmpty ? .null : .string("merge"), "ours": .string("main"),
+                "theirs": .string("lexer"),
                 "files": .array(files.map { .object(["path": .string($0), "kind": .string("text")]) }),
             ])
         case "git.conflict":
@@ -252,7 +263,8 @@ final class GitConflictTests: XCTestCase {
             ])
         case "git.resolve":
             if refuseResolve {
-                throw MachineClientError.server(code: "git-failed", message: "a.ts changed on disk while it was being resolved.")
+                throw MachineClientError.server(
+                    code: "git-failed", message: "a.ts changed on disk while it was being resolved.")
             }
             files = []
             return .object(["remaining": .number(0)])
@@ -267,7 +279,10 @@ final class GitConflictTests: XCTestCase {
                 ])
             ])
         case "git.operation":
-            return .object(["actionId": payload["actionId"] ?? .null, "summary": .string("Finished the merge."), "output": .string("")])
+            return .object([
+                "actionId": payload["actionId"] ?? .null, "summary": .string("Finished the merge."),
+                "output": .string(""),
+            ])
         default:
             return .object([:])
         }

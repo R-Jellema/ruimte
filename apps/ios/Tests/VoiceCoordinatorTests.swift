@@ -41,10 +41,6 @@ import Testing
         .caption(LiveCaption(speaker: speaker, delta: text, startMs: 0, endMs: 0))
     }
 
-    private static func settle() async {
-        for _ in 0..<20 { await Task.yield() }
-    }
-
     private static func status(
         _ phase: String, seq: Int, scene: String = "A", session: String = "session-1", project: JSONValue? = nil
     ) -> JSONValue {
@@ -140,8 +136,8 @@ import Testing
         setup.machine.emit("voice.activity", Self.activity("line-2", status: "running", seq: 4, scene: "B"))
         #expect(setup.voice.activity.map(\.id) == ["line-1"])
         #expect(setup.voice.activity.first?.status == "completed")
-        setup.machine.emit("voice.status", Self.status("closed", seq: 5))
-        await Self.settle()
+        let ended = NativeTaskDrain { setup.machine.emit("voice.status", Self.status("closed", seq: 5)) }
+        await ended.finish()
         #expect(setup.voice.phase == .idle)
         #expect(setup.voice.owner == nil)
         #expect(setup.audio.owner == nil)
@@ -153,7 +149,7 @@ import Testing
         let setup = Self.setup()
         setup.machine.holdStart = true
         let starting = Task { await setup.voice.start(scene: "A", target: Self.target, client: setup.machine) }
-        await Self.settle()
+        await setup.machine.waitForStart()
         setup.machine.emit("voice.status", Self.status("active", seq: 1))
         setup.machine.answerStart()
         await starting.value
@@ -163,15 +159,18 @@ import Testing
     @Test func aStopWhileStartingCancelsTheStartAndAnyLateSession() async {
         let setup = Self.setup()
         setup.machine.holdStart = true
-        let starting = Task { await setup.voice.start(scene: "A", target: Self.target, client: setup.machine) }
-        await Self.settle()
-        setup.voice.stop(scene: "A")
-        await Self.settle()
+        var starting: Task<Void, Never>!
+        let startWork = NativeTaskDrain {
+            starting = Task { await setup.voice.start(scene: "A", target: Self.target, client: setup.machine) }
+        }
+        await setup.machine.waitForStart()
+        let stoppedStart = NativeTaskDrain { setup.voice.stop(scene: "A") }
+        await stoppedStart.finish()
         #expect(setup.machine.stops == [.object(["sceneId": .string("A"), "startId": .string("start-1")])])
         #expect(setup.voice.phase == .idle)
         setup.machine.answerStart()
         await starting.value
-        await Self.settle()
+        await startWork.finish()
         #expect(
             setup.machine.stops.last == .object(["sceneId": .string("A"), "sessionId": .string("session-1")]),
             "A session the start made after all is stopped too")
@@ -183,8 +182,8 @@ import Testing
     @Test func aStopNamesTheSessionAndItsScene() async {
         let setup = Self.setup()
         await setup.voice.start(scene: "A", target: Self.target, client: setup.machine)
-        setup.voice.stop(scene: "A")
-        await Self.settle()
+        let stopped = NativeTaskDrain { setup.voice.stop(scene: "A") }
+        await stopped.finish()
         #expect(setup.machine.stops == [.object(["sceneId": .string("A"), "sessionId": .string("session-1")])])
         #expect(setup.audio.owner == nil)
     }
@@ -217,8 +216,8 @@ import Testing
     @Test func aSceneThatClosesEndsWhatItStarted() async {
         let setup = Self.setup()
         await setup.voice.start(scene: "A", target: Self.target, client: setup.machine)
-        setup.voice.sceneClosed("A")
-        await Self.settle()
+        let stopped = NativeTaskDrain { setup.voice.sceneClosed("A") }
+        await stopped.finish()
         #expect(setup.voice.phase == .idle)
         #expect(setup.machine.sent("voice.stop"))
         #expect(setup.voice.problem(in: "A") == nil)
@@ -279,7 +278,9 @@ import Testing
         setup.media.onEvent?(Self.caption(.model, " the build."))
         #expect(setup.live.shown.last?.phase == .speaking)
         #expect(setup.live.shown.count == 2, "Every caption of one reply is one update")
-        setup.scheduler.fire()
+        setup.scheduler.advance(by: 1_199)
+        #expect(setup.live.shown.last?.phase == .speaking)
+        setup.scheduler.advance(by: 1)
         #expect(setup.live.shown.last?.phase == .listening, "A reply that went quiet is done speaking")
         setup.machine.emit("voice.activity", Self.activity("line-1", status: "running", seq: 2, label: "Prompting"))
         #expect(setup.live.shown.last?.phase == .acting)
@@ -322,8 +323,8 @@ import Testing
         let setup = Self.setup()
         await setup.voice.start(scene: "A", target: Self.target, client: setup.machine)
         setup.machine.emit("voice.status", Self.status("active", seq: 1))
-        setup.voice.perform(.stop)
-        await Self.settle()
+        let stopped = NativeTaskDrain { setup.voice.perform(.stop) }
+        await stopped.finish()
         #expect(setup.voice.phase == .idle)
         #expect(setup.machine.stops == [.object(["sceneId": .string("A"), "sessionId": .string("session-1")])])
         #expect(setup.live.ended.count == 1)
@@ -402,8 +403,8 @@ import Testing
         setup.audio.onChange?(.route("AirPods"))
         #expect(setup.voice.route == "AirPods")
         #expect(setup.voice.isOwner("A"))
-        setup.audio.onChange?(.interrupted)
-        await Self.settle()
+        let stopped = NativeTaskDrain { setup.audio.onChange?(.interrupted) }
+        await stopped.finish()
         #expect(setup.voice.phase == .idle)
         #expect(setup.machine.sent("voice.stop"))
         if case .message = setup.voice.problem(in: "A") {} else { Issue.record("An interruption says why Voice ended") }
@@ -412,8 +413,8 @@ import Testing
     @Test func anotherCategorySetInTheAppEndsVoiceInsteadOfListeningDeaf() async {
         let setup = Self.setup()
         await setup.voice.start(scene: "A", target: Self.target, client: setup.machine)
-        setup.audio.onChange?(.taken)
-        await Self.settle()
+        let stopped = NativeTaskDrain { setup.audio.onChange?(.taken) }
+        await stopped.finish()
         #expect(setup.voice.phase == .idle)
         #expect(setup.machine.stops.last == .object(["sceneId": .string("A"), "sessionId": .string("session-1")]))
         #expect(setup.voice.problem(in: "A") == .message("Something else in Ruimte took the audio, so Voice stopped."))
@@ -422,8 +423,8 @@ import Testing
     @Test func aDroppedMachineLinkEndsVoiceWithoutAStop() async {
         let setup = Self.setup()
         await setup.voice.start(scene: "A", target: Self.target, client: setup.machine)
-        setup.machine.drop()
-        await Self.settle()
+        let dropped = NativeTaskDrain { setup.machine.drop() }
+        await dropped.finish()
         #expect(setup.voice.phase == .idle)
         #expect(!setup.machine.sent("voice.stop"))
         #expect(setup.media.closed)
@@ -448,8 +449,8 @@ import Testing
     @Test func droppedMediaEndsVoiceAndStopsTheSession() async {
         let setup = Self.setup()
         await setup.voice.start(scene: "A", target: Self.target, client: setup.machine)
-        setup.media.onEvent?(.lost)
-        await Self.settle()
+        let stopped = NativeTaskDrain { setup.media.onEvent?(.lost) }
+        await stopped.finish()
         #expect(setup.voice.phase == .idle)
         #expect(setup.machine.stops.last == .object(["sceneId": .string("A"), "sessionId": .string("session-1")]))
     }
@@ -457,15 +458,23 @@ import Testing
     @Test func aStartTheMachineDoesNotAnswerInTimeIsCancelled() async {
         let setup = Self.setup()
         setup.machine.holdStart = true
-        let starting = Task { await setup.voice.start(scene: "A", target: Self.target, client: setup.machine) }
-        await Self.settle()
-        setup.scheduler.fire()
-        await Self.settle()
+        var starting: Task<Void, Never>!
+        let startWork = NativeTaskDrain {
+            starting = Task { await setup.voice.start(scene: "A", target: Self.target, client: setup.machine) }
+        }
+        await setup.machine.waitForStart()
+        setup.scheduler.advance(by: 59_999)
+        #expect(setup.voice.phase == .connecting)
+        #expect(setup.machine.stops.isEmpty)
+        let timedOut = NativeTaskDrain { setup.scheduler.advance(by: 1) }
+        await timedOut.finish()
         #expect(setup.voice.phase == .idle)
         #expect(setup.machine.stops == [.object(["sceneId": .string("A"), "startId": .string("start-1")])])
         #expect(setup.voice.problem(in: "A") == .message("The machine did not start Voice in time."))
         setup.machine.answerStart()
         await starting.value
+        await startWork.finish()
+        #expect(setup.machine.stops.count == 2)
     }
 
     @Test func aFailureOnTheMachineShowsWhatItSaid() async {
@@ -571,6 +580,13 @@ import Testing
         await setup.voice.refreshKey(machineID: "machine", client: setup.machine)
         #expect(setup.machine.requests.isEmpty, "An older machine is never asked")
         #expect(!setup.voice.offers(machineID: "machine", client: setup.machine))
+        setup.machine.features = [.voiceStart, .voiceKeyStatus]
+        await setup.voice.refreshKey(machineID: "machine", client: setup.machine)
+        #expect(setup.voice.keys["machine"] == true)
+        #expect(setup.voice.offers(machineID: "machine", client: setup.machine))
+        setup.machine.features.remove(.voiceStart)
+        #expect(!setup.voice.offers(machineID: "machine", client: setup.machine))
+        #expect(setup.voice.keys["machine"] == true)
     }
 
     @Test func aBuildWithoutTheMicrophoneNeverShowsTheMic() async {
@@ -580,13 +596,19 @@ import Testing
         #expect(!setup.voice.offers(machineID: "machine", client: setup.machine))
     }
 
-    @Test func aMachineClientAnswersWhatItsEndpointNames() {
+    @Test func aMachineClientAnswersWhatItsEndpointNames() async {
         let setup = Self.setup()
         let client = MachineClient(send: { _ in }, connected: true)
         #expect(!setup.voice.offers(machineID: "machine", client: client))
         client.setFeatures(["voice.start", "voice.keyStatus"])
         #expect((client as MachineFeatures).answers(.voiceStart))
         #expect(!(client as MachineFeatures).answers(.voiceConfirm))
+        await setup.voice.refreshKey(machineID: "machine", client: setup.machine)
+        #expect(setup.voice.offers(machineID: "machine", client: client))
+        client.setFeatures(["voice.keyStatus"])
+        #expect(!setup.voice.offers(machineID: "machine", client: client))
+        client.setFeatures(["voice.start", "voice.keyStatus"])
+        #expect(setup.voice.offers(machineID: "machine", client: client))
     }
 
     // MARK: A scene
@@ -652,9 +674,11 @@ import Testing
     // MARK: Preferences
 
     @Test func theLanguagesAndVoicesAreTheOnesTheRequestTakes() {
-        #expect(VoicePreferences.languages.contains("nl"))
-        #expect(VoicePreferences.languages.contains("en"))
-        #expect(VoicePreferences.languages.count == 29)
+        #expect(
+            VoicePreferences.languages == [
+                "ar", "ca", "zh", "cs", "da", "nl", "en", "fi", "fr", "de", "el", "he", "hi", "hu", "id",
+                "it", "ja", "ko", "no", "pl", "pt", "ro", "ru", "es", "sv", "th", "tr", "uk", "vi",
+            ])
         #expect(VoicePreferences.voices == ["marin", "cedar"])
         for language in VoicePreferences.languages {
             let start: JSONValue = .object([

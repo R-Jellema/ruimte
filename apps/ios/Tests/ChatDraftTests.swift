@@ -8,10 +8,18 @@ import XCTest
 #endif
 
 final class ChatDraftTests: XCTestCase {
+    private let suite = "ChatDraftTests.\(UUID().uuidString)"
+    private lazy var defaults = UserDefaults(suiteName: suite)!
+
+    override func tearDown() {
+        defaults.removePersistentDomain(forName: suite)
+        super.tearDown()
+    }
+
     @MainActor func testRestoresCompleteDraftAndScopesItToMachine() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
-        let draft = ChatComposition(machineID: "first", chatID: "chat", root: root)
+        let draft = ChatComposition(machineID: "first", chatID: "chat", root: root, defaults: defaults)
         draft.text = "Read @src/App.swift with $review 🌍"
         draft.mentions = ["src/App.swift"]
         draft.skills = ["review"]
@@ -22,10 +30,10 @@ final class ChatDraftTests: XCTestCase {
         await draft.finishImport(id, data: Data("Contents".utf8), name: "note.txt", mime: "text/plain")
         await draft.flush()
 
-        let restored = ChatComposition(machineID: "first", chatID: "chat", root: root)
+        let restored = ChatComposition(machineID: "first", chatID: "chat", root: root, defaults: defaults)
         XCTAssertEqual(restored.record, draft.record)
         XCTAssertEqual(try Data(contentsOf: XCTUnwrap(restored.uploads.first).url), Data("Contents".utf8))
-        XCTAssertTrue(ChatComposition(machineID: "second", chatID: "chat", root: root).text.isEmpty)
+        XCTAssertTrue(ChatComposition(machineID: "second", chatID: "chat", root: root, defaults: defaults).text.isEmpty)
         XCTAssertNil(draft.storageProblem)
     }
 
@@ -41,7 +49,14 @@ final class ChatDraftTests: XCTestCase {
         let draft = ChatComposition(machineID: "machine", chatID: "legacy", root: root, defaults: defaults)
         XCTAssertEqual(draft.text, "Unsent message")
         XCTAssertTrue(draft.mentions.isEmpty)
+        try Data("Not a directory".utf8).write(to: root)
         await draft.flush()
+        XCTAssertNotNil(draft.storageProblem)
+        XCTAssertEqual(defaults.string(forKey: "ruimte.chat.draft.legacy"), "Unsent message")
+        XCTAssertEqual(draft.text, "Unsent message")
+        try FileManager.default.removeItem(at: root)
+        await draft.flush()
+        XCTAssertNil(draft.storageProblem)
         XCTAssertNil(defaults.string(forKey: "ruimte.chat.draft.legacy"))
         XCTAssertEqual(
             ChatComposition(machineID: "machine", chatID: "legacy", root: root, defaults: defaults).text,
@@ -51,7 +66,7 @@ final class ChatDraftTests: XCTestCase {
     @MainActor func testLateImportAfterRemovalCannotReappear() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
-        let draft = ChatComposition(machineID: "machine", chatID: "chat", root: root)
+        let draft = ChatComposition(machineID: "machine", chatID: "chat", root: root, defaults: defaults)
         let id = try XCTUnwrap(draft.reserve("photo.png"))
         draft.imports.removeAll()
         await draft.finishImport(id, data: Data([1, 2, 3]), name: "photo.png", mime: "image/png")
@@ -62,13 +77,13 @@ final class ChatDraftTests: XCTestCase {
     @MainActor func testAttachmentLimitsIncludePendingImportsAndActualBytes() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
-        let draft = ChatComposition(machineID: "machine", chatID: "chat", root: root)
+        let draft = ChatComposition(machineID: "machine", chatID: "chat", root: root, defaults: defaults)
         for index in 0..<8 { XCTAssertNotNil(draft.reserve("File \(index)")) }
         XCTAssertNil(draft.reserve("Ninth"))
         draft.imports = []
         let first = try XCTUnwrap(draft.reserve("exact.bin"))
         await draft.finishImport(
-            first, data: Data(repeating: 1, count: ChatDraftLimits.bytes), name: "exact.bin",
+            first, data: Data(repeating: 1, count: 10_485_760), name: "exact.bin",
             mime: "application/octet-stream")
         XCTAssertEqual(draft.uploads.count, 1)
         let next = try XCTUnwrap(draft.reserve("extra.bin"))
@@ -81,7 +96,7 @@ final class ChatDraftTests: XCTestCase {
     @MainActor func testTakingBackMergesInsteadOfOverwritingNewWork() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
-        let draft = ChatComposition(machineID: "machine", chatID: "chat", root: root)
+        let draft = ChatComposition(machineID: "machine", chatID: "chat", root: root, defaults: defaults)
         draft.text = "New thought"
         draft.mentions = ["new.swift"]
         try draft.takeBack(
@@ -109,7 +124,7 @@ final class ChatDraftTests: XCTestCase {
         try FileManager.default.createDirectory(at: files.directory, withIntermediateDirectories: true)
         let broken = Data("Unreadable draft".utf8)
         try broken.write(to: files.directory.appendingPathComponent("draft.json"))
-        let draft = ChatComposition(machineID: "machine", chatID: "chat", root: root)
+        let draft = ChatComposition(machineID: "machine", chatID: "chat", root: root, defaults: defaults)
         XCTAssertTrue(draft.restoreFailed)
         draft.text = "New work"
         let id = try XCTUnwrap(draft.reserve("note.txt"))
@@ -118,7 +133,7 @@ final class ChatDraftTests: XCTestCase {
         await draft.recoverStorage()
         XCTAssertNil(draft.storageProblem)
         XCTAssertFalse(draft.restoreFailed)
-        let restored = ChatComposition(machineID: "machine", chatID: "chat", root: root)
+        let restored = ChatComposition(machineID: "machine", chatID: "chat", root: root, defaults: defaults)
         XCTAssertEqual(restored.text, "New work")
         XCTAssertEqual(try Data(contentsOf: XCTUnwrap(restored.uploads.first).url), Data("Note".utf8))
         let backup = try XCTUnwrap(
@@ -153,7 +168,7 @@ final class ChatDraftTests: XCTestCase {
     @MainActor func testPromptLengthMatchesUTF16WireClientRule() async {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
-        let draft = ChatComposition(machineID: "machine", chatID: "chat", root: root)
+        let draft = ChatComposition(machineID: "machine", chatID: "chat", root: root, defaults: defaults)
         draft.text = String(repeating: "🌍", count: 60_000)
         XCTAssertNil(draft.validation)
         draft.text += "a"

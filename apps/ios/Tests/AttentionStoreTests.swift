@@ -16,9 +16,9 @@ final class AttentionStoreTests: XCTestCase {
                 ]),
             ]))
         let store = AttentionStore(client: machine)
-        store.start()
+        let refresh = NativeTaskDrain { store.start() }
         defer { store.stop() }
-        await machine.waitForLists()
+        await refresh.finish()
         XCTAssertEqual(store.unseen, ["failed-task"])
         machine.push?(entry("failed-task", issued: 150, read: 150))
         XCTAssertTrue(store.unseen.isEmpty)
@@ -27,18 +27,18 @@ final class AttentionStoreTests: XCTestCase {
     @MainActor func testAMachineThatNeverSaysWhenMarksStartLeavesEntriesUnmarked() async {
         let machine = AttentionMachine(snapshot: .object(["entries": .array([entry("old", issued: 150, read: 0)])]))
         let store = AttentionStore(client: machine)
-        store.start()
+        let refresh = NativeTaskDrain { store.start() }
         defer { store.stop() }
-        await machine.waitForLists()
+        await refresh.finish()
         XCTAssertTrue(store.unseen.isEmpty)
     }
 
     @MainActor func testAChatNobodyHasOpenSaysWhatItDoesThroughChatStatus() async {
         let machine = AttentionMachine(snapshot: .object([:]))
         let store = AttentionStore(client: machine)
-        store.start()
+        let refresh = NativeTaskDrain { store.start() }
         defer { store.stop() }
-        await machine.waitForLists()
+        await refresh.finish()
         machine.emit(
             "chat.status", .object(["chatId": .string("chat-1"), "info": .object(["status": .string("running")])]))
         XCTAssertEqual(store.statuses["chat-1"], .running)
@@ -59,8 +59,6 @@ final class AttentionStoreTests: XCTestCase {
     var push: (@MainActor @Sendable (JSONValue) -> Void)?
     private(set) var chatLists = 0
     private var handlers: [String: @MainActor @Sendable (JSONValue) -> Void] = [:]
-    private var listed = false
-    private var waiter: CheckedContinuation<Void, Never>?
 
     init(snapshot: JSONValue) { self.snapshot = snapshot }
 
@@ -70,11 +68,6 @@ final class AttentionStoreTests: XCTestCase {
         case "session.list": return .object(["sessions": .array([])])
         case "chat.list":
             chatLists += 1
-            defer {
-                listed = true
-                waiter?.resume()
-                waiter = nil
-            }
             return .object(["chats": .array([])])
         default: return .object([:])
         }
@@ -88,11 +81,6 @@ final class AttentionStoreTests: XCTestCase {
 
     func emit(_ event: String, _ payload: JSONValue) { handlers[event]?(payload) }
 
-    func waitForLists() async {
-        if !listed { await withCheckedContinuation { waiter = $0 } }
-        // The chat list answer is applied after the request returns.
-        for _ in 0..<5 { await Task.yield() }
-    }
 }
 
 final class SessionReadingTests: XCTestCase {

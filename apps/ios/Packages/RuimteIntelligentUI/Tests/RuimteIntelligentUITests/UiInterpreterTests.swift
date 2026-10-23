@@ -1,6 +1,7 @@
 import Foundation
-import Testing
 import RuimtePulsar
+import Testing
+
 @testable import RuimteIntelligentUI
 
 struct UiInterpreterTests {
@@ -23,6 +24,25 @@ struct UiInterpreterTests {
                 action: request["action"]?["nodeId"]?.stringValue)
             #expect(result == fixture["result"], "\(fixture["name"]?.stringValue ?? "fixture")")
         }
+        // The generated parity row keeps the refused `$row` reference; the Each local is `row`.
+        func local(_ value: JSONValue) -> JSONValue {
+            if var object = value.objectValue {
+                if object["kind"] == .string("reference"), object["name"] == .string("$row") {
+                    object["name"] = .string("row")
+                }
+                return .object(object.mapValues(local))
+            }
+            if let array = value.arrayValue { return .array(array.map(local)) }
+            return value
+        }
+        let repetition = local(try block("conditional repetition"))
+        let shown = try await interpreter.evaluate(block: repetition)
+        #expect(shown["diagnostics"] == .array([]))
+        let tags = try #require(shown["nodes"]?.arrayValue).filter { $0["type"] == .string("Tag") }
+        #expect(tags.compactMap { $0["children"]?.arrayValue?.first?["props"]?["text"]?.stringValue } == ["a", "b"])
+        let hidden = try await interpreter.evaluate(block: repetition, values: .object(["$show": .bool(false)]))
+        #expect(hidden["diagnostics"] == .array([]))
+        #expect(hidden["nodes"]?.arrayValue?.compactMap { $0["type"]?.stringValue } == ["Switch"])
     }
 
     @Test func localInputUpdatesExpressionAndKeepsBlockIndependent() async throws {
@@ -30,9 +50,11 @@ struct UiInterpreterTests {
         let block = try block("local input")
         let initial = try await interpreter.evaluate(block: block)
         let sliderID = try #require(initial["nodes"]?.arrayValue?.first?["id"])
-        let changed = try await interpreter.evaluate(block: block, change: .object([
-            "nodeId": sliderID, "prop": .string("value"), "value": .number(7),
-        ]))
+        let changed = try await interpreter.evaluate(
+            block: block,
+            change: .object([
+                "nodeId": sliderID, "prop": .string("value"), "value": .number(7),
+            ]))
         #expect(changed["values"]?["$count"] == .number(7))
         let summary = try #require(changed["nodes"]?.arrayValue?.last?["children"]?.arrayValue)
         #expect(summary.contains { $0["props"]?["text"] == .string("10") })
@@ -40,20 +62,32 @@ struct UiInterpreterTests {
         #expect(separate["values"]?["$count"] == .number(2))
     }
 
-    @Test func streamedInputAndInvisibleChoiceAreNotBindings() async throws {
+    @Test func incompleteBlocksAndUndeclaredValuesAreNotBindings() async throws {
         let interpreter = UiInterpreter()
         let block = try block("local input")
         var partial = try #require(block.objectValue)
         partial["complete"] = .bool(false)
         let initial = try await interpreter.evaluate(block: block)
         let nodeID = try #require(initial["nodes"]?.arrayValue?.first?["id"])
-        await #expect(throws: UiInterpreterError.self) {
-            try await interpreter.evaluate(block: .object(partial), change: .object([
-                "nodeId": nodeID, "prop": .string("value"), "value": .number(7),
-            ]))
+        await #expect {
+            try await interpreter.evaluate(
+                block: .object(partial),
+                change: .object([
+                    "nodeId": nodeID, "prop": .string("value"), "value": .number(7),
+                ]))
+        } throws: { error in
+            if case UiInterpreterError.invalid(let message) = error {
+                return message.contains("Only a completed supported block can accept local input.")
+            }
+            return false
         }
-        await #expect(throws: UiInterpreterError.self) {
+        await #expect {
             try await interpreter.evaluate(block: block, values: .object(["injected": .string("data")]))
+        } throws: { error in
+            if case UiInterpreterError.invalid(let message) = error {
+                return message.contains("Only declared local input bindings can be changed.")
+            }
+            return false
         }
     }
 
@@ -63,9 +97,11 @@ struct UiInterpreterTests {
         let initial = try await interpreter.evaluate(block: block)
         let nodeID = try #require(initial["nodes"]?.arrayValue?.first?["id"])
         await #expect(throws: UiInterpreterError.self) {
-            try await interpreter.evaluate(block: block, change: .object([
-                "nodeId": nodeID, "prop": .string("value"), "value": .string("not-an-option"),
-            ]))
+            try await interpreter.evaluate(
+                block: block,
+                change: .object([
+                    "nodeId": nodeID, "prop": .string("value"), "value": .string("not-an-option"),
+                ]))
         }
     }
 
@@ -74,16 +110,20 @@ struct UiInterpreterTests {
         let block = try block("text field")
         let initial = try await interpreter.evaluate(block: block)
         let nodeID = try #require(initial["nodes"]?.arrayValue?.first?["id"])
-        let changed = try await interpreter.evaluate(block: block, change: .object([
-            "nodeId": nodeID, "prop": .string("value"), "value": .string("Grace"),
-        ]))
+        let changed = try await interpreter.evaluate(
+            block: block,
+            change: .object([
+                "nodeId": nodeID, "prop": .string("value"), "value": .string("Grace"),
+            ]))
         #expect(changed["values"]?["$name"] == .string("Grace"))
         let summary = try #require(changed["nodes"]?.arrayValue?.last?["children"]?.arrayValue)
         #expect(summary.contains { $0["props"]?["text"] == .string("Grace") })
         for refused in [JSONValue.string("Grace H"), .number(7)] {
-            let kept = try await interpreter.evaluate(block: block, change: .object([
-                "nodeId": nodeID, "prop": .string("value"), "value": refused,
-            ]))
+            let kept = try await interpreter.evaluate(
+                block: block,
+                change: .object([
+                    "nodeId": nodeID, "prop": .string("value"), "value": refused,
+                ]))
             #expect(kept["values"]?["$name"] == .string("Ada"))
         }
         let again = try await interpreter.evaluate(block: block)
@@ -95,14 +135,18 @@ struct UiInterpreterTests {
         let block = try block("select input")
         let initial = try await interpreter.evaluate(block: block)
         let nodeID = try #require(initial["nodes"]?.arrayValue?.first?["id"])
-        let changed = try await interpreter.evaluate(block: block, change: .object([
-            "nodeId": nodeID, "prop": .string("value"), "value": .string("b"),
-        ]))
+        let changed = try await interpreter.evaluate(
+            block: block,
+            change: .object([
+                "nodeId": nodeID, "prop": .string("value"), "value": .string("b"),
+            ]))
         #expect(changed["values"]?["$mode"] == .string("b"))
         await #expect(throws: UiInterpreterError.self) {
-            try await interpreter.evaluate(block: block, change: .object([
-                "nodeId": nodeID, "prop": .string("value"), "value": .string("not-an-option"),
-            ]))
+            try await interpreter.evaluate(
+                block: block,
+                change: .object([
+                    "nodeId": nodeID, "prop": .string("value"), "value": .string("not-an-option"),
+                ]))
         }
     }
 
@@ -112,14 +156,18 @@ struct UiInterpreterTests {
         let initial = try await interpreter.evaluate(block: block)
         let nodeID = try #require(initial["nodes"]?.arrayValue?.first?["id"])
         #expect(initial["values"]?["$picked"] == .string("dom"))
-        let picked = try await interpreter.evaluate(block: block, change: .object([
-            "nodeId": nodeID, "prop": .string("value"), "value": .string("ams"),
-        ]))
+        let picked = try await interpreter.evaluate(
+            block: block,
+            change: .object([
+                "nodeId": nodeID, "prop": .string("value"), "value": .string("ams"),
+            ]))
         #expect(picked["values"]?["$picked"] == .string("ams"))
         await #expect(throws: UiInterpreterError.self) {
-            try await interpreter.evaluate(block: block, change: .object([
-                "nodeId": nodeID, "prop": .string("value"), "value": .string("not-a-place"),
-            ]))
+            try await interpreter.evaluate(
+                block: block,
+                change: .object([
+                    "nodeId": nodeID, "prop": .string("value"), "value": .string("not-a-place"),
+                ]))
         }
     }
 
@@ -138,9 +186,23 @@ struct UiInterpreterTests {
         nodes[0] = .object(slider)
         contents["nodes"] = .array(nodes)
         let result = try await interpreter.evaluate(block: .object(contents))
-        #expect(result["nodes"]?.arrayValue?.first?["children"]?.arrayValue?.first?["props"]?["text"] == .string(script))
-        await #expect(throws: UiInterpreterError.self) {
-            try await interpreter.evaluate(block: .string(String(repeating: "a", count: 1024 * 1024 + 1)))
+        #expect(
+            result["nodes"]?.arrayValue?.first?["children"]?.arrayValue?.first?["props"]?["text"] == .string(script))
+        let budget = 1_048_576
+        let emptyRequest = JSONValue.object([
+            "block": .object(contents), "values": .object([:]), "queries": .object([:]),
+        ])
+        let padding = budget - (try emptyRequest.encoded()).count - 13
+        contents["padding"] = .string(String(repeating: "a", count: padding))
+        let atLimit: JSONValue = .object(["block": .object(contents), "values": .object([:]), "queries": .object([:])])
+        #expect(try atLimit.encoded().count == budget)
+        _ = try await interpreter.evaluate(block: .object(contents))
+        contents["padding"] = .string(String(repeating: "a", count: padding + 1))
+        await #expect {
+            try await interpreter.evaluate(block: .object(contents))
+        } throws: { error in
+            if case UiInterpreterError.tooLarge = error { return true }
+            return false
         }
         let again = try await interpreter.evaluate(block: block)
         #expect(again["values"]?["$count"] == .number(2))

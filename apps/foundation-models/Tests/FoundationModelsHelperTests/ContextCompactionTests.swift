@@ -70,7 +70,36 @@ private func exchange(_ name: String) -> [Transcript.Entry] {
     let bridge = ToolBridge(send: { _ in })
     let read = ReadFile(bridge: bridge)
     let list = ListFiles(bridge: bridge)
-    #expect(try ToolManifest.fingerprint([read, list]) == ToolManifest.fingerprint([list, read]))
-    #expect(try ToolManifest.fingerprint([read, list]) != ToolManifest.fingerprint([read]))
+    let fingerprint = try ToolManifest.fingerprint([read, list])
+    #expect(try fingerprint == ToolManifest.fingerprint([list, read]))
+    #expect(try fingerprint != ToolManifest.fingerprint([read]))
+    let definition = ManifestDefinition(
+        name: read.name, description: read.description, parameters: read.parameters,
+        includesSchemaInInstructions: read.includesSchemaInInstructions)
+    #expect(try fingerprint == ToolManifest.fingerprint([definition, list]))
+    var changed = definition
+    changed.name = "OtherRead"
+    #expect(try fingerprint != ToolManifest.fingerprint([changed, list]))
+    changed = definition
+    changed.description += " Changed instructions."
+    #expect(try fingerprint != ToolManifest.fingerprint([changed, list]))
+    changed = definition
+    changed.parameters = list.parameters
+    #expect(try fingerprint != ToolManifest.fingerprint([changed, list]))
+    changed = definition
+    changed.includesSchemaInInstructions.toggle()
+    #expect(try fingerprint != ToolManifest.fingerprint([changed, list]))
     #expect(throws: (any Error).self) { try ToolManifest.fingerprint([read, read]) }
+}
+
+private struct ManifestDefinition: Tool {
+    typealias Arguments = ReadFile.Arguments
+    var name: String
+    var description: String
+    var parameters: GenerationSchema
+    var includesSchemaInInstructions: Bool
+
+    func call(arguments: Arguments) async throws -> String {
+        fatalError("Manifest compatibility never invokes a tool")
+    }
 }

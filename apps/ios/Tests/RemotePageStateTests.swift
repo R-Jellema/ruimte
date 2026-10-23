@@ -52,9 +52,9 @@ import XCTest
                 state.value = .string("stale")
             }
         }
-        await Task.yield()
+        await slow.waitForArrival()
         await state.load { .string("fresh") }
-        await slow.open()
+        slow.open()
         await overtaken.value
         XCTAssertEqual(state.value, .string("fresh"))
         XCTAssertNil(state.problem)
@@ -70,9 +70,9 @@ import XCTest
                 throw TransportFailure.invalid("Stale failure")
             }
         }
-        await Task.yield()
+        await slow.waitForArrival()
         await state.load { .string("fresh") }
-        await slow.open()
+        slow.open()
         await overtaken.value
         XCTAssertNil(state.problem)
     }
@@ -87,11 +87,11 @@ import XCTest
                 await slow.wait()
             }
         }
-        await Task.yield()
+        await slow.waitForArrival()
         XCTAssertTrue(state.busy)
         await state.perform { runs += 1 }
         XCTAssertEqual(runs, 1)
-        await slow.open()
+        slow.open()
         await first.value
         XCTAssertFalse(state.busy)
     }
@@ -118,14 +118,15 @@ import XCTest
                 client: machine, events: ["fs.changed"], start: { counts.starts += 1 },
                 load: {
                     counts.loads += 1
+                    counts.arrivals.record()
                     if counts.loads == 1 { await gate.wait() }
                 })
         }
-        while counts.loads == 0 { await Task.yield() }
+        await counts.arrivals.wait()
         machine.connection(true)
         machine.emit("fs.changed")
-        await gate.open()
-        while counts.loads < 2 { await Task.yield() }
+        gate.open()
+        await counts.arrivals.wait(for: 2)
         XCTAssertEqual(counts.starts, 2)
         page.cancel()
         await page.value
@@ -135,6 +136,7 @@ import XCTest
 @MainActor private final class LifecycleCounts {
     var starts = 0
     var loads = 0
+    let arrivals = NativeArrival()
 }
 
 @MainActor private final class LifecycleMachine: MachineRequesting {
@@ -157,14 +159,20 @@ import XCTest
 }
 
 /// Holds one operation until the test lets it through, so two of them overlap without a clock.
-private actor Gate {
+@MainActor private final class Gate {
     private var waiter: CheckedContinuation<Void, Never>?
     private var opened = false
+    private let arrival = NativeArrival()
 
     func wait() async {
         guard !opened else { return }
-        await withCheckedContinuation { waiter = $0 }
+        await withCheckedContinuation {
+            waiter = $0
+            arrival.record()
+        }
     }
+
+    func waitForArrival() async { await arrival.wait() }
 
     func open() {
         opened = true

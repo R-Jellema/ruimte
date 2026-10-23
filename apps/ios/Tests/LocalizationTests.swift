@@ -29,6 +29,20 @@ final class LocalizationTests: XCTestCase {
                 let dutch = Self.dutch(entry)
                 let placeholders = Set(dutch.flatMap(Self.placeholders))
                 XCTAssertEqual(placeholders, Set(Self.placeholders(key)), "\(path): \"\(key)\" reads \(dutch) in Dutch")
+                let expected = Self.placeholders(key).sorted()
+                for text in dutch {
+                    let actual = Self.placeholders(text).sorted()
+                    if dutch.count == 1 {
+                        XCTAssertEqual(actual, expected, "\(path): \(key) -> \(text)")
+                    } else {
+                        // A singular plural branch may spell out its count; repeated arguments must still survive.
+                        for token in Set(expected) where expected.filter({ $0 == token }).count > 1 {
+                            XCTAssertEqual(
+                                actual.filter { $0 == token }.count, expected.filter { $0 == token }.count,
+                                "\(path): \(key) -> \(text)")
+                        }
+                    }
+                }
             }
         }
     }

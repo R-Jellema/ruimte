@@ -58,11 +58,15 @@ import XCTest
     }
 
     func testASessionWindowReadsAsAPercentAndItsReset() {
+        XCTAssertEqual(
+            Locale.current.region?.identifier, "US", "Run this app test with -testLanguage en -testRegion US")
+        XCTAssertEqual(Bundle.main.preferredLocalizations.first, "en")
         let now = Date(timeIntervalSince1970: 1_000_000)
+        XCTAssertEqual(TimeZone.current.secondsFromGMT(for: now), 0, "Run this app test with TZ=UTC")
         XCTAssertEqual(ChatLimits.sessionLine(AccountSessionWindow(used: 0.456, resetsAt: nil), now: now), "46% used")
         let reset = ChatLimits.sessionLine(
             AccountSessionWindow(used: 0.5, resetsAt: (now.timeIntervalSince1970 + 60) * 1000), now: now)
-        XCTAssertTrue(reset.hasPrefix("50% used · resets "))
+        XCTAssertEqual(reset, "50% used · resets 01:47 PM")
     }
 
     func testAnotherAccountWithRoomIsOfferedAfterAUsageLimit() async {

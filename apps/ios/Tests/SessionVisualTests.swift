@@ -1,3 +1,4 @@
+import Darwin
 import RuimtePulsar
 import RuimteTransport
 import SwiftUI
@@ -186,20 +187,24 @@ final class SessionVisualTests: XCTestCase {
         runtime.connections.shutdown()
     }
 
-    @MainActor func testInitialProjectLoadingState() async {
-        let client = AddressBookClient(fetch: { request in
-            (
-                Data(#"{"providers":["github","apple"]}"#.utf8),
-                HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
-            )
-        })
-        let runtime = AppRuntime(client: client)
-        await runtime.start()
+    @MainActor func testInitialProjectLoadingState() async throws {
+        try NativePresentationProbe.enableAccessibility()
+        let suite = "SessionVisualTests.loading.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let runtime = AppRuntime(defaults: defaults, connections: MachineConnections(monitorPaths: false))
         runtime.account = Account(id: "loading-fixture", provider: .github, login: "basmilius")
         runtime.loading = true
-        let host = UIHostingController(rootView: AppHome(runtime: runtime).tint(MobileStyle.accent))
+        let host = UIHostingController(
+            rootView: NavigationStack {
+                ProjectsPage(runtime: runtime, projects: UnifiedProjects(defaults: defaults), showRecent: {}) {
+                    EmptyView()
+                }
+            }.tint(MobileStyle.accent))
         let window = makeWindow(host, size: CGSize(width: 402, height: 874))
         for _ in 0..<20 { await displayFrame() }
+        XCTAssertTrue(NativePresentationProbe.contains("projects.loading", in: host.view))
+        XCTAssertTrue(NativePresentationProbe.labels(in: host.view).contains { $0.contains("Loading projects") })
         capture(window, name: "projects-loading")
         runtime.loading = false
         window.isHidden = true
@@ -220,11 +225,31 @@ final class SessionVisualTests: XCTestCase {
         ])
     }
 
-    @MainActor func testAddingAMachineAtPhoneWidth() async {
-        let runtime = AppRuntime()
+    @MainActor func testAddingAMachineAtPhoneWidth() async throws {
+        try NativePresentationProbe.enableAccessibility()
+        let suite = "SessionVisualTests.add.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let runtime = AppRuntime(defaults: defaults, connections: MachineConnections(monitorPaths: false))
         let host = UIHostingController(rootView: AddMachineSheet(runtime: runtime).tint(MobileStyle.accent))
         let window = makeWindow(host, size: CGSize(width: 402, height: 874))
-        for _ in 0..<20 { await displayFrame() }
+        var labels: [String] = []
+        for _ in 0..<20 {
+            await displayFrame()
+            labels = NativePresentationProbe.labels(in: host.view)
+            if labels.contains(where: { $0.contains("npx ruimte login") }) { break }
+        }
+        XCTAssertTrue(labels.contains { $0.contains("npx ruimte login") }, labels.joined(separator: " | "))
+        XCTAssertTrue(labels.contains { $0.contains("account") }, labels.joined(separator: " | "))
+        let check = NativePresentationProbe.elements(in: host.view).first {
+            $0.accessibilityLabel == "Check again" && $0.accessibilityTraits.contains(.button)
+        }
+        XCTAssertNotNil(check)
+        if let check {
+            XCTAssertGreaterThanOrEqual(check.accessibilityFrame.height, 44)
+            XCTAssertGreaterThanOrEqual(check.accessibilityFrame.width, 44)
+            XCTAssertTrue(window.convert(window.bounds, to: nil).contains(check.accessibilityFrame))
+        }
         capture(window, name: "add-machine-iphone")
         window.isHidden = true
         window.rootViewController = nil
@@ -345,6 +370,75 @@ final class SessionVisualTests: XCTestCase {
 
     @MainActor private func displayFrame() async {
         await withCheckedContinuation { continuation in _ = VisualFrameWaiter { continuation.resume() } }
+    }
+}
+
+@MainActor enum NativePresentationProbe {
+    private static var accessibilityEnabled = false
+
+    // Hosted tests need UIKit's accessibility bridge before SwiftUI exposes its elements.
+    // The loader follows https://github.com/cashapp/AccessibilitySnapshot/blob/main/Sources/AccessibilitySnapshot/Parser/ObjC/ASAccessibilityEnabler.m.
+    static func enableAccessibility() throws {
+        guard !accessibilityEnabled else { return }
+        let root = ProcessInfo.processInfo.environment["IPHONE_SIMULATOR_ROOT"] ?? ""
+        let handle = try XCTUnwrap(dlopen(root + "/usr/lib/libAccessibility.dylib", RTLD_NOW))
+        do {
+            let getter = try XCTUnwrap(dlsym(handle, "_AXSAutomationEnabled"))
+            let setter = try XCTUnwrap(dlsym(handle, "_AXSSetAutomationEnabled"))
+            let read = unsafeBitCast(getter, to: (@convention(c) () -> Int32).self)
+            let write = unsafeBitCast(setter, to: (@convention(c) (Int32) -> Void).self)
+            let previous = read()
+            write(1)
+            accessibilityEnabled = true
+            atexit_b {
+                write(previous)
+                dlclose(handle)
+            }
+        } catch {
+            dlclose(handle)
+            throw error
+        }
+    }
+
+    static func frame() async {
+        await withCheckedContinuation { continuation in
+            _ = VisualFrameWaiter { continuation.resume() }
+        }
+    }
+
+    static func elements(in root: UIView) -> [NSObject] {
+        var seen: Set<ObjectIdentifier> = []
+        var found: [NSObject] = []
+        func visit(_ object: NSObject) {
+            guard seen.insert(ObjectIdentifier(object)).inserted else { return }
+            if let view = object as? UIView, view.isHidden || view.alpha == 0 { return }
+            found.append(object)
+            if let view = object as? UIView { view.subviews.forEach(visit) }
+            for element in object.accessibilityElements ?? [] {
+                if let child = element as? NSObject { visit(child) }
+            }
+            let count = object.accessibilityElementCount()
+            if (1...1000).contains(count) {
+                for index in 0..<count {
+                    if let child = object.accessibilityElement(at: index) as? NSObject { visit(child) }
+                }
+            }
+        }
+        visit(root)
+        return found
+    }
+
+    static func labels(in root: UIView) -> [String] {
+        elements(in: root).flatMap { element -> [String] in
+            [element.accessibilityLabel, (element as? UILabel)?.text, (element as? UITextView)?.text].compactMap { $0 }
+        }
+    }
+
+    static func contains(_ identifier: String, in root: UIView) -> Bool {
+        elements(in: root).contains {
+            $0.responds(to: NSSelectorFromString("accessibilityIdentifier"))
+                && ($0.value(forKey: "accessibilityIdentifier") as? String) == identifier
+        }
     }
 }
 

@@ -46,7 +46,8 @@ import UIKit
         var clock = 0.0
         let say: (VoiceSpeaker, String) -> Void = { speaker, text in
             clock += 4_000
-            stage.media.onEvent?(.caption(LiveCaption(speaker: speaker, delta: text, startMs: clock, endMs: clock + 2_000)))
+            stage.media.onEvent?(
+                .caption(LiveCaption(speaker: speaker, delta: text, startMs: clock, endMs: clock + 2_000)))
         }
         let did: (String, Int, String, String, String) -> Void = { id, seq, status, label, detail in
             stage.machine.emit(
@@ -96,7 +97,8 @@ import UIKit
         let connecting = Self.stage()
         connecting.machine.holdStart = true
         let starting = Task { await connecting.voice.start(scene: "A", target: Self.place, client: connecting.machine) }
-        for _ in 0..<20 { await Task.yield() }
+        await connecting.machine.waitForStart()
+        #expect(connecting.voice.phase == .connecting)
         try await Self.render(sheet(connecting.voice), name: "3-connecting")
         connecting.machine.answerStart()
         await starting.value

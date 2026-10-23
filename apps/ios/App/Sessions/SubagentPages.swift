@@ -162,12 +162,10 @@ extension ChatModel {
 
     private var key: Int?
     private var cached = Lists()
-    private(set) var derivations = 0
 
     func lists(revision: Int, items: () -> [ChatItem]) -> Lists {
         if key == revision { return cached }
         key = revision
-        derivations += 1
         let all = items()
         let work = ChatSubagents.threadWork(all)
         let sections = ChatSubagents.sections(ChatSubagents.openable(all), work: work)

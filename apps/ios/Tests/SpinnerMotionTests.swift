@@ -30,9 +30,10 @@ final class SpinnerMotionTests: XCTestCase {
 
     func testTheFirstDotLeapsOverTheTopWhileTheOthersSlideBack() {
         let motion = SpinnerMotion(size: 16)
-        let middle = SpinnerMotion.duration * 0.3333 / 2
+        XCTAssertEqual(SpinnerMotion.duration, 1.8)
+        let middle = 1.8 * 0.3333 / 2
         assertClose(motion.center(of: 0, at: middle), CGPoint(x: 8, y: 2))
-        let landed = SpinnerMotion.duration * 0.3333
+        let landed = 1.8 * 0.3333
         assertClose(motion.center(of: 0, at: landed), motion.center(of: 2, at: nil))
         assertClose(motion.center(of: 1, at: landed), motion.center(of: 0, at: nil))
         assertClose(motion.center(of: 2, at: landed), motion.center(of: 1, at: nil))

@@ -1,4 +1,5 @@
 import AVFoundation
+import AVKit
 import PDFKit
 import RuimtePulsar
 import RuimteTransport
@@ -28,7 +29,7 @@ final class FilePreviewTests: XCTestCase {
         }
     }
 
-    func testTheMachinesLanguageIsTranslatedOnlyWhereHighlightJSNamesItOtherwise() {
+    func testTheMachinesLanguageIsTranslatedOnlyWhereHighlightJSNamesItOtherwise() async throws {
         XCTAssertEqual(FileKinds.highlightLanguage("typescript"), "typescript")
         XCTAssertEqual(FileKinds.highlightLanguage("tsx"), "tsx")
         XCTAssertEqual(FileKinds.highlightLanguage("vue"), "xml")
@@ -38,6 +39,17 @@ final class FilePreviewTests: XCTestCase {
         XCTAssertEqual(FileKinds.highlightLanguage("ignore"), "plaintext")
         XCTAssertEqual(FileKinds.highlightLanguage(nil), "plaintext")
         XCTAssertEqual(FileKinds.highlightLanguage(""), "plaintext")
+        for (language, source) in [
+            ("typescript", "export const answer: number = 42;"), ("tsx", "const view = <div>Hello</div>;"),
+            ("vue", "<template><p>Hello</p></template>"), ("shellscript", "echo \"Hello\""),
+            ("jsonc", "{\"answer\": 42}"),
+        ] {
+            let highlighted = await CodeHighlighter.shared.highlight(
+                source, language: FileKinds.highlightLanguage(language), dark: false)
+            let rendered = try XCTUnwrap(highlighted, language)
+            XCTAssertEqual(String(rendered.characters), source)
+            XCTAssertGreaterThan(Set(rendered.runs.compactMap { $0.swiftUI.foregroundColor }).count, 1, language)
+        }
     }
 
     func testAPlaybackPositionIsWrittenLikeTheRestOfTheRecording() {
@@ -111,7 +123,10 @@ final class FilePreviewTests: XCTestCase {
             let machine = FileMachine(path: "/files/\(name)", data: try fixture(name), mime: mime)
             let opened = try await open(machine, name: name) { view in
                 guard let zooming = self.descendant(ZoomingImageView.self, in: view) else { return false }
+                let dimensions = name == "image.ico" ? "48 × 48" : "64 × 48"
+                let labels = NativePresentationProbe.labels(in: view).joined(separator: "\n")
                 return zooming.imageView.image != nil && zooming.maximumZoomScale > zooming.minimumZoomScale
+                    && labels.contains(dimensions) && labels.contains(mime)
             }
             XCTAssertTrue(opened, name)
         }
@@ -127,13 +142,22 @@ final class FilePreviewTests: XCTestCase {
     }
 
     @MainActor func testSoundAndVideoOpenInTheirPlayers() async throws {
-        for (name, mime) in [
-            ("tone.mp3", "audio/mpeg"), ("tone.m4a", "audio/mp4"), ("tone.aac", "audio/aac"),
-            ("tone.wav", "audio/wav"), ("tone.flac", "audio/flac"), ("tone.opus", "audio/ogg"),
-            ("clip.mp4", "video/mp4"),
+        for (name, mime, title) in [
+            ("tone.mp3", "audio/mpeg", "Tone"), ("tone.m4a", "audio/mp4", "Tone"),
+            ("tone.aac", "audio/aac", "tone.aac"), ("tone.wav", "audio/wav", "tone.wav"),
+            ("tone.flac", "audio/flac", "tone.flac"), ("tone.opus", "audio/ogg", "tone.opus"),
+            ("clip.mp4", "video/mp4", ""),
         ] {
             let machine = FileMachine(path: "/files/\(name)", data: try fixture(name), mime: mime)
-            _ = try await open(machine, name: name, frames: 120) { _ in false }
+            let opened = try await open(machine, name: name) { view in
+                let labels = NativePresentationProbe.labels(in: view)
+                if mime.hasPrefix("video/") {
+                    return self.playerController(in: view.window?.rootViewController)?.player?.currentItem?.status
+                        == .readyToPlay
+                }
+                return labels.contains("Play") && labels.contains("Position") && labels.contains(title)
+            }
+            XCTAssertTrue(opened, name)
             XCTAssertGreaterThan(machine.pieces, 0, name)
         }
     }
@@ -141,16 +165,24 @@ final class FilePreviewTests: XCTestCase {
     @MainActor func testAFileTheMachineDoesNotServeAsksForNoBytes() async throws {
         let machine = FileMachine(
             path: "/files/archive.zip", data: try fixture("archive.zip"), mime: "application/octet-stream")
-        _ = try await open(machine, name: "archive.zip", frames: 60) { _ in false }
+        let opened = try await open(machine, name: "archive.zip") { view in
+            NativePresentationProbe.labels(in: view).contains {
+                $0.contains("The machine only sends images, video, sound and PDFs to this app.")
+            }
+        }
+        XCTAssertTrue(opened)
+        XCTAssertGreaterThan(machine.reads, 0)
         XCTAssertEqual(machine.pieces, 0)
     }
 
     @MainActor func testAPictureThatDoesNotDecodeFallsBackToQuickLook() async throws {
         let machine = FileMachine(path: "/files/broken.png", data: Data("not a picture".utf8), mime: "image/png")
-        let drawn = try await open(machine, name: "broken.png", frames: 60) { view in
-            self.descendant(ZoomingImageView.self, in: view) != nil
+        let fallback = try await open(machine, name: "broken.png") { view in
+            let labels = NativePresentationProbe.labels(in: view)
+            return self.descendant(ZoomingImageView.self, in: view) == nil
+                && labels.contains("Quick Look") && labels.contains("Share")
         }
-        XCTAssertFalse(drawn)
+        XCTAssertTrue(fallback)
         // One read for the picture, one for the file Quick Look and Share get.
         XCTAssertEqual(machine.pieces, 2)
     }
@@ -159,13 +191,21 @@ final class FilePreviewTests: XCTestCase {
         let machine = FileMachine(
             path: "/files/main.ts", data: Data("export const answer: number = 42;\n".utf8), mime: "text/plain",
             language: "typescript")
-        _ = try await open(machine, name: "main.ts", frames: 60) { _ in false }
+        let opened = try await open(machine, name: "main.ts") { view in
+            NativePresentationProbe.contains("code.highlighted", in: view)
+                && NativePresentationProbe.labels(in: view).contains {
+                    $0.contains("export const answer: number = 42;")
+                }
+        }
+        XCTAssertTrue(opened)
+        XCTAssertGreaterThan(machine.reads, 0)
     }
 
     /// Opens the page for `machine` and waits until `ready` holds or `frames` pass, then keeps a picture of it.
     @MainActor private func open(
         _ machine: FileMachine, name: String, frames: Int = 300, ready: @escaping (UIView) -> Bool
     ) async throws -> Bool {
+        try NativePresentationProbe.enableAccessibility()
         let host = UIHostingController(
             rootView: NavigationStack { FileContentPage(client: machine, path: machine.path) })
         let window = makeWindow(host, size: CGSize(width: 402, height: 874))
@@ -198,6 +238,14 @@ final class FilePreviewTests: XCTestCase {
         if let found = view as? ViewType { return found }
         for child in view.subviews {
             if let found = descendant(type, in: child) { return found }
+        }
+        return nil
+    }
+
+    @MainActor private func playerController(in controller: UIViewController?) -> AVPlayerViewController? {
+        if let player = controller as? AVPlayerViewController { return player }
+        for child in controller?.children ?? [] {
+            if let player = playerController(in: child) { return player }
         }
         return nil
     }
@@ -239,6 +287,7 @@ final class FilePreviewTests: XCTestCase {
     let mime: String
     let language: String?
     private(set) var pieces = 0
+    private(set) var reads = 0
 
     init(path: String, data: Data, mime: String, language: String? = nil) {
         self.path = path
@@ -250,6 +299,7 @@ final class FilePreviewTests: XCTestCase {
     func request(_ type: String, payload: JSONValue) async throws -> JSONValue {
         switch type {
         case "fs.read":
+            reads += 1
             if let language {
                 return .object([
                     "kind": .string("text"), "text": .string(String(decoding: data, as: UTF8.self)),

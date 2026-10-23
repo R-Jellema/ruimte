@@ -1,6 +1,8 @@
 import RuimteIntelligentUI
 import RuimtePulsar
 import SceneKit
+import SwiftUI
+import UIKit
 import XCTest
 
 @testable import Ruimte
@@ -14,6 +16,9 @@ final class IntelligentUIPresentationTests: XCTestCase {
         XCTAssertEqual(jump.revision, "revision")
         XCTAssertNotEqual(jump.nonce, UiChoiceJump(origin)?.nonce)
         XCTAssertNil(UiChoiceJump(choice(itemID: "item", blockID: "", revision: "")))
+        XCTAssertNil(UiChoiceJump(choice(itemID: "", blockID: "block", revision: "revision")))
+        XCTAssertNil(UiChoiceJump(choice(itemID: "item", blockID: "", revision: "revision")))
+        XCTAssertNil(UiChoiceJump(choice(itemID: "item", blockID: "block", revision: "")))
     }
 
     private func choice(itemID: String, blockID: String, revision: String) -> ChatUserItemUiChoice {
@@ -63,6 +68,11 @@ final class IntelligentUIPresentationTests: XCTestCase {
         XCTAssertEqual(UiFallbackProblem.of(flagged, catalogVersion: 1), .unknown("Calendar"))
         XCTAssertEqual(calendar.fallback, "Mon\nTue")
         XCTAssertNil(UiFallbackProblem.of(sibling, catalogVersion: 1))
+        let unknown = try node(#"{"id":"x","type":"Gantt","props":{},"error":"unknown_component","fallback":"plan"}"#)
+        let failed = try node(#"{"id":"y","type":"Stat","props":{},"error":"invalid_props","fallback":"Files"}"#)
+        XCTAssertEqual(UiFallbackProblem.of(unknown, catalogVersion: 1), .unknown("Gantt"))
+        XCTAssertEqual(UiFallbackProblem.of(failed, catalogVersion: 1), .failed)
+        XCTAssertEqual(UiFallbackProblem.of(sibling, catalogVersion: 2), .unknown("Summary"))
     }
 
     func testAWholeBlockReadsAsTextOnlyForItsOwnReasons() throws {
@@ -75,6 +85,22 @@ final class IntelligentUIPresentationTests: XCTestCase {
         XCTAssertEqual(UiBlockText.of(block: broken, evaluated: [], diagnostics: [], error: nil), .tooLarge)
         let block = try JSONValue.decode(Data(sliderBlock.utf8))
         XCTAssertNil(UiBlockText.of(block: block, evaluated: [], diagnostics: [], error: nil))
+        XCTAssertEqual(
+            UiBlockText.of(
+                block: block, evaluated: [],
+                diagnostics: [
+                    .object(["code": .string("budget_exceeded"), "message": .string("Runtime node limit")])
+                ], error: nil), .tooLarge)
+        let diagnostic = broken.setting(
+            "diagnostics",
+            .array([
+                .object(["code": .string("invalid_syntax"), "message": .string("Missing closing tag")])
+            ]))
+        XCTAssertEqual(
+            UiBlockText.of(block: diagnostic, evaluated: [], diagnostics: [], error: nil),
+            .diagnostic("Missing closing tag"))
+        XCTAssertEqual(
+            UiBlockText.of(block: block, evaluated: [], diagnostics: [], error: "Evaluation failed"), .unreadable)
     }
 
     func testTableColumnsComeFromColumnsOrFromTheRows() throws {
@@ -143,6 +169,23 @@ final class IntelligentUIPresentationTests: XCTestCase {
     }
 
     func testAScaleNeedsASpanItCanDivideBy() throws {
+        let stacked = try XCTUnwrap(
+            UiChartData(
+                try node(
+                    #"{"id":"c","type":"Chart","props":{"kind":"stacked","data":[{"label":"Balance","income":10,"cost":-6}]}}"#
+                )))
+        XCTAssertEqual(stacked.kind, "bar")
+        XCTAssertEqual(stacked.min, -6)
+        let hbar = try XCTUnwrap(
+            UiChartData(
+                try node(
+                    #"{"id":"c","type":"Chart","props":{"kind":"hbar","data":[{"label":"Core","value":-3}]}}"#)))
+        XCTAssertEqual(hbar.kind, "hbar")
+        XCTAssertEqual(UiChartData.range(hbar.min, hbar.max), -5...0)
+        XCTAssertNil(
+            UiChartData(
+                try node(
+                    #"{"id":"c","type":"Chart","props":{"kind":"bar","data":[{"label":"Huge","count":1.5e308}]}}"#)))
         XCTAssertNil(UiChartData.range(0, .leastNonzeroMagnitude))
         XCTAssertNil(UiChartData.range(0, 1e-310))
         XCTAssertNotNil(UiChartData.range(0, 1e-300))
@@ -316,9 +359,64 @@ final class IntelligentUIPresentationTests: XCTestCase {
         XCTAssertTrue((0..<0.5).contains(corner.x) && (0..<0.5).contains(corner.y))
     }
 
-    func testAMapOutOfItsPlacesReadsHowManyWereLeftOut() throws {
+    @MainActor func testAMapOutOfItsPlacesReadsHowManyWereLeftOut() async throws {
+        try NativePresentationProbe.enableAccessibility()
         XCTAssertEqual(try map(utrecht, omitted: 3).omitted, 3)
         XCTAssertEqual(try node(#"{"id":"x","type":"Map","props":{}}"#).omitted, 0)
+        func compiled(_ id: String, _ type: String, props: [String: JSONValue], children: [JSONValue] = []) -> JSONValue
+        {
+            .object([
+                "id": .string(id), "type": .string(type), "props": .object(props), "expressions": .object([:]),
+                "bindings": .object([:]), "children": .array(children), "complete": .bool(true),
+                "start": .number(0), "end": .number(1), "fallback": .string(""),
+            ])
+        }
+        let places = (0..<53).map { index in
+            compiled(
+                "p\(index)", "Place", props: ["address": .string("Address \(index)")],
+                children: [
+                    compiled("label\(index)", "$text", props: ["text": .string("Place \(index)")])
+                ])
+        }
+        let block = try JSONValue.decode(Data(sliderBlock.utf8)).setting(
+            "nodes",
+            .array([
+                compiled("map", "Map", props: [:], children: places)
+            ]))
+        let result = try await UiInterpreter().evaluate(block: block)
+        let evaluated = try XCTUnwrap(UiNode(try XCTUnwrap(result["nodes"]?.arrayValue?.first)))
+        XCTAssertEqual(evaluated.children(of: "Place").count, 50)
+        XCTAssertEqual(evaluated.omitted, 3)
+        let model = UiBlockModel(chatID: "map", itemID: "item", block: block) { _, _ in
+            throw CancellationError()
+        }
+        let context = UiRenderContext(
+            model: model, local: UiBlockLocal(), host: UiHost(), written: [], headID: nil, catalogVersion: 1)
+        let host = UIHostingController(rootView: ScrollView { UiMapView(node: evaluated, context: context) })
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(x: 0, y: 0, width: 402, height: 874)
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        defer {
+            window.isHidden = true
+            window.rootViewController = nil
+            model.stop()
+        }
+        var caption: NSObject?
+        for _ in 0..<120 {
+            await NativePresentationProbe.frame()
+            if let scroll = NativePresentationProbe.elements(in: host.view).compactMap({ $0 as? UIScrollView }).first {
+                scroll.setContentOffset(
+                    CGPoint(x: 0, y: max(0, scroll.contentSize.height - scroll.bounds.height)), animated: false)
+            }
+            caption = NativePresentationProbe.elements(in: host.view).first {
+                $0.accessibilityLabel == "3 more places not shown"
+                    && window.convert(window.bounds, to: nil).intersects($0.accessibilityFrame)
+            }
+            if caption != nil { break }
+        }
+        XCTAssertNotNil(caption)
     }
 
     func testTheMapSaysWhyItHasNoBaseMap() throws {
@@ -331,7 +429,8 @@ final class IntelligentUIPresentationTests: XCTestCase {
 
     func testAModelReadsItsAttachmentAltAndCaption() throws {
         let model = try node(
-            #"{"id":"m","type":"Model","props":{"attachment":"att-1","alt":"Bracket"},"complete":true,"children":[{"id":"t","type":"$text","props":{"text":"A printed bracket"}}]}"#)
+            #"{"id":"m","type":"Model","props":{"attachment":"att-1","alt":"Bracket"},"complete":true,"children":[{"id":"t","type":"$text","props":{"text":"A printed bracket"}}]}"#
+        )
         XCTAssertNil(UiFallbackProblem.of(model, catalogVersion: 1))
         XCTAssertEqual(model.string("attachment"), "att-1")
         XCTAssertEqual(model.string("alt"), "Bracket")
@@ -340,7 +439,9 @@ final class IntelligentUIPresentationTests: XCTestCase {
 
     private func bytes(_ parts: [UInt8]...) -> Data { Data(parts.joined()) }
 
-    private func littleEndian(_ value: UInt32) -> [UInt8] { (0..<4).map { UInt8(truncatingIfNeeded: value >> ($0 * 8)) } }
+    private func littleEndian(_ value: UInt32) -> [UInt8] {
+        (0..<4).map { UInt8(truncatingIfNeeded: value >> ($0 * 8)) }
+    }
 
     private func zip(firstEntry name: String) -> Data {
         var header = [UInt8](repeating: 0, count: 30)
@@ -354,7 +455,8 @@ final class IntelligentUIPresentationTests: XCTestCase {
         return bytes(title, littleEndian(triangles), [UInt8](repeating: 0, count: 50 * Int(triangles)))
     }
 
-    private let triangle = "solid part\n facet normal 0 0 1\n  outer loop\n   vertex 0 0 0\n   vertex 10 0 0\n   vertex 0 10 0\n  endloop\n endfacet\nendsolid part\n"
+    private let triangle =
+        "solid part\n facet normal 0 0 1\n  outer loop\n   vertex 0 0 0\n   vertex 10 0 0\n   vertex 0 10 0\n  endloop\n endfacet\nendsolid part\n"
 
     func testAModelIsToldByItsBytesAndNotItsName() {
         XCTAssertEqual(UiModelFormat.of(bytes(Array("glTF".utf8), littleEndian(2), littleEndian(12))), .gltfBinary)
@@ -392,24 +494,37 @@ final class IntelligentUIPresentationTests: XCTestCase {
 
     func testTheTemporaryFileGoesWithTheScene() throws {
         let folder = FileManager.default.temporaryDirectory.appending(path: "models", directoryHint: .isDirectory)
-        let before = Set((try? FileManager.default.contentsOfDirectory(atPath: folder.path())) ?? [])
-        var model = UiModelScene.open(Data(triangle.utf8), format: .stl)
-        XCTAssertNotNil(model)
-        model = nil
-        let after = Set((try? FileManager.default.contentsOfDirectory(atPath: folder.path())) ?? [])
-        XCTAssertEqual(after.subtracting(before), [])
+        let data = Data(triangle.replacingOccurrences(of: "part", with: UUID().uuidString).utf8)
+        func files() throws -> Set<URL> {
+            Set(
+                try FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)
+                    .filter { (try? Data(contentsOf: $0)) == data })
+        }
+        var first = try XCTUnwrap(UiModelScene.open(data, format: .stl)) as UiModelScene?
+        let firstFile = try XCTUnwrap(files().first)
+        XCTAssertEqual(try files(), [firstFile])
+        var second = try XCTUnwrap(UiModelScene.open(data, format: .stl)) as UiModelScene?
+        let secondFile = try XCTUnwrap(files().subtracting([firstFile]).first)
+        XCTAssertEqual(try files(), [firstFile, secondFile])
+        withExtendedLifetime((first, second)) {}
+        first = nil
+        XCTAssertFalse(FileManager.default.fileExists(atPath: firstFile.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: secondFile.path))
+        second = nil
+        XCTAssertTrue(try files().isEmpty)
     }
 
-    /// Every component the shared interpreter evaluates in the fixtures is one this version draws; a component the
-    /// catalog gained and the renderer lacks would read as unknown here.
-    func testEveryEvaluatedComponentOfTheFixturesIsOneTheAppDraws() throws {
+    func testEveryEvaluatedFixtureComponentIsInTheAppsCatalog() throws {
         let url = try XCTUnwrap(
             Bundle(for: Self.self).url(forResource: "intelligent-ui-presentation", withExtension: "json"))
         let cases = try XCTUnwrap(JSONValue.decode(Data(contentsOf: url)).arrayValue)
+        XCTAssertFalse(cases.isEmpty)
+        var visited = 0
         for fixture in cases {
             let name = fixture["name"]?.stringValue ?? ""
             func visit(_ list: [UiNode]) {
                 for node in list where node.error == nil && !node.isText {
+                    visited += 1
                     XCTAssertTrue(
                         UiCatalog.components.contains(node.type) || name == "unknown component", "\(name) \(node.type)")
                     visit(node.children)
@@ -417,6 +532,7 @@ final class IntelligentUIPresentationTests: XCTestCase {
             }
             visit(UiNode.list(fixture["nodes"]?.arrayValue ?? []))
         }
+        XCTAssertGreaterThan(visited, 0)
     }
 
     /// Labels, table columns and chart data against the desktop's own functions, from fixtures the generator writes.

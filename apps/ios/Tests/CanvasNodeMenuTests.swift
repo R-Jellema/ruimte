@@ -99,19 +99,30 @@ import Testing
     }
 
     @Test func openAsViewKeepsTheSessionsIdAndWhatItRunsWith() {
+        let future: JSONValue = .object(["nested": .array([.number(7), .string("kept")])])
+        let issue: JSONValue = .object([
+            "repo": .string("space/ruimte"), "number": .number(7), "url": .string("https://example.test/issues/7"),
+        ])
         let chat = node("chat-1", "chat").setting("provider", .string("claude")).setting("cwd", .string("app"))
+            .setting("futureSession", future).setting("issue", issue).setting("machine", .string("live-machine"))
         let view = CanvasEditing.view(for: chat)
         #expect(view.stableID == "chat-1")
         #expect(view["node"]?["provider"] == .string("claude"))
         #expect(view["node"]?["cwd"] == .string("app"))
+        #expect(view["node"]?["futureSession"] == future)
+        #expect(view["node"]?["issue"] == issue)
+        #expect(view["node"]?["machine"] == nil)
         let reference: JSONValue = .object(["platform": .string("ios"), "name": .string("iPhone 17")])
-        let device = CanvasEditing.view(for: node("dev", "device").setting("device", reference))
+        let device = CanvasEditing.view(
+            for: node("dev", "device").setting("device", reference).setting("futureDevice", future))
         #expect(device["device"] == reference)
         #expect(device["node"] == nil)
+        #expect(device["futureDevice"] == future)
         let browser = CanvasEditing.view(
             for: node("browser", "browser").setting("url", .string("http://127.0.0.1:5173/"))
-                .setting("browserOwner", .string("owner-machine")))
+                .setting("browserOwner", .string("owner-machine")).setting("futureBrowser", future))
         #expect(browser["browserOwner"] == .string("owner-machine"))
         #expect(browser["url"] == .string("http://127.0.0.1:5173/"))
+        #expect(browser["futureBrowser"] == future)
     }
 }

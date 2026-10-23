@@ -82,6 +82,15 @@ enum GitWorktreeBinding {
         }
         while name.hasPrefix("-") { name.removeFirst() }
         while name.hasSuffix("-") { name.removeLast() }
+        name = name.split(separator: "/").compactMap { part -> String? in
+            var component = String(part)
+            while component.contains("..") { component = component.replacingOccurrences(of: "..", with: "-") }
+            while component.hasPrefix(".") { component.removeFirst() }
+            while component.hasSuffix(".") { component.removeLast() }
+            if component.hasSuffix(".lock") { component = String(component.dropLast(5)) + "-lock" }
+            return component.isEmpty ? nil : component
+        }.joined(separator: "/")
+        while name.hasPrefix("-") || name.hasPrefix("/") || name.hasPrefix(".") { name.removeFirst() }
         return name.isEmpty ? "work" : name
     }
 

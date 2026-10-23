@@ -1,10 +1,12 @@
 import RuimtePulsar
 import RuimteTransport
 import XCTest
+
 @testable import Ruimte
 
 final class OlderMachineTests: XCTestCase {
-    private static let olderMachine = "This machine runs an older Ruimte. Update Ruimte there, or restart it to pick up the update."
+    private static let olderMachine =
+        "This machine runs an older Ruimte. Update Ruimte there, or restart it to pick up the update."
 
     @MainActor private func openSession(
         _ answer: String
@@ -28,12 +30,15 @@ final class OlderMachineTests: XCTestCase {
         session.retain()
         link?.gate.start()
         link?.gate.receive(answer)
-        for _ in 0..<10 { await Task.yield() }
-        return (session, {
-            session.release()
-            holder.release()
-            connections.shutdown()
-        })
+        await waitForNativeState { session.connected || session.problem != nil }
+        return (
+            session,
+            {
+                session.release()
+                holder.release()
+                connections.shutdown()
+            }
+        )
     }
 
     @MainActor func testAMachineWithoutFeaturesLeavesTheOlderRuimteLineAsTheProblem() async {

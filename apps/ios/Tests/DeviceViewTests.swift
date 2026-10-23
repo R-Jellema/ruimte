@@ -35,7 +35,8 @@ import Testing
         #expect(DeviceView.phase(for: Self.device()) == .starting)
         #expect(DeviceView.phase(for: Self.device(state: "shutdown")) == .stopped)
         #expect(DeviceView.phase(for: Self.device(state: "transitioning")) == .starting)
-        if case .noStream = DeviceView.phase(for: Self.device(stream: false)) {} else {
+        if case .noStream = DeviceView.phase(for: Self.device(stream: false)) {
+        } else {
             Issue.record("A device without a stream should say so")
         }
         #expect(DeviceView.canBoot(Self.device(state: "shutdown")))
@@ -46,7 +47,8 @@ import Testing
         let format = MachineClientError.server(code: "device-format-unsupported", message: "Update Ruimte")
         #expect(DeviceView.phase(forOpenError: format) == .unsupportedFormat)
         #expect(
-            DeviceView.phase(forOpenError: MachineClientError.server(code: "device-not-booted", message: "")) == .stopped)
+            DeviceView.phase(forOpenError: MachineClientError.server(code: "device-not-booted", message: ""))
+                == .stopped)
         #expect(
             DeviceView.phase(forOpenError: MachineClientError.server(code: "device-not-found", message: ""))
                 == .notOnMachine)
@@ -56,7 +58,7 @@ import Testing
     }
 
     @Test func buttonsKeepWhatThisVersionKnowsAndDefaultToAnIPhonesOwn() {
-        #expect(DeviceView.buttons(Self.device()) == DeviceView.iosButtons)
+        #expect(DeviceView.buttons(Self.device()) == ["home", "swipeHome", "appSwitcher", "lock", "siri"])
         #expect(DeviceView.buttons(Self.device(buttons: ["back", "home", "teleport"])) == ["back", "home"])
     }
 
@@ -80,10 +82,13 @@ import Testing
         #expect(open?["formats"] == .array([.string("jpeg")]))
 
         model.touch("down", at: CGPoint(x: 0.5, y: 0.96))
-        for _ in 0..<20 where !machine.requests.contains(where: { $0.0 == "device.input" }) { await Task.yield() }
+        await machine.waitForInput()
         let input = machine.requests.first { $0.0 == "device.input" }?.1
         #expect(input?["deviceId"] == .string("UDID-1"))
         #expect(input?["input"]?["edge"] == .string("bottom"))
+        #expect(input?["input"]?["phase"] == .string("down"))
+        #expect(input?["input"]?["x"] == .number(0.5))
+        #expect(input?["input"]?["y"] == .number(0.96))
     }
 
     @Test func aDeviceThatStreamsVideoOrIsMissingSaysSoInsteadOfAScreen() async {
@@ -118,11 +123,17 @@ import Testing
     var devices: [JSONValue]
     var openRefusal: String?
     var requests: [(String, JSONValue)] = []
+    private let inputArrival = NativeArrival()
+
+    func waitForInput() async {
+        await inputArrival.wait()
+    }
 
     init(devices: [JSONValue]) { self.devices = devices }
 
     func request(_ type: String, payload: JSONValue) async throws -> JSONValue {
         requests.append((type, payload))
+        if type == "device.input" { inputArrival.record() }
         switch type {
         case "device.list": return .object(["devices": .array(devices)])
         case "device.open":

@@ -44,6 +44,7 @@ final class WorkspaceVisualTests: XCTestCase {
     }
 
     @MainActor func testRealWorkspaceSectionsAcrossPhoneTabletAndTypeSizes() async throws {
+        try NativePresentationProbe.enableAccessibility()
         for (name, size, dark, typeSize, horizontalClass) in [
             (
                 "workspace-sections-iphone", CGSize(width: 402, height: 874), false, DynamicTypeSize.large,
@@ -88,6 +89,32 @@ final class WorkspaceVisualTests: XCTestCase {
             let window = makeWindow(host, size: size)
             for _ in 0..<20 { await displayFrame() }
             XCTAssertTrue(containsList(host.view), "The real workspace sidebar must be mounted")
+            let list = try XCTUnwrap(descendant(UICollectionView.self, in: host.view))
+            let expected = [
+                ["Overview of the workspace and all its running projects"],
+                ["Native iOS app", "Project checks"],
+                ["Device acceptance checklist", "Connection flow"],
+            ]
+            var rendered: [[String]] = []
+            var headingShown = NativePresentationProbe.labels(in: host.view).contains { $0.contains("Build & run") }
+            for section in 0..<list.numberOfSections {
+                var names: [String] = []
+                for row in 0..<list.numberOfItems(inSection: section) {
+                    let index = IndexPath(item: row, section: section)
+                    list.scrollToItem(at: index, at: .centeredVertically, animated: false)
+                    list.layoutIfNeeded()
+                    await displayFrame()
+                    if NativePresentationProbe.labels(in: host.view).contains(where: { $0.contains("Build & run") }) {
+                        headingShown = true
+                    }
+                    let cell = try XCTUnwrap(list.cellForItem(at: index))
+                    let labels = NativePresentationProbe.labels(in: cell).joined(separator: "\n")
+                    names += expected.flatMap { $0 }.filter { labels.contains($0) }
+                }
+                if !names.isEmpty { rendered.append(names) }
+            }
+            XCTAssertEqual(rendered, expected, name)
+            XCTAssertTrue(headingShown, name)
             XCTAssertEqual(wire.client.pendingRequestCount, 0)
             capture(window, name: name)
             window.isHidden = true
