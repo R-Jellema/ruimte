@@ -168,10 +168,14 @@ public enum WireSchema {
         return try parse(value, schema: schema, path: name, definitions: schema["$defs"])
     }
 
-    private static func parse(_ input: JSONValue, schema: JSONValue, path: String, definitions: JSONValue?) throws -> JSONValue {
+    private static func parse(_ input: JSONValue, schema: JSONValue, path: String, definitions: JSONValue?) throws
+        -> JSONValue
+    {
         // A recursive schema, like the steps of a plan, points back at a definition beside its root.
         if let reference = schema["$ref"]?.stringValue {
-            guard reference.hasPrefix("#/$defs/"), let target = definitions?[String(reference.dropFirst("#/$defs/".count))] else {
+            guard reference.hasPrefix("#/$defs/"),
+                let target = definitions?[String(reference.dropFirst("#/$defs/".count))]
+            else {
                 throw WireValidationError.invalid("Unsupported generated schema at \(path)")
             }
             return try parse(input, schema: target, path: path, definitions: definitions)
@@ -180,7 +184,9 @@ public enum WireSchema {
         let fail = { WireValidationError.invalid("Invalid \(path)") }
         if let options = (schema["oneOf"] ?? schema["anyOf"])?.arrayValue {
             for option in options {
-                if let parsed = try? parse(value, schema: option, path: path, definitions: definitions) { return parsed }
+                if let parsed = try? parse(value, schema: option, path: path, definitions: definitions) {
+                    return parsed
+                }
             }
             throw fail()
         }
@@ -190,7 +196,9 @@ public enum WireSchema {
             for type in types {
                 var candidate = schema.objectValue ?? [:]
                 candidate["type"] = type
-                if let parsed = try? parse(value, schema: .object(candidate), path: path, definitions: definitions) { return parsed }
+                if let parsed = try? parse(value, schema: .object(candidate), path: path, definitions: definitions) {
+                    return parsed
+                }
             }
             throw fail()
         }
@@ -209,8 +217,8 @@ public enum WireSchema {
         case "string":
             guard let string = value.stringValue else { throw fail() }
             if schema["minLength"] != nil || schema["maxLength"] != nil {
-                // Zod's limits count UTF-16 units, including both halves of an emoji.
-                let length = Double(string.utf16.count)
+                // Zod and JSON Schema bounds count Unicode code points.
+                let length = Double(string.unicodeScalars.count)
                 if let minimum = schema["minLength"]?.numberValue, length < minimum { throw fail() }
                 if let maximum = schema["maxLength"]?.numberValue, length > maximum { throw fail() }
             }
@@ -228,7 +236,8 @@ public enum WireSchema {
             return .array(
                 try array.enumerated().map { index, value in
                     if index < prefix.count {
-                        return try parse(value, schema: prefix[index], path: "\(path)[\(index)]", definitions: definitions)
+                        return try parse(
+                            value, schema: prefix[index], path: "\(path)[\(index)]", definitions: definitions)
                     }
                     if schema["items"] == .bool(false) { throw fail() }
                     guard let item = schema["items"], item.objectValue != nil else { return value }
@@ -247,7 +256,8 @@ public enum WireSchema {
                         continue
                     }
                     if let propertyNames = schema["propertyNames"] {
-                        _ = try parse(.string(key), schema: propertyNames, path: "\(path).key", definitions: definitions)
+                        _ = try parse(
+                            .string(key), schema: propertyNames, path: "\(path).key", definitions: definitions)
                     }
                     result[key] = try parse(input, schema: additional, path: "\(path).\(key)", definitions: definitions)
                 }

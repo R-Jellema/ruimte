@@ -90,21 +90,21 @@ struct FormatTests {
     }
 
     @Test func howLongSomethingHasBeenRunningIsTwoUnitsAtATime() {
-        #expect(Format.elapsedShort(milliseconds: 12_400) == "12s")
-        #expect(Format.elapsedShort(milliseconds: 120_000) == "2m")
-        #expect(Format.elapsedShort(milliseconds: 125_000) == "2m 5s")
-        #expect(Format.elapsedShort(milliseconds: 3_780_000) == "1h 3m")
-        #expect(Format.elapsedShort(milliseconds: 2 * hour) == "2h")
-        #expect(Format.elapsedShort(milliseconds: 400) == "1s")
-        #expect(Format.elapsedShort(milliseconds: 0) == "0s")
-        #expect(Format.elapsedShort(milliseconds: -5) == "0s")
+        #expect(Format.elapsedShort(milliseconds: 12_400, in: american) == "12s")
+        #expect(Format.elapsedShort(milliseconds: 120_000, in: american) == "2m")
+        #expect(Format.elapsedShort(milliseconds: 125_000, in: american) == "2m 5s")
+        #expect(Format.elapsedShort(milliseconds: 3_780_000, in: american) == "1h 3m")
+        #expect(Format.elapsedShort(milliseconds: 2 * hour, in: american) == "2h")
+        #expect(Format.elapsedShort(milliseconds: 400, in: american) == "1s")
+        #expect(Format.elapsedShort(milliseconds: 0, in: american) == "0s")
+        #expect(Format.elapsedShort(milliseconds: -5, in: american) == "0s")
     }
 
     @Test func aStopwatchFloorsItsSecondsAndNeverRunsBackwards() {
-        #expect(Format.clockDuration(milliseconds: 14_000) == "00:14")
-        #expect(Format.clockDuration(milliseconds: hour + 2 * minute + 3_000) == "1:02:03")
-        #expect(Format.clockDuration(milliseconds: 14_900) == "00:14")
-        #expect(Format.clockDuration(milliseconds: -1_000) == "00:00")
+        #expect(Format.clockDuration(milliseconds: 14_000, in: american) == "00:14")
+        #expect(Format.clockDuration(milliseconds: hour + 2 * minute + 3_000, in: american) == "1:02:03")
+        #expect(Format.clockDuration(milliseconds: 14_900, in: american) == "00:14")
+        #expect(Format.clockDuration(milliseconds: -1_000, in: american) == "00:00")
     }
 
     @Test func howLongAWindowStillHasNeverCountsDownToZeroMinutes() {

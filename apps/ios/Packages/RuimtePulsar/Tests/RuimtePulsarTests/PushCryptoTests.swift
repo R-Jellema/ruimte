@@ -42,7 +42,11 @@ struct PushCryptoTests {
         let content = try key.decryptRead(push, handle: handle, machinePublicKeys: keys, now: 2000)
         #expect(content.nodeId == "node-1")
         #expect(content.through == 999)
-        #expect(throws: (any Error).self) { try key.decrypt(push, handle: handle, machinePublicKeys: keys, now: 2000) }
+        #expect {
+            try key.decrypt(push, handle: handle, machinePublicKeys: keys, now: 2000)
+        } throws: { error in
+            if case PushCryptoError.invalid = error { true } else { false }
+        }
         #expect(throws: (any Error).self) {
             try key.decryptRead(push, handle: handle, machinePublicKeys: keys, now: 121001)
         }

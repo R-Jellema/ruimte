@@ -21,7 +21,9 @@ final class ChatUiDeltaTests: XCTestCase {
     }
 
     private func assistant(_ item: ChatItem) throws -> ChatAssistantItem {
-        guard case .assistant(let reply) = item else { throw XCTSkip("Not a reply") }
+        guard case .assistant(let reply) = item else {
+            return try XCTUnwrap(nil, "The reply came back as another kind")
+        }
         return reply
     }
 

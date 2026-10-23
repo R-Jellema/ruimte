@@ -48,10 +48,19 @@ struct PushAPITests {
             try await api.reserveActivity(
                 handle: handle, machineID: "machine", collapseID: handle, accessToken: "access"))
         let sent = await requests.values
+        try #require(sent.count == 2)
+        #expect(sent.map(\.httpMethod) == ["PUT", "PUT"])
+        #expect(
+            sent.map { $0.url?.path } == [
+                "/v1/push/devices/\(handle)/start-activity", "/v1/push/devices/\(handle)/activities",
+            ])
         let route = try JSONValue.decode(#require(sent[0].httpBody))
         let reserve = try JSONValue.decode(#require(sent[1].httpBody))
-        #expect(route["machineId"] == reserve["machineId"])
-        #expect(route["collapseId"] == reserve["collapseId"])
+        #expect(route["machineId"] == .string("machine"))
+        #expect(route["collapseId"] == .string(handle))
+        #expect(route["token"] == .string(String(repeating: "ab", count: 32)))
+        #expect(reserve["machineId"] == .string("machine"))
+        #expect(reserve["collapseId"] == .string(handle))
         #expect(reserve["reserve"] == .bool(true))
     }
 
@@ -77,12 +86,21 @@ struct PushAPITests {
         try await api.startActivity(handle: handle, token: nil, accessToken: "access")
         try await api.remove(handle: handle, accessToken: "access")
         let sent = await requests.values
+        try #require(sent.count == 4)
         #expect(sent.map(\.httpMethod) == ["POST", "PUT", "PUT", "DELETE"])
+        #expect(
+            sent.map { $0.url?.path } == [
+                "/v1/push/devices", "/v1/push/devices/\(handle)/activities",
+                "/v1/push/devices/\(handle)/start-activity", "/v1/push/devices/\(handle)",
+            ])
         #expect(
             sent.allSatisfy {
                 $0.value(forHTTPHeaderField: "Authorization") == "Bearer access" && $0.url?.scheme == "https"
             })
         #expect(try JSONValue.decode(#require(sent[1].httpBody))["machineId"] == .string("machine-1"))
+        #expect(try JSONValue.decode(#require(sent[1].httpBody))["collapseId"] == .string(handle))
+        #expect(
+            try JSONValue.decode(#require(sent[1].httpBody))["token"] == .string(String(repeating: "cd", count: 32)))
         #expect(try JSONValue.decode(#require(sent[2].httpBody))["token"] == .null)
     }
 

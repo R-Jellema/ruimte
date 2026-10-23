@@ -116,10 +116,45 @@ struct WireSchemaTests {
         }
     }
 
-    @Test func stringBoundsUseTypeScriptUTF16() throws {
-        #expect(throws: (any Error).self) {
-            try WireSchema.validate(
-                "ProvidersResultSchema", .object(["providers": .array([.string(String(repeating: "📱", count: 17))])]))
+    @Test func stringBoundsMatchZodCodePoints() throws {
+        let providers: [(String, Bool)] = [
+            ("", true),
+            (String(repeating: "a", count: 32), true),
+            (String(repeating: "a", count: 33), false),
+            (String(repeating: "📱", count: 16), true),
+            (String(repeating: "📱", count: 17), true),
+            (String(repeating: "📱", count: 32), true),
+            (String(repeating: "📱", count: 33), false),
+            (String(repeating: "é", count: 32), true),
+            (String(repeating: "e\u{301}", count: 16), true),
+            (String(repeating: "e\u{301}", count: 16) + "a", false),
+            (String(repeating: "e\u{301}", count: 17), false),
+        ]
+        for (provider, valid) in providers {
+            let input: JSONValue = .object(["providers": .array([.string(provider)])])
+            let parsed = try? WireSchema.validate("ProvidersResultSchema", input)
+            #expect(parsed == (valid ? input : nil), "Provider: \(provider.debugDescription)")
+            if let parsed { #expect(try parsed.encoded() == input.encoded()) }
+        }
+        let languages: [(String, Bool)] = [
+            ("", false),
+            ("a", false),
+            ("en", true),
+            ("📱", false),
+            ("📱📱", true),
+            ("e\u{301}", true),
+            (String(repeating: "a", count: 16), true),
+            (String(repeating: "a", count: 17), false),
+            (String(repeating: "📱", count: 16), true),
+            (String(repeating: "📱", count: 17), false),
+            (String(repeating: "e\u{301}", count: 8), true),
+            (String(repeating: "e\u{301}", count: 9), false),
+        ]
+        for (language, valid) in languages {
+            let input: JSONValue = .object(["language": .string(language)])
+            let parsed = try? WireSchema.validate("request.computer.setLanguage.payload", input)
+            #expect(parsed == (valid ? input : nil), "Language: \(language.debugDescription)")
+            if let parsed { #expect(try parsed.encoded() == input.encoded()) }
         }
     }
 }

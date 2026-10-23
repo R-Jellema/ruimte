@@ -91,6 +91,7 @@ struct TypedWireTests {
         #expect(throws: DecodingError.self) {
             try JSONValue.object(["cwd": .string("/work"), "status": .object(status)]).decoded(as: GitStatusEvent.self)
         }
+        status["ahead"] = output["status"]?["ahead"]
         status.removeValue(forKey: "branch")
         #expect(throws: DecodingError.self) { try JSONValue.object(status).decoded(as: GitStatus.self) }
     }
