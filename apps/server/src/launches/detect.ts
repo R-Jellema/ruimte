@@ -63,7 +63,7 @@ function decodeEntities(text: string): string {
 }
 
 /* Elements and attributes only: a run configuration keeps everything it says in attributes. */
-export function parseXml(text: string): XmlElement {
+function parseXml(text: string): XmlElement {
     const root: XmlElement = { name: '#document', attributes: {}, children: [] };
     const stack = [root];
     const body = text.replace(/<!--[\s\S]*?-->/g, '').replace(/<\?[\s\S]*?\?>/g, '');
@@ -110,7 +110,7 @@ export function shellQuote(value: string): string {
     return /^[\w@%+=:,./-]+$/.test(value) ? value : `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
-export function slugOf(name: string): string {
+function slugOf(name: string): string {
     return (
         name
             .toLowerCase()
@@ -348,7 +348,7 @@ async function packageRunner(folder: string, cwd: string): Promise<string> {
 }
 
 /* The address a dev server script answers on, when the tool says it without reading its config. */
-export function scriptAddress(script: string): string | undefined {
+function scriptAddress(script: string): string | undefined {
     const port = /--port[= ](\d+)/.exec(script)?.[1];
     if (/^vite preview\b/.test(script)) {
         return `http://localhost:${port ?? '4173'}`;

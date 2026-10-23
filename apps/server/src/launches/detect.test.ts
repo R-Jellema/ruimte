@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { detectLaunches, parseXml, scriptAddress, slugOf } from './detect.ts';
+import { detectLaunches } from './detect.ts';
 
 const runServer = `<component name="ProjectRunConfigurationManager">
   <configuration default="false" name="Run server" type="PhpBuiltInWebServerConfigurationType" factoryName="PHP Built-in Web Server" activateToolWindowBeforeRun="false" document_root="$PROJECT_DIR$/public" host="0.0.0.0" port="8000" router_script="$PROJECT_DIR$/dev/server.php" use_router_script="true">
@@ -102,18 +102,27 @@ afterEach(async () => {
 
 describe('run configurations', () => {
     test('a PHP server puts its flags before -S, with the document root and the router after', async () => {
+        await write(
+            'backend/dev/run/Run server.run.xml',
+            runServer
+                .replace('name="Run server"', 'name="Run &amp; &#65; &quot;b&quot;"')
+                .replace('$PROJECT_DIR$/public', '$PROJECT_DIR$/public &amp; &#65;')
+                .replace('<method v="2" />', '<envs><env name="TOKEN" value="&quot;b&quot; &amp; &#65;"/></envs>')
+        );
         const suggestions = await detectLaunches(folder, [join(folder, 'backend'), join(folder, 'frontend')]);
-        const server = suggestions.find((suggestion) => suggestion.launch.name === 'Run server');
+        const server = suggestions.find((suggestion) => suggestion.launch.name === 'Run & A "b"');
         expect(server).toMatchObject({
             source: 'run-xml',
             path: 'backend/dev/run/Run server.run.xml',
             detail: 'PHP Built-in Web Server',
             private: false,
             launch: {
-                id: 'run-server',
+                id: 'run-a-b',
+                name: 'Run & A "b"',
+                env: { TOKEN: '"b" & A' },
                 kind: 'service',
                 cwd: 'backend',
-                command: 'php -dopcache.enable=1 -dopcache.jit_buffer_size=128M -dopcache.jit=tracing -S 0.0.0.0:8000 -t public dev/server.php',
+                command: "php -dopcache.enable=1 -dopcache.jit_buffer_size=128M -dopcache.jit=tracing -S 0.0.0.0:8000 -t 'public & A' dev/server.php",
                 url: 'http://localhost:8000'
             }
         });
@@ -178,11 +187,30 @@ describe('run configurations', () => {
 
 describe('package scripts', () => {
     test('run through the package manager of the lockfile, without the install hooks', async () => {
+        await write(
+            'frontend/package.json',
+            JSON.stringify({
+                scripts: {
+                    dev: 'vite',
+                    build: 'vite build',
+                    preview: 'vite preview',
+                    postinstall: 'touch vite.config.ts',
+                    'dev:port': 'vite --port 3001',
+                    'dev:next': 'next dev',
+                    'serve:build': 'vite build',
+                    'serve:node': 'node server.js'
+                }
+            })
+        );
         const suggestions = (await detectLaunches(folder, [join(folder, 'frontend')])).filter((suggestion) => suggestion.source === 'package-json');
         expect(suggestions.map((suggestion) => [suggestion.launch.id, suggestion.launch.kind, suggestion.launch.command, suggestion.launch.url])).toEqual([
             ['dev', 'service', 'bun run dev', 'http://localhost:5173'],
             ['build', 'task', 'bun run build', undefined],
-            ['preview', 'service', 'bun run preview', 'http://localhost:4173']
+            ['preview', 'service', 'bun run preview', 'http://localhost:4173'],
+            ['dev-port', 'service', 'bun run dev:port', 'http://localhost:3001'],
+            ['dev-next', 'service', 'bun run dev:next', 'http://localhost:3000'],
+            ['serve-build', 'service', 'bun run serve:build', undefined],
+            ['serve-node', 'service', 'bun run serve:node', undefined]
         ]);
         expect(suggestions[0]).toMatchObject({ source: 'package-json', path: 'frontend/package.json', detail: 'dev' });
     });
@@ -197,9 +225,12 @@ describe('package scripts', () => {
     });
 
     test('ids stay unique over the suggestions', async () => {
-        await write('shop/package.json', JSON.stringify({ scripts: { dev: 'nuxt dev' } }));
+        await write('shop/package.json', JSON.stringify({ scripts: { dev: 'nuxt dev', 'Build:no-check': 'tsc', '!!!': 'node server.js' } }));
         const suggestions = await detectLaunches(folder, [join(folder, 'frontend'), join(folder, 'shop')]);
         expect(suggestions.filter((suggestion) => suggestion.launch.name === 'Dev').map((suggestion) => suggestion.launch.id)).toEqual(['dev', 'dev-2']);
+        expect(suggestions.find((suggestion) => suggestion.detail === 'Build:no-check')?.launch.id).toBe('build-no-check');
+        expect(suggestions.find((suggestion) => suggestion.detail === '!!!')?.launch.id).toBe('launch');
+        expect(suggestions.find((suggestion) => suggestion.launch.name === 'Run server')?.launch.id).toBe('run-server');
     });
 });
 
@@ -255,26 +286,5 @@ describe('Flutter', () => {
     test('without the source, no Flutter suggestion is sent', async () => {
         await write('pubspec.yaml', 'name: atlas\n');
         expect((await detectLaunches(folder, [])).some((suggestion) => suggestion.source === 'pubspec-yaml')).toBe(false);
-    });
-});
-
-describe('the pieces', () => {
-    test('entities in attributes are decoded', () => {
-        const document = parseXml('<a x="&quot;b&quot; &amp; &#65;"><c/></a>');
-        expect(document.children[0]?.attributes.x).toBe('"b" & A');
-        expect(document.children[0]?.children[0]?.name).toBe('c');
-    });
-
-    test('an address from the dev server a script runs', () => {
-        expect(scriptAddress('vite --port 3001')).toBe('http://localhost:3001');
-        expect(scriptAddress('vite build')).toBeUndefined();
-        expect(scriptAddress('next dev')).toBe('http://localhost:3000');
-        expect(scriptAddress('node server.js')).toBeUndefined();
-    });
-
-    test('a name becomes an id', () => {
-        expect(slugOf('Run server')).toBe('run-server');
-        expect(slugOf('Build:no-check')).toBe('build-no-check');
-        expect(slugOf('!!!')).toBe('launch');
     });
 });

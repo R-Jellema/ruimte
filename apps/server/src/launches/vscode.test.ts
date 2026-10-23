@@ -78,8 +78,21 @@ describe('node launch configurations', () => {
     });
 
     test('comments in the file do not stop the read, and text that is not JSON gives nothing', () => {
-        const text = '{ // c\n "configurations": [ { "type": "node", "request": "launch", "name": "A", "program": "a.js", }, ], }';
-        expect(readVscodeLaunch(text, ROOT, ROOT)).toHaveLength(1);
-        expect(readVscodeLaunch('nope', ROOT, ROOT)).toEqual([]);
+        const text = `{
+            // a launch file permits comments around its fields
+            "configurations": [ {
+                "type": "node", "request": "launch", "name": "A", "program": "a.js", /* inline */
+                "args": ["one", "two",],
+                "env": {"URL": "http://localhost:3000/a//b", "NOTE": "/* not a comment */",},
+            }, ],
+        }`;
+        expect(readVscodeLaunch(text, ROOT, ROOT)).toMatchObject([
+            {
+                launch: { name: 'A', command: 'node a.js one two', env: { URL: 'http://localhost:3000/a//b', NOTE: '/* not a comment */' } }
+            }
+        ]);
+        for (const malformed of ['nope', '{ nope']) {
+            expect(readVscodeLaunch(malformed, ROOT, ROOT)).toEqual([]);
+        }
     });
 });
