@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
+import * as fs from 'node:fs/promises';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -166,14 +167,52 @@ describe('createReleaseNotes', () => {
 
     test('answers two callers at the same moment with one request', async () => {
         let calls = 0;
+        const started = Promise.withResolvers<void>();
+        const response = Promise.withResolvers<Response>();
         const notes = createReleaseNotes({
             cacheFile,
             fetch: async () => {
                 calls += 1;
-                return answer(200, [release('v0.0.8')]);
+                started.resolve();
+                return response.promise;
             }
         });
-        await Promise.all([notes.list(true), notes.list(true)]);
+        const first = notes.list(true);
+        await started.promise;
+        const second = notes.list(true);
+        response.resolve(answer(200, [release('v0.0.8')]));
+        await Promise.all([first, second]);
         expect(calls).toBe(1);
+    });
+
+    test('a late initial cache read cannot overwrite a completed refresh or trigger a second request', async () => {
+        const empty = JSON.stringify({ etag: null, fetchedAt: null, releases: [] });
+        const late = Promise.withResolvers<string>();
+        const readFile = fs.readFile;
+        let reads = 0;
+        let calls = 0;
+        const reader = spyOn(fs, 'readFile').mockImplementation(((path, options) => {
+            if (String(path) !== cacheFile || options !== 'utf8') {
+                return readFile(path, options);
+            }
+            return ++reads === 1 ? Promise.resolve(empty) : late.promise;
+        }) as typeof fs.readFile);
+        try {
+            const notes = createReleaseNotes({
+                cacheFile,
+                fetch: async () => {
+                    calls += 1;
+                    return answer(200, [release('v0.0.8')]);
+                }
+            });
+            const first = notes.list(true);
+            const second = notes.list(true);
+            const refreshed = await first;
+            late.resolve(empty);
+            expect(await second).toEqual(refreshed);
+            expect(calls).toBe(1);
+        } finally {
+            reader.mockRestore();
+        }
     });
 });

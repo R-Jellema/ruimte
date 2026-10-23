@@ -1,12 +1,11 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, setDefaultTimeout, test } from 'bun:test';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { ChatTurnItem, ProjectContent } from '@ruimte/contracts';
 import { ManualClock, claudeStoppingOnResume, type FakeCli } from '@adecore/agents/testing';
 import { BundleStore } from '../git/bundles.ts';
 import { Checkpoints } from '../git/checkpoints.ts';
-import { gitIn, initRepo, NO_WORKTREE_AGENTS } from '../git/test-repo.ts';
+import { gitIn, initRepo, repoTemplate, type RepoTemplate, NO_WORKTREE_AGENTS } from '../git/test-repo.ts';
 import { Worktrees } from '../git/worktrees.ts';
 import { projectLinks } from '../projects/project-file-test-helpers.ts';
 import { ProjectStore } from '../projects/project-store.ts';
@@ -18,6 +17,9 @@ import type { PeerLink } from './peer-connection.ts';
  * hands each request to B's dispatcher as a machine of the account would and carries B's events back.
  * The git is real, so the checkout travels as a bundle and the work comes back as one; the CLIs are fakes.
  */
+
+// Three handoffs start hundreds of Git processes; their startup speed is not what this file tests.
+setDefaultTimeout(30_000);
 
 const A = 'machine-a';
 const B = 'machine-b';
@@ -126,6 +128,7 @@ class InProcessLink implements PeerLink {
 }
 
 let root: string;
+let template: RepoTemplate;
 let a: Side;
 let b: Side;
 let daemonA: TestDaemon;
@@ -150,15 +153,24 @@ async function side(name: string): Promise<Side> {
     };
 }
 
+beforeAll(async () => {
+    template = await repoTemplate('ruimte-delegated', async (dir) => {
+        await initRepo(join(dir, 'a'), { 'a.txt': 'one\n' });
+        await gitIn(dir, ['clone', '--quiet', join(dir, 'a'), join(dir, 'b')]);
+        for (const [key, value] of Object.entries({ 'user.name': 'Ada', 'user.email': 'a@a', 'commit.gpgSign': 'false', 'gc.auto': '0' })) {
+            await gitIn(join(dir, 'b'), ['config', '--local', key, value]);
+        }
+    });
+});
+
+afterAll(async () => {
+    await template.dispose();
+});
+
 beforeEach(async () => {
-    root = await realpath(await mkdtemp(join(tmpdir(), 'ruimte-delegated-')));
+    root = await template.copy();
     a = await side('a');
     b = await side('b');
-    await initRepo(a.repo, { 'a.txt': 'one\n' });
-    await gitIn(root, ['clone', '--quiet', a.repo, b.repo]);
-    for (const [key, value] of Object.entries({ 'user.name': 'Ada', 'user.email': 'a@a', 'commit.gpgSign': 'false', 'gc.auto': '0' })) {
-        await gitIn(b.repo, ['config', '--local', key, value]);
-    }
     a.projectId = (await a.store.openProject({ folder: a.repo })).summary.projectId;
     await a.store.save(a.projectId, 0, leadContent());
     a.store.release(a.projectId);
@@ -302,7 +314,7 @@ describe('a task given to another machine', () => {
 
         for (let i = 1; i <= 3; i++) {
             const task = await give('Say hi', `Build part ${i}`);
-            await daemonA.until(() => daemonA.tasks.get(task.taskId)?.status === 'done');
+            await daemonA.until(() => wakeTurns(daemonA).some((turn) => turn.taskIds?.includes(task.taskId) && turn.state === 'done'));
             await daemonA.worker.settled();
             await daemonB.worker.settled();
             expect(daemonA.tasks.get(task.taskId)?.result?.text).toContain('The work came back as the branch ruimte/');

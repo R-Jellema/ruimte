@@ -87,6 +87,7 @@ function failureOf(status: number): string {
  */
 export function createReleaseNotes(options: ReleaseNotesOptions): ReleaseNotes {
     let cache: CacheFile | null = null;
+    let initialCache: Promise<CacheFile> | null = null;
     let error: string | null = null;
     let inFlight: Promise<void> | null = null;
 
@@ -127,7 +128,8 @@ export function createReleaseNotes(options: ReleaseNotesOptions): ReleaseNotes {
 
     return {
         async list(refresh) {
-            cache ??= await readCache(options.cacheFile);
+            // A late disk read must not replace a cache another caller has already refreshed.
+            cache ??= await (initialCache ??= readCache(options.cacheFile));
             if (refresh || cache.fetchedAt === null) {
                 // The dialog and the update check can ask at the same moment; one request answers both.
                 inFlight ??= fetchList(cache).finally(() => {

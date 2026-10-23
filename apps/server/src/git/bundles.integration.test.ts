@@ -1,15 +1,18 @@
-import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { chmod, mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { afterAll, afterEach, beforeAll, beforeEach, expect, setDefaultTimeout, test } from 'bun:test';
+import { chmod, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { BYTES_CHUNK_MAX } from '@ruimte/contracts';
 import { BundleStore, fetchBundle, makeBundle, sha256Of } from './bundles.ts';
 import { Checkpoints } from './checkpoints.ts';
 import { listRefs } from './refs.ts';
-import { gitIn, initRepo, NO_WORKTREE_AGENTS } from './test-repo.ts';
+import { gitIn, initRepo, repoTemplate, type RepoTemplate, NO_WORKTREE_AGENTS } from './test-repo.ts';
 import { Worktrees } from './worktrees.ts';
 
+// Real Git subprocesses on a loaded runner are not bound by the unit-test execution budget.
+setDefaultTimeout(30_000);
+
 let root: string;
+let template: RepoTemplate;
 let first: Machine;
 let second: Machine;
 
@@ -41,15 +44,24 @@ async function send(from: Machine, to: Machine, bundleId: string): Promise<void>
     }
 }
 
+beforeAll(async () => {
+    template = await repoTemplate('ruimte-bundles', async (dir) => {
+        await initRepo(join(dir, 'first'), { 'a.txt': 'one\n', 'b.txt': 'two\n' });
+        await gitIn(dir, ['clone', '--quiet', join(dir, 'first'), join(dir, 'second')]);
+        for (const [key, value] of Object.entries({ 'user.name': 'Ada', 'user.email': 'a@a', 'commit.gpgSign': 'false', 'gc.auto': '0' })) {
+            await gitIn(join(dir, 'second'), ['config', '--local', key, value]);
+        }
+    });
+});
+
+afterAll(async () => {
+    await template.dispose();
+});
+
 beforeEach(async () => {
-    root = await realpath(await mkdtemp(join(tmpdir(), 'ruimte-bundles-')));
+    root = await template.copy();
     first = await machine('first');
     second = await machine('second');
-    await initRepo(first.repo, { 'a.txt': 'one\n', 'b.txt': 'two\n' });
-    await gitIn(root, ['clone', '--quiet', first.repo, second.repo]);
-    for (const [key, value] of Object.entries({ 'user.name': 'Ada', 'user.email': 'a@a', 'commit.gpgSign': 'false', 'gc.auto': '0' })) {
-        await gitIn(second.repo, ['config', '--local', key, value]);
-    }
 });
 
 afterEach(async () => {
