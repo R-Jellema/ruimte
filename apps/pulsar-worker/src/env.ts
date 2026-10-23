@@ -2,8 +2,7 @@ import type { UsageDeps } from './usage.ts';
 
 export interface Env {
     DB: D1Database;
-    // The Analytics Engine dataset of anonymous usage, and the per-minute limit per address in front of it.
-    USAGE?: UsageDeps['dataset'];
+    // The per-minute limit per address in front of the usage relay.
     USAGE_LIMIT?: UsageDeps['burst'];
     // Where every accepted batch goes on to (`usageRelay`), and the upload token of Ruimte's product there. Never logged.
     OBSERVATORY_USAGE_URL?: string;

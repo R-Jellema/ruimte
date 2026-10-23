@@ -147,10 +147,7 @@ function database(on: Miniflare): Database {
 }
 
 // The Worker under test comes first, so every request outside the SQL path reaches it.
-function miniflare(
-    databaseId: string,
-    options: Partial<Pick<WorkerOptions, 'bindings' | 'outboundService' | 'analyticsEngineDatasets' | 'ratelimits'>>
-): Miniflare {
+function miniflare(databaseId: string, options: Partial<Pick<WorkerOptions, 'bindings' | 'outboundService' | 'ratelimits'>>): Miniflare {
     const shared = { modules: true, compatibilityDate: '2026-08-01', compatibilityFlags: ['nodejs_compat'], d1Databases: { DB: databaseId } };
     return new Miniflare({
         workers: [
@@ -188,6 +185,7 @@ const APPLE_TEAM_ID = 'TEAMID0001';
 const APPLE_KEY_ID = 'APPLEKEY01';
 const APPLE_CLIENT_ID = 'app.ruimte.test';
 const APPLE_ISSUER = 'https://appleid.apple.com';
+const OBSERVATORY_INGEST = 'https://ingest.test';
 // The .p8 the Worker signs its client secret with, and the key Apple signs every id_token with.
 const appleClientKey = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
 const appleSigningKey = generateKeyPairSync('rsa', { modulusLength: 2048 });
@@ -298,6 +296,9 @@ async function outbound(request: Request): Promise<Response> {
         return userId
             ? Response.json({ id: userId, login: `user-${userId}`, name: githubNames.get(userId) ?? null })
             : Response.json({ message: 'Bad credentials' }, { status: 401 });
+    }
+    if (url.origin === OBSERVATORY_INGEST) {
+        return new Response(null, { status: 204 });
     }
     return new Response(`unexpected outbound request to ${url.href}`, { status: 599 });
 }
@@ -540,9 +541,10 @@ beforeAll(async () => {
             GITHUB_CLIENT_ID: 'github-client',
             GITHUB_CLIENT_SECRET: GITHUB_SECRET,
             ...APPLE_BINDINGS,
-            STATEMENT_PRIVATE_KEY: statementSecret
+            STATEMENT_PRIVATE_KEY: statementSecret,
+            OBSERVATORY_USAGE_URL: `${OBSERVATORY_INGEST}/api/3/usage/?sentry_key=key`,
+            OBSERVATORY_UPLOAD_TOKEN: 'obs_token'
         },
-        analyticsEngineDatasets: { USAGE: { dataset: 'ruimte_usage' } },
         ratelimits: { USAGE_LIMIT: { namespace_id: '2001', simple: { limit: 100, period: 60 } } },
         outboundService: outbound
     });

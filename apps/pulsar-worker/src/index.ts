@@ -52,7 +52,7 @@ const ROUTES: Readonly<Record<string, Readonly<Record<string, Handler>>>> = {
     [PEER_STATEMENTS_PATH]: { POST: issuePeerStatement },
     '/v1/maps/ticket': { POST: issueMapsTicket },
     [USAGE_PATH]: {
-        POST: (request, env, ctx) => acceptUsage(request, { db: env.DB, dataset: env.USAGE, burst: env.USAGE_LIMIT, relay: relayOf(env, ctx), now: Date.now })
+        POST: (request, env, ctx) => acceptUsage(request, { db: env.DB, burst: env.USAGE_LIMIT, relay: relayOf(env, ctx), now: Date.now })
     },
     '/v1/session': { POST: exchangeLoginCode, DELETE: endSession },
     '/v1/session/refresh': { POST: refreshSession }

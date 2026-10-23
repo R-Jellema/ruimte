@@ -112,68 +112,21 @@ What the address book refuses with `bad-request` (400), always the whole batch, 
 - a cohort week after the day's week
 - a body over 32 KB
 
-A day dated after today (UTC) or before the eighth day before it is skipped, not refused: the other days are still
-written and the answer is 204, so one day from a clock that was off never costs the rest of the batch. A batch that is
-refused is wrong, so a machine drops those days rather than send them again. A `rate-limited` (429)
+The address book keeps no usage itself: a batch it takes goes on to Observatory (below), which skips a day dated after
+today (UTC) or before the eighth day before it and still takes the others. A batch that is refused is wrong, so a machine drops those days rather than send them again. A `rate-limited` (429)
 or any other failure keeps them for the next try. Each address may send three batches a minute (the
 `USAGE_LIMIT` rate limiting binding) and twenty a day (a bucket in `rate_limit` named by a SHA-256 digest of the
 day and the address, which the daily cleanup drops once the day is over). The address and the body are never logged.
 A batch that was taken but whose answer got lost is counted twice when it is sent again; there is no id to tell.
 
-### Storage
-
-The days go to the Workers Analytics Engine dataset `ruimte_usage` (binding `USAGE`). Each day is one data point per
-row of `USAGE_POINTS`: `day` always, `work` and `verbs` only when one of their counts is above zero, so a day costs
-one to three writes. The index is the date. The table in `packages/pulsar/src/usage.ts` is the only map from a field to
-its column: the writer (`usageDataPoints`) and the dashboard (`usageColumn`, `usageBlob`) both read it. Only append to
-it; a field that moves changes what every stored point means.
-
-| Blob | Field |
-| --- | --- |
-| `blob1` | the point: `day`, `work` or `verbs` |
-| `blob2` | `date`, `YYYY-MM-DD` |
-| `blob3` | `version`; a test batch uses `0.0.0-test`, and every query leaves out `0.0.0*` |
-| `blob4` | `platform` |
-| `blob5` | `arch` |
-| `blob6` | `launcher` |
-| `blob7` | `signedIn`, `1` or `0` |
-| `blob8` | `cohortWeek`, `YYYY-Www` |
-
-| Double | `day` | `work` | `verbs` |
-| --- | --- | --- | --- |
-| `double1` | `active` (always 1) | `viewsCanvas` | `verbsRead` |
-| `double2` | `firstThisWeek` (0 or 1) | `viewsChat` | `verbsTask` |
-| `double3` | `firstThisMonth` (0 or 1) | `viewsTerminal` | `verbsMessage` |
-| `double4` | `startupMs` (0 when none) | `viewsBrowser` | `verbsAgent` |
-| `double5` | `projectsOpened` | `viewsDevice` | `verbsCanvas` |
-| `double6` | `terminalsStarted` | `viewsDrawing` | `verbsBrowser` |
-| `double7` | `agentsDelegated` | `viewsDiagram` | `verbsDevice` |
-| `double8` | `teamsDelegated` | `viewsFile` | `verbsDatabase` |
-| `double9` | `launchesRun` | `viewsDatabase` | `verbsComputer` |
-| `double10` | `worktreeMerges` | `chatsClaude` | `verbsWorktree` |
-| `double11` | `clientsDesktop` | `chatsCodex` | `verbsLaunches` |
-| `double12` | `clientsIos` | `chatsGemini` | `verbsSecret` |
-| `double13` | `clientsStation` | `chatsCopilot` | `verbsLanguage` |
-| `double14` | `clientsPeer` | `chatsApple` | |
-| `double15` | `browserActions` | `turnsClaude` | |
-| `double16` | `deviceActions` | `turnsCodex` | |
-| `double17` | `databaseActions` | `turnsGemini` | |
-| `double18` | `computerActions` | `turnsCopilot` | |
-| `double19` | | `turnsApple` | |
-
-Which view kind, chat provider and `ruimte-context` verb feeds which counter is `USAGE_VIEW_COUNTERS`,
-`USAGE_CHAT_COUNTERS` and `USAGE_VERB_COUNTERS`; a test in `packages/contracts` fails when a view kind or verb has none.
-Analytics Engine keeps three months. The stats worker (`apps/stats-worker`) rolls the days up into `usage_daily` in this
-D1 database every night, and reads both.
-
 ### Observatory
 
-Every batch the address book accepts also goes, whole and after the answer (`ctx.waitUntil`), to Observatory's usage
-ingest of the daemon app (`OBSERVATORY_USAGE_URL` in `wrangler.jsonc`, `usageRelay` in `src/usage.ts`). Observatory
-keeps to the same window and schema. The request carries the product's upload token (`OBSERVATORY_UPLOAD_TOKEN`), which
+Every batch the address book accepts goes, whole and after the answer (`ctx.waitUntil`), to Observatory's usage
+ingest of the daemon app (`OBSERVATORY_USAGE_URL` in `wrangler.jsonc`, `usageRelay` in `src/usage.ts`), under the
+names of the report a newer daemon sends (`usageReportOfV1`). The request carries the product's upload token (`OBSERVATORY_UPLOAD_TOKEN`), which
 tells Observatory that the address book limits per address itself, so its own limit per address, which would see only
 Cloudflare's, is skipped. The address is not passed on. A relay that fails is logged by its status only and never
-changes the machine's answer. Without the URL or the token nothing is relayed. From 0.22.0 on a daemon sends straight
+changes the machine's answer. Without the URL or the token the route answers `not-configured`. From 0.22.0 on a daemon sends straight
 to Observatory; `/v1/usage` stays for older ones and goes once 0.23.0 is out.
 
 ## Local dev
