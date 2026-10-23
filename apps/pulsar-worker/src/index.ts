@@ -17,12 +17,19 @@ import { issuePeerStatement } from './peer-statements.ts';
 import { issueStatement } from './statements.ts';
 import { completeNativeApple, startNativeApple } from './native-apple.ts';
 import { acceptUsage, rateLimitCleanup, usageRelay, type UsageDeps } from './usage.ts';
+import { withCheckIn, type CheckInMonitor } from './check-in.ts';
 
 // Rows past use for this long are dropped by the daily cleanup; the statement log is kept.
 const REVOKED_SESSION_RETENTION_MS = 30 * 24 * 60 * 60_000;
 
 // Four pages every three hours is 32 of the 100 requests a day the free tier allows; hourly would be 96. Mirrors `wrangler.jsonc`.
 const BENCHMARKS_CRON = '17 */3 * * *';
+
+/*
+ * The nightly cleanup, the other cron in `wrangler.jsonc`. It is one D1 batch that takes milliseconds: a cron starts
+ * within a minute or so, and two minutes leave room for a slow D1 without a false alarm.
+ */
+const CLEANUP_MONITOR: CheckInMonitor = { slug: 'pulsar-nightly', schedule: '17 4 * * *', checkinMargin: 5, maxRuntime: 2 };
 
 type Handler = (request: Request, env: Env, ctx: ExecutionContext) => Response | Promise<Response>;
 
@@ -156,24 +163,29 @@ export default {
             return failure('internal', 'Something went wrong in the address book');
         }
     },
-    async scheduled(controller, env) {
+    async scheduled(controller, env, ctx) {
         if (controller.cron === BENCHMARKS_CRON) {
             await refreshBenchmarks(env);
             return;
         }
-        const now = Date.now();
-        await env.DB.batch([
-            env.DB.prepare('DELETE FROM push_activity_start WHERE expires_at <= ?1').bind(now),
-            env.DB.prepare('DELETE FROM push_receipt WHERE expires_at <= ?1').bind(now),
-            env.DB.prepare('DELETE FROM push_device WHERE session_id IN (SELECT id FROM session WHERE revoked_at IS NOT NULL OR expires_at <= ?1)').bind(now),
-            env.DB.prepare('DELETE FROM login_attempt WHERE expires_at <= ?1').bind(now),
-            env.DB.prepare('DELETE FROM native_apple_login WHERE expires_at <= ?1').bind(now),
-            env.DB.prepare('DELETE FROM login_code WHERE expires_at <= ?1').bind(now),
-            env.DB.prepare('DELETE FROM identity_link_request WHERE expires_at <= ?1').bind(now),
-            env.DB.prepare('DELETE FROM identity_link_code WHERE expires_at <= ?1').bind(now),
-            env.DB.prepare('DELETE FROM device_link WHERE expires_at <= ?1').bind(now),
-            ...rateLimitCleanup(env.DB, now),
-            env.DB.prepare('DELETE FROM session WHERE expires_at <= ?1 OR revoked_at <= ?2').bind(now, now - REVOKED_SESSION_RETENTION_MS)
-        ]);
+        const url = env.OBSERVATORY_CHECK_IN_URL;
+        await (url ? withCheckIn(CLEANUP_MONITOR, () => cleanUp(env), { url, waitUntil: (promise) => ctx.waitUntil(promise) }) : cleanUp(env));
     }
 } satisfies ExportedHandler<Env>;
+
+async function cleanUp(env: Env): Promise<void> {
+    const now = Date.now();
+    await env.DB.batch([
+        env.DB.prepare('DELETE FROM push_activity_start WHERE expires_at <= ?1').bind(now),
+        env.DB.prepare('DELETE FROM push_receipt WHERE expires_at <= ?1').bind(now),
+        env.DB.prepare('DELETE FROM push_device WHERE session_id IN (SELECT id FROM session WHERE revoked_at IS NOT NULL OR expires_at <= ?1)').bind(now),
+        env.DB.prepare('DELETE FROM login_attempt WHERE expires_at <= ?1').bind(now),
+        env.DB.prepare('DELETE FROM native_apple_login WHERE expires_at <= ?1').bind(now),
+        env.DB.prepare('DELETE FROM login_code WHERE expires_at <= ?1').bind(now),
+        env.DB.prepare('DELETE FROM identity_link_request WHERE expires_at <= ?1').bind(now),
+        env.DB.prepare('DELETE FROM identity_link_code WHERE expires_at <= ?1').bind(now),
+        env.DB.prepare('DELETE FROM device_link WHERE expires_at <= ?1').bind(now),
+        ...rateLimitCleanup(env.DB, now),
+        env.DB.prepare('DELETE FROM session WHERE expires_at <= ?1 OR revoked_at <= ?2').bind(now, now - REVOKED_SESSION_RETENTION_MS)
+    ]);
+}

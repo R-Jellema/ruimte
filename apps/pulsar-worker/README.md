@@ -6,7 +6,9 @@ in `packages/pulsar/src/statement-key.ts`. The wire shapes live in `packages/pul
 
 - Worker `ruimte-pulsar`, account `5e565cf9fa55b0eae1f8131903da2ca9`, also on `https://ruimte-pulsar.bas.workers.dev`
 - D1 database `ruimte-pulsar`, migrations in `migrations/`
-- A cron at 04:17 UTC drops expired logins, codes, rate limit windows and dead sessions
+- A cron at 04:17 UTC drops expired logins, codes, rate limit windows and dead sessions. Each run checks in with
+  Observatory as the monitor `pulsar-nightly` (`src/check-in.ts`, `OBSERVATORY_CHECK_IN_URL`), so a run that is missed,
+  takes over two minutes or fails opens an issue in the address book's app. A check-in that fails never fails the run
 - A cron every three hours (`17 */3 * * *`) reads the model benchmarks of Artificial Analysis into D1
 
 ## Routes
@@ -167,8 +169,8 @@ ingest of the daemon app (`OBSERVATORY_USAGE_URL` in `wrangler.jsonc`, `usageRel
 keeps to the same window and schema. The request carries the product's upload token (`OBSERVATORY_UPLOAD_TOKEN`), which
 tells Observatory that the address book limits per address itself, so its own limit per address, which would see only
 Cloudflare's, is skipped. The address is not passed on. A relay that fails is logged by its status only and never
-changes the machine's answer. Without the URL or the token nothing is relayed. Installed daemons keep sending here, so
-`/v1/usage` stays as long as they do.
+changes the machine's answer. Without the URL or the token nothing is relayed. From 0.22.0 on a daemon sends straight
+to Observatory; `/v1/usage` stays for older ones and goes once 0.23.0 is out.
 
 ## Local dev
 

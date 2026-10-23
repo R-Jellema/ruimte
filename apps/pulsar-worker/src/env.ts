@@ -8,6 +8,8 @@ export interface Env {
     // Where every accepted batch goes on to (`usageRelay`), and the upload token of Ruimte's product there. Never logged.
     OBSERVATORY_USAGE_URL?: string;
     OBSERVATORY_UPLOAD_TOKEN?: string;
+    // Observatory's envelope ingest of the address book's app, for the check-ins of the nightly cleanup.
+    OBSERVATORY_CHECK_IN_URL?: string;
     APNS_SANDBOX_KEY?: string;
     APNS_SANDBOX_KEY_ID?: string;
     APNS_PRODUCTION_KEY?: string;
