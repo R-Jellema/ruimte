@@ -118,15 +118,15 @@ final class GitMergeTests: XCTestCase {
 
     func testTheWandClosesOnlyWhatNeedsNoChoice() {
         let cases: [(base: [String], ours: [String], theirs: [String], wand: [String]?)] = [
-            (["a"], ["const x = 1;"], ["const  x   = 1;"], ["const x = 1;"]),
+            (["a"], ["const x = 1;"], ["const  x   = 1;"], nil),
             (["a"], ["one", "two"], ["one"], ["one", "two"]),
             (["a"], ["ours"], ["theirs"], nil),
             (["old1", "old2"], ["import NEW", "old1", "old2"], ["import NEW"], nil),
             (["old"], ["new", "more"], ["new"], ["new", "more"]),
             (["    x = 1"], ["    x = 2"], ["x = 2"], nil),
             (["\tx = 1"], ["\tx = 2"], ["    x = 2"], nil),
-            (["    x = 1"], ["    x = 2;"], ["    x  =  2;  "], ["    x = 2;"]),
-            (["x = 1"], ["x = 2", ""], ["x = 2", "    "], ["x = 2", ""]),
+            (["    x = 1"], ["    x = 2;"], ["    x  =  2;  "], nil),
+            (["x = 1"], ["x = 2", ""], ["x = 2", "    "], nil),
         ]
         for entry in cases {
             let blocks = ThreeWayMerge.splitBlocks(

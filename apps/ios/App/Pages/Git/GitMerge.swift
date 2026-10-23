@@ -302,40 +302,14 @@ enum ThreeWayMerge {
         oursFirst ? block.ours + block.theirs : block.theirs + block.ours
     }
 
-    /// What the wand makes of a conflict, or nil for one that needs a person: sides that differ only in
-    /// whitespace inside or after a line, and a side that already holds every line of the other without
-    /// putting back what the other deleted.
+    /// Whitespace keeps its meaning without language context, as in `@adecore/merge`: only identical
+    /// sides or containment that restores no deleted base line need no choice.
     static func wandLines(_ block: MergeBlock) -> [String]? {
         guard block.kind == .conflict else { return autoLines(block) }
-        if squashed(block.ours) == squashed(block.theirs) { return block.ours }
+        if block.ours.elementsEqual(block.theirs, by: same) { return block.ours }
         if covers(base: block.base, outer: block.ours, inner: block.theirs) { return block.ours }
         if covers(base: block.base, outer: block.theirs, inner: block.ours) { return block.theirs }
         return nil
-    }
-
-    /// Indentation is meaning in Python, YAML or a Makefile, so only a blank line loses its own. Joined
-    /// as the TypeScript is, where no lines and one blank line read the same.
-    private static func squashed(_ lines: [String]) -> [UInt8] {
-        let squashedLines = lines.map { line -> [UInt8] in
-            let scalars = Array(line.unicodeScalars)
-            let isSpace = { (scalar: Unicode.Scalar) in CharacterSet.whitespacesAndNewlines.contains(scalar) }
-            guard let first = scalars.firstIndex(where: { !isSpace($0) }),
-                let last = scalars.lastIndex(where: { !isSpace($0) })
-            else { return [] }
-            var out = String.UnicodeScalarView(scalars[..<first])
-            var spacing = false
-            for scalar in scalars[first...last] {
-                if isSpace(scalar) {
-                    spacing = true
-                    continue
-                }
-                if spacing { out.append(" ") }
-                spacing = false
-                out.append(scalar)
-            }
-            return Array(String(out).utf8)
-        }
-        return Array(squashedLines.joined(separator: [10]))
     }
 
     private static func same(_ left: String, _ right: String) -> Bool { left.utf8.elementsEqual(right.utf8) }

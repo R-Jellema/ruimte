@@ -77,9 +77,19 @@ final class GitConflictTests: XCTestCase {
         let file = GitConflictFile(
             answer: answer(base: "s\nx\nm\ny\ne\n", ours: "s\nx  1\nm\nours\ne\n", theirs: "s\nx 1\nm\ntheirs\ne\n"))
         XCTAssertEqual(file.conflictIndexes.count, 2)
-        let wandable = GitConflictDraft().wandable(in: file)
-        XCTAssertEqual(wandable.map(\.index), [file.conflictIndexes[0]])
-        XCTAssertEqual(wandable.first?.lines, ["x  1"])
+        XCTAssertTrue(GitConflictDraft().wandable(in: file).isEmpty)
+
+        let contained = GitConflictFile(
+            answer: answer(
+                base: "s\nx\nm\ny\ne\n", ours: "s\none\nm\nours\ne\n", theirs: "s\none\ntwo\nm\ntheirs\ne\n"))
+        XCTAssertEqual(contained.conflictIndexes.count, 2)
+        var draft = GitConflictDraft()
+        let wandable = draft.wandable(in: contained)
+        XCTAssertEqual(wandable.map(\.index), [contained.conflictIndexes[0]])
+        XCTAssertEqual(wandable.first?.lines, ["one", "two"])
+        draft.answers[contained.conflictIndexes[0]] = GitBlockAnswer(lines: ["mine"])
+        XCTAssertEqual(draft.open(in: contained), [contained.conflictIndexes[1]])
+        XCTAssertTrue(draft.wandable(in: contained).isEmpty)
     }
 
     func testWorkIsCarriedOverWhileGitHoldsTheSameVersions() {
