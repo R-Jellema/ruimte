@@ -222,19 +222,6 @@ describe('the reconnect of a link to another machine', () => {
         expect(connectEntries()).toEqual([]);
     });
 
-    test('gives up after 7 days, counted from when the link was first owed', async () => {
-        await reconnect.owe(MACHINE);
-        await worker.settled();
-        const since = clock.now();
-        while (connectEntries().length > 0 && clock.now() - since < RECONNECT_LIFETIME_MS + RECONNECT_MAX_MS) {
-            await advance(connectEntries()[0]!.notBefore - clock.now());
-        }
-        expect(connectEntries()).toEqual([]);
-        expect(clock.now() - since).toBeGreaterThanOrEqual(RECONNECT_LIFETIME_MS);
-        expect(clock.now() - since).toBeLessThan(RECONNECT_LIFETIME_MS + RECONNECT_MAX_MS + 1);
-        expect(connections.standing.at(-1)).toBe(`idle:${MACHINE}`);
-    });
-
     test('fails what is owed once the 7 days are over, and work that comes after gets a window of its own', async () => {
         await reconnect.owe(MACHINE);
         await worker.settled();
@@ -245,6 +232,9 @@ describe('the reconnect of a link to another machine', () => {
         }
         expect(gaveUp).toEqual([MACHINE]);
         expect(connectEntries()).toEqual([]);
+        expect(clock.now() - since).toBeGreaterThanOrEqual(RECONNECT_LIFETIME_MS);
+        expect(clock.now() - since).toBeLessThan(RECONNECT_LIFETIME_MS + RECONNECT_MAX_MS + 1);
+        expect(connections.standing.at(-1)).toBe(`idle:${MACHINE}`);
 
         await reconnect.owe(MACHINE);
         await worker.settled();

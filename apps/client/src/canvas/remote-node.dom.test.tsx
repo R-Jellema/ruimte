@@ -5,6 +5,7 @@ import { PROMPT_SAMPLES } from '@adecore/agents-react/testing';
 import { LOCAL_ENDPOINT_ID, useEndpoints } from '@/state/endpoints';
 import { groupAttention, useAttention } from '@/state/attention';
 import { projectNodes } from '@/project/view-nodes';
+import { markUnlinked, useRemoteRefusals } from '@/project/remote-refusals';
 import { useChats } from '@adecore/agents-react/state';
 import { useSessions } from '@/state/sessions';
 import { useSnoozes } from '@/state/snooze';
@@ -66,6 +67,8 @@ let workspace: FakeWorkspace;
 let disconnectThere: () => void;
 let page: Mounted;
 let seq = 0;
+let wasUnlinked: boolean;
+let clientLocalBefore: string | null;
 
 /* What the machine the chat runs on says about it, the way its stream does. */
 async function tellFromThere(patch: Partial<ChatInfo>, items: ChatItem[] = []): Promise<void> {
@@ -80,6 +83,8 @@ async function tellFromThere(patch: Partial<ChatInfo>, items: ChatItem[] = []): 
 }
 
 beforeEach(async () => {
+    wasUnlinked = useRemoteRefusals.getState().unlinked[REMOTE] === true;
+    clientLocalBefore = localStorage.getItem('ruimte.local');
     here = new FakeMachine();
     here.answer('project.save', ({ baseRev }) => ({ rev: baseRev + 1 }) as never);
     here.answer('remote.list', () => ({ links: [{ machineId: REMOTE, remoteProjectId: 'remote-project', label: 'MacBook Pro', rootCommit: 'abc' }] }));
@@ -108,6 +113,13 @@ afterEach(async () => {
     disconnectThere();
     useEndpoints.getState().setActive(LOCAL_ENDPOINT_ID);
     useEndpoints.getState().remove(REMOTE);
+    markUnlinked(REMOTE, wasUnlinked);
+    // Closing a project persists its active view; later fixtures reuse the fake project.
+    if (clientLocalBefore === null) {
+        localStorage.removeItem('ruimte.local');
+    } else {
+        localStorage.setItem('ruimte.local', clientLocalBefore);
+    }
 });
 
 describe('a node that runs on another machine', () => {

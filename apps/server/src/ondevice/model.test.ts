@@ -120,9 +120,17 @@ describe('on-device model', () => {
         await new Promise((resolve) => setImmediate(resolve));
         rig.fake.started[0]!.crash(1);
         await expect(running).rejects.toMatchObject({ code: 'failed' });
-        const again = harness({ answer: (request, out) => out({ type: 'done', id: request.id, state: 'done', text: 'ok' }) });
-        expect(await again.model.generate({ purpose: 'names', prompt: 'x' })).toMatchObject({ text: 'ok' });
-        await again.model.dispose();
+        const again = rig.model.generate({ purpose: 'names', prompt: 'x' });
+        await new Promise((resolve) => setImmediate(resolve));
+        expect(rig.fake.started).toHaveLength(2);
+        const request = rig.requests.at(-1)!;
+        expect(request).toMatchObject({ type: 'generate', prompt: 'x' });
+        if (request.type !== 'generate') {
+            throw new Error('Expected a generation on the restarted helper');
+        }
+        rig.out({ type: 'done', id: request.id, state: 'done', text: 'ok' });
+        expect(await again).toEqual({ state: 'done', text: 'ok' });
+        await rig.model.dispose();
     });
 
     test('refuses more requests than it can hold', async () => {

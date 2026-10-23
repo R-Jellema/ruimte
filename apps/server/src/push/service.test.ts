@@ -288,6 +288,11 @@ describe('offline push delivery', () => {
         await service.settled();
         expect(pushes.map((push) => push.pushType)).toEqual(['liveactivity', 'liveactivity']);
         expect(pushes.filter((push) => push.pushType === 'liveactivity').map((push) => push.activity.phase)).toEqual(['running', 'done']);
+        expect(pushes.filter((push) => push.pushType === 'liveactivity')[0]!.activity).toEqual({
+            title: 'Secret project',
+            phase: 'running',
+            startedAt: NOW
+        });
         disconnected();
     });
 
@@ -303,17 +308,6 @@ describe('offline push delivery', () => {
         status('running');
         await service.settled();
         expect(pushes.length).toBe(1);
-    });
-
-    test('activity delivery is explicit opt-in and contains only approved title/phase/time', async () => {
-        await auth.setPush(sessionId, { ...subscription, activities: true });
-        status('running');
-        await service.settled();
-        status('idle');
-        await service.settled();
-        const activities = pushes.filter((push) => push.pushType === 'liveactivity');
-        expect(activities.map((push) => push.activity.phase)).toEqual(['running', 'done']);
-        expect(activities[0]!.activity).toEqual({ title: 'Secret project', phase: 'running', startedAt: NOW });
     });
 });
 

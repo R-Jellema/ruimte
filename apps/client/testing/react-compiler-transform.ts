@@ -1,6 +1,7 @@
 import { realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import type { BunPlugin } from 'bun';
+import { withViteGlobs } from './vite-glob-transform';
 import type { Compiled } from '../react-compiler-babel';
 import { CompilerCache } from '../react-compiler-cache';
 import { CompilerPool } from '../react-compiler-pool';
@@ -97,7 +98,7 @@ export const reactCompilerPlugin: BunPlugin = {
     setup(build) {
         build.onResolve({ filter: /^react\/compiler-runtime$/ }, (args) => (args.importer === COMPILER_RUNTIME ? undefined : { path: COMPILER_RUNTIME }));
         build.onLoad({ filter: new RegExp(REACT_COMPILED.map((pattern) => pattern.source).join('|')) }, async (args) => ({
-            contents: withClientRuntime(args.path, await compiledOnce(args.path)),
+            contents: withClientRuntime(args.path, await withViteGlobs(args.path, await compiledOnce(args.path))),
             loader: args.path.endsWith('.tsx') ? 'tsx' : 'ts'
         }));
     }

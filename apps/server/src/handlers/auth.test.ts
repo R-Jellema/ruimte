@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, setSystemTime, test } from 'bu
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PROTOCOL_VERSION, type RequestType, type ServerFrame } from '@ruimte/contracts';
+import { PROTOCOL_VERSION, type ServerFrame } from '@ruimte/contracts';
 import { AuthStore, type StatementAdmission } from '../auth/auth-store.ts';
 import { admitClient } from '../auth/test-admit.ts';
 import { machineRegistrationMessage, peerAccessRequestMessage } from '@ruimte/pulsar';
@@ -333,7 +333,7 @@ describe('auth handlers', () => {
         const features = (info as { result: { features: string[] } }).result.features;
         expect(features).toEqual(expect.arrayContaining(['endpoint.info', 'endpoint.settings', 'endpoint.setIdentity']));
         expect(features).not.toContain('auth.pairingToken');
-        expect(features.every((type) => dispatcher.has(type as RequestType))).toBe(true);
+        expect(features.toSorted()).toEqual(dispatcher.types().toSorted());
         // A reply to a change of the switches leaves the list out; only the request that introduces the machine carries it.
         expect(await ask(undefined, 'endpoint.settings', { visualReplies: false })).not.toHaveProperty('result.features');
     });

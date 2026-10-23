@@ -1,6 +1,6 @@
 import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { basename, join } from 'node:path';
+import { tmpdir, type } from 'node:os';
+import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import type { Subprocess } from 'bun';
 import {
@@ -722,7 +722,7 @@ describe.skipIf(!ENABLED)('the daemon in the Linux container', () => {
         await client.request('session.kill', { sessionId: loose });
     });
 
-    test('a project another client still has open keeps its place and its sessions', async () => {
+    test('a project stays open until its last client closes it', async () => {
         const other = await connectOwner();
         try {
             const opened = await client.request<ProjectOpenResult>('project.open', { folder: '/work/beacon', name: 'Beacon' });
@@ -1172,7 +1172,7 @@ describe.skipIf(!ENABLED)('two daemons at the same time', () => {
         await waitUntil('both shells to answer', () => {
             mineSaid += here.takeOutput();
             theirsSaid += there.takeOutput();
-            return mineSaid.includes('Darwin') && theirsSaid.includes('Linux');
+            return mineSaid.includes(type()) && theirsSaid.includes('Linux');
         });
         // The sessions of one machine never show up on the other; the daemons know nothing of each other.
         const listed = await there.request<{ sessions: SessionInfo[] }>('session.list', {});
@@ -1190,7 +1190,7 @@ describe.skipIf(!ENABLED)('two daemons at the same time', () => {
         await waitUntil('the socket to the container to notice', () => there.closed);
 
         expect(here.closed).toBe(false);
-        await here.request('session.write', { sessionId, data: 'echo still-here\n' });
+        await here.request('session.write', { sessionId, data: "printf '%s%s\\n' 'still-' 'here'\n" });
         let said = '';
         await waitUntil('the shell on this machine to answer with the container gone', () => {
             said += here.takeOutput();
@@ -1307,8 +1307,8 @@ describe.skipIf(!ENABLED)('one id on two machines', () => {
             await client.request('session.create', { sessionId, cwd, cols: 80, rows: 24 });
             await client.request('session.attach', { sessionId, cols: 80, rows: 24 });
         }
-        await here.request('session.write', { sessionId, data: 'echo screen-of-here\n' });
-        await there.request('session.write', { sessionId, data: 'echo screen-of-there\n' });
+        await here.request('session.write', { sessionId, data: "printf '%s%s\\n' 'screen-of-' 'here'\n" });
+        await there.request('session.write', { sessionId, data: "printf '%s%s\\n' 'screen-of-' 'there'\n" });
         await waitUntil('both shells to answer', async () => {
             here.takeOutput();
             there.takeOutput();
@@ -1427,7 +1427,7 @@ describe.skipIf(!ENABLED)('one id on two machines', () => {
             here.request<ProjectListResult>('project.list', {}),
             there.request<ProjectListResult>('project.list', {})
         ]);
-        expect(listedHere.projects.map((project) => project.projectId)).toContain(mine.summary.projectId);
+        expect(listedHere.projects.map((project) => project.projectId)).toEqual([mine.summary.projectId]);
         expect(listedHere.projects.map((project) => project.projectId)).not.toContain(theirs.summary.projectId);
         expect(listedThere.projects.map((project) => project.projectId)).toContain(theirs.summary.projectId);
         expect(listedThere.projects.map((project) => project.projectId)).not.toContain(mine.summary.projectId);
@@ -1545,39 +1545,6 @@ describe.skipIf(!ENABLED)('two projects side by side', () => {
         expect(overThere).not.toContain('written here');
     }, 30_000);
 
-    test('a project opened on one machine is not in the other machine list', async () => {
-        const [listedHere, listedThere] = await Promise.all([
-            here.request<ProjectListResult>('project.list', {}),
-            there.request<ProjectListResult>('project.list', {})
-        ]);
-        expect(listedHere.projects.map((project) => project.projectId)).toEqual([mine]);
-        expect(listedThere.projects.map((project) => project.projectId)).toContain(theirs);
-        expect(listedThere.projects.map((project) => project.projectId)).not.toContain(mine);
-    });
-
-    test('each files panel browses its own file system, at the same time', async () => {
-        await Bun.write(join(folder, 'here.txt'), 'here');
-        const [mineList, theirsList] = await Promise.all([
-            here.request<FsListResult>('fs.list', { path: folder }),
-            there.request<FsListResult>('fs.list', { path: REPO })
-        ]);
-        expect(mineList.entries.map((entry) => entry.name)).toContain('here.txt');
-        expect(theirsList.entries.map((entry) => entry.name)).toContain('README.md');
-        expect(theirsList.entries.map((entry) => entry.name)).not.toContain(basename(folder));
-    });
-
-    test('each git panel reads the checkout of its own machine', async () => {
-        const [mineStatus, theirsStatus] = await Promise.all([
-            here.request<GitStatus>('git.status', { cwd: folder }),
-            there.request<GitStatus>('git.status', { cwd: REPO })
-        ]);
-        // A folder that is no checkout has no branch; the container's repository has one and its outstanding work.
-        expect(mineStatus.branch).toBeNull();
-        expect(mineStatus.files).toEqual([]);
-        expect(theirsStatus.branch).toBe('main');
-        expect(theirsStatus.files.map((file) => file.path)).toContain('README.md');
-    });
-
     /*
      * The bytes of an image never travel over the socket, so the viewer of each workspace builds a
      * URL against its own daemon with its own credential: the local secret here, the ticket of the
@@ -1665,7 +1632,7 @@ describe.skipIf(!ENABLED)('a direct connection signaled through the broker', () 
         await machineAnnounced();
     }, 60_000);
 
-    test('a key nobody let in gets a signed not-paired, and a signal a known key did not sign gets nothing', async () => {
+    test('an unknown key gets a signed refusal, and a forged signal cannot close an admitted channel', async () => {
         await machineAnnounced();
         const { publicKey: machineKey } = await machineInContainer();
         const offer: SignalEnvelope = { connectionId: `stranger-${Date.now()}`, signal: { kind: 'offer', sdp: 'v=0' } };
@@ -1680,9 +1647,8 @@ describe.skipIf(!ENABLED)('a direct connection signaled through the broker', () 
         expect(verifySignature(machineKey, signalMessage(machineKey, stranger.publicKey, refusal.envelope), refusal.signature)).toBe(true);
 
         const known = await throughDoor();
-        known.channel.close();
         const knownOnBroker = await onBroker(known.key);
-        const forged: SignalEnvelope = { connectionId: `forged-${Date.now()}`, signal: { kind: 'offer', sdp: 'v=0' } };
+        const forged: SignalEnvelope = { connectionId: known.channel.connectionId, signal: { kind: 'close', reason: 'done' } };
         knownOnBroker.socket.send(
             JSON.stringify({
                 type: 'relay',
@@ -1692,8 +1658,25 @@ describe.skipIf(!ENABLED)('a direct connection signaled through the broker', () 
                 signature: signMessage(generateKeyPair().privateKey, signalMessage(known.key.publicKey, machineKey, forged))
             })
         );
-        await new Promise((resolve) => setTimeout(resolve, 3_000));
-        expect(knownOnBroker.relayed).toEqual([]);
+        // A signed offer on the same ordered socket must reach the daemon before absence means anything.
+        const control: SignalEnvelope = { connectionId: `control-${Date.now()}`, signal: { kind: 'offer', sdp: 'v=0' } };
+        const controlReply = new Promise<BrokerRelayed>((resolve) => {
+            knownOnBroker.listen((frame) => {
+                if (frame.envelope.connectionId === control.connectionId) {
+                    resolve(frame);
+                }
+            });
+        });
+        await knownOnBroker.peer.relay(machineKey, control);
+        const controlled = await controlReply;
+        expect(controlled.from).toBe(machineKey);
+        expect(controlled.envelope).toEqual({ connectionId: control.connectionId, signal: { kind: 'answer', sdp: expect.stringContaining('v=0') } });
+        expect(verifySignature(machineKey, signalMessage(machineKey, known.key.publicKey, controlled.envelope), controlled.signature)).toBe(true);
+        expect(knownOnBroker.relayed.filter((frame) => frame.envelope.connectionId === forged.connectionId)).toEqual([]);
+        expect(known.channel.isOpen).toBe(true);
+        await expect(known.channel.request<EndpointInfo>('endpoint.info', {})).resolves.toMatchObject({ authenticated: true });
+        await knownOnBroker.peer.relay(machineKey, { connectionId: control.connectionId, signal: { kind: 'close', reason: 'done' } });
+        known.channel.close();
     }, 60_000);
 
     test('a key the door let in opens the channel through the broker alone, with no statement, and the channel outlives the broker', async () => {

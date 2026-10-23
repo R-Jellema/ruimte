@@ -94,7 +94,11 @@ describe('the commands', () => {
         const script = installRuleScript('bas', 501);
         const steps = script.split('\n');
         expect(steps[0]).toBe('set -e');
-        expect(steps.findIndex((step) => step.startsWith('/usr/sbin/visudo -c -q -f '))).toBeLessThan(steps.findIndex((step) => step.startsWith('/bin/mv')));
+        const validation = steps.findIndex((step) => step.startsWith('/usr/sbin/visudo -c -q -f '));
+        const installation = steps.findIndex((step) => step.startsWith('/bin/mv'));
+        expect(validation).toBeGreaterThanOrEqual(0);
+        expect(installation).toBeGreaterThanOrEqual(0);
+        expect(validation).toBeLessThan(installation);
         expect(script).toContain(`> '/etc/sudoers.d/ruimte-closed-lid-501.new'`);
         expect(script).toContain(`/usr/sbin/chown root:wheel '/etc/sudoers.d/ruimte-closed-lid-501.new'`);
         expect(script).toContain(`/bin/chmod 0440 '/etc/sudoers.d/ruimte-closed-lid-501.new'`);

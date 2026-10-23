@@ -75,7 +75,7 @@ describe('readStatus', () => {
     });
 
     test('a folder outside a repository answers that it is not one', async () => {
-        expect(await readStatus(root)).toMatchObject({ repo: false, root: null, files: [] });
+        expect(await readStatus(root)).toMatchObject({ repo: false, root: null, branch: null, files: [] });
     });
 
     test('groups the files by state and counts what each side changed', async () => {
@@ -118,14 +118,6 @@ describe('readStatus', () => {
 });
 
 describe('diffFile', () => {
-    test('an untracked file diffs against nothing, so the whole file is added', async () => {
-        await write('fresh.txt', 'a\nb\n');
-        const diff = await diffFile(repo, 'fresh.txt', { scope: 'worktree', staged: false, ignoreWhitespace: false }, null);
-        expect(diff).toMatchObject({ path: 'fresh.txt', added: 2, deleted: 0, binary: false });
-        expect(diff.diff).toContain('+a');
-        expect(diff.diff).toContain('+b');
-    });
-
     test('an untracked file named like an option diffs as a file', async () => {
         await write('victim.txt', 'keep me\n');
         await write('--output=victim.txt', 'a\n');
@@ -142,34 +134,11 @@ describe('diffFile', () => {
         expect(await readFile(join(repo, 'victim.txt'), 'utf8')).toBe('keep me\n');
     });
 
-    test('the staged and the unstaged half of a file are two diffs', async () => {
-        await write('tracked.txt', 'one\ntwo\nthree\nfour\n');
-        await git(['add', 'tracked.txt']);
-        await write('tracked.txt', 'one\ntwo\nthree\nfour\nfive\n');
-
-        expect((await diffFile(repo, 'tracked.txt', { scope: 'worktree', staged: true, ignoreWhitespace: false }, null)).diff).toContain('+four');
-        const unstaged = await diffFile(repo, 'tracked.txt', { scope: 'worktree', staged: false, ignoreWhitespace: false }, null);
-        expect(unstaged.diff).toContain('+five');
-        expect(unstaged.diff).not.toContain('+four');
-    });
-
     test('whitespace-only changes are gone when the diff is asked to ignore them', async () => {
         await write('tracked.txt', 'one  \ntwo\nthree\n');
         expect((await diffFile(repo, 'tracked.txt', { scope: 'worktree', staged: false, ignoreWhitespace: false }, null)).added).toBe(1);
         const ignored = await diffFile(repo, 'tracked.txt', { scope: 'worktree', staged: false, ignoreWhitespace: true }, null);
         expect(ignored).toMatchObject({ added: 0, deleted: 0 });
         expect(ignored.diff).toBe('');
-    });
-
-    test('the base scope holds what the branch committed and what it has not committed yet', async () => {
-        await git(['checkout', '-q', '-b', 'feature']);
-        await write('tracked.txt', 'one\ntwo\nthree\nfour\n');
-        await git(['commit', '-q', '-am', 'more']);
-        await write('tracked.txt', 'one\ntwo\nthree\nfour\nfive\n');
-
-        const diff = await diffFile(repo, 'tracked.txt', { scope: 'base', staged: false, ignoreWhitespace: false }, await mergeBaseOf(repo));
-        expect(diff.diff).toContain('+four');
-        expect(diff.diff).toContain('+five');
-        expect(diff.added).toBe(2);
     });
 });

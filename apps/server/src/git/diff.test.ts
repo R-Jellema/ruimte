@@ -48,12 +48,20 @@ describe('diffFile with the whole texts', () => {
         const diff = await diffFile(repo, 'tracked.txt', worktree(true), null);
         expect(diff.oldText).toBe(ORIGINAL);
         expect(diff.newText).toBe(staged);
+        expect(diff.diff).toContain('+TWO');
+        expect(diff.diff).not.toContain('+eleven');
+        const unstaged = await diffFile(repo, 'tracked.txt', worktree(), null);
+        expect(unstaged).toMatchObject({ oldText: staged, newText: `${staged}eleven\n` });
+        expect(unstaged.diff).toContain('+eleven');
+        expect(unstaged.diff).not.toContain('+TWO');
     });
 
     test('an untracked file has nothing on its old side', async () => {
         await write('fresh.txt', 'a\nb\n');
         const diff = await diffFile(repo, 'fresh.txt', worktree(), null);
-        expect(diff).toMatchObject({ oldText: '', newText: 'a\nb\n' });
+        expect(diff).toMatchObject({ path: 'fresh.txt', oldText: '', newText: 'a\nb\n', added: 2, deleted: 0, binary: false });
+        expect(diff.diff).toContain('+a');
+        expect(diff.diff).toContain('+b');
     });
 
     test('a deleted file has nothing on its new side', async () => {
@@ -71,6 +79,9 @@ describe('diffFile with the whole texts', () => {
         const diff = await diffFile(repo, 'tracked.txt', { scope: 'base', staged: false, ignoreWhitespace: false }, await mergeBaseOf(repo));
         expect(diff.oldText).toBe(ORIGINAL);
         expect(diff.newText).toBe(`${committed}eleven\n`);
+        expect(diff.added).toBe(2);
+        expect(diff.diff).toContain('+TWO');
+        expect(diff.diff).toContain('+eleven');
     });
 
     test('ignoring whitespace keeps the texts as they are', async () => {

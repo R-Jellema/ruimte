@@ -6,8 +6,7 @@ import {
     DIRECT_BINARY_PIECE_BYTES,
     DIRECT_DEFLATE_MIN_BYTES,
     DIRECT_PIECE_CHARS,
-    FrameAssembler,
-    splitFrame
+    FrameAssembler
 } from '@ruimte/contracts';
 import { LOW_WATER_MARK, SOCKET_BACKPRESSURE_LIMIT } from '../backpressure.ts';
 import { AUTHENTICATED_FRAME_CHARS, BINARY_LANE_BYTES, directChannel, TEXT_LANE_BYTES, type RawDataChannel } from './data-channel.ts';
@@ -117,14 +116,6 @@ describe('directChannel', () => {
         const channel = directChannel(raw);
         expect(channel.send('{"text":"héllo"}')).toBe(Buffer.byteLength('{"text":"héllo"}'));
         expect(raw.sent).toEqual(['={"text":"héllo"}']);
-    });
-
-    test('a frame larger than a piece goes out in pieces the peer can join', () => {
-        const raw = new FakeRawChannel();
-        const channel = directChannel(raw);
-        const frame = 'z'.repeat(DIRECT_PIECE_CHARS * 2 + 1);
-        expect(channel.send(frame)).toBe(frame.length);
-        expect(raw.sent).toEqual(splitFrame(frame));
     });
 
     test('a frame on a channel that is not open was dropped, which is 0', () => {

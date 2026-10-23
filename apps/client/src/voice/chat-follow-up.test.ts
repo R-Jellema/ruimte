@@ -9,24 +9,6 @@ function state(items: ChatItem[]): ChatState {
 }
 
 describe('voice AI Chat follow-up in this window', () => {
-    test('waits for the exact tracked turn to settle', () => {
-        const chat = state([
-            { id: 'old', kind: 'turn', createdAt: 1, turnId: 'old', state: 'done', endedAt: 2, costUsd: 0 },
-            { id: 'old-answer', kind: 'assistant', createdAt: 2, turnId: 'old', text: 'Old result', streaming: false },
-            { id: 'tracked', kind: 'turn', createdAt: 3, turnId: 'tracked', state: 'running', endedAt: null, costUsd: 0 }
-        ]);
-        expect(chatCompletion(chat, 'tracked')).toBeNull();
-    });
-
-    test('returns only top-level final answers from the tracked turn', () => {
-        const chat = state([
-            { id: 'tracked', kind: 'turn', createdAt: 1, turnId: 'tracked', state: 'done', endedAt: 4, costUsd: 0 },
-            { id: 'child', kind: 'assistant', createdAt: 2, turnId: 'tracked', text: 'Subagent detail', streaming: false, parentToolUseId: 'tool-1' },
-            { id: 'answer', kind: 'assistant', createdAt: 3, turnId: 'tracked', text: 'The requested report is ready.', streaming: false }
-        ]);
-        expect(chatCompletion(chat, 'tracked')).toEqual({ state: 'done', answer: 'The requested report is ready.' });
-    });
-
     test('settles a long turn whose own item sits before the page this client holds', () => {
         const info = { activeTurnId: 'tracked', status: 'running' } as ChatInfo;
         // The newest page of a thread whose turn item is too far back to be on it.
@@ -53,11 +35,16 @@ describe('voice AI Chat follow-up in this window', () => {
         chat = applyEvent(chat, { type: 'item', item: settled, historyIndex: 0 });
         chat = applyEvent(chat, { type: 'info', info: { ...info, activeTurnId: null, status: 'idle' } });
         expect(chatCompletion(chat, 'tracked')).toEqual({ state: 'done', answer: 'All done.' });
+        const offPageItems = { ...chat.items, tracked: { ...settled, state: 'aborted' as const } };
+        chat = { ...chat, items: offPageItems, structure: offPageItems };
+        expect(chat.order).not.toContain('tracked');
+        expect(chatCompletion(chat, 'tracked')).toEqual({ state: 'aborted', answer: 'All done.' });
     });
 
     test('a turn whose item is not on the page and that left nothing yet is not settled', () => {
         const chat: ChatState = { ...state([]), info: { activeTurnId: null, status: 'idle' } as ChatInfo };
         expect(chatCompletion(chat, 'queued')).toBeNull();
+        expect(chatCompletion(undefined, 'queued')).toBeNull();
     });
 
     test('a long turn that ended on an error says so', () => {
@@ -85,9 +72,12 @@ describe('voice AI Chat follow-up in this window', () => {
     test('a chat names only the requests that still wait, in the order this window holds them', () => {
         const chat = state([
             { id: 'ask', kind: 'question', createdAt: 1, turnId: 't', state: 'pending', questions: [{ question: 'Which file?' }] } as never,
+            { id: 'second', kind: 'question', createdAt: 2, turnId: 't', state: 'pending', questions: [{ question: 'Which branch?' }] } as never,
+            { id: 'orphan', kind: 'question', createdAt: 3, turnId: 't', state: 'pending', questions: [{ question: 'Do not show this' }] } as never,
             { id: 'done', kind: 'note', createdAt: 2, turnId: 't', level: 'info', text: 'Noted' }
         ]);
-        expect(chatWaits(chat)).toEqual(['question: Which file?']);
+        chat.order = ['second', 'missing', 'ask', 'done'];
+        expect(chatWaits(chat)).toEqual(['question: Which branch?', 'question: Which file?']);
         expect(chatWaits(undefined)).toEqual([]);
     });
 });

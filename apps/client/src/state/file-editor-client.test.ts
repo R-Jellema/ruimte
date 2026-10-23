@@ -335,11 +335,25 @@ function suite<S extends EditorState>(kind: Kind<S>): void {
 
         test('edits made during a save ride the next one, never a second write at the same time', async () => {
             await open();
-            kind.add(harness.current(), 'b');
-            await tick(20);
-            kind.add(harness.current(), 'c');
-            await tick(20);
-            expect(harness.transport.of('save').map((call) => (call.payload as { baseRev: number }).baseRev)).toEqual([5, 6]);
+            const release = harness.transport.hold('save', 'view-1');
+            try {
+                kind.add(harness.current(), 'b');
+                await tick(20);
+                expect(harness.transport.of('save')).toHaveLength(1);
+                kind.add(harness.current(), 'c');
+                await tick(20);
+                expect(harness.transport.of('save')).toHaveLength(1);
+                release();
+                await tick(20);
+                const saves = harness.transport.of('save');
+                expect(saves.map((call) => (call.payload as { baseRev: number }).baseRev)).toEqual([5, 6]);
+                expect(saves.map((call) => kind.written((call.payload as { content: unknown }).content))).toEqual([
+                    ['a', 'b'],
+                    ['a', 'b', 'c']
+                ]);
+            } finally {
+                release();
+            }
         });
 
         test('a save the daemon refuses waits for the file, and the banner gets it', async () => {

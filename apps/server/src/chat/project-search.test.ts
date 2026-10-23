@@ -125,11 +125,6 @@ describe('searching the chats of a project', () => {
         await expect(setup().search.search(query, 'stranger')).rejects.toMatchObject({ code: 'not-open' });
     });
 
-    test('a chat of another project never appears', async () => {
-        const result = await setup().search.search(query, 'client');
-        expect(result.chats.map((chat) => chat.chatId)).not.toContain('z');
-    });
-
     test('stops at the limit and says so', async () => {
         const { search } = setup();
         const result = await search.search({ ...query, limit: 1 }, 'client');

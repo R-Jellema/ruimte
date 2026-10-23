@@ -93,10 +93,6 @@ describe('Grok', () => {
         expect(grokAuthMethod({})).toBe('cached_token');
     });
 
-    test('asks `grok models` who is signed in, which opens no session, instead of probing over ACP', () => {
-        expect(grokProvider.askAccount).toBeDefined();
-    });
-
     test('a turn goes through and back, signed in with the stored login and left on its own model', async () => {
         const { backend, events, methods, fake, turnDone } = run(grokProvider, { authMethod: 'cached_token', modes: GROK_SESSION_MODES });
         await backend.start();

@@ -187,7 +187,14 @@ describe('starting a launch with a secret', () => {
         expect(created).toEqual([{ TOKEN: VALUE }]);
         expect(JSON.stringify(await store.read('p1'))).not.toContain(VALUE);
         expect(await readFile(privatePath(), 'utf8')).not.toContain(VALUE);
-        expect(await readFile(join(home, 'command-approvals.json'), 'utf8').catch(() => '')).not.toContain(VALUE);
+        const approvalDirectory = join(home, 'command-approvals');
+        const approvalFiles = await readdir(approvalDirectory);
+        expect(approvalFiles.length).toBeGreaterThan(0);
+        const approvalTexts = await Promise.all(approvalFiles.map((name) => readFile(join(approvalDirectory, name), 'utf8')));
+        for (const text of approvalTexts) {
+            expect(JSON.parse(text)).toMatchObject({ hash: expect.stringMatching(/^[a-f0-9]{64}$/), approvedAt: expect.any(Number) });
+            expect(text).not.toContain(VALUE);
+        }
 
         // Changed behind the person's back, it is held, and what the chip shows carries no value.
         const file = JSON.parse(await readFile(privatePath(), 'utf8'));

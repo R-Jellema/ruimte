@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { spawn } from 'node:child_process';
-import { access, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { prepareShellIntegration } from './shell-integration.ts';
@@ -10,67 +10,74 @@ import { PrepareTerminal, shellSyntax } from './prepare-terminal.ts';
 import { holdsForeground } from '../processes/foreground.ts';
 import { waitFor, waitForAsync } from './test-helpers.ts';
 
-test('a real zsh preserves startup files and holds the prepared command until the person presses Enter', async () => {
-    const home = await realpath(await mkdtemp(join(tmpdir(), 'ruimte-prepare-shell-')));
-    const zshenv = 'export RUIMTE_TEST_STARTUP=kept\n';
-    const zshrc = 'PS1="user prompt [%?]> "\n';
-    const sentinel = join(home, 'only-after-enter');
-    await writeFile(join(home, '.zshenv'), zshenv);
-    await writeFile(join(home, '.zshrc'), zshrc);
-    const manager = new SessionManager({
-        adapter: new BunPtyAdapter(),
-        shellEnvironment: await prepareShellIntegration(join(home, 'ruimte')),
-        env: { HOME: home, PATH: '/usr/bin:/bin', SHELL: '/bin/zsh' }
-    });
-    manager.holdsForeground = holdsForeground;
-    let output = '';
-    manager.subscribe('person', (event) => {
-        if (event.event === 'session.output') {
-            output += event.payload.data;
+for (const custom of [false, true]) {
+    test(`a real zsh preserves ${custom ? 'custom ZDOTDIR' : 'HOME'} startup files and holds the prepared command until the person presses Enter`, async () => {
+        const home = await realpath(await mkdtemp(join(tmpdir(), 'ruimte-prepare-shell-')));
+        const startup = custom ? join(home, 'person') : home;
+        await mkdir(startup, { recursive: true });
+        if (custom) {
+            await writeFile(join(home, '.zshenv'), 'export RUIMTE_TEST_STARTUP=wrong\n');
+        }
+        const zshenv = 'export RUIMTE_TEST_STARTUP=kept\n';
+        const zshrc = 'PS1="user prompt [%?]> "\n';
+        const sentinel = join(home, 'only-after-enter');
+        await writeFile(join(startup, '.zshenv'), zshenv);
+        await writeFile(join(startup, '.zshrc'), zshrc);
+        const manager = new SessionManager({
+            adapter: new BunPtyAdapter(),
+            shellEnvironment: await prepareShellIntegration(join(home, 'ruimte')),
+            env: { HOME: home, PATH: '/usr/bin:/bin', SHELL: '/bin/zsh', ...(custom ? { ZDOTDIR: startup } : {}) }
+        });
+        manager.holdsForeground = holdsForeground;
+        let output = '';
+        manager.subscribe('person', (event) => {
+            if (event.event === 'session.output') {
+                output += event.payload.data;
+            }
+        });
+        try {
+            await manager.create({ sessionId: 'shell', cwd: home, shell: '/bin/zsh', args: ['-i'], cols: 100, rows: 24 });
+            await manager.attach('shell', 'person', 100, 24);
+            const session = manager.get('shell')!;
+            await waitForAsync(async () => (await session.shellPrompt.inspect())?.empty === true, 'the shell reporting its empty prompt', 1000).catch(() => {
+                throw new Error(JSON.stringify(output));
+            });
+            expect(await session.plainText()).toContain('user prompt [0]>');
+            const prepare = new PrepareTerminal({
+                machineId: 'owner',
+                machine: 'Test machine',
+                sessions: manager,
+                source: () => ({ cwd: home, projectId: 'project' }),
+                title: () => 'Test shell',
+                syntax: shellSyntax
+            });
+            const client = { id: 'person', send() {} };
+            const command = `test "$RUIMTE_TEST_STARTUP" = kept && touch '${sentinel}'`;
+            const preview = await prepare.preview('owner', { chatId: 'chat', itemId: 'reply', language: 'zsh', code: command }, client);
+            expect(preview.targets).toHaveLength(1);
+            await prepare.prepare('owner', preview.targets[0]!.token, client);
+            await waitForAsync(async () => (await session.plainText()).includes('touch'), 'the shell showing the prepared line');
+            await expect(access(sentinel)).rejects.toThrow();
+            expect(await readFile(join(startup, '.zshenv'), 'utf8')).toBe(zshenv);
+            expect(await readFile(join(startup, '.zshrc'), 'utf8')).toBe(zshrc);
+            manager.write('shell', '\r', 'person');
+            await waitForAsync(
+                () =>
+                    access(sentinel).then(
+                        () => true,
+                        () => false
+                    ),
+                'the explicit Enter executing the command'
+            );
+            manager.write('shell', 'false\r', 'person');
+            await waitForAsync(async () => (await session.plainText()).includes('user prompt [1]>'), 'the prompt retaining the command exit status');
+        } finally {
+            manager.killAll();
+            await waitFor(() => manager.list().every((session) => session.exited), 'test shell exiting');
+            await rm(home, { recursive: true, force: true });
         }
     });
-    try {
-        await manager.create({ sessionId: 'shell', cwd: home, shell: '/bin/zsh', args: ['-i'], cols: 100, rows: 24 });
-        await manager.attach('shell', 'person', 100, 24);
-        const session = manager.get('shell')!;
-        await waitForAsync(async () => (await session.shellPrompt.inspect())?.empty === true, 'the shell reporting its empty prompt', 1000).catch(() => {
-            throw new Error(JSON.stringify(output));
-        });
-        expect(await session.plainText()).toContain('user prompt [0]>');
-        const prepare = new PrepareTerminal({
-            machineId: 'owner',
-            machine: 'Test machine',
-            sessions: manager,
-            source: () => ({ cwd: home, projectId: 'project' }),
-            title: () => 'Test shell',
-            syntax: shellSyntax
-        });
-        const client = { id: 'person', send() {} };
-        const command = `test "$RUIMTE_TEST_STARTUP" = kept && touch '${sentinel}'`;
-        const preview = await prepare.preview('owner', { chatId: 'chat', itemId: 'reply', language: 'zsh', code: command }, client);
-        expect(preview.targets).toHaveLength(1);
-        await prepare.prepare('owner', preview.targets[0]!.token, client);
-        await waitForAsync(async () => (await session.plainText()).includes('touch'), 'the shell showing the prepared line');
-        await expect(access(sentinel)).rejects.toThrow();
-        expect(await readFile(join(home, '.zshenv'), 'utf8')).toBe(zshenv);
-        expect(await readFile(join(home, '.zshrc'), 'utf8')).toBe(zshrc);
-        manager.write('shell', '\r', 'person');
-        await waitForAsync(
-            () =>
-                access(sentinel).then(
-                    () => true,
-                    () => false
-                ),
-            'the explicit Enter executing the command'
-        );
-        manager.write('shell', 'false\r', 'person');
-        await waitForAsync(async () => (await session.plainText()).includes('user prompt [1]>'), 'the prompt retaining the command exit status');
-    } finally {
-        manager.killAll();
-        await waitFor(() => manager.list().every((session) => session.exited), 'test shell exiting');
-        await rm(home, { recursive: true, force: true });
-    }
-});
+}
 
 test('cwd output without a controlling terminal preserves strict options, status and redirected streams', async () => {
     const home = await realpath(await mkdtemp(join(tmpdir(), 'ruimte-cwd-no-tty-')));

@@ -51,9 +51,11 @@ describe('searching the settings', () => {
         expect(searchSettings('dates numbers read')).toMatchObject([{ id: 'appearance.region', description: 'Dates and numbers read as .' }]);
     });
 
-    test('a shortcut is found by its label, its category and its keys, and leads to its row', () => {
+    test('a shortcut is found by its label, its category and its platform keys', () => {
         const rows = shortcutSearchRows(shortcutGroups(true), true);
-        expect(searchSettings('zoom out', rows).map((result) => result.id)).toEqual(['keyboard.canvas.8']);
+        expect(searchSettings('zoom out', rows)).toMatchObject([{ section: 'keyboard', label: 'Zoom out', description: 'Canvas · -' }]);
+        const other = shortcutSearchRows(shortcutGroups(false), false);
+        expect(searchSettings('selection ctrl+a', other)).toMatchObject([{ section: 'keyboard', label: 'Select all', description: 'Selection · Ctrl+A' }]);
         expect(searchSettings('selection ⌘a', rows)).toMatchObject([{ section: 'keyboard', label: 'Select all', description: 'Selection · ⌘A' }]);
         expect(searchSettings('zoom out')).toEqual([]);
     });
@@ -62,9 +64,11 @@ describe('searching the settings', () => {
         expect(searchSettings('   ')).toEqual([]);
     });
 
-    test('the accent setting is the first result for its name, in any case and with accents', () => {
-        expect(searchSettings('accent')).toContainEqual(expect.objectContaining({ section: 'appearance', id: 'appearance.accent' }));
-        expect(searchSettings('Accent')).toEqual(searchSettings('accént'));
+    test('the accent setting is found by its name, in any case and with accents', () => {
+        const results = searchSettings('accent');
+        expect(results).toContainEqual(expect.objectContaining({ section: 'appearance', id: 'appearance.accent' }));
+        expect(searchSettings('Accent')).toEqual(results);
+        expect(searchSettings('accént')).toEqual(results);
     });
 
     test('a row the pane does not draw is not found', () => {

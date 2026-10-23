@@ -25,6 +25,8 @@ COPY packages/pulsar/package.json ./packages/pulsar/package.json
 COPY packages/actions/package.json ./packages/actions/package.json
 COPY packages/csp/package.json ./packages/csp/package.json
 COPY packages/service/package.json ./packages/service/package.json
+COPY packages/telemetry/package.json ./packages/telemetry/package.json
+COPY packages/voice/package.json ./packages/voice/package.json
 RUN bun install
 
 COPY packages/contracts/src ./packages/contracts/src
@@ -32,6 +34,8 @@ COPY packages/pulsar/src ./packages/pulsar/src
 COPY packages/actions/src ./packages/actions/src
 COPY packages/csp/src ./packages/csp/src
 COPY packages/service/src ./packages/service/src
+COPY packages/telemetry/src ./packages/telemetry/src
+COPY packages/voice/src ./packages/voice/src
 COPY apps/server/src ./apps/server/src
 COPY apps/server/bin ./apps/server/bin
 COPY apps/server/docker/entrypoint.sh /usr/local/bin/ruimte-entrypoint

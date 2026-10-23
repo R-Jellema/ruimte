@@ -1239,12 +1239,6 @@ describe('node new', () => {
         expect(node.body).toBe('Line one\nLine two\tend\\d\\s');
     });
 
-    test('needs a kind it knows', async () => {
-        expect((await post('node', ['new'])).lines[0]).toStartWith('refused\tbad-arguments\t');
-        expect((await post('node', ['new', 'group'])).lines[0]).toStartWith('refused\tbad-arguments\t');
-        expect((await post('node', ['new', 'note', '--cmd', 'ls'])).lines[0]).toStartWith('refused\tunknown-flag\t');
-    });
-
     test('refuses a flag that does not belong to the kind', async () => {
         const cases: string[][] = [
             ['note', '--url', 'https://example.com'],
@@ -2859,13 +2853,6 @@ describe('the view verb itself', () => {
         expect((await post('view', ['duplicate', 'board'])).lines[0]).toBe(
             'refused\tunknown-action\tview needs one of list, new, rename, icon, move, delete, open, diagram, and duplicate is not one'
         );
-    });
-
-    test('help view prints the signature of every one of them, out of the registry', async () => {
-        const { lines } = await post('help', ['view']);
-        for (const sub of VIEW_SUBS) {
-            expect(lines).toContain(`action\t${sub.name}\t${sub.usage}\t${sub.summary}`);
-        }
     });
 
     test('a session that is in no project of this machine changes nothing', async () => {

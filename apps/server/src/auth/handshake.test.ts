@@ -264,13 +264,6 @@ describe('Handshake on a direct channel', () => {
         expect(verifySignature(daemon.publicKey, daemonChallengeMessage(DAEMON_ID, challenge), signed.signature)).toBe(false);
     });
 
-    test('a key that signs the same binding gets a ticket', async () => {
-        const key = await pairedKey();
-        const { challenge } = handshake.challenge(BINDING);
-        const signature = signMessage(key.privateKey, clientChannelMessage(DAEMON_ID, challenge, key.publicKey, BINDING));
-        expect(await handshake.redeem({ publicKey: key.publicKey, challenge, signature }, BINDING)).not.toBeNull();
-    });
-
     test('a signature over another DTLS session, or over no session at all, gets nothing', async () => {
         const key = await pairedKey();
         const other = handshake.challenge(BINDING).challenge;

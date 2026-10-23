@@ -71,15 +71,6 @@ describe('closing cells through the guards of their loose tabs', () => {
         dismissClose();
         expect(await closing).toBe(false);
         expect(cells()).toEqual([['a'], ['/p/one.ts', '/p/two.ts']]);
-    });
-
-    test('does not touch the tabs after the one that was kept', async () => {
-        saves.mockResolvedValue(false);
-        leaveUnsaved('/p/one.ts');
-        const closing = closeCellGuarded({ column: 1, cell: 0 });
-        await settle();
-        dismissClose();
-        await closing;
         expect(useFiles.getState().tabs.map((tab) => tab.key)).toEqual(['/p/one.ts', '/p/two.ts']);
     });
 

@@ -275,29 +275,19 @@ describe('moving a chat from Chats into a project', () => {
         expect(existsSync(join(root, 'vinyl'))).toBe(false);
     });
 
-    test('a chat the library will not relocate is refused in the plain sentence, without its id', async () => {
-        daemon.chats.holdForPerson(chatId, 'some-card');
-        const refused = await moveChat(
-            { chatId, to: make('vinyl'), ownFiles: 'move' },
-            deps(() => ({ refusal: () => null }))
-        ).catch((e: unknown) => e);
-        expect(refused).toMatchObject({ code: 'move-refused', message: 'This chat is still working. Stop it or wait for it to finish, then try again' });
-        expect((refused as Error).message).not.toContain(chatId);
-        await expectUntouched();
-    });
-
     test('a chat that cannot be relocated is refused before a folder, a repository or a project is made', async () => {
         daemon.chats.holdForPerson(chatId, 'some-card');
         const folder = join(root, 'vinyl');
         const before = (await store.known()).length;
-        await expect(
-            moveChat(
-                { chatId, to: make('vinyl', { initGit: true }), ownFiles: 'move' },
-                deps(() => ({ refusal: () => null }))
-            )
-        ).rejects.toMatchObject({
-            code: 'move-refused'
+        const refused = await moveChat(
+            { chatId, to: make('vinyl', { initGit: true }), ownFiles: 'move' },
+            deps(() => ({ refusal: () => null }))
+        ).catch((e: unknown) => e);
+        expect(refused).toMatchObject({
+            code: 'move-refused',
+            message: 'This chat is still working. Stop it or wait for it to finish, then try again'
         });
+        expect((refused as Error).message).not.toContain(chatId);
         expect(existsSync(folder)).toBe(false);
         expect((await store.known()).length).toBe(before);
         await expectUntouched();
@@ -542,7 +532,7 @@ describe('moving a chat from Chats into a project', () => {
             expect(told).toEqual([]);
         });
 
-        test('a record that cannot take the new folder tells the move as done, so a card of the chat does not stand without a hold', async () => {
+        test('a record that cannot take the new folder takes nothing back and leaves the journal for the next start', async () => {
             const told: string[] = [];
             await expect(
                 moveChat(
@@ -558,25 +548,8 @@ describe('moving a chat from Chats into a project', () => {
                         }
                     }))
                 )
-            ).rejects.toMatchObject({ code: 'move-failed' });
-            expect(told).toEqual([chatId]);
-        });
-
-        test('a record that cannot take the new folder takes nothing back and leaves the journal for the next start', async () => {
-            await expect(
-                moveChat(
-                    { chatId, to: make('vinyl'), ownFiles: 'move' },
-                    deps((base) => ({
-                        chats: {
-                            ...base.chats,
-                            relocate: async (id, cwd, during) => {
-                                await base.chats.relocate(id, cwd, during);
-                                throw FAILED;
-                            }
-                        }
-                    }))
-                )
             ).rejects.toMatchObject({ code: 'move-failed', message: expect.stringContaining('finishes the move the next time it starts') });
+            expect(told).toEqual([chatId]);
             const target = (await store.known()).find((project) => project.folder === join(root, 'vinyl'))!;
             expect(await viewIds(target.projectId)).toEqual([chatId]);
             expect(await viewIds(chatsId)).not.toContain(chatId);

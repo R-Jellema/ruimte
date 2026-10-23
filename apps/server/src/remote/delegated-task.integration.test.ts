@@ -427,22 +427,6 @@ describe('a task given to another machine', () => {
         expect(wakeTurns(daemonA)).toEqual([]);
     });
 
-    test('a start that never went out owes nothing to B once it is stopped', async () => {
-        await bootB();
-        await bootA();
-        await leadIdle(daemonA);
-
-        const task = await give();
-        await daemonA.worker.settled();
-        expect(daemonA.outbox.list().map((entry) => entry.kind)).toEqual(['start-remote-agent']);
-
-        await daemonA.endChildren.stopNode('chat-lead', 'a person stopped it');
-        await daemonA.worker.settled();
-        expect(daemonA.tasks.get(task.taskId)?.status).toBe('cancelled');
-        expect(daemonA.outbox.list()).toEqual([]);
-        expect(daemonB.tasks.all()).toEqual([]);
-    });
-
     test('leaving the account fails a task that waited to start and one that ran, wakes the lead once for each and leaves nothing owed to B', async () => {
         await bootB();
         await bootA();

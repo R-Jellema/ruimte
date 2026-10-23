@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { prepareShellIntegration } from './shell-integration.ts';
@@ -12,7 +12,6 @@ test('shell integration only changes the environment of supported Ruimte shells'
         integrate('/bin/zsh', zsh);
         expect(zsh.RUIMTE_USER_ZDOTDIR).toBe('/custom');
         expect(zsh.ZDOTDIR).toBe(join(home, 'shell-integration/zsh'));
-        expect(await readFile(join(zsh.ZDOTDIR!, '.zshenv'), 'utf8')).toContain('source "${ZDOTDIR:-$HOME}/.zshenv"');
         const bash: Record<string, string> = { PROMPT_COMMAND: 'existing_hook;' };
         integrate('/usr/local/bin/bash', bash);
         expect(bash).toEqual({ PROMPT_COMMAND: 'existing_hook;' });

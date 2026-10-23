@@ -8,8 +8,9 @@ const DAEMON_ID = 'daemon-1';
 const BINDING = 'binding';
 
 /* A channel that records what the daemon sends and whether it turned deflate on, and hands the proof in. */
-function fakeChannel(): { channel: DirectChannel; sent: string[]; deflating: () => boolean; answer(frame: object): void } {
+function fakeChannel(): { channel: DirectChannel; sent: string[]; compressionAtSend: boolean[]; deflating: () => boolean; answer(frame: object): void } {
     const sent: string[] = [];
+    const compressionAtSend: boolean[] = [];
     let reader: (frame: string) => void = () => undefined;
     let deflating = false;
     const channel: DirectChannel = {
@@ -20,6 +21,7 @@ function fakeChannel(): { channel: DirectChannel; sent: string[]; deflating: () 
         },
         send: (data) => {
             sent.push(String(data));
+            compressionAtSend.push(deflating);
             return 1;
         },
         bufferedAmount: () => 0,
@@ -33,7 +35,7 @@ function fakeChannel(): { channel: DirectChannel; sent: string[]; deflating: () 
             deflating = true;
         }
     };
-    return { channel, sent, deflating: () => deflating, answer: (frame) => reader(JSON.stringify(frame)) };
+    return { channel, sent, compressionAtSend, deflating: () => deflating, answer: (frame) => reader(JSON.stringify(frame)) };
 }
 
 function authenticate(channel: DirectChannel): ReturnType<typeof authenticateChannel> {
@@ -57,13 +59,16 @@ function secretProof(extra: object = {}): object {
 
 describe('authenticateChannel', () => {
     test('the challenge offers deflate, and a client that chose it gets deflated frames from after the verdict', async () => {
-        const { channel, sent, deflating, answer } = fakeChannel();
+        const { channel, sent, compressionAtSend, deflating, answer } = fakeChannel();
         const access = authenticate(channel);
         expect(JSON.parse(sent[0]!).compression).toEqual([DIRECT_COMPRESSION]);
         answer(secretProof({ compression: DIRECT_COMPRESSION }));
         expect(await access).toEqual({ reachability: 'lan', sessionId: null });
         expect(JSON.parse(sent[1]!).type).toBe('direct.accepted');
         expect(deflating()).toBe(true);
+        expect(compressionAtSend).toEqual([false, false]);
+        channel.send('{"id":"application"}');
+        expect(compressionAtSend).toEqual([false, false, true]);
     });
 
     test('a client that chose nothing, or something this daemon does not know, gets every frame as it is', async () => {

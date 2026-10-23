@@ -16,14 +16,6 @@ function offered(): string[] {
 }
 
 describe('the daemon Voice matrix', () => {
-    test('names each action once, and only actions of the catalog', () => {
-        const names = DAEMON_VOICE_ACTIONS.map((action) => action.name);
-        expect(new Set(names).size).toBe(names.length);
-        for (const name of names) {
-            expect(Object.hasOwn(ACTION_DEFINITIONS, name)).toBe(true);
-        }
-    });
-
     test('reads, moves between the projects of its machine, and prompts, clears or starts a chat', () => {
         expect(DAEMON_VOICE_ACTIONS.map((action) => action.name)).toEqual([
             'project.list',

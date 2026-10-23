@@ -970,16 +970,6 @@ describe('statements', () => {
         expect(device).toEqual({ label: 'Test device' });
     });
 
-    test.skipIf(!realStatementSecret)('a statement verifies against the pinned public key', async () => {
-        const session = await signIn(4002);
-        await dispatch('/v1/machines', { method: 'POST', headers: bearer(session), body: registration(session, newKeyPair(), 'pinned') });
-        const statement = (await (
-            await dispatch('/v1/statements', { method: 'POST', headers: bearer(session), body: accessRequest('pinned', newKeyPair()) })
-        ).json()) as AccessStatement;
-        const message = accessStatementMessage(statement.machineId, statement.clientPublicKey, statement.nonce, statement.issuedAt, statement.expiresAt);
-        expect(PULSAR_STATEMENT_PUBLIC_KEYS.some((key) => verifies(key, message, statement.signature))).toBe(true);
-    });
-
     test('a statement for a machine on another account is refused', async () => {
         const owner = await signIn(4003);
         const stranger = await signIn(4004);
@@ -1360,8 +1350,7 @@ describe('native sign in with Apple', () => {
     test('native start applies the existing login IP budget and rejects invalid PKCE challenges', async () => {
         expect((await dispatch('/v1/apple/start', { method: 'POST', body: { codeChallenge: 'short' } })).status).toBe(400);
         const ip = nextIp();
-        const db = database(mf);
-        await db.run('INSERT INTO rate_limit (bucket, window_start, count) VALUES (?1, ?2, ?3)', `ip:${ip}:login`, windowStartOf(Date.now()), LIMITS.loginIp);
+        await spendLimit(`ip:${ip}:login`, LIMITS.loginIp);
         expect((await dispatch('/v1/apple/start', { method: 'POST', ip, body: { codeChallenge: sha256('x'.repeat(43)) } })).status).toBe(429);
     });
 });
@@ -2222,7 +2211,13 @@ describe('model benchmarks', () => {
     });
 
     test('a failed page, an unreadable one or one without a known model leaves the row that is there', async () => {
-        const before = await (await read()).json();
+        pages = [page(1, false, [measured(measuredId('claude-opus-5-5', 'low'), 43.2, 0.65)])];
+        await refresh();
+        const response = await read();
+        expect(response.status).toBe(200);
+        const before = (await response.json()) as ModelBenchmarksResult;
+        expect(before.measurements).toEqual([expect.objectContaining({ modelId: 'claude-opus-5-5', effort: 'low', intelligence: 43.2, costPerTask: 0.65 })]);
+        expect(before.models.find((model) => model.id === 'claude-opus-5-5')?.points).toEqual([{ effort: 'low', intelligence: 43.2, costPerTask: 0.65 }]);
         for (const broken of [
             [page(1, true, [measured(measuredId('claude-opus-5-5', 'low'), 1, 1)]), 500],
             [page(1, false, [measured(measuredId('claude-opus-5-5', 'low'), 1, 1)]).data],
@@ -2233,16 +2228,26 @@ describe('model benchmarks', () => {
             pages = broken;
             await refresh();
             expect(asked.length).toBeGreaterThan(0);
-            expect(await (await read()).json()).toEqual(before);
+            const cached = await read();
+            expect(cached.status).toBe(200);
+            expect(await cached.json()).toEqual(before);
         }
     });
 
     test('stops after a bounded number of pages when the answer never ends', async () => {
-        const before = await (await read()).json();
+        pages = [page(1, false, [measured(measuredId('gpt-6-luna', 'low'), 21.8, 0.005)])];
+        await refresh();
+        const response = await read();
+        expect(response.status).toBe(200);
+        const before = (await response.json()) as ModelBenchmarksResult;
+        expect(before.measurements).toEqual([expect.objectContaining({ modelId: 'gpt-6-luna', effort: 'low', intelligence: 21.8, costPerTask: 0.005 })]);
+        expect(before.models.find((model) => model.id === 'gpt-6-luna')?.points).toEqual([{ effort: 'low', intelligence: 21.8, costPerTask: 0.005 }]);
         pages = Array.from({ length: MAX_PAGES + 5 }, (_, index) => page(index + 1, true, [measured(measuredId('gpt-6-sol', 'high'), 44, 0.5)]));
         await refresh();
         expect(asked).toHaveLength(MAX_PAGES);
-        expect(await (await read()).json()).toEqual(before);
+        const cached = await read();
+        expect(cached.status).toBe(200);
+        expect(await cached.json()).toEqual(before);
     });
 
     test('the daily cleanup does not ask Artificial Analysis', async () => {

@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import type { SessionEvent } from '../sessions/manager.ts';
 import { APPROVAL_WAIT_MS, CARD_MS } from './approvals.ts';
 import { chatInfo, computerSetup, SHELL_APP, terminalStatus, TEXT_EDIT, turnEnded, until, type ComputerSetup } from './computer-test-helpers.ts';
+import { ComputerUseStore } from './store.ts';
 import { agentWords, findInstalledApp, resolveApp, SESSION_POLL_MS } from './computer-use.ts';
 
 // How long a call held by the person waits before it asks the helper again.
@@ -328,13 +329,21 @@ describe('a card whose agent is gone', () => {
 
 describe('a terminal', () => {
     test('is refused even with an approval for always, and remembered after it was seen', async () => {
-        const { computer, helper } = await computerSetup();
+        const initial = await computerSetup();
+        const grants = new ComputerUseStore(initial.home, () => 0);
+        await grants.load();
+        await grants.allowAlways(SHELL_APP.bundleId!, SHELL_APP.name);
+        const { computer, helper } = await computerSetup({ home: initial.home });
+        expect(computer.grants().always.map((app) => app.bundleId)).toContain(SHELL_APP.bundleId!);
         expect(await codeOf(computer.operate('chat-1', 'state', 'Shells', {}))).toBe('terminal');
         expect(computer.pendingApprovals()).toEqual([]);
         expect(helper.acted).toEqual([]);
         // Without a shell running now it is still the terminal it was.
         helper.apps = [TEXT_EDIT, { ...SHELL_APP, pid: 900 }];
         expect(await codeOf(computer.operate('chat-1', 'key', 'Shells', { combos: ['cmd+n'] }))).toBe('terminal');
+        const restarted = await computerSetup({ home: initial.home, overrides: { processes: async () => [] } });
+        expect(await codeOf(restarted.computer.operate('chat-1', 'state', 'Shells', {}))).toBe('terminal');
+        expect(restarted.helper.acted).toEqual([]);
     });
 
     test('launched by open is refused before its tree goes back, and known from then on', async () => {

@@ -54,6 +54,7 @@ describe('keepAwakeCommand', () => {
 /* Processes that never run: each records its command and resolves `exited` when it is killed or ends by itself. */
 function fakeSpawner() {
     const started: { command: string[]; killed: boolean; end(): void }[] = [];
+    const events: string[] = [];
     const spawn = (command: string[]): HeldProcess => {
         let end = (): void => undefined;
         const exited = new Promise<void>((resolve) => {
@@ -61,15 +62,17 @@ function fakeSpawner() {
         });
         const entry = { command, killed: false, end };
         started.push(entry);
+        events.push(`start:${command.at(-1)}`);
         return {
             exited,
             kill() {
+                events.push(`stop:${command.at(-1)}`);
                 entry.killed = true;
                 end();
             }
         };
     };
-    return { started, spawn };
+    return { started, spawn, events };
 }
 
 describe('KeepAwake', () => {
@@ -104,6 +107,7 @@ describe('KeepAwake', () => {
             ['-s', true],
             ['-i', false]
         ]);
+        expect(fake.events).toEqual(['start:-s', 'start:-i', 'stop:-s']);
     });
 
     test('a block that ended by itself is started again at the next check', async () => {

@@ -136,29 +136,6 @@ describe('what the machine says about moving a chat', () => {
         expect((await moves().info({ chatId })).refusal).toEqual({ reason: 'working' });
     });
 
-    test('lets a chat go whose only wait is the card of its own suggestion, and settles that card when it moves', async () => {
-        const proposals = new ProjectProposals({
-            chats: { hold: (id, key) => void daemon.chats.holdForPerson(id, key), release: (id, key) => daemon.chats.releaseHold(id, key) }
-        });
-        proposals.ask({ chatId, name: 'Vinyl', reason: 'It grew' });
-        expect(daemon.chats.get(chatId)?.info.status).toBe('needs-you');
-        const handlers = chatMoveHandlers({
-            ...daemon,
-            store,
-            lineage: daemon.lineage,
-            prWatches: daemon.prWatches,
-            outbox: daemon.outbox,
-            machineHome: new MachineHome(store.home),
-            proposals
-        });
-        expect((await handlers.info({ chatId })).refusal).toBeNull();
-        // Without the wiring that knows the card, the same status is a chat that works.
-        expect((await moves().info({ chatId })).refusal).toEqual({ reason: 'working' });
-        proposals.moved(chatId);
-        expect(proposals.stands(chatId)).toBe(false);
-        expect(daemon.chats.get(chatId)?.info.status).not.toBe('needs-you');
-    });
-
     describe('moving the chat that holds a card of its own suggestion', () => {
         let proposals: ProjectProposals;
 
@@ -180,6 +157,9 @@ describe('what the machine says about moving a chat', () => {
         });
 
         test('makes the project, settles the card as moved and frees the chat', async () => {
+            expect(daemon.chats.get(chatId)?.info.status).toBe('needs-you');
+            expect((await chatMoveHandlers(wiring()).info({ chatId })).refusal).toBeNull();
+            expect((await moves().info({ chatId })).refusal).toEqual({ reason: 'working' });
             const folder = join(root, 'vinyl');
             const result = await chatMoveHandlers(wiring()).move({
                 chatId,
@@ -190,6 +170,7 @@ describe('what the machine says about moving a chat', () => {
             expect(daemon.chats.get(chatId)?.info.cwd).toBe(folder);
             expect(proposals.stands(chatId)).toBe(false);
             expect(daemon.chats.get(chatId)?.thread.held).toBe(false);
+            expect(daemon.chats.get(chatId)?.info.status).not.toBe('needs-you');
         });
 
         test('a move that is whole but could not save the folder settles the card, since nothing holds the chat any more', async () => {

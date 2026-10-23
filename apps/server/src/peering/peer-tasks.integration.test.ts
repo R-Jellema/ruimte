@@ -145,6 +145,8 @@ test('the files of the other machine land in a worktree, and what the agent does
     });
     expect(started.cwd).not.toBe(repoB);
     expect(started.branch).toBe('ruimte/fix-it');
+    expect(untrustedAt).toContainEqual({ cwd: started.cwd!, existed: false });
+    expect(links.worktreeFolders()).toContain(started.cwd!);
     expect(await readFile(join(started.cwd!, 'a.txt'), 'utf8')).toBe('one, changed on A\n');
     const node = (content.views.find((view) => isCanvasView(view)) as ProjectCanvasView).nodes[0]!;
     expect(node.cwd).toBe(started.cwd!);
@@ -171,24 +173,6 @@ test('the files of the other machine land in a worktree, and what the agent does
     if (piece.size <= BYTES_CHUNK_MAX) {
         await expect(peerTasks.bundleRead(A, { bundleId, offset: 0, length: 10 })).rejects.toMatchObject({ code: 'bundle-missing' });
     }
-});
-
-test('the folder is untrusted before git makes it', async () => {
-    const bundle = await sendFromA();
-    const started = await peerTasks.start(A, 'client-1', {
-        projectId: PROJECT,
-        nodeId: 'chat-one',
-        parentId: 'chat-parent',
-        title: 'Fix it',
-        prompt: 'Fix it',
-        provider: 'claude',
-        ceiling: 'full-access',
-        depth: 1,
-        bundle,
-        branch: 'fix-it'
-    });
-    expect(untrustedAt).toContainEqual({ cwd: started.cwd!, existed: false });
-    expect(links.worktreeFolders()).toContain(started.cwd!);
 });
 
 test('a worktree cut from the branch of another machine is untrusted too, and one cut from the project is not', async () => {
@@ -316,26 +300,4 @@ test('an acknowledgment makes no bundle, and one that was offered and never read
     expect(await bundlesOnDisk()).toHaveLength(1);
     expect((await peerTasks.result(A, 'client-1', { nodeId: 'chat-one', ack: true })).bundle).toBeNull();
     expect(await bundlesOnDisk()).toEqual([]);
-});
-
-test('a transfer that broke off with its channel goes with it, so it takes no place from the next one', async () => {
-    const bundle = await sendFromA();
-    await peerTasks.bundlePut(A, 'client-1', { bundleId: 'broken-one', offset: 0, data: Buffer.from('half').toString('base64'), total: 100 });
-    expect(await bundlesOnDisk()).toHaveLength(2);
-    peerTasks.channelClosed('client-1');
-    // A start is judged after the drop, whatever it ends in.
-    await peerTasks
-        .start(A, 'client-2', {
-            projectId: 'another',
-            nodeId: 'chat-x',
-            parentId: 'chat-parent',
-            title: 'x',
-            prompt: 'x',
-            provider: 'claude',
-            ceiling: 'full-access',
-            depth: 1
-        })
-        .catch(() => undefined);
-    expect(await bundlesOnDisk()).toEqual([]);
-    expect(bundle.bundleId).toBeDefined();
 });

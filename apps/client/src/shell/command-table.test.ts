@@ -35,15 +35,11 @@ describe('the command table', () => {
     });
 
     test('the window binds what the start screen needs, and the workspace the rest', () => {
-        expect(boundCommands('window').map(([id]) => id)).toEqual([
-            'settings',
-            'window-new',
-            'chat-new',
-            'settings-search',
-            'find-in-files',
-            'sidebar',
-            'palette'
-        ]);
+        expect(
+            boundCommands('window')
+                .map(([id]) => id)
+                .sort()
+        ).toEqual(['chat-new', 'find-in-files', 'palette', 'settings', 'settings-search', 'sidebar', 'window-new']);
         expect(boundCommands('workspace').map(([id]) => id)).toContain('close-cell');
         expect(boundCommands('workspace').map(([id]) => id)).not.toContain('tab-close');
     });

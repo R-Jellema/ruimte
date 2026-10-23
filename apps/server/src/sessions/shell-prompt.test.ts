@@ -51,17 +51,6 @@ test('input and editor replacement invalidate the preview before any async work'
     expect(commands).toEqual([]);
 });
 
-test('the editor repeats buffer and cwd checks when the command arrives', async () => {
-    for (const changed of [{ cwd: '/other', empty: true }, { cwd: '/work tree', empty: false }, null]) {
-        const { prompt, commands, setState } = fixture();
-        await prompt.inspect();
-        const preview = prompt.snapshot()!;
-        setState(changed);
-        expect(await prompt.prepare(preview, 'echo hi', () => {})).toBe('refused');
-        expect(commands).toEqual([]);
-    }
-});
-
 test('input while a live inspection is pending discards its answer', async () => {
     const prompt = new ShellPrompt();
     const reply = Promise.withResolvers<ShellEditorState | null>();

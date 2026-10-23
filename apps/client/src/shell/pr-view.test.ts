@@ -48,9 +48,10 @@ describe('mergeStateKey', () => {
 
 describe('threadBlock', () => {
     test('names the place and quotes every comment in a fence', () => {
-        const block = threadBlock({ repo: 'o/r', number: 12 }, thread('a', { bot: true }));
-        expect(block).toContain('Review thread on o/r#12 at src/a.ts:3');
-        expect(block).toContain('copilot[bot] (bot): body a');
-        expect(block).toContain('```');
+        const review = thread('a', { bot: true });
+        review.comments.push({ author: 'ada', bot: false, body: '  Follow-up\nwith details.  ', url: 'reply', createdAt: 'later' });
+        expect(threadBlock({ repo: 'o/r', number: 12 }, review)).toBe(
+            'Review thread on o/r#12 at src/a.ts:3\n```\ncopilot[bot] (bot): body a\n\nada: Follow-up\nwith details.\n```'
+        );
     });
 });

@@ -98,6 +98,12 @@ function find(spec: MenuSpec, id: string): Extract<MenuNode, { kind: 'command' }
         .find((node): node is Extract<MenuNode, { kind: 'command' }> => node.kind === 'command' && node.id === id);
 }
 
+function offered(spec: MenuSpec, id: string): Extract<MenuNode, { kind: 'command' }> {
+    const row = find(spec, id);
+    expect(row, id).toBeDefined();
+    return row!;
+}
+
 const EVERY_CONTEXT: MenuContext[] = [
     START_SCREEN,
     ...(['canvas', 'drawing', 'diagram', 'chat', 'terminal', 'browser', 'file'] as const).flatMap((view) =>
@@ -155,7 +161,7 @@ describe('the menus', () => {
     });
 
     test('a new window opens from anywhere, and only a project moves to one', () => {
-        expect(find(menuModel(START_SCREEN), 'window-new')?.accelerator).toBe('CommandOrControl+Shift+N');
+        expect(offered(menuModel(START_SCREEN), 'window-new').accelerator).toBe('CommandOrControl+Shift+N');
         expect(find(menuModel(START_SCREEN), 'window-move')).toBeUndefined();
         expect(find(menuModel(context()), 'window-move')).toBeDefined();
         expect(commandIds(menuModel(context({ windows: false })))).not.toContain('window-new');
@@ -163,7 +169,7 @@ describe('the menus', () => {
     });
 
     test('a new chat starts from the start screen and a project alike, unless the machine refused one', () => {
-        expect(find(menuModel(START_SCREEN), 'chat-new')?.accelerator).toBe('CommandOrControl+Alt+N');
+        expect(offered(menuModel(START_SCREEN), 'chat-new').accelerator).toBe('CommandOrControl+Alt+N');
         expect(find(menuModel(context()), 'chat-new')).toBeDefined();
         expect(commandIds(menuModel(context({ newChat: false })))).not.toContain('chat-new');
     });
@@ -177,7 +183,7 @@ describe('the menus', () => {
         expect(commandIds(menuModel(context({ view: 'chat' })))).not.toContain('chat-restart');
         for (const view of ['chat', 'canvas'] as const) {
             const spec = menuModel(context({ view, chat: true }));
-            expect(find(spec, 'chat-send-new')?.accelerator).toBe('CommandOrControl+Alt+Enter');
+            expect(offered(spec, 'chat-send-new').accelerator).toBe('CommandOrControl+Alt+Enter');
             expect(commandIds(spec)).toContain('chat-restart');
         }
     });
@@ -186,8 +192,8 @@ describe('the menus', () => {
         expect(commandIds(menuModel(context({ view: 'chat' })))).not.toContain('chat-effort-up');
         for (const view of ['chat', 'canvas'] as const) {
             const spec = menuModel(context({ view, chat: true }));
-            expect(find(spec, 'chat-effort-up')?.accelerator).toBe('CommandOrControl+Shift+.');
-            expect(find(spec, 'chat-effort-down')?.accelerator).toBe('CommandOrControl+Shift+,');
+            expect(offered(spec, 'chat-effort-up').accelerator).toBe('CommandOrControl+Shift+.');
+            expect(offered(spec, 'chat-effort-down').accelerator).toBe('CommandOrControl+Shift+,');
         }
     });
 
@@ -223,7 +229,11 @@ describe('the menus', () => {
 
         test('keeps only "Other Project…" in the submenu without a recent project', () => {
             const submenu = chatMenu({ moveProjects: [] }).find((node) => node.kind === 'submenu' && node.id === 'chat-move');
-            expect(submenu?.kind === 'submenu' ? submenu.items.map((node) => node.kind) : []).toEqual(['command']);
+            expect(submenu).toMatchObject({
+                kind: 'submenu',
+                items: [{ kind: 'command', id: 'chat-move-to-project', label: 'Other Project…' }]
+            });
+            expect(submenu?.kind === 'submenu' ? submenu.items : []).toHaveLength(1);
         });
 
         test('greys both rows while the chat works', () => {
@@ -281,7 +291,7 @@ describe('the menus', () => {
     test('while the settings are open, Find searches them, on the start screen as well', () => {
         for (const base of [context(), START_SCREEN]) {
             const spec = menuModel({ ...base, settingsOpen: true });
-            expect(find(spec, 'settings-search')?.accelerator).toBe('CommandOrControl+F');
+            expect(offered(spec, 'settings-search').accelerator).toBe('CommandOrControl+F');
             expect(find(spec, 'find')).toBeUndefined();
         }
         expect(find(menuModel(context()), 'settings-search')).toBeUndefined();
@@ -312,12 +322,12 @@ describe('the menus', () => {
     test('the station prints its keys, except the ones a browser tab keeps, and undoes its own history', () => {
         const spec = menuModel(context({ host: 'station', apple: true, cells: 2 }));
         expect(find(spec, 'palette')).toMatchObject({ keys: '⌘K' });
-        expect(find(spec, 'palette')?.accelerator).toBeUndefined();
-        expect(find(spec, 'close-cell')?.keys).toBeUndefined();
-        expect(find(spec, 'view-new')?.keys).toBeUndefined();
+        expect(offered(spec, 'palette').accelerator).toBeUndefined();
+        expect(offered(spec, 'close-cell').keys).toBeUndefined();
+        expect(offered(spec, 'view-new').keys).toBeUndefined();
         expect(find(spec, 'edit-undo')).toMatchObject({ keys: '⌘Z', enabled: true });
-        expect(find(spec, 'fullscreen')?.checked).toBe(false);
-        expect(find(menuModel(context({ host: 'station', view: 'terminal' })), 'edit-undo')?.enabled).toBe(false);
+        expect(offered(spec, 'fullscreen').checked).toBe(false);
+        expect(offered(menuModel(context({ host: 'station', view: 'terminal' })), 'edit-undo').enabled).toBe(false);
     });
 
     test('a terminal can be cleared and the project has its settings in File', () => {
@@ -329,64 +339,64 @@ describe('the menus', () => {
 
     test('the clear key shows on Clear while a terminal has the keyboard, and on the palette otherwise', () => {
         const typing = menuModel(context({ view: 'terminal', terminalKeys: true }));
-        expect(find(typing, 'terminal-clear')?.accelerator).toBe('Command+K');
-        expect(find(typing, 'palette')?.accelerator).toBeUndefined();
+        expect(offered(typing, 'terminal-clear').accelerator).toBe('Command+K');
+        expect(offered(typing, 'palette').accelerator).toBeUndefined();
         const elsewhere = menuModel(context({ view: 'terminal', terminalKeys: false }));
-        expect(find(elsewhere, 'terminal-clear')?.accelerator).toBeUndefined();
-        expect(find(elsewhere, 'palette')?.accelerator).toBe('CommandOrControl+K');
+        expect(offered(elsewhere, 'terminal-clear').accelerator).toBeUndefined();
+        expect(offered(elsewhere, 'palette').accelerator).toBe('CommandOrControl+K');
     });
 
     test('the find row shows the terminal key while a terminal with a find bar has the keyboard, and the window key otherwise', () => {
         const typing = menuModel(context({ view: 'terminal', apple: false, terminalKeys: true, terminalFind: true }));
-        expect(find(typing, 'find')?.accelerator).toBe('Control+Shift+F');
+        expect(offered(typing, 'find').accelerator).toBe('Control+Shift+F');
         const elsewhere = menuModel(context({ view: 'terminal', apple: false, terminalKeys: false }));
-        expect(find(elsewhere, 'find')?.accelerator).toBe('CommandOrControl+F');
+        expect(offered(elsewhere, 'find').accelerator).toBe('CommandOrControl+F');
         const mac = menuModel(context({ view: 'terminal', apple: true, terminalKeys: true, terminalFind: true }));
-        expect(find(mac, 'find')?.accelerator).toBe('Command+F');
+        expect(offered(mac, 'find').accelerator).toBe('Command+F');
     });
 
     test('the find row shows no key in a terminal without a find bar', () => {
         const spec = menuModel(context({ view: 'terminal', apple: false, terminalKeys: true, terminalFind: false }));
-        expect(find(spec, 'find')?.accelerator).toBeUndefined();
+        expect(offered(spec, 'find').accelerator).toBeUndefined();
     });
 
     test('find in files gives Ctrl+Shift+F to a terminal off macOS, and keeps its key everywhere else', () => {
-        expect(find(menuModel(context({ apple: false, terminalKeys: true })), 'find-in-files')?.accelerator).toBeUndefined();
-        expect(find(menuModel(context({ apple: false, terminalKeys: false })), 'find-in-files')?.accelerator).toBe('CommandOrControl+Shift+F');
-        expect(find(menuModel(context({ apple: true, terminalKeys: true })), 'find-in-files')?.accelerator).toBe('CommandOrControl+Shift+F');
+        expect(offered(menuModel(context({ apple: false, terminalKeys: true })), 'find-in-files').accelerator).toBeUndefined();
+        expect(offered(menuModel(context({ apple: false, terminalKeys: false })), 'find-in-files').accelerator).toBe('CommandOrControl+Shift+F');
+        expect(offered(menuModel(context({ apple: true, terminalKeys: true })), 'find-in-files').accelerator).toBe('CommandOrControl+Shift+F');
     });
 
     test('Cmd+W closes the last cell before it closes the window', () => {
         const one = menuModel(context({ cells: 1 }));
         expect(menu(one, 'File').some((node) => node.kind === 'role' && node.role === 'close')).toBe(false);
-        expect(find(one, 'close-cell')?.accelerator).toBe('CommandOrControl+W');
+        expect(offered(one, 'close-cell').accelerator).toBe('CommandOrControl+W');
         const two = menuModel(context({ cells: 2 }));
-        expect(find(two, 'close-cell')?.accelerator).toBe('CommandOrControl+W');
+        expect(offered(two, 'close-cell').accelerator).toBe('CommandOrControl+W');
         const empty = menu(menuModel(context({ cells: 0, view: null })), 'File');
         expect(empty.some((node) => node.kind === 'role' && node.role === 'close')).toBe(true);
     });
 
     test('a single-tab host offers closing its tab and its cell', () => {
         const spec = menuModel(context({ cells: 1, tabs: { hosted: true, count: 1, index: 0, splitOff: false } }));
-        expect(find(spec, 'tab-close')?.accelerator).toBe('CommandOrControl+W');
-        expect(find(spec, 'close-cell')?.enabled).not.toBe(false);
-        expect(find(spec, 'close-cell')?.accelerator).toBeUndefined();
+        expect(offered(spec, 'tab-close').accelerator).toBe('CommandOrControl+W');
+        expect(offered(spec, 'close-cell').enabled).not.toBe(false);
+        expect(offered(spec, 'close-cell').accelerator).toBeUndefined();
     });
 
     test('what waits on a selection or a split is greyed rather than gone', () => {
         const spec = menuModel(context({ selection: 0, split: { right: false, down: true }, cells: 1 }));
-        expect(find(spec, 'group-selection')?.enabled).toBe(false);
-        expect(find(spec, 'view-promote')?.enabled).toBe(false);
-        expect(find(spec, 'split-right')?.enabled).toBe(false);
-        expect(find(spec, 'split-down')?.enabled).toBe(true);
-        expect(find(spec, 'focus-left')?.enabled).toBe(false);
-        expect(find(menuModel(context({ selection: 2 })), 'group-selection')?.enabled).toBe(true);
-        expect(find(spec, 'group-arrange')?.enabled).toBe(false);
-        expect(find(menuModel(context({ selection: 1, groupArrangeable: true })), 'group-arrange')?.enabled).toBe(true);
+        expect(offered(spec, 'group-selection').enabled).toBe(false);
+        expect(offered(spec, 'view-promote').enabled).toBe(false);
+        expect(offered(spec, 'split-right').enabled).toBe(false);
+        expect(offered(spec, 'split-down').enabled).toBe(true);
+        expect(offered(spec, 'focus-left').enabled).toBe(false);
+        expect(offered(menuModel(context({ selection: 2 })), 'group-selection').enabled).toBe(true);
+        expect(offered(spec, 'group-arrange').enabled).toBe(false);
+        expect(offered(menuModel(context({ selection: 1, groupArrangeable: true })), 'group-arrange').enabled).toBe(true);
     });
 
     test('a cell maximizes from View while the grid has more than one, and says so while it does', () => {
-        expect(find(menuModel(context({ cells: 1 })), 'cell-maximize')?.enabled).toBe(false);
+        expect(offered(menuModel(context({ cells: 1 })), 'cell-maximize').enabled).toBe(false);
         const two = find(menuModel(context({ cells: 2, maximized: true })), 'cell-maximize');
         expect(two).toMatchObject({ enabled: true, checked: true, accelerator: 'CommandOrControl+Shift+Enter' });
     });
@@ -394,19 +404,19 @@ describe('the menus', () => {
     test('the maximize key moves to the node item while a node on the canvas is what it acts on', () => {
         const idle = menuModel(context({ cells: 2 }));
         expect(find(idle, 'node-maximize')).toMatchObject({ enabled: false });
-        expect(find(idle, 'node-maximize')?.accelerator).toBeUndefined();
+        expect(offered(idle, 'node-maximize').accelerator).toBeUndefined();
         const node = menuModel(context({ cells: 2, nodeMaximizable: true, nodeMaximized: true }));
         expect(find(node, 'node-maximize')).toMatchObject({ enabled: true, checked: true, accelerator: 'CommandOrControl+Shift+Enter' });
-        expect(find(node, 'cell-maximize')?.accelerator).toBeUndefined();
+        expect(offered(node, 'cell-maximize').accelerator).toBeUndefined();
     });
 
     test('closing the other cells or those to the right sits under Close, greyed while there is nothing to close', () => {
         const one = menuModel(context({ cells: 1 }));
-        expect(find(one, 'cell-close-others')?.enabled).toBe(false);
-        expect(find(one, 'cell-close-right')?.enabled).toBe(false);
+        expect(offered(one, 'cell-close-others').enabled).toBe(false);
+        expect(offered(one, 'cell-close-right').enabled).toBe(false);
         const three = menuModel(context({ cells: 3, closesRight: true }));
-        expect(find(three, 'cell-close-others')?.enabled).toBe(true);
-        expect(find(three, 'cell-close-right')?.enabled).toBe(true);
+        expect(offered(three, 'cell-close-others').enabled).toBe(true);
+        expect(offered(three, 'cell-close-right').enabled).toBe(true);
         expect(commandIds(menuModel(START_SCREEN))).not.toContain('cell-close-others');
     });
 
@@ -448,14 +458,14 @@ describe('the menus', () => {
     });
 
     test('zoom is offered on every view and only works where there is a camera', () => {
-        expect(find(menuModel(context({ view: 'drawing' })), 'fit')?.enabled).toBe(true);
-        expect(find(menuModel(context({ view: 'terminal' })), 'fit')?.enabled).toBe(false);
+        expect(offered(menuModel(context({ view: 'drawing' })), 'fit').enabled).toBe(true);
+        expect(offered(menuModel(context({ view: 'terminal' })), 'fit').enabled).toBe(false);
     });
 
     test('the panels and the sidebar are check marks, Processes sits in Window', () => {
         const spec = menuModel(context({ panel: 'processes', sidebar: false }));
-        expect(find(spec, 'sidebar')?.checked).toBe(false);
-        expect(find(spec, 'panel-files')?.checked).toBe(false);
+        expect(offered(spec, 'sidebar').checked).toBe(false);
+        expect(offered(spec, 'panel-files').checked).toBe(false);
         expect(menu(spec, 'Window').some((node) => node.kind === 'command' && node.id === 'panel-processes' && node.checked === true)).toBe(true);
     });
 
@@ -463,8 +473,8 @@ describe('the menus', () => {
         for (const spec of EVERY_CONTEXT.map(menuModel)) {
             const ids = menu(spec, 'Window').flatMap((node) => (node.kind === 'command' ? [node.id] : []));
             expect(ids[ids.indexOf('usage') + 1]).toBe('models');
-            expect(find(spec, 'models')?.accelerator).toBeUndefined();
-            expect(find(spec, 'models')?.keys).toBeUndefined();
+            expect(offered(spec, 'models').accelerator).toBeUndefined();
+            expect(offered(spec, 'models').keys).toBeUndefined();
         }
         expect(isPaletteId('models')).toBe(true);
     });
@@ -502,10 +512,12 @@ describe('the menus', () => {
         );
         expect(find(spec, 'launch-run')).toMatchObject({ label: 'Launch Dev', accelerator: 'CommandOrControl+Alt+R' });
         expect(find(spec, 'launch-stop')).toMatchObject({ label: 'Stop Dev', accelerator: 'CommandOrControl+Alt+.', enabled: false });
-        expect(find(spec, 'launches-stop-all')?.enabled).toBe(true);
+        expect(offered(spec, 'launches-stop-all').enabled).toBe(true);
         expect(find(spec, `${LAUNCH_CHOOSE_PREFIX}dev`)).toMatchObject({ checked: true, radio: true });
-        expect(find(spec, `${LAUNCH_CHOOSE_PREFIX}server`)?.checked).toBe(false);
-        expect(find(menuModel(context({ launches: [{ id: 'dev', name: 'Dev', live: true }], chosenLaunch: 'dev' })), 'launch-run')?.label).toBe('Restart Dev');
+        expect(offered(spec, `${LAUNCH_CHOOSE_PREFIX}server`).checked).toBe(false);
+        expect(offered(menuModel(context({ launches: [{ id: 'dev', name: 'Dev', live: true }], chosenLaunch: 'dev' })), 'launch-run').label).toBe(
+            'Restart Dev'
+        );
     });
 
     test('Run offers the tasks that may run after a worktree chat settles, with the one that does checked', () => {
@@ -517,7 +529,7 @@ describe('the menus', () => {
     test('without launches Run still offers to add one', () => {
         const ids = menu(menuModel(context()), 'Run').flatMap((node) => (node.kind === 'command' ? [node.id] : []));
         expect(ids).toEqual(['launch-run', 'launch-stop', 'launches-stop-all', 'launches-output', 'launches-edit']);
-        expect(find(menuModel(context()), 'launch-run')?.enabled).toBe(false);
+        expect(offered(menuModel(context()), 'launch-run').enabled).toBe(false);
     });
 
     test('no menu starts or ends on a line or draws two in a row', () => {
@@ -537,7 +549,7 @@ describe('the menus', () => {
 
 describe('the commands behind the menu', () => {
     // A row of the table runs through the palette or through `MENU_ACTIONS`, which the type holds to every row the palette lacks.
-    test('every id in any menu has a handler', () => {
+    test('every id in any menu fits the known command route grammar', () => {
         const ids = new Set(EVERY_CONTEXT.flatMap((entry) => commandIds(menuModel(entry))));
         for (const id of ids) {
             const handled =

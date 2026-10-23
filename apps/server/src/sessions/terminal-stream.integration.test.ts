@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { connect } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -532,6 +532,16 @@ async function startBurst(writer: WireClient, sessionId: string, last = LAST): P
     await writer.request('session.write', { sessionId, data: burst(last) });
 }
 
+async function startPausedBurst(writer: WireClient, sessionId: string): Promise<() => Promise<void>> {
+    const gate = join(home, `${sessionId}.continue`);
+    await writer.request('session.write', {
+        sessionId,
+        data: `mkfifo '${gate}'; echo; seq 1 20000; read release < '${gate}'; rm '${gate}'; seq 20001 ${LAST}; echo end-of-""run; exit\n`
+    });
+    await writer.until(() => writer.shows(sessionId, MID_BURST));
+    return () => writeFile(gate, '\n');
+}
+
 function untilEnd(client: WireClient, sessionId: string): Promise<void> {
     return client.until(() => client.shows(sessionId, END) || client.closed);
 }
@@ -542,11 +552,11 @@ describe('terminal output over a real socket', () => {
         async () => {
             const sessionId = 'burst-attach';
             const writer = await openSession(sessionId);
-            await startBurst(writer, sessionId);
-            await writer.until(() => writer.shows(sessionId, MID_BURST));
+            const release = await startPausedBurst(writer, sessionId);
 
             const reader = await connectClient();
             await reader.attach(sessionId);
+            await release();
             await Promise.all([untilEnd(writer, sessionId), untilEnd(reader, sessionId)]);
 
             // The client that watched from the start saw everything the shell printed.
@@ -563,8 +573,7 @@ describe('terminal output over a real socket', () => {
         async () => {
             const sessionId = 'burst-reload';
             const writer = await openSession(sessionId);
-            await startBurst(writer, sessionId);
-            await writer.until(() => writer.shows(sessionId, MID_BURST));
+            const release = await startPausedBurst(writer, sessionId);
 
             const before = await connectClient();
             await before.attach(sessionId);
@@ -575,6 +584,7 @@ describe('terminal output over a real socket', () => {
 
             const after = await connectClient();
             await after.attach(sessionId);
+            await release();
             await Promise.all([untilEnd(writer, sessionId), untilEnd(after, sessionId)]);
 
             await expectMidBurst(after.segments(sessionId)[0]!, LAST);
@@ -588,14 +598,14 @@ describe('terminal output over a real socket', () => {
         async () => {
             const sessionId = 'burst-clear';
             const writer = await openSession(sessionId);
-            await startBurst(writer, sessionId);
-            await writer.until(() => writer.shows(sessionId, MID_BURST));
+            const release = await startPausedBurst(writer, sessionId);
 
             let cleared = -1;
             // The screen of the clear is the resync that came before its reply.
             await writer.request('session.clear', { sessionId }, () => {
                 cleared = writer.segments(sessionId).length - 1;
             });
+            await release();
             await untilEnd(writer, sessionId);
 
             const segments = await expectContiguous(writer.segments(sessionId), LAST);

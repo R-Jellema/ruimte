@@ -238,6 +238,9 @@ describe('a new node on another machine', () => {
         const made = saved.nodes.find((node) => node.machine === REMOTE)!;
         expect(made).toMatchObject({ kind: 'chat', cwd: '/Users/b/ruimte', machine: REMOTE });
         expect(there.requests('peer.placeNodes')[0]).toMatchObject({ projectId: 'ruimte', nodes: [{ id: made.id, cwd: '/Users/b/ruimte' }] });
+        expect(here.requests('endpoint.signPeerAccess')[0]).toMatchObject({ machineId: REMOTE });
+        expect(here.requests('remote.connect')[0]).toMatchObject({ machineId: REMOTE, statement: { machineId: REMOTE } });
+        expect(usePeerLapse.getState().lapsed[REMOTE]).toBeUndefined();
         await until(() => dialog() === null);
     });
 
@@ -292,6 +295,8 @@ describe('a new node on another machine', () => {
         await until(() => order.includes('address book'));
         await act(async () => release());
         await until(() => usePeerLapse.getState().lapsed[REMOTE] === true && order.includes('peer.placeNodes'));
+        expect(here.requests('remote.connect')).toEqual([]);
+        expect(here.requests('project.save').length).toBeGreaterThan(0);
         // The next change of the canvas sends the nodes again, which asks for a renewal; a link that was just refused is not tried a second time.
         const placed = there.requests('peer.placeNodes').length;
         await act(async () => remoteMirror()?.resend(REMOTE));
@@ -303,26 +308,6 @@ describe('a new node on another machine', () => {
         }
         expect(order.filter((step) => step === 'address book')).toHaveLength(1);
         expect(here.requests('endpoint.signPeerAccess')).toHaveLength(1);
-    });
-
-    test('links the two machines to each other after the link of the project, and hands the statement and the broker of the account to this machine', async () => {
-        await openDialog();
-        await until(() => button('Create')?.hasAttribute('disabled') === false);
-        await clickOn(button('Create'));
-        await until(() => order.includes('peer.placeNodes') && order.includes('remote.connect'));
-        expect(here.requests('endpoint.signPeerAccess')[0]).toMatchObject({ machineId: REMOTE });
-        expect(here.requests('remote.connect')[0]).toMatchObject({ machineId: REMOTE, statement: { machineId: REMOTE } });
-        expect(usePeerLapse.getState().lapsed[REMOTE]).toBeUndefined();
-    });
-
-    test('still makes the node when the account cannot vouch for the link, and marks the machine so the node offers the way back', async () => {
-        statementRefused = true;
-        await openDialog();
-        await until(() => button('Create')?.hasAttribute('disabled') === false);
-        await clickOn(button('Create'));
-        await until(() => order.includes('peer.placeNodes') && usePeerLapse.getState().lapsed[REMOTE] === true);
-        expect(here.requests('remote.connect')).toEqual([]);
-        expect(here.requests('project.save').length).toBeGreaterThan(0);
     });
 
     test('leaves the machines unlinked when this machine runs a Ruimte that cannot link them', async () => {
@@ -377,7 +362,7 @@ describe('a new node on another machine', () => {
         expect(there.requests('peer.placeNodes')[0]).toMatchObject({ nodes: [{ cwd: '/Users/b/worktrees/ruimte/main' }] });
     });
 
-    test('offers the branch on origin only when both checkouts have one', async () => {
+    test('omits the origin branch when the remote checkout has no origin, while keeping HEAD for a clean local checkout', async () => {
         here.answer('git.status', () => ({ repo: true, branch: 'main', detached: false, upstream: null, files: [] }) as never);
         here.answer('git.identity', () => ({ identities: [{ ...identity('/work/atlas', ['root-a']), remoteUrl: 'git@host:atlas.git' }] }));
         await openDialog();
@@ -516,7 +501,7 @@ describe('the canvas menu', () => {
         await act(async () => useDocument.getState().setShared('main', false));
     });
 
-    test('says a machine that is not answering, and one that runs an older Ruimte', async () => {
+    test('labels a machine that is not answering without disabling it', async () => {
         await act(async () => there.lose());
         await openCanvasMenu();
         expect(menuItem('MacBook Pro')?.textContent).toContain('Not answering');

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { searchSettings } from '@/shell/settings/search';
 import { useUi } from '@/state/ui';
-import { namesSetting, orderBelowJumps, SETTINGS_RESULTS, settingsEntries } from './palette-settings';
+import { namesSetting, orderBelowJumps, settingsEntries } from './palette-settings';
 
 describe('settings in the palette', () => {
     test('a row opens the dialog on its pane with the row as target', () => {
@@ -12,14 +12,17 @@ describe('settings in the palette', () => {
     });
 
     test('a pane opens without a target and hints with its description', () => {
+        useUi.getState().setSettings({ target: 'appearance.accent' });
         const entry = settingsEntries(searchSettings('dictation')).find((candidate) => candidate.id === 'setting-voice-pane');
-        expect(entry?.hint).not.toBe('Voice');
+        expect(entry).toMatchObject({ hint: 'Microphone, dictation and Voice Control.' });
         entry!.run();
         expect(useUi.getState().settings).toMatchObject({ open: true, section: 'voice', target: null });
     });
 
     test('the list is capped', () => {
-        expect(settingsEntries(searchSettings('a')).length).toBeLessThanOrEqual(SETTINGS_RESULTS);
+        const results = searchSettings('a');
+        expect(results.length).toBeGreaterThan(6);
+        expect(settingsEntries(results)).toHaveLength(6);
     });
 
     test("a query that starts a setting's label puts settings above the loose matches", () => {

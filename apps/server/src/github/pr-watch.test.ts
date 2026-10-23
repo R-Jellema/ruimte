@@ -395,13 +395,6 @@ describe('a pull request watch', () => {
         expect(store.list()).toHaveLength(MAX_WATCHES);
     });
 
-    test('one watch per chat: a second start replaces the first', async () => {
-        const store = open();
-        await store.start('p', 'chat-1', '/repo');
-        await store.start('p', 'chat-1', '/repo');
-        expect(store.list()).toHaveLength(1);
-    });
-
     test('ends when the pull request is merged, and says so', async () => {
         const store = open();
         await store.start('p', 'chat-1', '/repo');

@@ -33,7 +33,9 @@ test('the prompt an agent node was made with lands on the line its CLI is starte
 
 test('a session without a prompt is started the way it always was', async () => {
     await start('terminal-b');
-    expect(harness.adapter.forSession('terminal-b').input).toEqual([`claude ${ALLOW}\n`]);
+    const pty = harness.adapter.forSession('terminal-b');
+    expect(pty.input).toEqual([`claude ${ALLOW}\n`]);
+    expect(pty.options.env[START_LINE_ENV]).toBeUndefined();
 });
 
 test('a line longer than the tty takes before the shell reads is handed over in the environment', async () => {
@@ -43,11 +45,6 @@ test('a line longer than the tty takes before the shell reads is handed over in 
     const pty = harness.adapter.forSession('terminal-c');
     expect(pty.input).toEqual([`eval "$${START_LINE_ENV}"\n`]);
     expect(pty.options.env[START_LINE_ENV]).toBe(`claude ${ALLOW} '${prompt}'`);
-});
-
-test('a short line leaves the environment alone', async () => {
-    await start('terminal-d');
-    expect(harness.adapter.forSession('terminal-d').options.env[START_LINE_ENV]).toBeUndefined();
 });
 
 test('two creates of one id at once, the machine starting the node and a client mounting it, spawn one shell', async () => {

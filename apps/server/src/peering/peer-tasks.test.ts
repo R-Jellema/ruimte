@@ -196,30 +196,24 @@ describe('starting a task for another machine', () => {
         expect(enqueued.filter((item) => item.work.kind === 'start-agent')).toHaveLength(1);
     });
 
-    test('a start that fails after its task opened leaves no open task, and a retry hears that nothing ran', async () => {
-        const peerTasks = new PeerTasks(deps());
-        failEnqueue = true;
-        await expect(peerTasks.start(MACHINE, 'client-1', start())).rejects.toThrow('the outbox is full');
-        expect(peerTasks.openCount(MACHINE)).toBe(0);
-        expect(prompts.has('chat-one')).toBe(false);
-        expect(held).toEqual([]);
-        failEnqueue = false;
-        await peerTasks.start(MACHINE, 'client-1', start());
-        expect(await peerTasks.result(MACHINE, 'client-1', { nodeId: 'chat-one' })).toMatchObject({
-            status: 'failed',
-            result: { text: expect.stringContaining('could not be started on this machine') }
-        });
-        expect(enqueued.filter((item) => item.work.kind === 'start-agent')).toHaveLength(0);
-    });
-
-    test('a failed start frees its place in the limit of open tasks', async () => {
+    test('a failed start rolls back its task and frees its place without retrying the start', async () => {
         const peerTasks = new PeerTasks(deps());
         for (const id of ['n1', 'n2', 'n3']) {
             await peerTasks.start(MACHINE, 'client-1', start({ nodeId: id }));
         }
+        const heldBefore = [...held];
         failEnqueue = true;
-        await expect(peerTasks.start(MACHINE, 'client-1', start({ nodeId: 'n4' }))).rejects.toThrow();
+        await expect(peerTasks.start(MACHINE, 'client-1', start({ nodeId: 'n4' }))).rejects.toThrow('the outbox is full');
+        expect(peerTasks.openCount(MACHINE)).toBe(3);
+        expect(prompts.has('n4')).toBe(false);
+        expect(held).toEqual(heldBefore);
         failEnqueue = false;
+        await peerTasks.start(MACHINE, 'client-1', start({ nodeId: 'n4' }));
+        expect(await peerTasks.result(MACHINE, 'client-1', { nodeId: 'n4' })).toMatchObject({
+            status: 'failed',
+            result: { text: expect.stringContaining('could not be started on this machine') }
+        });
+        expect(enqueued.filter((item) => item.work.kind === 'start-agent')).toHaveLength(3);
         await peerTasks.start(MACHINE, 'client-1', start({ nodeId: 'n5' }));
         expect(peerTasks.openCount(MACHINE)).toBe(4);
     });
@@ -318,6 +312,22 @@ describe('starting a task for another machine', () => {
                 code: 'branch-too-long'
             });
             expect(await Bun.file(bundles.incomingPathOf(bundle.bundleId)).exists()).toBe(false);
+            const incoming = [
+                { bundleId: 'complete', total: 4 },
+                { bundleId: 'partial', total: 8 }
+            ];
+            for (const item of incoming) {
+                expect(await peerTasks.bundlePut(MACHINE, 'client-3', { ...item, offset: 0, data: Buffer.from('abcd').toString('base64') })).toBe(4);
+                expect(await Bun.file(bundles.incomingPathOf(item.bundleId)).exists()).toBe(true);
+            }
+            peerTasks.channelClosed('client-3');
+            await expect(peerTasks.start(MACHINE, 'client-4', start({ branch: 'b'.repeat(PEER_MAX_BRANCH_LENGTH + 1) }))).rejects.toMatchObject({
+                code: 'branch-too-long'
+            });
+            for (const item of incoming) {
+                expect(await Bun.file(bundles.incomingPathOf(item.bundleId)).exists()).toBe(false);
+                expect(await peerTasks.bundlePut(MACHINE, 'client-4', { ...item, offset: 0, data: Buffer.from('abcd').toString('base64') })).toBe(4);
+            }
         });
 
         test('a person removing one frees a place, and nothing here removes a worktree', async () => {
@@ -509,8 +519,10 @@ describe('the requests a peer may ask', () => {
     test('every one of them is closed to a client that is not a peer', async () => {
         for (const [type, payload] of Object.entries(PAYLOADS)) {
             const frame = await ask(connection(undefined), type, payload);
-            expect(frame.ok).toBe(false);
+            expect(frame).toMatchObject({ ok: false, error: { code: 'peer-not-linked' } });
         }
+        expect(tasks.all()).toEqual([]);
+        expect(enqueued).toEqual([]);
     });
 
     test('with a link, a task starts', async () => {

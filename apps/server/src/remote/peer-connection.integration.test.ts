@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, describe, expect, test } from 'bun:test';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -137,9 +137,15 @@ beforeAll(async () => {
     });
     await relay.publish();
     await relay.whenReady();
+}, 60_000);
 
-    peerKey = new PeerKey(homeA);
-    machines = new PeerMachines(homeA);
+let fixture = 0;
+
+beforeEach(async () => {
+    fixture += 1;
+    heard.length = 0;
+    peerKey = new PeerKey(join(homeA, String(fixture)));
+    machines = new PeerMachines(join(homeA, String(fixture)));
     pending = new PendingAdmissions();
     status = new RemoteStatus();
     status.subscribe('client', (event) => {
@@ -156,7 +162,7 @@ beforeAll(async () => {
         dialer: brokerDialer({ signer: peerKey, defaultBroker: () => brokerUrl, label: () => 'Studio', timeoutMs: 15_000 })
     });
     await machines.put({ machineId: MACHINE_ID, publicKey: machineKey.publicKey }, Date.now());
-}, 60_000);
+});
 
 afterEach(() => {
     connections.closeAll();
@@ -190,6 +196,13 @@ async function statement(nonce: string): Promise<PeerStatement> {
     };
 }
 
+async function admitPeer(): Promise<void> {
+    pending.hold(await statement(`admit-${fixture}`.padEnd(22, 'n')));
+    await connections.connect(MACHINE_ID);
+    expect(pending.peek(MACHINE_ID)).toBeNull();
+    connections.closeAll();
+}
+
 describe('the link of one machine to another, over a real broker', () => {
     test('opens on a peer statement, asks the peer list and nothing else, and drops the statement once it was used', async () => {
         pending.hold(await statement('first-link-nonce'.padEnd(22, 'n')));
@@ -204,11 +217,13 @@ describe('the link of one machine to another, over a real broker', () => {
     }, 60_000);
 
     test('opens again on the peer key alone once the machine let it in', async () => {
+        await admitPeer();
         const link = await connections.connect(MACHINE_ID);
         await expect(link.request('server.ping', {})).resolves.toBeDefined();
     }, 60_000);
 
     test('notices when the other machine closes the channel, and is refused once its key was revoked', async () => {
+        await admitPeer();
         const link = await connections.connect(MACHINE_ID);
         const lost: string[] = [];
         connections.onLost((machineId) => lost.push(machineId));

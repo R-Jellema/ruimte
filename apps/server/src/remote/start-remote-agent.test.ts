@@ -613,7 +613,7 @@ describe('agent --machine', () => {
         expect(daemon.outbox.list()).toEqual([]);
     });
 
-    test('a team puts every role on the machine with a task of its own, woken for once all of them settled', async () => {
+    test('a team binds and starts every role on the machine with a task in its batch', async () => {
         open = fakeLink();
         const roles = [
             { title: 'Lexer', prompt: 'Fix the lexer', provider: 'claude' },

@@ -308,11 +308,12 @@ describe('changing the list of views', () => {
 
     test('a node moved to another view keeps its id and leaves its lines behind', () => {
         focusedCanvas().getState().addText({ x: 0, y: 0 });
-        const textId = focusedCanvas().getState().selection[0]!;
-        focusedCanvas().getState().addEdge('n1', textId);
+        const noteId = focusedCanvas().getState().addNode('note', { x: 200, y: 200 })!;
+        focusedCanvas().getState().addEdge('n1', noteId);
+        expect(focusedCanvas().getState().edges).toMatchObject([{ from: 'n1', to: noteId }]);
         useDocument.getState().moveNodeToView('n1', 'b');
 
-        expect(focusedCanvas().getState().order).toEqual([]);
+        expect(focusedCanvas().getState().order).toEqual([noteId]);
         expect(focusedCanvas().getState().edges).toEqual([]);
         expect(canvasAt(1).nodes.map((each) => each.id)).toEqual(['n2', 'n1']);
     });
@@ -321,8 +322,9 @@ describe('changing the list of views', () => {
 describe('a node and a view of its own', () => {
     test('a promoted node keeps its id and loses the lines it was part of', () => {
         focusedCanvas().getState().addText({ x: 0, y: 0 });
-        const textId = focusedCanvas().getState().selection[0]!;
-        focusedCanvas().getState().addEdge('n1', textId);
+        const noteId = focusedCanvas().getState().addNode('note', { x: 200, y: 200 })!;
+        focusedCanvas().getState().addEdge('n1', noteId);
+        expect(focusedCanvas().getState().edges).toMatchObject([{ from: 'n1', to: noteId }]);
 
         const viewId = useDocument.getState().openAsView('n1');
         expect(viewId).toBe('n1');
@@ -331,7 +333,7 @@ describe('a node and a view of its own', () => {
         expect(useDocument.getState().views[1]).toMatchObject({ kind: 'terminal', name: 'n1' });
         // The canvas it left keeps the text, without the line that ran to the node.
         const left = useDocument.getState().views[0] as ProjectCanvasView;
-        expect(left.nodes).toEqual([]);
+        expect(left.nodes.map((node) => node.id)).toEqual([noteId]);
         expect(left.edges).toEqual([]);
         expect(left.texts).toHaveLength(1);
     });

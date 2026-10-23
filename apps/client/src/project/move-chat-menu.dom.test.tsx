@@ -52,7 +52,7 @@ async function openViewMenu(viewId: string): Promise<void> {
     await act(async () => {
         row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 40, button: 2 }));
     });
-    await until(() => menuLabels().length > 0);
+    await until(() => menuLabels().some((label) => label.includes('Delete')));
 }
 
 afterEach(async () => {
@@ -76,7 +76,7 @@ describe('moving a chat out of Chats, from its view menu', () => {
         await openSubmenu('Move to project');
         await clickOn(makeProjectRow() ?? null);
         expect(useUi.getState().moveChatDialog).toEqual({ chatId: WRITTEN.id, mode: 'make', projectId: null });
-        useUi.getState().setMoveChatDialog(null);
+        await act(async () => useUi.getState().setMoveChatDialog(null));
     });
 
     test('the row is off while the chat works', async () => {
@@ -97,7 +97,10 @@ describe('moving a chat out of Chats, from its view menu', () => {
         );
         await setChatStatus('needs-you', { activeTurnId: null });
         await openViewMenu(WRITTEN.id);
-        expect(moveRow()?.getAttribute('aria-disabled')).not.toBe('true');
+        expect(moveRow()).toBeDefined();
+        expect(moveRow()!.getAttribute('aria-disabled')).not.toBe('true');
+        await openSubmenu('Move to project');
+        expect(menuLabels()).toEqual(expect.arrayContaining([expect.stringContaining('Make project…'), expect.stringContaining('Other project…')]));
         await act(async () => useProposals.getState().forget('fake-machine'));
     });
 
@@ -118,13 +121,20 @@ describe('moving a chat out of Chats, from its view menu', () => {
             await act(async () => useUi.getState().setPaletteOpen(false));
         });
 
-        test('both rows are there for a quiet chat in Chats', async () => {
+        test.each([
+            ['Make project from chat', 'make'],
+            ['Move chat to project', 'pick']
+        ] as const)('%s opens its dialog for the quiet chat in Chats', async (label, mode) => {
             await open({ scratch: true });
             await setChatStatus('idle');
             await openPalette();
             expect(paletteLabels()).toEqual(
                 expect.arrayContaining([expect.stringContaining('Make project from chat'), expect.stringContaining('Move chat to project')])
             );
+            const row = [...document.querySelectorAll('[role="option"]')].find((item) => item.textContent?.includes(label));
+            await clickOn(row ?? null);
+            expect(useUi.getState().moveChatDialog).toEqual({ chatId: WRITTEN.id, mode, projectId: null });
+            await act(async () => useUi.getState().setMoveChatDialog(null));
         });
 
         test('and for a chat that only waits for the card of its own suggestion', async () => {
@@ -138,7 +148,9 @@ describe('moving a chat out of Chats, from its view menu', () => {
             );
             await setChatStatus('needs-you', { activeTurnId: null });
             await openPalette();
-            expect(paletteLabels().some((label) => label.includes('Make project'))).toBe(true);
+            expect(paletteLabels()).toEqual(
+                expect.arrayContaining([expect.stringContaining('Make project from chat'), expect.stringContaining('Move chat to project')])
+            );
             await act(async () => useProposals.getState().forget('fake-machine'));
         });
 
@@ -146,7 +158,7 @@ describe('moving a chat out of Chats, from its view menu', () => {
             await open({ scratch: true });
             await setChatStatus('running');
             await openPalette();
-            expect(paletteLabels().some((label) => label.includes('Make project'))).toBe(false);
+            expect(paletteLabels().some((label) => label.includes('Make project') || label.includes('Move chat to project'))).toBe(false);
         });
     });
 
@@ -163,8 +175,9 @@ describe('moving a chat out of Chats, from its view menu', () => {
 
     test('a chat in a project offers neither', async () => {
         await open({});
+        await setChatStatus('idle');
         await openViewMenu(WRITTEN.id);
-        expect(menuLabels().some((label) => label.includes('Make project'))).toBe(false);
+        expect(menuLabels().some((label) => label.includes('Move to project'))).toBe(false);
     });
 
     test('a machine that does not answer chat.move offers neither', async () => {
@@ -172,7 +185,8 @@ describe('moving a chat out of Chats, from its view menu', () => {
             { scratch: true },
             (Object.keys(REQUEST_SCHEMAS) as RequestType[]).filter((type) => type !== 'chat.move')
         );
+        await setChatStatus('idle');
         await openViewMenu(WRITTEN.id);
-        expect(menuLabels().some((label) => label.includes('Make project'))).toBe(false);
+        expect(menuLabels().some((label) => label.includes('Move to project'))).toBe(false);
     });
 });

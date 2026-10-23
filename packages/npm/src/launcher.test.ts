@@ -23,10 +23,6 @@ describe('platformPackageOf', () => {
         expect(() => platformPackageOf({ platform: 'win32', arch: 'x64' })).toThrow(WINDOWS_REFUSAL);
     });
 
-    test('refuses Windows even with its platform package installed', () => {
-        expect(() => binaryPathOf({ platform: 'win32', arch: 'x64' }, installed('@ruimte/win32-x64'))).toThrow(WINDOWS_REFUSAL);
-    });
-
     test('names a platform or architecture it has no build for', () => {
         expect(() => platformPackageOf({ platform: 'freebsd', arch: 'x64' })).toThrow('Ruimte has no build for freebsd on x64.');
         expect(() => platformPackageOf({ platform: 'linux', arch: 'ia32' })).toThrow(LauncherError);
@@ -66,13 +62,16 @@ describe('binaryPathOf', () => {
     });
 
     test('refuses Windows before it looks for a package', () => {
-        let asked = false;
-        const resolve: Resolve = () => {
-            asked = true;
-            return '';
-        };
-        expect(() => binaryPathOf({ platform: 'win32', arch: 'arm64' }, resolve)).toThrow(WINDOWS_REFUSAL);
-        expect(asked).toBe(false);
+        const resolveInstalled = installed('@ruimte/win32-x64');
+        for (const arch of ['arm64', 'x64']) {
+            let asked = false;
+            const resolve: Resolve = (request) => {
+                asked = true;
+                return resolveInstalled(request);
+            };
+            expect(() => binaryPathOf({ platform: 'win32', arch }, resolve)).toThrow(WINDOWS_REFUSAL);
+            expect(asked).toBe(false);
+        }
     });
 });
 

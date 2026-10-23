@@ -125,6 +125,7 @@ describe('ContextStore', () => {
         const read = await store.read('agent', 'node-1');
         expect(read).toContain('/home/bas/app/README.md');
         expect(read).toContain('Read it with your own tools');
+        expect(read!.split('\n')).toHaveLength(3);
     });
 
     test('a browser answers its address and the text of the page this machine has open', async () => {
@@ -269,14 +270,6 @@ describe('ContextStore', () => {
         const tailed = await withPlans.read('agent', 'chat', 1);
         expect(tailed).toStartWith('Plan "Ship it"');
         expect(tailed).toEndWith('\n\nDone.');
-    });
-
-    test('a file answers with its path and never with its bytes', async () => {
-        linked.set('agent', [{ id: 'node-1', kind: 'file', title: 'main.ts', text: '/repo/src/main.ts' }]);
-        expect(store.list('agent')).toEqual([{ id: 'node-1', kind: 'file', title: 'main.ts' }]);
-        const answer = (await store.read('agent', 'node-1')) ?? '';
-        expect(answer).toContain('/repo/src/main.ts');
-        expect(answer.split('\n')).toHaveLength(3);
     });
 
     test('remembers what an agent was told, so the next turn hears what moved', () => {

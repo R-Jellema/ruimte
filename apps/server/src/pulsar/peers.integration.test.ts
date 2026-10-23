@@ -45,6 +45,7 @@ let door: LanDoor;
 const opened: Array<{ channel: DirectChannel; access: ClientAccess }> = [];
 const logged: string[] = [];
 const clients: DirectClient[] = [];
+const proofFrames: string[] = [];
 
 const noSource = { subscribe: () => () => undefined, detachAll: () => undefined };
 
@@ -79,8 +80,27 @@ beforeAll(async () => {
         hostAddresses: [],
         attemptTimeoutMs: 10_000,
         log: { log: (...parts: unknown[]) => logged.push(parts.join(' ')), warn: (...parts: unknown[]) => logged.push(parts.join(' ')) },
-        authenticate: (channel, binding) =>
-            authenticateChannel({ channel, binding, handshake, daemonId: DAEMON_ID, localSecret: LOCAL_SECRET, reachability: 'lan', timeoutMs: 5_000 }),
+        authenticate: (channel, binding) => {
+            const receiveWith = channel.receiveWith.bind(channel);
+            const observed = {
+                ...channel,
+                receiveWith: (listener: (frame: string) => void, maxChars: number) => {
+                    receiveWith((frame) => {
+                        proofFrames.push(frame);
+                        listener(frame);
+                    }, maxChars);
+                }
+            };
+            return authenticateChannel({
+                channel: observed,
+                binding,
+                handshake,
+                daemonId: DAEMON_ID,
+                localSecret: LOCAL_SECRET,
+                reachability: 'lan',
+                timeoutMs: 5_000
+            });
+        },
         open: (channel, access) => {
             opened.push({ channel, access });
             const connection = openConnection(channel, access);
@@ -148,12 +168,14 @@ describe('a direct connection', () => {
     }, 20_000);
 
     test('the local secret passes without ever crossing the channel', async () => {
-        const frames: string[] = [];
+        proofFrames.length = 0;
         const client = connect({ kind: 'secret', secret: LOCAL_SECRET, daemonId: DAEMON_ID });
         await client.open();
-        client.onFrame((frame) => frames.push(frame));
         expect(opened.at(-1)?.access.sessionId).toBeNull();
-        expect(frames.join('')).not.toContain(LOCAL_SECRET);
+        expect(proofFrames).toHaveLength(1);
+        expect(JSON.parse(proofFrames[0]!)).toMatchObject({ type: 'direct.secret', proof: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/) });
+        expect(proofFrames.join('')).not.toContain(LOCAL_SECRET);
+        await expect(client.request('endpoint.info', {})).resolves.toEqual({ reachability: 'lan', authenticated: false });
     }, 20_000);
 
     test('a key nobody paired and a wrong secret get nothing', async () => {
@@ -438,7 +460,7 @@ describe('a machine of the account working here as a peer', () => {
         await expect(viaGate(key, statementFor(key.publicKey, 'third-peer-nonce'.padEnd(22, 'n'))).open()).rejects.toThrow(/not-paired/);
     }, 40_000);
 
-    test('a statement a key does not hold, or another account signed, lets nobody in', async () => {
+    test('a statement for another key lets nobody in', async () => {
         const key = generateKeyPair();
         const thief = generateKeyPair();
         const count = opened.length;

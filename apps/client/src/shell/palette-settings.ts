@@ -4,7 +4,7 @@ import type { SearchResult } from '@/shell/settings/search';
 import { useUi } from '@/state/ui';
 
 /* Enough to find a setting by a loose word without burying the commands under the rows of one pane. */
-export const SETTINGS_RESULTS = 6;
+const SETTINGS_RESULTS = 6;
 
 /* Rows go ahead of panes: Enter on a word that names a row should land on that row, not on the pane around it.
    A row hints at its pane, since two panes can hold a row of the same name; a pane has only its own description. */

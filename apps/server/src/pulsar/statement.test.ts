@@ -480,7 +480,7 @@ describe('StatementGate and a peer', () => {
         expect(await store.list(null)).toHaveLength(2);
     });
 
-    test('leaving the account takes the peers with it, and joining another one takes the peers of the first', async () => {
+    test('leaving the account takes the peers with it', async () => {
         await store.bindAccount('owner');
         const peer = generateKeyPair();
         expect(await gate().admit(peer.publicKey, offer(peerStatementFor(peer.publicKey, 'owner')))).toBe('admitted');
