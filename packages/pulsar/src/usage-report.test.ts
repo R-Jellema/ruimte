@@ -83,7 +83,7 @@ describe('what a turn and a chat are counted under', () => {
 });
 
 describe('an older daemon batch as a report', () => {
-    test('renames its counters, sums two that land on one name, and keeps its startup', () => {
+    test('renames legacy counters, omits verb groups and zeros, and keeps startup and day metadata', () => {
         const old: UsageDay = {
             date: '2026-10-15',
             version: '0.21.0',

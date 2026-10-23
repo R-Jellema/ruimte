@@ -26,8 +26,8 @@ describe('highlighting a whole file', () => {
     test('draws the open tag of a PHP file as a tag and not as code', async () => {
         const snippet = await highlightCode('<?php\necho 1;', 'php', 'github-dark');
         const document = await highlightDocumentChunks(['<?php\necho 1;'], 'php', 'github-dark')(0);
-        expect(document).not.toEqual(snippet);
-        expect(document).toContain('<span');
+        expect(document).toContain('<span style="color:#E1E4E8">&#x3C;?php</span>');
+        expect(snippet).toContain('<span style="color:#F97583">&#x3C;?</span><span style="color:#79B8FF">php</span>');
     });
 
     test('draws the styles of a Vue file in a language its grammar embeds on demand', async () => {

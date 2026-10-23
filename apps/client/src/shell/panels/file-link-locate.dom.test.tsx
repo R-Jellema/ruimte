@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { act } from 'react';
 import type { ProviderInfo } from '@ruimte/contracts';
+import { useFileChoice } from './file-links';
 import { useFiles } from '@/state/files';
 import { chatInfoOf } from '../../../testing/chat-info';
 import { FakeMachine } from '../../../testing/fake-machine';
@@ -17,7 +19,7 @@ const CLAUDE = {
     resumeCommand: 'claude --resume {id}'
 } as unknown as ProviderInfo;
 
-const REPLY = { id: 'reply', kind: 'assistant', createdAt: 0, turnId: null, text: 'It starts in `index.ts`.', streaming: false };
+const REPLY = { id: 'reply', kind: 'assistant', createdAt: 0, turnId: null, text: 'It starts in `index.ts:12:3-14`.', streaming: false };
 
 const offsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
 
@@ -59,6 +61,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+    await act(async () => useFileChoice.setState({ choice: null }));
     await page.unmount();
     workspace.close();
     if (offsetHeight !== undefined) {
@@ -85,6 +88,18 @@ describe('a file link that names only the file', () => {
         );
         await clickOn(cancel!);
         await until(() => !onScreen('packages/a/index.ts'));
+        expect(useFiles.getState().tabs).toEqual([]);
+
+        await clickOn(link()!);
+        await until(() => onScreen('packages/a/index.ts'));
+        const pick = [...page.host.ownerDocument.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(
+            (button) => button.textContent === 'packages/a/index.ts'
+        );
+        await clickOn(pick!);
+        await until(() => useFiles.getState().tabs.some((tab) => tab.key === '/work/atlas/packages/a/index.ts'));
+        await until(() => !onScreen('packages/a/index.ts'));
+        expect(machine.requests('fs.read')).toContainEqual(expect.objectContaining({ path: '/work/atlas/packages/a/index.ts' }));
+        expect(useFiles.getState().revealLine).toMatchObject({ key: '/work/atlas/packages/a/index.ts', line: 12, column: 3, endLine: 14 });
     });
 
     test('says so when the machine finds nothing', async () => {

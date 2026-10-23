@@ -1,10 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 import type { FsReadResult } from '@ruimte/contracts';
 import {
-    DEFAULT_INDENTATION,
     editorConfigDirs,
+    editorStyleFor,
     globToRegExp,
-    indentationFor,
     loadEditorConfigs,
     parseEditorConfig,
     resolveIndentation,
@@ -136,8 +135,11 @@ describe('loading', () => {
     });
 
     test('falls back to the default without a file and merges what a file says', async () => {
-        expect(await indentationFor('/repo/a.ts', roots, reader({}).read)).toEqual(DEFAULT_INDENTATION);
-        const read = reader({ '/repo/.editorconfig': '[*]\nindent_style = tab' }).read;
-        expect(await indentationFor('/repo/a.ts', roots, read)).toEqual({ tabSize: 4, insertSpaces: false });
+        expect(await editorStyleFor('/repo/a.ts', roots, reader({}).read)).toEqual({
+            indentation: { tabSize: 4, insertSpaces: true },
+            maxLineLength: null
+        });
+        const read = reader({ '/repo/.editorconfig': '[*]\nindent_style = tab\nmax_line_length = 100' }).read;
+        expect(await editorStyleFor('/repo/a.ts', roots, read)).toEqual({ indentation: { tabSize: 4, insertSpaces: false }, maxLineLength: 100 });
     });
 });

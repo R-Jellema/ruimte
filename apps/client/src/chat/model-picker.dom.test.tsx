@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act, useState } from 'react';
-import type { ModelInfo, ProviderInfo } from '@ruimte/contracts';
+import type { AgentKind, ModelInfo, ProviderInfo } from '@ruimte/contracts';
 import { ModelPicker } from '@adecore/agents-react/chat/ui';
 import { clickOn, mount, until, type Mounted } from '../../testing/dom';
 
 let page: Mounted;
-let picked: string[];
+let picked: Array<[AgentKind, string]>;
 
 const VENDORS = ['Qwen', 'Moonshot AI', 'DeepSeek', 'Z.ai'];
 
@@ -42,7 +42,7 @@ function Harness({ count }: { count: number }) {
             selection={{ model: 'vendor/model-02', options: {} }}
             open={open}
             onOpenChange={setOpen}
-            onChange={(_kind, slug) => picked.push(slug)}
+            onChange={(kind, slug) => picked.push([kind, slug])}
         />
     );
 }
@@ -97,7 +97,6 @@ describe('the model picker of a provider with many models', () => {
             .map((node) => node.textContent?.trim() ?? '')
             .filter((text) => VENDORS.includes(text));
         expect(labels).toEqual(['DeepSeek', 'Moonshot AI', 'Qwen', 'Z.ai']);
-        // Within a maker the models read in order.
         const deepseek = rows().filter((_row, index) => index < 10);
         expect(deepseek).toEqual([...deepseek].sort());
 
@@ -105,7 +104,7 @@ describe('the model picker of a provider with many models', () => {
         await until(() => rows().length === 2);
     });
 
-    test('a search looks through all of them without opening the row, and a pick goes to the chat', async () => {
+    test('a search looks through all of them without opening the row, and a pick calls back with provider and model', async () => {
         page = mount();
         await page.render(<Harness count={40} />);
         await until(() => search() !== null);
@@ -119,7 +118,7 @@ describe('the model picker of a provider with many models', () => {
         const first = document.querySelector<HTMLElement>('[role="option"]')!;
         await clickOn(first);
         // DeepSeek holds every fourth model from the third, so its first by name is Model 02.
-        expect(picked).toEqual(['vendor/model-02']);
+        expect(picked).toEqual([['nanogpt', 'vendor/model-02']]);
     });
 
     test('a provider with eight models or fewer is listed whole, with no row to open', async () => {

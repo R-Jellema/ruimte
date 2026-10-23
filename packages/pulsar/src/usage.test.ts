@@ -1,15 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import {
-    USAGE_COUNTERS,
-    USAGE_DAY_MEASURES,
-    USAGE_MAX_COUNT,
-    USAGE_POINTS,
-    USAGE_POINT_KINDS,
-    UsageBatchSchema,
-    isoWeekOf,
-    usageDateProblem,
-    type UsageDay
-} from './index.ts';
+import { USAGE_MAX_COUNT, USAGE_POINTS, USAGE_POINT_KINDS, UsageBatchSchema, isoWeekOf, usageDateProblem, type UsageDay } from './index.ts';
 
 const NOW = Date.parse('2026-10-16T09:30:00Z');
 
@@ -35,19 +25,66 @@ function issuesOf(body: unknown): string[] {
 }
 
 describe('the usage fields', () => {
-    test('no field is named twice, and the measures of a day lead its point', () => {
+    test('no legacy field is named twice', () => {
         const fields = USAGE_POINT_KINDS.flatMap((kind) => [...USAGE_POINTS[kind]]);
         expect(new Set(fields).size).toBe(fields.length);
-        expect(USAGE_POINTS.day.slice(0, USAGE_DAY_MEASURES.length)).toEqual([...USAGE_DAY_MEASURES]);
-        expect(USAGE_COUNTERS.length).toBe(fields.length - USAGE_DAY_MEASURES.length);
     });
 });
 
 describe('a usage batch', () => {
-    test('takes a full day and leaves out what is absent', () => {
-        const counts = Object.fromEntries(USAGE_COUNTERS.map((counter) => [counter, 1]));
-        expect(issuesOf({ days: [day({ counts, startupMs: 1200 })] })).toEqual([]);
-        expect(issuesOf({ days: [day()] })).toEqual([]);
+    test('takes the frozen pre-0.22 counters and leaves out what is absent', () => {
+        const counts = {
+            projectsOpened: 1,
+            terminalsStarted: 1,
+            agentsDelegated: 1,
+            teamsDelegated: 1,
+            launchesRun: 1,
+            worktreeMerges: 1,
+            clientsDesktop: 1,
+            clientsIos: 1,
+            clientsStation: 1,
+            clientsPeer: 1,
+            browserActions: 1,
+            deviceActions: 1,
+            databaseActions: 1,
+            computerActions: 1,
+            viewsCanvas: 1,
+            viewsChat: 1,
+            viewsTerminal: 1,
+            viewsBrowser: 1,
+            viewsDevice: 1,
+            viewsDrawing: 1,
+            viewsDiagram: 1,
+            viewsFile: 1,
+            viewsDatabase: 1,
+            chatsClaude: 1,
+            chatsCodex: 1,
+            chatsGemini: 1,
+            chatsCopilot: 1,
+            chatsApple: 1,
+            turnsClaude: 1,
+            turnsCodex: 1,
+            turnsGemini: 1,
+            turnsCopilot: 1,
+            turnsApple: 1,
+            verbsRead: 1,
+            verbsTask: 1,
+            verbsMessage: 1,
+            verbsAgent: 1,
+            verbsCanvas: 1,
+            verbsBrowser: 1,
+            verbsDevice: 1,
+            verbsDatabase: 1,
+            verbsComputer: 1,
+            verbsWorktree: 1,
+            verbsLaunches: 1,
+            verbsSecret: 1,
+            verbsLanguage: 1
+        };
+        const full = { days: [day({ counts, startupMs: 1200 })] };
+        expect(UsageBatchSchema.parse(full)).toEqual(full);
+        const sparse = { days: [day()] };
+        expect(UsageBatchSchema.parse(sparse)).toEqual(sparse);
     });
 
     test('refuses keys it does not know, at every level', () => {

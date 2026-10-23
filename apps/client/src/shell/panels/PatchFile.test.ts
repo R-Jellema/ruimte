@@ -1,9 +1,8 @@
 /// <reference types="vite/client" />
 import { describe, expect, mock, test } from 'bun:test';
 import type { FsReadText } from '@ruimte/contracts';
-import { isPatchName } from './file-kind.ts';
 
-// The views behind the renderers draw with the DOM and the editor engine, which a unit test has neither of. Each is a named stand-in, so the table can be read by which one it picks.
+// Named stand-ins keep this dispatch test independent of the DOM and editor engine.
 const stand = (name: string) => ({ [name]: Object.assign(() => null, { displayName: name }) });
 mock.module('./AudioFile.tsx', () => stand('AudioFile'));
 mock.module('./CodeFile.tsx', () => stand('CodeFile'));
@@ -35,10 +34,6 @@ describe('which view draws a text file', () => {
         expect(drawnBy('index.html')).toBe('HtmlFile');
         expect(drawnBy('main.ts')).toBe('CodeFile');
         expect(drawnBy('patch')).toBe('CodeFile');
-    });
-
-    test('only the extension counts', () => {
-        expect(isPatchName('patch')).toBe(false);
-        expect(isPatchName('a.patch.bak')).toBe(false);
+        expect(drawnBy('a.patch.bak')).toBe('CodeFile');
     });
 });

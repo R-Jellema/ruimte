@@ -31,20 +31,13 @@ function fakeSeams(): PaceSeams & { advance: (ms: number) => void } {
 }
 
 describe('paced', () => {
-    test('hands the first value on right away', () => {
-        const seams = fakeSeams();
-        const seen: string[] = [];
-        paced(3000, (value: string) => seen.push(value), seams).offer('a');
-
-        expect(seen).toEqual(['a']);
-    });
-
     test('keeps only the newest value of a window and hands it on at the end', () => {
         const seams = fakeSeams();
         const seen: string[] = [];
         const pace = paced(3000, (value: string) => seen.push(value), seams);
 
         pace.offer('a');
+        expect(seen).toEqual(['a']);
         seams.advance(500);
         pace.offer('b');
         seams.advance(500);

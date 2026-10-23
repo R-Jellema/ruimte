@@ -5,11 +5,6 @@ const node: Rect = { x: 1000, y: 600, w: 200, h: 100 };
 const viewport = { w: 1200, h: 800 };
 
 describe('the camera on a node', () => {
-    test('puts the middle of the node in the middle of the viewport', () => {
-        const camera = cameraCenteredOn(node, viewport, 1)!;
-        expect(toWorld(camera, { x: viewport.w / 2, y: viewport.h / 2 })).toEqual({ x: 1100, y: 650 });
-    });
-
     test('holds the middle at every zoom', () => {
         for (const zoom of [0.5, 0.75, 1, 2]) {
             const camera = cameraCenteredOn(node, viewport, zoom)!;

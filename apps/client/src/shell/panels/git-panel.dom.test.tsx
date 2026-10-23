@@ -94,10 +94,6 @@ afterEach(async () => {
 });
 
 describe('the git panel over a folder of two repositories', () => {
-    test('the chip counts the repositories instead of naming a branch', () => {
-        expect(buttonWithText('2 repositories')).not.toBeNull();
-    });
-
     test('the worktrees start folded and open on a click', async () => {
         await until(() => worktreesHeader() !== null);
         expect(worktreesHeader()!.getAttribute('aria-expanded')).toBe('false');

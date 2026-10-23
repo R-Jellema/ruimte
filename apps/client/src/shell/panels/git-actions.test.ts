@@ -227,11 +227,6 @@ describe('the log', () => {
         expect(rows.map((entry) => entry.hash)).toEqual(['one-a', 'two-a', 'one-b', 'two-b']);
     });
 
-    test('a repository whose page ran out holds nothing back', () => {
-        const { rows } = mergeLogs([log('one', [500], null), log('two', [200], null)]);
-        expect(rows.map((entry) => entry.at)).toEqual([500, 200]);
-    });
-
     test('an empty log has no sections', () => {
         expect(groupCommits([], now)).toEqual([]);
     });

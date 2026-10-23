@@ -3,10 +3,13 @@ import { USER_CODE_ALPHABET, UserCodeSchema, formatUserCode, generateUserCode, k
 
 describe('user codes', () => {
     test('a code is eight letters of the alphabet, printed in two groups of four', () => {
-        for (let i = 0; i < 200; i++) {
-            const code = generateUserCode();
+        const fixed = generateUserCode(() => new Uint8Array([0, 4, 8, 12, 16, 17, 18, 19]));
+        expect(fixed).toBe('BGLQVWXZ');
+        expect(formatUserCode(fixed)).toBe('BGLQ-VWXZ');
+        for (const code of [fixed, generateUserCode()]) {
+            expect(code).toMatch(/^[BCDFGHJKLMNPQRSTVWXZ]{8}$/);
             expect(UserCodeSchema.safeParse(code).success).toBe(true);
-            expect(formatUserCode(code)).toMatch(/^[A-Z]{4}-[A-Z]{4}$/);
+            expect(formatUserCode(code)).toMatch(/^[BCDFGHJKLMNPQRSTVWXZ]{4}-[BCDFGHJKLMNPQRSTVWXZ]{4}$/);
         }
     });
 

@@ -5,7 +5,7 @@ const A4 = { width: 595, height: 842 };
 
 describe('pdfPageScale', () => {
     test('actual size is 96 pixels to the inch, whatever the room', () => {
-        expect(pdfPageScale('full', A4, 200)).toBe(CSS_PIXELS_PER_POINT);
+        expect(pdfPageScale('full', A4, 200)).toBe(4 / 3);
     });
 
     test('fit shrinks a page to the width there is', () => {

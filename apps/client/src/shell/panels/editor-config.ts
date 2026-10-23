@@ -236,11 +236,6 @@ export async function loadEditorConfigs(path: string, roots: readonly string[], 
     return files;
 }
 
-/* What the project's `.editorconfig` files say for a file, over the defaults. */
-export async function indentationFor(path: string, roots: readonly string[], read: ReadText): Promise<EditorIndentation> {
-    return (await editorStyleFor(path, roots, read)).indentation;
-}
-
 export interface EditorStyle {
     indentation: EditorIndentation;
     /* The column a line is held to, drawn as a line in the editor; null when no file names one. */

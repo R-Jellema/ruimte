@@ -409,13 +409,37 @@ describe('two editors on one file', () => {
         expect(rowIds(second.editor)).toEqual(['r1']);
     });
 
-    test('an editor that is gone no longer hears the others', () => {
-        const group = new ReviewGroup();
-        const heard: string[] = [];
-        const leave = group.join({ hide: (ids) => heard.push(...ids), show: () => undefined, refresh: () => undefined });
-        group.hide(['r1']);
-        leave();
-        group.hide(['r2']);
-        expect(heard).toEqual(['r1']);
+    test('an editor that is gone no longer hears the others', async () => {
+        const { first, second, shared } = pair([run('r1', 2, 3), run('r2', 6, 6)]);
+        await flush();
+        expect(rowIds(first.editor)).toEqual(['r1', 'r2']);
+        expect(rowIds(second.editor)).toEqual(['r1', 'r2']);
+        expect(actionLines(second.editor)).toEqual([
+            ['r1', 1],
+            ['r2', 5]
+        ]);
+
+        let answer: () => void = () => undefined;
+        shared.holdMark.gate = new Promise<void>((resolve) => (answer = resolve));
+        second.review.dispose();
+        second.changes.dispose();
+        try {
+            expect(rowIds(second.editor)).toEqual([]);
+            expect(actionLines(second.editor)).toEqual([]);
+            first.review.keep('r1');
+            expect(rowIds(first.editor)).toEqual(['r2']);
+            expect(actionLines(first.editor)).toEqual([['r2', 5]]);
+            expect(shared.marked).toEqual([]);
+            expect(rowIds(second.editor)).toEqual([]);
+            expect(actionLines(second.editor)).toEqual([]);
+        } finally {
+            answer();
+            await flush();
+            first.review.dispose();
+            first.changes.dispose();
+        }
+        expect(shared.marked).toEqual([{ ids: ['r1'], state: 'kept' }]);
+        expect(rowIds(second.editor)).toEqual([]);
+        expect(actionLines(second.editor)).toEqual([]);
     });
 });

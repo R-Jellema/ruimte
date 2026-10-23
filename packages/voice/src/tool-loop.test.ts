@@ -1,31 +1,27 @@
 import { describe, expect, test } from 'bun:test';
 import { VOICE_CONTROL_TOOL, VOICE_TOOL_ACTIONS } from '@ruimte/actions';
 import type { LiveEvent } from './live-event.ts';
-import { VoiceToolLoop, type ToolLoopObserver, type VoiceToolExecute, type VoiceToolSend } from './tool-loop.ts';
+import { VoiceToolLoop, type ToolLoopObserver } from './tool-loop.ts';
 
 const toolNames = new Set<string>([...VOICE_TOOL_ACTIONS.keys(), VOICE_CONTROL_TOOL]);
-
-/* The loop as the desktop's window builds it, over the tools it offers. */
-class ResponseToolLoop extends VoiceToolLoop {
-    constructor(send: VoiceToolSend, execute: VoiceToolExecute, observer: ToolLoopObserver | null = null) {
-        super(send, execute, { toolNames, observer });
-    }
-}
-
-function flush(): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, 0));
-}
 
 describe('VoiceToolLoop', () => {
     test('executes a completed function call and continues after its response completes', async () => {
         const sent: LiveEvent[] = [];
         const calls: unknown[] = [];
-        const loop = new ResponseToolLoop(
-            (event) => sent.push(event),
+        const continued = Promise.withResolvers<void>();
+        const loop = new VoiceToolLoop(
+            (event) => {
+                sent.push(event);
+                if (event.type === 'response.create') {
+                    continued.resolve();
+                }
+            },
             async (name, args, callId) => {
                 calls.push({ name, args, callId });
                 return { ok: true, message: 'Focused Chat Test' };
-            }
+            },
+            { toolNames }
         );
 
         loop.handle({
@@ -46,7 +42,7 @@ describe('VoiceToolLoop', () => {
             delegation_id: 'delegation-1',
             event: { type: 'response.completed' }
         });
-        await flush();
+        await continued.promise;
 
         expect(calls).toEqual([
             {
@@ -64,16 +60,24 @@ describe('VoiceToolLoop', () => {
             }
         });
         expect(sent[1]).toMatchObject({ type: 'response.create' });
+        expect(sent).toHaveLength(2);
     });
 
     test('does not run the same call twice', async () => {
         let executions = 0;
-        const loop = new ResponseToolLoop(
-            () => undefined,
+        const result = Promise.withResolvers<Record<string, unknown>>();
+        const output = Promise.withResolvers<void>();
+        const sent: LiveEvent[] = [];
+        const loop = new VoiceToolLoop(
+            (event) => {
+                sent.push(event);
+                output.resolve();
+            },
             async () => {
                 executions += 1;
-                return { ok: true };
-            }
+                return result.promise;
+            },
+            { toolNames }
         );
         const event = {
             type: 'response.event',
@@ -90,24 +94,43 @@ describe('VoiceToolLoop', () => {
         };
         loop.handle(event);
         loop.handle(event);
-        await flush();
         expect(executions).toBe(1);
+        expect(sent).toEqual([]);
+        result.resolve({ ok: true });
+        await output.promise;
+        loop.handle(event);
+        expect(executions).toBe(1);
+        expect(sent).toHaveLength(1);
+        expect(sent[0]).toMatchObject({ type: 'response.item.create', item: { call_id: 'call-1', output: '{"ok":true}' } });
     });
 
     test('completes every parallel call before requesting the dependent response', async () => {
         const sent: LiveEvent[] = [];
         const completed: string[] = [];
-        const loop = new ResponseToolLoop(
-            (event) => sent.push(event),
+        const titles = ['One', 'Two', 'Three', 'Four'];
+        const results = titles.map(() => Promise.withResolvers<void>());
+        const outputs = titles.map(() => Promise.withResolvers<void>());
+        const continued = Promise.withResolvers<void>();
+        const loop = new VoiceToolLoop(
+            (event) => {
+                sent.push(event);
+                if (event.type === 'response.create') {
+                    continued.resolve();
+                } else if (event.type === 'response.item.create') {
+                    const item = event.item as { call_id: string };
+                    outputs[titles.findIndex((title) => item.call_id === `call-${title}`)]!.resolve();
+                }
+            },
             async (_name, args) => {
                 const title = String(JSON.parse(args).title);
-                await Promise.resolve();
+                await results[titles.indexOf(title)]!.promise;
                 completed.push(title);
                 return { ok: true, node: title };
-            }
+            },
+            { toolNames }
         );
 
-        for (const title of ['One', 'Two', 'Three', 'Four']) {
+        for (const title of titles) {
             loop.handle({
                 type: 'response.event',
                 delegation_id: 'delegation-notes',
@@ -127,27 +150,40 @@ describe('VoiceToolLoop', () => {
             delegation_id: 'delegation-notes',
             event: { type: 'response.completed' }
         });
-        await flush();
+        expect(sent).toEqual([]);
+        for (const index of [2, 0, 1]) {
+            results[index]!.resolve();
+            await outputs[index]!.promise;
+        }
+        expect(completed).toEqual(['Three', 'One', 'Two']);
+        expect(sent.map((event) => event.type)).toEqual(['response.item.create', 'response.item.create', 'response.item.create']);
+        results[3]!.resolve();
+        await continued.promise;
 
-        expect(completed).toEqual(['One', 'Two', 'Three', 'Four']);
+        expect(completed).toEqual(['Three', 'One', 'Two', 'Four']);
         expect(sent.filter((event) => event.type === 'response.item.create')).toHaveLength(4);
         expect(sent.filter((event) => event.type === 'response.create')).toHaveLength(1);
+        expect(sent.at(-1)?.type).toBe('response.create');
     });
 
     test('tells its observer what it saw, ran and asked for, in that order', async () => {
         const seen: string[] = [];
+        const continued = Promise.withResolvers<void>();
         const observer: ToolLoopObserver = {
             responseEvent: (delegationId, type) => seen.push(`event ${delegationId} ${type}`),
-            responseRequested: (delegationId) => seen.push(`requested ${delegationId}`),
+            responseRequested: (delegationId) => {
+                seen.push(`requested ${delegationId}`);
+                continued.resolve();
+            },
             callStarted: (delegationId, callId, tool) => seen.push(`started ${delegationId} ${callId} ${tool}`),
             callFinished: (callId, output) => seen.push(`finished ${callId} ${String(output.code)}`)
         };
-        const loop = new ResponseToolLoop(
+        const loop = new VoiceToolLoop(
             () => undefined,
             async () => {
                 throw new Error('The voice session or project changed.');
             },
-            observer
+            { toolNames, observer }
         );
 
         loop.handle({
@@ -156,7 +192,7 @@ describe('VoiceToolLoop', () => {
             event: { type: 'response.output_item.done', item: { type: 'function_call', call_id: 'c1', name: 'inspect_workspace', arguments: '{}' } }
         });
         loop.handle({ type: 'response.event', delegation_id: 'd1', event: { type: 'response.completed' } });
-        await flush();
+        await continued.promise;
 
         expect(seen).toEqual([
             'event d1 response.output_item.done',
