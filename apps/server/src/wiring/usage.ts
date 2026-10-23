@@ -1,4 +1,4 @@
-import { limitAccountsOf, usageAccountsOf, usageRootsOf, UsageMonitor, UsageService } from '@adecore/agents/usage';
+import { limitAccountsOf, usageAccountsOf, usageRootsOf, UsageMonitor, UsageService, type LimitAccounts } from '@adecore/agents/usage';
 import type { ServerConfig } from '../config.ts';
 import type { ProjectStore } from '../projects/project-store.ts';
 import { copilotUsageDirectory } from '../providers/acp-providers.ts';
@@ -35,13 +35,22 @@ export function wireUsage(config: ServerConfig, providers: ProvidersBundle, agen
     });
     const limits = new UsageMonitor({
         providers: providers.providers,
-        accounts: limitAccountsOf(providers.accounts, providers.nameOfCli, process.env),
+        accounts: withoutNanoGptUntilKeyed(limitAccountsOf(providers.accounts, providers.nameOfCli, process.env), () => providers.nanogpt.apiKey !== ''),
         client: RUIMTE_CODEX_CLIENT,
         plans: { nanogpt: () => providers.nanogpt.readPlan() }
     });
     providers.accounts.listen(() => limits.accountsChanged());
+    providers.nanogpt.onChange(() => {
+        limits.accountsChanged();
+        void limits.refresh(false);
+    });
     providers.nanogpt.onCall(
         followPlan(() => providers.nanogpt.readPlan(), { apply: ({ plan, windows }) => limits.applyLive({ kind: 'nanogpt', plan, windows }) })
     );
     return { usage, limits };
+}
+
+/* NanoGPT has no CLI to install, so without a key it is a provider nobody set up and its plan is left out of the limits. */
+export function withoutNanoGptUntilKeyed(accounts: LimitAccounts, keyed: () => boolean): LimitAccounts {
+    return { ...accounts, list: () => accounts.list().filter((account) => account.kind !== 'nanogpt' || keyed()) };
 }
