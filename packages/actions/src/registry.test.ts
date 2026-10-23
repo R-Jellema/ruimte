@@ -8,6 +8,7 @@ import {
     REVISION_CONFLICT,
     revisionConflict,
     type ActionCall,
+    type ActionHandlers,
     type ActionName
 } from './index.ts';
 
@@ -84,14 +85,133 @@ describe('ActionRegistry', () => {
         expect(await registry.confirm(waiting.confirmationToken, true, call('voice'))).toMatchObject({ status: 'failed', error: { code: REVISION_CONFLICT } });
     });
 
-    test('refuses a revision it has no way to check rather than write past it', async () => {
-        const registry = new ActionRegistry<Context>({
-            'view.rename': ({ viewId, name }) => ({ output: { viewId, kind: 'canvas', previousName: 'Board', name, changed: true } })
-        });
-        expect(await registry.execute('view.rename', { viewId: 'board', name: 'Plan' }, { ...call(), expectedRevision: 1 })).toMatchObject({
+    test.each([
+        ['view.rename', { viewId: 'board', name: 'Plan' }],
+        ['chat.send', { chatId: 'chat-1', prompt: 'Run the tests' }]
+    ] as const)('checks missing, stale and current revisions before dispatching %s', async (name, input) => {
+        const handled: unknown[] = [];
+        const handlers: ActionHandlers<Context> = {
+            'view.rename': (input, action) => {
+                handled.push([input, action]);
+                return { output: { viewId: input.viewId, kind: 'canvas', previousName: 'Board', name: input.name, changed: true } };
+            },
+            'chat.send': (input, action) => {
+                handled.push([input, action]);
+                return { output: { chatId: input.chatId, chat: 'Tests', queued: false } };
+            }
+        };
+        const caller = call();
+        expect(await new ActionRegistry(handlers).execute(name, input, { ...caller, expectedRevision: 3 })).toMatchObject({
             status: 'failed',
+            action: name,
             error: { code: 'no-revision' }
         });
+        expect(handled).toEqual([]);
+
+        const checked: unknown[] = [];
+        const registry = new ActionRegistry(handlers, {
+            checkRevision: (action, input, call) => {
+                checked.push([action, input, call]);
+                if (call.expectedRevision !== 7) {
+                    throw revisionConflict('The document', call.expectedRevision, 7);
+                }
+            }
+        });
+        expect(await registry.execute(name, input, { ...caller, expectedRevision: 6 })).toMatchObject({
+            status: 'failed',
+            action: name,
+            error: { code: REVISION_CONFLICT }
+        });
+        expect(handled).toEqual([]);
+        expect(await registry.execute(name, input, { ...caller, expectedRevision: 7 })).toMatchObject({ status: 'completed', action: name });
+        expect(checked).toEqual([
+            [name, input, { ...caller, expectedRevision: 6 }],
+            [name, input, { ...caller, expectedRevision: 7 }]
+        ]);
+        expect(handled).toEqual([[input, { ...caller, expectedRevision: 7, confirmed: false }]]);
+    });
+
+    test('dispatches a local action with a revision without consulting a revision checker', async () => {
+        const handled: unknown[] = [];
+        const handlers: ActionHandlers<Context> = {
+            'view.focus': (input, action) => {
+                handled.push([input, action]);
+                return { output: { viewId: input.viewId, view: action.context.name, kind: 'canvas', changed: true } };
+            }
+        };
+        const input = { viewId: 'board' };
+        const caller = { ...call(), expectedRevision: 3 };
+        const checked: unknown[] = [];
+        const registries = [
+            new ActionRegistry(handlers),
+            new ActionRegistry(handlers, {
+                checkRevision: (...args) => {
+                    checked.push(args);
+                    throw revisionConflict('The board', 3, 7);
+                }
+            })
+        ];
+        for (const registry of registries) {
+            expect(await registry.execute('view.focus', input, caller)).toMatchObject({ status: 'completed', action: 'view.focus' });
+        }
+        expect(checked).toEqual([]);
+        expect(handled).toEqual([
+            [input, { ...caller, confirmed: false }],
+            [input, { ...caller, confirmed: false }]
+        ]);
+    });
+
+    test('binds a confirmation to the actor id, consumes a decline and dispatches an approval only once with its input and caller', async () => {
+        const handled: unknown[] = [];
+        const registry = new ActionRegistry<Context>({
+            'view.delete': (input, action) => {
+                handled.push([input, action]);
+                return action.confirmed
+                    ? { output: { viewId: input.viewId, view: action.context.name, kind: 'canvas' } }
+                    : { confirmation: { title: 'Delete?', consequences: ['The board is removed'] } };
+            }
+        });
+        const input = { viewId: 'board' };
+        const caller = call();
+        const declined = await registry.execute('view.delete', input, caller);
+        if (declined.status !== 'needs_confirmation') {
+            throw new Error('expected a confirmation');
+        }
+        expect(handled).toEqual([[input, { ...caller, confirmed: false }]]);
+        expect(await registry.confirm(declined.confirmationToken, true, { ...caller, actor: { kind: caller.actor.kind, id: 'someone-else' } })).toMatchObject({
+            status: 'failed',
+            error: { code: 'unknown-confirmation' }
+        });
+        expect(await registry.confirm(declined.confirmationToken, false, caller)).toMatchObject({
+            status: 'failed',
+            action: 'view.delete',
+            error: { code: 'confirmation-declined' }
+        });
+        expect(await registry.confirm(declined.confirmationToken, true, caller)).toMatchObject({
+            status: 'failed',
+            error: { code: 'unknown-confirmation' }
+        });
+        expect(handled).toEqual([[input, { ...caller, confirmed: false }]]);
+
+        const waiting = await registry.execute('view.delete', input, caller);
+        if (waiting.status !== 'needs_confirmation') {
+            throw new Error('expected a confirmation');
+        }
+        const confirmer: ActionCall<Context> = { actor: { ...caller.actor }, context: { name: 'Updated board' } };
+        expect(await registry.confirm(waiting.confirmationToken, true, confirmer)).toEqual({
+            status: 'completed',
+            action: 'view.delete',
+            output: { viewId: 'board', view: 'Updated board', kind: 'canvas' }
+        });
+        expect(await registry.confirm(waiting.confirmationToken, true, confirmer)).toMatchObject({
+            status: 'failed',
+            error: { code: 'unknown-confirmation' }
+        });
+        expect(handled).toEqual([
+            [input, { ...caller, confirmed: false }],
+            [input, { ...caller, confirmed: false }],
+            [input, { ...confirmer, expectedRevision: undefined, confirmed: true }]
+        ]);
     });
 
     test('validates input and normalizes domain refusals', async () => {
