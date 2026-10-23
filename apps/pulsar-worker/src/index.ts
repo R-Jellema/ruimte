@@ -19,6 +19,7 @@ import { completeNativeApple, startNativeApple } from './native-apple.ts';
 import { acceptUsage, rateLimitCleanup, usageRelay, type UsageDeps } from './usage.ts';
 import { withCheckIn, type CheckInMonitor } from './check-in.ts';
 import { telemetryOptions } from './telemetry.ts';
+import { countRequest, routeOf } from './metrics.ts';
 import { captureException, withSentry } from '@sentry/cloudflare';
 
 // Rows past use for this long are dropped by the daily cleanup; the statement log is kept.
@@ -56,6 +57,14 @@ const ROUTES: Readonly<Record<string, Readonly<Record<string, Handler>>>> = {
     '/v1/session': { POST: exchangeLoginCode, DELETE: endSession },
     '/v1/session/refresh': { POST: refreshSession }
 };
+
+// The paths a request metric names as they are; every other one is a template or `other` (`routeOf`).
+const KNOWN_PATHS: ReadonlySet<string> = new Set([
+    ...Object.keys(ROUTES),
+    '/health',
+    '/internal/benchmarks/refresh',
+    '/.well-known/apple-developer-domain-association.txt'
+]);
 
 const DEVICE_ROUTES: Readonly<Record<string, Handler>> = {
     start: startDeviceLink,
@@ -156,16 +165,23 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
     return failure('not-found', 'No such route');
 }
 
+async function answer(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    try {
+        return await route(request, env, ctx);
+    } catch (error) {
+        console.error('unhandled', error);
+        // The route answers a 500 instead of throwing, so the SDK never sees the error unless it is handed over.
+        captureException(error);
+        return failure('internal', 'Something went wrong in the address book');
+    }
+}
+
 const handler = {
     async fetch(request, env, ctx) {
-        try {
-            return await route(request, env, ctx);
-        } catch (error) {
-            console.error('unhandled', error);
-            // The route answers a 500 instead of throwing, so the SDK never sees the error unless it is handed over.
-            captureException(error);
-            return failure('internal', 'Something went wrong in the address book');
-        }
+        const started = Date.now();
+        const response = await answer(request, env, ctx);
+        countRequest(routeOf(new URL(request.url).pathname, KNOWN_PATHS), response.status, Date.now() - started);
+        return response;
     },
     async scheduled(controller, env, ctx) {
         if (controller.cron === BENCHMARKS_CRON) {

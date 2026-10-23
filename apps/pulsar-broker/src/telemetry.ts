@@ -1,5 +1,6 @@
 import * as Sentry from '@sentry/bun';
 import { createScrubber, TELEMETRY_DATA_COLLECTION } from '@ruimte/telemetry';
+import type { BrokerMeter } from './broker.ts';
 
 // The broker's app in Observatory. A DSN only lets a client send, so it is no secret.
 export const BROKER_DSN = 'https://47b1dcc0fd8242359e18520245dab28e@ingest.bmnw.nl/8';
@@ -44,6 +45,18 @@ export function brokerRelease(): string | null {
 export function startTelemetry(): void {
     Sentry.initWithoutDefaultIntegrations(brokerTelemetryOptions(brokerRelease()));
 }
+
+/* The broker's counts as Observatory metrics; only once `startTelemetry` ran, since the SDK drops them without a client. */
+export const sentryMeter: BrokerMeter = {
+    rateLimited: (limit) => Sentry.metrics.count('broker.rate_limited', 1, { attributes: { limit } }),
+    relayed: (outcome) => Sentry.metrics.count('broker.relay', 1, { attributes: { outcome } }),
+    ice: (outcome) => Sentry.metrics.count('broker.ice', 1, { attributes: { outcome } }),
+    online: (counts) => {
+        Sentry.metrics.gauge('broker.sockets', counts.sockets);
+        Sentry.metrics.gauge('broker.machines', counts.machines);
+        Sentry.metrics.gauge('broker.clients', counts.clients);
+    }
+};
 
 /* Sends what is still queued before the process exits; a no-op while telemetry is off. */
 export async function stopTelemetry(): Promise<void> {

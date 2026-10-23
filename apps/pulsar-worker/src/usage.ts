@@ -1,5 +1,6 @@
 import { UsageBatchSchema, usageDataPoints, usageDateOf, usageDateProblem, type UsageBatch, type UsageDataPoint } from '@ruimte/pulsar';
 import { clientIp, failure, noContent, readBody } from './http.ts';
+import { countUsageRelay } from './metrics.ts';
 
 // Seven days with every counter at its cap stay under 12 KB.
 const MAX_USAGE_BODY_BYTES = 32 * 1024;
@@ -42,11 +43,15 @@ export function usageRelay(config: UsageRelayConfig, waitUntil: (promise: Promis
             body: JSON.stringify(batch)
         })
             .then((response) => {
+                countUsageRelay(response.ok ? 'accepted' : String(response.status));
                 if (!response.ok) {
                     console.warn('usage relay refused', response.status);
                 }
             })
-            .catch(() => console.warn('usage relay failed'));
+            .catch(() => {
+                countUsageRelay('failed');
+                console.warn('usage relay failed');
+            });
         waitUntil(delivery);
     };
 }
