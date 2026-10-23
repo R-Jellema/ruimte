@@ -7,6 +7,7 @@
         "dev": "vite",
         "build": "tsc -b && vite build",
         "build:station": "tsc -b && vite build --mode station --outDir ../station/dist --emptyOutDir",
+        "build:bench": "tsc -b && vite build --mode bench --outDir ../bench/dist --emptyOutDir",
         "typecheck": "tsc -b",
         "preview": "vite preview"
     },

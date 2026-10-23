@@ -228,7 +228,8 @@ nullable columns and new tables, and leave old columns in place until no running
 
 A login may only come back to the redirects `isAppRedirectUri` in `packages/pulsar` allows: the app scheme, a
 loopback listener, `https://station.ruimte.app/pulsar/callback` and the Vite dev origin. `ALLOWED_ORIGINS` in
-`wrangler.jsonc` names the web client, so its page may read the answers of `/v1/*`.
+`wrangler.jsonc` names the web client and the model comparison at `bench.ruimte.app`, so their pages may read
+the answers of `/v1/*`.
 
 ## Secrets
 
