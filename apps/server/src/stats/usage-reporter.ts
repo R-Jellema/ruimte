@@ -1,12 +1,15 @@
 import {
     isoWeekOf,
-    USAGE_COUNTERS,
     USAGE_MAX_COUNT,
+    USAGE_MAX_DAYS_PER_BATCH,
     USAGE_MAX_STARTUP_MS,
-    UsageBatchSchema,
-    UsageDaySchema,
-    type UsageBatch,
-    type UsageDay
+    USAGE_REPORT_COUNTERS,
+    USAGE_REPORT_MAX_BYTES,
+    USAGE_REPORT_TIMINGS,
+    UsageReportBatchSchema,
+    UsageReportDaySchema,
+    type UsageReportBatch,
+    type UsageReportDay
 } from '@ruimte/pulsar';
 import { usageIngestUrl } from '@ruimte/telemetry';
 import { errorText } from '../error-text.ts';
@@ -35,8 +38,8 @@ function retryAfterOf(response: Response): number | null {
     return Number.isFinite(seconds) && seconds > 0 ? Math.min(seconds * 1000, MAX_RETRY_AFTER_MS) : null;
 }
 
-type Platform = UsageDay['platform'];
-type Arch = UsageDay['arch'];
+type Platform = UsageReportDay['platform'];
+type Arch = UsageReportDay['arch'];
 
 function platformOf(platform: string): Platform {
     return platform === 'darwin' || platform === 'linux' || platform === 'win32' ? platform : 'other';
@@ -56,15 +59,26 @@ function median(values: readonly number[]): number | null {
 }
 
 /* The day as the ingest takes it, or null when it never would. */
-export function usageDayOf(record: UsageDayRecord, cohortWeek: string, platform: string = process.platform, arch: string = process.arch): UsageDay | null {
+export function usageDayOf(
+    record: UsageDayRecord,
+    cohortWeek: string,
+    platform: string = process.platform,
+    arch: string = process.arch
+): UsageReportDay | null {
     const counts = Object.fromEntries(
-        USAGE_COUNTERS.flatMap((counter) => {
+        USAGE_REPORT_COUNTERS.flatMap((counter) => {
             const value = record.counts[counter] ?? 0;
             return value > 0 ? [[counter, Math.min(value, USAGE_MAX_COUNT)]] : [];
         })
     );
+    const timings = Object.fromEntries(
+        USAGE_REPORT_TIMINGS.flatMap((timing) => {
+            const value = median(record.timings[timing] ?? []);
+            return value === null ? [] : [[timing, clampTiming(value)]];
+        })
+    );
     const startup = median(record.startups);
-    const parsed = UsageDaySchema.safeParse({
+    const parsed = UsageReportDaySchema.safeParse({
         date: record.date,
         version: record.version,
         platform: platformOf(platform),
@@ -74,14 +88,40 @@ export function usageDayOf(record: UsageDayRecord, cohortWeek: string, platform:
         firstThisWeek: record.firstThisWeek,
         firstThisMonth: record.firstThisMonth,
         cohortWeek,
-        ...(startup === null ? {} : { startupMs: Math.min(Math.max(startup, 1), USAGE_MAX_STARTUP_MS) }),
-        counts
+        ...(startup === null ? {} : { startupMs: clampTiming(startup) }),
+        counts,
+        ...(Object.keys(timings).length === 0 ? {} : { timings })
     });
     return parsed.success ? parsed.data : null;
 }
 
+function clampTiming(ms: number): number {
+    return Math.min(Math.max(ms, 1), USAGE_MAX_STARTUP_MS);
+}
+
+/*
+ * The days as batches the ingest takes, newest first: as many days as fit in its size, at most a week. A day too
+ * large alone, which a counter of each name would still not make, goes on its own and the ingest decides.
+ */
+export function usageBatchesOf(days: readonly UsageReportDay[]): UsageReportBatch[] {
+    const batches: UsageReportDay[][] = [];
+    for (const day of days) {
+        const last = batches.at(-1);
+        if (last !== undefined && last.length < USAGE_MAX_DAYS_PER_BATCH && usageBatchBytes([...last, day]) <= USAGE_REPORT_MAX_BYTES) {
+            last.push(day);
+        } else {
+            batches.push([day]);
+        }
+    }
+    return batches.map((batch) => ({ days: batch }));
+}
+
+function usageBatchBytes(days: readonly UsageReportDay[]): number {
+    return new TextEncoder().encode(JSON.stringify({ days })).byteLength;
+}
+
 /* Straight to Observatory, never with a token or a key of the machine, so nothing ties a day to an install. */
-export async function sendToObservatory(batch: UsageBatch, send: typeof fetch = fetch): Promise<void> {
+export async function sendToObservatory(batch: UsageReportBatch, send: typeof fetch = fetch): Promise<void> {
     const response = await send(usageIngestUrl(), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -98,7 +138,7 @@ interface UsageReporterOptions {
     // The machine's switch; off sends nothing.
     enabled(): boolean;
     signedIn(): Promise<boolean>;
-    send?: (batch: UsageBatch) => Promise<void>;
+    send?: (batch: UsageReportBatch) => Promise<void>;
     now?: () => number;
 }
 
@@ -110,7 +150,7 @@ interface UsageReporterOptions {
  */
 export class UsageReporter {
     private readonly options: UsageReporterOptions;
-    private readonly send: (batch: UsageBatch) => Promise<void>;
+    private readonly send: (batch: UsageReportBatch) => Promise<void>;
     private readonly now: () => number;
     private failedAt: number | null = null;
     private waitMs = RETRY_MS;
@@ -155,25 +195,27 @@ export class UsageReporter {
         if (unsendable.length > 0) {
             counter.forget(unsendable);
         }
-        const batch = UsageBatchSchema.safeParse({ days });
-        if (!batch.success) {
-            await counter.persist();
-            return;
-        }
-        const dates = days.map((day) => day.date);
-        try {
-            await this.send(batch.data);
-            this.failedAt = null;
-            counter.forget(dates);
-        } catch (e) {
-            // A 400 is a body the schema refuses, which sending again cannot fix; a day out of range is skipped with a 204 instead.
-            if (e instanceof UsageSendError && e.status === 400) {
-                console.warn('The usage ingest refused the usage counts; they are dropped:', errorText(e));
+        for (const candidate of usageBatchesOf(days)) {
+            const batch = UsageReportBatchSchema.safeParse(candidate);
+            if (!batch.success) {
+                continue;
+            }
+            const dates = batch.data.days.map((day) => day.date);
+            try {
+                await this.send(batch.data);
+                this.failedAt = null;
                 counter.forget(dates);
-            } else {
+            } catch (e) {
+                // A 400 is a body the schema refuses, which sending again cannot fix; a day out of range is skipped with a 204 instead.
+                if (e instanceof UsageSendError && e.status === 400) {
+                    console.warn('The usage ingest refused the usage counts; they are dropped:', errorText(e));
+                    counter.forget(dates);
+                    continue;
+                }
                 this.failedAt = now;
                 this.waitMs = Math.max(RETRY_MS, e instanceof UsageSendError ? (e.retryAfterMs ?? 0) : 0);
                 console.warn('Could not send the usage counts; they wait for the next try:', errorText(e));
+                break;
             }
         }
         await counter.persist();

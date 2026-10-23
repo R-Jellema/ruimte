@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import type { Database } from 'bun:sqlite';
-import type { UsageBatch, UsageDataPoint, UsageDay } from '@ruimte/pulsar';
+import { usageReportOfV1, type UsageDataPoint, type UsageDay, type UsageReportBatch } from '@ruimte/pulsar';
 import { d1, migratedDatabase } from './test/sqlite-d1.ts';
 import { USAGE_BATCHES_PER_IP_PER_DAY, acceptUsage, rateLimitCleanup, usageRelay, type UsageDeps } from './usage.ts';
 
@@ -102,17 +102,18 @@ describe('a usage batch', () => {
 });
 
 describe('the relay to Observatory', () => {
-    let relayed: UsageBatch[];
+    let relayed: UsageReportBatch[];
 
     beforeEach(() => {
         relayed = [];
         deps = { ...deps, relay: (batch) => relayed.push(batch) };
     });
 
-    test('gets an accepted batch whole, days outside the window included', async () => {
+    test('gets an accepted batch whole, days outside the window included, under the report names', async () => {
         const days = [day(), day({ date: '2026-10-07' })];
         expect((await acceptUsage(post({ days }), deps)).status).toBe(204);
-        expect(relayed).toEqual([{ days }]);
+        expect(relayed).toEqual([usageReportOfV1({ days })]);
+        expect(relayed[0]!.days[0]!.counts).toEqual({ 'terminals.started': 4, 'chats.claude': 1 });
     });
 
     test('gets nothing the address book refused', async () => {
@@ -147,7 +148,7 @@ describe('the relay to Observatory', () => {
         expect(sent).toHaveLength(1);
         expect(sent[0]!.url).toBe('https://ingest.test/api/3/usage/?sentry_key=key');
         expect(sent[0]!.headers.get('authorization')).toBe('Bearer obs_token');
-        expect(await sent[0]!.json()).toEqual({ days: [day()] });
+        expect(await sent[0]!.json()).toEqual(usageReportOfV1({ days: [day()] }));
     });
 });
 

@@ -212,28 +212,35 @@ export const UsageCountsSchema = z.strictObject(
 );
 export type UsageCounts = z.infer<typeof UsageCountsSchema>;
 
+/* What describes a day and the machine it is of, in the address book's batch and in the report alike (`usage-report.ts`). */
+export const USAGE_DAY_DESCRIPTION = {
+    // The UTC day the counts are of, finished before it is sent.
+    date: z.string().refine(isCalendarDate, 'Expected a UTC day as YYYY-MM-DD'),
+    version: z.string().regex(/^\d{1,4}\.\d{1,4}\.\d{1,4}(-[0-9A-Za-z.-]{1,32})?$/, 'Expected a release version'),
+    platform: z.enum(['darwin', 'linux', 'win32', 'other']),
+    arch: z.enum(['arm64', 'x64', 'other']),
+    launcher: z.enum(['service', 'desktop', 'standalone']),
+    signedIn: z.boolean(),
+    // The machine's first active day of this ISO week or this UTC calendar month, so a sum of either is the active machines in it.
+    firstThisWeek: z.boolean(),
+    firstThisMonth: z.boolean(),
+    // The ISO week of the machine's first day with Ruimte, for retention.
+    cohortWeek: z.string().regex(WEEK_PATTERN, 'Expected an ISO week as YYYY-Www')
+};
+
+/* A cohort week after the day itself is a clock or a counter that is off. */
+export function usageCohortProblem(day: { date: string; cohortWeek: string }): boolean {
+    return isCalendarDate(day.date) && WEEK_PATTERN.test(day.cohortWeek) && day.cohortWeek > isoWeekOf(day.date);
+}
+
 export const UsageDaySchema = z
     .strictObject({
-        // The UTC day the counts are of, finished before it is sent.
-        date: z.string().refine(isCalendarDate, 'Expected a UTC day as YYYY-MM-DD'),
-        version: z.string().regex(/^\d{1,4}\.\d{1,4}\.\d{1,4}(-[0-9A-Za-z.-]{1,32})?$/, 'Expected a release version'),
-        platform: z.enum(['darwin', 'linux', 'win32', 'other']),
-        arch: z.enum(['arm64', 'x64', 'other']),
-        launcher: z.enum(['service', 'desktop', 'standalone']),
-        signedIn: z.boolean(),
-        // The machine's first active day of this ISO week or this UTC calendar month, so a sum of either is the active machines in it.
-        firstThisWeek: z.boolean(),
-        firstThisMonth: z.boolean(),
-        // The ISO week of the machine's first day with Ruimte, for retention.
-        cohortWeek: z.string().regex(WEEK_PATTERN, 'Expected an ISO week as YYYY-Www'),
+        ...USAGE_DAY_DESCRIPTION,
         // The median of the day's desktop starts until the first connection, in milliseconds; absent when the desktop did not start.
         startupMs: z.number().int().min(1).max(USAGE_MAX_STARTUP_MS).optional(),
         counts: UsageCountsSchema
     })
-    .refine((day) => !isCalendarDate(day.date) || !WEEK_PATTERN.test(day.cohortWeek) || day.cohortWeek <= isoWeekOf(day.date), {
-        message: 'The cohort week is after the day',
-        path: ['cohortWeek']
-    });
+    .refine((day) => !usageCohortProblem(day), { message: 'The cohort week is after the day', path: ['cohortWeek'] });
 export type UsageDay = z.infer<typeof UsageDaySchema>;
 
 export const UsageBatchSchema = z

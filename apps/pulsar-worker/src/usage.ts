@@ -1,4 +1,4 @@
-import { UsageBatchSchema, usageDataPoints, usageDateOf, usageDateProblem, type UsageBatch, type UsageDataPoint } from '@ruimte/pulsar';
+import { UsageBatchSchema, usageDataPoints, usageDateOf, usageDateProblem, usageReportOfV1, type UsageDataPoint, type UsageReportBatch } from '@ruimte/pulsar';
 import { clientIp, failure, noContent, readBody } from './http.ts';
 import { countUsageRelay } from './metrics.ts';
 
@@ -20,7 +20,7 @@ export interface UsageDeps {
     dataset?: { writeDataPoint(point: UsageDataPoint): void };
     burst?: { limit(options: { key: string }): Promise<{ success: boolean }> };
     // Hands an accepted batch on to Observatory after the answer; absent until it is configured.
-    relay?: (batch: UsageBatch) => void;
+    relay?: (batch: UsageReportBatch) => void;
     now: () => number;
 }
 
@@ -35,7 +35,11 @@ export interface UsageRelayConfig {
  * Fire and forget: the machine already has its answer, so a relay that fails only loses those days in
  * Observatory. Only the status is logged, never the batch.
  */
-export function usageRelay(config: UsageRelayConfig, waitUntil: (promise: Promise<unknown>) => void, send: typeof fetch = fetch): (batch: UsageBatch) => void {
+export function usageRelay(
+    config: UsageRelayConfig,
+    waitUntil: (promise: Promise<unknown>) => void,
+    send: typeof fetch = fetch
+): (batch: UsageReportBatch) => void {
     return (batch) => {
         const delivery = send(config.url, {
             method: 'POST',
@@ -83,7 +87,7 @@ function rateLimited(): Response {
  * `POST /v1/usage`: finished days of anonymous counts. Neither the address nor the body is logged. A
  * body the schema refuses is refused whole; otherwise every day in the window is written and the
  * others skipped, so after either answer a machine forgets every day it sent. The relay gets the batch
- * whole, since Observatory keeps to the same window.
+ * whole, since Observatory keeps to the same window, under the names of the report a newer daemon sends.
  */
 export async function acceptUsage(request: Request, deps: UsageDeps): Promise<Response> {
     if (!deps.dataset && !deps.relay) {
@@ -107,7 +111,7 @@ export async function acceptUsage(request: Request, deps: UsageDeps): Promise<Re
             deps.dataset?.writeDataPoint(point);
         }
     }
-    deps.relay?.(body.value);
+    deps.relay?.(usageReportOfV1(body.value));
     return noContent();
 }
 

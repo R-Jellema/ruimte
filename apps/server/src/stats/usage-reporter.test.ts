@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { UsageBatchSchema, type UsageBatch } from '@ruimte/pulsar';
+import { USAGE_REPORT_MAX_BYTES, UsageReportBatchSchema as UsageBatchSchema, type UsageReportBatch as UsageBatch, type UsageReportDay } from '@ruimte/pulsar';
 import { UsageCounter, type UsageStateStore } from './usage-counter.ts';
-import { sendToObservatory, UsageReporter, UsageSendError, usageDayOf } from './usage-reporter.ts';
+import { sendToObservatory, usageBatchesOf, UsageReporter, UsageSendError, usageDayOf } from './usage-reporter.ts';
 
 const DAY = 86_400_000;
 const MINUTE = 60_000;
@@ -41,7 +41,7 @@ describe('sending the usage counts', () => {
     test('sends the finished days once, as the address book takes them', async () => {
         const counter = counterOf();
         const reporter = reporterOf(counter);
-        counter.count('projectsOpened');
+        counter.count('projects.opened');
         counter.startup(900);
         counter.startup(1500);
         counter.startup(1200);
@@ -64,7 +64,7 @@ describe('sending the usage counts', () => {
                 firstThisMonth: true,
                 cohortWeek: '2026-W42',
                 startupMs: 1200,
-                counts: { projectsOpened: 1 }
+                counts: { 'projects.opened': 1 }
             }
         ]);
 
@@ -75,7 +75,7 @@ describe('sending the usage counts', () => {
     test('keeps the days after a failure and tries again ten minutes later', async () => {
         const counter = counterOf();
         const reporter = reporterOf(counter);
-        counter.count('launchesRun');
+        counter.count('launches.run');
         clock += DAY;
         answer = () => Promise.reject(new TypeError('fetch failed'));
         await reporter.flush();
@@ -100,7 +100,7 @@ describe('sending the usage counts', () => {
     test('drops the days the ingest refused with 400', async () => {
         const counter = counterOf();
         const reporter = reporterOf(counter);
-        counter.count('launchesRun');
+        counter.count('launches.run');
         clock += DAY;
         answer = () => Promise.reject(new UsageSendError(400, null));
         await reporter.flush();
@@ -110,7 +110,7 @@ describe('sending the usage counts', () => {
     test('waits out a Retry-After longer than ten minutes, then sends again', async () => {
         const counter = counterOf();
         const reporter = reporterOf(counter);
-        counter.count('launchesRun');
+        counter.count('launches.run');
         clock += DAY;
         answer = () => Promise.reject(new UsageSendError(429, 60 * MINUTE));
         await reporter.flush();
@@ -129,7 +129,7 @@ describe('sending the usage counts', () => {
     test('sends nothing while the switch is off', async () => {
         const counter = counterOf();
         const reporter = reporterOf(counter);
-        counter.count('launchesRun');
+        counter.count('launches.run');
         clock += DAY;
         enabled = false;
         await reporter.flush();
@@ -139,7 +139,7 @@ describe('sending the usage counts', () => {
     test('never sends a day older than seven days', async () => {
         const counter = counterOf();
         const reporter = reporterOf(counter);
-        counter.count('launchesRun');
+        counter.count('launches.run');
         clock += 9 * DAY;
         await reporter.flush();
         expect(sent).toEqual([]);
@@ -155,20 +155,56 @@ describe('a day as the address book takes it', () => {
         firstThisWeek: false,
         firstThisMonth: false,
         startups: [],
-        counts: { projectsOpened: 250_000, launchesRun: 0 }
+        timings: { terminalAttachMs: [40, 90, 60] },
+        counts: { 'projects.opened': 250_000, 'launches.run': 0 }
     };
+
+    test('sends one median per timing, beside the startup', () => {
+        expect(usageDayOf({ ...record, startups: [900, 1100] }, '2026-W40')).toMatchObject({ startupMs: 1000, timings: { terminalAttachMs: 60 } });
+        expect(usageDayOf({ ...record, timings: {} }, '2026-W40')?.timings).toBeUndefined();
+    });
 
     test('clamps a count, leaves out zeros and maps an unknown platform', () => {
         expect(usageDayOf(record, '2026-W40', 'freebsd', 'ia32')).toMatchObject({
             platform: 'other',
             arch: 'other',
-            counts: { projectsOpened: 100_000 }
+            counts: { 'projects.opened': 100_000 }
         });
         expect(usageDayOf(record, '2026-W40', 'linux', 'x64')?.startupMs).toBeUndefined();
     });
 
     test('is none for a version that is not a release', () => {
         expect(usageDayOf({ ...record, version: 'dev' }, '2026-W40')).toBeNull();
+    });
+});
+
+describe('days as batches', () => {
+    const dayOn = (date: string, counters: number): UsageReportDay => ({
+        date,
+        version: '1.2.3',
+        platform: 'linux',
+        arch: 'x64',
+        launcher: 'service',
+        signedIn: false,
+        firstThisWeek: false,
+        firstThisMonth: false,
+        cohortWeek: '2026-W40',
+        counts: Object.fromEntries(['verbs.read', 'verbs.agent', 'chats.claude', 'turns.claude'].slice(0, counters).map((name) => [name, 1]))
+    });
+
+    test('go as one batch while they fit, and at most a week each', () => {
+        const week = Array.from({ length: 8 }, (_, i) => dayOn(`2026-10-${String(10 + i)}`, 2));
+        expect(usageBatchesOf(week).map((batch) => batch.days.length)).toEqual([7, 1]);
+    });
+
+    test('split before a batch grows over the size the ingest takes', () => {
+        const day = dayOn('2026-10-10', 4);
+        const perDay = new TextEncoder().encode(JSON.stringify(day)).byteLength;
+        const fit = Math.floor(USAGE_REPORT_MAX_BYTES / perDay);
+        const many = Array.from({ length: Math.min(fit + 1, 7) }, (_, i) => ({ ...day, date: `2026-10-${String(10 + i)}` }));
+        for (const batch of usageBatchesOf(many)) {
+            expect(new TextEncoder().encode(JSON.stringify(batch)).byteLength).toBeLessThanOrEqual(USAGE_REPORT_MAX_BYTES);
+        }
     });
 });
 

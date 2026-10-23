@@ -2,7 +2,17 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { USAGE_VERB_COUNTERS } from '@ruimte/pulsar';
 import { VERBS } from '../canvas/verbs.ts';
 import { UsageCounter } from './usage-counter.ts';
-import { countClient, countProjectOpened, countRequest, countUsage, countVerb, countViewShown, installUsageCounter } from './usage-stats.ts';
+import {
+    countClient,
+    countLimit,
+    countProjectOpened,
+    countRequest,
+    countTurn,
+    countUsage,
+    countVerb,
+    countViewShown,
+    installUsageCounter
+} from './usage-stats.ts';
 
 let counter: UsageCounter;
 let on: boolean;
@@ -32,9 +42,9 @@ afterEach(() => {
 describe('counting at the sites', () => {
     test('counts nothing while the switch is off or no counter is installed', () => {
         on = false;
-        countUsage('projectsOpened');
+        countUsage('projects.opened');
         installUsageCounter(null);
-        countUsage('projectsOpened');
+        countUsage('projects.opened');
         expect(counts()).toEqual({});
     });
 
@@ -44,28 +54,50 @@ describe('counting at the sites', () => {
         }
     });
 
-    test('a verb counts in its group, and delegating and feature verbs on the day as well', () => {
+    test('a verb counts under its own name, and delegating and feature verbs on the day as well', () => {
         countVerb('agent');
         countVerb('team');
         countVerb('browser');
         countVerb('read');
         countVerb('no-such-verb');
-        expect(counts()).toEqual({ verbsAgent: 2, agentsDelegated: 1, teamsDelegated: 1, verbsBrowser: 1, browserActions: 1, verbsRead: 1 });
+        expect(counts()).toEqual({
+            'verbs.agent': 1,
+            'verbs.team': 1,
+            'agents.delegated': 1,
+            'teams.delegated': 1,
+            'verbs.browser': 1,
+            'actions.browser': 1,
+            'verbs.read': 1
+        });
+    });
+
+    test('a turn counts by provider, model family and mode, with anything unknown as other or left out', () => {
+        countTurn('claude', 'claude-sonnet-5-5', 'full-access');
+        countTurn('my-own-agent', 'my-finetune', 'yolo');
+        countLimit('grok');
+        expect(counts()).toEqual({
+            'turns.claude': 1,
+            'turns.model.sonnet': 1,
+            'turns.mode.fullAccess': 1,
+            'turns.other': 1,
+            'turns.model.other': 1,
+            'limits.grok': 1
+        });
     });
 
     test('a request counts only when it is an action a person takes', () => {
         countRequest('device.action');
         countRequest('project.list');
-        expect(counts()).toEqual({ deviceActions: 1 });
+        expect(counts()).toEqual({ 'actions.device': 1 });
     });
 
     test('a project counts once a day, however often clients open it again', () => {
         countProjectOpened('p1');
         countProjectOpened('p1');
         countProjectOpened('p2');
-        expect(counts()).toEqual({ projectsOpened: 2 });
+        expect(counts()).toEqual({ 'projects.opened': 2 });
         countProjectOpened('p1');
-        expect(counts()).toEqual({ projectsOpened: 1 });
+        expect(counts()).toEqual({ 'projects.opened': 1 });
     });
 
     test('a client from elsewhere counts once a day by the session its key proved, by the kind it names', () => {
@@ -80,9 +112,9 @@ describe('counting at the sites', () => {
         countClient({ reachability: 'loopback', sessionId: null }, 'desktop');
         countClient({ reachability: 'tunnel', sessionId: 's4' }, 'toaster');
         countClient(undefined, 'desktop');
-        expect(counts()).toEqual({ clientsDesktop: 1, clientsIos: 2, clientsPeer: 1 });
+        expect(counts()).toEqual({ 'clients.desktop': 1, 'clients.ios': 2, 'clients.peer': 1 });
         countClient(desktop, 'desktop');
-        expect(counts()).toEqual({ clientsDesktop: 1 });
+        expect(counts()).toEqual({ 'clients.desktop': 1 });
     });
 
     test('each view of a project counts once a day, by its kind', () => {
@@ -95,8 +127,8 @@ describe('counting at the sites', () => {
         countViewShown('p1', 'canvas', kindOf);
         countViewShown('p1', 'line', kindOf);
         countViewShown('p2', 'canvas', kindOf);
-        expect(counts()).toEqual({ viewsCanvas: 2, viewsFile: 1 });
+        expect(counts()).toEqual({ 'views.canvas': 2, 'views.file': 1 });
         countViewShown('p1', 'canvas', kindOf);
-        expect(counts()).toEqual({ viewsCanvas: 1 });
+        expect(counts()).toEqual({ 'views.canvas': 1 });
     });
 });
