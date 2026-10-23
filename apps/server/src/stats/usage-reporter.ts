@@ -1,6 +1,4 @@
 import {
-    AddressBookClient,
-    AddressBookRequestError,
     isoWeekOf,
     USAGE_COUNTERS,
     USAGE_MAX_COUNT,
@@ -10,12 +8,32 @@ import {
     type UsageBatch,
     type UsageDay
 } from '@ruimte/pulsar';
+import { usageIngestUrl } from '@ruimte/telemetry';
 import { errorText } from '../error-text.ts';
 import type { UsageCounter, UsageDayRecord } from './usage-counter.ts';
 
-// After a failure the address book is knocked on this often at most, however often a client lists providers.
+// After a failure the ingest is knocked on this often at most, however often a client lists providers.
 const RETRY_MS = 10 * 60 * 1000;
+// A `Retry-After` is followed up to a day, so an answer that names a far moment never outlives the days it holds back.
+const MAX_RETRY_AFTER_MS = 24 * 60 * 60 * 1000;
 const SEND_TIMEOUT_MS = 10_000;
+
+/* An answer of the ingest other than 2xx; `retryAfterMs` is null without a readable `Retry-After`. */
+export class UsageSendError extends Error {
+    readonly status: number;
+    readonly retryAfterMs: number | null;
+
+    constructor(status: number, retryAfterMs: number | null) {
+        super(`The usage ingest answered ${status}`);
+        this.status = status;
+        this.retryAfterMs = retryAfterMs;
+    }
+}
+
+function retryAfterOf(response: Response): number | null {
+    const seconds = Number(response.headers.get('retry-after') ?? '');
+    return Number.isFinite(seconds) && seconds > 0 ? Math.min(seconds * 1000, MAX_RETRY_AFTER_MS) : null;
+}
 
 type Platform = UsageDay['platform'];
 type Arch = UsageDay['arch'];
@@ -37,7 +55,7 @@ function median(values: readonly number[]): number | null {
     return Math.round(sorted.length % 2 === 1 ? sorted[middle]! : (sorted[middle - 1]! + sorted[middle]!) / 2);
 }
 
-/* The day as the address book takes it, or null when it never would. */
+/* The day as the ingest takes it, or null when it never would. */
 export function usageDayOf(record: UsageDayRecord, cohortWeek: string, platform: string = process.platform, arch: string = process.arch): UsageDay | null {
     const counts = Object.fromEntries(
         USAGE_COUNTERS.flatMap((counter) => {
@@ -62,8 +80,17 @@ export function usageDayOf(record: UsageDayRecord, cohortWeek: string, platform:
     return parsed.success ? parsed.data : null;
 }
 
-export function sendToAddressBook(batch: UsageBatch): Promise<void> {
-    return new AddressBookClient({ fetch: (input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(SEND_TIMEOUT_MS) }) }).sendUsage(batch);
+/* Straight to Observatory, never with a token or a key of the machine, so nothing ties a day to an install. */
+export async function sendToObservatory(batch: UsageBatch, send: typeof fetch = fetch): Promise<void> {
+    const response = await send(usageIngestUrl(), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(batch),
+        signal: AbortSignal.timeout(SEND_TIMEOUT_MS)
+    });
+    if (!response.ok) {
+        throw new UsageSendError(response.status, retryAfterOf(response));
+    }
 }
 
 interface UsageReporterOptions {
@@ -79,18 +106,19 @@ interface UsageReporterOptions {
  * Sends the finished days the counter keeps, when the daemon starts and whenever a client lists the
  * providers, which is when the model catalogs are fetched too: no clock of its own. A day goes once:
  * an answer of 400 drops it as well, since it would never be taken; any other failure keeps it for
- * the next try, until it is too old to send.
+ * the next try, ten minutes on or after the ingest's `Retry-After`, until it is too old to send.
  */
 export class UsageReporter {
     private readonly options: UsageReporterOptions;
     private readonly send: (batch: UsageBatch) => Promise<void>;
     private readonly now: () => number;
     private failedAt: number | null = null;
+    private waitMs = RETRY_MS;
     private inFlight: Promise<void> | null = null;
 
     constructor(options: UsageReporterOptions) {
         this.options = options;
-        this.send = options.send ?? sendToAddressBook;
+        this.send = options.send ?? ((batch) => sendToObservatory(batch));
         this.now = options.now ?? Date.now;
     }
 
@@ -110,7 +138,7 @@ export class UsageReporter {
         counter.noteSignedIn(await this.options.signedIn().catch(() => false));
         const now = this.now();
         // A time in the future means the clock went back; that failure counts as old.
-        if (this.failedAt !== null && now >= this.failedAt && now - this.failedAt < RETRY_MS) {
+        if (this.failedAt !== null && now >= this.failedAt && now - this.failedAt < this.waitMs) {
             return;
         }
         const records = counter.finished();
@@ -139,11 +167,12 @@ export class UsageReporter {
             counter.forget(dates);
         } catch (e) {
             // A 400 is a body the schema refuses, which sending again cannot fix; a day out of range is skipped with a 204 instead.
-            if (e instanceof AddressBookRequestError && e.status === 400) {
-                console.warn('The address book refused the usage counts; they are dropped:', errorText(e));
+            if (e instanceof UsageSendError && e.status === 400) {
+                console.warn('The usage ingest refused the usage counts; they are dropped:', errorText(e));
                 counter.forget(dates);
             } else {
                 this.failedAt = now;
+                this.waitMs = Math.max(RETRY_MS, e instanceof UsageSendError ? (e.retryAfterMs ?? 0) : 0);
                 console.warn('Could not send the usage counts; they wait for the next try:', errorText(e));
             }
         }

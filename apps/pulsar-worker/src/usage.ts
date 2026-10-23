@@ -72,6 +72,9 @@ function rateLimited(): Response {
 }
 
 /*
+ * TODO(Bas): remove `/v1/usage`, `usageRelay`, the usage buckets, the dataset and `USAGE_LIMIT` once 0.23.0 is out;
+ * from 0.22.0 on a daemon sends straight to Observatory, and only older ones still come here.
+ *
  * `POST /v1/usage`: finished days of anonymous counts. Neither the address nor the body is logged. A
  * body the schema refuses is refused whole; otherwise every day in the window is written and the
  * others skipped, so after either answer a machine forgets every day it sent. The relay gets the batch

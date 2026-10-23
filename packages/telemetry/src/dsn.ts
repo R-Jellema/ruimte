@@ -7,6 +7,12 @@ export const TELEMETRY_DSN = {
 
 export type TelemetrySurface = keyof typeof TELEMETRY_DSN;
 
+/* Observatory's usage ingest of the daemon's app, which takes the anonymous `UsageBatch` as it is. */
+export function usageIngestUrl(dsn: string = TELEMETRY_DSN.daemon): string {
+    const url = new URL(dsn);
+    return `${url.origin}/api${url.pathname}/usage/?sentry_key=${url.username}`;
+}
+
 /* The release every part reports under, and the one CI creates for a tag `v<version>`. */
 export function telemetryRelease(version: string): string {
     return `ruimte@${version}`;

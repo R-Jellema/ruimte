@@ -15,9 +15,9 @@ export default function Privacy() {
             </a>
             <h1 className="font-display text-4xl font-semibold text-text">Privacy</h1>
             <p>
-                Ruimte sends two things. When it crashes or runs into an error, it sends a report to Sentry, on servers in the EU, so I can fix what broke. And
-                once a day, the machine sends a handful of totals about how you used Ruimte to Ruimte&apos;s own server on Cloudflare. This page lists what each
-                one holds and what Ruimte keeps out of both.
+                Ruimte sends two things. When it crashes or runs into an error, it sends a report to Observatory, my own error tracker on a server at TransIP in
+                the Netherlands, so I can fix what broke. And once a day, the machine sends a handful of totals about how you used Ruimte to Observatory as
+                well. This page lists what each one holds and what Ruimte keeps out of both.
             </p>
 
             <Section title="What a report holds">
@@ -38,8 +38,8 @@ export default function Privacy() {
             <Section title="What Ruimte never collects">
                 <p>
                     Ruimte does not collect your prompts and chats, the contents of your files, terminal output, database queries, passwords, tokens and keys,
-                    the names and folders of your projects, your home folder, your username, the name of your computer, or IP addresses. Ruimte also tells
-                    Sentry not to derive an IP address from the connection a report arrives on.
+                    the names and folders of your projects, your home folder, your username, the name of your computer, or IP addresses. Observatory does not
+                    store the IP address a report arrives from.
                 </p>
                 <p>There are no breadcrumbs of what you clicked, no session recordings, no performance tracing and no log forwarding.</p>
             </Section>
@@ -70,7 +70,8 @@ export default function Privacy() {
                 </ul>
                 <p>
                     A day carries no identifier. There is no account, no install id and no key of the machine in it, and no names, paths, prompts, file contents
-                    or anything you typed. Ruimte&apos;s server does not log the address a day comes from.
+                    or anything you typed. Observatory does not store the address a day comes from. Versions before 0.22 send their days through Ruimte&apos;s
+                    own server on Cloudflare first, which does not log the address and does not pass it on.
                 </p>
                 <p>
                     Usage statistics are on by default. To turn them off, open Settings in the desktop app on the computer that runs the machine, go to Account,

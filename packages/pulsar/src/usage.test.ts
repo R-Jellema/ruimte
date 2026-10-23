@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'bun:test';
 import {
-    AddressBookClient,
     USAGE_BLOBS,
     USAGE_COUNTERS,
     USAGE_DAY_MEASURES,
@@ -137,23 +136,5 @@ describe('the ISO week', () => {
         expect(isoWeekOf('2026-10-11')).toBe('2026-W41');
         expect(isoWeekOf('2027-01-01')).toBe('2026-W53');
         expect(isoWeekOf('2025-12-29')).toBe('2026-W01');
-    });
-});
-
-describe('sending usage', () => {
-    test('posts the batch without a token and takes an empty answer', async () => {
-        const calls: { url: string; init: RequestInit }[] = [];
-        const book = new AddressBookClient({
-            baseUrl: 'https://pulsar.test',
-            fetch: async (url, init) => {
-                calls.push({ url, init });
-                return new Response(null, { status: 204 });
-            }
-        });
-        await book.sendUsage({ days: [day()] });
-        expect(calls[0]!.url).toBe('https://pulsar.test/v1/usage');
-        expect(calls[0]!.init.method).toBe('POST');
-        expect(new Headers(calls[0]!.init.headers).has('authorization')).toBe(false);
-        expect(JSON.parse(String(calls[0]!.init.body))).toEqual({ days: [day()] });
     });
 });

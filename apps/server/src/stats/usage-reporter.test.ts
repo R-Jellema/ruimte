@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { AddressBookRequestError, UsageBatchSchema, type UsageBatch } from '@ruimte/pulsar';
+import { UsageBatchSchema, type UsageBatch } from '@ruimte/pulsar';
 import { UsageCounter, type UsageStateStore } from './usage-counter.ts';
-import { UsageReporter, usageDayOf } from './usage-reporter.ts';
+import { sendToObservatory, UsageReporter, UsageSendError, usageDayOf } from './usage-reporter.ts';
 
 const DAY = 86_400_000;
 const MINUTE = 60_000;
@@ -77,7 +77,7 @@ describe('sending the usage counts', () => {
         const reporter = reporterOf(counter);
         counter.count('launchesRun');
         clock += DAY;
-        answer = () => Promise.reject(new AddressBookRequestError('network', 0, 'offline'));
+        answer = () => Promise.reject(new TypeError('fetch failed'));
         await reporter.flush();
         expect(sent).toHaveLength(1);
 
@@ -85,7 +85,7 @@ describe('sending the usage counts', () => {
         await reporter.flush();
         expect(sent).toHaveLength(1);
 
-        answer = () => Promise.reject(new AddressBookRequestError('bad-answer', 503, 'down'));
+        answer = () => Promise.reject(new UsageSendError(503, null));
         clock += 6 * MINUTE;
         await reporter.flush();
         expect(sent).toHaveLength(2);
@@ -97,13 +97,32 @@ describe('sending the usage counts', () => {
         expect(counter.finished()).toEqual([]);
     });
 
-    test('drops the days the address book refused with 400', async () => {
+    test('drops the days the ingest refused with 400', async () => {
         const counter = counterOf();
         const reporter = reporterOf(counter);
         counter.count('launchesRun');
         clock += DAY;
-        answer = () => Promise.reject(new AddressBookRequestError('bad-request', 400, 'no'));
+        answer = () => Promise.reject(new UsageSendError(400, null));
         await reporter.flush();
+        expect(counter.finished()).toEqual([]);
+    });
+
+    test('waits out a Retry-After longer than ten minutes, then sends again', async () => {
+        const counter = counterOf();
+        const reporter = reporterOf(counter);
+        counter.count('launchesRun');
+        clock += DAY;
+        answer = () => Promise.reject(new UsageSendError(429, 60 * MINUTE));
+        await reporter.flush();
+
+        answer = async () => undefined;
+        clock += 30 * MINUTE;
+        await reporter.flush();
+        expect(sent).toHaveLength(1);
+
+        clock += 31 * MINUTE;
+        await reporter.flush();
+        expect(sent).toHaveLength(2);
         expect(counter.finished()).toEqual([]);
     });
 
@@ -150,5 +169,33 @@ describe('a day as the address book takes it', () => {
 
     test('is none for a version that is not a release', () => {
         expect(usageDayOf({ ...record, version: 'dev' }, '2026-W40')).toBeNull();
+    });
+});
+
+describe('sending to Observatory', () => {
+    const batch: UsageBatch = { days: [] };
+
+    test('posts the batch to the daemon app usage ingest without a token', async () => {
+        const calls: { url: string; init: RequestInit }[] = [];
+        const send = async (url: string, init: RequestInit): Promise<Response> => {
+            calls.push({ url, init });
+            return new Response(null, { status: 204 });
+        };
+        await sendToObservatory(batch, send as typeof fetch);
+        expect(calls[0]!.url).toBe('https://ingest.bmnw.nl/api/3/usage/?sentry_key=ace29cdab42746249e5753874d74c401');
+        expect(calls[0]!.init.method).toBe('POST');
+        expect(new Headers(calls[0]!.init.headers).has('authorization')).toBe(false);
+        expect(JSON.parse(String(calls[0]!.init.body))).toEqual(batch);
+    });
+
+    test('fails with the status and the Retry-After of an answer other than 2xx', async () => {
+        const answerWith = (response: Response) => (async () => response) as unknown as typeof fetch;
+        const limited = await sendToObservatory(batch, answerWith(new Response(null, { status: 429, headers: { 'retry-after': '3600' } }))).catch(
+            (e: unknown) => e
+        );
+        expect(limited).toBeInstanceOf(UsageSendError);
+        expect(limited).toMatchObject({ status: 429, retryAfterMs: 3_600_000 });
+        const refused = await sendToObservatory(batch, answerWith(new Response(null, { status: 400 }))).catch((e: unknown) => e);
+        expect(refused).toMatchObject({ status: 400, retryAfterMs: null });
     });
 });
