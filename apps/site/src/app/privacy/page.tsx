@@ -52,9 +52,10 @@ export default function Privacy() {
                 <p>Two things go with the crash reports, and are on and off with them:</p>
                 <ul className="flex list-disc flex-col gap-2 pl-5">
                     <li>
-                        A session for each run of the desktop app, the machine and the web app: the Ruimte version, what it runs in (the browser and its version
-                        for the web app), how the run ended (fine or crashed) and how long it lasted. No user and no id of your install, so a session only tells
-                        me how many runs of a version crashed.
+                        A session for each run of the desktop app, the machine, the web app and the iPhone app: the Ruimte version, what it runs in (the browser
+                        and its version for the web app), how the run ended (fine or crashed) and how long it lasted. No user and no id of your install, so a
+                        session only tells me how many runs of a version crashed. The crash library of the iPhone app does add an id of the install; the crash
+                        service throws it away on arrival, before anything is stored.
                     </li>
                     <li>
                         A few measurements of how quickly things work: how long a connection to a machine took to open or to fail and which way it went (this
