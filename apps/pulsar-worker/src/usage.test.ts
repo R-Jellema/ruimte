@@ -65,8 +65,10 @@ describe('a usage batch', () => {
 
     test('is refused while the per-minute limit holds, before it is read', async () => {
         burstAllows = false;
-        const response = await acceptUsage(post({ days: [day()] }), deps);
+        const request = post({ days: [day()] });
+        const response = await acceptUsage(request, deps);
         expect(response.status).toBe(429);
+        expect(request.bodyUsed).toBe(false);
         expect(relayed).toEqual([]);
     });
 

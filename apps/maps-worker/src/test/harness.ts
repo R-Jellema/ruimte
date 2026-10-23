@@ -25,6 +25,7 @@ export interface Upstream {
     url: string;
     headers: Headers;
     method: string;
+    redirect: RequestInit['redirect'];
 }
 
 export interface Harness {
@@ -63,7 +64,7 @@ export function harness(overrides: Partial<Env> = {}): Harness {
             const deps: Deps = {
                 fetch: async (url, requestInit) => {
                     assertWorkerdFetchOptions(requestInit);
-                    const call = { url, headers: new Headers(requestInit.headers), method: requestInit.method ?? 'GET' };
+                    const call = { url, headers: new Headers(requestInit.headers), method: requestInit.method ?? 'GET', redirect: requestInit.redirect };
                     state.upstream.push(call);
                     const answer = state.answers[Math.min(state.upstream.length - 1, state.answers.length - 1)]!;
                     return answer(call);

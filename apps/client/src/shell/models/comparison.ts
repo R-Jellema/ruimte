@@ -147,13 +147,6 @@ export function effortSegments<T extends ChartPoint>(points: readonly T[], origi
     return segments;
 }
 
-export function pointDifference(reference: ChartPoint, candidate: ChartPoint): { score: number | null; costRatio: number | null } {
-    return {
-        score: metricChange(reference, candidate, 'intelligence')?.value ?? null,
-        costRatio: metricChange(reference, candidate, 'costPerTask')?.value ?? null
-    };
-}
-
 export interface ComparisonSelection {
     hiddenModels: ReadonlySet<string>;
     hiddenEfforts: ReadonlySet<string>;

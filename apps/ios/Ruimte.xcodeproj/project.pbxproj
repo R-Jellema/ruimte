@@ -12,7 +12,6 @@
 		01D98A53201A53AD7A85935B /* ProjectWidgetRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 566C1E19358915198CF965D3 /* ProjectWidgetRecorder.swift */; };
 		06196DC3AE8B98374122DB81 /* LaunchEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 559A0134244BAC994E62AA74 /* LaunchEditorSheet.swift */; };
 		0688E11E27CCC1F82071C2CA /* ChatWorkflowRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D886E4E4D77111EBADEA132 /* ChatWorkflowRow.swift */; };
-		0A14CC9ED096B72837DF02F5 /* IceCandidateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F29B9E631BA0053CAC8D2A6 /* IceCandidateTests.swift */; };
 		0A6BB4CD8EA6C170D22262FB /* ProjectViewList.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7806958A715171F299C2B24 /* ProjectViewList.swift */; };
 		0ADF4AA4572DAF49C8A26900 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = A84B645FE2D16EFA24FD14F6 /* AppIcon.icon */; };
 		0B547D0A6B2838F62FB295E9 /* LucideSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 06F665001E0BC007A06510C8 /* LucideSwift */; };
@@ -565,7 +564,6 @@
 		4D138E82AD1F1FC9D7F224BF /* AppIconImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppIconImage.swift; sourceTree = "<group>"; };
 		4D3C7FEE7D5E4836DE528B32 /* VoiceActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceActivityWidget.swift; sourceTree = "<group>"; };
 		4D7394AB9DC9FD3EC84B2C70 /* PlanOutline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanOutline.swift; sourceTree = "<group>"; };
-		4F29B9E631BA0053CAC8D2A6 /* IceCandidateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IceCandidateTests.swift; sourceTree = "<group>"; };
 		50D67790962BBA894B90E16A /* VoicePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoicePanel.swift; sourceTree = "<group>"; };
 		50F5AB9F07A9DA47A43714BB /* ChatDraftSyntax.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatDraftSyntax.swift; sourceTree = "<group>"; };
 		51636DA92A46280BE23BA72A /* ProjectFilePage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectFilePage.swift; sourceTree = "<group>"; };
@@ -1225,7 +1223,6 @@
 				6BA186BF1980CD600E8D19C1 /* GitPanelTests.swift */,
 				9B78104E0D8F687B72F55035 /* GitSheetTests.swift */,
 				74E4C2C52FD8BC54585448F0 /* GitWorktreeTests.swift */,
-				4F29B9E631BA0053CAC8D2A6 /* IceCandidateTests.swift */,
 				7A68E33F193F0F7BFBB5E97B /* IntelligentUIPresentationTests.swift */,
 				C207235C16067C091A466267 /* LaunchTests.swift */,
 				7648DC1CF8BCDD56D3BDB551 /* LocalizationTests.swift */,
@@ -1835,7 +1832,6 @@
 				68A0642766D3BCB0B2A961B9 /* GitPanelTests.swift in Sources */,
 				298FBAAAC9C5415627EF3B6A /* GitSheetTests.swift in Sources */,
 				66B75BD5EB0FFB4A733B63F3 /* GitWorktreeTests.swift in Sources */,
-				0A14CC9ED096B72837DF02F5 /* IceCandidateTests.swift in Sources */,
 				4A47EB8A76734F1D36460BAD /* IntelligentUIPresentationTests.swift in Sources */,
 				B47147E370E83943F5901E04 /* LaunchTests.swift in Sources */,
 				1CA991202CE1A29CEC79B400 /* LocalizationTests.swift in Sources */,

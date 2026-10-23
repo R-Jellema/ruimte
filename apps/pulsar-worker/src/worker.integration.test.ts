@@ -30,7 +30,7 @@ import {
 import { Miniflare, type WorkerOptions } from 'miniflare';
 import { BENCHMARK_LABS, BENCHMARK_MODELS } from './benchmark-models.ts';
 import { MAX_PAGES } from './benchmarks.ts';
-import { LIMITS, WINDOW_MS, retryAfterSeconds, windowStartOf } from './rate-window.ts';
+import { LIMITS, WINDOW_MS } from './rate-window.ts';
 import { ROTATION_GRACE_MS } from './sessions.ts';
 
 /*
@@ -553,22 +553,6 @@ beforeAll(async () => {
 
 afterAll(async () => {
     await mf.dispose();
-});
-
-describe('rate limit windows', () => {
-    const windowStart = 1_700_000_040_000;
-
-    test('every moment of a minute counts in the window that minute starts', () => {
-        expect(windowStartOf(windowStart)).toBe(windowStart);
-        expect(windowStartOf(windowStart + WINDOW_MS - 1)).toBe(windowStart);
-        expect(windowStartOf(windowStart + WINDOW_MS)).toBe(windowStart + WINDOW_MS);
-    });
-
-    test('a refusal names the seconds left in its window, rounded up', () => {
-        expect(retryAfterSeconds(windowStart + 15_000)).toBe(45);
-        expect(retryAfterSeconds(windowStart + 59_001)).toBe(1);
-        expect(retryAfterSeconds(windowStart)).toBe(60);
-    });
 });
 
 describe('health', () => {

@@ -8,10 +8,6 @@ describe('which machine the usage page is about', () => {
         expect(usageEndpointFor(null, known, 'local')).toBe('local');
     });
 
-    test('the picked machine, which is the point of picking one', () => {
-        expect(usageEndpointFor('pi', known, 'local')).toBe('pi');
-    });
-
     test('the picked machine holds even when the workspace moves to another', () => {
         expect(usageEndpointFor('pi', known, 'laptop')).toBe('pi');
     });

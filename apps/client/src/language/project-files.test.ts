@@ -4,6 +4,8 @@ import type { Transport } from '@/transport/transport';
 import { TextDrafts, textDrafts, type DraftLink } from '@/state/text-drafts';
 import { TransportError } from '@/transport/transport';
 import { draftFiles } from './project-files';
+import { FakeLanguageTransport } from './fake-daemon';
+import { ProjectLanguage } from './ruimte-project-language';
 
 type Call = { type: RequestType; payload: unknown };
 
@@ -41,16 +43,39 @@ describe('the files a workspace edit creates', () => {
 });
 
 describe('overwriting', () => {
-    test('is supported', () => {
-        expect(draftFiles('local', fakeTransport().transport, 'p1').supportsOverwrite).toBe(true);
-    });
-
     test('a create asks the machine to replace the file', async () => {
-        const { transport, calls } = fakeTransport();
-        expect(await draftFiles('local', transport, 'p1').create!('/work/src/a.php', 'new', { overwrite: true })).toBeNull();
-        expect(calls).toEqual([
-            { type: 'fs.create', payload: { path: '/work/src/a.php', kind: 'file', text: 'new', projectId: 'p1', edits: false, overwrite: true } }
-        ]);
+        const transport = new FakeLanguageTransport();
+        let disk = { kind: 'text', path: '/work/src/a.php', text: 'old', mtime: 1 };
+        transport.answers.set('fs.read', () => disk);
+        transport.answers.set('fs.list', () => {
+            throw new Error('The target is a file');
+        });
+        transport.answers.set('fs.create', ((payload: { text: string }) => {
+            disk = { ...disk, text: payload.text, mtime: 2 };
+            return { size: payload.text.length, mtime: 2 };
+        }) as never);
+        const drafts = new TextDrafts(() => null);
+        const project = new ProjectLanguage(transport, 'p1', '/work', draftFiles('local', transport, 'p1', drafts));
+        try {
+            expect(
+                await project.applyWorkspaceEdit({
+                    documentChanges: [
+                        { kind: 'create', uri: 'file:///work/src/a.php', options: { overwrite: true } },
+                        {
+                            textDocument: { uri: 'file:///work/src/a.php', version: null },
+                            edits: [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, newText: 'new' }]
+                        }
+                    ]
+                })
+            ).toEqual({ applied: true });
+            expect(transport.callsOf('fs.read').length).toBeGreaterThan(0);
+            expect(transport.callsOf('fs.create')).toEqual([
+                { type: 'fs.create', payload: { path: '/work/src/a.php', kind: 'file', text: 'new', projectId: 'p1', edits: false, overwrite: true } }
+            ]);
+            expect(disk.text).toBe('new');
+        } finally {
+            project.dispose();
+        }
     });
 
     test('a rename asks the machine to replace the target and forgets the draft of what it replaced', async () => {

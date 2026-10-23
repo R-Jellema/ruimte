@@ -13,7 +13,6 @@ import {
     moveTab,
     neighborOf,
     NO_TABS,
-    parseTabsState,
     parseWindowState,
     pinTab,
     pinWindowTab,
@@ -90,23 +89,6 @@ describe('the tabs of a window', () => {
     });
 });
 
-describe('the tabs a window keeps', () => {
-    test('read as a list of keys, each once', () => {
-        expect(parseTabsState('["a","b","a"]')).toEqual(['a', 'b']);
-    });
-
-    test('read as no tabs when they are anything else', () => {
-        expect(parseTabsState(null)).toEqual([]);
-        expect(parseTabsState('not json')).toEqual([]);
-        expect(parseTabsState('{"a":1}')).toEqual([]);
-        expect(parseTabsState('[1,"",null,"a"]')).toEqual(['a']);
-    });
-
-    test('leave out the keys the caller refuses', () => {
-        expect(parseTabsState('["local:a","m1:b"]', (key) => !key.startsWith('local:'))).toEqual(['m1:b']);
-    });
-});
-
 describe('pinned tabs', () => {
     const pinned = (keys: string[], active: string | null, pins: string[]): WindowTabs => ({ keys, active, pinned: pins });
 
@@ -155,6 +137,12 @@ describe('pinned tabs', () => {
         expect(windowStateOf(tabs(['a', 'b'], 'a'))).toBe('["a","b"]');
         expect(parseWindowState('["a","b"]')).toEqual({ keys: ['a', 'b'], pinned: [] });
         expect(parseWindowState('{"tabs":["a"],"pinned":["a","gone"]}')).toEqual({ keys: ['a'], pinned: ['a'] });
+        expect(parseWindowState('["a","b","a"]').keys).toEqual(['a', 'b']);
+        expect(parseWindowState(null).keys).toEqual([]);
+        expect(parseWindowState('not json').keys).toEqual([]);
+        expect(parseWindowState('{"a":1}').keys).toEqual([]);
+        expect(parseWindowState('[1,"",null,"a"]').keys).toEqual(['a']);
+        expect(parseWindowState('["local:a","m1:b"]', (key) => !key.startsWith('local:')).keys).toEqual(['m1:b']);
     });
 });
 

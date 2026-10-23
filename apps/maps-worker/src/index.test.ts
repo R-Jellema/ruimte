@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { MapsErrorSchema, signMapsPath } from '@ruimte/pulsar';
+import { MapsErrorSchema, mapsTicketSubject, signMapsPath, signMapsTicket } from '@ruimte/pulsar';
 import { KEY, ORIGIN, SECRET, assertWorkerdFetchOptions, harness } from './test/harness.ts';
 
 const SPRITE = `https://api.tomtom.com/maps/orbis/assets/sprites/1.0.0/basic_mono-light/sprite?apiVersion=1&key=${KEY}`;
@@ -68,7 +68,9 @@ describe('before anything is asked of TomTom', () => {
         const maps = harness();
         const forged = `${(await maps.ticket()).split('.').slice(0, 2).join('.')}.${'A'.repeat(43)}`;
         const ended = await maps.ticket('account-1', -1_000);
-        for (const ticket of [null, 'nonsense', forged, ended]) {
+        const otherSecret = 'Zk3mQ8vJx1LpT5aRn0cWy7DbHfUe2GsOi9NtV4Xr6Ml';
+        const foreign = await signMapsTicket(otherSecret, await mapsTicketSubject(otherSecret, 'account-1'), maps.now + 3_600_000);
+        for (const ticket of [null, 'nonsense', forged, ended, foreign.ticket]) {
             const response = await maps.request('/v1/style?theme=light', { ticket });
             expect(response.status).toBe(401);
             expect(await errorCode(response)).toBe('bad-ticket');
@@ -179,23 +181,26 @@ describe('the query of an address the style names', () => {
 
     const TILE = 'https://api.tomtom.com/maps/orbis/map-display/tile/{z}/{x}/{y}';
 
-    test('is kept as TomTom wrote it: percent-encoding stays, a value may hold an equals sign, only the key is left out', async () => {
+    test.each([
+        {
+            name: 'is kept as TomTom wrote it: percent-encoding stays, a value may hold an equals sign, only the key is left out',
+            query: `apiVersion=2&layers=a%2Cb%20c&filter=x=1=2&key=${KEY}&view=Unified`,
+            tail: '3/4/5',
+            expected: `https://api.tomtom.com/maps/orbis/map-display/tile/3/4/5?apiVersion=2&layers=a%2Cb%20c&filter=x=1=2&view=Unified&key=${KEY}`
+        },
+        {
+            name: 'is split at the first question mark and the first equals sign, so no later part is lost',
+            query: 'token=abc==&k=a=b',
+            tail: '1/1/1',
+            expected: `https://api.tomtom.com/maps/orbis/map-display/tile/1/1/1?token=abc==&k=a=b&key=${KEY}`
+        }
+    ])('$name', async ({ query, tail, expected }) => {
         const maps = harness();
-        const tiles = await rewritten(maps, `${TILE}?apiVersion=2&layers=a%2Cb%20c&filter=x=1=2&key=${KEY}&view=Unified`);
+        const tiles = await rewritten(maps, `${TILE}?${query}`);
         expect(tiles).not.toBe('');
         maps.answers = [() => new Response('t', { headers: { 'content-type': 'application/x-protobuf' } })];
-        await maps.request(pathOf(tiles).replace('{z}/{x}/{y}', '3/4/5'));
-        expect(maps.upstream[0]!.url).toBe(
-            `https://api.tomtom.com/maps/orbis/map-display/tile/3/4/5?apiVersion=2&layers=a%2Cb%20c&filter=x=1=2&view=Unified&key=${KEY}`
-        );
-    });
-
-    test('is split at the first question mark and the first equals sign, so no later part is lost', async () => {
-        const maps = harness();
-        const tiles = await rewritten(maps, `${TILE}?token=abc==&k=a=b`);
-        maps.answers = [() => new Response('t', { headers: { 'content-type': 'application/x-protobuf' } })];
-        await maps.request(pathOf(tiles).replace('{z}/{x}/{y}', '1/1/1'));
-        expect(maps.upstream[0]!.url).toBe(`https://api.tomtom.com/maps/orbis/map-display/tile/1/1/1?token=abc==&k=a=b&key=${KEY}`);
+        await maps.request(pathOf(tiles).replace('{z}/{x}/{y}', tail));
+        expect(maps.upstream[0]!.url).toBe(expected);
     });
 
     test('an address with a character TomTom does not write in a query is not served', async () => {
@@ -435,6 +440,8 @@ describe('a redirect from TomTom', () => {
         const { tiles } = await styled(maps);
         maps.answers = [() => new Response(null, { status: 302, headers: { location: 'https://evil.test/tile' } })];
         const tile = await maps.request(pathOf(tiles).replace('{z}/{x}/{y}', '1/1/1'));
+        expect(maps.upstream).toHaveLength(1);
+        expect(maps.upstream[0]!.redirect).toBe('manual');
         expect(tile.status).toBe(502);
         expect(tile.headers.get('location')).toBeNull();
     });

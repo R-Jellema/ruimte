@@ -121,22 +121,6 @@ describe('switching to a project', () => {
         expect(projectSwitch.state.kind).toBe('failed');
     });
 
-    test('a failure after the machine answered is the project step, and a retry starts at the machine again', async () => {
-        const projectSwitch = new ProjectSwitch(fakeClock());
-        const first = controlledRun();
-        const second = controlledRun();
-        const runs = [first.run, second.run];
-        const outcome = projectSwitch.start(target, () => runs.shift()!);
-        first.connect();
-        await flush();
-        first.open('The project folder is gone');
-        expect(await outcome).toBe('failed');
-        expect(projectSwitch.state).toMatchObject({ kind: 'failed', step: 'opening' });
-
-        void projectSwitch.retry();
-        expect(projectSwitch.state).toMatchObject({ kind: 'connecting' });
-    });
-
     test('another copy of the canvas open on the machine is said in the words of the window', async () => {
         const projectSwitch = new ProjectSwitch(fakeClock());
         const run: SwitchRun = {
@@ -189,8 +173,11 @@ describe('switching to a project', () => {
         const runs = [controlledRun(), controlledRun()];
         let made = 0;
         const first = projectSwitch.start(target, () => runs[made++]!.run);
-        runs[0]!.connect('Gone');
+        runs[0]!.connect();
+        await flush();
+        runs[0]!.open('The project folder is gone');
         expect(await first).toBe('failed');
+        expect(projectSwitch.state).toEqual({ kind: 'failed', target, reason: 'The project folder is gone', step: 'opening' });
         const second = projectSwitch.retry();
         expect(made).toBe(2);
         expect(projectSwitch.state).toMatchObject({ kind: 'connecting', target });
@@ -198,6 +185,11 @@ describe('switching to a project', () => {
         await flush();
         runs[1]!.open();
         expect(await second).toBe('done');
+        expect(runs.map((entry) => entry.log)).toEqual([
+            ['connect', 'open'],
+            ['connect', 'open']
+        ]);
+        expect(projectSwitch.state).toEqual({ kind: 'idle' });
     });
 
     test('back after a failure undoes the run and ends idle', async () => {

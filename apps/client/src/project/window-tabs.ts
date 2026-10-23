@@ -170,10 +170,6 @@ export function parseWindowState(state: string | null, keep: (key: string) => bo
     }
 }
 
-export function parseTabsState(state: string | null, keep: (key: string) => boolean = () => true): string[] {
-    return parseWindowState(state, keep).keys;
-}
-
 /* What `parseWindowState` reads back; null for a window without tabs. */
 export function windowStateOf(tabs: WindowTabs): string | null {
     if (tabs.keys.length === 0) {

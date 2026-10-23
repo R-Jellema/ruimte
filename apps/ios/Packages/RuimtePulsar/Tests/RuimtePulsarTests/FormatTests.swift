@@ -64,6 +64,13 @@ struct FormatTests {
         #expect(Format.bytes(1536, in: dutch) == "1,5 KB")
         #expect(Format.bytes(1024 * 1024 * 42, in: dutch) == "42 MB")
         #expect(Format.bytes(512, in: american) == "512 B")
+        #expect(Format.bytes(0, in: american) == "0 B")
+        #expect(Format.bytes(900, in: american) == "900 B")
+        #expect(Format.bytes(500_000, in: american) == "488 KB")
+        #expect(Format.bytes(1024, in: american) == "1 KB")
+        #expect(Format.bytes(1536, in: american) == "1.5 KB")
+        #expect(Format.bytes(10 * 1024, in: american) == "10 KB")
+        #expect(Format.bytes(1_572_864, in: american) == "1.5 MB")
         #expect(Format.bytes(1536, whole: true, in: american) == "2 KB")
     }
 

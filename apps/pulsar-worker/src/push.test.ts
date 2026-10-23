@@ -142,12 +142,36 @@ describe('push authorization and routing', () => {
         expect(delivered).toEqual([]);
     });
 
-    test('handle and machine rates remain bounded across requests', async () => {
+    test('a handle is limited after sixty deliveries', async () => {
         for (let i = 0; i < 60; i++) {
             expect((await sendPush(request(signed()), env, seams)).status).toBe(204);
         }
         expect((await sendPush(request(signed()), env, seams)).status).toBe(429);
         expect(delivered.length).toBe(60);
+    });
+
+    test('a machine is limited after 120 deliveries across handles below their own limits', async () => {
+        const handles = [handle, 'j'.repeat(43), 'k'.repeat(43)];
+        for (const [index, deviceHandle] of handles.entries()) {
+            if (index === 0) {
+                continue;
+            }
+            sqlite
+                .query(
+                    'INSERT INTO session (id, account_id, access_hash, access_expires_at, refresh_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+                )
+                .run(`session-${index}`, 'account', `access-${index}`, Number.MAX_SAFE_INTEGER, `refresh-${index}`, Number.MAX_SAFE_INTEGER, NOW);
+            sqlite
+                .query('INSERT INTO push_device (handle, account_id, session_id, token, environment, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
+                .run(deviceHandle, 'account', `session-${index}`, 'ab'.repeat(32), 'sandbox', NOW);
+        }
+        for (let i = 0; i < 120; i++) {
+            expect((await sendPush(request(signed({ handle: handles[i % handles.length]! })), env, seams)).status).toBe(204);
+        }
+        const response = await sendPush(request(signed({ handle: handles[0]! })), env, seams);
+        expect(response.status).toBe(429);
+        expect(await response.json()).toMatchObject({ error: { code: 'rate-limited' } });
+        expect(delivered).toHaveLength(120);
     });
 
     test('missing APNs configuration never sends and an unregistered token is deleted', async () => {

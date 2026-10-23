@@ -59,6 +59,31 @@ function point(name: string): Element | null {
 }
 
 describe('benchmark comparison', () => {
+    test('bar axes keep the selected models full range when their maximum effort is hidden', async () => {
+        await open({
+            ...RESULT,
+            measurements: [...RESULT.measurements!, { modelId: 'opus55', effort: 'max', intelligence: 95, costPerTask: 10 }]
+        });
+        for (const [view, ceiling] of [
+            ['Intelligence', '100'],
+            ['Cost per task', '$10']
+        ] as const) {
+            await clickOn(tab(view));
+            const chart = document.querySelector(`svg[aria-label="${view}"]`)!;
+            const ticks = (): string[] => [...chart.querySelectorAll('text[text-anchor="end"]')].map((element) => element.textContent ?? '');
+            expect(ticks()).toContain(ceiling);
+            expect(chart.querySelectorAll('[role="button"]')).toHaveLength(3);
+            const maximum = [...document.querySelectorAll('fieldset button')].find((element) => element.textContent === 'max')!;
+            expect(maximum.getAttribute('aria-pressed')).toBe('true');
+            await clickOn(maximum);
+            expect(maximum.getAttribute('aria-pressed')).toBe('false');
+            expect(chart.querySelectorAll('[role="button"]')).toHaveLength(2);
+            expect([...chart.querySelectorAll('[role="button"]')].some((element) => element.getAttribute('aria-label')?.includes('Max'))).toBe(false);
+            expect(ticks()).toContain(ceiling);
+            await clickOn(maximum);
+        }
+    });
+
     test('distinguishes a missing Code score from a model turned off by the user', async () => {
         await open();
         await clickOn(tab('Coding'));

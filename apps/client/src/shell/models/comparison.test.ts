@@ -13,7 +13,6 @@ import {
     metricChange,
     metricFrontier,
     modelPoints,
-    pointDifference,
     pointKey,
     reduceComparison,
     sortedPoints
@@ -216,6 +215,18 @@ describe('comparison chart math', () => {
         expect(metricChange(original, other, 'coding')).toEqual({ value: 30, ratio: false });
         expect(metricChange(original, other, 'outputSpeed')).toEqual({ value: 1.5, ratio: true });
         expect(metricChange(original, other, 'totalCost')).toBeNull();
+        const reference = { effort: 'low', intelligence: 40, costPerTask: 0.2 };
+        const candidate = { effort: 'high', intelligence: 46, costPerTask: 0.5 };
+        expect(metricChange(reference, candidate, 'intelligence')).toEqual({ value: 6, ratio: false });
+        expect(metricChange(candidate, reference, 'intelligence')).toEqual({ value: -6, ratio: false });
+        expect(metricChange(reference, candidate, 'costPerTask')).toEqual({ value: 2.5, ratio: true });
+        expect(metricChange(candidate, reference, 'costPerTask')).toEqual({ value: 0.4, ratio: true });
+        const zero = { effort: 'low', intelligence: 0, costPerTask: 0 };
+        expect(metricChange(zero, zero, 'intelligence')).toEqual({ value: 0, ratio: false });
+        expect(metricChange(zero, zero, 'costPerTask')).toBeNull();
+        expect(metricChange({ ...zero, costPerTask: Infinity }, zero, 'costPerTask')).toBeNull();
+        expect(metricChange({ ...zero, costPerTask: 1 }, { ...zero, costPerTask: Infinity }, 'costPerTask')).toBeNull();
+        expect(metricChange(zero, { ...zero, intelligence: NaN }, 'intelligence')).toBeNull();
     });
 
     test('ranks raw values in the metric direction without mutating model order', () => {
@@ -236,6 +247,11 @@ describe('comparison chart math', () => {
         for (const metric of ['score', 'cost'] as const) {
             const before = barAxis(initial.selected, metric);
             const after = barAxis(filtered.selected, metric);
+            const maximum = metric === 'score' ? 60 : 0.8;
+            expect(before.ticks.at(0)).toBe(0);
+            expect(before.ticks.at(-1)).toBe(maximum);
+            expect(before.at(maximum)).toBe(1);
+            expect(before.at(maximum / 2)).toBe(0.5);
             expect(before.at(0)).toBe(0);
             expect(after.ticks).toEqual(before.ticks);
             expect(after.at(0.4)).toBe(before.at(0.4));
@@ -253,24 +269,5 @@ describe('comparison chart math', () => {
         ).toEqual([['low'], ['high', 'xhigh', 'max']]);
         expect(effortSegments(MODELS[1]!.points, MODELS[1]!.points)).toHaveLength(2);
         expect(effortSegments(MODELS[2]!.points, MODELS[2]!.points)).toHaveLength(1);
-    });
-
-    test('compares B minus A in score points and B over A in cost', () => {
-        expect(pointDifference({ effort: 'low', intelligence: 40, costPerTask: 0.2 }, { effort: 'high', intelligence: 46, costPerTask: 0.5 })).toEqual({
-            score: 6,
-            costRatio: 2.5
-        });
-        expect(pointDifference({ effort: 'high', intelligence: 46, costPerTask: 0.5 }, { effort: 'low', intelligence: 40, costPerTask: 0.2 })).toEqual({
-            score: -6,
-            costRatio: 0.4
-        });
-    });
-
-    test('rejects undefined ratios and nonfinite values without rejecting a zero score', () => {
-        const point = { effort: 'low', intelligence: 0, costPerTask: 0 };
-        expect(pointDifference(point, point)).toEqual({ score: 0, costRatio: null });
-        expect(pointDifference({ ...point, costPerTask: Infinity }, point).costRatio).toBeNull();
-        expect(pointDifference({ ...point, costPerTask: 1 }, { ...point, costPerTask: Infinity }).costRatio).toBeNull();
-        expect(pointDifference(point, { ...point, intelligence: NaN }).score).toBeNull();
     });
 });
