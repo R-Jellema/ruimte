@@ -54,8 +54,10 @@ describe('fs.rename', () => {
         expect(await readFile(join(project, 'deep', 'er', 'b.ts'), 'utf8')).toBe('b');
     });
 
-    test('never overwrites a name that is taken', async () => {
-        expect(await codeOf(renamePath(join(project, 'src', 'a.ts'), join(project, 'src', 'b.ts'), boundary()))).toBe('exists');
+    test('a taken name is refused before a move is planned', async () => {
+        for (const overwrite of [undefined, false]) {
+            expect(await codeOf(planRename(join(project, 'src', 'a.ts'), join(project, 'src', 'b.ts'), boundary(), { overwrite }))).toBe('exists');
+        }
         expect(await readFile(join(project, 'src', 'b.ts'), 'utf8')).toBe('b');
     });
 
@@ -290,10 +292,6 @@ describe('fs.rename with overwrite', () => {
 
         expect(trashed).toEqual([]);
         expect(await readFile(join(project, 'src', 'c.ts'), 'utf8')).toBe('a');
-    });
-
-    test('still refuses a taken name without overwrite', async () => {
-        expect(await codeOf(planRename(join(project, 'src', 'a.ts'), join(project, 'src', 'b.ts'), boundary(), { overwrite: false }))).toBe('exists');
     });
 
     test('refuses a file over a folder and a folder over a file', async () => {

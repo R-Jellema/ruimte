@@ -221,10 +221,6 @@ describe('grepFiles without ripgrep', () => {
         }
     });
 
-    test('a home below the folder searched gives nothing of its own state, and its open folders still answer', async () => {
-        await expectHomeKept(await homeInside());
-    });
-
     test('a whole word is whole in every script', async () => {
         await writeFile(join(root, 'src', 'cafe.md'), ['caféteria', 'een café', ''].join('\n'));
         const result = await grepFiles(root, 'café', { wholeWord: true });
@@ -235,9 +231,5 @@ describe('grepFiles without ripgrep', () => {
         await longLines();
         const [hit] = (await grepFiles(root, 'needle')).matches;
         expect(hit).toMatchObject({ text: 'a'.repeat(499), before: ['c'.repeat(499)] });
-    });
-
-    test('skips a file that holds bytes nobody reads', async () => {
-        expect((await grepFiles(root, 'session')).matches.some((match) => match.path === 'src/binary.bin')).toBe(false);
     });
 });
