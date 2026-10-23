@@ -101,7 +101,7 @@ export function ModelsBenchmarks({ fetchBenchmarks, brand }: { fetchBenchmarks: 
                         result={load.result}
                         start={
                             brand === undefined ? undefined : (
-                                <div className="mr-4 flex items-center gap-4">
+                                <div className="mr-1 flex items-center gap-5 max-[760px]:mr-0 max-[760px]:gap-2">
                                     {brand}
                                     <Separator />
                                 </div>
