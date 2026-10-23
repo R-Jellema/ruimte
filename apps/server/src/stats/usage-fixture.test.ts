@@ -59,7 +59,7 @@ function batchOfTwoDays(): unknown {
         'views.chat',
         'clients.ios',
         'actions.browser',
-        'limits.resumed',
+        'limitResumes',
         'voice.sessions',
         'dictations',
         'files.opened',

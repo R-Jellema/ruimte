@@ -85,7 +85,8 @@ const PLAIN_COUNTERS = [
     'actions.device',
     'actions.database',
     'actions.computer',
-    'limits.resumed',
+    // Not `limits.resumed`: Observatory would group that with `limits.<provider>` as one more provider.
+    'limitResumes',
     'voice.sessions',
     'dictations',
     'files.opened',

@@ -33,7 +33,7 @@
         "agents.delegated": 1,
         "clients.ios": 1,
         "actions.browser": 1,
-        "limits.resumed": 1,
+        "limitResumes": 1,
         "voice.sessions": 1,
         "dictations": 1,
         "files.opened": 1,
