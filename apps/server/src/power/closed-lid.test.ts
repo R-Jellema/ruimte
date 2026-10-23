@@ -82,6 +82,14 @@ describe('the commands', () => {
         expect(() => closedLidRule('root ALL=(ALL) ALL #')).toThrow();
     });
 
+    test('the rule accepts an email-style Mac account name', () => {
+        expect(
+            closedLidRule('first.last@example.com')
+                .split('\n')
+                .filter((line) => line !== '' && !line.startsWith('#'))
+        ).toEqual(['first.last@example.com ALL = (root) NOPASSWD: /usr/bin/pmset -a disablesleep 1, /usr/bin/pmset -a disablesleep 0']);
+    });
+
     test('installing writes under a name sudo skips, checks it with visudo, and only then moves it into place as root:wheel 0440', () => {
         const script = installRuleScript('bas', 501);
         const steps = script.split('\n');

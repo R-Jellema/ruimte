@@ -71,8 +71,8 @@ export function closedLidRulePath(uid: number): string {
     return `/etc/sudoers.d/ruimte-closed-lid-${uid}`;
 }
 
-// A macOS short name. Anything else would need quoting in sudoers, and the rule refuses it rather than guess.
-const SHORT_NAME = /^[A-Za-z0-9_][A-Za-z0-9_.-]*$/;
+// Reject sudoers syntax while allowing email-style macOS account names.
+const SHORT_NAME = /^[A-Za-z0-9_][A-Za-z0-9_.@-]*$/;
 
 /* The whole rule, as it lands in `/etc/sudoers.d` and as the command line and the app show it. */
 export function closedLidRule(user: string): string {
