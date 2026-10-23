@@ -322,8 +322,3 @@ export async function readArchiveEntry(path: string, entry: string): Promise<Arc
     }
     return pending;
 }
-
-/* Forgets the unpacked entries, for a test that reads the same entry twice on purpose. */
-export function clearEntryCache(): void {
-    cache.clear();
-}

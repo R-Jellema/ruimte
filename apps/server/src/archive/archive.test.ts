@@ -1,10 +1,10 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { ARCHIVE_LIST_MAX_ENTRIES, BYTES_READ_MAX_BYTES } from '@ruimte/contracts';
-import { clearEntryCache, listArchive, openArchive, readArchiveEntry } from './archive.ts';
+import { listArchive, openArchive, readArchiveEntry } from './archive.ts';
 import { buildTar, buildZip } from './test-archives.ts';
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
@@ -17,10 +17,6 @@ beforeAll(async () => {
 
 afterAll(async () => {
     await rm(folder, { recursive: true, force: true });
-});
-
-beforeEach(() => {
-    clearEntryCache();
 });
 
 async function put(name: string, bytes: Uint8Array): Promise<string> {
