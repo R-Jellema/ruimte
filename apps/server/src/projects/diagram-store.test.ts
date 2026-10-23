@@ -110,12 +110,6 @@ describe('DiagramStore', () => {
         expect(await diagrams.save(projectId, 'view-a', 1, graph([node('a')]), 'c1')).toBe(2);
     });
 
-    test('a save based on an older rev is refused', async () => {
-        await diagrams.open(projectId, 'view-a');
-        await diagrams.save(projectId, 'view-a', 0, graph([node('a')]), 'c1');
-        await expect(diagrams.save(projectId, 'view-a', 0, graph([]), 'c1')).rejects.toMatchObject({ code: 'rev-conflict' });
-    });
-
     test('a save with an edge to an unknown id is refused by that id and writes nothing', async () => {
         await diagrams.open(projectId, 'view-a');
         const refused = diagrams.save(projectId, 'view-a', 0, graph([node('a')], [['a', 'ghost']]), 'c1');

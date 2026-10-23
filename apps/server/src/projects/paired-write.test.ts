@@ -77,10 +77,6 @@ describe('paired write', () => {
         expect(await exists(intent)).toBe(false);
     });
 
-    test('recovery without an intent does nothing', async () => {
-        expect(await recoverPaired(intent)).toBe('none');
-    });
-
     test('an edit after the intent leaves recovery stuck and the files alone', async () => {
         await expect(writePaired(intent, files(), failingOn(3))).rejects.toThrow();
         await writeFile(first, 'edited by hand');

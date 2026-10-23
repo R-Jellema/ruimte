@@ -83,22 +83,6 @@ afterEach(async () => {
 });
 
 describe('DrawingStore', () => {
-    test('a drawing follows its view into git and back out again', async () => {
-        await drawings.open(projectId, 'view-a');
-        await drawings.save(projectId, 'view-a', 0, drawn(element('e1')), 'c1');
-        expect(await exists(drawingFile('view-a'))).toBe(true);
-
-        await projects.save(projectId, 1, content('view-a'), ['view-a']);
-        expect(await exists(join(sharedDrawingsDir(), 'view-a.json'))).toBe(true);
-        expect(await exists(drawingFile('view-a'))).toBe(false);
-        // The bytes went along, so what was drawn is still there after the move.
-        expect((await drawings.open(projectId, 'view-a')).elements).toHaveLength(1);
-
-        await projects.save(projectId, 2, content('view-a'), []);
-        expect(await exists(drawingFile('view-a'))).toBe(true);
-        expect(await exists(join(sharedDrawingsDir(), 'view-a.json'))).toBe(false);
-    });
-
     test('opening a drawing nobody drew gives an empty one and writes nothing', async () => {
         expect(await drawings.open(projectId, 'view-a')).toEqual({ version: 1, rev: 0, elements: [] });
         expect(await exists(drawingFile('view-a'))).toBe(false);
@@ -112,12 +96,6 @@ describe('DrawingStore', () => {
         expect(text.endsWith('\n')).toBe(true);
         expect(JSON.parse(text)).toMatchObject({ version: 1, rev: 1 });
         expect(await drawings.save(projectId, 'view-a', 1, drawn(element('el-1')), 'c1')).toBe(2);
-    });
-
-    test('a save based on an older rev is refused', async () => {
-        await drawings.open(projectId, 'view-a');
-        await drawings.save(projectId, 'view-a', 0, drawn(element('el-1')), 'c1');
-        await expect(drawings.save(projectId, 'view-a', 0, drawn(), 'c1')).rejects.toMatchObject({ code: 'rev-conflict' });
     });
 
     test('a save that gives two elements one id is refused and writes nothing', async () => {

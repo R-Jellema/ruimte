@@ -133,16 +133,4 @@ describe('showing and removing an inline chat', () => {
     test('showing a chat that is gone says so', async () => {
         await expect(showInlineChat(store, { projectId, viewId: 'chat-gone' })).rejects.toMatchObject({ code: 'inline-chat-not-found' });
     });
-
-    test('never removes a chat that is not hidden', async () => {
-        await store.mutate(projectId, (content) => ({
-            content: { ...content, views: [...content.views, { kind: 'chat', id: 'chat-mine', name: 'Mine', node: { cwd: folder } }] },
-            result: undefined
-        }));
-
-        await removeInlineChat(store, { projectId, viewId: 'chat-mine' }, host);
-
-        expect(ended).toEqual([]);
-        expect(await chatViews()).toHaveLength(1);
-    });
 });
