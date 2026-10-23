@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { ProjectView, SplitCell, SplitLayout } from '@ruimte/contracts';
-import { draggedSizes, EVEN_SNAP_PX, evenCells, evenColumns, maximizedCell, snapToEven } from './split';
+import { evenCells, evenColumns, maximizedCell } from './split';
 import {
     activateTab,
     canDropAsTab,
@@ -154,6 +154,7 @@ describe('dropView', () => {
         const layout = dropView(gridOf([['a'], ['b']]), 'c', { column: 1, cell: 0 }, 'center');
         expect(shapeOf(layout)).toEqual([['a'], ['c']]);
         expect(focusedViewId(layout)).toBe('c');
+        expect(cellAt(layout, { column: 1, cell: 0 })!.tabs).toBeUndefined();
     });
 
     test('the middle swaps when the view was already on screen, so nothing falls off the grid', () => {
@@ -404,29 +405,6 @@ describe('layoutOf', () => {
     });
 });
 
-describe('snapToEven', () => {
-    test('a splitter close to the middle of its two neighbors lands on it', () => {
-        // Two columns of 0.5 in a box of 1000 pixels: 0.505 is 5 pixels off the middle.
-        expect(snapToEven(0.505, 1, 1000)).toBe(0.5);
-        expect(snapToEven(0.495, 1, 1000)).toBe(0.5);
-    });
-
-    test('further away it stays where the pointer put it', () => {
-        expect(snapToEven(0.52, 1, 1000)).toBe(0.52);
-    });
-
-    test('the pull is in pixels, so it is as wide in a small box as in a large one', () => {
-        const off = (EVEN_SNAP_PX + 1) / 400;
-        expect(snapToEven(0.5 + off, 1, 400)).toBe(0.5 + off);
-        expect(snapToEven(0.5 + (EVEN_SNAP_PX - 1) / 400, 1, 400)).toBe(0.5);
-    });
-
-    test('the middle is that of the two neighbors, not of the whole box', () => {
-        // Two cells of a column of three that together take two thirds of it.
-        expect(snapToEven(0.335, 2 / 3, 900)).toBeCloseTo(1 / 3, 10);
-    });
-});
-
 describe('evenColumns', () => {
     const sized = (sizes: number[]): SplitLayout => ({
         columns: sizes.map((size, index) => ({ size, cells: [{ viewId: `v${index}`, size: 1 }] })),
@@ -574,28 +552,6 @@ describe('closeCellsRightOf', () => {
     test('the last column has nothing to its right', () => {
         const layout = gridOf([['a'], ['b']]);
         expect(closeCellsRightOf(layout, { column: 1, cell: 0 })).toBe(layout);
-    });
-});
-
-describe('draggedSizes', () => {
-    const rounded = (sizes: number[]): number[] => sizes.map((size) => Math.round(size * 1000) / 1000);
-
-    test('moves only the two neighbors of the splitter', () => {
-        expect(rounded(draggedSizes([0.3, 0.4, 0.3], 1, 0.1, 1000, false))).toEqual([0.4, 0.3, 0.3]);
-    });
-
-    test('with Option the mirroring splitter moves the other way, around the middle item', () => {
-        expect(rounded(draggedSizes([0.3, 0.4, 0.3], 1, 0.05, 1000, true))).toEqual([0.35, 0.3, 0.35]);
-        expect(rounded(draggedSizes([0.3, 0.4, 0.3], 2, 0.05, 1000, true))).toEqual([0.25, 0.5, 0.25]);
-    });
-
-    test('two items have no mirror, so Option drags as usual', () => {
-        expect(rounded(draggedSizes([0.5, 0.5], 1, 0.1, 1000, true))).toEqual([0.6, 0.4]);
-    });
-
-    test('a mirrored drag stops where an item would get too small', () => {
-        expect(rounded(draggedSizes([0.3, 0.4, 0.3], 1, 0.5, 1000, true))).toEqual([0.425, 0.15, 0.425]);
-        expect(rounded(draggedSizes([0.3, 0.4, 0.3], 1, -0.5, 1000, true))).toEqual([0.15, 0.7, 0.15]);
     });
 });
 
@@ -949,10 +905,6 @@ describe('dropView with tabs', () => {
         expect(tabShapeOf(layout)).toEqual([['[a b *x c]']]);
         expect(layout.focus).toEqual(first);
         sums(layout);
-    });
-
-    test('the middle with a view nobody shows still replaces the view of a plain cell', () => {
-        expect(tabShapeOf(dropView(gridOf([['a'], ['b']]), 'x', second, 'center'))).toEqual([['a'], ['x']]);
     });
 
     test('a view that fills its cell alone swaps the whole cells, tabs included', () => {

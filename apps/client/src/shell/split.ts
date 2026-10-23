@@ -667,47 +667,8 @@ export function layoutOf(
     return ids.length === 0 ? null : singleLayout(ids[0]);
 }
 
-/* How close, in pixels, a splitter has to come to the middle of its two neighbors to land on it. */
-export const EVEN_SNAP_PX = 8;
-
-/*
- * Nobody hits an even split to the pixel, so the middle pulls a dragged splitter in when it comes close.
- * Measured in pixels rather than shares, so the pull feels the same in a cell of any size.
- */
-export function snapToEven(before: number, total: number, span: number, threshold = EVEN_SNAP_PX): number {
-    const middle = total / 2;
-    return Math.abs(before - middle) * span <= threshold ? middle : before;
-}
-
 /* The smallest share a drag leaves a column or cell, of the span the drag moves. */
 export const MIN_SHARE = 0.15;
-
-/*
- * The sizes on an axis after the splitter in front of item `at` moved by `moved`, a share of the
- * axis. Only its two neighbors change, unless `mirrored` (Option held) and the axis has a splitter
- * mirroring this one: that one moves the other way, so the items between them grow or shrink from
- * both sides and the outer two change alike. Two items have no mirror and drag as usual. `span` is
- * the pixels one unit of size covers, for the pull to an even split.
- */
-export function draggedSizes(sizes: readonly number[], at: number, moved: number, span: number, mirrored: boolean): number[] {
-    if (at <= 0 || at >= sizes.length) {
-        return [...sizes];
-    }
-    const mirror = sizes.length - at;
-    if (mirrored && Math.abs(mirror - at) === 1) {
-        const inner = Math.min(at, mirror);
-        const total = sizes[inner - 1] + sizes[inner] + sizes[inner + 1];
-        const floor = MIN_SHARE * total;
-        // What each outer item gains; the far splitter dragged towards the middle is the same gain.
-        const wanted = at === inner ? moved : -moved;
-        const grow = Math.max(floor - Math.min(sizes[inner - 1], sizes[inner + 1]), Math.min((sizes[inner] - floor) / 2, wanted));
-        return sizes.map((size, index) => (index === inner ? size - 2 * grow : Math.abs(index - inner) === 1 ? size + grow : size));
-    }
-    const before = sizes[at - 1];
-    const total = before + sizes[at];
-    const next = snapToEven(Math.max(MIN_SHARE * total, Math.min(total - MIN_SHARE * total, before + moved)), total, span);
-    return sizes.map((size, index) => (index === at - 1 ? next : index === at ? total - next : size));
-}
 
 /*
  * Even shares for the two neighbors of the splitter in front of `at`, which split the span they
