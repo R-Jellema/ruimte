@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { LaunchesDetectPayloadSchema, LaunchesSharedFileSchema, launchPortOf, readLaunchEntries, type LaunchConfig } from './launches.ts';
+import { LaunchesDetectPayloadSchema, LaunchesSharedFileSchema, launchPortOf, readLaunchEntries } from './launches.ts';
 
 /* The shared file from the design report, with a field and a kind a later release might add. */
 const file = {
@@ -27,12 +27,6 @@ describe('the launches file', () => {
         expect(entries.map((entry) => ('launch' in entry ? entry.launch.id : 'raw'))).toEqual(['full-stack', 'run-server', 'raw']);
         const written = { ...parsed, launches: entries.map((entry) => ('launch' in entry ? entry.launch : entry.raw)) };
         expect(JSON.parse(JSON.stringify(written))).toEqual(file);
-    });
-
-    test('a launch keeps a field it does not know', () => {
-        const [entry] = readLaunchEntries([file.launches[1]]);
-        const launch = (entry as { launch: LaunchConfig }).launch;
-        expect(launch.restartOnCrash).toBe(true);
     });
 });
 

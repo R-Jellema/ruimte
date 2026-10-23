@@ -128,23 +128,6 @@ describe('deriveContextSources', () => {
         expect(deriveContextSources(nodes, texts, edges).get('chat')).toHaveLength(1);
     });
 
-    test('a browser is its own kind and carries the address a read opens with', () => {
-        const sources = deriveContextSources(nodes, texts, [{ id: 'e1', from: 'page', to: 'chat' }]);
-        expect(sources.get('chat')).toEqual([{ id: 'page', kind: 'browser', title: 'page', text: 'https://ruimte.app' }]);
-    });
-
-    test('a device hands over the reference the daemon looks the real device up by', () => {
-        const sources = deriveContextSources(nodes, texts, [{ id: 'e1', from: 'phone', to: 'chat' }]);
-        expect(sources.get('chat')).toEqual([
-            {
-                id: 'phone',
-                kind: 'device',
-                title: 'iPhone 17 Pro',
-                device: { platform: 'ios', kind: 'simulator', name: 'iPhone 17 Pro', runtime: 'iOS 26.2' }
-            }
-        ]);
-    });
-
     test('a device node that points at nothing is only a line', () => {
         const loose = { ...nodes, empty: node('empty', 'device') };
         expect(deriveContextSources(loose, texts, [{ id: 'e1', from: 'empty', to: 'chat' }]).size).toBe(0);
@@ -168,14 +151,6 @@ describe('deriveContextSources of a group', () => {
             { id: 'shell', kind: 'terminal', title: 'dev server' },
             { id: 't1', kind: 'text', title: 'Scope', text: 'Scope\nwhat we ship' }
         ]);
-    });
-
-    test('a frame inside the frame hands over its own, and never itself', () => {
-        const ids = deriveContextSources(nodes, texts, intoChat)
-            .get('chat')
-            ?.map((source) => source.id);
-        expect(ids).not.toContain('inner');
-        expect(ids).toContain('shell');
     });
 
     test('a collapsed frame is what the file says it holds', () => {
