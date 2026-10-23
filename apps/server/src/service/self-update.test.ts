@@ -1,47 +1,8 @@
 import { describe, expect, test } from 'bun:test';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SelfUpdater, buildFileOf, readBuildFile, selfUpdateVerdict, type SelfUpdateTimers, type SelfUpdaterOptions } from './self-update.ts';
-
-describe('selfUpdateVerdict', () => {
-    const facts = { underService: true, running: 'build-a', onDisk: 'build-b', idle: () => true };
-
-    test('a different build on disk with nothing running is an update', () => {
-        expect(selfUpdateVerdict(facts)).toBe('update');
-    });
-
-    test('the same build on disk is current', () => {
-        expect(selfUpdateVerdict({ ...facts, onDisk: 'build-a' })).toBe('current');
-    });
-
-    test('a different build waits while work runs', () => {
-        expect(selfUpdateVerdict({ ...facts, idle: () => false })).toBe('busy');
-    });
-
-    test('an id that cannot be read is no reason to exit', () => {
-        expect(selfUpdateVerdict({ ...facts, onDisk: null })).toBe('unreadable');
-    });
-
-    test('a daemon outside the service never exits on its own', () => {
-        expect(selfUpdateVerdict({ ...facts, underService: false })).toBe('off');
-    });
-
-    test('a build without an id (a checkout, the dev app) never exits on its own', () => {
-        expect(selfUpdateVerdict({ ...facts, running: null })).toBe('off');
-    });
-
-    test('the process table is only read once the build differs', () => {
-        let asked = 0;
-        selfUpdateVerdict({
-            ...facts,
-            onDisk: 'build-a',
-            idle: () => {
-                asked += 1;
-                return true;
-            }
-        });
-        expect(asked).toBe(0);
-    });
-});
+import { SelfUpdater, buildFileOf, readBuildFile, type SelfUpdateTimers, type SelfUpdaterOptions } from './self-update.ts';
 
 describe('the build file', () => {
     test('sits beside the binary', () => {
@@ -51,17 +12,21 @@ describe('the build file', () => {
     });
 
     test('is read trimmed, and a missing or empty one is null', () => {
-        expect(readBuildFile('x', () => 'build-b\n')).toBe('build-b');
-        expect(readBuildFile('x', () => '\n')).toBeNull();
-        expect(
-            readBuildFile('x', () => {
-                throw new Error('ENOENT');
-            })
-        ).toBeNull();
+        const directory = mkdtempSync(join(tmpdir(), 'ruimte-build-'));
+        const path = join(directory, 'ruimte.build');
+        try {
+            writeFileSync(path, 'build-b\n');
+            expect(readBuildFile(path)).toBe('build-b');
+            writeFileSync(path, '\n');
+            expect(readBuildFile(path)).toBeNull();
+            rmSync(path);
+            expect(readBuildFile(path)).toBeNull();
+        } finally {
+            rmSync(directory, { recursive: true, force: true });
+        }
     });
 });
 
-/* Timers that only run when the test says so. */
 function manualTimers() {
     const intervals: Array<() => void> = [];
     const pending: Array<() => void> = [];
@@ -79,13 +44,16 @@ function manualTimers() {
 }
 
 function updater(overrides: Partial<SelfUpdaterOptions> = {}) {
-    const state = { onDisk: 'build-a', idle: false, exits: 0, logs: [] as string[] };
+    const state = { onDisk: 'build-a' as string | null, idle: false, idleScans: 0, exits: 0, logs: [] as string[] };
     const clock = manualTimers();
     const instance = new SelfUpdater({
         underService: true,
         running: 'build-a',
         readOnDisk: () => state.onDisk,
-        idle: () => state.idle,
+        idle: () => {
+            state.idleScans += 1;
+            return state.idle;
+        },
         exit: () => {
             state.exits += 1;
         },
@@ -99,13 +67,16 @@ function updater(overrides: Partial<SelfUpdaterOptions> = {}) {
 describe('SelfUpdater', () => {
     test('exits once when a newer build is on disk and the machine is idle', () => {
         const { instance, state, clock } = updater();
+        state.idle = true;
         instance.start();
         clock.intervals[0]!();
         expect(state.exits).toBe(0);
+        expect(state.logs).toEqual([]);
+        expect(state.idleScans).toBe(0);
         state.onDisk = 'build-b';
-        state.idle = true;
         clock.intervals[0]?.();
         expect(state.exits).toBe(1);
+        expect(state.idleScans).toBe(1);
         expect(clock.intervals).toHaveLength(0);
         instance.check();
         expect(state.exits).toBe(1);
@@ -118,29 +89,58 @@ describe('SelfUpdater', () => {
         clock.intervals[0]!();
         clock.intervals[0]!();
         expect(state.exits).toBe(0);
-        expect(state.logs).toHaveLength(1);
+        expect(state.logs).toEqual(['A newer build is on disk; updating once no terminal or agent is running']);
         state.idle = true;
         instance.nudge();
         instance.nudge();
         expect(clock.pending).toHaveLength(1);
         clock.pending[0]!();
         expect(state.exits).toBe(1);
-        expect(state.logs).toHaveLength(2);
+        expect(state.logs).toEqual([
+            'A newer build is on disk; updating once no terminal or agent is running',
+            'A newer build is on disk and nothing is running; exiting so the service starts it'
+        ]);
     });
 
-    test('does not start outside the service', () => {
-        const { instance, clock } = updater({ underService: false });
+    test('waits without scanning work when the build id is unreadable, then recovers', () => {
+        const { instance, state, clock } = updater();
+        state.onDisk = null;
+        state.idle = true;
+        instance.start();
+        clock.intervals[0]!();
+        expect(state.exits).toBe(0);
+        clock.intervals[0]!();
+        expect(state.exits).toBe(0);
+        expect(state.idleScans).toBe(0);
+        expect(state.logs).toEqual(['A build id beside the binary cannot be read; waiting before updating']);
+        state.onDisk = 'build-b';
+        clock.intervals[0]!();
+        expect(state.exits).toBe(1);
+        expect(state.idleScans).toBe(1);
+        expect(clock.intervals).toHaveLength(0);
+    });
+
+    test.each([
+        ['outside the service', { underService: false }],
+        ['without a running build id', { running: null }]
+    ] as const)('does not start %s', (_label, options) => {
+        const { instance, clock } = updater(options);
         instance.start();
         instance.nudge();
         expect(clock.intervals).toHaveLength(0);
         expect(clock.pending).toHaveLength(0);
     });
 
-    test('does not exit outside the service even when asked directly', () => {
-        const { instance, state } = updater({ underService: false });
+    test.each([
+        ['outside the service', { underService: false }],
+        ['without a running build id', { running: null }]
+    ] as const)('does not exit %s even when asked directly', (_label, options) => {
+        const { instance, state } = updater(options);
         state.onDisk = 'build-b';
         state.idle = true;
         expect(instance.check()).toBe('off');
         expect(state.exits).toBe(0);
+        expect(state.logs).toEqual([]);
+        expect(state.idleScans).toBe(0);
     });
 });

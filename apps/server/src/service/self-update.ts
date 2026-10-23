@@ -7,7 +7,7 @@ import { dirname, join } from 'node:path';
  * update leaves the old daemon running until someone opens the app, which may be never.
  */
 
-export type SelfUpdateVerdict =
+type SelfUpdateVerdict =
     /* Not under the service, or a build without an id (a checkout, the dev app): never exits on its own. */
     | 'off'
     | 'current'
@@ -16,14 +16,14 @@ export type SelfUpdateVerdict =
     | 'busy'
     | 'update';
 
-export interface SelfUpdateFacts {
+interface SelfUpdateFacts {
     underService: boolean;
     running: string | null;
     onDisk: string | null;
     idle(): boolean;
 }
 
-export function selfUpdateVerdict(facts: SelfUpdateFacts): SelfUpdateVerdict {
+function selfUpdateVerdict(facts: SelfUpdateFacts): SelfUpdateVerdict {
     if (!facts.underService || facts.running === null) {
         return 'off';
     }
@@ -42,9 +42,9 @@ export function buildFileOf(executable: string): string {
     return join(dirname(executable), 'ruimte.build');
 }
 
-export function readBuildFile(path: string, read: (path: string) => string = (file) => readFileSync(file, 'utf8')): string | null {
+export function readBuildFile(path: string): string | null {
     try {
-        return read(path).trim() || null;
+        return readFileSync(path, 'utf8').trim() || null;
     } catch {
         return null;
     }
