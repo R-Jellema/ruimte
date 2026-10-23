@@ -42,6 +42,7 @@ afterEach(async () => {
 });
 
 test('cancel ends a commit a hook holds up, the hook included', async () => {
+    const before = (await gitIn(repo, ['rev-parse', 'HEAD'])).trim();
     await writeFile(join(repo, 'two.txt'), 'two\n');
     const actions = new GitActions();
     const { promise: waiting, resolve } = Promise.withResolvers<void>();
@@ -52,7 +53,12 @@ test('cancel ends a commit a hook holds up, the hook included', async () => {
     });
 
     await waiting;
+    const pid = Number.parseInt(await readFile(pidFile, 'utf8'), 10);
+    expect(Number.isSafeInteger(pid)).toBe(true);
+    process.kill(pid, 0);
     actions.cancel('commit-1');
 
     await expect(committing).rejects.toThrow('The action was canceled.');
+    expect(() => process.kill(pid, 0)).toThrow('ESRCH');
+    expect((await gitIn(repo, ['rev-parse', 'HEAD'])).trim()).toBe(before);
 });

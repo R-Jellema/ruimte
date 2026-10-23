@@ -29,6 +29,9 @@ function fixture() {
         registry,
         calls,
         transport,
+        identify: (machineId: string) => {
+            id = machineId;
+        },
         disconnect: () => {
             id = null;
         }
@@ -48,9 +51,16 @@ describe('machine-bound terminal preparation actions', () => {
         expect(calls).toHaveLength(1);
     });
     test('disconnects and identity changes refuse without a request', async () => {
-        const { registry, calls, disconnect } = fixture();
+        const { registry, calls, disconnect, identify } = fixture();
         disconnect();
         expect((await registry.execute('terminal.prepare', { endpointId: 'remote', machineId: 'owner', token: 'preview' }, person)).status).toBe('failed');
+        expect(calls).toEqual([]);
+        identify('another-owner');
+        expect(await registry.execute('terminal.prepare', { endpointId: 'remote', machineId: 'owner', token: 'preview' }, person)).toMatchObject({
+            status: 'failed',
+            error: { code: 'wrong-machine' }
+        });
+        expect(await registry.execute('terminal.preparePreview', input, person)).toMatchObject({ status: 'failed', error: { code: 'wrong-machine' } });
         expect(calls).toEqual([]);
     });
     for (const kind of ['agent', 'automation', 'voice'] as const) {

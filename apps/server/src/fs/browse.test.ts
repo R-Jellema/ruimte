@@ -54,18 +54,12 @@ describe('browseDirectories', () => {
         expect(result).toEqual({ parentPath: join(root, 'missing'), entries: [], exists: false });
     });
 
-    test('a directory that cannot be read lists as empty, but says it is there', async () => {
+    test.skipIf(process.platform === 'win32' || process.getuid?.() === 0)('a directory that cannot be read lists as empty, but says it is there', async () => {
         const locked = join(root, 'locked');
         await mkdir(locked, { mode: 0o000 });
         try {
-            // Root reads a folder nobody else may, and then there is no unreadable folder to test.
-            const denied = await readdir(locked).then(
-                () => false,
-                () => true
-            );
-            if (denied) {
-                expect(await browseDirectories(`${locked}/`, undefined)).toEqual({ parentPath: locked, entries: [], exists: true });
-            }
+            await expect(readdir(locked)).rejects.toMatchObject({ code: 'EACCES' });
+            expect(await browseDirectories(`${locked}/`, undefined)).toEqual({ parentPath: locked, entries: [], exists: true });
         } finally {
             await chmod(locked, 0o700);
         }

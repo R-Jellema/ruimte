@@ -35,19 +35,42 @@ async function extract(request: ExtractRequest) {
 
 describe('extracting an archive', () => {
     test('writes its files and folders into a new folder, with their times and the executable bit', async () => {
-        const path = await put(
-            'site.zip',
-            buildZip([{ name: 'docs/' }, { name: 'docs/a.md', data: '# A' }, { name: 'run.sh', data: '#!/bin/sh\n', mode: 0o100755 }, { name: 'empty/' }])
-        );
-        const to = join(project, 'site');
-        const result = await extract({ path, to });
-        expect(result).toMatchObject({ to, files: 2, directories: 2, bytes: 13, skipped: [], skippedTotal: 0 });
-        expect(await readFile(join(to, 'docs', 'a.md'), 'utf-8')).toBe('# A');
-        if (process.platform !== 'win32') {
-            expect((await stat(join(to, 'run.sh'))).mode & 0o100).toBe(0o100);
-            expect((await stat(join(to, 'docs', 'a.md'))).mode & 0o111).toBe(0);
+        const archives = [
+            {
+                format: 'zip',
+                bytes: buildZip([
+                    { name: 'docs/' },
+                    { name: 'docs/a.md', data: '# A' },
+                    { name: 'run.sh', data: '#!/bin/sh\n', mode: 0o100755 },
+                    { name: 'empty/' }
+                ])
+            },
+            {
+                format: 'tar',
+                bytes: buildTar([
+                    { name: 'docs/', type: '5' },
+                    { name: 'docs/a.md', data: '# A', mtime: 1_700_000_002 },
+                    { name: 'run.sh', data: '#!/bin/sh\n', mode: 0o100755, mtime: 1_700_000_004 },
+                    { name: 'empty/', type: '5' }
+                ])
+            }
+        ];
+        for (const { format, bytes } of archives) {
+            const path = await put(`site.${format}`, bytes);
+            const to = join(project, format);
+            const result = await extract({ path, to });
+            expect(result).toMatchObject({ to, files: 2, directories: 2, bytes: 13, skipped: [], skippedTotal: 0 });
+            expect(await readFile(join(to, 'docs', 'a.md'), 'utf-8')).toBe('# A');
+            if (format === 'tar') {
+                expect((await stat(join(to, 'docs', 'a.md'))).mtimeMs).toBe(1_700_000_002_000);
+                expect((await stat(join(to, 'run.sh'))).mtimeMs).toBe(1_700_000_004_000);
+            }
+            if (process.platform !== 'win32') {
+                expect((await stat(join(to, 'run.sh'))).mode & 0o100).toBe(0o100);
+                expect((await stat(join(to, 'docs', 'a.md'))).mode & 0o111).toBe(0);
+            }
+            expect((await stat(join(to, 'empty'))).isDirectory()).toBe(true);
         }
-        expect((await stat(join(to, 'empty'))).isDirectory()).toBe(true);
     });
 
     test('never makes a link, never writes an escaping name or into .git, and says what it left out', async () => {

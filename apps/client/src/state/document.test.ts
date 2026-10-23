@@ -193,6 +193,12 @@ describe('the banner an agent leaves over the views', () => {
     });
 
     test('dismissing either one leaves the grid where it is', () => {
+        asks('b');
+        const before = useDocument.getState().layout;
+        useDocument.getState().dismissNotice();
+        expect(useDocument.getState().viewNotice).toBeNull();
+        expect(useDocument.getState().layout).toBe(before);
+        expect(useDocument.getState().activeViewId).toBe('a');
         showed('b');
         useDocument.getState().dismissNotice();
         expect(useDocument.getState().viewNotice).toBeNull();
@@ -449,7 +455,11 @@ describe('a drawing view', () => {
 
     test('deleting it takes its local state with it and opens the neighbor', () => {
         const id = useDocument.getState().addDrawingView('Sketch');
+        useDocument.setState((state) => ({ viewLocal: { ...state.viewLocal, [id]: { camera: { center: { x: 17, y: 23 }, zoom: 2 }, focusedNodeId: null } } }));
+        expect(useDocument.getState().exportLocal().views[id]).toBeDefined();
         useDocument.getState().deleteView(id);
+        expect(useDocument.getState().viewLocal[id]).toBeUndefined();
+        expect(useDocument.getState().exportLocal().views[id]).toBeUndefined();
         expect(useDocument.getState().views.map((each) => each.id)).toEqual(['a', 'b']);
         expect(useDocument.getState().activeViewId).toBe('b');
     });
@@ -586,6 +596,11 @@ describe('what a newer Ruimte wrote', () => {
         expect(focusedCanvas().getState().order).toEqual(['n1', 'holo']);
 
         focusedCanvas().getState().select(['holo']);
+        focusedCanvas().getState().moveSelected(32, 48, true);
+        focusedCanvas().getState().settleMove();
+        expect(focusedCanvas().getState().nodes.holo).toEqual({ ...hologram, x: 336, y: 48 });
+        const moved = storedViewsOf(useDocument.getState().exportViews())[1] as { nodes: unknown[] };
+        expect(moved.nodes[1]).toEqual({ ...hologram.raw, x: 336, y: 48 });
         focusedCanvas().getState().deleteSelected();
         expect((useDocument.getState().exportViews()[1] as ProjectCanvasView).nodes.map((each) => each.id)).toEqual(['n1']);
     });

@@ -87,7 +87,8 @@ function openError(e: unknown, path: string): unknown {
  * Opens a file to save over it, never through a link. Windows has no `O_NOFOLLOW`, so there the name is
  * looked at first; a link swapped in after that look opens another inode, which the save refuses as stale.
  */
-export async function openForSave(path: string, noFollow: number | undefined = constants.O_NOFOLLOW): Promise<FileHandle> {
+export async function openForSave(path: string): Promise<FileHandle> {
+    const noFollow = constants.O_NOFOLLOW;
     if (noFollow === undefined) {
         if ((await lstat(path)).isSymbolicLink()) {
             throw Object.assign(new Error(`ELOOP: ${path} is a symbolic link`), { code: 'ELOOP' });

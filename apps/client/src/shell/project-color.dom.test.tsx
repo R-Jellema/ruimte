@@ -62,7 +62,7 @@ describe('the color of a project', () => {
         expect(glowIn('[data-toolbar-glow]')!.dataset.glowColor).toBe(RED);
     });
 
-    test('without the setting the glow stays blue', async () => {
+    test('without the setting the project tint is absent', async () => {
         await act(async () => useSettings.setState({ projectGlow: false }));
         await until(() => glowIn('#app-sidebar')?.dataset.glowColor === undefined);
         expect(glowIn('#app-sidebar')!.classList.contains('project-glow')).toBe(false);

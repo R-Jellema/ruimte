@@ -1,4 +1,6 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
+import { constants } from 'node:fs';
+import * as filesystem from 'node:fs/promises';
 import { chmod, link, mkdir, mkdtemp, readFile, rm, stat, symlink, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -213,9 +215,28 @@ describe('fs.write', () => {
         const alias = join(project, 'alias.txt');
         await symlink(path, alias);
 
-        expect(await codeOf(openForSave(alias, undefined))).toBe('ELOOP');
-        const handle = await openForSave(path, undefined);
-        await handle.close();
+        const capability = Object.getOwnPropertyDescriptor(constants, 'O_NOFOLLOW');
+        const reads = spyOn(filesystem, 'lstat');
+        Object.defineProperty(constants, 'O_NOFOLLOW', { value: undefined, configurable: true });
+        try {
+            expect(await codeOf(openForSave(alias))).toBe('ELOOP');
+            expect(reads).toHaveBeenCalledWith(alias);
+            const handle = await openForSave(path);
+            try {
+                expect(reads).toHaveBeenCalledWith(path);
+                await handle.writeFile('saved\n');
+            } finally {
+                await handle.close();
+            }
+            expect(await readFile(path, 'utf8')).toBe('saved\n');
+        } finally {
+            reads.mockRestore();
+            if (capability) {
+                Object.defineProperty(constants, 'O_NOFOLLOW', capability);
+            } else {
+                Reflect.deleteProperty(constants, 'O_NOFOLLOW');
+            }
+        }
     });
 
     test('answers the read codes for what is not there, not a file or not absolute', async () => {

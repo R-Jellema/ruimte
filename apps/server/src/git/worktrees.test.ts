@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, spyOn, test } from 'bun:test';
 import { mkdir, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { SessionEvent } from '../sessions/manager.ts';
@@ -6,6 +6,7 @@ import { checkpointIndexFile, Checkpoints } from './checkpoints.ts';
 import { forgetBase } from './status.ts';
 import { gitIn, initRepo, repoTemplate, type RepoTemplate, NO_WORKTREE_AGENTS } from './test-repo.ts';
 import { countStatus, Worktrees } from './worktrees.ts';
+import * as runner from './run.ts';
 
 let template: RepoTemplate;
 let root: string;
@@ -221,22 +222,44 @@ describe('Worktrees', () => {
 
     test('a file written after the count but before the removal is refused by git itself, with the fresh numbers', async () => {
         const { worktree } = await worktrees.add(repo, 'lexer');
-        worktrees.beforeRemoveCheckout = async () => {
-            await writeFile(join(worktree.path, 'late.md'), 'late');
-        };
-
-        await expect(worktrees.remove(repo, worktree.path)).rejects.toMatchObject({ code: 'worktree-has-work' });
-        expect(await exists(join(worktree.path, 'late.md'))).toBe(true);
+        const runGit = runner.runGit;
+        let reached = false;
+        const removing = spyOn(runner, 'runGit').mockImplementation(async (args, cwd, options) => {
+            if (args[0] === 'worktree' && args[1] === 'remove') {
+                reached = true;
+                await writeFile(join(worktree.path, 'late.md'), 'late');
+            }
+            return runGit(args, cwd, options);
+        });
+        try {
+            const refused = worktrees.remove(repo, worktree.path);
+            await expect(refused).rejects.toMatchObject({ code: 'worktree-has-work' });
+            await expect(refused).rejects.toThrow('lexer holds 0 uncommitted files, 1 new file and 0 commits that main lacks');
+            expect(reached).toBe(true);
+            expect(await readFile(join(worktree.path, 'late.md'), 'utf8')).toBe('late');
+        } finally {
+            removing.mockRestore();
+        }
     });
 
     test('force still removes a worktree that gained a file in that gap', async () => {
         const { worktree } = await worktrees.add(repo, 'lexer');
-        worktrees.beforeRemoveCheckout = async () => {
-            await writeFile(join(worktree.path, 'late.md'), 'late');
-        };
-
-        await worktrees.remove(repo, worktree.path, { force: true });
-        expect(await exists(worktree.path)).toBe(false);
+        const runGit = runner.runGit;
+        let reached = false;
+        const removing = spyOn(runner, 'runGit').mockImplementation(async (args, cwd, options) => {
+            if (args[0] === 'worktree' && args[1] === 'remove') {
+                reached = true;
+                await writeFile(join(worktree.path, 'late.md'), 'late');
+            }
+            return runGit(args, cwd, options);
+        });
+        try {
+            await worktrees.remove(repo, worktree.path, { force: true });
+            expect(reached).toBe(true);
+            expect(await exists(worktree.path)).toBe(false);
+        } finally {
+            removing.mockRestore();
+        }
     });
 
     test('an agent in a turn in the worktree refuses the removal, and stopAgent stops it first', async () => {

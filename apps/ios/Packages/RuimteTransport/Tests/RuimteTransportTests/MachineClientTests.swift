@@ -130,15 +130,21 @@ import Testing
             send: { text in
                 frames.append(try JSONValue.decode(Data(text.utf8)))
                 if frames.count == 2 {
-                    try answer(client, frames[1], .object(["time": .number(22)]))
-                    try answer(client, frames[0], .object(["time": .number(11)]))
+                    for frame in frames.reversed() {
+                        try answer(
+                            client, frame,
+                            .object([
+                                "kind": .string("text"), "text": frame["payload"]!["path"]!,
+                                "encoding": .string("utf-8"), "size": .number(6), "mtime": .number(1),
+                            ]))
+                    }
                 }
             }, scheduler: clock, connected: true)
         let shared = client!
-        async let first = shared.request("server.ping")
-        async let second = shared.request("server.ping")
+        async let first = shared.request("fs.read", payload: .object(["path": .string("/first")]))
+        async let second = shared.request("fs.read", payload: .object(["path": .string("/second")]))
         let values = try await [first, second]
-        #expect(Set(values.compactMap { $0["time"]?.numberValue }) == [11, 22])
+        #expect(values.map { $0["text"] } == [.string("/first"), .string("/second")])
         #expect(client.pendingRequestCount == 0)
         #expect(clock.actions.isEmpty)
         client = MachineClient(
@@ -441,13 +447,16 @@ import Testing
         #expect(machine.offsets == [0, 2, 0, 2])
     }
     @Test func rejectsOversizedEmptyAndOvershootingPieces() async throws {
-        for replies in [
-            [piece("ab", size: 100, offset: 0)], [piece("", size: 4, offset: 0)], [piece("ab", size: 1, offset: 0)],
+        for (reply, message) in [
+            (piece("ab", size: 100, offset: 0), "This resource exceeds the direct connection size limit."),
+            (piece("", size: 4, offset: 0), "The file stopped loading before the end. Try again."),
+            (piece("ab", size: 1, offset: 0), "The machine sent an invalid resource piece."),
         ] {
-            let machine = ResourceMachine(replies)
-            await #expect(throws: (any Error).self) {
+            let machine = ResourceMachine([reply])
+            await #expect(throws: MachineClientError.invalid(message)) {
                 try await machine.readResource(resource, chunkBytes: 2, maxBytes: 4)
             }
+            #expect(machine.offsets == [0])
         }
         let empty = try await ResourceMachine([piece("", size: 0, offset: 0)]).readResource(resource)
         #expect(empty.data.isEmpty)

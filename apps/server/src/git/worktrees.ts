@@ -163,8 +163,6 @@ export class Worktrees {
     private readonly checkoutRoot: () => string | null;
     private readonly agents: WorktreeAgents;
     private readonly foreign: ForeignWork | undefined;
-    // A test seam: runs between the last count of a removal and the removal itself.
-    beforeRemoveCheckout: (() => Promise<void>) | null = null;
     private readonly now: () => number;
     private readonly sinks = new ClientSinks();
     // One removal at a time per repository, so two clients never inspect the same worktree against each other's half-done work.
@@ -586,7 +584,6 @@ export class Worktrees {
     }
 
     private async removeCheckout(main: string, entry: Listed, missing: boolean, force: boolean): Promise<void> {
-        await this.beforeRemoveCheckout?.();
         // Without a person's force git does the last check itself, which closes the gap between the count and the removal.
         const flags = !force ? [] : entry.locked ? ['--force', '--force'] : ['--force'];
         const removed = await runGit(['worktree', 'remove', ...flags, entry.path], main);

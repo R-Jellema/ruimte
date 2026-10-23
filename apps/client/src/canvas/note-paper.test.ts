@@ -4,8 +4,17 @@ import { notePaperClass } from './accents';
 
 const STYLES = await Bun.file(new URL('../styles.css', import.meta.url)).text();
 const SWIFT = await Bun.file(new URL('../../../ios/Packages/RuimtePulsar/Sources/RuimtePulsar/RuimteColors.swift', import.meta.url)).text();
-// The theme's own text colors (`@adecore/ui/theme.css`), which a note writes its words and its header in.
-const TEXT = { light: { text: '#18181b', muted: '#6f6f78' }, dark: { text: '#ececf1', muted: '#9a9aa6' } } as const;
+const THEME = await Bun.file(Bun.resolveSync('@adecore/ui/theme.css', import.meta.dir)).text();
+const TEXT = Object.fromEntries(
+    (['light', 'dark'] as const).map((side, index) => {
+        const text = [...THEME.matchAll(/--text: (#[0-9a-f]{6});/g)][index]?.[1];
+        const muted = [...THEME.matchAll(/--text-muted: (#[0-9a-f]{6});/g)][index]?.[1];
+        if (!text || !muted) {
+            throw new Error(`Missing ${side} theme text tokens`);
+        }
+        return [side, { text, muted }];
+    })
+);
 // The sheets notes had before Color covered them keep their exact values.
 const KEPT = {
     light: { yellow: '#fff3bf', green: '#dcf5e3', blue: '#dbe9ff', pink: '#fde2ea', neutral: '#ececef' },
@@ -73,7 +82,7 @@ describe('the paper of a note on the iPhone', () => {
         expect(listed).toEqual([...NODE_ACCENT_NAMES]);
     });
 
-    test('paints every sheet with the values styles.css gives it', () => {
+    test('keeps the iPhone paper table equal to the styles.css paper tokens', () => {
         const swift = Object.fromEntries(
             [...SWIFT.matchAll(/"([a-z]+)": RuimteColorToken\(light: 0x([0-9a-f]{6}), dark: 0x([0-9a-f]{6})\)/g)].map(([, name, light, dark]) => [
                 name!,

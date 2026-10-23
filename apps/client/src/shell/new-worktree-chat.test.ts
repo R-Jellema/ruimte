@@ -12,6 +12,6 @@ describe('branchFromTitle', () => {
 describe('proposedBranch', () => {
     test('skips a name that is taken', () => {
         const values = [0, 0.5];
-        expect(proposedBranch(['chat-0000'], () => values.shift() ?? 0)).toBe(`chat-${Math.floor(0.5 * 36 ** 4).toString(36)}`);
+        expect(proposedBranch(['chat-0000'], () => values.shift() ?? 0)).toBe('chat-i000');
     });
 });

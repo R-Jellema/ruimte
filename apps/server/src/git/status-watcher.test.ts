@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -8,6 +8,7 @@ import { SharedWatch } from '../fs/shared-watch.ts';
 import { FolderWatcher } from '../fs/watch.ts';
 import { GitStatusWatcher } from './status-watcher.ts';
 import { forgetBase, readStatus } from './status.ts';
+import * as statusReader from './status.ts';
 import { gitIn } from './test-repo.ts';
 
 let root: string;
@@ -165,6 +166,8 @@ describe('GitStatusWatcher', () => {
         await fake.settle();
 
         expect(events).toEqual([]);
+        expect(runs).toBe(0);
+        expect(changed).toEqual([]);
     });
 
     test('an unwatched checkout goes quiet', async () => {
@@ -265,15 +268,26 @@ describe('GitStatusWatcher', () => {
             entered();
             await gate;
         };
-        // The run itself, past the root lookup a status starts with, which would let the three arrive in any order.
-        const run = (watcher as unknown as { run(root: string): Promise<unknown> }).run.bind(watcher);
-        const first = run(repo);
+        const first = watcher.status(repo);
         await inside;
-        const asked = [run(repo), run(repo), run(repo)];
-        release();
-        await Promise.all([first, ...asked]);
-
-        expect(runs).toBe(2);
+        const lookups = spyOn(statusReader, 'repositoryRoot');
+        try {
+            const asked = [watcher.status(repo), watcher.status(repo), watcher.status(repo)];
+            expect(lookups).toHaveBeenCalledTimes(3);
+            // Each status attached its continuation before this barrier, so all three queued while the first read is held.
+            await Promise.all(lookups.mock.results.map((result) => result.value));
+            expect(runs).toBe(1);
+            await writeFile(join(repo, 'latest.txt'), 'latest\n');
+            release();
+            const [before, ...after] = await Promise.all([first, ...asked]);
+            expect(before!.files).toEqual([]);
+            expect(after.map((status) => status.files.map((file) => file.path))).toEqual([['latest.txt'], ['latest.txt'], ['latest.txt']]);
+            expect(runs).toBe(2);
+        } finally {
+            release();
+            await first;
+            lookups.mockRestore();
+        }
     });
 
     test('a repository inside a folder the file tree watches rides on its platform watcher', async () => {

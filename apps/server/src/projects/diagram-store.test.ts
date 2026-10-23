@@ -204,8 +204,15 @@ describe('DiagramStore', () => {
 describe('DiagramStore.write', () => {
     test('writes a diagram of a project nobody has open, and keeps nothing open after', async () => {
         projects.release(projectId);
+        expect(projects.openProjectIds()).toEqual([]);
+        expect(fake.watchers.filter((watcher) => !watcher.closed)).toEqual([]);
         expect(await diagrams.write(projectId, 'view-a', graph([node('a'), node('b')], [['a', 'b']]))).toBe(1);
+        expect(projects.openProjectIds()).toEqual([]);
+        expect(fake.watchers.filter((watcher) => !watcher.closed)).toEqual([]);
         expect(await diagrams.write(projectId, 'view-a', graph([node('a')]))).toBe(2);
+        expect(projects.openProjectIds()).toEqual([]);
+        expect(fake.watchers.filter((watcher) => !watcher.closed)).toEqual([]);
+        expect(fake.pending).toBe(0);
         expect(JSON.parse(await readFile(diagramFile('view-a'), 'utf8'))).toMatchObject({ rev: 2, nodes: [{ id: 'a' }] });
         expect(events.map((event) => event.event)).toEqual(['diagram.changed', 'diagram.changed']);
 

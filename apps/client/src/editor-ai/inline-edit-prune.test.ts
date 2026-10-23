@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import type { LastProjectStorage } from '@/project/last-project';
 import { TransportError } from '@/transport/transport';
-import { INLINE_EDIT_KEEP_MS, inlineEditFor, saveInlineEdit, type InlineEditRecord } from './inline-edit-record';
+import { inlineEditFor, saveInlineEdit, type InlineEditRecord } from './inline-edit-record';
 import { pruneInlineEdits } from './inline-edit-prune';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -39,7 +39,7 @@ describe('pruning old inline edits', () => {
         const removed: string[] = [];
 
         const complete = await pruneInlineEdits('local', {
-            now: () => INLINE_EDIT_KEEP_MS + 1,
+            now: () => 7 * DAY + 1,
             remove: async (_projectId, viewId) => void removed.push(viewId),
             storage
         });

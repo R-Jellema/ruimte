@@ -8,6 +8,7 @@ import { Checkpoints } from '../git/checkpoints.ts';
 import { gitIn, repoTemplate, type RepoTemplate } from '../git/test-repo.ts';
 import type { SessionEvent } from '../sessions/manager.ts';
 import { ProvenanceService, type ProvenanceChat } from './provenance-service.ts';
+import { ProvenanceStore } from './provenance-store.ts';
 
 const SCORE = [
     'export function scoreCandidate(c: Candidate) {',
@@ -42,6 +43,7 @@ afterEach(async () => {
 });
 
 interface Setup {
+    home: string;
     repo: string;
     service: ProvenanceService;
     heard: SessionEvent[];
@@ -87,6 +89,7 @@ async function setup(options: { project?: boolean; git?: boolean } = {}): Promis
         service.consume({ event: 'chat.event', payload: { chatId: 'chat-a', event: { type: 'item', item } } } as AgentEvent);
     let toolIds = 0;
     return {
+        home,
         repo,
         service,
         heard,
@@ -334,11 +337,11 @@ describe('what happens to a run afterwards', () => {
     async function withRun(): Promise<Setup & { path: string }> {
         const t = await setup();
         await t.startTurn('turn-1');
-        await t.write('score.ts', SCORE.replace('    return list;', '    const sorted = [...list];\n    return sorted.sort();'));
+        await t.write('score.ts', SCORE.replace('    return list;', '    const sorted = [...list];\n    sorted.reverse();\n    return sorted.sort();'));
         t.tool('turn-1', 'Edit', {
             file_path: join(t.repo, 'score.ts'),
             old_string: '    return list;',
-            new_string: '    const sorted = [...list];\n    return sorted.sort();'
+            new_string: '    const sorted = [...list];\n    sorted.reverse();\n    return sorted.sort();'
         });
         await t.service.idle();
         return { ...t, path: join(t.repo, 'score.ts') };
@@ -346,12 +349,19 @@ describe('what happens to a run afterwards', () => {
 
     test('lines added above move the run, and an edit inside it cuts it in two', async () => {
         const t = await withRun();
-        const text = SCORE.replace('    return list;', '    const sorted = [...list];\n    return sorted.sort();');
+        const [original] = (await t.service.read('p1', t.path)).runs;
+        const text = SCORE.replace('    return list;', '    const sorted = [...list];\n    sorted.reverse();\n    return sorted.sort();');
         await t.write('score.ts', `// header\n${text}`);
-        expect(spans((await t.service.read('p1', t.path)).runs)).toEqual([[7, 8]]);
+        expect(spans((await t.service.read('p1', t.path)).runs)).toEqual([[7, 9]]);
 
-        await t.write('score.ts', `// header\n${text.replace('    const sorted = [...list];', '    const sorted = list.slice();')}`);
-        expect(spans((await t.service.read('p1', t.path)).runs)).toEqual([[8, 8]]);
+        await t.write('score.ts', `// header\n${text.replace('    sorted.reverse();', '    sorted.push(list[0]);')}`);
+        const pieces = (await t.service.read('p1', t.path)).runs;
+        expect(spans(pieces)).toEqual([
+            [7, 7],
+            [9, 9]
+        ]);
+        expect(pieces.map((run) => run.id)).toEqual([original!.id, original!.id]);
+        expect((await new ProvenanceStore(t.home).read('p1', t.path))!.runs).toEqual(pieces);
     });
 
     test('a run whose lines were all rewritten is dropped', async () => {
@@ -362,7 +372,7 @@ describe('what happens to a run afterwards', () => {
 
     test('a commit that holds the lines hands them to git blame', async () => {
         const t = await withRun();
-        expect(spans((await t.service.read('p1', t.path)).runs)).toEqual([[6, 7]]);
+        expect(spans((await t.service.read('p1', t.path)).runs)).toEqual([[6, 8]]);
 
         await gitIn(t.repo, ['commit', '--quiet', '--all', '--message', 'sort']);
         expect((await t.service.read('p1', t.path)).runs).toEqual([]);
@@ -378,7 +388,7 @@ describe('what happens to a run afterwards', () => {
         await t.service.idle();
 
         const runs = (await t.service.read('p1', t.path)).runs;
-        expect(runs.map((run) => [run.turnId, run.start, run.end])).toEqual([['turn-2', 7, 7]]);
+        expect(runs.map((run) => [run.turnId, run.start, run.end])).toEqual([['turn-2', 8, 8]]);
     });
 
     test('runs older than thirty days are dropped', async () => {
@@ -396,10 +406,21 @@ describe('what happens to a run afterwards', () => {
     test('a review sets the state of every piece of a run and tells the clients', async () => {
         const t = await withRun();
         const [run] = (await t.service.read('p1', t.path)).runs;
+        await t.write('score.ts', (await Bun.file(t.path).text()).replace('    sorted.reverse();', '    sorted.push(list[0]);'));
+        const pieces = (await t.service.read('p1', t.path)).runs;
+        expect(spans(pieces)).toEqual([
+            [6, 6],
+            [8, 8]
+        ]);
+        expect(pieces.map((piece) => piece.id)).toEqual([run!.id, run!.id]);
         t.heard.length = 0;
 
-        expect(await t.service.review('p1', t.path, [run!.id], 'kept')).toBe(1);
-        expect((await t.service.read('p1', t.path)).runs.map((entry) => entry.review)).toEqual(['kept']);
+        expect(await t.service.review('p1', t.path, [run!.id], 'kept')).toBe(2);
+        expect((await t.service.read('p1', t.path)).runs.map((entry) => entry.review)).toEqual(['kept', 'kept']);
+        expect((await new ProvenanceStore(t.home).read('p1', t.path))!.runs.map((entry) => [entry.id, entry.review])).toEqual([
+            [run!.id, 'kept'],
+            [run!.id, 'kept']
+        ]);
         expect(t.heard.map((event) => (event.event === 'provenance.changed' ? event.payload.live : null))).toEqual([false]);
     });
 

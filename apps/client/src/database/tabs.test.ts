@@ -134,6 +134,8 @@ describe('a closed tab opened again', () => {
     });
 
     test('a key carries its id', () => {
+        expect(databaseTabKey('abc')).toBe('database:abc');
+        expect(databaseTabId('database:abc')).toBe('abc');
         expect(databaseTabId(databaseTabKey('abc'))).toBe('abc');
     });
 });

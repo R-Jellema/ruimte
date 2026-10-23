@@ -78,7 +78,12 @@ describe('loading', () => {
 
     test('without a stored camera the elements are fitted into view', () => {
         drawing().load('view-1', document([rect('a', 4000, 4000)]), null);
-        expect(drawing().camera).not.toEqual({ x: 10, y: 20, zoom: 1 });
+        const { x, y, zoom } = drawing().camera;
+        expect(zoom).toBeGreaterThan(0);
+        expect(x + 4000 * zoom).toBeGreaterThanOrEqual(0);
+        expect(y + 4000 * zoom).toBeGreaterThanOrEqual(0);
+        expect(x + 4100 * zoom).toBeLessThanOrEqual(800);
+        expect(y + 4060 * zoom).toBeLessThanOrEqual(600);
     });
 
     test('a drawing without a size waits with its stored camera, and fits once when it has none', () => {
@@ -180,7 +185,7 @@ describe('drawing and erasing', () => {
 });
 
 describe('the selection', () => {
-    test('a locked element cannot be selected by hand or by a box', () => {
+    test('select all and box selection exclude a locked element', () => {
         drawing().replaceElements([{ ...rect('a'), locked: true }, rect('b', 200)]);
         drawing().selectAll();
         expect(drawing().selection).toEqual(['b']);

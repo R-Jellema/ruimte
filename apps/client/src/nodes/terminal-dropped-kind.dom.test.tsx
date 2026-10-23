@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { ProjectCanvasView, ProjectNode } from '@ruimte/contracts';
+import { useDocument } from '@/state/document';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { mount, until, type Mounted } from '../../testing/dom';
@@ -30,6 +31,11 @@ describe('a terminal node of a CLI the machine no longer offers', () => {
         await until(() => page.host.querySelector(`[data-node-id="${DROPPED.id}"] textarea`) !== null);
         await until(() => machine.requests('session.create').length > 0);
         expect(machine.requests('session.create')[0]).toMatchObject({ sessionId: DROPPED.id, agent: { kind: 'gemini' } });
+        const stored = useDocument
+            .getState()
+            .exportViews()
+            .find((view) => view.id === MAIN.id) as ProjectCanvasView;
+        expect(stored.nodes.find((node) => node.id === DROPPED.id)).toEqual(DROPPED);
         for (const save of machine.requests('project.save')) {
             expect(JSON.stringify(save)).not.toContain('"provider":"antigravity"');
         }

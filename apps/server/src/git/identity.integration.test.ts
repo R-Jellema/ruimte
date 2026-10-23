@@ -1,5 +1,5 @@
-import { afterAll, beforeAll, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { afterAll, beforeAll, expect, jest, test } from 'bun:test';
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { GitIdentity } from '@ruimte/contracts';
@@ -121,8 +121,31 @@ test('a git that takes too long is ended and says so', async () => {
 test('a git that left a child holding its pipes is ended with the child, and says so', async () => {
     // Like a credential helper or an alias: git itself is gone at the end, the child keeps stdout and stderr open.
     const bin = join(root, 'stuck-child-bin');
+    const pidFile = join(root, 'child.pid');
     await mkdir(bin);
-    await writeFile(join(bin, 'git'), '#!/bin/sh\nsleep 30 &\nwait\n', { mode: 0o755 });
-    const result = await runGit(['status'], root, { env: { PATH: `${bin}:${process.env.PATH}` }, timeoutMs: 100 });
-    expect(result.timedOut).toBe(true);
+    await writeFile(join(bin, 'git'), `#!/bin/sh\nsleep 30 &\necho child-ready\necho $! > '${pidFile}'\nwait\n`, { mode: 0o755 });
+    jest.useFakeTimers();
+    let pid = NaN;
+    try {
+        const running = runGit(['status'], root, { env: { PATH: `${bin}:${process.env.PATH}` }, timeoutMs: 100 });
+        while (!Number.isSafeInteger(pid)) {
+            pid = Number.parseInt(await readFile(pidFile, 'utf8').catch(() => ''), 10);
+        }
+        process.kill(pid, 0);
+        jest.advanceTimersByTime(100);
+        const result = await running;
+        expect(result.timedOut).toBe(true);
+        expect(result.code).toBe(137);
+        expect(result.stdout).toBe('child-ready\n');
+        expect(() => process.kill(pid, 0)).toThrow('ESRCH');
+    } finally {
+        jest.useRealTimers();
+        if (Number.isSafeInteger(pid)) {
+            try {
+                process.kill(pid, 'SIGKILL');
+            } catch {
+                // Containment when the group termination regresses.
+            }
+        }
+    }
 });

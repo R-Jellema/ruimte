@@ -25,6 +25,7 @@ import { cellAt, cellViewIds, viewIdsIn } from '@/shell/split';
 import { currentEndpointId, endpointKey } from './keys.ts';
 import { textDrafts, useTextDrafts } from './text-drafts.ts';
 import { useDocument } from './document.ts';
+import { closeWithoutSaving, dismissClose, useUnsavedClose } from '@/shell/panels/unsaved-close';
 
 function tab(path: string, pinned = false): FileTab {
     return { key: path, path, pinned };
@@ -336,6 +337,20 @@ describe('the store and the tab hosts', () => {
             useFiles.getState().close('/p/a.ts');
             await settle();
             expect(useFiles.getState().tabs.map(nameOf)).toEqual(['/p/a.ts']);
+            expect(useUnsavedClose.getState().pending?.paths).toEqual(['/p/a.ts']);
+            dismissClose();
+            expect(useUnsavedClose.getState().pending).toBeNull();
+            expect(useFiles.getState().tabs.map(nameOf)).toEqual(['/p/a.ts']);
+            useFiles.getState().close('/p/a.ts');
+            await settle();
+            const pending = useUnsavedClose.getState().pending;
+            expect(pending?.paths).toEqual(['/p/a.ts']);
+            if (!pending) {
+                throw new Error('Expected the unsaved close question');
+            }
+            useUnsavedClose.setState({ pending: null });
+            closeWithoutSaving(pending);
+            expect(useFiles.getState().tabs).toEqual([]);
         });
 
         test('a table with edits nobody submitted asks before it closes', () => {

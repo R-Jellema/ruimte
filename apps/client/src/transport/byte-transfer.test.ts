@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { BytesReadPayload } from '@ruimte/contracts';
 import type { BytesPiece } from './piece';
-import { PIECES_IN_FLIGHT, readResource } from './byte-transfer';
+import { readResource } from './byte-transfer';
 import { blobTypeFor } from './piece';
 
 const RESOURCE = { kind: 'file', path: '/tmp/picture.gif' } as const;
@@ -45,24 +45,38 @@ describe('readResource', () => {
     });
 
     test('a few pieces are on their way at once, never more than the output gate allows', async () => {
-        const bytes = random(5_000);
+        const bytes = random(10 * 262_144);
         const fake = daemon(bytes);
         let inFlight = 0;
         let most = 0;
-        const blob = await readResource(
-            async (payload) => {
-                inFlight += 1;
-                most = Math.max(most, inFlight);
-                await new Promise((resolve) => setImmediate(resolve));
-                inFlight -= 1;
-                return fake.read(payload);
-            },
-            RESOURCE,
-            { chunkBytes: 500 }
-        );
-        expect(most).toBe(PIECES_IN_FLIGHT);
+        let released = false;
+        const waiting: Array<() => void> = [];
+        const started = Promise.withResolvers<void>();
+        const loading = readResource(async (payload) => {
+            inFlight += 1;
+            most = Math.max(most, inFlight);
+            if (payload.offset > 0 && !released) {
+                await new Promise<void>((resolve) => {
+                    waiting.push(resolve);
+                    if (waiting.length === 2) {
+                        started.resolve();
+                    }
+                });
+            }
+            inFlight -= 1;
+            return fake.read(payload);
+        }, RESOURCE);
+        await started.promise;
+        expect(waiting).toHaveLength(2);
+        expect(most).toBe(2);
+        expect(most * Math.ceil(fake.asked[0]!.length / 3) * 4).toBeLessThan(1_048_576);
+        released = true;
+        waiting.splice(0).forEach((release) => release());
+        const blob = await loading;
         expect(new Uint8Array(await blob.arrayBuffer())).toEqual(bytes);
-        expect(fake.asked.map((payload) => payload.offset)).toEqual([0, 500, 1_000, 1_500, 2_000, 2_500, 3_000, 3_500, 4_000, 4_500]);
+        expect(fake.asked.map((payload) => payload.offset)).toEqual([
+            0, 262_144, 524_288, 786_432, 1_048_576, 1_310_720, 1_572_864, 1_835_008, 2_097_152, 2_359_296
+        ]);
     });
 
     test('one piece in flight asks for the next only once the one before is in', async () => {

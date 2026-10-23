@@ -11,6 +11,7 @@ import { DrawingStore } from './drawing-store.ts';
 import { documentOnDisk, privateFileOnDisk, rawPrivateViews, projectLinks, setPrivateViews } from './project-file-test-helpers.ts';
 import { documentPathInFolder, fromPortable, toPortable } from './project-files.ts';
 import { ProjectStore, type ProjectLinks } from './project-store.ts';
+import { PROJECT_WRITE_IO } from './project-write.ts';
 
 let root: string;
 let home: string;
@@ -305,8 +306,12 @@ describe('ProjectStore', () => {
     });
 
     test('a daemon nobody has opened a project on lists nothing, and listing makes nothing', async () => {
+        const before = await readdir(root);
+        expect(before).toEqual(['repo']);
         expect(await store.list()).toEqual([]);
         expect(await store.list()).toEqual([]);
+        expect(await readdir(root)).toEqual(before);
+        await expect(readdir(home)).rejects.toMatchObject({ code: 'ENOENT' });
     });
 
     test('two opens at once both end up registered', async () => {
@@ -1628,17 +1633,26 @@ describe('the machine of a node', () => {
     });
 
     test('is not bound by a save whose write failed', async () => {
+        store.closeAll();
+        let fail = false;
+        let writes = 0;
+        store = new ProjectStore(home, links, fake, {
+            ...PROJECT_WRITE_IO,
+            write: async (...args) => {
+                if (fail) {
+                    writes += 1;
+                    throw new Error('disk full');
+                }
+                await PROJECT_WRITE_IO.write(...args);
+            }
+        });
         const opened = await store.openProject({ folder });
         const projectId = opened.summary.projectId;
-        const failing = store as unknown as { writeFiles: () => Promise<never> };
-        const writeFiles = failing.writeFiles;
-        failing.writeFiles = () => Promise.reject(new Error('disk full'));
-        try {
-            await expect(store.save(projectId, opened.document.rev, bound('machine-b'))).rejects.toThrow('disk full');
-        } finally {
-            failing.writeFiles = writeFiles;
-        }
+        fail = true;
+        await expect(store.save(projectId, opened.document.rev, bound('machine-b'))).rejects.toThrow('disk full');
+        expect(writes).toBe(1);
         expect(store.remote.machineOf(projectId, 'n1')).toBeNull();
+        expect((await documentOnDisk(folder)).views).toEqual([]);
     });
 
     test('goes with its node', async () => {

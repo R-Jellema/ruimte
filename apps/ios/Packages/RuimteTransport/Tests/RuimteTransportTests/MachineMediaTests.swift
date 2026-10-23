@@ -5,6 +5,17 @@ import Testing
 
 @testable import RuimteTransport
 
+private enum MediaWork {
+    @TaskLocal static var lifetime: MediaWorkLifetime?
+}
+
+// Fetch tasks inherit the binding, so the stream ends only after their settle/readAhead work completes.
+private final class MediaWorkLifetime: Sendable {
+    let events: AsyncStream<Int>.Continuation
+    init(_ events: AsyncStream<Int>.Continuation) { self.events = events }
+    deinit { events.finish() }
+}
+
 /// Serves `bytes` the way `bytes.read` does and counts what it was asked.
 @MainActor private final class MediaMachine: MachineRequesting {
     var bytes: Data
@@ -18,12 +29,29 @@ import Testing
     var disconnects = 0
     var staysDown = false
     private var connection: [Bool] = []
+    var holdFrom: Int?
+    var arrivals: AsyncStream<Int>.Continuation?
+    private var held: [Int: CheckedContinuation<Void, Never>] = [:]
+    private(set) var mostHeld = 0
+    func releaseHeld() {
+        holdFrom = nil
+        let waiting = held.values
+        held = [:]
+        for continuation in waiting { continuation.resume() }
+    }
     init(size: Int) { bytes = Data((0..<size).map { UInt8($0 % 251) }) }
     init(bytes: Data) { self.bytes = bytes }
     func request(_ type: String, payload: JSONValue) async throws -> JSONValue {
         let offset = Int(payload["offset"]!.numberValue!)
         let length = Int(payload["length"]!.numberValue!)
         asked.append((offset, length))
+        if let holdFrom, offset >= holdFrom {
+            await withCheckedContinuation {
+                held[offset] = $0
+                mostHeld = max(mostHeld, held.count)
+                arrivals?.yield(offset)
+            }
+        }
         if disconnects > 0 {
             disconnects -= 1
             connection = staysDown ? [false, false] : [false, true]
@@ -111,31 +139,43 @@ import Testing
 
     @Test func theSourceReadsAheadOfThePlayerOnItsOwn() async throws {
         let machine = MediaMachine(size: 100)
+        let (events, arrivals) = AsyncStream<Int>.makeStream()
+        machine.arrivals = arrivals
+        machine.holdFrom = 16
         let source = MachineMediaSource(client: machine, path: "/v.mp4", chunkBytes: 8, ahead: 2, readAheadPieces: 4)
-        _ = try await read(source, offset: 0, length: 16)
-        for _ in 0..<20 { await Task.yield() }
-        #expect(machine.asked.map(\.offset) == [0, 8, 16, 24, 32, 40])
+        _ = try await MediaWork.$lifetime.withValue(MediaWorkLifetime(arrivals)) {
+            try await read(source, offset: 0, length: 16)
+        }
+        var iterator = events.makeAsyncIterator()
+        let firstAhead = await iterator.next()
+        #expect(firstAhead != nil)
+        machine.releaseHeld()
+        while await iterator.next() != nil {}
+        #expect(machine.mostHeld <= 2)
+        #expect(machine.asked.map(\.offset).sorted() == [0, 8, 16, 24, 32, 40])
         let later = try await read(source, offset: 24, length: 24)
         #expect(later.data == machine.bytes.subdata(in: 24..<48))
         #expect(Set(machine.asked.map(\.offset)).count == machine.asked.count)
     }
 
-    @Test func aFileThatChangedStopsReadingAhead() async throws {
+    @Test(arguments: [true, false])
+    func aVersionChangeOrRefusalStopsReadingAhead(changed: Bool) async throws {
         let machine = MediaMachine(size: 100)
+        let (events, arrivals) = AsyncStream<Int>.makeStream()
+        machine.arrivals = arrivals
+        machine.holdFrom = 16
         let source = MachineMediaSource(client: machine, path: "/v.mp4", chunkBytes: 8, ahead: 3, readAheadPieces: .max)
-        _ = try await read(source, offset: 0, length: 16)
-        machine.version = "2-2"
-        for _ in 0..<2_000 { await Task.yield() }
-        #expect(machine.asked.count <= 13 + 3)
-    }
-
-    @Test func aRefusedPieceStopsReadingAhead() async throws {
-        let machine = MediaMachine(size: 100)
-        let source = MachineMediaSource(client: machine, path: "/v.mp4", chunkBytes: 8, ahead: 3, readAheadPieces: .max)
-        _ = try await read(source, offset: 0, length: 16)
-        machine.refuse = .max
-        for _ in 0..<2_000 { await Task.yield() }
-        #expect(machine.asked.count <= 13 + 3)
+        _ = try await MediaWork.$lifetime.withValue(MediaWorkLifetime(arrivals)) {
+            try await read(source, offset: 0, length: 16)
+        }
+        var iterator = events.makeAsyncIterator()
+        let firstAhead = await iterator.next()
+        #expect(firstAhead != nil)
+        if changed { machine.version = "2-2" } else { machine.refuse = .max }
+        machine.releaseHeld()
+        while await iterator.next() != nil {}
+        #expect(machine.mostHeld <= 3)
+        #expect(machine.asked.map(\.offset).sorted() == [0, 8, 16, 24, 32])
     }
 
     @Test func aPieceAReadBringsInStartsReadingAheadAgain() async throws {

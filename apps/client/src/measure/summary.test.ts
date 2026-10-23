@@ -27,13 +27,14 @@ describe('the measurement summary', () => {
 
     test('groups input by event type', () => {
         expect(
-            Object.keys(
-                byType([
-                    { type: 'wheel', ms: 4 },
-                    { type: 'keydown', ms: 8 },
-                    { type: 'wheel', ms: 6 }
-                ])
-            )
-        ).toEqual(['keydown', 'wheel']);
+            byType([
+                { type: 'wheel', ms: 4 },
+                { type: 'keydown', ms: 8 },
+                { type: 'wheel', ms: 6 }
+            ])
+        ).toEqual({
+            keydown: { n: 1, p50: 8, p95: 8, p99: 8, max: 8 },
+            wheel: { n: 2, p50: 4, p95: 6, p99: 6, max: 6 }
+        });
     });
 });

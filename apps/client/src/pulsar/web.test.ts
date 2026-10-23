@@ -35,10 +35,16 @@ describe('signing in on the web', () => {
         const storage = memoryStorage();
         const query = await leave(storage);
         expect(query.redirect_uri).toBe(REDIRECT);
+        const pending = JSON.parse(storage.items.get('ruimte.pulsar.pendingLogin')!);
+        expect(query.state).toBe(pending.state);
+        expect(query.code_challenge_method).toBe('S256');
+        const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pending.verifier));
+        expect(query.code_challenge).toBe(Buffer.from(digest).toString('base64url'));
         const back = completeWebLogin(storage, new URLSearchParams({ code: 'c'.repeat(43), state: query.state }), 2_000);
         expect(back.code).toBe('c'.repeat(43));
         expect(back.redirectUri).toBe(REDIRECT);
         expect(back.verifier.length).toBeGreaterThanOrEqual(43);
+        expect(back.verifier).toBe(pending.verifier);
         expect(back.confirm).toBe(false);
         expect(storage.items.size).toBe(0);
     });

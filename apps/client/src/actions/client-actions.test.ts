@@ -147,19 +147,24 @@ describe('client actions', () => {
         expect(result).toMatchObject({ status: 'completed', output: { view: 'Main', changed: true } });
         expect(useDocument.getState().activeViewId).toBe('main');
         if (result.status !== 'completed' || !result.undoToken) {
-            return;
+            throw new Error('Expected a completed action with an undo token');
         }
+        expect(typeof result.undoToken).toBe('string');
         await clientActions.undo(result.undoToken, VOICE_ACTION_CALL);
         expect(useDocument.getState().activeViewId).toBe('release');
     });
 
     test('rename reports the shared change and restores the previous source on undo', async () => {
         const result = await clientActions.execute('view.rename', { viewId: 'release', name: 'Launch' }, VOICE_ACTION_CALL);
-        expect(result).toMatchObject({ status: 'completed', output: { previousName: 'Release', name: 'Launch', changed: true } });
+        expect(result).toMatchObject({
+            status: 'completed',
+            output: { previousName: 'Release', name: 'Launch', changed: true }
+        });
         expect(useDocument.getState().views[1]).toMatchObject({ name: 'Launch', titleSource: 'user' });
         if (result.status !== 'completed' || !result.undoToken) {
-            return;
+            throw new Error('Expected a completed action with an undo token');
         }
+        expect(typeof result.undoToken).toBe('string');
         await clientActions.undo(result.undoToken, VOICE_ACTION_CALL);
         const restored = useDocument.getState().views[1]!;
         expect(restored).toMatchObject({ name: 'Release' });
@@ -172,23 +177,26 @@ describe('client actions', () => {
         expect(result).toMatchObject({ status: 'completed', output: { changed: true } });
         expect(useDocument.getState().views[1]).toMatchObject({ titleSource: 'user' });
         if (result.status !== 'completed' || !result.undoToken) {
-            return;
+            throw new Error('Expected a completed action with an undo token');
         }
+        expect(typeof result.undoToken).toBe('string');
         await clientActions.undo(result.undoToken, PERSON_ACTION_CALL);
         expect(useDocument.getState().views[1]).toMatchObject({ titleSource: 'auto' });
     });
 
     test('rename undo refuses to overwrite a newer name', async () => {
         const result = await clientActions.execute('view.rename', { viewId: 'release', name: 'Launch' }, PERSON_ACTION_CALL);
+        expect(result.status).toBe('completed');
         if (result.status !== 'completed' || !result.undoToken) {
-            return;
+            throw new Error('Expected a completed action with an undo token');
         }
+        expect(typeof result.undoToken).toBe('string');
         useDocument.getState().renameView('release', 'Shipped');
         expect(await clientActions.undo(result.undoToken, PERSON_ACTION_CALL)).toMatchObject({ status: 'failed', error: { code: 'stale-undo' } });
         expect(useDocument.getState().views[1]).toMatchObject({ name: 'Shipped' });
     });
 
-    test('publishes a working client executor for the actions a person runs', () => {
+    test('lists the actions a person can request in the client catalog', () => {
         const personal = clientActions.catalog(PERSON_ACTION_CALL).map((entry) => entry.name);
         expect(personal).toContain('view.share');
         expect(personal).toContain('view.move');
@@ -221,8 +229,9 @@ describe('client actions', () => {
             output: { viewId: 'main', kind: 'note', node: 'Fleur morgen mijn iPhone laten zien' }
         });
         if (result.status !== 'completed' || !result.undoToken) {
-            return;
+            throw new Error('Expected a completed action with an undo token');
         }
+        expect(typeof result.undoToken).toBe('string');
         expect(defaultCanvases.of('main').getState().nodes[result.output.nodeId]).toMatchObject({ body: 'Fleur morgen mijn iPhone laten zien' });
         expect(await clientActions.undo(result.undoToken, VOICE_ACTION_CALL)).toMatchObject({ status: 'completed' });
         expect(defaultCanvases.of('main').getState().nodes[result.output.nodeId]).toBeUndefined();
@@ -234,9 +243,11 @@ describe('client actions', () => {
             { viewId: 'main', kind: 'note', title: 'First', content: 'First', url: null, command: null, path: null, provider: null, at: null },
             VOICE_ACTION_CALL
         );
+        expect(result.status).toBe('completed');
         if (result.status !== 'completed' || !result.undoToken) {
-            return;
+            throw new Error('Expected a completed action with an undo token');
         }
+        expect(typeof result.undoToken).toBe('string');
         defaultCanvases.of('main').getState().addNode('note', { x: 500, y: 500 }, { title: 'Newer' });
         expect(await clientActions.undo(result.undoToken, VOICE_ACTION_CALL)).toMatchObject({ status: 'failed', error: { code: 'stale-undo' } });
         expect(Object.values(defaultCanvases.of('main').getState().nodes).map((node) => node.title)).toEqual(['First', 'Newer']);
@@ -911,8 +922,9 @@ describe('client actions', () => {
             expect(result).toMatchObject({ status: 'completed', output: { view: 'Shell', kind: 'terminal' } });
             expect(useDocument.getState().views.find((view) => view.id === nodeId)).toMatchObject({ kind: 'terminal', name: 'Shell' });
             if (result.status !== 'completed' || !result.undoToken) {
-                return;
+                throw new Error('Expected a completed action with an undo token');
             }
+            expect(typeof result.undoToken).toBe('string');
             expect(await clientActions.undo(result.undoToken, VOICE_ACTION_CALL)).toMatchObject({ status: 'completed' });
             expect(useDocument.getState().views.some((view) => view.id === nodeId)).toBe(false);
         });
@@ -984,8 +996,9 @@ describe('client actions', () => {
             expect(replaced).toMatchObject({ status: 'completed', output: { replaced: true } });
             expect(canvas().layouts[0]).not.toEqual(before);
             if (replaced.status !== 'completed' || !replaced.undoToken) {
-                return;
+                throw new Error('Expected a completed layout replacement with an undo token');
             }
+            expect(typeof replaced.undoToken).toBe('string');
             expect(await clientActions.undo(replaced.undoToken, VOICE_ACTION_CALL)).toMatchObject({ status: 'completed' });
             expect(canvas().layouts).toEqual([before!]);
         });

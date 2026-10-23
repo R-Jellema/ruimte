@@ -17,6 +17,15 @@ describe('matchesIn', () => {
 
     test('a whole word is whole in any script', () => {
         expect(matchesIn('één eén een', pattern('een', { wholeWord: true }))).toEqual([{ start: 8, end: 11 }]);
+        for (const [text, word, start, end] of [
+            ['éeen een eené', 'een', 5, 8],
+            ['éé een éé', 'een', 3, 6],
+            ['кот котик скот', 'кот', 0, 3],
+            ['猫 猫咪 山猫', '猫', 0, 1],
+            ['a_een een2 een', 'een', 11, 14]
+        ] as const) {
+            expect(matchesIn(text, pattern(word, { wholeWord: true }))).toEqual([{ start, end }]);
+        }
     });
 
     test('an empty match is stepped over instead of looping', () => {

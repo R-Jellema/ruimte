@@ -22,6 +22,14 @@ describe('the diagram store', () => {
         store.getState().setViewport({ w: 800, h: 600 });
         expect(store.getState().pendingCamera).toBeNull();
         expect(store.getState().layout.nodes.map((box) => box.id)).toEqual(['a', 'b']);
+        const { x, y, zoom } = store.getState().camera;
+        expect(zoom).toBeGreaterThan(0);
+        for (const box of store.getState().layout.nodes) {
+            expect(x + box.x * zoom).toBeGreaterThanOrEqual(0);
+            expect(y + box.y * zoom).toBeGreaterThanOrEqual(0);
+            expect(x + (box.x + box.w) * zoom).toBeLessThanOrEqual(800);
+            expect(y + (box.y + box.h) * zoom).toBeLessThanOrEqual(600);
+        }
     });
 
     test('an empty diagram ends the wait for a fit instead of holding it', () => {
@@ -34,6 +42,10 @@ describe('the diagram store', () => {
         const store = createDiagramStore();
         store.getState().load('view-1', document, { camera: { center: { x: 10, y: 20 }, zoom: 2 }, focusedNodeId: null });
         expect(store.getState().viewCamera()).toEqual({ center: { x: 10, y: 20 }, zoom: 2 });
+        expect(store.getState().pendingCamera).toEqual({ kind: 'view', view: { center: { x: 10, y: 20 }, zoom: 2 } });
+        store.getState().setViewport({ w: 800, h: 600 });
+        expect(store.getState().pendingCamera).toBeNull();
+        expect(store.getState().camera).toEqual({ x: 380, y: 260, zoom: 2 });
     });
 
     test('a document from disk replaces the graph and its layout, and leaves the camera alone', () => {

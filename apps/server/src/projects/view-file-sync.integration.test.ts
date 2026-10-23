@@ -51,54 +51,56 @@ class Peer {
 for (const kind of ['drawing', 'diagram'] as const) {
     test(`${kind} saves cross two real sockets without a writer echo`, async () => {
         const root = await mkdtemp(join(tmpdir(), 'ruimte-view-sockets-'));
-        const folder = join(root, 'repo');
-        await mkdir(folder);
-        const watch = new FakeWatch();
-        const projects = new ProjectStore(join(root, 'home'), projectLinks({ viewFiles: () => [drawings, diagrams] }), watch);
-        const drawings = new DrawingStore(projects, watch);
-        const diagrams = new DiagramStore(projects, watch);
-        const projectId = (await projects.openProject({ folder })).summary.projectId;
-        await projects.save(projectId, 0, { name: 'repo', color: '#353e53', views: [{ kind, id: 'view', name: 'View' }] });
-        const dispatcher = new Dispatcher();
-        registerDrawingHandlers(dispatcher, drawings);
-        registerDiagramHandlers(dispatcher, diagrams);
-        dispatcher.register('server.hello', () => ({ version: 'test', platform: 'test', home: root }));
-        const unused = { subscribe: () => () => undefined, detachAll: () => undefined, get: () => undefined };
-        const connect = connectionOpener({
-            dispatcher,
-            projects,
-            drawings,
-            diagrams,
-            sessions: unused,
-            chats: unused,
-            identity: unused,
-            folders: unused,
-            statuses: unused,
-            usage: unused,
-            limits: unused,
-            processes: unused
-        });
-        const connections = new Map<unknown, { connection: OpenConnection; channel: SocketChannel }>();
-        const server = Bun.serve<ClientAccess>({
-            hostname: '127.0.0.1',
-            port: 0,
-            fetch: (request, host) =>
-                host.upgrade(request, { data: { reachability: 'loopback', sessionId: null } }) ? undefined : new Response('', { status: 400 }),
-            websocket: {
-                open: (socket) => {
-                    const channel = socketChannel(socket);
-                    connections.set(socket, { connection: connect(channel, socket.data), channel });
-                },
-                message: (socket, message) => connections.get(socket)?.connection.receive(message),
-                close: (socket) => {
-                    connections.get(socket)?.channel.closed();
-                    connections.delete(socket);
-                },
-                drain: (socket) => connections.get(socket)?.channel.drained()
-            }
-        });
+        let projects: ProjectStore | undefined;
+        let server: Bun.Server<ClientAccess> | undefined;
         const peers: Peer[] = [];
+        const connections = new Map<unknown, { connection: OpenConnection; channel: SocketChannel }>();
         try {
+            const folder = join(root, 'repo');
+            await mkdir(folder);
+            const watch = new FakeWatch();
+            projects = new ProjectStore(join(root, 'home'), projectLinks({ viewFiles: () => [drawings, diagrams] }), watch);
+            const drawings = new DrawingStore(projects, watch);
+            const diagrams = new DiagramStore(projects, watch);
+            const projectId = (await projects.openProject({ folder })).summary.projectId;
+            await projects.save(projectId, 0, { name: 'repo', color: '#353e53', views: [{ kind, id: 'view', name: 'View' }] });
+            const dispatcher = new Dispatcher();
+            registerDrawingHandlers(dispatcher, drawings);
+            registerDiagramHandlers(dispatcher, diagrams);
+            dispatcher.register('server.hello', () => ({ version: 'test', platform: 'test', home: root }));
+            const unused = { subscribe: () => () => undefined, detachAll: () => undefined, get: () => undefined };
+            const connect = connectionOpener({
+                dispatcher,
+                projects,
+                drawings,
+                diagrams,
+                sessions: unused,
+                chats: unused,
+                identity: unused,
+                folders: unused,
+                statuses: unused,
+                usage: unused,
+                limits: unused,
+                processes: unused
+            });
+            server = Bun.serve<ClientAccess>({
+                hostname: '127.0.0.1',
+                port: 0,
+                fetch: (request, host) =>
+                    host.upgrade(request, { data: { reachability: 'loopback', sessionId: null } }) ? undefined : new Response('', { status: 400 }),
+                websocket: {
+                    open: (socket) => {
+                        const channel = socketChannel(socket);
+                        connections.set(socket, { connection: connect(channel, socket.data), channel });
+                    },
+                    message: (socket, message) => connections.get(socket)?.connection.receive(message),
+                    close: (socket) => {
+                        connections.get(socket)?.channel.closed();
+                        connections.delete(socket);
+                    },
+                    drain: (socket) => connections.get(socket)?.channel.drained()
+                }
+            });
             for (let i = 0; i < 2; i++) {
                 const socket = new WebSocket(`ws://127.0.0.1:${server.port}`);
                 peers.push(new Peer(socket));
@@ -128,9 +130,15 @@ for (const kind of ['drawing', 'diagram'] as const) {
             expect(reader.frames.filter((frame) => 'type' in frame)).toHaveLength(1);
         } finally {
             peers.forEach((peer) => peer.socket.close());
-            await server.stop(true);
-            projects.closeAll();
-            await rm(root, { recursive: true, force: true });
+            try {
+                await server?.stop(true);
+            } finally {
+                for (const { channel } of connections.values()) {
+                    channel.closed();
+                }
+                projects?.closeAll();
+                await rm(root, { recursive: true, force: true });
+            }
         }
     });
 }

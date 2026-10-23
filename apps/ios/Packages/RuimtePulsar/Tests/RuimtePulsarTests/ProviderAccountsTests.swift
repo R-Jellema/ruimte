@@ -25,8 +25,12 @@ private let twoClaudes = """
     """
 
 @Test func accountsOfAKindPutTheDefaultFirstAndKeepTheMachinesOrder() throws {
-    let accounts = try list(twoClaudes)
-    #expect(accounts.accounts(of: "claude").map(\.id) == ["claude", "old", "work"])
+    var value = try #require(JSONValue.decode(Data(twoClaudes.utf8)).objectValue)
+    let statuses = try #require(value["statuses"]?.arrayValue)
+    value["statuses"] = .array([statuses[2], statuses[1], statuses[0], statuses[3]])
+    let accounts = ProviderAccountList(.object(value))
+    #expect(accounts.entries.map(\.id) == ["work", "old", "claude", "codex"])
+    #expect(accounts.accounts(of: "claude").map(\.id) == ["claude", "work", "old"])
     #expect(accounts.accounts(of: "codex").map(\.id) == ["codex"])
     #expect(accounts.entries.first { $0.id == "work" }?.state == "signed-out")
 }
@@ -61,6 +65,12 @@ private let twoClaudes = """
     #expect(!accounts.canContinue("claude", from: nil, to: "work"))
     #expect(!accounts.canContinue("claude", from: "work", to: nil))
     #expect(!accounts.canContinue("codex", from: nil, to: "claude"))
+    let crossKind = ProviderAccountList(entries: [
+        ProviderAccountEntry(id: "codex", kind: "codex", transcripts: "/shared/conversations"),
+        ProviderAccountEntry(id: "claude", kind: "claude", transcripts: "/shared/conversations"),
+    ])
+    #expect(!crossKind.canContinue("codex", from: nil, to: "claude"))
+    #expect(!crossKind.canContinue("codex", from: "claude", to: nil))
     let silent = ProviderAccountList(entries: [
         ProviderAccountEntry(id: "codex", kind: "codex"), ProviderAccountEntry(id: "second", kind: "codex"),
     ])

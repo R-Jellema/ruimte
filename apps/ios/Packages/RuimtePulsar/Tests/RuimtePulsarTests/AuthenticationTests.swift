@@ -320,11 +320,15 @@ struct AuthenticationTests {
         #expect(try login.loginCode(callback: callback, label: "").label == "Ruimte")
     }
 
-    @Test func statementsMustMatchTheRequestedMachineAndKey() async throws {
+    @Test(arguments: ["machine", "key", "nonce", "matching"])
+    func statementsMustMatchTheRequestedMachineAndKey(mismatch: String) async throws {
         let key = DeviceKey()
         let client = AddressBookClient(fetch: { request in
             #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer access")
             let payload = try JSONDecoder().decode(AccessRequestPayload.self, from: request.httpBody!)
+            #expect(payload.machineId == "machine")
+            #expect(payload.clientPublicKey == key.publicKey)
+            #expect(!payload.nonce.isEmpty)
             #expect(
                 DeviceKey.verify(
                     signature: payload.signature,
@@ -332,20 +336,32 @@ struct AuthenticationTests {
                         machineID: payload.machineId, publicKey: payload.clientPublicKey, nonce: payload.nonce),
                     publicKey: key.publicKey))
             let statement = AccessStatement(
-                machineId: "another-machine", clientPublicKey: payload.clientPublicKey,
-                nonce: payload.nonce, issuedAt: authNow, expiresAt: authNow + 120_000,
+                machineId: mismatch == "machine" ? "another-machine" : payload.machineId,
+                clientPublicKey: mismatch == "key" ? DeviceKey().publicKey : payload.clientPublicKey,
+                nonce: mismatch == "nonce" ? String(repeating: "n", count: 24) : payload.nonce,
+                issuedAt: authNow, expiresAt: authNow + 120_000,
                 signature: String(repeating: "a", count: 86))
             return (
                 try JSONEncoder().encode(statement),
                 HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
             )
         })
-        await #expect(throws: AddressBookRequestError.self) {
-            try await client.signalAccess(accessToken: "access", machineID: "machine", key: key, label: "iPhone")
+        if mismatch == "matching" {
+            let access = try await client.signalAccess(
+                accessToken: "access", machineID: "machine", key: key, label: "iPhone")
+            #expect(access.statement.machineId == "machine")
+            #expect(access.statement.clientPublicKey == key.publicKey)
+        } else {
+            await #expect {
+                try await client.signalAccess(accessToken: "access", machineID: "machine", key: key, label: "iPhone")
+            } throws: { error in
+                let answer = error as? AddressBookRequestError
+                return answer?.code == "bad-answer" && answer?.status == 200
+            }
         }
     }
 
-    @Test func statementV2FieldsReachTheOffer() async throws {
+    @Test func statementV2FieldsSurviveSignalAccessEncoding() async throws {
         let key = DeviceKey()
         let client = AddressBookClient(fetch: { request in
             let payload = try JSONDecoder().decode(AccessRequestPayload.self, from: request.httpBody!)
@@ -361,7 +377,6 @@ struct AuthenticationTests {
             )
         })
         let access = try await client.signalAccess(accessToken: "access", machineID: "machine", key: key, label: "iPhone")
-        // What an offer carries: the access as the app encodes it into the signal.
         let encoded = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(access)) as? [String: Any])
         let statement = try #require(encoded["statement"] as? [String: Any])
         #expect(statement["machinePublicKey"] as? String == String(repeating: "M", count: 43))

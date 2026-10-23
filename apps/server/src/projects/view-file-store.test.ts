@@ -81,12 +81,23 @@ for (const kind of ['drawing', 'diagram'] as const) {
         test('sharing and making private work before the first editor opens after a restart', async () => {
             const original = await readFile(viewFilePathOf(path, kind, 'view', []));
             for (const shared of [['view'], []]) {
+                projects.closeAll();
+                drawings.closeAll();
+                diagrams.closeAll();
+                expect(watch.watchers.every((watcher) => watcher.closed)).toBe(true);
+                watch = new FakeWatch();
+                projects = new ProjectStore(join(root, 'home'), projectLinks({ viewFiles: () => [drawings, diagrams] }), watch);
+                drawings = new DrawingStore(projects, watch);
+                diagrams = new DiagramStore(projects, watch);
                 await projects.openProject({ projectId });
                 const rev = await projects.revision(projectId);
+                expect(watch.watchers).toHaveLength(1);
                 await projects.save(projectId, rev, content, shared);
                 const file = viewFilePathOf(path, kind, 'view', shared);
                 expect(await readFile(file)).toEqual(original);
                 expect(await stat(viewFilePathOf(path, kind, 'view', shared.length ? [] : ['view'])).catch(() => null)).toBeNull();
+                expect(watch.watchers).toHaveLength(1);
+                expect((await store().open(projectId, 'view')).rev).toBe(1);
                 expect(await idsOf()).toEqual(['old']);
             }
         });

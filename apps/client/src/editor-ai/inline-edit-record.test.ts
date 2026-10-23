@@ -1,14 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { LastProjectStorage } from '@/project/last-project';
-import {
-    expiredInlineEdits,
-    forgetInlineEdit,
-    INLINE_EDIT_KEEP_MS,
-    inlineEditFor,
-    readInlineEdits,
-    saveInlineEdit,
-    type InlineEditRecord
-} from './inline-edit-record';
+import { expiredInlineEdits, forgetInlineEdit, inlineEditFor, readInlineEdits, saveInlineEdit, type InlineEditRecord } from './inline-edit-record';
 
 class MemoryStorage implements LastProjectStorage {
     readonly items = new Map<string, string>();
@@ -83,7 +75,8 @@ describe('the records of inline edits', () => {
         saveInlineEdit('local', record('/work/old.ts', { createdAt: 100 }), storage);
         saveInlineEdit('local', record('/work/older.ts', { createdAt: 50 }), storage);
 
-        const expired = expiredInlineEdits('local', 100 + INLINE_EDIT_KEEP_MS, storage);
+        expect(expiredInlineEdits('local', 50 + 604_800_000 - 1, storage)).toEqual([]);
+        const expired = expiredInlineEdits('local', 100 + 604_800_000, storage);
 
         expect(expired.map((entry) => entry.path)).toEqual(['/work/older.ts', '/work/old.ts']);
     });

@@ -1,5 +1,5 @@
-import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { afterAll, afterEach, beforeAll, describe, expect, test } from 'bun:test';
+import { mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { listRepos, MAX_REPOS, parseSubmodulePaths, repoLabel } from './repos.ts';
@@ -9,6 +9,21 @@ import { gitIn, initRepo, repoTemplate, type RepoTemplate } from './test-repo.ts
 let workspace: RepoTemplate;
 /* A repository with a submodule and a checkout it ignores, which is what a monolith with modules has. */
 let parent: RepoTemplate;
+const copies = new Set<string>();
+
+async function copy(template: RepoTemplate): Promise<string> {
+    const root = await template.copy();
+    copies.add(root);
+    return root;
+}
+
+afterEach(async () => {
+    for (const root of copies) {
+        await rm(root, { recursive: true, force: true });
+        expect(await stat(root).catch(() => null)).toBeNull();
+        copies.delete(root);
+    }
+});
 
 beforeAll(async () => {
     workspace = await repoTemplate('ruimte-repos-workspace', async (dir) => {
@@ -71,7 +86,7 @@ describe('parseSubmodulePaths', () => {
 
 describe('listRepos', () => {
     test('a folder that is no repository still has the ones sitting in it', async () => {
-        const dir = await workspace.copy();
+        const dir = await copy(workspace);
         const folder = join(dir, 'workspace');
         const { repos, truncated } = await listRepos(folder);
         expect(truncated).toBe(false);
@@ -82,7 +97,7 @@ describe('listRepos', () => {
     });
 
     test('a checkout that declares a name carries it beside its label, the Ruimte project over the editor', async () => {
-        const dir = await workspace.copy();
+        const dir = await copy(workspace);
         const folder = join(dir, 'workspace');
         await mkdir(join(folder, 'alpha', '.idea'), { recursive: true });
         await writeFile(join(folder, 'alpha', '.idea', '.name'), 'Alpha app\n');
@@ -98,7 +113,7 @@ describe('listRepos', () => {
     });
 
     test('the folder itself comes first, then its submodules', async () => {
-        const dir = await parent.copy();
+        const dir = await copy(parent);
         const folder = join(dir, 'parent');
         const { repos } = await listRepos(folder);
         expect(repos[0]).toEqual({ path: folder, label: 'parent', kind: 'root' });
@@ -107,7 +122,7 @@ describe('listRepos', () => {
     });
 
     test('a checkout the repository ignores is not one the panel offers', async () => {
-        const dir = await parent.copy();
+        const dir = await copy(parent);
         const { repos } = await listRepos(join(dir, 'parent'));
         expect(repos.map((repo) => repo.label)).not.toContain('tools');
     });
@@ -129,7 +144,7 @@ describe('listRepos', () => {
     });
 
     test('a repository the folder is only a corner of is the one it acts on', async () => {
-        const dir = await parent.copy();
+        const dir = await copy(parent);
         const { repos } = await listRepos(join(dir, 'parent', 'backend'));
         expect(repos.map((repo) => repo.kind)).toEqual(['root']);
         expect(repos[0]?.label).toBe('backend');

@@ -59,6 +59,7 @@ function pillOf(nodeId: string): string {
 
 beforeEach(async () => {
     here = new FakeMachine();
+    here.answer('task.list', () => ({ tasks: [TASK] }));
     there = new FakeMachine();
     useEndpoints.getState().add({
         id: REMOTE,
@@ -73,10 +74,10 @@ beforeEach(async () => {
     workspace = await openFakeWorkspace(here, { views: [MAIN] }, { activeViewId: MAIN.id, views: {} });
     stopWatching = startRemoteStatusWatch();
     stopTasks = startTaskWatch();
+    useTasks.getState().putTask(WORKSPACE, TASK);
     page = mount();
     await page.renderApp();
     await until(() => page.host.querySelector(`[data-node-id="${CHILD.id}"]`) !== null);
-    await act(async () => useTasks.getState().putTask(WORKSPACE, TASK));
 });
 
 afterEach(async () => {
@@ -104,10 +105,13 @@ describe('a task that waits for another machine', () => {
     test('says on the node that its task has not started, and takes that away when the machine took the task', async () => {
         await act(async () => here.emit('remote.status', status('waiting')));
         await until(() => bodyOf(CHILD.id).includes('Task: Run the tests · not started'));
+        expect(there.requests('session.create').filter((request) => request.sessionId === CHILD.id)).toEqual([]);
+        expect(there.requests('session.attach').filter((request) => request.sessionId === CHILD.id)).toEqual([]);
 
         // The machine took the task; the link may still be down, but only its result is owed now.
         await act(async () => here.emit('remote.status', status('waiting', [])));
         await until(() => !bodyOf(CHILD.id).includes('not started'));
+        await until(() => there.requests('session.attach').some((request) => request.sessionId === CHILD.id));
         expect(pillOf(PARENT.id)).not.toContain('Waiting for');
     });
 
@@ -153,14 +157,20 @@ describe('a task that waits for another machine', () => {
     test('does not mount the node of a task the machine has not taken yet, though the link is open', async () => {
         await act(async () => here.emit('remote.status', status('open', [CHILD.id])));
         await until(() => bodyOf(CHILD.id).includes('Task: Run the tests · not started'));
+        expect(there.requests('session.create').filter((request) => request.sessionId === CHILD.id)).toEqual([]);
+        expect(there.requests('session.attach').filter((request) => request.sessionId === CHILD.id)).toEqual([]);
         await act(async () => here.emit('remote.status', status('open', [])));
         await until(() => !bodyOf(CHILD.id).includes('not started'));
+        await until(() => there.requests('session.attach').some((request) => request.sessionId === CHILD.id));
     });
 
     test('does not mount the node of an open task before any standing came, and mounts it once the machine took the task', async () => {
         await until(() => bodyOf(CHILD.id).includes('Task: Run the tests · not started'));
+        expect(there.requests('session.create').filter((request) => request.sessionId === CHILD.id)).toEqual([]);
+        expect(there.requests('session.attach').filter((request) => request.sessionId === CHILD.id)).toEqual([]);
         await act(async () => here.emit('remote.status', status('open', [])));
         await until(() => !bodyOf(CHILD.id).includes('not started'));
+        await until(() => there.requests('session.attach').some((request) => request.sessionId === CHILD.id));
     });
 
     test('offers no Stop waiting while the link is open', async () => {

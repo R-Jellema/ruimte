@@ -112,7 +112,12 @@ struct NativeAppleAuthenticationTests {
         let named = NativeAppleCredential(
             state: appleAttempt, identityToken: Data("signed-token".utf8), authorizationCode: Data("apple-code".utf8),
             fullName: name)
-        #expect(try named.payload(for: appleAttempt).displayName == "Bas Milius")
+        // Name order follows the person's formatter environment; forwarding must keep both components.
+        let formatted = PersonNameComponentsFormatter().string(from: name)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        #expect(formatted.contains("Bas"))
+        #expect(formatted.contains("Milius"))
+        #expect(try named.payload(for: appleAttempt).displayName == formatted)
         let empty = NativeAppleCredential(
             state: appleAttempt, identityToken: Data("signed-token".utf8), authorizationCode: Data("apple-code".utf8),
             fullName: PersonNameComponents())

@@ -1,10 +1,11 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
 import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { GrepError, grepFiles } from './grep.ts';
 import { MachineHome } from './machine-home.ts';
 import { forgetSearchCache } from './search.ts';
+import * as searchable from './searchable.ts';
 
 let root = '';
 
@@ -111,7 +112,13 @@ describe('grepFiles', () => {
     });
 
     test('an empty query asks nothing of the disk', async () => {
-        expect(await grepFiles(root, '   ')).toEqual({ matches: [], files: 0, truncated: false });
+        const reads = spyOn(searchable, 'searchRoot');
+        try {
+            expect(await grepFiles(root, '   ')).toEqual({ matches: [], files: 0, truncated: false });
+            expect(reads).not.toHaveBeenCalled();
+        } finally {
+            reads.mockRestore();
+        }
     });
 
     test('a pattern that is no pattern comes back as an error the client can show', async () => {
@@ -196,16 +203,60 @@ describe('grepFiles without ripgrep', () => {
     });
 
     test('a pattern that backtracks without end is stopped and the machine keeps answering', async () => {
-        await writeFile(join(root, 'src', 'trap.txt'), `${'a'.repeat(48)}b\n`);
-        const result = await grepFiles(root, '^(a+)+$', {
-            regex: true,
-            // The callback only runs while the daemon's own thread is free.
-            budget: (stop) => {
-                const timer = setTimeout(stop, 0);
-                return () => clearTimeout(timer);
+        const trap = `${'a'.repeat(48)}b`;
+        await writeFile(join(root, 'src', 'trap.txt'), `${trap}\n`);
+        const probe = join(root, 'regex-probe.ts');
+        await writeFile(
+            probe,
+            `
+            const execute = RegExp.prototype.exec;
+            RegExp.prototype.exec = function (text) {
+                if (this.source === '^(a+)+$' && text === ${JSON.stringify(trap)}) {
+                    postMessage({ probe: 'backtracking' });
+                }
+                return execute.call(this, text);
+            };
+        `
+        );
+        const NativeWorker = Worker;
+        let stopSearch: (() => void) | undefined;
+        let started = false;
+        let canceled = false;
+        const workers: Worker[] = [];
+        globalThis.Worker = class extends NativeWorker {
+            constructor(url: string | URL, options?: Bun.WorkerOptions) {
+                // The real worker and search stay intact; only the regex entry is acknowledged before it blocks that thread.
+                super(url, { ...options, preload: [probe] });
+                workers.push(this);
+                this.addEventListener('message', (event) => {
+                    if ((event.data as { probe?: string }).probe === 'backtracking') {
+                        event.stopImmediatePropagation();
+                        started = true;
+                        stopSearch!();
+                    }
+                });
             }
-        });
-        expect(result).toEqual({ matches: [], files: 0, truncated: true });
+        };
+        try {
+            const result = await grepFiles(root, '^(a+)+$', {
+                regex: true,
+                budget: (stop) => {
+                    stopSearch = stop;
+                    return () => {
+                        canceled = true;
+                    };
+                }
+            });
+            expect(started).toBe(true);
+            expect(canceled).toBe(true);
+            expect(result).toEqual({ matches: [], files: 0, truncated: true });
+            expect((await grepFiles(root, 'seedling')).matches.map((match) => match.path)).toEqual(['src/unicode.ts']);
+        } finally {
+            for (const worker of workers) {
+                worker.terminate();
+            }
+            globalThis.Worker = NativeWorker;
+        }
     });
 
     test('never follows a link, to a file or to a folder', async () => {

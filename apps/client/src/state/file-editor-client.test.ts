@@ -28,6 +28,7 @@ interface EditorState {
     rev: number;
     viewId: string | null;
     dirty: boolean;
+    loading: boolean;
     error: unknown;
     conflict: unknown;
     viewCamera(): unknown;
@@ -120,6 +121,7 @@ class FakeTransport implements Transport {
     failOnSave = false;
     /* Requests of one kind for one view that wait until the test lets them through. */
     private readonly gates = new Map<string, Promise<void>>();
+    private readonly arrivals = new Map<string, (call: Call) => void>();
     private readonly eventHandlers = new Map<string, Set<(payload: unknown) => void>>();
     private readonly statusHandlers = new Set<(status: TransportStatus) => void>();
 
@@ -142,12 +144,20 @@ class FakeTransport implements Transport {
     }
 
     request<T extends RequestType>(type: T, payload: RequestMap[T]['payload']): Promise<RequestMap[T]['result']> {
-        this.calls.push({ type, payload });
-        const gate = this.gates.get(`${type.slice(this.channel.length + 1)}:${(payload as { viewId?: string }).viewId}`);
+        const call = { type, payload };
+        this.calls.push(call);
+        const key = `${type.slice(this.channel.length + 1)}:${(payload as { viewId?: string }).viewId}`;
+        this.arrivals.get(key)?.(call);
+        this.arrivals.delete(key);
+        const gate = this.gates.get(key);
         if (gate) {
             return gate.then(() => this.answer(type, payload));
         }
         return this.answer(type, payload);
+    }
+
+    next(action: 'open' | 'save' | 'close', viewId: string): Promise<Call> {
+        return new Promise((resolve) => this.arrivals.set(`${action}:${viewId}`, resolve));
     }
 
     private answer<T extends RequestType>(type: T, payload: RequestMap[T]['payload']): Promise<RequestMap[T]['result']> {
@@ -226,6 +236,8 @@ interface Harness<S> {
     /* The file the client has open, or the blank one when it closed the last one. */
     current(): S;
     editorOf(viewId: string): S;
+    loaded(viewId: string): Promise<void>;
+    holdProject(): { entered: Promise<void>; release(): void };
 }
 
 /*
@@ -238,6 +250,7 @@ function harnessFor<S extends EditorState>(kind: Kind<S>): Harness<S> {
     let transport: FakeTransport;
     let client: Client;
     let flushes = 0;
+    let projectGate: { entered: ReturnType<typeof Promise.withResolvers<void>>; done: ReturnType<typeof Promise.withResolvers<void>> } | null = null;
 
     beforeEach(() => {
         jest.useFakeTimers();
@@ -249,13 +262,15 @@ function harnessFor<S extends EditorState>(kind: Kind<S>): Harness<S> {
         });
         transport = new FakeTransport(kind.name, kind.document(5, 'a'));
         flushes = 0;
+        projectGate = null;
         client = kind.client(transport, stores, {
             saveDelayMs: 1,
             window: null,
             document: null,
             flushProject: () => {
                 flushes += 1;
-                return Promise.resolve();
+                projectGate?.entered.resolve();
+                return projectGate?.done.promise ?? Promise.resolve();
             }
         });
     });
@@ -278,7 +293,33 @@ function harnessFor<S extends EditorState>(kind: Kind<S>): Harness<S> {
             return flushes;
         },
         current: () => (registry.live()[0]?.[1] ?? registry.blank).getState(),
-        editorOf: (viewId) => (registry.peek(viewId) ?? registry.blank).getState()
+        editorOf: (viewId) => (registry.peek(viewId) ?? registry.blank).getState(),
+        loaded: (viewId) => {
+            const editor = registry.of(viewId);
+            const ready = (state: S): boolean => state.viewId === viewId && !state.loading;
+            if (ready(editor.getState())) {
+                return Promise.resolve();
+            }
+            return new Promise((resolve) => {
+                const off = editor.subscribe((state) => {
+                    if (ready(state)) {
+                        off();
+                        resolve();
+                    }
+                });
+            });
+        },
+        holdProject: () => {
+            const gate = { entered: Promise.withResolvers<void>(), done: Promise.withResolvers<void>() };
+            projectGate = gate;
+            return {
+                entered: gate.entered.promise,
+                release: () => {
+                    projectGate = null;
+                    gate.done.resolve();
+                }
+            };
+        }
     };
 }
 
@@ -292,7 +333,14 @@ function suite<S extends EditorState>(kind: Kind<S>): void {
         };
 
         test('coming up is opened, loaded and given the camera this machine remembers', async () => {
-            await open();
+            const gate = harness.holdProject();
+            const opened = harness.transport.next('open', 'view-1');
+            documents().getState().setActiveView('view-1');
+            await gate.entered;
+            expect(harness.transport.of('open')).toEqual([]);
+            gate.release();
+            await opened;
+            await harness.loaded('view-1');
             expect(harness.transport.of('open')[0]?.payload).toEqual({ projectId: 'p1', viewId: 'view-1' });
             // The project file is written first, or the daemon would not know the view yet.
             expect(harness.flushes).toBe(1);
@@ -503,12 +551,23 @@ function suite<S extends EditorState>(kind: Kind<S>): void {
             expect(kind.ids(harness.editorOf('view-1'))).toEqual(['a', 'b']);
 
             harness.transport.status = 'open';
-            await harness.client.resume();
-            await tick(20);
+            const release = harness.transport.hold('save', 'view-1');
+            const saving = harness.transport.next('save', 'view-1');
+            const closed = harness.transport.next('close', 'view-1');
+            const resumed = harness.client.resume();
+            await saving;
+            expect(harness.transport.of('close')).toEqual([]);
+            release();
+            await resumed;
+            await closed;
             const saves = harness.transport.of('save');
             expect(saves).toHaveLength(1);
             expect(kind.written((saves[0]!.payload as { content: unknown }).content)).toEqual(['a', 'b']);
             expect(harness.transport.viewIdsOf('close')).toEqual(['view-1']);
+            expect(harness.transport.calls.filter((call) => call.type.endsWith('.save') || call.type.endsWith('.close')).map((call) => call.type)).toEqual([
+                `${kind.name}.save`,
+                `${kind.name}.close`
+            ]);
             expect(harness.editorOf('view-1').viewId).toBeNull();
         });
 
@@ -724,9 +783,48 @@ function suite<S extends EditorState>(kind: Kind<S>): void {
 
         test('copying a view flushes both files first and asks the daemon for the copy', async () => {
             await open();
-            await harness.client.copy('view-1', 'view-2');
-            expect(harness.transport.of('copy')[0]?.payload).toEqual({ projectId: 'p1', from: 'view-1', to: 'view-2' });
+            const opened = harness.transport.next('open', 'view-2');
+            documents().getState().splitFocused('right', 'view-2');
+            await opened;
+            await harness.loaded('view-2');
+            kind.add(harness.editorOf('view-1'), 'source');
+            kind.add(harness.editorOf('view-2'), 'destination');
+            const releaseSource = harness.transport.hold('save', 'view-1');
+            const releaseDestination = harness.transport.hold('save', 'view-2');
+            const sourceSaving = harness.transport.next('save', 'view-1');
+            const destinationSaving = harness.transport.next('save', 'view-2');
+            const gate = harness.holdProject();
+            const copying = harness.client.copy('view-1', 'view-2');
+            await Promise.all([sourceSaving, destinationSaving]);
+            expect(harness.transport.of('copy')).toEqual([]);
+            const flushing = harness.client.flush();
+            expect(harness.transport.viewIdsOf('save')).toEqual(['view-1', 'view-2']);
+            const sourceSaved = new Promise<void>((resolve) => {
+                const off = kind
+                    .registry(harness.stores)
+                    .of('view-1')
+                    .subscribe((state) => {
+                        if (state.rev === 6) {
+                            off();
+                            resolve();
+                        }
+                    });
+            });
+            releaseSource();
+            await sourceSaved;
+            expect(harness.transport.of('copy')).toEqual([]);
             expect(harness.flushes).toBe(2);
+            releaseDestination();
+            await gate.entered;
+            expect(harness.transport.of('copy')).toEqual([]);
+            gate.release();
+            await Promise.all([copying, flushing]);
+            expect(harness.transport.of('copy')[0]?.payload).toEqual({ projectId: 'p1', from: 'view-1', to: 'view-2' });
+            expect(harness.flushes).toBe(3);
+            expect(harness.transport.of('save').map((call) => kind.written((call.payload as { content: unknown }).content))).toEqual([
+                ['a', 'source'],
+                ['a', 'destination']
+            ]);
         });
     });
 }

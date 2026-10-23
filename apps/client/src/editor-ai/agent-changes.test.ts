@@ -78,10 +78,20 @@ describe('the bars', () => {
         expect(editor.attributionMarks[0]!.color).toBe(colorOfChat('chat-a'));
     });
 
-    test('the same chat has the same color in every file and another chat may have another', () => {
-        expect(colorOfChat('chat-a')).toBe(colorOfChat('chat-a'));
-        const colors = new Set(Array.from({ length: 30 }, (_, index) => colorOfChat(`chat-${index}`)));
-        expect(colors.size).toBeGreaterThan(1);
+    test('the same chat has the same color in every file and another chat may have another', async () => {
+        const first = setup([run('first', 1, 2)]);
+        const second = setup([run('second', 4, 5)]);
+        try {
+            await Promise.all([first, second].map(({ changes }) => new Promise<void>((resolve) => changes.onDraw(() => resolve()))));
+            expect(first.editor.attributionMarks).toHaveLength(1);
+            expect(second.editor.attributionMarks).toHaveLength(1);
+            expect(first.editor.attributionMarks[0]!.color).toBe(second.editor.attributionMarks[0]!.color);
+            const colors = new Set(Array.from({ length: 30 }, (_, index) => colorOfChat(`chat-${index}`)));
+            expect(colors.size).toBeGreaterThan(1);
+        } finally {
+            first.changes.dispose();
+            second.changes.dispose();
+        }
     });
 
     test('unsaved edits are respected: lines move with the text and a line typed inside a run splits it', async () => {

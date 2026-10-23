@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, mkdtemp, readFile, readdir, readlink, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { trashPath } from './trash.ts';
@@ -69,6 +69,9 @@ describe('trashPath on macOS', () => {
 
         await trashPath(linked, 'darwin', home);
 
+        const trashed = join(home, '.Trash', 'link.txt');
+        expect((await lstat(trashed)).isSymbolicLink()).toBe(true);
+        expect(await readlink(trashed)).toBe(target);
         expect(await readFile(target, 'utf8')).toBe('t');
         expect(await stat(linked).catch(() => null)).toBeNull();
     });

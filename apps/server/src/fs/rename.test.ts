@@ -279,6 +279,10 @@ describe('fs.rename with overwrite', () => {
         await plan.run();
 
         expect(await readFile(join(project, 'src', 'b.ts'), 'utf8')).toBe('a');
+        expect(await exists(join(project, 'src', 'a.ts'))).toBe(false);
+        const holders = (await readdir(join(project, 'src'))).filter((name) => name.startsWith('.ruimte-overwrite-'));
+        expect(holders).toHaveLength(1);
+        expect(await readFile(join(project, 'src', holders[0]!, 'b.ts'), 'utf8')).toBe('b');
     });
 
     test('trashes nothing when the target is free', async () => {

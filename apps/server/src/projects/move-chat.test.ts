@@ -3,8 +3,8 @@ import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, readdir, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { claudeProjectSlug } from '@adecore/agents/chat';
-import { ManualClock } from '@adecore/agents/testing';
+import { ChatStore, claudeProjectSlug } from '@adecore/agents/chat';
+import { FakeWatch, ManualClock } from '@adecore/agents/testing';
 import { SnoozeStore } from '../push/snoozes.ts';
 import { moveOwnFiles } from './own-files.ts';
 import type { ChatMovePayload } from '@ruimte/contracts';
@@ -71,7 +71,7 @@ describe('moving a chat from Chats into a project', () => {
     beforeEach(async () => {
         root = await mkdtemp(join(tmpdir(), 'ruimte-move-chat-'));
         const home = join(root, 'home');
-        store = new ProjectStore(home, projectLinks());
+        store = new ProjectStore(home, projectLinks(), new FakeWatch());
         journal = new MoveJournal(home);
         daemon = await bootTestDaemon({ home, store, clock: new ManualClock() });
         const made = await newScratchChat(store, {});
@@ -334,10 +334,38 @@ describe('moving a chat from Chats into a project', () => {
     });
 
     test('a fork nobody wrote in keeps its record and its conversation', async () => {
-        await daemon.lineage.put({ projectId: chatsId, nodeId: chatId, openedBy: 'chat-original', depth: 0, agent: true, relation: 'fork' });
-        await moveChat({ chatId, to: make('vinyl'), ownFiles: 'move' }, deps());
+        const forkId = (await newScratchChat(store, {})).viewId;
+        const forkFolder = join(store.scratchFolder, forkId);
+        const original = daemon.chats.get(chatId)!;
+        const items = original.thread.list();
+        const turn = items.findLast((item) => item.kind === 'turn')!;
+        const forkSession = 'unspoken-fork-session';
+        await daemon.chats.writeRecord(
+            forkId,
+            {
+                ...original.info,
+                chatId: forkId,
+                cwd: forkFolder,
+                agentSessionId: forkSession,
+                forkOf: { chatId, turnId: turn.id, at: 1_800_000_000_000 }
+            },
+            items
+        );
+        const transcript = join(daemon.chats.claudeProjectsDir, claudeProjectSlug(forkFolder), `${forkSession}.jsonl`);
+        await mkdir(join(daemon.chats.claudeProjectsDir, claudeProjectSlug(forkFolder)), { recursive: true });
+        await writeFile(transcript, 'inherited conversation\n');
+        await daemon.lineage.put({ projectId: chatsId, nodeId: forkId, openedBy: chatId, depth: 0, agent: true, relation: 'fork' });
+        expect(daemon.chats.get(forkId)).toBeUndefined();
+        expect((await new ChatStore(store.home).read(forkId))!.items.filter((item) => item.kind === 'turn').map((item) => item.id)).toEqual([turn.id]);
+        const result = await moveChat({ chatId: forkId, to: make('vinyl'), ownFiles: 'move' }, deps());
         await daemon.pruned();
-        expect(await daemon.chats.hasStored(chatId)).toBe(true);
+        expect(await daemon.chats.hasStored(forkId)).toBe(true);
+        expect(daemon.lineage.forkedFrom(forkId)).toBe(chatId);
+        expect(daemon.lineage.projectOf(forkId)).toBe(result.summary.projectId);
+        expect((await new ChatStore(store.home).read(forkId))!.items.filter((item) => item.kind === 'turn').map((item) => item.id)).toEqual([turn.id]);
+        expect(
+            await readFile(join(daemon.chats.claudeProjectsDir, claudeProjectSlug(await realpath(join(root, 'vinyl'))), `${forkSession}.jsonl`), 'utf8')
+        ).toBe('inherited conversation\n');
     });
 
     test('a Codex chat has no conversation file to move', async () => {
@@ -451,23 +479,32 @@ describe('moving a chat from Chats into a project', () => {
         });
     });
 
-    test('the node fields a newer Ruimte keeps one person go along, and stay in Chats while another node needs them', async () => {
-        const privateFile = join(store.scratchFolder, '.ruimte', 'private', 'project.json');
-        const file = JSON.parse(await readFile(privateFile, 'utf8')) as {
-            views: Array<{ id: string; node: Record<string, unknown> }>;
-            overlayFields?: string[];
-        };
-        file.overlayFields = ['pinnedAt'];
-        file.views = file.views.map((view) => (view.id === chatId ? { ...view, node: { ...view.node, pinnedAt: 7 } } : view));
-        await writeFile(privateFile, JSON.stringify(file));
-        const result = await moveChat({ chatId, to: make('vinyl'), ownFiles: 'leave' }, deps());
+    for (const another of [false, true]) {
+        test(`the node fields a newer Ruimte keeps one person go along ${another ? 'and stay in Chats while another node needs them' : 'and leave Chats when unused'}`, async () => {
+            const second = another ? (await newScratchChat(store, {})).viewId : null;
+            const privateFile = join(store.scratchFolder, '.ruimte', 'private', 'project.json');
+            const file = JSON.parse(await readFile(privateFile, 'utf8')) as {
+                views: Array<{ id: string; node: Record<string, unknown> }>;
+                overlayFields?: string[];
+            };
+            file.overlayFields = ['pinnedAt'];
+            file.views = file.views.map((view) =>
+                view.id === chatId || view.id === second ? { ...view, node: { ...view.node, pinnedAt: view.id === chatId ? 7 : 9 } } : view
+            );
+            await writeFile(privateFile, JSON.stringify(file));
+            const result = await moveChat({ chatId, to: make('vinyl'), ownFiles: 'leave' }, deps());
 
-        const target = await privateFileOnDisk(join(root, 'vinyl'));
-        expect(target.overlayFields).toEqual(['pinnedAt']);
-        expect(target.views.find((view) => view.id === chatId)).toMatchObject({ node: { pinnedAt: 7 } });
-        expect((await privateFileOnDisk(store.scratchFolder)).overlayFields ?? []).toEqual([]);
-        expect(result.viewId).toBe(chatId);
-    });
+            const target = await privateFileOnDisk(join(root, 'vinyl'));
+            expect(target.overlayFields).toEqual(['pinnedAt']);
+            expect(target.views.find((view) => view.id === chatId)).toMatchObject({ node: { pinnedAt: 7 } });
+            const remaining = await privateFileOnDisk(store.scratchFolder);
+            expect(remaining.overlayFields ?? []).toEqual(another ? ['pinnedAt'] : []);
+            if (another) {
+                expect(remaining.views.find((view) => view.id === second)).toMatchObject({ node: { pinnedAt: 9 } });
+            }
+            expect(result.viewId).toBe(chatId);
+        });
+    }
 
     test("the person's flag on the chat moves with it", async () => {
         await store.mutate(chatsId, (content) => ({ content: { ...content, flags: { [chatId]: 'red' } }, result: undefined }));
@@ -512,7 +549,7 @@ describe('moving a chat from Chats into a project', () => {
             expect(daemon.chats.get(chatId)!.info.cwd).toBe(join(root, 'vinyl'));
         });
 
-        test('the move is told as done once the chat is in its project, also when saving its folder failed after', async () => {
+        test('a successful move is told as done once the chat is in its project', async () => {
             const told: string[] = [];
             await moveChat(
                 { chatId, to: make('vinyl'), ownFiles: 'move' },

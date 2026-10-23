@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import i18next from 'i18next';
 import type { IceServer } from '@ruimte/pulsar';
 import type { LinkEvents, LinkOpener } from './link-transport';
-import { LAN_HEAD_START_MS, LAN_SKIP_MS, LanSkips, lanDoorUrls, raceSignaling, routedLink, type RaceClock } from './route-race';
+import { LAN_HEAD_START_MS, LanSkips, lanDoorUrls, raceSignaling, routedLink, type RaceClock } from './route-race';
 import type { Signal, SignalingEvents, SignalingOpener } from './signaling';
 import type { SignalRoute } from './transport';
 
@@ -215,10 +215,10 @@ describe('routedLink', () => {
         const skips = new LanSkips(() => now);
         const [door, broker] = [fakeRoute(), fakeRoute()];
         const { clock } = fakeClock();
-        const attempt = () => {
+        const attempt = (machineId = 'studio') => {
             const link = fakeLink();
             const { log, events } = linkEvents();
-            routedLink({ machineId: 'studio', lan: [door.opener], broker: broker.opener, skips, link: link.opener, clock })('wss://b', events);
+            routedLink({ machineId, lan: [door.opener], broker: broker.opener, skips, link: link.opener, clock })('wss://b', events);
             return { link, log };
         };
 
@@ -235,9 +235,15 @@ describe('routedLink', () => {
         second.link.events!.open();
         expect(second.log.opened).toEqual(['broker']);
 
-        now += LAN_SKIP_MS;
+        now = 299_999;
         attempt();
+        expect(door.opened).toBe(1);
+        expect(broker.opened).toBe(2);
+        attempt('other-machine');
         expect(door.opened).toBe(2);
+        now = 300_000;
+        attempt();
+        expect(door.opened).toBe(3);
     });
 
     test('a link that opened over a door, or one closed by a person, skips nothing', () => {

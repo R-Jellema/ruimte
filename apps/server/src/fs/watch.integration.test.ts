@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { FsChangedEvent } from '@ruimte/contracts';
-import { supportsRecursive } from '@adecore/agents';
+import { supportsRecursive, type DirectoryWatcher } from '@adecore/agents';
 import { SharedWatch } from './shared-watch.ts';
 import { FolderWatcher } from './watch.ts';
 
@@ -60,21 +60,26 @@ test(
     async () => {
         const shared = new SharedWatch({ forget: () => undefined });
         const outer = new FolderWatcher(process.platform, shared);
-        outer.subscribe('client-2', () => undefined);
-        await outer.watch('client-2', root);
-        const names: Array<string | null> = [];
-        // Where a tree is one watcher this rides on the outer one, so it has no stream of its own to wait for.
-        const inner = shared.watch(join(root, 'src'), { recursive: supportsRecursive(process.platform) }, (_event, filename) => names.push(filename));
-        await writeFile(join(root, 'src', 'b.ts'), 'two');
-        const deadline = Date.now() + DEADLINE_MS;
-        while (!names.includes('b.ts')) {
-            if (Date.now() > deadline) {
-                throw new Error('No change naming b.ts arrived');
+        let inner: DirectoryWatcher | undefined;
+        const unsubscribe = outer.subscribe('client-2', () => undefined);
+        try {
+            await outer.watch('client-2', root);
+            const names: Array<string | null> = [];
+            // Where a tree is one watcher this rides on the outer one, so it has no stream of its own to wait for.
+            inner = shared.watch(join(root, 'src'), { recursive: supportsRecursive(process.platform) }, (_event, filename) => names.push(filename));
+            await writeFile(join(root, 'src', 'b.ts'), 'two');
+            const deadline = Date.now() + DEADLINE_MS;
+            while (!names.includes('b.ts')) {
+                if (Date.now() > deadline) {
+                    throw new Error('No change naming b.ts arrived');
+                }
+                await Bun.sleep(25);
             }
-            await Bun.sleep(25);
+        } finally {
+            inner?.close();
+            outer.detachAll('client-2');
+            unsubscribe();
         }
-        inner.close();
-        outer.detachAll('client-2');
     },
     DEADLINE_MS + 5_000
 );

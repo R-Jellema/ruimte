@@ -52,7 +52,13 @@ describe('a project without a layout on disk', () => {
 
     test('the layout it writes back is the one on screen', () => {
         useDocument.getState().splitFocused('right', 'b');
-        expect(useDocument.getState().exportLocal().layout?.columns).toHaveLength(2);
+        expect(useDocument.getState().exportLocal().layout).toEqual({
+            columns: [
+                { size: 0.5, cells: [{ viewId: 'a', size: 1 }] },
+                { size: 0.5, cells: [{ viewId: 'b', size: 1 }] }
+            ],
+            focus: { column: 1, cell: 0 }
+        });
     });
 });
 
@@ -113,7 +119,7 @@ describe('splitting', () => {
         expect(saved.texts).toHaveLength(1);
     });
 
-    test('the grid stops at three columns and at three cells in one column', () => {
+    test('the grid stops at three columns', () => {
         useDocument.getState().splitFocused('right', 'b');
         useDocument.getState().splitFocused('right', 'c');
         useDocument.getState().splitFocused('right', 'd');
@@ -172,6 +178,10 @@ describe('closing a cell', () => {
         expect(shape()).toEqual([['a']]);
         expect(openEditors()).toEqual(['a']);
         expect(useDocument.getState().activeViewId).toBe('a');
+        expect(useDocument.getState().layout).toEqual({
+            columns: [{ size: 1, cells: [{ viewId: 'a', size: 1 }] }],
+            focus: { column: 0, cell: 0 }
+        });
     });
 
     test('the last cell closes without removing its view from the project', () => {
@@ -434,7 +444,7 @@ describe('a local file with the files cell of an older release', () => {
         expect(useDocument.getState().layout!.columns[0]!.cells[0]!.tabs).toEqual(['/p/a.ts']);
     });
 
-    test('without the cell leaves the strip unplaced, which the pool drops', () => {
+    test('without the cell leaves the strip unplaced in the layout', () => {
         load({ columns: [{ size: 1, cells: [{ viewId: 'a', size: 1 }] }], focus: { column: 0, cell: 0 } }, 'a', { keys: ['/p/a.ts'], active: '/p/a.ts' });
         expect(shape()).toEqual([['a']]);
     });
