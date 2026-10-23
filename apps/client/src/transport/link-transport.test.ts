@@ -401,7 +401,7 @@ describe('LinkTransport', () => {
     });
 
     describe('request timeout', () => {
-        async function opened() {
+        async function opened(report?: (problem: LinkProblem) => void) {
             const links: FakeLink[] = [];
             const transport = new LinkTransport(
                 'ws://machine/ws',
@@ -410,7 +410,7 @@ describe('LinkTransport', () => {
                     links.push(link);
                     return link;
                 },
-                { requestTimeoutMs: 50 }
+                { requestTimeoutMs: 50, report }
             );
             await tick();
             open(links[0]!);
@@ -434,11 +434,17 @@ describe('LinkTransport', () => {
         });
 
         test('a reply in time settles the request and no timeout follows it', async () => {
-            const { transport, link } = await opened();
-            const reply = transport.request('session.list', {});
-            link.events.message(JSON.stringify({ id: idOf(link, 0), ok: true, result: { sessions: [] } }));
-            expect(await reply).toEqual({ sessions: [] });
-            await tick(60);
+            const problems: LinkProblem[] = [];
+            const { transport, link } = await opened((problem) => problems.push(problem));
+            try {
+                const reply = transport.request('session.list', {});
+                link.events.message(JSON.stringify({ id: idOf(link, 0), ok: true, result: { sessions: [] } }));
+                expect(await reply).toEqual({ sessions: [] });
+                await tick(60);
+                expect(problems).toEqual([]);
+            } finally {
+                transport.dispose();
+            }
         });
 
         test('a long request waits past the timeout for its answer', async () => {

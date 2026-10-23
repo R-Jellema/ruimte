@@ -329,20 +329,31 @@ describe('webRtcLink', () => {
     });
 
     test('closing an open link takes the peer down only after the channel closed, or after the grace', async () => {
-        const { peer, link, log } = await negotiated();
-        peer.channel.deliver(CHALLENGE);
-        await tick();
-        peer.channel.deliver({ type: 'direct.accepted', ticket: null, expiresIn: 1000 });
-        await tick();
-        peer.channel.silent = true;
-        link.close();
-        expect(log.closes).toEqual([null]);
-        expect(peer.channel.closed).toBe(true);
-        // The machine hears the close through the channel's stream reset, which a peer closed first can cut off.
-        expect(peer.closed).toBe(false);
-        peer.channel.readyState = 'closed';
-        peer.channel.onclose?.();
-        expect(peer.closed).toBe(true);
+        for (const acknowledged of [true, false]) {
+            const { peer, link, log } = await negotiated();
+            peer.channel.deliver(CHALLENGE);
+            await tick();
+            peer.channel.deliver({ type: 'direct.accepted', ticket: null, expiresIn: 1000 });
+            await tick();
+            peer.channel.silent = true;
+            link.close();
+            expect(log.closes).toEqual([null]);
+            expect(peer.channel.closed).toBe(true);
+            // The machine hears the stream reset before the peer is torn down.
+            expect(peer.closed).toBe(false);
+            if (acknowledged) {
+                peer.channel.readyState = 'closed';
+                peer.channel.onclose?.();
+            } else {
+                jest.advanceTimersByTime(1999);
+                await tick();
+                expect(peer.closed).toBe(false);
+                jest.advanceTimersByTime(1);
+                await tick();
+            }
+            expect(peer.closed).toBe(true);
+            expect(log.closes).toEqual([null]);
+        }
     });
 
     test('nothing the client sends travels before the daemon let it in', async () => {

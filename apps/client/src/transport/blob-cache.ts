@@ -61,8 +61,7 @@ export class BlobCache {
         return this.leaseOf(entry);
     }
 
-    /* Bytes of the blobs nobody holds a lease on; for tests. */
-    idleBytes(): number {
+    private idleBytes(): number {
         let total = 0;
         for (const entry of this.entries.values()) {
             if (entry.users === 0 && entry.blob) {
@@ -70,10 +69,6 @@ export class BlobCache {
             }
         }
         return total;
-    }
-
-    has(key: string): boolean {
-        return this.entries.has(key);
     }
 
     private leaseOf(entry: Entry): BlobLease {

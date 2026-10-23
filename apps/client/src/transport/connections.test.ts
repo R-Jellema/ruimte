@@ -4,6 +4,7 @@ import { useChats } from '@adecore/agents-react/state';
 import { switchRun, type SwitchDeps } from '@/project/open';
 import { ProjectClient } from '@/project/project-client';
 import { ProjectSwitch } from '@/project/project-switch';
+import { noteDaemonIdentity } from '@/endpoint/identity';
 import { chatWorking, sessionWorking } from '@/state/agent-work';
 import { LOCAL_ENDPOINT_ID, useEndpoints, type Endpoint } from '@/state/endpoints';
 import { useProject } from '@/state/project';
@@ -12,7 +13,7 @@ import { endpointKey } from '@/state/keys';
 import { useSessions } from '@/state/sessions';
 import { defaultWorkspaceStores } from '@/state/workspace';
 import { machineTransport, pool } from '@/transport';
-import { dropMachine, enterWorkspace, leaveWorkspace, machineFor, showStart } from './connections';
+import { dropMachine, enterWorkspace, leaveWorkspace, machineFor, showStart, startConnections } from './connections';
 
 // Past the pool's idle countdown, which is what closes a socket nobody holds.
 const PAST_IDLE_MS = 31_000;
@@ -70,14 +71,18 @@ function answer(refuse: { open: boolean }) {
 }
 
 /* Counts what is subscribed and not yet let go of, by wrapping the method that hands out the unsubscribe. */
-function countLive<T extends object, K extends keyof T>(target: T, method: K): { live: () => number; restore: () => void } {
+function countLive<T extends object, K extends keyof T>(target: T, method: K) {
     let live = 0;
+    let taken = 0;
+    let releases = 0;
     const original = (target[method] as (...args: unknown[]) => () => void).bind(target);
     const spy = spyOn(target, method).mockImplementation(((...args: unknown[]) => {
         const off = original(...args);
         live += 1;
+        taken += 1;
         let released = false;
         return () => {
+            releases += 1;
             if (!released) {
                 released = true;
                 live -= 1;
@@ -85,22 +90,24 @@ function countLive<T extends object, K extends keyof T>(target: T, method: K): {
             off();
         };
     }) as never);
-    return { live: () => live, restore: () => spy.mockRestore() };
+    return { live: () => live, calls: () => ({ taken, releases }), restore: () => spy.mockRestore() };
 }
 
 describe('a workspace and the link of its machine', () => {
     const refuse = { open: false };
+    let restoreRequest: () => void;
 
     beforeEach(() => {
         jest.useFakeTimers();
         refuse.open = false;
         useEndpoints.getState().add(other);
-        spyOn(machineTransport(other.id), 'request').mockImplementation(answer(refuse) as never);
+        const request = spyOn(machineTransport(other.id), 'request').mockImplementation(answer(refuse) as never);
+        restoreRequest = () => request.mockRestore();
     });
 
     afterEach(() => {
         showStart();
-        (machineTransport(other.id).request as unknown as { mockRestore(): void }).mockRestore();
+        restoreRequest();
         // The session and chat clients the workspace built stay registered until the machine is dropped, and would outlive this file.
         dropMachine(other.id);
         pool.drop(other.id);
@@ -109,7 +116,7 @@ describe('a workspace and the link of its machine', () => {
         jest.useRealTimers();
     });
 
-    test('a project that opens is on screen, and its machine stays connected while it is', async () => {
+    test('a project keeps its machine connected until a workspace on another machine replaces it', async () => {
         await enterWorkspace(other.id, { projectId: project.projectId });
         expect(windowWorkspace()?.connection.endpointId).toBe(other.id);
         expect(useProject.getState().current?.projectId).toBe(project.projectId);
@@ -119,6 +126,29 @@ describe('a workspace and the link of its machine', () => {
 
         jest.advanceTimersByTime(PAST_IDLE_MS);
         expect(pool.peek(other.id)).toBe(link);
+
+        const next = { ...other, id: 'workspace-next' };
+        useEndpoints.getState().add(next);
+        const request = spyOn(machineTransport(next.id), 'request').mockImplementation(answer(refuse) as never);
+        try {
+            await enterWorkspace(next.id, { projectId: project.projectId });
+            expect(windowWorkspace()?.connection.endpointId).toBe(next.id);
+            expect(useProject.getState().currentEndpointId).toBe(next.id);
+            const nextLink = pool.peek(next.id);
+            expect(nextLink).not.toBeNull();
+            expect(nextLink).not.toBe(link);
+            jest.advanceTimersByTime(29_999);
+            expect(pool.peek(other.id)).toBe(link);
+            jest.advanceTimersByTime(1);
+            expect(pool.peek(other.id)).toBeNull();
+            expect(pool.peek(next.id)).toBe(nextLink);
+        } finally {
+            showStart();
+            request.mockRestore();
+            dropMachine(next.id);
+            pool.drop(next.id);
+            useEndpoints.getState().remove(next.id);
+        }
     });
 
     test('the start screen lets go of the machine after the grace period and empties the stores', async () => {
@@ -127,8 +157,59 @@ describe('a workspace and the link of its machine', () => {
         expect(useWindow.getState().content.kind).toBe('start');
         expect(useProject.getState().current).toBeNull();
         expect(pool.peek(other.id)).not.toBeNull();
-        jest.advanceTimersByTime(PAST_IDLE_MS);
+        jest.advanceTimersByTime(29_999);
+        expect(pool.peek(other.id)).not.toBeNull();
+        jest.advanceTimersByTime(1);
         expect(pool.peek(other.id)).toBeNull();
+    });
+
+    test('a workspace whose machine learns its identity keeps and releases the original hold once', async () => {
+        const stop = startConnections();
+        const holds = countLive(pool, 'hold');
+        const renamedId = 'workspace-daemon';
+        try {
+            await enterWorkspace(other.id, { projectId: project.projectId });
+            const before = windowWorkspace()!.connection;
+            const link = pool.peek(other.id);
+            expect(link).not.toBeNull();
+            expect(holds.calls()).toEqual({ taken: 1, releases: 0 });
+
+            expect(
+                noteDaemonIdentity(other.id, {
+                    id: renamedId,
+                    label: other.label,
+                    platform: 'linux',
+                    version: '0.0.0',
+                    reachability: 'lan',
+                    authenticated: true
+                })
+            ).toBe(renamedId);
+            const renamed = windowWorkspace()!.connection;
+            expect(renamed).not.toBe(before);
+            expect(renamed.endpointId).toBe(renamedId);
+            expect(renamed.transport).toBe(before.transport);
+            expect(renamed.projects).toBe(before.projects);
+            expect(pool.peek(other.id)).toBeNull();
+            expect(pool.peek(renamedId)).toBe(link);
+            jest.advanceTimersByTime(PAST_IDLE_MS);
+            expect(pool.peek(renamedId)).toBe(link);
+            expect(holds.calls()).toEqual({ taken: 1, releases: 0 });
+
+            showStart();
+            showStart();
+            expect(holds.calls()).toEqual({ taken: 1, releases: 1 });
+            jest.advanceTimersByTime(29_999);
+            expect(pool.peek(renamedId)).toBe(link);
+            jest.advanceTimersByTime(1);
+            expect(pool.peek(renamedId)).toBeNull();
+        } finally {
+            showStart();
+            holds.restore();
+            stop();
+            dropMachine(renamedId);
+            pool.drop(renamedId);
+            useEndpoints.getState().remove(renamedId);
+        }
     });
 
     test('a project that does not open leaves the window as it was and holds nothing', async () => {
@@ -321,13 +402,18 @@ describe('a workspace and the link of its machine', () => {
             await enterWorkspace(other.id, { projectId: project.projectId });
             const open = counts();
             expect(open.every((count, at) => count > before[at]!)).toBe(true);
+            expect(holds.calls()).toEqual({ taken: 1, releases: 0 });
             for (let i = 0; i < 20; i += 1) {
+                showStart();
                 showStart();
                 await enterWorkspace(other.id, { projectId: project.projectId });
             }
             expect(counts()).toEqual(open);
+            expect(holds.calls()).toEqual({ taken: 21, releases: 20 });
+            showStart();
             showStart();
             expect(counts()).toEqual(before);
+            expect(holds.calls()).toEqual({ taken: 21, releases: 21 });
         } finally {
             for (const counter of [events, statuses, holds, documents, projects, canvases]) {
                 counter.restore();

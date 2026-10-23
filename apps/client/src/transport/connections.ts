@@ -34,7 +34,6 @@ import { useOptionalConnection } from '@/transport/context';
 import { machineAnswers } from '@/transport/features';
 import { reportPresence } from '@/transport/presence';
 import type { Transport } from '@/transport/transport';
-import { LinkHold } from '@/transport/workspace-hold';
 import { workspaceOpening } from '@/telemetry/workspace-load';
 
 /*
@@ -81,7 +80,7 @@ export type OpenRequest = { projectId: string } | { folder: string; createFolder
 const stores = defaultWorkspaceStores;
 const machines = new Map<string, Machine>();
 /* The hold each workspace connection keeps on its machine's link for as long as it lives. */
-const connectionHolds = new WeakMap<Connection, LinkHold>();
+const connectionHolds = new WeakMap<Connection, () => void>();
 /* The copy of its remote nodes each workspace keeps on the machines they run on, for as long as the connection lives. */
 const connectionMirrors = new WeakMap<Connection, RemoteMirror>();
 /* Connections whose clients are gone; the window may still show one while a switch replaces it. */
@@ -287,9 +286,7 @@ function connect(endpoint: Endpoint, onLoad: (connection: Connection, summary: P
         drawings,
         diagrams
     };
-    const hold = new LinkHold((row) => pool.hold(row));
-    hold.set(endpoint);
-    connectionHolds.set(connection, hold);
+    connectionHolds.set(connection, pool.hold(endpoint));
     connectionMirrors.set(connection, mirror);
     mirror.start();
     return connection;
@@ -304,7 +301,7 @@ function dropClients(connection: Connection): boolean {
         return false;
     }
     disposed.add(connection);
-    connectionHolds.get(connection)?.set(null);
+    connectionHolds.get(connection)?.();
     connectionHolds.delete(connection);
     connectionMirrors.get(connection)?.dispose();
     connectionMirrors.delete(connection);
