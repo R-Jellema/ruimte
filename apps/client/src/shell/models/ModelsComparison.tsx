@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import type { ModelBenchmarksResult } from '@ruimte/pulsar';
 import { Button, Checkbox, EmptyState, IconButton, Segmented, Tabs, Tooltip } from '@adecore/ui';
 import { formatNumber, useFormatLocale } from '@adecore/ui/format';
-import { chartModels, modelMarks, type CostScale } from './chart';
+import { chartLabs, chartModels, modelMarks, type CostScale } from './chart';
 import {
     barAxis,
     comparisonModels,
@@ -29,7 +29,8 @@ export function ModelsComparison({ result }: { result: ModelBenchmarksResult }) 
     const { t } = useTranslation('models');
     useFormatLocale();
     const sidebarId = useId();
-    const models = chartModels(result.models, result.measurements);
+    const models = chartModels(result.models, result.labs ?? [], result.measurements);
+    const labs = chartLabs(result.labs ?? [], models);
     const marks = modelMarks(models);
     const [selection, dispatch] = useReducer(reduceComparison.bind(null, models), undefined, initialSelection);
     const [view, setView] = useState<ModelView>('comparison');
@@ -226,6 +227,7 @@ export function ModelsComparison({ result }: { result: ModelBenchmarksResult }) 
                     )}
                 >
                     <ModelsLegend
+                        labs={labs}
                         models={listed}
                         marks={marks}
                         hidden={selection.hiddenModels}

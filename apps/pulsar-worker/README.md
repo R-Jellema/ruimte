@@ -287,7 +287,9 @@ never inferred, and a failed, malformed, truncated or mixed-version fetch keeps 
 the key the route answers `503` with `not-configured`, and before the first refresh with `no-benchmarks`.
 
 Which Artificial Analysis model stands for which Ruimte model and effort is `src/benchmark-models.ts`, so a new
-model is a row there and a deploy of this Worker, not a release of the app.
+model is a row there and a deploy of this Worker, not a release of the app. The labs the chart groups models
+by (name, mark as one SVG path, a color per model and theme) are `BENCHMARK_LABS` beside them and go out with
+every answer, so a new lab is a deploy too. A client draws only the models whose lab is in that list.
 
 ### Refresh after deployment
 
