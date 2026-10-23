@@ -9,7 +9,7 @@ import Synchronization
 enum CrashReports {
     // A DSN only lets a client send, so it is no secret.
     private static let dsn =
-        "https://9bc580fefcb648fbaacfc83ff0a41a79@o4512264930983936.ingest.de.sentry.io/4512264962637904"
+        "https://48ef3786734e40099009e3cf2bf9ffae@ingest.bmnw.nl/6"
     /// The tags a report may carry; every other one is dropped.
     static let tags: Set<String> = ["surface", "problem", "machine", "link", "request", "mismatch"]
     /// What a report keeps of each context, as `scrub.ts` does.

@@ -401,8 +401,9 @@ machines and the projects this phone knows with their folders, anything that loo
 e-mail and IP addresses, URL paths, SQL, other paths and quoted text. The same error goes out once a day at most
 (`ruimte.telemetry.sent` in the app's defaults). The release is `ruimte-ios@<version>+<build>`.
 
-`ci_scripts/ci_post_xcodebuild.sh` uploads the archive's dSYMs with `sentry-cli` when the workflow has a
-`SENTRY_AUTH_TOKEN` secret, and never fails the build. Without the secret a crash arrives with addresses only.
+Reports go to Observatory (`ingest.bmnw.nl`). `ci_scripts/ci_post_xcodebuild.sh` uploads the archive's dSYMs there
+when the workflow has an `OBSERVATORY_UPLOAD_TOKEN` secret, and never fails the build. Without the secret a crash
+arrives with addresses only.
 
 ## Device acceptance
 
