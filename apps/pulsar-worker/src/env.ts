@@ -5,6 +5,9 @@ export interface Env {
     // The Analytics Engine dataset of anonymous usage, and the per-minute limit per address in front of it.
     USAGE?: UsageDeps['dataset'];
     USAGE_LIMIT?: UsageDeps['burst'];
+    // Where every accepted batch goes on to (`usageRelay`), and the upload token of Ruimte's product there. Never logged.
+    OBSERVATORY_USAGE_URL?: string;
+    OBSERVATORY_UPLOAD_TOKEN?: string;
     APNS_SANDBOX_KEY?: string;
     APNS_SANDBOX_KEY_ID?: string;
     APNS_PRODUCTION_KEY?: string;

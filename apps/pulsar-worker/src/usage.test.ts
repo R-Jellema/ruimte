@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import type { Database } from 'bun:sqlite';
-import type { UsageDataPoint, UsageDay } from '@ruimte/pulsar';
+import type { UsageBatch, UsageDataPoint, UsageDay } from '@ruimte/pulsar';
 import { d1, migratedDatabase } from './test/sqlite-d1.ts';
-import { USAGE_BATCHES_PER_IP_PER_DAY, acceptUsage, rateLimitCleanup, type UsageDeps } from './usage.ts';
+import { USAGE_BATCHES_PER_IP_PER_DAY, acceptUsage, rateLimitCleanup, usageRelay, type UsageDeps } from './usage.ts';
 
 const NOW = Date.parse('2026-10-16T09:30:00Z');
 const IP = '192.0.2.7';
@@ -95,9 +95,59 @@ describe('a usage batch', () => {
         expect(buckets[0]!.bucket).not.toContain(IP);
     });
 
-    test('is not taken while no dataset is bound', async () => {
+    test('is not taken while no dataset is bound and no relay is configured', async () => {
         const response = await acceptUsage(post({ days: [day()] }), { ...deps, dataset: undefined });
         expect(response.status).toBe(503);
+    });
+});
+
+describe('the relay to Observatory', () => {
+    let relayed: UsageBatch[];
+
+    beforeEach(() => {
+        relayed = [];
+        deps = { ...deps, relay: (batch) => relayed.push(batch) };
+    });
+
+    test('gets an accepted batch whole, days outside the window included', async () => {
+        const days = [day(), day({ date: '2026-10-07' })];
+        expect((await acceptUsage(post({ days }), deps)).status).toBe(204);
+        expect(relayed).toEqual([{ days }]);
+    });
+
+    test('gets nothing the address book refused', async () => {
+        await acceptUsage(post({ days: [day()], machineId: 'abc' }), deps);
+        burstAllows = false;
+        await acceptUsage(post({ days: [day()] }), deps);
+        expect(relayed).toEqual([]);
+    });
+
+    test('takes a batch on its own while no dataset is bound', async () => {
+        const response = await acceptUsage(post({ days: [day()] }), { ...deps, dataset: undefined });
+        expect(response.status).toBe(204);
+        expect(relayed).toHaveLength(1);
+    });
+
+    test('posts with the upload token after the answer, and a failure leaves the answer alone', async () => {
+        const sent: Request[] = [];
+        const pending: Promise<unknown>[] = [];
+        const send = async (url: string, init: RequestInit): Promise<Response> => {
+            sent.push(new Request(url, init));
+            throw new Error('down');
+        };
+        const relay = usageRelay(
+            { url: 'https://ingest.test/api/3/usage/?sentry_key=key', token: 'obs_token' },
+            (promise) => pending.push(promise),
+            send as typeof fetch
+        );
+        const response = await acceptUsage(post({ days: [day()] }), { ...deps, relay });
+        expect(response.status).toBe(204);
+        expect(pending).toHaveLength(1);
+        await Promise.all(pending);
+        expect(sent).toHaveLength(1);
+        expect(sent[0]!.url).toBe('https://ingest.test/api/3/usage/?sentry_key=key');
+        expect(sent[0]!.headers.get('authorization')).toBe('Bearer obs_token');
+        expect(await sent[0]!.json()).toEqual({ days: [day()] });
     });
 });
 

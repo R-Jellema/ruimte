@@ -160,6 +160,16 @@ Which view kind, chat provider and `ruimte-context` verb feeds which counter is 
 Analytics Engine keeps three months. The stats worker (`apps/stats-worker`) rolls the days up into `usage_daily` in this
 D1 database every night, and reads both.
 
+### Observatory
+
+Every batch the address book accepts also goes, whole and after the answer (`ctx.waitUntil`), to Observatory's usage
+ingest of the daemon app (`OBSERVATORY_USAGE_URL` in `wrangler.jsonc`, `usageRelay` in `src/usage.ts`). Observatory
+keeps to the same window and schema. The request carries the product's upload token (`OBSERVATORY_UPLOAD_TOKEN`), which
+tells Observatory that the address book limits per address itself, so its own limit per address, which would see only
+Cloudflare's, is skipped. The address is not passed on. A relay that fails is logged by its status only and never
+changes the machine's answer. Without the URL or the token nothing is relayed. Installed daemons keep sending here, so
+`/v1/usage` stays as long as they do.
+
 ## Local dev
 
 ```sh
@@ -244,6 +254,7 @@ the answers of `/v1/*`.
 | `APPLE_CLIENT_ID` | The Services ID, `app.ruimte.pulsar` |
 | `ARTIFICIAL_ANALYSIS_API_KEY` | The key of the free Data API of Artificial Analysis |
 | `MAP_TICKET_SECRET` | At least 32 random bytes in base64url (`openssl rand -base64 32 \| tr '+/' '-_' \| tr -d '='`) that sign map tickets; the maps service holds the same value to check them. A shorter or malformed value answers `not-configured` |
+| `OBSERVATORY_UPLOAD_TOKEN` | Optional, an upload token of Ruimte's product in Observatory; without it no usage is relayed |
 | `APPLE_DOMAIN_ASSOCIATION` | Optional, the domain verification file Apple hands out |
 | `DEVICE_LINK_PAGE_URL` | Optional, the device link page when it is not the station's |
 | `APNS_*` | The APNs keys per environment, see [`APNS.md`](APNS.md) |
@@ -258,6 +269,7 @@ bunx wrangler secret put APPLE_CLIENT_ID
 bunx wrangler secret put APPLE_PRIVATE_KEY < ~/.private/AuthKey_XXXXXXXXXX.p8
 bunx wrangler secret put ARTIFICIAL_ANALYSIS_API_KEY
 bunx wrangler secret put MAP_TICKET_SECRET
+bunx wrangler secret put OBSERVATORY_UPLOAD_TOKEN
 ```
 
 A provider whose secrets are missing answers `503` with `not-configured`, reads `false` in `/health` and stays

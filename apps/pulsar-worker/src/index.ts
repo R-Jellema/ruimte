@@ -16,7 +16,7 @@ import { PROVIDERS } from './providers.ts';
 import { issuePeerStatement } from './peer-statements.ts';
 import { issueStatement } from './statements.ts';
 import { completeNativeApple, startNativeApple } from './native-apple.ts';
-import { acceptUsage, rateLimitCleanup } from './usage.ts';
+import { acceptUsage, rateLimitCleanup, usageRelay, type UsageDeps } from './usage.ts';
 
 // Rows past use for this long are dropped by the daily cleanup; the statement log is kept.
 const REVOKED_SESSION_RETENTION_MS = 30 * 24 * 60 * 60_000;
@@ -24,7 +24,7 @@ const REVOKED_SESSION_RETENTION_MS = 30 * 24 * 60 * 60_000;
 // Four pages every three hours is 32 of the 100 requests a day the free tier allows; hourly would be 96. Mirrors `wrangler.jsonc`.
 const BENCHMARKS_CRON = '17 */3 * * *';
 
-type Handler = (request: Request, env: Env) => Response | Promise<Response>;
+type Handler = (request: Request, env: Env, ctx: ExecutionContext) => Response | Promise<Response>;
 
 const ROUTES: Readonly<Record<string, Readonly<Record<string, Handler>>>> = {
     '/v1/apple/start': { POST: startNativeApple },
@@ -41,7 +41,9 @@ const ROUTES: Readonly<Record<string, Readonly<Record<string, Handler>>>> = {
     '/v1/statements': { POST: issueStatement },
     [PEER_STATEMENTS_PATH]: { POST: issuePeerStatement },
     '/v1/maps/ticket': { POST: issueMapsTicket },
-    [USAGE_PATH]: { POST: (request, env) => acceptUsage(request, { db: env.DB, dataset: env.USAGE, burst: env.USAGE_LIMIT, now: Date.now }) },
+    [USAGE_PATH]: {
+        POST: (request, env, ctx) => acceptUsage(request, { db: env.DB, dataset: env.USAGE, burst: env.USAGE_LIMIT, relay: relayOf(env, ctx), now: Date.now })
+    },
     '/v1/session': { POST: exchangeLoginCode, DELETE: endSession },
     '/v1/session/refresh': { POST: refreshSession }
 };
@@ -60,6 +62,13 @@ function ownEntry<Value>(table: Readonly<Record<string, Value>> | undefined, key
     return table !== undefined && Object.hasOwn(table, key) ? table[key] : undefined;
 }
 
+function relayOf(env: Env, ctx: ExecutionContext): UsageDeps['relay'] {
+    if (!env.OBSERVATORY_USAGE_URL || !env.OBSERVATORY_UPLOAD_TOKEN) {
+        return undefined;
+    }
+    return usageRelay({ url: env.OBSERVATORY_USAGE_URL, token: env.OBSERVATORY_UPLOAD_TOKEN }, (promise) => ctx.waitUntil(promise));
+}
+
 async function health(env: Env): Promise<Response> {
     let statementKey: string | null = null;
     if (env.STATEMENT_PRIVATE_KEY) {
@@ -71,11 +80,11 @@ async function health(env: Env): Promise<Response> {
     return json({ ok: true, statementKey, providers });
 }
 
-async function api(request: Request, env: Env, path: string): Promise<Response> {
+async function api(request: Request, env: Env, ctx: ExecutionContext, path: string): Promise<Response> {
     const method = request.method;
     const exact = ownEntry(ownEntry(ROUTES, path), method);
     if (exact) {
-        return exact(request, env);
+        return exact(request, env, ctx);
     }
     const pushDevice = /^\/v1\/push\/devices\/([A-Za-z0-9_-]{43})(?:\/(activities|start-activity))?$/.exec(path);
     if (pushDevice && ((method === 'DELETE' && !pushDevice[2]) || (method === 'PUT' && pushDevice[2]))) {
@@ -92,12 +101,12 @@ async function api(request: Request, env: Env, path: string): Promise<Response> 
     const device = /^\/v1\/device\/([a-z]+)$/.exec(path)?.[1];
     const deviceRoute = device !== undefined && method === 'POST' ? ownEntry(DEVICE_ROUTES, device) : undefined;
     if (deviceRoute) {
-        return deviceRoute(request, env);
+        return deviceRoute(request, env, ctx);
     }
     return failure('not-found', 'No such route');
 }
 
-async function route(request: Request, env: Env): Promise<Response> {
+async function route(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const path = new URL(request.url).pathname;
     if (path === '/internal/benchmarks/refresh' && request.method === 'POST') {
         return refreshDeployedBenchmarks(request, env);
@@ -128,7 +137,7 @@ async function route(request: Request, env: Env): Promise<Response> {
         if (request.method === 'OPTIONS') {
             return new Response(null, { status: 204, headers: cors });
         }
-        const response = await api(request, env, path);
+        const response = await api(request, env, ctx, path);
         const headers = new Headers(response.headers);
         for (const [name, value] of Object.entries(cors)) {
             headers.set(name, value);
@@ -139,9 +148,9 @@ async function route(request: Request, env: Env): Promise<Response> {
 }
 
 export default {
-    async fetch(request, env) {
+    async fetch(request, env, ctx) {
         try {
-            return await route(request, env);
+            return await route(request, env, ctx);
         } catch (error) {
             console.error('unhandled', error);
             return failure('internal', 'Something went wrong in the address book');
