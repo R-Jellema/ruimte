@@ -71,7 +71,9 @@ jobs:
       - uses: ./.github/actions/install
       - uses: ./.github/actions/cache-react-compiler
       - run: bun run check:generated
-      - run: bun run build
+      # verify owns client tsc -b; public builds still typecheck before bundling.
+      - run: bun run --cwd apps/client build:bundle
+      - run: bun run --cwd apps/desktop build
       # The unit shards run on Linux; a case-insensitive volume is what only a Mac has under these tests.
       - run: bun test --conditions=source apps/server/src/fs
 
@@ -98,6 +100,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/install
+        with:
+          save-cache: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && !inputs.full }}
       - run: bun run check:types
       - run: bun run lint
       # Two workers instead of one per core: the tests that run git start dozens of processes each, and
@@ -128,6 +132,8 @@ jobs:
       # Release tags can restore main's cache, but cannot restore another tag's cache.
       - uses: ./.github/actions/cache-native-builds
       - uses: ./.github/actions/install
+        with:
+          save-cache: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && !inputs.full }}
       - run: bun run test:package
 
   integration-linux:
@@ -149,6 +155,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/install
+        with:
+          save-cache: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && !inputs.full }}
       - run: bun run test:package
 
   rust:

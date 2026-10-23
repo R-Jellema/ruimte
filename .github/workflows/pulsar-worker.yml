@@ -8,6 +8,7 @@ on:
             - 'scripts/deploy-pulsar-worker*'
             - 'apps/pulsar-worker/**'
             - 'packages/pulsar/**'
+            - 'packages/telemetry/**'
             - 'bun.lock'
 
 # One deploy at a time, so two pushes never apply migrations over each other.
