@@ -28,7 +28,7 @@ import {
     type SessionResult
 } from '@ruimte/pulsar';
 import { Miniflare, type WorkerOptions } from 'miniflare';
-import { BENCHMARK_MODELS } from './benchmark-models.ts';
+import { BENCHMARK_LABS, BENCHMARK_MODELS } from './benchmark-models.ts';
 import { MAX_PAGES } from './benchmarks.ts';
 import { LIMITS, WINDOW_MS, retryAfterSeconds, windowStartOf } from './rate-window.ts';
 import { ROTATION_GRACE_MS } from './sessions.ts';
@@ -2148,7 +2148,7 @@ describe('model benchmarks', () => {
             await migrate(upgrade, (file) => file === '0015_benchmark_measurements.sql');
             const response = await dispatch('/v1/models/benchmarks', { on: upgrade });
             expect(response.status).toBe(200);
-            expect(await response.json()).toEqual({ fetchedAt: 123, models });
+            expect(await response.json()).toEqual({ fetchedAt: 123, models, labs: BENCHMARK_LABS });
         } finally {
             await upgrade.dispose();
         }
@@ -2173,7 +2173,8 @@ describe('model benchmarks', () => {
         const response = await read();
         expect(response.status).toBe(200);
         const result = (await response.json()) as ModelBenchmarksResult;
-        expect(Object.keys(result).sort()).toEqual(['fetchedAt', 'intelligenceIndexVersion', 'measurements', 'models']);
+        expect(Object.keys(result).sort()).toEqual(['fetchedAt', 'intelligenceIndexVersion', 'labs', 'measurements', 'models']);
+        expect(result.labs).toEqual([...BENCHMARK_LABS]);
         expect(result.intelligenceIndexVersion).toBe(9);
         expect(result.measurements?.find((point) => point.modelId === 'gpt-6-luna' && point.effort === 'max')).toEqual({
             modelId: 'gpt-6-luna',
@@ -2309,7 +2310,7 @@ describe('model benchmarks', () => {
             const response = await dispatch('/internal/benchmarks/refresh', options);
             expect(response.status).toBe(502);
             expect(await response.json()).toMatchObject({ refreshed: false });
-            expect(await (await dispatch('/v1/models/benchmarks', { on: failed })).json()).toEqual({ fetchedAt: 123, models: [] });
+            expect(await (await dispatch('/v1/models/benchmarks', { on: failed })).json()).toEqual({ fetchedAt: 123, models: [], labs: BENCHMARK_LABS });
             expect((await dispatch('/internal/benchmarks/refresh', options)).status).toBe(429);
             expect(asked).toHaveLength(1);
         } finally {
