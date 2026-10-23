@@ -10,6 +10,9 @@ export interface Env {
     OBSERVATORY_UPLOAD_TOKEN?: string;
     // Observatory's envelope ingest of the address book's app, for the check-ins of the nightly cleanup.
     OBSERVATORY_CHECK_IN_URL?: string;
+    // The address book's app in Observatory, for its errors and log lines (`src/telemetry.ts`), and the release the deploy names.
+    OBSERVATORY_DSN?: string;
+    OBSERVATORY_RELEASE?: string;
     APNS_SANDBOX_KEY?: string;
     APNS_SANDBOX_KEY_ID?: string;
     APNS_PRODUCTION_KEY?: string;

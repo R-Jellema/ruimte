@@ -80,7 +80,8 @@ const statementSecret = realStatementSecret ?? base64url(testStatementPair.priva
 const statementPublicKey = realStatementSecret ? (PULSAR_STATEMENT_PUBLIC_KEYS[0] ?? '') : (testStatementPair.publicKey.export({ format: 'jwk' }).x ?? '');
 
 async function bundle(): Promise<string> {
-    const result = await Bun.build({ entrypoints: [join(APP_ROOT, 'src/index.ts')], target: 'browser', format: 'esm' });
+    // workerd supplies `node:*` under `nodejs_compat`, as wrangler leaves them out of its bundle too.
+    const result = await Bun.build({ entrypoints: [join(APP_ROOT, 'src/index.ts')], target: 'browser', format: 'esm', external: ['node:*'] });
     const output = result.outputs[0];
     if (!result.success || !output) {
         throw new Error(`The worker did not bundle: ${result.logs.join('\n')}`);
@@ -150,7 +151,7 @@ function miniflare(
     databaseId: string,
     options: Partial<Pick<WorkerOptions, 'bindings' | 'outboundService' | 'analyticsEngineDatasets' | 'ratelimits'>>
 ): Miniflare {
-    const shared = { modules: true, compatibilityDate: '2026-08-01', d1Databases: { DB: databaseId } };
+    const shared = { modules: true, compatibilityDate: '2026-08-01', compatibilityFlags: ['nodejs_compat'], d1Databases: { DB: databaseId } };
     return new Miniflare({
         workers: [
             { name: 'pulsar', script, ...shared, ...options },

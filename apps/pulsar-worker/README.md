@@ -9,6 +9,10 @@ in `packages/pulsar/src/statement-key.ts`. The wire shapes live in `packages/pul
 - A cron at 04:17 UTC drops expired logins, codes, rate limit windows and dead sessions. Each run checks in with
   Observatory as the monitor `pulsar-nightly` (`src/check-in.ts`, `OBSERVATORY_CHECK_IN_URL`), so a run that is missed,
   takes over two minutes or fails opens an issue in the address book's app. A check-in that fails never fails the run
+- Errors and log lines go to the same app through `@sentry/cloudflare` (`src/telemetry.ts`, `OBSERVATORY_DSN`, hence
+  `nodejs_compat`), under the release `pulsar@<12 hex>` the deploy sets. An event keeps only the scrubber's allow-list
+  of `@ruimte/telemetry`, so no request, address or body leaves, and a log line its first line and scalar attributes,
+  scrubbed. An error the router answers with a 500 is handed to the SDK, since it never throws out of `fetch`
 - A cron every three hours (`17 */3 * * *`) reads the model benchmarks of Artificial Analysis into D1
 
 ## Routes

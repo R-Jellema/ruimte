@@ -1,5 +1,6 @@
 import { parseBrokerArgs } from './config.ts';
 import { startBroker } from './server.ts';
+import { startTelemetry, stopTelemetry } from './telemetry.ts';
 
 let config;
 try {
@@ -9,6 +10,9 @@ try {
     process.exit(2);
 }
 
+if (config.telemetry) {
+    startTelemetry();
+}
 const running = startBroker(config);
 const names = config.names.length > 0 ? config.names.join(', ') : 'any Host header';
 const behind = [config.trustProxy ? 'a proxy' : null, config.trustCloudflare ? 'Cloudflare' : null].filter((entry) => entry !== null).join(' and ');
@@ -17,7 +21,10 @@ console.log(`pulsar broker listening on ws://${config.host}:${running.port} (ans
 
 function shutdown(signal: string): void {
     console.log(`pulsar broker received ${signal}, closing sockets`);
-    void running.stop().then(() => process.exit(0));
+    void running
+        .stop()
+        .then(stopTelemetry)
+        .then(() => process.exit(0));
 }
 
 process.on('SIGINT', () => shutdown('SIGINT'));

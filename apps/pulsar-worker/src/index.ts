@@ -18,6 +18,8 @@ import { issueStatement } from './statements.ts';
 import { completeNativeApple, startNativeApple } from './native-apple.ts';
 import { acceptUsage, rateLimitCleanup, usageRelay, type UsageDeps } from './usage.ts';
 import { withCheckIn, type CheckInMonitor } from './check-in.ts';
+import { telemetryOptions } from './telemetry.ts';
+import { captureException, withSentry } from '@sentry/cloudflare';
 
 // Rows past use for this long are dropped by the daily cleanup; the statement log is kept.
 const REVOKED_SESSION_RETENTION_MS = 30 * 24 * 60 * 60_000;
@@ -154,12 +156,14 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
     return failure('not-found', 'No such route');
 }
 
-export default {
+const handler = {
     async fetch(request, env, ctx) {
         try {
             return await route(request, env, ctx);
         } catch (error) {
             console.error('unhandled', error);
+            // The route answers a 500 instead of throwing, so the SDK never sees the error unless it is handed over.
+            captureException(error);
             return failure('internal', 'Something went wrong in the address book');
         }
     },
@@ -172,6 +176,8 @@ export default {
         await (url ? withCheckIn(CLEANUP_MONITOR, () => cleanUp(env), { url, waitUntil: (promise) => ctx.waitUntil(promise) }) : cleanUp(env));
     }
 } satisfies ExportedHandler<Env>;
+
+export default withSentry(telemetryOptions, handler);
 
 async function cleanUp(env: Env): Promise<void> {
     const now = Date.now();
