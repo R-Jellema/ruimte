@@ -1,0 +1,700 @@
+{
+  "environment": {
+    "date": "2026-10-25",
+    "ruimteBase": "e5fc7d581",
+    "adecore": "628990a9",
+    "bun": "1.4.2",
+    "os": "macOS 27.2",
+    "cpu": "Apple M4 Max"
+  },
+  "measurements": {
+    "list-before": {
+      "benchmark": "file-list",
+      "files": 1800,
+      "runs": 9,
+      "samples": [
+        17.41708300000002,
+        17.25120899999999,
+        18.378625,
+        16.753374999999977,
+        16.94483299999999,
+        17.215708000000006,
+        17.625875000000008,
+        17.789875000000023,
+        18.182124999999985
+      ]
+    },
+    "list-after": {
+      "benchmark": "file-list",
+      "files": 1800,
+      "runs": 9,
+      "samples": [
+        5.608084000000005,
+        6.402665999999996,
+        5.251542000000001,
+        5.953708000000006,
+        5.559207999999984,
+        5.616000000000014,
+        6.86629099999999,
+        6.0687910000000045,
+        5.675832999999983
+      ]
+    },
+    "list-control": {
+      "benchmark": "file-list",
+      "files": 1800,
+      "runs": 9,
+      "repository": false,
+      "control": true,
+      "samples": [
+        16.781916999999993,
+        17.49883299999999,
+        15.909625000000005,
+        16.585082999999997,
+        16.137875000000008,
+        16.937542000000008,
+        17.021417000000014,
+        16.497833000000014,
+        16.332333000000006
+      ]
+    },
+    "list-final": {
+      "benchmark": "file-list",
+      "files": 1800,
+      "runs": 9,
+      "repository": false,
+      "control": false,
+      "samples": [
+        5.770582999999988,
+        5.638334000000015,
+        8.287666999999999,
+        6.160415999999998,
+        5.371665999999976,
+        5.7291250000000105,
+        5.866332999999997,
+        5.753874999999994,
+        6.048207999999988
+      ]
+    },
+    "wide-original": {
+      "benchmark": "file-list",
+      "files": 10000,
+      "runs": 9,
+      "repository": false,
+      "control": true,
+      "samples": [
+        124.60308399999997,
+        139.05599999999993,
+        121.73370799999998,
+        124.975459,
+        124.56579099999999,
+        123.54712500000005,
+        120.93304200000011,
+        123.97845800000005,
+        123.85462499999994
+      ]
+    },
+    "wide-collator-before": {
+      "benchmark": "file-list",
+      "files": 10000,
+      "runs": 9,
+      "repository": false,
+      "control": false,
+      "samples": [
+        39.40750000000003,
+        37.32012499999996,
+        36.952292,
+        33.11041599999999,
+        37.892124999999965,
+        31.887207999999987,
+        32.448125000000005,
+        33.153999999999996,
+        32.656791
+      ]
+    },
+    "wide-after": {
+      "benchmark": "file-list",
+      "files": 10000,
+      "runs": 9,
+      "repository": false,
+      "control": false,
+      "samples": [
+        26.28441700000002,
+        32.39304199999998,
+        25.314542000000017,
+        25.79733299999998,
+        25.070374999999956,
+        24.488583999999946,
+        24.036625000000072,
+        24.95987500000001,
+        24.965124999999944
+      ]
+    },
+    "wide-heap": {
+      "benchmark": "file-list",
+      "files": 10000,
+      "runs": 9,
+      "repository": false,
+      "control": false,
+      "samples": [
+        18.24908300000004,
+        18.165707999999995,
+        20.097792000000027,
+        17.297208999999953,
+        17.07045800000003,
+        16.248792000000037,
+        17.675415999999927,
+        21.681291999999985,
+        23.143875000000094
+      ]
+    },
+    "wide-final": {
+      "benchmark": "file-list",
+      "files": 10000,
+      "runs": 9,
+      "repository": false,
+      "control": false,
+      "samples": [
+        26.17391600000002,
+        37.50162499999999,
+        20.13816700000001,
+        18.744834000000026,
+        16.65137500000003,
+        17.6055419999999,
+        23.542332999999985,
+        21.687874999999963,
+        17.75
+      ]
+    },
+    "repo-before": {
+      "benchmark": "file-list",
+      "files": 1800,
+      "runs": 9,
+      "repository": true,
+      "control": true,
+      "samples": [
+        96.68574999999998,
+        97.69258300000001,
+        96.39987499999995,
+        102.88870799999995,
+        97.24925000000007,
+        97.1557919999999,
+        97.85374999999999,
+        97.39937499999996,
+        96.32183300000008
+      ]
+    },
+    "repo-after": {
+      "benchmark": "file-list",
+      "files": 1800,
+      "runs": 9,
+      "repository": true,
+      "control": false,
+      "samples": [
+        85.65754099999998,
+        86.93958400000002,
+        87.47524999999996,
+        88.22470899999996,
+        86.73908400000005,
+        82.121084,
+        86.59349999999995,
+        86.08608400000003,
+        86.82375000000002
+      ]
+    },
+    "search-before": {
+      "benchmark": "file-search",
+      "count": 100000,
+      "diskCount": 20000,
+      "runs": 9,
+      "ranking": [
+        {
+          "query": "",
+          "samples": [
+            3.8305830000000043,
+            3.411625000000001,
+            3.4499169999999992,
+            4.594667000000001,
+            3.2302079999999904,
+            2.992292000000006,
+            3.060457999999997,
+            2.9506659999999982,
+            3.078040999999999
+          ],
+          "result": [
+            "packages/project-0/src/handler-0.ts",
+            "packages/project-1/src/handler-19.ts",
+            "packages/project-11/src/handler-9.ts",
+            "packages/project-16/src/handler-4.ts",
+            "packages/project-2/src/handler-38.ts",
+            "packages/project-3/src/handler-57.ts",
+            "packages/project-32/src/handler-8.ts",
+            "packages/project-37/src/handler-3.ts"
+          ]
+        },
+        {
+          "query": "src",
+          "samples": [
+            8.96120900000001,
+            9.164999999999992,
+            9.02045800000002,
+            9.185416000000004,
+            8.944500000000005,
+            8.469291999999996,
+            9.359583999999984,
+            8.283582999999993,
+            8.429624999999987
+          ],
+          "result": [
+            "packages/project-0/src/handler-0.ts",
+            "packages/project-1/src/handler-19.ts",
+            "packages/project-11/src/handler-9.ts",
+            "packages/project-16/src/handler-4.ts",
+            "packages/project-2/src/handler-38.ts",
+            "packages/project-3/src/handler-57.ts",
+            "packages/project-32/src/handler-8.ts",
+            "packages/project-37/src/handler-3.ts"
+          ]
+        },
+        {
+          "query": "handler",
+          "samples": [
+            11.527791000000008,
+            11.512374999999992,
+            11.67795799999999,
+            11.537292000000008,
+            11.466416999999979,
+            11.466584000000012,
+            11.849124999999958,
+            11.540500000000009,
+            12.693167000000017
+          ],
+          "result": [
+            "packages/project-0/src/handler-0.ts",
+            "packages/project-1/src/handler-19.ts",
+            "packages/project-11/src/handler-9.ts",
+            "packages/project-16/src/handler-4.ts",
+            "packages/project-2/src/handler-38.ts",
+            "packages/project-3/src/handler-57.ts",
+            "packages/project-32/src/handler-8.ts",
+            "packages/project-37/src/handler-3.ts"
+          ]
+        },
+        {
+          "query": "project handler",
+          "samples": [
+            18.056834000000038,
+            18.05450000000002,
+            17.590417000000002,
+            17.677208000000007,
+            17.795124999999985,
+            17.893708000000004,
+            17.434583000000032,
+            17.66787499999998,
+            17.734083
+          ],
+          "result": [
+            "packages/project-0/src/handler-0.ts",
+            "packages/project-1/src/handler-19.ts",
+            "packages/project-11/src/handler-9.ts",
+            "packages/project-16/src/handler-4.ts",
+            "packages/project-2/src/handler-38.ts",
+            "packages/project-3/src/handler-57.ts",
+            "packages/project-32/src/handler-8.ts",
+            "packages/project-37/src/handler-3.ts"
+          ]
+        },
+        {
+          "query": "~missing",
+          "samples": [
+            4.38149999999996,
+            4.111167000000023,
+            4.301541000000043,
+            4.07487500000002,
+            4.048000000000002,
+            4.041124999999965,
+            4.033167000000049,
+            4.022458000000029,
+            4.02637500000003
+          ],
+          "result": []
+        }
+      ],
+      "search": [
+        {
+          "query": "",
+          "samples": [
+            8.87458300000003,
+            8.656749999999874,
+            8.323916999999938,
+            8.709792000000107,
+            8.490041999999903,
+            8.163291999999956,
+            8.095291999999972,
+            7.608749999999873,
+            7.563084000000117
+          ],
+          "result": [
+            "packages/project-0/src/handler-0.ts",
+            "packages/project-3/src/handler-57.ts",
+            "packages/project-74/src/handler-6.ts",
+            "packages/project-79/src/handler-1.ts",
+            "packages/project-8/src/handler-52.ts",
+            "packages/project-0/src/handler-300.ts",
+            "packages/project-0/src/handler-600.ts",
+            "packages/project-0/src/handler-900.ts"
+          ]
+        },
+        {
+          "query": "src",
+          "samples": [
+            8.444709000000103,
+            8.289915999999948,
+            8.549374999999827,
+            8.653291999999965,
+            8.198875000000044,
+            8.252332999999908,
+            8.209542000000056,
+            8.426083000000062,
+            9.174999999999955
+          ],
+          "result": [
+            "packages/project-0/src/handler-0.ts",
+            "packages/project-3/src/handler-57.ts",
+            "packages/project-74/src/handler-6.ts",
+            "packages/project-79/src/handler-1.ts",
+            "packages/project-8/src/handler-52.ts",
+            "packages/project-0/src/handler-300.ts",
+            "packages/project-0/src/handler-600.ts",
+            "packages/project-0/src/handler-900.ts"
+          ]
+        },
+        {
+          "query": "handler",
+          "samples": [
+            9.142125000000078,
+            9.190292,
+            9.257041999999956,
+            9.21329199999991,
+            9.385084000000006,
+            9.346250000000055,
+            9.375666000000138,
+            9.952290999999832,
+            9.27387500000009
+          ],
+          "result": [
+            "packages/project-0/src/handler-0.ts",
+            "packages/project-3/src/handler-57.ts",
+            "packages/project-74/src/handler-6.ts",
+            "packages/project-79/src/handler-1.ts",
+            "packages/project-8/src/handler-52.ts",
+            "packages/project-0/src/handler-300.ts",
+            "packages/project-0/src/handler-600.ts",
+            "packages/project-0/src/handler-900.ts"
+          ]
+        },
+        {
+          "query": "project handler",
+          "samples": [
+            10.370666000000028,
+            10.240166999999929,
+            10.324959000000035,
+            10.439542000000074,
+            10.208249999999907,
+            10.048000000000002,
+            10.778957999999875,
+            10.454250000000002,
+            10.020250000000033
+          ],
+          "result": [
+            "packages/project-0/src/handler-0.ts",
+            "packages/project-3/src/handler-57.ts",
+            "packages/project-74/src/handler-6.ts",
+            "packages/project-79/src/handler-1.ts",
+            "packages/project-8/src/handler-52.ts",
+            "packages/project-0/src/handler-300.ts",
+            "packages/project-0/src/handler-600.ts",
+            "packages/project-0/src/handler-900.ts"
+          ]
+        },
+        {
+          "query": "~missing",
+          "samples": [
+            7.466957999999977,
+            7.404832999999826,
+            7.472375000000056,
+            7.43100000000004,
+            7.349666999999954,
+            7.3940000000000055,
+            7.423208000000159,
+            9.187167000000045,
+            7.183375000000069
+          ],
+          "result": []
+        }
+      ]
+    },
+    "search-after": {
+      "benchmark": "file-search",
+      "count": 100000,
+      "diskCount": 20000,
+      "runs": 9,
+      "ranking": [
+        {
+          "query": "",
+          "samples": [
+            4.936250000000001,
+            4.028207999999992,
+            3.885000000000005,
+            3.5232500000000044,
+            5.1107080000000025,
+            3.1683750000000117,
+            2.8954590000000024,
+            2.8327919999999978,
+            3.7567080000000033
+          ],
+          "result": [
+            "packages/project-0/src/handler-0.ts",
+            "packages/project-1/src/handler-19.ts",
+            "packages/project-11/src/handler-9.ts",
+            "packages/project-16/src/handler-4.ts",
+            "packages/project-2/src/handler-38.ts",
+            "packages/project-3/src/handler-57.ts",
+            "packages/project-32/src/handler-8.ts",
+            "packages/project-37/src/handler-3.ts"
+          ]
+        },
+        {
+          "query": "src",
+          "samples": [
+            10.634457999999995,
+            10.106666999999987,
+            9.917541999999997,
+            10.436583000000013,
+            10.346833000000004,
+            9.800291999999985,
+            9.767917000000011,
+            11.553416999999996,
+            9.363292000000001
+          ],
+          "result": [
+            "packages/project-0/src/handler-0.ts",
+            "packages/project-1/src/handler-19.ts",
+            "packages/project-11/src/handler-9.ts",
+            "packages/project-16/src/handler-4.ts",
+            "packages/project-2/src/handler-38.ts",
+            "packages/project-3/src/handler-57.ts",
+            "packages/project-32/src/handler-8.ts",
+            "packages/project-37/src/handler-3.ts"
+          ]
+        },
+        {
+          "query": "handler",
+          "samples": [
+            12.733584000000008,
+            12.58241700000002,
+            13.997915999999975,
+            13.68879099999998,
+            13.548333000000014,
+            13.78125,
+            13.68712499999998,
+            13.86141699999996,
+            14.291875000000005
+          ],
+          "result": [
+            "packages/project-0/src/handler-0.ts",
+            "packages/project-1/src/handler-19.ts",
+            "packages/project-11/src/handler-9.ts",
+            "packages/project-16/src/handler-4.ts",
+            "packages/project-2/src/handler-38.ts",
+            "packages/project-3/src/handler-57.ts",
+            "packages/project-32/src/handler-8.ts",
+            "packages/project-37/src/handler-3.ts"
+          ]
+        },
+        {
+          "query": "project handler",
+          "samples": [
+            20.379290999999967,
+            20.634500000000003,
+            20.754666000000043,
+            21.271375000000035,
+            20.249541000000022,
+            20.455249999999978,
+            20.809458999999947,
+            20.43220800000006,
+            20.48524999999995
+          ],
+          "result": [
+            "packages/project-0/src/handler-0.ts",
+            "packages/project-1/src/handler-19.ts",
+            "packages/project-11/src/handler-9.ts",
+            "packages/project-16/src/handler-4.ts",
+            "packages/project-2/src/handler-38.ts",
+            "packages/project-3/src/handler-57.ts",
+            "packages/project-32/src/handler-8.ts",
+            "packages/project-37/src/handler-3.ts"
+          ]
+        },
+        {
+          "query": "~missing",
+          "samples": [
+            4.967499999999973,
+            4.3212910000000875,
+            4.484542000000033,
+            4.527042000000051,
+            4.418915999999967,
+            4.30337499999996,
+            4.398582999999917,
+            4.505084000000011,
+            4.282375000000002
+          ],
+          "result": []
+        }
+      ],
+      "search": [
+        {
+          "query": "",
+          "samples": [
+            8.519999999999982,
+            8.695540999999821,
+            8.446292000000085,
+            7.450041000000056,
+            9.185124999999971,
+            8.939750000000004,
+            8.242291000000023,
+            8.548332999999957,
+            9.104417000000012
+          ],
+          "result": [
+            "packages/project-0/src/handler-0.ts",
+            "packages/project-3/src/handler-57.ts",
+            "packages/project-74/src/handler-6.ts",
+            "packages/project-79/src/handler-1.ts",
+            "packages/project-8/src/handler-52.ts",
+            "packages/project-0/src/handler-300.ts",
+            "packages/project-0/src/handler-600.ts",
+            "packages/project-0/src/handler-900.ts"
+          ]
+        },
+        {
+          "query": "src",
+          "samples": [
+            8.6684580000001,
+            8.853208999999879,
+            8.642166999999972,
+            8.636834000000135,
+            8.552624999999807,
+            8.994707999999946,
+            9.228833000000122,
+            8.355166000000054,
+            8.689125000000104
+          ],
+          "result": [
+            "packages/project-0/src/handler-0.ts",
+            "packages/project-3/src/handler-57.ts",
+            "packages/project-74/src/handler-6.ts",
+            "packages/project-79/src/handler-1.ts",
+            "packages/project-8/src/handler-52.ts",
+            "packages/project-0/src/handler-300.ts",
+            "packages/project-0/src/handler-600.ts",
+            "packages/project-0/src/handler-900.ts"
+          ]
+        },
+        {
+          "query": "handler",
+          "samples": [
+            9.192082999999911,
+            9.485625000000027,
+            9.50329099999999,
+            9.039584000000104,
+            9.517582999999831,
+            10.06316599999991,
+            9.545708999999988,
+            9.145624999999882,
+            9.32116700000006
+          ],
+          "result": [
+            "packages/project-0/src/handler-0.ts",
+            "packages/project-3/src/handler-57.ts",
+            "packages/project-74/src/handler-6.ts",
+            "packages/project-79/src/handler-1.ts",
+            "packages/project-8/src/handler-52.ts",
+            "packages/project-0/src/handler-300.ts",
+            "packages/project-0/src/handler-600.ts",
+            "packages/project-0/src/handler-900.ts"
+          ]
+        },
+        {
+          "query": "project handler",
+          "samples": [
+            10.665457999999944,
+            11.294958999999835,
+            10.820541999999932,
+            10.88320799999974,
+            10.96987500000023,
+            11.135082999999668,
+            10.374917000000096,
+            10.788625000000138,
+            10.80941699999994
+          ],
+          "result": [
+            "packages/project-0/src/handler-0.ts",
+            "packages/project-3/src/handler-57.ts",
+            "packages/project-74/src/handler-6.ts",
+            "packages/project-79/src/handler-1.ts",
+            "packages/project-8/src/handler-52.ts",
+            "packages/project-0/src/handler-300.ts",
+            "packages/project-0/src/handler-600.ts",
+            "packages/project-0/src/handler-900.ts"
+          ]
+        },
+        {
+          "query": "~missing",
+          "samples": [
+            7.4992919999999685,
+            7.560750000000098,
+            7.7242089999999735,
+            7.456249999999727,
+            7.4484590000001845,
+            7.508291999999983,
+            7.567791999999827,
+            7.5607499999996435,
+            7.520457999999962
+          ],
+          "result": []
+        }
+      ]
+    },
+    "sort-diagnostic": [
+      {
+        "mode": "original",
+        "samples": [
+          3.8495410000000003,
+          3.8135830000000013,
+          3.8291660000000007,
+          3.782833,
+          3.834709,
+          3.8293330000000054,
+          3.8358339999999984,
+          3.7987910000000014,
+          3.8126670000000047
+        ]
+      },
+      {
+        "mode": "collator",
+        "samples": [
+          0.620750000000001,
+          0.6112919999999988,
+          0.6467079999999967,
+          0.6495000000000033,
+          0.6234169999999963,
+          0.6231250000000017,
+          0.6269169999999988,
+          0.6158330000000021,
+          0.6249169999999964
+        ]
+      }
+    ]
+  }
+}
