@@ -1,0 +1,142 @@
+diff --git a/src/usage.ts b/src/usage.ts
+index e68d4c9fe..f16e2ceb6 100644
+--- a/src/usage.ts
++++ b/src/usage.ts
+@@ -2,7 +2,7 @@ import { z } from 'zod';
+ import { ProviderAccountIdSchema } from './provider-accounts.ts';
+ 
+ /* The providers whose usage the daemon reads: the CLIs' own records, and the log a host keeps of what it calls itself. A subset of `AgentKindSchema`: it grows with the readers. */
+-export const UsageProviderSchema = z.enum(['claude', 'codex', 'nanogpt', 'grok', 'copilot']);
++export const UsageProviderSchema = z.enum(['claude', 'codex', 'nanogpt', 'grok', 'copilot', 'anthropic-claude-api']);
+ export type UsageProvider = z.infer<typeof UsageProviderSchema>;
+ export const USAGE_PROVIDERS = UsageProviderSchema.options;
+ 
+diff --git a/dist/usage.js b/dist/usage.js
+index d596848b8..cb531c87e 100644
+--- a/dist/usage.js
++++ b/dist/usage.js
+@@ -1,7 +1,7 @@
+ import { z } from 'zod';
+ import { ProviderAccountIdSchema } from './provider-accounts.js';
+ /* The providers whose usage the daemon reads: the CLIs' own records, and the log a host keeps of what it calls itself. A subset of `AgentKindSchema`: it grows with the readers. */
+-export const UsageProviderSchema = z.enum(['claude', 'codex', 'nanogpt', 'grok', 'copilot']);
++export const UsageProviderSchema = z.enum(['claude', 'codex', 'nanogpt', 'grok', 'copilot', 'anthropic-claude-api']);
+ export const USAGE_PROVIDERS = UsageProviderSchema.options;
+ export const UsageResolutionSchema = z.enum(['hour', 'day']);
+ /* Token kinds are disjoint, so a total is their sum. Reasoning is a part of output and never counted twice. */
+diff --git a/dist/usage.d.ts b/dist/usage.d.ts
+index 39ab62ce6..c4df34920 100644
+--- a/dist/usage.d.ts
++++ b/dist/usage.d.ts
+@@ -1,5 +1,6 @@
+ import { z } from 'zod';
+ export declare const UsageProviderSchema: z.ZodEnum<{
++    "anthropic-claude-api": "anthropic-claude-api";
+     claude: "claude";
+     codex: "codex";
+     copilot: "copilot";
+@@ -7,7 +8,7 @@ export declare const UsageProviderSchema: z.ZodEnum<{
+     nanogpt: "nanogpt";
+ }>;
+ export type UsageProvider = z.infer<typeof UsageProviderSchema>;
+-export declare const USAGE_PROVIDERS: ("claude" | "codex" | "copilot" | "grok" | "nanogpt")[];
++export declare const USAGE_PROVIDERS: ("anthropic-claude-api" | "claude" | "codex" | "copilot" | "grok" | "nanogpt")[];
+ export declare const UsageResolutionSchema: z.ZodEnum<{
+     day: "day";
+     hour: "hour";
+@@ -29,6 +30,7 @@ export declare function addTotals(first: UsageTotals, second: UsageTotals): Usag
+ export declare const UsageAccountSchema: z.ZodObject<{
+     id: z.ZodString;
+     kind: z.ZodEnum<{
++        "anthropic-claude-api": "anthropic-claude-api";
+         claude: "claude";
+         codex: "codex";
+         copilot: "copilot";
+@@ -42,6 +44,7 @@ export type UsageAccount = z.infer<typeof UsageAccountSchema>;
+ export declare const UsageBucketSchema: z.ZodObject<{
+     slot: z.ZodString;
+     provider: z.ZodEnum<{
++        "anthropic-claude-api": "anthropic-claude-api";
+         claude: "claude";
+         codex: "codex";
+         copilot: "copilot";
+@@ -73,6 +76,7 @@ export declare const UsagePriceBasisSchema: z.ZodEnum<{
+ export type UsagePriceBasis = z.infer<typeof UsagePriceBasisSchema>;
+ export declare const UsageModelSchema: z.ZodObject<{
+     provider: z.ZodEnum<{
++        "anthropic-claude-api": "anthropic-claude-api";
+         claude: "claude";
+         codex: "codex";
+         copilot: "copilot";
+@@ -105,6 +109,7 @@ export declare const UsageProjectSchema: z.ZodObject<{
+     name: z.ZodString;
+     projectId: z.ZodNullable<z.ZodString>;
+     byProvider: z.ZodRecord<z.ZodEnum<{
++        "anthropic-claude-api": "anthropic-claude-api";
+         claude: "claude";
+         codex: "codex";
+         copilot: "copilot";
+@@ -158,6 +163,7 @@ export declare const UsagePricingSchema: z.ZodObject<{
+ export type UsagePricing = z.infer<typeof UsagePricingSchema>;
+ export declare const UsageRootSchema: z.ZodObject<{
+     provider: z.ZodEnum<{
++        "anthropic-claude-api": "anthropic-claude-api";
+         claude: "claude";
+         codex: "codex";
+         copilot: "copilot";
+@@ -191,6 +197,7 @@ export declare const UsageSummaryResultSchema: z.ZodObject<{
+     buckets: z.ZodArray<z.ZodObject<{
+         slot: z.ZodString;
+         provider: z.ZodEnum<{
++            "anthropic-claude-api": "anthropic-claude-api";
+             claude: "claude";
+             codex: "codex";
+             copilot: "copilot";
+@@ -214,6 +221,7 @@ export declare const UsageSummaryResultSchema: z.ZodObject<{
+     }, z.core.$strip>>;
+     models: z.ZodArray<z.ZodObject<{
+         provider: z.ZodEnum<{
++            "anthropic-claude-api": "anthropic-claude-api";
+             claude: "claude";
+             codex: "codex";
+             copilot: "copilot";
+@@ -245,6 +253,7 @@ export declare const UsageSummaryResultSchema: z.ZodObject<{
+         name: z.ZodString;
+         projectId: z.ZodNullable<z.ZodString>;
+         byProvider: z.ZodRecord<z.ZodEnum<{
++            "anthropic-claude-api": "anthropic-claude-api";
+             claude: "claude";
+             codex: "codex";
+             copilot: "copilot";
+@@ -291,6 +300,7 @@ export declare const UsageSummaryResultSchema: z.ZodObject<{
+     }, z.core.$strip>>;
+     roots: z.ZodArray<z.ZodObject<{
+         provider: z.ZodEnum<{
++            "anthropic-claude-api": "anthropic-claude-api";
+             claude: "claude";
+             codex: "codex";
+             copilot: "copilot";
+@@ -308,6 +318,7 @@ export declare const UsageSummaryResultSchema: z.ZodObject<{
+     accounts: z.ZodOptional<z.ZodArray<z.ZodObject<{
+         id: z.ZodString;
+         kind: z.ZodEnum<{
++            "anthropic-claude-api": "anthropic-claude-api";
+             claude: "claude";
+             codex: "codex";
+             copilot: "copilot";
+@@ -345,6 +356,7 @@ export interface EvenPace {
+ export declare function evenPace(window: UsageWindow, now: number): EvenPace | null;
+ export declare const UsageLimitsProviderSchema: z.ZodObject<{
+     kind: z.ZodEnum<{
++        "anthropic-claude-api": "anthropic-claude-api";
+         claude: "claude";
+         codex: "codex";
+         copilot: "copilot";
+@@ -391,6 +403,7 @@ export type UsageLimitsProvider = z.infer<typeof UsageLimitsProviderSchema>;
+ export declare const UsageLimitsSnapshotSchema: z.ZodObject<{
+     providers: z.ZodArray<z.ZodObject<{
+         kind: z.ZodEnum<{
++            "anthropic-claude-api": "anthropic-claude-api";
+             claude: "claude";
+             codex: "codex";
+             copilot: "copilot";

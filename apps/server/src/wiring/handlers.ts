@@ -119,6 +119,21 @@ export async function registerHandlers(dispatcher: Dispatcher, input: HandlersIn
         },
         { owner: true }
     );
+    dispatcher.register('anthropic.status', () => providers.claudeApi.status());
+    // Only the machine's owner can change a key that pays for API calls.
+    dispatcher.register(
+        'anthropic.configure',
+        async ({ apiKey, settings }) => {
+            if (settings !== undefined) {
+                const saved = await providers.claudeApi.setSettings(settings);
+                if (apiKey === undefined) {
+                    return saved;
+                }
+            }
+            return await providers.claudeApi.configure(apiKey);
+        },
+        { owner: true }
+    );
     const { identity } = machine;
     const { sessions, chats } = agents;
     const store = projects.store;

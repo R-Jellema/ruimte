@@ -1,4 +1,5 @@
 import { createElement } from 'react';
+import { siClaude } from 'simple-icons';
 import i18next from 'i18next';
 import { codeHighlighter } from '@/code-highlighter';
 import DiffSyntaxWorker from '@/chat/diff-syntax.worker?worker';
@@ -85,6 +86,7 @@ function requireTransport(endpointId: string): Transport {
  * Google lists in the ACP registry (agentclientprotocol/registry, `antigravity-acp/icon.svg`).
  */
 const AGENT_MARKS: Partial<Record<AgentKind, AgentMark>> = {
+    'anthropic-claude-api': { title: 'Claude API', path: siClaude.path },
     antigravity: {
         title: 'Antigravity',
         viewBox: '0 0 16 16',

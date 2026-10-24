@@ -1162,7 +1162,9 @@
             "failed": "De controle is niet afgerond: {{message}}",
             "checkedAt": "Gecontroleerd {{when}}.",
             "causes": {
-                "ok": { "problem": "Je andere apparaten kunnen deze machine bereiken." },
+                "ok": {
+                    "problem": "Je andere apparaten kunnen deze machine bereiken."
+                },
                 "brokerOff": {
                     "problem": "De verbindingsdienst staat uit, dus apparaten buiten dit netwerk bereiken de machine niet.",
                     "fix": "Zet de verbindingsdienst hierboven aan."
@@ -1203,7 +1205,9 @@
                     "problem": "Poort {{port}} is bezet, dus apparaten op dit netwerk verbinden via je account.",
                     "fix": "Stop wat de poort gebruikt, of start de machine met een andere --lan-port."
                 },
-                "unknown": { "problem": "De machine meldt een probleem dat deze versie van Ruimte niet kent: {{cause}}." }
+                "unknown": {
+                    "problem": "De machine meldt een probleem dat deze versie van Ruimte niet kent: {{cause}}."
+                }
             }
         },
         "worktreeFolder": {
@@ -1547,6 +1551,41 @@
             "remove": "Van deze machine verwijderen",
             "removeDescription": "De chats van {{name}} blijven en werken weer na een herinstallatie.",
             "removeButton": "Verwijderen"
+        },
+        "claudeApi": {
+            "description": "Chat met Claude via de API, met een eigen sleutel. Anthropic rekent elke call per token af, dus houd je uitgaven daar in de gaten.",
+            "footer": "De sleutel blijft op deze machine en wordt nooit meer getoond. Tools volgen de toestemmingsmodus van de chat. Een chat gaat alleen automatisch door als je dat hieronder toestaat.",
+            "key": "API-sleutel",
+            "keyDescription": "Een sleutel van console.anthropic.com. Bij opslaan wordt hij gecontroleerd en worden de modellen opgehaald die hij mag gebruiken.",
+            "saved": "Opgeslagen",
+            "status": "API-sleutel",
+            "save": "Opslaan",
+            "refresh": "Modellen vernieuwen",
+            "disconnect": "Ontkoppelen",
+            "loading": "Bezig met controleren bij Anthropic…",
+            "unknown": "De machine heeft nog niet geantwoord.",
+            "ready_one": "Gekoppeld, {{count}} model beschikbaar.",
+            "ready_other": "Gekoppeld, {{count}} modellen beschikbaar.",
+            "disconnected": "Geen sleutel opgeslagen op deze machine.",
+            "unavailable": "Deze machine biedt de Claude API nog niet aan. Werk Ruimte daar bij.",
+            "failed": "De Claude API kon niet worden gewijzigd op deze machine.",
+            "continue": {
+                "label": "Automatisch doorgaan",
+                "description": "Als een chat zijn toolrondes voor één run bereikt, gaat hij zelf verder, en elke call kost geld. Uit, dan stopt hij en wacht op jouw bericht."
+            },
+            "rounds": {
+                "label": "Toolrondes per run",
+                "description": "Hoeveel rondes tools een run neemt voordat hij wordt afgekapt, van 5 tot 200."
+            },
+            "runs": {
+                "label": "Runs voordat hij stopt",
+                "description": "Hoeveel runs een chat zelf neemt, van 1 tot 20. Dit is de rem op een lus die nooit stopt."
+            },
+            "tokens": {
+                "label": "Outputtokens per antwoord",
+                "description": "Het meeste dat één antwoord mag gebruiken, van 1.024 tot 128.000, en nooit meer dan het model toestaat. Denken telt mee."
+            },
+            "noKey": "Geen API-sleutel ingesteld"
         }
     }
 }

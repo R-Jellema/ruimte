@@ -25,6 +25,7 @@ export function wireUsage(config: ServerConfig, providers: ProvidersBundle, agen
         roots: () => [
             ...usageRootsOf(providers.accounts),
             { provider: 'nanogpt', path: providers.nanogpt.usageDirectory },
+            { provider: 'anthropic-claude-api', path: providers.claudeApi.usageDirectory },
             { provider: 'copilot', path: copilotUsageDirectory(config.home) }
         ],
         sessionAccounts: () =>

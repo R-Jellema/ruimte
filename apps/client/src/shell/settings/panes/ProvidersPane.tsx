@@ -5,6 +5,7 @@ import { AcpServerSection, AcpServerStepBody } from '@/shell/settings/providers/
 import { useAcpServer } from '@/shell/settings/providers/use-acp-server';
 import { AppleFoundationSection } from '@/shell/settings/providers/AppleFoundationSection';
 import { CliVersionSection } from '@/shell/settings/providers/CliVersionSection';
+import { ClaudeApiSection } from '@/shell/settings/providers/ClaudeApiSection';
 import { NanoGptSection } from '@/shell/settings/providers/NanoGptSection';
 import { RegistryCatalogPage } from '@/shell/settings/providers/RegistryCatalogPage';
 import { useCliVersions, useRegistryCatalog } from '@/shell/settings/providers/use-provider-installs';
@@ -31,6 +32,9 @@ export function ProvidersPane() {
     const versions = useCliVersions(endpointId);
     useDetectProviders();
     const detailOf = (provider: ProviderInfo) => {
+        if (provider.kind === 'anthropic-claude-api') {
+            return <ClaudeApiSection key={endpointId} endpointId={endpointId} />;
+        }
         if (provider.kind === 'nanogpt') {
             return <NanoGptSection key={endpointId} endpointId={endpointId} />;
         }
@@ -57,6 +61,9 @@ export function ProvidersPane() {
             return { text: t('providers.apple.off'), tone: 'muted' as const };
         }
         // The machine reports NanoGPT installed once a saved key brought it models.
+        if (provider.kind === 'anthropic-claude-api' && !provider.installed) {
+            return { text: t('providers.claudeApi.noKey'), tone: 'warning' as const };
+        }
         if (provider.kind === 'nanogpt' && !provider.installed) {
             return { text: t('providers.nanogpt.noKey'), tone: 'warning' as const };
         }

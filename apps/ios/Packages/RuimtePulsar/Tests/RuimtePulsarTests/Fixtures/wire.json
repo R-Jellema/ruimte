@@ -389,7 +389,9 @@
     "provenance.read",
     "provenance.review",
     "nanogpt.status",
-    "nanogpt.configure"
+    "nanogpt.configure",
+    "anthropic.status",
+    "anthropic.configure"
   ],
   "eventTypes": [
     "push.attention",

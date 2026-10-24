@@ -23,8 +23,10 @@ function provider(kind: AgentKind, name: string, installed: boolean): ProviderIn
         version: installed ? '1.0.0' : null,
         models: [],
         defaultModel: null,
-        // Only whether it chats is read here.
-        capabilities: { chat: kind !== 'antigravity' } as ProviderInfo['capabilities'],
+        capabilities: {
+            chat: kind !== 'antigravity',
+            terminal: kind !== 'apple' && kind !== 'nanogpt' && kind !== 'anthropic-claude-api'
+        } as ProviderInfo['capabilities'],
         resumeCommand: ''
     };
 }
@@ -102,6 +104,12 @@ describe('the tasks of the onboarding', () => {
 });
 
 describe('the providers task', () => {
+    test('API providers never become CLIs to install or log in to', () => {
+        const apis = [provider('nanogpt', 'NanoGPT Subscription', true), provider('anthropic-claude-api', 'Claude API', true)];
+        expect(cliRowsOf(apis, accounts({}))).toEqual([]);
+        expect(missingClisOf(apis)).toEqual([]);
+    });
+
     test('lists the installed CLIs, logs in the default account and names the missing ones in one row', () => {
         const rows = cliRowsOf(PROVIDERS, accounts({ claude_work: 'ready' }));
         expect(rows.map((row) => row.provider.kind)).toEqual(['claude', 'codex']);

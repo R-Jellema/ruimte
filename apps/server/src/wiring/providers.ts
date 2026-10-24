@@ -16,11 +16,14 @@ import { ProviderFeed } from '../providers/provider-feed.ts';
 import { ProviderRegistry } from '../providers/registry.ts';
 import type { ServerConfig } from '../config.ts';
 import { nanoGptService } from '../providers/nanogpt-provider.ts';
+import { anthropicClaudeApiService } from '../providers/anthropic-claude-api-provider.ts';
+import type { AnthropicClaudeApiService } from '../providers/anthropic-claude-api-service.ts';
 import type { NanoGptService } from '../providers/nanogpt-service.ts';
 
 /* The agent CLIs of this machine, their accounts and what a person allowed in their settings. */
 export interface ProvidersBundle {
     nanogpt: NanoGptService;
+    claudeApi: AnthropicClaudeApiService;
     providers: ProviderRegistry;
     // The provider list again, to every client, when an agent reported something new about itself.
     feed: ProviderFeed;
@@ -47,7 +50,8 @@ export async function wireProviders(
     fetched: () => void = () => undefined
 ): Promise<ProvidersBundle> {
     const nanogpt = nanoGptService;
-    await nanogpt.load(config.home);
+    const claudeApi = anthropicClaudeApiService;
+    await Promise.all([nanogpt.load(config.home), claudeApi.load(config.home)]);
     const antigravityServer = new AcpServerInstall({ provider: 'antigravity', home: config.home, release: ANTIGRAVITY_ACP_RELEASE });
     const providers = new ProviderRegistry({
         appleEnabled: () => identity.appleFoundationEnabled,
@@ -139,8 +143,10 @@ export async function wireProviders(
     });
     // Before the feed listens, so the list it sends reads the new key instead of the cached detection.
     nanogpt.onChange(() => providers.invalidate('nanogpt'));
+    claudeApi.onChange(() => providers.invalidate('anthropic-claude-api'));
     return {
         nanogpt,
+        claudeApi,
         providers,
         feed: new ProviderFeed(providers),
         modelCatalogs,

@@ -33,7 +33,7 @@ export interface OnboardingFacts {
 
 /* Apple's on-device model and NanoGPT's subscription API are providers with no CLI to install or log in to. */
 function isCli(provider: ProviderInfo): boolean {
-    return provider.kind !== 'apple' && provider.kind !== 'nanogpt';
+    return provider.capabilities.terminal;
 }
 
 export function cliRowsOf(providers: readonly ProviderInfo[], accounts: ProviderAccounts | null): CliRow[] {
