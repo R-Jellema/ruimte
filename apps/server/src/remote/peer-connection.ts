@@ -2,7 +2,6 @@ import { withTimeout } from '@adecore/agents';
 import { BrokerPeer, brokerHostOf, signalMessage, type IceServer, type PeerStatement, type SignalEnvelope } from '@ruimte/pulsar';
 import { verifySignature } from '@ruimte/pulsar/verify-node';
 import { weriftIceServers } from '../pulsar/broker-relay.ts';
-import { DirectClient } from '../pulsar/direct-client.ts';
 import type { PeerMachine } from './peer-machines.ts';
 import { checkedReply } from './peer-reply.ts';
 
@@ -146,6 +145,8 @@ export interface PeerLinkOptions {
 export async function openPeerLink(options: PeerLinkOptions): Promise<PeerLink> {
     const { line, machine } = options;
     const publicKey = await options.signer.publicKey();
+    // Local sockets never need werift; load its client only when this machine opens a remote channel.
+    const { DirectClient } = await import('../pulsar/direct-client.ts');
     const client = new DirectClient({
         stunServers: [],
         iceServers: line.iceServers,

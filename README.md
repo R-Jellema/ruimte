@@ -46,7 +46,7 @@ bun dev
 
 `bun dev` starts the daemon on `localhost:4211`, the Vite client and the Electron shell. The daemon keeps its state in `~/.ruimte-dev`; set `RUIMTE_DEV_HOME` to choose another folder. The Vite client proxies `/ws` to it. An installed Ruimte keeps `4210` and `~/.ruimte`, so both versions can run on one machine.
 
-`bun run dev:built` builds the production client, then starts its preview server on `localhost:4212`, the development daemon with watch and the Electron shell. It uses the same dev profile, data folder and daemon proxy as `bun dev`. Restart the command to rebuild after client changes. `bun run dev:client:built` serves an existing client build on its own.
+`bun run dev:built` builds the production client, then starts its preview server on `localhost:4212`, the development daemon with watch and the Electron shell. The shell waits for the daemon before opening, so native helper preparation stays in the terminal. It uses the same dev profile, data folder and daemon proxy as `bun dev`. Restart the command to rebuild after client changes. `bun run dev:client:built` serves an existing client build on its own.
 
 `bun run dev:client` and `bun run dev:server` start one side. `bun run dev:desktop` opens the Electron shell against the running development server as "Ruimte Dev", with a profile of its own. Browser nodes only work there. `bun run check` typechecks, lints and checks the formatting and the generated files of every package. `bun run build` builds the client, `bun run test` runs the unit tests, and `bun run test:dom` the client tests that need a page.
 

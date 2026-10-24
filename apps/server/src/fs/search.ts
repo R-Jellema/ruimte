@@ -38,13 +38,18 @@ function isWordStart(path: string, index: number): boolean {
  * `app-alpha/src/greeting.ts` the way `alpha/greeting` does; the path scores their sum.
  */
 export function fuzzyScore(query: string, path: string): number | null {
+    return scorePath(query.toLowerCase().split(/\s+/).filter(Boolean), path);
+}
+
+function scorePath(words: readonly string[], path: string): number | null {
+    if (words.length === 0) {
+        return 0;
+    }
     const haystack = path.toLowerCase();
+    const nameStart = haystack.lastIndexOf('/') + 1;
     let score = 0;
-    for (const word of query.toLowerCase().split(/\s+/)) {
-        if (word === '') {
-            continue;
-        }
-        const wordScore = subsequenceScore(word, haystack);
+    for (const word of words) {
+        const wordScore = subsequenceScore(word, haystack, nameStart);
         if (wordScore === null) {
             return null;
         }
@@ -53,8 +58,7 @@ export function fuzzyScore(query: string, path: string): number | null {
     return score;
 }
 
-function subsequenceScore(needle: string, haystack: string): number | null {
-    const nameStart = haystack.lastIndexOf('/') + 1;
+function subsequenceScore(needle: string, haystack: string, nameStart: number): number | null {
     let score = 0;
     let previous = -1;
     let cursor = 0;
@@ -83,21 +87,93 @@ function subsequenceScore(needle: string, haystack: string): number | null {
     return score;
 }
 
-/* The best `limit` matches, best first; ties go to a file the repository keeps, then the shorter path, then alphabetical. */
-export function rankFiles(files: string[], query: string, limit: number, ignored: string[] = []): string[] {
-    const scored: Array<{ path: string; score: number; ignored: boolean }> = [];
+interface ScoredFile {
+    path: string;
+    score: number;
+    ignored: boolean;
+    index: number;
+}
+
+function compareFiles(first: ScoredFile, second: ScoredFile): number {
+    return (
+        second.score - first.score ||
+        Number(first.ignored) - Number(second.ignored) ||
+        first.path.length - second.path.length ||
+        first.path.localeCompare(second.path) ||
+        first.index - second.index
+    );
+}
+
+function scoreFiles(files: string[], query: string, ignored: string[]): ScoredFile[] {
+    const scored: ScoredFile[] = [];
+    const words = query.toLowerCase().split(/\s+/).filter(Boolean);
     const add = (paths: string[], isIgnored: boolean): void => {
         for (const path of paths) {
-            const score = fuzzyScore(query, path);
+            const score = scorePath(words, path);
             if (score !== null) {
-                scored.push({ path, score, ignored: isIgnored });
+                scored.push({ path, score, ignored: isIgnored, index: scored.length });
             }
         }
     };
     add(files, false);
     add(ignored, true);
-    scored.sort((a, b) => b.score - a.score || Number(a.ignored) - Number(b.ignored) || a.path.length - b.path.length || a.path.localeCompare(b.path));
-    return scored.slice(0, limit).map((entry) => entry.path);
+    return scored;
+}
+
+function sinkFile(files: ScoredFile[], from: number): void {
+    const entry = files[from]!;
+    let index = from;
+    while (index * 2 + 1 < files.length) {
+        let child = index * 2 + 1;
+        if (child + 1 < files.length && compareFiles(files[child + 1]!, files[child]!) < 0) {
+            child++;
+        }
+        if (compareFiles(entry, files[child]!) <= 0) {
+            break;
+        }
+        files[index] = files[child]!;
+        index = child;
+    }
+    files[index] = entry;
+}
+
+// A rejected path must yield to the next match, without sorting every match for an eight-row picker.
+function* rankedFiles(files: string[], query: string, ignored: string[]): Generator<string> {
+    const heap = scoreFiles(files, query, ignored);
+    for (let index = Math.floor(heap.length / 2) - 1; index >= 0; index--) {
+        sinkFile(heap, index);
+    }
+    while (heap.length > 0) {
+        const best = heap[0]!;
+        const last = heap.pop()!;
+        if (heap.length > 0) {
+            heap[0] = last;
+            sinkFile(heap, 0);
+        }
+        yield best.path;
+    }
+}
+
+/* The best `limit` matches, best first; ties go to a file the repository keeps, then the shorter path, then alphabetical. */
+export function rankFiles(files: string[], query: string, limit: number, ignored: string[] = []): string[] {
+    if (!Number.isFinite(limit) || limit < 0) {
+        return scoreFiles(files, query, ignored)
+            .sort(compareFiles)
+            .slice(0, limit)
+            .map((entry) => entry.path);
+    }
+    const found: string[] = [];
+    const wanted = Math.trunc(limit);
+    if (wanted === 0) {
+        return found;
+    }
+    for (const path of rankedFiles(files, query, ignored)) {
+        found.push(path);
+        if (found.length === wanted) {
+            break;
+        }
+    }
+    return found;
 }
 
 function toPosix(path: string): string {
@@ -257,7 +333,7 @@ export async function searchFiles(cwd: string, query: string, limit = 20, policy
     const open = (paths: string[]): string[] => paths.filter((path) => isOpenName(root, path));
     const files: string[] = [];
     const wanted = Math.min(limit, FS_SEARCH_MAX_RESULTS);
-    for (const path of rankFiles(open(tracked.files), query.trim(), Number.POSITIVE_INFINITY, open(ignored.files))) {
+    for (const path of rankedFiles(open(tracked.files), query.trim(), open(ignored.files))) {
         if (files.length >= wanted) {
             break;
         }
