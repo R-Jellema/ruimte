@@ -13,12 +13,12 @@ import { formatAge, formatClock, isSameDay } from '@adecore/ui/format';
 const PAGE = 30;
 const MINUTE_MS = 60_000;
 
-/* A commit on two branches names both; beyond that the names cost the subject more than they tell. */
-const REFS_SHOWN = 2;
+/* One name fits beside the subject in a narrow panel; the others fold into a count with their names in its tooltip. */
+const REFS_SHOWN = 1;
 
 /* A commit row is its own open button, inset and rounded like a row of the file tree above it; a
    button centers its text unless told otherwise. */
-const LOG_ROW = `group w-full min-w-0 gap-2 rounded-md pr-2 pl-1 text-left text-xs text-inherit hover:bg-surface-hover hover:text-text data-[selected]:bg-surface-active data-[selected]:text-text`;
+const LOG_ROW = `group w-full min-w-0 gap-2 overflow-hidden rounded-md pr-2 pl-1 text-left text-xs text-inherit hover:bg-surface-hover hover:text-text data-[selected]:bg-surface-active data-[selected]:text-text`;
 
 /* The checkouts the log is read from, named so a row can say which one it came out of. */
 export interface LogSource {
@@ -231,7 +231,7 @@ const CommitRow = memo(function CommitRow({ commit, selected, now, onOpen }: Com
                 <span className="truncate text-text">{commit.subject}</span>
                 {refs.slice(0, REFS_SHOWN).map((ref) => (
                     <Tooltip key={ref.name} label={ref.tracked === null ? ref.name : t('git.log.tracked', { name: ref.name, remote: ref.tracked })}>
-                        <Pill mono size="sm" className="max-w-32 shrink-0 py-0">
+                        <Pill mono size="sm" className="max-w-32 min-w-0 shrink py-0">
                             <span className="min-w-0 truncate">{ref.name}</span>
                             {ref.tracked !== null && <Icon icon={Cloud} size={12} className="shrink-0 text-text-faint" />}
                         </Pill>
