@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
-import { Button, useNow } from '@adecore/ui';
-import { formatAge, formatNumber } from '@adecore/ui/format';
+import { Button, RelativeTime } from '@adecore/ui';
+import { formatNumber } from '@adecore/ui/format';
 import { AnchoredPopup } from '@adecore/editor-react';
 import { useEndpointId } from '@/state/keys';
 import type { AgentHover } from './agent-changes';
@@ -8,8 +8,6 @@ import { colorOfChat } from './agent-runs';
 import { ChatMark } from './ChatMark';
 import { openChatAtTurn } from './chat-turn';
 import { useChatIdentity, useProviderName } from './use-chat-identity';
-
-const MINUTE_MS = 60_000;
 
 /* The lines of a run as a person reads them, such as `33-38`. */
 function linesText(start: number, end: number): string {
@@ -19,7 +17,6 @@ function linesText(start: number, end: number): string {
 /* Which chat and turn wrote the lines behind a bar in the gutter, when, and the prompt that turn started from. */
 export function ProvenanceCard({ hover, onHold }: { hover: AgentHover; onHold(inside: boolean): void }) {
     const { t } = useTranslation('panels');
-    const now = useNow(MINUTE_MS);
     const endpointId = useEndpointId();
     const { run, startLine, endLine } = hover;
     const chat = useChatIdentity(run.chatId);
@@ -35,7 +32,7 @@ export function ProvenanceCard({ hover, onHold }: { hover: AgentHover; onHold(in
                     <ChatMark provider={run.provider} color={colorOfChat(run.chatId)} size={14} />
                     <span className="shrink-0 text-sm font-semibold text-text">{name}</span>
                     {chat.title !== null && <span className="min-w-0 truncate text-sm text-text-muted">{t('file.agent.inChat', { chat: chat.title })}</span>}
-                    <span className="ml-auto shrink-0 text-text-faint">{formatAge(run.at, now)}</span>
+                    <RelativeTime at={run.at} className="ml-auto shrink-0 text-text-faint" />
                 </div>
                 <span className="text-text-muted">{where}</span>
                 {run.promptExcerpt !== '' && (
