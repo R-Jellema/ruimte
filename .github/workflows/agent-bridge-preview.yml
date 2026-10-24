@@ -1,0 +1,40 @@
+name: Agent bridge Mac preview
+
+on:
+  push:
+    branches: [build/agent-bridge-preview]
+
+permissions:
+  contents: read
+
+jobs:
+  mac:
+    if: github.repository == 'R-Jellema/ruimte'
+    runs-on: macos-latest
+    env:
+      RUIMTE_VERSION: 0.23.1-agent-bridge.2
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/install
+      - uses: ./.github/actions/cache-native-builds
+      - name: Build client and desktop
+        run: bun run build
+      - name: Compile the Mac daemon and native helpers
+        run: bun run --cwd apps/server compile -- --os mac --arch arm64
+      - name: Package an ad-hoc signed preview without publishing
+        working-directory: apps/desktop
+        run: |
+          bun x electron-builder --mac zip --arm64 --publish never \
+            -c.extraMetadata.version="$RUIMTE_VERSION" \
+            -c.directories.output=release/agent-bridge-preview \
+            -c.mac.identity=- -c.mac.notarize=false \
+            '-c.mac.artifactName=Ruimte-${version}-${arch}.${ext}'
+      - name: Verify the application signature
+        run: codesign --verify --deep --strict apps/desktop/release/agent-bridge-preview/mac-arm64/Ruimte.app
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Ruimte-agent-bridge-mac-arm64
+          path: apps/desktop/release/agent-bridge-preview/*.zip
+          if-no-files-found: error
+          retention-days: 14
