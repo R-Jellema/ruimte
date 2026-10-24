@@ -152,7 +152,6 @@
     },
     "toasts": {
         "deletedView": "Deleted view “{{name}}”",
-        "copied": "Copied",
         "copyOutput": "Copy output"
     },
     "projectName": {

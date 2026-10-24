@@ -1,24 +1,11 @@
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Copy } from 'lucide-react';
 import { useToasts, type Toast } from '@/state/toasts';
-import { Button, copyText, Icon, Toasts as ToastStack } from '@adecore/ui';
+import { CopyButton, Toasts as ToastStack } from '@adecore/ui';
 
 /* Keep copy feedback on this button rather than opening another toast. */
 function CopyOutput({ output }: { output: string }) {
     const { t } = useTranslation('shell');
-    const [copied, setCopied] = useState(false);
-    return (
-        <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => {
-                void copyText(output).then(setCopied);
-            }}
-        >
-            <Icon icon={Copy} size={12} /> {copied ? t('toasts.copied') : t('toasts.copyOutput')}
-        </Button>
-    );
+    return <CopyButton text={output} label={t('toasts.copyOutput')} showLabel size="sm" variant="secondary" />;
 }
 
 // The stack subscribes to the store itself; under its hook name the React Compiler would refuse to hand it on.

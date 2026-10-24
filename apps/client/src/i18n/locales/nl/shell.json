@@ -152,7 +152,6 @@
     },
     "toasts": {
         "deletedView": "Weergave “{{name}}” verwijderd",
-        "copied": "Gekopieerd",
         "copyOutput": "Output kopiëren"
     },
     "projectName": {
