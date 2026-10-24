@@ -48,8 +48,14 @@ beforeEach(async () => {
 afterEach(async () => {
     for (const name of ['server.pid', 'descendant.pid']) {
         const pid = Number(await readFile(join(cwd, name), 'utf8').catch(() => '0'));
-        if (pid > 0 && alive(pid)) {
-            process.kill(pid, 'SIGKILL');
+        if (pid > 0) {
+            try {
+                process.kill(pid, 'SIGKILL');
+            } catch (error) {
+                if ((error as NodeJS.ErrnoException).code !== 'ESRCH') {
+                    throw error;
+                }
+            }
         }
     }
     await rm(cwd, { recursive: true, force: true });

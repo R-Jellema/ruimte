@@ -58,8 +58,15 @@ describe('Apple local command real process', () => {
         } finally {
             controller.abort();
             await pending.catch(() => undefined);
-            if (childPid && alive(childPid)) {
-                process.kill(childPid, 'SIGKILL');
+            if (childPid > 0) {
+                try {
+                    process.kill(childPid, 'SIGKILL');
+                } catch (error) {
+                    if ((error as NodeJS.ErrnoException).code !== 'ESRCH') {
+                        // eslint-disable-next-line no-unsafe-finally -- Unexpected cleanup errors must fail the test.
+                        throw error;
+                    }
+                }
             }
         }
     });

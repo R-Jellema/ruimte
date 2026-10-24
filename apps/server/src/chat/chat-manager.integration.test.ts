@@ -97,8 +97,15 @@ describe('ChatManager over real processes', () => {
             // Reaped by whoever adopts it, which takes a moment after the signal.
             await waitFor(() => !alive(pid), 'the grandchild to go');
         } finally {
-            if (alive(pid)) {
-                process.kill(pid, 'SIGKILL');
+            if (pid > 0) {
+                try {
+                    process.kill(pid, 'SIGKILL');
+                } catch (error) {
+                    if ((error as NodeJS.ErrnoException).code !== 'ESRCH') {
+                        // eslint-disable-next-line no-unsafe-finally -- Unexpected cleanup errors must fail the test.
+                        throw error;
+                    }
+                }
             }
         }
     });
