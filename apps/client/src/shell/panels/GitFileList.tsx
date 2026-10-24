@@ -136,7 +136,7 @@ export function GitFileList({ checkouts, reposTruncated, ...props }: ListProps) 
        listed under it to say where it stands. */
     const clean = checkouts.length > 1 ? read.filter((checkout) => checkout.status?.repo === true && checkout.status.files.length === 0) : [];
     const cleanRows = clean.length > 0 && (
-        <div className="shrink-0 border-t border-border px-2 py-1">
+        <div className="shrink-0 px-2 pb-1">
             {clean.map((checkout) => (
                 <CleanRepoRow key={checkout.path} checkout={checkout} renderRepoActions={props.renderRepoActions} onRepoMenu={props.onRepoMenu} />
             ))}
@@ -175,7 +175,8 @@ function CleanRepoRow({ checkout, renderRepoActions, onRepoMenu }: CleanRepoRowP
         <ContextMenu.Root>
             <ContextMenu.Trigger
                 render={<ListRow variant="flat" />}
-                className="gap-2 rounded-md pr-2 pl-1 text-sm text-text-muted hover:bg-surface-hover"
+                /* The tree's row measures, with the icon past the empty place of the stage box. */
+                className="h-[25px] gap-1.5 rounded-md pr-2 pl-6 text-xs text-text hover:bg-surface-hover"
                 onContextMenu={() => onRepoMenu?.(checkout.path)}
             >
                 <Icon icon={FolderGit2} size={14} className="shrink-0 text-text-faint" />
