@@ -227,7 +227,7 @@ const CommitRow = memo(function CommitRow({ commit, selected, now, onOpen }: Com
             >
                 <AuthorAvatar name={commit.author} email={commit.authorEmail} />
                 {/* One width for every repository, so the subjects start in one column. */}
-                {commit.repo !== '' && <span className="w-20 shrink-0 truncate text-text-faint">{commit.repo}</span>}
+                {commit.repo !== '' && <span className="w-16 shrink-0 truncate text-text-faint">{commit.repo}</span>}
                 <span className="truncate text-text">{commit.subject}</span>
                 {refs.slice(0, REFS_SHOWN).map((ref) => (
                     <Tooltip key={ref.name} label={ref.tracked === null ? ref.name : t('git.log.tracked', { name: ref.name, remote: ref.tracked })}>
