@@ -74,17 +74,25 @@ export function MachineIdentityForm({ endpointId, label, disabledReason }: Machi
                     />
                 }
             />
+            <SettingsRow
+                label={t('identity.icon')}
+                description={t('identity.iconHint')}
+                control={
+                    <IconPicker
+                        icons={iconGroups}
+                        keywords={PROJECT_ICON_KEYWORDS}
+                        rows={7}
+                        value={icon?.value ?? null}
+                        disabled={disabled}
+                        label={t('identity.icon')}
+                        hideLabel
+                        className="w-55"
+                        onValueChange={(name) => setIcon({ kind: 'lucide', value: name as ProjectIconChoice['value'] })}
+                        onClear={() => setIcon(null)}
+                    />
+                }
+            />
             <div className="flex min-w-0 flex-col px-4.5 pb-3.5">
-                <IconPicker
-                    icons={iconGroups}
-                    keywords={PROJECT_ICON_KEYWORDS}
-                    rows={7}
-                    value={icon?.value ?? null}
-                    disabled={disabled}
-                    className="w-55"
-                    onValueChange={(name) => setIcon({ kind: 'lucide', value: name as ProjectIconChoice['value'] })}
-                    onClear={() => setIcon(null)}
-                />
                 {failure && <FormError className="mt-3 break-words">{failure}</FormError>}
                 <div className="mt-3 flex justify-end">
                     {disabled ? (

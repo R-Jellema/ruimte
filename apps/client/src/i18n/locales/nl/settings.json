@@ -1113,6 +1113,8 @@
         "name": "Naam",
         "nameLabel": "Naam van de machine",
         "nameHint": "Laat leeg om de standaardnaam te gebruiken.",
+        "icon": "Icoon",
+        "iconHint": "Het teken naast de naam in elke lijst.",
         "gone": "Die machine staat niet meer in de lijst",
         "saveFailed": "De machine kon de wijziging niet opslaan"
     },
