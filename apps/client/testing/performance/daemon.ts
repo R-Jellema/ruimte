@@ -8,12 +8,16 @@ import { LinkTransport } from '../../src/transport/link-transport';
 import { socketLink } from '../../src/transport/websocket-transport';
 import { measureRestore } from './restore';
 
-const root = await mkdtemp(join(tmpdir(), 'ruimte-daemon-bench-'));
 const runs = Number(process.env.BENCH_RUNS ?? 5);
 const pollMs = Number(process.env.BENCH_POLL_MS ?? 10);
+const projects = Number(process.env.BENCH_PROJECTS ?? 0);
+if (!Number.isInteger(projects) || projects < 0 || (projects > 0 && process.env.BENCH_RESTORE === '1')) {
+    throw new Error('BENCH_PROJECTS must be a nonnegative integer and cannot be combined with BENCH_RESTORE');
+}
+const root = await mkdtemp(join(tmpdir(), 'ruimte-daemon-bench-'));
 const samples = [];
 try {
-    for (let run = 0; run < runs; run++) {
+    for (let run = projects > 0 ? -1 : 0; run < runs; run++) {
         const home = process.env.BENCH_RESTORE === '1' ? join(root, `home-${run}`) : root;
         const reservation = Bun.serve({ hostname: '127.0.0.1', port: 0, fetch: () => new Response() });
         const port = reservation.port!;
@@ -85,8 +89,14 @@ try {
             });
             const connectedMs = performance.now() - started;
             const result = await transport.request('project.list', {});
-            if (result.projects.length !== 0) {
-                throw new Error('Fresh benchmark home unexpectedly contains projects');
+            if (result.projects.length !== (run < 0 ? 0 : projects)) {
+                throw new Error('Benchmark home contains an unexpected number of projects');
+            }
+            if (run < 0) {
+                for (let project = 0; project < projects; project++) {
+                    await transport.request('project.open', { folder: join(home, 'scratch', `benchmark-${project}`), createFolder: true });
+                }
+                continue;
             }
             samples.push({ listeningMs, provenMs, ticketMs, connectedMs, projectsMs: performance.now() - started });
             if (process.env.BENCH_RESTORE === '1') {
@@ -119,6 +129,7 @@ try {
                 runs,
                 pollMs,
                 mode: process.env.BENCH_DAEMON_BINARY ? 'compiled' : 'source',
+                projects,
                 instrumented: Boolean(process.env.BENCH_DAEMON_PRELOAD),
                 samples
             },

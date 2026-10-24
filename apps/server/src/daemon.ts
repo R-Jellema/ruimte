@@ -8,6 +8,7 @@ import { HOOKS_PATH } from './agents/hook-receiver.ts';
 import { pruneHiddenChats } from './agents/prune-hidden-chats.ts';
 import { dropEmptyMark } from './projects/scratch-project.ts';
 import { probeCodexNoDaemon } from './providers/launch.ts';
+import { readMachineModel } from './machine-model.ts';
 import { noteShutdown, rememberSecret, stopTelemetry, watchProjects, type Launcher } from './telemetry/reporter.ts';
 import { COMPILED as compiled, VERSION } from './version.ts';
 import { loadAgentStores, wireAgents } from './wiring/agents.ts';
@@ -54,6 +55,7 @@ export async function startDaemon(config: ServerConfig, launcher: Launcher = 'st
 
     // Runs while the stores load; it never rejects, and the managers await it before any launch.
     const codexProbe = probeCodexNoDaemon();
+    const machineModel = readMachineModel();
     const machine = await wireMachine(config);
     const { identity } = machine;
     rememberSecret(machine.access.localSecret);
@@ -152,6 +154,7 @@ export async function startDaemon(config: ServerConfig, launcher: Launcher = 'st
 
     const dispatcher = new Dispatcher();
     await registerHandlers(dispatcher, {
+        machineModel,
         runtime,
         machine,
         stores,

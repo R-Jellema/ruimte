@@ -52,7 +52,6 @@ import { registerSnoozeHandlers } from '../handlers/snooze.ts';
 import { registerTaskHandlers } from '../handlers/tasks.ts';
 import { projectTerminalPrepareHost, registerTerminalPrepareHandlers } from '../handlers/terminal-prepare.ts';
 import { registerUsageHandlers } from '../handlers/usage.ts';
-import { readMachineModel } from '../machine-model.ts';
 import { workEndedByInstall } from '../power/machine-update.ts';
 import type { PushService } from '../push/service.ts';
 import { PrepareTerminal, shellSyntax } from '../sessions/prepare-terminal.ts';
@@ -76,6 +75,7 @@ import type { ProcessesBundle } from './processes.ts';
 import type { UsageBundle } from './usage.ts';
 
 export interface HandlersInput {
+    machineModel: Promise<string | null>;
     runtime: DaemonRuntime;
     machine: MachineBundle;
     stores: AgentStores;
@@ -124,7 +124,7 @@ export async function registerHandlers(dispatcher: Dispatcher, input: HandlersIn
     const store = projects.store;
     registerPushHandlers(dispatcher, machine.auth, () => push.synchronizeActivities(), push);
     registerSnoozeHandlers(dispatcher, work.snoozes, (nodeId) => store.index.locate(nodeId));
-    registerServerHandlers(dispatcher, { version: VERSION, home: config.home, model: await readMachineModel() });
+    registerServerHandlers(dispatcher, { version: VERSION, home: config.home, model: await input.machineModel });
     registerSessionHandlers(
         dispatcher,
         sessions,
