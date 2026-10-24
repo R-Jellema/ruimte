@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
 import { canvasPrompts, samePrompts, type CanvasPrompt } from '@/canvas/prompts';
 import { useCanvasStore } from '@/state/canvas';
+import { ChatPromptFeed } from '@adecore/agents-react/chat';
+import type { PromptSubject } from '@adecore/agents-react/prompts';
+import { chatScopeOf } from '@/transport/chat-scope';
 import { useChats } from '@adecore/agents-react/state';
 import { subscribeChatThreads } from '@/state/chats';
 import { computerApprovalsOf, useComputer } from '@/state/computer';
-import { endpointOfNode, useEndpointId } from '@/state/keys';
+import { endpointKey, endpointOfNode, useEndpointId } from '@/state/keys';
 import { proposalsOf, useProposals } from '@/state/proposals';
 import { secretRequestsOf, useSecrets } from '@/state/secrets';
 import { useSessions } from '@/state/sessions';
@@ -22,6 +25,8 @@ export function useCanvasPrompts(): CanvasPrompt[] {
     const [prompts, setPrompts] = useState<CanvasPrompt[]>(NONE);
 
     useEffect(() => {
+        const feeds = new Map<string, ChatPromptFeed>();
+        const descendants = new Map<string, readonly PromptSubject[]>();
         const update = (): void => {
             const nodes = Object.values(canvasStore.getState().nodes);
             // The cards of every machine a node on this canvas runs on: a card belongs to the node that asks, wherever that runs.
@@ -31,6 +36,7 @@ export function useCanvasPrompts(): CanvasPrompt[] {
                 endpointId,
                 sessions: useSessions.getState().byKey,
                 chats: useChats.getState().byKey,
+                descendants,
                 computer: machines.flatMap(computerApprovalsOf),
                 secrets: machines.flatMap(secretRequestsOf),
                 proposals: machines.flatMap(proposalsOf),
@@ -38,9 +44,36 @@ export function useCanvasPrompts(): CanvasPrompt[] {
             });
             setPrompts((current) => (samePrompts(current, next.prompts) ? current : next.prompts));
         };
-        update();
+        const reconcile = (): void => {
+            const active = new Set<string>();
+            for (const node of Object.values(canvasStore.getState().nodes)) {
+                if (node.kind !== 'chat') {
+                    continue;
+                }
+                const machine = endpointOfNode(node, endpointId);
+                const key = endpointKey(machine, node.id);
+                active.add(key);
+                if (!feeds.has(key)) {
+                    const feed = new ChatPromptFeed(chatScopeOf(machine), node.id, (subjects) => {
+                        descendants.set(key, subjects);
+                        update();
+                    });
+                    feeds.set(key, feed);
+                    feed.start();
+                }
+            }
+            for (const [key, feed] of feeds) {
+                if (!active.has(key)) {
+                    feed.dispose();
+                    feeds.delete(key);
+                    descendants.delete(key);
+                }
+            }
+            update();
+        };
+        reconcile();
         const unsubscribe = [
-            canvasStore.subscribe(update),
+            canvasStore.subscribe(reconcile),
             subscribeChatThreads(update),
             useSessions.subscribe(update),
             useComputer.subscribe(update),
@@ -48,6 +81,9 @@ export function useCanvasPrompts(): CanvasPrompt[] {
             useProposals.subscribe(update)
         ];
         return () => {
+            for (const feed of feeds.values()) {
+                feed.dispose();
+            }
             for (const off of unsubscribe) {
                 off();
             }

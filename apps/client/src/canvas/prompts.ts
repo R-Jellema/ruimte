@@ -17,6 +17,7 @@ import { nodeStatus, type SessionsByKey } from '@/state/sessions';
 export interface CanvasPrompt {
     id: string;
     subject: PromptSubject;
+    sourceNodeId?: string;
     title: string;
     provider: AgentKind | null;
     surface: 'chat' | 'terminal';
@@ -27,6 +28,7 @@ export interface CanvasPromptsInput {
     endpointId: string;
     sessions: SessionsByKey;
     chats: ChatsById;
+    descendants?: ReadonlyMap<string, readonly PromptSubject[]>;
     /* The cards about operating apps, of this machine and of every other one a node runs on; each belongs to the chat or terminal whose agent asks. */
     computer: readonly ComputerApproval[];
     /* The cards in which an agent asks for a launch's secret, the same way; each belongs to the chat that asks. */
@@ -48,7 +50,17 @@ export interface CanvasPrompts {
  * A waiting terminal is dated by when it was first seen waiting rather than by the agent's
  * `updatedAt`, which every later hook of the same prompt moves forward.
  */
-export function canvasPrompts({ nodes, endpointId, sessions, chats, computer, secrets = [], proposals = [], waitingSince }: CanvasPromptsInput): CanvasPrompts {
+export function canvasPrompts({
+    nodes,
+    endpointId,
+    sessions,
+    chats,
+    descendants,
+    computer,
+    secrets = [],
+    proposals = [],
+    waitingSince
+}: CanvasPromptsInput): CanvasPrompts {
     const prompts: CanvasPrompt[] = [];
     const since = new Map(waitingSince);
     const add = (node: CanvasPromptsInput['nodes'][number], subject: PromptSubject, provider: AgentKind | null, surface: CanvasPrompt['surface']) =>
@@ -79,6 +91,18 @@ export function canvasPrompts({ nodes, endpointId, sessions, chats, computer, se
             for (const item of standingRequestsOf(chats[key])) {
                 add(node, { kind: 'chat', nodeId: node.id, item }, provider, 'chat');
             }
+            for (const subject of descendants?.get(key) ?? []) {
+                if (subject.kind === 'chat' && subject.nodeId !== node.id) {
+                    prompts.push({
+                        id: promptIdOf(subject),
+                        subject,
+                        sourceNodeId: node.id,
+                        title: node.title,
+                        provider: subject.source?.provider ?? provider,
+                        surface: 'chat'
+                    });
+                }
+            }
             continue;
         }
         const session = sessions[key];
@@ -100,7 +124,7 @@ export function canvasPrompts({ nodes, endpointId, sessions, chats, computer, se
     }
     return {
         prompts: orderPrompts(
-            prompts,
+            prompts.filter((prompt, index) => prompts.findIndex((other) => other.id === prompt.id) === index),
             (prompt) => isBlockingSubject(prompt.subject),
             (prompt) => promptCreatedAt(prompt.subject)
         ),
@@ -153,8 +177,12 @@ export function samePrompts(a: readonly CanvasPrompt[], b: readonly CanvasPrompt
             return (
                 prompt.id === other.id &&
                 prompt.title === other.title &&
+                prompt.sourceNodeId === other.sourceNodeId &&
                 prompt.provider === other.provider &&
                 prompt.subject.kind === other.subject.kind &&
+                (prompt.subject.kind !== 'chat' ||
+                    other.subject.kind !== 'chat' ||
+                    (prompt.subject.item === other.subject.item && prompt.subject.source?.label === other.subject.source?.label)) &&
                 ruimtePayloadOf(prompt.subject) === ruimtePayloadOf(other.subject)
             );
         })
