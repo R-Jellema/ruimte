@@ -318,6 +318,8 @@ export interface GitTreeSource {
     path: string;
     label: string;
     entries: readonly GitEntry[];
+    /* A repository read without changes, which still has a row to say where it stands. */
+    clean?: boolean;
 }
 
 export function fileId(cwd: string, path: string): string {
@@ -390,6 +392,27 @@ export function buildGitTree(sources: readonly GitTreeSource[], labelOf: (group:
             }
         }
     });
+    /* A repository without changes stands among the others under Changes, or under the last group there is. */
+    const changes = groupSegments[GIT_GROUPS.indexOf('changes')]!;
+    const host = nodes.has(changes) ? changes : groupSegments.filter((segment) => nodes.has(segment)).at(-1);
+    if (named && host !== undefined) {
+        const hostNode = nodes.get(host)!;
+        sources.forEach((source, index) => {
+            if (source.clean === true) {
+                const base = `${host}/${repoSegments[index]!}`;
+                nodes.set(base, {
+                    kind: 'repo',
+                    group: hostNode.group,
+                    parent: host,
+                    cwd: source.path,
+                    label: source.label,
+                    key: repoKey(source.path, hostNode.group),
+                    items: []
+                });
+                paths.push(`${base}/`);
+            }
+        });
+    }
     return { paths, nodes, files, ranks, synthetic: named ? 2 : 1 };
 }
 

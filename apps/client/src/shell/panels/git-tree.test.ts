@@ -225,6 +225,18 @@ describe('the list as one tree', () => {
         expect(layout.synthetic).toBe(2);
     });
 
+    test('a repository without changes is an empty row among the others under Changes', () => {
+        const layout = buildGitTree(
+            [
+                { path: '/work/api', label: 'api', entries: entriesOf([file('a.ts')]) },
+                { path: '/work/infra', label: 'infra', entries: [], clean: true }
+            ],
+            label
+        );
+        expect(layout.paths).toContain(`${group('Changes')}/${SYNTHETIC_PREFIX}infra/`);
+        expect(layout.nodes.get(`${group('Changes')}/${SYNTHETIC_PREFIX}infra`)).toMatchObject({ kind: 'repo', cwd: '/work/infra', items: [] });
+    });
+
     test('two repositories that read the same still get a row each', () => {
         const layout = buildGitTree(
             [
