@@ -42,6 +42,24 @@ async function openMenuOf(element: HTMLElement | null): Promise<void> {
     await until(() => document.querySelector('[role="menu"]') !== null);
 }
 
+function selected(id: string): boolean {
+    return tab(id)?.querySelector('[role="tab"]')?.getAttribute('aria-selected') === 'true';
+}
+
+/* A press and its release on a tab, where a person aims: on its label rather than its close button. */
+async function pressTab(id: string, init: MouseEventInit): Promise<void> {
+    const label = tab(id)!.querySelector<HTMLElement>('[role="tab"]')!;
+    await act(async () => {
+        label.dispatchEvent(new MouseEvent('mousedown', { ...init, bubbles: true, cancelable: true }));
+        label.dispatchEvent(new MouseEvent(init.button === 1 ? 'auxclick' : 'click', { ...init, bubbles: true, cancelable: true }));
+    });
+}
+
+const CLOSING_PRESSES: Array<[string, MouseEventInit]> = [
+    ['a shift-click', { button: 0, shiftKey: true }],
+    ['a middle click', { button: 1 }]
+];
+
 beforeEach(async () => {
     machine = new FakeMachine();
     machine.answer('fs.read', () => ({ kind: 'text', text: 'export {};\n', encoding: 'utf-8', size: 11, mtime: 1, language: 'typescript' }) as never);
@@ -83,6 +101,32 @@ describe('the tabs of a host', () => {
         await until(() => tab(FILE) === null && tab(SHELL.id) === null);
         expect(chatCell()).not.toBeNull();
         expect(page.host.querySelector(`[data-sidebar-row="view:${SHELL.id}"]`)).not.toBeNull();
+    });
+
+    test.each(CLOSING_PRESSES)('%s takes a tab in the back off the screen and leaves the active tab where it is', async (_name, init) => {
+        expect(selected(FILE)).toBe(true);
+        await pressTab(SHELL.id, init);
+        await until(() => tab(SHELL.id) === null);
+        expect(selected(FILE)).toBe(true);
+        expect(page.host.querySelector(`[data-sidebar-row="view:${SHELL.id}"]`)).not.toBeNull();
+        expect(machine.requests('session.kill')).toEqual([]);
+    });
+
+    test.each(CLOSING_PRESSES)('%s leaves a pinned tab open', async (_name, init) => {
+        await openMenuOf(tab(SHELL.id));
+        await clickOn(menuItem('Pin tab'));
+        await pressTab(SHELL.id, init);
+        await act(async () => undefined);
+        expect(tab(SHELL.id)).not.toBeNull();
+    });
+
+    test('a shift-click on a tab with edits nobody submitted asks before it closes', async () => {
+        await act(async () => useFiles.getState().setUnsubmitted(FILE, true));
+        await pressTab(FILE, { button: 0, shiftKey: true });
+        await until(() =>
+            [...document.querySelectorAll('[role="dialog"]')].some((dialog) => dialog.textContent?.includes('These edits were never submitted.'))
+        );
+        expect(tab(FILE)).not.toBeNull();
     });
 
     test('a pinned chat stays when every tab closes', async () => {

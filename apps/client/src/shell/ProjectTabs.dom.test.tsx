@@ -174,6 +174,44 @@ function insertion(): HTMLElement | null {
     return page.host.querySelector<HTMLElement>('[data-tab-insertion]');
 }
 
+/* A press and its release on a tab; true when the press was kept from starting a text selection. */
+async function pressTab(element: HTMLElement, init: MouseEventInit): Promise<boolean> {
+    const down = new MouseEvent('mousedown', { ...init, bubbles: true, cancelable: true });
+    await act(async () => {
+        element.dispatchEvent(down);
+        element.dispatchEvent(new MouseEvent(init.button === 1 ? 'auxclick' : 'click', { ...init, bubbles: true, cancelable: true }));
+    });
+    return down.defaultPrevented;
+}
+
+function closeQuestion(name: string): HTMLElement | null {
+    return [...document.querySelectorAll<HTMLElement>('[role="dialog"]')].find((dialog) => dialog.textContent?.includes(`Close ${name}?`)) ?? null;
+}
+
+const CLOSING_PRESSES: Array<[string, MouseEventInit]> = [
+    ['a shift-click', { button: 0, shiftKey: true }],
+    ['a middle click', { button: 1 }]
+];
+
+describe('closing a project tab without its close button', () => {
+    test.each(CLOSING_PRESSES)('%s on a tab in the back asks to close it and leaves the shown project selected', async (_name, init) => {
+        expect(await pressTab(tab(BEHIND)!, init)).toBe(true);
+        await until(() => closeQuestion('Borealis') !== null);
+        expect(machine.requests('project.closing')).toEqual([{ projectId: 'project-borealis' }]);
+        expect(tab(SHOWN)!.getAttribute('aria-selected')).toBe('true');
+        expect(machine.requests('project.open')).toHaveLength(1);
+    });
+
+    test.each(CLOSING_PRESSES)('%s leaves a pinned tab open', async (_name, init) => {
+        await openTabMenu(BEHIND);
+        await clickOn(menuItem('Pin tab'));
+        await until(() => tab(BEHIND)?.hasAttribute('data-pinned') === true);
+        await pressTab(tab(BEHIND)!, init);
+        expect(machine.requests('project.closing')).toEqual([]);
+        expect(closeQuestion('Borealis')).toBeNull();
+    });
+});
+
 describe('reordering project tabs', () => {
     test('a dragged tab shows where it lands and moves only when it is let go', async () => {
         layOut();

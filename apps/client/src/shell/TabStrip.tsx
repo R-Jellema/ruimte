@@ -234,6 +234,7 @@ export function TabStrip({ at, ids, active }: { at: CellAt; ids: readonly string
             value={active}
             onValueChange={(id) => useDocument.getState().activateTab(id)}
             focused={focused}
+            pressToClose
             renderTab={({ id }) => <StripTab id={id} />}
         />
     );

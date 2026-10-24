@@ -63,6 +63,11 @@ function tabKeyOf(event: MouseEvent<HTMLElement>): string | null {
     return target?.dataset.tabKey ?? null;
 }
 
+/* Shift alone closes a tab, as a middle click does; with Cmd or Ctrl it stays the press that opens a window. */
+function closesTab(event: MouseEvent<HTMLElement>): boolean {
+    return event.button === 0 && event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey;
+}
+
 /* The place among the other tabs of the strip where a dragged tab lands: before the first one whose middle is right of the pointer. */
 function dropIndex(strip: Element, key: string, x: number): number {
     const others = [...strip.querySelectorAll<HTMLElement>('[data-tab-key]')].filter((tab) => tab.dataset.tabKey !== key);
@@ -281,17 +286,27 @@ export function ProjectTabs({ dirty }: { readonly dirty: boolean }) {
                                 const active = key === tabs.active;
                                 const summary = active && current?.projectId === row.summary.projectId ? current : row.summary;
                                 const machine = row.endpointId === LOCAL_ENDPOINT_ID ? null : endpoints.find((endpoint) => endpoint.id === row.endpointId);
+                                const pinned = pins.includes(key);
                                 return (
                                     <Tabs.Tab
                                         key={key}
                                         value={key}
                                         data-tab-key={key}
-                                        pinned={pins.includes(key)}
+                                        pinned={pinned}
                                         className="app-no-drag"
+                                        onMouseDown={(event) => {
+                                            // Shift extends the text selection from wherever it was.
+                                            if (!pinned && closesTab(event)) {
+                                                event.preventDefault();
+                                            }
+                                        }}
                                         onClick={(event) => {
                                             if (wantsNewWindow(event)) {
                                                 event.preventBaseUIHandler();
                                                 openInNewWindow(row.endpointId, row.summary.projectId);
+                                            } else if (!pinned && closesTab(event)) {
+                                                event.preventBaseUIHandler();
+                                                close(row);
                                             }
                                         }}
                                         onClose={() => close(row)}
