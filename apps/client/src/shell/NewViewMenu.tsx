@@ -51,7 +51,7 @@ export function NewViewTiles({ size = 'sm' }: { size?: 'sm' | 'md' }) {
                     {tools.map((tool) => (
                         <Tile
                             key={tool.kind}
-                            className="min-h-22 flex-col justify-center gap-2! text-center [&>span:last-child]:grow-0 [&>span:last-child]:items-center [&>span:first-child]:bg-transparent"
+                            className="min-h-22 flex-col justify-center gap-2! bg-surface-raised! text-center hover:bg-surface-hover! [&>span:last-child]:grow-0 [&>span:last-child]:items-center [&>span:first-child]:bg-transparent"
                             size={size}
                             icon={<Icon icon={tool.icon} size={20} />}
                             title={t(`viewKinds.${tool.kind}`)}
