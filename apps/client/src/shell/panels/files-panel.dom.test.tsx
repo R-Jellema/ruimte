@@ -139,8 +139,10 @@ describe('the files panel', () => {
 
     test('a filter says how many files match and hands its words on to find in files', async () => {
         expect(findInFiles()).toBeNull();
+        await act(async () => filterField().focus());
         await typeFilter('Feed');
         await until(() => document.body.querySelector('[aria-label="2 matches"]') !== null);
+        expect(document.activeElement).toBe(filterField());
         expect(machine.requests('fs.search').at(-1)).toEqual({ cwd: FOLDER, query: 'Feed', limit: 200 });
         await clickOn(findInFiles());
         expect(useUi.getState().paletteMode).toBe('grep');

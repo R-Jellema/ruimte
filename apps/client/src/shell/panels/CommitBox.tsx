@@ -1,9 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
-import { ArrowUp, ChevronDown, FolderGit2, LoaderCircle, Sparkles } from 'lucide-react';
+import { ArrowUp, FolderGit2, LoaderCircle, Sparkles } from 'lucide-react';
 import type { GitCapabilitiesResult } from '@ruimte/contracts';
-import { Button, ButtonGroup, Checkbox, Icon, IconButton, Menu, TextArea, Tooltip, KEY_SHORTCUTS, matchesShortcut } from '@adecore/ui';
+import { Button, Checkbox, Icon, IconButton, Menu, SplitButton, TextArea, Tooltip, KEY_SHORTCUTS, matchesShortcut } from '@adecore/ui';
 import { cancelGitRunAction, perform } from '@/actions/client-actions';
 import { amendTarget, commitTargets, nextActionId, splitMessage, type CommitCandidate } from '@/shell/panels/git-actions';
 import { CommitSuggestion } from './commit-suggestion';
@@ -167,13 +167,12 @@ export function CommitBox({ messageKey, checkouts, named, capabilities, busy, on
                     </span>
                 </div>
             )}
-            {/* One card: the field has no border of its own, so the card's edge and its focus are the field's. */}
             <div className="flex flex-col rounded-lg border border-border bg-surface-sunken bg-clip-padding has-[textarea:focus-visible]:outline-2 has-[textarea:focus-visible]:-outline-offset-1 has-[textarea:focus-visible]:outline-accent">
                 <TextArea
+                    variant="bare"
                     size="sm"
                     rows={3}
                     spellCheck={false}
-                    className="border-0 bg-transparent focus-visible:outline-none"
                     aria-label={t('git.commit.label')}
                     placeholder={t('git.commit.placeholder')}
                     value={message}
@@ -211,28 +210,23 @@ export function CommitBox({ messageKey, checkouts, named, capabilities, busy, on
                         </Tooltip>
                     )}
                     <span className="grow" />
-                    <ButtonGroup render={<span />}>
-                        <Tooltip label={commitReason}>
-                            <Button size="sm" variant="primary" className="rounded-r-none" disabled={!ready} onClick={() => commit(false)}>
-                                {t('git.commit.commit')}
-                            </Button>
-                        </Tooltip>
-                        <Menu.Root>
-                            <Tooltip label={pushReason}>
-                                <Menu.Trigger
-                                    render={<Button size="sm" variant="primary" className="rounded-l-none px-1.5" disabled={!ready || amending} />}
-                                    aria-label={t('git.commit.more')}
-                                >
-                                    <Icon icon={ChevronDown} size={14} />
-                                </Menu.Trigger>
-                            </Tooltip>
-                            <Menu.Popup align="end">
-                                <Menu.Item disabled={!ready || amending} onClick={() => commit(true)}>
-                                    <Icon icon={ArrowUp} size={14} /> {t('git.commit.commitAndPush')}
-                                </Menu.Item>
-                            </Menu.Popup>
-                        </Menu.Root>
-                    </ButtonGroup>
+                    <SplitButton
+                        size="sm"
+                        variant="primary"
+                        tooltip={commitReason}
+                        disabled={!ready}
+                        onClick={() => commit(false)}
+                        menuLabel={t('git.commit.more')}
+                        menuTooltip={pushReason}
+                        menuDisabled={!ready || amending}
+                        menu={
+                            <Menu.Item disabled={!ready || amending} onClick={() => commit(true)}>
+                                <Icon icon={ArrowUp} size={14} /> {t('git.commit.commitAndPush')}
+                            </Menu.Item>
+                        }
+                    >
+                        {t('git.commit.commit')}
+                    </SplitButton>
                 </div>
             </div>
             {offered !== null && offered.key === messageKey && offered.source === source && (

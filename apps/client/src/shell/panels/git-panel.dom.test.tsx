@@ -190,6 +190,27 @@ describe('the git panel over a folder of two repositories', () => {
         );
     });
 
+    test("the commit button's menu commits and pushes", async () => {
+        machine.answer('git.status', ({ cwd }) => {
+            const base = status('main');
+            return cwd === API ? { ...base, files: [{ ...base.files[0]!, state: 'staged' as const }] } : base;
+        });
+        await clickOn(document.body.querySelector<HTMLElement>('button[aria-label="Refresh"]'));
+        const field = (): HTMLTextAreaElement | null => document.body.querySelector<HTMLTextAreaElement>('textarea[aria-label="Commit message"]');
+        await until(() => field() !== null);
+        await act(async () => {
+            Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(field(), 'fix: the readme');
+            field()!.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        const more = (): HTMLButtonElement | null => document.body.querySelector<HTMLButtonElement>('button[aria-label="More ways to commit"]');
+        await until(() => more()?.disabled === false);
+        await clickOn(more());
+        await until(() => menuItem('Commit and push') !== null);
+        await clickOn(menuItem('Commit and push'));
+        await until(() => machine.requests('git.action').length === 1);
+        expect(machine.requests('git.action')).toEqual([expect.objectContaining({ cwd: API, kind: 'commit-push' })]);
+    });
+
     test('the log narrows to one repository and widens again', async () => {
         await until(() => document.body.textContent?.includes('feat: web work') === true);
         expect(document.body.textContent).toContain('feat: api work');

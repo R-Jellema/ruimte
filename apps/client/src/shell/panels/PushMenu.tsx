@@ -1,8 +1,8 @@
 import { useTranslation } from 'react-i18next';
-import { ArrowUp, ChevronDown } from 'lucide-react';
+import { ArrowUp } from 'lucide-react';
 import type { GitActionKind } from '@ruimte/contracts';
 import { pushAllButton, pushable, type PushButton, type PushEntry } from '@/shell/panels/git-actions';
-import { Button, ButtonGroup, Icon, Menu, Tooltip } from '@adecore/ui';
+import { Icon, Menu, SplitButton } from '@adecore/ui';
 import { formatNumber } from '@adecore/ui/format';
 
 interface PushMenuProps {
@@ -30,54 +30,45 @@ export function PushMenu({ button, active, entries, busy, onPush, onPushAll }: P
     const anyRow = entries.some((entry) => !entry.button.disabled);
 
     return (
-        <ButtonGroup render={<span />}>
-            <Tooltip label={main.reason}>
-                <Button
-                    size="sm"
-                    variant="secondary"
-                    className="rounded-r-none tabular-nums"
-                    aria-label={main.label}
-                    disabled={main.disabled || busy || (one && active === null)}
-                    onClick={() => {
-                        if (!one) {
-                            onPushAll();
-                        } else if (active !== null) {
-                            onPush(active, button.kind);
-                        }
-                    }}
-                >
-                    {main.kind === 'publish' ? (
-                        main.label
-                    ) : (
-                        <>
-                            <Icon icon={ArrowUp} size={14} />
-                            {formatNumber(ahead)}
-                        </>
+        <SplitButton
+            size="sm"
+            variant="secondary"
+            className="tabular-nums"
+            tooltip={main.reason}
+            aria-label={main.label}
+            disabled={main.disabled || busy || (one && active === null)}
+            onClick={() => {
+                if (!one) {
+                    onPushAll();
+                } else if (active !== null) {
+                    onPush(active, button.kind);
+                }
+            }}
+            menuLabel={t('git.push.one')}
+            menuDisabled={!anyRow || busy}
+            menuClassName="w-72"
+            menu={entries.map((entry) => (
+                <Menu.Item key={entry.cwd} disabled={busy || entry.button.disabled} onClick={() => onPush(entry.cwd, entry.button.kind)}>
+                    <span className="truncate">{entry.label}</span>
+                    <span className="grow" />
+                    <Menu.Hint className="truncate">{entry.button.disabled ? entry.button.reason : entry.button.label}</Menu.Hint>
+                    {entry.ahead > 0 && (
+                        <span className="flex shrink-0 items-center text-text-faint">
+                            <Icon icon={ArrowUp} size={12} />
+                            <span className="tabular-nums">{formatNumber(entry.ahead)}</span>
+                        </span>
                     )}
-                </Button>
-            </Tooltip>
-            <Menu.Root>
-                <Tooltip label={t('git.push.one')} name>
-                    <Menu.Trigger render={<Button size="sm" variant="secondary" className="rounded-l-none px-1.5" disabled={!anyRow || busy} />}>
-                        <Icon icon={ChevronDown} size={14} />
-                    </Menu.Trigger>
-                </Tooltip>
-                <Menu.Popup className="w-72" align="end">
-                    {entries.map((entry) => (
-                        <Menu.Item key={entry.cwd} disabled={busy || entry.button.disabled} onClick={() => onPush(entry.cwd, entry.button.kind)}>
-                            <span className="truncate">{entry.label}</span>
-                            <span className="grow" />
-                            <Menu.Hint className="truncate">{entry.button.disabled ? entry.button.reason : entry.button.label}</Menu.Hint>
-                            {entry.ahead > 0 && (
-                                <span className="flex shrink-0 items-center text-text-faint">
-                                    <Icon icon={ArrowUp} size={12} />
-                                    <span className="tabular-nums">{formatNumber(entry.ahead)}</span>
-                                </span>
-                            )}
-                        </Menu.Item>
-                    ))}
-                </Menu.Popup>
-            </Menu.Root>
-        </ButtonGroup>
+                </Menu.Item>
+            ))}
+        >
+            {main.kind === 'publish' ? (
+                main.label
+            ) : (
+                <>
+                    <Icon icon={ArrowUp} size={14} />
+                    {formatNumber(ahead)}
+                </>
+            )}
+        </SplitButton>
     );
 }

@@ -18,6 +18,7 @@ import {
     FilePlus,
     Folder,
     FolderOpen,
+    FolderGit2,
     FolderPlus,
     MoreHorizontal,
     Pencil,
@@ -767,8 +768,10 @@ export function FilesPanel() {
                   .join(', ');
 
     /* A repository of the folder that is a row of its own says how far it is from its upstream and which branch it is on. */
+    const repoOfRow = (row: FileTreeVisibleRow) => repoRows.get(isDirectoryPath(row.path) ? row.path : `${row.path}/`);
+
     const decorate = (row: FileTreeVisibleRow): ReactNode => {
-        const checkout = repoRows.get(isDirectoryPath(row.path) ? row.path : `${row.path}/`);
+        const checkout = repoOfRow(row);
         const parts = checkout === undefined ? [] : repoParts(checkout.status);
         return parts.length === 0 ? null : <GitTreeMarks parts={parts} />;
     };
@@ -879,33 +882,33 @@ export function FilesPanel() {
                 </WorktreeBar>
             )}
             <div className="flex shrink-0 px-2 pt-2">
-                <span className="relative min-w-0 grow">
-                    <Icon icon={Search} size={14} className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-text-faint" aria-hidden />
-                    <Input
-                        className={searching ? 'pr-16 pl-8' : 'pl-8'}
-                        placeholder={t('files.filter')}
-                        aria-label={t('files.filter')}
-                        spellCheck={false}
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Escape' && query !== '') {
-                                e.stopPropagation();
-                                setQuery('');
-                            }
-                        }}
-                    />
-                    {searching && (
-                        <span className="absolute inset-y-0 right-1 flex items-center gap-1">
-                            {currentSearch?.kind === 'ready' && (
-                                <span className="text-xs text-text-faint tabular-nums" aria-label={t('files.matches', { count: matches.length })}>
-                                    {formatNumber(matches.length)}
-                                </span>
-                            )}
-                            <IconButton icon={X} size="xs" label={t('files.clearFilter')} onClick={() => setQuery('')} />
-                        </span>
-                    )}
-                </span>
+                <Input
+                    icon={Search}
+                    className="min-w-0 grow"
+                    placeholder={t('files.filter')}
+                    aria-label={t('files.filter')}
+                    spellCheck={false}
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Escape' && query !== '') {
+                            e.stopPropagation();
+                            setQuery('');
+                        }
+                    }}
+                    end={
+                        searching && (
+                            <>
+                                {currentSearch?.kind === 'ready' && (
+                                    <span className="text-xs text-text-faint tabular-nums" aria-label={t('files.matches', { count: matches.length })}>
+                                        {formatNumber(matches.length)}
+                                    </span>
+                                )}
+                                <IconButton icon={X} size="xs" label={t('files.clearFilter')} onClick={() => setQuery('')} />
+                            </>
+                        )
+                    }
+                />
             </div>
             {empty !== null ? (
                 <div className="grid min-h-0 grow place-items-center">{empty}</div>
@@ -945,6 +948,9 @@ export function FilesPanel() {
                                 onKeyDownCapture={onTreeKey}
                                 onRowDragStart={onDragStart}
                                 renderDecoration={decorate}
+                                decorationOrder="after-status"
+                                rowIcon={(row) => (repoOfRow(row) === undefined ? undefined : FolderGit2)}
+                                highlight={searching ? query.trim() : ''}
                             />
                         </ContextMenu.Trigger>
                         <ContextMenu.Popup
