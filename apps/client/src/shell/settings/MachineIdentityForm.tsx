@@ -86,7 +86,6 @@ export function MachineIdentityForm({ endpointId, label, disabledReason }: Machi
                         disabled={disabled}
                         label={t('identity.icon')}
                         hideLabel
-                        className="w-55"
                         onValueChange={(name) => setIcon({ kind: 'lucide', value: name as ProjectIconChoice['value'] })}
                         onClear={() => setIcon(null)}
                     />
