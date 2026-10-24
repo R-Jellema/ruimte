@@ -2,7 +2,6 @@ import { actionDescription } from '@ruimte/actions';
 import { ChatSubagentSourceSchema, ContextSourceSchema } from '@ruimte/contracts';
 import { alertVerb } from './alert-verb.ts';
 import { MAX_SCREEN_LINES } from '../context/context-store.ts';
-// First: verbs join the --dry-run list as they are defined, and node new has always led it.
 import { CHAT_ACTIONS, CHAT_DETAIL, CHAT_SUMMARY } from './chat-verb.ts';
 import { nodeDeleteAction, nodeListAction, nodeNewAction } from './node-verb.ts';
 import { agentVerb } from './agent-verb.ts';
