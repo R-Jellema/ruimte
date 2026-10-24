@@ -161,8 +161,7 @@
     },
     "viewIcon": {
         "pickedHere": "Picked here",
-        "defaultForKind": "Default for its kind",
-        "useDefault": "Use default"
+        "defaultForKind": "Default for its kind"
     },
     "viewSettings": {
         "title": "View settings",

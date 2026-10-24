@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { RotateCcw } from 'lucide-react';
 import { MAX_TITLE_LENGTH } from '@ruimte/actions';
 import { type ProjectIconChoice, type ProjectView, viewIconOf } from '@ruimte/contracts';
 import { renameViewAction, setViewIconAction } from '@/actions/client-actions';
@@ -8,7 +7,7 @@ import { ViewGlyph } from '@/project/ViewGlyph';
 import { resetTitle } from '@/nodes/node-host';
 import { PROJECT_ICON_KEYWORDS } from '@/project/project-icons';
 import { useProjectIconGroups } from '@/project/use-project-icon-groups';
-import { Button, Icon, Dialog, Field, IconPicker, Input, SectionLabel } from '@adecore/ui';
+import { Button, Dialog, Field, IconPicker, Input, SectionLabel } from '@adecore/ui';
 
 /*
  * What one view is called and what it wears, the two together the way a project holds them. The mark
@@ -77,13 +76,10 @@ export function ViewSettingsDialog({ view, onClose }: { view: ProjectView; onClo
                 label={t('common:icon.symbol')}
                 className="mt-4"
                 onValueChange={(icon) => pick({ kind: 'lucide', value: icon as ProjectIconChoice['value'] })}
+                onClear={() => pick(null)}
             />
 
-            <div className="mt-4 flex items-center gap-2">
-                <Button disabled={!chosen} onClick={() => pick(null)}>
-                    <Icon icon={RotateCcw} size={12} /> {t('viewIcon.useDefault')}
-                </Button>
-                <span className="grow" />
+            <div className="mt-4 flex items-center justify-end">
                 <Button variant="primary" onClick={save}>
                     {t('common:action.done')}
                 </Button>

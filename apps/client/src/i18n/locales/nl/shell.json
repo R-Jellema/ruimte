@@ -161,8 +161,7 @@
     },
     "viewIcon": {
         "pickedHere": "Hier gekozen",
-        "defaultForKind": "Standaard voor dit soort",
-        "useDefault": "Standaard gebruiken"
+        "defaultForKind": "Standaard voor dit soort"
     },
     "viewSettings": {
         "title": "Instellingen van de weergave",
