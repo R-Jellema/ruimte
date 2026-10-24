@@ -249,9 +249,8 @@ const CommitRow = memo(function CommitRow({ commit, selected, now, onOpen }: Com
                         </Pill>
                     </Tooltip>
                 )}
-                <span className="grow" />
                 {/* Under a date the age says that date again; the time of day says what it does not. */}
-                <span className="shrink-0 text-text-faint tabular-nums">
+                <span className="ml-auto shrink-0 text-text-faint tabular-nums">
                     {isSameDay(commit.at * 1000, now * 1000) ? formatAge(commit.at * 1000, now * 1000) : formatClock(commit.at * 1000)}
                 </span>
             </ContextMenu.Trigger>
