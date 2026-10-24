@@ -19,10 +19,11 @@ function highlighted(): HTMLElement | undefined {
     return rows().find((row) => row.hasAttribute('data-highlighted'));
 }
 
+/* Compared as booleans: Bun 1.4.2 on macOS passes `toBe` for two different happy-dom elements. */
 function expectFieldHoldsTheKeys(row: HTMLElement): void {
-    expect(document.activeElement).toBe(field());
+    expect(document.activeElement === field()).toBe(true);
     expect(field()!.getAttribute('aria-activedescendant')).toBe(row.id);
-    expect(highlighted()).toBe(row);
+    expect(highlighted() === row).toBe(true);
 }
 
 async function type(text: string): Promise<void> {
@@ -88,7 +89,7 @@ describe('the command palette keeps the keyboard in its field', () => {
             rows()[1]!.dispatchEvent(pressed);
         });
         expect(pressed.defaultPrevented).toBe(true);
-        expect(document.activeElement).toBe(field());
+        expect(document.activeElement === field()).toBe(true);
     });
 
     test('a row that gets the focus anyway hands it back to the field', async () => {
