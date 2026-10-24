@@ -514,7 +514,7 @@ export class ProjectClient {
             this.remember(result.summary.projectId);
             this.finishDeletions(result.summary.projectId, result.document);
             // The project is open whatever the list says; a list that did not come is asked again when the link opens.
-            await this.refreshList().catch(() => undefined);
+            void this.refreshList().catch(() => undefined);
         } finally {
             this.sink.setSwitching(false);
         }

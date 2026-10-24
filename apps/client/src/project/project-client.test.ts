@@ -81,6 +81,7 @@ class FakeTransport implements Transport {
     layout: ProjectLocal['layout'] = undefined;
     /* Set to keep a save on the wire, so a test can let something else reach the daemon first. */
     holdSave: Promise<void> | null = null;
+    holdList: Promise<void> | null = null;
     saveError: TransportError | null = null;
     private readonly statusHandlers = new Set<(status: TransportStatus) => void>();
     private readonly eventHandlers = new Map<string, Set<(payload: unknown) => void>>();
@@ -89,7 +90,7 @@ class FakeTransport implements Transport {
         this.calls.push({ type, payload });
         switch (type) {
             case 'project.list':
-                return Promise.resolve({ projects: this.projects } as RequestMap[T]['result']);
+                return (this.holdList ?? Promise.resolve()).then(() => ({ projects: this.projects }) as RequestMap[T]['result']);
             case 'project.open': {
                 const wanted = (payload as { projectId?: string }).projectId;
                 const target = this.projects.find((project) => project.projectId === wanted) ?? summary((payload as { name?: string }).name ?? 'new');
@@ -306,6 +307,31 @@ function setup(
 }
 
 describe('ProjectClient', () => {
+    test('an opened project becomes usable while its refreshed list is still loading', async () => {
+        const { transport, state, client, dispose } = setup({ open: null });
+        let release!: () => void;
+        transport.holdList = new Promise<void>((resolve) => {
+            release = resolve;
+        });
+        let opened = false;
+        const opening = client.openProject(transport.projects[0]!.projectId).then(() => {
+            opened = true;
+        });
+        try {
+            await tick();
+            expect(state.current?.projectId).toBe(transport.projects[0]!.projectId);
+            expect(state.switching).toBe(false);
+            expect(opened).toBe(true);
+            expect(transport.of('project.list')).toHaveLength(1);
+        } finally {
+            release();
+            await opening;
+            await tick();
+            dispose();
+        }
+        expect(state.projects).toEqual(transport.projects);
+    });
+
     test('closing every view persists the empty screen across reopening the project', async () => {
         const storage = new Map<string, string>();
         const first = setup({ storage });

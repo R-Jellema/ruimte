@@ -10,38 +10,46 @@ import { FALLBACK_LANGUAGE, type AppLanguage } from '@/i18n/languages';
 import { NAMESPACES } from '@/i18n/namespaces';
 import { useSettings } from '@/state/settings';
 
-/* Every translation file, by its path, loaded only when a language is actually asked for. Vite
-   splits these into a chunk per language, so a Dutch window never downloads the English words. */
+// Bundle namespaces together so the first render waits on one request per language.
+const bundles = {
+    en: () => import('./bundles/en'),
+    nl: () => import('./bundles/nl')
+};
+
 const editorBundles = {
     en: () => import('@adecore/editor-react/locales/en.json'),
     nl: () => import('@adecore/editor-react/locales/nl.json')
 };
 
-const bundles = import.meta.glob<{ default: Record<string, unknown> }>('./locales/*/*.json');
+const loaded = new Map<AppLanguage, Promise<void>>();
 
 async function load(language: AppLanguage): Promise<void> {
-    const editor = await editorBundles[language]();
+    const [editor, resources, agents] = await Promise.all([editorBundles[language](), bundles[language](), AGENTS_LOCALES[language]?.()]);
     i18next.addResourceBundle(language, 'editor', editor.default, true, true);
     const charts = CHARTS_RESOURCES[language];
     if (charts) {
         i18next.addResourceBundle(language, CHARTS_NAMESPACE, charts, true, true);
     }
-    const prefix = `./locales/${language}/`;
-    await Promise.all(
-        Object.entries(bundles)
-            .filter(([path]) => path.startsWith(prefix))
-            .map(async ([path, open]) => {
-                const namespace = path.slice(prefix.length, -'.json'.length);
-                const resource = await open();
-                i18next.addResourceBundle(language, namespace, resource.default, true, true);
-            })
-    );
-    const agents = AGENTS_LOCALES[language];
+    for (const [namespace, resource] of Object.entries(resources.default)) {
+        i18next.addResourceBundle(language, namespace, resource, true, true);
+    }
     if (agents) {
-        for (const [namespace, resource] of Object.entries(await agents())) {
+        for (const [namespace, resource] of Object.entries(agents)) {
             i18next.addResourceBundle(language, namespace, resource, true, true);
         }
     }
+}
+
+function loadOnce(language: AppLanguage): Promise<void> {
+    let pending = loaded.get(language);
+    if (pending === undefined) {
+        pending = load(language).catch((error: unknown) => {
+            loaded.delete(language);
+            throw error;
+        });
+        loaded.set(language, pending);
+    }
+    return pending;
 }
 
 /*
@@ -49,10 +57,7 @@ async function load(language: AppLanguage): Promise<void> {
  * translated yet reads as English rather than as its own name.
  */
 async function ensure(language: AppLanguage): Promise<void> {
-    await load(language);
-    if (language !== FALLBACK_LANGUAGE) {
-        await load(FALLBACK_LANGUAGE);
-    }
+    await Promise.all([loadOnce(language), loadOnce(FALLBACK_LANGUAGE)]);
 }
 
 /* What a screen reader announces in and what a spell checker checks against. `index.html` ships

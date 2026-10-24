@@ -175,7 +175,10 @@ const shiki = shikiModules();
  * The model comparison alone at `bench.ruimte.app` (`vite build --mode bench`), from `bench.html`. It has
  * no workspace, video or visual to serve, so the plugins that write those stay out of its build.
  */
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ command, mode }) => ({
+    experimental: {
+        bundledDev: command === 'serve' && process.env.RUIMTE_BUNDLED_DEV !== '0'
+    },
     plugins: [
         adecoreSources(),
         react(),
@@ -192,7 +195,15 @@ export default defineConfig(({ mode }) => ({
     },
     build: {
         sourcemap: telemetryVersion === '' ? false : 'hidden',
-        ...(mode === 'bench' ? { rolldownOptions: { input: fileURLToPath(new URL('./bench.html', import.meta.url)) } } : {})
+        rolldownOptions: {
+            ...(mode === 'bench' ? { input: fileURLToPath(new URL('./bench.html', import.meta.url)) } : {}),
+            // In dev, compile lazy features before their first open; production keeps its dynamic imports.
+            ...(command === 'serve' ? { experimental: { devMode: { lazy: false } } } : {}),
+            output: {
+                // Shared imports otherwise split the first screen into hundreds of small requests.
+                codeSplitting: { groups: [{ name: 'startup', tags: ['$initial'] }] }
+            }
+        }
     },
     resolve: {
         alias: {
@@ -206,6 +217,8 @@ export default defineConfig(({ mode }) => ({
             'react-dom',
             'i18next',
             'react-i18next',
+            'zod',
+            'zustand',
             '@base-ui/react',
             '@codemirror/state',
             '@codemirror/view',
