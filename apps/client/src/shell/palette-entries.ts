@@ -1,4 +1,5 @@
-import type { KeyboardEvent, ReactNode } from 'react';
+import type { ReactNode } from 'react';
+import { matchScore, type CommandPaletteInputProps } from '@adecore/ui';
 import type { Command } from '@/shell/commands';
 
 export interface Entry extends Command {
@@ -17,46 +18,50 @@ export interface Entry extends Command {
     keywords?: string;
 }
 
-/* What the palette shares with the mode on screen: the field and the highlight. */
+/* What the palette shares with the mode on screen: the field. */
 export interface PaletteContext {
     open: boolean;
     query: string;
     setQuery(query: string): void;
-    index: number;
-    setIndex(index: number | ((index: number) => number)): void;
     close(): void;
 }
 
+export type PaletteKeyEvent = Parameters<NonNullable<CommandPaletteInputProps['onKeyDown']>>[0];
+
+/* Base UI tells the rows apart by the object, which a mode builds again on every render; the palette by `id`. */
+export interface PaletteRow {
+    id: string;
+}
+
+/* Base UI drops a group without rows, label and all. */
+export interface PaletteGroup<Row extends PaletteRow> {
+    value: string;
+    label: ReactNode;
+    items: readonly Row[];
+}
+
 /* One mode of the palette as the body draws it around the one field every mode shares. */
-export interface PaletteModeView {
-    /* What the arrow keys walk. */
-    count: number;
-    activeOptionId: string | undefined;
-    enter(event: KeyboardEvent<HTMLInputElement>): void;
-    /* Tab and Backspace in an empty field; true when the mode took the key. */
-    tab?(): boolean;
-    back?(): boolean;
-    /* Over the bottom edge of the field, such as a search that is still running. */
-    overlay?: ReactNode;
+export interface PaletteModeView<Row extends PaletteRow = PaletteRow> {
+    groups: readonly PaletteGroup<Row>[];
+    /* A row of `groups` as a `CommandPalette.Item` keyed by its id, with the row as its value. */
+    item(row: Row): ReactNode;
+    /* A key before Base UI's own, which clicks the highlighted row on Enter. */
+    keyDown?(event: PaletteKeyEvent, highlighted: Row | undefined): void;
+    /* Backspace in an empty field. */
+    back?(): void;
     leading?: ReactNode;
     trailing?: ReactNode;
-    /* What the list says instead of rows, read out as it changes. */
-    notes?: ReactNode;
-    results: ReactNode;
+    /* What the list says while it has no rows. */
+    empty?: ReactNode;
+    /* Read out as it changes, under the rows. */
+    status?: ReactNode;
     footer?: ReactNode;
 }
 
-export const LIST_ID = 'palette-list';
-
-export function optionId(index: number): string {
-    return `palette-option-${index}`;
-}
-
+/* Every typed word somewhere in the text, in any order. An empty query scores 0 and keeps everything; 1 is only letters in order. */
 export function matches(query: string, text: string): boolean {
-    // Every typed word has to appear somewhere, in any order.
-    const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-    const haystack = text.toLowerCase();
-    return words.every((word) => haystack.includes(word));
+    const score = matchScore(text, query);
+    return score !== null && score !== 1;
 }
 
 /* Whether a row answers to the query, by what it shows and by what it only answers to. */
@@ -69,7 +74,16 @@ export function pageKeywords(url: string | undefined, page: { url: string; title
     return [url, page?.url, page?.title].filter(Boolean).join(' ');
 }
 
-/* The row with the highlight. Every list opens with its first row highlighted. */
-export function activeEntryOf(entries: readonly Entry[], index: number): Entry | undefined {
-    return entries[Math.min(index, entries.length - 1)];
+/* The rows of a list mode under the label of each section they fall in, in the order they come. */
+export function groupBySection(entries: readonly Entry[], label: (section: Entry['section']) => string): PaletteGroup<Entry>[] {
+    const groups: { section: Entry['section']; items: Entry[] }[] = [];
+    for (const entry of entries) {
+        const last = groups.at(-1);
+        if (last?.section === entry.section) {
+            last.items.push(entry);
+        } else {
+            groups.push({ section: entry.section, items: [entry] });
+        }
+    }
+    return groups.map((group, index) => ({ value: `${group.section}-${index}`, label: label(group.section), items: group.items }));
 }

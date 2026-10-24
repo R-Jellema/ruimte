@@ -44,11 +44,11 @@ describe('chatSearchState', () => {
 });
 
 describe('groupByChat', () => {
-    test('puts the hits under their chat and numbers them through the flat list', () => {
+    test('puts the hits under their chat', () => {
         const groups = groupByChat(answer.hits, answer.chats);
-        expect(groups.map((group) => [group.title, group.offset, group.hits.length])).toEqual([
-            ['Alpha', 0, 2],
-            ['Beta', 2, 1]
+        expect(groups.map((group) => [group.title, group.hits.length])).toEqual([
+            ['Alpha', 2],
+            ['Beta', 1]
         ]);
     });
 });

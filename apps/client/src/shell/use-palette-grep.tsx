@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CaseSensitive, Regex, WholeWord } from 'lucide-react';
-import { ButtonGroup, Kbd, KEY_SHORTCUTS } from '@adecore/ui';
-import { PaletteNote } from '@/shell/PaletteEntryList';
-import { optionId, type PaletteContext, type PaletteModeView } from '@/shell/palette-entries';
-import { DEFAULT_GREP_OPTIONS, useGrepSearch, type GrepOptions } from '@/shell/palette-grep';
-import { PaletteGrepResults } from '@/shell/PaletteGrepResults';
+import { CaseSensitive, FileSearch, Regex, WholeWord } from 'lucide-react';
+import { ButtonGroup, Icon, Kbd, KEY_SHORTCUTS } from '@adecore/ui';
+import type { PaletteContext, PaletteModeView } from '@/shell/palette-entries';
+import { DEFAULT_GREP_OPTIONS, groupByFile, useGrepSearch, type GrepOptions } from '@/shell/palette-grep';
+import { GrepFileLabel, GrepItem, type GrepRow } from '@/shell/PaletteGrepResults';
 import { PaletteSearchToggle } from '@/shell/PaletteSearchToggle';
 import { useUi } from '@/state/ui';
 
@@ -13,32 +12,27 @@ import { useUi } from '@/state/ui';
 export function usePaletteGrep(
     context: PaletteContext,
     { enabled, folder, openFile }: { enabled: boolean; folder: string | null; openFile(path: string, line: number | null): void }
-): PaletteModeView {
+): PaletteModeView<GrepRow> {
     const { t } = useTranslation(['shell']);
-    const { query, index, setIndex, close } = context;
+    const { query, close } = context;
     const [grepOptions, setGrepOptions] = useState<GrepOptions>(DEFAULT_GREP_OPTIONS);
     const grep = useGrepSearch(enabled ? folder : null, enabled ? query : '', grepOptions);
-    const count = grep.matches.length;
-    const activeHit = Math.min(index, count - 1);
 
-    const runHit = (at: number): void => {
-        const match = grep.matches[at];
-        if (!match) {
-            return;
-        }
+    const runHit = ({ match }: GrepRow): void => {
         close();
         openFile(match.path, match.line);
     };
 
     return {
-        count,
-        activeOptionId: activeHit >= 0 ? optionId(activeHit) : undefined,
-        enter: () => runHit(activeHit),
+        groups: groupByFile(grep.matches).map((group) => ({
+            value: group.path,
+            label: <GrepFileLabel path={group.path} count={group.matches.length} />,
+            items: group.matches.map((match) => ({ id: `${match.path}:${match.line}:${match.column}`, match }))
+        })),
+        item: (row) => <GrepItem key={row.id} row={row} onRun={runHit} />,
         // The mode leaves the way it was entered: one key, nothing typed.
-        back: () => {
-            useUi.getState().setPaletteMode('default');
-            return true;
-        },
+        back: () => useUi.getState().setPaletteMode('default'),
+        leading: <Icon icon={FileSearch} size={14} className="shrink-0 text-accent" />,
         trailing: (
             <ButtonGroup render={<span />}>
                 <PaletteSearchToggle
@@ -61,17 +55,14 @@ export function usePaletteGrep(
                 />
             </ButtonGroup>
         ),
-        notes: (
-            <>
-                {query.trim() !== '' && !grep.busy && grep.failure === null && grep.matches.length === 0 && (
-                    <PaletteNote>{t('palette.noLineMatch')}</PaletteNote>
-                )}
-                {query.trim() === '' && <PaletteNote>{t('palette.typeToSearch')}</PaletteNote>}
-            </>
-        ),
-        results: <PaletteGrepResults matches={grep.matches} active={activeHit} optionId={optionId} onHover={(at) => setIndex(at)} onRun={(at) => runHit(at)} />,
+        status:
+            query.trim() === ''
+                ? t('palette.typeToSearch')
+                : !grep.busy && grep.failure === null && grep.matches.length === 0
+                  ? t('palette.noLineMatch')
+                  : null,
         footer: (
-            <div className="flex items-center gap-3 border-t border-border px-3 py-2 text-xs text-text-faint">
+            <>
                 {grep.failure !== null ? (
                     <span className="text-status-error" role="alert">
                         {grep.failure}
@@ -88,7 +79,7 @@ export function usePaletteGrep(
                     <Kbd shortcut={KEY_SHORTCUTS.enter} variant="inline" /> {t('palette.grepEnterHint')}{' '}
                     <Kbd shortcut={KEY_SHORTCUTS.backspace} variant="inline" /> {t('palette.grepBackHint')}
                 </span>
-            </div>
+            </>
         )
     };
 }

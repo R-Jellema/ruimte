@@ -4,7 +4,7 @@ import i18next from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, CornerLeftUp, Folder, FolderCheck } from 'lucide-react';
 import type { FsBrowseResult } from '@ruimte/contracts';
-import { Button, Icon, Kbd, KEY_SHORTCUTS, matchesShortcut, messageOf, SectionLabel, Tooltip } from '@adecore/ui';
+import { Button, Icon, Kbd, KEY_SHORTCUTS, matchesShortcut, messageOf, Tooltip } from '@adecore/ui';
 import { openFolderAction } from '@/actions/client-actions';
 import { desktop, isApplePlatform } from '@/desktop/bridge';
 import { MachineGlyph } from '@/endpoint/MachineGlyph';
@@ -29,8 +29,8 @@ import {
     settleLink,
     type BrowseStep
 } from '@/shell/palette-browse';
-import { PaletteEntryList, PaletteNote } from '@/shell/PaletteEntryList';
-import { activeEntryOf, matches, optionId, type Entry, type PaletteContext, type PaletteModeView } from '@/shell/palette-entries';
+import { PaletteEntryItem } from '@/shell/PaletteEntryItem';
+import { groupBySection, matches, type Entry, type PaletteContext, type PaletteModeView } from '@/shell/palette-entries';
 import { iconOfEntry } from '@/shell/settings/machine-icon';
 import { mergeMachines } from '@/shell/settings/machine-list';
 import { usePulsarAccount } from '@/pulsar/account';
@@ -115,7 +115,7 @@ function folderEntries(up: string | null, result: FsBrowseResult | null): Entry[
  */
 export function usePaletteBrowse(context: PaletteContext, blocked: boolean) {
     const { t } = useTranslation(['shell', 'common']);
-    const { open, query, setQuery, index, setIndex, close } = context;
+    const { open, query, setQuery, close } = context;
     const folder = useProject((s) => shownFolderOf(s.current));
     const currentEndpointId = useProject((s) => s.currentEndpointId);
     const endpoints = useEndpoints((s) => s.endpoints);
@@ -152,12 +152,6 @@ export function usePaletteBrowse(context: PaletteContext, blocked: boolean) {
     const connectionOf = (endpointId: string): ConnectionState => connections[endpointId] ?? NO_LINK;
     const linkWait = browse !== null && !browse.machines ? (browse.link ?? null) : null;
     const browseRow = machines.find((row) => row.endpointId === browseEndpointId) ?? null;
-    /* The machines list sorts this machine first but opens on the machine the client is pointed at,
-       which is where the work is and usually where the folder being looked for is too. */
-    const activeRow = Math.max(
-        0,
-        machines.findIndex((row) => row.active)
-    );
 
     /* A relative path counts from the open project's folder, and that folder is on one machine. */
     const cwdFor = useCallback((endpointId: string): string | null => (currentEndpointId === endpointId ? folder : null), [currentEndpointId, folder]);
@@ -192,7 +186,6 @@ export function usePaletteBrowse(context: PaletteContext, blocked: boolean) {
             : pathStep(next);
         setBrowse(step);
         setQuery(browseNow ? '' : next);
-        setIndex(step?.machines === true ? activeRow : 0);
     };
 
     const browsing = !blocked && browse !== null;
@@ -234,9 +227,8 @@ export function usePaletteBrowse(context: PaletteContext, blocked: boolean) {
             setFailure(answer.failure);
             setBrowse({ endpointId, machines: false, path });
             setQuery(path);
-            setIndex(0);
         },
-        [setIndex, setQuery]
+        [setQuery]
     );
 
     const navigateTo = useCallback(
@@ -340,7 +332,6 @@ export function usePaletteBrowse(context: PaletteContext, blocked: boolean) {
         }
         setListing(null);
         setQuery('');
-        setIndex(0);
         setBrowse(pickMachine(endpointId, false));
     };
 
@@ -395,10 +386,6 @@ export function usePaletteBrowse(context: PaletteContext, blocked: boolean) {
     };
     const entries = listEntries();
 
-    /* Every list opens with its first row highlighted, browsing included, so Enter walks into the
-       folders without an arrow key first and Cmd+Enter is what opens the path in the field. */
-    const active = activeEntryOf(entries, index);
-
     /* The machines take the list over and the field empties, so it can narrow them; the path the
        folders step was on rides along in the step, and Backspace puts it back. */
     const showMachines = (): void => {
@@ -407,14 +394,12 @@ export function usePaletteBrowse(context: PaletteContext, blocked: boolean) {
         }
         setBrowse(machinesStep(browse, query));
         setQuery('');
-        setIndex(activeRow);
         setFailure(null);
     };
 
     const leaveBrowse = (): void => {
         setBrowse(null);
         setQuery('');
-        setIndex(0);
         setFailure(null);
     };
 
@@ -433,10 +418,7 @@ export function usePaletteBrowse(context: PaletteContext, blocked: boolean) {
     };
 
     /* A browse row steps somewhere and the palette stays open. */
-    const run = (entry: Entry | undefined): void => {
-        if (!entry) {
-            return;
-        }
+    const run = (entry: Entry): void => {
         if (entry.browsePath === undefined) {
             entry.run();
             return;
@@ -449,41 +431,41 @@ export function usePaletteBrowse(context: PaletteContext, blocked: boolean) {
     const backTo = browse === null ? null : browseBack(browse, machines.length).to;
     const backLabel = backTo === 'folders' ? t('palette.backToFolders') : backTo === 'machines' ? t('palette.browseAnother') : t('palette.backToPalette');
     const submitLabel = offer === 'create' ? t('palette.createAndOpen') : t('projectMenu.openFolder');
-    // Enter means "use what I typed" until a row is highlighted, and then the shortcut takes that over.
-    const submitShortcut = active === undefined ? KEY_SHORTCUTS.enter : KEY_SHORTCUTS.modEnter;
+    // Enter takes the highlighted row, and a list with rows always has one; only an empty list leaves Enter to the typed path.
+    const submitShortcut = entries.length === 0 ? KEY_SHORTCUTS.enter : KEY_SHORTCUTS.modEnter;
     /* The shell's own picker, which only makes sense for the daemon that served this page: the word
        on the button is the Electron machine's, because that is whose dialog opens. */
     const nativeDialog = browseEndpointId === LOCAL_ENDPOINT_ID ? desktop() : null;
 
-    const view: PaletteModeView = {
-        count: entries.length,
-        activeOptionId: active ? optionId(entries.indexOf(active)) : undefined,
-        enter: (event) => {
+    const view: PaletteModeView<Entry> = {
+        groups: groupBySection(entries, (section) => t(`palette.sections.${section}`)),
+        item: (entry) => <PaletteEntryItem key={entry.id} entry={entry} onRun={run} />,
+        keyDown: (event, entry) => {
+            if (event.key === 'Tab') {
+                if (!machineStep && entry?.browsePath !== undefined) {
+                    // Completes the field to the folder under the highlight, without stepping into it.
+                    event.preventDefault();
+                    setQuery(entry.browsePath);
+                }
+                return;
+            }
+            if (event.key !== 'Enter') {
+                return;
+            }
             if (linkWait !== null) {
+                event.preventDefault();
                 if (linkWait.state === 'failed') {
                     retry();
                 }
-            } else if (!machineStep && (active === undefined || matchesShortcut(KEY_SHORTCUTS.modEnter, event, isApplePlatform()))) {
+            } else if (!machineStep && (entry === undefined || matchesShortcut(KEY_SHORTCUTS.modEnter, event, isApplePlatform()))) {
+                event.preventBaseUIHandler();
+                event.preventDefault();
                 if (offer !== 'relative') {
                     submitPath(query);
                 }
-            } else {
-                run(active);
             }
         },
-        tab: () => {
-            if (machineStep || !active?.browsePath) {
-                return false;
-            }
-            // Completes the field to the folder under the highlight, without stepping into it.
-            setQuery(active.browsePath);
-            setIndex(0);
-            return true;
-        },
-        back: () => {
-            stepBack();
-            return true;
-        },
+        back: stepBack,
         /* One step back; on the folders of a machine it names that machine. */
         leading: (
             <Tooltip label={backLabel} kbd={KEY_SHORTCUTS.backspace}>
@@ -514,18 +496,18 @@ export function usePaletteBrowse(context: PaletteContext, blocked: boolean) {
                 </Button>
             </Tooltip>
         ),
-        notes: (
+        empty: machineStep && (machines.length === 0 ? t('palette.noMachineYet') : t('palette.noMachineMatch')),
+        status: (
             <>
-                {offer === 'relative' && <PaletteNote>{t('palette.relativePath')}</PaletteNote>}
-                {machineStep && entries.length === 0 && (
-                    <PaletteNote>{machines.length === 0 ? t('palette.noMachineYet') : t('palette.noMachineMatch')}</PaletteNote>
-                )}
+                {offer === 'relative' && t('palette.relativePath')}
+                {/* fs.browse says whether the typed folder exists, so a missing one can be offered for creation. */}
+                {offer === 'create' && t('palette.createHint')}
                 {/* The machine whose folders were asked for, while its link comes up or after it did not. */}
                 {linkWait !== null && (
-                    <div className="flex flex-col items-center gap-2 px-3 py-6 text-center text-xs text-text-faint">
+                    <div className="flex flex-col items-center gap-2">
                         <MachineGlyph icon={browseIcon} size={20} className="text-text-muted" />
                         {linkWait.state === 'connecting' ? (
-                            <span role="status">
+                            <span>
                                 {browseRow !== null && !browseRow.entry.local
                                     ? t('palette.connectingThroughAccount', { machine: browseLabel })
                                     : t('switch.connecting', { machine: browseLabel })}
@@ -546,27 +528,14 @@ export function usePaletteBrowse(context: PaletteContext, blocked: boolean) {
                 )}
             </>
         ),
-        results: (
-            <>
-                {/* An empty folder is the label with nothing under it; the previous listing stays up until the next one lands. */}
-                {!machineStep && linkWait === null && entries.length === 0 && (
-                    <SectionLabel render={<div />} className="px-2.5 pt-1.5 pb-1">
-                        {t('palette.sections.folders')}
-                    </SectionLabel>
-                )}
-                <PaletteEntryList entries={entries} active={active} onHover={setIndex} onRun={(entry) => run(entry)} />
-                {/* fs.browse says whether the typed folder exists, so a missing one can be offered for creation. */}
-                {offer === 'create' && <PaletteNote>{t('palette.createHint')}</PaletteNote>}
-            </>
-        ),
         footer: (
-            <div className="flex items-center gap-3 border-t border-border px-3 py-2 text-xs text-text-faint">
+            <>
                 <span className="flex shrink-0 items-center gap-1.5">
                     <Kbd variant="inline">↑</Kbd>
                     <Kbd variant="inline">↓</Kbd> {t('palette.navigate')}
                 </span>
                 {/* Once the typed path can be opened, the button in the field already shows Enter. */}
-                {linkWait === null && (active !== undefined || query.trim() === '') && (
+                {linkWait === null && (entries.length > 0 || query.trim() === '') && (
                     <span className="flex shrink-0 items-center gap-1.5">
                         <Kbd shortcut={KEY_SHORTCUTS.enter} variant="inline" /> {t('common:action.select')}
                     </span>
@@ -593,7 +562,7 @@ export function usePaletteBrowse(context: PaletteContext, blocked: boolean) {
                         {t('palette.browseIn', { app: fileManagerName(nativeDialog.platform) })}
                     </Button>
                 )}
-            </div>
+            </>
         )
     };
 

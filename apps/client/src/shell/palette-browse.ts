@@ -196,15 +196,16 @@ export interface MachineRow {
     endpointId: string;
     label: string;
     entry: MachineEntry;
-    active: boolean;
 }
 
-/* The machines the browser can be pointed at, in the order of the Machines pane. */
+/*
+ * The machines the browser can be pointed at, in the order of the Machines pane, except that the
+ * machine the client is pointed at comes first: that is where the work is and usually where the
+ * folder being looked for is too, and the highlight always opens on the first row.
+ */
 export function browseMachines(entries: readonly MachineEntry[], activeId: string): MachineRow[] {
-    return entries.map((entry) => {
-        const endpointId = entry.endpoint?.id ?? entry.id;
-        return { endpointId, label: nameOf(entry), entry, active: endpointId === activeId };
-    });
+    const rows = entries.map((entry) => ({ endpointId: entry.endpoint?.id ?? entry.id, label: nameOf(entry), entry }));
+    return [...rows.filter((row) => row.endpointId === activeId), ...rows.filter((row) => row.endpointId !== activeId)];
 }
 
 /*

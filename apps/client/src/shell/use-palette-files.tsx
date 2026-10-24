@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FileIcon } from '@adecore/ui';
+import { FileText } from 'lucide-react';
+import { FileIcon, Icon } from '@adecore/ui';
 import { createViewAction, ignoreRefusal, perform } from '@/actions/client-actions';
 import { showFileOnCanvas } from '@/project/views';
-import { PaletteEntryList, PaletteNote } from '@/shell/PaletteEntryList';
-import { activeEntryOf, optionId, type Entry, type PaletteContext, type PaletteModeView } from '@/shell/palette-entries';
+import { PaletteEntryItem } from '@/shell/PaletteEntryItem';
+import { groupBySection, type Entry, type PaletteContext, type PaletteModeView } from '@/shell/palette-entries';
 import { absoluteOf, basenameOf } from '@/shell/panels/files-tree';
 import { shownFolderOf, useProject } from '@/state/project';
 import { useUi } from '@/state/ui';
@@ -20,7 +21,7 @@ const FILE_RESULTS = 8;
  */
 export function usePaletteFiles(context: PaletteContext, { skip, picking }: { skip: boolean; picking: boolean }) {
     const { t } = useTranslation(['shell']);
-    const { query, index, setIndex, close } = context;
+    const { query, close } = context;
     const folder = useProject((s) => shownFolderOf(s.current));
     const filePick = useUi((s) => s.filePick);
     const [fileMatches, setFileMatches] = useState<readonly string[]>([]);
@@ -81,22 +82,17 @@ export function usePaletteFiles(context: PaletteContext, { skip, picking }: { sk
         };
     });
 
-    const active = activeEntryOf(files, index);
-    const run = (entry: Entry | undefined): void => {
-        if (!entry) {
-            return;
-        }
+    const run = (entry: Entry): void => {
         close();
         entry.run();
     };
 
     // Picking a file is a step with one list; the commands and the nodes have no place in it.
-    const view: PaletteModeView = {
-        count: files.length,
-        activeOptionId: active ? optionId(files.indexOf(active)) : undefined,
-        enter: () => run(active),
-        notes: files.length === 0 && <PaletteNote>{folder === null ? t('palette.noProjectFolder') : t('palette.noFileMatch')}</PaletteNote>,
-        results: <PaletteEntryList entries={files} active={active} onHover={setIndex} onRun={(entry) => run(entry)} />
+    const view: PaletteModeView<Entry> = {
+        groups: groupBySection(files, (section) => t(`palette.sections.${section}`)),
+        item: (entry) => <PaletteEntryItem key={entry.id} entry={entry} onRun={run} />,
+        leading: <Icon icon={FileText} size={14} className="shrink-0 text-accent" />,
+        empty: folder === null ? t('palette.noProjectFolder') : t('palette.noFileMatch')
     };
 
     return { folder, files, openFile, view };

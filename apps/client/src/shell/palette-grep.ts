@@ -59,19 +59,17 @@ export function grepState(answer: GrepAnswer, folder: string | null, query: stri
 /* One file's hits under the name they share, in the order the search walked them. */
 export interface GrepGroup {
     path: string;
-    /* Where this group's first hit sits in the flat list the arrow keys walk. */
-    offset: number;
     matches: FsGrepMatch[];
 }
 
 export function groupByFile(matches: readonly FsGrepMatch[]): GrepGroup[] {
     const groups: GrepGroup[] = [];
-    for (const [index, match] of matches.entries()) {
+    for (const match of matches) {
         const last = groups.at(-1);
         if (last && last.path === match.path) {
             last.matches.push(match);
         } else {
-            groups.push({ path: match.path, offset: index, matches: [match] });
+            groups.push({ path: match.path, matches: [match] });
         }
     }
     return groups;

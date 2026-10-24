@@ -1,8 +1,15 @@
-import { useEffect, useRef } from 'react';
 import clsx from 'clsx';
 import type { FsGrepMatch } from '@ruimte/contracts';
-import { firstContextLine, groupByFile } from '@/shell/palette-grep';
-import { FileIcon, SectionLabel } from '@adecore/ui';
+import { firstContextLine } from '@/shell/palette-grep';
+import { CommandPalette, FileIcon } from '@adecore/ui';
+import type { PaletteRow } from '@/shell/palette-entries';
+
+export interface GrepRow extends PaletteRow {
+    match: FsGrepMatch;
+}
+
+/* The highlight of a menu row, on a row that lays itself out. */
+const HIGHLIGHT = 'data-highlighted:bg-surface-active [:root[data-modality=pointer]_&]:data-highlighted:bg-surface-hover';
 
 interface LineProps {
     number: number;
@@ -31,38 +38,13 @@ function GrepLine({ number, text, hit }: LineProps) {
     );
 }
 
-interface BlockProps {
-    match: FsGrepMatch;
-    active: boolean;
-    onHover(): void;
-    onRun(): void;
-    id: string;
-}
-
-/* A hit with the lines it is read in. The whole block is the button: the line of source is a small
+/* A hit with the lines it is read in. The whole block is the row: the line of source is a small
    target, and the context around it points at the same place in the same file. */
-function GrepBlock({ match, active, onHover, onRun, id }: BlockProps) {
-    const ref = useRef<HTMLButtonElement>(null);
-
-    useEffect(() => {
-        if (active) {
-            ref.current?.scrollIntoView({ block: 'nearest' });
-        }
-    }, [active]);
-
+export function GrepItem({ row, onRun }: { row: GrepRow; onRun(row: GrepRow): void }) {
+    const { match } = row;
     const start = firstContextLine(match);
     return (
-        <button
-            ref={ref}
-            id={id}
-            role="option"
-            tabIndex={-1}
-            aria-selected={active}
-            data-active={active}
-            className="cursor-row block w-full rounded-md px-2.5 py-1 text-left"
-            onMouseEnter={onHover}
-            onClick={onRun}
-        >
+        <CommandPalette.Item value={row} unstyled className={clsx('block rounded-md px-2.5 py-1 outline-none', HIGHLIGHT)} onClick={() => onRun(row)}>
             {match.before.map((text, index) => (
                 <GrepLine key={`before-${index}`} number={start + index} text={text} />
             ))}
@@ -70,46 +52,17 @@ function GrepBlock({ match, active, onHover, onRun, id }: BlockProps) {
             {match.after.map((text, index) => (
                 <GrepLine key={`after-${index}`} number={match.line + index + 1} text={text} />
             ))}
-        </button>
+        </CommandPalette.Item>
     );
 }
 
-interface ResultsProps {
-    matches: readonly FsGrepMatch[];
-    /* Index into `matches`, which is the flat list the arrow keys walk. */
-    active: number;
-    optionId(index: number): string;
-    onHover(index: number): void;
-    onRun(index: number): void;
-}
-
-/* Every hit, under the file it was found in. The grouping is only a heading: the arrows move from
-   hit to hit through the flat list, so a file with ten of them is not ten steps to the next file. */
-export function PaletteGrepResults({ matches, active, optionId, onHover, onRun }: ResultsProps) {
+/* The file a group of hits was found in. The arrows move from hit to hit, so a file with ten of them is not ten steps to the next file. */
+export function GrepFileLabel({ path, count }: { path: string; count: number }) {
     return (
-        <>
-            {groupByFile(matches).map((group) => (
-                <div key={group.path}>
-                    <SectionLabel render={<div />} className="flex items-center gap-1.5 px-2.5 pt-1.5 pb-1">
-                        <FileIcon path={group.path} size={14} />
-                        <span className="min-w-0 truncate normal-case">{group.path}</span>
-                        <span className="shrink-0 text-text-faint">{group.matches.length}</span>
-                    </SectionLabel>
-                    {group.matches.map((match, index) => {
-                        const at = group.offset + index;
-                        return (
-                            <GrepBlock
-                                key={`${match.path}:${match.line}:${match.column}`}
-                                id={optionId(at)}
-                                match={match}
-                                active={at === active}
-                                onHover={() => onHover(at)}
-                                onRun={() => onRun(at)}
-                            />
-                        );
-                    })}
-                </div>
-            ))}
-        </>
+        <span className="flex items-center gap-1.5">
+            <FileIcon path={path} size={14} />
+            <span className="min-w-0 truncate">{path}</span>
+            <span className="shrink-0">{count}</span>
+        </span>
     );
 }

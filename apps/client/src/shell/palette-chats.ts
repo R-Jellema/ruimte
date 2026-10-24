@@ -3,6 +3,7 @@ import i18next from 'i18next';
 import type { ChatExternalResult, ChatExternalSession, ChatSearchHit, ChatSearchResult } from '@ruimte/contracts';
 import { perform } from '@/actions/client-actions';
 import { focusChat } from '@/plan/plan-actions';
+import { matches } from '@/shell/palette-entries';
 import { endpointKey } from '@/state/keys';
 import { useToasts } from '@/state/toasts';
 import { jumpToTimelineItem } from '@adecore/agents-react/chat';
@@ -60,19 +61,17 @@ export function chatSearchState(answer: ChatSearchAnswer, projectId: string | nu
 export interface ChatHitGroup {
     chatId: string;
     title: string;
-    /* Where this group's first hit sits in the flat list the arrow keys walk. */
-    offset: number;
     hits: ChatSearchHit[];
 }
 
 export function groupByChat(hits: readonly ChatSearchHit[], chats: ChatSearchResult['chats']): ChatHitGroup[] {
     const groups: ChatHitGroup[] = [];
-    for (const [index, hit] of hits.entries()) {
+    for (const hit of hits) {
         const last = groups.at(-1);
         if (last && last.chatId === hit.chatId) {
             last.hits.push(hit);
         } else {
-            groups.push({ chatId: hit.chatId, title: chats.find((chat) => chat.chatId === hit.chatId)?.title ?? '', offset: index, hits: [hit] });
+            groups.push({ chatId: hit.chatId, title: chats.find((chat) => chat.chatId === hit.chatId)?.title ?? '', hits: [hit] });
         }
     }
     return groups;
@@ -163,14 +162,7 @@ export function useExternalSessions(projectId: string | null): ExternalSessionsS
 
 /* Sessions whose title mentions every word typed; nothing typed lists them all, newest first as the machine sent them. */
 export function externalMatching(sessions: readonly ChatExternalSession[], query: string): ChatExternalSession[] {
-    const words = query
-        .toLowerCase()
-        .split(/\s+/)
-        .filter((word) => word !== '');
-    return sessions.filter((session) => {
-        const haystack = `${session.title} ${session.provider}`.toLowerCase();
-        return words.every((word) => haystack.includes(word));
-    });
+    return sessions.filter((session) => matches(query, `${session.title} ${session.provider}`));
 }
 
 /* A chat view that goes on with the session, in the account whose folder holds it. */

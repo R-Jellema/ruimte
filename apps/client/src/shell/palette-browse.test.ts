@@ -165,16 +165,16 @@ const OPEN: ConnectionState = { status: 'open', attempts: 0, retryAt: null, fail
 const NO_LINK: ConnectionState = { status: 'closed', attempts: 0, retryAt: null, failure: null };
 
 describe('browseMachines', () => {
-    test('every machine the client knows, deduplicated with the account, this machine first', () => {
+    test('every machine the client knows, deduplicated with the account, the one it is pointed at first and then this machine', () => {
         const entries = mergeMachines({
             endpoints: [opened('studio'), localRow],
             accountMachines: [record('studio'), record('home'), record('attic')],
             showLocal: true
         });
         const rows = browseMachines(entries, 'studio');
-        expect(rows.map((row) => row.endpointId)).toEqual(['local', 'studio', 'attic']);
-        expect(rows.map((row) => row.label)).toEqual(['This machine', 'Row studio', 'Account attic']);
-        expect(rows.map((row) => row.active)).toEqual([false, true, false]);
+        expect(rows.map((row) => row.endpointId)).toEqual(['studio', 'local', 'attic']);
+        expect(rows.map((row) => row.label)).toEqual(['Row studio', 'This machine', 'Account attic']);
+        expect(browseMachines(entries, 'local').map((row) => row.endpointId)).toEqual(['local', 'studio', 'attic']);
     });
 });
 

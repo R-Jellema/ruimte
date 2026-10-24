@@ -788,7 +788,6 @@
         "matchCase": "Hoofdlettergevoelig",
         "wholeWords": "Hele woorden",
         "regex": "Reguliere expressie",
-        "results": "Resultaten",
         "noMatch": "Niets komt overeen",
         "noProjectFolder": "Er is geen project geopend.",
         "noFileMatch": "Geen bestand in deze map komt overeen",

@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
+import { LOCAL_ENDPOINT_ID, useEndpoints } from '@/state/endpoints';
 import { useUi } from '@/state/ui';
 import { mount, pressKey, until, type Mounted } from '../../testing/dom';
+import { connectFakeMachine, FakeMachine } from '../../testing/fake-machine';
 
 let page: Mounted;
 
@@ -14,7 +16,7 @@ function rows(): HTMLElement[] {
 }
 
 function highlighted(): HTMLElement | undefined {
-    return rows().find((row) => row.getAttribute('aria-selected') === 'true');
+    return rows().find((row) => row.hasAttribute('data-highlighted'));
 }
 
 function expectFieldHoldsTheKeys(row: HTMLElement): void {
@@ -28,16 +30,21 @@ async function type(text: string): Promise<void> {
         const input = field()!;
         // React tracks the value it set, so the browser's own setter is what makes the change show.
         Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, text);
-        input.dispatchEvent(new Event('input', { bubbles: true }));
+        // A typed key carries an `inputType`; without one Base UI reads the change as autofill.
+        input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
     });
 }
 
-beforeEach(async () => {
+function labels(): string[] {
+    return rows().map((row) => row.textContent ?? '');
+}
+
+async function openPalette(open: () => void, ready: () => boolean): Promise<void> {
     page = mount();
     await page.renderApp();
-    await act(async () => useUi.getState().setPaletteOpen(true));
-    await until(() => field() !== null && document.activeElement === field() && rows().length > 2);
-});
+    await act(async () => open());
+    await until(() => field() !== null && document.activeElement === field() && ready());
+}
 
 afterEach(async () => {
     await act(async () => useUi.getState().setPaletteOpen(false));
@@ -45,6 +52,13 @@ afterEach(async () => {
 });
 
 describe('the command palette keeps the keyboard in its field', () => {
+    beforeEach(async () => {
+        await openPalette(
+            () => useUi.getState().setPaletteOpen(true),
+            () => rows().length > 2
+        );
+    });
+
     test('the rows stay out of the tab order', () => {
         expect(rows().every((row) => row.tabIndex === -1)).toBe(true);
     });
@@ -62,7 +76,8 @@ describe('the command palette keeps the keyboard in its field', () => {
     test('hovering a row highlights it and the field keeps the focus', async () => {
         const row = rows()[2]!;
         await act(async () => {
-            row.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, relatedTarget: document.body }));
+            // On WebKit, which happy-dom passes Base UI's check for, a move without movement is no hover.
+            row.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, movementX: 1 }));
         });
         expectFieldHoldsTheKeys(row);
     });
@@ -91,6 +106,79 @@ describe('the command palette keeps the keyboard in its field', () => {
         expect(field()!.value).toBe('open folder');
         expect(rows().length).toBeGreaterThan(0);
         expect(rows().every((row) => row.textContent!.toLowerCase().includes('open folder'))).toBe(true);
+        expectFieldHoldsTheKeys(rows()[0]!);
+    });
+});
+
+function addMachine(id: string, label: string): void {
+    useEndpoints.getState().add({
+        id,
+        label,
+        httpBaseUrl: 'http://127.0.0.1:2',
+        wsBaseUrl: 'ws://127.0.0.1:2',
+        reachability: 'lan',
+        daemonId: null,
+        daemonPublicKey: null
+    });
+}
+
+describe('browsing the folders of a machine', () => {
+    const FOLDERS: Record<string, string[]> = { '~/': ['alpha', 'beta', 'gamma'], '~/gamma/': ['x', 'y', 'z'] };
+    let disconnect: () => void;
+
+    beforeEach(async () => {
+        const machine = new FakeMachine();
+        machine.answer('fs.browse', ({ partialPath }) => ({
+            parentPath: partialPath,
+            exists: true,
+            entries: (FOLDERS[partialPath] ?? []).map((name) => ({ name, fullPath: `${partialPath}${name}`, hasCanvas: false }))
+        }));
+        addMachine('machine-b', 'MacBook Pro');
+        disconnect = connectFakeMachine(machine, 'machine-b');
+        useEndpoints.getState().setActive('machine-b');
+        await openPalette(
+            () => useUi.getState().openFolderBrowser(),
+            () => labels().join() === 'alpha,beta,gamma'
+        );
+    });
+
+    afterEach(() => {
+        disconnect();
+        useEndpoints.getState().setActive(LOCAL_ENDPOINT_ID);
+        useEndpoints.getState().remove('machine-b');
+    });
+
+    test('Enter steps into the highlighted folder, the field says where, and the palette stays open', async () => {
+        await pressKey(field()!, 'ArrowDown');
+        await pressKey(field()!, 'ArrowDown');
+        expect(highlighted()?.textContent).toBe('gamma');
+        await pressKey(field()!, 'Enter');
+        await until(() => labels().join() === '..,x,y,z');
+        expect(field()!.value).toBe('~/gamma/');
+        expect(document.activeElement).toBe(field());
+    });
+});
+
+describe('choosing a machine to browse', () => {
+    beforeEach(async () => {
+        addMachine('machine-b', 'MacBook Pro');
+        addMachine('machine-c', 'Studio');
+        useEndpoints.getState().setActive('machine-c');
+        await openPalette(
+            () => useUi.getState().openFolderBrowser(),
+            () => rows().length === 2
+        );
+    });
+
+    afterEach(() => {
+        useEndpoints.getState().setActive(LOCAL_ENDPOINT_ID);
+        useEndpoints.getState().remove('machine-b');
+        useEndpoints.getState().remove('machine-c');
+    });
+
+    test('opens on the machine the app is pointed at, first in the list', () => {
+        expect(labels()[0]).toStartWith('Studio');
+        expect(labels()[1]).toStartWith('MacBook Pro');
         expectFieldHoldsTheKeys(rows()[0]!);
     });
 });

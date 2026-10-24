@@ -788,7 +788,6 @@
         "matchCase": "Match case",
         "wholeWords": "Whole words",
         "regex": "Regular expression",
-        "results": "Results",
         "noMatch": "Nothing matches",
         "noProjectFolder": "No project is open.",
         "noFileMatch": "No file in this folder matches",

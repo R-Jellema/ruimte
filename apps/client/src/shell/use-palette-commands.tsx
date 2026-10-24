@@ -27,8 +27,8 @@ import { useViewNodes } from '@/project/view-nodes';
 import { revealNode, showView } from '@/project/views';
 import { openInNewWindow, wantsNewWindow } from '@/project/windows';
 import { appCommands, OPENING_COMMAND_IDS, type Command } from '@/shell/commands';
-import { PaletteEntryList, PaletteNote } from '@/shell/PaletteEntryList';
-import { activeEntryOf, entryMatches, optionId, pageKeywords, type Entry, type PaletteContext, type PaletteModeView } from '@/shell/palette-entries';
+import { PaletteEntryItem } from '@/shell/PaletteEntryItem';
+import { entryMatches, groupBySection, pageKeywords, type Entry, type PaletteContext, type PaletteModeView } from '@/shell/palette-entries';
 import { readRecents, rememberRecent, sortByRecency } from '@/shell/palette-recents';
 import { namesSetting, orderBelowJumps, settingsEntries } from '@/shell/palette-settings';
 import { findSettings } from '@/shell/settings/find-settings';
@@ -59,9 +59,9 @@ const OPENING_RECENTS = 5;
 const OPENING_JUMPS = 8;
 
 /* The palette as Cmd+K opens it: the nodes, views, projects, actions, settings and files that match the field. */
-export function usePaletteCommands(context: PaletteContext, files: readonly Entry[], enabled: boolean): PaletteModeView {
+export function usePaletteCommands(context: PaletteContext, files: readonly Entry[], enabled: boolean): PaletteModeView<Entry> {
     const { t } = useTranslation(['shell']);
-    const { open, query, index, setIndex, close } = context;
+    const { open, query, close } = context;
     const nodesByView = useViewNodes((all, nodesOf) => new Map(all.map((view) => [view.id, nodesOf(view)])), shallow);
     const views = useDocument((s) => s.views);
     const activeViewId = useDocument((s) => s.activeViewId);
@@ -197,11 +197,7 @@ export function usePaletteCommands(context: PaletteContext, files: readonly Entr
         t
     ]);
 
-    const active = activeEntryOf(entries, index);
-    const run = (entry: Entry | undefined, newWindow = false): void => {
-        if (!entry) {
-            return;
-        }
+    const run = (entry: Entry, newWindow: boolean): void => {
         // Jumping to a node, a file, a view or a project is not a command; only what "Actions" lists comes back.
         if (
             entry.section !== 'jump' &&
@@ -221,10 +217,15 @@ export function usePaletteCommands(context: PaletteContext, files: readonly Entr
     };
 
     return {
-        count: entries.length,
-        activeOptionId: active ? optionId(entries.indexOf(active)) : undefined,
-        enter: (event) => run(active, wantsNewWindow(event)),
-        notes: entries.length === 0 && <PaletteNote>{t('palette.noMatch')}</PaletteNote>,
-        results: <PaletteEntryList entries={entries} active={active} onHover={setIndex} onRun={run} />
+        groups: groupBySection(entries, (section) => t(`palette.sections.${section}`)),
+        item: (entry) => <PaletteEntryItem key={entry.id} entry={entry} onRun={run} />,
+        keyDown: (event, entry) => {
+            if (event.key === 'Enter' && entry !== undefined && wantsNewWindow(event)) {
+                event.preventBaseUIHandler();
+                event.preventDefault();
+                run(entry, true);
+            }
+        },
+        empty: t('palette.noMatch')
     };
 }

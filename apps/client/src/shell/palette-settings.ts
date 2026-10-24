@@ -1,3 +1,4 @@
+import { matchScore } from '@adecore/ui';
 import type { Command } from '@/shell/commands';
 import { sectionLabel } from '@/shell/settings/sections';
 import type { SearchResult } from '@/shell/settings/search';
@@ -5,6 +6,9 @@ import { useUi } from '@/state/ui';
 
 /* Enough to find a setting by a loose word without burying the commands under the rows of one pane. */
 const SETTINGS_RESULTS = 6;
+
+/* What `matchScore` gives a text that starts with the query. */
+const PREFIX = 5;
 
 /* Rows go ahead of panes: Enter on a word that names a row should land on that row, not on the pane around it.
    A row hints at its pane, since two panes can hold a row of the same name; a pane has only its own description. */
@@ -20,8 +24,7 @@ export function settingsEntries(results: readonly SearchResult[]): Command[] {
 
 /* Whether the query is the start of some setting's label, which is when settings outrank the loose matches of files. */
 export function namesSetting(query: string, settings: readonly Command[]): boolean {
-    const wanted = query.trim().toLowerCase();
-    return wanted !== '' && settings.some((setting) => setting.label.toLowerCase().startsWith(wanted));
+    return settings.some((setting) => matchScore(setting.label, query) === PREFIX);
 }
 
 /* Commands and actions always come first. A setting the query names only outranks the files, which match the letters loosely; otherwise settings stay last. */
