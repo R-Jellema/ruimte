@@ -989,6 +989,7 @@
     },
     "processes": {
         "anotherProject": "ander project",
+        "chart": "{{measure}} van deze machine en van Ruimte",
         "collapse": "{{name}} inklappen",
         "column": {
             "cpu": "CPU",

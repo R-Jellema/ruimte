@@ -309,6 +309,7 @@ export function ProcessesPanel() {
                 </div>
                 <ProcessChart
                     label={t('processes.column.cpu')}
+                    name={t('processes.chart', { measure: t('processes.column.cpu') })}
                     headline={formatPercent(machine.cpu)}
                     points={series.points}
                     windowMs={series.windowMs}
@@ -320,6 +321,7 @@ export function ProcessesPanel() {
                 />
                 <ProcessChart
                     label={t('processes.column.memory')}
+                    name={t('processes.chart', { measure: t('processes.column.memory') })}
                     headline={t('processes.memoryHeadline', { used: formatBytes(machine.memoryUsed), total: formatBytes(machine.memoryTotal) })}
                     points={series.points}
                     windowMs={series.windowMs}
@@ -337,6 +339,7 @@ export function ProcessesPanel() {
                             <span>{t('processes.column.disk')}</span>
                         </Tooltip>
                     }
+                    name={t('processes.chart', { measure: t('processes.column.disk') })}
                     headline={t('processes.diskHeadline', { read: formatRate(machine.diskRead), write: formatRate(machine.diskWrite) })}
                     points={series.points}
                     windowMs={series.windowMs}

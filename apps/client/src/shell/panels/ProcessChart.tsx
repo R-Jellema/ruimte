@@ -1,32 +1,18 @@
 import { useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { ProcessPoint } from '@ruimte/contracts';
 import { formatClock } from '@adecore/agents-react/usage';
-import { SectionLabel, useMeasuredWidth } from '@adecore/ui';
+import { createChart, type ChartX } from '@adecore/charts';
+import { SectionLabel } from '@adecore/ui';
 
 const HEIGHT = 44;
 
-/* Runs of points with a value, so a stretch that could not be measured is a gap and not a line to zero. */
-function runs(points: readonly ProcessPoint[], read: (point: ProcessPoint) => number | null): ProcessPoint[][] {
-    const out: ProcessPoint[][] = [];
-    let current: ProcessPoint[] = [];
-    for (const point of points) {
-        if (read(point) === null) {
-            if (current.length > 0) {
-                out.push(current);
-            }
-            current = [];
-        } else {
-            current.push(point);
-        }
-    }
-    if (current.length > 0) {
-        out.push(current);
-    }
-    return out;
-}
+const SampleChart = createChart<ProcessPoint>();
 
 interface ProcessChartProps {
     label: ReactNode;
+    /* What a screen reader calls the chart, which only decorates the readout above it. */
+    name: string;
     /* What the chart says while nobody points at it: the value now. */
     headline: string;
     points: readonly ProcessPoint[];
@@ -43,25 +29,12 @@ interface ProcessChartProps {
  * One measure over time: the whole machine as a line and the share of Ruimte as the area under it,
  * so a glance says whether Ruimte is what makes the machine slow or something else is.
  */
-export function ProcessChart({ label, headline, points, windowMs, end, max, machine, ruimte, format }: ProcessChartProps) {
-    const [measure, width] = useMeasuredWidth();
-    const [hovered, setHovered] = useState<ProcessPoint | null>(null);
+export function ProcessChart({ label, name, headline, points, windowMs, end, max, machine, ruimte, format }: ProcessChartProps) {
+    const { t } = useTranslation('panels');
+    const [active, setActive] = useState<ChartX | null>(null);
     const start = end - windowMs;
     const visible = points.filter((point) => point.at >= start);
-    const xOf = (at: number): number => Math.round(((at - start) / windowMs) * width);
-    const yOf = (value: number): number => Math.round(HEIGHT - Math.min(1, Math.max(0, max > 0 ? value / max : 0)) * (HEIGHT - 1));
-
-    const onPointerMove = (e: React.PointerEvent<HTMLDivElement>): void => {
-        const bounds = e.currentTarget.getBoundingClientRect();
-        const at = start + ((e.clientX - bounds.left) / Math.max(1, width)) * windowMs;
-        let nearest: ProcessPoint | null = null;
-        for (const point of visible) {
-            if (nearest === null || Math.abs(point.at - at) < Math.abs(nearest.at - at)) {
-                nearest = point;
-            }
-        }
-        setHovered(nearest);
-    };
+    const hovered = active === null ? undefined : visible.find((point) => point.at === active);
 
     const readout = (point: ProcessPoint): string => {
         const whole = machine(point);
@@ -74,33 +47,26 @@ export function ProcessChart({ label, headline, points, windowMs, end, max, mach
             <div className="flex items-baseline gap-2">
                 <SectionLabel>{label}</SectionLabel>
                 <span className="grow" />
-                <span className="truncate text-xs text-text tabular-nums">{hovered === null ? headline : readout(hovered)}</span>
+                <span className="truncate text-xs text-text tabular-nums">{hovered === undefined ? headline : readout(hovered)}</span>
             </div>
-            <div ref={measure} className="relative" style={{ height: HEIGHT }} onPointerMove={onPointerMove} onPointerLeave={() => setHovered(null)}>
-                <svg width={width} height={HEIGHT} role="presentation" className="block">
-                    <line x1={0} x2={width} y1={HEIGHT - 0.5} y2={HEIGHT - 0.5} stroke="var(--border)" strokeWidth={1} />
-                    {runs(visible, ruimte).map((run) => (
-                        <path
-                            key={`area-${run[0]!.at}`}
-                            d={`M${xOf(run[0]!.at)},${HEIGHT} ${run.map((point) => `L${xOf(point.at)},${yOf(ruimte(point)!)}`).join(' ')} L${xOf(run.at(-1)!.at)},${HEIGHT} Z`}
-                            fill="var(--accent)"
-                            fillOpacity={0.28}
-                        />
-                    ))}
-                    {runs(visible, machine).map((run) => (
-                        <polyline
-                            key={`line-${run[0]!.at}`}
-                            points={run.map((point) => `${xOf(point.at)},${yOf(machine(point)!)}`).join(' ')}
-                            fill="none"
-                            stroke="var(--text-muted)"
-                            strokeWidth={1}
-                        />
-                    ))}
-                    {hovered !== null && (
-                        <line x1={xOf(hovered.at) + 0.5} x2={xOf(hovered.at) + 0.5} y1={0} y2={HEIGHT} stroke="var(--border-strong)" strokeWidth={1} />
-                    )}
-                </svg>
-            </div>
+            <SampleChart.Root
+                data={visible}
+                x="at"
+                xScale="time"
+                step={0}
+                xOptions={{ min: start, max: end }}
+                y={{ min: 0, max }}
+                height={HEIGHT}
+                margin={{ top: 1, right: 0, bottom: 1, left: 0 }}
+                interactive={false}
+                cursor="line"
+                label={name}
+                onActiveXChange={setActive}
+            >
+                <SampleChart.Grid lines="ground" dashed />
+                <SampleChart.Area value={ruimte} label="Ruimte" tone="accent" width={0} fill="flat" />
+                <SampleChart.Line value={machine} label={t('processes.legend.machine')} tone={{ color: 'var(--text-muted)' }} width={1} />
+            </SampleChart.Root>
         </div>
     );
 }

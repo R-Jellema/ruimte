@@ -989,6 +989,7 @@
     },
     "processes": {
         "anotherProject": "another project",
+        "chart": "{{measure}} of this machine and of Ruimte",
         "collapse": "Collapse {{name}}",
         "column": {
             "cpu": "CPU",
