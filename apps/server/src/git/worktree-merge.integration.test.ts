@@ -69,7 +69,7 @@ test('cancel ends a step a hook holds up, after the merge said it is still waiti
     merges.cancel('merge-1');
 
     await expect(merging).rejects.toThrow('The merge was canceled.');
-    expectProcessTerminated(pid, 'SIGTERM');
+    await expectProcessTerminated(pid, 'SIGTERM');
     expect(await worktrees.exclusive(repo, async () => 'free')).toBe('free');
     expect((await gitIn(repo, ['rev-list', '--count', 'main..lexer'])).trim()).toBe('0');
 });

@@ -138,7 +138,8 @@ test('a git that left a child holding its pipes is ended with the child, and say
         expect(result.timedOut).toBe(true);
         expect(result.code).toBe(137);
         expect(result.stdout).toBe('child-ready\n');
-        expectProcessTerminated(pid, 'SIGKILL');
+        jest.useRealTimers();
+        await expectProcessTerminated(pid, 'SIGKILL');
     } finally {
         jest.useRealTimers();
         if (Number.isSafeInteger(pid)) {

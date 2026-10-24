@@ -40,5 +40,6 @@ test('a timeout ends the children that keep the output open, not only the comman
     const result = await running;
     expect(result.stdout).toBe('child-ready\n');
     expect(result.code).toBe(143);
-    expectProcessTerminated(pid, 'SIGTERM');
+    jest.useRealTimers();
+    await expectProcessTerminated(pid, 'SIGTERM');
 });

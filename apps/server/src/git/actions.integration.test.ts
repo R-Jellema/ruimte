@@ -60,6 +60,6 @@ test('cancel ends a commit a hook holds up, the hook included', async () => {
     actions.cancel('commit-1');
 
     await expect(committing).rejects.toThrow('The action was canceled.');
-    expectProcessTerminated(pid, 'SIGTERM');
+    await expectProcessTerminated(pid, 'SIGTERM');
     expect((await gitIn(repo, ['rev-parse', 'HEAD'])).trim()).toBe(before);
 });
