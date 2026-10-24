@@ -685,7 +685,6 @@
             "unversioned": "Niet-geversioneerde bestanden"
         },
         "list": {
-            "changes": "Wijzigingen",
             "clean": "Geen wijzigingen",
             "collapseFolder": "Map inklappen",
             "deleteFile": "Naar de prullenbak…",
@@ -699,12 +698,10 @@
             "noRepo": "Geen git-repository.",
             "openChanges": "Wijzigingen openen",
             "stage": "Stage",
-            "stageAll": "Alle wijzigingen stagen",
             "stageHere": "Alles hier stagen",
             "stageMany": "{{count}} bestanden stagen",
             "stageResolved": "Stagen als opgelost",
             "unstage": "Unstage",
-            "unstageAll": "Alle wijzigingen unstagen",
             "unstageHere": "Alles hier unstagen",
             "unstageMany": "{{count}} bestanden unstagen"
         },

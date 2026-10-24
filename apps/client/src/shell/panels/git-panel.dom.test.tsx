@@ -62,6 +62,12 @@ function menuItem(text: string, role = 'menuitem'): HTMLElement | null {
     return [...document.body.querySelectorAll<HTMLElement>(`[role="${role}"]`)].find((candidate) => candidate.textContent?.includes(text)) ?? null;
 }
 
+async function refreshPanel(): Promise<void> {
+    await clickOn(document.body.querySelector<HTMLElement>('button[aria-label="More git actions"]'));
+    await until(() => menuItem('Refresh') !== null);
+    await clickOn(menuItem('Refresh'));
+}
+
 /* The row under the header that says the panel is inside a worktree. */
 function worktreeRow(): HTMLElement | null {
     return buttonWithText('Merge')?.parentElement ?? null;
@@ -166,7 +172,7 @@ describe('the git panel over a folder of two repositories', () => {
 
     test('a repository behind its upstream says so, and Sync brings it level', async () => {
         machine.answer('git.status', ({ cwd }) => status('main', cwd === API ? 3 : 0));
-        await clickOn(document.body.querySelector<HTMLElement>('button[aria-label="Refresh"]'));
+        await refreshPanel();
         await until(() => document.body.textContent?.includes('api is 3 commits behind origin') === true);
         const banner = [...document.body.querySelectorAll<HTMLElement>('[role="status"]')].find((candidate) =>
             candidate.textContent?.includes('api is 3 commits behind origin')
@@ -177,25 +183,12 @@ describe('the git panel over a folder of two repositories', () => {
         expect(machine.requests('git.action')).toEqual([expect.objectContaining({ cwd: API, kind: 'sync' })]);
     });
 
-    test('the box over the list stages every change in every repository', async () => {
-        const box = (): HTMLElement | null => document.body.querySelector<HTMLElement>('[role="checkbox"][aria-label="Stage all changes"]');
-        await until(() => box() !== null);
-        await clickOn(box());
-        await until(() => machine.requests('git.stage').length === 2);
-        expect(machine.requests('git.stage')).toEqual(
-            expect.arrayContaining([
-                { cwd: API, paths: ['README.md'], staged: true },
-                { cwd: WEB, paths: ['README.md'], staged: true }
-            ])
-        );
-    });
-
     test("the commit button's menu commits and pushes", async () => {
         machine.answer('git.status', ({ cwd }) => {
             const base = status('main');
             return cwd === API ? { ...base, files: [{ ...base.files[0]!, state: 'staged' as const }] } : base;
         });
-        await clickOn(document.body.querySelector<HTMLElement>('button[aria-label="Refresh"]'));
+        await refreshPanel();
         const field = (): HTMLTextAreaElement | null => document.body.querySelector<HTMLTextAreaElement>('textarea[aria-label="Commit message"]');
         await until(() => field() !== null);
         await act(async () => {
@@ -213,7 +206,7 @@ describe('the git panel over a folder of two repositories', () => {
 
     test('a repository without changes says so under its row while it is open', async () => {
         machine.answer('git.status', ({ cwd }) => (cwd === WEB ? { ...status('main'), files: [] } : status('main')));
-        await clickOn(document.body.querySelector<HTMLElement>('button[aria-label="Refresh"]'));
+        await refreshPanel();
         const tree = (): ShadowRoot | null => page.host.querySelector('.adecore-file-tree-host')?.shadowRoot ?? null;
         const emptyLine = (): HTMLElement | null => tree()?.querySelector<HTMLElement>('[data-empty-line="true"]') ?? null;
         await until(() => emptyLine() !== null);

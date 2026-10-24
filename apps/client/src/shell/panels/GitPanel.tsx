@@ -11,12 +11,11 @@ import { CommitBox } from '@/shell/panels/CommitBox';
 import { CommitLog, type LogSource } from '@/shell/panels/CommitLog';
 import { absoluteOf, basenameOf } from '@/shell/panels/files-tree';
 import { GitChoice, GitDiverged, type Choice } from '@/shell/panels/GitDialogs';
-import { PromptDialog, useColumnResize, Banner, Button, Checkbox, FormError, Icon, IconButton, PanelEmpty, Menu, SectionLabel } from '@adecore/ui';
-import { formatNumber } from '@adecore/ui/format';
+import { PromptDialog, useColumnResize, Banner, Button, FormError, Icon, IconButton, PanelEmpty, Menu } from '@adecore/ui';
 import { GitFileList, type GitWork } from '@/shell/panels/GitFileList';
 import { isUnmergedRefusal, popStashStep, pushButton, pushable, pushEntries, type CommitCandidate } from '@/shell/panels/git-actions';
 import { PushMenu } from '@/shell/panels/PushMenu';
-import { activeDiff, allCollapseKeys, checkOfItems, entriesOf, toggleItems } from '@/shell/panels/git-tree';
+import { activeDiff, allCollapseKeys } from '@/shell/panels/git-tree';
 import { stageFiles } from '@/shell/panels/stage-files';
 import { useGitActions, type ActionOutcome, type ManyJob } from '@/shell/panels/use-git-actions';
 import { useWorktreeInspection } from '@/shell/panels/use-worktree-inspection';
@@ -450,10 +449,6 @@ export function GitPanel() {
     const changes = checkouts.reduce((count, checkout) => count + (checkout.status?.files.length ?? 0), 0);
     const failures = checkouts.filter((checkout) => checkout.failure !== null);
     const behind = checkouts.filter((checkout) => (checkout.status?.behind ?? 0) > 0);
-    /* Every changed file the panel shows, which the box over the list stages or unstages at once. */
-    const items = checkouts.flatMap((checkout) => entriesOf(checkout.status?.files ?? []).map((entry) => ({ cwd: checkout.path, entry })));
-    const allCheck = checkOfItems(items);
-    const boxed = items.some((item) => item.entry.group !== 'conflicts');
     const several = targets.filter((entry) => entry.kind !== 'worktree').length > 1;
     /* The repository the worktrees were made from: the one the project folder itself is. */
     const folderRepo = repos.find((repo) => repo.path === folder)?.label ?? basenameOf(folder);
@@ -464,13 +459,6 @@ export function GitPanel() {
             : nodesInWorktree(projectNodes, inside)
                   .map((node) => node.title || node.kind)
                   .join(', ');
-
-    const toggleAll = (): void => {
-        const { staged, work } = toggleItems(items);
-        for (const step of work) {
-            stage(step.cwd, step.paths, staged);
-        }
-    };
 
     const refreshAll = (): void => {
         void refresh();
@@ -576,6 +564,7 @@ export function GitPanel() {
                     foldable={changes > 0}
                     onOpen={() => cwd !== null && loadRefs(cwd)}
                     onAll={actAll}
+                    onRefresh={refreshAll}
                     onExpandAll={() => useGit.getState().setCollapsedDirs([])}
                     onCollapseAll={() =>
                         useGit.getState().setCollapsedDirs(checkouts.flatMap((checkout) => allCollapseKeys(checkout.status?.files ?? [], checkout.path)))
@@ -660,24 +649,6 @@ export function GitPanel() {
                             </Banner>
                         );
                     })}
-                </div>
-            )}
-            {/* A folder whose every repository is hidden keeps this row, with the refresh that reads them again. */}
-            {(checkouts.length > 0 || hiddenRepos.length > 0) && (
-                <div className="flex h-9 shrink-0 items-center gap-2 pr-2 pl-3">
-                    {boxed && (
-                        <Checkbox
-                            label={allCheck === 'checked' ? t('git.list.unstageAll') : t('git.list.stageAll')}
-                            checked={allCheck === 'checked'}
-                            indeterminate={allCheck === 'mixed'}
-                            disabled={busy}
-                            onCheckedChange={toggleAll}
-                        />
-                    )}
-                    <SectionLabel>{t('git.list.changes')}</SectionLabel>
-                    {changes > 0 && <span className="text-xs text-text-faint tabular-nums">{formatNumber(changes)}</span>}
-                    <span className="grow" />
-                    <IconButton icon={RefreshCw} size="sm" label={t('file.menu.refresh')} disabled={busy} onClick={refreshAll} />
                 </div>
             )}
             <div ref={bodyRef} className="flex min-h-0 grow flex-col">
@@ -958,6 +929,8 @@ interface ActionsMenuProps {
     onOpen(): void;
     /* Fetch, pull and push over every repository the folder holds. */
     onAll(kind: GitActionKind): void;
+    /* Reads every status, the repositories and the worktrees again. */
+    onRefresh(): void;
     onExpandAll(): void;
     onCollapseAll(): void;
     /* What acts on one repository, which a folder with a single one has right here. */
@@ -969,7 +942,7 @@ interface ActionsMenuProps {
  * always had; over several, the three that make sense for the whole folder stay here and everything
  * that names one repository sits on that repository's row and in its own level of the branch menu.
  */
-function ActionsMenu({ busy, foldable, onOpen, onAll, onExpandAll, onCollapseAll, children }: ActionsMenuProps) {
+function ActionsMenu({ busy, foldable, onOpen, onAll, onRefresh, onExpandAll, onCollapseAll, children }: ActionsMenuProps) {
     const { t } = useTranslation('panels');
     return (
         <Menu.Root onOpenChange={(open) => open && onOpen()}>
@@ -996,6 +969,10 @@ function ActionsMenu({ busy, foldable, onOpen, onAll, onExpandAll, onCollapseAll
                         </Menu.Item>
                     </>
                 )}
+                <Menu.Separator />
+                <Menu.Item onClick={onRefresh}>
+                    <Icon icon={RefreshCw} size={14} /> {t('file.menu.refresh')}
+                </Menu.Item>
             </Menu.Popup>
         </Menu.Root>
     );

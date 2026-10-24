@@ -685,7 +685,6 @@
             "unversioned": "Unversioned Files"
         },
         "list": {
-            "changes": "Changes",
             "clean": "No changes",
             "collapseFolder": "Collapse folder",
             "deleteFile": "Move to trash…",
@@ -699,12 +698,10 @@
             "noRepo": "Not a git repository.",
             "openChanges": "Open changes",
             "stage": "Stage",
-            "stageAll": "Stage all changes",
             "stageHere": "Stage everything here",
             "stageMany": "Stage {{count}} files",
             "stageResolved": "Stage as resolved",
             "unstage": "Unstage",
-            "unstageAll": "Unstage all changes",
             "unstageHere": "Unstage everything here",
             "unstageMany": "Unstage {{count}} files"
         },
