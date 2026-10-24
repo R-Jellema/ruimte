@@ -1,11 +1,11 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { createDailyDedupe, createScrubber, type DedupeStore } from '@ruimte/telemetry';
+import { blankQuoted, createDailyDedupe, createScrubber, type DedupeStore } from '@ruimte/telemetry';
 
 /* What the shell reports besides an error nothing caught and a native crash. Every message is fixed text; a reason is scrubbed. */
 export type ShellProblem =
     | { kind: 'process-gone'; process: string; reason: string; exitCode: number }
-    | { kind: 'daemon-start-failed'; reason: string }
+    | { kind: 'daemon-start-failed'; reason: string; daemon?: DaemonStartupDiagnostics }
     | { kind: 'daemon-spawn-failed'; code: string }
     | { kind: 'daemon-gave-up'; ends: number }
     | { kind: 'service-fallback'; step: 'install' | 'start' | 'restart'; reason: string };
@@ -15,7 +15,13 @@ export interface ShellEvent {
     level: 'error' | 'fatal';
     fingerprint: string[];
     tags: Record<string, string>;
-    extra: Record<string, string | number>;
+    extra: Record<string, string | number | string[]>;
+}
+
+export interface DaemonStartupDiagnostics {
+    exitCode: number | null;
+    signal: NodeJS.Signals | null;
+    output: string[];
 }
 
 export interface ShellIdentity {
@@ -25,7 +31,7 @@ export interface ShellIdentity {
 }
 
 const TAGS = ['process', 'platform', 'arch', 'problem', 'exit_reason', 'step'];
-const EXTRAS = ['exit_code', 'reason', 'ends'];
+const EXTRAS = ['exit_code', 'reason', 'ends', 'signal', 'startup_output'];
 
 /* A crash or running out of memory; an exit the app asked for, a kill or a clean exit is no report. */
 export function isCrash(reason: string): boolean {
@@ -47,14 +53,29 @@ export function problemEvent(problem: ShellProblem): ShellEvent {
                 tags: { problem: problem.kind, process: problem.process, exit_reason: problem.reason },
                 extra: { exit_code: problem.exitCode }
             };
-        case 'daemon-start-failed':
+        case 'daemon-start-failed': {
+            const extra: ShellEvent['extra'] = { reason: problem.reason };
+            if (problem.daemon) {
+                const { exitCode, signal, output } = problem.daemon;
+                if (exitCode !== null) {
+                    extra.exit_code = exitCode;
+                }
+                if (signal !== null) {
+                    extra.signal = signal;
+                }
+                if (output.length > 0) {
+                    // Startup errors can quote source text from a private file.
+                    extra.startup_output = output.map(blankQuoted);
+                }
+            }
             return {
                 message: 'The machine did not start',
                 level: 'error',
                 fingerprint: ['daemon-start-failed', problem.reason],
                 tags: { problem: problem.kind },
-                extra: { reason: problem.reason }
+                extra
             };
+        }
         case 'daemon-spawn-failed':
             return {
                 message: `The machine could not be spawned (${problem.code})`,

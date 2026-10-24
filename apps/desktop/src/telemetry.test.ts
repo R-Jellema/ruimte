@@ -33,6 +33,54 @@ describe('problemEvent', () => {
 });
 
 describe('shellBeforeSend', () => {
+    test.each([
+        { exitCode: 127, signal: null, expected: { exit_code: 127 } },
+        { exitCode: null, signal: 'SIGILL' as const, expected: { signal: 'SIGILL' } }
+    ])('keeps daemon startup diagnostics after scrubbing ($exitCode, $signal)', ({ exitCode, signal, expected }) => {
+        const beforeSend = shellBeforeSend(IDENTITY, memoryDedupeStore());
+        const sent = beforeSend(
+            problemEvent({
+                kind: 'daemon-start-failed',
+                reason: 'The background service did not come up',
+                daemon: {
+                    exitCode,
+                    signal,
+                    output: [
+                        'error while loading shared libraries: libatomic.so.1',
+                        'Could not read "/Users/jane/private/config.json"',
+                        'Authorization: Bearer obsp_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+                    ]
+                }
+            })
+        );
+        expect(sent).toMatchObject({
+            extra: {
+                reason: 'The background service did not come up',
+                ...expected,
+                startup_output: ['error while loading shared libraries: libatomic.so.1', 'Could not read "<text>"', expect.stringContaining('<redacted>')]
+            }
+        });
+        expect(JSON.stringify(sent)).not.toContain('jane');
+        expect(JSON.stringify(sent)).not.toContain('obsp_');
+    });
+
+    test('bounds the startup output that leaves the machine', () => {
+        const beforeSend = shellBeforeSend(IDENTITY, memoryDedupeStore());
+        const sent = beforeSend(
+            problemEvent({
+                kind: 'daemon-start-failed',
+                reason: 'The background service did not come up',
+                daemon: { exitCode: 1, signal: null, output: Array.from({ length: 20 }, () => 'x'.repeat(1000)) }
+            })
+        );
+        const output = sent?.extra.startup_output;
+        expect(Array.isArray(output)).toBe(true);
+        if (Array.isArray(output)) {
+            expect(output).toHaveLength(10);
+            expect(output.every((line) => line.length <= 303)).toBe(true);
+        }
+    });
+
     test('scrubs the reason of its paths and person, and drops tags it does not know', () => {
         const beforeSend = shellBeforeSend(IDENTITY, memoryDedupeStore());
         const event = problemEvent({ kind: 'daemon-start-failed', reason: 'The background service is missing in /Users/jane/Apps/Ruimte.app/bin' });

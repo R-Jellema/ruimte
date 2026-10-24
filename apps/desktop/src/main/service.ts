@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, openSync, readFileSync } from 'node:fs';
+import { closeSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -9,11 +9,13 @@ import { buildIdentityOf, MACHINE_HEALTH_PATH, type BuildIdentity } from '@ruimt
 import type { BackgroundServiceState, MachineMode, MachineStopPreview, ServiceSupport } from '@ruimte/desktop-bridge';
 import { commandLineServiceProgram, daemonServiceSpec, platformServiceManager, serviceLogFile } from '@ruimte/service/host';
 import { askDaemonWork, proveDaemon, type DaemonPort } from '../daemon-proof';
+import { openDaemonLog, type DaemonLog } from '../daemon-log';
 import { askLoginShellPath, fileLoginPathCache, loadLoginPath } from '../login-path';
 import { removeOwnDefinition, secretFor, tildeHome } from '../machine-mode';
 import { createServiceController, type ServiceController } from '../service/controller';
 import { keepRunningSetting, serviceSupport } from '../service/settings';
 import { createSecretGate } from '../startup';
+import type { DaemonStartupDiagnostics } from '../telemetry';
 import { electron } from './electron';
 import type { AppIpc } from './ipc';
 import { reportShellProblem } from './telemetry';
@@ -89,6 +91,16 @@ export function createMachine(options: MachineOptions): Machine {
     // The login shell's PATH for a packaged app, loaded before the machine starts.
     let loginPath: string | null = null;
     let stopMachineOnQuit = false;
+    let starting = false;
+    let startupLog: DaemonLog | null = null;
+    let startupExit: DaemonStartupDiagnostics | null = null;
+
+    const startupDiagnostics = (): DaemonStartupDiagnostics | undefined => {
+        if (startupExit !== null) {
+            return startupExit;
+        }
+        return startupLog === null ? undefined : { exitCode: null, signal: null, output: startupLog.output() };
+    };
 
     const daemonCommand = (): { command: string; args: string[] } | null => {
         if (app.isPackaged) {
@@ -118,19 +130,28 @@ export function createMachine(options: MachineOptions): Machine {
         env.RUIMTE_LAUNCHED_BY = 'desktop';
         // A packaged app has no terminal; the daemon's output goes to the app's log directory instead.
         let stdio: 'inherit' | ['ignore', number, number] = 'inherit';
+        let log: DaemonLog | null = null;
         if (app.isPackaged) {
-            const logs = app.getPath('logs');
-            mkdirSync(logs, { recursive: true });
-            const log = openSync(join(logs, 'daemon.log'), 'a');
-            stdio = ['ignore', log, log];
+            log = openDaemonLog(join(app.getPath('logs'), 'daemon.log'));
+            stdio = ['ignore', log.fd, log.fd];
         }
-        daemon = spawn(target.command, target.args, { stdio, env, windowsHide: true });
+        startupLog = log;
+        try {
+            daemon = spawn(target.command, target.args, { stdio, env, windowsHide: true });
+        } finally {
+            if (log !== null) {
+                closeSync(log.fd);
+            }
+        }
         daemon.on('error', (e: NodeJS.ErrnoException) => {
             reportShellProblem({ kind: 'daemon-spawn-failed', code: e.code ?? 'unknown' });
             dialog.showErrorBox('Ruimte', `The background service could not start: ${e.message}`);
             app.quit();
         });
-        daemon.on('exit', (code) => {
+        daemon.on('exit', (code, signal) => {
+            if (starting && startupExit === null) {
+                startupExit = { exitCode: code, signal, output: log?.output() ?? [] };
+            }
             daemon = null;
             if (!app.isPackaged && code !== 0 && code !== null) {
                 console.error(`The daemon exited with code ${code}`);
@@ -288,11 +309,25 @@ export function createMachine(options: MachineOptions): Machine {
                 await waitForDaemon(() => true, 120_000).catch(() => undefined);
                 return true;
             }
-            if (app.isPackaged) {
-                const cache = fileLoginPathCache(join(app.getPath('userData'), 'login-path.json'));
-                loginPath = (await loadLoginPath(cache, () => askLoginShellPath(process.env.SHELL, process.platform))).path;
+            starting = true;
+            startupLog = null;
+            startupExit = null;
+            try {
+                if (app.isPackaged) {
+                    const cache = fileLoginPathCache(join(app.getPath('userData'), 'login-path.json'));
+                    loginPath = (await loadLoginPath(cache, () => askLoginShellPath(process.env.SHELL, process.platform))).path;
+                }
+                return await controller.start();
+            } catch (e) {
+                reportShellProblem({
+                    kind: 'daemon-start-failed',
+                    reason: e instanceof Error ? e.message : 'The background service did not start',
+                    daemon: startupDiagnostics()
+                });
+                throw e;
+            } finally {
+                starting = false;
             }
-            return controller.start();
         },
         ready() {
             localSecret.open();

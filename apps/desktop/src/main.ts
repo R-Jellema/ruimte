@@ -27,7 +27,7 @@ import { installSecrets } from './main/secrets';
 import { installQuickLook } from './main/quick-look';
 import { createMachine } from './main/service';
 import { installSpeech } from './main/speech';
-import { reportShellProblem, startTelemetry } from './main/telemetry';
+import { startTelemetry } from './main/telemetry';
 import { quitQuestion } from './quit-question';
 import { createReleaseNotes } from './release-notes';
 import { runSmoke } from './smoke';
@@ -849,7 +849,6 @@ if (!app.requestSingleInstanceLock()) {
                 void secrets.handOverVoiceKey();
             },
             fail: (message) => {
-                reportShellProblem({ kind: 'daemon-start-failed', reason: message });
                 dialog.showErrorBox('Ruimte', message);
             },
             quit: () => {
