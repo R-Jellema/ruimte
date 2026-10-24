@@ -561,7 +561,11 @@ export const GitActionPayloadSchema = z.object({
     force: z.boolean().optional(),
     // Pull and sync: how a branch that has moved on both sides comes together. Without it the pull
     // only fast-forwards.
-    strategy: z.enum(['merge', 'rebase']).optional()
+    strategy: z.enum(['merge', 'rebase']).optional(),
+    // Commit: rewrite the last commit with this message and whatever is staged, which may be nothing.
+    // A daemon from before it makes a new commit instead, so a client sends it only where
+    // `git.capabilities` says `amend`.
+    amend: z.boolean().optional()
 });
 export type GitActionPayload = z.infer<typeof GitActionPayloadSchema>;
 
@@ -648,7 +652,9 @@ export const GitCapabilitiesResultSchema = z.object({
     // Whether `gh` is on the daemon's PATH, which is what opening a pull request needs.
     gh: z.boolean(),
     // The CLI that writes a commit message here, or null on a machine without one installed.
-    messageProvider: AgentKindSchema.nullable()
+    messageProvider: AgentKindSchema.nullable(),
+    // Whether a commit takes `amend`. A daemon from before it leaves it out.
+    amend: z.boolean().optional()
 });
 export type GitCapabilitiesResult = z.infer<typeof GitCapabilitiesResultSchema>;
 

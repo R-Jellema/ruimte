@@ -120,7 +120,21 @@ export function commitTargets(checkouts: readonly CommitCandidate[]): { targets:
     return changed.length === 1 ? { targets: changed, stageAll: true } : { targets: [], stageAll: false };
 }
 
-/* The title of the toast while an action runs: where it is, in the words a person would use. */
+/*
+ * The one repository whose last commit an amend rewrites: the only one with something staged, or with
+ * nothing staged anywhere, the folder's only repository. An amend never stages on its own, since
+ * rewording the last commit with nothing staged is half of what it is for.
+ */
+export function amendTarget(checkouts: readonly CommitCandidate[]): CommitCandidate | null {
+    const staged = checkouts.filter((checkout) => checkout.status?.files.some((file) => file.state === 'staged') === true);
+    if (staged.length > 0) {
+        return staged.length === 1 ? staged[0]! : null;
+    }
+    const only = checkouts.length === 1 ? checkouts[0]! : null;
+    return only?.status != null ? only : null;
+}
+
+/* The title of the toast while an action runs:where it is, in the words a person would use. */
 export function phaseLabel(phase: GitActionPhase): string {
     return i18next.t(`panels:git.phase.${phase}`);
 }

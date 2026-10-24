@@ -547,6 +547,10 @@
             "failed": "Kon branches niet lezen: {{reason}}"
         },
         "commit": {
+            "amend": "Amend",
+            "amendHint": "De laatste commit aanpassen in plaats van een nieuwe te maken",
+            "amendCommitHint": "De laatste commit aanpassen met dit bericht en wat gestaged is",
+            "amendNoPush": "Push een aangepaste commit apart",
             "commit": "Commit",
             "label": "Commitbericht",
             "commitAndPush": "Committen en pushen",

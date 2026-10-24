@@ -360,12 +360,15 @@ export function developerActions(document: StoreApi<DocumentState>, overrides: P
             const suggestion = await ask('git.suggestMessage', { cwd: checkout.path, actionId: run ?? machine.runId() });
             return { output: { repository: checkout.label, ...suggestion } };
         },
-        'git.commit': async ({ repository, message, body, push, stageAll, run }, call) => {
+        'git.commit': async ({ repository, message, body, push, stageAll, run, amend }, call) => {
             const kind: GitActionKind = push === true ? 'commit-push' : 'commit';
-            const extra = { subject: message, ...(body == null || body.trim() === '' ? {} : { body }) };
+            const extra = { subject: message, ...(body == null || body.trim() === '' ? {} : { body }), ...(amend === true ? { amend: true } : {}) };
             // The panel already weighed where the commit lands and says so; anyone else's commit is weighed here.
             if (repository != null && stageAll != null) {
                 return { output: await runEach([await checkoutOf(repository, call)], true, kind, () => ({ ...extra, stageAll }), run) };
+            }
+            if (amend === true) {
+                throw new ActionRefusal('name-a-repository', 'An amend rewrites the last commit of one repository; name the repository.');
             }
             // Named alone, a repository with changes and nothing staged is committed whole, as a folder with one repository is.
             const statuses = await statusesOf(await checkoutsOf(repository, call));

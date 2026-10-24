@@ -17,5 +17,5 @@ export async function readCapabilities(registry: ProviderRegistry, now: number =
         cached = { at: now, gh: (await detectCli('gh')).installed };
     }
     const provider = await registry.oneShotProvider();
-    return { gh: cached.gh, messageProvider: provider?.kind ?? null };
+    return { gh: cached.gh, messageProvider: provider?.kind ?? null, amend: true };
 }

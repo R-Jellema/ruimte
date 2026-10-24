@@ -3123,7 +3123,8 @@ export const ACTION_DEFINITIONS = {
             body: z.string().nullable().describe('The rest of the message'),
             push: z.boolean().nullable().describe('Pushes the commit after'),
             stageAll: forActors(PERSON, z.boolean()).describe('Stages every changed file of the repository first'),
-            run: gitRun
+            run: gitRun,
+            amend: forActors(PERSON, z.boolean()).describe('Rewrites the last commit of the one named repository instead of making a new one')
         }),
         output: gitRunsOutput
     },

@@ -295,7 +295,11 @@ export class GitActions {
         }
         const subject = required(payload.subject?.trim(), 'a commit message');
         const body = payload.body?.trim() ?? '';
-        await step('commit', ['commit', '--message', subject, ...(body === '' ? [] : ['--message', body])]);
+        const amend = payload.amend === true;
+        if (amend && (await git(['rev-parse', '--verify', '--quiet', 'HEAD'], top)) === null) {
+            throw new GitError('git-failed', 'There is no commit to amend yet.');
+        }
+        await step('commit', ['commit', ...(amend ? ['--amend'] : []), '--message', subject, ...(body === '' ? [] : ['--message', body])]);
         const hash = (await git(['rev-parse', 'HEAD'], top))?.trim() ?? '';
         return { hash, subject };
     }

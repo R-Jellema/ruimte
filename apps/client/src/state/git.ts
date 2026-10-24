@@ -38,6 +38,8 @@ interface GitStore {
     messages: Record<string, string>;
     /* An edit followed by undo still retires an in-flight suggestion. */
     messageVersions: Record<string, number>;
+    /* Whether the draft under the same key rewrites the last commit; in memory, like the draft. */
+    amends: Record<string, boolean>;
     /* Whether the worktrees section stands open; folded until a person opens it. */
     worktreesOpen: boolean;
     setScope(scope: GitDiffScope): void;
@@ -46,6 +48,7 @@ interface GitStore {
     setLogHeight(height: number): void;
     setMessage(key: string, message: string): void;
     clearMessage(key: string, version: number): void;
+    setAmend(key: string, amend: boolean): void;
     setCounts(key: string, counts: TabCounts): void;
     setCommitFile(key: string, path: string): void;
     setCommitTreeWidth(width: number): void;
@@ -68,6 +71,7 @@ export const useGit = create<GitStore>((set, get) => ({
     logHeight: DEFAULT_LOG_HEIGHT,
     messages: {},
     messageVersions: {},
+    amends: {},
     worktreesOpen: storedWorktreesOpen.read() === 'true',
     setScope(scope) {
         set({ scope });
@@ -92,6 +96,12 @@ export const useGit = create<GitStore>((set, get) => ({
         if ((get().messageVersions[key] ?? 0) === version) {
             get().setMessage(key, '');
         }
+    },
+    setAmend(key, amend) {
+        if ((get().amends[key] ?? false) === amend) {
+            return;
+        }
+        set({ amends: { ...get().amends, [key]: amend } });
     },
     setCounts(key, counts) {
         set({ counts: { ...get().counts, [key]: counts } });

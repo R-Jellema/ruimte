@@ -47,7 +47,7 @@ export const cases: WriteCases = {
         actors: ['person', 'voice'],
         input: commit,
         refused: { 'a blank subject': { ...commit, message: ' ' }, 'push as a word': { ...commit, push: 'yes' } },
-        restricted: { stageAll: { value: true, actors: ['person'] }, run },
+        restricted: { stageAll: { value: true, actors: ['person'] }, run, amend: { value: true, actors: ['person'] } },
         confirms: true
     },
     'git.fetch': {

@@ -547,6 +547,10 @@
             "failed": "Could not read branches: {{reason}}"
         },
         "commit": {
+            "amend": "Amend",
+            "amendHint": "Change the last commit instead of making a new one",
+            "amendCommitHint": "Change the last commit with this message and what is staged",
+            "amendNoPush": "Push an amended commit separately",
             "commit": "Commit",
             "label": "Commit message",
             "commitAndPush": "Commit and push",

@@ -52545,6 +52545,9 @@
           "merge",
           "rebase"
         ]
+      },
+      "amend": {
+        "type": "boolean"
       }
     },
     "required": [
@@ -53092,6 +53095,9 @@
             "type": "null"
           }
         ]
+      },
+      "amend": {
+        "type": "boolean"
       }
     },
     "required": [

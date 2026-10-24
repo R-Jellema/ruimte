@@ -416,13 +416,17 @@ export function GitPanel() {
     };
 
     /* One message over every repository that has something staged: one commit each, same words. */
-    const commit = (message: { subject: string; body: string }, options: { targets: readonly CommitCandidate[]; stageAll: boolean; push: boolean }): void => {
+    const commit = (
+        message: { subject: string; body: string },
+        options: { targets: readonly CommitCandidate[]; stageAll: boolean; push: boolean; amend: boolean }
+    ): void => {
         const version = useGit.getState().messageVersions[messageKey] ?? 0;
         const kind: GitActionKind = options.push ? 'commit-push' : 'commit';
-        const extra = { subject: message.subject, body: message.body, stageAll: options.stageAll };
+        const extra = { subject: message.subject, body: message.body, stageAll: options.stageAll, ...(options.amend ? { amend: true } : {}) };
         const clear = (ok: boolean): void => {
             if (ok) {
                 useGit.getState().clearMessage(messageKey, version);
+                useGit.getState().setAmend(messageKey, false);
             }
         };
         const one = options.targets[0];

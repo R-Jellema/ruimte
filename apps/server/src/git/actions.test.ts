@@ -184,6 +184,35 @@ describe('committing', () => {
     test('a commit without anything staged fails with what git said', async () => {
         await expect(act({ kind: 'commit', subject: 'nothing' })).rejects.toThrow(/nothing to commit/i);
     });
+
+    test('an amend with nothing staged rewords the last commit in place', async () => {
+        const before = (await run(['rev-parse', 'HEAD'])).trim();
+        const result = await act({ kind: 'commit', subject: 'feat: renamed', body: 'more words', amend: true });
+
+        expect(result.commit?.hash).not.toBe(before);
+        expect((await run(['rev-list', '--count', 'HEAD'])).trim()).toBe('1');
+        expect(await run(['log', '-1', '--format=%B'])).toBe('feat: renamed\n\nmore words\n\n');
+    });
+
+    test('an amend takes what is staged into the last commit', async () => {
+        await write('two.txt', 'two\n');
+        await run(['add', 'two.txt']);
+        await act({ kind: 'commit', subject: 'init and two', amend: true });
+
+        expect((await run(['rev-list', '--count', 'HEAD'])).trim()).toBe('1');
+        expect((await run(['show', '--name-only', '--format=', 'HEAD'])).split('\n')).toContain('two.txt');
+        expect((await readStatus(repo)).files).toHaveLength(0);
+    });
+
+    test('an amend in a repository without commits is refused', async () => {
+        const empty = join(root, 'empty');
+        await run(['init', '--quiet', '--initial-branch=main', empty], root);
+        await writeFile(join(empty, 'one.txt'), 'one\n');
+        await run(['add', '.'], empty);
+
+        await expect(act({ cwd: empty, kind: 'commit', subject: 'first', amend: true })).rejects.toThrow('There is no commit to amend yet.');
+        expect(await run(['rev-parse', '--verify', '--quiet', 'HEAD'], empty).catch(() => null)).toBeNull();
+    });
 });
 
 describe('the remote', () => {

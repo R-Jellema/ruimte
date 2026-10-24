@@ -41,7 +41,8 @@ export async function runGitKind({
     stageAll,
     stash,
     force,
-    strategy
+    strategy,
+    amend
 }: GitActionPayload): Promise<GitActionResult> {
     switch (kind) {
         case 'fetch':
@@ -62,7 +63,8 @@ export async function runGitKind({
                     body: body ?? null,
                     push: kind === 'commit-push',
                     stageAll: stageAll ?? false,
-                    run
+                    run,
+                    ...(amend === true ? { amend: true } : {})
                 })
             );
         case 'publish':

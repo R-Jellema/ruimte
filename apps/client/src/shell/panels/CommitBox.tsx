@@ -3,9 +3,9 @@ import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { FolderGit2, LoaderCircle, Sparkles } from 'lucide-react';
 import type { GitCapabilitiesResult } from '@ruimte/contracts';
-import { Button, Icon, IconButton, TextArea, Tooltip, KEY_SHORTCUTS, matchesShortcut } from '@adecore/ui';
+import { Button, Checkbox, Icon, IconButton, TextArea, Tooltip, KEY_SHORTCUTS, matchesShortcut } from '@adecore/ui';
 import { cancelGitRunAction, perform } from '@/actions/client-actions';
-import { commitTargets, nextActionId, splitMessage, type CommitCandidate } from '@/shell/panels/git-actions';
+import { amendTarget, commitTargets, nextActionId, splitMessage, type CommitCandidate } from '@/shell/panels/git-actions';
 import { CommitSuggestion } from './commit-suggestion';
 import { useGit } from '@/state/git';
 import { useToasts } from '@/state/toasts';
@@ -20,7 +20,10 @@ interface CommitBoxProps {
     named: boolean;
     capabilities: GitCapabilitiesResult | null;
     busy: boolean;
-    onCommit(message: { subject: string; body: string }, options: { targets: readonly CommitCandidate[]; stageAll: boolean; push: boolean }): void;
+    onCommit(
+        message: { subject: string; body: string },
+        options: { targets: readonly CommitCandidate[]; stageAll: boolean; push: boolean; amend: boolean }
+    ): void;
 }
 
 /*
@@ -35,10 +38,15 @@ export function CommitBox({ messageKey, checkouts, named, capabilities, busy, on
     const suggestions = useRef(new CommitSuggestion());
     const [writing, setWriting] = useState(false);
     const writingId = useRef<string | null>(null);
+    const amendOn = useGit((s) => s.amends[messageKey] ?? false);
     const { targets, stageAll } = commitTargets(checkouts);
+    /* An older machine would make a new commit of an amend it does not know, so it is offered only
+       where the machine says it takes one. */
+    const amendable = capabilities?.amend === true ? amendTarget(checkouts) : null;
+    const amending = amendOn && amendable !== null;
     const changed = checkouts.some((checkout) => (checkout.status?.files.length ?? 0) > 0);
     const { subject, body } = splitMessage(message);
-    const ready = subject !== '' && targets.length > 0 && !busy;
+    const ready = subject !== '' && (amending || targets.length > 0) && !busy;
     /* A message is written from one repository's staged diff; over two there is no one diff to read. */
     const writeFrom = targets.length === 1 ? targets[0]!.path : null;
     const canWrite = capabilities !== null && capabilities.messageProvider !== null;
@@ -69,11 +77,33 @@ export function CommitBox({ messageKey, checkouts, named, capabilities, busy, on
     };
 
     const commit = (push: boolean): void => {
-        if (ready) {
-            cancelWriting();
-            setOffered(null);
-            onCommit({ subject, body }, { targets, stageAll, push });
+        if (!ready) {
+            return;
         }
+        cancelWriting();
+        setOffered(null);
+        if (amending) {
+            onCommit({ subject, body }, { targets: [amendable], stageAll: false, push: false, amend: true });
+            return;
+        }
+        onCommit({ subject, body }, { targets, stageAll, push, amend: false });
+    };
+
+    /* An empty field starts from the last commit's subject, which is what an amend usually rewords. */
+    const toggleAmend = (on: boolean): void => {
+        useGit.getState().setAmend(messageKey, on);
+        if (!on || amendable === null || message.trim() !== '') {
+            return;
+        }
+        perform('git.log', { repository: amendable.path, limit: 1, cursor: null })
+            .then((answer) => {
+                const last = answer.commits[0]?.subject ?? '';
+                const state = useGit.getState();
+                if (last !== '' && state.amends[messageKey] === true && (state.messages[messageKey] ?? '') === '') {
+                    state.setMessage(messageKey, last);
+                }
+            })
+            .catch(() => undefined);
     };
 
     const write = (): void => {
@@ -120,10 +150,12 @@ export function CommitBox({ messageKey, checkouts, named, capabilities, busy, on
 
     return (
         <div className="flex shrink-0 flex-col gap-2 border-t border-border p-2">
-            {named && targets.length > 0 && (
+            {named && (amending || targets.length > 0) && (
                 <div className="flex items-center gap-1.5 text-xs text-text-muted">
                     <Icon icon={FolderGit2} size={12} className="shrink-0 text-text-faint" />
-                    <span className="truncate">{t('git.commit.in', { repos: targets.map((target) => target.label).join(', ') })}</span>
+                    <span className="truncate">
+                        {t('git.commit.in', { repos: amending ? amendable.label : targets.map((target) => target.label).join(', ') })}
+                    </span>
                 </div>
             )}
             {/* The writer sits in the field it fills, so the row below holds only what commits. */}
@@ -182,12 +214,30 @@ export function CommitBox({ messageKey, checkouts, named, capabilities, busy, on
                 </div>
             )}
             <div className="flex items-center justify-end gap-2">
-                <Tooltip label={ready ? t('git.commit.commitAndPushHint') : targets.length === 0 ? t('git.commit.needsStaged') : t('git.commit.needsMessage')}>
-                    <Button size="sm" variant="secondary" disabled={!ready} onClick={() => commit(true)}>
+                {amendable !== null && (
+                    <Tooltip label={t('git.commit.amendHint')}>
+                        <label className="mr-auto flex items-center gap-2 text-sm text-text">
+                            <Checkbox label={t('git.commit.amend')} checked={amendOn} disabled={busy} onCheckedChange={toggleAmend} />
+                            {t('git.commit.amend')}
+                        </label>
+                    </Tooltip>
+                )}
+                <Tooltip
+                    label={
+                        amending
+                            ? t('git.commit.amendNoPush')
+                            : ready
+                              ? t('git.commit.commitAndPushHint')
+                              : targets.length === 0
+                                ? t('git.commit.needsStaged')
+                                : t('git.commit.needsMessage')
+                    }
+                >
+                    <Button size="sm" variant="secondary" disabled={!ready || amending} onClick={() => commit(true)}>
                         {t('git.commit.commitAndPush')}
                     </Button>
                 </Tooltip>
-                <Tooltip label={stageAll ? t('git.commit.stageAllHint') : t('git.commit.commitStagedHint')}>
+                <Tooltip label={amending ? t('git.commit.amendCommitHint') : stageAll ? t('git.commit.stageAllHint') : t('git.commit.commitStagedHint')}>
                     <Button size="sm" variant="primary" disabled={!ready} onClick={() => commit(false)}>
                         {t('git.commit.commit')}
                     </Button>

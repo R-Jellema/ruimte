@@ -3,6 +3,7 @@ import type { GitCommit, GitFile, GitStatus } from '@ruimte/contracts';
 import { groupCommits, mergeLogs, type LoadedLog } from './commit-log';
 import {
     actionTitle,
+    amendTarget,
     commitTargets,
     isUnmergedRefusal,
     manySummary,
@@ -120,6 +121,35 @@ describe('where a commit lands', () => {
     test('a folder with nothing changed anywhere has none either', () => {
         expect(commitTargets([repo('one', [])]).targets).toEqual([]);
         expect(commitTargets([{ path: '/work/one', label: 'one', status: null }]).targets).toEqual([]);
+    });
+});
+
+describe('which commit an amend rewrites', () => {
+    const repo = (label: string, states: GitFile['state'][]) => ({
+        path: `/work/${label}`,
+        label,
+        status: status({ files: states.map((state, index) => ({ path: `${index}.ts`, state, status: 'M', added: 1, deleted: 0, binary: false })) })
+    });
+
+    test('the one repository with something staged', () => {
+        expect(amendTarget([repo('one', ['unstaged']), repo('two', ['staged'])])?.label).toBe('two');
+    });
+
+    test('none when two repositories have something staged', () => {
+        expect(amendTarget([repo('one', ['staged']), repo('two', ['staged'])])).toBeNull();
+    });
+
+    test('the only repository of the folder with nothing staged, to reword its last commit', () => {
+        expect(amendTarget([repo('one', [])])?.label).toBe('one');
+        expect(amendTarget([repo('one', ['unstaged'])])?.label).toBe('one');
+    });
+
+    test('none when nothing is staged in a folder of several repositories', () => {
+        expect(amendTarget([repo('one', ['unstaged']), repo('two', [])])).toBeNull();
+    });
+
+    test('none for a folder whose status has not come in', () => {
+        expect(amendTarget([{ path: '/work/one', label: 'one', status: null }])).toBeNull();
     });
 });
 
