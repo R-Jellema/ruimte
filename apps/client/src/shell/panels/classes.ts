@@ -6,4 +6,4 @@
 export const FILE_TOOLBAR = 'flex h-10 shrink-0 items-center gap-2 border-b border-border bg-surface px-2';
 
 /* The header over the commits of one day in the git panel's log. */
-export const GIT_GROUP = 'flex h-7 items-center gap-2 pr-2 pl-3 text-xs';
+export const GIT_GROUP = 'flex h-7 items-center gap-2 pl-1 text-xs';

@@ -16,8 +16,9 @@ const MINUTE_MS = 60_000;
 /* A commit on two branches names both; beyond that the names cost the subject more than they tell. */
 const REFS_SHOWN = 2;
 
-/* A commit row is its own open button: the row's states with the columns of a row that opens. */
-const LOG_ROW = `group w-full min-w-0 gap-2 pr-3 pl-3 text-xs text-inherit hover:bg-surface-hover hover:text-text data-[selected]:bg-surface-active data-[selected]:text-text`;
+/* A commit row is its own open button, inset and rounded like a row of the file tree above it; a
+   button centers its text unless told otherwise. */
+const LOG_ROW = `group w-full min-w-0 gap-2 rounded-md pr-2 pl-1 text-left text-xs text-inherit hover:bg-surface-hover hover:text-text data-[selected]:bg-surface-active data-[selected]:text-text`;
 
 /* The checkouts the log is read from, named so a row can say which one it came out of. */
 export interface LogSource {
@@ -129,7 +130,7 @@ export function CommitLog({ sources, filterKey, reading, onOpen }: CommitLogProp
     /* A log narrowed to a repository without commits keeps the filter, which is the way back. */
     if (state === 'error' || (state === 'ready' && commits.length === 0)) {
         return (
-            <div className="flex min-h-0 grow flex-col py-1">
+            <div className="flex min-h-0 grow flex-col px-2 py-1">
                 {narrowed !== null && <header className={GIT_GROUP}>{filter}</header>}
                 <PanelEmpty icon={GitCommitHorizontal}>{state === 'error' ? t('git.log.failed') : t('git.log.empty')}</PanelEmpty>
             </div>
@@ -137,7 +138,7 @@ export function CommitLog({ sources, filterKey, reading, onOpen }: CommitLogProp
     }
 
     return (
-        <div className="min-h-0 grow overflow-y-auto py-1">
+        <div className="min-h-0 grow overflow-y-auto px-2 py-1">
             {sections.map((section, index) => (
                 <section key={section.label}>
                     <header className={GIT_GROUP}>
