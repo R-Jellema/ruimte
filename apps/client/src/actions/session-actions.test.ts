@@ -313,6 +313,7 @@ describe('stopping', () => {
         const asked = await registry.execute('chat.stopSubagent', { chatId: 'chat', toolUseId: 'use-task' }, VOICE_ACTION_CALL);
         expect(consequences(asked)).toContain('Stop “Write the migration”?');
         expect(consequences(asked)).toContain('the task is cancelled');
+        expect(of('chat.stopSubagent')).toEqual([]);
         await confirm(registry, asked);
         expect(of('chat.stopSubagent')).toEqual([{ chatId: 'chat', toolUseId: 'use-task' }]);
         expect(await registry.execute('chat.stopSubagent', { chatId: 'chat', toolUseId: 'use-own' }, VOICE_ACTION_CALL)).toMatchObject({
@@ -326,6 +327,7 @@ describe('stopping', () => {
         const asked = await registry.execute('chat.stopSubagent', { chatId: 'chat', toolUseId: 'use-native' }, VOICE_ACTION_CALL);
         expect(consequences(asked)).toContain('turn carries on without its result');
         expect(consequences(asked)).not.toContain('marked stopped');
+        expect(of('chat.stopSubagent')).toEqual([]);
         await confirm(registry, asked);
         expect(of('chat.stopSubagent')).toEqual([{ chatId: 'chat', toolUseId: 'use-native' }]);
     });
@@ -340,6 +342,7 @@ describe('stopping', () => {
         );
         const asked = await registry.execute('chat.stopTask', { chatId: 'chat', taskId: 'bg-1' }, VOICE_ACTION_CALL);
         expect(consequences(asked)).toContain('background command “Watch the tests”');
+        expect(of('chat.stopTask')).toEqual([]);
         await confirm(registry, asked);
         expect(of('chat.stopTask')).toEqual([{ chatId: 'chat', taskId: 'bg-1' }]);
         expect(await registry.execute('chat.stopTask', { chatId: 'chat', taskId: 'bg-9' }, VOICE_ACTION_CALL)).toMatchObject({
@@ -351,6 +354,7 @@ describe('stopping', () => {
         const { registry, of } = fake({}, { chat: () => rowOf(info({ goal: { objective: 'Make the build green', status: 'active' } })) });
         const asked = await registry.execute('chat.goal', { chatId: 'chat', change: 'pause' }, VOICE_ACTION_CALL);
         expect(consequences(asked)).toContain('Pause the goal of');
+        expect(of('chat.goal')).toEqual([]);
         await confirm(registry, asked);
         expect(of('chat.goal')).toEqual([{ chatId: 'chat', action: 'pause' }]);
 
@@ -365,6 +369,7 @@ describe('stopping', () => {
         const asked = await registry.execute('terminal.stop', { terminalId: 'term' }, VOICE_ACTION_CALL);
         expect(consequences(asked)).toContain('Stop the session of “Build”?');
         expect(consequences(asked)).toContain('scrollback');
+        expect(of('session.kill')).toEqual([]);
         await confirm(registry, asked);
         expect(of('session.kill')).toEqual([{ sessionId: 'term' }]);
 
@@ -485,7 +490,10 @@ describe('answering', () => {
         expect(await registry.execute('chat.dismissQuestion', { chatId: 'chat', itemId: 'q-item' }, VOICE_ACTION_CALL)).toMatchObject({
             error: { code: 'not-optional' }
         });
-        await confirm(registry, await registry.execute('chat.dismissQuestion', { chatId: 'chat', itemId: 'optional' }, VOICE_ACTION_CALL));
+        const asked = await registry.execute('chat.dismissQuestion', { chatId: 'chat', itemId: 'optional' }, VOICE_ACTION_CALL);
+        expect(asked.status).toBe('needs_confirmation');
+        expect(of('chat.dismiss')).toEqual([]);
+        await confirm(registry, asked);
         expect(of('chat.dismiss')).toEqual([{ chatId: 'chat', itemId: 'optional' }]);
     });
 
@@ -627,7 +635,11 @@ describe('forking', () => {
         expect(revealed).toHaveLength(1);
         const asked = await registry.execute('chat.fork', { chatId: 'chat', turnId: null, title: 'Try B', branch: 'try-b' }, VOICE_ACTION_CALL);
         expect(consequences(asked)).toContain('worktree on the new branch try-b');
+        expect(of('chat.fork')).toEqual([{ chatId: 'chat', turnId: 'turn-1', title: 'Research (fork)' }]);
+        expect(revealed).toHaveLength(1);
         expect(await confirm(registry, asked)).toMatchObject({ output: { branch: 'try-b' } });
+        expect(of('chat.fork').at(-1)).toEqual({ chatId: 'chat', turnId: 'turn-1', title: 'Try B', worktree: { branch: 'try-b' } });
+        expect(revealed).toHaveLength(2);
     });
 
     test('a chat goes on under another account in place, or in a fork that then opens', async () => {

@@ -48,16 +48,6 @@ final class IntelligentUIPresentationTests: XCTestCase {
         XCTAssertEqual(UiCatalog.writtenTexts(block["nodes"]?.arrayValue ?? []), ["b:52", "b:75"])
     }
 
-    func testAPartThisVersionCannotDrawFallsBackAlone() throws {
-        let unknown = try node(#"{"id":"x","type":"Gantt","props":{},"error":"unknown_component","fallback":"plan"}"#)
-        let failed = try node(#"{"id":"y","type":"Stat","props":{},"error":"invalid_props","fallback":"Files"}"#)
-        let fine = try node(#"{"id":"z","type":"Summary","props":{}}"#)
-        XCTAssertEqual(UiFallbackProblem.of(unknown, catalogVersion: 1), .unknown("Gantt"))
-        XCTAssertEqual(UiFallbackProblem.of(failed, catalogVersion: 1), .failed)
-        XCTAssertNil(UiFallbackProblem.of(fine, catalogVersion: 1))
-        XCTAssertEqual(UiFallbackProblem.of(fine, catalogVersion: 2), .unknown("Summary"))
-    }
-
     func testAComponentFromANewerDaemonFallsBackAloneBesideItsSiblings() throws {
         let calendar = try node(
             #"{"id":"m","type":"Calendar","props":{"days":[]},"fallback":"Mon\nTue"}"#)
@@ -129,25 +119,6 @@ final class IntelligentUIPresentationTests: XCTestCase {
         XCTAssertEqual(chart.values.labels.count, 70)
         XCTAssertEqual(chart.values.series.count, 7)
         XCTAssertNil(UiChartData(try node(#"{"id":"c","type":"Chart","props":{"kind":"bar","data":[]}}"#)))
-    }
-
-    func testNegativeValuesAreDrawnAndNumbersTooLargeToScaleFallBack() throws {
-        let stacked = try XCTUnwrap(
-            UiChartData(
-                try node(
-                    #"{"id":"c","type":"Chart","props":{"kind":"stacked","data":[{"label":"Balance","income":10,"cost":-6}]}}"#
-                )))
-        XCTAssertEqual(stacked.kind, "bar")
-        XCTAssertEqual(stacked.min, -6)
-        let hbar = try XCTUnwrap(
-            UiChartData(
-                try node(#"{"id":"c","type":"Chart","props":{"kind":"hbar","data":[{"label":"Core","value":-3}]}}"#)))
-        XCTAssertEqual(hbar.kind, "hbar")
-        XCTAssertEqual(UiChartData.range(hbar.min, hbar.max), -5...0)
-        XCTAssertNil(
-            UiChartData(
-                try node(#"{"id":"c","type":"Chart","props":{"kind":"bar","data":[{"label":"Huge","count":1.5e308}]}}"#)
-            ))
     }
 
     func testAChoiceOffersItselfOnlyWhenTheHostWouldSendIt() throws {

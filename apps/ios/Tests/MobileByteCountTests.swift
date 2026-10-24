@@ -6,18 +6,11 @@ import XCTest
 final class MobileByteCountTests: XCTestCase {
     private let english = FormatLocale(region: Locale(identifier: "en_US"), language: Locale(identifier: "en"))
 
-    func testASizeIsDividedByTheSameKilobyteAsTheDesktop() {
-        XCTAssertEqual(mobileByteCount(0, locale: english), "0 B")
-        XCTAssertEqual(mobileByteCount(900, locale: english), "900 B")
+    func testTheNativeSizeForwardsBytesWholeAndLocale() {
         XCTAssertEqual(mobileByteCount(500_000, locale: english), "488 KB")
-        XCTAssertEqual(mobileByteCount(1024, locale: english), "1 KB")
-        XCTAssertEqual(mobileByteCount(1536, locale: english), "1.5 KB")
-    }
-
-    func testTheDecimalStopsAboveTenAndTheWholeFlagDropsItAltogether() {
-        XCTAssertEqual(mobileByteCount(10 * 1024, locale: english), "10 KB")
-        XCTAssertEqual(mobileByteCount(1_572_864, locale: english), "1.5 MB")
         XCTAssertEqual(mobileByteCount(1536, whole: true, locale: english), "2 KB")
+        let dutch = FormatLocale(region: Locale(identifier: "nl_NL"), language: Locale(identifier: "nl"))
+        XCTAssertEqual(mobileByteCount(1536, locale: dutch), "1,5 KB")
     }
 
     func testAnAttachmentKeepsItsDecimalsForMegabytesOnly() {

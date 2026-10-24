@@ -94,7 +94,8 @@ final class ChatPresentationTests: XCTestCase {
         presentation.replace(
             [turn, first, early, steer, tool, reply].map(\.chatItem),
             info: ChatWire.info(["activeTurnId": .string("turn")]).chatInfo)
-        XCTAssertEqual(presentation.entries.map(\.id), ["first", "early", "steer", "tools-tool", "reply", "working-turn"])
+        XCTAssertEqual(
+            presentation.entries.map(\.id), ["first", "early", "steer", "tools-tool", "reply", "working-turn"])
         presentation.replace(
             [turn.setting("state", .string("done")), first, early, steer, tool, reply].map(\.chatItem), info: nil)
         XCTAssertEqual(presentation.entries.map(\.id), ["first", "early", "steer", "fold-turn", "reply"])
@@ -177,13 +178,6 @@ final class ChatPresentationTests: XCTestCase {
 }
 
 final class ChatToolPresentationTests: XCTestCase {
-    func testElapsedTimeReadsAsSecondsThenMinutes() {
-        XCTAssertEqual(ChatToolPresentation.elapsed(-5), "0s")
-        XCTAssertEqual(ChatToolPresentation.elapsed(12_400), "12s")
-        XCTAssertEqual(ChatToolPresentation.elapsed(120_000), "2m")
-        XCTAssertEqual(ChatToolPresentation.elapsed(125_000), "2m 5s")
-    }
-
     func testANamedToolSaysWhatItWasCalledWith() {
         XCTAssertEqual(summary("Bash", ["command": .string("bun test")]), "bun test")
         XCTAssertEqual(

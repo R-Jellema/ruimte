@@ -55,38 +55,212 @@ final class RuntimeStartupTests: XCTestCase {
 }
 
 final class NotificationSyncTests: XCTestCase {
-    /// A pull to refresh cancels the sync before it, which then wrote its CancellationError over what the new one found.
     @MainActor func testACancelledSyncLeavesNoProblem() async throws {
-        let defaults = UserDefaults.standard
-        let wasEnabled = defaults.object(forKey: "ruimte.push.enabled")
-        let store = try SharedPushStore()
-        let context = try store.context()
-        defer {
-            defaults.set(wasEnabled, forKey: "ruimte.push.enabled")
-            try? store.save(context)
-        }
-        defaults.set(true, forKey: "ruimte.push.enabled")
-        try store.save(PushDeviceContext(handle: "handle", machinePublicKeys: [:]))
-        let pool = MachineConnections(monitorPaths: false)
-        defer { pool.shutdown() }
-        let runtime = AppRuntime(connections: pool)
-        runtime.machines = [
-            Machine(
-                id: "offline-\(UUID().uuidString)", name: "Offline", icon: nil,
-                publicKey: String(repeating: "A", count: 43), brokerUrl: nil, lastSeenAt: nil)
-        ]
-        let coordinator = NotificationCoordinator(runtime: runtime)
+        for replacementFails in [false, true] {
+            for lateFailure in [false, true] {
+                let probe = NotificationSyncProbe(replacementFails: replacementFails, lateFailure: lateFailure)
+                let fixture = try NotificationSyncFixture(probe: probe)
+                defer { fixture.close() }
+                let coordinator = fixture.runtime.notifications
+                let waiting = Task { await coordinator.synchronize() }
+                await probe.waitForRequest()
+                let request = await probe.firstRequest
+                XCTAssertEqual(request?.httpMethod, "DELETE")
+                XCTAssertEqual(request?.url?.path, "/v1/push/devices/retired")
+                XCTAssertEqual(request?.value(forHTTPHeaderField: "Authorization"), "Bearer \(fixture.accessToken)")
 
+                waiting.cancel()
+                await coordinator.synchronize()
+                let expected = replacementFails ? "Newer sync failed" : nil
+                XCTAssertEqual(coordinator.problem, expected)
+                await probe.releaseRequest()
+                await waiting.value
+                XCTAssertEqual(coordinator.problem, expected)
+                let state = await probe.state()
+                XCTAssertEqual(state.requests, 2)
+                XCTAssertTrue(state.cancelledAtCompletion)
+            }
+        }
+        try await assertCancellationWhileConnecting()
+    }
+
+    @MainActor private func assertCancellationWhileConnecting() async throws {
+        let connections = MachineConnections(scheduler: NotificationSyncScheduler(), monitorPaths: false)
+        let fixture = try NotificationSyncFixture(connections: connections)
+        defer { fixture.close() }
+        let machine = Machine(
+            id: fixture.domain, name: "Offline", icon: nil,
+            publicKey: String(repeating: "A", count: 43), brokerUrl: "wss://broker.test", lastSeenAt: nil)
+        fixture.runtime.machines = [machine]
+        let arrival = NativeArrival()
+        var attempts = 0
+        var opened: NotificationSyncLink?
+        connections.setScene("notification-sync", foreground: true)
+        let seed = connections.hold(
+            machineID: machine.id,
+            open: { events in
+                attempts += 1
+                // Leave the existing opener cached for the real session's next hold.
+                if attempts == 1 { throw MachineClientError.disconnected }
+                let link = NotificationSyncLink(events: events)
+                opened = link
+                arrival.record()
+                return link
+            }, events: LinkEvents(opened: {}, message: { _ in }, closed: { _ in }))
+        seed.release()
+        let coordinator = fixture.runtime.notifications
         let atOnce = Task { await coordinator.synchronize() }
         atOnce.cancel()
         await atOnce.value
         XCTAssertNil(coordinator.problem)
-
         let waiting = Task { await coordinator.synchronize() }
-        for _ in 0..<20 { await Task.yield() }
+        await arrival.wait()
+        let link = try XCTUnwrap(opened)
+        XCTAssertEqual(attempts, 2)
+        XCTAssertNil(coordinator.problem)
         waiting.cancel()
         await waiting.value
         XCTAssertNil(coordinator.problem)
+        let lateOpen = NativeTaskDrain {
+            link.events.features(["push.subscribe"])
+            link.events.opened()
+        }
+        await lateOpen.finish()
+        XCTAssertFalse(fixture.runtime.session(for: machine).connected)
+        XCTAssertTrue(link.sent.isEmpty)
+    }
+
+    @MainActor func testSynchronizationUsesOnlyItsRuntimeDefaultsAndPushStore() async throws {
+        let standardBefore = UserDefaults.standard.dictionaryRepresentation().filter {
+            $0.key.hasPrefix("ruimte.push.")
+        }
+        let shared = try XCTUnwrap(UserDefaults(suiteName: SharedPushStore.group))
+        let sharedBefore = shared.data(forKey: "push-context")
+        let first = try NotificationSyncFixture()
+        let second = try NotificationSyncFixture(enabled: false)
+        defer {
+            first.close()
+            second.close()
+        }
+        XCTAssertTrue(first.runtime.notifications.enabled)
+        XCTAssertFalse(second.runtime.notifications.enabled)
+        await first.runtime.notifications.synchronize()
+        XCTAssertEqual(try first.store.context()?.handle, first.domain)
+        XCTAssertEqual(try first.store.context()?.machinePublicKeys, [:])
+        XCTAssertEqual(try second.store.context()?.handle, second.domain)
+        XCTAssertEqual(try second.store.context()?.machinePublicKeys, ["untouched": "key"])
+        XCTAssertNil(first.runtime.notifications.problem)
+        XCTAssertEqual(shared.data(forKey: "push-context"), sharedBefore)
+        let standardAfter = UserDefaults.standard.dictionaryRepresentation().filter { $0.key.hasPrefix("ruimte.push.") }
+        XCTAssertEqual(standardAfter as NSDictionary, standardBefore as NSDictionary)
+    }
+}
+
+@MainActor
+private final class NotificationSyncFixture {
+    let domain = "app.ruimte.tests.notifications.\(UUID().uuidString)"
+    let runtime: AppRuntime
+    let store: SharedPushStore
+    let accessToken = String(repeating: "a", count: 43)
+    private let defaults: UserDefaults
+    private let connections: MachineConnections
+
+    init(probe: NotificationSyncProbe? = nil, enabled: Bool = true, connections: MachineConnections? = nil) throws {
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: domain))
+        defaults.set(enabled, forKey: "ruimte.push.enabled")
+        if probe != nil { defaults.set(["retired"], forKey: "ruimte.push.retired-handles") }
+        let store = try SharedPushStore(accessGroup: domain, suiteName: domain)
+        try store.save(PushDeviceContext(handle: domain, machinePublicKeys: ["untouched": "key"]))
+        let connections = connections ?? MachineConnections(monitorPaths: false)
+        let key = DeviceKey()
+        let account = Account(id: "push-account", provider: .apple, login: nil)
+        let now = Int64(Date().timeIntervalSince1970 * 1000)
+        let session = SessionResult(
+            accessToken: accessToken, accessExpiresAt: now + 900_000,
+            refreshToken: String(repeating: "r", count: 43), expiresAt: now + 86_400_000, account: account)
+        let vault = probe.map { _ in
+            SessionVault(
+                client: RuntimeStartupSessionAPI(session: session),
+                store: RuntimeStartupStore(
+                    StoredSession(refreshToken: session.refreshToken, expiresAt: session.expiresAt, account: account)),
+                signer: { key })
+        }
+        self.defaults = defaults
+        self.store = store
+        self.connections = connections
+        runtime = AppRuntime(
+            vault: vault, defaults: defaults, connections: connections, deviceKey: key,
+            pushAPI: PushAPI(fetch: { request in
+                guard let probe else { throw URLError(.unsupportedURL) }
+                return try await probe.fetch(request)
+            }), pushStore: { store })
+    }
+
+    func close() {
+        connections.shutdown()
+        defaults.removePersistentDomain(forName: domain)
+    }
+}
+
+@MainActor private struct NotificationSyncScheduler: TransportScheduling {
+    func after(milliseconds: Double, _ action: @escaping @MainActor () -> Void) -> () -> Void { {} }
+}
+
+@MainActor private final class NotificationSyncLink: MachineLink {
+    let events: LinkEvents
+    private(set) var sent: [String] = []
+    init(events: LinkEvents) { self.events = events }
+    func send(_ text: String) throws { sent.append(text) }
+    func close() {}
+}
+
+private actor NotificationSyncProbe {
+    private let replacementFails: Bool
+    private let lateFailure: Bool
+    private var arrived: CheckedContinuation<Void, Never>?
+    private var pending: CheckedContinuation<Void, Never>?
+    private var requests = 0
+    private var cancelledAtCompletion = false
+    private(set) var firstRequest: URLRequest?
+
+    init(replacementFails: Bool, lateFailure: Bool) {
+        self.replacementFails = replacementFails
+        self.lateFailure = lateFailure
+    }
+
+    func waitForRequest() async {
+        if pending == nil { await withCheckedContinuation { arrived = $0 } }
+    }
+
+    func releaseRequest() {
+        pending?.resume()
+        pending = nil
+    }
+
+    func state() -> (requests: Int, cancelledAtCompletion: Bool) { (requests, cancelledAtCompletion) }
+
+    func fetch(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        if request.httpMethod == "DELETE" {
+            requests += 1
+            if requests == 1 {
+                firstRequest = request
+                await withCheckedContinuation {
+                    pending = $0
+                    arrived?.resume()
+                    arrived = nil
+                }
+                cancelledAtCompletion = Task.isCancelled
+                if lateFailure { throw URLError(.networkConnectionLost) }
+                throw CancellationError()
+            }
+            if replacementFails {
+                throw AddressBookRequestError(code: "push", status: 503, message: "Newer sync failed")
+            }
+        }
+        return (
+            Data("{}".utf8),
+            HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+        )
     }
 }
 
@@ -112,10 +286,13 @@ private final class RuntimeStartupFixture {
         let store = RuntimeStartupStore(
             StoredSession(refreshToken: session.refreshToken, expiresAt: session.expiresAt, account: account))
         let vault = SessionVault(client: RuntimeStartupSessionAPI(session: session), store: store, signer: { key })
+        let pushStore = try SharedPushStore(accessGroup: domain, suiteName: domain)
         self.defaults = defaults
         self.connections = connections
         self.probe = probe
-        runtime = AppRuntime(client: client, vault: vault, defaults: defaults, connections: connections, deviceKey: key)
+        runtime = AppRuntime(
+            client: client, vault: vault, defaults: defaults, connections: connections, deviceKey: key,
+            pushStore: { pushStore })
     }
 
     func close() {

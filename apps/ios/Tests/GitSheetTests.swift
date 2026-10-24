@@ -1,5 +1,7 @@
 import RuimtePulsar
 import RuimteTransport
+import SwiftUI
+import UIKit
 import XCTest
 
 @testable import Ruimte
@@ -49,10 +51,23 @@ final class GitSheetTests: XCTestCase {
         XCTAssertEqual(GitPanel.repositoryState(checkout("api")), "clean")
     }
 
-    func testAPullSendsItsSelectedStrategyToTheRepository() async {
+    func testAPullSendsItsSelectedStrategyToTheRepository() async throws {
         let machine = GitSheetMachine()
         let repositories = GitRepositories()
-        await repositories.act(client: machine, cwd: "/work/api", kind: "pull", extra: ["strategy": .string("rebase")])
+        let window = try host(
+            GitDivergedRow(
+                client: machine, repositories: repositories, checkout: checkout("api", ahead: 2, behind: 1),
+                named: false))
+        defer {
+            window.isHidden = true
+            window.rootViewController = nil
+        }
+        XCTAssertTrue(machine.sent.isEmpty)
+        let sent = expectation(description: "The chosen pull reaches the checkout")
+        machine.onAction = { sent.fulfill() }
+        let activated = await activate("Rebase", in: window)
+        XCTAssertTrue(activated)
+        await fulfillment(of: [sent], timeout: 2)
         let pull = machine.sent.first { $0.type == "git.action" }
         XCTAssertEqual(pull?.payload["kind"], .string("pull"))
         XCTAssertEqual(pull?.payload["strategy"], .string("rebase"))
@@ -73,6 +88,26 @@ final class GitSheetTests: XCTestCase {
         XCTAssertEqual(rebase?.payload["ref"], .string("main"))
         XCTAssertEqual(rebase?.payload["cwd"], .string("/work/api"))
         XCTAssertNil(actions.confirmation)
+    }
+
+    private func host<Content: View>(_ content: Content) throws -> UIWindow {
+        try NativePresentationProbe.enableAccessibility()
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(x: 0, y: 0, width: 402, height: 874)
+        window.rootViewController = UIHostingController(rootView: content)
+        window.makeKeyAndVisible()
+        return window
+    }
+
+    private func activate(_ label: String, in window: UIWindow) async -> Bool {
+        for _ in 0..<120 {
+            await NativePresentationProbe.frame()
+            for element in NativePresentationProbe.elements(in: window) {
+                if element.accessibilityLabel == label, element.accessibilityActivate() { return true }
+            }
+        }
+        return false
     }
 
     func testAHaltedCheckoutSaysWhatWaitsAndHowManyFilesConflict() {
@@ -312,9 +347,11 @@ final class GitSheetTests: XCTestCase {
 
 @MainActor private final class GitSheetMachine: MachineRequesting {
     var sent: [(type: String, payload: JSONValue)] = []
+    var onAction: (() -> Void)?
 
     func request(_ type: String, payload: JSONValue) async throws -> JSONValue {
         sent.append((type, payload))
+        if type == "git.action" { onAction?() }
         switch type {
         case "git.capabilities":
             return .object(["gh": .bool(true), "messageProvider": .string("claude")])

@@ -27,10 +27,13 @@ final class AppRuntime {
     let pairings: StatementPairings
     let lanDoors: LanDoors
     private let defaults: UserDefaults
+    private let pushAPI: PushAPI
+    private let pushStore: @Sendable () throws -> SharedPushStore
     private(set) var vault: SessionVault?
     private var authentication: WebAuthentication?
     private var appleAuthentication: NativeAppleAuthentication?
-    @ObservationIgnored lazy var notifications = NotificationCoordinator(runtime: self)
+    @ObservationIgnored lazy var notifications = NotificationCoordinator(
+        runtime: self, defaults: defaults, store: pushStore, api: pushAPI)
     /// Voice for the whole process: one session at a time, owned by the scene that started it.
     @ObservationIgnored lazy var voice: VoiceCoordinator = {
         let connections = connections
@@ -51,12 +54,15 @@ final class AppRuntime {
     init(
         client: AddressBookClient = AddressBookClient(), vault: SessionVault? = nil, defaults: UserDefaults = .standard,
         connections: MachineConnections? = nil, pairings: StatementPairings? = nil, lanDoors: LanDoors? = nil,
-        deviceKey: DeviceKey? = nil
+        deviceKey: DeviceKey? = nil, pushAPI: PushAPI? = nil,
+        pushStore: @escaping @Sendable () throws -> SharedPushStore = { try SharedPushStore() }
     ) {
         self.client = client
         self.vault = vault
         self.key = deviceKey
         self.defaults = defaults
+        self.pushAPI = pushAPI ?? PushAPI(baseURL: client.baseURL)
+        self.pushStore = pushStore
         self.connections = connections ?? MachineConnections()
         self.pairings = pairings ?? StatementPairings(store: UserDefaultsPairingStore(defaults: defaults))
         self.lanDoors = lanDoors ?? LanDoors(defaults: defaults)

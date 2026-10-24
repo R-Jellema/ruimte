@@ -191,14 +191,52 @@ final class FilePreviewTests: XCTestCase {
         let machine = FileMachine(
             path: "/files/main.ts", data: Data("export const answer: number = 42;\n".utf8), mime: "text/plain",
             language: "typescript")
+        var colored = false
         let opened = try await open(machine, name: "main.ts") { view in
-            NativePresentationProbe.contains("code.highlighted", in: view)
+            let ready =
+                NativePresentationProbe.contains("code.highlighted", in: view)
                 && NativePresentationProbe.labels(in: view).contains {
                     $0.contains("export const answer: number = 42;")
                 }
+            if ready { colored = self.hasSyntaxColor(in: view) }
+            return ready
         }
         XCTAssertTrue(opened)
+        XCTAssertTrue(colored, "The native code text must retain the highlighter's colors")
         XCTAssertGreaterThan(machine.reads, 0)
+    }
+
+    @MainActor private func hasSyntaxColor(in view: UIView) -> Bool {
+        guard
+            let code = NativePresentationProbe.elements(in: view).first(where: {
+                $0.responds(to: NSSelectorFromString("accessibilityIdentifier"))
+                    && ($0.value(forKey: "accessibilityIdentifier") as? String) == "code.highlighted"
+            })
+        else { return false }
+        let rectangle = view.convert(code.accessibilityFrame, from: nil).intersection(view.bounds)
+        guard !rectangle.isEmpty else { return false }
+        let image = UIGraphicsImageRenderer(size: rectangle.size).image { context in
+            context.cgContext.translateBy(x: -rectangle.minX, y: -rectangle.minY)
+            view.drawHierarchy(in: view.bounds, afterScreenUpdates: true)
+        }
+        guard let pixels = image.cgImage else { return false }
+        var rgba = [UInt8](repeating: 0, count: pixels.width * pixels.height * 4)
+        let drawn = rgba.withUnsafeMutableBytes { buffer in
+            guard
+                let context = CGContext(
+                    data: buffer.baseAddress, width: pixels.width, height: pixels.height, bitsPerComponent: 8,
+                    bytesPerRow: pixels.width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+            else { return false }
+            context.draw(pixels, in: CGRect(x: 0, y: 0, width: pixels.width, height: pixels.height))
+            return true
+        }
+        guard drawn else { return false }
+        // Only the code text is cropped; neutral text on its neutral panel cannot satisfy this.
+        return stride(from: 0, to: rgba.count, by: 4).contains { offset in
+            let channels = rgba[offset...offset + 2]
+            return Int(channels.max()!) - Int(channels.min()!) > 40
+        }
     }
 
     /// Opens the page for `machine` and waits until `ready` holds or `frames` pass, then keeps a picture of it.

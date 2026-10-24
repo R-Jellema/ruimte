@@ -1,5 +1,6 @@
 import { describe, expect, spyOn, test } from 'bun:test';
 import { Box3, type Mesh, type MeshStandardMaterial } from 'three';
+import { strToU8, zipSync } from 'three/examples/jsm/libs/fflate.module.js';
 import { parseModel } from './model-parse';
 import { countGeometry } from './model-view';
 
@@ -40,6 +41,93 @@ endsolid part
 `;
 
 describe('refusing resources outside a model', () => {
+    test('a root USDZ material sends missing textures to refusal and completes an embedded image', async () => {
+        const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'Image');
+        const requested: string[] = [];
+        const created: Blob[] = [];
+        const revoked: string[] = [];
+        const createUrl = URL.createObjectURL.bind(URL);
+        const create = spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+            if (!(blob instanceof Blob)) {
+                throw new Error('Expected an embedded image blob');
+            }
+            created.push(blob);
+            return createUrl(blob);
+        });
+        const revoke = spyOn(URL, 'revokeObjectURL').mockImplementation((url) => revoked.push(url));
+        // Observe the loader's actual Image.src boundary without permitting disk or network I/O.
+        Object.defineProperty(globalThis, 'Image', {
+            configurable: true,
+            value: class {
+                onload: (() => void) | null = null;
+                onerror: (() => void) | null = null;
+                set src(url: string) {
+                    requested.push(url);
+                    queueMicrotask(() => (url.startsWith('blob:') ? this.onload?.() : this.onerror?.()));
+                }
+            }
+        });
+        const pixel = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='), (char) =>
+            char.charCodeAt(0)
+        );
+        try {
+            for (const path of ['https://example.com/pixel.png', 'file:///etc/pixel.png', '../textures/wood.png', 'texture.png', 'embedded.png']) {
+                requested.length = 0;
+                const source = `#usda 1.0
+def Xform "Root" {
+    def Mesh "Triangle" {
+        int[] faceVertexCounts = [3]
+        int[] faceVertexIndices = [0, 1, 2]
+        point3f[] points = [(0, 0, 0), (1, 0, 0), (0, 1, 0)]
+        rel material:binding = </Root/Material>
+    }
+    def Material "Material" {
+        token outputs:surface.connect = </Root/Material/Surface.outputs:surface>
+        def Shader "Surface" {
+            uniform token info:id = "UsdPreviewSurface"
+            color3f inputs:diffuseColor.connect = </Root/Material/Texture.outputs:rgb>
+            token outputs:surface
+        }
+        def Shader "Texture" {
+            uniform token info:id = "UsdUVTexture"
+            asset inputs:file = @${path}@
+            float3 outputs:rgb
+        }
+    }
+}`;
+                const files: Record<string, Uint8Array> = { 'root.usda': strToU8(source) };
+                if (path === 'embedded.png') {
+                    files[path] = pixel;
+                }
+                const zipped = zipSync(files, { level: 0 });
+                const { root } = await parseModel(zipped.buffer as ArrayBuffer, 'model/vnd.usdz+zip', 'Nested roots are refused');
+                expect(countGeometry(root)).toEqual({ vertices: 3, triangles: 1 });
+                expect(requested).toHaveLength(1);
+                if (path === 'embedded.png') {
+                    expect(requested[0]).toStartWith('blob:');
+                    expect(new Uint8Array(await created[0]!.arrayBuffer())).toEqual(pixel);
+                    expect(revoked).toEqual(requested);
+                    const mesh = root.getObjectByName('Triangle') as Mesh;
+                    expect((mesh.material as MeshStandardMaterial).map?.image).toBeDefined();
+                } else {
+                    expect(requested).toEqual(['about:invalid']);
+                    expect(created).toEqual([]);
+                }
+            }
+        } finally {
+            create.mockRestore();
+            revoke.mockRestore();
+            for (const url of revoked) {
+                URL.revokeObjectURL(url);
+            }
+            if (descriptor) {
+                Object.defineProperty(globalThis, 'Image', descriptor);
+            } else {
+                Reflect.deleteProperty(globalThis, 'Image');
+            }
+        }
+    });
+
     test('the glTF loader replaces external buffer references before fetching', async () => {
         const fetch = spyOn(globalThis, 'fetch').mockRejectedValue(new Error('intercepted model request'));
         try {

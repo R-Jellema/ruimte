@@ -197,10 +197,11 @@ describe('days as batches', () => {
         expect(usageBatchesOf(week).map((batch) => batch.days.length)).toEqual([7, 1]);
     });
 
-    test('split before a batch grows over the size the ingest takes', () => {
+    test('defensively splits typed days at the byte cap even when their version exceeds the ingest schema', () => {
         // The batcher accepts typed days without validation; stress its byte guard independently of today's schema limits.
         const day = { ...dayOn('2026-10-10', 4), version: '1.2.3-' + 'x'.repeat(12_000) };
         const many = Array.from({ length: 3 }, (_, i) => ({ ...day, date: `2026-10-${String(10 + i)}` }));
+        expect(UsageBatchSchema.safeParse({ days: many.slice(0, 2) }).success).toBe(false);
         expect(new TextEncoder().encode(JSON.stringify({ days: many.slice(0, 2) })).byteLength).toBeLessThanOrEqual(USAGE_REPORT_MAX_BYTES);
         expect(new TextEncoder().encode(JSON.stringify({ days: many })).byteLength).toBeGreaterThan(USAGE_REPORT_MAX_BYTES);
         const batches = usageBatchesOf(many);

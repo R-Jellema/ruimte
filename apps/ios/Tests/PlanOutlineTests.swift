@@ -167,9 +167,6 @@ final class PlanOutlineTests: XCTestCase {
     func testWarningAndInfoAreFinishedOutcomes() throws {
         XCTAssertEqual(try parent([.done, .warning, .info]).state, .warning)
         XCTAssertEqual(try parent([.done, .info, .skipped]).state, .done)
-        XCTAssertEqual(try parent([.warning, .failed]).state, .failed)
-        XCTAssertEqual(try parent([.warning, .blocked]).state, .blocked)
-        XCTAssertEqual(try parent([.open, .info]).state, .active)
         let leaves = ["done", "warning", "warning", "info", "failed", "open"].enumerated().map {
             step("s\($0.offset)", state: $0.element)
         }

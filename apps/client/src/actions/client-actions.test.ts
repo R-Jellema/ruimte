@@ -915,9 +915,12 @@ describe('client actions', () => {
         test('a node with lines asks Voice before it leaves them behind as a view', async () => {
             withLine();
             const nodeId = shellId();
+            const edges = structuredClone(canvas().edges);
             const asked = await clientActions.execute('node.promoteToView', { viewId: 'main', nodeId }, VOICE_ACTION_CALL);
             expect(asked).toMatchObject({ status: 'needs_confirmation', confirmation: { consequences: ['1 line drawn to it will be removed.'] } });
             expect(canvas().nodes[nodeId]).toBeDefined();
+            expect(canvas().edges).toEqual(edges);
+            expect(useDocument.getState().views.some((view) => view.id === nodeId)).toBe(false);
             const result = await confirmed(clientActions, asked);
             expect(result).toMatchObject({ status: 'completed', output: { view: 'Shell', kind: 'terminal' } });
             expect(useDocument.getState().views.find((view) => view.id === nodeId)).toMatchObject({ kind: 'terminal', name: 'Shell' });
@@ -1013,7 +1016,7 @@ describe('client actions', () => {
             canvas().saveLayout('Home');
             const saved = canvas().layouts[0]!;
             const asked = await clientActions.execute('layout.delete', { viewId: 'main', name: 'Home' }, VOICE_ACTION_CALL);
-            expect(canvas().layouts).toHaveLength(1);
+            expect(canvas().layouts).toEqual([saved]);
             const deleted = await confirmed(clientActions, asked);
             expect(canvas().layouts).toEqual([]);
             if (deleted.status !== 'completed' || !deleted.undoToken) {

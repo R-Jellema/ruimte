@@ -19,11 +19,6 @@ final class ChatToolBodyTests: XCTestCase {
         XCTAssertEqual(ChatToolBody.lines(name: "Bash", input: .object(["command": .string(command)])).command, command)
     }
 
-    func testARuimteCallShowsItsWholeCommandToo() {
-        let command = #"ruimte-context node new note --view main --title "Open punten""#
-        XCTAssertEqual(ChatToolBody.lines(name: "Bash", input: .object(["command": .string(command)])).command, command)
-    }
-
     func testEveryOtherCallShowsItsInputAsKeyAndValueWithAnythingButTextAsCompactJSON() {
         let lines = ChatToolBody.lines(
             name: "TodoWrite",

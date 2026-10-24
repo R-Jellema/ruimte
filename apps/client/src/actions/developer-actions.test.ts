@@ -261,13 +261,30 @@ describe('git actions for Voice', () => {
     });
 
     test('a pull never says how a diverged branch comes together for Voice', async () => {
-        const { registry } = fake({});
+        const { registry, of } = fake({});
         expect(await registry.execute('git.pull', { repository: 'atlas', strategy: 'merge' }, VOICE_ACTION_CALL)).toMatchObject({
             status: 'failed',
             error: { code: 'forbidden-field' }
         });
         const asked = await registry.execute('git.pull', { repository: 'atlas', strategy: null }, VOICE_ACTION_CALL);
         expect(questionOf(asked)).toContain('Only a fast-forward');
+        expect(of('git.action')).toEqual([]);
+        expect(await confirm(registry, asked)).toMatchObject({ status: 'completed' });
+        expect(of('git.action')).toEqual([{ cwd: FOLDER, actionId: 'run-2', kind: 'pull' }]);
+    });
+
+    test.each([
+        ['git.sync', { repository: 'atlas', strategy: null }, { kind: 'sync' }],
+        ['git.publishBranch', { repository: 'atlas' }, { kind: 'publish' }],
+        ['git.deleteBranch', { repository: 'atlas', branch: 'old' }, { kind: 'delete-branch', ref: 'old' }],
+        ['git.popStash', { repository: 'atlas', stash: 'stash@{0}' }, { kind: 'stash-pop', ref: 'stash@{0}' }]
+    ] as const)('%s sends its git command only after approval', async (name, input, command) => {
+        const { registry, of } = fake({ 'git.refs': () => ({ refs: [], current: 'main', stashes: [{ ref: 'stash@{0}', message: 'Saved edits' }] }) });
+        const asked = await registry.execute(name, input, VOICE_ACTION_CALL);
+        expect(asked.status).toBe('needs_confirmation');
+        expect(of('git.action')).toEqual([]);
+        expect(await confirm(registry, asked)).toMatchObject({ status: 'completed' });
+        expect(of('git.action')).toEqual([{ cwd: FOLDER, actionId: 'run-2', ...command }]);
     });
 
     test('a commit with nothing staged over two changed repositories waits for staging', async () => {
@@ -286,6 +303,7 @@ describe('git actions for Voice', () => {
         const asked = await registry.execute('git.commit', { repository: null, message: 'fix', body: null, push: null }, VOICE_ACTION_CALL);
         expect(questionOf(asked)).toContain('Commit “fix” in “atlas”?');
         expect(questionOf(asked)).toContain('atlas on main: a.ts.');
+        expect(of('git.action')).toEqual([]);
         await confirm(registry, asked);
         expect(of('git.action')).toEqual([{ cwd: FOLDER, actionId: 'run-2', kind: 'commit', subject: 'fix', stageAll: false }]);
     });
@@ -298,17 +316,20 @@ describe('git actions for Voice', () => {
         const dirty = fake({ 'git.status': () => status({ files: [file('a.ts', 'unstaged')] }) });
         const asked = await dirty.registry.execute('git.checkout', { repository: 'atlas', branch: 'dev' }, VOICE_ACTION_CALL);
         expect(questionOf(asked)).toContain('1 changed file on main: a.ts');
+        expect(dirty.of('git.action')).toEqual([]);
         await dirty.registry.confirm((asked as { confirmationToken: string }).confirmationToken, true, VOICE_ACTION_CALL);
         expect(dirty.of('git.action')).toEqual([{ cwd: FOLDER, actionId: 'run-2', kind: 'checkout', ref: 'dev', stash: true }]);
     });
 
     test('a merge that stops with conflicts is not a failure: the files come back', async () => {
-        const { registry } = fake({
+        const { registry, of } = fake({
             'git.action': (payload) => ({ actionId: payload.actionId, summary: '1 file conflicts.', output: '', conflicts: ['a.ts'] })
         });
         const asked = await registry.execute('git.merge', { repository: 'atlas', branch: 'dev' }, VOICE_ACTION_CALL);
         expect(questionOf(asked)).toContain('Merge dev into main in atlas?');
+        expect(of('git.action')).toEqual([]);
         expect(await confirm(registry, asked)).toMatchObject({ status: 'completed', output: { conflicts: ['a.ts'] } });
+        expect(of('git.action')).toEqual([{ cwd: FOLDER, actionId: 'run-2', kind: 'merge', ref: 'dev' }]);
     });
 
     test('only a person rebases, force pushes, accepts a resolution or removes a worktree', async () => {
@@ -338,6 +359,7 @@ describe('git actions for Voice', () => {
         });
         const asked = await registry.execute('git.operation', { repository: 'atlas', step: 'abort' }, VOICE_ACTION_CALL);
         expect(questionOf(asked)).toContain('Take back the merge in atlas?');
+        expect(of('git.operation')).toEqual([]);
         await confirm(registry, asked);
         expect(of('git.operation')).toEqual([{ cwd: FOLDER, actionId: 'run-2', action: 'abort' }]);
     });
@@ -349,6 +371,7 @@ describe('git actions for Voice', () => {
         });
         const asked = await registry.execute('git.createPullRequest', { repository: 'atlas', title: 'Lexer', body: null }, VOICE_ACTION_CALL);
         expect(questionOf(asked)).toContain('feature is published to origin first');
+        expect(of('git.action')).toEqual([]);
         expect(await confirm(registry, asked)).toMatchObject({ output: { url: 'https://example.test/pr/1' } });
         expect(of('git.action')).toEqual([{ cwd: FOLDER, actionId: 'run-2', kind: 'create-pr', subject: 'Lexer' }]);
     });
@@ -398,6 +421,7 @@ describe('worktree actions for Voice', () => {
         const { registry, of } = fake({ 'git.worktree-add': () => ({ worktree: worktree('docs'), created: true }) });
         const asked = await registry.execute('worktree.create', { branch: 'docs' }, VOICE_ACTION_CALL);
         expect(questionOf(asked)).toContain('Create a worktree on docs?');
+        expect(of('git.worktree-add')).toEqual([]);
         expect(await confirm(registry, asked)).toMatchObject({ output: { created: true } });
         expect(of('git.worktree-add')).toEqual([{ repo: FOLDER, branch: 'docs', projectId: 'atlas' }]);
     });

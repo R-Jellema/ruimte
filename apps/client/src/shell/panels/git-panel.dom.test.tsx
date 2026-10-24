@@ -6,7 +6,7 @@ import { useGit } from '@/state/git';
 import { useUi } from '@/state/ui';
 import { FakeMachine } from '../../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../../testing/fake-workspace';
-import { clickOn, mount, until, type Mounted } from '../../../testing/dom';
+import { clickOn, mount, openSubmenu, until, type Mounted } from '../../../testing/dom';
 
 const FOLDER = '/work/atlas';
 const WORKTREE = '/work/worktrees/atlas/lexer';
@@ -94,6 +94,37 @@ afterEach(async () => {
 });
 
 describe('the git panel over a folder of two repositories', () => {
+    test('rebasing a repository waits for the person to confirm and cancel leaves it alone', async () => {
+        machine.answer('git.refs', () => ({
+            refs: [
+                { name: 'main', kind: 'local' as const, current: true, isDefault: true, at: 0 },
+                { name: 'release', kind: 'local' as const, current: false, isDefault: false, at: 0 }
+            ],
+            current: 'main',
+            stashes: []
+        }));
+        for (const approve of [false, true]) {
+            await clickOn(buttonWithText('2 repositories'));
+            await openSubmenu('api');
+            await openSubmenu('Branch');
+            const rebase = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find((item) => item.textContent === 'Rebase onto…');
+            await clickOn(rebase ?? null);
+            await until(() => buttonWithText('release') !== null);
+            expect(machine.requests('git.action')).toEqual([]);
+            await clickOn(buttonWithText('release'));
+            await until(() => document.body.textContent?.includes('Rebase onto release?') === true || machine.requests('git.action').length > 0);
+            expect(machine.requests('git.action')).toEqual([]);
+            expect(document.body.textContent).toContain('Rebase onto release?');
+            await clickOn(buttonWithText(approve ? 'Rebase' : 'Cancel'));
+            await until(() => !document.body.textContent?.includes('Rebase onto release?'));
+            if (!approve) {
+                expect(machine.requests('git.action')).toEqual([]);
+            }
+        }
+        await until(() => machine.requests('git.action').length === 1);
+        expect(machine.requests('git.action')).toEqual([{ cwd: `${FOLDER}/api`, actionId: expect.any(String), kind: 'rebase', ref: 'release' }]);
+    });
+
     test('the worktrees start folded and open on a click', async () => {
         await until(() => worktreesHeader() !== null);
         expect(worktreesHeader()!.getAttribute('aria-expanded')).toBe('false');

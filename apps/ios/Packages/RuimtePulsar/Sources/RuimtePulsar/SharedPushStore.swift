@@ -14,11 +14,21 @@ public struct PushDeviceContext: Codable, Sendable {
 public struct SharedPushStore: Sendable {
     public static let group = "group.app.ruimte.mobile"
     private let accessGroup: String
+    private let suiteName: String
     public init(accessGroup: String? = Bundle.main.object(forInfoDictionaryKey: "RuimtePushKeychainGroup") as? String)
+        throws
+    {
+        try self.init(accessGroup: accessGroup, suiteName: Self.group)
+    }
+    public init(
+        accessGroup: String? = Bundle.main.object(forInfoDictionaryKey: "RuimtePushKeychainGroup") as? String,
+        suiteName: String
+    )
         throws
     {
         guard let accessGroup, !accessGroup.isEmpty, !accessGroup.contains("$(") else { throw PushCryptoError.invalid }
         self.accessGroup = accessGroup
+        self.suiteName = suiteName
     }
     private var keyQuery: [String: Any] {
         [
@@ -44,11 +54,11 @@ public struct SharedPushStore: Sendable {
         return key
     }
     public func context() throws -> PushDeviceContext? {
-        guard let data = UserDefaults(suiteName: Self.group)?.data(forKey: "push-context") else { return nil }
+        guard let data = UserDefaults(suiteName: suiteName)?.data(forKey: "push-context") else { return nil }
         return try JSONDecoder().decode(PushDeviceContext.self, from: data)
     }
     public func save(_ context: PushDeviceContext?) throws {
-        let defaults = UserDefaults(suiteName: Self.group)
+        let defaults = UserDefaults(suiteName: suiteName)
         if let context {
             defaults?.set(try JSONEncoder().encode(context), forKey: "push-context")
         } else {
@@ -80,7 +90,7 @@ public struct SharedPushStore: Sendable {
     public func readThrough(node: String) throws -> Double { try ledger().readThrough(node: node) }
     public func attentionKeys() throws -> Set<String> { try ledger().attentionKeys() }
     private func ledger() throws -> PushReplayLedger {
-        guard let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: Self.group) else {
+        guard let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: suiteName) else {
             throw PushCryptoError.invalid
         }
         return PushReplayLedger(directory: container)

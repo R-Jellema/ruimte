@@ -56,7 +56,7 @@ import UIKit
                 let receipt = try PushReplayLedger.nodeKey(machineID: machineID, nodeID: id)
                 try store.claim(id: receipt, expiresAt: expires, now: Date().timeIntervalSince1970 * 1000)
                 try await NotificationReadSync.apply(
-                    machineID: machineID, nodeID: content.nodeId, through: Double(content.through))
+                    machineID: machineID, nodeID: content.nodeId, through: Double(content.through), store: store)
                 await Self.coordinator?.updateBadge()
                 completionHandler(.newData)
             } catch { completionHandler(.failed) }
@@ -136,10 +136,12 @@ struct NotificationDestination: Identifiable, Hashable {
 @MainActor @Observable final class NotificationCoordinator: NSObject {
     private weak var runtime: AppRuntime?
     private let api: PushAPI
-    private(set) var enabled = UserDefaults.standard.bool(forKey: "ruimte.push.enabled")
-    var approvals = UserDefaults.standard.object(forKey: "ruimte.push.approvals") as? Bool ?? true
-    var activities = UserDefaults.standard.object(forKey: "ruimte.push.activities") as? Bool ?? true
-    var preferences = NotificationPreferences.load() ?? NotificationPreferences()
+    private let defaults: UserDefaults
+    private let store: @Sendable () throws -> SharedPushStore
+    private(set) var enabled: Bool
+    var approvals: Bool
+    var activities: Bool
+    var preferences: NotificationPreferences
     var supportsActivities: Bool { UIDevice.current.userInterfaceIdiom == .phone }
     var problem: String?
     var busy = false
@@ -155,18 +157,27 @@ struct NotificationDestination: Identifiable, Hashable {
     private var activityStateTasks: [String: Task<Void, Never>] = [:]
     private var liveAttentionKeys = Set<String>()
     private var retiredHandles: [String] {
-        get { UserDefaults.standard.stringArray(forKey: "ruimte.push.retired-handles") ?? [] }
-        set { UserDefaults.standard.set(newValue, forKey: "ruimte.push.retired-handles") }
+        get { defaults.stringArray(forKey: "ruimte.push.retired-handles") ?? [] }
+        set { defaults.set(newValue, forKey: "ruimte.push.retired-handles") }
     }
     private var restored = false
     private var revision = 0
-    private var follows: [String: [String]] =
-        (UserDefaults.standard.dictionary(forKey: "ruimte.push.follows") as? [String: [String]]) ?? [:]
+    private var follows: [String: [String]]
     var machines: [Machine] { runtime?.machines ?? [] }
 
-    init(runtime: AppRuntime) {
+    init(
+        runtime: AppRuntime, defaults: UserDefaults, store: @escaping @Sendable () throws -> SharedPushStore,
+        api: PushAPI
+    ) {
         self.runtime = runtime
-        api = PushAPI(baseURL: runtime.client.baseURL)
+        self.api = api
+        self.defaults = defaults
+        self.store = store
+        enabled = defaults.bool(forKey: "ruimte.push.enabled")
+        approvals = defaults.object(forKey: "ruimte.push.approvals") as? Bool ?? true
+        activities = defaults.object(forKey: "ruimte.push.activities") as? Bool ?? true
+        preferences = NotificationPreferences.load(defaults) ?? NotificationPreferences()
+        follows = (defaults.dictionary(forKey: "ruimte.push.follows") as? [String: [String]]) ?? [:]
         super.init()
         observePreferences()
     }
@@ -238,9 +249,9 @@ struct NotificationDestination: Identifiable, Hashable {
                 problem = String(localized: "Allow notifications for Ruimte in Settings to receive updates.")
                 return
             }
-            _ = try SharedPushStore().key(create: true)
+            _ = try store().key(create: true)
             enabled = true
-            UserDefaults.standard.set(true, forKey: "ruimte.push.enabled")
+            defaults.set(true, forKey: "ruimte.push.enabled")
             UIApplication.shared.registerForRemoteNotifications()
             if let token = NotificationAppDelegate.latestToken { await register(token) }
         } catch { problem = error.localizedDescription }
@@ -261,7 +272,7 @@ struct NotificationDestination: Identifiable, Hashable {
                 try? await api.remove(handle: handle, accessToken: access)
                 return
             }
-            let store = try SharedPushStore()
+            let store = try store()
             _ = try store.key(create: true)
             try store.save(
                 PushDeviceContext(
@@ -292,7 +303,7 @@ struct NotificationDestination: Identifiable, Hashable {
         guard enabled, let runtime else { return }
         problem = nil
         do {
-            let store = try SharedPushStore()
+            let store = try store()
             guard var context = try store.context() else {
                 if let token = NotificationAppDelegate.latestToken {
                     await register(token)
@@ -321,8 +332,8 @@ struct NotificationDestination: Identifiable, Hashable {
         session.retain()
         defer { session.release() }
         try await session.waitForConnection()
-        guard enabled, revision == current, try SharedPushStore().context()?.handle == context.handle else { return }
-        let key = try SharedPushStore().key()
+        guard enabled, revision == current, try store().context()?.handle == context.handle else { return }
+        let key = try store().key()
         let payload = Self.subscription(
             handle: context.handle, publicKey: key.publicKey, approvals: approvals,
             activities: activities && supportsActivities, preferences: preferences, machineID: machine.id)
@@ -348,7 +359,7 @@ struct NotificationDestination: Identifiable, Hashable {
     /// reinstall shows what the machines still do.
     func readPreferences() async {
         guard let runtime else { return }
-        let chosen = NotificationPreferences.load() != nil
+        let chosen = NotificationPreferences.load(defaults) != nil
         var adoptKinds = !chosen
         var next = preferences
         for machine in runtime.machines {
@@ -362,9 +373,9 @@ struct NotificationDestination: Identifiable, Hashable {
     }
     func disable(accountDeleted: Bool = false) async {
         revision += 1
-        UserDefaults.standard.removeObject(forKey: "ruimte.push.activity-target")
+        defaults.removeObject(forKey: "ruimte.push.activity-target")
         enabled = false
-        UserDefaults.standard.set(false, forKey: "ruimte.push.enabled")
+        defaults.set(false, forKey: "ruimte.push.enabled")
         startTokenTask?.cancel()
         startTokenTask = nil
         activityStateTasks.values.forEach { $0.cancel() }
@@ -377,7 +388,7 @@ struct NotificationDestination: Identifiable, Hashable {
             await activity.end(nil, dismissalPolicy: .immediate)
         }
         do {
-            let store = try SharedPushStore()
+            let store = try store()
             let context = try store.context()
             if let context, let runtime {
                 for machine in runtime.machines {
@@ -404,9 +415,9 @@ struct NotificationDestination: Identifiable, Hashable {
         UNUserNotificationCenter.current().removeAllDeliveredNotifications()
     }
     private func savePreferences() async {
-        UserDefaults.standard.set(approvals, forKey: "ruimte.push.approvals")
-        UserDefaults.standard.set(activities, forKey: "ruimte.push.activities")
-        preferences.save()
+        defaults.set(approvals, forKey: "ruimte.push.approvals")
+        defaults.set(activities, forKey: "ruimte.push.activities")
+        preferences.save(defaults)
         if activities && supportsActivities {
             startActivityObservers()
         } else {
@@ -455,7 +466,7 @@ struct NotificationDestination: Identifiable, Hashable {
         let current = revision
         activityRegistrationTask = Task { [weak self] in
             await previous?.value
-            guard let self, current == self.revision, let context = try? SharedPushStore().context() else { return }
+            guard let self, current == self.revision, let context = try? self.store().context() else { return }
             do {
                 guard let access = try await self.runtime?.vault?.accessToken() else { return }
                 let active =
@@ -484,7 +495,7 @@ struct NotificationDestination: Identifiable, Hashable {
         // The state observer must finish its token revocation before it exits.
         if cancelStateObserver { stateObserver?.cancel() }
         if dismiss { await Self.endActivity(id: activity.id) }
-        if let context = try? SharedPushStore().context(), let access = try? await runtime?.vault?.accessToken() {
+        if let context = try? store().context(), let access = try? await runtime?.vault?.accessToken() {
             try? await api.activity(
                 handle: context.handle, machineID: activity.attributes.machineId,
                 collapseID: activity.attributes.collapseId, token: nil, release: release,
@@ -541,7 +552,7 @@ struct NotificationDestination: Identifiable, Hashable {
 
     private func knowsMachine(_ id: String) -> Bool {
         runtime?.machines.contains(where: { $0.id == id }) == true
-            || (try? SharedPushStore().context()?.machinePublicKeys[id]) != nil
+            || (try? store().context()?.machinePublicKeys[id]) != nil
     }
 
     private func uploadActivityToken(_ token: Data, activity: Activity<RuimteActivityAttributes>) async -> Bool {
@@ -551,7 +562,7 @@ struct NotificationDestination: Identifiable, Hashable {
         defer { background.end() }
         for attempt in 0..<3 {
             do {
-                guard let context = try SharedPushStore().context(),
+                guard let context = try store().context(),
                     let access = try await runtime?.vault?.accessToken(),
                     !Task.isCancelled, enabled, activities, supportsActivities, knowsMachine(machineID),
                     activity.activityState == .active || activity.activityState == .stale,
@@ -576,20 +587,20 @@ struct NotificationDestination: Identifiable, Hashable {
         await updateBadge()
     }
     fileprivate func updateBadge() async {
-        let offline = (try? SharedPushStore().attentionKeys()) ?? []
+        let offline = (try? store().attentionKeys()) ?? []
         try? await UNUserNotificationCenter.current().setBadgeCount(offline.union(liveAttentionKeys).count)
     }
     func applyRead(machineID: String, nodeID: String, through: Double) async {
-        try? await NotificationReadSync.apply(machineID: machineID, nodeID: nodeID, through: through)
+        try? await NotificationReadSync.apply(machineID: machineID, nodeID: nodeID, through: through, store: store())
         await updateBadge()
     }
     func retainUnread(machineID: String, nodeIDs: Set<String>) async {
-        _ = try? SharedPushStore().retainAttention(machineID: machineID, nodeIDs: nodeIDs)
+        _ = try? store().retainAttention(machineID: machineID, nodeIDs: nodeIDs)
         await updateBadge()
     }
     func markSeen(machineID: String, nodeID: String) async {
         guard let key = try? PushReplayLedger.nodeKey(machineID: machineID, nodeID: nodeID) else { return }
-        _ = try? SharedPushStore().clearAttention(node: key)
+        _ = try? store().clearAttention(node: key)
         let delivered = await UNUserNotificationCenter.current().deliveredNotifications()
         let identifiers = delivered.filter { $0.request.content.userInfo["ruimte.seenKey"] as? String == key }.map {
             $0.request.identifier
@@ -645,7 +656,7 @@ struct NotificationDestination: Identifiable, Hashable {
     fileprivate func respond(data: Data, action: String) async {
         do {
             let envelope = try JSONValue.decode(data)
-            let store = try SharedPushStore()
+            let store = try store()
             guard enabled, let context = try store.context() else { throw PushCryptoError.wrongDevice }
             let alert = try store.key().decrypt(
                 envelope, handle: context.handle, machinePublicKeys: context.machinePublicKeys,
@@ -740,9 +751,10 @@ struct NotificationDestination: Identifiable, Hashable {
 }
 
 @MainActor private enum NotificationReadSync {
-    static func apply(machineID: String, nodeID: String, through: Double) async throws {
+    static func apply(
+        machineID: String, nodeID: String, through: Double, store: SharedPushStore
+    ) async throws {
         let key = try PushReplayLedger.nodeKey(machineID: machineID, nodeID: nodeID)
-        let store = try SharedPushStore()
         try store.markRead(node: key, through: through)
         let center = UNUserNotificationCenter.current()
         let delivered = await center.deliveredNotifications()

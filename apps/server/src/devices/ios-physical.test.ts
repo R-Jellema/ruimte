@@ -48,12 +48,15 @@ describe('IosPhysicalBackend', () => {
         const asked: string[] = [];
         const answers: Array<() => string> = [
             () => '{"level":94,"charging":false,"plugged":false}\n',
+            () => '{"level":23,"charging":true,"plugged":true}\n',
             () => '{"level":94}\n',
             () => {
                 throw new Error('the device did not say its battery in time');
             }
         ];
-        const list = async () => ({ exitCode: 0, stdout: listOutput, stderr: '' });
+        const paired = JSON.parse(listOutput) as { result: { devices: unknown[] } };
+        paired.result.devices.push(JSON.parse(listOutput.replaceAll('phone-1', 'phone-2')).result.devices[0]);
+        const list = async () => ({ exitCode: 0, stdout: JSON.stringify(paired), stderr: '' });
         const backend = new IosPhysicalBackend(list, undefined, null, undefined, async (udid) => {
             asked.push(udid);
             return answers.shift()!();
@@ -62,9 +65,10 @@ describe('IosPhysicalBackend', () => {
         expect(await backend.power('coredevice-phone-1')).toBeNull();
         await backend.list();
         expect(await backend.power('coredevice-phone-1')).toEqual({ level: 94, charging: false, plugged: false });
+        expect(await backend.power('coredevice-phone-2')).toEqual({ level: 23, charging: true, plugged: true });
         expect(await backend.power('coredevice-phone-1')).toBeNull();
         expect(await backend.power('coredevice-phone-1')).toBeNull();
-        expect(asked).toEqual(['hardware-phone-1', 'hardware-phone-1', 'hardware-phone-1']);
+        expect(asked).toEqual(['hardware-phone-1', 'hardware-phone-2', 'hardware-phone-1', 'hardware-phone-1']);
         expect(await new IosPhysicalBackend(list).power('coredevice-phone-1')).toBeNull();
     });
 

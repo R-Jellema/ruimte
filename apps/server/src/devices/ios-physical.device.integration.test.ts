@@ -2,21 +2,24 @@ import { describe, expect, test } from 'bun:test';
 import { join } from 'node:path';
 
 /*
- * Against a paired iPhone this Mac reaches over the network, with the bridge built
- * (`cargo build --release` in `apps/ios-device-bridge`). Without either the suite does nothing.
+ * Set RUIMTE_IOS_PHYSICAL_DEVICE_ID to an explicitly selected spare phone's CoreDevice id.
+ * A selected phone or bridge that is unavailable fails acceptance rather than passing without a read.
  */
-describe.skipIf(process.platform !== 'darwin')('iPhone battery', () => {
+const deviceId = process.env.RUIMTE_IOS_PHYSICAL_DEVICE_ID;
+describe.skipIf(process.platform !== 'darwin' || !deviceId)('iPhone battery', () => {
     test('a paired phone says its own level and whether it is on power', async () => {
         const { createPhysicalBatteryReader, IosPhysicalBackend } = await import('./ios-physical.ts');
         const reader = createPhysicalBatteryReader(join(import.meta.dir, '..', '..', '..', 'ios-device-bridge', 'target', 'release', 'ios-device-bridge'));
         const backend = new IosPhysicalBackend(undefined, undefined, null, undefined, reader);
-        const phone = reader === null ? undefined : (await backend.list().catch(() => [])).find((device) => device.state === 'booted');
-        if (phone === undefined) {
-            return;
-        }
-        const power = await backend.power(phone.deviceId);
+        expect(reader).not.toBeNull();
+        const phone = (await backend.list()).find((device) => device.deviceId === deviceId && device.state === 'booted');
+        expect(phone).toBeDefined();
+        const power = await backend.power(deviceId!);
         expect(power).not.toBeNull();
         expect(power!.level).toBeGreaterThanOrEqual(0);
         expect(power!.level).toBeLessThanOrEqual(100);
+        expect(typeof power!.charging).toBe('boolean');
+        expect(typeof power!.plugged).toBe('boolean');
+        expect(power!.simulated).toBeUndefined();
     }, 60_000);
 });

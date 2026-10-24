@@ -151,6 +151,12 @@ final class ChatWorkflowLayoutTests: XCTestCase {
             ChatWorkflowLayout.time(WorkflowAgentView(agent: agent, state: state))
         }
         XCTAssertEqual(time(agent(1, status: .done, duration: 5421), .done), "done in 5s")
+        let elapsed: [(Int64, String)] = [
+            (-5, "done in 0s"), (12_400, "done in 12s"), (120_000, "done in 2m"), (125_000, "done in 2m 5s"),
+        ]
+        for (duration, expected) in elapsed {
+            XCTAssertEqual(time(agent(1, status: .done, duration: duration), .done), expected)
+        }
         XCTAssertEqual(time(agent(1, status: .failed, duration: 2000), .failed), "failed in 2s")
         XCTAssertEqual(time(agent(1, status: .failed), .failed), "Failed")
         XCTAssertEqual(time(agent(1, startedAt: nil), .waiting), "waiting")

@@ -538,14 +538,15 @@ describe('AndroidBackend', () => {
 
     test('installs an .apk and pushes pictures and videos where the gallery looks, then asks for a scan', async () => {
         const adb = new FakeAdb();
+        adb.devices += 'R5CT device product:e1q model:SM_S921B transport_id:3\n';
         const backend = backendWith(adb);
         await backend.list();
-        const act = async (action: Record<string, unknown>) => {
+        const act = async (action: Record<string, unknown>, deviceId = 'Pixel_9_Pro_API_35') => {
             adb.calls.length = 0;
-            await backend.action('Pixel_9_Pro_API_35', {
+            await backend.action(deviceId, {
                 backendId: 'android',
                 platform: 'android',
-                deviceId: 'Pixel_9_Pro_API_35',
+                deviceId,
                 ...action
             } as DeviceAction);
             return adb.calls
@@ -559,6 +560,10 @@ describe('AndroidBackend', () => {
             "-s emulator-5554 shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Pictures/my%20shot.png >/dev/null; content call --uri content://media/external/file --method scan_file --arg '/sdcard/Pictures/my shot.png' >/dev/null 2>&1; true",
             '-s emulator-5554 push /work/atlas/clip.mp4 /sdcard/Movies/clip.mp4',
             '-s emulator-5554 shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Movies/clip.mp4 >/dev/null; content call --uri content://media/external/file --method scan_file --arg /sdcard/Movies/clip.mp4 >/dev/null 2>&1; true'
+        ]);
+        expect(await act({ action: 'addMedia', paths: ['/work/atlas/phone.png'] }, 'R5CT')).toEqual([
+            '-s R5CT push /work/atlas/phone.png /sdcard/Pictures/phone.png',
+            '-s R5CT shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Pictures/phone.png >/dev/null; content call --uri content://media/external/file --method scan_file --arg /sdcard/Pictures/phone.png >/dev/null 2>&1; true'
         ]);
         await expect(act({ action: 'installApp', path: '/work/atlas/Atlas.app' })).rejects.toMatchObject({ code: 'device-path-refused' });
     });

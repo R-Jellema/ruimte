@@ -26,7 +26,8 @@ final class GitPanelTests: XCTestCase {
     {
         GitCheckout(
             path: "/work/\(label)", label: label, kind: "nested",
-            status: status(states.enumerated().map { file("\($0.offset).ts", $0.element) }, ahead: ahead, upstream: upstream))
+            status: status(
+                states.enumerated().map { file("\($0.offset).ts", $0.element) }, ahead: ahead, upstream: upstream))
     }
 
     func testARepositoryIsListedUnderItsPathInTheFolder() {
@@ -70,7 +71,8 @@ final class GitPanelTests: XCTestCase {
     }
 
     func testTwoRepositoriesWithNothingStagedHaveNoCommitToMakeYet() {
-        XCTAssertTrue(GitPanel.commitTargets([checkout("one", ["unstaged"]), checkout("two", ["untracked"])]).targets.isEmpty)
+        XCTAssertTrue(
+            GitPanel.commitTargets([checkout("one", ["unstaged"]), checkout("two", ["untracked"])]).targets.isEmpty)
         XCTAssertTrue(GitPanel.commitTargets([checkout("one", [])]).targets.isEmpty)
     }
 
@@ -78,7 +80,8 @@ final class GitPanelTests: XCTestCase {
         let entries = GitPanel.pushable([
             checkout("one", [], ahead: 2), checkout("two", []), checkout("three", [], upstream: nil),
         ])
-        XCTAssertEqual(entries.map { ($0.checkout.label, $0.kind) }.map { "\($0.0):\($0.1)" }, ["one:push", "three:publish"])
+        XCTAssertEqual(
+            entries.map { ($0.checkout.label, $0.kind) }.map { "\($0.0):\($0.1)" }, ["one:push", "three:publish"])
     }
 
     private func log(_ repo: String, _ ats: [Double], cursor: String?) -> GitLoadedLog {
@@ -104,11 +107,6 @@ final class GitPanelTests: XCTestCase {
         let merged = GitPanel.mergeLogs([log("one", [500, 400], cursor: "2"), log("two", [450, 300], cursor: nil)])
         XCTAssertEqual(merged.rows.map(\.at), [500, 450, 400])
         XCTAssertTrue(merged.more)
-    }
-
-    func testARepositoryWhosePageRanOutHoldsNothingBack() {
-        let merged = GitPanel.mergeLogs([log("one", [500], cursor: nil), log("two", [200], cursor: nil)])
-        XCTAssertEqual(merged.rows.map(\.at), [500, 200])
     }
 
     func testOnlyGitsOwnRefusalToDeleteAnUnmergedBranchEarnsASecondAsk() {

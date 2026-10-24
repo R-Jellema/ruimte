@@ -9,15 +9,18 @@ import { locateAndroidSdk } from './android-sdk.ts';
 const PIXEL_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
 
 /*
- * Whether a picture Ruimte adds shows up in the gallery of a running Android device, which says
- * which media scan it honors. It leaves the picture on the device, so run it on a spare one.
+ * Set RUIMTE_ANDROID_MEDIA_SERIAL to an explicitly selected spare phone's adb serial.
+ * The picture stays on the phone; never discover or drive another target implicitly.
  */
-const sdk = locateAndroidSdk();
+const serial = process.env.RUIMTE_ANDROID_MEDIA_SERIAL;
+const sdk = serial ? locateAndroidSdk() : null;
 const backend = new AndroidBackend();
-const booted = sdk === null ? undefined : (await backend.list().catch(() => [])).find((device) => device.state === 'booted');
 
-describe.skipIf(booted === undefined)('media on an Android device', () => {
+describe.skipIf(!serial)('media on an Android device', () => {
     test('a picture added to the device is in its media store', async () => {
+        expect(sdk).not.toBeNull();
+        const booted = (await backend.list()).find((device) => device.deviceId === serial && device.kind === 'physical' && device.state === 'booted');
+        expect(booted).toBeDefined();
         const folder = await mkdtemp(join(tmpdir(), 'ruimte-android-media-'));
         const name = `ruimte-media-${Date.now()}.png`;
         try {
@@ -30,13 +33,10 @@ describe.skipIf(booted === undefined)('media on an Android device', () => {
                 paths: [join(folder, name)]
             });
             await Bun.sleep(2_000);
-            const serial = (await new Response(Bun.spawn([sdk!.adb, 'devices']).stdout).text())
-                .split('\n')
-                .map((line) => line.split('\t')[0]!)
-                .find((entry) => entry !== '' && !entry.startsWith('List'));
             const query = Bun.spawn([sdk!.adb, '-s', serial!, 'shell', 'content query --uri content://media/external/images/media --projection _display_name']);
-
-            expect(await new Response(query.stdout).text()).toContain(name);
+            const output = await new Response(query.stdout).text();
+            expect(await query.exited).toBe(0);
+            expect(output).toContain(name);
         } finally {
             await rm(folder, { recursive: true, force: true });
         }
