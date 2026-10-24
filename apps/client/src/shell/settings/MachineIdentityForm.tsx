@@ -16,6 +16,8 @@ interface MachineIdentityFormProps {
     label: string;
     /* Why nothing can be saved, shown on the disabled button; null while the machine answers. */
     disabledReason: string | null;
+    /* The icon the account last heard, shown until the machine answers with its own. */
+    knownIcon: ProjectIconChoice | null;
 }
 
 /*
@@ -23,11 +25,12 @@ interface MachineIdentityFormProps {
  * no icon), so this is one form with one Save. It is keyed on what the machine says, so a change from
  * elsewhere starts it over.
  */
-export function MachineIdentityForm({ endpointId, label, disabledReason }: MachineIdentityFormProps) {
+export function MachineIdentityForm({ endpointId, label, disabledReason, knownIcon }: MachineIdentityFormProps) {
     const { t } = useTranslation('settings');
     const info = useServers((s) => s.byEndpoint[endpointId]);
     const savedName = info?.nameSource === 'chosen' ? (info.label ?? '') : '';
-    const savedIcon = info?.icon ?? null;
+    // Before the machine answers its own icon is unknown, not none.
+    const savedIcon = disabledReason === null ? (info?.icon ?? null) : knownIcon;
     const [name, setName] = useState(savedName);
     const [icon, setIcon] = useState<ProjectIconChoice | null>(savedIcon);
     const { busy, failure, run, fail } = useAsyncAction(t('identity.saveFailed'));

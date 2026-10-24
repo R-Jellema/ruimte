@@ -92,10 +92,11 @@ export function MachineDetail({ entry }: { entry: MachineEntry }) {
             {entry.endpoint !== null && (
                 <>
                     <MachineIdentityForm
-                        key={`${info?.nameSource ?? ''}:${info?.label ?? ''}:${JSON.stringify(info?.icon ?? null)}`}
+                        key={`${info?.nameSource ?? ''}:${info?.label ?? ''}:${JSON.stringify(info?.icon ?? null)}:${reason ?? ''}`}
                         endpointId={entry.endpoint.id}
                         label={entry.endpoint.label}
                         disabledReason={reason}
+                        knownIcon={icon}
                     />
                     <SettingsSection title={t('machineDialog.connection')}>
                         <BrokerRow endpoint={entry.endpoint} reason={reason} />
