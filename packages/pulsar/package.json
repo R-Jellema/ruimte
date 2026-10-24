@@ -12,7 +12,7 @@
         "typecheck": "tsc --noEmit"
     },
     "dependencies": {
-        "@adecore/agent-contracts": "0.35.5",
+        "@adecore/agent-contracts": "0.36.0",
         "zod": "^4.6.5"
     },
     "devDependencies": {
