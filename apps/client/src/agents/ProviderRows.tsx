@@ -28,7 +28,7 @@ export function ProviderRows({ onPick }: { onPick(provider: ProviderInfo): void 
                         <button
                             key={provider.kind}
                             type="button"
-                            className="flex w-full items-center gap-3 border-b border-border px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-surface-hover focus-visible:bg-surface-hover focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
+                            className="flex w-full items-center gap-3 border-b border-border px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-surface-hover-edged focus-visible:bg-surface-hover-edged focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
                             onClick={() => onPick(provider)}
                         >
                             <span

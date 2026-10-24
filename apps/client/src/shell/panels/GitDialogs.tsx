@@ -110,7 +110,7 @@ export function GitDiverged({ open, branch, busy, onPick, onClose }: DivergedPro
                 <Dialog.Text className="mt-1">{t('git.dialog.diverged.description')}</Dialog.Text>
                 <div className="mt-4 flex flex-col gap-2">
                     <button
-                        className="rounded-lg border border-border px-3 py-2 text-left hover:bg-surface-hover"
+                        className="rounded-lg border border-border px-3 py-2 text-left hover:bg-surface-hover-edged"
                         disabled={busy}
                         onClick={() => onPick('merge')}
                     >
@@ -118,7 +118,7 @@ export function GitDiverged({ open, branch, busy, onPick, onClose }: DivergedPro
                         <span className="block text-xs text-text-muted">{t('git.dialog.diverged.mergeHint')}</span>
                     </button>
                     <button
-                        className="rounded-lg border border-border px-3 py-2 text-left hover:bg-surface-hover"
+                        className="rounded-lg border border-border px-3 py-2 text-left hover:bg-surface-hover-edged"
                         disabled={busy}
                         onClick={() => onPick('rebase')}
                     >
