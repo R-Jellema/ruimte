@@ -6,7 +6,7 @@ import { AccountDot } from '@adecore/agents-react/providers';
 import { useAccountChoice, type AccountChoice } from '@adecore/agents-react/chat';
 import { ModelPicker } from '@adecore/agents-react/chat/ui';
 import { useProviders } from '@adecore/agents-react/state';
-import { Icon, Menu } from '@adecore/ui';
+import { Button, Icon, Menu } from '@adecore/ui';
 import { availableAgents } from '@/agents/creation';
 
 export interface InlineAgent {
@@ -16,9 +16,6 @@ export interface InlineAgent {
     /* Absent is the CLI's default account. */
     readonly account?: string;
 }
-
-const CHIP_CLASS =
-    'flex h-6 min-w-0 shrink items-center gap-1.5 whitespace-nowrap rounded-md bg-surface-hover px-2 text-xs text-text hover:bg-surface-active data-[popup-open]:bg-surface-active';
 
 /* The accounts of the agent's CLI, only while the person has more than one of it. Picking the CLI's own account takes the pick away. */
 function AccountChip({
@@ -36,7 +33,10 @@ function AccountChip({
     const name = choice.current === null ? choice.currentId : choice.nameOf(choice.current);
     return (
         <Menu.Root>
-            <Menu.Trigger className={CHIP_CLASS} aria-label={t('prompt.account', { provider: choice.providerName })}>
+            <Menu.Trigger
+                render={<Button variant="secondary" size="sm" className="min-w-0 shrink gap-1.5" />}
+                aria-label={t('prompt.account', { provider: choice.providerName })}
+            >
                 <AccountDot color={choice.current?.account.color} className="size-1.75" />
                 <span className="max-w-32 truncate">{name}</span>
                 <Icon icon={ChevronDown} size={12} className="shrink-0 text-text-faint" />
