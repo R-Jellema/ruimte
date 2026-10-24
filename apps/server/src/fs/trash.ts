@@ -1,7 +1,9 @@
+import { createHash } from 'node:crypto';
 import { link, lstat, mkdir, rename, unlink, writeFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { basename, extname, join } from 'node:path';
 import { CodedError } from '@adecore/agents';
+import { RECYCLE_BIN_SOURCE, RecycleBinExit, recycleBinCommand } from './recycle-bin.ts';
 
 type TrashErrorCode = 'trash-unsupported' | 'trash-failed';
 
@@ -43,27 +45,90 @@ function localIso(at: Date): string {
     return `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}T${pad(at.getHours())}:${pad(at.getMinutes())}:${pad(at.getSeconds())}`;
 }
 
-/*
- * The Recycle Bin keeps its own record of where an item came from, so only the shell may put it there.
- * The path rides in the environment rather than in the script, so no quoting can break it.
- */
-async function trashWindows(path: string): Promise<void> {
-    const script = [
-        'Add-Type -AssemblyName Microsoft.VisualBasic',
-        '$target = $env:RUIMTE_TRASH_PATH',
-        "if (Test-Path -LiteralPath $target -PathType Container) { [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory($target, 'OnlyErrorDialogs', 'SendToRecycleBin') } " +
-            "else { [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($target, 'OnlyErrorDialogs', 'SendToRecycleBin') }"
-    ].join('; ');
-    const child = Bun.spawn(['powershell.exe', '-NoProfile', '-NonInteractive', '-Command', script], {
-        env: { ...process.env, RUIMTE_TRASH_PATH: path },
-        stdin: 'ignore',
-        stdout: 'ignore',
-        stderr: 'pipe'
-    });
-    const [code, errors] = await Promise.all([child.exited, new Response(child.stderr).text()]);
-    if (code !== 0) {
-        throw new TrashError('trash-failed', errors.trim() || 'The file could not be moved to the Recycle Bin');
+/* A started process, as far as the trash needs one; a test hands in its own, so the Windows branch runs on every platform. */
+export interface TrashProcess {
+    exited: Promise<number>;
+    errors: Promise<string>;
+    kill(): void;
+}
+
+export type SpawnTrash = (command: string[], env: NodeJS.ProcessEnv) => TrashProcess;
+
+export function spawnTrash(command: string[], env: NodeJS.ProcessEnv): TrashProcess {
+    const child = Bun.spawn(command, { env, stdin: 'ignore', stdout: 'ignore', stderr: 'pipe', windowsHide: true });
+    return {
+        exited: child.exited,
+        errors: new Response(child.stderr).text().catch(() => ''),
+        kill: () => child.kill()
+    };
+}
+
+/* Long enough to compile the helper and count a large folder; a dialog nobody answers would otherwise hold the request for good. */
+const RECYCLE_BIN_LIMIT_MS = 30_000;
+
+const RECYCLE_BIN_REFUSALS: Record<number, string> = {
+    [RecycleBinExit.notFixed]: 'Only files on a fixed drive of this PC go to the Recycle Bin, so this one was left where it is rather than deleted for good',
+    [RecycleBinExit.recycleBinOff]: 'The Recycle Bin of this drive is turned off, so the file was left where it is rather than deleted for good',
+    [RecycleBinExit.tooLarge]: 'This is larger than the Recycle Bin of its drive holds, so it was left where it is rather than deleted for good',
+    [RecycleBinExit.linkedFolder]: 'A linked folder is not moved to the Recycle Bin, so neither the link nor the folder it points to was touched',
+    [RecycleBinExit.inUse]: 'Another program has the file open, so it was not moved to the Recycle Bin',
+    [RecycleBinExit.canceled]: 'Moving the file to the Recycle Bin was canceled'
+};
+
+const RECYCLE_BIN_VERSION = createHash('sha256').update(RECYCLE_BIN_SOURCE).digest('hex').slice(0, 16);
+
+/* Where the script finds the helper's source and keeps what it compiled from it, named by its version. */
+async function recycleBinHelper(env: NodeJS.ProcessEnv): Promise<{ source: string; assembly: string }> {
+    const folder = join(env.LOCALAPPDATA || tmpdir(), 'Ruimte', 'recycle-bin');
+    const source = join(folder, `recycle-bin-${RECYCLE_BIN_VERSION}.cs`);
+    if (!(await exists(source))) {
+        await mkdir(folder, { recursive: true });
+        const draft = `${source}.${process.pid}`;
+        await writeFile(draft, RECYCLE_BIN_SOURCE);
+        // Another delete may have put it there first, and be compiling from it.
+        await rename(draft, source).catch(async (e: unknown) => {
+            await unlink(draft).catch(() => undefined);
+            if (!(await exists(source))) {
+                throw e;
+            }
+        });
     }
+    return { source, assembly: join(folder, `recycle-bin-${RECYCLE_BIN_VERSION}.dll`) };
+}
+
+/* The Recycle Bin keeps its own record of where an item came from, so only the shell may put it there. */
+async function trashWindows(path: string, env: NodeJS.ProcessEnv, spawn: SpawnTrash): Promise<void> {
+    const helper = await recycleBinHelper(env).catch((e: unknown) => {
+        throw new TrashError('trash-failed', e instanceof Error ? e.message : 'The Recycle Bin helper could not be written');
+    });
+    const child = spawn(recycleBinCommand(), {
+        ...env,
+        RUIMTE_TRASH_PATH: path,
+        RUIMTE_RECYCLE_BIN_SOURCE: helper.source,
+        RUIMTE_RECYCLE_BIN_ASSEMBLY: helper.assembly
+    });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const late = new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), RECYCLE_BIN_LIMIT_MS);
+    });
+    const code = await Promise.race([child.exited, late]);
+    clearTimeout(timer);
+    if (code === null) {
+        // The shell works inside this process, so ending it ends a dialog too; a move that finished just then is not undone.
+        child.kill();
+        throw new TrashError(
+            'trash-failed',
+            'Moving the file to the Recycle Bin took longer than 30 seconds and was stopped. Look in the Recycle Bin before you try again'
+        );
+    }
+    if (code === RecycleBinExit.moved) {
+        return;
+    }
+    const refusal = RECYCLE_BIN_REFUSALS[code];
+    if (refusal !== undefined) {
+        throw new TrashError('trash-failed', refusal);
+    }
+    throw new TrashError('trash-failed', (await child.errors).trim() || 'The file could not be moved to the Recycle Bin');
 }
 
 /* The trash of the freedesktop.org spec in the home directory, with the `.trashinfo` a file manager restores from. */
@@ -99,7 +164,8 @@ async function trashLinux(path: string, original: string, home: string, env: Nod
 /*
  * Moves a path to the trash of the machine the daemon runs on, which is a rename into the trash
  * folder: no Finder, no Electron and no permission prompt, since the daemon also runs as a service
- * with neither. Items on another volume than the home folder are refused rather than deleted.
+ * with neither. Items on another volume than the home folder are refused rather than deleted, and on
+ * Windows whatever the Recycle Bin would not take (`recycle-bin.ts`).
  * `original` is the place a restore returns the file to on Linux (macOS keeps only the file name, since Put Back is Finder's own record), for a file moved aside before it is trashed.
  */
 export async function trashPath(
@@ -107,7 +173,8 @@ export async function trashPath(
     platform: NodeJS.Platform = process.platform,
     home: string = homedir(),
     env: NodeJS.ProcessEnv = process.env,
-    original: string = path
+    original: string = path,
+    spawn: SpawnTrash = spawnTrash
 ): Promise<void> {
     switch (platform) {
         case 'darwin': {
@@ -120,7 +187,7 @@ export async function trashPath(
             await trashLinux(path, original, home, env);
             return;
         case 'win32':
-            await trashWindows(path);
+            await trashWindows(path, env, spawn);
             return;
         default:
             throw new TrashError('trash-unsupported', 'This machine has no trash Ruimte can move files to');
