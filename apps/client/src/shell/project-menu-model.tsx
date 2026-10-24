@@ -214,6 +214,7 @@ function useProjectSettings(endpoints: readonly Endpoint[], isCurrent: (row: Pro
                       rename: (name) => appearance({ name }),
                       setColor: (color) => appearance({ color }),
                       setChosenIcon: (icon) => appearance({ icon: icon.value }),
+                      clearChosenIcon: () => appearance({ icon: 'none' }),
                       uploadIcon: (mime, base64) => appearance({ image: { mime, base64 } }),
                       useFolderIcon: () => appearance({ icon: 'folder' })
                   }

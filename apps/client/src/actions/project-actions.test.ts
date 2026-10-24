@@ -68,7 +68,7 @@ function fake(projects: ListedProject[], overrides: Partial<ProjectMachine> = {}
             calls.colors.push(`${project.projectId}:${color}`);
         },
         chooseIcon: async (project, icon) => {
-            calls.icons.push(`${project.projectId}:${icon.value}`);
+            calls.icons.push(`${project.projectId}:${icon?.value ?? 'none'}`);
         },
         useFolderIcon: async (project) => {
             calls.icons.push(`${project.projectId}:folder`);
@@ -241,6 +241,14 @@ describe('project actions', () => {
         expect(
             await registry.execute('project.setAppearance', { endpointId: 'mac', projectId: 'atlas', name: null, icon: null, color: null }, VOICE_ACTION_CALL)
         ).toMatchObject({ error: { code: 'nothing-to-change' } });
+    });
+
+    test('none clears a picked icon, so the project wears its default again', async () => {
+        const { registry, calls } = fake([listed('atlas', 'Atlas')]);
+        expect(
+            await registry.execute('project.setAppearance', { endpointId: 'mac', projectId: 'atlas', name: null, icon: 'none', color: null }, VOICE_ACTION_CALL)
+        ).toMatchObject({ status: 'completed' });
+        expect(calls.icons).toEqual(['atlas:none']);
     });
 
     test('deleting asks even a person, names the folder, and only removes after yes', async () => {

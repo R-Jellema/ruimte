@@ -44,7 +44,8 @@ export interface ProjectMachine {
     remove(endpointId: string, projectId: string, removeFiles: boolean): Promise<void>;
     rename(project: ListedProject, name: string): Promise<void>;
     setColor(project: ListedProject, color: string): Promise<void>;
-    chooseIcon(project: ListedProject, icon: ProjectIconChoice): Promise<void>;
+    /* Null clears a picked icon, so the project wears its default again. */
+    chooseIcon(project: ListedProject, icon: ProjectIconChoice | null): Promise<void>;
     uploadIcon(project: ListedProject, mime: string, base64: string): Promise<void>;
     useFolderIcon(project: ListedProject): Promise<void>;
     /* Moves a chat of Chats into a project, and shows it there. */
@@ -229,7 +230,7 @@ export function projectActions(document: StoreApi<DocumentState>, overrides: Par
             if (icon != null && image != null) {
                 throw new ActionRefusal('two-icons', 'Give an icon or an image, not both.');
             }
-            if (icon != null && icon !== 'folder' && !(PROJECT_ICON_NAMES as readonly string[]).includes(icon)) {
+            if (icon != null && icon !== 'folder' && icon !== 'none' && !(PROJECT_ICON_NAMES as readonly string[]).includes(icon)) {
                 throw new ActionRefusal('unknown-icon', `“${icon}” is not one of the Lucide names the picker has.`);
             }
             try {
@@ -243,6 +244,8 @@ export function projectActions(document: StoreApi<DocumentState>, overrides: Par
                     await machine.uploadIcon(project, image.mime, image.base64);
                 } else if (icon === 'folder') {
                     await machine.useFolderIcon(project);
+                } else if (icon === 'none') {
+                    await machine.chooseIcon(project, null);
                 } else if (icon != null) {
                     await machine.chooseIcon(project, { kind: 'lucide', value: icon as (typeof PROJECT_ICON_NAMES)[number] });
                 }
@@ -250,7 +253,13 @@ export function projectActions(document: StoreApi<DocumentState>, overrides: Par
                 throw asRefusal(error);
             }
             const now = listed(endpointId, projectId);
-            return { output: { ...projectOutput(now), project: name ?? now.name, icon: image != null ? 'image' : (icon ?? now.summary.icon.kind) } };
+            return {
+                output: {
+                    ...projectOutput(now),
+                    project: name ?? now.name,
+                    icon: image != null ? 'image' : icon == null || icon === 'none' ? now.summary.icon.kind : icon
+                }
+            };
         }
     };
 }

@@ -36,6 +36,7 @@ export interface ProjectSettingsSubject {
         rename(name: string): Promise<void>;
         setColor(color: string): Promise<void>;
         setChosenIcon(icon: ProjectIconChoice): Promise<void>;
+        clearChosenIcon(): Promise<void>;
         uploadIcon(mime: string, base64: string): Promise<void>;
         useFolderIcon(): Promise<void>;
     };
@@ -162,6 +163,7 @@ function ProjectSettingsForm({ project, endpointId, actions, onOpenChange }: Pro
                 label={t('common:icon.symbol')}
                 className="mt-4"
                 onValueChange={(icon) => void run(() => actions.setChosenIcon({ kind: 'lucide', value: icon as ProjectIconChoice['value'] }))}
+                onClear={() => void run(actions.clearChosenIcon)}
             />
 
             {failure && <FormError className="mt-3 break-words">{failure}</FormError>}

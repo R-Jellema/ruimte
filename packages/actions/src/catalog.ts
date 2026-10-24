@@ -658,7 +658,7 @@ export const ACTION_DEFINITIONS = {
             endpointId: projectMachine,
             projectId: listedProjectId,
             name: givenName.nullable(),
-            icon: z.string().min(1).nullable().describe('A Lucide name, or folder'),
+            icon: z.string().min(1).nullable().describe('A Lucide name, folder for what the folder itself declares, or none to clear a picked icon'),
             image: forActors(PERSON, z.object({ mime: z.string().min(1), base64: z.string().min(1) })).describe(
                 'An image the icon becomes, written into the folder'
             ),
