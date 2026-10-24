@@ -1,6 +1,7 @@
 import i18next from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import { AGENTS_LOCALES, AGENTS_NAMESPACES } from '@adecore/agents-react/locales';
+import { CHARTS_NAMESPACE, CHARTS_RESOURCES } from '@adecore/charts';
 import { UI_NAMESPACE } from '@adecore/ui';
 import { forgetMemoizedWords } from '@/compiler-runtime';
 import { desktop } from '@/desktop/bridge';
@@ -21,6 +22,10 @@ const bundles = import.meta.glob<{ default: Record<string, unknown> }>('./locale
 async function load(language: AppLanguage): Promise<void> {
     const editor = await editorBundles[language]();
     i18next.addResourceBundle(language, 'editor', editor.default, true, true);
+    const charts = CHARTS_RESOURCES[language];
+    if (charts) {
+        i18next.addResourceBundle(language, CHARTS_NAMESPACE, charts, true, true);
+    }
     const prefix = `./locales/${language}/`;
     await Promise.all(
         Object.entries(bundles)
@@ -70,7 +75,7 @@ export async function initI18n(): Promise<void> {
         fallbackLng: FALLBACK_LANGUAGE,
         supportedLngs: ['en', 'nl'],
         defaultNS: 'common',
-        ns: [...NAMESPACES, UI_NAMESPACE, ...AGENTS_NAMESPACES],
+        ns: [...NAMESPACES, UI_NAMESPACE, CHARTS_NAMESPACE, ...AGENTS_NAMESPACES],
         // React escapes what it draws, so escaping here would show `&#39;` where an apostrophe was.
         interpolation: { escapeValue: false },
         resources: {}

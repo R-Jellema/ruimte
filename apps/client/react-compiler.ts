@@ -22,10 +22,11 @@ export const MAY_HOLD_REACT = /forwardRef|memo|\b(?:[A-Z]|use[A-Z0-9])/;
 export const COMPILER_RUNTIME = fileURLToPath(new URL('./src/compiler-runtime.ts', import.meta.url));
 
 /* From npm, Vite would pre-bundle these, which runs no plugin over them; served as modules they compile the way a linked checkout does. */
-export const REACT_COMPILED_PACKAGES = ['@adecore/ui', '@adecore/terminal', '@adecore/agents-react', '@adecore/editor-react'];
+export const REACT_COMPILED_PACKAGES = ['@adecore/ui', '@adecore/terminal', '@adecore/agents-react', '@adecore/editor-react', '@adecore/charts'];
 
 /* A linked checkout (`adecore/packages/ui/src`) or an install (`node_modules/@adecore/ui/src`). */
-const ADECORE_SOURCES = /[\\/](?:adecore[\\/]packages|node_modules[\\/]@adecore)[\\/](?:ui|terminal|agents-react|editor-react)[\\/]src[\\/].*\.tsx?(?:$|\?)/;
+const ADECORE_SOURCES =
+    /[\\/](?:adecore[\\/]packages|node_modules[\\/]@adecore)[\\/](?:ui|terminal|agents-react|editor-react|charts)[\\/]src[\\/].*\.tsx?(?:$|\?)/;
 
 const CLIENT_SOURCES = new RegExp(`^${escaped(fileURLToPath(new URL('./src/', import.meta.url)))}.*\\.tsx?(?:$|\\?)`);
 

@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import i18next from 'i18next';
+import { CHARTS_NAMESPACE, CHARTS_RESOURCES } from '@adecore/charts';
 import { UI_NAMESPACE, UI_RESOURCES } from '@adecore/ui';
 import { AGENTS_LOCALES } from '@adecore/agents-react/locales';
 import editorWords from '@adecore/editor-react/locales/en.json' with { type: 'json' };
@@ -37,7 +38,9 @@ await i18next.init({
     fallbackLng: FALLBACK_LANGUAGE,
     defaultNS: 'common',
     interpolation: { escapeValue: false },
-    resources: { [FALLBACK_LANGUAGE]: { ...resources, ...agentsWords, [UI_NAMESPACE]: UI_RESOURCES.en, editor: editorWords } }
+    resources: {
+        [FALLBACK_LANGUAGE]: { ...resources, ...agentsWords, [UI_NAMESPACE]: UI_RESOURCES.en, [CHARTS_NAMESPACE]: CHARTS_RESOURCES.en, editor: editorWords }
+    }
 });
 
 // The formatters of @adecore/ui read the client's settings, which the tests set.
