@@ -375,6 +375,7 @@
         "deleteFailed": "Kon niet naar prullenbak verplaatsen",
         "deleteMany": "{{count}} items naar de prullenbak…",
         "empty": "Deze map is leeg.",
+        "emptyFolder": "Lege map",
         "filter": "Bestanden filteren",
         "clearFilter": "Filter wissen",
         "matches_one": "{{count}} resultaat",
@@ -685,6 +686,7 @@
         },
         "list": {
             "changes": "Wijzigingen",
+            "clean": "Geen wijzigingen",
             "collapseFolder": "Map inklappen",
             "deleteFile": "Naar de prullenbak…",
             "deleteMany": "{{count}} nieuwe bestanden naar de prullenbak…",

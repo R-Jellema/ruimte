@@ -375,6 +375,7 @@
         "deleteFailed": "Could not move to trash",
         "deleteMany": "Move {{count}} items to trash…",
         "empty": "This folder is empty.",
+        "emptyFolder": "Empty folder",
         "filter": "Filter files",
         "clearFilter": "Clear filter",
         "matches_one": "{{count}} match",
@@ -685,6 +686,7 @@
         },
         "list": {
             "changes": "Changes",
+            "clean": "No changes",
             "collapseFolder": "Collapse folder",
             "deleteFile": "Move to trash…",
             "deleteMany": "Move {{count}} new files to trash…",

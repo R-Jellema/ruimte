@@ -442,6 +442,10 @@ function GitTree({
                     renderControl={renderControl}
                     renderDecoration={decorate}
                     rowIcon={(row) => (nodeOf(layout, row.path)?.kind === 'repo' ? FolderGit2 : undefined)}
+                    emptyLabel={(row) => {
+                        const node = nodeOf(layout, row.path);
+                        return node?.kind === 'repo' && node.items.length === 0 ? t('git.list.clean') : undefined;
+                    }}
                     fitContent
                 />
             </ContextMenu.Trigger>

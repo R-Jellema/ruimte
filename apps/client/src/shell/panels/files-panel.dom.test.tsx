@@ -159,4 +159,16 @@ describe('the files panel', () => {
         expect(decorations()).toContain('main');
         expect(page.host.querySelector('[aria-label="2 commits to push"]')).not.toBeNull();
     });
+
+    test('a folder says it is empty once it opened and its listing came back with nothing', async () => {
+        const emptyLine = (): HTMLElement | null =>
+            page.host.querySelector('.adecore-file-tree-host')?.shadowRoot?.querySelector<HTMLElement>('[data-empty-line="true"]') ?? null;
+        expect(emptyLine()).toBeNull();
+        await clickOn(row('web/'));
+        await until(() => emptyLine() !== null);
+        expect(emptyLine()!.querySelector<HTMLElement>('[data-item-section="content"]')?.dataset.emptyLabel).toBe('Empty folder');
+        expect(machine.requests('fs.list').some((request) => request.path === WEB)).toBe(true);
+        await clickOn(row('web/'));
+        await until(() => emptyLine() === null);
+    });
 });

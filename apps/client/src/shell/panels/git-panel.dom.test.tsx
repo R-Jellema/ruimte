@@ -211,6 +211,19 @@ describe('the git panel over a folder of two repositories', () => {
         expect(machine.requests('git.action')).toEqual([expect.objectContaining({ cwd: API, kind: 'commit-push' })]);
     });
 
+    test('a repository without changes says so under its row while it is open', async () => {
+        machine.answer('git.status', ({ cwd }) => (cwd === WEB ? { ...status('main'), files: [] } : status('main')));
+        await clickOn(document.body.querySelector<HTMLElement>('button[aria-label="Refresh"]'));
+        const tree = (): ShadowRoot | null => page.host.querySelector('.adecore-file-tree-host')?.shadowRoot ?? null;
+        const emptyLine = (): HTMLElement | null => tree()?.querySelector<HTMLElement>('[data-empty-line="true"]') ?? null;
+        await until(() => emptyLine() !== null);
+        expect(emptyLine()!.querySelector<HTMLElement>('[data-item-section="content"]')?.dataset.emptyLabel).toBe('No changes');
+        const repoRow = tree()!.querySelector<HTMLElement>(`[data-type="item"][data-item-path="${emptyLine()!.dataset.itemPath!.replace(/[^/]*$/, '')}"]`);
+        expect(repoRow?.textContent).toContain('web');
+        await clickOn(repoRow);
+        await until(() => emptyLine() === null);
+    });
+
     test('the log narrows to one repository and widens again', async () => {
         await until(() => document.body.textContent?.includes('feat: web work') === true);
         expect(document.body.textContent).toContain('feat: api work');

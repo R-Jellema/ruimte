@@ -770,6 +770,10 @@ export function FilesPanel() {
     /* A repository of the folder that is a row of its own says how far it is from its upstream and which branch it is on. */
     const repoOfRow = (row: FileTreeVisibleRow) => repoRows.get(isDirectoryPath(row.path) ? row.path : `${row.path}/`);
 
+    /* Only a listing that came back empty says so: a folder still loading, or holding only hidden entries, draws no line. */
+    const emptyFolderLabel = (row: FileTreeVisibleRow): string | undefined =>
+        root !== null && cache.get(absoluteOf(root, row.path))?.length === 0 ? t('files.emptyFolder') : undefined;
+
     const decorate = (row: FileTreeVisibleRow): ReactNode => {
         const checkout = repoOfRow(row);
         const parts = checkout === undefined ? [] : repoParts(checkout.status);
@@ -951,6 +955,7 @@ export function FilesPanel() {
                                 decorationOrder="after-status"
                                 rowIcon={(row) => (repoOfRow(row) === undefined ? undefined : FolderGit2)}
                                 highlight={searching ? query.trim() : ''}
+                                emptyLabel={searching ? undefined : emptyFolderLabel}
                             />
                         </ContextMenu.Trigger>
                         <ContextMenu.Popup
