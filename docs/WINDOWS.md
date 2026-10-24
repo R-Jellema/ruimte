@@ -38,7 +38,12 @@ Do not reverse one without asking Bas.
 - A save never writes through a link (no `O_NOFOLLOW` there, so `fs/write.ts` looks at the name first), a
   rename never folds two hard links of one file and takes a case-only change of a name (`fs/rename.ts`),
   and a detected launch writes its paths with `/` (`launches/detect.ts`, `launches/vscode.ts`).
-- `ruimte-context` finds `ruimte.exe`, and `ruimte-context.cmd` ships beside it for cmd and PowerShell.
+- `ruimte-context` finds `ruimte.exe`, and `ruimte-context.exe` ships beside it for cmd and PowerShell: a
+  launcher of a few hundred KB (`apps/context-launcher`, Rust) that starts `ruimte.exe context` with the
+  words as they came, so no batch file reads them again for `%` and `^`. `compile.ts` builds it with the
+  MSVC toolchain on a Windows runner, and elsewhere with MinGW (`rustup target add x86_64-pc-windows-gnu`
+  and `x86_64-w64-mingw32-gcc`). `apps/server/bin/ruimte-context.cmd` is only for a checkout under
+  `bun dev`, and still reads `%` and `^` a second time there.
 - Terminals start in Git Bash with `-l`; `shellName` drops `.exe`, so `plainShell` applies.
 - Ending a session, as in the stopping decision.
 - Deleting to the Recycle Bin (`apps/server/src/fs/trash.ts`, the script in `fs/recycle-bin.ts`). The
