@@ -157,7 +157,7 @@ function SignInCard({ description }: { description: string }) {
     return (
         <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface px-4 py-3">
             <span className="flex items-center gap-3">
-                <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-surface-sunken text-text-muted">
+                <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-surface-sunken text-text-muted dark:bg-field dark:inset-ring dark:inset-ring-field-border">
                     <Icon icon={LogIn} size={16} />
                 </span>
                 <span className="flex min-w-0 flex-col">

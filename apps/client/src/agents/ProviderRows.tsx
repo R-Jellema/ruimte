@@ -31,7 +31,10 @@ export function ProviderRows({ onPick }: { onPick(provider: ProviderInfo): void 
                             className="flex w-full items-center gap-3 border-b border-border px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-surface-hover focus-visible:bg-surface-hover focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
                             onClick={() => onPick(provider)}
                         >
-                            <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-lg bg-surface">
+                            <span
+                                aria-hidden
+                                className="grid size-9 shrink-0 place-items-center rounded-lg bg-surface-sunken dark:bg-field dark:inset-ring dark:inset-ring-field-border"
+                            >
                                 <AgentIcon kind={provider.kind} size={20} className={provider.kind === 'claude' ? 'text-chart-claude' : undefined} />
                             </span>
                             <span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-0.5">
