@@ -1,9 +1,7 @@
-import { useState } from 'react';
 import { MessageSquare, Terminal } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ChatExternalSession, ChatSearchHit } from '@ruimte/contracts';
-import { CommandPalette, Icon } from '@adecore/ui';
-import { formatAgo } from '@adecore/ui/format';
+import { CommandPalette, Icon, RelativeTime } from '@adecore/ui';
 import { CliMark } from '@adecore/agents-react/providers';
 import type { PaletteRow } from '@/shell/palette-entries';
 
@@ -37,12 +35,11 @@ function HitItem({ row, hit, onRun }: { row: ChatRow; hit: ChatSearchHit; onRun(
 
 function ExternalItem({ row, session, onRun }: { row: ChatRow; session: ChatExternalSession; onRun(row: ChatRow): void }) {
     const { t } = useTranslation('shell');
-    const [now] = useState(() => Date.now());
     return (
         <CommandPalette.Item
             value={row}
             icon={<CliMark kind={session.provider} size={14} />}
-            trailing={<span className="text-xs text-text-faint">{formatAgo(now - session.updatedAt)}</span>}
+            trailing={<RelativeTime at={session.updatedAt} tooltip={false} className="text-xs text-text-faint" />}
             onClick={() => onRun(row)}
         >
             {session.title === '' ? t('palette.untitledChat') : session.title}

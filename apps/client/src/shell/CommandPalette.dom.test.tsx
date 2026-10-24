@@ -148,14 +148,14 @@ describe('browsing the folders of a machine', () => {
         useEndpoints.getState().remove('machine-b');
     });
 
-    test('Enter steps into the highlighted folder, the field says where, and the palette stays open', async () => {
+    test('Enter steps into the highlighted folder with its first row highlighted, the field says where, and the palette stays open', async () => {
         await pressKey(field()!, 'ArrowDown');
         await pressKey(field()!, 'ArrowDown');
         expect(highlighted()?.textContent).toBe('gamma');
         await pressKey(field()!, 'Enter');
         await until(() => labels().join() === '..,x,y,z');
         expect(field()!.value).toBe('~/gamma/');
-        expect(document.activeElement).toBe(field());
+        expectFieldHoldsTheKeys(rows()[0]!);
     });
 });
 
