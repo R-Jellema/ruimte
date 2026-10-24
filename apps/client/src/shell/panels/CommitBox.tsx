@@ -167,7 +167,7 @@ export function CommitBox({ messageKey, checkouts, named, capabilities, busy, on
                     </span>
                 </div>
             )}
-            <div className="flex flex-col rounded-lg border border-border bg-surface-sunken bg-clip-padding has-[textarea:focus-visible]:outline-2 has-[textarea:focus-visible]:-outline-offset-1 has-[textarea:focus-visible]:outline-accent">
+            <div className="flex flex-col rounded-lg border border-border bg-field bg-clip-padding has-[textarea:focus-visible]:outline-2 has-[textarea:focus-visible]:-outline-offset-1 has-[textarea:focus-visible]:outline-accent">
                 <TextArea
                     variant="bare"
                     size="sm"
