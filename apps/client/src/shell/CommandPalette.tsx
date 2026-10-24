@@ -55,6 +55,7 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
     const [query, setQuery] = useState('');
     // Only the keys read it, so following the highlight redraws nothing.
     const highlighted = useRef<PaletteRow | undefined>(undefined);
+    const field = useRef<HTMLInputElement>(null);
     const close = (): void => setOpen(false);
     const context: PaletteContext = { open, query, setQuery, close };
 
@@ -119,6 +120,7 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
             {/* Wider while searching in files and chats, since source lines and messages do not fold. */}
             <Palette.Popup size={grepping || chatting ? 'lg' : 'md'}>
                 <Palette.Input
+                    ref={field}
                     aria-label={label}
                     placeholder={placeholder}
                     /* A path stays in the sans font: monospace makes it read as something to read rather than to type. */
@@ -129,7 +131,15 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
                     onKeyDown={keyDown}
                 />
                 <Palette.Empty>{view.empty}</Palette.Empty>
-                <Palette.List>
+                {/* The highlight is only `aria-activedescendant`, and Chromium reports that row as the focused
+                    element, so an assistive tool that focuses it before typing would pull the keys out of the field. */}
+                <Palette.List
+                    onFocus={(event) => {
+                        if (event.target instanceof Element && event.target.closest('[role="option"]') !== null) {
+                            field.current?.focus();
+                        }
+                    }}
+                >
                     {(group: PaletteGroup<PaletteRow>) => (
                         <Palette.Group key={group.value} items={group.items}>
                             <Palette.GroupLabel>{group.label}</Palette.GroupLabel>
