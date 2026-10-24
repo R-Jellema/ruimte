@@ -92,6 +92,14 @@ beforeEach(async () => {
             }) as never
     );
     here.answer('git.identity', () => ({ identities: [identity('/work/atlas', ['root-a'])] }));
+    here.answer('chat.forkInfo', () => ({ repository: true, branches: ['main'], branch: 'alternative', filesAfterTurn: false }));
+    here.answer('chat.fork', () => ({
+        info: { ...INFO, chatId: 'forked' },
+        nodeId: 'forked',
+        viewId: MAIN.id,
+        edgeId: null,
+        worktree: { path: '/work/alternative', branch: 'alternative' }
+    }));
     here.answer('chat.handoff', () => {
         order.push('chat.handoff');
         return { text: 'HANDOFF TEXT', turns: 1, all: true };
@@ -150,6 +158,25 @@ async function pickMachine(): Promise<void> {
     await until(() => document.querySelector('[role="option"]') !== null);
     await clickOn([...document.querySelectorAll('[role="option"]')].find((option) => option.textContent?.includes('MacBook Pro')) ?? null);
 }
+
+describe('forking a chat', () => {
+    test('a local worktree waits for Fork, and Cancel sends no fork request', async () => {
+        await until(() => button('Fork')?.hasAttribute('disabled') === false);
+        expect(dialog()?.textContent).toContain('git worktree');
+        expect((dialog()?.querySelector('#fork-branch') as HTMLInputElement | null)?.value).toBe('alternative');
+        expect(here.requests('chat.fork')).toEqual([]);
+        await clickOn(button('Cancel'));
+        await until(() => dialog() === null);
+        expect(here.requests('chat.fork')).toEqual([]);
+
+        await act(async () => useUi.getState().setForkDialog({ chatId: LEAD.id, turnId: 'turn-1' }));
+        await until(() => button('Fork')?.hasAttribute('disabled') === false);
+        expect(here.requests('chat.fork')).toEqual([]);
+        await clickOn(button('Fork'));
+        await until(() => dialog() === null);
+        expect(here.requests('chat.fork')).toEqual([{ chatId: LEAD.id, turnId: 'turn-1', title: 'Lexer (fork)', worktree: { branch: 'alternative' } }]);
+    });
+});
 
 describe('forking a chat to another machine', () => {
     test('offers this machine first and the others next', async () => {

@@ -145,12 +145,6 @@ export function describeWrites(domain: WriteDomain): void {
             }
         });
 
-        test('ask for a confirmation exactly where the catalog promises one', () => {
-            const promised = writesOf(domain).filter((name) => /confirmation/.test(ACTION_DEFINITIONS[name].description));
-            const asked = (Object.keys(cases) as ActionName[]).filter((name) => cases[name]?.confirms === true);
-            expect(asked.sort()).toEqual(promised.sort());
-        });
-
         for (const name of Object.keys(cases) as ActionName[]) {
             describeWrite(name, cases[name] as WriteCase<typeof name>);
         }

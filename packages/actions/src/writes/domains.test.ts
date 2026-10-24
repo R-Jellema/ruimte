@@ -4,6 +4,26 @@ import { ACTION_DEFINITIONS, type ActionName } from '../index.ts';
 import { WRITE_CASES } from './cases.ts';
 
 describe('the write tests', () => {
+    test('keep confirmation fixture flags compatible with catalog descriptions in each domain', () => {
+        // This guards catalog/fixture compatibility; runtime consent belongs to adapters and their callers.
+        const promised = Object.fromEntries(
+            Object.keys(WRITE_CASES).map((domain) => [
+                domain,
+                (Object.keys(ACTION_DEFINITIONS) as ActionName[])
+                    .filter((name) => ACTION_DEFINITIONS[name].domain === domain && ACTION_DEFINITIONS[name].effect !== 'read')
+                    .filter((name) => /confirmation/.test(ACTION_DEFINITIONS[name].description))
+                    .sort()
+            ])
+        );
+        const asked = Object.fromEntries(
+            Object.entries(WRITE_CASES).map(([domain, cases]) => [
+                domain,
+                (Object.keys(cases) as ActionName[]).filter((name) => cases[name]?.confirms === true).sort()
+            ])
+        );
+        expect(asked).toEqual(promised);
+    });
+
     test('have a file for every domain with an action that changes something', () => {
         const domains = new Set(
             (Object.keys(ACTION_DEFINITIONS) as ActionName[])
