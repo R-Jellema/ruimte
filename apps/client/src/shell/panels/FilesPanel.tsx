@@ -4,9 +4,12 @@ import { ActionRefusal } from '@ruimte/actions';
 import { perform } from '@/actions/client-actions';
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { FileTreeDropResult } from '@pierre/trees';
+import type { FileTreeDropResult, FileTreeVisibleRow } from '@pierre/trees';
+import type { Worktree } from '@ruimte/contracts';
 import { FileTree, useFileTree } from '@adecore/ui';
+import { formatNumber } from '@adecore/ui/format';
 import {
+    ArrowLeft,
     ChevronsDownUp,
     ChevronsUpDown,
     CornerUpRight,
@@ -20,11 +23,17 @@ import {
     Pencil,
     RefreshCw,
     Search,
-    Trash2
+    Trash2,
+    X
 } from 'lucide-react';
 import { PATHS_DRAG_TYPE } from '@/canvas/drop';
 import { writeMentionDrag } from '@adecore/agents-react/chat';
-import { FILE_TOOLBAR } from '@/shell/panels/classes';
+import { BranchMenu } from '@/shell/panels/BranchMenu';
+import { repoParts } from '@/shell/panels/git-tree';
+import { GitTreeMarks } from '@/shell/panels/GitTreeMarks';
+import { WorktreeBar } from '@/shell/panels/WorktreeMenu';
+import { nodesInWorktree, worktreeBase } from '@/shell/panels/worktree-rows';
+import { PanelHeaderLeadingSlot, PanelHeaderSlot, PanelHeaderTitleHidden } from '@/shell/PanelHeaderSlot';
 import { FileSearch as FileSearchFlow, type FileSearchResult } from './file-search';
 import { FileActionItems } from '@/shell/panels/FileActionItems';
 import { FileCopyRow } from '@/shell/panels/FileCopyRow';
@@ -47,30 +56,37 @@ import {
     ancestorDirsOf,
     basenameOf,
     buildTreeInput,
+    checkoutOfPath,
+    checkoutStatusEntries,
     compareRows,
     dirnameOf,
-    gitStatusEntries,
     isDirectoryPath,
     mergeExpanded,
     newlyExpanded,
     relativeTo,
+    repoRowsOf,
+    revealableInFiles,
     treePathOf,
     withoutClosedBranches,
     sameEntries,
     type EntryCache
 } from '@/shell/panels/files-tree';
+import { useCanvas } from '@/state/canvas';
 import { useFiles } from '@/state/files';
+import { filesRootOf, useFilesRoot } from '@/state/files-root';
 import { folderWatches } from '@/state/fs-watch';
 import { useGit } from '@/state/git';
-import { useEndpointId } from '@/state/keys';
-import { useGitStatus } from '@/state/git-watch';
+import { soleRepo, useGitCheckouts, useProjectRepos, withoutNestedRepos, type GitCheckoutRef } from '@/state/git-repos';
+import { gitTargets, type GitTarget } from '@/state/git-target';
+import { endpointKey, useEndpointId } from '@/state/keys';
 import { useProject } from '@/state/project';
+import { useProjectNodes, useWorktrees, worktreeLists } from '@/state/worktrees';
 import { useToasts } from '@/state/toasts';
 import { fileManagerName, useServer } from '@/state/server';
 import { useSettings } from '@/state/settings';
 import { useUi } from '@/state/ui';
 import { useTransport } from '@/transport/context';
-import { Button, ButtonGroup, EmptyState, Icon, IconButton, Input, Menu, Kbd, PanelEmpty, ContextMenu, PromptDialog } from '@adecore/ui';
+import { Button, EmptyState, Icon, IconButton, Input, Menu, Kbd, PanelEmpty, ContextMenu, PromptDialog } from '@adecore/ui';
 import { APP_SHORTCUTS } from '@/shell/shortcuts';
 
 const { directoryHandle, menuTargetsOf, resetExpandedPaths, rowPathOf } = FileTree;
@@ -79,20 +95,12 @@ const SEARCH_DEBOUNCE_MS = 150;
 const SEARCH_LIMIT = 200;
 
 /*
- * The first rule hides the row that keeps an unloaded directory's chevron. The second turns the git
- * lane's letter into a dot, the shape the tree already gives a directory with changes, so one mark
- * says "differs from HEAD" everywhere. An ignored file leaves that lane empty.
+ * The first rule hides the row that keeps an unloaded directory's chevron. The second draws the dot
+ * of a folder with changes at full strength, in the color of the letters on the files inside it.
  */
 const FILES_TREE_CSS = `
     [data-item-path$="/${LOADING_NAME}"] { display: none !important; }
-    [data-item-git-status]:not([data-item-git-status="ignored"]) > [data-item-section="git"] > * { display: none; }
-    [data-item-git-status]:not([data-item-git-status="ignored"]) > [data-item-section="git"]::after {
-        content: "";
-        width: 6px;
-        height: 6px;
-        border-radius: 9999px;
-        background: currentColor;
-    }
+    [data-item-contains-git-change="true"] > [data-item-section="git"] { opacity: 1; }
     ${PLACEHOLDER_CSS}
 `;
 
@@ -106,10 +114,10 @@ const EMPTY_MATCHES: readonly string[] = [];
 const EMPTY_CACHE: EntryCache = new Map();
 
 /*
- * The folder of the open project as a tree; the file it opens is drawn by the preview panel next to
- * it. Directories are listed one at a time: the first `fs.list` is the folder itself, and every
- * expand asks for what it opened. The daemon watches the folder while the panel is up, so a file an
- * agent writes shows up on its own.
+ * The folder of the open project, or one of its worktrees, as a tree; the file it opens is drawn by
+ * the preview panel next to it. Directories are listed one at a time: the first `fs.list` is the
+ * folder itself, and every expand asks for what it opened. The daemon watches the folder while the
+ * panel is up, so a file an agent writes shows up on its own.
  */
 export function FilesPanel() {
     const { t } = useTranslation('panels');
@@ -119,18 +127,47 @@ export function FilesPanel() {
     const endpointId = useEndpointId();
     const tabLimit = useSettings((s) => s.filesTabLimit);
     const transport = useTransport();
-    /* What git says about the project folder, so a changed file carries a dot. The git panel reads
-       the same watch; whichever of the two is up holds it. */
-    const gitStatus = useGitStatus(folder);
+    const nodes = useCanvas((s) => s.nodes);
+    const projectNodes = useProjectNodes();
+    const worktrees = useWorktrees(transport, endpointId, folder);
+    const { repos } = useProjectRepos(folder);
+    /* The worktree this panel was pointed at is its own, apart from the git panel's: the tree a person
+       reads and the checkout they commit in need not be the same. */
+    const rootKey = endpointKey(endpointId, folder ?? '');
+    const picked = useFilesRoot((s) => s.picked[rootKey] ?? null);
+    const place = folder === null ? null : filesRootOf(folder, picked, worktrees);
+    const root = place?.root ?? null;
+    const worktree = place?.worktree ?? null;
 
-    /* The listings carry the folder they belong to, so a project switch drops them without an
-       effect that would render twice to empty the tree. */
-    const [listed, setListed] = useState<{ folder: string | null; byDir: EntryCache }>({ folder: null, byDir: EMPTY_CACHE });
+    /* What git says about every checkout the tree shows, so a changed file carries its letter and a
+       repository its branch. The git panel reads the same watches; whichever of the two is up holds them. */
+    const refs = useMemo<readonly GitCheckoutRef[]>(
+        () =>
+            worktree !== null
+                ? [{ path: worktree.path, label: worktree.branch, kind: 'worktree' }]
+                : repos.length > 0
+                  ? repos
+                  : folder === null
+                    ? []
+                    : soleRepo(folder),
+        [worktree, repos, folder]
+    );
+    const read = useGitCheckouts(refs);
+    const checkouts = useMemo(() => {
+        const roots = read.checkouts.map((checkout) => checkout.path);
+        return read.checkouts.map((checkout) => ({ ...checkout, status: withoutNestedRepos(checkout.status, checkout.path, roots) }));
+    }, [read.checkouts]);
+    // Inside a worktree the tree is one checkout, whose branch the chip already names.
+    const repoRows = useMemo(() => repoRowsOf(root ?? '', root === null || worktree !== null ? [] : checkouts), [root, worktree, checkouts]);
+
+    /* The listings carry the folder they belong to, so a project or worktree switch drops them
+       without an effect that would render twice to empty the tree. */
+    const [listed, setListed] = useState<{ root: string | null; byDir: EntryCache }>({ root: null, byDir: EMPTY_CACHE });
     const [query, setQuery] = useState('');
     const search = useRef(new FileSearchFlow());
     const [searchResult, setSearchResult] = useState<{ key: string; result: FileSearchResult } | null>(null);
     const [searchAttempt, setSearchAttempt] = useState(0);
-    const searchKey = JSON.stringify([endpointId, folder, query.trim(), searchAttempt]);
+    const searchKey = JSON.stringify([endpointId, root, query.trim(), searchAttempt]);
     const currentSearch = searchResult?.key === searchKey ? searchResult.result : null;
     const matches = currentSearch?.kind === 'ready' ? currentSearch.files : EMPTY_MATCHES;
 
@@ -162,7 +199,7 @@ export function FilesPanel() {
     const createRequest = useFiles((s) => s.createRequest);
     /* The reveal that was answered, so a listing arriving later does not scroll the tree again. */
     const answeredReveal = useRef(0);
-    const cache = listed.folder === folder ? listed.byDir : EMPTY_CACHE;
+    const cache = listed.root === root ? listed.byDir : EMPTY_CACHE;
     const reveal = useFiles((s) => s.reveal);
     const quickLook = useQuickLook(endpointId, folder);
 
@@ -196,36 +233,42 @@ export function FilesPanel() {
     const activeModel = searching ? searchModel : model;
     /* The rows the tree is fed, kept here as well because what they add up to is what says whether
        the panel has anything to show. */
-    const listedInput = useMemo(() => buildTreeInput(folder ?? '', cache, showHidden), [cache, folder, showHidden]);
+    const listedInput = useMemo(() => buildTreeInput(root ?? '', cache, showHidden), [cache, root, showHidden]);
     const treeInput = useMemo(
         () => (creation === null ? listedInput : { ...listedInput, paths: [...listedInput.paths, placeholderPathOf(creation.parent, creation.kind)] }),
         [listedInput, creation]
     );
     const fault: NameFault | null = useMemo(
         () =>
-            folder === null || creation === null
+            root === null || creation === null
                 ? null
                 : validateNewEntry(entryName, creation.kind, {
-                      parent: absoluteOf(folder, creation.parent),
+                      parent: absoluteOf(root, creation.parent),
                       atRoot: creation.parent === '',
                       windows: platform === 'win32',
                       children: (directory) => cache.get(directory)
                   }),
-        [cache, creation, entryName, folder, platform]
+        [cache, creation, entryName, root, platform]
     );
     // An empty name is not yet a mistake, so the field stays quiet until something is typed.
     const entryMessage = entryFailure ?? (fault === null || entryName.trim() === '' ? null : t(`files.create.problem.${fault.problem}`, { name: fault.name }));
-    const changed = useMemo(() => (folder === null ? [] : gitStatusEntries(folder, gitStatus?.root ?? null, gitStatus?.files ?? [])), [folder, gitStatus]);
-    /* Which side of git the row the menu is on sits on, or null for a file git has nothing to say
-       about; it is what decides whether that menu offers the diff. */
-    const changedStatus = useMemo(() => {
-        const root = gitStatus?.root ?? null;
-        if (folder === null || menuPath === null || root === null || isDirectoryPath(menuPath)) {
+    const changed = useMemo(() => (root === null ? [] : checkoutStatusEntries(root, checkouts)), [root, checkouts]);
+    /* The checkout git answers for the row the menu is on, and that row's file in it, or null for a
+       file git has nothing to say about; it is what decides whether that menu offers the diff. */
+    const changedFile = useMemo(() => {
+        if (root === null || menuPath === null || isDirectoryPath(menuPath)) {
             return null;
         }
-        const repoPath = relativeTo(root, absoluteOf(folder, menuPath));
-        return gitStatus?.files.find((file) => file.path === repoPath)?.state ?? null;
-    }, [folder, gitStatus, menuPath]);
+        const absolute = absoluteOf(root, menuPath);
+        const checkout = checkoutOfPath(checkouts, absolute);
+        const checkoutRoot = checkout?.status?.root ?? checkout?.path ?? null;
+        if (checkout === null || checkoutRoot === null) {
+            return null;
+        }
+        const repoPath = relativeTo(checkoutRoot, absolute);
+        const file = checkout.status?.files.find((entry) => entry.path === repoPath);
+        return file === undefined ? null : { cwd: checkoutRoot, state: file.state };
+    }, [root, checkouts, menuPath]);
 
     const load = useCallback(
         async (dir: string): Promise<void> => {
@@ -233,17 +276,17 @@ export function FilesPanel() {
                 // Always with the hidden entries: the eye button then rebuilds from the cache alone.
                 const result = await perform('file.list', { path: dir, hidden: true });
                 setListed((current) => {
-                    const before = current.folder === folder ? current.byDir.get(dir) : undefined;
+                    const before = current.root === root ? current.byDir.get(dir) : undefined;
                     if (before !== undefined && sameEntries(before, result.entries)) {
                         return current;
                     }
-                    return { folder, byDir: new Map(current.folder === folder ? current.byDir : []).set(dir, result.entries) };
+                    return { root, byDir: new Map(current.root === root ? current.byDir : []).set(dir, result.entries) };
                 });
             } catch {
                 // A folder that went away keeps the rows it had until the next refresh.
             }
         },
-        [folder]
+        [root]
     );
 
     useEffect(() => {
@@ -252,25 +295,26 @@ export function FilesPanel() {
 
     useEffect(() => {
         // What the project remembered is where the tree starts, and what it has to fetch to get there.
+        // A worktree is the same tree on another branch, so it opens where the project is open.
         expandedRef.current = new Set(useFiles.getState().expandedDirs);
-        if (!folder) {
+        if (!root) {
             return;
         }
         const loadAll = (): void => {
-            const dirs = new Set([folder, ...[...expandedRef.current].map((dir) => absoluteOf(folder, dir)), ...cacheRef.current.keys()]);
+            const dirs = new Set([root, ...[...expandedRef.current].map((dir) => absoluteOf(root, dir)), ...cacheRef.current.keys()]);
             for (const dir of dirs) {
                 void load(dir);
             }
         };
         // Listed at once and again when the watch is sure of every write, so one that fell in between still shows.
-        const watch = folderWatches.watch(endpointId, folder, loadAll);
+        const watch = folderWatches.watch(endpointId, root, loadAll);
         loadAll();
         void watch.ready.then(loadAll);
         return watch.release;
-    }, [endpointId, folder, load]);
+    }, [endpointId, root, load]);
 
     useEffect(() => {
-        if (!folder) {
+        if (!root) {
             return;
         }
         return transport.on('fs.changed', (payload) => {
@@ -280,14 +324,14 @@ export function FilesPanel() {
                 }
             }
         });
-    }, [transport, folder, load]);
+    }, [transport, root, load]);
 
     useEffect(() => {
-        if (!folder) {
+        if (!root) {
             return;
         }
         directoriesRef.current = new Set(
-            [...cache.values()].flatMap((entries) => entries.filter((entry) => entry.kind === 'directory').map((entry) => treePathOf(folder, entry)))
+            [...cache.values()].flatMap((entries) => entries.filter((entry) => entry.kind === 'directory').map((entry) => treePathOf(root, entry)))
         );
         resettingRef.current = true;
         try {
@@ -295,7 +339,7 @@ export function FilesPanel() {
         } finally {
             resettingRef.current = false;
         }
-    }, [cache, folder, model, treeInput]);
+    }, [cache, root, model, treeInput]);
 
     /* The marks the tree draws, on both models: what git ignores and what it says changed. They are
        set apart from the rows, because a status arrives on its own schedule and the rows do not. */
@@ -311,7 +355,7 @@ export function FilesPanel() {
      * been listed is the one the daemon hears about.
      */
     useEffect(() => {
-        if (!folder) {
+        if (!root) {
             return;
         }
         return model.subscribe(() => {
@@ -329,7 +373,7 @@ export function FilesPanel() {
             expandedRef.current = open;
             useFiles.getState().setExpandedDirs([...open]);
             for (const path of opened) {
-                const absolute = absoluteOf(folder, path);
+                const absolute = absoluteOf(root, path);
                 if (!cacheRef.current.has(absolute)) {
                     void load(absolute);
                 }
@@ -341,7 +385,7 @@ export function FilesPanel() {
                 }
             }
         });
-    }, [folder, load, model]);
+    }, [root, load, model]);
 
     /*
      * Brings one row into view: the directories on the way to it open, it becomes the selection, and
@@ -388,11 +432,20 @@ export function FilesPanel() {
 
     /*
      * A reveal asked for somewhere else in the app: a menu in the git panel, on a tab, or in the
-     * preview's toolbar. The filter goes first, since a row a filter hides cannot be shown, and the
-     * ask is answered once however many listings it takes to get there.
+     * preview's toolbar. A file of the project shown while the tree stands in a worktree takes the
+     * tree back to the project first. The filter goes next, since a row a filter hides cannot be
+     * shown, and the ask is answered once however many listings it takes to get there.
      */
     useEffect(() => {
-        if (!folder || reveal === null || answeredReveal.current === reveal.nonce) {
+        if (!folder || !root || reveal === null || answeredReveal.current === reveal.nonce) {
+            return;
+        }
+        if (!revealableInFiles(root, reveal.path)) {
+            if (root !== folder && revealableInFiles(folder, reveal.path)) {
+                useFilesRoot.getState().pick(rootKey, null);
+            } else {
+                answeredReveal.current = reveal.nonce;
+            }
             return;
         }
         if (searching) {
@@ -401,10 +454,10 @@ export function FilesPanel() {
             setQuery('');
             return;
         }
-        if (bringIntoView(relativeTo(folder, reveal.path))) {
+        if (bringIntoView(relativeTo(root, reveal.path))) {
             answeredReveal.current = reveal.nonce;
         }
-    }, [bringIntoView, cache, folder, reveal, searching]);
+    }, [bringIntoView, cache, folder, root, rootKey, reveal, searching]);
 
     /* The entry that was just made shows up with the listing the machine's change brings, and is
        selected there; a folder opens too, so what a person is about to put in it is in view. */
@@ -419,26 +472,26 @@ export function FilesPanel() {
         }
     }, [bringIntoView, cache, model, treeInput]);
 
-    /* A new file or folder asked from a menu or the palette goes in the folder that is selected here, or the project folder. */
+    /* A new file or folder asked from a menu or the palette goes in the folder that is selected here, or the tree's root. */
     useEffect(() => {
-        if (!folder || createRequest === null || !cache.has(folder)) {
+        if (!root || createRequest === null || !cache.has(root)) {
             return;
         }
         useFiles.setState({ createRequest: null });
         // The ask is another surface's, and it can wait on the first listing, so it is answered here and not where it was made.
         // oxlint-disable-next-line react/set-state-in-effect
         startCreate(createRequest.kind, creationParentOf(selectionRef.current[0] ?? null));
-    }, [cache, createRequest, folder, startCreate]);
+    }, [cache, createRequest, root, startCreate]);
 
     useEffect(() => {
         const flow = search.current;
-        if (!folder || !searching) {
+        if (!root || !searching) {
             flow.invalidate();
             return;
         }
         const timer = window.setTimeout(() => {
             void flow
-                .search(() => perform('file.search', { query: query.trim(), limit: SEARCH_LIMIT }))
+                .search(() => perform('file.search', { query: query.trim(), limit: SEARCH_LIMIT, ...(root === folder ? {} : { folder: root }) }))
                 .then((result) => {
                     if (result !== null) {
                         setSearchResult({ key: searchKey, result });
@@ -449,7 +502,7 @@ export function FilesPanel() {
             window.clearTimeout(timer);
             flow.invalidate();
         };
-    }, [endpointId, folder, query, searching, searchKey]);
+    }, [endpointId, folder, root, query, searching, searchKey]);
 
     useEffect(() => {
         searchModel.resetPaths([...matches]);
@@ -457,15 +510,15 @@ export function FilesPanel() {
 
     /* The file opens beside the panel and the keyboard stays in the tree, so the next arrow moves on. */
     const openPath = (treePath: string | null): void => {
-        if (!folder || !treePath || isDirectoryPath(treePath)) {
+        if (!root || !treePath || isDirectoryPath(treePath)) {
             return;
         }
-        useFiles.getState().open(absoluteOf(folder, treePath), tabLimit, undefined, undefined, { focus: false });
+        useFiles.getState().open(absoluteOf(root, treePath), tabLimit, undefined, undefined, { focus: false });
     };
 
     /* Space shows the focused file in Quick Look and hides it again; Escape hides it too. A folder has none. */
     const onTreeKey = (event: KeyboardEvent<HTMLDivElement>): void => {
-        if (quickLook === null || !folder || typing(event.nativeEvent)) {
+        if (quickLook === null || !root || typing(event.nativeEvent)) {
             return;
         }
         if (event.key === 'Escape' && quickLook.close()) {
@@ -479,24 +532,26 @@ export function FilesPanel() {
         }
         event.preventDefault();
         event.stopPropagation();
-        quickLook.toggle(absoluteOf(folder, path));
+        quickLook.toggle(absoluteOf(root, path));
     };
 
     const followQuickLook = (treePath: string): void => {
-        if (quickLook !== null && folder && !isDirectoryPath(treePath)) {
-            quickLook.follow(absoluteOf(folder, treePath));
+        if (quickLook !== null && root && !isDirectoryPath(treePath)) {
+            quickLook.follow(absoluteOf(root, treePath));
         }
     };
 
     const onDragStart = (_path: string, paths: readonly string[], event: DragEvent): void => {
-        if (event.dataTransfer === null) {
+        if (event.dataTransfer === null || root === null) {
             return;
         }
+        // A worktree sits outside the project folder, where a path only names a file whole.
+        const named = root === folder ? paths : paths.map((entry) => absoluteOf(root, entry));
         // The canvas needs directory slashes; a chat mention only needs the path.
-        event.dataTransfer.setData(PATHS_DRAG_TYPE, paths.join(' '));
+        event.dataTransfer.setData(PATHS_DRAG_TYPE, named.join(' '));
         writeMentionDrag(
             event.dataTransfer,
-            paths.map((entry) => (isDirectoryPath(entry) ? entry.slice(0, -1) : entry))
+            named.map((entry) => (isDirectoryPath(entry) ? entry.slice(0, -1) : entry))
         );
     };
 
@@ -537,12 +592,12 @@ export function FilesPanel() {
     };
 
     const submitEntry = async (): Promise<void> => {
-        if (!folder || creation === null || submittingRef.current || fault !== null) {
+        if (!root || creation === null || submittingRef.current || fault !== null) {
             return;
         }
         submittingRef.current = true;
         const { kind, parent } = creation;
-        const parentPath = absoluteOf(folder, parent);
+        const parentPath = absoluteOf(root, parent);
         const path = newEntryPathOf(parentPath, entryName, kind);
         setEntryBusy(true);
         try {
@@ -554,7 +609,7 @@ export function FilesPanel() {
             return;
         }
         submittingRef.current = false;
-        madeRef.current = { treePath: `${relativeTo(folder, path)}${kind === 'directory' ? '/' : ''}`, kind };
+        madeRef.current = { treePath: `${relativeTo(root, path)}${kind === 'directory' ? '/' : ''}`, kind };
         cancelEntry();
         setEntryBusy(false);
         // The machine's change report settles for a moment; asking its listing now keeps the new row from blinking out and back.
@@ -585,22 +640,22 @@ export function FilesPanel() {
     const manyTargets = menuTargets.length > 1;
 
     const copyTargets: CopyTarget[] =
-        folder === null
+        root === null
             ? []
             : menuTargets.map((treePath) => ({
-                  absolute: absoluteOf(folder, treePath).replace(/\/+$/, ''),
+                  absolute: absoluteOf(root, treePath).replace(/\/+$/, ''),
                   relative: isDirectoryPath(treePath) ? treePath.slice(0, -1) : treePath
               }));
 
     const onMenuPath = (act: (absolute: string, treePath: string) => void) => (): void => {
-        if (folder && menuPath) {
-            act(absoluteOf(folder, menuPath), menuPath);
+        if (root && menuPath) {
+            act(absoluteOf(root, menuPath), menuPath);
         }
     };
 
     /* What the name or the machine says against a try is thrown, which the dialog shows under its field and stays open for another. */
     const confirmRename = async (typed: string): Promise<void> => {
-        if (!folder || renaming === null) {
+        if (!root || renaming === null) {
             return;
         }
         const name = typed.trim();
@@ -612,7 +667,7 @@ export function FilesPanel() {
         }
         const problem = validateNewEntry(name, kind, {
             parent,
-            atRoot: parent === folder,
+            atRoot: parent === root,
             windows: platform === 'win32',
             children: (directory) => cache.get(directory)
         });
@@ -631,10 +686,10 @@ export function FilesPanel() {
 
     /* A drop moves the rows one after the other and stops at the first the machine refuses; the listing after it says where everything is. */
     const onDrop = (event: FileTreeDropResult): void => {
-        if (!folder) {
+        if (!root) {
             return;
         }
-        const moves = dropMovesOf(folder, event.draggedPaths, event.target.directoryPath);
+        const moves = dropMovesOf(root, event.draggedPaths, event.target.directoryPath);
         void (async () => {
             try {
                 for (const move of moves) {
@@ -667,17 +722,56 @@ export function FilesPanel() {
 
     /* The diff of the row the menu is on, which only a file git says changed has. */
     const openChanges = (): void => {
-        const root = gitStatus?.root ?? null;
-        if (folder && menuPath && root !== null) {
-            const file = absoluteOf(folder, menuPath);
-            const staged = changedStatus === 'staged';
-            useFiles.getState().open(file, tabLimit, { kind: 'diff', cwd: root, scope: useGit.getState().scope, staged });
+        if (root && menuPath && changedFile !== null) {
+            const file = absoluteOf(root, menuPath);
+            const staged = changedFile.state === 'staged';
+            // A worktree's own changes are measured against the branch it was made from, as the git panel measures them.
+            const base = worktree === null ? undefined : worktreeBase(worktree);
+            useFiles
+                .getState()
+                .open(file, tabLimit, { kind: 'diff', cwd: changedFile.cwd, scope: useGit.getState().scope, staged, ...(base === undefined ? {} : { base }) });
         }
     };
 
-    if (!folder) {
+    if (!folder || !root) {
         return <PanelEmpty icon={Folder}>{t('git.panel.noFolder')}</PanelEmpty>;
     }
+
+    const leaveWorktree = (): void => {
+        useFilesRoot.getState().pick(rootKey, null);
+    };
+
+    const enterWorktree = (entry: Worktree): void => {
+        useFilesRoot.getState().pick(rootKey, entry.path);
+    };
+
+    const targets = gitTargets(nodes, worktrees, folder, repos);
+    /* The chip names one checkout's branch, or the repositories over a folder of several. */
+    const named = worktree === null && repos.length > 1;
+    const only = named ? null : (checkouts[0] ?? null);
+    const target: GitTarget = targets.find((entry) => entry.cwd === only?.path) ?? {
+        cwd: only?.path ?? null,
+        label: only?.label ?? '',
+        branch: null,
+        kind: only?.path === folder ? 'project' : 'repo'
+    };
+    const worktreeTarget = worktree === null ? null : (targets.find((entry) => entry.cwd === worktree.path) ?? null);
+    const changes = checkouts.reduce((count, checkout) => count + (checkout.status?.files.length ?? 0), 0);
+    const several = repos.length > 1;
+    const folderRepo = repos.find((repo) => repo.path === folder)?.label ?? basenameOf(folder);
+    const insideNames =
+        worktree === null
+            ? ''
+            : nodesInWorktree(projectNodes, worktree)
+                  .map((node) => node.title || node.kind)
+                  .join(', ');
+
+    /* A repository of the folder that is a row of its own says how far it is from its upstream and which branch it is on. */
+    const decorate = (row: FileTreeVisibleRow): ReactNode => {
+        const checkout = repoRows.get(isDirectoryPath(row.path) ? row.path : `${row.path}/`);
+        const parts = checkout === undefined ? [] : repoParts(checkout.status);
+        return parts.length === 0 ? null : <GitTreeMarks parts={parts} />;
+    };
 
     /* What stands where the tree would be while it holds no rows: the first listing still on its
        way, a folder with nothing in it, or a filter nothing here answers to. */
@@ -698,13 +792,13 @@ export function FilesPanel() {
             }
             return matches.length > 0 ? null : <EmptyState icon={Search}>{t('files.noMatch')}</EmptyState>;
         }
-        if (!cache.has(folder)) {
-            return <EmptyState busy>{t('files.reading', { name: basenameOf(folder) })}</EmptyState>;
+        if (!cache.has(root)) {
+            return <EmptyState busy>{t('files.reading', { name: basenameOf(root) })}</EmptyState>;
         }
         if (treeInput.paths.length > 0) {
             return null;
         }
-        if (!showHidden && (cache.get(folder)?.length ?? 0) > 0) {
+        if (!showHidden && (cache.get(root)?.length ?? 0) > 0) {
             return <EmptyState icon={Folder}>{t('files.onlyHidden')}</EmptyState>;
         }
         return <EmptyState icon={Folder}>{t('files.empty')}</EmptyState>;
@@ -714,41 +808,42 @@ export function FilesPanel() {
 
     return (
         <div className="flex min-h-0 min-w-0 grow flex-col">
-            <div className={FILE_TOOLBAR}>
-                <span className="relative min-w-0 grow">
-                    <Icon icon={Search} size={14} className="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-text-faint" aria-hidden />
-                    <Input
-                        size="sm"
-                        className="pl-8"
-                        placeholder={t('files.filter')}
-                        aria-label={t('files.filter')}
-                        spellCheck={false}
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Escape' && query !== '') {
-                                e.stopPropagation();
-                                setQuery('');
-                            }
-                        }}
-                    />
-                </span>
-                <ButtonGroup className="shrink-0">
-                    <IconButton
-                        icon={FilePlus}
-                        size="sm"
-                        label={t('files.create.file')}
-                        onClick={() => startCreate('file', creationParentOf(selectionRef.current[0] ?? null))}
-                    />
-                    <IconButton
-                        icon={FolderPlus}
-                        size="sm"
-                        label={t('files.create.folder')}
-                        onClick={() => startCreate('directory', creationParentOf(selectionRef.current[0] ?? null))}
-                    />
-                </ButtonGroup>
+            {/* The panel's name gives way to the chip, which says where the tree stands. */}
+            <PanelHeaderTitleHidden />
+            <PanelHeaderLeadingSlot>
+                <BranchMenu
+                    target={target}
+                    targets={targets}
+                    branch={only?.status?.branch ?? null}
+                    detached={only?.status?.detached ?? false}
+                    nested={named}
+                    worktree={worktreeTarget}
+                    worktrees={worktrees}
+                    nodes={projectNodes}
+                    projectBranch={worktree === null ? (only?.status?.branch ?? null) : null}
+                    folderLabel={basenameOf(folder)}
+                    projectChanges={worktree === null ? changes : null}
+                    worktreeRepo={several ? folderRepo : null}
+                    busy={false}
+                    onOpenMenu={() => worktreeLists.reload(endpointId, folder)}
+                    onEnterWorktree={enterWorktree}
+                    onLeaveWorktree={leaveWorktree}
+                />
+            </PanelHeaderLeadingSlot>
+            <PanelHeaderSlot>
+                <span className="grow" />
+                <IconButton
+                    icon={FilePlus}
+                    label={t('files.create.file')}
+                    onClick={() => startCreate('file', creationParentOf(selectionRef.current[0] ?? null))}
+                />
+                <IconButton
+                    icon={FolderPlus}
+                    label={t('files.create.folder')}
+                    onClick={() => startCreate('directory', creationParentOf(selectionRef.current[0] ?? null))}
+                />
                 <Menu.Root>
-                    <IconButton icon={MoreHorizontal} size="sm" label={t('common:action.more')} render={<Menu.Trigger />} />
+                    <IconButton icon={MoreHorizontal} label={t('common:action.more')} render={<Menu.Trigger />} />
                     <Menu.Popup align="end">
                         <Menu.Item onClick={() => useUi.getState().openFindInFiles()}>
                             <Icon icon={FileSearch} size={14} /> {t('file.empty.findInFiles')} <Kbd shortcut={APP_SHORTCUTS.findInFiles} />
@@ -774,6 +869,43 @@ export function FilesPanel() {
                         </Menu.Item>
                     </Menu.Popup>
                 </Menu.Root>
+            </PanelHeaderSlot>
+            {worktree !== null && (
+                <WorktreeBar label={several ? folderRepo : t('git.worktree.label')} names={insideNames} tooltip={worktree.path}>
+                    <Button size="xs" onClick={leaveWorktree}>
+                        <Icon icon={ArrowLeft} size={12} />
+                        {t('files.root.project')}
+                    </Button>
+                </WorktreeBar>
+            )}
+            <div className="flex shrink-0 px-2 pt-2">
+                <span className="relative min-w-0 grow">
+                    <Icon icon={Search} size={14} className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-text-faint" aria-hidden />
+                    <Input
+                        className={searching ? 'pr-16 pl-8' : 'pl-8'}
+                        placeholder={t('files.filter')}
+                        aria-label={t('files.filter')}
+                        spellCheck={false}
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Escape' && query !== '') {
+                                e.stopPropagation();
+                                setQuery('');
+                            }
+                        }}
+                    />
+                    {searching && (
+                        <span className="absolute inset-y-0 right-1 flex items-center gap-1">
+                            {currentSearch?.kind === 'ready' && (
+                                <span className="text-xs text-text-faint tabular-nums" aria-label={t('files.matches', { count: matches.length })}>
+                                    {formatNumber(matches.length)}
+                                </span>
+                            )}
+                            <IconButton icon={X} size="xs" label={t('files.clearFilter')} onClick={() => setQuery('')} />
+                        </span>
+                    )}
+                </span>
             </div>
             {empty !== null ? (
                 <div className="grid min-h-0 grow place-items-center">{empty}</div>
@@ -782,7 +914,7 @@ export function FilesPanel() {
                     <ContextMenu.Root>
                         <ContextMenu.Trigger
                             render={<div />}
-                            /* The padding is on the frame, not the scroller, so the first row never slides under the toolbar. */
+                            /* The padding is on the frame, not the scroller, so the first row never slides under the filter. */
                             className="min-h-0 grow overflow-hidden pt-2"
                             onContextMenu={(event) => {
                                 const path = rowPathOf(event);
@@ -807,11 +939,12 @@ export function FilesPanel() {
                                 model={activeModel}
                                 className="h-full min-h-0"
                                 label={t('shell:panel.names.files')}
-                                resetKey={folder ?? ''}
+                                resetKey={root}
                                 onActivate={openPath}
                                 onFocusMove={followQuickLook}
                                 onKeyDownCapture={onTreeKey}
                                 onRowDragStart={onDragStart}
+                                renderDecoration={decorate}
                             />
                         </ContextMenu.Trigger>
                         <ContextMenu.Popup
@@ -829,9 +962,8 @@ export function FilesPanel() {
                                     <ContextMenu.Item
                                         className="text-status-error"
                                         onClick={() =>
-                                            folder &&
                                             setDeleting({
-                                                absolutes: menuTargets.map((treePath) => absoluteOf(folder, treePath).replace(/\/+$/, '')),
+                                                absolutes: menuTargets.map((treePath) => absoluteOf(root, treePath).replace(/\/+$/, '')),
                                                 directory: false
                                             })
                                         }
@@ -846,7 +978,7 @@ export function FilesPanel() {
                                             <ContextMenu.Item onClick={onMenuPath((_absolute, treePath) => openPath(treePath))}>
                                                 <Icon icon={FolderOpen} size={14} /> {t('common:action.open')}
                                             </ContextMenu.Item>
-                                            {changedStatus !== null && (
+                                            {changedFile !== null && (
                                                 <ContextMenu.Item onClick={openChanges}>
                                                     <Icon icon={FileDiff} size={14} /> {t('git.list.openChanges')}
                                                 </ContextMenu.Item>
@@ -867,7 +999,7 @@ export function FilesPanel() {
                                     <ContextMenu.Item onClick={() => startFromMenu('directory', creationParentOf(menuPath))}>
                                         <Icon icon={FolderPlus} size={14} /> {t('files.create.folder')}
                                     </ContextMenu.Item>
-                                    {menuPath !== null && folder !== null && (
+                                    {menuPath !== null && (
                                         <>
                                             <ContextMenu.Separator />
                                             {isDirectoryPath(menuPath) ? (
@@ -883,7 +1015,7 @@ export function FilesPanel() {
                                                     <FileCopyRow targets={copyTargets} />
                                                 </>
                                             ) : (
-                                                <FileActionItems path={absoluteOf(folder, menuPath)} on="files" />
+                                                <FileActionItems path={absoluteOf(root, menuPath)} on="files" />
                                             )}
                                             <ContextMenu.Separator />
                                             <ContextMenu.Item
@@ -918,6 +1050,16 @@ export function FilesPanel() {
                             onBlur={onEntryBlur}
                         />
                     )}
+                </div>
+            )}
+            {/* A name that matches nothing may still be a word inside a file, so the filter hands on to find in files. */}
+            {searching && (
+                <div className="shrink-0 border-t border-border p-1">
+                    <Button className="w-full justify-start" onClick={() => useUi.getState().openFindInFiles(query.trim())}>
+                        <Icon icon={FileSearch} size={14} />
+                        <span className="grow truncate text-left">{t('file.empty.findInFiles')}</span>
+                        <Kbd variant="inline" shortcut={APP_SHORTCUTS.findInFiles} />
+                    </Button>
                 </div>
             )}
             <PromptDialog

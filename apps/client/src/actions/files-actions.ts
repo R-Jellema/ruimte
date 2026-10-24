@@ -147,8 +147,8 @@ export function filesActions(overrides: Partial<FilesMachine> = {}): ActionHandl
             }
             return { output: { ...result, entries: result.entries.slice(0, MAX_LISTED), truncated: true } };
         },
-        'file.search': async ({ query, limit }) => {
-            const cwd = projectFolder();
+        'file.search': async ({ query, limit, folder }) => {
+            const cwd = folder ?? projectFolder();
             return { output: await requested(() => connected().request('fs.search', { cwd, query, limit: limit ?? DEFAULT_RESULTS })) };
         },
         'file.grep': async ({ query, regex, caseSensitive, wholeWord, limit }) => {

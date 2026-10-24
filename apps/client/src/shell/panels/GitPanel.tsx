@@ -1,20 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import i18next from 'i18next';
 import { useTranslation } from 'react-i18next';
-import {
-    Archive,
-    ChevronsDownUp,
-    ChevronsUpDown,
-    Folder,
-    GitBranch,
-    GitFork,
-    GitMerge,
-    GitPullRequest,
-    LocateFixed,
-    MessageSquare,
-    MoreHorizontal,
-    RefreshCw
-} from 'lucide-react';
+import { Archive, ChevronsDownUp, ChevronsUpDown, Folder, GitBranch, GitMerge, GitPullRequest, MoreHorizontal, RefreshCw } from 'lucide-react';
 import { type GitActionKind, type GitCapabilitiesResult, type GitFile, type GitRef, type GitStash, type Worktree } from '@ruimte/contracts';
 import { ignoreRefusal, perform } from '@/actions/client-actions';
 import { desktop } from '@/desktop/bridge';
@@ -24,7 +11,7 @@ import { CommitBox } from '@/shell/panels/CommitBox';
 import { CommitLog, type LogSource } from '@/shell/panels/CommitLog';
 import { absoluteOf, basenameOf } from '@/shell/panels/files-tree';
 import { GitChoice, GitDiverged, type Choice } from '@/shell/panels/GitDialogs';
-import { PromptDialog, useColumnResize, Banner, Button, Checkbox, FormError, Icon, IconButton, PanelEmpty, Menu, SectionLabel, Tooltip } from '@adecore/ui';
+import { PromptDialog, useColumnResize, Banner, Button, Checkbox, FormError, Icon, IconButton, PanelEmpty, Menu, SectionLabel } from '@adecore/ui';
 import { formatNumber } from '@adecore/ui/format';
 import { GitFileList, type GitWork } from '@/shell/panels/GitFileList';
 import { isUnmergedRefusal, popStashStep, pushButton, pushable, pushEntries, type CommitCandidate } from '@/shell/panels/git-actions';
@@ -33,7 +20,7 @@ import { activeDiff, allCollapseKeys, checkOfItems, entriesOf, toggleItems } fro
 import { stageFiles } from '@/shell/panels/stage-files';
 import { useGitActions, type ActionOutcome, type ManyJob } from '@/shell/panels/use-git-actions';
 import { useWorktreeInspection } from '@/shell/panels/use-worktree-inspection';
-import { WorktreeInspectDialog, type WorktreeActions } from '@/shell/panels/WorktreeMenu';
+import { WorktreeBar, WorktreeInspectDialog, type WorktreeActions } from '@/shell/panels/WorktreeMenu';
 import { nodesInWorktree, worktreeBase, worktreeDiffTab } from '@/shell/panels/worktree-rows';
 import { PanelHeaderLeadingSlot, PanelHeaderSlot, PanelHeaderTitleHidden } from '@/shell/PanelHeaderSlot';
 import { revealNode } from '@/project/views';
@@ -565,14 +552,16 @@ export function GitPanel() {
                     hidden={hiddenRepos.length}
                     busy={busy}
                     worktreeActions={worktreeActions}
-                    refsOf={refsOf}
-                    renderActions={repoActions}
+                    branches={{
+                        refsOf,
+                        renderActions: repoActions,
+                        onOpen: loadRefs,
+                        onCheckout: checkout,
+                        onCreate: (path) => setDialog({ kind: 'create-branch', cwd: path })
+                    }}
                     onOpenMenu={openBranchMenu}
-                    onOpen={loadRefs}
                     onEnterWorktree={enterWorktree}
                     onLeaveWorktree={leaveWorktree}
-                    onCheckout={checkout}
-                    onCreate={(path) => setDialog({ kind: 'create-branch', cwd: path })}
                     onShowRepos={() => useGit.getState().setHiddenRepos([])}
                     onMergeWorktrees={() =>
                         useUi.getState().setWorktreeMerge({ folder, paths: worktrees.filter((entry) => entry.missing !== true).map((entry) => entry.path) })
@@ -598,26 +587,15 @@ export function GitPanel() {
                 </ActionsMenu>
             </PanelHeaderSlot>
             {worktree !== null && (
-                <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border pr-2 pl-3 text-sm">
-                    {/* While the selection put the panel here, the row says so; the chip's project row leaves. */}
-                    <Tooltip
-                        label={
-                            followedNode === null ? (worktree.cwd ?? worktree.label) : t('git.follow.label', { node: followedNode.title || followedNode.kind })
-                        }
-                    >
-                        <span className="flex min-w-0 items-center gap-2">
-                            <Icon icon={GitFork} size={14} className="shrink-0 text-text-muted" />
-                            <span className="shrink-0 text-text">{several ? folderRepo : t('git.worktree.label')}</span>
-                            {insideNames !== '' && (
-                                <span className="flex min-w-0 items-center gap-1 text-text-muted">
-                                    <Icon icon={MessageSquare} size={12} className="shrink-0" />
-                                    <span className="truncate">{insideNames}</span>
-                                </span>
-                            )}
-                            {followedNode !== null && <Icon icon={LocateFixed} size={12} className="shrink-0 text-text-faint" />}
-                        </span>
-                    </Tooltip>
-                    <span className="grow" />
+                /* While the selection put the panel here, the row says so; the chip's project row leaves. */
+                <WorktreeBar
+                    label={several ? folderRepo : t('git.worktree.label')}
+                    names={insideNames}
+                    tooltip={
+                        followedNode === null ? (worktree.cwd ?? worktree.label) : t('git.follow.label', { node: followedNode.title || followedNode.kind })
+                    }
+                    following={followedNode !== null}
+                >
                     {inside !== null && (
                         <Button
                             size="xs"
@@ -629,7 +607,7 @@ export function GitPanel() {
                             {t('git.worktree.merge')}
                         </Button>
                     )}
-                </div>
+                </WorktreeBar>
             )}
             {failures.map((checkout) => (
                 <FormError key={checkout.path} className="border-b border-border px-3 py-2">

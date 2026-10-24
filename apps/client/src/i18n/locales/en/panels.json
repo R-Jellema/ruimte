@@ -376,9 +376,15 @@
         "deleteMany": "Move {{count}} items to trash…",
         "empty": "This folder is empty.",
         "filter": "Filter files",
+        "clearFilter": "Clear filter",
+        "matches_one": "{{count}} match",
+        "matches_other": "{{count}} matches",
         "noMatch": "No files match the filter.",
         "onlyHidden": "Everything in this folder is hidden or ignored. Turn on Show hidden and ignored files in the More menu.",
         "reading": "Reading {{name}}…",
+        "root": {
+            "project": "Project"
+        },
         "rename": {
             "confirm": "Rename",
             "description": "Type a new name, or a path in the project to move it. Imports and namespaces that refer to it are updated too.",

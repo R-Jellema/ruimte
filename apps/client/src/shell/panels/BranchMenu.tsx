@@ -22,6 +22,18 @@ export interface CheckoutRefs {
     branch: string | null;
 }
 
+/* What the picker offers past choosing a place: the branches one level in, and what acts on one checkout. */
+export interface BranchActions {
+    refsOf(cwd: string): CheckoutRefs;
+    /* What one checkout can be told to do, drawn into its own level. The panel owns these, because
+       half of them open a dialog it holds. */
+    renderActions(cwd: string): ReactNode;
+    /* Reads the branches of a checkout, which is what opening its level asks for. */
+    onOpen(cwd: string): void;
+    onCheckout(cwd: string, ref: GitRef): void;
+    onCreate(cwd: string): void;
+}
+
 interface BranchMenuProps {
     /* The checkout a panel of one checkout is on; over several repositories, the project folder. */
     target: GitTarget;
@@ -44,23 +56,18 @@ interface BranchMenuProps {
     /* The repository the worktrees were made from, named on their rows while the project holds several. */
     worktreeRepo: string | null;
     /* How many repositories of the folder a person folded away. */
-    hidden: number;
+    hidden?: number;
     busy: boolean;
-    worktreeActions: WorktreeActions;
-    refsOf(cwd: string): CheckoutRefs;
-    /* What one checkout can be told to do, drawn into its own level. The panel owns these, because
-       half of them open a dialog it holds. */
-    renderActions(cwd: string): ReactNode;
+    /* Without these a worktree's row only enters it. */
+    worktreeActions?: WorktreeActions;
+    /* Without these the picker only chooses where the panel stands. */
+    branches?: BranchActions;
     /* The chip was opened; the worktrees beside the repositories are read again then. */
     onOpenMenu(): void;
-    /* Reads the branches of a checkout, which is what opening its level asks for. */
-    onOpen(cwd: string): void;
     onEnterWorktree(worktree: Worktree): void;
     onLeaveWorktree(): void;
-    onCheckout(cwd: string, ref: GitRef): void;
-    onCreate(cwd: string): void;
-    onShowRepos(): void;
-    onMergeWorktrees(): void;
+    onShowRepos?(): void;
+    onMergeWorktrees?(): void;
 }
 
 /* Which worktree the branch is in, named after the group that binds it since that says more than its path does. */
@@ -89,17 +96,13 @@ export function BranchMenu({
     folderLabel,
     projectChanges,
     worktreeRepo,
-    hidden,
+    hidden = 0,
     busy,
     worktreeActions,
-    refsOf,
-    renderActions,
+    branches,
     onOpenMenu,
-    onOpen,
     onEnterWorktree,
     onLeaveWorktree,
-    onCheckout,
-    onCreate,
     onShowRepos,
     onMergeWorktrees
 }: BranchMenuProps) {
@@ -110,6 +113,8 @@ export function BranchMenu({
     const repos = targets.filter((entry) => entry.kind !== 'worktree');
     const several = repos.length > 1;
     const mergeable = worktrees.filter((entry) => entry.missing !== true);
+    const showRepos = several && hidden > 0 && onShowRepos !== undefined;
+    const mergeWorktrees = !several && mergeable.length > 0 && onMergeWorktrees !== undefined;
 
     /* Only a branch has a name to take along; a detached HEAD and a chip over several repositories name none. */
     const copyable = !nested && !detached && branch !== null ? branch : null;
@@ -203,44 +208,45 @@ export function BranchMenu({
                                 </Menu.Group>
                             </>
                         )}
-                        <Menu.Separator />
-                        {nested ? (
-                            <Menu.SubmenuRoot>
-                                <Menu.SubmenuTrigger>
-                                    <Icon icon={GitBranch} size={14} /> {t('git.branchMenu.switch')}
-                                </Menu.SubmenuTrigger>
-                                <Menu.Popup className="max-h-[32rem] w-72 overflow-y-auto">
-                                    {repos.map((entry) => (
-                                        <CheckoutLevel
-                                            key={entry.cwd ?? entry.label}
-                                            entry={entry}
-                                            refs={entry.cwd === null ? { refs: [], loading: false, branch: null } : refsOf(entry.cwd)}
-                                            renderActions={renderActions}
-                                            onOpen={onOpen}
-                                            onCheckout={onCheckout}
-                                            onCreate={onCreate}
-                                        />
-                                    ))}
-                                </Menu.Popup>
-                            </Menu.SubmenuRoot>
-                        ) : (
-                            target.cwd !== null && (
-                                <BranchLevel
-                                    cwd={target.cwd}
-                                    refs={refsOf(target.cwd)}
-                                    branch={branch}
-                                    onOpen={onOpen}
-                                    onCheckout={onCheckout}
-                                    onCreate={onCreate}
-                                />
-                            )
-                        )}
-                        {several && hidden > 0 && (
+                        {(branches !== undefined || showRepos || mergeWorktrees) && <Menu.Separator />}
+                        {branches !== undefined &&
+                            (nested ? (
+                                <Menu.SubmenuRoot>
+                                    <Menu.SubmenuTrigger>
+                                        <Icon icon={GitBranch} size={14} /> {t('git.branchMenu.switch')}
+                                    </Menu.SubmenuTrigger>
+                                    <Menu.Popup className="max-h-[32rem] w-72 overflow-y-auto">
+                                        {repos.map((entry) => (
+                                            <CheckoutLevel
+                                                key={entry.cwd ?? entry.label}
+                                                entry={entry}
+                                                refs={entry.cwd === null ? { refs: [], loading: false, branch: null } : branches.refsOf(entry.cwd)}
+                                                renderActions={branches.renderActions}
+                                                onOpen={branches.onOpen}
+                                                onCheckout={branches.onCheckout}
+                                                onCreate={branches.onCreate}
+                                            />
+                                        ))}
+                                    </Menu.Popup>
+                                </Menu.SubmenuRoot>
+                            ) : (
+                                target.cwd !== null && (
+                                    <BranchLevel
+                                        cwd={target.cwd}
+                                        refs={branches.refsOf(target.cwd)}
+                                        branch={branch}
+                                        onOpen={branches.onOpen}
+                                        onCheckout={branches.onCheckout}
+                                        onCreate={branches.onCreate}
+                                    />
+                                )
+                            ))}
+                        {showRepos && (
                             <Menu.Item onClick={onShowRepos}>
                                 <Icon icon={Eye} size={14} /> {t('git.repo.showAll', { count: hidden })}
                             </Menu.Item>
                         )}
-                        {!several && mergeable.length > 0 && (
+                        {mergeWorktrees && (
                             <Menu.Item disabled={busy} onClick={onMergeWorktrees}>
                                 <Icon icon={GitMerge} size={14} /> {t('git.branchMenu.mergeWorktrees')}
                             </Menu.Item>

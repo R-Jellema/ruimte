@@ -6,6 +6,8 @@ import {
     LOADING_NAME,
     ancestorDirsOf,
     buildTreeInput,
+    checkoutOfPath,
+    checkoutStatusEntries,
     compareRows,
     dirnameOf,
     gitStatusEntries,
@@ -13,6 +15,7 @@ import {
     mentionOf,
     mergeExpanded,
     newlyExpanded,
+    repoRowsOf,
     sameEntries,
     treeGitStatus,
     treePathOf,
@@ -247,5 +250,32 @@ describe('a folder listed again', () => {
         expect(sameEntries([entry('a.ts')], [entry('a.ts'), entry('b.ts')])).toBe(false);
         expect(sameEntries([entry('a.ts')], [entry('b.ts')])).toBe(false);
         expect(sameEntries([entry('a.ts', 1)], [entry('a.ts', 2)])).toBe(false);
+    });
+});
+
+describe('the checkouts of a tree', () => {
+    const outer = { path: '/repo', status: { root: '/repo', files: [file('Makefile', 'M')] } };
+    const inner = { path: '/repo/backend', status: { root: '/repo/backend', files: [file('config/feeds.yaml', 'M')] } };
+    const unread = { path: '/repo/infra', status: null };
+
+    test('every checkout marks its own files in the rows of the tree', () => {
+        expect(checkoutStatusEntries('/repo', [outer, inner, unread])).toEqual([
+            { path: 'Makefile', status: 'modified' },
+            { path: 'backend/config/feeds.yaml', status: 'modified' }
+        ]);
+    });
+
+    test('a path belongs to the innermost checkout it is in', () => {
+        expect(checkoutOfPath([outer, inner], '/repo/backend/config/feeds.yaml')).toBe(inner);
+        expect(checkoutOfPath([inner, outer], '/repo/backend/config/feeds.yaml')).toBe(inner);
+        expect(checkoutOfPath([outer, inner], '/repo/Makefile')).toBe(outer);
+        expect(checkoutOfPath([inner], '/repo/Makefile')).toBeNull();
+    });
+
+    test('a checkout below the root is a row of the tree, and the root itself is none', () => {
+        expect([...repoRowsOf('/repo', [outer, inner, unread]).entries()]).toEqual([
+            ['backend/', inner],
+            ['infra/', unread]
+        ]);
     });
 });

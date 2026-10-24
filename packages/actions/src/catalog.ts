@@ -3579,7 +3579,8 @@ export const ACTION_DEFINITIONS = {
         actors: PERSON_AND_VOICE,
         input: z.object({
             query: z.string().trim().max(256).describe('Part of a file name or path; empty lists files'),
-            limit: forActors(PERSON, z.number().int().positive().max(FS_SEARCH_MAX_RESULTS)).describe('How many files at most')
+            limit: forActors(PERSON, z.number().int().positive().max(FS_SEARCH_MAX_RESULTS)).describe('How many files at most'),
+            folder: forActors(PERSON, filePath).describe('The folder to search instead of the project folder, such as a worktree, absolute')
         }),
         output: FsSearchResultSchema
     },

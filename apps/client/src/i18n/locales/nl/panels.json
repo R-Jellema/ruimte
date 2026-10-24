@@ -376,9 +376,15 @@
         "deleteMany": "{{count}} items naar de prullenbak…",
         "empty": "Deze map is leeg.",
         "filter": "Bestanden filteren",
+        "clearFilter": "Filter wissen",
+        "matches_one": "{{count}} resultaat",
+        "matches_other": "{{count}} resultaten",
         "noMatch": "Geen bestanden die aan het filter voldoen.",
         "onlyHidden": "Alles in deze map is verborgen of genegeerd. Zet Verborgen en genegeerde bestanden tonen aan in het menu Meer.",
         "reading": "{{name}} lezen…",
+        "root": {
+            "project": "Project"
+        },
         "rename": {
             "confirm": "Hernoemen",
             "description": "Typ een nieuwe naam, of een pad in het project om het te verplaatsen. Imports en namespaces die ernaar verwijzen gaan mee.",

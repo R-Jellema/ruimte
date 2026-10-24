@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     ArrowDown,
@@ -80,7 +81,8 @@ interface WorktreeRowsProps {
     /* The repository the worktrees were made from, named on each row while the project holds several. */
     repo: string | null;
     busy: boolean;
-    actions: WorktreeActions;
+    /* Without these a row only enters its worktree. */
+    actions?: WorktreeActions;
     onEnter(worktree: Worktree): void;
 }
 
@@ -126,36 +128,73 @@ export function WorktreeRows({ worktrees, nodes, current, repo, busy, actions, o
                     <WorkCounts worktree={worktree} />
                     {worktree.path === current && <Menu.Check kind="radio" checked />}
                 </Menu.Item>
-                <Menu.SubmenuRoot>
-                    <Menu.RowSubmenuTrigger icon={MoreHorizontal} label={t('worktree.menu.actions')} disabled={busy} />
-                    <Menu.Popup>
-                        {!worktree.missing && (
-                            <>
-                                <Menu.Item onClick={() => actions.onView(worktree)}>
-                                    <Icon icon={Eye} size={14} /> {t('worktree.menu.view')}
+                {actions !== undefined && (
+                    <Menu.SubmenuRoot>
+                        <Menu.RowSubmenuTrigger icon={MoreHorizontal} label={t('worktree.menu.actions')} disabled={busy} />
+                        <Menu.Popup>
+                            {!worktree.missing && (
+                                <>
+                                    <Menu.Item onClick={() => actions.onView(worktree)}>
+                                        <Icon icon={Eye} size={14} /> {t('worktree.menu.view')}
+                                    </Menu.Item>
+                                    <Menu.Item onClick={() => actions.onMerge(worktree)}>
+                                        <Icon icon={GitMerge} size={14} /> {t('worktree.menu.merge')}
+                                    </Menu.Item>
+                                </>
+                            )}
+                            {reveal !== null && onCanvas && (
+                                <Menu.Item onClick={() => actions.onReveal(reveal)}>
+                                    <Icon icon={LocateFixed} size={14} /> {t('file.menu.showOnCanvas')}
                                 </Menu.Item>
-                                <Menu.Item onClick={() => actions.onMerge(worktree)}>
-                                    <Icon icon={GitMerge} size={14} /> {t('worktree.menu.merge')}
-                                </Menu.Item>
-                            </>
-                        )}
-                        {reveal !== null && onCanvas && (
-                            <Menu.Item onClick={() => actions.onReveal(reveal)}>
-                                <Icon icon={LocateFixed} size={14} /> {t('file.menu.showOnCanvas')}
+                            )}
+                            <Menu.Item onClick={() => actions.onInspect(worktree, agentWorking)}>
+                                <Icon icon={ScanSearch} size={14} /> {t('worktree.menu.inspect')}
                             </Menu.Item>
-                        )}
-                        <Menu.Item onClick={() => actions.onInspect(worktree, agentWorking)}>
-                            <Icon icon={ScanSearch} size={14} /> {t('worktree.menu.inspect')}
-                        </Menu.Item>
-                        <Menu.Separator />
-                        <Menu.Item className="text-status-error" onClick={() => actions.onRemove(worktree)}>
-                            <Icon icon={Trash} size={14} /> {t('worktree.menu.remove')}
-                        </Menu.Item>
-                    </Menu.Popup>
-                </Menu.SubmenuRoot>
+                            <Menu.Separator />
+                            <Menu.Item className="text-status-error" onClick={() => actions.onRemove(worktree)}>
+                                <Icon icon={Trash} size={14} /> {t('worktree.menu.remove')}
+                            </Menu.Item>
+                        </Menu.Popup>
+                    </Menu.SubmenuRoot>
+                )}
             </Menu.Row>
         );
     });
+}
+
+interface WorktreeBarProps {
+    /* The repository the worktree was made from while the project holds several, else the word for a worktree. */
+    label: string;
+    /* The nodes working in it, by their titles. */
+    names: string;
+    tooltip: string;
+    /* True while the selection put the panel here, which the row marks. */
+    following?: boolean;
+    /* What sits at the end of the row. */
+    children?: ReactNode;
+}
+
+/* The row under a panel's header that says the panel is inside a worktree, and who works in it. */
+export function WorktreeBar({ label, names, tooltip, following = false, children }: WorktreeBarProps) {
+    return (
+        <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border pr-2 pl-3 text-sm">
+            <Tooltip label={tooltip}>
+                <span className="flex min-w-0 items-center gap-2">
+                    <Icon icon={GitFork} size={14} className="shrink-0 text-text-muted" />
+                    <span className="shrink-0 text-text">{label}</span>
+                    {names !== '' && (
+                        <span className="flex min-w-0 items-center gap-1 text-text-muted">
+                            <Icon icon={MessageSquare} size={12} className="shrink-0" />
+                            <span className="truncate">{names}</span>
+                        </span>
+                    )}
+                    {following && <Icon icon={LocateFixed} size={12} className="shrink-0 text-text-faint" />}
+                </span>
+            </Tooltip>
+            <span className="grow" />
+            {children}
+        </div>
+    );
 }
 
 /* How far the worktree is ahead and behind and how many files it changed, or that it is clean; nothing until it is counted. */

@@ -153,3 +153,42 @@ export function gitStatusEntries(folder: string, root: string | null, files: rea
     }
     return entries;
 }
+
+/* A checkout as the files panel reads it: where it is, and what git said there once it said anything. */
+export interface TreeCheckout {
+    path: string;
+    status: { root: string | null; files: readonly GitFile[] } | null;
+}
+
+/* Where a checkout's paths count from: the root git named, or the folder it was asked about. */
+function rootOf(checkout: TreeCheckout): string {
+    return checkout.status?.root ?? checkout.path;
+}
+
+/* What every checkout says, in the rows of a tree that lists `root`; a file of a nested repository is that repository's. */
+export function checkoutStatusEntries(root: string, checkouts: readonly TreeCheckout[]): GitStatusEntry[] {
+    return checkouts.flatMap((checkout) => gitStatusEntries(root, rootOf(checkout), checkout.status?.files ?? []));
+}
+
+/* The innermost checkout a path is in, which is the one git answers for it. */
+export function checkoutOfPath<Checkout extends TreeCheckout>(checkouts: readonly Checkout[], path: string): Checkout | null {
+    let found: Checkout | null = null;
+    for (const checkout of checkouts) {
+        const root = rootOf(checkout);
+        if ((path === root || isPathBelow(root, path)) && (found === null || isPathBelow(rootOf(found), root))) {
+            found = checkout;
+        }
+    }
+    return found;
+}
+
+/* The checkouts that are a row of the tree that lists `root`, by that row's path; the root itself has none. */
+export function repoRowsOf<Checkout extends { path: string }>(root: string, checkouts: readonly Checkout[]): Map<string, Checkout> {
+    const rows = new Map<string, Checkout>();
+    for (const checkout of checkouts) {
+        if (isPathBelow(root, checkout.path)) {
+            rows.set(`${relativeTo(root, checkout.path)}/`, checkout);
+        }
+    }
+    return rows;
+}
