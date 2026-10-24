@@ -1,5 +1,5 @@
 import { formatDecimal, formatRounded, formatTokens, formatUsdSignificant } from '@adecore/ui/format';
-import { compareEfforts, costAxis, frontier, intelligenceAxis, type Axis, type ChartModel, type ChartPoint, type CostScale } from './chart';
+import { compareEfforts, costAxis, intelligenceAxis, type Axis, type ChartModel, type ChartPoint, type CostScale } from './chart';
 
 export const MODEL_VIEWS = ['comparison', 'speed', 'score', 'coding', 'agentic', 'cost', 'totalCost'] as const;
 export type ModelView = (typeof MODEL_VIEWS)[number];
@@ -46,12 +46,6 @@ export function lowerIsBetter(metric: Metric): boolean {
 export function matchesChart(point: ChartPoint, metric: Metric, scatter: boolean, scale: CostScale): boolean {
     const value = metricValue(point, metric);
     return value !== null && (!scatter || (metricValue(point, 'intelligence') !== null && (scale !== 'log' || value > 0)));
-}
-
-export function metricFrontier<T extends { value: number; score: number }>(points: readonly T[], metric: ScatterMetric): T[] {
-    return frontier(points.map((point) => ({ costPerTask: lowerIsBetter(metric) ? point.value : -point.value, intelligence: point.score, point }))).map(
-        (entry) => entry.point
-    );
 }
 
 export interface ModelPoint extends ChartPoint {
@@ -111,7 +105,7 @@ export function barGroups(models: readonly ChartModel[], view: BarMetric, groupe
 export function barAxis(models: readonly ChartModel[], view: BarMetric): Axis {
     const metric = VIEW_METRICS[view];
     const values = modelPoints(models).flatMap((point) => metricValue(point, metric) ?? []);
-    return lowerIsBetter(metric) ? costAxis(values, 'linear') : intelligenceAxis([0, ...values]);
+    return lowerIsBetter(metric) ? costAxis(values) : intelligenceAxis([0, ...values]);
 }
 
 export function metricChange(reference: ChartPoint, candidate: ChartPoint, metric: Metric): { value: number; ratio: boolean } | null {

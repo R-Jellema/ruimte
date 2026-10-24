@@ -22,18 +22,15 @@
         "totalCost": "Evaluation cost"
     },
     "chart": {
-        "point": "{{model}}, {{effort}}: Intelligence Index {{intelligence}}, {{metric}} {{value}}",
         "frontier": "Not beaten on both axes in this selection.",
         "pareto": "Not beaten on both axes",
         "logarithmic": "log scale",
-        "keyboard": "Arrow keys to explore, Enter or Space to pin, Escape to clear.",
         "hint": "Select a measurement to pin A, then hover or select another to compare."
     },
     "bars": {
         "grouped": "Grouped",
         "ranked": "Ranked",
-        "order": "Order",
-        "point": "{{model}}, {{effort}}: {{metric}} {{value}}"
+        "order": "Order"
     },
     "metrics": {
         "intelligence": "Intelligence Index",
@@ -116,8 +113,6 @@
         "close": "Close filters",
         "search": "Find models",
         "noResults": "No models found.",
-        "all": "All",
-        "none": "None",
         "resetModels": "Show all models",
         "resetEfforts": "Show all reasoning levels",
         "count_one": "{{value}} model selected",
@@ -125,7 +120,6 @@
     },
     "compare": {
         "label": "Measurement comparison",
-        "reference": "A · Reference",
         "candidate": "B · Compare with",
         "choose": "Choose measurement B",
         "clear": "Clear comparison",

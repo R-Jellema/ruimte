@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
+import { act } from 'react';
 import type { ModelBenchmarksResult } from '@ruimte/pulsar';
 import { clickOn, mount, pressKey, until, type Mounted } from '../../../testing/dom';
 import { ModelsComparison } from './ModelsComparison';
@@ -58,6 +59,37 @@ function point(name: string): Element | null {
     return [...document.querySelectorAll('svg [role="button"]')].find((element) => element.getAttribute('aria-label')?.startsWith(name + ',')) ?? null;
 }
 
+function chart(): Element {
+    return document.querySelector('svg[aria-roledescription="chart"]')!;
+}
+
+/* What the keyboard is on: the chart is one tab stop and names its point through the active descendant. */
+function current(): string | null {
+    const id = chart().getAttribute('aria-activedescendant');
+    return id === null ? null : (document.getElementById(id)?.getAttribute('aria-label') ?? null);
+}
+
+/* Walks the chart with the keyboard to the point of `name`, the way a person does without a pointer. */
+async function moveTo(name: string, key: 'ArrowRight' | 'ArrowDown'): Promise<void> {
+    for (let step = 0; step < 10 && !current()?.startsWith(name + ','); step++) {
+        await pressKey(chart(), key);
+    }
+    expect(current()).toStartWith(name + ',');
+}
+
+async function pick(name: string, key: 'ArrowRight' | 'ArrowDown' = 'ArrowDown'): Promise<void> {
+    await moveTo(name, key);
+    await pressKey(chart(), 'Enter');
+}
+
+function pressed(): string[] {
+    return [...document.querySelectorAll('svg [role="button"][aria-pressed="true"]')].map((element) => element.getAttribute('aria-label') ?? '');
+}
+
+function status(): string {
+    return document.querySelector('p[role="status"]')?.textContent ?? '';
+}
+
 describe('benchmark comparison', () => {
     test('bar axes keep the selected models full range when their maximum effort is hidden', async () => {
         await open({
@@ -69,16 +101,18 @@ describe('benchmark comparison', () => {
             ['Cost per task', '$10']
         ] as const) {
             await clickOn(tab(view));
-            const chart = document.querySelector(`svg[aria-label="${view}"]`)!;
-            const ticks = (): string[] => [...chart.querySelectorAll('text[text-anchor="end"]')].map((element) => element.textContent ?? '');
+            expect(chart().getAttribute('aria-label')).toBe(view);
+            // The value axis writes its ticks end-aligned beside the plot; value labels stand centered over their columns.
+            const ticks = (): string[] =>
+                [...document.querySelectorAll('[role="tabpanel"] text[text-anchor="end"]')].map((element) => element.textContent ?? '');
             expect(ticks()).toContain(ceiling);
-            expect(chart.querySelectorAll('[role="button"]')).toHaveLength(3);
+            expect(chart().querySelectorAll('[role="button"]')).toHaveLength(3);
             const maximum = [...document.querySelectorAll('fieldset button')].find((element) => element.textContent === 'max')!;
             expect(maximum.getAttribute('aria-pressed')).toBe('true');
             await clickOn(maximum);
             expect(maximum.getAttribute('aria-pressed')).toBe('false');
-            expect(chart.querySelectorAll('[role="button"]')).toHaveLength(2);
-            expect([...chart.querySelectorAll('[role="button"]')].some((element) => element.getAttribute('aria-label')?.includes('Max'))).toBe(false);
+            expect(chart().querySelectorAll('[role="button"]')).toHaveLength(2);
+            expect([...chart().querySelectorAll('[role="button"]')].some((element) => element.getAttribute('aria-label')?.includes('Max'))).toBe(false);
             expect(ticks()).toContain(ceiling);
             await clickOn(maximum);
         }
@@ -107,8 +141,8 @@ describe('benchmark comparison', () => {
         await until(() => document.querySelectorAll('[role="option"]').length > 0);
         await clickOn([...document.querySelectorAll('[role="option"]')].find((element) => element.textContent?.includes('Time to first answer')) ?? null);
         expect(point('Claude Opus 5.5')?.getAttribute('aria-label')).toContain('First answer (s)');
-        await pressKey(point('Claude Opus 5.5')!, 'Enter');
-        await pressKey(point('Claude Opus 5')!, 'Enter');
+        await pick('Claude Opus 5.5');
+        await pick('Claude Opus 5');
         const panel = document.querySelector('section[aria-label="Measurement comparison"]')!;
         expect(panel.textContent).toContain('Token prices (USD per 1M tokens)');
         const cache = [...panel.querySelectorAll('tr')].find((row) => row.querySelector('th')?.textContent === 'Cache read')!;
@@ -123,10 +157,65 @@ describe('benchmark comparison', () => {
 
     test('still renders an older cached response without latency or prices', async () => {
         await open({ ...RESULT, measurements: undefined });
-        await pressKey(point('Claude Opus 5.5')!, 'Enter');
+        await pick('Claude Opus 5.5');
         const panel = document.querySelector('section[aria-label="Measurement comparison"]')!;
         expect(panel.textContent).toContain('Cost per task');
         expect(panel.textContent).not.toContain('Token prices');
         expect(panel.textContent).not.toContain('First answer (s)');
     });
+
+    test('compares a pinned column with the one the keyboard is on, and one Escape clears both', async () => {
+        await open();
+        await clickOn(tab('Intelligence'));
+        await pick('Claude Opus 5.5', 'ArrowRight');
+        expect(pressed()).toEqual(['Claude Opus 5.5, High, Intelligence Index 55']);
+        await moveTo('Claude Opus 5', 'ArrowRight');
+        expect(pressed()).toHaveLength(2);
+        const rules = (): string[] => [...document.querySelectorAll('[role="tabpanel"] text')].map((element) => element.textContent ?? '');
+        expect(rules()).toEqual(expect.arrayContaining(['A · 55', 'B · 50']));
+        const reached: string[] = [];
+        const listen = (e: KeyboardEvent): void => {
+            reached.push(e.key);
+        };
+        document.addEventListener('keydown', listen);
+        await pressKey(chart(), 'Escape');
+        document.removeEventListener('keydown', listen);
+        expect(pressed()).toEqual([]);
+        expect(rules()).not.toContain('A · 55');
+        expect(status()).toBe('Comparison cleared.');
+        // The dialog around the chart closes on an Escape that reaches the document.
+        expect(reached).toEqual([]);
+    });
+
+    test('turning a lab off with None clears the reference it held and says why', async () => {
+        await open();
+        await pick('Claude Opus 5.5');
+        expect(pressed()).toHaveLength(1);
+        const legend = document.querySelector('aside')!;
+        await clickOn([...legend.querySelectorAll('button')].find((element) => element.textContent === 'None') ?? null);
+        expect(legend.querySelector('button[aria-label="Claude Opus 5.5"]')?.getAttribute('aria-pressed')).toBe('false');
+        expect(legend.querySelector('button[aria-label="Claude Opus 5"]')?.getAttribute('aria-pressed')).toBe('false');
+        expect(status()).toBe('A filter hid the reference, so the comparison was cleared.');
+    });
+
+    test('the search above the legend narrows its models', async () => {
+        await open();
+        const legend = document.querySelector('aside')!;
+        const search = legend.querySelector<HTMLInputElement>('input[placeholder="Find models"]')!;
+        const models = (): string[] =>
+            [...legend.querySelectorAll('[role="group"] button[aria-pressed][aria-label]')].map((element) => element.getAttribute('aria-label') ?? '');
+        expect(models()).toEqual(['Claude Opus 5.5', 'Claude Opus 5']);
+        await typeInto(search, '5.5');
+        expect(models()).toEqual(['Claude Opus 5.5']);
+        await typeInto(search, 'gemini');
+        expect(models()).toEqual([]);
+        expect(legend.textContent).toContain('No models found.');
+    });
 });
+
+async function typeInto(input: HTMLInputElement, text: string): Promise<void> {
+    await act(async () => {
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, text);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+}

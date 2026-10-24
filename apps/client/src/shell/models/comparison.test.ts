@@ -10,8 +10,8 @@ import {
     initialSelection,
     measuredEfforts,
     matchesChart,
+    lowerIsBetter,
     metricChange,
-    metricFrontier,
     modelPoints,
     pointKey,
     reduceComparison,
@@ -151,12 +151,10 @@ describe('comparison chart math', () => {
     });
 
     test('latency frontiers favor lower times while throughput frontiers favor higher speeds', () => {
-        const fast = { value: 2, score: 50 };
-        const slow = { value: 20, score: 50 };
-        const better = { value: 30, score: 60 };
-        expect(metricFrontier([slow, fast, better], 'timeToFirstAnswer')).toEqual([fast, better]);
-        expect(metricFrontier([slow, fast, better], 'responseTime')).toEqual([fast, better]);
-        expect(metricFrontier([slow, fast, better], 'outputSpeed')).toEqual([better]);
+        expect(lowerIsBetter('timeToFirstAnswer')).toBe(true);
+        expect(lowerIsBetter('responseTime')).toBe(true);
+        expect(lowerIsBetter('costPerTask')).toBe(true);
+        expect(lowerIsBetter('outputSpeed')).toBe(false);
     });
 
     test('chart availability distinguishes missing metrics from effort and logarithmic filters', () => {
@@ -250,11 +248,7 @@ describe('comparison chart math', () => {
             const maximum = metric === 'score' ? 60 : 0.8;
             expect(before.ticks.at(0)).toBe(0);
             expect(before.ticks.at(-1)).toBe(maximum);
-            expect(before.at(maximum)).toBe(1);
-            expect(before.at(maximum / 2)).toBe(0.5);
-            expect(before.at(0)).toBe(0);
             expect(after.ticks).toEqual(before.ticks);
-            expect(after.at(0.4)).toBe(before.at(0.4));
         }
     });
 

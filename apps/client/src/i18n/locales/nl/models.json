@@ -22,18 +22,15 @@
         "totalCost": "Evaluatiekosten"
     },
     "chart": {
-        "point": "{{model}}, {{effort}}: Intelligence Index {{intelligence}}, {{metric}} {{value}}",
         "frontier": "Niet verslagen op beide assen binnen deze selectie.",
         "pareto": "Niet verslagen op beide assen",
         "logarithmic": "logaritmisch",
-        "keyboard": "Pijltjestoetsen om te verkennen, Enter of Spatie om vast te zetten, Escape om te wissen.",
         "hint": "Selecteer een meetpunt als A en beweeg over een ander punt of selecteer het om te vergelijken."
     },
     "bars": {
         "grouped": "Gegroepeerd",
         "ranked": "Gerangschikt",
-        "order": "Volgorde",
-        "point": "{{model}}, {{effort}}: {{metric}} {{value}}"
+        "order": "Volgorde"
     },
     "metrics": {
         "intelligence": "Intelligence Index",
@@ -116,8 +113,6 @@
         "close": "Filters sluiten",
         "search": "Modellen zoeken",
         "noResults": "Geen modellen gevonden.",
-        "all": "Alle",
-        "none": "Geen",
         "resetModels": "Alle modellen tonen",
         "resetEfforts": "Alle denkniveaus tonen",
         "count_one": "{{value}} model geselecteerd",
@@ -125,7 +120,6 @@
     },
     "compare": {
         "label": "Meetpunten vergelijken",
-        "reference": "A · Referentie",
         "candidate": "B · Vergelijken met",
         "choose": "Kies meetpunt B",
         "clear": "Vergelijking wissen",

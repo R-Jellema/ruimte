@@ -1,8 +1,8 @@
-import { useId, useState } from 'react';
-import clsx from 'clsx';
-import { Check, Search, RotateCcw, X } from 'lucide-react';
+import { useState, useSyncExternalStore } from 'react';
+import { Search, RotateCcw, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Button, IconButton, Input, Switch, Tooltip } from '@adecore/ui';
+import { SeriesLegend } from '@adecore/charts';
+import { IconButton, Input, Switch } from '@adecore/ui';
 import { formatNumber } from '@adecore/ui/format';
 import type { BenchmarkLab } from '@ruimte/pulsar';
 import type { ChartModel, ModelMark } from './chart';
@@ -30,6 +30,23 @@ interface ModelsLegendProps {
     onClose(): void;
 }
 
+/* The width under which the sidebar lies over the chart, where the rows are touch targets. */
+const NARROW = '(max-width: 760px)';
+
+function subscribeNarrow(onChange: () => void): () => void {
+    const query = window.matchMedia(NARROW);
+    query.addEventListener('change', onChange);
+    return () => query.removeEventListener('change', onChange);
+}
+
+function useNarrow(): boolean {
+    return useSyncExternalStore(
+        subscribeNarrow,
+        () => window.matchMedia(NARROW).matches,
+        () => false
+    );
+}
+
 export function ModelsLegend({
     labs,
     models,
@@ -50,10 +67,21 @@ export function ModelsLegend({
     onClose
 }: ModelsLegendProps) {
     const { t } = useTranslation('models');
-    const searchId = useId();
+    const narrow = useNarrow();
     const [search, setSearch] = useState('');
-    const shown = models.filter((model) => model.name.toLocaleLowerCase().includes(search.toLocaleLowerCase().trim()));
     const selected = models.filter((model) => !hidden.has(model.id) && model.points.length > 0).length;
+
+    // A group's All or None changes several models at once, which the reducer takes as one step so its notice survives.
+    const changeHidden = (next: string[]): void => {
+        const after = new Set(next);
+        const changed = models.filter((model) => hidden.has(model.id) !== after.has(model.id));
+        if (changed.length === 1) {
+            onToggle(changed[0]!.id);
+        } else if (changed.length > 1) {
+            onProvider(changed[0]!.lab.id, !after.has(changed[0]!.id));
+        }
+    };
+
     return (
         <div className="flex h-full min-h-0 flex-col">
             <div className="flex shrink-0 flex-col gap-4 px-4 pt-3 pb-3">
@@ -73,7 +101,6 @@ export function ModelsLegend({
                     <IconButton icon={X} size="sm" label={t('filters.close')} onClick={onClose} className="min-[761px]:hidden" />
                 </div>
                 <Input
-                    id={searchId}
                     icon={Search}
                     size="sm"
                     aria-label={t('filters.search')}
@@ -83,74 +110,44 @@ export function ModelsLegend({
                 />
                 <ModelsReasoningFilter efforts={efforts} hidden={hiddenEfforts} onToggle={onEffort} />
             </div>
-            <div className="min-h-0 grow overflow-y-auto px-3 pb-3" role="group" aria-label={t('legend.label')}>
-                {labs.map((lab) => {
-                    const own = shown.filter((model) => model.lab.id === lab.id);
-                    const all = models.filter((model) => model.lab.id === lab.id && model.points.length > 0);
-                    const selectedAll = all.every((model) => !hidden.has(model.id));
-                    return own.length === 0 ? null : (
-                        <div key={lab.id} className="mb-4">
-                            <div className="mb-1 flex items-center justify-between px-1 text-xs">
-                                <span className="font-medium text-text">{lab.name}</span>
-                                <Button size="sm" variant="ghost" onClick={() => onProvider(lab.id, !selectedAll)}>
-                                    {t(selectedAll ? 'filters.none' : 'filters.all')}
-                                </Button>
-                            </div>
-                            {own.map((model) => {
-                                const measured = model.points.length > 0;
-                                const selected = measured && !hidden.has(model.id);
-                                const matches = available.has(model.id);
-                                const status = !measured
-                                    ? t('legend.notMeasured')
-                                    : !selected
-                                      ? t('legend.hidden')
-                                      : !measuredModels.has(model.id)
-                                        ? t(`legend.missing.${metric}`)
-                                        : !matches
-                                          ? t('legend.filtered')
-                                          : null;
-                                const statusId = `${searchId}-${model.id}`;
-                                const color = marks.get(model.id)?.color ?? 'var(--text-muted)';
-                                return (
-                                    <Tooltip key={model.id} label={status ?? model.name} side="left">
-                                        <button
-                                            type="button"
-                                            aria-label={model.name}
-                                            aria-pressed={selected}
-                                            aria-describedby={status === null ? undefined : statusId}
-                                            disabled={!measured}
-                                            className={clsx(
-                                                'flex min-h-7 w-full items-center gap-2 rounded px-1 text-left text-xs enabled:hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-accent max-[760px]:min-h-9',
-                                                selected ? 'text-text' : 'text-text-faint'
-                                            )}
-                                            onClick={() => onToggle(model.id)}
-                                            onPointerEnter={() => selected && onHighlight(model.id)}
-                                            onPointerLeave={() => onHighlight(null)}
-                                            onFocus={() => selected && onHighlight(model.id)}
-                                            onBlur={() => onHighlight(null)}
-                                        >
-                                            <span style={{ color }} className={clsx(!selected && 'opacity-40')}>
-                                                <LabLogo lab={model.lab} size={14} />
-                                            </span>
-                                            <span className="min-w-0 grow py-1">
-                                                <span className="block truncate">{shortModelName(model.name)}</span>
-                                                {status !== null && (
-                                                    <span id={statusId} className="mt-0.5 block text-2xs text-text-muted">
-                                                        {status}
-                                                    </span>
-                                                )}
-                                            </span>
-                                            <span aria-hidden className="flex size-3 shrink-0 items-center justify-center" style={{ color }}>
-                                                {selected ? <Check size={12} /> : <span className="size-1.5 rounded-full border border-current opacity-40" />}
-                                            </span>
-                                        </button>
-                                    </Tooltip>
-                                );
-                            })}
-                        </div>
-                    );
-                })}
-                {shown.length === 0 && <p className="px-1 py-3 text-xs text-text-muted">{t('filters.noResults')}</p>}
+            <div className="min-h-0 grow overflow-y-auto px-3 pb-3">
+                <SeriesLegend
+                    label={t('legend.label')}
+                    search={false}
+                    query={search}
+                    empty={t('filters.noResults')}
+                    size={narrow ? 'md' : 'sm'}
+                    items={models.map((model) => {
+                        const measured = model.points.length > 0;
+                        const on = measured && !hidden.has(model.id);
+                        const status = !measured
+                            ? t('legend.notMeasured')
+                            : !on
+                              ? t('legend.hidden')
+                              : !measuredModels.has(model.id)
+                                ? t(`legend.missing.${metric}`)
+                                : !available.has(model.id)
+                                  ? t('legend.filtered')
+                                  : undefined;
+                        return {
+                            key: model.id,
+                            label: shortModelName(model.name),
+                            name: model.name,
+                            group: model.lab.id,
+                            color: marks.get(model.id)?.color,
+                            disabled: !measured,
+                            status
+                        };
+                    })}
+                    groups={labs.map((lab) => ({ key: lab.id, label: lab.name }))}
+                    hidden={[...hidden]}
+                    onHiddenChange={changeHidden}
+                    onHighlightedChange={onHighlight}
+                    mark={(item) => {
+                        const lab = labs.find((entry) => entry.id === item.group);
+                        return lab === undefined ? null : <LabLogo lab={lab} size={14} />;
+                    }}
+                />
             </div>
             <label className="flex shrink-0 items-center justify-between gap-2 border-t border-border px-4 py-3 text-xs text-text-muted">
                 {t('legend.legacy')}
