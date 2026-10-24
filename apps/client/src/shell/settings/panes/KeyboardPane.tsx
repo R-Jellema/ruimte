@@ -65,7 +65,7 @@ export function KeyboardPane() {
             <div className="relative mb-1.5 shrink-0">
                 <Icon icon={Search} size={14} className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-text-faint" aria-hidden />
                 <Input
-                    className="bg-surface-sunken px-8 text-xs"
+                    className="px-8 text-xs"
                     placeholder={t('keyboard.search')}
                     aria-label={t('keyboard.search')}
                     value={query}

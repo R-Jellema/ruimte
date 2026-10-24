@@ -52,7 +52,6 @@ export function FilesPane() {
                 >
                     <Input
                         mono
-                        className="bg-surface-sunken"
                         aria-label={t('files.files.browseStart.label')}
                         placeholder="~/projects"
                         value={browseStartFolder}
