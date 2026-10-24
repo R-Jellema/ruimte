@@ -1,11 +1,12 @@
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Cloud, Copy, GitCommitHorizontal } from 'lucide-react';
+import { ChevronDown, Cloud, Copy, GitCommitHorizontal } from 'lucide-react';
 import { GIT_GROUP } from '@/shell/panels/classes';
 import { perform } from '@/actions/client-actions';
 import { githubPicture, groupCommits, mergeLogs, shownRefs, type LoadedLog, type LogRow } from '@/shell/panels/commit-log';
+import { useGit } from '@/state/git';
 import { useTransport } from '@/transport/context';
-import { Button, copyText, Icon, ListRow, Pill, PanelEmpty, SectionLabel, Tooltip, ContextMenu, useNow } from '@adecore/ui';
+import { Button, copyText, Icon, ListRow, Menu, Pill, PanelEmpty, SectionLabel, Tooltip, ContextMenu, useNow } from '@adecore/ui';
 import { formatAge, formatClock, isSameDay } from '@adecore/ui/format';
 
 // One screen of rows at a time; the button at the end asks for the next.
@@ -16,7 +17,7 @@ const MINUTE_MS = 60_000;
 const REFS_SHOWN = 2;
 
 /* A commit row is its own open button: the row's states with the columns of a row that opens. */
-const LOG_ROW = `group w-full min-w-0 gap-1.5 pr-1 pl-3 text-xs text-inherit hover:bg-surface-hover hover:text-text data-[selected]:bg-surface-active data-[selected]:text-text`;
+const LOG_ROW = `group w-full min-w-0 gap-2 pr-3 pl-3 text-xs text-inherit hover:bg-surface-hover hover:text-text data-[selected]:bg-surface-active data-[selected]:text-text`;
 
 /* The checkouts the log is read from, named so a row can say which one it came out of. */
 export interface LogSource {
@@ -29,6 +30,8 @@ export interface LogSource {
 
 interface CommitLogProps {
     sources: readonly LogSource[];
+    /* Where the one repository the log narrows to is kept: the same key as the draft. */
+    filterKey: string;
     /* The commit the preview has open, so the row a person is reading stands out. */
     reading: string | null;
     onOpen(cwd: string, commit: LogRow): void;
@@ -38,11 +41,15 @@ interface CommitLogProps {
  * The history under the commit box: every repository of the folder at once, newest first. It reloads
  * from the top whenever a status moves, since everything that moves a log moves the status with it.
  */
-export function CommitLog({ sources, reading, onOpen }: CommitLogProps) {
+export function CommitLog({ sources, filterKey, reading, onOpen }: CommitLogProps) {
     const { t } = useTranslation('panels');
+    const picked = useGit((s) => s.logRepos[filterKey] ?? '');
+    /* A repository that left the panel (hidden, or the panel went into a worktree) narrows nothing. */
+    const narrowed = sources.length > 1 ? (sources.find((source) => source.cwd === picked) ?? null) : null;
+    const read = narrowed === null ? sources : [narrowed];
     /* What was asked for, so an answer to an older question is not drawn and a status that moved
        reads as loading without an effect that has to empty the state first. */
-    const asked = sources.map((source) => `${source.cwd}\u0000${source.repo}\u0000${source.revision}`).join('\u0001');
+    const asked = read.map((source) => `${source.cwd}\u0000${source.repo}\u0000${source.revision}`).join('\u0001');
     const [held, setHeld] = useState<{ asked: string; logs: LoadedLog[]; failed: boolean } | null>(null);
     const [paging, setPaging] = useState(false);
     const now = Math.floor(useNow(MINUTE_MS) / 1000);
@@ -116,19 +123,26 @@ export function CommitLog({ sources, reading, onOpen }: CommitLogProps) {
     const { rows: commits, more } = mergeLogs(shown?.logs ?? []);
     const sections = groupCommits(commits, now);
 
-    if (state === 'error') {
-        return <PanelEmpty icon={GitCommitHorizontal}>{t('git.log.failed')}</PanelEmpty>;
-    }
-    if (state === 'ready' && commits.length === 0) {
-        return <PanelEmpty icon={GitCommitHorizontal}>{t('git.log.empty')}</PanelEmpty>;
+    const filter =
+        sources.length > 1 ? <RepoFilter sources={sources} narrowed={narrowed} onPick={(cwd) => useGit.getState().setLogRepo(filterKey, cwd)} /> : null;
+
+    /* A log narrowed to a repository without commits keeps the filter, which is the way back. */
+    if (state === 'error' || (state === 'ready' && commits.length === 0)) {
+        return (
+            <div className="flex min-h-0 grow flex-col py-1">
+                {narrowed !== null && <header className={GIT_GROUP}>{filter}</header>}
+                <PanelEmpty icon={GitCommitHorizontal}>{state === 'error' ? t('git.log.failed') : t('git.log.empty')}</PanelEmpty>
+            </div>
+        );
     }
 
     return (
         <div className="min-h-0 grow overflow-y-auto py-1">
-            {sections.map((section) => (
+            {sections.map((section, index) => (
                 <section key={section.label}>
                     <header className={GIT_GROUP}>
                         <SectionLabel>{section.label}</SectionLabel>
+                        {index === 0 && filter}
                     </header>
                     {section.commits.map((commit) => (
                         <CommitRow key={`${commit.cwd}\u0000${commit.hash}`} commit={commit} selected={commit.hash === reading} now={now} onOpen={open} />
@@ -143,6 +157,37 @@ export function CommitLog({ sources, reading, onOpen }: CommitLogProps) {
                 </div>
             )}
         </div>
+    );
+}
+
+interface RepoFilterProps {
+    sources: readonly LogSource[];
+    narrowed: LogSource | null;
+    /* Null shows every repository again. */
+    onPick(cwd: string | null): void;
+}
+
+/* Narrows the log to one repository of the folder, or widens it to all of them again. */
+function RepoFilter({ sources, narrowed, onPick }: RepoFilterProps) {
+    const { t } = useTranslation('panels');
+    return (
+        <Menu.Root>
+            <Menu.Trigger render={<Button size="xs" variant="ghost" className="ml-auto min-w-0" />}>
+                <span className="truncate">{narrowed === null ? t('git.log.allRepos') : narrowed.repo}</span>
+                <Icon icon={ChevronDown} size={12} className="shrink-0" />
+            </Menu.Trigger>
+            <Menu.Popup align="end">
+                <Menu.RadioGroup value={narrowed?.cwd ?? ''} onValueChange={(value: string) => onPick(value === '' ? null : value)}>
+                    <Menu.RadioItem value="">{t('git.log.allRepos')}</Menu.RadioItem>
+                    <Menu.Separator />
+                    {sources.map((source) => (
+                        <Menu.RadioItem key={source.cwd} value={source.cwd}>
+                            <span className="truncate">{source.repo}</span>
+                        </Menu.RadioItem>
+                    ))}
+                </Menu.RadioGroup>
+            </Menu.Popup>
+        </Menu.Root>
     );
 }
 
@@ -180,7 +225,8 @@ const CommitRow = memo(function CommitRow({ commit, selected, now, onOpen }: Com
                 onClick={() => onOpen(commit.cwd, commit)}
             >
                 <AuthorAvatar name={commit.author} email={commit.authorEmail} />
-                {commit.repo !== '' && <span className="max-w-24 shrink-0 truncate text-text-faint">{commit.repo}</span>}
+                {/* One width for every repository, so the subjects start in one column. */}
+                {commit.repo !== '' && <span className="w-20 shrink-0 truncate text-text-faint">{commit.repo}</span>}
                 <span className="truncate text-text">{commit.subject}</span>
                 {refs.slice(0, REFS_SHOWN).map((ref) => (
                     <Tooltip key={ref.name} label={ref.tracked === null ? ref.name : t('git.log.tracked', { name: ref.name, remote: ref.tracked })}>

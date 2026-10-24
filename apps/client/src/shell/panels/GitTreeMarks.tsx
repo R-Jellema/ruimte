@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowUp, CircleAlert, type LucideIcon } from 'lucide-react';
-import { FileTree, Icon } from '@adecore/ui';
+import { FileTree, Icon, Pill } from '@adecore/ui';
 import type { DecorationPart } from './git-tree';
 
 const MARKS: Partial<Record<NonNullable<DecorationPart['kind']>, LucideIcon>> = {
@@ -27,18 +27,15 @@ export function GitTreeMarks({ parts }: { parts: readonly DecorationPart[] }) {
                         </span>
                     );
                 }
+                if (part.kind === 'branch') {
+                    return (
+                        <Pill key={index} mono size="sm" className="max-w-36">
+                            <span className="min-w-0 truncate">{part.text}</span>
+                        </Pill>
+                    );
+                }
                 return (
-                    <span
-                        key={index}
-                        style={{ color: part.color }}
-                        className={
-                            part.kind === 'branch'
-                                ? 'max-w-36 truncate rounded-sm bg-surface-raised px-1.5 py-0.5 font-sans text-2xs'
-                                : part.kind === 'count'
-                                  ? 'font-sans'
-                                  : undefined
-                        }
-                    >
+                    <span key={index} style={{ color: part.color }} className={part.kind === 'count' ? 'font-sans' : undefined}>
                         {part.text}
                     </span>
                 );

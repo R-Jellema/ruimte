@@ -526,20 +526,23 @@
             }
         },
         "branchMenu": {
-            "checkout": "Checkout",
             "create": "Branch aanmaken…",
             "copyName": "Branchnaam kopiëren",
             "default": "standaard",
             "detached": "detached",
+            "folder": "Map",
             "inWorktree": "in een andere worktree",
             "loading": "Branches lezen…",
-            "noCheckouts": "Geen checkouts",
+            "mergeWorktrees": "Worktrees samenvoegen…",
             "noMatch": "Geen passende branch.",
-            "repositories": "Repositories",
+            "project": "Project",
             "search": "Branches zoeken",
+            "switch": "Branch wisselen…",
             "tooltip": "Huidige branch",
-            "chipRepos_one": "{{count}} repository",
-            "chipRepos_other": "{{count}} repositories",
+            "chipRepos_one": "{{count}} repo",
+            "chipRepos_other": "{{count}} repo's",
+            "chipWorktrees_one": "{{count}} worktree",
+            "chipWorktrees_other": "{{count}} worktrees",
             "tooltipRepos_one": "{{count}} repository en zijn branches",
             "tooltipRepos_other": "{{count}} repositories en hun branches",
             "tooltipWorktree": "{{branch}}, in worktree {{worktree}}",
@@ -554,7 +557,7 @@
             "commit": "Commit",
             "label": "Commitbericht",
             "commitAndPush": "Committen en pushen",
-            "commitAndPushHint": "Committen en pushen",
+            "more": "Meer manieren om te committen",
             "commitStagedHint": "Committen wat gestaged is",
             "in": "Commit in {{repos}}",
             "letWrite": "{{provider}} het bericht laten schrijven",
@@ -675,6 +678,7 @@
             "unversioned": "Niet-geversioneerde bestanden"
         },
         "list": {
+            "changes": "Wijzigingen",
             "collapseFolder": "Map inklappen",
             "deleteFile": "Naar de prullenbak…",
             "deleteMany": "{{count}} nieuwe bestanden naar de prullenbak…",
@@ -687,14 +691,17 @@
             "noRepo": "Geen git-repository.",
             "openChanges": "Wijzigingen openen",
             "stage": "Stage",
+            "stageAll": "Alle wijzigingen stagen",
             "stageHere": "Alles hier stagen",
             "stageMany": "{{count}} bestanden stagen",
             "stageResolved": "Stagen als opgelost",
             "unstage": "Unstage",
+            "unstageAll": "Alle wijzigingen unstagen",
             "unstageHere": "Alles hier unstagen",
             "unstageMany": "{{count}} bestanden unstagen"
         },
         "log": {
+            "allRepos": "Alle repo's",
             "copySubject": "Onderwerp kopiëren",
             "empty": "Nog geen commits.",
             "failed": "Kon de historie niet lezen.",
@@ -765,8 +772,17 @@
             "reason_other": "{{count}} commits naar {{upstream}} pushen"
         },
         "follow": {
-            "label": "Volgt de selectie: {{node}}",
-            "back": "Terug naar de projectmap"
+            "label": "Volgt de selectie: {{node}}"
+        },
+        "behind": {
+            "one_one": "{{upstream}} heeft {{count}} nieuwe commit",
+            "one_other": "{{upstream}} heeft {{count}} nieuwe commits",
+            "repo_one": "{{repo}} loopt {{count}} commit achter op {{remote}}",
+            "repo_other": "{{repo}} loopt {{count}} commits achter op {{remote}}"
+        },
+        "worktree": {
+            "label": "Worktree",
+            "merge": "Samenvoegen"
         },
         "repo": {
             "ahead_one": "{{count}} commit om te pushen",
@@ -1109,23 +1125,15 @@
             "branchDeleted": "De branch is ook verwijderd. \"git branch {{branch}} {{commit}}\" brengt hem terug.",
             "branchStays": "De branch {{branch}} blijft staan."
         },
-        "section": {
+        "menu": {
             "actions": "Worktree-acties",
-            "agents_one": "{{count}} agent",
-            "agents_other": "{{count}} agents",
+            "clean": "schoon",
             "folderMissing": "map ontbreekt",
-            "locked": "Vergrendeld",
             "merge": "Worktree mergen…",
             "inspect": "Bekijken",
-            "needsYou_one": "{{count}} wacht op je",
-            "needsYou_other": "{{count}} wachten op je",
-            "noNode": "geen node",
-            "projectFolder": "Projectmap",
+            "noChat": "geen chat",
             "remove": "Worktree verwijderen…",
-            "repositories_one": "{{count}} repository",
-            "repositories_other": "{{count}} repositories",
-            "title": "Worktrees",
-            "view": "Worktree bekijken"
+            "view": "Alle wijzigingen bekijken"
         },
         "verdict": {
             "inspecting": "Bezig met inspecteren…",

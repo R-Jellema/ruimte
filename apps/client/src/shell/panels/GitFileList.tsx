@@ -4,7 +4,21 @@ import { useTranslation } from 'react-i18next';
 import type { FileTreeVisibleRow } from '@pierre/trees';
 import { FileTree, useFileTree, type FoldKeyOf } from '@adecore/ui';
 import { GitTreeMarks } from './GitTreeMarks';
-import { ChevronsDownUp, ChevronsUpDown, CornerUpRight, EyeOff, FileDiff, FileText, FileX, Folder, GitBranch, Minus, Plus, Trash2 } from 'lucide-react';
+import {
+    ChevronsDownUp,
+    ChevronsUpDown,
+    CornerUpRight,
+    EyeOff,
+    FileDiff,
+    FileText,
+    FileX,
+    Folder,
+    FolderGit2,
+    GitBranch,
+    Minus,
+    Plus,
+    Trash2
+} from 'lucide-react';
 import type { GitFile, GitStatus } from '@ruimte/contracts';
 import { FileActionItems } from '@/shell/panels/FileActionItems';
 import { FileCopyRow } from '@/shell/panels/FileCopyRow';
@@ -24,7 +38,6 @@ import {
     repoParts,
     shownFile,
     toggleItems,
-    type DecorationPart,
     type GitEntry,
     type GitItem,
     type GitTreeLayout,
@@ -37,7 +50,7 @@ import type { GitCheckout } from '@/state/git-repos';
 import { useProject } from '@/state/project';
 import { fileManagerName, useServer } from '@/state/server';
 import { useTransport } from '@/transport/context';
-import { Icon, PanelEmpty, ContextMenu } from '@adecore/ui';
+import { Icon, ListRow, PanelEmpty, ContextMenu } from '@adecore/ui';
 
 const { applyExpansion, directoryHandle, focusRow, menuTargetsOf, mergeCollapsedPaths, rowPathOf, selectOnly, visibleRows } = FileTree;
 
@@ -119,15 +132,71 @@ export function GitFileList({ checkouts, reposTruncated, ...props }: ListProps) 
     if (read.length === 0) {
         return <div className="grid min-h-0 grow place-items-center" />;
     }
+    /* A repository without changes has no row in the tree, which only holds what changed, so it is
+       listed under it to say where it stands. */
+    const clean = checkouts.length > 1 ? read.filter((checkout) => checkout.status?.repo === true && checkout.status.files.length === 0) : [];
+    const cleanRows = clean.length > 0 && (
+        <div className="shrink-0 border-t border-border py-1">
+            {clean.map((checkout) => (
+                <CleanRepoRow key={checkout.path} checkout={checkout} renderRepoActions={props.renderRepoActions} onRepoMenu={props.onRepoMenu} />
+            ))}
+        </div>
+    );
     if (layout.paths.length === 0) {
-        return <PanelEmpty icon={GitBranch}>{t('git.list.noChanges')}</PanelEmpty>;
+        return (
+            <div className="flex min-h-0 grow flex-col">
+                <PanelEmpty icon={GitBranch}>{t('git.list.noChanges')}</PanelEmpty>
+                {cleanRows}
+            </div>
+        );
     }
     const truncated = reposTruncated || read.some((checkout) => checkout.status?.truncated === true);
     return (
         <div className="flex min-h-0 grow flex-col">
             <GitTree layout={layout} statuses={statuses} {...props} />
             {truncated && <p className="px-3 py-2 text-xs text-text-faint">{t('diff.moreFiles')}</p>}
+            {cleanRows}
         </div>
+    );
+}
+
+interface CleanRepoRowProps {
+    checkout: GitCheckout;
+    renderRepoActions?(cwd: string): ReactNode;
+    onRepoMenu?(cwd: string): void;
+}
+
+/* A repository with nothing to stage: its name, how far it is from its upstream and its branch, and the menu a repository row has. */
+function CleanRepoRow({ checkout, renderRepoActions, onRepoMenu }: CleanRepoRowProps) {
+    const { t } = useTranslation('panels');
+    const platform = useServer((s) => s.platform);
+    const folder = useProject((s) => s.current?.folder ?? null);
+    return (
+        <ContextMenu.Root>
+            <ContextMenu.Trigger
+                render={<ListRow variant="flat" />}
+                className="gap-2 pr-2 pl-3 text-sm text-text-muted hover:bg-surface-hover"
+                onContextMenu={() => onRepoMenu?.(checkout.path)}
+            >
+                <Icon icon={FolderGit2} size={14} className="shrink-0 text-text-faint" />
+                <span className="min-w-0 truncate">{checkout.label}</span>
+                <span className="grow" />
+                <GitTreeMarks parts={repoParts(checkout.status)} />
+            </ContextMenu.Trigger>
+            <ContextMenu.Popup>
+                {renderRepoActions !== undefined && (
+                    <>
+                        {renderRepoActions(checkout.path)}
+                        <ContextMenu.Separator />
+                    </>
+                )}
+                <ContextMenu.Item onClick={() => useGit.getState().toggleRepo(checkout.label)}>
+                    <Icon icon={EyeOff} size={14} /> {t('git.repo.hide')}
+                </ContextMenu.Item>
+                <ContextMenu.Separator />
+                <RowPathItems absolute={checkout.path} relative={checkout.label} folder={folder} platform={platform} gone={false} />
+            </ContextMenu.Popup>
+        </ContextMenu.Root>
     );
 }
 
@@ -184,11 +253,12 @@ function GitTree({
         if (node.kind === 'folder') {
             return <GitTreeMarks parts={[{ text: String(node.items.length), kind: 'count' }]} />;
         }
-        const parts: DecorationPart[] = [{ text: t('git.list.files', { count: node.items.length }), color: COUNT_COLOR, kind: 'count' }];
         if (node.kind === 'repo') {
-            parts.push(...repoParts(statuses.get(node.cwd) ?? null));
+            return (
+                <GitTreeMarks parts={[{ text: String(node.items.length), color: COUNT_COLOR, kind: 'count' }, ...repoParts(statuses.get(node.cwd) ?? null)]} />
+            );
         }
-        return <GitTreeMarks parts={parts} />;
+        return <GitTreeMarks parts={[{ text: t('git.list.files', { count: node.items.length }), color: COUNT_COLOR, kind: 'count' }]} />;
     };
 
     const { model } = useFileTree({

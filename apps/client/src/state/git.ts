@@ -1,6 +1,5 @@
 import type { ChangeSplit, GitDiffScope } from '@ruimte/contracts';
 import { create } from 'zustand';
-import { storedText } from '@/state/stored-json';
 
 export const DEFAULT_SCOPE: GitDiffScope = 'worktree';
 
@@ -9,9 +8,6 @@ export const DEFAULT_LOG_HEIGHT = 200;
 
 // The file tree of a commit tab, until a drag gives it a width of its own.
 export const DEFAULT_COMMIT_TREE_WIDTH = 240;
-
-// A client's own, like the patch view: no project carries it, so no older release meets it in a file.
-const storedWorktreesOpen = storedText('ruimte.git.worktrees-open');
 
 export interface TabCounts {
     added: number;
@@ -40,8 +36,8 @@ interface GitStore {
     messageVersions: Record<string, number>;
     /* Whether the draft under the same key rewrites the last commit; in memory, like the draft. */
     amends: Record<string, boolean>;
-    /* Whether the worktrees section stands open; folded until a person opens it. */
-    worktreesOpen: boolean;
+    /* The one repository the log shows under the same key as the draft; absent or empty shows every one. In memory, like the draft. */
+    logRepos: Record<string, string>;
     setScope(scope: GitDiffScope): void;
     toggleRepo(label: string): void;
     setHiddenRepos(labels: string[]): void;
@@ -54,7 +50,7 @@ interface GitStore {
     setCommitTreeWidth(width: number): void;
     setCollapsedDirs(dirs: string[]): void;
     toggleDir(path: string): void;
-    setWorktreesOpen(open: boolean): void;
+    setLogRepo(key: string, cwd: string | null): void;
 }
 
 /*
@@ -72,7 +68,7 @@ export const useGit = create<GitStore>((set, get) => ({
     messages: {},
     messageVersions: {},
     amends: {},
-    worktreesOpen: storedWorktreesOpen.read() === 'true',
+    logRepos: {},
     setScope(scope) {
         set({ scope });
     },
@@ -122,8 +118,7 @@ export const useGit = create<GitStore>((set, get) => ({
         const collapsed = get().collapsedDirs;
         set({ collapsedDirs: collapsed.includes(path) ? collapsed.filter((dir) => dir !== path) : [...collapsed, path] });
     },
-    setWorktreesOpen(open) {
-        storedWorktreesOpen.write(String(open));
-        set({ worktreesOpen: open });
+    setLogRepo(key, cwd) {
+        set({ logRepos: { ...get().logRepos, [key]: cwd ?? '' } });
     }
 }));

@@ -1,9 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
-import { FolderGit2, LoaderCircle, Sparkles } from 'lucide-react';
+import { ArrowUp, ChevronDown, FolderGit2, LoaderCircle, Sparkles } from 'lucide-react';
 import type { GitCapabilitiesResult } from '@ruimte/contracts';
-import { Button, Checkbox, Icon, IconButton, TextArea, Tooltip, KEY_SHORTCUTS, matchesShortcut } from '@adecore/ui';
+import { Button, ButtonGroup, Checkbox, Icon, IconButton, Menu, TextArea, Tooltip, KEY_SHORTCUTS, matchesShortcut } from '@adecore/ui';
 import { cancelGitRunAction, perform } from '@/actions/client-actions';
 import { amendTarget, commitTargets, nextActionId, splitMessage, type CommitCandidate } from '@/shell/panels/git-actions';
 import { CommitSuggestion } from './commit-suggestion';
@@ -148,23 +148,32 @@ export function CommitBox({ messageKey, checkouts, named, capabilities, busy, on
             });
     };
 
+    const commitReason = amending ? t('git.commit.amendCommitHint') : stageAll ? t('git.commit.stageAllHint') : t('git.commit.commitStagedHint');
+    const pushReason = amending
+        ? t('git.commit.amendNoPush')
+        : ready
+          ? t('git.commit.commitAndPush')
+          : targets.length === 0
+            ? t('git.commit.needsStaged')
+            : t('git.commit.needsMessage');
+
     return (
-        <div className="flex shrink-0 flex-col gap-2 border-t border-border p-2">
+        <div className="flex shrink-0 flex-col gap-2 p-2">
             {named && (amending || targets.length > 0) && (
-                <div className="flex items-center gap-1.5 text-xs text-text-muted">
+                <div className="flex items-center gap-1.5 px-1 text-xs text-text-muted">
                     <Icon icon={FolderGit2} size={12} className="shrink-0 text-text-faint" />
                     <span className="truncate">
                         {t('git.commit.in', { repos: amending ? amendable.label : targets.map((target) => target.label).join(', ') })}
                     </span>
                 </div>
             )}
-            {/* The writer sits in the field it fills, so the row below holds only what commits. */}
-            <div className="relative flex flex-col">
+            {/* One card: the field has no border of its own, so the card's edge and its focus are the field's. */}
+            <div className="flex flex-col rounded-lg border border-border bg-surface-sunken bg-clip-padding has-[textarea:focus-visible]:outline-2 has-[textarea:focus-visible]:-outline-offset-1 has-[textarea:focus-visible]:outline-accent">
                 <TextArea
                     size="sm"
                     rows={3}
                     spellCheck={false}
-                    className={canWrite ? 'pr-8' : undefined}
+                    className="border-0 bg-transparent focus-visible:outline-none"
                     aria-label={t('git.commit.label')}
                     placeholder={t('git.commit.placeholder')}
                     value={message}
@@ -176,25 +185,58 @@ export function CommitBox({ messageKey, checkouts, named, capabilities, busy, on
                         }
                     }}
                 />
-                {canWrite && (
-                    <IconButton
-                        icon={writing ? LoaderCircle : Sparkles}
-                        size="sm"
-                        className={clsx('absolute right-1 bottom-1', writing && '[&_svg]:animate-spin')}
-                        label={
-                            writing
-                                ? t('git.commit.stopWriting')
-                                : writeFrom === null
-                                  ? t('git.commit.writeOneRepo')
-                                  : t('git.commit.letWrite', { provider: capabilities.messageProvider })
-                        }
-                        disabled={!changed || (writeFrom === null && !writing)}
-                        onClick={write}
-                    />
-                )}
+                <div className="flex items-center gap-2 p-1.5">
+                    {canWrite && (
+                        <IconButton
+                            icon={writing ? LoaderCircle : Sparkles}
+                            size="sm"
+                            className={clsx(writing && '[&_svg]:animate-spin')}
+                            label={
+                                writing
+                                    ? t('git.commit.stopWriting')
+                                    : writeFrom === null
+                                      ? t('git.commit.writeOneRepo')
+                                      : t('git.commit.letWrite', { provider: capabilities.messageProvider })
+                            }
+                            disabled={!changed || (writeFrom === null && !writing)}
+                            onClick={write}
+                        />
+                    )}
+                    {amendable !== null && (
+                        <Tooltip label={t('git.commit.amendHint')}>
+                            <label className="flex items-center gap-2 text-sm text-text">
+                                <Checkbox label={t('git.commit.amend')} checked={amendOn} disabled={busy} onCheckedChange={toggleAmend} />
+                                {t('git.commit.amend')}
+                            </label>
+                        </Tooltip>
+                    )}
+                    <span className="grow" />
+                    <ButtonGroup render={<span />}>
+                        <Tooltip label={commitReason}>
+                            <Button size="sm" variant="primary" className="rounded-r-none" disabled={!ready} onClick={() => commit(false)}>
+                                {t('git.commit.commit')}
+                            </Button>
+                        </Tooltip>
+                        <Menu.Root>
+                            <Tooltip label={pushReason}>
+                                <Menu.Trigger
+                                    render={<Button size="sm" variant="primary" className="rounded-l-none px-1.5" disabled={!ready || amending} />}
+                                    aria-label={t('git.commit.more')}
+                                >
+                                    <Icon icon={ChevronDown} size={14} />
+                                </Menu.Trigger>
+                            </Tooltip>
+                            <Menu.Popup align="end">
+                                <Menu.Item disabled={!ready || amending} onClick={() => commit(true)}>
+                                    <Icon icon={ArrowUp} size={14} /> {t('git.commit.commitAndPush')}
+                                </Menu.Item>
+                            </Menu.Popup>
+                        </Menu.Root>
+                    </ButtonGroup>
+                </div>
             </div>
             {offered !== null && offered.key === messageKey && offered.source === source && (
-                <div className="flex flex-col gap-2 rounded-md border border-border p-2">
+                <div className="flex flex-col gap-2 rounded-lg border border-border bg-clip-padding p-2">
                     <p className="text-xs text-text-muted">{t('git.commit.suggestionReady')}</p>
                     <p className="max-h-32 overflow-auto text-sm whitespace-pre-wrap text-text">{offered.message}</p>
                     <div className="flex gap-2">
@@ -213,36 +255,6 @@ export function CommitBox({ messageKey, checkouts, named, capabilities, busy, on
                     </div>
                 </div>
             )}
-            <div className="flex items-center justify-end gap-2">
-                {amendable !== null && (
-                    <Tooltip label={t('git.commit.amendHint')}>
-                        <label className="mr-auto flex items-center gap-2 text-sm text-text">
-                            <Checkbox label={t('git.commit.amend')} checked={amendOn} disabled={busy} onCheckedChange={toggleAmend} />
-                            {t('git.commit.amend')}
-                        </label>
-                    </Tooltip>
-                )}
-                <Tooltip
-                    label={
-                        amending
-                            ? t('git.commit.amendNoPush')
-                            : ready
-                              ? t('git.commit.commitAndPushHint')
-                              : targets.length === 0
-                                ? t('git.commit.needsStaged')
-                                : t('git.commit.needsMessage')
-                    }
-                >
-                    <Button size="sm" variant="secondary" disabled={!ready || amending} onClick={() => commit(true)}>
-                        {t('git.commit.commitAndPush')}
-                    </Button>
-                </Tooltip>
-                <Tooltip label={amending ? t('git.commit.amendCommitHint') : stageAll ? t('git.commit.stageAllHint') : t('git.commit.commitStagedHint')}>
-                    <Button size="sm" variant="primary" disabled={!ready} onClick={() => commit(false)}>
-                        {t('git.commit.commit')}
-                    </Button>
-                </Tooltip>
-            </div>
         </div>
     );
 }

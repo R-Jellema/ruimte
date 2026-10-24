@@ -127,13 +127,15 @@ export function checkPart(state: CheckState): DecorationPart {
     return { text: '', color: `var(--git-check-${state})` };
 }
 
-/* A changed file's row after its name: the lines it adds and removes, and its letter when it has one. */
-export function changeParts(added: number, deleted: number, status: string | null): DecorationPart[] {
+/* A changed file's row after its name: the lines it adds and removes, and its letter when it has one.
+   `paired` writes both counts or neither, so the rows of the panel line up; a binary file counts none. */
+export function changeParts(added: number, deleted: number, status: string | null, paired = false): DecorationPart[] {
     const parts: DecorationPart[] = [];
-    if (added > 0) {
+    const counted = added > 0 || deleted > 0;
+    if (added > 0 || (paired && counted)) {
         parts.push({ text: `+${added}`, color: ADDED_COLOR });
     }
-    if (deleted > 0) {
+    if (deleted > 0 || (paired && counted)) {
         parts.push({ text: `-${deleted}`, color: DELETED_COLOR });
     }
     if (status !== null) {
@@ -144,7 +146,8 @@ export function changeParts(added: number, deleted: number, status: string | nul
 
 /*
  * A repository's row after its file count: a mark when it stopped halfway or holds a conflict, how far
- * it is ahead of and behind its upstream, and its branch. What is zero is left out.
+ * it is ahead of and behind its upstream, and its branch. What is zero is left out. Behind is the one
+ * that asks for a pull, so it carries the color of attention.
  */
 export function repoParts(status: Pick<GitStatus, 'branch' | 'ahead' | 'behind' | 'operation' | 'files'> | null): DecorationPart[] {
     if (status === null) {
@@ -160,7 +163,7 @@ export function repoParts(status: Pick<GitStatus, 'branch' | 'ahead' | 'behind' 
     if (status.behind > 0) {
         parts.push({
             text: formatNumber(status.behind),
-            color: MUTED_COLOR,
+            color: NEEDS_YOU_COLOR,
             kind: 'behind',
             label: i18next.t('panels:git.repo.behind', { count: status.behind })
         });
@@ -174,7 +177,7 @@ export function repoParts(status: Pick<GitStatus, 'branch' | 'ahead' | 'behind' 
 /* The counts are the ones of the diff the row opens. */
 export function entryParts(entry: GitEntry): DecorationPart[] {
     const file = shownFile(entry);
-    return changeParts(file.added, file.deleted, statusOf(entry));
+    return changeParts(file.added, file.deleted, statusOf(entry), true);
 }
 
 export function decorationOfParts(parts: DecorationPart[]): FileTreeRowDecoration {

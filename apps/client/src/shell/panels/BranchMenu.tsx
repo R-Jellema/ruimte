@@ -1,10 +1,13 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, Copy, GitBranch, Layers, Plus, Search } from 'lucide-react';
-import type { GitRef } from '@ruimte/contracts';
+import { ChevronDown, Copy, Eye, Folders, GitBranch, GitFork, GitMerge, Plus, Search } from 'lucide-react';
+import type { GitRef, Worktree } from '@ruimte/contracts';
 import { basenameOf } from '@/shell/panels/files-tree';
+import { WorktreeRows, type WorktreeActions } from '@/shell/panels/WorktreeMenu';
 import type { GitTarget } from '@/state/git-target';
-import { copyText, cameThroughPortal, Icon, IconButton, Input, Menu, Tooltip, ContextMenu } from '@adecore/ui';
+import type { WorktreeNode } from '@/state/worktrees';
+import { copyText, cameThroughPortal, Button, Icon, IconButton, Input, Menu, Pill, Tooltip, ContextMenu } from '@adecore/ui';
+import { formatNumber } from '@adecore/ui/format';
 
 // The keys the menu itself owns while the field has focus; every other key is the field's.
 const MENU_KEYS = new Set(['ArrowDown', 'ArrowUp', 'Escape', 'Tab', 'Enter']);
@@ -20,15 +23,30 @@ export interface CheckoutRefs {
 }
 
 interface BranchMenuProps {
-    /* The checkout the panel is on, and the ones it could be on instead. */
+    /* The checkout a panel of one checkout is on; over several repositories, the project folder. */
     target: GitTarget;
     targets: readonly GitTarget[];
     /* What the chip says: the branch HEAD is on, or the state that is not a branch. */
     branch: string | null;
     detached: boolean;
-    /* True while the folder holds more than one repository. The branches then sit one level in, per
-       checkout, because `main` says nothing about which of a folder's repositories is on it. */
+    /* True while the panel shows more than one repository. The branches then sit one level further
+       in, per checkout, because `main` says nothing about which of a folder's repositories is on it. */
     nested: boolean;
+    /* The worktree the panel is in, or null while it shows the project. */
+    worktree: GitTarget | null;
+    worktrees: readonly Worktree[];
+    nodes: readonly WorktreeNode[];
+    /* What the project row says while the project has one repository: its branch, once read, and its folder. */
+    projectBranch: string | null;
+    folderLabel: string;
+    /* The changes of the project, while the panel shows them; null inside a worktree, where they are not read. */
+    projectChanges: number | null;
+    /* The repository the worktrees were made from, named on their rows while the project holds several. */
+    worktreeRepo: string | null;
+    /* How many repositories of the folder a person folded away. */
+    hidden: number;
+    busy: boolean;
+    worktreeActions: WorktreeActions;
     refsOf(cwd: string): CheckoutRefs;
     /* What one checkout can be told to do, drawn into its own level. The panel owns these, because
        half of them open a dialog it holds. */
@@ -37,46 +55,61 @@ interface BranchMenuProps {
     onOpenMenu(): void;
     /* Reads the branches of a checkout, which is what opening its level asks for. */
     onOpen(cwd: string): void;
-    onPickTarget(target: GitTarget): void;
+    onEnterWorktree(worktree: Worktree): void;
+    onLeaveWorktree(): void;
     onCheckout(cwd: string, ref: GitRef): void;
     onCreate(cwd: string): void;
+    onShowRepos(): void;
+    onMergeWorktrees(): void;
 }
 
-/* Which checkout the branch is in, when it is not simply the project folder: the worktree, named
-   after the group that binds it since that says more than its path does, or the repository, since a
-   branch called `main` says nothing about which of a folder's repositories is on it. */
+/* Which worktree the branch is in, named after the group that binds it since that says more than its path does. */
 function prefixOf(target: GitTarget): string | null {
-    if (target.cwd === null) {
+    if (target.cwd === null || target.kind !== 'worktree') {
         return null;
     }
-    if (target.kind === 'repo') {
-        return target.label;
-    }
-    return target.kind === 'worktree' ? (target.group ?? basenameOf(target.cwd)) : null;
+    return target.group ?? basenameOf(target.cwd);
 }
 
+/*
+ * The chip at the start of the panel's header and the picker behind it: the project, the worktrees
+ * the panel can go into instead, and the branches one level in. A repository is a section of the panel
+ * and a worktree is a place it goes instead, so the two are offered apart.
+ */
 export function BranchMenu({
     target,
     targets,
     branch,
     detached,
     nested,
+    worktree,
+    worktrees,
+    nodes,
+    projectBranch,
+    folderLabel,
+    projectChanges,
+    worktreeRepo,
+    hidden,
+    busy,
+    worktreeActions,
     refsOf,
     renderActions,
     onOpenMenu,
     onOpen,
-    onPickTarget,
+    onEnterWorktree,
+    onLeaveWorktree,
     onCheckout,
-    onCreate
+    onCreate,
+    onShowRepos,
+    onMergeWorktrees
 }: BranchMenuProps) {
     const { t } = useTranslation('panels');
 
     const label = detached ? t('git.branchMenu.detached') : (branch ?? target.label);
     const prefix = prefixOf(target);
-    /* A repository is a section of the panel and a worktree is a place it goes instead, so the two
-       are offered apart: a repository opens what can be done to it, a worktree takes the panel over. */
     const repos = targets.filter((entry) => entry.kind !== 'worktree');
-    const worktrees = targets.filter((entry) => entry.kind === 'worktree');
+    const several = repos.length > 1;
+    const mergeable = worktrees.filter((entry) => entry.missing !== true);
 
     /* Only a branch has a name to take along; a detached HEAD and a chip over several repositories name none. */
     const copyable = !nested && !detached && branch !== null ? branch : null;
@@ -91,81 +124,126 @@ export function BranchMenu({
                     }
                 }}
             >
-                <Menu.Root
-                    onOpenChange={(open) => {
-                        if (!open) {
-                            return;
-                        }
-                        onOpenMenu();
-                        // A flat menu shows the branches at once, so they are read the moment it opens.
-                        if (!nested && target.cwd !== null) {
-                            onOpen(target.cwd);
-                        }
-                    }}
-                >
+                <Menu.Root onOpenChange={(open) => open && onOpenMenu()}>
                     <Tooltip
                         label={
                             nested
-                                ? t('git.branchMenu.tooltipRepos', { count: targets.length })
+                                ? t('git.branchMenu.tooltipRepos', { count: repos.length })
                                 : prefix === null
                                   ? t('git.branchMenu.tooltip')
                                   : t('git.branchMenu.tooltipWorktree', { branch: label, worktree: prefix })
                         }
                         name={nested}
                     >
-                        <Menu.Trigger className="inline-flex h-6 min-w-0 shrink items-center gap-1 rounded-full bg-surface-hover px-2 text-xs text-text-muted hover:text-text">
-                            {/* Over several repositories no single branch is the panel's, so the chip names none. */}
+                        <Menu.Trigger render={<Button size="sm" variant="secondary" className="min-w-0 shrink" />}>
                             {nested ? (
                                 <>
-                                    <Icon icon={Layers} size={12} className="shrink-0" />
+                                    <Icon icon={Folders} size={14} className="shrink-0 text-text-muted" />
                                     <span className="truncate">{t('git.branchMenu.chipRepos', { count: repos.length })}</span>
+                                    {worktrees.length > 0 && (
+                                        <Pill size="sm" className="min-w-0">
+                                            <span className="truncate">{t('git.branchMenu.chipWorktrees', { count: worktrees.length })}</span>
+                                        </Pill>
+                                    )}
                                 </>
                             ) : (
                                 <>
-                                    <Icon icon={GitBranch} size={12} className="shrink-0" />
-                                    {prefix !== null && <span className="max-w-24 truncate text-text-faint">{prefix}</span>}
+                                    <Icon icon={worktree === null ? GitBranch : GitFork} size={14} className="shrink-0 text-text-muted" />
                                     <span className="truncate font-mono">{label}</span>
+                                    {worktree === null && worktrees.length > 0 && (
+                                        <Pill size="sm" className="tabular-nums">
+                                            {formatNumber(worktrees.length)}
+                                        </Pill>
+                                    )}
                                 </>
                             )}
-                            <Icon icon={ChevronDown} size={12} className="shrink-0" />
+                            <Icon icon={ChevronDown} size={14} className="shrink-0 text-text-muted" />
                         </Menu.Trigger>
                     </Tooltip>
-                    <Menu.Popup className={nested ? 'max-h-[32rem] w-80 overflow-y-auto' : 'max-h-96 w-80 overflow-y-auto'}>
-                        {targets.length === 0 && <Menu.Item disabled>{t('git.branchMenu.noCheckouts')}</Menu.Item>}
-                        {nested ? (
-                            <>
-                                <Menu.Label>{t('git.branchMenu.repositories')}</Menu.Label>
-                                {repos.map((entry) => (
-                                    <CheckoutLevel
-                                        key={entry.cwd ?? entry.label}
-                                        entry={entry}
-                                        refs={entry.cwd === null ? { refs: [], loading: false, branch: null } : refsOf(entry.cwd)}
-                                        renderActions={renderActions}
-                                        onOpen={onOpen}
-                                        onCheckout={onCheckout}
-                                        onCreate={onCreate}
-                                    />
-                                ))}
-                            </>
-                        ) : (
-                            <>
-                                <Menu.Label>{t('git.branchMenu.checkout')}</Menu.Label>
-                                <CheckoutChoice targets={targets} target={target} onPickTarget={onPickTarget} />
-                                {target.cwd !== null && (
-                                    <>
-                                        <Menu.Separator />
-                                        <BranchList cwd={target.cwd} state={refsOf(target.cwd)} branch={branch} onCheckout={onCheckout} onCreate={onCreate} />
-                                    </>
+                    <Menu.Popup className="max-h-[32rem] w-80 overflow-y-auto">
+                        <Menu.Group>
+                            <Menu.GroupLabel>{several ? t('git.branchMenu.project') : t('git.branchMenu.folder')}</Menu.GroupLabel>
+                            <Menu.Item onClick={onLeaveWorktree}>
+                                <Icon icon={several ? Folders : GitBranch} size={14} className="shrink-0 text-text-muted" />
+                                <span className="flex min-w-0 grow flex-col">
+                                    {several ? (
+                                        <>
+                                            <span className="truncate">{t('git.branchMenu.chipRepos', { count: repos.length })}</span>
+                                            <span className="truncate text-xs text-text-faint">{repos.map((entry) => entry.label).join(', ')}</span>
+                                        </>
+                                    ) : projectBranch === null ? (
+                                        <span className="truncate">{folderLabel}</span>
+                                    ) : (
+                                        <>
+                                            <span className="truncate font-mono text-xs">{projectBranch}</span>
+                                            <span className="truncate text-xs text-text-faint">{folderLabel}</span>
+                                        </>
+                                    )}
+                                </span>
+                                {projectChanges !== null && projectChanges > 0 && (
+                                    <span className="shrink-0 text-xs text-text-faint tabular-nums">{formatNumber(projectChanges)}</span>
                                 )}
-                            </>
-                        )}
-                        {nested && worktrees.length > 0 && (
+                                {worktree === null && <Menu.Check kind="radio" checked />}
+                            </Menu.Item>
+                        </Menu.Group>
+                        {worktrees.length > 0 && (
                             <>
                                 <Menu.Separator />
-                                <Menu.Label>{t('git.branchMenu.worktrees')}</Menu.Label>
-                                {/* A worktree takes the panel over whole until the canvas or this menu points elsewhere. */}
-                                <CheckoutChoice targets={worktrees} target={target} onPickTarget={onPickTarget} />
+                                <Menu.Group>
+                                    <Menu.GroupLabel>{t('git.branchMenu.worktrees')}</Menu.GroupLabel>
+                                    <WorktreeRows
+                                        worktrees={worktrees}
+                                        nodes={nodes}
+                                        current={worktree?.cwd ?? null}
+                                        repo={worktreeRepo}
+                                        busy={busy}
+                                        actions={worktreeActions}
+                                        onEnter={onEnterWorktree}
+                                    />
+                                </Menu.Group>
                             </>
+                        )}
+                        <Menu.Separator />
+                        {nested ? (
+                            <Menu.SubmenuRoot>
+                                <Menu.SubmenuTrigger>
+                                    <Icon icon={GitBranch} size={14} /> {t('git.branchMenu.switch')}
+                                </Menu.SubmenuTrigger>
+                                <Menu.Popup className="max-h-[32rem] w-72 overflow-y-auto">
+                                    {repos.map((entry) => (
+                                        <CheckoutLevel
+                                            key={entry.cwd ?? entry.label}
+                                            entry={entry}
+                                            refs={entry.cwd === null ? { refs: [], loading: false, branch: null } : refsOf(entry.cwd)}
+                                            renderActions={renderActions}
+                                            onOpen={onOpen}
+                                            onCheckout={onCheckout}
+                                            onCreate={onCreate}
+                                        />
+                                    ))}
+                                </Menu.Popup>
+                            </Menu.SubmenuRoot>
+                        ) : (
+                            target.cwd !== null && (
+                                <BranchLevel
+                                    cwd={target.cwd}
+                                    refs={refsOf(target.cwd)}
+                                    branch={branch}
+                                    onOpen={onOpen}
+                                    onCheckout={onCheckout}
+                                    onCreate={onCreate}
+                                />
+                            )
+                        )}
+                        {several && hidden > 0 && (
+                            <Menu.Item onClick={onShowRepos}>
+                                <Icon icon={Eye} size={14} /> {t('git.repo.showAll', { count: hidden })}
+                            </Menu.Item>
+                        )}
+                        {!several && mergeable.length > 0 && (
+                            <Menu.Item disabled={busy} onClick={onMergeWorktrees}>
+                                <Icon icon={GitMerge} size={14} /> {t('git.branchMenu.mergeWorktrees')}
+                            </Menu.Item>
                         )}
                     </Menu.Popup>
                 </Menu.Root>
@@ -179,25 +257,27 @@ export function BranchMenu({
     );
 }
 
-/* The checkouts the panel can be pointed at, with the one it is on marked. */
-function CheckoutChoice({ targets, target, onPickTarget }: { targets: readonly GitTarget[]; target: GitTarget; onPickTarget(target: GitTarget): void }) {
+interface BranchLevelProps {
+    cwd: string;
+    refs: CheckoutRefs;
+    branch: string | null;
+    onOpen(cwd: string): void;
+    onCheckout(cwd: string, ref: GitRef): void;
+    onCreate(cwd: string): void;
+}
+
+/* The branches of the one checkout the panel shows, read when their level opens. */
+function BranchLevel({ cwd, refs, branch, onOpen, onCheckout, onCreate }: BranchLevelProps) {
+    const { t } = useTranslation('panels');
     return (
-        <Menu.RadioGroup
-            value={target.cwd ?? ''}
-            onValueChange={(value: string) => {
-                const picked = targets.find((entry) => entry.cwd === value);
-                if (picked) {
-                    onPickTarget(picked);
-                }
-            }}
-        >
-            {targets.map((entry) => (
-                <Menu.RadioItem key={entry.cwd ?? entry.label} value={entry.cwd ?? ''}>
-                    <span className="truncate">{entry.label}</span>
-                    {entry.group !== undefined && <Menu.Hint className="truncate">{entry.group}</Menu.Hint>}
-                </Menu.RadioItem>
-            ))}
-        </Menu.RadioGroup>
+        <Menu.SubmenuRoot onOpenChange={(open) => open && onOpen(cwd)}>
+            <Menu.SubmenuTrigger>
+                <Icon icon={GitBranch} size={14} /> {t('git.branchMenu.switch')}
+            </Menu.SubmenuTrigger>
+            <Menu.Popup className="max-h-96 w-80 overflow-y-auto">
+                <BranchList cwd={cwd} state={refs} branch={branch} onCheckout={onCheckout} onCreate={onCreate} />
+            </Menu.Popup>
+        </Menu.SubmenuRoot>
     );
 }
 

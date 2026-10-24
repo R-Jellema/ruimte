@@ -3,16 +3,15 @@ import i18next from 'i18next';
 import { useTranslation } from 'react-i18next';
 import {
     Archive,
-    ArrowDown,
-    ArrowUp,
     ChevronsDownUp,
     ChevronsUpDown,
-    Eye,
     Folder,
     GitBranch,
+    GitFork,
     GitMerge,
     GitPullRequest,
     LocateFixed,
+    MessageSquare,
     MoreHorizontal,
     RefreshCw
 } from 'lucide-react';
@@ -21,21 +20,22 @@ import { ignoreRefusal, perform } from '@/actions/client-actions';
 import { desktop } from '@/desktop/bridge';
 import { startDiffDrag, type DraggedDiff } from '@/shell/diff-drag';
 import { BranchMenu, type CheckoutRefs } from '@/shell/panels/BranchMenu';
-import { FILE_TOOLBAR } from '@/shell/panels/classes';
 import { CommitBox } from '@/shell/panels/CommitBox';
 import { CommitLog, type LogSource } from '@/shell/panels/CommitLog';
 import { absoluteOf, basenameOf } from '@/shell/panels/files-tree';
 import { GitChoice, GitDiverged, type Choice } from '@/shell/panels/GitDialogs';
-import { PromptDialog, useColumnResize, Button, ButtonGroup, FormError, Icon, IconButton, Pill, Separator, PanelEmpty, Menu } from '@adecore/ui';
+import { PromptDialog, useColumnResize, Banner, Button, Checkbox, FormError, Icon, IconButton, PanelEmpty, Menu, SectionLabel, Tooltip } from '@adecore/ui';
+import { formatNumber } from '@adecore/ui/format';
 import { GitFileList, type GitWork } from '@/shell/panels/GitFileList';
 import { isUnmergedRefusal, popStashStep, pushButton, pushable, pushEntries, type CommitCandidate } from '@/shell/panels/git-actions';
 import { PushMenu } from '@/shell/panels/PushMenu';
-import { activeDiff, allCollapseKeys } from '@/shell/panels/git-tree';
+import { activeDiff, allCollapseKeys, checkOfItems, entriesOf, toggleItems } from '@/shell/panels/git-tree';
 import { stageFiles } from '@/shell/panels/stage-files';
 import { useGitActions, type ActionOutcome, type ManyJob } from '@/shell/panels/use-git-actions';
-import { WorktreeSection } from '@/shell/panels/WorktreeSection';
-import { worktreeBase, worktreeDiffTab } from '@/shell/panels/worktree-rows';
-import { PanelHeaderSlot } from '@/shell/PanelHeaderSlot';
+import { useWorktreeInspection } from '@/shell/panels/use-worktree-inspection';
+import { WorktreeInspectDialog, type WorktreeActions } from '@/shell/panels/WorktreeMenu';
+import { nodesInWorktree, worktreeBase, worktreeDiffTab } from '@/shell/panels/worktree-rows';
+import { PanelHeaderLeadingSlot, PanelHeaderSlot, PanelHeaderTitleHidden } from '@/shell/PanelHeaderSlot';
 import { revealNode } from '@/project/views';
 import { useCanvas } from '@/state/canvas';
 import { useDocument } from '@/state/document';
@@ -50,9 +50,6 @@ import { useUi } from '@/state/ui';
 import { useToasts } from '@/state/toasts';
 import { useProjectNodes, useWorktrees, worktreeLists } from '@/state/worktrees';
 import { useTransport } from '@/transport/context';
-
-// Under this the header has no room for the counts, and the chips need what there is.
-const PILLS_FROM_WIDTH = 320;
 
 // What the log may be squeezed to, and what has to be left for the list above it.
 const MIN_LOG_HEIGHT = 80;
@@ -89,7 +86,6 @@ export function GitPanel() {
     const collapsedDirs = useGit((s) => s.collapsedDirs);
     const logHeight = useGit((s) => s.logHeight);
     const hiddenRepos = useGit((s) => s.hiddenRepos);
-    const worktreesOpen = useGit((s) => s.worktreesOpen);
     const tabLimit = useSettings((s) => s.filesTabLimit);
     const endpointId = useEndpointId();
     const transport = useTransport();
@@ -163,8 +159,8 @@ export function GitPanel() {
         max: () => (bodyRef.current?.getBoundingClientRect().height ?? 0) - MIN_LIST_HEIGHT,
         onSize: (next) => useGit.getState().setLogHeight(next)
     });
-    const roomForPills = (useUi((s) => s.panelWidth) ?? 540) >= PILLS_FROM_WIDTH;
     const run = useGitActions();
+    const inspection = useWorktreeInspection(folder);
 
     const loadRefs = useCallback(
         (path: string): void => {
@@ -466,10 +462,49 @@ export function GitPanel() {
     const push = pushButton(status);
     const changes = checkouts.reduce((count, checkout) => count + (checkout.status?.files.length ?? 0), 0);
     const failures = checkouts.filter((checkout) => checkout.failure !== null);
-    /* Over several repositories the counts are the whole folder's, which is what the button beside
-       them acts on as well. */
-    const ahead = checkouts.reduce((count, checkout) => count + (checkout.status?.ahead ?? 0), 0);
-    const behind = checkouts.reduce((count, checkout) => count + (checkout.status?.behind ?? 0), 0);
+    const behind = checkouts.filter((checkout) => (checkout.status?.behind ?? 0) > 0);
+    /* Every changed file the panel shows, which the box over the list stages or unstages at once. */
+    const items = checkouts.flatMap((checkout) => entriesOf(checkout.status?.files ?? []).map((entry) => ({ cwd: checkout.path, entry })));
+    const allCheck = checkOfItems(items);
+    const boxed = items.some((item) => item.entry.group !== 'conflicts');
+    const several = targets.filter((entry) => entry.kind !== 'worktree').length > 1;
+    /* The repository the worktrees were made from: the one the project folder itself is. */
+    const folderRepo = repos.find((repo) => repo.path === folder)?.label ?? basenameOf(folder);
+    const inside = worktree === null ? null : (worktrees.find((entry) => entry.path === worktree.cwd) ?? null);
+    const insideNames =
+        inside === null
+            ? ''
+            : nodesInWorktree(projectNodes, inside)
+                  .map((node) => node.title || node.kind)
+                  .join(', ');
+
+    const toggleAll = (): void => {
+        const { staged, work } = toggleItems(items);
+        for (const step of work) {
+            stage(step.cwd, step.paths, staged);
+        }
+    };
+
+    const refreshAll = (): void => {
+        void refresh();
+        reloadRepos();
+        worktreeLists.reload(endpointId, folder);
+    };
+
+    const enterWorktree = (entry: Worktree): void => {
+        const next = targets.find((candidate) => candidate.cwd === entry.path);
+        if (next) {
+            pickTarget(next);
+        }
+    };
+
+    const worktreeActions: WorktreeActions = {
+        onView: viewWorktree,
+        onMerge: (entry) => useUi.getState().setWorktreeMerge({ folder, paths: [entry.path] }),
+        onRemove: (entry) => useUi.getState().setWorktreeRemoval({ folder, paths: [entry.path] }),
+        onReveal: revealNode,
+        onInspect: inspection.inspect
+    };
 
     /* The words of a dialog over files: the name of one, the count of several. */
     const filesDialogText = (kind: 'discard' | 'delete-file', key: 'discard' | 'deleteFile'): { title: string; description: string } => {
@@ -511,110 +546,89 @@ export function GitPanel() {
                 }
             }}
         >
-            {/* The chips and the buttons of the panel live in the panel's own header, next to its
-                name; the row under it holds what acts on the list. */}
-            <PanelHeaderSlot>
+            {/* The panel's name gives way to the chip, which names what the panel shows better than "Git" does. */}
+            <PanelHeaderTitleHidden />
+            <PanelHeaderLeadingSlot>
                 <BranchMenu
                     target={target}
                     targets={targets}
                     branch={status?.branch ?? null}
                     detached={status?.detached ?? false}
                     nested={named}
+                    worktree={worktree}
+                    worktrees={worktrees}
+                    nodes={projectNodes}
+                    projectBranch={worktree === null ? (status?.branch ?? null) : null}
+                    folderLabel={basenameOf(folder)}
+                    projectChanges={worktree === null ? changes : null}
+                    worktreeRepo={several ? folderRepo : null}
+                    hidden={hiddenRepos.length}
+                    busy={busy}
+                    worktreeActions={worktreeActions}
                     refsOf={refsOf}
                     renderActions={repoActions}
                     onOpenMenu={openBranchMenu}
                     onOpen={loadRefs}
-                    onPickTarget={pickTarget}
+                    onEnterWorktree={enterWorktree}
+                    onLeaveWorktree={leaveWorktree}
                     onCheckout={checkout}
                     onCreate={(path) => setDialog({ kind: 'create-branch', cwd: path })}
+                    onShowRepos={() => useGit.getState().setHiddenRepos([])}
+                    onMergeWorktrees={() =>
+                        useUi.getState().setWorktreeMerge({ folder, paths: worktrees.filter((entry) => entry.missing !== true).map((entry) => entry.path) })
+                    }
                 />
-                {roomForPills && ahead > 0 && (
-                    <Pill icon={<Icon icon={ArrowUp} size={12} />} className="tabular-nums">
-                        {ahead}
-                    </Pill>
-                )}
-                {roomForPills && behind > 0 && (
-                    <Pill icon={<Icon icon={ArrowDown} size={12} />} className="tabular-nums">
-                        {behind}
-                    </Pill>
-                )}
+            </PanelHeaderLeadingSlot>
+            <PanelHeaderSlot>
                 <span className="grow" />
                 <PushMenu button={push} active={cwd} entries={entries} busy={busy} onPush={(path, kind) => void actOn(path, kind)} onPushAll={pushAll} />
-                <Separator />
+                <ActionsMenu
+                    busy={busy}
+                    foldable={changes > 0}
+                    onOpen={() => cwd !== null && loadRefs(cwd)}
+                    onAll={actAll}
+                    onExpandAll={() => useGit.getState().setCollapsedDirs([])}
+                    onCollapseAll={() =>
+                        useGit.getState().setCollapsedDirs(checkouts.flatMap((checkout) => allCollapseKeys(checkout.status?.files ?? [], checkout.path)))
+                    }
+                >
+                    {/* One repository keeps the menu it always had; over several, what acts on one
+                        of them sits on its row in the list and in its own level of the branch menu. */}
+                    {!named && cwd !== null ? repoActions(cwd) : undefined}
+                </ActionsMenu>
             </PanelHeaderSlot>
-            {followedNode !== null && (
-                <div className="flex h-7 shrink-0 items-center gap-2 border-b border-border px-3 text-xs">
-                    <Icon icon={LocateFixed} size={12} className="shrink-0 text-text-muted" />
-                    <span className="min-w-0 grow truncate text-text-muted">{t('git.follow.label', { node: followedNode.title || followedNode.kind })}</span>
-                    <button type="button" className="shrink-0 text-accent hover:underline" onClick={leaveWorktree}>
-                        {t('git.follow.back')}
-                    </button>
-                </div>
-            )}
-            <WorktreeSection
-                folder={folder}
-                worktrees={worktrees}
-                nodes={projectNodes}
-                current={worktree?.cwd ?? null}
-                repoCount={repos.length}
-                open={worktreesOpen}
-                busy={busy}
-                onToggle={(open) => useGit.getState().setWorktreesOpen(open)}
-                onLeave={leaveWorktree}
-                onView={viewWorktree}
-                onMerge={(entry) => useUi.getState().setWorktreeMerge({ folder, paths: [entry.path] })}
-                onRemove={(entry) => useUi.getState().setWorktreeRemoval({ folder, paths: [entry.path] })}
-                onReveal={revealNode}
-            />
-            {/* A folder whose every repository is hidden keeps this row, since the menu on it is the way back. */}
-            {(checkouts.length > 0 || hiddenRepos.length > 0) && (
-                <div className={FILE_TOOLBAR}>
-                    {changes > 0 && (
-                        <ButtonGroup render={<span />}>
-                            <IconButton
-                                icon={ChevronsUpDown}
-                                size="sm"
-                                label={t('git.panel.expandAll')}
-                                onClick={() => useGit.getState().setCollapsedDirs([])}
-                            />
-                            <IconButton
-                                icon={ChevronsDownUp}
-                                size="sm"
-                                label={t('git.panel.collapseAll')}
-                                onClick={() =>
-                                    useGit
-                                        .getState()
-                                        .setCollapsedDirs(checkouts.flatMap((checkout) => allCollapseKeys(checkout.status?.files ?? [], checkout.path)))
-                                }
-                            />
-                        </ButtonGroup>
-                    )}
-                    <span className="grow" />
-                    <IconButton
-                        icon={RefreshCw}
-                        size="sm"
-                        label={t('file.menu.refresh')}
-                        disabled={busy}
-                        onClick={() => {
-                            void refresh();
-                            reloadRepos();
-                            if (folder !== null) {
-                                worktreeLists.reload(endpointId, folder);
-                            }
-                        }}
-                    />
-                    <Separator />
-                    <ActionsMenu
-                        busy={busy}
-                        hidden={hiddenRepos.length}
-                        onOpen={() => cwd !== null && loadRefs(cwd)}
-                        onAll={actAll}
-                        onShowRepos={() => useGit.getState().setHiddenRepos([])}
+            {worktree !== null && (
+                <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border pr-2 pl-3 text-sm">
+                    {/* While the selection put the panel here, the row says so; the chip's project row leaves. */}
+                    <Tooltip
+                        label={
+                            followedNode === null ? (worktree.cwd ?? worktree.label) : t('git.follow.label', { node: followedNode.title || followedNode.kind })
+                        }
                     >
-                        {/* One repository keeps the menu it always had; over several, what acts on one
-                            of them sits on its row in the list and in its own level of the branch menu. */}
-                        {!named && cwd !== null ? repoActions(cwd) : undefined}
-                    </ActionsMenu>
+                        <span className="flex min-w-0 items-center gap-2">
+                            <Icon icon={GitFork} size={14} className="shrink-0 text-text-muted" />
+                            <span className="shrink-0 text-text">{several ? folderRepo : t('git.worktree.label')}</span>
+                            {insideNames !== '' && (
+                                <span className="flex min-w-0 items-center gap-1 text-text-muted">
+                                    <Icon icon={MessageSquare} size={12} className="shrink-0" />
+                                    <span className="truncate">{insideNames}</span>
+                                </span>
+                            )}
+                            {followedNode !== null && <Icon icon={LocateFixed} size={12} className="shrink-0 text-text-faint" />}
+                        </span>
+                    </Tooltip>
+                    <span className="grow" />
+                    {inside !== null && (
+                        <Button
+                            size="xs"
+                            variant="secondary"
+                            disabled={busy}
+                            onClick={() => useUi.getState().setWorktreeMerge({ folder, paths: [inside.path] })}
+                        >
+                            <Icon icon={GitMerge} size={12} />
+                            {t('git.worktree.merge')}
+                        </Button>
+                    )}
                 </div>
             )}
             {failures.map((checkout) => (
@@ -644,6 +658,50 @@ export function GitPanel() {
                     </div>
                 );
             })}
+            {/* One notice per repository behind its upstream, each with the sync that brings it level. */}
+            {behind.length > 0 && (
+                <div className="flex shrink-0 flex-col gap-2 px-2 pt-2">
+                    {behind.map((checkout) => {
+                        const count = checkout.status?.behind ?? 0;
+                        const upstream = checkout.status?.upstream ?? '';
+                        return (
+                            <Banner
+                                key={checkout.path}
+                                placement="inline"
+                                tone="attention"
+                                icon={GitMerge}
+                                message={
+                                    named
+                                        ? t('git.behind.repo', { repo: checkout.label, count, remote: upstream.split('/')[0] })
+                                        : t('git.behind.one', { upstream, count })
+                                }
+                            >
+                                <Button size="xs" variant="secondary" disabled={busy} onClick={() => void act(checkout.path, 'sync')}>
+                                    {t('git.actions.sync')}
+                                </Button>
+                            </Banner>
+                        );
+                    })}
+                </div>
+            )}
+            {/* A folder whose every repository is hidden keeps this row, with the refresh that reads them again. */}
+            {(checkouts.length > 0 || hiddenRepos.length > 0) && (
+                <div className="flex h-9 shrink-0 items-center gap-2 pr-2 pl-3">
+                    {boxed && (
+                        <Checkbox
+                            label={allCheck === 'checked' ? t('git.list.unstageAll') : t('git.list.stageAll')}
+                            checked={allCheck === 'checked'}
+                            indeterminate={allCheck === 'mixed'}
+                            disabled={busy}
+                            onCheckedChange={toggleAll}
+                        />
+                    )}
+                    <SectionLabel>{t('git.list.changes')}</SectionLabel>
+                    {changes > 0 && <span className="text-xs text-text-faint tabular-nums">{formatNumber(changes)}</span>}
+                    <span className="grow" />
+                    <IconButton icon={RefreshCw} size="sm" label={t('file.menu.refresh')} disabled={busy} onClick={refreshAll} />
+                </div>
+            )}
             <div ref={bodyRef} className="flex min-h-0 grow flex-col">
                 <GitFileList
                     checkouts={checkouts}
@@ -669,7 +727,7 @@ export function GitPanel() {
                             onPointerDown={startLogResize}
                         />
                         <div ref={logRef} className="flex shrink-0 flex-col" style={{ height: logHeight }}>
-                            <CommitLog sources={sources} reading={readingCommit} onOpen={openCommit} />
+                            <CommitLog sources={sources} filterKey={messageKey} reading={readingCommit} onOpen={openCommit} />
                         </div>
                     </>
                 )}
@@ -885,6 +943,11 @@ export function GitPanel() {
                 }}
                 onClose={() => setDialog(null)}
             />
+            <WorktreeInspectDialog
+                inspected={inspection.inspected}
+                onClose={inspection.close}
+                onRemove={(entry) => useUi.getState().setWorktreeRemoval({ folder, paths: [entry.path] })}
+            />
         </div>
     );
 }
@@ -912,26 +975,27 @@ function openUrl(url: string): void {
 
 interface ActionsMenuProps {
     busy: boolean;
-    /* How many repositories of the folder a person folded away, which is the only way back to them. */
-    hidden: number;
+    /* Whether the list has folders to fold, which is when expanding and collapsing all of them mean something. */
+    foldable: boolean;
     onOpen(): void;
     /* Fetch, pull and push over every repository the folder holds. */
     onAll(kind: GitActionKind): void;
-    onShowRepos(): void;
+    onExpandAll(): void;
+    onCollapseAll(): void;
     /* What acts on one repository, which a folder with a single one has right here. */
     children?: ReactNode;
 }
 
 /*
- * Everything that is not the one button next to it. A folder with a single repository has the menu it
+ * Everything that is not the push button next to it. A folder with a single repository has the menu it
  * always had; over several, the three that make sense for the whole folder stay here and everything
  * that names one repository sits on that repository's row and in its own level of the branch menu.
  */
-function ActionsMenu({ busy, hidden, onOpen, onAll, onShowRepos, children }: ActionsMenuProps) {
+function ActionsMenu({ busy, foldable, onOpen, onAll, onExpandAll, onCollapseAll, children }: ActionsMenuProps) {
     const { t } = useTranslation('panels');
     return (
         <Menu.Root onOpenChange={(open) => open && onOpen()}>
-            <IconButton icon={MoreHorizontal} size="sm" label={t('git.actions.more')} render={<Menu.Trigger />} disabled={busy} />
+            <IconButton icon={MoreHorizontal} label={t('git.actions.more')} render={<Menu.Trigger />} disabled={busy} />
             <Menu.Popup align="end">
                 {children ?? (
                     <>
@@ -943,12 +1007,14 @@ function ActionsMenu({ busy, hidden, onOpen, onAll, onShowRepos, children }: Act
                         <Menu.Item onClick={() => onAll('fetch')}>{t('git.actions.fetchAll')}</Menu.Item>
                     </>
                 )}
-                {hidden > 0 && (
+                {foldable && (
                     <>
                         <Menu.Separator />
-                        <Menu.Item onClick={onShowRepos}>
-                            <Icon icon={Eye} size={14} />
-                            {t('git.repo.showAll', { count: hidden })}
+                        <Menu.Item onClick={onExpandAll}>
+                            <Icon icon={ChevronsUpDown} size={14} /> {t('git.panel.expandAll')}
+                        </Menu.Item>
+                        <Menu.Item onClick={onCollapseAll}>
+                            <Icon icon={ChevronsDownUp} size={14} /> {t('git.panel.collapseAll')}
                         </Menu.Item>
                     </>
                 )}

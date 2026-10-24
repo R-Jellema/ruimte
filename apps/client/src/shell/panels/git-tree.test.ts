@@ -76,9 +76,11 @@ describe('the groups of the list', () => {
         expect(statusOf(entriesOf([file('c.ts', 'staged', 'R'), file('c.ts', 'unstaged', 'M')])[0]!)).toBe('R');
     });
 
-    test('a file row counts the lines of the diff it opens, then its letter', () => {
+    test('a file row counts the lines of the diff it opens, both sides even at zero, then its letter', () => {
         const [entry] = entriesOf([file('a.ts', 'staged', 'M', 3, 1), file('a.ts', 'unstaged', 'M', 7, 0)]);
-        expect(entryParts(entry!).map((part) => part.text)).toEqual(['+7', 'M']);
+        expect(entryParts(entry!).map((part) => part.text)).toEqual(['+7', '-0', 'M']);
+        const [binary] = entriesOf([file('b.png', 'unstaged', 'M', 0, 0)]);
+        expect(entryParts(binary!).map((part) => part.text)).toEqual(['M']);
         expect(checkPart('mixed')).toEqual({ text: '', color: 'var(--git-check-mixed)' });
     });
 
@@ -380,6 +382,7 @@ describe('repoParts', () => {
             ['branch', 'main']
         ]);
         expect(parts[1]!.label).toBe('2 commits to push');
+        expect(parts[2]!.color).toBe('var(--status-needs-you)');
         expect(repoParts({ ...clean, files: [file('a.ts', 'conflicted')] })[0]!.kind).toBe('needs-you');
     });
 

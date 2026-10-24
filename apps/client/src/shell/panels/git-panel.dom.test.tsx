@@ -2,13 +2,14 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
 import type { GitStatus, ProjectCanvasView } from '@ruimte/contracts';
 import { focusedCanvas } from '@/state/canvas';
-import { useGit } from '@/state/git';
 import { useUi } from '@/state/ui';
 import { FakeMachine } from '../../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../../testing/fake-workspace';
 import { clickOn, mount, openSubmenu, until, type Mounted } from '../../../testing/dom';
 
 const FOLDER = '/work/atlas';
+const API = `${FOLDER}/api`;
+const WEB = `${FOLDER}/web`;
 const WORKTREE = '/work/worktrees/atlas/lexer';
 const TEAM = {
     id: 'g1',
@@ -21,12 +22,14 @@ const TEAM = {
     worktree: { path: WORKTREE, branch: 'lexer' }
 };
 const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [TEAM], texts: [], edges: [], layouts: [] };
+// A fixed moment, so the log groups its rows the same way on every run.
+const COMMITTED_AT = 1_760_000_000;
 
 let machine: FakeMachine;
 let workspace: FakeWorkspace;
 let page: Mounted;
 
-function status(branch: string): GitStatus {
+function status(branch: string, behind = 0): GitStatus {
     return {
         repo: true,
         root: null,
@@ -34,7 +37,7 @@ function status(branch: string): GitStatus {
         detached: false,
         upstream: `origin/${branch}`,
         ahead: 0,
-        behind: 0,
+        behind,
         base: 'main',
         mergeBase: null,
         files: [{ path: 'README.md', state: 'unstaged', status: 'M', added: 1, deleted: 0, binary: false }],
@@ -47,44 +50,53 @@ function buttonWithText(text: string, within: ParentNode = document.body): HTMLE
     return [...within.querySelectorAll<HTMLElement>('button')].find((candidate) => candidate.textContent?.trim() === text) ?? null;
 }
 
-function worktreesHeader(): HTMLElement | null {
+/* The chip at the start of the panel's header, which opens the picker. */
+function chip(startsWith: string): HTMLElement | null {
     return (
-        [...document.body.querySelectorAll<HTMLElement>('button[aria-expanded]')].find((candidate) => candidate.textContent?.startsWith('Worktrees')) ?? null
+        [...document.body.querySelectorAll<HTMLElement>('button[aria-haspopup="menu"]')].find((candidate) => candidate.textContent?.startsWith(startsWith)) ??
+        null
     );
 }
 
-/* A row of the worktrees section; the group on the canvas has a pill with the branch too. */
-function rowButton(text: string): HTMLElement | null {
-    const section = worktreesHeader()?.closest('section');
-    return section ? buttonWithText(text, section) : null;
+function menuItem(text: string, role = 'menuitem'): HTMLElement | null {
+    return [...document.body.querySelectorAll<HTMLElement>(`[role="${role}"]`)].find((candidate) => candidate.textContent?.includes(text)) ?? null;
 }
 
-function rowOf(text: string): HTMLElement | null {
-    return rowButton(text)?.closest('li') ?? null;
-}
-
-function followBar(): HTMLElement | null {
-    return [...document.body.querySelectorAll<HTMLElement>('span')].find((candidate) => candidate.textContent === 'Follows the selection: Lexer team') ?? null;
+/* The row under the header that says the panel is inside a worktree. */
+function worktreeRow(): HTMLElement | null {
+    return buttonWithText('Merge')?.parentElement ?? null;
 }
 
 beforeEach(async () => {
     localStorage.clear();
-    useGit.setState({ worktreesOpen: false });
     machine = new FakeMachine();
     machine.answer('git.repos', () => ({
         repos: [
-            { path: `${FOLDER}/api`, label: 'api', kind: 'nested' as const },
-            { path: `${FOLDER}/web`, label: 'web', kind: 'nested' as const }
+            { path: API, label: 'api', kind: 'nested' as const },
+            { path: WEB, label: 'web', kind: 'nested' as const }
         ],
         truncated: false
     }));
     machine.answer('git.status', ({ cwd }) => status(cwd === WORKTREE ? 'lexer' : 'main'));
     machine.answer('git.worktree-list', () => ({ worktrees: [{ path: WORKTREE, branch: 'lexer' }] }));
+    machine.answer('git.log', ({ cwd }) => ({
+        commits: [
+            {
+                hash: `${cwd}-1`,
+                shortHash: 'abc1234',
+                subject: cwd === API ? 'feat: api work' : cwd === WEB ? 'feat: web work' : 'feat: lexer work',
+                author: 'Bas',
+                at: COMMITTED_AT,
+                refs: []
+            }
+        ],
+        cursor: null
+    }));
     workspace = await openFakeWorkspace(machine, { views: [MAIN] }, { activeViewId: MAIN.id, views: {} });
     page = mount();
     await page.renderApp();
     await act(async () => useUi.getState().setPanel({ open: true, kind: 'git' }));
-    await until(() => buttonWithText('2 repositories') !== null);
+    await until(() => chip('2 repos') !== null);
 });
 
 afterEach(async () => {
@@ -104,11 +116,11 @@ describe('the git panel over a folder of two repositories', () => {
             stashes: []
         }));
         for (const approve of [false, true]) {
-            await clickOn(buttonWithText('2 repositories'));
+            await clickOn(chip('2 repos'));
+            await openSubmenu('Switch branch');
             await openSubmenu('api');
             await openSubmenu('Branch');
-            const rebase = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find((item) => item.textContent === 'Rebase onto…');
-            await clickOn(rebase ?? null);
+            await clickOn(menuItem('Rebase onto…'));
             await until(() => buttonWithText('release') !== null);
             expect(machine.requests('git.action')).toEqual([]);
             await clickOn(buttonWithText('release'));
@@ -122,39 +134,73 @@ describe('the git panel over a folder of two repositories', () => {
             }
         }
         await until(() => machine.requests('git.action').length === 1);
-        expect(machine.requests('git.action')).toEqual([{ cwd: `${FOLDER}/api`, actionId: expect.any(String), kind: 'rebase', ref: 'release' }]);
+        expect(machine.requests('git.action')).toEqual([{ cwd: API, actionId: expect.any(String), kind: 'rebase', ref: 'release' }]);
     });
 
-    test('the worktrees start folded and open on a click', async () => {
-        await until(() => worktreesHeader() !== null);
-        expect(worktreesHeader()!.getAttribute('aria-expanded')).toBe('false');
-        expect(rowButton('Project folder')).toBeNull();
-        await clickOn(worktreesHeader());
-        await until(() => rowButton('Project folder') !== null);
-        expect(worktreesHeader()!.getAttribute('aria-expanded')).toBe('true');
-        expect(rowOf('Project folder')!.getAttribute('aria-current')).toBe('true');
-        expect(rowOf('lexer')).not.toBeNull();
+    test('the picker lists the worktrees, enters one and goes back to the project', async () => {
+        expect(chip('2 repos')!.textContent).toContain('1 worktree');
+        await clickOn(chip('2 repos'));
+        await until(() => menuItem('lexer') !== null);
+        expect(menuItem('api, web')).not.toBeNull();
+        expect(menuItem('lexer')!.textContent).toContain('no chat');
+        await clickOn(menuItem('lexer'));
+        await until(() => chip('lexer') !== null);
+        expect(chip('2 repos')).toBeNull();
+        expect(worktreeRow()?.textContent).toContain('atlas');
+        await clickOn(chip('lexer'));
+        await until(() => menuItem('api, web') !== null);
+        await clickOn(menuItem('api, web'));
+        await until(() => chip('2 repos') !== null);
+        expect(worktreeRow()).toBeNull();
     });
 
-    test('the project folder row leaves a worktree picked by hand', async () => {
-        await until(() => worktreesHeader() !== null);
-        await clickOn(worktreesHeader());
-        await until(() => rowButton('lexer') !== null);
-        await clickOn(rowButton('lexer'));
-        await until(() => rowOf('lexer')?.getAttribute('aria-current') === 'true');
-        expect(buttonWithText('2 repositories')).toBeNull();
-        expect(followBar()).toBeNull();
-        await clickOn(rowButton('Project folder'));
-        await until(() => rowOf('Project folder')?.getAttribute('aria-current') === 'true');
-        expect(buttonWithText('2 repositories')).not.toBeNull();
-    });
-
-    test('a selection in a worktree is followed, and the bar goes back to the project folder', async () => {
+    test('a selection in a worktree is followed until the picker leaves it', async () => {
         await act(async () => focusedCanvas().getState().select([TEAM.id]));
-        await until(() => followBar() !== null);
-        expect(buttonWithText('2 repositories')).toBeNull();
-        await clickOn(buttonWithText('Back to project folder'));
-        await until(() => followBar() === null);
-        await until(() => buttonWithText('2 repositories') !== null);
+        await until(() => chip('lexer') !== null);
+        expect(worktreeRow()).not.toBeNull();
+        await clickOn(chip('lexer'));
+        await until(() => menuItem('api, web') !== null);
+        await clickOn(menuItem('api, web'));
+        await until(() => chip('2 repos') !== null);
+    });
+
+    test('a repository behind its upstream says so, and Sync brings it level', async () => {
+        machine.answer('git.status', ({ cwd }) => status('main', cwd === API ? 3 : 0));
+        await clickOn(document.body.querySelector<HTMLElement>('button[aria-label="Refresh"]'));
+        await until(() => document.body.textContent?.includes('api is 3 commits behind origin') === true);
+        const banner = [...document.body.querySelectorAll<HTMLElement>('[role="status"]')].find((candidate) =>
+            candidate.textContent?.includes('api is 3 commits behind origin')
+        );
+        expect(document.body.textContent).not.toContain('web is');
+        await clickOn(buttonWithText('Sync', banner));
+        await until(() => machine.requests('git.action').length === 1);
+        expect(machine.requests('git.action')).toEqual([expect.objectContaining({ cwd: API, kind: 'sync' })]);
+    });
+
+    test('the box over the list stages every change in every repository', async () => {
+        const box = (): HTMLElement | null => document.body.querySelector<HTMLElement>('[role="checkbox"][aria-label="Stage all changes"]');
+        await until(() => box() !== null);
+        await clickOn(box());
+        await until(() => machine.requests('git.stage').length === 2);
+        expect(machine.requests('git.stage')).toEqual(
+            expect.arrayContaining([
+                { cwd: API, paths: ['README.md'], staged: true },
+                { cwd: WEB, paths: ['README.md'], staged: true }
+            ])
+        );
+    });
+
+    test('the log narrows to one repository and widens again', async () => {
+        await until(() => document.body.textContent?.includes('feat: web work') === true);
+        expect(document.body.textContent).toContain('feat: api work');
+        await clickOn(buttonWithText('All repos'));
+        await until(() => menuItem('api', 'menuitemradio') !== null);
+        await clickOn(menuItem('api', 'menuitemradio'));
+        await until(() => !document.body.textContent?.includes('feat: web work'));
+        expect(document.body.textContent).toContain('feat: api work');
+        await clickOn(buttonWithText('api'));
+        await until(() => menuItem('All repos', 'menuitemradio') !== null);
+        await clickOn(menuItem('All repos', 'menuitemradio'));
+        await until(() => document.body.textContent?.includes('feat: web work') === true);
     });
 });

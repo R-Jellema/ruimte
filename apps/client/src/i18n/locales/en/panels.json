@@ -526,20 +526,23 @@
             }
         },
         "branchMenu": {
-            "checkout": "Checkout",
             "create": "Create branch…",
             "copyName": "Copy branch name",
             "default": "default",
             "detached": "detached",
+            "folder": "Folder",
             "inWorktree": "in another worktree",
             "loading": "Reading branches…",
-            "noCheckouts": "No checkouts",
+            "mergeWorktrees": "Merge worktrees…",
             "noMatch": "No matching branch.",
-            "repositories": "Repositories",
+            "project": "Project",
             "search": "Search branches",
+            "switch": "Switch branch…",
             "tooltip": "Current branch",
-            "chipRepos_one": "{{count}} repository",
-            "chipRepos_other": "{{count}} repositories",
+            "chipRepos_one": "{{count}} repo",
+            "chipRepos_other": "{{count}} repos",
+            "chipWorktrees_one": "{{count}} worktree",
+            "chipWorktrees_other": "{{count}} worktrees",
             "tooltipRepos_one": "{{count}} repository and its branches",
             "tooltipRepos_other": "{{count}} repositories and their branches",
             "tooltipWorktree": "{{branch}}, in worktree {{worktree}}",
@@ -554,7 +557,7 @@
             "commit": "Commit",
             "label": "Commit message",
             "commitAndPush": "Commit and push",
-            "commitAndPushHint": "Commit and push",
+            "more": "More ways to commit",
             "commitStagedHint": "Commit what is staged",
             "in": "Commit in {{repos}}",
             "letWrite": "Let {{provider}} write the message",
@@ -675,6 +678,7 @@
             "unversioned": "Unversioned Files"
         },
         "list": {
+            "changes": "Changes",
             "collapseFolder": "Collapse folder",
             "deleteFile": "Move to trash…",
             "deleteMany": "Move {{count}} new files to trash…",
@@ -687,14 +691,17 @@
             "noRepo": "Not a git repository.",
             "openChanges": "Open changes",
             "stage": "Stage",
+            "stageAll": "Stage all changes",
             "stageHere": "Stage everything here",
             "stageMany": "Stage {{count}} files",
             "stageResolved": "Stage as resolved",
             "unstage": "Unstage",
+            "unstageAll": "Unstage all changes",
             "unstageHere": "Unstage everything here",
             "unstageMany": "Unstage {{count}} files"
         },
         "log": {
+            "allRepos": "All repos",
             "copySubject": "Copy subject",
             "empty": "No commits yet.",
             "failed": "Could not read the history.",
@@ -765,8 +772,17 @@
             "reason_other": "Push {{count}} commits to {{upstream}}"
         },
         "follow": {
-            "label": "Follows the selection: {{node}}",
-            "back": "Back to project folder"
+            "label": "Follows the selection: {{node}}"
+        },
+        "behind": {
+            "one_one": "{{upstream}} has {{count}} new commit",
+            "one_other": "{{upstream}} has {{count}} new commits",
+            "repo_one": "{{repo}} is {{count}} commit behind {{remote}}",
+            "repo_other": "{{repo}} is {{count}} commits behind {{remote}}"
+        },
+        "worktree": {
+            "label": "Worktree",
+            "merge": "Merge"
         },
         "repo": {
             "ahead_one": "{{count}} commit to push",
@@ -1109,23 +1125,15 @@
             "branchDeleted": "Deleted the branch too. \"git branch {{branch}} {{commit}}\" brings it back.",
             "branchStays": "The branch {{branch}} stays."
         },
-        "section": {
+        "menu": {
             "actions": "Worktree actions",
-            "agents_one": "{{count}} agent",
-            "agents_other": "{{count}} agents",
+            "clean": "clean",
             "folderMissing": "folder missing",
-            "locked": "Locked",
             "merge": "Merge worktree…",
             "inspect": "Inspect",
-            "needsYou_one": "{{count}} needs you",
-            "needsYou_other": "{{count}} need you",
-            "noNode": "no node",
-            "projectFolder": "Project folder",
+            "noChat": "no chat",
             "remove": "Remove worktree…",
-            "repositories_one": "{{count}} repository",
-            "repositories_other": "{{count}} repositories",
-            "title": "Worktrees",
-            "view": "View worktree"
+            "view": "View all changes"
         },
         "verdict": {
             "inspecting": "Inspecting…",
