@@ -1,0 +1,459 @@
+{
+  "environment": {
+    "date": "2026-10-25",
+    "base": "cef611c01",
+    "bun": "1.4.2",
+    "os": "macOS 27.2",
+    "cpu": "Apple M4 Max"
+  },
+  "measurements": {
+    "before-safe": {
+      "benchmark": "daemon-local-startup",
+      "runs": 9,
+      "pollMs": 10,
+      "mode": "compiled",
+      "projects": 0,
+      "instrumented": false,
+      "samples": [
+        {
+          "listeningMs": 398.58045799999996,
+          "provenMs": 402.21824999999995,
+          "ticketMs": 402.97091700000004,
+          "connectedMs": 408.11475,
+          "projectsMs": 409.04566700000004
+        },
+        {
+          "listeningMs": 378.67879100000005,
+          "provenMs": 380.0288330000001,
+          "ticketMs": 380.7405,
+          "connectedMs": 384.9440000000001,
+          "projectsMs": 385.62183300000004
+        },
+        {
+          "listeningMs": 379.67879199999993,
+          "provenMs": 381.3565000000001,
+          "ticketMs": 381.864417,
+          "connectedMs": 384.7924170000001,
+          "projectsMs": 385.24475000000007
+        },
+        {
+          "listeningMs": 396.6112089999999,
+          "provenMs": 397.81058400000006,
+          "ticketMs": 398.0987089999999,
+          "connectedMs": 400.03604199999995,
+          "projectsMs": 400.2549589999999
+        },
+        {
+          "listeningMs": 387.2203749999999,
+          "provenMs": 389.2385830000003,
+          "ticketMs": 390.7048749999999,
+          "connectedMs": 394.2187079999999,
+          "projectsMs": 394.751542
+        },
+        {
+          "listeningMs": 385.52495799999997,
+          "provenMs": 387.02774999999974,
+          "ticketMs": 387.3504579999999,
+          "connectedMs": 389.5379579999999,
+          "projectsMs": 389.8110419999998
+        },
+        {
+          "listeningMs": 391.4547080000002,
+          "provenMs": 393.876792,
+          "ticketMs": 394.2197500000002,
+          "connectedMs": 396.48295800000005,
+          "projectsMs": 396.88104200000043
+        },
+        {
+          "listeningMs": 395.54224999999997,
+          "provenMs": 397.6126250000002,
+          "ticketMs": 397.8917919999999,
+          "connectedMs": 400.20949999999993,
+          "projectsMs": 400.591042
+        },
+        {
+          "listeningMs": 390.73637499999995,
+          "provenMs": 392.2431670000001,
+          "ticketMs": 392.713667,
+          "connectedMs": 394.98462500000005,
+          "projectsMs": 395.48799999999983
+        }
+      ]
+    },
+    "after": {
+      "benchmark": "daemon-local-startup",
+      "runs": 9,
+      "pollMs": 10,
+      "mode": "compiled",
+      "projects": 0,
+      "instrumented": false,
+      "samples": [
+        {
+          "listeningMs": 75.1275,
+          "provenMs": 79.076708,
+          "ticketMs": 79.929291,
+          "connectedMs": 83.661708,
+          "projectsMs": 84.320583
+        },
+        {
+          "listeningMs": 79.182458,
+          "provenMs": 81.14233300000001,
+          "ticketMs": 81.428583,
+          "connectedMs": 83.16512499999999,
+          "projectsMs": 83.36583300000001
+        },
+        {
+          "listeningMs": 76.01324999999997,
+          "provenMs": 77.46366599999999,
+          "ticketMs": 77.97424999999998,
+          "connectedMs": 81.010583,
+          "projectsMs": 81.42279100000002
+        },
+        {
+          "listeningMs": 76.23499999999996,
+          "provenMs": 77.58104199999997,
+          "ticketMs": 78.52041700000001,
+          "connectedMs": 80.912375,
+          "projectsMs": 81.24787499999996
+        },
+        {
+          "listeningMs": 75.85941700000006,
+          "provenMs": 77.34674999999999,
+          "ticketMs": 77.75104200000004,
+          "connectedMs": 81.67137500000007,
+          "projectsMs": 82.03474999999997
+        },
+        {
+          "listeningMs": 83.07266700000002,
+          "provenMs": 84.39491699999996,
+          "ticketMs": 84.746084,
+          "connectedMs": 86.51612499999999,
+          "projectsMs": 86.77208399999995
+        },
+        {
+          "listeningMs": 81.4877919999999,
+          "provenMs": 82.6389999999999,
+          "ticketMs": 82.92162499999995,
+          "connectedMs": 84.50962499999991,
+          "projectsMs": 84.83387499999992
+        },
+        {
+          "listeningMs": 80.71516700000006,
+          "provenMs": 82.07470799999999,
+          "ticketMs": 82.47687500000006,
+          "connectedMs": 84.79174999999998,
+          "projectsMs": 85.16833299999996
+        },
+        {
+          "listeningMs": 75.33695799999998,
+          "provenMs": 76.77670799999999,
+          "ticketMs": 77.19875000000002,
+          "connectedMs": 80.12929099999997,
+          "projectsMs": 80.45679099999995
+        }
+      ]
+    },
+    "durable-before": {
+      "benchmark": "daemon-cli-probe-startup",
+      "delayMs": 300,
+      "control": "cef611c01",
+      "samples": {
+        "benchmark": "daemon-local-startup",
+        "runs": 9,
+        "pollMs": 10,
+        "mode": "compiled",
+        "projects": 0,
+        "instrumented": false,
+        "samples": [
+          {
+            "listeningMs": 379.864375,
+            "provenMs": 384.89770899999996,
+            "ticketMs": 385.562459,
+            "connectedMs": 390.597167,
+            "projectsMs": 391.47741699999995
+          },
+          {
+            "listeningMs": 380.0157499999999,
+            "provenMs": 383.308583,
+            "ticketMs": 383.63033299999995,
+            "connectedMs": 385.566916,
+            "projectsMs": 385.85699999999997
+          },
+          {
+            "listeningMs": 383.41920900000014,
+            "provenMs": 385.02091700000005,
+            "ticketMs": 386.24745900000016,
+            "connectedMs": 390.2939590000001,
+            "projectsMs": 390.88487499999997
+          },
+          {
+            "listeningMs": 383.57566700000007,
+            "provenMs": 385.440417,
+            "ticketMs": 385.876,
+            "connectedMs": 388.1457499999999,
+            "projectsMs": 388.44724999999994
+          },
+          {
+            "listeningMs": 381.19929200000024,
+            "provenMs": 382.50300000000016,
+            "ticketMs": 382.901167,
+            "connectedMs": 384.698042,
+            "projectsMs": 384.97866699999986
+          },
+          {
+            "listeningMs": 390.200417,
+            "provenMs": 393.66662499999984,
+            "ticketMs": 394.1494170000001,
+            "connectedMs": 396.898917,
+            "projectsMs": 397.2819169999998
+          },
+          {
+            "listeningMs": 385.2535829999997,
+            "provenMs": 386.95899999999983,
+            "ticketMs": 387.3649580000001,
+            "connectedMs": 390.35991699999977,
+            "projectsMs": 390.79341699999986
+          },
+          {
+            "listeningMs": 396.28179199999977,
+            "provenMs": 397.90337499999987,
+            "ticketMs": 398.4249999999997,
+            "connectedMs": 401.21641699999964,
+            "projectsMs": 401.6144169999998
+          },
+          {
+            "listeningMs": 384.1390409999999,
+            "provenMs": 387.7139579999998,
+            "ticketMs": 388.1710829999997,
+            "connectedMs": 390.46245799999997,
+            "projectsMs": 390.81945799999994
+          }
+        ]
+      }
+    },
+    "durable-after": {
+      "benchmark": "daemon-cli-probe-startup",
+      "delayMs": 300,
+      "control": "working-tree",
+      "samples": {
+        "benchmark": "daemon-local-startup",
+        "runs": 9,
+        "pollMs": 10,
+        "mode": "compiled",
+        "projects": 0,
+        "instrumented": false,
+        "samples": [
+          {
+            "listeningMs": 78.481,
+            "provenMs": 82.46195800000001,
+            "ticketMs": 83.15312499999999,
+            "connectedMs": 87.489958,
+            "projectsMs": 88.127083
+          },
+          {
+            "listeningMs": 77.04191700000001,
+            "provenMs": 78.63516699999997,
+            "ticketMs": 79.09075000000001,
+            "connectedMs": 82.719042,
+            "projectsMs": 83.04708399999998
+          },
+          {
+            "listeningMs": 81.39541699999995,
+            "provenMs": 82.651792,
+            "ticketMs": 83.49333399999995,
+            "connectedMs": 85.45779199999998,
+            "projectsMs": 85.76291699999996
+          },
+          {
+            "listeningMs": 82.39837500000004,
+            "provenMs": 84.12320800000003,
+            "ticketMs": 84.67191600000001,
+            "connectedMs": 86.64350000000002,
+            "projectsMs": 86.87133299999999
+          },
+          {
+            "listeningMs": 83.65866699999998,
+            "provenMs": 84.62554199999994,
+            "ticketMs": 84.927709,
+            "connectedMs": 86.39466699999997,
+            "projectsMs": 86.57691699999992
+          },
+          {
+            "listeningMs": 82.27212499999996,
+            "provenMs": 83.19612499999994,
+            "ticketMs": 83.426875,
+            "connectedMs": 84.97104100000001,
+            "projectsMs": 85.20270800000003
+          },
+          {
+            "listeningMs": 78.296875,
+            "provenMs": 79.97579099999996,
+            "ticketMs": 80.32658300000003,
+            "connectedMs": 83.24420799999996,
+            "projectsMs": 83.66654099999994
+          },
+          {
+            "listeningMs": 79.01354199999992,
+            "provenMs": 80.77054199999998,
+            "ticketMs": 81.20633299999997,
+            "connectedMs": 83.59904199999994,
+            "projectsMs": 83.8806249999999
+          },
+          {
+            "listeningMs": 83.91995799999995,
+            "provenMs": 84.99358299999994,
+            "ticketMs": 85.265625,
+            "connectedMs": 86.94016699999997,
+            "projectsMs": 87.27108299999998
+          }
+        ]
+      }
+    },
+    "normal-before": {
+      "benchmark": "daemon-local-startup",
+      "runs": 9,
+      "pollMs": 10,
+      "mode": "compiled",
+      "projects": 0,
+      "instrumented": false,
+      "samples": [
+        {
+          "listeningMs": 188.28575,
+          "provenMs": 192.94925,
+          "ticketMs": 193.32716699999997,
+          "connectedMs": 197.50983300000001,
+          "projectsMs": 198.19491699999998
+        },
+        {
+          "listeningMs": 76.056375,
+          "provenMs": 77.612167,
+          "ticketMs": 78.025417,
+          "connectedMs": 80.55729199999996,
+          "projectsMs": 81.07304199999999
+        },
+        {
+          "listeningMs": 78.34412499999996,
+          "provenMs": 80.114417,
+          "ticketMs": 80.58041699999995,
+          "connectedMs": 83.15699999999998,
+          "projectsMs": 83.47816699999998
+        },
+        {
+          "listeningMs": 81.69324999999998,
+          "provenMs": 84.75650000000002,
+          "ticketMs": 85.30874999999997,
+          "connectedMs": 87.145375,
+          "projectsMs": 87.34375000000006
+        },
+        {
+          "listeningMs": 75.93341699999996,
+          "provenMs": 77.948667,
+          "ticketMs": 78.37199999999996,
+          "connectedMs": 80.328667,
+          "projectsMs": 80.633333
+        },
+        {
+          "listeningMs": 76.19475,
+          "provenMs": 78.44466699999998,
+          "ticketMs": 78.89808300000004,
+          "connectedMs": 81.40341699999999,
+          "projectsMs": 81.84500000000003
+        },
+        {
+          "listeningMs": 75.175792,
+          "provenMs": 76.364375,
+          "ticketMs": 76.72458399999994,
+          "connectedMs": 79.14570900000001,
+          "projectsMs": 79.75008400000002
+        },
+        {
+          "listeningMs": 77.11624999999992,
+          "provenMs": 78.84679199999994,
+          "ticketMs": 79.13774999999998,
+          "connectedMs": 82.32049999999992,
+          "projectsMs": 82.73695799999996
+        },
+        {
+          "listeningMs": 76.48129099999994,
+          "provenMs": 77.76087499999994,
+          "ticketMs": 79.30341599999997,
+          "connectedMs": 82.17679099999998,
+          "projectsMs": 82.50870799999996
+        }
+      ]
+    },
+    "normal-after": {
+      "benchmark": "daemon-local-startup",
+      "runs": 9,
+      "pollMs": 10,
+      "mode": "compiled",
+      "projects": 0,
+      "instrumented": false,
+      "samples": [
+        {
+          "listeningMs": 78.676875,
+          "provenMs": 82.730166,
+          "ticketMs": 83.62433300000001,
+          "connectedMs": 87.737166,
+          "projectsMs": 88.5265
+        },
+        {
+          "listeningMs": 78.16808300000002,
+          "provenMs": 80.13324999999998,
+          "ticketMs": 80.83300000000003,
+          "connectedMs": 83.88683300000002,
+          "projectsMs": 84.21379100000001
+        },
+        {
+          "listeningMs": 76.48766599999999,
+          "provenMs": 78.36850000000004,
+          "ticketMs": 78.92625000000004,
+          "connectedMs": 82.98254100000003,
+          "projectsMs": 83.36529100000001
+        },
+        {
+          "listeningMs": 84.97941699999996,
+          "provenMs": 86.05379199999999,
+          "ticketMs": 86.27112499999998,
+          "connectedMs": 88.000583,
+          "projectsMs": 88.28758299999998
+        },
+        {
+          "listeningMs": 77.11045899999993,
+          "provenMs": 78.23491699999994,
+          "ticketMs": 78.70779199999998,
+          "connectedMs": 81.23337499999997,
+          "projectsMs": 81.48883399999994
+        },
+        {
+          "listeningMs": 84.63104099999998,
+          "provenMs": 85.580333,
+          "ticketMs": 86.06149999999991,
+          "connectedMs": 87.96049999999991,
+          "projectsMs": 88.45370799999989
+        },
+        {
+          "listeningMs": 82.65929200000005,
+          "provenMs": 83.54250000000002,
+          "ticketMs": 83.80775000000006,
+          "connectedMs": 85.49283300000002,
+          "projectsMs": 85.71408299999996
+        },
+        {
+          "listeningMs": 76.321417,
+          "provenMs": 77.94887499999993,
+          "ticketMs": 79.041334,
+          "connectedMs": 81.195875,
+          "projectsMs": 81.49045899999999
+        },
+        {
+          "listeningMs": 77.77862500000003,
+          "provenMs": 79.84354099999996,
+          "ticketMs": 80.31704100000002,
+          "connectedMs": 83.05975000000001,
+          "projectsMs": 83.38620800000001
+        }
+      ]
+    }
+  }
+}

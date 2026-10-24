@@ -136,6 +136,8 @@ export interface SessionManagerOptions {
     accounts?: AccountLaunches;
     // The account a person picked for new agents of a CLI, for a first launch that names none.
     preferredAccount?: (kind: AgentKind) => string | undefined;
+    // CLI capabilities must be known before building a launch or resume command.
+    prepareAgent?: (kind: AgentKind) => Promise<void>;
     // Lets a test pose as Windows, where a session that types a line needs Git Bash.
     platform?: string;
     findGitBash?: () => string | null;
@@ -205,6 +207,7 @@ export class SessionManager {
     private readonly checkCwd: (sessionId: string, cwd: string) => Promise<void>;
     private readonly accounts: AccountLaunches | null;
     private readonly preferredAccount: (kind: AgentKind) => string | undefined;
+    private readonly prepareAgent: (kind: AgentKind) => Promise<void>;
     private readonly platform: string;
     private readonly findGitBash: () => string | null;
     // Told when the process tree of a session is about to change or just did: the end of a turn, an exit, a kill.
@@ -239,6 +242,7 @@ export class SessionManager {
         this.checkCwd = options.checkCwd ?? (() => Promise.resolve());
         this.accounts = options.accounts ?? null;
         this.preferredAccount = options.preferredAccount ?? (() => undefined);
+        this.prepareAgent = options.prepareAgent ?? (() => Promise.resolve());
         this.platform = options.platform ?? process.platform;
         this.findGitBash = options.findGitBash ?? (() => gitBash(this.env));
     }
@@ -536,6 +540,12 @@ export class SessionManager {
         }
         // Held while the foreground is asked, so a second resume in the meantime is refused as a repeat.
         this.resuming.set(sessionId, this.now());
+        try {
+            await this.prepareAgent(session.agent.kind);
+        } catch (e) {
+            this.resuming.delete(sessionId);
+            throw e;
+        }
         // The line goes to whatever holds the terminal: a vim or an ssh started after the agent left would take it.
         if ((await this.holdsForeground(session.pid)) === false) {
             this.resuming.delete(sessionId);
@@ -548,6 +558,10 @@ export class SessionManager {
         if (!session.agent) {
             this.resuming.delete(sessionId);
             throw new SessionError('agent-not-found', `Session ${sessionId} has no agent to resume`);
+        }
+        if (session.agent.live && !this.isAgentGone(sessionId)) {
+            this.resuming.delete(sessionId);
+            throw new SessionError('agent-live', `The agent in ${sessionId} is still running`);
         }
         session.write(`${this.resumeLine(session, session.agent)}\n`);
     }
@@ -771,6 +785,7 @@ export class SessionManager {
         if (!launch || restored) {
             return undefined;
         }
+        await this.prepareAgent(launch.kind);
         const note = this.noteFor(sessionId);
         if (launch.resume) {
             return resumeOrFreshCommand(launch, launch.resume, note);
