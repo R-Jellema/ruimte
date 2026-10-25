@@ -7,7 +7,7 @@ target/
 .idea/
 .claude/worktrees/
 .ruimte/
-/docs/reports/private/
+/docs/reports/
 
 # Xcode user state and Swift build products are local.
 apps/ios/**/xcuserdata/
