@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { matchScore, type CommandPaletteInputProps } from '@adecore/ui';
+import { matchScore, type CommandPaletteInputProps, type CommandPaletteVirtualItemProps } from '@adecore/ui';
 import type { Command } from '@/shell/commands';
 
 export interface Entry extends Command {
@@ -43,8 +43,9 @@ export interface PaletteGroup<Row extends PaletteRow> {
 /* One mode of the palette as the body draws it around the one field every mode shares. */
 export interface PaletteModeView<Row extends PaletteRow = PaletteRow> {
     groups: readonly PaletteGroup<Row>[];
+    virtualized?: boolean;
     /* A row of `groups` as a `CommandPalette.Item` keyed by its id, with the row as its value. */
-    item(row: Row): ReactNode;
+    item(row: Row, itemProps?: CommandPaletteVirtualItemProps): ReactNode;
     /* A key before Base UI's own, which clicks the highlighted row on Enter. */
     keyDown?(event: PaletteKeyEvent, highlighted: Row | undefined): void;
     /* Backspace in an empty field. */

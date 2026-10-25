@@ -65,6 +65,7 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
     const chats = usePaletteChats(context, chatting);
     const commands = usePaletteCommands(context, files.files, !grepping && !chatting && !browsing && !picking);
     const view: PaletteModeView = grepping ? grep : chatting ? chats : browsing ? browse.view : picking ? files.view : commands;
+    const virtualized = view.virtualized === true;
 
     const signal = { open, mode, browseAt };
     const [seen, setSeen] = useState<PaletteSignal>(() => ({ open: false, mode, browseAt: browseSeen }));
@@ -103,6 +104,7 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
             onOpenChangeComplete={(isOpen) => !isOpen && onClosed()}
             items={view.groups}
             filter={null}
+            virtualized={virtualized}
             value={query}
             onValueChange={(next, details) => {
                 // A picked row runs; the field keeps what was typed rather than the row's name.
@@ -129,14 +131,20 @@ function PaletteBody({ browseSeen, onClosed }: { browseSeen: number; onClosed():
                     onKeyDown={keyDown}
                 />
                 <Palette.Empty>{view.empty}</Palette.Empty>
-                <Palette.List>
-                    {(group: PaletteGroup<PaletteRow>) => (
-                        <Palette.Group key={group.value} items={group.items}>
-                            <Palette.GroupLabel>{group.label}</Palette.GroupLabel>
-                            <Palette.Collection>{(row: PaletteRow) => view.item(row)}</Palette.Collection>
-                        </Palette.Group>
-                    )}
-                </Palette.List>
+                {virtualized ? (
+                    <Palette.VirtualList<PaletteRow, PaletteGroup<PaletteRow>> groupLabel={(group) => group.label}>
+                        {(row, itemProps) => view.item(row, itemProps)}
+                    </Palette.VirtualList>
+                ) : (
+                    <Palette.List>
+                        {(group: PaletteGroup<PaletteRow>) => (
+                            <Palette.Group key={group.value} items={group.items}>
+                                <Palette.GroupLabel>{group.label}</Palette.GroupLabel>
+                                <Palette.Collection>{(row: PaletteRow) => view.item(row)}</Palette.Collection>
+                            </Palette.Group>
+                        )}
+                    </Palette.List>
+                )}
                 <Palette.Status>{view.status}</Palette.Status>
                 {view.footer !== undefined && <Palette.Footer>{view.footer}</Palette.Footer>}
             </Palette.Popup>

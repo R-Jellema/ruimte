@@ -7,6 +7,10 @@ const runs = Number(process.env.BENCH_RUNS ?? 9);
 const language = process.env.BENCH_LANGUAGE ?? 'en';
 const latency = Number(process.env.BENCH_LATENCY ?? 0);
 const screens = process.env.BENCH_SCREENS === '1';
+const cpuRate = Number(process.env.BENCH_CPU_RATE ?? 1);
+if (!Number.isFinite(cpuRate) || cpuRate < 1) {
+    throw new Error('BENCH_CPU_RATE must be at least 1');
+}
 const profile = await mkdtemp(join(tmpdir(), 'ruimte-startup-bench-'));
 const samples: unknown[] = [];
 const types: Record<string, string> = { '.js': 'text/javascript', '.css': 'text/css', '.html': 'text/html', '.woff2': 'font/woff2' };
@@ -59,6 +63,10 @@ try {
     for (let i = 0; i < runs; i++) {
         const view = new Bun.WebView({ backend: { type: 'chrome', url: false }, headless: true, dataStore: { directory: join(profile, String(i)) } });
         try {
+            if (cpuRate !== 1) {
+                await view.navigate('about:blank');
+                await view.cdp('Emulation.setCPUThrottlingRate', { rate: cpuRate });
+            }
             await view.navigate(`http://127.0.0.1:${server.port}`);
             await view.resize(1200, 800);
             const sample = await view.evaluate<{ ready: number; resources: { name: string; bytes: number }[]; language: string; errors: string[] }>(
@@ -109,7 +117,7 @@ try {
             view.close();
         }
     }
-    console.log(JSON.stringify({ benchmark: 'cold-start-screen', runs, language, latency, samples }, null, 2));
+    console.log(JSON.stringify({ benchmark: 'cold-start-screen', runs, language, latency, cpuRate, samples }, null, 2));
 } finally {
     await server.stop(true);
     await rm(profile, { recursive: true, force: true });

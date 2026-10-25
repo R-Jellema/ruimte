@@ -58,6 +58,8 @@ const KIND_ICON: Record<CanvasNodeKind, React.ReactNode> = {
 const OPENING_RECENTS = 5;
 const OPENING_JUMPS = 8;
 
+const VIRTUAL_CATALOG_THRESHOLD = 200;
+
 /* The palette as Cmd+K opens it: the nodes, views, projects, actions, settings and files that match the field. */
 export function usePaletteCommands(context: PaletteContext, files: readonly Entry[], enabled: boolean): PaletteModeView<Entry> {
     const { t } = useTranslation(['shell']);
@@ -82,9 +84,9 @@ export function usePaletteCommands(context: PaletteContext, files: readonly Entr
         }
     }, [open]);
 
-    const entries = useMemo<Entry[]>(() => {
+    const catalog = useMemo(() => {
         if (!enabled) {
-            return [];
+            return null;
         }
         const pageOf = (id: string, url: string | undefined): string =>
             pageKeywords(url, currentEndpointId === null ? undefined : pages?.[endpointKey(currentEndpointId, id)]);
@@ -150,6 +152,14 @@ export function usePaletteCommands(context: PaletteContext, files: readonly Entr
                 };
             });
         const commands = appCommands(prRepos);
+        return { jumps, viewSwitches, switches, commands };
+    }, [enabled, connected, endpoints, nodesByView, pages, views, activeViewId, projects, currentProjectId, currentEndpointId, prRepos, t]);
+
+    const entries: Entry[] = (() => {
+        if (catalog === null) {
+            return [];
+        }
+        const { jumps, viewSwitches, switches, commands } = catalog;
         const asEntry = (command: Command, section: Entry['section']): Entry => ({
             ...command,
             icon: command.agent ? <AgentIcon kind={command.agent} /> : <Icon icon={Zap} size={14} />,
@@ -179,23 +189,7 @@ export function usePaletteCommands(context: PaletteContext, files: readonly Entr
         const named = namesSetting(query, settings);
         const rest = [...switches.filter(keep), ...commands.map((command) => asEntry(command, 'actions')).filter(keep)];
         return [...viewSwitches.filter(keep), ...jumps.filter(keep), ...orderBelowJumps({ named, settings, files, rest })];
-    }, [
-        enabled,
-        connected,
-        endpoints,
-        files,
-        nodesByView,
-        pages,
-        views,
-        activeViewId,
-        query,
-        recents,
-        projects,
-        currentProjectId,
-        currentEndpointId,
-        prRepos,
-        t
-    ]);
+    })();
 
     const run = (entry: Entry, newWindow: boolean): void => {
         // Jumping to a node, a file, a view or a project is not a command; only what "Actions" lists comes back.
@@ -218,7 +212,10 @@ export function usePaletteCommands(context: PaletteContext, files: readonly Entr
 
     return {
         groups: groupBySection(entries, (section) => t(`palette.sections.${section}`)),
-        item: (entry) => <PaletteEntryItem key={entry.id} entry={entry} onRun={run} />,
+        virtualized:
+            catalog !== null &&
+            catalog.jumps.length + catalog.viewSwitches.length + catalog.switches.length + catalog.commands.length > VIRTUAL_CATALOG_THRESHOLD,
+        item: (entry, itemProps) => <PaletteEntryItem key={entry.id} entry={entry} itemProps={itemProps} onRun={run} />,
         keyDown: (event, entry) => {
             if (event.key === 'Enter' && entry !== undefined && wantsNewWindow(event)) {
                 event.preventBaseUIHandler();
