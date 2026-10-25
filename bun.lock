@@ -356,8 +356,6 @@
     "electron",
   ],
   "patchedDependencies": {
-    "@adecore/agents-react@0.36.0": "patches/@adecore%2Fagents-react@0.36.0.patch",
-    "@adecore/agent-contracts@0.36.0": "patches/@adecore%2Fagent-contracts@0.36.0.patch",
     "werift@0.24.4": "patches/werift@0.24.4.patch",
   },
   "packages": {
