@@ -89,6 +89,10 @@ await withBrowserFixture(
             throw new Error(`Appending changed the scroll behavior: ${JSON.stringify(following)}`);
         }
         console.log(JSON.stringify({ benchmark: 'timeline-scroll', count, initial, samples, anchor, following }, null, 2));
+        const ordered = samples.map((sample) => sample.taskMs).toSorted((left, right) => left - right);
+        if (ordered[Math.floor(ordered.length / 2)]! > Number(process.env.BENCH_MAX_TASK_MS ?? Infinity)) {
+            throw new Error('Timeline scrolling exceeded its CPU budget');
+        }
     },
     { production: true }
 );
