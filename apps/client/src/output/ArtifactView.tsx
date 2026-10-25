@@ -1,5 +1,4 @@
 import { useState, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, CircleAlert, Download, FilePlus, GitCompare, Info, Lock, MonitorDown, MoreHorizontal, Package, Pin, Trash2, WifiOff } from 'lucide-react';
 import { patchOf } from '@adecore/merge';
@@ -21,7 +20,6 @@ import { useArtifact } from '@/output/use-artifact';
 import { FileMarkdown } from '@/shell/panels/FileMarkdown';
 import { FileToolbarToggle } from '@/shell/panels/FileToolbar';
 import { FILE_TOOLBAR } from '@/shell/panels/classes';
-import { useFileToolbarSlot } from '@/shell/panels/file-toolbar-slot';
 import { useEndpointIdOfMachine, useEndpoints } from '@/state/endpoints';
 import { artifactTabKey } from '@/state/files';
 import { endpointKey, useEndpointId } from '@/state/keys';
@@ -198,12 +196,8 @@ function baseFor(versions: readonly ArtifactVersion[], version: ArtifactVersion 
     return versions.slice(index + 1).find(comparable) ?? versions.find((entry) => entry !== version && comparable(entry)) ?? null;
 }
 
-/* The view's controls go up into the bar of its cell, the way a file's do; a cell without one gets a bar of its own. */
+/* A bar of its own under the tabs, also in a loose tab, so the tab bar keeps only tabs. */
 function ArtifactToolbar({ children }: { children: ReactNode }) {
-    const { host } = useFileToolbarSlot();
-    if (host !== null) {
-        return createPortal(children, host);
-    }
     return <div className={FILE_TOOLBAR}>{children}</div>;
 }
 
