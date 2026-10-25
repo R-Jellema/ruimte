@@ -1162,9 +1162,7 @@
             "failed": "The check did not finish: {{message}}",
             "checkedAt": "Checked {{when}}.",
             "causes": {
-                "ok": {
-                    "problem": "Your other devices can reach this machine."
-                },
+                "ok": { "problem": "Your other devices can reach this machine." },
                 "brokerOff": {
                     "problem": "The connection service is off, so devices outside this network cannot reach the machine.",
                     "fix": "Turn the connection service on above."
@@ -1205,9 +1203,7 @@
                     "problem": "Port {{port}} is taken, so devices on this network connect through your account.",
                     "fix": "Stop what uses the port, or start the machine with another --lan-port."
                 },
-                "unknown": {
-                    "problem": "The machine reports a problem this version of Ruimte does not know: {{cause}}."
-                }
+                "unknown": { "problem": "The machine reports a problem this version of Ruimte does not know: {{cause}}." }
             }
         },
         "worktreeFolder": {

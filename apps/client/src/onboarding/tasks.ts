@@ -31,9 +31,12 @@ export interface OnboardingFacts {
     computer: ComputerSetupPhase;
 }
 
-/* Apple's on-device model and NanoGPT's subscription API are providers with no CLI to install or log in to. */
+/*
+ * Apple's on-device model and the APIs of NanoGPT and Claude are providers with no CLI to install or log in to. Not read from
+ * `capabilities.terminal`: an agent from the ACP registry has no terminal either, and is still a CLI a person installs.
+ */
 function isCli(provider: ProviderInfo): boolean {
-    return provider.capabilities.terminal;
+    return provider.kind !== 'apple' && provider.kind !== 'nanogpt' && provider.kind !== 'anthropic-claude-api';
 }
 
 export function cliRowsOf(providers: readonly ProviderInfo[], accounts: ProviderAccounts | null): CliRow[] {

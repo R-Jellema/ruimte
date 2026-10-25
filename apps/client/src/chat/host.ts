@@ -82,7 +82,7 @@ function requireTransport(endpointId: string): Transport {
 }
 
 /*
- * The marks of the CLIs the shared `AgentIcon` has none for. Grok's is the xAI logo. Antigravity's is the one
+ * The marks of the providers the shared `AgentIcon` has none for. The Claude API wears Claude's. Grok's is the xAI logo. Antigravity's is the one
  * Google lists in the ACP registry (agentclientprotocol/registry, `antigravity-acp/icon.svg`).
  */
 const AGENT_MARKS: Partial<Record<AgentKind, AgentMark>> = {

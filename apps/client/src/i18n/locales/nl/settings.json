@@ -1162,9 +1162,7 @@
             "failed": "De controle is niet afgerond: {{message}}",
             "checkedAt": "Gecontroleerd {{when}}.",
             "causes": {
-                "ok": {
-                    "problem": "Je andere apparaten kunnen deze machine bereiken."
-                },
+                "ok": { "problem": "Je andere apparaten kunnen deze machine bereiken." },
                 "brokerOff": {
                     "problem": "De verbindingsdienst staat uit, dus apparaten buiten dit netwerk bereiken de machine niet.",
                     "fix": "Zet de verbindingsdienst hierboven aan."
@@ -1205,9 +1203,7 @@
                     "problem": "Poort {{port}} is bezet, dus apparaten op dit netwerk verbinden via je account.",
                     "fix": "Stop wat de poort gebruikt, of start de machine met een andere --lan-port."
                 },
-                "unknown": {
-                    "problem": "De machine meldt een probleem dat deze versie van Ruimte niet kent: {{cause}}."
-                }
+                "unknown": { "problem": "De machine meldt een probleem dat deze versie van Ruimte niet kent: {{cause}}." }
             }
         },
         "worktreeFolder": {

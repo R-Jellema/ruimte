@@ -23,10 +23,8 @@ function provider(kind: AgentKind, name: string, installed: boolean): ProviderIn
         version: installed ? '1.0.0' : null,
         models: [],
         defaultModel: null,
-        capabilities: {
-            chat: kind !== 'antigravity',
-            terminal: kind !== 'apple' && kind !== 'nanogpt' && kind !== 'anthropic-claude-api'
-        } as ProviderInfo['capabilities'],
+        // Only whether it chats is read here.
+        capabilities: { chat: kind !== 'antigravity' } as ProviderInfo['capabilities'],
         resumeCommand: ''
     };
 }
