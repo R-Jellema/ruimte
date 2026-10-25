@@ -1,0 +1,56 @@
+import { create } from 'zustand';
+
+/* A routine on the stage, by the project it lives in. */
+export interface RoutineRef {
+    projectId: string;
+    routineId: string;
+}
+
+export type RoutinesFilter = 'project' | 'all';
+
+interface RoutinesStage {
+    open: boolean;
+    /* Weeks away from the one we are in; 0 is this week. */
+    week: number;
+    filter: RoutinesFilter;
+    /* The routine opened inside the stage, or null for the week. */
+    routine: RoutineRef | null;
+    /* The run picked in that routine's timeline; null picks its newest run. */
+    runId: string | null;
+}
+
+/*
+ * Routines over the whole view stage, one per window: what this client shows, never written to a project
+ * file. The view and panel underneath stay as they were, so leaving brings them back by themselves.
+ */
+export const useRoutinesStage = create<RoutinesStage>(() => ({ open: false, week: 0, filter: 'project', routine: null, runId: null }));
+
+export function openRoutines(): void {
+    useRoutinesStage.setState({ open: true });
+}
+
+export function leaveRoutines(): void {
+    if (useRoutinesStage.getState().open) {
+        useRoutinesStage.setState({ open: false });
+    }
+}
+
+export function toggleRoutines(): void {
+    if (useRoutinesStage.getState().open) {
+        leaveRoutines();
+    } else {
+        openRoutines();
+    }
+}
+
+export function showRoutine(routine: RoutineRef | null, runId: string | null = null): void {
+    useRoutinesStage.setState({ open: true, routine, runId });
+}
+
+export function stepWeek(delta: number): void {
+    useRoutinesStage.setState((state) => ({ week: delta === 0 ? 0 : state.week + delta }));
+}
+
+export function setRoutinesFilter(filter: RoutinesFilter): void {
+    useRoutinesStage.setState({ filter });
+}

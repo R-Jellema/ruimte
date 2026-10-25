@@ -1,0 +1,188 @@
+{
+  "toolbar": {
+    "routines": "Routines",
+    "attention_one": "Routines, {{count}} waits for you",
+    "attention_other": "Routines, {{count}} wait for you"
+  },
+  "stage": {
+    "title": "Routines",
+    "back": "Back to {{view}}",
+    "backView": "View",
+    "breadcrumb": "Where you are in Routines",
+    "previousWeek": "Previous week",
+    "nextWeek": "Next week",
+    "today": "Today",
+    "range": "{{from}} to {{to}}",
+    "week": "Week {{number}}",
+    "loading": "Loading routines…",
+    "failed": "The routines could not be read from the machine.",
+    "emptyTitle": "No routines yet",
+    "empty": "A routine starts an agent, a command or a launch at a set time. Drag across the days above, or use New routine."
+  },
+  "filter": {
+    "label": "Which projects",
+    "all": "All projects"
+  },
+  "agenda": {
+    "label": "Routines this week",
+    "projectTitle": "Routines of {{name}}",
+    "allTitle": "All routines on this machine",
+    "block": "{{title}}, {{time}}, {{state}}",
+    "drag": "Drag across the days",
+    "dragDay": "New routine on {{day}}"
+  },
+  "row": {
+    "next": "Next {{time}}",
+    "paused": "Paused",
+    "waits": "Waits for you since {{time}}",
+    "held": "Waits for your approval",
+    "declined": "Denied on this machine",
+    "ended": "Nothing more planned"
+  },
+  "looks": {
+    "done": "Done",
+    "waited": "Waited for you",
+    "waiting": "Waiting",
+    "caught-up": "Caught up",
+    "limit": "Hit a limit",
+    "skipped": "Skipped",
+    "paused": "Paused",
+    "next": "Next",
+    "running": "Running",
+    "failed": "Failed"
+  },
+  "side": {
+    "label": "Approvals and runs that wait",
+    "approvals": "Waiting for approval",
+    "needsYou": "Needs you",
+    "nothingWaits": "No run waits for you. Pick a block to see its run.",
+    "waitsSince": "Waits since {{time}}",
+    "legend": "What the blocks mean"
+  },
+  "approval": {
+    "fromOutside": "From git, in the project file",
+    "byAgent": "Made by an agent in “{{title}}”",
+    "anAgent": "a chat",
+    "deny": "Deny",
+    "approve": "Approve",
+    "failed": "The answer did not reach the machine."
+  },
+  "repeat": {
+    "once": "Once, {{date}} at {{time}}",
+    "daily": "Daily at {{time}}",
+    "weekdays": "Weekdays at {{time}}",
+    "weekends": "Weekends at {{time}}",
+    "every": "Every {{day}} at {{time}}",
+    "some": "{{days}} at {{time}}"
+  },
+  "run": {
+    "skippedOverlap": "Skipped, the previous run still waited for you",
+    "skippedHeld": "Skipped, it waited for approval",
+    "skippedPaused": "Paused",
+    "starting": "Starting",
+    "running": "Running since {{time}}",
+    "needsYou": "Waits for you",
+    "limit": "Hit the usage limit",
+    "limitUntil": "Hit the usage limit, goes on at {{time}}",
+    "failed": "Failed",
+    "failedWith": "Failed: {{error}}",
+    "failedExit": "Failed with exit code {{code}}",
+    "caughtUp": "Missed at {{time}}, caught up when the machine woke",
+    "waitedDone": "Waited for you, then done in {{duration}}",
+    "done": "Done in {{duration}}",
+    "doneManual": "Run by hand, done in {{duration}}"
+  },
+  "kinds": {
+    "agent": "Agent",
+    "command": "Command",
+    "launch": "Launch"
+  },
+  "perRun": {
+    "new": "New chat",
+    "continue": "Continue one",
+    "newLong": "New chat each run",
+    "continueLong": "Continue one chat"
+  },
+  "actions": {
+    "new": "New routine",
+    "runNow": "Run now",
+    "pause": "Pause",
+    "resume": "Resume",
+    "more": "More",
+    "edit": "Edit",
+    "remove": "Remove",
+    "runHeld": "This routine waits for approval, so it did not start.",
+    "runBusy": "The previous run still goes on, so this one did not start.",
+    "failed": "The machine did not take this."
+  },
+  "remove": {
+    "title": "Remove “{{title}}”?",
+    "description": "It stops running. Its runs, their chats and what it saved in Output stay.",
+    "confirm": "Remove",
+    "failed": "The routine could not be removed."
+  },
+  "form": {
+    "newTitle": "New routine",
+    "editTitle": "Edit routine",
+    "project": "Project",
+    "kind": "What it runs",
+    "title": "Name",
+    "titlePlaceholder": "Morning summary",
+    "prompt": "Prompt",
+    "promptPlaceholder": "What should the agent do each time?",
+    "agent": "Agent",
+    "noAgent": "No agent is installed on this machine.",
+    "mode": "Unattended mode",
+    "perRun": "Per run",
+    "command": "Command",
+    "folder": "Folder",
+    "folderHint": "Inside the project folder. Empty is the folder itself.",
+    "launch": "Launch",
+    "launchPlaceholder": "Pick a launch",
+    "noLaunches": "This project has no launches to pick from.",
+    "repeat": "Repeat",
+    "once": "Once",
+    "weekly": "On days",
+    "date": "Date",
+    "days": "Days",
+    "time": "Time",
+    "machineClock": "on the machine’s clock",
+    "shared": "Share with the project",
+    "sharedHint": "Written to the project file a team commits. Each person approves it on their own machine.",
+    "output": "Saved to Output as {{title}}, one version per run.",
+    "outputSoon": "Saved to Output under its name, one version per run.",
+    "create": "Create routine",
+    "save": "Save",
+    "failed": "The routine could not be saved."
+  },
+  "detail": {
+    "definition": "What this routine does",
+    "repeat": "Repeat",
+    "what": {
+      "agent": "Agent",
+      "command": "Folder",
+      "launch": "Launch"
+    },
+    "account": "Account",
+    "defaultAccount": "Default",
+    "runsOn": "Runs on",
+    "thisMachine": "This machine",
+    "kept": "Kept",
+    "shared": "In the project file, shared",
+    "private": "Only on this machine",
+    "result": "Saved to Output as {{title}}, one version per run.",
+    "deliverNote": "Ruimte tells the agent to deliver its result to Output, never to write report files into the project.",
+    "runs": "Runs",
+    "nextRun": "Next run",
+    "noRunsYet": "It has not run yet.",
+    "noRuns": "Nothing is planned for this routine.",
+    "firstRun": "Its first run is {{time}}.",
+    "version": "v{{number}}",
+    "versionOf": "{{title}} v{{number}}",
+    "runAt": "Routine run, {{time}}",
+    "openInOutput": "Open in Output",
+    "compare": "Compare with previous run",
+    "nothingToCompare": "No earlier run left a version to compare with.",
+    "runFailed": "This run could not be shown"
+  }
+}

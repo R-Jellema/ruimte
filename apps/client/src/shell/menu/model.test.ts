@@ -66,6 +66,7 @@ function context(patch: Partial<MenuContext> = {}): MenuContext {
         localMachine: true,
         scratch: false,
         prWatch: false,
+        routines: false,
         chat: false,
         terminalKeys: false,
         terminalFind: false,

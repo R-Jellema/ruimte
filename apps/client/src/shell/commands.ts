@@ -69,7 +69,10 @@ import { fileManagerName, serverInfoOf } from '@/state/server';
 import { useTheme } from '@/state/theme';
 import { useFiles } from '@/state/files';
 import { useUi } from '@/state/ui';
-import { transportFor } from '@/transport';
+import { pool, transportFor } from '@/transport';
+import { machineAnswers } from '@/transport/features';
+import { openRoutineForm } from '@/routines/form-state';
+import { toggleRoutines } from '@/routines/stage';
 import { activeViewFacts } from '@/shell/menu/context';
 import { runAppShortcut } from '@/shell/app-shortcuts';
 import { canSplit, cellAt, cellCount, cellsRightOf, isTabHost, maximizedCell } from '@/shell/split';
@@ -572,6 +575,17 @@ export function appCommands(prRepos: readonly PrRepo[] = prReposOfCurrent()): Co
             ? [
                   row('sidebar', () => useUi.getState().toggleSidebar()),
                   row('panel-output', () => useUi.getState().togglePanel('output')),
+                  ...(machineAnswers(pool.statusOf(currentEndpointId()), 'routine.list')
+                      ? [
+                            row('routines', toggleRoutines),
+                            row('routine-new', () => {
+                                const projectId = useProject.getState().current?.projectId;
+                                if (projectId !== undefined) {
+                                    openRoutineForm({ projectId });
+                                }
+                            })
+                        ]
+                      : []),
                   ...(scratch
                       ? []
                       : [

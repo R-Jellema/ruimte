@@ -1,0 +1,36 @@
+import { useTranslation } from 'react-i18next';
+import { Dialog } from '@adecore/ui';
+import { closeRoutineForm, useRoutineForm } from '@/routines/form-state';
+import { useRoutineList } from '@/routines/routine-list';
+import { RoutineForm } from '@/routines/RoutineForm';
+import { showRoutine } from '@/routines/stage';
+import { useEndpointId } from '@/state/keys';
+
+/* The routine form as a dialog of the workspace: New routine, Edit, the canvas menu, the palette and a chat's Repeat. */
+export function RoutineFormDialog() {
+    const { t } = useTranslation('routines');
+    const endpointId = useEndpointId();
+    const request = useRoutineForm((s) => s.request);
+    const round = useRoutineForm((s) => s.round);
+    // Held here as well, so a form opened outside the stage still knows the revs a save names.
+    useRoutineList(endpointId);
+    return (
+        <Dialog.Root open={request !== null} onOpenChange={(open) => !open && closeRoutineForm()}>
+            <Dialog.Popup className="flex max-h-[85vh] w-[480px] flex-col gap-4 overflow-y-auto p-5">
+                <Dialog.Title>{request?.editing ? t('form.editTitle') : t('form.newTitle')}</Dialog.Title>
+                {request !== null && (
+                    <RoutineForm
+                        key={round}
+                        endpointId={endpointId}
+                        request={request}
+                        onCancel={closeRoutineForm}
+                        onDone={(projectId, routineId) => {
+                            closeRoutineForm();
+                            showRoutine({ projectId, routineId });
+                        }}
+                    />
+                )}
+            </Dialog.Popup>
+        </Dialog.Root>
+    );
+}

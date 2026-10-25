@@ -1,0 +1,33 @@
+import { useTranslation } from 'react-i18next';
+import { Clock } from 'lucide-react';
+import { IconButton } from '@adecore/ui';
+import { COMMANDS } from '@/shell/command-table';
+import { awaitingApproval, runsWaiting } from '@/routines/agenda';
+import { useRoutineList } from '@/routines/routine-list';
+import { toggleRoutines, useRoutinesStage } from '@/routines/stage';
+import { useEndpointId } from '@/state/keys';
+
+/* The clock in the toolbar, with a dot while a routine waits for approval or a run waits for a person. Absent on a machine without routines. */
+export function RoutinesButton() {
+    const { t } = useTranslation('routines');
+    const endpointId = useEndpointId();
+    const list = useRoutineList(endpointId);
+    const open = useRoutinesStage((s) => s.open);
+    if (list === null) {
+        return null;
+    }
+    const entries = list.status === 'ready' ? list.result.routines : [];
+    const attention = awaitingApproval(entries).length + runsWaiting(entries).length;
+    return (
+        <IconButton
+            icon={Clock}
+            label={attention > 0 ? t('toolbar.attention', { count: attention }) : t('toolbar.routines')}
+            kbd={COMMANDS.routines.shortcut}
+            active={open}
+            className={attention > 0 ? 'relative' : undefined}
+            onClick={toggleRoutines}
+        >
+            {attention > 0 && <span aria-hidden="true" className="pointer-events-none absolute top-1 right-1 size-1.5 rounded-full bg-status-needs-you" />}
+        </IconButton>
+    );
+}

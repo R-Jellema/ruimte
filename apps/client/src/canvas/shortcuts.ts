@@ -17,6 +17,8 @@ export const CANVAS_SHORTCUTS = {
     maximizeCell: shortcut('Mod+Shift+Enter'),
     newView: shortcut('Mod+T'),
     togglePanel: shortcut('Mod+Alt+B'),
+    // S for schedule: Mod+Alt+R runs the chosen launch.
+    routines: shortcut('Mod+Alt+S'),
     toggleFlag: shortcut('Mod+Alt+F'),
     launchRun: shortcut('Mod+Alt+R'),
     launchStop: shortcut('Mod+Alt+.'),

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { dueTimesBetween, nextDue, wallTimeOf, zonedTime } from './schedule.ts';
+import { dueTimesBetween, nextDue, wallTimeOf, zonedTime } from './routine-schedule.ts';
 
 const AMS = 'Europe/Amsterdam';
 

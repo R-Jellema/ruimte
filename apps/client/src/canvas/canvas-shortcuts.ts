@@ -21,6 +21,8 @@ import {
     toggleFlagAction
 } from '@/actions/client-actions';
 import { runChosenLaunch, stopChosenLaunch } from '@/launches/actions';
+import { toggleRoutines } from '@/routines/stage';
+import { machineAnswers } from '@/transport/features';
 import { showView, stepView, viewAtIndex } from '@/project/views';
 import { undoLatestDeletion } from '@/project/view-trash';
 import { deleteSelectionAsking } from '@/canvas/delete-selection';
@@ -41,12 +43,12 @@ import { commandForKey, type WorkspaceCommandId } from '@/shell/command-table';
 import { revealNextWaiting } from '@/shell/next-waiting';
 import { focusViewRow } from '@/shell/sidebar-focus';
 import { isLeaveNodeShortcut } from '@/terminal/keymap';
-import { transportFor } from '@/transport';
+import { pool, transportFor } from '@/transport';
 import { activeViewOf, useDocument } from '@/state/document';
 import { useUi } from '@/state/ui';
 import { cellAt, cellCount, isTabHost, type SplitDirection } from '@/shell/split';
 import { matchesShortcut, type Shortcut, isInFloatingLayer } from '@adecore/ui';
-import { endpointKey } from '@/state/keys';
+import { currentEndpointId, endpointKey } from '@/state/keys';
 import { windowWorkspace } from '@/state/window';
 import { focusedChatComposerKey, keyboardChatKey } from '@/chat/focused-chat';
 
@@ -341,6 +343,13 @@ function answerWindowKey(e: KeyboardEvent, s: CanvasState, is: Matches, command:
     if (command === 'needs-you-next') {
         if (revealNextWaiting()) {
             e.preventDefault();
+        }
+        return true;
+    }
+    if (command === 'routines') {
+        if (machineAnswers(pool.statusOf(currentEndpointId()), 'routine.list')) {
+            e.preventDefault();
+            toggleRoutines();
         }
         return true;
     }

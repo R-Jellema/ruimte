@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -31,7 +31,7 @@ import { formatBytes, formatDayClock } from '@adecore/ui/format';
 import { comparable, drawnKind, isTextMime } from '@/output/artifact-list';
 import { canDownload, downloadArtifactFile, readArtifactFile, useArtifactText, type ArtifactFileRef } from '@/output/artifact-bytes';
 import { showChat, useChatName } from '@/output/kinds';
-import { selectArtifactVersion, useArtifactSelection } from '@/output/open';
+import { selectArtifactVersion, takeCompareRequest, useArtifactCompareRequest, useArtifactSelection } from '@/output/open';
 import { useArtifact } from '@/output/use-artifact';
 import { FileMarkdown } from '@/shell/panels/FileMarkdown';
 import { FileToolbarToggle } from '@/shell/panels/FileToolbar';
@@ -115,6 +115,18 @@ function ArtifactBody({
     const chosen = pin === undefined ? selected : pin.version;
     const [comparing, setComparing] = useState(false);
     const [baseId, setBaseId] = useState<string | null>(null);
+    const tabKey = artifactTabKey(artifact.artifactId, machineId);
+    const askedBase = useArtifactCompareRequest((s) => s.bases[tabKey]);
+    // An opening that asked for a compare sets it the way a person would, once.
+    if (askedBase !== undefined && (!comparing || baseId !== askedBase)) {
+        setComparing(true);
+        setBaseId(askedBase);
+    }
+    useEffect(() => {
+        if (askedBase !== undefined) {
+            takeCompareRequest(tabKey);
+        }
+    }, [askedBase, tabKey]);
     const [copy, setCopy] = useState<CopyToProjectRequest | null>(null);
     const [removing, setRemoving] = useState<RemoveArtifactRequest | null>(null);
     const canRemove = useCanRemove(endpointId, machineId);

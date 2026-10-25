@@ -4,7 +4,6 @@ import { errorText } from '../error-text.ts';
 import { RoutineAuthorStore, RoutineRunStore } from '../routines/routine-runs.ts';
 import { RoutineStore } from '../routines/routine-store.ts';
 import { routineOpener, Routines } from '../routines/routines.ts';
-import { machineTimeZone } from '../routines/schedule.ts';
 import { runCommand } from '../routines/command-run.ts';
 import type { SessionSink } from '../sessions/manager.ts';
 import type { AgentStores, AgentsBundle } from './agents.ts';
@@ -169,7 +168,7 @@ export async function wireRoutines({ home, machineId, stores, agents, projects, 
         },
         machineId,
         now: () => Date.now(),
-        timeZone: machineTimeZone,
+        timeZone: () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
         onChanged: (projectId) => watchers.changed(projectId)
     });
     store.onOutsideChange = (projectId) => {

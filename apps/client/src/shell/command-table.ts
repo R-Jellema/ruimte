@@ -19,6 +19,8 @@ import {
     CircleDot,
     CircleOff,
     CircleStop,
+    Clock,
+    CalendarPlus,
     CodeXml,
     Coffee,
     Command,
@@ -545,6 +547,20 @@ const TABLE = {
         icon: TabletSmartphone,
         palette: false,
         menu: { menu: 'view', group: 'panels', order: 40, when: (context) => !context.scratch, checked: (context) => context.panel === 'devices' }
+    },
+    routines: {
+        key: 'routines',
+        icon: Clock,
+        shortcut: CANVAS_SHORTCUTS.routines,
+        binds: 'workspace',
+        palette: true,
+        menu: { menu: 'view', group: 'panels', order: 45, when: (context) => context.routines }
+    },
+    'routine-new': {
+        key: 'newRoutine',
+        icon: CalendarPlus,
+        palette: true,
+        menu: { menu: 'file', group: 'new', order: 50, when: (context) => context.routines }
     },
     'panel-toggle': {
         key: 'togglePanel',

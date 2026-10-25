@@ -19,6 +19,7 @@ import { GRID, type Point } from '@/canvas/math';
 import { databaseTargetOf, databaseViewName } from '@/database/view-name';
 import { filesOfView } from '@/project/view-deletion';
 import { nodesOfView } from '@/project/view-nodes';
+import { leaveRoutines } from '@/routines/stage';
 import { basenameOf, storedPathOf } from '@/shell/panels/files-tree';
 import { closeAfterSaving } from '@/shell/panels/unsaved-close';
 import { focusedCanvas, liveCanvas } from '@/state/canvas';
@@ -33,6 +34,8 @@ import { useUi } from '@/state/ui';
 import { transportFor } from '@/transport';
 
 export function showView(id: string, options: { newTab?: boolean } = {}): void {
+    // Picking a view is how a person leaves Routines, so it goes before the view shows.
+    leaveRoutines();
     if (options.newTab) {
         openInNewTabAction(id);
         return;
@@ -60,6 +63,7 @@ export function showViewWhenItLands(id: string): void {
 
 /* A node that lives on another canvas is reached by switching there first. */
 export function revealNode(nodeId: string): void {
+    leaveRoutines();
     const { views, activeViewId } = useDocument.getState();
     const view = viewOfNode(views, nodesOfView, nodeId);
     if (view && view.id !== activeViewId) {

@@ -39,6 +39,8 @@ export interface MenuContext {
     scratch: boolean;
     /* The one selected node is a chat with a pull request watch on. */
     prWatch: boolean;
+    /* The project's machine answers routines (`routine.list`). */
+    routines: boolean;
     /* A chat has the focus: the chat view in the focused cell, or the chat node with the keyboard or selected alone (`focused-chat.ts`). */
     chat: boolean;
     /* A terminal has the keyboard, which takes the clear key for itself (`terminal/xterm.ts`). */

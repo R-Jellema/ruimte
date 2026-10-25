@@ -1,6 +1,8 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { isAbsolute, resolve } from 'node:path';
 import {
+    dueTimesBetween,
+    nextDue,
     ROUTINE_LIMITS,
     type AgentRoutine,
     type ArtifactProvenance,
@@ -24,7 +26,6 @@ import { errorText } from '../error-text.ts';
 import type { OutboxEntry, OutboxWork, RoutineRunEntry } from '../outbox/outbox.ts';
 import type { RoutineAuthorStore, RoutineRunStore } from './routine-runs.ts';
 import { RoutineError, type RoutinesDocument, type RoutineStore, type StoredRoutine } from './routine-store.ts';
-import { dueTimesBetween, nextDue } from './schedule.ts';
 
 /* A run that comes this much after its time made up for a time the machine slept or was off through. */
 export const CATCH_UP_AFTER_MS = 5 * 60_000;

@@ -159,6 +159,7 @@ export function menuContext(host: MenuHost): MenuContext {
         scratch: isScratchProject(useProject.getState().current),
         prRepos: prReposOfCurrent().map((repo) => ({ path: repo.path, label: repo.label })),
         prWatch: onCanvas && selected?.kind === 'chat' && hasPrWatch(endpointId, selected.id),
+        routines: windowWorkspace() !== null && machineAnswers(pool.statusOf(endpointId), 'routine.list'),
         chat: windowWorkspace() !== null && focusedChatId() !== null,
         terminalKeys: terminalHasKeyboard(),
         terminalFind: terminalHasFind(),

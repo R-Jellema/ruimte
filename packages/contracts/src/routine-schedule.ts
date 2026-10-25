@@ -1,9 +1,11 @@
-import type { RoutineSchedule } from '@ruimte/contracts';
+import type { RoutineSchedule } from './routine.ts';
+
+/* Shared by the daemon, which owes a routine its times, and a client, which draws them in a week. */
 
 const MINUTE_MS = 60_000;
 const DAY_MS = 24 * 60 * MINUTE_MS;
 
-interface WallTime {
+export interface WallTime {
     year: number;
     month: number;
     day: number;
@@ -122,9 +124,4 @@ export function dueTimesBetween(schedule: RoutineSchedule, from: number, to: num
         cursor = next;
     }
     return times;
-}
-
-/* The machine's own time zone. */
-export function machineTimeZone(): string {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 }
