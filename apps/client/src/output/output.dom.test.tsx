@@ -176,12 +176,11 @@ describe('the Output panel', () => {
         await until(() => text().includes('Dependency report'));
     });
 
-    test('a row opens its latest versions under it', async () => {
+    test('a row is one artifact and asks nothing more of the machine', async () => {
         await openPanel();
         await until(() => text().includes('Dependency report'));
-        await clickOn(page.host.querySelector('[aria-label="Show versions"]'));
-        await until(() => machine.requests('artifact.get').length > 0 && text().includes('Latest'));
-        expect(machine.requests('artifact.get')[0]).toEqual({ artifactId: 'deps' });
+        expect(text()).toContain('2 versions');
+        expect(machine.requests('artifact.get')).toHaveLength(0);
     });
 
     test('a machine with nothing saved says how something gets there', async () => {

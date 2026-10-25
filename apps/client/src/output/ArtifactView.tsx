@@ -478,10 +478,6 @@ function InfoColumn({
                     </ul>
                 </div>
             )}
-            <div className="flex flex-col gap-2">
-                <SectionLabel render={<h3 />}>{t('info.kept')}</SectionLabel>
-                <p className="text-sm text-text-muted">{t('info.keptText')}</p>
-            </div>
         </aside>
     );
 }

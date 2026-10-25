@@ -22,10 +22,6 @@
         "storage": "Opslag",
         "versions_one": "{{count}} versie",
         "versions_other": "{{count}} versies",
-        "older_one": "{{count}} oudere versie",
-        "older_other": "{{count}} oudere versies",
-        "showVersions": "Versies tonen",
-        "hideVersions": "Versies verbergen",
         "groups": {
             "today": "Vandaag",
             "week": "Deze week",
@@ -133,9 +129,7 @@
         "copiedTo": "Gekopieerd naar",
         "copiedFrom": "Gekopieerd van",
         "otherMachine": "Een andere machine",
-        "note": "Ruimte noteerde dit toen de versie bewaard werd. Een agent kan het niet veranderen.",
-        "kept": "Bewaard",
-        "keptText": "Tot je het verwijdert. Alleen op deze machine, nooit in het project of bij je team."
+        "note": "Ruimte noteerde dit toen de versie bewaard werd. Een agent kan het niet veranderen."
     },
     "copy": {
         "title": "Kopiëren naar project",

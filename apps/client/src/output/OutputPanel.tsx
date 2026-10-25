@@ -1,22 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-    Bot,
-    ChevronDown,
-    ChevronRight,
-    CircleAlert,
-    HardDrive,
-    LayoutGrid,
-    ListFilter,
-    Package,
-    Search,
-    User,
-    CalendarClock,
-    type LucideIcon
-} from 'lucide-react';
+import { Bot, CircleAlert, HardDrive, LayoutGrid, ListFilter, Package, Search, User, CalendarClock, type LucideIcon } from 'lucide-react';
 import type { ArtifactSummary, RemoteLink } from '@ruimte/contracts';
-import { Button, ButtonGroup, ErrorBoundary, Icon, IconButton, Input, Menu, PanelEmpty, Pill, SectionLabel, useNow } from '@adecore/ui';
-import { formatBytes, formatDayClock, formatMoment } from '@adecore/ui/format';
+import { Button, ButtonGroup, ErrorBoundary, Icon, IconButton, Input, Menu, PanelEmpty, SectionLabel, useNow } from '@adecore/ui';
+import { formatBytes, formatMoment } from '@adecore/ui/format';
 import {
     ALL,
     DATES,
@@ -37,7 +24,6 @@ import { useLinkedMachines } from '@/output/linked-machines';
 import { useEndpointIdOfMachine, useEndpoints } from '@/state/endpoints';
 import { KindTile, OutputProjectGlyph } from '@/output/look';
 import { openArtifact, useOutputRequest } from '@/output/open';
-import { useArtifact } from '@/output/use-artifact';
 import { PanelHeaderActions, PanelHeaderSlot } from '@/shell/PanelHeaderSlot';
 import { FILE_TOOLBAR } from '@/shell/panels/classes';
 import { useEndpointId } from '@/state/keys';
@@ -46,8 +32,6 @@ import { useUi } from '@/state/ui';
 import { useMachineAnswers } from '@/transport/features';
 
 const MINUTE_MS = 60_000;
-// The versions a row shows when it opens; the rest are in the artifact's own view.
-const SHOWN_VERSIONS = 5;
 
 const SOURCE_ICONS: Record<ArtifactSource, LucideIcon> = { agent: Bot, person: User, routine: CalendarClock };
 
@@ -60,7 +44,7 @@ function filtersFor(asked: string, projectId: string | null): OutputFilters {
 
 /*
  * Everything the machine keeps in Output, the window's project first. A row opens the artifact as a
- * view; its chevron shows the latest versions under it. Filters beyond a project are the client's.
+ * view, where its versions are. Filters beyond a project are the client's.
  */
 export function OutputPanel() {
     const { t } = useTranslation('output');
@@ -83,7 +67,6 @@ export function OutputPanel() {
     }, [request]);
     const [searchOpen, setSearchOpen] = useState(false);
     const [query, setQuery] = useState('');
-    const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
     const now = useNow(MINUTE_MS);
     const linked = useLinkedMachines();
 
@@ -127,13 +110,6 @@ export function OutputPanel() {
     const shown = list.artifacts.filter((artifact) => matchesFilters(artifact, filters, query, now));
     const everywhere = filters.project === ALL;
     const shownBytes = shown.reduce((sum, artifact) => sum + artifact.totalBytes, 0);
-    const toggle = (artifactId: string): void => {
-        const next = new Set(expanded);
-        if (!next.delete(artifactId)) {
-            next.add(artifactId);
-        }
-        setExpanded(next);
-    };
 
     return (
         <>
@@ -176,15 +152,7 @@ export function OutputPanel() {
                                 {t(`panel.groups.${group}`)}
                             </SectionLabel>
                             {grouped.map((artifact) => (
-                                <ArtifactRow
-                                    key={artifact.artifactId}
-                                    endpointId={endpointId}
-                                    artifact={artifact}
-                                    everywhere={everywhere}
-                                    open={expanded.has(artifact.artifactId)}
-                                    onToggle={() => toggle(artifact.artifactId)}
-                                    now={now}
-                                />
+                                <ArtifactRow key={artifact.artifactId} endpointId={endpointId} artifact={artifact} everywhere={everywhere} now={now} />
                             ))}
                         </section>
                     ))
@@ -217,18 +185,10 @@ function LinkedMachineOutput({ link, filters, query, now }: { link: RemoteLink; 
     const answers = useMachineAnswers(endpointId, 'artifact.list');
     const machine = useEndpoints((s) => s.endpoints.find((entry) => entry.id === endpointId)?.label) ?? link.label;
     const list = useArtifactList(endpointId, { projectId: link.remoteProjectId }, answers);
-    const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
     const shown = list?.status === 'ready' ? list.artifacts.filter((artifact) => matchesFilters(artifact, filters, query, now)) : NO_ARTIFACTS;
     if (shown.length === 0) {
         return null;
     }
-    const toggle = (artifactId: string): void => {
-        const next = new Set(expanded);
-        if (!next.delete(artifactId)) {
-            next.add(artifactId);
-        }
-        setExpanded(next);
-    };
     const label = t('panel.onMachine', { machine });
     return (
         <section className="flex flex-col gap-0.5" aria-label={label}>
@@ -236,16 +196,7 @@ function LinkedMachineOutput({ link, filters, query, now }: { link: RemoteLink; 
                 {label}
             </SectionLabel>
             {shown.map((artifact) => (
-                <ArtifactRow
-                    key={artifact.artifactId}
-                    endpointId={endpointId}
-                    machineId={link.machineId}
-                    artifact={artifact}
-                    everywhere
-                    open={expanded.has(artifact.artifactId)}
-                    onToggle={() => toggle(artifact.artifactId)}
-                    now={now}
-                />
+                <ArtifactRow key={artifact.artifactId} endpointId={endpointId} machineId={link.machineId} artifact={artifact} everywhere now={now} />
             ))}
         </section>
     );
@@ -256,8 +207,6 @@ function ArtifactRow({
     machineId,
     artifact,
     everywhere,
-    open,
-    onToggle,
     now
 }: {
     endpointId: string;
@@ -265,96 +214,38 @@ function ArtifactRow({
     machineId?: string;
     artifact: ArtifactSummary;
     everywhere: boolean;
-    open: boolean;
-    onToggle(): void;
     now: number;
 }) {
     const { t } = useTranslation('output');
     const maker = artifact.latest.provenance.maker;
     const chatName = useChatName(artifact.latest.provenance.chatId);
     const source = chatName !== null && chatName !== '' ? chatName : t(`source.${maker}`);
-    const several = artifact.versionCount > 1;
     return (
-        <div className="flex flex-col">
-            <div className="group flex items-start gap-2.5 rounded-md px-2 py-2 hover:bg-surface-hover">
-                <button
-                    type="button"
-                    className="flex min-w-0 grow items-start gap-2.5 text-left"
-                    onClick={() => openArtifact(artifact.artifactId, artifact.title, null, machineId)}
-                >
-                    <KindTile kind={artifact.kind} />
-                    <span className="flex min-w-0 grow flex-col">
-                        <span className="truncate text-sm font-medium text-text">{artifact.title}</span>
-                        <span className="flex min-w-0 items-center gap-1 text-xs text-text-muted">
-                            {everywhere ? (
-                                <>
-                                    <OutputProjectGlyph endpointId={endpointId} projectId={artifact.projectId} />
-                                    <span className="max-w-28 shrink-0 truncate">{artifact.projectName},</span>
-                                </>
-                            ) : (
-                                <Icon icon={SOURCE_ICONS[maker]} size={12} className="shrink-0 text-text-faint" />
-                            )}
-                            <span className="truncate">
-                                {t('panel.versions', { count: artifact.versionCount })}
-                                {everywhere ? '' : `, ${source}`}
-                            </span>
-                        </span>
-                    </span>
-                    <span className="shrink-0 text-xs text-text-faint tabular-nums">{formatMoment(artifact.latest.createdAt, now)}</span>
-                </button>
-                {several && (
-                    <IconButton
-                        icon={open ? ChevronDown : ChevronRight}
-                        size="sm"
-                        label={open ? t('panel.hideVersions') : t('panel.showVersions')}
-                        aria-expanded={open}
-                        onClick={onToggle}
-                    />
-                )}
-            </div>
-            {open && several && <VersionRows endpointId={endpointId} machineId={machineId} artifact={artifact} />}
-        </div>
-    );
-}
-
-/* The latest versions of one artifact, read when the row opens. */
-function VersionRows({ endpointId, machineId, artifact }: { endpointId: string; machineId: string | undefined; artifact: ArtifactSummary }) {
-    const { t } = useTranslation('output');
-    const state = useArtifact(endpointId, artifact.artifactId, true);
-    if (state.status !== 'ready') {
-        return null;
-    }
-    const versions = state.result.versions;
-    const older = versions.length - SHOWN_VERSIONS;
-    return (
-        <div className="ml-10 flex flex-col pb-1">
-            {versions.slice(0, SHOWN_VERSIONS).map((version, index) => (
-                <button
-                    key={version.versionId}
-                    type="button"
-                    className="flex h-7 items-center gap-2 rounded-md px-2 text-left text-xs text-text hover:bg-surface-hover"
-                    onClick={() => openArtifact(artifact.artifactId, artifact.title, index === 0 ? null : version.versionId, machineId)}
-                >
-                    <span className="truncate tabular-nums">{formatDayClock(version.createdAt)}</span>
-                    <span className="grow" />
-                    {index === 0 && (
-                        <Pill tone="accent" size="sm">
-                            {t('view.latest')}
-                        </Pill>
+        <button
+            type="button"
+            className="flex min-w-0 items-start gap-2.5 rounded-md px-2 py-2 text-left hover:bg-surface-hover"
+            onClick={() => openArtifact(artifact.artifactId, artifact.title, null, machineId)}
+        >
+            <KindTile kind={artifact.kind} />
+            <span className="flex min-w-0 grow flex-col">
+                <span className="truncate text-sm font-medium text-text">{artifact.title}</span>
+                <span className="flex min-w-0 items-center gap-1 text-xs text-text-muted">
+                    {everywhere ? (
+                        <>
+                            <OutputProjectGlyph endpointId={endpointId} projectId={artifact.projectId} />
+                            <span className="max-w-28 shrink-0 truncate">{artifact.projectName},</span>
+                        </>
+                    ) : (
+                        <Icon icon={SOURCE_ICONS[maker]} size={12} className="shrink-0 text-text-faint" />
                     )}
-                    <span className="shrink-0 text-text-faint tabular-nums">{formatBytes(version.bytes)}</span>
-                </button>
-            ))}
-            {older > 0 && (
-                <button
-                    type="button"
-                    className="flex h-7 items-center rounded-md px-2 text-left text-xs text-text-faint hover:bg-surface-hover"
-                    onClick={() => openArtifact(artifact.artifactId, artifact.title, null, machineId)}
-                >
-                    {t('panel.older', { count: older })}
-                </button>
-            )}
-        </div>
+                    <span className="truncate">
+                        {t('panel.versions', { count: artifact.versionCount })}
+                        {everywhere ? '' : `, ${source}`}
+                    </span>
+                </span>
+            </span>
+            <span className="shrink-0 text-xs text-text-faint tabular-nums">{formatMoment(artifact.latest.createdAt, now)}</span>
+        </button>
     );
 }
 
