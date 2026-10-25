@@ -449,6 +449,23 @@ export const DATABASE_QUERY_MAX_ROWS = 1000;
 const launchName = z.string().trim().min(1).describe('The id of a launch, or its name when no other launch of the project carries that name');
 const launchStarted = z.object({ launchId: z.string(), name: z.string(), kind: LaunchConfigKindSchema, members: z.array(z.string()) });
 
+/* What an agent may give a launch; how it starts with the project and where an import read it from stay a person's. */
+const launchFields = {
+    name: givenName.describe('What the launch chip shows it as'),
+    command: z.string().trim().min(1).describe('The command its shell runs'),
+    cwd: z
+        .string()
+        .trim()
+        .min(1)
+        .describe('The folder it runs in, relative to the project folder and inside it or a worktree; the project folder when omitted'),
+    url: z.string().trim().min(1).describe('The address of a service, whose port says when it came up'),
+    env: z
+        .record(z.string().regex(SECRET_VARIABLE_PATTERN), z.string().nullable())
+        .describe('Environment variables by name; null removes one. A variable that holds a secret stays the person’s'),
+    members: z.array(launchName).min(1).describe('The launches a group starts, in order')
+};
+const launchSaved = z.object({ launchId: z.string(), name: z.string(), kind: LaunchConfigKindSchema, shared: z.boolean() });
+
 const routineId = z.string().min(1).describe('The id of a routine, from ruimte-context routine list');
 /* What an agent may give a routine; the daemon fills the rest from the caller and from what the routine was. */
 const routineFields = {
@@ -3569,7 +3586,7 @@ export const ACTION_DEFINITIONS = {
         description: 'Saves every launch of a project at once, against the revision it was read at; the save approves on this machine what it adds or changes.',
         effect: 'shared',
         domain: 'developer',
-        // Saving approves, and an agent never adds, edits or approves a launch.
+        // Saving approves, which is a person's alone; an agent adds and edits through launch.create and launch.edit, which approve nothing.
         actors: PERSON,
         input: z.object({
             projectId: z.string().min(1),
@@ -3617,6 +3634,43 @@ export const ACTION_DEFINITIONS = {
         }),
         // Null when it has not run since the machine started.
         output: z.object({ launchId: z.string(), name: z.string(), text: z.string().nullable() })
+    },
+    'launch.create': {
+        title: 'Add a launch',
+        description:
+            'Adds a launch to the project: a service, a task or a group of launches. It never starts until a person approves it on this machine as it stands.',
+        effect: 'shared',
+        domain: 'developer',
+        // An agent's launch is never approved by its save; a person approves it from the launch chip.
+        actors: AGENT,
+        input: z.object({
+            name: launchFields.name,
+            kind: LaunchConfigKindSchema.describe('service runs until stopped, task runs once and ends, group starts other launches'),
+            command: launchFields.command.optional(),
+            cwd: launchFields.cwd.optional(),
+            url: launchFields.url.optional(),
+            env: launchFields.env.optional(),
+            members: launchFields.members.optional(),
+            shared: z.boolean().optional().describe("Puts it in the project's shared file, which a team commits; this person's own file when omitted")
+        }),
+        output: launchSaved
+    },
+    'launch.edit': {
+        title: 'Change a launch',
+        description: 'Changes fields of a launch of the project; a change to what it runs waits on a person to approve it again before it starts.',
+        effect: 'shared',
+        domain: 'developer',
+        actors: AGENT,
+        input: z.object({
+            launch: launchName,
+            name: launchFields.name.optional(),
+            command: launchFields.command.optional(),
+            cwd: launchFields.cwd.optional(),
+            url: launchFields.url.optional(),
+            env: launchFields.env.optional(),
+            members: launchFields.members.optional()
+        }),
+        output: launchSaved
     },
     'launch.start': {
         title: 'Start a launch',

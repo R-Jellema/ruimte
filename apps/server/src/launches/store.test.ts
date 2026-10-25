@@ -181,6 +181,54 @@ describe('LaunchStore', () => {
     });
 });
 
+describe("an agent's save", () => {
+    test('adds a launch held until a person approves it, in the private file unless it asks for the shared one', async () => {
+        await store.save('p1', 0, [server]);
+        const { shared: _shared, ...task } = tests;
+        expect(await store.saveByAgent('p1', task, false)).toBe(2);
+        await store.saveByAgent('p1', { id: 'lint', name: 'Lint', kind: 'task', command: 'bun run lint' }, true);
+        const document = await store.read('p1');
+        expect(document.launches.map((launch) => [launch.id, launch.shared])).toEqual([
+            ['run-server', true],
+            ['run-tests', false],
+            ['lint', true]
+        ]);
+        expect(document.approved).toEqual(['run-server']);
+        expect(JSON.parse(await readFile(privatePath(), 'utf8')).launches).toEqual([task]);
+    });
+
+    test('a change to an approved launch withdraws the approval, and the launch keeps its file, overlay and unknown fields', async () => {
+        await store.save('p1', 0, [{ ...server, restartOnCrash: true, overlay: { env: { TOKEN: 'local' } } } as LaunchConfigEntry]);
+        const current = (await store.read('p1')).launches[0]!;
+        const { shared: _shared, overlay: _overlay, ...launch } = current;
+        await store.saveByAgent('p1', { ...launch, command: 'php -S 0.0.0.0:9000 -t public' }, false);
+        const document = await store.read('p1');
+        expect(document.approved).toEqual([]);
+        expect(document.launches[0]).toMatchObject({
+            shared: true,
+            overlay: { env: { TOKEN: 'local' } },
+            restartOnCrash: true,
+            command: 'php -S 0.0.0.0:9000 -t public'
+        });
+        await store.approve('p1', ['run-server']);
+        expect((await store.read('p1')).approved).toEqual(['run-server']);
+    });
+
+    test('is held to the same rules as a person, writes nothing it refuses, and takes in an edit on disk first', async () => {
+        await store.save('p1', 0, [server]);
+        await expect(store.saveByAgent('p1', { id: 'away', name: 'Away', kind: 'task', command: 'ls', cwd: '../elsewhere' }, false)).rejects.toMatchObject({
+            code: 'launches-invalid'
+        });
+        const file = JSON.parse(await readFile(sharedPath(), 'utf8'));
+        file.launches[0].name = 'Server';
+        await writeFile(sharedPath(), JSON.stringify(file));
+        await store.saveByAgent('p1', { id: 'lint', name: 'Lint', kind: 'task', command: 'bun run lint' }, false);
+        const document = await store.read('p1');
+        expect(document.launches.map((launch) => launch.name)).toEqual(['Server', 'Lint']);
+        expect(document.rev).toBe(3);
+    });
+});
+
 describe('after a worktree chat settles', () => {
     let chosen: Record<string, string>;
     let choosing: LaunchStore;

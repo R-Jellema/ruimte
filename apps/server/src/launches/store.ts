@@ -269,37 +269,8 @@ export class LaunchStore {
             if (await this.takeOutsideEdits(projectId, state)) {
                 throw new LaunchError('rev-conflict', `The launches changed on disk; they are now at rev ${state.rev}`);
             }
-            const worktrees = await this.projects.worktreePaths(state.folder).catch(() => []);
-            const problem = problemIn(state.folder, worktrees, launches);
-            if (problem) {
-                throw new LaunchError('launches-invalid', problem);
-            }
             const before = new Map(this.resolvedAll(projectId, state).map((resolved) => [resolved.launch.id, digestOf(resolved)]));
-
-            const shared = launches.filter((entry) => entry.shared);
-            const own = launches.filter((entry) => !entry.shared);
-            const overlays = Object.fromEntries(shared.filter((entry) => !isEmptyOverlay(entry.overlay)).map((entry) => [entry.id, entry.overlay!]));
-            const sharedFile = { version: LAUNCHES_VERSION, ...state.sharedRest, launches: [...shared.map(stripEntry), ...rawOf(state.shared)] };
-            const privateFile = {
-                version: LAUNCHES_VERSION,
-                ...state.privateRest,
-                rev: state.rev + 1,
-                order: launches.map((entry) => entry.id),
-                launches: [...own.map(stripEntry), ...rawOf(state.private)],
-                overlays
-            };
-            const sharedText = serialize(sharedFile);
-            // A project that never shared a launch gets no file for git to see.
-            if (sharedText !== state.sharedText && (state.sharedText !== '' || sharedFile.launches.length > 0)) {
-                state.sharedText = await writeJsonDocument(sharedPathIn(state.folder), sharedFile, serialize);
-            }
-            await writeGitignoreIfMissing(join(state.folder, PROJECT_DIR, PROJECT_FILE));
-            state.privateText = await writeJsonDocument(privatePathIn(state.folder), privateFile, serialize);
-            state.rev = privateFile.rev;
-            state.shared = readLaunchEntries(sharedFile.launches);
-            state.private = readLaunchEntries(privateFile.launches);
-            state.order = privateFile.order;
-            state.overlays = overlays;
+            await this.writeEntries(state, launches);
 
             const after = this.resolvedAll(projectId, state);
             for (const resolved of after) {
@@ -314,6 +285,61 @@ export class LaunchStore {
             this.emitChanged(projectId, state);
             return state.rev;
         });
+    }
+
+    /*
+     * An agent's save of one launch, new or changed, through a verb. It approves nothing, so the launch
+     * is held until a person approves it as it stands. A launch that exists stays in its file with its
+     * overlay; a new one goes where `shared` says. It never drops a secret, which only a person does.
+     */
+    saveByAgent(projectId: string, launch: LaunchConfig, shared: boolean): Promise<number> {
+        return this.writes.run(async () => {
+            const state = await this.load(projectId);
+            await this.takeOutsideEdits(projectId, state);
+            const entries = this.documentOf(projectId, state).launches;
+            const index = entries.findIndex((entry) => entry.id === launch.id);
+            const existing = entries[index];
+            const entry: LaunchConfigEntry =
+                existing === undefined
+                    ? { ...launch, shared }
+                    : { ...launch, shared: existing.shared, ...(existing.overlay === undefined ? {} : { overlay: existing.overlay }) };
+            await this.writeEntries(state, existing === undefined ? [...entries, entry] : entries.with(index, entry));
+            this.emitChanged(projectId, state);
+            return state.rev;
+        });
+    }
+
+    /* Writes the whole list in the files it says, against the state as loaded, after the same checks for every save. */
+    private async writeEntries(state: LoadedLaunches, launches: readonly LaunchConfigEntry[]): Promise<void> {
+        const worktrees = await this.projects.worktreePaths(state.folder).catch(() => []);
+        const problem = problemIn(state.folder, worktrees, launches);
+        if (problem) {
+            throw new LaunchError('launches-invalid', problem);
+        }
+        const shared = launches.filter((entry) => entry.shared);
+        const own = launches.filter((entry) => !entry.shared);
+        const overlays = Object.fromEntries(shared.filter((entry) => !isEmptyOverlay(entry.overlay)).map((entry) => [entry.id, entry.overlay!]));
+        const sharedFile = { version: LAUNCHES_VERSION, ...state.sharedRest, launches: [...shared.map(stripEntry), ...rawOf(state.shared)] };
+        const privateFile = {
+            version: LAUNCHES_VERSION,
+            ...state.privateRest,
+            rev: state.rev + 1,
+            order: launches.map((entry) => entry.id),
+            launches: [...own.map(stripEntry), ...rawOf(state.private)],
+            overlays
+        };
+        const sharedText = serialize(sharedFile);
+        // A project that never shared a launch gets no file for git to see.
+        if (sharedText !== state.sharedText && (state.sharedText !== '' || sharedFile.launches.length > 0)) {
+            state.sharedText = await writeJsonDocument(sharedPathIn(state.folder), sharedFile, serialize);
+        }
+        await writeGitignoreIfMissing(join(state.folder, PROJECT_DIR, PROJECT_FILE));
+        state.privateText = await writeJsonDocument(privatePathIn(state.folder), privateFile, serialize);
+        state.rev = privateFile.rev;
+        state.shared = readLaunchEntries(sharedFile.launches);
+        state.private = readLaunchEntries(privateFile.launches);
+        state.order = privateFile.order;
+        state.overlays = overlays;
     }
 
     /*

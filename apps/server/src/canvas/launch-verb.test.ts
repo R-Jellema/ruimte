@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import type { LaunchStartResult, LaunchStatus } from '@ruimte/contracts';
+import { LAUNCH_SECRET_REFERENCE, type LaunchConfig, type LaunchConfigEntry, type LaunchStartResult, type LaunchStatus } from '@ruimte/contracts';
 import { refusalBody } from '@adecore/agents/context';
 import { agentLaunches } from '../launches/agent-host.ts';
 import type { LaunchStartOptions } from '../launches/runner.ts';
@@ -41,12 +41,22 @@ function reading(launchId: string, overrides: Partial<LaunchReading> = {}): Laun
 }
 
 let launches: LaunchReading[];
+let entries: LaunchConfigEntry[];
+let saves: Array<{ launch: LaunchConfig; shared: boolean }>;
 let startResult: LaunchStartResult;
 let calls: string[];
 let host: CanvasHost;
 
+async function unused(): Promise<never> {
+    throw new Error('not reached in this test');
+}
+
 function launchHost(): LaunchHost {
     return {
+        entries: async () => entries,
+        save: async (_projectId, launch, shared) => {
+            saves.push({ launch, shared });
+        },
         list: async () => launches,
         text: async (_projectId, launchId) => (launchId === 'dev' ? 'one\ntwo\nthree' : null),
         start: async (_projectId, launchId, restart) => {
@@ -66,6 +76,12 @@ beforeEach(() => {
         reading('tests', { name: 'Tests', kind: 'task', approved: false, status: status('tests', { kind: 'task', state: 'exited', exitCode: 1, port: null }) }),
         reading('stack', { name: 'Full stack', kind: 'group', approved: false, members: ['dev', 'tests'] })
     ];
+    entries = [
+        { id: 'dev', name: 'Dev', kind: 'service', command: 'bun dev', url: 'http://localhost:5173', env: { TOKEN: LAUNCH_SECRET_REFERENCE }, shared: true },
+        { id: 'tests', name: 'Tests', kind: 'task', command: 'bun test', env: { CI: '1' }, shared: false, watch: true } as LaunchConfigEntry,
+        { id: 'stack', name: 'Full stack', kind: 'group', launches: ['dev', 'tests'], shared: false }
+    ];
+    saves = [];
     startResult = { outcome: 'started' };
     calls = [];
     host = {
@@ -93,7 +109,9 @@ describe('ruimte-context launches', () => {
             'stack\tFull stack\tgroup\t-\tno\t-\t-\tdev,tests'
         ]);
         launches = [];
-        expect(await run(['list'])).toEqual(['note\tThis project has no launches; a person adds them from the launch chip in the toolbar']);
+        expect(await run(['list'])).toEqual([
+            'note\tThis project has no launches; a person adds them from the launch chip in the toolbar, and ruimte-context launches new adds one they approve'
+        ]);
     });
 
     test('reads the output by id or by name, and says when it never ran', async () => {
@@ -156,6 +174,76 @@ describe('ruimte-context launches', () => {
     });
 });
 
+describe('ruimte-context launches new and edit', () => {
+    test('a new launch gets an id of its own name, goes in the private file, and waits on a person', async () => {
+        const lines = await run([
+            'new',
+            '--name',
+            'Dev',
+            '--kind',
+            'service',
+            '--command',
+            'bun run dev',
+            '--url',
+            'http://localhost:3000',
+            '--env',
+            '{"PORT":"3000"}'
+        ]);
+        expect(lines).toEqual([
+            'saved\tdev-2\tDev\tservice\tprivate',
+            'held\tIt waits for a person to approve it from the launch chip in the toolbar, and starts nothing until then; tell them what you set up and why'
+        ]);
+        expect(saves).toEqual([
+            {
+                launch: { id: 'dev-2', name: 'Dev', kind: 'service', command: 'bun run dev', url: 'http://localhost:3000', env: { PORT: '3000' } },
+                shared: false
+            }
+        ]);
+    });
+
+    test('--shared puts a new one in the shared file, and a group names its launches by id', async () => {
+        await run(['new', '--name', 'Everything', '--kind', 'group', '--members', 'Dev, tests', '--shared']);
+        expect(saves).toEqual([{ launch: { id: 'everything', name: 'Everything', kind: 'group', launches: ['dev', 'tests'] }, shared: true }]);
+    });
+
+    test('a field the kind has not and a launch without a command are refused before anything is saved', async () => {
+        expect((await run(['new', '--name', 'Lint', '--kind', 'task', '--command', 'bun lint', '--url', 'http://x']))[0]).toBe(
+            'refused\twrong-kind\tA task takes no --url'
+        );
+        expect((await run(['new', '--name', 'Lint', '--kind', 'task']))[0]).toStartWith('refused\tcommand-required\t');
+        expect((await run(['new', '--name', 'Lint', '--kind', 'task', '--command', 'x', '--env', '[1]']))[0]).toStartWith('refused\t');
+        expect(saves).toEqual([]);
+    });
+
+    test('an edit changes what it names in place, keeps the rest and its file, and asks the person again', async () => {
+        expect(await run(['edit', 'Tests', '--command', 'bun test --bail', '--env', '{"CI":null,"DEBUG":"1"}'])).toEqual([
+            'saved\ttests\tTests\ttask\tprivate',
+            'held\tIt waits for a person to approve it from the launch chip in the toolbar, and starts nothing until then; tell them what you set up and why'
+        ]);
+        expect(saves).toEqual([
+            {
+                launch: { id: 'tests', name: 'Tests', kind: 'task', command: 'bun test --bail', env: { DEBUG: '1' }, watch: true } as LaunchConfig,
+                shared: false
+            }
+        ]);
+        await run(['edit', 'dev', '--name', 'Web']);
+        expect(saves[1]).toEqual({
+            launch: { id: 'dev', name: 'Web', kind: 'service', command: 'bun dev', url: 'http://localhost:5173', env: { TOKEN: LAUNCH_SECRET_REFERENCE } },
+            shared: true
+        });
+    });
+
+    test('a variable that holds a secret stays the person’s, and an unknown launch is named among what there is', async () => {
+        expect((await run(['edit', 'dev', '--env', '{"TOKEN":"guess"}']))[0]).toStartWith('refused\tsecret-variable\tTOKEN holds a secret');
+        expect((await run(['edit', 'nope', '--name', 'X']))[0]).toBe('refused\tunknown-launch\tThis project has no launch nope');
+        expect(saves).toEqual([]);
+    });
+
+    test('there is no verb that approves a launch', async () => {
+        expect((await run(['approve', 'dev']))[0]).toStartWith('refused\t');
+    });
+});
+
 describe('the launches an agent reaches', () => {
     const resolved = (id: string, overrides: Partial<ResolvedLaunch> = {}): ResolvedLaunch => ({
         projectId: 'p1',
@@ -175,7 +263,7 @@ describe('the launches an agent reaches', () => {
         const options: LaunchStartOptions[] = [];
         const stops: unknown[][] = [];
         const reached = agentLaunches(
-            { resolveAll: async () => [] },
+            { resolveAll: async () => [], read: unused, saveByAgent: unused },
             {
                 list: () => [],
                 sessionOf: () => null,
@@ -204,6 +292,8 @@ describe('the launches an agent reaches', () => {
     test('a group is approved once every launch it starts is, and reads the state of this project only', async () => {
         const reached = agentLaunches(
             {
+                read: unused,
+                saveByAgent: unused,
                 resolveAll: async () => [
                     resolved('dev', { url: 'http://localhost:5173', port: 5173 }),
                     resolved('api', { approved: false }),

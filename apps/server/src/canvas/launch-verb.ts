@@ -45,7 +45,7 @@ const listAction = defineActionVerb('launches', {
                     launch.members.length === 0 ? '-' : launch.members.map(field).join(',')
                 ].join('\t')
             ),
-            'This project has no launches; a person adds them from the launch chip in the toolbar'
+            'This project has no launches; a person adds them from the launch chip in the toolbar, and ruimte-context launches new adds one they approve'
         );
     }
 });
@@ -150,14 +150,126 @@ const stopAction = defineActionVerb('launches', {
     }
 });
 
+const EnvFlag = z
+    .string()
+    .transform((text, context) => {
+        try {
+            return JSON.parse(text) as unknown;
+        } catch {
+            context.addIssue({ code: 'custom', message: '--env is a JSON object of variables, such as {"PORT":"3000"}; null removes one' });
+            return z.NEVER;
+        }
+    })
+    .pipe(
+        z.record(z.string(), z.string().nullable(), {
+            error: '--env is a JSON object of variables with text values, such as {"PORT":"3000"}; null removes one'
+        })
+    );
+
+const MembersFlag = z
+    .string()
+    .min(1, '--members needs the launches a group starts')
+    .transform((text) =>
+        text
+            .split(',')
+            .map((member) => member.trim())
+            .filter((member) => member !== '')
+    );
+
+const HELD_LINE =
+    'held\tIt waits for a person to approve it from the launch chip in the toolbar, and starts nothing until then; tell them what you set up and why';
+
+function savedLaunchLines(saved: { launchId: string; name: string; kind: string; shared: boolean }): string[] {
+    return [`saved\t${field(saved.launchId)}\t${field(saved.name)}\t${saved.kind}\t${saved.shared ? 'shared' : 'private'}`, HELD_LINE];
+}
+
+const SAVE_PARAMS = [
+    { syntax: '--command C', need: 'service, task', field: 'command' },
+    { syntax: '--cwd D', need: 'service, task', field: 'cwd' },
+    { syntax: '--url U', need: 'service', field: 'url' },
+    { syntax: '--env JSON', need: 'service, task', field: 'env', more: 'a JSON object such as {"PORT":"3000"}' },
+    { syntax: '--members L', need: 'group', field: 'members', more: 'comma separated ids or names' }
+] as const;
+
+const SAVE_FLAGS = {
+    command: z.string().optional(),
+    cwd: z.string().min(1, '--cwd needs the path of a folder').optional(),
+    url: z.string().optional(),
+    env: EnvFlag.optional(),
+    members: MembersFlag.optional()
+};
+
+type SaveFlags = { [Name in keyof typeof SAVE_FLAGS]?: z.infer<(typeof SAVE_FLAGS)[Name]> };
+
+function saveFieldsOf(flags: SaveFlags) {
+    return {
+        ...(flags.command === undefined ? {} : { command: flags.command }),
+        ...(flags.cwd === undefined ? {} : { cwd: flags.cwd }),
+        ...(flags.url === undefined ? {} : { url: flags.url }),
+        ...(flags.env === undefined ? {} : { env: flags.env }),
+        ...(flags.members === undefined ? {} : { members: flags.members })
+    };
+}
+
+const newAction = defineActionVerb('launches', {
+    name: 'new',
+    action: 'launch.create',
+    usage: '--name N --kind service|task|group [--command C] [--cwd D] [--url U] [--env JSON] [--members L] [--shared]',
+    params: [
+        { syntax: '--name N', need: 'required', field: 'name' },
+        { syntax: '--kind K', need: 'required', field: 'kind' },
+        ...SAVE_PARAMS,
+        { syntax: '--shared', need: 'no value', field: 'shared' }
+    ],
+    detail: [
+        'prints\tsaved\tid\tname\tkind\tshared or private, then held',
+        'id\tMade from the name and unique in the project; launches edit, start and read take it',
+        APPROVAL_LINE,
+        'refusals\tlaunches-invalid\twrong-kind\tcommand-required\tunknown-launch\tthe codes this action refuses with'
+    ],
+    positionals: z.tuple([], { error: 'launches new takes no arguments; name it with --name' }),
+    switches: ['shared'],
+    flags: z.object({
+        name: z.string({ error: '--name needs a name' }).min(1, '--name needs a name'),
+        kind: z.enum(['service', 'task', 'group'], { error: '--kind is service, task or group' }),
+        ...SAVE_FLAGS
+    }),
+    async run({ flags, switches }, call) {
+        return savedLaunchLines(
+            await runAction(call, 'launch.create', { name: flags.name, kind: flags.kind, ...saveFieldsOf(flags), shared: switches.has('shared') })
+        );
+    }
+});
+
+const editAction = defineActionVerb('launches', {
+    name: 'edit',
+    action: 'launch.edit',
+    usage: '<launch> [--name N] [--command C] [--cwd D] [--url U] [--env JSON] [--members L]',
+    params: [LAUNCH_PARAM, { syntax: '--name N', need: 'optional', field: 'name' }, ...SAVE_PARAMS],
+    detail: [
+        'prints\tsaved\tid\tname\tkind\tshared or private, then held',
+        'keeps\tWhat you leave out stays as it was, its kind and its file too; --env sets the variables it names and leaves the rest',
+        "secret\tA variable that holds a secret is the person's, and refused with secret-variable; ruimte-context secret asks them for one",
+        APPROVAL_LINE,
+        'refusals\tlaunches-invalid\twrong-kind\tcommand-required\tsecret-variable\tunknown-launch\tambiguous-launch\tthe codes this action refuses with'
+    ],
+    positionals: launchTuple('edit'),
+    flags: z.object({ name: z.string().min(1, '--name needs a name').optional(), ...SAVE_FLAGS }),
+    async run({ positionals: [launch], flags }, call) {
+        return savedLaunchLines(
+            await runAction(call, 'launch.edit', { launch, ...(flags.name === undefined ? {} : { name: flags.name }), ...saveFieldsOf(flags) })
+        );
+    }
+});
+
 export const LAUNCHES_SUMMARY =
-    'Lists the launches of the project and reads their output; starts, restarts and stops the ones a person approved on this machine';
+    'Lists, adds and changes the launches of the project and reads their output; starts, restarts and stops the ones a person approved on this machine';
 
 export const LAUNCHES_DETAIL: readonly string[] = [
-    'note\tA launch is a command of the project a person set up to run from the launch chip in the toolbar: a dev server, a build, or a group of them',
+    'note\tA launch is a command of the project that runs from the launch chip in the toolbar: a dev server, a build, or a group of them',
     APPROVAL_LINE,
-    'never\tAn agent never adds, changes or approves a launch; a person does, in the app',
+    'never\tAn agent never approves a launch: whatever you add or change waits on a person, in the app',
     SCOPE_LINE
 ];
 
-export const LAUNCHES_ACTIONS = [listAction, readAction, startAction, restartAction, stopAction] as const;
+export const LAUNCHES_ACTIONS = [listAction, readAction, newAction, editAction, startAction, restartAction, stopAction] as const;

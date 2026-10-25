@@ -8,6 +8,7 @@ import { VerbRefusal, field, orNote, type RoutineAgentHost } from '../canvas/ver
 import { providerFor } from '../providers/registry.ts';
 import type { ServerActionContext } from './context.ts';
 import { launchHostOf, named } from './launch-actions.ts';
+import { freeSlug, slugOf } from './slug.ts';
 
 type RoutineFields = Omit<ActionInput<'routine.edit'>, 'routineId'>;
 
@@ -29,31 +30,6 @@ function routinesOf(context: ServerActionContext): RoutineAgentHost {
         throw new VerbRefusal('unavailable', 'This machine keeps no routines');
     }
     return context.host.routines;
-}
-
-/* An id or a key made of a title: lowercase letters, digits and dashes, starting with a letter or a digit. */
-export function slugOf(title: string): string {
-    const slug = title
-        .toLowerCase()
-        .normalize('NFKD')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '')
-        .slice(0, 48)
-        .replace(/-+$/, '');
-    return slug === '' ? 'routine' : slug;
-}
-
-function freeId(title: string, taken: ReadonlySet<string>): string {
-    const base = slugOf(title);
-    if (!taken.has(base)) {
-        return base;
-    }
-    for (let i = 2; ; i++) {
-        const candidate = `${base}-${i}`;
-        if (!taken.has(candidate)) {
-            return candidate;
-        }
-    }
 }
 
 function routineLines(entries: readonly RoutineEntry[]): string[] {
@@ -106,7 +82,7 @@ async function routineFrom(context: ServerActionContext, caller: string, id: str
         id,
         title,
         schedule: input.schedule ?? before?.schedule,
-        outputKey: input.key ?? before?.outputKey ?? slugOf(title)
+        outputKey: input.key ?? before?.outputKey ?? slugOf(title, 'routine')
     };
     const { host, place } = context;
     let routine: unknown;
@@ -196,7 +172,7 @@ export const routineActions: ActionHandlers<ServerActionContext> = {
         if (routines.length >= ROUTINE_LIMITS.perProject) {
             throw new VerbRefusal('too-many-routines', `This project has ${routines.length} routines, the most one project keeps`);
         }
-        const id = freeId(input.title, new Set(routines.map((entry) => entry.routine.id)));
+        const id = freeSlug(input.title, 'routine', new Set(routines.map((entry) => entry.routine.id)));
         const routine = await routineFrom(context, actor.id, id, input, null);
         return saved(context, actor.id, routine, shared ?? false);
     },

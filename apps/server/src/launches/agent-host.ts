@@ -4,10 +4,11 @@ import type { LaunchStore } from './store.ts';
 
 /*
  * The launches as the verbs reach them. The actor is fixed to an agent here rather than passed in,
- * so no verb can approve a launch on its way or ask for a person's Force stop.
+ * so no verb can approve a launch on its way or ask for a person's Force stop, and a save is the store's
+ * `saveByAgent`, which approves nothing.
  */
 export function agentLaunches(
-    store: Pick<LaunchStore, 'resolveAll'>,
+    store: Pick<LaunchStore, 'resolveAll' | 'read' | 'saveByAgent'>,
     runner: Pick<LaunchRunner, 'list' | 'sessionOf' | 'start' | 'restart' | 'stop'>,
     screenOf: (sessionId: string) => Promise<string | null>
 ): LaunchHost {
@@ -41,6 +42,10 @@ export function agentLaunches(
         },
         start: (projectId, launchId, restart) =>
             restart ? runner.restart(projectId, launchId, { actor: 'agent' }) : runner.start(projectId, launchId, { actor: 'agent' }),
-        stop: (projectId, launchId) => runner.stop(projectId, launchId)
+        stop: (projectId, launchId) => runner.stop(projectId, launchId),
+        entries: async (projectId) => (await store.read(projectId)).launches,
+        save: async (projectId, launch, shared) => {
+            await store.saveByAgent(projectId, launch, shared);
+        }
     };
 }

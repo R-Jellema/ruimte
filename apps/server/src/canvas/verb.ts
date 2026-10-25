@@ -14,6 +14,8 @@ import {
     type ChatVisual,
     type CliVersion,
     type GitDiffResult,
+    type LaunchConfig,
+    type LaunchConfigEntry,
     type LaunchConfigKind,
     type LaunchStartResult,
     type LaunchStatus,
@@ -335,6 +337,10 @@ export interface LaunchHost {
     start(projectId: string, launchId: string, restart: boolean): Promise<LaunchStartResult>;
     /* How many of its launches ran and are being stopped. */
     stop(projectId: string, launchId: string): Promise<number>;
+    /* The launches as their files hold them, which an agent's edit starts from. */
+    entries(projectId: string): Promise<LaunchConfigEntry[]>;
+    /* Never an approval: the launch is held until a person approves it as it stands. One that exists keeps its file. */
+    save(projectId: string, launch: LaunchConfig, shared: boolean): Promise<void>;
 }
 
 export interface ContextHost {

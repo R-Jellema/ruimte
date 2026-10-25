@@ -209,6 +209,21 @@ export const cases: WriteCases = {
             'no list of imports': { projectId: 'ruimte', baseRev: 4, launches: [] }
         }
     },
+    'launch.create': {
+        actors: ['agent'],
+        input: { name: 'Dev', kind: 'service', command: 'bun dev', url: 'http://localhost:5173', env: { PORT: '5173' } },
+        refused: {
+            'a kind of launch it has not': { name: 'Dev', kind: 'daemon', command: 'bun dev' },
+            'a blank name': { name: ' ', kind: 'task', command: 'bun test' },
+            'a variable that starts with a digit': { name: 'Dev', kind: 'service', command: 'bun dev', env: { '1PORT': '5173' } },
+            'a group that starts nothing': { name: 'Stack', kind: 'group', members: [] }
+        }
+    },
+    'launch.edit': {
+        actors: ['agent'],
+        input: { launch: 'dev', command: 'bun run dev', env: { DEBUG: null } },
+        refused: { 'no launch': { command: 'bun run dev' }, 'an empty command': { launch: 'dev', command: ' ' } }
+    },
     'launch.start': {
         actors: ['agent'],
         input: { launch: 'dev' },

@@ -1,7 +1,9 @@
-import type { ActionHandlers } from '@ruimte/actions';
+import type { ActionHandlers, ActionInput } from '@ruimte/actions';
+import { isSecretReference, type LaunchConfig, type LaunchConfigKind, type LaunchConfigOverlay } from '@ruimte/contracts';
 import { MAX_SCREEN_LINES } from '../context/context-store.ts';
 import { VerbRefusal, field, orNote, type LaunchHost, type LaunchReading } from '../canvas/verb.ts';
 import type { ServerActionContext } from './context.ts';
+import { freeSlug } from './slug.ts';
 
 export function launchHostOf(context: ServerActionContext): LaunchHost {
     if (!context.host.launches) {
@@ -13,7 +15,7 @@ export function launchHostOf(context: ServerActionContext): LaunchHost {
 export function launchLines(launches: readonly LaunchReading[]): string[] {
     return orNote(
         launches.map((launch) => `launch\t${field(launch.launchId)}\t${field(launch.name)}`),
-        'This project has no launches; a person adds them from the launch chip in the toolbar'
+        'This project has no launches; a person adds them from the launch chip in the toolbar, and ruimte-context launches new adds one they approve'
     );
 }
 
@@ -57,7 +59,91 @@ async function started(context: ServerActionContext, wanted: string, restart: bo
     return { output: { launchId: launch.launchId, name: launch.name, kind: launch.kind, members: launch.members } };
 }
 
+type LaunchFields = Omit<ActionInput<'launch.edit'>, 'launch'>;
+
+function refuseFor(kind: LaunchConfigKind, input: LaunchFields): void {
+    const notFor: readonly (keyof LaunchFields)[] = kind === 'group' ? ['command', 'cwd', 'url', 'env'] : kind === 'task' ? ['url', 'members'] : ['members'];
+    const given = notFor.find((name) => input[name] !== undefined);
+    if (given !== undefined) {
+        throw new VerbRefusal('wrong-kind', `A ${kind} takes no --${given}`);
+    }
+}
+
+/*
+ * The launch an agent's call makes: the fields it gave set over what the launch was, in place, so the
+ * file keeps its key order and every field this release does not know. A variable holding a secret is
+ * the person's, since an agent that set it would read what the person typed into it.
+ */
+function launchFrom(before: LaunchConfig, overlay: LaunchConfigOverlay | undefined, input: LaunchFields, readings: readonly LaunchReading[]): LaunchConfig {
+    refuseFor(before.kind, input);
+    const next: LaunchConfig = { ...before };
+    if (input.name !== undefined) {
+        next.name = input.name;
+    }
+    if (input.command !== undefined) {
+        next.command = input.command;
+    }
+    if (input.cwd !== undefined) {
+        next.cwd = input.cwd;
+    }
+    if (input.url !== undefined) {
+        next.url = input.url;
+    }
+    if (input.members !== undefined) {
+        next.launches = input.members.map((member) => named(readings, member).launchId);
+    }
+    if (input.env !== undefined) {
+        const env: Record<string, string> = { ...before.env };
+        for (const [variable, value] of Object.entries(input.env)) {
+            if (isSecretReference(env[variable]) || isSecretReference(overlay?.env?.[variable])) {
+                throw new VerbRefusal('secret-variable', `${variable} holds a secret the person keeps on this machine; only they change it`);
+            }
+            if (value === null) {
+                delete env[variable];
+            } else {
+                env[variable] = value;
+            }
+        }
+        if (Object.keys(env).length === 0) {
+            delete next.env;
+        } else {
+            next.env = env;
+        }
+    }
+    if (next.kind !== 'group' && !next.command?.trim()) {
+        throw new VerbRefusal('command-required', `A ${next.kind} needs --command: what its shell runs`);
+    }
+    return next;
+}
+
+function savedOutput(launch: LaunchConfig, shared: boolean) {
+    return { output: { launchId: launch.id, name: launch.name, kind: launch.kind, shared } };
+}
+
 export const launchActions: ActionHandlers<ServerActionContext> = {
+    'launch.create': async ({ name, kind, shared, ...input }, { context }) => {
+        const host = launchHostOf(context);
+        const { projectId } = context.place;
+        const entries = await host.entries(projectId);
+        const id = freeSlug(name, 'launch', new Set(entries.map((entry) => entry.id)));
+        const launch = launchFrom({ id, name, kind }, undefined, input, await host.list(projectId));
+        await host.save(projectId, launch, shared ?? false);
+        return savedOutput(launch, shared ?? false);
+    },
+    'launch.edit': async ({ launch: wanted, ...input }, { context }) => {
+        const host = launchHostOf(context);
+        const { projectId } = context.place;
+        const readings = await host.list(projectId);
+        const { launchId } = named(readings, wanted);
+        const entry = (await host.entries(projectId)).find((candidate) => candidate.id === launchId);
+        if (entry === undefined) {
+            throw new VerbRefusal('unknown-launch', `This project has no launch ${wanted}`, launchLines(readings));
+        }
+        const { shared, overlay, ...before } = entry;
+        const launch = launchFrom(before, overlay, input, readings);
+        await host.save(projectId, launch, shared);
+        return savedOutput(launch, shared);
+    },
     'launch.list': async (_input, { context }) => {
         const launches = await launchHostOf(context).list(context.place.projectId);
         return {
