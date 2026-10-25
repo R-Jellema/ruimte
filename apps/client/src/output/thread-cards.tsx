@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { ThreadCard } from '@adecore/agents-react';
+import { useChatRow } from '@adecore/agents-react/state';
 import type { ArtifactSummary } from '@ruimte/contracts';
 import { useArtifactList, useArtifacts } from '@/output/artifacts';
 import { SavedCard, type Saved } from '@/output/SavedCard';
@@ -20,16 +21,40 @@ export function useOutputThreadCards(scopeId: string, chatId: string): readonly 
     const list = useArtifactList(scopeId, { chatId }, answers);
     const artifacts = list?.status === 'ready' ? list.artifacts : NO_ARTIFACTS;
     const read = useReadVersions(scopeId, artifacts);
+    const structure = useChatRow(chatId, (row) => row?.structure);
     const saved = artifacts
         .flatMap((summary) => read[summary.artifactId] ?? [{ artifact: summary, version: summary.latest, latest: true }])
         .filter((entry) => entry.version.provenance.chatId === chatId);
-    const shape = saved.map((entry) => `${entry.version.versionId}:${entry.latest}:${entry.artifact.title}:${entry.artifact.kind}`).join('\n');
+    const groups = groupsBetweenItems(saved, structure === undefined ? [] : Object.values(structure).map((item) => item.createdAt));
+    const shape = groups
+        .map((group) => group.map((entry) => `${entry.version.versionId}:${entry.latest}:${entry.artifact.title}:${entry.artifact.kind}`).join('\n'))
+        .join('\n\n');
     const [held, setHeld] = useState<{ shape: string; cards: readonly ThreadCard[] }>({ shape: '', cards: NO_CARDS });
     // The thread lays its rows out again on every new array, so a new one is made only when what it shows changed.
     if (held.shape !== shape) {
-        setHeld({ shape, cards: saved.map(cardOf) });
+        setHeld({ shape, cards: groups.map(cardOf) });
     }
     return held.cards;
+}
+
+/*
+ * The versions oldest first, one group for every run the thread places between the same two of its
+ * rows: it puts a card before the first row that began after it, so two versions with no item begun
+ * in between land side by side and read as one list.
+ */
+function groupsBetweenItems(saved: readonly Saved[], itemTimes: readonly number[]): Saved[][] {
+    const groups: Saved[][] = [];
+    for (const entry of [...saved].sort((first, second) => first.version.createdAt - second.version.createdAt)) {
+        const group = groups.at(-1);
+        const previous = group?.at(-1);
+        const apart = previous === undefined || itemTimes.some((time) => time > previous.version.createdAt && time <= entry.version.createdAt);
+        if (group === undefined || apart) {
+            groups.push([entry]);
+        } else {
+            group.push(entry);
+        }
+    }
+    return groups;
 }
 
 /*
@@ -71,10 +96,11 @@ function useReadVersions(endpointId: string, artifacts: readonly ArtifactSummary
     return read;
 }
 
-function cardOf({ artifact, version, latest }: Saved): ThreadCard {
+function cardOf(group: readonly Saved[]): ThreadCard {
+    const first = group[0]!.version;
     return {
-        id: `output:${version.versionId}`,
-        at: version.createdAt,
-        render: () => <SavedCard artifact={artifact} version={version} latest={latest} />
+        id: `output:${first.versionId}`,
+        at: first.createdAt,
+        render: () => <SavedCard saved={group} />
     };
 }

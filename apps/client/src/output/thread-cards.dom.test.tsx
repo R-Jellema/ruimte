@@ -88,7 +88,7 @@ function artifact(artifactId: string, title: string, kind: string): ArtifactSumm
 }
 
 function cards(): HTMLElement[] {
-    return [...page.host.querySelectorAll('[role="group"][aria-label="settings.png"]')] as HTMLElement[];
+    return [...page.host.querySelectorAll('button[aria-label^="settings.png, "]')] as HTMLElement[];
 }
 
 function version(number: number, createdAt: number): ArtifactVersion {
@@ -164,12 +164,12 @@ describe('what a chat saved to Output', () => {
         // A card is the client's own row: the thread on the wire gained nothing.
         expect(machine.requests('artifact.get')).toHaveLength(0);
 
-        await clickOn(cards()[0]!.querySelector('button'));
+        await clickOn(cards()[0]!);
         await until(() => useFiles.getState().tabs.some((tab) => tab.key === 'artifact:shot'));
         expect(useArtifactSelection.getState().versions['artifact:shot']).toBeUndefined();
     });
 
-    test('a second version adds a card of its own, and Open shows the version of its card', async () => {
+    test('a second version joins the card as a row of its own, and a row opens its version', async () => {
         saved = [{ ...artifact('shot', 'settings.png', 'image'), latest: version(2, 1_761_400_100_000), versionCount: 2 }];
         machine.answer('artifact.get', () => ({
             artifact: {
@@ -185,10 +185,12 @@ describe('what a chat saved to Output', () => {
         }));
         await act(async () => machine.emit('artifact.changed', { artifactId: 'shot', projectId: 'project-atlas' }));
         await until(() => cards().length === 2);
-        expect(cards().map((card) => card.textContent?.includes('Version 2 saved to Output'))).toEqual([false, true]);
-        expect(cards()[0]!.textContent).toContain('Saved to Output');
+        expect(cards().map((card) => card.getAttribute('aria-label'))).toEqual(['settings.png, Saved to Output', 'settings.png, Version 2 saved to Output']);
+        // Nothing in the thread began between the two, so they stand as one list.
+        expect(cards()[0]!.parentElement).toBe(cards()[1]!.parentElement);
+        expect(cards()[1]!.textContent).not.toContain('KB');
 
-        await clickOn(cards()[0]!.querySelector('button'));
+        await clickOn(cards()[0]!);
         await until(() => useFiles.getState().tabs.some((tab) => tab.key === 'artifact:shot'));
         expect(useArtifactSelection.getState().versions['artifact:shot']).toBe('shot-v1');
     });
