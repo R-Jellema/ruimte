@@ -49,7 +49,10 @@ export function ViewSettingsDialog({ view, onClose }: { view: ProjectView; onClo
                     value={name}
                     onChange={(event) => setName(event.target.value)}
                     onKeyDown={(event) => {
-                        event.stopPropagation();
+                        // Escape must reach the dialog's own listener, so it closes like any other.
+                        if (event.key !== 'Escape') {
+                            event.stopPropagation();
+                        }
                         if (event.key === 'Enter') {
                             save();
                         }
