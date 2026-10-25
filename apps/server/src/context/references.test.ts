@@ -103,7 +103,8 @@ describe('the note in front of a message', () => {
                 '- "Preview" (browser on "Planning"): `ruimte-context read page` · drive it with `ruimte-context browser go page --url U`',
                 '- "Docs" (browser): `ruimte-context read docs`',
                 '- "Next steps" (text on "Planning"): `ruimte-context read label`',
-                '- "Planning" (canvas): `ruimte-context read main` · read any node on it with `ruimte-context read <id>` · add nodes with `ruimte-context node new <kind> --view main`'
+                '- "Planning" (canvas): `ruimte-context read main` · read any node on it with `ruimte-context read <id>` · add nodes with `ruimte-context node new <kind> --view main`',
+                'When you refer back to one of them, write `#` and its name exactly as listed (#Name), and the person can open it from your answer.'
             ].join('\n')
         );
     });

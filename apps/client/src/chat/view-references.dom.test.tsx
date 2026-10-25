@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
 import { EditorView } from '@codemirror/view';
 import type { EndpointInfo, ProjectView, ProviderInfo } from '@ruimte/contracts';
@@ -39,7 +39,7 @@ afterEach(async () => {
 });
 
 /* A machine that says whether it resolves references, with the lead chat in front. */
-async function open(viewReferences: boolean): Promise<void> {
+async function open(viewReferences: boolean, items: object[] = []): Promise<void> {
     machine = new FakeMachine();
     const info: EndpointInfo = {
         id: MACHINE,
@@ -52,7 +52,7 @@ async function open(viewReferences: boolean): Promise<void> {
     };
     machine.answer('endpoint.info', () => info);
     machine.answer('provider.list', () => ({ providers: [CLAUDE] }));
-    machine.answer('chat.attach', ({ chatId }) => ({ info: chatInfoOf(chatId), items: [], seq: 0 }) as never);
+    machine.answer('chat.attach', ({ chatId }) => ({ info: chatInfoOf(chatId), items: chatId === LEAD.id ? items : [], seq: items.length }) as never);
     machine.answer('chat.send', () => ({ queued: false, turnId: 'turn-1' }));
     workspace = await openFakeWorkspace(machine, { views: [LEAD, PLANNER, SKETCH] } as never, { activeViewId: LEAD.id, views: {} });
     stopInfo = startServerInfo();
@@ -109,5 +109,89 @@ describe('a # in the composer', () => {
         const sent = machine.requests('chat.send')[0]!;
         expect(sent).toMatchObject({ text: 'Ask #Planner', chats: [PLANNER.id] });
         expect(sent.references).toBeUndefined();
+    });
+});
+
+/* What a copy writes and a paste reads, by type, the way the browser's clipboard does. */
+function clipboardOf() {
+    const data: Record<string, string> = {};
+    return {
+        data,
+        files: [] as File[],
+        get types() {
+            return Object.keys(data);
+        },
+        getData: (type: string) => data[type] ?? '',
+        setData: (type: string, value: string) => {
+            data[type] = value;
+        }
+    };
+}
+
+describe('a # after the message went out', () => {
+    const offsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
+
+    beforeEach(() => {
+        // happy-dom lays nothing out; without a height of its own the thread's scroller shows no row at all.
+        Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+            configurable: true,
+            get(this: HTMLElement) {
+                return this.classList.contains('chat-scroll') ? 800 : (offsetHeight?.get?.call(this) ?? 0);
+            }
+        });
+    });
+
+    afterEach(() => {
+        if (offsetHeight !== undefined) {
+            Object.defineProperty(HTMLElement.prototype, 'offsetHeight', offsetHeight);
+        }
+    });
+
+    test('a reply that names the drawing draws it as a chip, and a copied message pastes back with its chips', async () => {
+        const asked = { id: 'asked', kind: 'user', turnId: 'turn-0', createdAt: 1, text: 'Look at #Schets', references: [SKETCH.id] };
+        const answered = { id: 'answered', kind: 'assistant', turnId: 'turn-0', createdAt: 2, text: 'I drew in #Schets.', streaming: false };
+        await open(true, [asked, answered]);
+        const cell = (): Element => page.host.querySelector(`[data-split-cell][data-view-id="${LEAD.id}"]`)!;
+        await until(() => cell().querySelectorAll('[data-chip="reference"]').length === 2);
+        expect([...cell().querySelectorAll('[data-chip="reference"]')].map((chip) => chip.getAttribute('data-chip-value'))).toEqual([SKETCH.id, SKETCH.id]);
+
+        // The copy goes through a copy event, which happy-dom does not fire for the command itself.
+        const clipboard = clipboardOf();
+        const original = document.execCommand;
+        document.execCommand = () => {
+            document.dispatchEvent(Object.assign(new Event('copy', { bubbles: true, cancelable: true }), { clipboardData: clipboard }));
+            return true;
+        };
+        try {
+            const message = cell().querySelector('[data-find-item="asked"]')!.closest('.group\\/message')!;
+            await clickOn(message.querySelector('[aria-label="Copy message"]'));
+        } finally {
+            document.execCommand = original;
+        }
+        expect(clipboard.data['text/plain']).toBe('Look at #Schets');
+        expect(JSON.parse(clipboard.data['application/x-adecore-chips']!)).toEqual({
+            text: 'Look at #Schets',
+            mentions: [],
+            skills: [],
+            references: [{ id: SKETCH.id, name: 'Schets' }]
+        });
+
+        // A selection of the reply copies its chip the same way, the hidden sigil with the name.
+        const selected = clipboardOf();
+        const words = cell().querySelector('[data-find-item="answered"] p')!;
+        await act(async () => {
+            document.getSelection()!.selectAllChildren(words);
+            words.dispatchEvent(Object.assign(new Event('copy', { bubbles: true, cancelable: true }), { clipboardData: selected }));
+        });
+        expect(JSON.parse(selected.data['application/x-adecore-chips'] ?? 'null')).toMatchObject({ references: [{ id: SKETCH.id, name: 'Schets' }] });
+
+        await act(async () => {
+            const event = Object.assign(new Event('paste', { bubbles: true, cancelable: true }), { clipboardData: clipboard });
+            composer()!.contentDOM.dispatchEvent(event);
+        });
+        expect(composer()!.state.doc.toString()).toBe('Look at #Schets');
+        await pressKey(composer()!.contentDOM, 'Enter');
+        await until(() => machine.requests('chat.send').length === 1);
+        expect(machine.requests('chat.send')[0]).toMatchObject({ text: 'Look at #Schets', references: [SKETCH.id] });
     });
 });

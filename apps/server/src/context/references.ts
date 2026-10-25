@@ -155,7 +155,8 @@ export function referenceNote(references: readonly Reference[]): string | null {
     }
     return [
         'The person referenced views and nodes of this project in this message. Read each with the command beside it before you answer.',
-        ...references.map(referenceLine)
+        ...references.map(referenceLine),
+        'When you refer back to one of them, write `#` and its name exactly as listed (#Name), and the person can open it from your answer.'
     ].join('\n');
 }
 
