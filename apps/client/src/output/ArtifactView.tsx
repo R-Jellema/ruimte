@@ -203,9 +203,9 @@ function ArtifactToolbar({ asView, children }: { asView: boolean; children: Reac
     if (asView && host !== null) {
         return createPortal(children, host);
     }
-    // The measures of a view's bar (CellToolbar and its slot in ViewToolbar), so both read the same.
+    // The measures of a view's separate bar (`data-view-bar` in CellToolbar and its slot in ViewToolbar), so both read the same.
     return (
-        <div className="flex h-10 shrink-0 items-center border-b border-border bg-surface pr-1.5 pl-2 text-xs">
+        <div className="flex h-10 shrink-0 items-center border-b border-border bg-surface px-2 text-xs">
             <div className="flex min-w-0 grow items-center justify-end gap-1">{children}</div>
         </div>
     );
