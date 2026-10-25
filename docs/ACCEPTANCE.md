@@ -416,3 +416,35 @@ the same canvas to a budget in a headless browser; these are what it cannot feel
 - [ ] The complete workday evaluation (`workflow-smoke.ts --evaluate-workday`) passes.
 - [ ] The long native smoke passes, including the memory answer it last failed on.
 - [ ] The helper runs on macOS 26.4, the deployment target.
+
+## Routines
+
+In the Electron dev app (`bun dev`), with the machine's own clock. Make each routine below, look at it in Routines
+and on the iPhone, and write down what the run left in Output. Approve each one once it shows under "Waiting for
+approval".
+
+- [ ] Morning summary of ruimte main: weekdays 09:00, Supervised, new chat each run. The first run starts at 09:00,
+  its chat sits under the routine and on no canvas, and its result is version 1 of "Morning summary" in Output with
+  the routine and run as its origin. The next run starts with that version as context and makes version 2; Compare
+  with previous run shows what changed.
+- [ ] Triage new ideas in ruimte-plans against main: Tue and Thu 17:00. Pause it on Tuesday morning: Tuesday's block
+  is hatched and nothing runs. Resume on Wednesday: the next block is Thursday 17:00, not the Tuesday it skipped.
+- [ ] Dependency check of adecore: Monday 08:30, with a prompt that makes the agent ask a question. The run waits
+  for you (amber, Needs you, a push on the iPhone after the desktop is idle); answer it on the iPhone. Run it again
+  by hand while it still waits: Run now says the previous run still waits. Leave it waiting into the next Monday:
+  that run is skipped and says why.
+- [ ] Nightly e2e in a worktree: once at 22:00, as a command routine (`bun run test` in the project folder). Its
+  output lands as a version in Output and its exit code decides done or failed; after the run the routine owes
+  nothing more.
+- [ ] A routine in the Chats project, made from a chat outside any project with "Repeat…" at the send button: it runs
+  without any canvas and its result lands in the Output of Chats.
+- [ ] Lid closed at the due time (keep awake off): open the lid an hour later. The run starts within a minute of
+  waking, its block is blue ("caught up") and names the time it missed; it runs once, not once per missed time.
+- [ ] Restart the machine (`bun dev` again) while an agent run works: the run goes on after the restart and the next
+  due time is still owed. Quit for longer than one due time: on start it runs once as caught up.
+- [ ] A routine pulled in from git: add a routine to `.ruimte/routines.json` on another checkout, commit, pull here.
+  It shows under "Waiting for approval" as from git and does not run until approved. Change its prompt in git after
+  approving: it waits for approval again. An agent's `ruimte-context routine new` and `routine edit` wait the same
+  way, with the chat that made it on the card; `routine run` refuses until a person approved.
+- [ ] Remove a routine: its run chats and its artifact in Output stay.
+- [ ] The night the clock goes back (last Sunday of October) with a daily 02:30 routine: it runs once.

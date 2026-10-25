@@ -203,7 +203,9 @@ $RUIMTE_HOME/
   lineage/<nodeId>.json            0700, who opened a node, its depth, its mode ceiling and when it was ended
   peers/<machineId>.json           0700, a machine that works in a project here: its label and, per project, the ceiling of its agents (see "Linked machines")
   remote/<projectId>.json          0700, which node of the project runs on another machine, as node id to machine id
-  command-approvals/<hash>.json    0700, a command or launch a person approved for a node, or a task for the project's worktrees
+  command-approvals/<hash>.json    0700, a command, launch or routine a person approved for a node, or a task for the project's worktrees
+  routine-runs/<runId>.json        what each run of a routine did here: when it was due, started, skipped or ended, and its chat (src/routines/CLAUDE.md)
+  routine-authors/<hash>.json      the agent chat that last made or changed a routine, for the approval card
   mode-approvals/<hash>.json       0700, the permission mode a person's save gave a terminal agent
   notices/<nodeId>.json            0700, messages left for a node until its agent picks them up
   database-access/<projectId>.json 0700, what agents may do with each connection (see "Databases")
