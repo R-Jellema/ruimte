@@ -18,6 +18,8 @@ import {
     ArtifactImportFromResultSchema,
     ArtifactListPayloadSchema,
     ArtifactListResultSchema,
+    ArtifactRemovePayloadSchema,
+    ArtifactRemoveResultSchema,
     ArtifactSavePayloadSchema,
     ArtifactSaveResultSchema,
     ArtifactStorageResultSchema
@@ -855,6 +857,7 @@ export const REQUEST_SCHEMAS = {
     'artifact.storage': { payload: EmptySchema, result: ArtifactStorageResultSchema },
     'artifact.cleanup': { payload: ArtifactCleanupPayloadSchema, result: ArtifactCleanupResultSchema },
     'artifact.importFrom': { payload: ArtifactImportFromPayloadSchema, result: ArtifactImportFromResultSchema },
+    'artifact.remove': { payload: ArtifactRemovePayloadSchema, result: ArtifactRemoveResultSchema },
     'provenance.read': { payload: ProvenanceReadPayloadSchema, result: ProvenanceReadResultSchema },
     'provenance.review': { payload: ProvenanceReviewPayloadSchema, result: ProvenanceReviewResultSchema },
     'nanogpt.status': { payload: EmptySchema, result: NanoGptStatusSchema },

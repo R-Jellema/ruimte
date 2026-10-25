@@ -35,4 +35,6 @@ export function registerArtifactHandlers(dispatcher: Dispatcher, artifacts: Arti
         }
         return artifacts.cleanupConfirm(payload.versions);
     });
+
+    dispatcher.register('artifact.remove', (payload) => artifacts.remove(payload));
 }

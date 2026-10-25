@@ -113,6 +113,22 @@ describe('artifact store on a real disk', () => {
         expect(restarted.list()).toHaveLength(1);
     });
 
+    test('a stop between moving a version out and the register leaves it gone and nothing half after a restart', async () => {
+        const { fs, stopAt } = stoppable();
+        const store = await storeOn(fs);
+        const first = await store.commit(await stage(store, 'one'), input({ key: 'k', requestId: 'a' }));
+        const second = await store.commit(await stage(store, 'two'), input({ key: 'k', requestId: 'b' }));
+        stopAt('writeDurable', 'register.json');
+        await expect(store.remove(first.artifactId, [first.versionId])).rejects.toThrow('stopped');
+
+        const restarted = await storeOn(fs);
+        expect(restarted.get(first.artifactId)!.versions.map((version) => version.versionId)).toEqual([second.versionId]);
+        expect((await readdir(join(home, 'artifacts', first.artifactId))).sort()).toEqual(['artifact.json', second.versionId]);
+        expect(await readdir(join(home, 'artifacts'))).not.toContain('.staging');
+        const register = JSON.parse(await readFile(join(home, 'artifacts', 'register.json'), 'utf8'));
+        expect(register.artifacts[0].versions.map((version: { versionId: string }) => version.versionId)).toEqual([second.versionId]);
+    });
+
     test('bytes.read serves a file of a version by its ids, with its hash as the version', async () => {
         const store = await storeOn(NODE_ARTIFACT_FS);
         const made = await store.commit(await stage(store, 'hello'), input());

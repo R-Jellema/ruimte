@@ -398,6 +398,7 @@
     "artifact.storage",
     "artifact.cleanup",
     "artifact.importFrom",
+    "artifact.remove",
     "provenance.read",
     "provenance.review",
     "nanogpt.status",

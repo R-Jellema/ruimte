@@ -234,6 +234,23 @@ export type ArtifactImportFromPayload = z.infer<typeof ArtifactImportFromPayload
 export const ArtifactImportFromResultSchema = ArtifactSaveResultSchema;
 export type ArtifactImportFromResult = z.infer<typeof ArtifactImportFromResultSchema>;
 
+/*
+ * A person removing an artifact for good: these versions of it, or all of it without `versionIds`.
+ * Removing every version removes the artifact. Never on a peer's list and never an agent's. Errors: `not-found`.
+ */
+export const ArtifactRemovePayloadSchema = z.object({
+    artifactId: ArtifactIdSchema,
+    versionIds: z.array(ArtifactVersionIdSchema).min(1).max(10_000).optional()
+});
+export type ArtifactRemovePayload = z.infer<typeof ArtifactRemovePayloadSchema>;
+
+// `removed` counts versions.
+export const ArtifactRemoveResultSchema = z.object({
+    removed: z.number().int().nonnegative(),
+    freedBytes: z.number().int().nonnegative()
+});
+export type ArtifactRemoveResult = z.infer<typeof ArtifactRemoveResultSchema>;
+
 // A preview answers `proposals`, a confirm `removed` and `freedBytes`.
 export const ArtifactCleanupResultSchema = z.object({
     proposals: z.array(ArtifactCleanupProposalSchema).optional(),

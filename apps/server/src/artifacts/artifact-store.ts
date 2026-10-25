@@ -321,9 +321,7 @@ export class ArtifactStore {
                 if (!removable(entry.artifact, publicVersion(version))) {
                     continue;
                 }
-                const staged = `rm-${this.newId()}`;
-                await this.fs.mkdir(join(this.root, STAGING_FOLDER));
-                await this.fs.rename(this.versionFolder(ref.artifactId, ref.versionId), join(this.root, STAGING_FOLDER, staged));
+                const staged = await this.moveToTrash(this.versionFolder(ref.artifactId, ref.versionId));
                 entry.versions.splice(index, 1);
                 trash.push(staged);
                 changed.add(ref.artifactId);
@@ -341,6 +339,43 @@ export class ArtifactStore {
                 this.emit({ artifactId, projectId: this.entries.get(artifactId)!.artifact.projectId });
             }
             return { removed, freedBytes };
+        });
+    }
+
+    /*
+     * Removes what a person confirmed: the named versions of an artifact, or all of it when none are
+     * named or every version is. Unlike a cleanup this lets go of the latest, a copied or a pinned
+     * version too. Each folder moves into staging first, so a stop leaves it gone or whole.
+     */
+    remove(artifactId: string, versionIds?: readonly string[]): Promise<{ removed: number; freedBytes: number }> {
+        return this.writes.run(async () => {
+            const entry = this.entries.get(artifactId);
+            if (!entry) {
+                throw new ArtifactError('not-found', 'No such artifact on this machine');
+            }
+            const named = versionIds === undefined ? null : new Set(versionIds);
+            const going = named === null ? entry.versions : entry.versions.filter((version) => named.has(version.versionId));
+            if (going.length === 0) {
+                throw new ArtifactError('not-found', 'No such version on this machine');
+            }
+            const freedBytes = totalOf(going);
+            const trash: string[] = [];
+            const whole = going.length === entry.versions.length;
+            if (whole) {
+                trash.push(await this.moveToTrash(join(this.root, artifactId)));
+                this.entries.delete(artifactId);
+            } else {
+                for (const version of going) {
+                    trash.push(await this.moveToTrash(this.versionFolder(artifactId, version.versionId)));
+                    entry.versions = entry.versions.filter((candidate) => candidate !== version);
+                }
+            }
+            await this.writeRegister();
+            for (const staged of trash) {
+                await this.discardStaging(staged).catch(() => undefined);
+            }
+            this.emit({ artifactId, projectId: entry.artifact.projectId, ...(whole ? { removed: true } : {}) });
+            return { removed: going.length, freedBytes };
         });
     }
 
@@ -521,6 +556,14 @@ export class ArtifactStore {
 
     private writeRegister(): Promise<void> {
         return this.fs.writeDurable(join(this.root, REGISTER_FILE), this.registerText());
+    }
+
+    /* Moves a folder into staging in one rename, which every start clears; answers its name there. */
+    private async moveToTrash(folder: string): Promise<string> {
+        const staged = `rm-${this.newId()}`;
+        await this.fs.mkdir(join(this.root, STAGING_FOLDER));
+        await this.fs.rename(folder, join(this.root, STAGING_FOLDER, staged));
+        return staged;
     }
 
     private stagedFiles(stagingId: string): string {

@@ -12,6 +12,8 @@ import {
     type ArtifactKind,
     type ArtifactProjectStorage,
     type ArtifactProvenance,
+    type ArtifactRemovePayload,
+    type ArtifactRemoveResult,
     type ArtifactSavePayload,
     type ArtifactSaveResult,
     type ArtifactStorageResult,
@@ -395,6 +397,11 @@ export class Artifacts {
     cleanupConfirm(versions: readonly ArtifactVersionRef[]): Promise<{ removed: number; freedBytes: number }> {
         const pinned = this.pinned();
         return this.store.removeVersions(versions, (artifact, version) => removable(artifact, version, pinned));
+    }
+
+    /* A person's removal of an artifact or some of its versions; a copy in a project stays where it is. */
+    remove(payload: ArtifactRemovePayload): Promise<ArtifactRemoveResult> {
+        return this.store.remove(payload.artifactId, payload.versionIds);
     }
 
     private published(result: CommitResult): { result: CommitResult; artifact: Artifact; version: ArtifactVersion } {

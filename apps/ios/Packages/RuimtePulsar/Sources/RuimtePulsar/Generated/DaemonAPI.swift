@@ -306,6 +306,7 @@ public enum WireRequest: String, CaseIterable, Sendable {
     case `artifactStorage` = "artifact.storage"
     case `artifactCleanup` = "artifact.cleanup"
     case `artifactImportFrom` = "artifact.importFrom"
+    case `artifactRemove` = "artifact.remove"
     case `provenanceRead` = "provenance.read"
     case `provenanceReview` = "provenance.review"
     case `nanogptStatus` = "nanogpt.status"

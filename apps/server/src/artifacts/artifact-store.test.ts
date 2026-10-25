@@ -168,6 +168,42 @@ describe('ArtifactStore', () => {
         expect(restarted.get(first!.artifactId)!.versions.map((version) => version.versionId)).toEqual([latest!.versionId, second!.versionId]);
     });
 
+    test('a person removes any version, the latest and a copied one too, and that survives a start', async () => {
+        const fs = new MemoryArtifactFs();
+        const store = await loaded(fs);
+        const first = await store.commit(await staged(store, 'one'), input({ key: 'k', requestId: 'a' }));
+        const second = await store.commit(await staged(store, 'two!'), input({ key: 'k', requestId: 'b' }));
+        await store.markCopied(second.artifactId, second.versionId, 'docs/report.md');
+        const events: unknown[] = [];
+        store.onChange((event) => events.push(event));
+
+        expect(await store.remove(first.artifactId, [second.versionId])).toEqual({ removed: 1, freedBytes: 4 });
+        expect(events).toEqual([{ artifactId: first.artifactId, projectId: 'project-1' }]);
+        expect(stagingLeft(fs)).toEqual([]);
+        const restarted = await loaded(fs);
+        expect(restarted.get(first.artifactId)!.versions.map((version) => version.versionId)).toEqual([first.versionId]);
+        await expect(restarted.remove(first.artifactId, ['ver-missing00'])).rejects.toMatchObject({ code: 'not-found' });
+    });
+
+    test('removing every version, or the artifact whole, removes the artifact and its folder', async () => {
+        const fs = new MemoryArtifactFs();
+        const store = await loaded(fs);
+        const kept = await store.commit(await staged(store, 'one'), input({ key: 'k', requestId: 'a' }));
+        const last = await store.commit(await staged(store, 'two'), input({ key: 'other', requestId: 'b' }));
+        const events: unknown[] = [];
+        store.onChange((event) => events.push(event));
+
+        expect(await store.remove(last.artifactId, [last.versionId])).toEqual({ removed: 1, freedBytes: 3 });
+        expect(await store.remove(kept.artifactId)).toEqual({ removed: 1, freedBytes: 3 });
+        expect(events).toEqual([
+            { artifactId: last.artifactId, projectId: 'project-1', removed: true },
+            { artifactId: kept.artifactId, projectId: 'project-1', removed: true }
+        ]);
+        expect([...fs.folders, ...fs.files.keys()].filter((path) => path.includes('/art-'))).toEqual([]);
+        expect((await loaded(fs)).list()).toEqual([]);
+        await expect(store.remove(kept.artifactId)).rejects.toMatchObject({ code: 'not-found' });
+    });
+
     test('a copy is noted on the version and kept across a start', async () => {
         const fs = new MemoryArtifactFs();
         const store = await loaded(fs);
