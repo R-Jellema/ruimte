@@ -4,6 +4,7 @@ import type { MenuNode, MenuRole, MenuShellAction, MenuSpec } from '@ruimte/desk
 import { viewShortcut } from '@/canvas/shortcuts';
 import { BROWSER_KEEPS } from '@/shell/shortcuts';
 import type { ViewOffers } from '@/shell/view-offers';
+import { separatesFrontier } from '@/agents/creation';
 import type { KeepAwakeMode } from '@/state/settings';
 import type { PanelKind } from '@/state/ui';
 import { formatShortcut, type Shortcut } from '@adecore/ui';
@@ -196,6 +197,10 @@ function only(condition: boolean, ...items: MenuNode[]): MenuNode[] {
     return condition ? items : [];
 }
 
+function agentRows(agents: MenuAgent[], rowsOf: (agent: MenuAgent) => MenuNode[]): MenuNode[] {
+    return agents.flatMap((agent, i) => [...only(separatesFrontier(agents[i - 1]?.kind, agent.kind), separator), ...rowsOf(agent)]);
+}
+
 /* What a group draws besides the table's rows: a role, a submenu or a row per view, launch or agent. */
 interface MenuExtra {
     readonly order: number;
@@ -271,7 +276,7 @@ const LAYOUT: Record<MenuContainer, readonly MenuGroup[]> = {
                 {
                     order: 10,
                     build: (context, command) =>
-                        context.agents.flatMap((agent) => [
+                        agentRows(context.agents, (agent) => [
                             ...only(agent.chat, command(`agent-view-chat-${agent.kind}`, t('agentChat', { name: agent.name }))),
                             ...only(agent.terminal, command(`agent-view-terminal-${agent.kind}`, t('agentTerminal', { name: agent.name })))
                         ])
@@ -359,7 +364,7 @@ const LAYOUT: Record<MenuContainer, readonly MenuGroup[]> = {
                 {
                     order: 80,
                     build: (context, command) => {
-                        const agents = context.agents.flatMap((agent) => [
+                        const agents = agentRows(context.agents, (agent) => [
                             ...only(agent.chat, command(`agent-chat-${agent.kind}`, t('agentChat', { name: agent.name }))),
                             ...only(agent.terminal, command(`agent-terminal-${agent.kind}`, t('agentTerminal', { name: agent.name })))
                         ]);

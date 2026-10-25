@@ -1,6 +1,6 @@
 import { ChevronRight, Bot, LoaderCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { ProviderInfo } from '@ruimte/contracts';
+import { groupProvidersByFrontier, type ProviderInfo } from '@ruimte/contracts';
 import { AgentIcon, modelName } from '@adecore/agents-react/providers';
 import { startingSelection, useChatPreferences } from '@adecore/agents-react/chat';
 import { useProviders } from '@adecore/agents-react/state';
@@ -14,40 +14,46 @@ export function ProviderRows({ onPick }: { onPick(provider: ProviderInfo): void 
     const providers = useProviders((s) => s.providers);
     const loaded = useProviders((s) => s.loaded);
     const preferences = useChatPreferences();
-    const agents = availableAgents(providers, 'chat');
+    const { frontier, others } = groupProvidersByFrontier(availableAgents(providers, 'chat'));
+    // The frontier labs and the other agents each get a card, the way a menu draws a line between them.
+    const cards = [frontier, others].filter((card) => card.length > 0);
     useDetectProviders();
     return (
         <section className="flex flex-col gap-2">
             <SectionLabel render={<h2 />} className="px-1">
                 {t('menu.newChat')}
             </SectionLabel>
-            <div className="overflow-hidden rounded-xl border border-border bg-surface-raised">
-                {agents.map((provider) => {
-                    const model = startingSelection(preferences, provider)?.model ?? null;
-                    return (
-                        <button
-                            key={provider.kind}
-                            type="button"
-                            className="flex w-full items-center gap-3 border-b border-border px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-surface-hover-edged focus-visible:bg-surface-hover-edged focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
-                            onClick={() => onPick(provider)}
-                        >
-                            <span
-                                aria-hidden
-                                className="grid size-9 shrink-0 place-items-center rounded-lg bg-surface-sunken dark:bg-field dark:inset-ring dark:inset-ring-field-border"
+            {cards.map((card) => (
+                <div key={card[0]!.kind} className="overflow-hidden rounded-xl border border-border bg-surface-raised">
+                    {card.map((provider) => {
+                        const model = startingSelection(preferences, provider)?.model ?? null;
+                        return (
+                            <button
+                                key={provider.kind}
+                                type="button"
+                                className="flex w-full items-center gap-3 border-b border-border px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-surface-hover-edged focus-visible:bg-surface-hover-edged focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
+                                onClick={() => onPick(provider)}
                             >
-                                <AgentIcon kind={provider.kind} size={20} className={provider.kind === 'claude' ? 'text-chart-claude' : undefined} />
-                            </span>
-                            <span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-0.5">
-                                <span className="max-w-full text-sm font-medium break-words text-text">{provider.name}</span>
-                                <span className="truncate text-xs text-text-muted">
-                                    {model === null ? t('menu.defaultModel') : modelName(model, provider.models)}
+                                <span
+                                    aria-hidden
+                                    className="grid size-9 shrink-0 place-items-center rounded-lg bg-surface-sunken dark:bg-field dark:inset-ring dark:inset-ring-field-border"
+                                >
+                                    <AgentIcon kind={provider.kind} size={20} className={provider.kind === 'claude' ? 'text-chart-claude' : undefined} />
                                 </span>
-                            </span>
-                            <Icon icon={ChevronRight} size={16} className="shrink-0 text-text-faint" />
-                        </button>
-                    );
-                })}
-                {agents.length === 0 && (
+                                <span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                                    <span className="max-w-full text-sm font-medium break-words text-text">{provider.name}</span>
+                                    <span className="truncate text-xs text-text-muted">
+                                        {model === null ? t('menu.defaultModel') : modelName(model, provider.models)}
+                                    </span>
+                                </span>
+                                <Icon icon={ChevronRight} size={16} className="shrink-0 text-text-faint" />
+                            </button>
+                        );
+                    })}
+                </div>
+            ))}
+            {cards.length === 0 && (
+                <div className="overflow-hidden rounded-xl border border-border bg-surface-raised">
                     <button
                         type="button"
                         disabled={!loaded}
@@ -57,8 +63,8 @@ export function ProviderRows({ onPick }: { onPick(provider: ProviderInfo): void 
                         <Icon icon={loaded ? Bot : LoaderCircle} size={20} className={loaded ? undefined : 'animate-spin'} />
                         {loaded ? t('menu.setup') : t('menu.connecting')}
                     </button>
-                )}
-            </div>
+                </div>
+            )}
         </section>
     );
 }

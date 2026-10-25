@@ -1,4 +1,4 @@
-import type { AgentKind, ProviderInfo } from '@ruimte/contracts';
+import { groupProvidersByFrontier, type AgentKind, type ProviderInfo } from '@ruimte/contracts';
 import type { CliDetection, ChatProvider } from '@adecore/agents/providers';
 import { ProviderRegistry as AgentProviderRegistry, detectCli } from '@adecore/agents/providers';
 import { createAppleProvider, appleProvider } from './apple-provider.ts';
@@ -113,12 +113,13 @@ export class ProviderRegistry extends AgentProviderRegistry {
 
     override list(): Promise<ProviderInfo[]> {
         this.onList?.();
-        return super.list();
+        return this.current();
     }
 
-    /* The list as it stands, without the fetches a client's `provider.list` sets off. */
-    current(): Promise<ProviderInfo[]> {
-        return super.list();
+    /* The list as it stands, without the fetches a client's `provider.list` sets off, in the order a picker shows it. */
+    async current(): Promise<ProviderInfo[]> {
+        const groups = groupProvidersByFrontier(await super.list());
+        return [...groups.frontier, ...groups.others];
     }
 
     /*

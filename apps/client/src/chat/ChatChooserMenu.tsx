@@ -1,9 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { Fragment, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';
 import { useProviders } from '@adecore/agents-react/state';
 import { ContextMenu, Kbd } from '@adecore/ui';
-import { availableAgents } from '@/agents/creation';
+import { availableAgents, separatesFrontier } from '@/agents/creation';
 import { useChatChooser, useChooserSections, type ChooserChat } from '@/chat/chat-chooser';
 import { linkedChatsOfNode, sendToChat, startLinkedChatOrTell, type SelectionOffer } from '@/chat/selection-to-chat';
 import { AgentIcon } from '@adecore/agents-react/providers';
@@ -91,16 +91,18 @@ function ChooserMenu({ offer, x, y }: { offer: SelectionOffer; x: number; y: num
                 {agents.length > 0 && (
                     <>
                         {groups.length > 0 && <ContextMenu.Separator />}
-                        {agents.map((provider) => (
-                            <ContextMenu.Item
-                                key={provider.kind}
-                                onClick={() => {
-                                    picked.current = true;
-                                    void startLinkedChatOrTell(offer, provider.kind);
-                                }}
-                            >
-                                <Plus size={14} /> {t('selection.newWith', { provider: provider.name })}
-                            </ContextMenu.Item>
+                        {agents.map((provider, i) => (
+                            <Fragment key={provider.kind}>
+                                {separatesFrontier(agents[i - 1]?.kind, provider.kind) && <ContextMenu.Separator />}
+                                <ContextMenu.Item
+                                    onClick={() => {
+                                        picked.current = true;
+                                        void startLinkedChatOrTell(offer, provider.kind);
+                                    }}
+                                >
+                                    <Plus size={14} /> {t('selection.newWith', { provider: provider.name })}
+                                </ContextMenu.Item>
+                            </Fragment>
                         ))}
                     </>
                 )}

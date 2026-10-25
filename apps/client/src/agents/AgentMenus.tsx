@@ -1,12 +1,12 @@
 import type { ReactNode } from 'react';
 import { Bot, MessageSquare } from 'lucide-react';
-import type { ProviderInfo } from '@ruimte/contracts';
+import type { AgentKind, ProviderInfo } from '@ruimte/contracts';
 import { useTranslation } from 'react-i18next';
 import { AccountDot, AgentIcon } from '@adecore/agents-react/providers';
 import { agentTargetLabel, type AgentTarget } from '@/agents/nodes';
 import { runtimeModeLabel, useChatPreferences, useNewAccountChoice } from '@adecore/agents-react/chat';
 import { useProviders } from '@adecore/agents-react/state';
-import { availableAgents } from './creation';
+import { availableAgents, separatesFrontier } from './creation';
 import { useUi } from '@/state/ui';
 import { useDetectProviders } from '@/transport/provider-detection';
 import { Icon, Menu } from '@adecore/ui';
@@ -35,6 +35,8 @@ interface ChainProps {
     hint: string | null;
     onPick: PickAgent;
     drawn: Drawn;
+    /* The last CLI before this one that drew a row. */
+    previous: AgentKind | undefined;
     /* Whether a CLI before this one still waits for the accounts of the machine. */
     waiting: boolean;
 }
@@ -49,7 +51,7 @@ interface ChainProps {
  * always goes along, also the CLI's own: absent would mean the account picked for new agents, which may
  * be one that is turned off.
  */
-function ProviderChain({ target, provider, rest, hint, onPick, drawn, waiting }: ChainProps) {
+function ProviderChain({ target, provider, rest, hint, onPick, drawn, previous, waiting }: ChainProps) {
     const { t } = useTranslation('agents');
     const choice = useNewAccountChoice(provider.kind);
     let own: ReactNode = null;
@@ -97,10 +99,12 @@ function ProviderChain({ target, provider, rest, hint, onPick, drawn, waiting }:
     // While the accounts load nothing is offered: a start without one could land on an account that is off.
     const nextWaiting = waiting || choice.status === 'loading';
     const nextDrawn = mine === 'nothing' ? drawn : mine;
+    const nextPrevious = mine === 'nothing' ? previous : provider.kind;
     const [next, ...after] = rest;
+    const separated = mine === 'group' || drawn === 'group' || separatesFrontier(previous, provider.kind);
     return (
         <>
-            {mine !== 'nothing' && drawn !== 'nothing' && (mine === 'group' || drawn === 'group') && <Menu.Separator />}
+            {mine !== 'nothing' && drawn !== 'nothing' && separated && <Menu.Separator />}
             {own}
             {next === undefined ? (
                 nextDrawn === 'nothing' && <NoAgentRow connecting={nextWaiting} />
@@ -113,6 +117,7 @@ function ProviderChain({ target, provider, rest, hint, onPick, drawn, waiting }:
                     hint={hint}
                     onPick={onPick}
                     drawn={nextDrawn}
+                    previous={nextPrevious}
                     waiting={nextWaiting}
                 />
             )}
@@ -152,7 +157,19 @@ function AgentRows({ target, onPick }: { target: AgentTarget; onPick: PickAgent 
     if (first === undefined) {
         return <NoAgentRow connecting={!loaded} />;
     }
-    return <ProviderChain key={first.kind} target={target} provider={first} rest={rest} hint={hint} onPick={onPick} drawn="nothing" waiting={false} />;
+    return (
+        <ProviderChain
+            key={first.kind}
+            target={target}
+            provider={first}
+            rest={rest}
+            hint={hint}
+            onPick={onPick}
+            drawn="nothing"
+            previous={undefined}
+            waiting={false}
+        />
+    );
 }
 
 export function ChatAgentSubmenu({ label, icon, onPick }: { label: string; icon: ReactNode; onPick(provider: ProviderInfo, account?: string): void }) {

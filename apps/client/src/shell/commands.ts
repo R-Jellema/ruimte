@@ -10,6 +10,7 @@ import {
     type SplitLayout
 } from '@ruimte/contracts';
 import type { AgentTarget } from '@/agents/nodes';
+import { availableAgents } from '@/agents/creation';
 import {
     applyLayoutAction,
     closeCellsRightOfAction,
@@ -138,27 +139,25 @@ function centerWorld() {
  * installed is left out: the Agents settings pane is where that gets fixed, not the palette.
  */
 function agentCommands(target: AgentTarget, providers: ProviderInfo[], onCanvas: boolean): Command[] {
-    return providers
-        .filter((provider) => provider.installed && provider.capabilities[target])
-        .flatMap((provider) => [
-            ...(onCanvas
-                ? [
-                      {
-                          id: `agent-${target}-${provider.kind}`,
-                          label: i18next.t(`shell:palette.newAgent.${target}`, { name: provider.name }),
-                          agent: provider.kind,
-                          run: () => void createNodeAction(target, { provider: provider.kind })
-                      }
-                  ]
-                : []),
-            {
-                id: `agent-view-${target}-${provider.kind}`,
-                label: i18next.t(`shell:palette.newAgentView.${target}`, { name: provider.name }),
-                hint: i18next.t('shell:palette.hints.withoutCanvas'),
-                agent: provider.kind,
-                run: () => void createViewAction(target, { provider: provider.kind })
-            }
-        ]);
+    return availableAgents(providers, target).flatMap((provider) => [
+        ...(onCanvas
+            ? [
+                  {
+                      id: `agent-${target}-${provider.kind}`,
+                      label: i18next.t(`shell:palette.newAgent.${target}`, { name: provider.name }),
+                      agent: provider.kind,
+                      run: () => void createNodeAction(target, { provider: provider.kind })
+                  }
+              ]
+            : []),
+        {
+            id: `agent-view-${target}-${provider.kind}`,
+            label: i18next.t(`shell:palette.newAgentView.${target}`, { name: provider.name }),
+            hint: i18next.t('shell:palette.hints.withoutCanvas'),
+            agent: provider.kind,
+            run: () => void createViewAction(target, { provider: provider.kind })
+        }
+    ]);
 }
 
 /*

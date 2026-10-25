@@ -168,6 +168,20 @@ describe('the agent submenu', () => {
         expect(groups.some((text) => text?.startsWith('Claude Code'))).toBe(true);
     });
 
+    test('lists the frontier labs first and the other CLIs by name under a line, whatever order the machine sends', async () => {
+        machine.answer('provider.list', () => ({
+            providers: [providerOf('grok', 'Grok'), providerOf('codex', 'Codex'), providerOf('antigravity', 'Antigravity'), providerOf('claude', 'Claude Code')]
+        }));
+        await start(() => ({ accounts: { claude: { kind: 'claude' }, codex: { kind: 'codex' } }, statuses: [] }));
+        await openAgentChatMenu();
+        await until(() => menuItem('Grok') !== null);
+        const menu = [...document.querySelectorAll('[role="menu"]')].at(-1)!;
+        const rows = [...menu.querySelectorAll('[role="menuitem"], [role="separator"]')].map((node) =>
+            node.getAttribute('role') === 'separator' ? '--' : labelOf(node as HTMLElement)
+        );
+        expect(rows).toEqual(['Claude Code', 'Codex', '--', 'Antigravity', 'Grok']);
+    });
+
     test('a CLI that is not installed is not offered', async () => {
         await start();
         await openAgentChatMenu();

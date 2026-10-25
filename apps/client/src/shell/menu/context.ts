@@ -1,3 +1,4 @@
+import { inPickerOrder } from '@/agents/creation';
 import { groupArrangeable } from '@/canvas/arrange-group';
 import i18next from 'i18next';
 import { canShareView, chatIsWorking, isCanvasView, isEmptyChatView, isOpenableView, type ProjectView, type SplitLayout } from '@ruimte/contracts';
@@ -196,9 +197,12 @@ export function menuContext(host: MenuHost): MenuContext {
                       .map((view) => ({ id: view.id, name: nameOf(view) }))
                 : [],
         layouts: onCanvas ? canvas.layouts.map((layout) => layout.name) : [],
-        agents: providersOf(endpointId)
-            .providers.filter((provider) => provider.installed)
-            .map((provider) => ({ kind: provider.kind, name: provider.name, chat: provider.capabilities.chat, terminal: provider.capabilities.terminal })),
+        agents: inPickerOrder(providersOf(endpointId).providers.filter((provider) => provider.installed)).map((provider) => ({
+            kind: provider.kind,
+            name: provider.name,
+            chat: provider.capabilities.chat,
+            terminal: provider.capabilities.terminal
+        })),
         launches: menuLaunches(endpointId),
         chosenLaunch: chosenLaunchId(),
         afterSettle: menuAfterSettle(endpointId),
