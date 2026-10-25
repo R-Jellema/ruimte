@@ -43,6 +43,7 @@ const VERB_LOOKS: Record<ContextVerb, VerbLook> = {
     worktree: { name: 'Worktree', from: 1 },
     operation: { name: 'Task', from: 1 },
     launches: { name: 'Launches', from: 1 },
+    routine: { name: 'Routines', from: 1 },
     secret: { name: 'Launches', from: 1 },
     project: { name: 'Project', from: 1 },
     database: { name: 'Database', from: 1 },

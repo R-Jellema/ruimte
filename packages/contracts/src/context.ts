@@ -53,6 +53,7 @@ export const CONTEXT_VERBS = [
     'worktree',
     'operation',
     'launches',
+    'routine',
     'secret',
     'project',
     'database',

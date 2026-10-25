@@ -150,6 +150,7 @@ export const USAGE_VERB_COUNTERS = {
     worktree: 'verbsWorktree',
     launches: 'verbsLaunches',
     operation: 'verbsLaunches',
+    routine: 'verbsLaunches',
     secret: 'verbsSecret',
     language: 'verbsLanguage'
 } as const satisfies Record<string, UsageCounter>;

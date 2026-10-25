@@ -23,6 +23,7 @@ import { projectIgnoredActions } from './project-ignored-actions.ts';
 import { projectProposalActions } from './project-proposal-actions.ts';
 import { providerActions } from './provider-actions.ts';
 import { checkProjectRevision } from './revision.ts';
+import { routineActions } from './routine-actions.ts';
 import { secretActions } from './secret-actions.ts';
 import { startActions } from './start-actions.ts';
 import { taskActions } from './task-actions.ts';
@@ -57,6 +58,7 @@ export const serverActions = new ActionRegistry<ServerActionContext>(
         ...deviceActions,
         ...worktreeActions,
         ...launchActions,
+        ...routineActions,
         ...secretActions,
         ...projectProposalActions,
         ...projectIgnoredActions,

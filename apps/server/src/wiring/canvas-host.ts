@@ -10,6 +10,7 @@ import { AgentLanguage } from '../language/agent-language.ts';
 import type { LanguageHost } from '../language/host.ts';
 import { agentStartHost } from '../outbox/start-agent.ts';
 import type { PushService } from '../push/service.ts';
+import { agentRoutines } from '../routines/agent-host.ts';
 import { agentVisuals } from '../visuals/agent-host.ts';
 import type { AgentStores, AgentsBundle } from './agents.ts';
 import type { ArtifactsBundle } from './artifacts.ts';
@@ -22,6 +23,7 @@ import type { ProjectsBundle } from './projects.ts';
 import type { ProvidersBundle } from './providers.ts';
 import { chatIsInChats } from './chat-move.ts';
 import type { RemoteBundle } from './remote.ts';
+import type { RoutinesBundle } from './routines.ts';
 import type { UsageBundle } from './usage.ts';
 
 export interface CanvasHostInput {
@@ -38,6 +40,7 @@ export interface CanvasHostInput {
     remote: RemoteBundle;
     usage: UsageBundle;
     artifacts: ArtifactsBundle;
+    routines: RoutinesBundle;
     later: {
         language(): LanguageHost;
         push(): PushService;
@@ -126,7 +129,8 @@ export function wireCanvasHost(input: CanvasHostInput): CanvasHost {
         secrets: launches.secrets,
         proposals: { inChats: (chatId) => chatIsInChats(projects, chatId), propose: (ask) => Promise.resolve(agents.proposals.ask(ask)) },
         snoozes: work.snoozes,
-        artifacts: input.artifacts.artifacts
+        artifacts: input.artifacts.artifacts,
+        routines: agentRoutines(input.routines.routines, (id) => projects.index.titleFor(id))
     };
     const forkDeps = chatForkDeps({
         chats,

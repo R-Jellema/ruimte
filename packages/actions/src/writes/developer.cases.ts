@@ -18,6 +18,11 @@ const secret = {
     placeholder: 'sk_test_...',
     wait: 30
 } as const;
+const routine: ActionInput<'routine.create'> = {
+    title: 'Weekly report',
+    schedule: { kind: 'weekly', days: [1, 2, 3, 4, 5], time: '09:00' },
+    prompt: 'Summarize what changed this week.'
+};
 const merge = { branch: 'agent/tests', strategy: 'squash', message: null } as const;
 const resolution = { repository: 'ruimte', path: 'README.md', content: '# Ruimte\n', take: null, hash: 'abc123' } as const;
 
@@ -218,6 +223,39 @@ export const cases: WriteCases = {
         actors: ['agent'],
         input: { launch: 'dev' },
         refused: { 'an empty launch': { launch: '' } }
+    },
+    'routine.create': {
+        actors: ['agent'],
+        input: routine,
+        refused: {
+            'a blank title': { ...routine, title: ' ' },
+            'a time past the clock': { ...routine, schedule: { kind: 'weekly', days: [1], time: '24:00' } },
+            'a key with capitals': { ...routine, key: 'Weekly' },
+            'a kind it has not': { ...routine, kind: 'cron' }
+        }
+    },
+    'routine.edit': {
+        actors: ['agent'],
+        input: { routineId: 'weekly-report', title: 'Monday report' },
+        refused: {
+            'no routine': { title: 'Monday report' },
+            'a day past Sunday': { routineId: 'weekly-report', schedule: { kind: 'weekly', days: [8], time: '09:00' } }
+        }
+    },
+    'routine.pause': {
+        actors: ['agent'],
+        input: { routineId: 'weekly-report' },
+        refused: { 'an empty routine': { routineId: '' } }
+    },
+    'routine.resume': {
+        actors: ['agent'],
+        input: { routineId: 'weekly-report' },
+        refused: { 'no routine': {} }
+    },
+    'routine.run': {
+        actors: ['agent'],
+        input: { routineId: 'weekly-report' },
+        refused: { 'an empty routine': { routineId: '' } }
     },
     'secret.request': {
         actors: ['agent'],

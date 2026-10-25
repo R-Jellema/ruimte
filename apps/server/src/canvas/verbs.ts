@@ -28,6 +28,7 @@ import { openAction } from './open-verb.ts';
 import { operationVerb } from './operation-verb.ts';
 import { planVerb } from './plan-verb.ts';
 import { renameAction } from './rename-verb.ts';
+import { ROUTINE_ACTIONS, ROUTINE_DETAIL, ROUTINE_SUMMARY } from './routine-verb.ts';
 import { PROJECT_ACTIONS, PROJECT_DETAIL, PROJECT_SUMMARY } from './project-verb.ts';
 import { SECRET_ACTIONS, SECRET_DETAIL, SECRET_SUMMARY } from './secret-verb.ts';
 import { doneVerb, taskListAction, taskNewAction } from './task-verbs.ts';
@@ -193,6 +194,13 @@ const launchesNoun = defineNoun({
     actions: [...LAUNCHES_ACTIONS]
 });
 
+const routineNoun = defineNoun({
+    name: 'routine',
+    summary: ROUTINE_SUMMARY,
+    detail: ROUTINE_DETAIL,
+    actions: [...ROUTINE_ACTIONS]
+});
+
 const secretNoun = defineNoun({
     name: 'secret',
     summary: SECRET_SUMMARY,
@@ -266,6 +274,7 @@ export const VERBS: readonly VerbEntry[] = [
     worktreeVerb,
     operationVerb,
     launchesNoun,
+    routineNoun,
     secretNoun,
     projectNoun,
     databaseNoun,

@@ -89,6 +89,10 @@ import {
     ProcessGroupKindSchema,
     ProcessSignalSchema,
     ProviderAccountIdSchema,
+    ROUTINE_LIMITS,
+    RoutineEntrySchema,
+    RoutinePerRunSchema,
+    RoutineScheduleSchema,
     RuntimeModeSchema,
     SECRET_LIMITS,
     SECRET_VARIABLE_PATTERN,
@@ -444,6 +448,32 @@ export const DATABASE_QUERY_ROWS = 100;
 export const DATABASE_QUERY_MAX_ROWS = 1000;
 const launchName = z.string().trim().min(1).describe('The id of a launch, or its name when no other launch of the project carries that name');
 const launchStarted = z.object({ launchId: z.string(), name: z.string(), kind: LaunchConfigKindSchema, members: z.array(z.string()) });
+
+const routineId = z.string().min(1).describe('The id of a routine, from ruimte-context routine list');
+/* What an agent may give a routine; the daemon fills the rest from the caller and from what the routine was. */
+const routineFields = {
+    title: z.string().trim().min(1).max(ROUTINE_LIMITS.title).describe('What the person sees the routine and the artifact of its runs as'),
+    schedule: RoutineScheduleSchema.describe('When it runs, in the time zone of this machine: once on a day at a time, or every week on some days at a time'),
+    kind: z.enum(['agent', 'command', 'launch']).describe('What each run starts: an agent with a prompt, a command in a shell, or a launch of the project'),
+    prompt: z.string().trim().min(1).max(ROUTINE_LIMITS.prompt).describe('What the agent of every run is asked'),
+    provider: AgentKindSchema.describe('The CLI of the agent; your own when omitted'),
+    model: z.string().trim().min(1).describe('The model of the agent; the default of its CLI when omitted'),
+    mode: RuntimeModeSchema.describe('The permission mode of the agent, narrowed to your own; supervised when omitted on a new routine'),
+    perRun: RoutinePerRunSchema.describe('new starts every run in a chat of its own with the previous result as context, continue sends every run to one chat'),
+    command: z.string().trim().min(1).max(ROUTINE_LIMITS.prompt).describe('The command a shell runs'),
+    cwd: z.string().trim().min(1).describe('The folder the command runs in, inside the project folder; the project folder when omitted'),
+    launch: launchName,
+    key: ArtifactKeySchema.describe('The key of the artifact in Output every run adds a version to; made from the title when omitted')
+};
+// `mode` is what the routine runs in after the narrowing to the caller's own; null for a command or a launch.
+const routineSaved = z.object({
+    routineId: z.string(),
+    title: z.string(),
+    kind: routineFields.kind,
+    mode: RuntimeModeSchema.nullable(),
+    shared: z.boolean()
+});
+const routineNamed = z.object({ routineId: z.string(), title: z.string() });
 
 const projectMachine = z.string().min(1).describe('The machine, by the endpointId project.list gives');
 /* Any machine this client knows, not only the one the project runs on. */
@@ -3615,6 +3645,90 @@ export const ACTION_DEFINITIONS = {
         input: z.object({ launch: launchName }),
         // How many of its launches ran and are being stopped.
         output: z.object({ launchId: z.string(), name: z.string(), stopping: z.number().int() })
+    },
+    'routine.list': {
+        title: 'List routines',
+        description: 'Lists the routines of the project: what each runs and when, whether a person approved it here, whether it is paused, and its last run.',
+        effect: 'read',
+        domain: 'developer',
+        actors: AGENT,
+        input: z.object({}),
+        output: z.object({ routines: z.array(RoutineEntrySchema), timeZone: z.string() })
+    },
+    'routine.create': {
+        title: 'Add a routine',
+        description:
+            'Adds a routine to the project that starts an agent, a command or a launch at a set time; it never runs until a person approves it on this machine as it stands.',
+        effect: 'shared',
+        domain: 'developer',
+        // An agent's save never approves; a person saves and approves through Routines in the app.
+        actors: AGENT,
+        input: z.object({
+            title: routineFields.title,
+            schedule: routineFields.schedule,
+            kind: routineFields.kind.optional(),
+            prompt: routineFields.prompt.optional(),
+            provider: routineFields.provider.optional(),
+            model: routineFields.model.optional(),
+            mode: routineFields.mode.optional(),
+            perRun: routineFields.perRun.optional(),
+            command: routineFields.command.optional(),
+            cwd: routineFields.cwd.optional(),
+            launch: routineFields.launch.optional(),
+            key: routineFields.key.optional(),
+            shared: z.boolean().optional().describe("Puts it in the project's shared file, which a team commits; this person's own file when omitted")
+        }),
+        output: routineSaved
+    },
+    'routine.edit': {
+        title: 'Change a routine',
+        description: 'Changes fields of a routine of the project; a change that touches what it runs or when waits on a person to approve it again.',
+        effect: 'shared',
+        domain: 'developer',
+        actors: AGENT,
+        input: z.object({
+            routineId,
+            title: routineFields.title.optional(),
+            schedule: routineFields.schedule.optional(),
+            kind: routineFields.kind.optional(),
+            prompt: routineFields.prompt.optional(),
+            provider: routineFields.provider.optional(),
+            model: routineFields.model.optional(),
+            mode: routineFields.mode.optional(),
+            perRun: routineFields.perRun.optional(),
+            command: routineFields.command.optional(),
+            cwd: routineFields.cwd.optional(),
+            launch: routineFields.launch.optional(),
+            key: routineFields.key.optional()
+        }),
+        output: routineSaved
+    },
+    'routine.pause': {
+        title: 'Pause a routine',
+        description: 'Pauses a routine on this machine, so it starts nothing until it is resumed.',
+        effect: 'local',
+        domain: 'developer',
+        actors: AGENT,
+        input: z.object({ routineId }),
+        output: routineNamed
+    },
+    'routine.resume': {
+        title: 'Resume a routine',
+        description: 'Resumes a paused routine from its next time on; the times it was paused through do not run.',
+        effect: 'local',
+        domain: 'developer',
+        actors: AGENT,
+        input: z.object({ routineId }),
+        output: routineNamed
+    },
+    'routine.run': {
+        title: 'Run a routine now',
+        description: 'Starts a run of a routine now, only when a person approved it on this machine as it stands and its previous run has ended.',
+        effect: 'external',
+        domain: 'developer',
+        actors: AGENT,
+        input: z.object({ routineId }),
+        output: routineNamed.extend({ runId: z.string() })
     },
     'secret.request': {
         title: 'Ask for a secret',

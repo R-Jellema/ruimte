@@ -20,6 +20,9 @@ import {
     type ProjectCanvasView,
     type ProjectContent,
     type RegistryCatalog,
+    type Routine,
+    type RoutineListResult,
+    type RoutineRunNowResult,
     type UsageLimitsSnapshot,
     type RuntimeMode,
     type ModelSelection,
@@ -172,6 +175,21 @@ export interface CanvasHost {
     snoozes?: Pick<SnoozeStore, 'until'>;
     /* The Output of the caller's project, where results that should stay are kept; absent on a host that keeps none. */
     artifacts?: Pick<Artifacts, 'publish' | 'list' | 'read'>;
+    /* The routines of the caller's project as an agent may reach them; absent on a host that keeps none. */
+    routines?: RoutineAgentHost;
+}
+
+/*
+ * The routines of a project as an agent reaches them. Its save never approves and is narrowed to its
+ * mode ceiling, with the caller written down as its maker; a run starts only one a person approved.
+ */
+export interface RoutineAgentHost {
+    list(projectId: string): Promise<RoutineListResult>;
+    /* `shared` places a new routine; one that exists stays in the file it is in. */
+    save(projectId: string, routine: Routine, ceiling: RuntimeMode, caller: string, shared: boolean): Promise<{ routine: Routine; shared: boolean }>;
+    pause(projectId: string, routineId: string): Promise<void>;
+    resume(projectId: string, routineId: string): Promise<void>;
+    runNow(projectId: string, routineId: string): Promise<RoutineRunNowResult>;
 }
 
 /* A chat's items and info as they stand, whether its CLI runs or the chat is only a record; null for no chat of that id. */
@@ -444,7 +462,7 @@ export const { defineVerb, defineAction, defineNoun, defineHelp, dryRunVerbNames
 
 /* Two things an agent keeps mixing up, so the line is in the root of `help` and in the detail of each verb it is about. */
 export const SCOPE_LINE =
-    'scope\tlist and read are what a person linked into this session; node, link, browser, device, view, task, agent, team, done, notify, alert, answer, worktree, launches, database and language are the project itself, artifact is the Output of the project, plan, visual and chat are the chat of the caller, secret is a card in that chat for a launch, computer the apps of this machine\ta node you add is readable through read only once a line joins it to you, and a terminal or a chat only once that line runs from it into you; a chat view has no lines and reads and operates every node of the canvas it names with --view';
+    'scope\tlist and read are what a person linked into this session; node, link, browser, device, view, task, agent, team, done, notify, alert, answer, worktree, launches, routine, database and language are the project itself, artifact is the Output of the project, plan, visual and chat are the chat of the caller, secret is a card in that chat for a launch, computer the apps of this machine\ta node you add is readable through read only once a line joins it to you, and a terminal or a chat only once that line runs from it into you; a chat view has no lines and reads and operates every node of the canvas it names with --view';
 
 /* What a snooze means to an agent, said wherever a list prints the column. */
 export const SNOOZE_LINE =
