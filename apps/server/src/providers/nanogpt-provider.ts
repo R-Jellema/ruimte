@@ -9,7 +9,7 @@ import { NanoGptService } from './nanogpt-service.ts';
 export function createNanoGptProvider(service: NanoGptService): ChatProvider {
     return {
         kind: 'nanogpt',
-        name: 'NanoGPT Subscription',
+        name: 'NanoGPT',
         command: ['nanogpt'],
         resumeCommand: '',
         catalog: service.catalog,

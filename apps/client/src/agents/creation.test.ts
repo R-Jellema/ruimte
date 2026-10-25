@@ -10,7 +10,7 @@ describe('availableAgents', () => {
         const providers = [
             provider('grok', 'Grok'),
             provider('claude', 'Claude Code'),
-            provider('nanogpt', 'NanoGPT Subscription'),
+            provider('nanogpt', 'NanoGPT'),
             provider('codex', 'Codex'),
             provider('copilot', 'GitHub Copilot'),
             provider('anthropic-claude-api', 'Claude API'),
@@ -18,7 +18,7 @@ describe('availableAgents', () => {
             provider('kimi', 'Kimi', false)
         ];
         const names = availableAgents(providers, 'chat').map((entry) => entry.name);
-        expect(names).toEqual(['Claude API', 'Claude Code', 'Codex', 'Antigravity', 'GitHub Copilot', 'Grok', 'NanoGPT Subscription']);
+        expect(names).toEqual(['Claude API', 'Claude Code', 'Codex', 'Antigravity', 'GitHub Copilot', 'Grok', 'NanoGPT']);
     });
 });
 

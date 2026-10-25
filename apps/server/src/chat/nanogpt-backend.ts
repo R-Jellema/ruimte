@@ -83,7 +83,7 @@ export class NanoGptBackend implements ChatBackend {
             return;
         }
         if (!this.service.apiKey) {
-            throw new Error('Add a NanoGPT Subscription API key in Settings → Providers.');
+            throw new Error('Add a NanoGPT API key in Settings → Providers.');
         }
         if (!this.service.catalog.resolveModel(this.launch.selection.model)) {
             throw new Error('Refresh the NanoGPT subscription models in Settings.');

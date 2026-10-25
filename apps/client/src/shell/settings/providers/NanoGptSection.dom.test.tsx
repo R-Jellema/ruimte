@@ -16,7 +16,7 @@ let status: NanoGptStatus;
 function nanogpt(installed: boolean): ProviderInfo {
     return {
         kind: 'nanogpt',
-        name: 'NanoGPT Subscription',
+        name: 'NanoGPT',
         installed,
         version: installed ? 'Subscription' : null,
         models: [],
@@ -52,7 +52,7 @@ function button(label: string): HTMLButtonElement | undefined {
 
 /* The row of the provider list, which shows the version beside the name once a key is saved. */
 function providerRow(): HTMLButtonElement | undefined {
-    return [...document.querySelectorAll<HTMLButtonElement>('button')].find((candidate) => candidate.textContent?.startsWith('NanoGPT Subscription'));
+    return [...document.querySelectorAll<HTMLButtonElement>('button')].find((candidate) => candidate.textContent?.startsWith('NanoGPT'));
 }
 
 function keyField(): HTMLInputElement | null {

@@ -86,7 +86,7 @@ export function NanoGptSection({ endpointId }: { endpointId: string }) {
             : t('providers.nanogpt.disconnected');
 
     return (
-        <SettingsSection title="NanoGPT Subscription" description={t('providers.nanogpt.description')} scope="machine" footer={t('providers.nanogpt.footer')}>
+        <SettingsSection title="NanoGPT" description={t('providers.nanogpt.description')} scope="machine" footer={t('providers.nanogpt.footer')}>
             <SettingsRow
                 label={t('providers.nanogpt.key')}
                 description={t('providers.nanogpt.keyDescription')}

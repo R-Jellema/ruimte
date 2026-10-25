@@ -103,7 +103,7 @@ describe('the tasks of the onboarding', () => {
 
 describe('the providers task', () => {
     test('API providers never become CLIs to install or log in to', () => {
-        const apis = [provider('nanogpt', 'NanoGPT Subscription', true), provider('anthropic-claude-api', 'Claude API', true)];
+        const apis = [provider('nanogpt', 'NanoGPT', true), provider('anthropic-claude-api', 'Claude API', true)];
         expect(cliRowsOf(apis, accounts({}))).toEqual([]);
         expect(missingClisOf(apis)).toEqual([]);
     });

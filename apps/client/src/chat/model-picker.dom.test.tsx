@@ -23,7 +23,7 @@ function model(index: number): ModelInfo {
 function providerOf(count: number): ProviderInfo {
     return {
         kind: 'nanogpt',
-        name: 'NanoGPT Subscription',
+        name: 'NanoGPT',
         installed: true,
         version: null,
         models: Array.from({ length: count }, (_, index) => model(index)),

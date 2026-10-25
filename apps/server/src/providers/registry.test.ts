@@ -16,7 +16,7 @@ describe('ProviderRegistry', () => {
             'Apple Foundation Models',
             'GitHub Copilot',
             'Grok',
-            'NanoGPT Subscription'
+            'NanoGPT'
         ]);
         expect(providers.map((provider) => provider.capabilities.chat)).toEqual([true, true, true, true, true, true, true, true]);
         expect(providers.map((provider) => provider.capabilities.terminal)).toEqual([false, true, true, true, false, true, true, false]);

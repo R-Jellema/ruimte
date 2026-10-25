@@ -368,6 +368,6 @@ describe('NanoGPT backend', () => {
     test('a chat does not start without a key', async () => {
         const chat = await rig([]);
         await chat.service.configure('');
-        await expect(chat.backend.start()).rejects.toThrow('Add a NanoGPT Subscription API key');
+        await expect(chat.backend.start()).rejects.toThrow('Add a NanoGPT API key');
     });
 });
