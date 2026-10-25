@@ -17,6 +17,7 @@ const PRINTS_LINES: readonly string[] = [
 const COMMON_DETAIL: readonly string[] = [
     'line\tA line between you and that node is what lets you drive it, whichever way it was drawn, the same line that lets you read the page',
     'chat view\tA chat view has no lines: it drives any browser node of the canvas it names with --view, and without --view it is refused with view-required',
+    'reference\tA browser node the person pointed you at with # in one of your messages you drive as over a line, with no --view; a browser that is a view of its own you only read',
     'page\tThe page lives where it is shown: in the app of whoever has this project open, or on this machine for a client that has no browser of its own',
     'page\tNobody watching is not a failure; the call says open no, changes nothing, and the same call later reaches whoever is there then',
     'see\truimte-context read <id>\tthe address and the text of the page, which is how you read what you navigated to',

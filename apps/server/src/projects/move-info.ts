@@ -4,7 +4,7 @@ import { isInside } from '../canvas/project-paths.ts';
 import type { ChatItem, ChatMoveInfoPayload, ChatMoveInfoResult, ChatMoveRefusal, ChatMoveTarget } from '@ruimte/contracts';
 import { IGNORED_OWN_NAMES } from './own-files.ts';
 import { workedFolders } from '../chat/worked-folders.ts';
-import { referencedChats } from '../context/chat-references.ts';
+import { referencedIds } from '../context/references.ts';
 
 const MAX_FOLDERS = 5;
 const MAX_NAMES = 5;
@@ -83,15 +83,15 @@ function commonParent(folders: readonly string[], fallback: string): string {
     return best;
 }
 
-/* The chats of Chats linked to this one with `@`, in either direction. */
+/* The chats of Chats linked to this one with `@` or `#`, in either direction. */
 async function linkedChats(chatId: string, items: readonly ChatItem[], deps: MoveInfoDeps): Promise<number> {
     const inChats = new Set(await deps.chatsInChats());
-    const linked = new Set(referencedChats(items, (id) => (inChats.has(id) ? id : null)).map((source) => source.id));
+    const linked = new Set(referencedIds(items).filter((id) => inChats.has(id)));
     linked.delete(chatId);
     const others = [...inChats].filter((id) => id !== chatId);
     const threads = await Promise.all(others.map((id) => deps.thread(id)));
     others.forEach((id, i) => {
-        if (threads[i]?.items.some((item) => item.kind === 'user' && item.chats?.includes(chatId))) {
+        if (referencedIds(threads[i]?.items ?? []).includes(chatId)) {
             linked.add(id);
         }
     });

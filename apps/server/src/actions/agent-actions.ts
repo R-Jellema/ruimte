@@ -1,5 +1,5 @@
 import type { ActionHandlers } from '@ruimte/actions';
-import { isAgentKind, type ChatApprovalItem, type ChatQuestionItem } from '@ruimte/contracts';
+import { isAgentKind, isCanvasView, type ChatApprovalItem, type ChatQuestionItem, type ProjectView } from '@ruimte/contracts';
 import { refuseMissingNodes } from '../canvas/own-view.ts';
 import { refuseOtherMachine } from '../canvas/remote-node.ts';
 import { VerbRefusal, canvasFor, field, orNote, type ChatRequestHost } from '../canvas/verb.ts';
@@ -10,6 +10,20 @@ function requestLine(nodeId: string, item: ChatQuestionItem | ChatApprovalItem):
     return item.kind === 'question'
         ? `question\t${nodeId}\t${item.requestId}\t${item.questions.map((question) => `${question.id}: ${field(question.question)}`).join(' | ')}`
         : `approval\t${nodeId}\t${item.requestId}\t${field(item.toolName)}\ta person's alone`;
+}
+
+/* The caller's name as a message signs it: its node on a canvas, or the view it is. */
+function callerTitle(views: readonly ProjectView[], caller: string): string {
+    for (const view of views) {
+        if (view.id === caller) {
+            return view.name ?? '';
+        }
+        const node = isCanvasView(view) ? view.nodes.find((candidate) => candidate.id === caller) : undefined;
+        if (node) {
+            return node.title;
+        }
+    }
+    return '';
 }
 
 function waitingLines(requests: ChatRequestHost, nodeId: string): string[] {
@@ -96,6 +110,20 @@ export const agentActions: ActionHandlers<ServerActionContext> = {
         const caller = actor.id;
         if (nodeId === caller) {
             throw new VerbRefusal('self-notify', `${nodeId} is you; a node needs no message to itself`);
+        }
+        // A chat or terminal a person pointed the caller at with `#` takes a message as along a line, wherever it stands.
+        const referenced = host.context?.referenced?.(caller).find((reference) => reference.id === nodeId);
+        if (referenced?.kind === 'chat' || referenced?.kind === 'terminal') {
+            refuseOtherMachine(host, nodeId);
+            const content = await host.projects.read(place.projectId);
+            const delivery = await host.messages.notify({
+                projectId: place.projectId,
+                targetId: nodeId,
+                from: caller,
+                fromTitle: field(callerTitle(content.views, caller)),
+                text
+            });
+            return { output: { nodeId, at: delivery.at, detail: delivery.detail } };
         }
         if (place.canvasId === null) {
             throw new VerbRefusal('not-on-a-canvas', 'A message travels along a line between two nodes of one canvas, and this view has none', [

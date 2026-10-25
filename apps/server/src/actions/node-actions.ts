@@ -28,7 +28,7 @@ import { ownViewOf, refuseMissingNodes, refuseOwnView } from '../canvas/own-view
 import { arrangeRects, containersOf, gridColumns, groupMembers, placeBeside, placeFree } from '../canvas/placement.ts';
 import { checkCwd, checkPath, isInside } from '../canvas/project-paths.ts';
 import { refuseOtherMachine } from '../canvas/remote-node.ts';
-import { NEW_NODE, VerbRefusal, canvasNamed, field, orNote, snoozedAt, type VerbCall } from '../canvas/verb.ts';
+import { NEW_NODE, VerbRefusal, canvasNamed, field, orNote, referencedBy, snoozedAt, type VerbCall } from '../canvas/verb.ts';
 import type { IndexedPlace } from '../projects/project-index.ts';
 import { verbCallOf, type ServerActionCall, type ServerActionContext } from './context.ts';
 import { machineDevice } from './device-actions.ts';
@@ -73,6 +73,11 @@ function mayTouch(canvas: ProjectCanvasView, node: ProjectNode, call: VerbCall, 
     );
 }
 
+/* A note a person pointed the caller at with `#` is its to write in as well, as along a line; a `#` to its canvas alone is not. */
+function mayWrite(canvas: ProjectCanvasView, node: ProjectNode, call: VerbCall, chatView: boolean): boolean {
+    return mayTouch(canvas, node, call, chatView) || referencedBy(call.host, call.caller, node.id);
+}
+
 /* Its own node too: how a session's node looks is that session's to say. */
 function mayColor(canvas: ProjectCanvasView, node: ProjectNode, call: VerbCall, chatView: boolean): boolean {
     return node.id === call.caller || mayTouch(canvas, node, call, chatView);
@@ -89,7 +94,7 @@ function colorableLines(canvas: ProjectCanvasView, call: VerbCall, chatView: boo
 /* What a refusal may offer instead: only the notes this same call would really write in. */
 function writableLines(canvas: ProjectCanvasView, call: VerbCall, chatView: boolean): string[] {
     return nodeLines(canvas, {
-        takes: (node) => node.kind === 'note' && mayTouch(canvas, node, call, chatView),
+        takes: (node) => node.kind === 'note' && mayWrite(canvas, node, call, chatView),
         empty: `${canvas.id} has no note you may write in; ruimte-context node new note --text B adds one of your own`
     });
 }
@@ -150,7 +155,7 @@ function writtenOn(
             writableLines(canvas, caller, chatView)
         );
     }
-    if (!mayTouch(canvas, node, caller, chatView)) {
+    if (!mayWrite(canvas, node, caller, chatView)) {
         throw new VerbRefusal('not-linked', `${nodeId} is a note you did not make and no line joins you to it: draw that line and you can write in it`, [
             ...writableLines(canvas, caller, chatView),
             `see\truimte-context link new --to ${nodeId}\tdraws the line this needs`

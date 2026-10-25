@@ -3890,8 +3890,9 @@ public struct PairResultEndpoint: Codable, Sendable, Equatable {
     public let `nodeSizes`: [String: PairResultEndpointNodeSizesValue]?
     public let `usageStats`: Bool?
     public let `features`: [String]?
+    public let `viewReferences`: Bool?
 
-    public init(`id`: String, `label`: String, `nameSource`: PairResultEndpointNameSource? = nil, `icon`: Presence<MachineIcon> = .missing, `agentsDeleteAnyView`: Bool? = nil, `streamingAllowed`: Bool? = nil, `resumeAtReset`: Bool? = nil, `visualReplies`: Bool? = nil, `appleFoundationEnabled`: Bool? = nil, `keepAwake`: PairResultEndpointKeepAwake? = nil, `keepAwakeOnBattery`: Bool? = nil, `keepAwakeDisplay`: Bool? = nil, `keepAwakeAvailable`: Bool? = nil, `keepAwakeLidClosed`: Bool? = nil, `keepAwakeLidAvailable`: Bool? = nil, `keepAwakeLidRule`: Bool? = nil, `update`: PairResultEndpointUpdate? = nil, `platform`: String, `version`: String, `protocol`: Int64? = nil, `reachability`: PairResultEndpointReachability, `authenticated`: Bool, `publicKey`: String? = nil, `brokerUrl`: Presence<String> = .missing, `broker`: PairResultEndpointBroker? = nil, `brokerFixed`: Bool? = nil, `lan`: Presence<PairResultEndpointLan> = .missing, `lanDoor`: Bool? = nil, `lanDoorFixed`: Bool? = nil, `accountId`: Presence<String> = .missing, `agentIntegrations`: PairResultEndpointAgentIntegrations? = nil, `worktreeRoot`: Presence<String> = .missing, `nodeSizes`: [String: PairResultEndpointNodeSizesValue]? = nil, `usageStats`: Bool? = nil, `features`: [String]? = nil) {
+    public init(`id`: String, `label`: String, `nameSource`: PairResultEndpointNameSource? = nil, `icon`: Presence<MachineIcon> = .missing, `agentsDeleteAnyView`: Bool? = nil, `streamingAllowed`: Bool? = nil, `resumeAtReset`: Bool? = nil, `visualReplies`: Bool? = nil, `appleFoundationEnabled`: Bool? = nil, `keepAwake`: PairResultEndpointKeepAwake? = nil, `keepAwakeOnBattery`: Bool? = nil, `keepAwakeDisplay`: Bool? = nil, `keepAwakeAvailable`: Bool? = nil, `keepAwakeLidClosed`: Bool? = nil, `keepAwakeLidAvailable`: Bool? = nil, `keepAwakeLidRule`: Bool? = nil, `update`: PairResultEndpointUpdate? = nil, `platform`: String, `version`: String, `protocol`: Int64? = nil, `reachability`: PairResultEndpointReachability, `authenticated`: Bool, `publicKey`: String? = nil, `brokerUrl`: Presence<String> = .missing, `broker`: PairResultEndpointBroker? = nil, `brokerFixed`: Bool? = nil, `lan`: Presence<PairResultEndpointLan> = .missing, `lanDoor`: Bool? = nil, `lanDoorFixed`: Bool? = nil, `accountId`: Presence<String> = .missing, `agentIntegrations`: PairResultEndpointAgentIntegrations? = nil, `worktreeRoot`: Presence<String> = .missing, `nodeSizes`: [String: PairResultEndpointNodeSizesValue]? = nil, `usageStats`: Bool? = nil, `features`: [String]? = nil, `viewReferences`: Bool? = nil) {
         self.`id` = `id`
         self.`label` = `label`
         self.`nameSource` = `nameSource`
@@ -3927,6 +3928,7 @@ public struct PairResultEndpoint: Codable, Sendable, Equatable {
         self.`nodeSizes` = `nodeSizes`
         self.`usageStats` = `usageStats`
         self.`features` = `features`
+        self.`viewReferences` = `viewReferences`
     }
 
     public init(from decoder: Decoder) throws {
@@ -3966,6 +3968,7 @@ public struct PairResultEndpoint: Codable, Sendable, Equatable {
         `nodeSizes` = try container.decodeIfPresent([String: PairResultEndpointNodeSizesValue].self, forKey: .`nodeSizes`)
         `usageStats` = try container.decodeIfPresent(Bool.self, forKey: .`usageStats`)
         `features` = try container.decodeIfPresent([String].self, forKey: .`features`)
+        `viewReferences` = try container.decodeIfPresent(Bool.self, forKey: .`viewReferences`)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -4025,6 +4028,7 @@ public struct PairResultEndpoint: Codable, Sendable, Equatable {
         try container.encodeIfPresent(`nodeSizes`, forKey: .`nodeSizes`)
         try container.encodeIfPresent(`usageStats`, forKey: .`usageStats`)
         try container.encodeIfPresent(`features`, forKey: .`features`)
+        try container.encodeIfPresent(`viewReferences`, forKey: .`viewReferences`)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -4063,6 +4067,7 @@ public struct PairResultEndpoint: Codable, Sendable, Equatable {
         case `nodeSizes` = "nodeSizes"
         case `usageStats` = "usageStats"
         case `features` = "features"
+        case `viewReferences` = "viewReferences"
     }
 }
 

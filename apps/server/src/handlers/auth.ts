@@ -124,7 +124,7 @@ export function registerAuthHandlers(dispatcher: Dispatcher, store: AuthStore, h
                     features: dispatcher.peerTypes()
                 };
             }
-            return { ...(await info(client.access)), features: dispatcher.types() };
+            return { ...(await info(client.access)), features: dispatcher.types(), viewReferences: true };
         },
         { peer: true }
     );

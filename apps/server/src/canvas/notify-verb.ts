@@ -12,6 +12,7 @@ const NOTICE_HOURS = Math.round(NOTICE_MAX_AGE_MS / 3_600_000);
 const NOTIFY_DETAIL: readonly string[] = [
     'prints\tnotified\tid\twhen\twhat happened\twhen is now for a message that is acted on as you call, on a screen or in a turn the chat takes on it, and waiting for one that is held until that node takes a turn of its own',
     'who\tOnly a node a line runs from you into, which is the same direction that makes you readable to it; ruimte-context link new draws that line',
+    'who\tA chat or a terminal the person pointed you at with # in one of your messages takes a message too, a view of its own included, for as long as that message is in your thread; it never takes a task from you that way, since task new goes only to an agent you opened',
     'who\tA link --to that names a terminal or a chat draws both ways at once, two edges and two rows, so one call is enough to be able to notify it and be notified back',
     'terminal\tA shell with no agent in it gets the line on its screen at once, dimmed, the way the linked context is announced',
     'terminal\tAn agent that answers a context hook (Claude Code or Codex) hears it at the start of its next turn; another CLI gets the line on its screen instead',

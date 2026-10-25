@@ -14,6 +14,7 @@ import {
     type ViewSessionNode
 } from '@ruimte/contracts';
 import type { HiddenAgentStore } from '../agents/hidden-agents.ts';
+import { resolveReference, type Reference } from '../context/references.ts';
 
 /* Where an id sits: the project it belongs to, and the canvas it is a node on (null for a chat,
    terminal or browser that is a view of its own). */
@@ -164,20 +165,11 @@ export class ProjectIndex {
         return null;
     }
 
-    /* The name of the chat node or chat view under `id` in the project of `fromId`, never `fromId` itself; null for anything else. */
-    chatTitleBeside(fromId: string, id: string): string | null {
+    /* The view, node or text under `id` in the project of `fromId`, never `fromId` itself; null for an id that project does not hold. */
+    referenceBeside(fromId: string, id: string): Reference | null {
         const place = id === fromId ? null : this.locate(fromId);
-        const views = place === null ? [] : (this.projects.get(place.projectId)?.content.views ?? []);
-        for (const view of views) {
-            if (view.kind === 'chat' && view.id === id) {
-                return view.name;
-            }
-            const node = isCanvasView(view) ? view.nodes.find((candidate) => candidate.id === id && candidate.kind === 'chat') : undefined;
-            if (node) {
-                return node.title;
-            }
-        }
-        return null;
+        const project = place === null ? undefined : this.projects.get(place.projectId);
+        return project === undefined ? null : resolveReference(project.content.views, id, project.folder);
     }
 
     /* The terminal or chat under `id`, a node or a view of its own, as a source a read takes; null for anything else. */

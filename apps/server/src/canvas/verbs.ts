@@ -63,7 +63,7 @@ const listVerb: ContextVerb = {
         'prints\tid\tkind\ttitle\tflag\tsnoozed\tone line per linked source, nothing when the person linked none; flag is the color the person flagged it with, or -',
         SNOOZE_LINE,
         `kinds\t${ContextSourceSchema.shape.kind.options.join('\t')}\ta note and a text on the canvas both arrive as text`,
-        'note\tThe id is what ruimte-context read takes; this list is what your lines let you read, and besides it only a chat a person attached to your message and an agent you opened yourself',
+        'note\tThe id is what ruimte-context read takes; this list is what your lines let you read, and besides it only what a person pointed you at with # or @ in a message and an agent you opened yourself',
         'note\tA line from a group lists what lies inside that frame, each on a line of its own, a frame inside it included; the group itself is never a line here',
         SCOPE_LINE
     ]
@@ -75,7 +75,7 @@ const readVerb: ContextVerb = {
     usage: '<id> [--tail N] [--subagent T] [--view V] [--json]',
     summary: actionDescription('context.read', 'agent'),
     detail: [
-        'argument\t<id>\trequired\tThe id of a source, from ruimte-context list, or of an agent you opened yourself, or with --view of any node or text on that canvas; a drawing or diagram also takes the id of the node that shows it',
+        'argument\t<id>\trequired\tThe id of a source, from ruimte-context list, or of an agent you opened yourself, or of what a person pointed you at with #, or with --view of any node or text on that canvas; a drawing or diagram also takes the id of the node that shows it',
         'flag\t--tail N\toptional\tOnly the last N lines, N a positive whole number; without it the whole source',
         'flag\t--view V\toptional\tOnly from a chat view: the canvas the source stands on, which lets you read every node and text there, other chats and terminals included, without a line; a node on a canvas reads over its lines and leaves it out',
         `flag\t--subagent T\toptional\tThe whole conversation of one subagent of a chat you may read instead of the chat, T the id in its > Subagent line; read from ${ChatSubagentSourceSchema.options.join(' or ')}; --tail counts lines of that conversation`,
@@ -87,7 +87,8 @@ const readVerb: ContextVerb = {
         'kind\tchat\tA prompt cache that went cold makes the next turn of that chat read its whole context again, so a message sent while it is warm costs less; ruimte-context provider limits reads the plan of the account you run on',
         'kind\tchat\tA Workflow call has one line per phase under its > Tool line, each agent of that phase with its state and the id --subagent takes',
         'kind\tchat\tA question or an approval in the thread is one > Question or > Approval line with its state and its request id; a question that still waits lists its question ids and choices under it, which is what ruimte-context answer takes',
-        'kind\tchat\tA chat the person attached to one of your messages reads the same way, by the id that message named, with no line to it and without showing up in ruimte-context list',
+        'reference\tA view, node or text the person pointed you at with # in one of your messages (or a chat with @) reads by the id that message named, with no line to it and without showing up in ruimte-context list, for as long as that message is in your thread',
+        'reference\tA # to a whole canvas lets you read every node and text on it by its id; writing in one of them still takes a # or a line of its own',
         'own\tAn agent you opened yourself, with agent or team, reads by its id with no line from it into you and without showing up in ruimte-context list, --tail and --subagent included; an agent it opened in turn is its to read, not yours',
         'kind\tdrawing\tThe text of the drawing in reading order, and the picture itself as SVG under it\t--tail counts lines of the reading order and leaves the SVG out',
         'kind\tdiagram\tIts title, every node layer by layer (sub in brackets), every edge with its label, what each group wraps, and the SVG under it\t--tail counts lines of that list and leaves the SVG out',

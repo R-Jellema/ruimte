@@ -69,6 +69,7 @@ import { serverActions } from '../actions/server-actions.ts';
 import type { ActionOutput, ActionResult } from '@ruimte/actions';
 import { freeBranch } from '../git/worktrees.ts';
 import { MAX_TASK_PROMPT_LENGTH, nextLine, taskBrief } from './task-verbs.ts';
+import { resolveReference, resolveReferences, type Reference } from '../context/references.ts';
 
 function nounNamed(name: string): Noun {
     return VERBS.find((entry): entry is Noun => entry.served === 'noun' && entry.name === name)!;
@@ -115,6 +116,14 @@ let databases: AgentDatabases;
 let snoozed: Record<string, number>;
 let elsewhere: Set<string>;
 let devices: DeviceDriver;
+/* What a person pointed each caller at with `#`, as the thread of its chat would hold it. */
+let pointed: Record<string, Reference[]>;
+
+/* Points the caller at these ids as the project stands now, the way a message with `#` would. */
+async function pointAt(caller: string, ids: string[]): Promise<void> {
+    const views = (await store.read(projectId)).views;
+    pointed[caller] = resolveReferences(ids, (id) => resolveReference(views, id, folder));
+}
 
 /* A change the store's own check refuses after the verb had its say: `note-1` a second time, on the board. */
 function withRepeatedId(current: ProjectContent): ProjectContent {
@@ -159,6 +168,7 @@ beforeEach(async () => {
     alerts = [];
     snoozed = {};
     elsewhere = new Set();
+    pointed = {};
     root = await mkdtemp(join(tmpdir(), 'ruimte-verbs-'));
     devices = new DeviceDriver({ home: root, manager: new DeviceManager([new RecordingBackend()]), timers: new ManualTimers(), sleep: async () => undefined });
     folder = join(root, 'repo');
@@ -303,6 +313,12 @@ function host(): CanvasHost {
         },
         diagrams,
         devices,
+        context: {
+            list: () => [],
+            answer: () => Promise.reject(new Error('no reads in these tests')),
+            answerSource: () => Promise.reject(new Error('no reads in these tests')),
+            referenced: (targetId) => pointed[targetId] ?? []
+        },
         tasks: {
             open: (record) => tasks.open(record, 1),
             give: (record) => tasks.open(record, 1),
@@ -4372,5 +4388,55 @@ describe('several at once', () => {
             }
         }
         expect(silent).toEqual([]);
+    });
+});
+
+describe('a # in a message', () => {
+    test('lets a chat view write in the note it points at, with no --view, until the note is gone', async () => {
+        expect((await post('node', ['edit', 'note-1', '--text', 'from the chat'], 'chat')).lines[0]).toStartWith('refused\tview-required\t');
+        await pointAt('chat-1', ['note-1']);
+        expect((await post('node', ['edit', 'note-1', '--text', 'from the chat'], 'chat')).lines).toEqual(['edited\tnote-1\t1\t13']);
+        expect((await post('node', ['edit', '--json', '[{"id":"note-1","text":"twice","append":true}]'], 'chat')).lines).toEqual(['edited\tnote-1\t2\t19']);
+        expect((await nodeOnDisk('note-1'))?.body).toBe('from the chat\ntwice');
+        // A person removes the note: the message still names it, and it resolves to nothing.
+        await store.mutate(projectId, (current) => ({
+            content: {
+                ...current,
+                views: current.views.map((view) => (view.kind === 'canvas' ? { ...view, nodes: view.nodes.filter((node) => node.id !== 'note-1') } : view))
+            },
+            result: null
+        }));
+        await pointAt('chat-1', ['note-1']);
+        expect(pointed['chat-1']).toEqual([]);
+        expect((await post('node', ['edit', 'note-1', '--text', 'again'], 'chat')).lines[0]).toStartWith('refused\tview-required\t');
+    });
+
+    test('lets a node write in a note without a line, but a # to its canvas alone does not', async () => {
+        await pointAt('term-1', ['main']);
+        expect((await post('node', ['edit', 'note-1', '--text', 'mine'])).lines[0]).toStartWith('refused\tnot-linked\t');
+        await pointAt('term-1', ['note-1']);
+        expect((await post('node', ['edit', 'note-1', '--text', 'mine'])).lines).toEqual(['edited\tnote-1\t1\t4']);
+    });
+
+    test('lets a message reach a chat or a terminal it points at, a view of its own included', async () => {
+        await pointAt('term-1', ['chat-1']);
+        expect((await post('notify', ['chat-1', '--text', 'look at the diff'])).status).toBe(200);
+        await pointAt('chat-1', ['term-1']);
+        expect((await post('notify', ['term-1', '--text', 'the build is green'], 'chat')).status).toBe(200);
+        expect(notified).toEqual([
+            { projectId, targetId: 'chat-1', from: 'term-1', fromTitle: 'shell', text: 'look at the diff' },
+            { projectId, targetId: 'term-1', from: 'chat-1', fromTitle: 'Planner', text: 'the build is green' }
+        ]);
+        // A note is no agent, so a # to it carries no message.
+        await pointAt('term-1', ['note-1']);
+        expect((await post('notify', ['note-1', '--text', 'hi'])).lines[0]).toStartWith('refused\tnot-an-agent\t');
+    });
+
+    test('lets a chat view drive the browser node it points at, with no --view', async () => {
+        const page = (await post('node', ['new', 'browser', '--url', 'https://example.com', '--view', 'main'], 'chat')).lines[0]!.split('\t')[0]!;
+        expect((await post('browser', ['go', page, '--url', 'https://example.com/two'], 'chat')).lines[0]).toStartWith('refused\tview-required\t');
+        await pointAt('chat-1', [page]);
+        expect((await post('browser', ['go', page, '--url', 'https://example.com/two'], 'chat')).status).toBe(200);
+        expect(driven).toEqual([{ browserId: page, action: { kind: 'go', url: 'https://example.com/two' } }]);
     });
 });

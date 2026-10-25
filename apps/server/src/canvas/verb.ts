@@ -38,6 +38,7 @@ import type { ProposalAnswer, ProposalAsk } from '../projects/project-proposals.
 import type { SecretAsk, SecretOutcome } from '../secrets/secret-requests.ts';
 import type { DeviceDriver } from '../devices/agent-driver.ts';
 import type { DatabaseAgentHost } from '../database/agent-databases.ts';
+import { referencesDirectly, type Reference } from '../context/references.ts';
 import type { AgentLanguage } from '../language/agent-language.ts';
 import type { AgentLineageStore, Notice, ChatRequests, TaskVerbs } from '@adecore/agents/coordination';
 import type { ContextReading } from '../context/context-store.ts';
@@ -318,6 +319,13 @@ export interface ContextHost {
     answer(targetId: string, sourceId: string, tail: number | null, subagent: string | null): Promise<ContextReading>;
     /* A source the caller reads without a line, such as a node of the canvas a chat view names. */
     answerSource(targetId: string, source: ContextSource, tail: number | null, subagent: string | null): Promise<ContextReading>;
+    /* What a person pointed this agent at with `#` or `@` in its messages, read again at every call. */
+    referenced?(targetId: string): Reference[];
+}
+
+/* Whether a person pointed the caller at this very id, which lets it write and operate there as a line does. */
+export function referencedBy(host: Pick<CanvasHost, 'context'>, caller: string, id: string): boolean {
+    return referencesDirectly(host.context?.referenced?.(caller) ?? [], id);
 }
 
 /*

@@ -35,6 +35,7 @@ const VIEW_FLAG = z.string().min(1, '--view needs the id of a canvas').optional(
 const COMMON_DETAIL: readonly string[] = [
     'line\tA line between you and that node is what lets you operate its device, whichever way it was drawn, the same line that lets you read it',
     'chat view\tA chat view has no lines: it operates any device node of the canvas it names with --view, and without --view it is refused with view-required',
+    'reference\tA device node the person pointed you at with # in one of your messages you operate as over a line, with no --view; a device that is a view of its own you only read',
     'device\tThe device is its own sandbox: no card asks the person, and computer use need not be on',
     `session\tA tap works whether or not anyone has the node open; whoever does sees it happen, and can pause you or take over. Your hold on the device ends ${AGENT_HOLD_IDLE_MS / 1000} s after your last call`,
     'refused\tdevice-not-booted\tthe device is not running: ask the person to start it from its node, since an agent never starts one',

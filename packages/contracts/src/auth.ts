@@ -107,7 +107,9 @@ export const EndpointInfoSchema = z.object({
     usageStats: z.boolean().optional(),
     // Every request this machine answers, so a client checks a request newer than 0.18.0 before it sends one
     // instead of catching `unknown-request`. Only `endpoint.info` carries it; a machine without it is refused as older.
-    features: z.array(z.string()).optional()
+    features: z.array(z.string()).optional(),
+    // True on a machine that resolves `references` on `chat.send`; without it a client sends only `chats`.
+    viewReferences: z.boolean().optional()
 });
 export type EndpointInfo = z.infer<typeof EndpointInfoSchema>;
 

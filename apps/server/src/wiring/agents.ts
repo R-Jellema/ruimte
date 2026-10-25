@@ -12,7 +12,7 @@ import { ProjectProposals } from '../projects/project-proposals.ts';
 import { UntrustedFolders } from '../peering/untrusted.ts';
 import type { ComputerUse } from '../computer/computer-use.ts';
 import { ComputerUseStore } from '../computer/store.ts';
-import { referencedChats } from '../context/chat-references.ts';
+import { referenced } from '../context/references.ts';
 import { ContextStore } from '../context/context-store.ts';
 import { withForkOrigin } from '../context/fork-origin.ts';
 import { MESSAGE_WORDS, renderNotice } from '../context/notices.ts';
@@ -216,7 +216,7 @@ export async function wireAgents({ runtime, identity, stores, providers, compute
                 locate: (id) => index().locate(id),
                 titleFor: (id) => index().titleFor(id)
             }),
-        referenced: (targetId) => referencedChats(chats.get(targetId)?.thread.list() ?? [], (id) => index().chatTitleBeside(targetId, id)),
+        referenced: (targetId) => referenced(chats.get(targetId)?.thread.list() ?? [], (id) => index().referenceBeside(targetId, id)),
         opened: (targetId, sourceId) =>
             openedChildSource(targetId, sourceId, { startedBy: (id) => lineage.startedBy(id), agentSource: (id) => index().agentSource(id) }),
         terminalText: (sessionId) => sessions.get(sessionId)?.plainText() ?? Promise.resolve(null),
@@ -282,7 +282,7 @@ export async function wireAgents({ runtime, identity, stores, providers, compute
             return place !== null && (await later.projects().store.heldFolders(clientId)).includes(place.folder);
         },
         contextSources: (chatId) => context.list(chatId),
-        chatTitle: (chatId, id) => index().chatTitleBeside(chatId, id),
+        reference: (chatId, id) => index().referenceBeside(chatId, id),
         standalone: (chatId) => index().locate(chatId)?.canvasId === null,
         inlineChat: (chatId) => index().isHiddenChat(chatId),
         openingAgent: agentChatOpening(outbox, (provider) => chats.composerPreferences.for(provider)),

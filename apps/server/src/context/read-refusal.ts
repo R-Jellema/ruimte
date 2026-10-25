@@ -11,6 +11,11 @@ function drawLine(sourceId: string, readerId: string): string {
     return `see\truimte-context link new --from ${sourceId} --to ${readerId}\tdraws the line this read needs, and leaves any line that is there`;
 }
 
+/* The other way in besides a line, which only a person gives. */
+function referenceLine(sourceId: string): string {
+    return `note\tA person who points at ${sourceId} with # in a message to you lets you read it too, with no line`;
+}
+
 /*
  * Why a read found nothing. Only the daemon has the project, so only it can tell a neighbor whose
  * line runs the other way from an id that is on no canvas at all.
@@ -21,7 +26,7 @@ export function readRefusal(readerId: string, sourceId: string, sources: readonl
         return body('unreadable', `${sourceId} is linked into you, but there is nothing to read in it right now`);
     }
     if (!canvas) {
-        return body('unknown-source', `${sourceId} is not linked to this session`);
+        return body('unknown-source', `${sourceId} is not linked to this session`, referenceLine(sourceId));
     }
     // A drawing or a diagram is read under its view id, while the line runs into the node showing it.
     const node = canvas.nodes.find((candidate) => candidate.id === sourceId || candidate.viewId === sourceId);
@@ -35,10 +40,16 @@ export function readRefusal(readerId: string, sourceId: string, sources: readonl
         return body(
             'not-linked',
             `${sourceId} is ${what} on ${canvas.id} with a line from you into it, which is what makes you readable to it; reading it takes a line the other way`,
-            drawLine(linkId, readerId)
+            drawLine(linkId, readerId),
+            referenceLine(linkId)
         );
     }
     // Only between two agents does the direction decide who reads; any other line reads either way.
     const missing = node !== undefined && isAgentKind(node.kind) ? 'no line runs from it into you' : 'no line joins it to you';
-    return body('not-linked', `${sourceId} is ${what} on ${canvas.id}, but ${missing}, and that line is what a read takes`, drawLine(linkId, readerId));
+    return body(
+        'not-linked',
+        `${sourceId} is ${what} on ${canvas.id}, but ${missing}, and that line is what a read takes`,
+        drawLine(linkId, readerId),
+        referenceLine(linkId)
+    );
 }

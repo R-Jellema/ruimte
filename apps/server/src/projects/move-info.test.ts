@@ -119,6 +119,17 @@ describe('chatMoveInfo', () => {
         expect(info.references).toBe(3);
     });
 
+    test('counts a chat linked with # the same as one linked with @', async () => {
+        const pointing = (id: string, references: string[]): ChatItem => ({ id, kind: 'user', createdAt: 1, turnId: id, text: 'hi', references });
+        const threads = {
+            'chat-1': [pointing('u1', ['chat-2', 'chat-gone'])],
+            'chat-2': [],
+            'chat-3': [pointing('u3', ['chat-1'])],
+            'chat-4': [pointing('u4', ['chat-2'])]
+        };
+        expect((await chatMoveInfo({ chatId: 'chat-1' }, deps(threads))).references).toBe(2);
+    });
+
     test('suggests the parent most projects share, else home', async () => {
         const home = join(root, 'home');
         expect((await chatMoveInfo({ chatId: 'chat-1' }, deps({ 'chat-1': [] }))).newFolderParent).toBe(home);

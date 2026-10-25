@@ -17,6 +17,7 @@ import { renderPlanText } from '@adecore/plan';
 import { contextChangeNote } from './context-note.ts';
 import { CodedError } from '@adecore/agents';
 import { readRefusal } from './read-refusal.ts';
+import type { Reference } from './references.ts';
 import type { PageReading } from '../browser/drive.ts';
 import { renderPage } from './context-browser.ts';
 import { renderDevice } from './context-device.ts';
@@ -52,9 +53,9 @@ export class SubagentUnreadable extends ContextRefusal {
 interface ContextReaders {
     /* What the agent under this id may read, derived from the project documents the daemon knows. */
     sources(targetId: string): ContextSource[];
-    /* The chats a person attached to a message of this chat. Readable like a line, but never listed or
-       announced as one: the message that attached them already said where they are. */
-    referenced?(targetId: string): ContextSource[];
+    /* The views, nodes and chats a person pointed at in a message of this chat. Readable like a line, but
+       never listed or announced as one: the message that pointed at them already said where they are. */
+    referenced?(targetId: string): Reference[];
     /* The agent under `sourceId` when `targetId` opened it itself. Readable like a line and never listed,
        since the verb that opened it already named it. */
     opened?(targetId: string, sourceId: string): ContextSource | null;
@@ -302,9 +303,14 @@ export class ContextStore {
         }
     }
 
-    // Only what is linked into the asker matches, so a node id opens nothing an edge, a person's attachment or the asker's own lineage did not.
+    /* What a person pointed this agent at in its messages, read again at every call. */
+    referenced(targetId: string): Reference[] {
+        return this.readers.referenced?.(targetId) ?? [];
+    }
+
+    // Only what is linked into the asker matches, so a node id opens nothing an edge, a person's reference or the asker's own lineage did not.
     private findSource(targetId: string, sourceId: string): ContextSource | null {
-        const linked = [...this.readers.sources(targetId), ...(this.readers.referenced?.(targetId) ?? [])];
+        const linked = [...this.readers.sources(targetId), ...this.referenced(targetId).flatMap((reference) => reference.sources)];
         return linked.find((entry) => entry.id === sourceId || entry.nodeId === sourceId) ?? this.readers.opened?.(targetId, sourceId) ?? null;
     }
 
@@ -353,7 +359,8 @@ export class ContextStore {
         const source = this.findSource(targetId, sourceId);
         const reading = source ? await this.reading(targetId, source, tail, subagent) : null;
         if (reading === null) {
-            const { code, message, lines } = readRefusal(targetId, sourceId, this.readers.sources(targetId), this.readers.canvasOf?.(targetId) ?? null);
+            const reachable = [...this.readers.sources(targetId), ...this.referenced(targetId).flatMap((reference) => reference.sources)];
+            const { code, message, lines } = readRefusal(targetId, sourceId, reachable, this.readers.canvasOf?.(targetId) ?? null);
             throw new ContextRefusal(code, message, lines);
         }
         return reading;

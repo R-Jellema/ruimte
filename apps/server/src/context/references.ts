@@ -1,0 +1,158 @@
+import {
+    canvasContextSources,
+    isCanvasView,
+    resolveStoredPath,
+    type ChatItem,
+    type ContextSource,
+    type ProjectCanvasView,
+    type ProjectView
+} from '@ruimte/contracts';
+
+export type ReferenceKind = 'canvas' | 'chat' | 'terminal' | 'note' | 'text' | 'drawing' | 'diagram' | 'browser' | 'device' | 'file';
+
+/* A view, node or text of the chat's own project that a person pointed at with `#`, or a chat with `@`. */
+export interface Reference {
+    id: string;
+    kind: ReferenceKind;
+    name: string;
+    /* The canvas a node or a text stands on; null for a view of its own. */
+    canvas: { id: string; name: string } | null;
+    /* What `read` takes through it: the thing itself, and for a canvas every node and text on it. */
+    sources: ContextSource[];
+}
+
+function viewSource(view: ProjectView, folder: string | null): ContextSource | null {
+    switch (view.kind) {
+        case 'chat':
+            // A chat an inline edit runs in is shown nowhere, so no person points at it.
+            return view.hidden === true ? null : { id: view.id, kind: 'chat', title: view.name };
+        case 'terminal':
+            return { id: view.id, kind: 'terminal', title: view.name };
+        case 'browser':
+            return { id: view.id, kind: 'browser', title: view.name, text: view.url };
+        case 'device':
+            return { id: view.id, kind: 'device', title: view.name, device: view.device };
+        case 'drawing':
+        case 'diagram':
+            return { id: view.id, kind: view.kind, title: view.name };
+        case 'file':
+            return { id: view.id, kind: 'file', title: view.name, text: resolveStoredPath(folder, view.path) ?? view.path };
+        default:
+            return null;
+    }
+}
+
+function nodeReference(canvas: ProjectCanvasView, id: string, folder: string | null): Reference | null {
+    const node = canvas.nodes.find((candidate) => candidate.id === id);
+    const text = canvas.texts.find((candidate) => candidate.id === id);
+    if (!node && !text) {
+        return null;
+    }
+    // A node with nothing to read in it (a group, a device that points at none) is no reference either.
+    const source = canvasContextSources(canvas, folder).find((candidate) => candidate.id === id || candidate.nodeId === id);
+    if (!source) {
+        return null;
+    }
+    const kind: ReferenceKind = node === undefined ? 'text' : node.kind === 'note' ? 'note' : source.kind === 'text' ? 'text' : source.kind;
+    return { id, kind, name: source.title, canvas: { id: canvas.id, name: canvas.name }, sources: [source] };
+}
+
+/*
+ * The id among the views of one project, as a view of its own or a node or text on a canvas; null for
+ * an id the project does not hold or one with nothing an agent could read in it, such as a separator.
+ */
+export function resolveReference(views: readonly ProjectView[], id: string, folder: string | null): Reference | null {
+    for (const view of views) {
+        if (view.id === id) {
+            if (isCanvasView(view)) {
+                return { id, kind: 'canvas', name: view.name, canvas: null, sources: canvasContextSources(view, folder) };
+            }
+            const source = viewSource(view, folder);
+            return source === null ? null : { id, kind: source.kind === 'text' ? 'text' : source.kind, name: source.title, canvas: null, sources: [source] };
+        }
+    }
+    for (const view of views) {
+        if (isCanvasView(view)) {
+            const reference = nodeReference(view, id, folder);
+            if (reference) {
+                return reference;
+            }
+        }
+    }
+    return null;
+}
+
+/* The ids that still stand in the project, once each and in the order given; `lookup` answers null for any other. */
+export function resolveReferences(ids: readonly string[] | undefined, lookup: (id: string) => Reference | null): Reference[] {
+    const references: Reference[] = [];
+    for (const id of new Set(ids ?? [])) {
+        const reference = lookup(id);
+        if (reference !== null) {
+            references.push(reference);
+        }
+    }
+    return references;
+}
+
+function command(text: string): string {
+    return `\`ruimte-context ${text}\``;
+}
+
+/* What the agent may do besides reading, as a reference gives it: what a line gives, and for a canvas adding nodes. */
+function writeCommand(reference: Reference): string | null {
+    const { id, kind, canvas } = reference;
+    switch (kind) {
+        case 'note':
+            return `write with ${command(`node edit ${id}`)}`;
+        case 'chat':
+        case 'terminal':
+            return `message it with ${command(`notify ${id}`)}`;
+        case 'diagram':
+            return `write with ${command(`view diagram ${reference.sources[0]?.id ?? id}`)}`;
+        // A browser or a device that is a view of its own has no node the verbs drive.
+        case 'browser':
+            return canvas === null ? null : `drive it with ${command(`browser go ${id} --url U`)}`;
+        case 'device':
+            return canvas === null ? null : `operate it with ${command(`device shot ${id}`)} and the other device verbs`;
+        case 'canvas':
+            return `read any node on it with ${command('read <id>')} · add nodes with ${command(`node new <kind> --view ${id}`)}`;
+        default:
+            return null;
+    }
+}
+
+function referenceLine(reference: Reference): string {
+    const what = reference.canvas === null ? reference.kind : `${reference.kind} on ${JSON.stringify(reference.canvas.name)}`;
+    const read = reference.kind === 'canvas' ? command(`node list --view ${reference.id}`) : command(`read ${reference.id}`);
+    const write = writeCommand(reference);
+    return `- ${JSON.stringify(reference.name)} (${what}): ${read}${write === null ? '' : ` · ${write}`}`;
+}
+
+/* What the agent is told in front of a message that points at views and nodes: where they are, never what they hold. */
+export function referenceNote(references: readonly Reference[]): string | null {
+    if (references.length === 0) {
+        return null;
+    }
+    return [
+        'The person referenced views and nodes of this project in this message. Read each with the command beside it before you answer.',
+        ...references.map(referenceLine)
+    ].join('\n');
+}
+
+/* Every id a person attached to a message of this thread, with `@` or with `#`. Only a user item counts, so an agent cannot give itself one. */
+export function referencedIds(items: readonly ChatItem[]): string[] {
+    return items.flatMap((item) => (item.kind === 'user' ? [...(item.chats ?? []), ...(item.references ?? [])] : []));
+}
+
+/*
+ * What a chat may read and write in because a person pointed at it in one of its messages, without a
+ * line on a canvas. Asked at every call, so a view that went or left the project is no longer one of them.
+ */
+export function referenced(items: readonly ChatItem[], lookup: (id: string) => Reference | null): Reference[] {
+    return resolveReferences(referencedIds(items), lookup);
+}
+
+/* Whether a person pointed at this very id, not only at the canvas it stands on: what a write takes. */
+export function referencesDirectly(references: readonly Reference[], id: string): boolean {
+    return references.some((reference) => reference.id === id);
+}

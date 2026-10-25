@@ -68,7 +68,13 @@ describe('readRefusal', () => {
             'unknown-source\tnonsense is not linked to this session, and no node of main carries that id either'
         );
         // A session that is a view of its own has no canvas to say anything about.
-        expect(refuseRead('chat-1', 'nonsense', [], null)).toBe('unknown-source\tnonsense is not linked to this session');
+        expect(refuseRead('chat-1', 'nonsense', [], null).split('\n')[0]).toBe('unknown-source\tnonsense is not linked to this session');
+    });
+
+    test('names a # in a message as the way in besides a line', () => {
+        expect(refuseRead('chat-1', 'note-1', [], canvas)).toInclude('note\tA person who points at note-1 with # in a message to you lets you read it too');
+        expect(refuseRead('chat-1', 'view-1', [], canvas)).toInclude('points at draw-1 with #');
+        expect(refuseRead('chat-1', 'nonsense', [], null)).toInclude('points at nonsense with #');
     });
 
     test('a source that is linked and still read nothing is not called unlinked', () => {

@@ -6656,6 +6656,9 @@
             "items": {
               "type": "string"
             }
+          },
+          "viewReferences": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -56922,6 +56925,9 @@
         "items": {
           "type": "string"
         }
+      },
+      "viewReferences": {
+        "type": "boolean"
       }
     },
     "required": [
@@ -57748,6 +57754,9 @@
         "items": {
           "type": "string"
         }
+      },
+      "viewReferences": {
+        "type": "boolean"
       }
     },
     "required": [
@@ -58361,6 +58370,9 @@
         "items": {
           "type": "string"
         }
+      },
+      "viewReferences": {
+        "type": "boolean"
       }
     },
     "required": [
@@ -58932,6 +58944,9 @@
         "items": {
           "type": "string"
         }
+      },
+      "viewReferences": {
+        "type": "boolean"
       }
     },
     "required": [
@@ -59703,6 +59718,9 @@
         "items": {
           "type": "string"
         }
+      },
+      "viewReferences": {
+        "type": "boolean"
       }
     },
     "required": [

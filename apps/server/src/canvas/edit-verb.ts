@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { canvasIdFor, defineActionVerb, runAction } from './action-verb.ts';
 import { ONE_WRITE, jsonBatch } from './batch.ts';
 import { unescapeText } from './text-escapes.ts';
-import { VerbRefusal, placeOf } from './verb.ts';
+import { VerbRefusal, placeOf, type VerbCall } from './verb.ts';
 
 const NEEDS_TEXT = '--text needs the body to write, in quotes';
 
@@ -21,6 +21,12 @@ const JsonEditSchema = z.strictObject({
     text: z.string({ error: 'text needs the body to write' }),
     append: z.boolean({ error: 'append is true or false' }).optional()
 });
+
+/* The canvas of a note a person pointed the caller at with `#`, so that note needs no --view: the reference already says where it stands. */
+function referencedCanvas(call: VerbCall, ids: readonly string[]): string | null {
+    const references = call.host.context?.referenced?.(call.caller) ?? [];
+    return references.find((reference) => reference.kind === 'note' && ids.includes(reference.id))?.canvas?.id ?? null;
+}
 
 const JSON_EXAMPLE = `ruimte-context node edit --json '[{"id":"note-1","text":"Done"},{"id":"note-2","text":"One more line","append":true}]'`;
 
@@ -54,6 +60,7 @@ export const nodeEditAction = defineActionVerb('node', {
         'who\tA note you made yourself, or one a line joins you to, whichever way that line runs: a person drawing that line is what says you may write here',
         'who\tThe same line lets you read the note back with ruimte-context read, whichever way it runs',
         'who\tA chat view has no lines: it writes in any note of the canvas it names with --view, the way the person arranging that canvas would',
+        'who\tA note the person pointed you at with # in one of your messages is yours to write in as along a line, with no --view, for as long as that message is in your thread; a # to its canvas alone is not',
         'append\tThe text lands on a line of its own under what is there, so two agents writing in turn never drop what the other put down',
         'append\tEach call reads the note in the moment it writes it, so an append that crosses another keeps both lines',
         'note\tThe body it already carries writes nothing and is not a refusal',
@@ -85,7 +92,13 @@ export const nodeEditAction = defineActionVerb('node', {
                 throw new VerbRefusal('bad-arguments', `--json carries every note with its own fields; leave out ${single.join(', ')}`, EDIT_USAGE_LINES);
             }
             const edits = jsonBatch(flags.json, JsonEditSchema, JSON_EXAMPLE);
-            const viewId = await canvasIdFor(call, placeOf(call), flags.view);
+            const viewId =
+                flags.view ??
+                referencedCanvas(
+                    call,
+                    edits.map((edit) => edit.id)
+                ) ??
+                (await canvasIdFor(call, placeOf(call), flags.view));
             const edited = await runAction(call, 'node.updateMany', {
                 viewId,
                 nodes: edits.map((edit) => ({ nodeId: edit.id, text: edit.text, append: edit.append ?? false }))
@@ -98,7 +111,7 @@ export const nodeEditAction = defineActionVerb('node', {
         if (flags.text === undefined) {
             throw new VerbRefusal('bad-arguments', NEEDS_TEXT, EDIT_USAGE_LINES);
         }
-        const viewId = await canvasIdFor(call, placeOf(call), flags.view);
+        const viewId = flags.view ?? referencedCanvas(call, [id]) ?? (await canvasIdFor(call, placeOf(call), flags.view));
         const edited = await runAction(call, 'node.update', { viewId, nodeId: id, text: flags.text, append });
         return [`edited\t${id}\t${edited.lines}\t${edited.characters}`];
     }

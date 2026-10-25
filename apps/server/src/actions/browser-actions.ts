@@ -13,7 +13,7 @@ import { arrangedCanvas, isChatView, notOnView, viewRequired } from '../canvas/c
 import type { DriveOutcome } from '../browser/drive.ts';
 import { checkUrl } from '../canvas/nodes.ts';
 import { refuseOtherMachine } from '../canvas/remote-node.ts';
-import { VerbRefusal, field, orNote, type BrowserDriveHost, type CanvasHost } from '../canvas/verb.ts';
+import { VerbRefusal, field, orNote, referencedBy, type BrowserDriveHost, type CanvasHost } from '../canvas/verb.ts';
 import type { ServerActionContext } from './context.ts';
 
 /* Where a page is now when somebody holds it, else the address stored on its node. Reading it wakes nobody. */
@@ -68,8 +68,9 @@ function lineLines(id: string, url: string | undefined, callerCanvas: string | n
 
 /*
  * The node an action works on. A browser node of this project, with a line between it and the
- * caller: the same line a read takes, since driving a page and reading it are one permission. A chat
- * view has no lines, and drives any page of the canvas it names instead.
+ * caller: the same line a read takes, since driving a page and reading it are one permission, or a
+ * `#` a person pointed the caller at it with. A chat view has no lines, and drives any page of the
+ * canvas it names instead.
  */
 async function targetOf({ host, place }: ServerActionContext, caller: string, id: string, viewId: string | null | undefined): Promise<ProjectNode> {
     const content = await host.projects.read(place.projectId);
@@ -89,7 +90,7 @@ async function targetOf({ host, place }: ServerActionContext, caller: string, id
     if (node.kind !== 'browser') {
         throw new VerbRefusal('not-a-browser', `${id} is a ${node.kind} node, and only a browser node has a page to drive`, await lines());
     }
-    if (!sources.some((source) => source.id === id)) {
+    if (!sources.some((source) => source.id === id) && !referencedBy(host, caller, id)) {
         if (chatView) {
             throw viewRequired(id, canvas, `browser state ${id}`);
         }

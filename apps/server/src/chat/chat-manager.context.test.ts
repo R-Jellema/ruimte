@@ -5,7 +5,7 @@ import { chatPrompt, verbsNote } from '../context/context-note.ts';
 import { showNotices, NoticeNotes, unshownNotes, NoticeStore, type Notice } from '@adecore/agents/coordination';
 import { deliverNotice, MESSAGE_WORDS } from '../context/notices.ts';
 import { VisualStore } from '@adecore/agents/chat';
-import { chatReferenceNote } from '../context/chat-references.ts';
+import { referenceNote, type Reference } from '../context/references.ts';
 import { ChatManager } from './chat-manager.ts';
 import { ChatRecorder } from './chat-test-helpers.ts';
 import { makeChatFixture, retire, LINKED } from './chat-manager.fixture.test.ts';
@@ -113,20 +113,24 @@ test('a link made between turns is put in front of the next prompt, once, as a n
     expect(recorder.ofKind('user').map((item) => item.text)).toEqual(['first', 'second', 'third']);
 });
 
-test('a chat attached with @ goes to the CLI as the command that reads it, and to the thread as its id', async () => {
+test('a chat attached with @ and a view with # go to the CLI as the commands that read them, and to the thread as their ids', async () => {
     await retire(manager);
-    const titles: Record<string, string> = { 'chat-earlier': 'Auth rewrite' };
-    manager = makeManager({ chatTitle: (chatId, id) => (chatId === 'chat-ref' ? (titles[id] ?? null) : null) });
+    const known: Record<string, Reference> = {
+        'chat-earlier': { id: 'chat-earlier', kind: 'chat', name: 'Auth rewrite', canvas: null, sources: [] },
+        sketch: { id: 'sketch', kind: 'drawing', name: 'Sketch', canvas: null, sources: [] }
+    };
+    manager = makeManager({ reference: (chatId, id) => (chatId === 'chat-ref' ? (known[id] ?? null) : null) });
     manager.subscribe('c1', recorder.sink());
     await manager.create({ chatId: 'chat-ref', cwd: home });
     manager.attach('chat-ref', 'c1');
 
-    await manager.send('chat-ref', 'carry on from there', { chats: ['chat-earlier', 'chat-elsewhere'] });
+    // A view in `chats` is no chat its chips could draw, so only `references` carries it.
+    await manager.send('chat-ref', 'carry on from #Sketch', { chats: ['chat-earlier', 'chat-elsewhere', 'sketch'], references: ['sketch', 'gone'] });
     await recorder.until(idle);
 
-    expect(recorder.ofKind('user')[0]).toMatchObject({ text: 'carry on from there', chats: ['chat-earlier'] });
+    expect(recorder.ofKind('user')[0]).toMatchObject({ text: 'carry on from #Sketch', chats: ['chat-earlier'], references: ['sketch'] });
     // The fake echoes its prompt, so the reply shows what the CLI was given.
-    expect(recorder.ofKind('assistant')[0]?.text).toBe(`echo: ${chatReferenceNote([{ id: 'chat-earlier', title: 'Auth rewrite' }])}\n\ncarry on from there`);
+    expect(recorder.ofKind('assistant')[0]?.text).toBe(`echo: ${referenceNote([known['chat-earlier']!, known.sketch!])}\n\ncarry on from #Sketch`);
     // Nothing in the thread repeats it: the row draws the chip.
     expect(recorder.ofKind('note')).toEqual([]);
 });

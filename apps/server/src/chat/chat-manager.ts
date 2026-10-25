@@ -25,7 +25,7 @@ import { HOST_TASK_ORIGIN } from '@ruimte/contracts';
 import { ChatCore, type ChatCoreOptions, claudeProjectSlug, limitedTurn } from '@adecore/agents/chat';
 import type { ChatReferences, ChatSession, PromptNotes, ResumeWords, ChatRecord, ChatRecordExtras } from '@adecore/agents/chat';
 import { storedAccount, narrowerMode } from '@adecore/agents/providers';
-import { chatReferenceNote, resolveChatReferences } from '../context/chat-references.ts';
+import { referenceNote, resolveReferences, type Reference } from '../context/references.ts';
 import { chatNote, chatPrompt, contextChangeNote, contextPrompt, type ChatPromptOptions, VISUAL_RESUME_NOTE } from '../context/context-note.ts';
 import { errorText } from '../error-text.ts';
 import { RUIMTE_CODEX_CLIENT } from '../providers/codex-provider.ts';
@@ -74,8 +74,8 @@ interface ChatManagerOptions extends ChatCoreOptions {
     openingAgent?: (chatId: string) => ChatCreatePayload | undefined;
     // The sources themselves, so a chat can name them to its agent and tell it what came and went between turns.
     contextSources?: (chatId: string) => ContextSource[];
-    // The name of a chat of the same project, for a message a person attached it to; null for any other id.
-    chatTitle?: (chatId: string, id: string) => string | null;
+    // A view, node or text of the chat's own project, for a message a person attached it to; null for any other id.
+    reference?: (chatId: string, id: string) => Reference | null;
     // What another node left for this chat, taken once and put in front of the next prompt (`NoticeNotes`).
     messageNotes?: (chatId: string) => PromptNotes;
     // The same messages, as the lines a person reads in the thread; asked once, when the chat is loaded.
@@ -217,7 +217,7 @@ export class ChatManager extends ChatCore {
     private readonly databases: (chatId: string) => boolean;
     private readonly opening: NonNullable<ChatManagerOptions['openingAgent']>;
     private readonly contextSources: (chatId: string) => ContextSource[];
-    private readonly chatTitle: (chatId: string, id: string) => string | null;
+    private readonly reference: (chatId: string, id: string) => Reference | null;
     private readonly messageNotes: ((chatId: string) => PromptNotes) | null;
     private readonly unshownMessages: (chatId: string) => Promise<string[]>;
     private readonly firstPrompt: (chatId: string) => Promise<string | null>;
@@ -284,7 +284,7 @@ export class ChatManager extends ChatCore {
         this.databases = options.databases ?? (() => false);
         this.opening = options.openingAgent ?? (() => undefined);
         this.contextSources = options.contextSources ?? (() => []);
-        this.chatTitle = options.chatTitle ?? (() => null);
+        this.reference = options.reference ?? (() => null);
         this.messageNotes = options.messageNotes ?? null;
         this.unshownMessages = options.unshownMessages ?? (() => Promise.resolve([]));
         this.firstPrompt = options.firstPrompt ?? (() => Promise.resolve(null));
@@ -591,9 +591,17 @@ export class ChatManager extends ChatCore {
     }
 
     private referencesFor(chatId: string): ChatReferences {
-        return (ids) => {
-            const references = resolveChatReferences(ids, (id) => this.chatTitle(chatId, id));
-            return { ids: references.map((reference) => reference.id), note: chatReferenceNote(references) };
+        return (attached) => {
+            const lookup = (id: string): Reference | null => this.reference(chatId, id);
+            // `chats` stays what its chips draw, so only a chat resolves there.
+            const chats = resolveReferences(attached.chats, lookup).filter((reference) => reference.kind === 'chat');
+            const taken = new Set(chats.map((reference) => reference.id));
+            const references = resolveReferences(attached.references, lookup).filter((reference) => !taken.has(reference.id));
+            return {
+                chats: chats.map((reference) => reference.id),
+                references: references.map((reference) => reference.id),
+                note: referenceNote([...chats, ...references])
+            };
         };
     }
 
