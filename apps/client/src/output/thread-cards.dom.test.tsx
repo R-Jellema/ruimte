@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
-import type { ArtifactSummary, ChatInfo, ChatItem, ProviderInfo } from '@ruimte/contracts';
+import type { ArtifactSummary, ArtifactVersion, ChatInfo, ChatItem, ProviderInfo } from '@ruimte/contracts';
 import { WORKSPACE_CHAT_HOST } from '@/chat/workspace-host';
+import { useArtifactSelection } from '@/output/open';
 import { useFiles } from '@/state/files';
 import { useProject } from '@/state/project';
 import { FakeMachine } from '../../testing/fake-machine';
@@ -86,8 +87,20 @@ function artifact(artifactId: string, title: string, kind: string): ArtifactSumm
     };
 }
 
-function strip(): Element | null {
-    return page.host.querySelector('[role="region"][aria-label="Made in this chat"]');
+function cards(): HTMLElement[] {
+    return [...page.host.querySelectorAll('[role="group"][aria-label="settings.png"]')] as HTMLElement[];
+}
+
+function version(number: number, createdAt: number): ArtifactVersion {
+    return {
+        versionId: `shot-v${number}`,
+        number,
+        createdAt,
+        files: [{ name: 'settings.png', mime: 'image/png', size: 4096 * number, sha256: `sha${number}` }],
+        bytes: 4096 * number,
+        provenance: { maker: 'person', machineId: 'mac', chatId },
+        copiedTo: []
+    };
 }
 
 function buttonWithText(label: string): HTMLElement | null {
@@ -103,6 +116,7 @@ beforeEach(async () => {
     });
     views += 1;
     chatId = `chat-output${views}`;
+    useArtifactSelection.setState({ versions: {} });
     saved = [];
     machine = new FakeMachine();
     machine.answer('provider.list', () => ({ providers: [CLAUDE] }));
@@ -130,12 +144,12 @@ afterEach(async () => {
 });
 
 describe('what a chat saved to Output', () => {
-    test('has no strip while the chat made nothing', async () => {
+    test('has no card while the chat made nothing', async () => {
         await until(() => machine.requests('artifact.list').some((payload) => payload.chatId === chatId));
-        expect(strip()).toBeNull();
+        expect(cards()).toHaveLength(0);
     });
 
-    test('a screenshot a tool read saves to Output and then stands in the strip above the thread', async () => {
+    test('a screenshot a tool read saves to Output and then stands as a card in the thread', async () => {
         await until(() => buttonWithText('Save to Output') !== null);
         await clickOn(buttonWithText('Save to Output'));
         await until(() => machine.requests('artifact.save').length === 1);
@@ -145,11 +159,38 @@ describe('what a chat saved to Output', () => {
         expect(request.requestId).toMatch(/^[A-Za-z0-9_-]{1,64}$/);
 
         await act(async () => machine.emit('artifact.changed', { artifactId: 'shot', projectId: 'project-atlas' }));
-        await until(() => strip()?.textContent?.includes('settings.png') === true);
-        expect(strip()?.textContent).toContain('Open Output');
+        await until(() => cards().length === 1);
+        expect(cards()[0]!.textContent).toContain('Saved to Output');
+        // A card is the client's own row: the thread on the wire gained nothing.
+        expect(machine.requests('artifact.get')).toHaveLength(0);
 
-        await clickOn(strip()!.querySelector('button'));
+        await clickOn(cards()[0]!.querySelector('button'));
         await until(() => useFiles.getState().tabs.some((tab) => tab.key === 'artifact:shot'));
+        expect(useArtifactSelection.getState().versions['artifact:shot']).toBeUndefined();
+    });
+
+    test('a second version adds a card of its own, and Open shows the version of its card', async () => {
+        saved = [{ ...artifact('shot', 'settings.png', 'image'), latest: version(2, 1_761_400_100_000), versionCount: 2 }];
+        machine.answer('artifact.get', () => ({
+            artifact: {
+                artifactId: 'shot',
+                projectId: 'project-atlas',
+                projectName: 'Atlas',
+                title: 'settings.png',
+                kind: 'image',
+                createdAt: 1_761_400_000_000
+            },
+            versions: [version(2, 1_761_400_100_000), version(1, 1_761_400_000_000)],
+            chatPresent: true
+        }));
+        await act(async () => machine.emit('artifact.changed', { artifactId: 'shot', projectId: 'project-atlas' }));
+        await until(() => cards().length === 2);
+        expect(cards().map((card) => card.textContent?.includes('Version 2 saved to Output'))).toEqual([false, true]);
+        expect(cards()[0]!.textContent).toContain('Saved to Output');
+
+        await clickOn(cards()[0]!.querySelector('button'));
+        await until(() => useFiles.getState().tabs.some((tab) => tab.key === 'artifact:shot'));
+        expect(useArtifactSelection.getState().versions['artifact:shot']).toBe('shot-v1');
     });
 
     test('a visual and a generated image offer Save to Output, which names them by id', async () => {

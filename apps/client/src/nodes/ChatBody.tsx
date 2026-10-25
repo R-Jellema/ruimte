@@ -23,7 +23,6 @@ import { chatClientFor } from '@/transport/connections';
 import { useTransportStatus } from '@/transport/status';
 import { MissingProviderNote } from '@/nodes/MissingProviderNote';
 import { OutputChatContext } from '@/output/chat-scope';
-import { MadeInChat } from '@/output/MadeInChat';
 import { NodeNotice } from '@/nodes/NodeNotice';
 import { useMountCount } from '@/measure/mounts';
 import { readNodeHost, renameHost, useNodeHost, useSuggestedTitle } from '@/nodes/node-host';
@@ -39,7 +38,6 @@ function messageOf(error: unknown, fallback: string): string {
 export function ChatBody({ id, focused, onCanvas = false }: { id: string; focused: boolean; onCanvas?: boolean }) {
     useMountCount('chat');
     const { t } = useTranslation('canvas');
-    const { t: to } = useTranslation('output');
     const info = useChatRow(id, (row) => row?.info);
     const nodeHost = useNodeHost(id);
     const providerFixed = nodeHost?.providerFixed === true;
@@ -137,9 +135,6 @@ export function ChatBody({ id, focused, onCanvas = false }: { id: string; focuse
                     {failure}
                 </NodeNotice>
             )}
-            <ErrorBoundary label={to('chat.failed')} resetKeys={[id]}>
-                <MadeInChat endpointId={endpointId} chatId={id} />
-            </ErrorBoundary>
             <OutputChatContext value={id}>
                 <LazyBoundary fallback={<div className="grow" />}>
                     <Timeline

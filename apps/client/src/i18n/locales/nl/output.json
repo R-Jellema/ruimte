@@ -139,10 +139,12 @@
         "copied": "Gekopieerd naar {{path}}",
         "failed": "De kopie is niet gelukt"
     },
+    "card": {
+        "saved": "Bewaard in Output",
+        "savedVersion": "Versie {{number}} bewaard in Output",
+        "open": "Openen"
+    },
     "chat": {
-        "made": "Gemaakt in deze chat",
-        "failed": "Wat deze chat bewaarde kon niet getoond worden",
-        "open": "Output openen",
         "save": "Bewaar in Output",
         "saved": "Bewaard in Output",
         "saveFailed": "Dit kon niet in Output bewaard worden"

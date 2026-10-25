@@ -16,6 +16,7 @@ import { useChatPlace } from '@/chat/use-chat-place';
 import { useContextSources } from '@/context/sources';
 import { isApplePlatform } from '@/desktop/bridge';
 import { saveToOutputActions } from '@/output/save';
+import { useOutputThreadCards } from '@/output/thread-cards';
 import { DictationTextarea } from '@/dictation/DictationTextarea';
 import { dictationPreview, dictationRange } from '@/dictation/editor';
 import { answerRuimtePrompt, computerPrompt, isRuimtePrompt, proposalPrompt, secretPrompt } from '@/prompts/ruimte-prompts';
@@ -31,7 +32,8 @@ import { isComposerShortcut } from '@/terminal/keymap';
 
 /*
  * What the chat takes from Ruimte that only a workspace draws: the find over a thread, dictation, the
- * cards the machine raises beside a chat's own prompts, the ways to a file or another chat of the
+ * cards the machine raises beside a chat's own prompts, a card in the thread for what it saved to
+ * Output, the ways to a file or another chat of the
  * project, the 3D view of a Model block, and the new chat a send opens beside its own. The workspace
  * hands it to the chat views under it, over `CHAT_HOST`.
  */
@@ -85,6 +87,7 @@ export const WORKSPACE_CHAT_HOST: Partial<ChatHost> = {
     openReference,
     useChatPlace,
     useContextSources,
+    useThreadCards: useOutputThreadCards,
     // Saving needs the project the chat is in, which only a workspace has.
     attachments: {
         ...attachments,

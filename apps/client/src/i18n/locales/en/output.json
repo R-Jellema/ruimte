@@ -139,10 +139,12 @@
         "copied": "Copied to {{path}}",
         "failed": "The copy did not go through"
     },
+    "card": {
+        "saved": "Saved to Output",
+        "savedVersion": "Version {{number}} saved to Output",
+        "open": "Open"
+    },
     "chat": {
-        "made": "Made in this chat",
-        "failed": "What this chat saved could not be shown",
-        "open": "Open Output",
         "save": "Save to Output",
         "saved": "Saved to Output",
         "saveFailed": "This could not be saved to Output"
