@@ -995,7 +995,9 @@ export const ProjectStripTabSchema = z.discriminatedUnion('kind', [
     }),
     z.object({ kind: z.literal('structure'), ...ProjectDatabaseTabFields, table: z.string().min(1), tableKind: ProjectTableKindSchema.optional() }),
     // Without a table the designer makes a new one.
-    z.object({ kind: z.literal('designer'), ...ProjectDatabaseTabFields, table: z.string().min(1).optional() })
+    z.object({ kind: z.literal('designer'), ...ProjectDatabaseTabFields, table: z.string().min(1).optional() }),
+    // A version of Output, read by the artifact's id; the title is what the tab says until the machine answers.
+    z.object({ kind: z.literal('artifact'), artifactId: z.string().min(1), title: z.string(), pinned: z.boolean() })
 ]);
 export type ProjectStripTab = z.infer<typeof ProjectStripTabSchema>;
 
@@ -1035,7 +1037,9 @@ export const ProjectPanelsSchema = z.object({
             // By the label the panel gave them.
             hiddenRepos: z.array(z.string()).optional()
         })
-        .optional()
+        .optional(),
+    // Beside `panel` for the same reason as `launchesPanel`.
+    outputPanel: z.boolean().optional()
 });
 export type ProjectPanels = z.infer<typeof ProjectPanelsSchema>;
 

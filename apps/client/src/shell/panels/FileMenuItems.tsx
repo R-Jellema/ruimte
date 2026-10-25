@@ -5,7 +5,7 @@ import { Copy, FileText, Minus, PanelLeftOpen, Plus, RefreshCw } from 'lucide-re
 import { FileActionItems } from '@/shell/panels/FileActionItems';
 import { relativeTo } from '@/shell/panels/files-tree';
 import { stageFiles } from '@/shell/panels/stage-files';
-import { isCheckoutDiff, isDatabaseTab, isPromotableTab, useFiles } from '@/state/files';
+import { isArtifactTab, isCheckoutDiff, isDatabaseTab, isPromotableTab, useFiles } from '@/state/files';
 import { copyText, Icon, Menu } from '@adecore/ui';
 
 /*
@@ -16,7 +16,7 @@ export function FileMenuItems({ tabKey, onRefresh }: { tabKey: string; onRefresh
     const { t } = useTranslation('panels');
     const tab = useFiles((s) => s.tabs.find((entry) => entry.key === tabKey) ?? null);
     const unsubmitted = useFiles((s) => s.unsubmitted[tabKey] === true);
-    if (tab === null) {
+    if (tab === null || isArtifactTab(tab)) {
         return null;
     }
 

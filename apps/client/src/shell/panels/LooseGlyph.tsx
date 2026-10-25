@@ -1,12 +1,15 @@
-import { GitCommitHorizontal, GitCompare } from 'lucide-react';
+import { GitCommitHorizontal, GitCompare, Package } from 'lucide-react';
 import { databaseTabIcon } from '@/database/tab-look';
-import { isDatabaseTab, type Tab } from '@/state/files';
+import { isArtifactTab, isDatabaseTab, type Tab } from '@/state/files';
 import { FileIcon, Icon } from '@adecore/ui';
 
-/* The mark of a loose view: its file, a comparison or a commit, or what a database view shows. */
+/* The mark of a loose view: its file, a comparison or a commit, what a database view shows, or an artifact of Output. */
 export function LooseGlyph({ tab, size = 14 }: { tab: Tab; size?: number }) {
     if (isDatabaseTab(tab)) {
         return <Icon icon={databaseTabIcon(tab)} size={size} className="shrink-0 text-text-faint" />;
+    }
+    if (isArtifactTab(tab)) {
+        return <Icon icon={Package} size={size} className="shrink-0 text-text-faint" />;
     }
     if (tab.view) {
         return <Icon icon={tab.view.commit === undefined ? GitCompare : GitCommitHorizontal} size={size} className="shrink-0 text-text-faint" />;

@@ -8,7 +8,7 @@ import { extensionOf } from '@/shell/panels/file-kind';
 import { absoluteOf, basenameOf, isPathBelow, relativeTo } from '@/shell/panels/files-tree';
 import { moveFile } from '@/state/file-moves';
 import { useDocument } from '@/state/document';
-import { fileTabOf, isDatabaseTab, useFiles, type ConsoleBinding, type TabState } from '@/state/files';
+import { fileTabOf, isDatabaseTab, isFileTab, useFiles, type ConsoleBinding, type TabState } from '@/state/files';
 import { currentEndpointId } from '@/state/keys';
 import { storedText } from '@/state/stored-json';
 import { useProject } from '@/state/project';
@@ -113,7 +113,8 @@ export function consoleContext(
 ): ConsoleBinding | null {
     const known = new Set(connectionIds);
     const tab = tabs.tabs.find((candidate) => candidate.key === tabs.active);
-    const fromTab = tab === undefined ? undefined : isDatabaseTab(tab) ? { connectionId: tab.connectionId, schema: tab.schema } : tab.console;
+    const fromTab =
+        tab === undefined ? undefined : isDatabaseTab(tab) ? { connectionId: tab.connectionId, schema: tab.schema } : isFileTab(tab) ? tab.console : undefined;
     if (fromTab !== undefined && known.has(fromTab.connectionId)) {
         return fromTab;
     }

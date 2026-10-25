@@ -64,6 +64,7 @@ import {
     Minus,
     Moon,
     MousePointer2,
+    Package,
     PanelBottom,
     PanelLeft,
     PanelRight,
@@ -520,6 +521,12 @@ const TABLE = {
         icon: Folder,
         palette: true,
         menu: { menu: 'view', group: 'panels', order: 10, when: (context) => !context.scratch, checked: (context) => context.panel === 'files' }
+    },
+    'panel-output': {
+        key: 'toggleOutput',
+        icon: Package,
+        palette: true,
+        menu: { menu: 'view', group: 'panels', order: 15, checked: (context) => context.panel === 'output' }
     },
     'panel-databases': {
         key: 'toggleDatabases',

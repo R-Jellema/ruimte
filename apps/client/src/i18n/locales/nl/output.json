@@ -1,0 +1,125 @@
+{
+    "kinds": {
+        "report": "Rapport",
+        "image": "Afbeelding",
+        "build": "Build",
+        "export": "Export",
+        "recording": "Opname",
+        "page": "Pagina"
+    },
+    "panel": {
+        "search": "Output doorzoeken",
+        "filters": "Filters",
+        "reset": "Herstellen",
+        "loading": "Output lezen",
+        "failed": "Output kon niet van deze machine gelezen worden.",
+        "tooOld": "Deze machine draait een oudere Ruimte. Werk hem bij om daar Output te bewaren.",
+        "emptyTitle": "Nog niets bewaard",
+        "empty": "Een agent publiceert een resultaat naar Output, en jij bewaart een pagina of afbeelding uit een chat met Bewaar in Output.",
+        "noMatch": "Niets past bij deze filters.",
+        "shown_one": "{{count}} getoond, {{size}}",
+        "shown_other": "{{count}} getoond, {{size}}",
+        "versions_one": "{{count}} versie",
+        "versions_other": "{{count}} versies",
+        "older_one": "{{count}} oudere versie",
+        "older_other": "{{count}} oudere versies",
+        "showVersions": "Versies tonen",
+        "hideVersions": "Versies verbergen",
+        "groups": {
+            "today": "Vandaag",
+            "week": "Deze week",
+            "earlier": "Eerder"
+        },
+        "filter": {
+            "allProjects": "Alle projecten",
+            "thisProject": "{{name}} (dit project)",
+            "allKinds": "Alle soorten",
+            "anySource": "Elke bron",
+            "anyRoutine": "Elke routine",
+            "anyTime": "Altijd",
+            "anySize": "Elke grootte",
+            "sources": {
+                "agent": "Agents",
+                "person": "Jij",
+                "routine": "Routines"
+            },
+            "dates": {
+                "today": "Vandaag",
+                "week": "Afgelopen 7 dagen",
+                "month": "Afgelopen 30 dagen",
+                "older": "Ouder dan 30 dagen"
+            },
+            "sizes": {
+                "1mb": "Meer dan 1 MB",
+                "100mb": "Meer dan 100 MB",
+                "1gb": "Meer dan 1 GB"
+            }
+        }
+    },
+    "source": {
+        "agent": "door een agent",
+        "person": "door jou bewaard",
+        "routine": "door een routine"
+    },
+    "view": {
+        "failed": "Dit artefact kon niet getoond worden",
+        "loading": "Artefact lezen",
+        "gone": "Dit artefact staat niet meer op deze machine.",
+        "versionGone": "Verwijderd bij een opruiming",
+        "versionGoneDetail": "Deze versie staat niet meer op deze machine. De andere staan er nog.",
+        "unreachable": "De machine is niet bereikbaar. Output blijft daar staan en verschijnt hier weer zodra hij terug is.",
+        "versions": "Versies",
+        "pickBase": "Kies een basis",
+        "latest": "Nieuwste",
+        "base": "Basis",
+        "compare": "Vergelijken",
+        "compareOff": "Vergelijken kan bij een rapport van één tekstbestand",
+        "noChange": "Deze twee versies zijn gelijk.",
+        "copyToProject": "Kopiëren naar project",
+        "info": "Waar het vandaan komt",
+        "download": "Downloaden",
+        "downloadFailed": "Het bestand kon niet gedownload worden",
+        "readFailed": "Dit bestand kon niet gelezen worden",
+        "noPreview": "Deze soort heeft geen voorbeeld. Download een bestand of kopieer het naar het project.",
+        "files": "Bestanden"
+    },
+    "info": {
+        "maker": "Gemaakt",
+        "makers": {
+            "agent": "Door een agent",
+            "person": "Door jou",
+            "routine": "Door een routine"
+        },
+        "chat": "Chat",
+        "chatRemoved": "Chat verwijderd",
+        "chatElsewhere": "Een chat op deze machine",
+        "turn": "Turn",
+        "task": "Taak",
+        "machine": "Machine",
+        "key": "Sleutel",
+        "copiedTo": "Gekopieerd naar",
+        "note": "De machine schreef dit op toen de versie bewaard werd. Een agent kan het niet zetten of veranderen.",
+        "kept": "Bewaard",
+        "keptText": "Tot je het verwijdert. Alleen op deze machine, nooit in het project of bij je team."
+    },
+    "copy": {
+        "title": "Kopiëren naar project",
+        "description": "Een kopie van deze versie gaat naar {{project}}. Git ziet het vanaf dan als een nieuw bestand.",
+        "folder": "Map",
+        "name": "Naam",
+        "folderName": "Mapnaam",
+        "several": "De {{count}} bestanden van deze versie gaan in een map met deze naam.",
+        "exists": "{{path}} bestaat al. Ruimte overschrijft nooit een bestand.",
+        "invalidName": "Geef het bestand een naam.",
+        "copy": "Kopiëren",
+        "copied": "Gekopieerd naar {{path}}",
+        "failed": "De kopie is niet gelukt"
+    },
+    "chat": {
+        "made": "Gemaakt in deze chat",
+        "open": "Output openen",
+        "save": "Bewaar in Output",
+        "saved": "Bewaard in Output",
+        "saveFailed": "Dit kon niet in Output bewaard worden"
+    }
+}

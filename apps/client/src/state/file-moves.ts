@@ -2,7 +2,7 @@ import i18next from 'i18next';
 import type { Transport } from '@/transport/transport';
 import { followViewStates } from '@adecore/editor-react';
 import { useDocument } from '@/state/document';
-import { isDatabaseTab, useFiles } from '@/state/files';
+import { isFileTab, useFiles } from '@/state/files';
 import { endpointKey, splitKey } from '@/state/keys';
 import { isUnsavedDraft, textDrafts, useTextDrafts, type TextDrafts } from '@/state/text-drafts';
 import { basenameOf, isPathBelow } from '@/shell/panels/files-tree';
@@ -34,7 +34,7 @@ export function forgetDeleted(endpointId: string, path: string, drafts: TextDraf
         drafts.discard(endpointId, draftPath);
     }
     for (const tab of useFiles.getState().tabs) {
-        if (!isDatabaseTab(tab) && (tab.path === path || isPathBelow(path, tab.path))) {
+        if (isFileTab(tab) && (tab.path === path || isPathBelow(path, tab.path))) {
             useFiles.getState().close(tab.key);
         }
     }

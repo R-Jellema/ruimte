@@ -6,9 +6,10 @@ import { fixedSlot, FileToolbarSlotProvider, useFileToolbarSlot } from '@/shell/
 import { keptTabs, shownAfter } from '@/shell/panels/kept-tabs';
 import { ErrorBoundary, lazyNamed, LazyBoundary } from '@adecore/ui';
 import { basenameOf } from '@/shell/panels/files-tree';
-import { isDatabaseTab, useFiles, type Tab } from '@/state/files';
+import { isArtifactTab, isDatabaseTab, useFiles, type Tab } from '@/state/files';
 
 const DatabaseTabBody = lazyNamed(() => import('@/database/DatabaseTabBody'), 'DatabaseTabBody');
+const ArtifactView = lazyNamed(() => import('@/output/ArtifactView'), 'ArtifactView');
 
 /*
  * One tab the viewer keeps drawn. One that is not up is invisible and inert, and its controls go into a
@@ -33,6 +34,7 @@ function KeptTab({ up, children }: { up: boolean; children: ReactNode }) {
  */
 export function FileViewer({ active, ids }: { active: string | null; ids: readonly string[] }) {
     const { t } = useTranslation('databases');
+    const { t: to } = useTranslation('output');
     const pool = useFiles((s) => s.tabs);
     const unsubmitted = useFiles((s) => s.unsubmitted);
     const [shown, setShown] = useState<readonly string[]>([]);
@@ -56,6 +58,12 @@ export function FileViewer({ active, ids }: { active: string | null; ids: readon
                         <ErrorBoundary label={t('tab.failed')} resetKeys={[entry.key]} className="h-full">
                             <LazyBoundary>
                                 <DatabaseTabBody tab={entry} />
+                            </LazyBoundary>
+                        </ErrorBoundary>
+                    ) : isArtifactTab(entry) ? (
+                        <ErrorBoundary label={to('view.failed')} resetKeys={[entry.key]} className="h-full">
+                            <LazyBoundary>
+                                <ArtifactView artifactId={entry.artifactId} />
                             </LazyBoundary>
                         </ErrorBoundary>
                     ) : entry.view ? (

@@ -40,8 +40,19 @@ export type DatabaseTab =
     | (DatabaseTabBase & { kind: 'structure'; table: string; tableKind?: TableKind })
     | (DatabaseTabBase & { kind: 'designer'; table?: string });
 
+/* A version of an artifact in Output, read by its id from the machine; never a path. */
+export interface ArtifactTab {
+    /* `artifact:` and the artifact's id, so an artifact is open once. */
+    key: string;
+    kind: 'artifact';
+    pinned: boolean;
+    artifactId: string;
+    /* The name the tab carries until the machine answered. */
+    title: string;
+}
+
 /* One loose view: a tab of a tab host that has no row in the sidebar. */
-export type Tab = FileTab | DatabaseTab;
+export type Tab = FileTab | DatabaseTab | ArtifactTab;
 
 /* The content of the loose views, in the order they were opened. Where they stand is the layout's. */
 export interface TabPool {
@@ -54,21 +65,44 @@ export interface TabState extends TabPool {
 }
 
 export function isDatabaseTab(tab: Tab): tab is DatabaseTab {
-    return 'kind' in tab;
+    return 'kind' in tab && tab.kind !== 'artifact';
 }
 
-/* The file tab under a key, or undefined for a database tab or a key that is not open. */
+export function isArtifactTab(tab: Tab): tab is ArtifactTab {
+    return 'kind' in tab && tab.kind === 'artifact';
+}
+
+export function isFileTab(tab: Tab): tab is FileTab {
+    return !('kind' in tab);
+}
+
+const ARTIFACT_TAB_PREFIX = 'artifact:';
+
+export function artifactTabKey(artifactId: string): string {
+    return `${ARTIFACT_TAB_PREFIX}${artifactId}`;
+}
+
+/* The file tab under a key, or undefined for another kind of tab or a key that is not open. */
 export function fileTabOf(state: TabPool, key: string | null): FileTab | undefined {
     const tab = state.tabs.find((entry) => entry.key === key);
-    return tab === undefined || isDatabaseTab(tab) ? undefined : tab;
+    return tab === undefined || !isFileTab(tab) ? undefined : tab;
 }
 
-/* A tab that can become a row of the sidebar: a file and a table, not a diff, a commit or the designer of a table that is not there yet. */
+/* A tab that can become a row of the sidebar: a file and a table, not a diff, a commit, an artifact or the designer of a table that is not there yet. */
 export function isPromotableTab(tab: Tab | undefined): boolean {
-    if (tab === undefined) {
+    if (tab === undefined || isArtifactTab(tab)) {
         return false;
     }
     return isDatabaseTab(tab) ? tab.kind !== 'designer' : tab.view === undefined;
+}
+
+/* The artifact tab already open, or a new one at the end of the pool; either way in front. */
+export function openArtifactTab(state: TabPool, artifactId: string, title: string): TabState {
+    const key = artifactTabKey(artifactId);
+    if (state.tabs.some((tab) => tab.key === key)) {
+        return { tabs: state.tabs, active: key };
+    }
+    return placeTab(state, { key, kind: 'artifact', pinned: false, artifactId, title });
 }
 
 /* A base diff of the checkout itself rather than of a file in it: everything a worktree holds over where it came from. */
@@ -132,7 +166,7 @@ export function openTab(state: TabPool, path: string, view?: FileTabView): Opene
     if (view) {
         /* Changes share one tab, the way a review pane works: the next change opens in the diff tab
            nobody pinned, and only a pin makes a diff stay while another one is looked at. */
-        const reused = state.tabs.findIndex((tab) => !isDatabaseTab(tab) && tab.view !== undefined && !tab.pinned);
+        const reused = state.tabs.findIndex((tab) => isFileTab(tab) && tab.view !== undefined && !tab.pinned);
         if (reused >= 0) {
             const tabs = [...state.tabs];
             const was = tabs[reused]!.key;
@@ -155,7 +189,7 @@ export function pinTab(state: TabPool, key: string, pinned: boolean): TabPool {
 export function moveTabs(state: TabPool, from: string, to: string): TabPool & { renamed: Map<string, string> } {
     const renamed = new Map<string, string>();
     const tabs = state.tabs.map((tab) => {
-        if (isDatabaseTab(tab)) {
+        if (!isFileTab(tab)) {
             return tab;
         }
         const path = tab.path === from ? to : isPathBelow(from, tab.path) ? `${to}${tab.path.slice(from.length)}` : null;
@@ -242,7 +276,7 @@ function sameTarget(left: ClosedTab, right: ClosedTab): boolean {
  * the designer of a table nobody made yet has nothing to go back to either.
  */
 export function rememberClosed(recent: readonly ClosedTab[], tab: Tab | undefined): ClosedTab[] {
-    if (tab === undefined || (!isDatabaseTab(tab) && tab.view !== undefined) || (isDatabaseTab(tab) && tab.table === undefined)) {
+    if (tab === undefined || isArtifactTab(tab) || (isFileTab(tab) && tab.view !== undefined) || (isDatabaseTab(tab) && tab.table === undefined)) {
         return [...recent];
     }
     const closed: ClosedTab = isDatabaseTab(tab) ? { ...tab, pinned: false } : { kind: 'file', path: tab.path };
@@ -488,7 +522,7 @@ export const useFiles = create<FilesStore>((set, get) => {
             return true;
         },
         keepsOpen(tab) {
-            return isDatabaseTab(tab) ? get().unsubmitted[tab.key] === true : tab.view === undefined && textDrafts.isUnsaved(currentEndpointId(), tab.path);
+            return !isFileTab(tab) ? get().unsubmitted[tab.key] === true : tab.view === undefined && textDrafts.isUnsaved(currentEndpointId(), tab.path);
         },
         moved(from, to) {
             const { renamed, ...next } = moveTabs(get(), from, to);
@@ -504,7 +538,7 @@ export const useFiles = create<FilesStore>((set, get) => {
                 set({ discarding: key });
                 return;
             }
-            if (tab === undefined || isDatabaseTab(tab)) {
+            if (tab === undefined || !isFileTab(tab)) {
                 closeNow(key);
                 return;
             }
@@ -560,11 +594,11 @@ export const useFiles = create<FilesStore>((set, get) => {
             set(pinTab(get(), key, pinned));
         },
         setScope(key, scope) {
-            set({ tabs: get().tabs.map((tab) => (!isDatabaseTab(tab) && tab.key === key && tab.view ? { ...tab, view: { ...tab.view, scope } } : tab)) });
+            set({ tabs: get().tabs.map((tab) => (isFileTab(tab) && tab.key === key && tab.view ? { ...tab, view: { ...tab.view, scope } } : tab)) });
         },
         /* Staging a file from its own diff moves the tab to the side of the index it now sits on. */
         setStaged(key, staged) {
-            set({ tabs: get().tabs.map((tab) => (!isDatabaseTab(tab) && tab.key === key && tab.view ? { ...tab, view: { ...tab.view, staged } } : tab)) });
+            set({ tabs: get().tabs.map((tab) => (isFileTab(tab) && tab.key === key && tab.view ? { ...tab, view: { ...tab.view, staged } } : tab)) });
         },
         setConsole(key, binding) {
             set(bindConsole(get(), key, binding));

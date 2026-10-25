@@ -5,7 +5,7 @@ import {
     closeTab,
     correctTableKind,
     fileTabOf,
-    isDatabaseTab,
+    isFileTab,
     moveTabs,
     openTab,
     pinTab,
@@ -37,7 +37,7 @@ function pool(paths: string[]): TabPool {
 
 /* What names a tab: a file by its path, a database view by its key. */
 function nameOf(entry: Tab): string {
-    return isDatabaseTab(entry) ? entry.key : entry.path;
+    return isFileTab(entry) ? entry.path : entry.key;
 }
 
 function paths(next: TabPool): string[] {

@@ -8,7 +8,7 @@ import {
 } from '@ruimte/contracts';
 import { databaseTabId, databaseTabKey } from '@/database/tabs';
 import type { LooseStrip } from '@/shell/legacy-files-cell';
-import { isDatabaseTab, tabKey, type DatabaseTab, type FileTab, type Tab } from '@/state/files';
+import { artifactTabKey, isArtifactTab, isDatabaseTab, isFileTab, tabKey, type DatabaseTab, type FileTab, type Tab } from '@/state/files';
 import { DEFAULT_LOG_HEIGHT, DEFAULT_SCOPE } from '@/state/git';
 import type { PanelDefaults, PanelKind } from '@/state/ui';
 
@@ -39,6 +39,9 @@ function storedPanelKind(stored: ProjectPanels, kind: ProjectPanelKind): PanelKi
     if (stored.databasesPanel === true) {
         return 'databases';
     }
+    if (stored.outputPanel === true) {
+        return 'output';
+    }
     return stored.launchesPanel === true ? 'launches' : kind;
 }
 
@@ -56,6 +59,9 @@ function tabOf(stored: ProjectStripTab): Tab {
     if (stored.kind === 'file') {
         return fileTabOf(stored);
     }
+    if (stored.kind === 'artifact') {
+        return { ...stored, key: artifactTabKey(stored.artifactId) };
+    }
     const { id, ...tab } = stored;
     return { ...tab, key: databaseTabKey(id) };
 }
@@ -64,7 +70,7 @@ function tabOf(stored: ProjectStripTab): Tab {
 function oldDatabaseTabOf(stored: unknown): Tab | null {
     const entry = typeof stored === 'object' && stored !== null ? (stored as Record<string, unknown>) : {};
     const parsed = ProjectStripTabSchema.safeParse({ ...entry, pinned: false });
-    return parsed.success && parsed.data.kind !== 'file' ? tabOf(parsed.data) : null;
+    return parsed.success && parsed.data.kind !== 'file' && parsed.data.kind !== 'artifact' ? tabOf(parsed.data) : null;
 }
 
 /*
@@ -112,6 +118,9 @@ function storedDatabaseTab(tab: DatabaseTab): ProjectStripTab {
 }
 
 function storedTab(tab: Tab): ProjectStripTab {
+    if (isArtifactTab(tab)) {
+        return { kind: 'artifact', artifactId: tab.artifactId, title: tab.title, pinned: tab.pinned };
+    }
     return isDatabaseTab(tab) ? storedDatabaseTab(tab) : { kind: 'file', ...storedFileTab(tab) };
 }
 
@@ -153,20 +162,21 @@ export function parsePanels(stored: ProjectPanels | undefined, defaults: PanelsS
 /* The other way, for the machine-local file. A width nobody dragged stays out of it. */
 export function serializePanels(state: PanelsState): ProjectPanels {
     return {
-        // A client from before launches or databases reads the files panel in its place.
+        // A client from before launches, databases or output reads the files panel in its place.
         panel:
-            state.panel.kind === 'launches' || state.panel.kind === 'databases'
+            state.panel.kind === 'launches' || state.panel.kind === 'databases' || state.panel.kind === 'output'
                 ? { open: state.panel.open, kind: 'files' }
                 : state.panel.kind === 'problems'
                   ? { open: false, kind: 'files' }
                   : { open: state.panel.open, kind: state.panel.kind },
         ...(state.panel.kind === 'launches' ? { launchesPanel: true } : {}),
         ...(state.panel.kind === 'databases' ? { databasesPanel: true } : {}),
+        ...(state.panel.kind === 'output' ? { outputPanel: true } : {}),
         ...(state.panelWidth === null ? {} : { panelWidth: Math.round(state.panelWidth) }),
         ...(state.planAnchor === null ? {} : { plan: state.planAnchor }),
         ...(state.planWidth === null ? {} : { planWidth: Math.round(state.planWidth) }),
         // A client from before the strip reads the file tabs alone.
-        tabs: state.tabs.filter((tab): tab is FileTab => !isDatabaseTab(tab)).map(storedFileTab),
+        tabs: state.tabs.filter(isFileTab).map(storedFileTab),
         activeTab: state.active,
         strip: state.tabs.map(storedTab),
         expandedDirs: state.expandedDirs,

@@ -55,6 +55,7 @@
         "failed": "Dit paneel kon niet worden getoond",
         "names": {
             "files": "Bestanden",
+            "output": "Output",
             "git": "Git",
             "databases": "Databases",
             "devices": "Apparaten",
@@ -626,6 +627,7 @@
             "drawingSaveSvg": "Tekening als SVG opslaan",
             "toggleSidebar": "Zijbalk aan of uit",
             "toggleFiles": "Bestandenpaneel aan of uit",
+            "toggleOutput": "Outputpaneel aan of uit",
             "toggleGit": "Git-paneel aan of uit",
             "toggleDatabases": "Databasepaneel aan of uit",
             "newDatabaseConsole": "Nieuwe databaseconsole",
@@ -882,6 +884,7 @@
         "searchSettings": "Instellingen zoeken",
         "toggleSidebar": "Zijbalk",
         "toggleFiles": "Bestanden",
+        "toggleOutput": "Output",
         "toggleGit": "Git",
         "toggleDatabases": "Databases",
         "devices": "Apparaten",

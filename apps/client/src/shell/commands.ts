@@ -571,6 +571,7 @@ export function appCommands(prRepos: readonly PrRepo[] = prReposOfCurrent()): Co
         ...(inWorkspace
             ? [
                   row('sidebar', () => useUi.getState().toggleSidebar()),
+                  row('panel-output', () => useUi.getState().togglePanel('output')),
                   ...(scratch
                       ? []
                       : [

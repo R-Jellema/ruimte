@@ -23,7 +23,9 @@ export type MachineResource =
     | { kind: 'file'; path: string; mtime: number; size: number }
     | { kind: 'media'; path: string; mtime: number; size: number }
     // An entry of the archive at `path`, pinned by the archive's own mtime and size.
-    | { kind: 'archive-entry'; path: string; entry: string; mtime: number; size: number };
+    | { kind: 'archive-entry'; path: string; entry: string; mtime: number; size: number }
+    // A file of a saved version of Output, which never changes; it has no route of its own and always comes as pieces.
+    | { kind: 'artifact'; artifactId: string; versionId: string; file: number };
 
 export type MachineUrl = BlobState;
 
@@ -42,7 +44,7 @@ const NOTHING: MachineUrl = { url: null, failure: null };
 export function httpUrlFor(endpointId: string, resource: MachineResource): string | null {
     const endpoint = endpointById(endpointId);
     // An entry is unpacked by the machine whole, so it has no route of its own and always comes as pieces.
-    if (!endpoint || resource.kind === 'archive-entry') {
+    if (!endpoint || resource.kind === 'archive-entry' || resource.kind === 'artifact') {
         return null;
     }
     const credential = credentialFor(endpoint);
@@ -72,6 +74,9 @@ function wireResourceOf(resource: MachineResource): ByteResource {
     }
     if (resource.kind === 'archive-entry') {
         return { kind: 'file', path: resource.path, entry: resource.entry };
+    }
+    if (resource.kind === 'artifact') {
+        return { kind: 'artifact', artifactId: resource.artifactId, versionId: resource.versionId, file: resource.file };
     }
     return { kind: 'file', path: resource.path };
 }
@@ -112,6 +117,9 @@ export function machineResourceKey(endpointId: string, resource: MachineResource
     if (resource.kind === 'archive-entry') {
         return JSON.stringify([endpointId, resource.kind, resource.path, resource.entry, resource.mtime, resource.size]);
     }
+    if (resource.kind === 'artifact') {
+        return JSON.stringify([endpointId, resource.kind, resource.artifactId, resource.versionId, resource.file]);
+    }
     return JSON.stringify([endpointId, resource.kind, resource.path, resource.mtime, resource.size]);
 }
 
@@ -126,7 +134,7 @@ export function useMachineUrl(resource: MachineResource | null, endpointId?: str
     const machineId = endpointId ?? activeId;
     const direct = useEndpoints((s) => s.endpoints.find((entry) => entry.id === machineId)?.direct === true);
     // One way per kind: an archive entry comes in pieces over any link, everything else over HTTP unless the link is direct.
-    const pieced = direct || resource?.kind === 'archive-entry';
+    const pieced = direct || resource?.kind === 'archive-entry' || resource?.kind === 'artifact';
     const open = useEndpointConnection(machineId).status === 'open';
     const key = resource === null ? null : machineResourceKey(machineId, resource);
     // What the request asks for, as a string, so the dependency is stable where `resource` is a new object on every render.

@@ -38330,6 +38330,9 @@
                 "required": [
                   "scope"
                 ]
+              },
+              "outputPanel": {
+                "type": "boolean"
               }
             }
           },
@@ -41980,6 +41983,9 @@
                 "required": [
                   "scope"
                 ]
+              },
+              "outputPanel": {
+                "type": "boolean"
               }
             }
           },

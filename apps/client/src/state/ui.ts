@@ -19,8 +19,8 @@ export type SettingsSectionId =
     | 'machines'
     | 'about';
 
-/* Launches and databases are kinds the project's file does not know, so each is stored beside `panel` (`launchesPanel`, `databasesPanel`). Problems is one too, and only for this session: the file stores it as closed. */
-export type PanelKind = ProjectPanelKind | 'launches' | 'databases' | 'problems';
+/* Launches, databases and output are kinds the project's file does not know, so each is stored beside `panel` (`launchesPanel`, `databasesPanel`, `outputPanel`). Problems is one too, and only for this session: the file stores it as closed. */
+export type PanelKind = ProjectPanelKind | 'launches' | 'databases' | 'output' | 'problems';
 
 const PANEL_KINDS: readonly PanelKind[] = ['files', 'git', 'processes', 'devices'];
 

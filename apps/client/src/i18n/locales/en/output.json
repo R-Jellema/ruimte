@@ -1,0 +1,125 @@
+{
+    "kinds": {
+        "report": "Report",
+        "image": "Image",
+        "build": "Build",
+        "export": "Export",
+        "recording": "Recording",
+        "page": "Page"
+    },
+    "panel": {
+        "search": "Search Output",
+        "filters": "Filters",
+        "reset": "Reset",
+        "loading": "Reading Output",
+        "failed": "Output could not be read from this machine.",
+        "tooOld": "This machine runs an older Ruimte. Update it to keep Output there.",
+        "emptyTitle": "Nothing saved yet",
+        "empty": "An agent publishes a result to Output, and you save a page or an image from a chat with Save to Output.",
+        "noMatch": "Nothing matches these filters.",
+        "shown_one": "{{count}} shown, {{size}}",
+        "shown_other": "{{count}} shown, {{size}}",
+        "versions_one": "{{count}} version",
+        "versions_other": "{{count}} versions",
+        "older_one": "{{count}} older version",
+        "older_other": "{{count}} older versions",
+        "showVersions": "Show versions",
+        "hideVersions": "Hide versions",
+        "groups": {
+            "today": "Today",
+            "week": "This week",
+            "earlier": "Earlier"
+        },
+        "filter": {
+            "allProjects": "All projects",
+            "thisProject": "{{name}} (this project)",
+            "allKinds": "All kinds",
+            "anySource": "Any source",
+            "anyRoutine": "Any routine",
+            "anyTime": "Any time",
+            "anySize": "Any size",
+            "sources": {
+                "agent": "Agents",
+                "person": "You",
+                "routine": "Routines"
+            },
+            "dates": {
+                "today": "Today",
+                "week": "Last 7 days",
+                "month": "Last 30 days",
+                "older": "Older than 30 days"
+            },
+            "sizes": {
+                "1mb": "Over 1 MB",
+                "100mb": "Over 100 MB",
+                "1gb": "Over 1 GB"
+            }
+        }
+    },
+    "source": {
+        "agent": "by an agent",
+        "person": "saved by you",
+        "routine": "by a routine"
+    },
+    "view": {
+        "failed": "This artifact could not be shown",
+        "loading": "Reading the artifact",
+        "gone": "This artifact is no longer on this machine.",
+        "versionGone": "Removed in a cleanup",
+        "versionGoneDetail": "This version is no longer on this machine. The others are still here.",
+        "unreachable": "The machine is not reachable. Output stays on it and shows here again once it is back.",
+        "versions": "Versions",
+        "pickBase": "Pick a base",
+        "latest": "Latest",
+        "base": "Base",
+        "compare": "Compare",
+        "compareOff": "Compare is for a report of one text file",
+        "noChange": "These two versions are the same.",
+        "copyToProject": "Copy to project",
+        "info": "Where it came from",
+        "download": "Download",
+        "downloadFailed": "The file could not be downloaded",
+        "readFailed": "This file could not be read",
+        "noPreview": "This kind has no preview. Download a file or copy it into the project.",
+        "files": "Files"
+    },
+    "info": {
+        "maker": "Made",
+        "makers": {
+            "agent": "By an agent",
+            "person": "By you",
+            "routine": "By a routine"
+        },
+        "chat": "Chat",
+        "chatRemoved": "Chat removed",
+        "chatElsewhere": "A chat on this machine",
+        "turn": "Turn",
+        "task": "Task",
+        "machine": "Machine",
+        "key": "Key",
+        "copiedTo": "Copied to",
+        "note": "The machine wrote this record when the version was saved. An agent cannot set or change it.",
+        "kept": "Kept",
+        "keptText": "Until you remove it. Only on this machine, never in the project or with your team."
+    },
+    "copy": {
+        "title": "Copy to project",
+        "description": "A copy of this version goes into {{project}}. Git sees it as a new file from then on.",
+        "folder": "Folder",
+        "name": "Name",
+        "folderName": "Folder name",
+        "several": "The {{count}} files of this version go into a folder of this name.",
+        "exists": "{{path}} exists. Ruimte never overwrites a file.",
+        "invalidName": "Give the file a name.",
+        "copy": "Copy",
+        "copied": "Copied to {{path}}",
+        "failed": "The copy did not go through"
+    },
+    "chat": {
+        "made": "Made in this chat",
+        "open": "Open Output",
+        "save": "Save to Output",
+        "saved": "Saved to Output",
+        "saveFailed": "This could not be saved to Output"
+    }
+}
