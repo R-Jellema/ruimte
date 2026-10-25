@@ -1,9 +1,24 @@
 import { useTranslation } from 'react-i18next';
-import { FileText, Globe, LayoutGrid, Maximize, MessageSquare, Minus, Scan, SquareDashedMousePointer, StickyNote, Terminal, Type } from 'lucide-react';
+import {
+    CalendarClock,
+    FileText,
+    Globe,
+    LayoutGrid,
+    Maximize,
+    MessageSquare,
+    Minus,
+    Scan,
+    SquareDashedMousePointer,
+    StickyNote,
+    Terminal,
+    Type
+} from 'lucide-react';
 import { createNodeAction, createTextAction, fitAction, groupSelectionAction, selectAllAction } from '@/actions/client-actions';
 import { AgentSubmenus } from '@/agents/AgentMenus';
 import type { Point } from '@/canvas/math';
 import { RemoteMachineItems } from '@/canvas/RemoteMachineItems';
+import { openRoutineForm } from '@/routines/form-state';
+import { useMachineAnswers } from '@/transport/features';
 import { useCanvas, useCanvasStore } from '@/state/canvas';
 import { shownFolderOf, useProject } from '@/state/project';
 import { useUi } from '@/state/ui';
@@ -17,6 +32,9 @@ export function CanvasMenuPopup({ at }: { at: () => Point }) {
     const hasSelection = useCanvas((s) => s.selection.length > 0);
     /* A file comes out of the open folder, so a project without one has nothing to pick from. */
     const hasFolder = useProject((s) => shownFolderOf(s.current) !== null);
+    // The workspace's machine, not a remote node's: a routine belongs to the project.
+    const projectId = useProject((s) => s.current?.projectId ?? null);
+    const routines = useMachineAnswers(useProject((s) => s.currentEndpointId) ?? '', 'routine.list');
     const add = (kind: 'terminal' | 'chat' | 'browser' | 'group' | 'note'): void => {
         void createNodeAction(kind, { at: at() });
     };
@@ -33,6 +51,11 @@ export function CanvasMenuPopup({ at }: { at: () => Point }) {
                 <ContextMenu.Item onClick={() => add('browser')}>
                     <Icon icon={Globe} size={14} /> {t('kinds.browser')} <Kbd shortcut={ADD_NODE_SHORTCUTS.browser} />
                 </ContextMenu.Item>
+                {routines && projectId !== null && (
+                    <ContextMenu.Item onClick={() => openRoutineForm({ projectId })}>
+                        <Icon icon={CalendarClock} size={14} /> {t('canvasMenu.routine')}
+                    </ContextMenu.Item>
+                )}
                 <ContextMenu.Item onClick={() => add('group')}>
                     <Icon icon={LayoutGrid} size={14} /> {t('kinds.group')} <Kbd shortcut={ADD_NODE_SHORTCUTS.group} />
                 </ContextMenu.Item>

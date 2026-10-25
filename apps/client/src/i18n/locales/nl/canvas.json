@@ -119,6 +119,7 @@
     "canvasMenu": {
         "addHere": "Hier toevoegen",
         "file": "Bestand…",
+        "routine": "Routine…",
         "groupSelection": "Selectie groeperen",
         "zoomToFit": "Passend zoomen"
     },
