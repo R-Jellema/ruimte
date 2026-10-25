@@ -5,7 +5,7 @@ import { AGENT_KINDS, REGISTRY_KINDS_LINE, agentKindField, chatKinds } from './a
 import { DEPTH_LIMIT_LINES } from './depth.ts';
 import { readsFlag, readsLines } from './link-verb.ts';
 import { modeFlag } from '@adecore/agents/providers';
-import { MODE_LINES } from './mode.ts';
+import { MODE_FLAG_HELP, MODE_LINES } from './mode.ts';
 import { MACHINE_LINES } from './remote-agent.ts';
 import { effortFlag, modelFlag, modelLines } from './model.ts';
 import { MAX_CANVAS_NODES, idList } from './nodes.ts';
@@ -106,7 +106,7 @@ export const agentVerb = defineStandaloneActionVerb({
             field: 'effort',
             more: "one the model offers, as the model lines list them; omitted keeps the person's last pick when the model offers it, else the model's default. Refused for terminals"
         },
-        { syntax: '--mode M', need: 'optional', field: 'mode' },
+        { syntax: '--mode M', need: 'optional', field: 'mode', more: MODE_FLAG_HELP },
         { syntax: '--worktree', need: 'no value', field: 'worktree', more: 'not together with --cwd' },
         {
             syntax: '--branch B',

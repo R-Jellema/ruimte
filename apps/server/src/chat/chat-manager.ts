@@ -3,8 +3,8 @@ import { mkdirSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import type {
-    AgentKind,
     ChatAttachment,
+    ChatCreatePayload,
     ChatEvent,
     ChatInfo,
     ChatItem,
@@ -18,7 +18,6 @@ import type {
     ChatUiQueryReading,
     ChatVisual,
     ContextSource,
-    ModelSelection,
     RuntimeMode,
     Task
 } from '@ruimte/contracts';
@@ -71,8 +70,8 @@ interface ChatManagerOptions extends ChatCoreOptions {
     visualReplies?: () => boolean;
     // Whether the chat's project has database connections, read when a chat's CLI starts.
     databases?: (chatId: string) => boolean;
-    // A client may create an agent chat before the outbox starts it; the explicit model still wins.
-    openingSelection?: (chatId: string, provider: AgentKind) => ModelSelection | undefined;
+    // A client may open an agent before its outbox start; the planned configuration wins over client defaults.
+    openingAgent?: (chatId: string) => ChatCreatePayload | undefined;
     // The sources themselves, so a chat can name them to its agent and tell it what came and went between turns.
     contextSources?: (chatId: string) => ContextSource[];
     // The name of a chat of the same project, for a message a person attached it to; null for any other id.
@@ -216,7 +215,7 @@ export class ChatManager extends ChatCore {
     private readonly computer: () => boolean;
     private readonly visualReplies: () => boolean;
     private readonly databases: (chatId: string) => boolean;
-    private readonly opening: NonNullable<ChatManagerOptions['openingSelection']>;
+    private readonly opening: NonNullable<ChatManagerOptions['openingAgent']>;
     private readonly contextSources: (chatId: string) => ContextSource[];
     private readonly chatTitle: (chatId: string, id: string) => string | null;
     private readonly messageNotes: ((chatId: string) => PromptNotes) | null;
@@ -259,7 +258,6 @@ export class ChatManager extends ChatCore {
                 referencesFor: (chatId) => this.referencesFor(chatId),
                 envFor: (chatId, base) => this.envFor(chatId, base),
                 admit: (chatId, cwd) => this.checkCwd(chatId, cwd),
-                openingSelection: (chatId, kind) => this.opening(chatId, kind),
                 runtimeModeFor: (chatId, mode) => this.runtimeModeFor(chatId, mode),
                 opened: (session, stored) => this.opened(session, stored),
                 recordExtras: (chatId) => {
@@ -284,7 +282,7 @@ export class ChatManager extends ChatCore {
         this.computer = options.computer ?? (() => false);
         this.visualReplies = options.visualReplies ?? (() => false);
         this.databases = options.databases ?? (() => false);
-        this.opening = options.openingSelection ?? (() => undefined);
+        this.opening = options.openingAgent ?? (() => undefined);
         this.contextSources = options.contextSources ?? (() => []);
         this.chatTitle = options.chatTitle ?? (() => null);
         this.messageNotes = options.messageNotes ?? null;
@@ -305,6 +303,10 @@ export class ChatManager extends ChatCore {
 
     chatIdForToken(token: string): string | null {
         return this.tokens.get(token) ?? null;
+    }
+
+    override create(payload: ChatCreatePayload): Promise<ChatInfo> {
+        return super.create({ ...payload, ...this.opening(payload.chatId) });
     }
 
     forkSource(chatId: string): Promise<{ info: ChatInfo; items: ChatItem[] } | null> {

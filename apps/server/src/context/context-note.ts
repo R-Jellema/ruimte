@@ -51,6 +51,9 @@ const CANVAS_NODE_NOTE =
    beside this one, so the difference between answering yourself and hiding the work is spelled out. */
 const NOT_A_SUBAGENT = 'An agent the person asks for is one of these, never a subagent of your own.';
 
+const AGENT_PERMISSION_NOTE =
+    'Leave `--mode` out unless the person explicitly requests a different permission mode. Chat agents inherit your mode; a read-only or review assignment does not imply `supervised`.';
+
 /*
  * What the verb opens, with the reason not to reach for it: a model that reads only what it can do
  * opens a team for work it could have answered itself, and every agent leaves a node behind.
@@ -164,6 +167,7 @@ export function verbsNote({
             ...(depth < MAX_AGENT_DEPTH
                 ? [
                       `For an agent or model the person names, use \`ruimte-context agent <cli> --task <title> --prompt <assignment>\`, with <cli> one of ${CLI_NAMES}${depth < MAX_TEAM_DEPTH ? '; `team --task` starts several agents' : ''}. These agents stay hidden and their results return to this chat; end your turn after delegating instead of polling.`,
+                      AGENT_PERMISSION_NOTE,
                       'Use --view only when the person asks to place the agent on a canvas.'
                   ]
                 : []),
@@ -178,7 +182,7 @@ export function verbsNote({
         COMMANDS_NOTE,
         standalone ? TERMINAL_VIEW_NOTE : CANVAS_NODE_NOTE,
         ALERT_NOTE,
-        ...(opens === null ? [] : [opens]),
+        ...(opens === null ? [] : [opens, AGENT_PERMISSION_NOTE]),
         ...(depth < MAX_AGENT_DEPTH && !standalone
             ? ['With `--task` a result comes back as your next message once it settles, so end your turn instead of polling.']
             : []),

@@ -22,6 +22,7 @@ import type { EndpointIdentity } from '../endpoint-id.ts';
 import { Checkpoints } from '../git/checkpoints.ts';
 import { readLog } from '../git/log.ts';
 import { OutboxStore } from '../outbox/outbox.ts';
+import { agentChatOpening } from '../outbox/start-agent.ts';
 import { OutboxLink } from '../outbox/wiring.ts';
 import { isPlanFileName, PlanStore } from '../plans/plan-store.ts';
 import { BunPtyAdapter } from '../pty/bun-pty.ts';
@@ -284,10 +285,7 @@ export async function wireAgents({ runtime, identity, stores, providers, compute
         chatTitle: (chatId, id) => index().chatTitleBeside(chatId, id),
         standalone: (chatId) => index().locate(chatId)?.canvasId === null,
         inlineChat: (chatId) => index().isHiddenChat(chatId),
-        openingSelection: (chatId, provider) => {
-            const entry = outbox.list().find((entry) => entry.kind === 'start-agent' && entry.target === chatId);
-            return entry?.kind === 'start-agent' && entry.payload.provider === provider ? entry.payload.selection : undefined;
-        },
+        openingAgent: agentChatOpening(outbox, (provider) => chats.composerPreferences.for(provider)),
         messageNotes: (chatId) => new NoticeNotes(notices, chatId, MESSAGE_WORDS),
         // The other reader: what a chat has to show a person in its thread, which is never taken from the model.
         unshownMessages: (chatId) => unshownNotes(notices, chatId, MESSAGE_WORDS),

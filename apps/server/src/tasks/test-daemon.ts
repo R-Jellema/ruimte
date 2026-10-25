@@ -29,7 +29,7 @@ import type { OutboxWorker } from '@adecore/agents/coordination';
 import type { EndChildrenWiring } from '../outbox/end-children.ts';
 import type { TaskWiring } from './wiring.ts';
 import { isPlanFileName, PlanStore } from '../plans/plan-store.ts';
-import { agentStartHost } from '../outbox/start-agent.ts';
+import { agentChatOpening, agentStartHost } from '../outbox/start-agent.ts';
 import { OutboxLink, wireOutbox } from '../outbox/wiring.ts';
 import type { ProjectStore } from '../projects/project-store.ts';
 import { openedAgentCount } from '../agents/hidden-agents.ts';
@@ -210,6 +210,7 @@ export async function bootTestDaemon({
         ...(accounts ? { accounts } : {}),
         ...(onLimits ? { onLimits } : {}),
         firstPrompt: (id) => prompts.take(id),
+        openingAgent: agentChatOpening(outbox, (provider) => chats.composerPreferences.for(provider)),
         onInterruptedRun: outboxLink.onInterruptedRun,
         standalone: (id) => store.index.locate(id)?.canvasId === null,
         messageNotes: (chatId) => new NoticeNotes(notices, chatId, MESSAGE_WORDS),

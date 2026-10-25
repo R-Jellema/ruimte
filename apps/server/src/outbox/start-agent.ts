@@ -8,7 +8,7 @@ import { errorText } from '../error-text.ts';
 import type { ComposerPreference } from '@adecore/agents/chat';
 import { narrowerMode } from '@adecore/agents/providers';
 import { DEFAULT_RUNTIME_MODE, launchedMode } from '../providers/launch.ts';
-import type { OutboxWork, StartAgentEntry } from './outbox.ts';
+import type { OutboxStore, OutboxWork, StartAgentEntry } from './outbox.ts';
 
 export interface NodeModeDeps {
     chatMode(nodeId: string): RuntimeMode | undefined;
@@ -137,6 +137,28 @@ export interface StartAgentDeps {
     onGaveUp?: (entry: StartAgentEntry, error: unknown) => void;
 }
 
+function agentChatPayload(entry: StartAgentEntry, preference: ComposerPreference): ChatCreatePayload {
+    const { provider, cwd, runtimeMode, ceiling, selection, account } = entry.payload;
+    const modelSelection = selection ?? preference.selection;
+    const picked = runtimeMode ?? preference.runtimeMode;
+    const mode = ceiling === undefined ? picked : narrowerMode(picked ?? DEFAULT_RUNTIME_MODE, ceiling);
+    return {
+        chatId: entry.target,
+        provider,
+        ...(account === undefined ? {} : { account }),
+        ...(cwd === null ? {} : { cwd }),
+        ...(modelSelection ? { selection: modelSelection } : {}),
+        ...(mode === undefined ? {} : { runtimeMode: mode })
+    };
+}
+
+export function agentChatOpening(outbox: Pick<OutboxStore, 'list'>, composerPreference: StartAgentDeps['composerPreference']) {
+    return (chatId: string): ChatCreatePayload | undefined => {
+        const entry = outbox.list().find((entry) => entry.kind === 'start-agent' && entry.target === chatId);
+        return entry?.kind === 'start-agent' && entry.payload.node === 'chat' ? agentChatPayload(entry, composerPreference(entry.payload.provider)) : undefined;
+    };
+}
+
 /*
  * Starts the chat or the terminal of an agent node a verb wrote, so a client that mounts it later
  * attaches to what already runs. Never retried: the create takes the node's first prompt before it
@@ -144,7 +166,7 @@ export interface StartAgentDeps {
  */
 export function startAgentHandler(deps: StartAgentDeps) {
     return async (entry: StartAgentEntry): Promise<void> => {
-        const { node, provider, cwd, runtimeMode, ceiling, selection, account } = entry.payload;
+        const { node, provider, cwd, runtimeMode, ceiling, account } = entry.payload;
         const nodeId = entry.target;
         const log = deps.log ?? ((line: string) => console.error(line));
         if (!deps.placed(nodeId)) {
@@ -158,19 +180,7 @@ export function startAgentHandler(deps: StartAgentDeps) {
                 if (deps.hasChat(nodeId)) {
                     return;
                 }
-                // The mode of the chat that opened it beats the person's pick, which fills in the rest; neither is wider than the opener.
-                const preference = deps.composerPreference(provider);
-                const modelSelection = selection ?? preference.selection;
-                const picked = runtimeMode ?? preference.runtimeMode;
-                const mode = ceiling === undefined ? picked : narrowerMode(picked ?? DEFAULT_RUNTIME_MODE, ceiling);
-                await deps.createChat({
-                    chatId: nodeId,
-                    provider,
-                    ...(account === undefined ? {} : { account }),
-                    ...(cwd === null ? {} : { cwd }),
-                    ...(modelSelection ? { selection: modelSelection } : {}),
-                    ...(mode === undefined ? {} : { runtimeMode: mode })
-                });
+                await deps.createChat(agentChatPayload(entry, deps.composerPreference(provider)));
             } else {
                 if (deps.hasSession(nodeId)) {
                     return;

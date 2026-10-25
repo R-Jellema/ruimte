@@ -161,6 +161,8 @@ describe('verbsNote', () => {
         for (const note of [VERBS_NOTE, helper]) {
             // A person asking for a second agent wants a node, so the note must not read as a nudge to delegate inside the CLI.
             expect(note).toContain('never a subagent of your own');
+            expect(note).toContain('Leave `--mode` out unless the person explicitly requests a different permission mode');
+            expect(note).toContain('a read-only or review assignment does not imply `supervised`');
         }
         const deepest = verbsNote({ depth: 2 });
         expect(deepest).not.toContain('`agent`');
@@ -205,6 +207,8 @@ test('a chat view skips linked-context discovery and opens hidden agents with th
         expect(note).not.toContain('You are working in a node on a canvas');
         expect(note).not.toContain('context linked to this chat');
         expect(note).toContain('These agents stay hidden');
+        expect(note).toContain('Leave `--mode` out unless the person explicitly requests a different permission mode');
+        expect(note).toContain('a read-only or review assignment does not imply `supervised`');
         expect(note).toContain('end your turn after delegating instead of polling');
         expect(note).toContain('Use --view only when the person asks to place the agent on a canvas');
         expect(note).toContain('--view');

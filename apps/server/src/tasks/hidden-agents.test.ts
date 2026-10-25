@@ -94,6 +94,66 @@ test('a chat view delegates to the requested provider and model without adding a
     expect(daemon.host.starts.openedCount('chat-lead')).toBe(0);
 });
 
+test.each([
+    {
+        name: 'inherited full access',
+        parentMode: 'full-access',
+        requested: undefined,
+        clientMode: 'supervised',
+        expected: 'full-access',
+        policy: 'never danger-full-access'
+    },
+    {
+        name: 'an explicitly narrower mode',
+        parentMode: 'full-access',
+        requested: 'supervised',
+        clientMode: 'full-access',
+        expected: 'supervised',
+        policy: 'untrusted read-only'
+    },
+    {
+        name: 'the parent ceiling',
+        parentMode: 'supervised',
+        requested: undefined,
+        clientMode: 'full-access',
+        expected: 'supervised',
+        policy: 'untrusted read-only'
+    }
+] as const)('a client opening before the outbox preserves $name', async ({ parentMode, requested, clientMode, expected, policy }) => {
+    const daemon = await boot();
+    await daemon.chats.create({ chatId: 'chat-lead', provider: 'claude', cwd: folder, runtimeMode: parentMode });
+    const lines = await runVerb(daemon, 'chat-lead', 'agent', [
+        'codex',
+        '--model',
+        'gpt-6.1-sol',
+        '--task',
+        'Review',
+        '--prompt',
+        'Read the project without changing files',
+        ...(requested === undefined ? [] : ['--mode', requested])
+    ]);
+    const [childId, , , , , taskId] = lines[0]!.split('\t');
+    await daemon.chats.create({ chatId: childId!, provider: 'codex', cwd: folder, runtimeMode: clientMode });
+    await daemon.until(
+        () =>
+            daemon.chats
+                .get(childId!)
+                ?.thread.list()
+                .some((item) => item.kind === 'turn' && item.state === 'done') === true
+    );
+    expect(daemon.chats.get(childId!)?.info).toMatchObject({ runtimeMode: expected, model: `gpt-6.1-sol ${policy}` });
+
+    daemon.worker.start();
+    await daemon.until(() => daemon.tasks.get(taskId!)?.wake === 'sent');
+    await daemon.worker.settled();
+    expect(
+        daemon.chats
+            .get(childId!)
+            ?.thread.list()
+            .filter((item) => item.kind === 'turn')
+    ).toHaveLength(1);
+});
+
 test('hidden agent and team previews leave no sessions, records or project writes', async () => {
     const daemon = await boot();
     const revision = await store.revision(projectId);

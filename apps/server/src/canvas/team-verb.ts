@@ -5,7 +5,7 @@ import { AGENT_KINDS, agentKindField, chatKinds } from './agents.ts';
 import { DEPTH_LIMIT_LINES, MAX_TEAM_DEPTH } from './depth.ts';
 import { readsFlag, readsLines } from './link-verb.ts';
 import { modeFlag } from '@adecore/agents/providers';
-import { MODE_LINES } from './mode.ts';
+import { MODE_FLAG_HELP, MODE_LINES } from './mode.ts';
 import { MACHINE_LINES } from './remote-agent.ts';
 import { effortFlag, modelFlag, modelLines } from './model.ts';
 import { MAX_CANVAS_NODES, idList } from './nodes.ts';
@@ -139,7 +139,7 @@ export const teamVerb = defineStandaloneActionVerb({
             field: 'viewId',
             more: 'ruimte-context view list lists them. Without it the view you are in, when that is a canvas'
         },
-        { syntax: '--mode M', need: 'optional', field: 'mode' },
+        { syntax: '--mode M', need: 'optional', field: 'mode', more: MODE_FLAG_HELP },
         { syntax: '--worktree', need: 'no value', field: 'worktree', more: 'not together with --cwd' },
         { syntax: '--task', need: 'no value', field: 'task', more: `each prompt at most ${MAX_TASK_PROMPT_LENGTH} characters` },
         {

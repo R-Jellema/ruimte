@@ -550,14 +550,32 @@ describe('ChatManager with Codex', () => {
 
     test('a client opening an agent before its outbox start keeps the requested model', async () => {
         await retire(manager);
-        manager = makeManager({ openingSelection: () => ({ model: 'gpt-5.6-sol', options: {} }) });
+        manager = makeManager({ openingAgent: (chatId) => ({ chatId, selection: { model: 'gpt-5.6-sol', options: {} } }) });
         const info = await manager.create({ chatId: 'chat-model', provider: 'codex', cwd: home, selection: { model: 'gpt-6-astra', options: {} } });
         expect(info.selection.model).toBe('gpt-5.6-sol');
         await manager.configure({ chatId: 'chat-model', selection: { model: 'gpt-5.6-luna', options: {} } });
         await retire(manager);
-        manager = makeManager({ openingSelection: () => ({ model: 'gpt-5.6-sol', options: {} }) });
+        manager = makeManager({ openingAgent: (chatId) => ({ chatId, selection: { model: 'gpt-5.6-sol', options: {} } }) });
         const restored = await manager.create({ chatId: 'chat-model', provider: 'codex', cwd: home });
         expect(restored.selection.model).toBe('gpt-5.6-luna');
+    });
+
+    test('a client opening an agent before its outbox start keeps the planned mode, while a later choice survives a reload', async () => {
+        await retire(manager);
+        const openingAgent = (chatId: string) => ({ chatId, runtimeMode: 'full-access' as const });
+        manager = makeManager({ openingAgent });
+        manager.subscribe('c1', recorder.sink());
+        await open('chat-mode', { selection: { model: 'gpt-6.1-sol', options: {} }, runtimeMode: 'supervised' });
+        expect(manager.get('chat-mode')?.info.runtimeMode).toBe('full-access');
+        await manager.send('chat-mode', 'hello');
+        await recorder.until(idle);
+        expect(recorder.info?.model).toBe('gpt-6.1-sol never danger-full-access');
+
+        manager.configure({ chatId: 'chat-mode', runtimeMode: 'supervised' });
+        await retire(manager);
+        manager = makeManager({ openingAgent });
+        const restored = await manager.create({ chatId: 'chat-mode', provider: 'codex', cwd: home });
+        expect(restored.runtimeMode).toBe('supervised');
     });
 
     test('a standalone chat passes its location to Codex developer instructions', async () => {
