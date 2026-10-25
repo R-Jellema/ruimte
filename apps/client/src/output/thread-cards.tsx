@@ -4,6 +4,7 @@ import { useChatRow } from '@adecore/agents-react/state';
 import type { ArtifactSummary } from '@ruimte/contracts';
 import { useArtifactList, useArtifacts } from '@/output/artifacts';
 import { SavedCard, type Saved } from '@/output/SavedCard';
+import { groupsBetweenItems } from '@/output/saved-groups';
 import { endpointKey } from '@/state/keys';
 import { machineTransport } from '@/transport';
 import { useMachineAnswers } from '@/transport/features';
@@ -35,26 +36,6 @@ export function useOutputThreadCards(scopeId: string, chatId: string): readonly 
         setHeld({ shape, cards: groups.map(cardOf) });
     }
     return held.cards;
-}
-
-/*
- * The versions oldest first, one group for every run the thread places between the same two of its
- * rows: it puts a card before the first row that began after it, so two versions with no item begun
- * in between land side by side and read as one list.
- */
-function groupsBetweenItems(saved: readonly Saved[], itemTimes: readonly number[]): Saved[][] {
-    const groups: Saved[][] = [];
-    for (const entry of [...saved].sort((first, second) => first.version.createdAt - second.version.createdAt)) {
-        const group = groups.at(-1);
-        const previous = group?.at(-1);
-        const apart = previous === undefined || itemTimes.some((time) => time > previous.version.createdAt && time <= entry.version.createdAt);
-        if (group === undefined || apart) {
-            groups.push([entry]);
-        } else {
-            group.push(entry);
-        }
-    }
-    return groups;
 }
 
 /*
@@ -96,11 +77,12 @@ function useReadVersions(endpointId: string, artifacts: readonly ArtifactSummary
     return read;
 }
 
+// Placed at the last version, so a turn's card stands under the commands that made it.
 function cardOf(group: readonly Saved[]): ThreadCard {
     const first = group[0]!.version;
     return {
         id: `output:${first.versionId}`,
-        at: first.createdAt,
+        at: group.at(-1)!.version.createdAt,
         render: () => <SavedCard saved={group} />
     };
 }

@@ -9,13 +9,10 @@ export interface Saved {
     latest: boolean;
 }
 
-/*
- * The versions a chat saved between the same two rows of its thread, as one block of tight rows. The
- * timeline puts no room between two blocks, so the room under this one is its own.
- */
+// The versions a turn of a chat saved, as one block of tight rows; the timeline gives it the room around it.
 export function SavedCard({ saved }: { saved: readonly Saved[] }) {
     return (
-        <div className="flex flex-col pb-(--chat-block-gap)">
+        <div className="flex flex-col">
             {saved.map((entry) => (
                 <SavedRow key={entry.version.versionId} {...entry} />
             ))}
