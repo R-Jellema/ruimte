@@ -1,18 +1,17 @@
 import { useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { CircleAlert, Download, FilePlus, GitCompare, Info, Lock, Package, Pin, Trash2, WifiOff } from 'lucide-react';
+import { ChevronDown, CircleAlert, Download, FilePlus, GitCompare, Info, Lock, MonitorDown, MoreHorizontal, Package, Pin, Trash2, WifiOff } from 'lucide-react';
 import { patchOf } from '@adecore/merge';
 import { VisualPageFrame } from '@adecore/agents-react/chat/ui';
 import { AgentIcon, modelName, ProviderLogo } from '@adecore/agents-react/providers';
 import { useChats, useProvidersStore } from '@adecore/agents-react/state';
 import { BYTES_READ_MAX_BYTES, type Artifact, type ArtifactGetResult, type ArtifactProvenance, type ArtifactVersion } from '@ruimte/contracts';
 import { hasProviderLogo } from '@/agents/provider-logo';
-import { ContextMenu, EmptyState, ErrorBoundary, Icon, IconButton, LazyBoundary, Menu, Pill, SectionLabel, lazyNamed, Tooltip } from '@adecore/ui';
+import { Button, EmptyState, ErrorBoundary, Icon, IconButton, LazyBoundary, Menu, Pill, Popover, SectionLabel, lazyNamed } from '@adecore/ui';
 import type { CopyToProjectRequest } from '@/output/CopyToProjectDialog';
-import { pinArtifact, useCanRemove, usePinCanvases } from '@/output/artifact-actions';
+import { pinArtifact, useCanRemove, useCopyToThisMachine, usePinCanvases } from '@/output/artifact-actions';
 import { RemoveArtifactDialog, type RemoveArtifactRequest } from '@/output/RemoveArtifactDialog';
-import { ActionRow } from '@/output/look';
 import { formatBytes, formatDayClock } from '@adecore/ui/format';
 import { comparable, drawnKind, isTextMime } from '@/output/artifact-list';
 import { downloadArtifactFile, readArtifactFile, useArtifactText, type ArtifactFileRef } from '@/output/artifact-bytes';
@@ -20,9 +19,9 @@ import { showChat, useChatName } from '@/output/kinds';
 import { selectArtifactVersion, useArtifactSelection } from '@/output/open';
 import { useArtifact } from '@/output/use-artifact';
 import { FileMarkdown } from '@/shell/panels/FileMarkdown';
+import { FileToolbarToggle } from '@/shell/panels/FileToolbar';
 import { FILE_TOOLBAR } from '@/shell/panels/classes';
 import { useFileToolbarSlot } from '@/shell/panels/file-toolbar-slot';
-import { CopyToThisMachine } from '@/output/CopyToThisMachine';
 import { useEndpointIdOfMachine, useEndpoints } from '@/state/endpoints';
 import { artifactTabKey } from '@/state/files';
 import { endpointKey, useEndpointId } from '@/state/keys';
@@ -32,10 +31,11 @@ import { useMachineUrl } from '@/transport/machine-url';
 
 const UnifiedDiff = lazyNamed(() => import('@adecore/agents-react/chat/ui'), 'UnifiedDiff');
 const CopyToProjectDialog = lazyNamed(() => import('@/output/CopyToProjectDialog'), 'CopyToProjectDialog');
+
 /*
- * One artifact of Output as a loose view: its versions on the left, the version picked in the middle,
- * where it came from on the right. Every byte is read by the artifact's id and a version's id; the
- * view never names a path on the machine.
+ * One artifact of Output as a view: the version picked across the whole width, with its versions,
+ * where it came from and what to do with it behind the controls of the bar. Every byte is read by the
+ * artifact's id and a version's id; the view never names a path on the machine.
  */
 export function ArtifactView({ artifactId, machineId, pin }: { artifactId: string; machineId?: string; pin?: ArtifactPin }) {
     const { t } = useTranslation('output');
@@ -101,7 +101,6 @@ function ArtifactBody({
     const chosen = pin === undefined ? selected : pin.version;
     const [comparing, setComparing] = useState(false);
     const [baseId, setBaseId] = useState<string | null>(null);
-    const [infoOpen, setInfoOpen] = useState(true);
     const [copy, setCopy] = useState<CopyToProjectRequest | null>(null);
     const [removing, setRemoving] = useState<RemoveArtifactRequest | null>(null);
     const canRemove = useCanRemove(endpointId, machineId);
@@ -116,10 +115,6 @@ function ArtifactBody({
     const base = compare ? baseFor(versions, version, baseId) : null;
 
     const pick = (picked: ArtifactVersion): void => {
-        if (compare && version !== null && picked.versionId !== version.versionId) {
-            setBaseId(picked.versionId);
-            return;
-        }
         const next = picked.versionId === latest.versionId ? null : picked.versionId;
         if (pin === undefined) {
             selectArtifactVersion(artifact.artifactId, next, machineId);
@@ -131,63 +126,48 @@ function ArtifactBody({
     return (
         <div className="flex min-h-0 min-w-0 grow flex-col">
             <ArtifactToolbar>
-                <IconButton icon={Info} size="sm" label={t('view.info')} aria-pressed={infoOpen} onClick={() => setInfoOpen(!infoOpen)} />
-            </ArtifactToolbar>
-            <div className="flex min-h-0 grow">
-                <VersionsColumn
-                    versions={versions}
-                    selected={version}
-                    base={base}
-                    compare={compare}
-                    onPick={pick}
-                    onRemove={canRemove ? askRemove : undefined}
+                <VersionsMenu versions={versions} selected={version} onPick={pick} onRemove={canRemove ? askRemove : undefined} />
+                {compare && version !== null && base !== null && (
+                    <BaseMenu versions={versions} version={version} base={base} onPick={(picked) => setBaseId(picked.versionId)} />
+                )}
+                <span className="grow" />
+                <FileToolbarToggle
+                    icon={GitCompare}
+                    label={canCompare ? t('view.compare') : t('view.compareOff')}
+                    active={compare}
+                    disabled={!canCompare}
+                    onClick={() => setComparing(!comparing)}
                 />
-                <div className="flex min-h-0 min-w-0 grow flex-col">
-                    {version === null ? (
-                        <Centered icon={Package}>
-                            <span className="flex flex-col gap-1">
-                                <span className="text-text">{t('view.versionGone')}</span>
-                                <span>{t('view.versionGoneDetail')}</span>
-                            </span>
-                        </Centered>
-                    ) : (
-                        <ErrorBoundary label={t('view.failed')} resetKeys={[version.versionId, base?.versionId ?? '']} className="min-h-0 grow">
-                            {compare && base !== null ? (
-                                <CompareBody endpointId={endpointId} artifact={artifact} version={version} base={base} />
-                            ) : (
-                                <VersionBody endpointId={endpointId} artifact={artifact} version={version} />
-                            )}
-                        </ErrorBoundary>
-                    )}
-                </div>
-                {infoOpen && version !== null && (
-                    <InfoColumn endpointId={endpointId} artifact={artifact} version={version} latest={latest} chatPresent={result.chatPresent}>
-                        <Tooltip label={t('view.compareOff')} disabled={canCompare}>
-                            <ActionRow
-                                icon={GitCompare}
-                                aria-pressed={compare}
-                                aria-disabled={!canCompare}
-                                onClick={() => canCompare && setComparing(!comparing)}
-                            >
-                                {t('view.compare')}
-                            </ActionRow>
-                        </Tooltip>
-                        {machineId === undefined ? (
-                            <>
-                                <ActionRow icon={FilePlus} onClick={() => setCopy({ version, open: true, round: (copy?.round ?? 0) + 1 })}>
-                                    {t('view.copyToProject')}
-                                </ActionRow>
-                                <PinToCanvas artifact={artifact} version={version.versionId === latest.versionId ? null : version.versionId} />
-                                {canRemove && (
-                                    <ActionRow icon={Trash2} onClick={() => askRemove(null)}>
-                                        {t('remove.action')}
-                                    </ActionRow>
-                                )}
-                            </>
+                {version !== null && (
+                    <OriginPopover endpointId={endpointId} artifact={artifact} version={version} latest={latest} chatPresent={result.chatPresent} />
+                )}
+                {version !== null && (
+                    <ActionsMenu
+                        artifact={artifact}
+                        version={version}
+                        latest={latest}
+                        machineId={machineId}
+                        onCopy={() => setCopy({ version, open: true, round: (copy?.round ?? 0) + 1 })}
+                        onRemove={canRemove ? () => askRemove(null) : undefined}
+                    />
+                )}
+            </ArtifactToolbar>
+            <div className="flex min-h-0 min-w-0 grow flex-col">
+                {version === null ? (
+                    <Centered icon={Package}>
+                        <span className="flex flex-col gap-1">
+                            <span className="text-text">{t('view.versionGone')}</span>
+                            <span>{t('view.versionGoneDetail')}</span>
+                        </span>
+                    </Centered>
+                ) : (
+                    <ErrorBoundary label={t('view.failed')} resetKeys={[version.versionId, base?.versionId ?? '']} className="flex min-h-0 grow flex-col">
+                        {compare && base !== null ? (
+                            <CompareBody endpointId={endpointId} artifact={artifact} version={version} base={base} />
                         ) : (
-                            <CopyToThisMachine machineId={machineId} artifact={artifact} version={version} />
+                            <VersionBody endpointId={endpointId} artifact={artifact} version={version} />
                         )}
-                    </InfoColumn>
+                    </ErrorBoundary>
                 )}
             </div>
             {machineId === undefined && (
@@ -202,24 +182,6 @@ function ArtifactBody({
             )}
             <RemoveArtifactDialog endpointId={endpointId} request={removing} onClose={() => removing !== null && setRemoving({ ...removing, open: false })} />
         </div>
-    );
-}
-
-/* Pin to canvas as a row of the actions, with the version picked unless that is the latest, which the node then follows. */
-function PinToCanvas({ artifact, version }: { artifact: Artifact; version: string | null }) {
-    const { t } = useTranslation('output');
-    const canvases = usePinCanvases();
-    return (
-        <Menu.Root>
-            <Menu.Trigger render={<ActionRow icon={Pin} disabled={canvases.length === 0} />}>{t('view.pinToCanvas')}</Menu.Trigger>
-            <Menu.Popup align="start" className="min-w-48">
-                {canvases.map((view) => (
-                    <Menu.Item key={view.id} onClick={() => void pinArtifact(artifact, version, view.id)}>
-                        <span className="truncate">{view.name}</span>
-                    </Menu.Item>
-                ))}
-            </Menu.Popup>
-        </Menu.Root>
     );
 }
 
@@ -242,76 +204,176 @@ function ArtifactToolbar({ children }: { children: ReactNode }) {
     if (host !== null) {
         return createPortal(children, host);
     }
-    return (
-        <div className={FILE_TOOLBAR}>
-            <span className="grow" />
-            {children}
-        </div>
-    );
+    return <div className={FILE_TOOLBAR}>{children}</div>;
 }
 
-function VersionsColumn({
+function versionLabel(version: ArtifactVersion): { number: number; date: string } {
+    return { number: version.number, date: formatDayClock(version.createdAt) };
+}
+
+/* The version on screen as the bar's first control, and every version behind it, newest first. */
+function VersionsMenu({
     versions,
     selected,
-    base,
-    compare,
     onPick,
     onRemove
 }: {
     versions: readonly ArtifactVersion[];
     selected: ArtifactVersion | null;
-    base: ArtifactVersion | null;
-    compare: boolean;
     onPick(version: ArtifactVersion): void;
-    /* Set where a person may remove a version, which a right click on its row offers. */
+    /* Set where a person may remove a version, which each row then offers. */
     onRemove?: (version: ArtifactVersion) => void;
 }) {
     const { t } = useTranslation('output');
+    const latest = versions[0]!;
     return (
-        <nav className="flex w-60 shrink-0 flex-col border-r border-border" aria-label={t('view.versions')}>
-            <div className="flex h-10 shrink-0 items-center gap-2 px-4">
-                <SectionLabel>{t('view.versions')}</SectionLabel>
-                <span className="text-xs text-text-faint tabular-nums">{versions.length}</span>
-                <span className="grow" />
-                {compare && <span className="text-xs text-text-faint">{t('view.pickBase')}</span>}
-            </div>
-            <div className="flex min-h-0 grow flex-col gap-0.5 overflow-y-auto px-2 pb-2">
-                {versions.map((version, index) => {
-                    const isSelected = selected?.versionId === version.versionId;
-                    const isBase = base?.versionId === version.versionId;
-                    const row = (
-                        <button
-                            key={version.versionId}
-                            type="button"
-                            aria-current={isSelected ? 'true' : undefined}
-                            className={`flex h-8 shrink-0 items-center gap-2 rounded-md px-2 text-left text-sm ${isSelected ? 'bg-surface-active text-text' : 'text-text-muted hover:bg-surface-hover'} ${isBase ? 'inset-ring inset-ring-border-strong' : ''}`}
-                            onClick={() => onPick(version)}
-                        >
-                            <span className="truncate tabular-nums">
-                                {t('view.versionRow', { number: version.number, date: formatDayClock(version.createdAt) })}
-                            </span>
-                            <span className="grow" />
-                            {index === 0 && <Pill size="sm">{t('view.latest')}</Pill>}
-                            {isBase && <Pill size="sm">{t('view.base')}</Pill>}
-                            {!compare && index !== 0 && <span className="shrink-0 text-xs text-text-faint tabular-nums">{formatBytes(version.bytes)}</span>}
-                        </button>
-                    );
-                    if (onRemove === undefined) {
-                        return row;
-                    }
-                    return (
-                        <ContextMenu.Root key={version.versionId}>
-                            <ContextMenu.Trigger render={row} />
-                            <ContextMenu.Popup>
-                                <ContextMenu.Item className="text-status-error" onClick={() => onRemove(version)}>
-                                    <Icon icon={Trash2} size={14} /> {t('remove.version')}
-                                </ContextMenu.Item>
-                            </ContextMenu.Popup>
-                        </ContextMenu.Root>
-                    );
-                })}
-            </div>
-        </nav>
+        <Menu.Root>
+            <Menu.Trigger render={<Button size="xs" variant="ghost" className="min-w-0" aria-label={t('view.versions')} />}>
+                <span className="truncate tabular-nums">{selected === null ? t('view.versionGone') : t('view.versionRow', versionLabel(selected))}</span>
+                {selected?.versionId === latest.versionId && <Pill size="sm">{t('view.latest')}</Pill>}
+                <Icon icon={ChevronDown} size={12} className="shrink-0" />
+            </Menu.Trigger>
+            <Menu.Popup align="start" className="max-h-80 min-w-64 overflow-y-auto">
+                <Menu.RadioGroup
+                    value={selected?.versionId ?? ''}
+                    onValueChange={(next: string) => {
+                        const picked = versions.find((entry) => entry.versionId === next);
+                        if (picked !== undefined) {
+                            onPick(picked);
+                        }
+                    }}
+                >
+                    {versions.map((version) => {
+                        const item = (
+                            <Menu.RadioItem key={version.versionId} value={version.versionId} className="tabular-nums" closeOnClick>
+                                <span className="grow truncate">{t('view.versionRow', versionLabel(version))}</span>
+                                {version.versionId === latest.versionId && <Pill size="sm">{t('view.latest')}</Pill>}
+                                <Menu.Hint>{formatBytes(version.bytes)}</Menu.Hint>
+                            </Menu.RadioItem>
+                        );
+                        if (onRemove === undefined) {
+                            return item;
+                        }
+                        return (
+                            <Menu.Row key={version.versionId} aria-label={t('view.versionRow', versionLabel(version))}>
+                                {item}
+                                <Menu.RowAction icon={Trash2} label={t('remove.version')} onClick={() => onRemove(version)} />
+                            </Menu.Row>
+                        );
+                    })}
+                </Menu.RadioGroup>
+            </Menu.Popup>
+        </Menu.Root>
+    );
+}
+
+/* In Compare, the version the one on screen is set beside. */
+function BaseMenu({
+    versions,
+    version,
+    base,
+    onPick
+}: {
+    versions: readonly ArtifactVersion[];
+    version: ArtifactVersion;
+    base: ArtifactVersion;
+    onPick(version: ArtifactVersion): void;
+}) {
+    const { t } = useTranslation('output');
+    const choices = versions.filter((entry) => entry.versionId !== version.versionId && comparable(entry));
+    return (
+        <Menu.Root>
+            <Menu.Trigger render={<Button size="xs" variant="ghost" className="min-w-0" aria-label={t('view.pickBase')} />}>
+                <span className="truncate tabular-nums">{t('view.comparedWith', versionLabel(base))}</span>
+                <Icon icon={ChevronDown} size={12} className="shrink-0" />
+            </Menu.Trigger>
+            <Menu.Popup align="start" className="max-h-80 min-w-64 overflow-y-auto">
+                <Menu.RadioGroup
+                    value={base.versionId}
+                    onValueChange={(next: string) => {
+                        const picked = choices.find((entry) => entry.versionId === next);
+                        if (picked !== undefined) {
+                            onPick(picked);
+                        }
+                    }}
+                >
+                    {choices.map((entry) => (
+                        <Menu.RadioItem key={entry.versionId} value={entry.versionId} className="tabular-nums" closeOnClick>
+                            {t('view.versionRow', versionLabel(entry))}
+                        </Menu.RadioItem>
+                    ))}
+                </Menu.RadioGroup>
+            </Menu.Popup>
+        </Menu.Root>
+    );
+}
+
+/*
+ * What a person does with the version on screen, behind the bar's last button. Another machine's
+ * artifact is only copied here; Pin to canvas keeps the version picked unless that is the latest,
+ * which the node then follows.
+ */
+function ActionsMenu({
+    artifact,
+    version,
+    latest,
+    machineId,
+    onCopy,
+    onRemove
+}: {
+    artifact: Artifact;
+    version: ArtifactVersion;
+    latest: ArtifactVersion;
+    machineId: string | undefined;
+    onCopy(): void;
+    onRemove?: () => void;
+}) {
+    const { t } = useTranslation('output');
+    const canvases = usePinCanvases();
+    const machineCopy = useCopyToThisMachine(machineId ?? '', artifact);
+    if (machineId !== undefined && machineCopy === null) {
+        return null;
+    }
+    return (
+        <Menu.Root>
+            <IconButton icon={MoreHorizontal} size="sm" label={t('common:action.more')} render={<Menu.Trigger />} />
+            <Menu.Popup align="end" className="min-w-52">
+                {machineId === undefined ? (
+                    <>
+                        <Menu.Item onClick={onCopy}>
+                            <Icon icon={FilePlus} size={14} /> {t('menu.copyToProject')}
+                        </Menu.Item>
+                        <Menu.SubmenuRoot disabled={canvases.length === 0}>
+                            <Menu.SubmenuTrigger disabled={canvases.length === 0}>
+                                <Icon icon={Pin} size={14} /> <span className="grow">{t('view.pinToCanvas')}</span>
+                            </Menu.SubmenuTrigger>
+                            <Menu.Popup className="min-w-48">
+                                {canvases.map((view) => (
+                                    <Menu.Item
+                                        key={view.id}
+                                        onClick={() => void pinArtifact(artifact, version.versionId === latest.versionId ? null : version.versionId, view.id)}
+                                    >
+                                        <span className="truncate">{view.name}</span>
+                                    </Menu.Item>
+                                ))}
+                            </Menu.Popup>
+                        </Menu.SubmenuRoot>
+                        {onRemove !== undefined && (
+                            <>
+                                <Menu.Separator />
+                                <Menu.Item className="text-status-error" onClick={onRemove}>
+                                    <Icon icon={Trash2} size={14} /> {t('remove.action')}
+                                </Menu.Item>
+                            </>
+                        )}
+                    </>
+                ) : (
+                    <Menu.Item disabled={machineCopy!.copying} onClick={() => machineCopy!.copy(version)}>
+                        <Icon icon={MonitorDown} size={14} /> {machineCopy!.copying ? t('copyHere.copying') : t('copyHere.action')}
+                    </Menu.Item>
+                )}
+            </Menu.Popup>
+        </Menu.Root>
     );
 }
 
@@ -346,7 +408,7 @@ function ReportBody({ endpointId, artifact, version }: { endpointId: string; art
         return <Centered icon={CircleAlert}>{t('view.readFailed')}</Centered>;
     }
     return (
-        <div className="min-h-0 grow overflow-y-auto px-8 py-6 select-text">
+        <div className="min-h-0 grow overflow-y-auto px-6 py-6 select-text">
             {file.mime === 'text/markdown' ? (
                 <FileMarkdown text={text.text} />
             ) : (
@@ -373,10 +435,7 @@ function CompareBody({ endpointId, artifact, version, base }: { endpointId: stri
     const removed = lines.filter((line) => line.kind === 'delete').length;
     return (
         <div className="flex min-h-0 grow flex-col">
-            <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border px-4 text-xs text-text-muted">
-                <span className="tabular-nums">{t('view.versionRow', { number: base.number, date: formatDayClock(base.createdAt) })}</span>
-                <span aria-hidden="true">›</span>
-                <span className="text-text tabular-nums">{t('view.versionRow', { number: version.number, date: formatDayClock(version.createdAt) })}</span>
+            <div className="flex h-8 shrink-0 items-center gap-2 border-b border-border px-4 text-xs text-text-muted">
                 <span className="grow" />
                 <span className="text-positive tabular-nums">+{added}</span>
                 <span className="text-status-error tabular-nums">-{removed}</span>
@@ -469,21 +528,19 @@ function FileRows({ endpointId, artifact, version }: { endpointId: string; artif
     );
 }
 
-function InfoColumn({
+/* Where the version on screen came from, as the machine recorded it, with its files, behind the bar's info button. */
+function OriginPopover({
     endpointId,
     artifact,
     version,
     latest,
-    chatPresent,
-    children
+    chatPresent
 }: {
     endpointId: string;
     artifact: Artifact;
     version: ArtifactVersion;
     latest: ArtifactVersion;
     chatPresent: boolean;
-    /* What a person does with the version shown, in a list at the foot of the column. */
-    children: ReactNode;
 }) {
     const { t } = useTranslation('output');
     const provenance = version.provenance;
@@ -497,8 +554,9 @@ function InfoColumn({
         originId === undefined ? null : (s.endpoints.find((entry) => entry.id === originId || entry.daemonId === originId)?.label ?? null)
     );
     return (
-        <aside className="flex w-72 shrink-0 flex-col border-l border-border" aria-label={t('view.info')}>
-            <div className="flex min-h-0 grow flex-col gap-5 overflow-y-auto px-4 py-3">
+        <Popover.Root>
+            <IconButton icon={Info} size="sm" label={t('view.info')} render={<Popover.Trigger />} />
+            <Popover.Popup align="end" sideOffset={6} className="flex max-h-96 w-80 flex-col gap-5 overflow-y-auto p-4">
                 <div className="flex flex-col gap-3">
                     <SectionLabel render={<h3 />}>{t('view.info')}</SectionLabel>
                     <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
@@ -542,9 +600,8 @@ function InfoColumn({
                         </ul>
                     </div>
                 )}
-            </div>
-            <div className="flex shrink-0 flex-col gap-0.5 border-t border-border p-2">{children}</div>
-        </aside>
+            </Popover.Popup>
+        </Popover.Root>
     );
 }
 

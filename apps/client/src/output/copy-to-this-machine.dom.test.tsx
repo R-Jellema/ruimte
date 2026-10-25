@@ -40,8 +40,19 @@ function text(): string {
     return document.body.textContent ?? '';
 }
 
-function buttonWithText(label: string): HTMLElement | null {
-    return ([...document.querySelectorAll('button')] as HTMLElement[]).find((button) => button.textContent?.trim() === label) ?? null;
+function barButton(label: string): HTMLElement | null {
+    return document.querySelector<HTMLElement>(`button[aria-label="${label}"]`);
+}
+
+function menuItemNamed(label: string): HTMLElement | null {
+    return ([...document.querySelectorAll('[role="menuitem"]')] as HTMLElement[]).find((item) => item.textContent?.trim() === label) ?? null;
+}
+
+/* The artifact view's actions, behind the last button of its bar. */
+async function openMore(): Promise<void> {
+    await until(() => barButton('Versions') !== null);
+    await clickOn(barButton('More'));
+    await until(() => document.querySelector('[role="menu"]') !== null);
 }
 
 beforeEach(async () => {
@@ -115,14 +126,16 @@ describe('Output on a linked machine', () => {
         expect(there.requests('artifact.list')).toContainEqual({ projectId: 'remote-atlas' });
 
         await clickOn(([...document.querySelectorAll('button')] as HTMLElement[]).find((button) => button.textContent?.includes('Release notes')) ?? null);
-        await until(() => buttonWithText('Copy to this machine') !== null);
+        await openMore();
         // What the window cannot write into on the other machine is not offered there.
-        expect(buttonWithText('Copy to project')).toBeNull();
-        await clickOn(buttonWithText('Copy to this machine'));
+        expect([...document.querySelectorAll('[role="menu"] [role="menuitem"]')].map((item) => item.textContent?.trim())).toEqual(['Copy to this machine']);
+        await clickOn(menuItemNamed('Copy to this machine'));
         await until(() => text().includes('Copied to this machine'));
         expect(here.requests('artifact.importFrom')).toEqual([
             { machineId: REMOTE, artifactId: 'art-remote', versionId: 'ver-remote', projectId: useProject.getState().current!.projectId }
         ]);
+        await until(() => barButton('Origin') !== null && text().includes('Copied to this machine'));
+        await clickOn(barButton('Origin'));
         await until(() => text().includes('Copied from'));
     });
 
@@ -158,8 +171,8 @@ describe('Output on a linked machine', () => {
             throw new TransportError('machine-unreachable', 'The other machine did not answer');
         });
         await act(async () => openArtifact('art-remote', 'Release notes', null, REMOTE));
-        await until(() => buttonWithText('Copy to this machine') !== null);
-        await clickOn(buttonWithText('Copy to this machine'));
+        await openMore();
+        await clickOn(menuItemNamed('Copy to this machine'));
         await until(() => text().includes('MacBook Pro is not reachable.'));
         expect(text()).toContain('Not copied');
     });
@@ -167,8 +180,9 @@ describe('Output on a linked machine', () => {
     test('is not offered for a project this one is not linked to there', async () => {
         links = [];
         await act(async () => openArtifact('art-remote', 'Release notes', null, REMOTE));
-        await until(() => text().includes('Origin'));
-        expect(buttonWithText('Copy to this machine')).toBeNull();
+        await until(() => barButton('Versions') !== null);
+        // Nothing is left to do with it here, so the bar has no actions button at all.
+        expect(barButton('More')).toBeNull();
         expect(here.requests('artifact.importFrom')).toHaveLength(0);
     });
 });

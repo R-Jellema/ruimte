@@ -87,7 +87,7 @@ describe('an Output row dragged out of the panel', () => {
     test('onto the stage opens its view in the cell it lands on', async () => {
         await drag(outputRow(), page.host.querySelector('[data-cell-bar]')!);
         await until(() => useFiles.getState().tabs.some((tab) => tab.key === artifactTabKey('deps')));
-        await until(() => (page.host.textContent ?? '').includes('Origin'));
+        await until(() => page.host.querySelector('button[aria-label="Versions"]') !== null);
         expect(useDocument.getState().views.some((view) => view.kind === 'artifact')).toBe(false);
     });
 });

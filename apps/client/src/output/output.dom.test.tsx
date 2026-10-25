@@ -78,8 +78,38 @@ function text(): string {
 }
 
 function infoRow(label: string): string | undefined {
-    const term = ([...page.host.querySelectorAll('aside dt')] as HTMLElement[]).find((entry) => entry.textContent === label);
+    const term = ([...document.querySelectorAll('dt')] as HTMLElement[]).find((entry) => entry.textContent === label);
     return term?.nextElementSibling?.textContent ?? undefined;
+}
+
+/* A control of the artifact view's bar, named by its label. */
+function barButton(label: string): HTMLElement | null {
+    return page.host.querySelector<HTMLElement>(`button[aria-label="${label}"]`);
+}
+
+async function openOrigin(): Promise<void> {
+    await clickOn(barButton('Origin'));
+    await until(() => infoRow('Made by') !== undefined);
+}
+
+async function openVersions(): Promise<void> {
+    await clickOn(barButton('Versions'));
+    await until(() => document.querySelectorAll('[role="menu"] [role="menuitemradio"]').length > 0);
+}
+
+/* The rows of the menu that is open, as they read. */
+function radioRows(): string[] {
+    return [...document.querySelectorAll('[role="menu"] [role="menuitemradio"]')].map((row) => row.textContent ?? '');
+}
+
+async function pickVersion(start: string): Promise<void> {
+    await openVersions();
+    await clickOn(([...document.querySelectorAll('[role="menuitemradio"]')] as HTMLElement[]).find((row) => row.textContent?.startsWith(start)) ?? null);
+}
+
+async function openMore(): Promise<void> {
+    await clickOn(barButton('More'));
+    await until(() => document.querySelector('[role="menu"]') !== null);
 }
 
 function buttonWithText(label: string): HTMLElement | null {
@@ -261,16 +291,19 @@ describe('the artifact view', () => {
         await clickOn(
             ([...page.host.querySelectorAll('section button')] as HTMLElement[]).find((button) => button.textContent?.startsWith('Dependency report')) ?? null
         );
-        await until(() => text().includes('Origin') && text().includes('9 behind'));
+        await until(() => barButton('Versions') !== null && text().includes('9 behind'));
     }
 
-    test('shows the latest version, its record and a chat that is gone', async () => {
+    test('shows the latest version across the bar, and its record behind Origin with a chat that is gone', async () => {
         await openDependencies();
-        expect(text()).toContain('Versions');
+        expect(barButton('Versions')!.textContent).toStartWith('v2, ');
+        expect(barButton('Versions')!.textContent).toContain('Latest');
+        expect(infoRow('Made by')).toBeUndefined();
+        await openOrigin();
         // A version saved before the machine noted the CLI and the model says only that an agent made it.
         expect(infoRow('Made by')).toBe('Agent');
-        expect(text()).toContain('Chat removed');
-        expect(text()).toContain('Agents cannot change it.');
+        expect(document.body.textContent).toContain('Chat removed');
+        expect(document.body.textContent).toContain('Agents cannot change it.');
         expect(machine.requests('bytes.read')[0]!.resource).toEqual({ kind: 'artifact', artifactId: 'deps', versionId: 'v-new', file: 0 });
     });
 
@@ -287,32 +320,46 @@ describe('the artifact view', () => {
                 ])
         );
         await openDependencies();
+        await openOrigin();
         expect(infoRow('Made by')).toBe('Claude Opus 5.5');
-        expect(page.host.querySelector('aside dd svg')).not.toBeNull();
+        expect(document.querySelector('dd svg')).not.toBeNull();
     });
 
-    test('Compare sets the version before it beside the latest', async () => {
+    test('Compare sets the version before it beside the latest, and Compare with picks another', async () => {
+        REPORTS['v-first'] = '# Dependency report\n\n7 behind\n';
+        const three = [version('v-new', 3, NOW), version('v-old', 2, NOW - 7 * DAY), version('v-first', 1, NOW - 14 * DAY)];
+        machine.answer('artifact.get', () => ({ ...DEPENDENCIES, versions: three }));
         await openDependencies();
-        await clickOn(buttonWithText('Compare'));
-        await until(() => text().includes('Compare with') && text().includes('Compared'));
+        await clickOn(barButton('Compare'));
+        await until(() => barButton('Compare with')?.textContent?.startsWith('With v2, ') === true);
         await until(() => text().includes('+1') && text().includes('-1'));
+
+        await clickOn(barButton('Compare with'));
+        await until(() => radioRows().length === 2);
+        expect(radioRows().map((row) => row.slice(0, 3))).toEqual(['v2,', 'v1,']);
+        await clickOn(([...document.querySelectorAll('[role="menuitemradio"]')] as HTMLElement[]).find((row) => row.textContent?.startsWith('v1, ')) ?? null);
+        await until(() => barButton('Compare with')?.textContent?.startsWith('With v1, ') === true);
+        delete REPORTS['v-first'];
     });
 
-    test('names every version by its number, so two of the same minute tell apart', async () => {
+    test('names every version by its number in the versions menu, and a pick shows it', async () => {
         await openDependencies();
-        const rows = [...page.host.querySelectorAll('nav[aria-label="Versions"] button')].map((row) => row.textContent ?? '');
+        await openVersions();
+        const rows = radioRows();
         expect(rows[0]).toStartWith('v2, ');
+        expect(rows[0]).toContain('Latest');
         expect(rows[1]).toStartWith('v1, ');
+        await clickOn(([...document.querySelectorAll('[role="menuitemradio"]')] as HTMLElement[]).find((row) => row.textContent?.startsWith('v1, ')) ?? null);
+        await until(() => text().includes('8 behind'));
+        expect(barButton('Versions')!.textContent).toStartWith('v1, ');
     });
 
     test('Pin to canvas stays on the version picked, in view of that canvas', async () => {
         await openDependencies();
-        await clickOn(
-            ([...page.host.querySelectorAll('nav[aria-label="Versions"] button')] as HTMLElement[]).find((row) => row.textContent?.startsWith('v1, ')) ?? null
-        );
+        await pickVersion('v1, ');
         await until(() => text().includes('8 behind'));
-        await clickOn(buttonWithText('Pin to canvas'));
-        await until(() => document.querySelector('[role="menuitem"]') !== null);
+        await openMore();
+        await openSubmenu('Pin to canvas');
         await clickOn(([...document.querySelectorAll('[role="menuitem"]')] as HTMLElement[]).find((item) => item.textContent?.trim() === 'Main') ?? null);
         await until(() => liveCanvas('main') !== null);
         // The page has no layout to measure, so the canvas gets the size a window would give it, after the camera it opened on.
@@ -334,20 +381,22 @@ describe('the artifact view', () => {
         machine.answer('artifact.remove', () => ({ removed: 2, freedBytes: 50 }));
         await openDependencies();
         expect(useFiles.getState().tabs.some((tab) => tab.key === artifactTabKey('deps'))).toBe(true);
-        await clickOn(buttonWithText('Remove…'));
+        await openMore();
+        await clickOn(menuItemNamed('Remove…'));
         await confirmDialog('Remove');
         await until(() => machine.requests('artifact.remove').length === 1);
         expect(machine.requests('artifact.remove')[0]).toEqual({ artifactId: 'deps' });
         await until(() => !useFiles.getState().tabs.some((tab) => tab.key === artifactTabKey('deps')));
     });
 
-    test('a right click on a version removes only that version', async () => {
+    test('a version in the versions menu removes only that version', async () => {
         machine.answer('artifact.remove', () => ({ removed: 1, freedBytes: 10 }));
         await openDependencies();
-        await rightClick(
-            ([...page.host.querySelectorAll('nav[aria-label="Versions"] button')] as HTMLElement[]).find((row) => row.textContent?.startsWith('v1, '))
-        );
-        await clickOn(menuItemNamed('Remove version…'));
+        await openVersions();
+        const row = ([...document.querySelectorAll('[role="menu"] [role="group"]')] as HTMLElement[]).find((group) =>
+            group.getAttribute('aria-label')?.startsWith('v1, ')
+        )!;
+        await clickOn(row.querySelectorAll('[role="menuitem"]')[0] ?? null);
         await until(() => (document.querySelector('[role="dialog"]')?.textContent ?? '').includes('Remove version 1?'));
         await confirmDialog('Remove');
         await until(() => machine.requests('artifact.remove').length === 1);
@@ -359,7 +408,8 @@ describe('the artifact view', () => {
         const all = Object.keys(REQUEST_SCHEMAS) as RequestType[];
         machine.answersOnly(all.filter((type) => type !== 'artifact.remove'));
         await openDependencies();
-        expect(buttonWithText('Remove…')).toBeNull();
+        await openMore();
+        expect(menuItems()).toEqual(['Copy to project…', 'Pin to canvas']);
     });
 
     test('Copy to project shows the folders of the project in a tree of its own height', async () => {
@@ -372,7 +422,8 @@ describe('the artifact view', () => {
             truncated: false
         }));
         await openDependencies();
-        await clickOn(buttonWithText('Copy to project'));
+        await openMore();
+        await clickOn(menuItemNamed('Copy to project…'));
         await until(() => document.querySelector('[role="dialog"] .adecore-file-tree') !== null);
         const tree = document.querySelector<HTMLElement>('[role="dialog"] .adecore-file-tree')!;
         // A tree only draws the rows its own height holds; under a parent that only caps it, it had none.
@@ -387,7 +438,8 @@ describe('the artifact view', () => {
             throw new TransportError('exists', 'That name exists in the project already. Ruimte never overwrites a file.');
         });
         await openDependencies();
-        await clickOn(buttonWithText('Copy to project'));
+        await openMore();
+        await clickOn(menuItemNamed('Copy to project…'));
         await until(() => document.querySelector('[role="dialog"]') !== null);
         const dialog = document.querySelector('[role="dialog"]')!;
         await act(async () => {
