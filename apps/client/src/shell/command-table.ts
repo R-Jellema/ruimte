@@ -526,19 +526,19 @@ const TABLE = {
         key: 'toggleOutput',
         icon: Package,
         palette: true,
-        menu: { menu: 'view', group: 'panels', order: 15, checked: (context) => context.panel === 'output' }
+        menu: { menu: 'view', group: 'panels', order: 25, checked: (context) => context.panel === 'output' }
     },
     'panel-databases': {
         key: 'toggleDatabases',
         icon: Database,
         palette: true,
-        menu: { menu: 'view', group: 'panels', order: 20, when: (context) => !context.scratch, checked: (context) => context.panel === 'databases' }
+        menu: { menu: 'view', group: 'panels', order: 30, when: (context) => !context.scratch, checked: (context) => context.panel === 'databases' }
     },
     'panel-git': {
         key: 'toggleGit',
         icon: GitBranch,
         palette: true,
-        menu: { menu: 'view', group: 'panels', order: 30, when: (context) => !context.scratch, checked: (context) => context.panel === 'git' }
+        menu: { menu: 'view', group: 'panels', order: 20, when: (context) => !context.scratch, checked: (context) => context.panel === 'git' }
     },
     'panel-devices': {
         key: 'devices',

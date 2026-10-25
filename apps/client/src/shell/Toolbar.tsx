@@ -81,9 +81,7 @@ export function Toolbar() {
             {hasPanelButtons && (
                 <>
                     <Separator />
-                    <ButtonGroup>
-                        <PanelControls />
-                    </ButtonGroup>
+                    <PanelControls />
                     <Separator />
                 </>
             )}

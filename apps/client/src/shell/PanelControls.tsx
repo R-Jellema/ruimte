@@ -6,7 +6,8 @@ import { useEndpointId } from '@/state/keys';
 import { isThisMachine } from '@/state/local-machine';
 import { isScratchProject, useProject } from '@/state/project';
 import { useShownPanel, useUi } from '@/state/ui';
-import { IconButton } from '@adecore/ui';
+import { Fragment } from 'react';
+import { ButtonGroup, IconButton, Separator } from '@adecore/ui';
 
 /* The panel toggles. They stay in the toolbar whether a panel is open or not, so a toggle never
    moves out from under the pointer; the panel's own header carries its title and its close button
@@ -24,24 +25,35 @@ export function PanelControls() {
     /* The project folder's own checkout, which is what the panel shows first; it shares the watch the git and files panels hold. */
     const changes = useGitStatus(repo ? candidate : null)?.files.length ?? 0;
 
+    const groups = (['project', 'connected'] as const).map((group) => entries.filter((entry) => entry.group === group)).filter((group) => group.length > 0);
+
     return (
         <>
-            {entries.map((entry) => {
-                const dirty = entry.kind === 'git' && changes > 0;
-                return (
-                    <IconButton
-                        key={entry.kind}
-                        icon={entry.icon}
-                        label={dirty ? t('panel.gitChanges', { count: changes }) : t(`panel.names.${entry.kind}`)}
-                        active={panel.open && panel.kind === entry.kind}
-                        className={dirty ? 'relative' : undefined}
-                        onClick={() => useUi.getState().togglePanel(entry.kind)}
-                    >
-                        {/* Gray as the unsaved dot is: it says there is something to commit, not that something is wrong. */}
-                        {dirty && <span aria-hidden="true" className="pointer-events-none absolute top-1 right-1 size-1.5 rounded-full bg-text-faint" />}
-                    </IconButton>
-                );
-            })}
+            {groups.map((group, index) => (
+                <Fragment key={group[0]!.group}>
+                    {index > 0 && <Separator />}
+                    <ButtonGroup>
+                        {group.map((entry) => {
+                            const dirty = entry.kind === 'git' && changes > 0;
+                            return (
+                                <IconButton
+                                    key={entry.kind}
+                                    icon={entry.icon}
+                                    label={dirty ? t('panel.gitChanges', { count: changes }) : t(`panel.names.${entry.kind}`)}
+                                    active={panel.open && panel.kind === entry.kind}
+                                    className={dirty ? 'relative' : undefined}
+                                    onClick={() => useUi.getState().togglePanel(entry.kind)}
+                                >
+                                    {/* Gray as the unsaved dot is: it says there is something to commit, not that something is wrong. */}
+                                    {dirty && (
+                                        <span aria-hidden="true" className="pointer-events-none absolute top-1 right-1 size-1.5 rounded-full bg-text-faint" />
+                                    )}
+                                </IconButton>
+                            );
+                        })}
+                    </ButtonGroup>
+                </Fragment>
+            ))}
         </>
     );
 }
