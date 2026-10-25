@@ -1465,12 +1465,12 @@
             "retry": "Try again"
         },
         "cleanup": {
-            "title": "Cleanup proposals",
-            "description": "Ruimte never removes output on its own. A proposal names the versions, and nothing goes until you confirm.",
-            "nothing": "Nothing to propose",
+            "title": "Clean up",
+            "description": "Versions beyond the last 30 of an artifact, or the last 7 builds. Nothing is removed until you confirm.",
+            "nothing": "Nothing to clean up",
             "proposal": "Older versions of {{title}}",
-            "frees_one": "Frees {{size}}, {{count}} version from {{from}} to {{to}}",
-            "frees_other": "Frees {{size}}, {{count}} versions from {{from}} to {{to}}",
+            "frees_one": "Frees {{size}}, {{count}} version",
+            "frees_other": "Frees {{size}}, {{count}} versions",
             "notNow": "Not now",
             "review": "Review",
             "dialogDescription": "The checked versions go from {{machine}} for good. The latest version stays, and so does a version copied to a project or pinned to a canvas.",

@@ -86,7 +86,7 @@ describe('the Storage pane', () => {
     test('Review removes exactly the versions left checked', async () => {
         await openStorage();
         await until(() => text().includes('Older versions of Morning summary'));
-        expect(text()).toContain('3 versions from');
+        expect(text()).toContain('Frees 12 MB, 3 versions');
         await clickOn(button('Review'));
         await until(() => document.querySelector('[role="dialog"] [role="checkbox"][aria-label="Version 2"]') !== null);
         await clickOn(document.querySelector('[role="checkbox"][aria-label="Version 2"]'));
@@ -107,14 +107,14 @@ describe('the Storage pane', () => {
         await openStorage();
         await until(() => text().includes('Older versions of Morning summary'));
         await clickOn(button('Not now'));
-        await until(() => text().includes('Nothing to propose'));
+        await until(() => text().includes('Nothing to clean up'));
         expect(machine.requests('artifact.cleanup').every((payload) => payload.mode === 'preview')).toBe(true);
     });
 
     test('a machine with nothing to let go says so', async () => {
         machine.answer('artifact.cleanup', () => ({ proposals: [] }));
         await openStorage();
-        await until(() => text().includes('Nothing to propose'));
+        await until(() => text().includes('Nothing to clean up'));
     });
 
     test('a machine that does not keep Output asks for an update and is never asked', async () => {

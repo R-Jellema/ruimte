@@ -13,7 +13,7 @@ import { useFiles } from '@/state/files';
 import { TransportError } from '@/transport/transport';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
-import { clickOn, mount, until, type Mounted } from '../../testing/dom';
+import { clickOn, mount, openSubmenu, pressKey, until, type Mounted } from '../../testing/dom';
 
 const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [], texts: [], edges: [], layouts: [] };
 // The panel groups by the day it is now, so the clock stands still on a known one.
@@ -77,14 +77,25 @@ function buttonWithText(label: string): HTMLElement | null {
     return ([...document.querySelectorAll('button')] as HTMLElement[]).find((button) => button.textContent?.trim() === label) ?? null;
 }
 
-function filter(label: string): HTMLElement | null {
-    const bar = page.host.querySelector('[role="group"][aria-label="Filters"]');
-    // A project's chip starts with its glyph, which may be a letter of its own.
-    return ([...(bar?.querySelectorAll('button') ?? [])] as HTMLElement[]).find((button) => button.textContent?.trim().endsWith(label)) ?? null;
-}
-
 function menuItem(label: string): HTMLElement | null {
     return ([...document.querySelectorAll('[role="menuitemradio"]')] as HTMLElement[]).find((item) => item.textContent?.includes(label)) ?? null;
+}
+
+async function openFilters(): Promise<void> {
+    await clickOn(document.querySelector('button[aria-label="Filters"]'));
+    await until(() => document.querySelector('[role="menu"]') !== null);
+}
+
+/* Every filter sits behind the one button in the panel's header, a submenu per filter. */
+async function filterBy(title: string, choice: string): Promise<void> {
+    await openFilters();
+    await openSubmenu(title);
+    await clickOn(menuItem(choice));
+    // A pick leaves the menu open for the next filter, so Escape closes it, a submenu at a time.
+    while (document.querySelector('[role="menu"]') !== null) {
+        const menus = document.querySelectorAll('[role="menu"]');
+        await pressKey(menus[menus.length - 1]!, 'Escape');
+    }
 }
 
 async function openPanel(): Promise<void> {
@@ -130,9 +141,10 @@ describe('the Output panel', () => {
         expect(text()).not.toContain('Beacon build');
         expect(text()).toContain('2 shown');
 
-        await clickOn(filter('Atlas'));
-        await clickOn(menuItem('All projects'));
+        expect(page.host.querySelector('button[aria-label="Filters"]')?.getAttribute('aria-pressed')).not.toBe('true');
+        await filterBy('Project', 'All projects');
         await until(() => text().includes('Beacon build'));
+        expect(text()).toContain('All projects');
         expect(text()).toContain('Earlier');
         expect(text()).toContain('3 shown');
     });
@@ -140,15 +152,15 @@ describe('the Output panel', () => {
     test('a kind narrows the list, and a filter nothing passes says so', async () => {
         await openPanel();
         await until(() => text().includes('Nightly screenshots'));
-        await clickOn(filter('All kinds'));
-        await clickOn(menuItem('Image'));
+        await filterBy('Kind', 'Image');
         await until(() => !text().includes('Dependency report'));
         expect(text()).toContain('Nightly screenshots');
+        expect(text()).toContain('1 filter');
 
-        await clickOn(filter('Any size'));
-        await clickOn(menuItem('Over 1 GB'));
+        await filterBy('Size', 'Over 1 GB');
         await until(() => text().includes('Nothing matches these filters.'));
-        await clickOn(buttonWithText('Reset'));
+        await openFilters();
+        await clickOn(([...document.querySelectorAll('[role="menuitem"]')] as HTMLElement[]).find((item) => item.textContent?.trim() === 'Reset') ?? null);
         await until(() => text().includes('Dependency report'));
     });
 

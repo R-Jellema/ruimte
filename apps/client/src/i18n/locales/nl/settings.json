@@ -1465,12 +1465,12 @@
             "retry": "Opnieuw proberen"
         },
         "cleanup": {
-            "title": "Opruimvoorstellen",
-            "description": "Ruimte verwijdert nooit zelf output. Een voorstel noemt de versies, en er gaat niets weg tot je bevestigt.",
-            "nothing": "Niets voor te stellen",
+            "title": "Opruimen",
+            "description": "Versies voorbij de laatste 30 van een artefact, of de laatste 7 builds. Er gaat niets weg tot je bevestigt.",
+            "nothing": "Niets om op te ruimen",
             "proposal": "Oudere versies van {{title}}",
-            "frees_one": "Maakt {{size}} vrij, {{count}} versie van {{from}} tot {{to}}",
-            "frees_other": "Maakt {{size}} vrij, {{count}} versies van {{from}} tot {{to}}",
+            "frees_one": "Maakt {{size}} vrij, {{count}} versie",
+            "frees_other": "Maakt {{size}} vrij, {{count}} versies",
             "notNow": "Niet nu",
             "review": "Bekijken",
             "dialogDescription": "De aangevinkte versies gaan voorgoed weg van {{machine}}. De nieuwste versie blijft, en ook een versie die naar een project gekopieerd is of op een canvas vastgezet.",

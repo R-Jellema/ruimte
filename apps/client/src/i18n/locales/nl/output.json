@@ -31,7 +31,15 @@
             "week": "Deze week",
             "earlier": "Eerder"
         },
+        "narrowed_one": "· {{count}} filter",
+        "narrowed_other": "· {{count}} filters",
         "filter": {
+            "project": "Project",
+            "kind": "Soort",
+            "source": "Bron",
+            "routine": "Routine",
+            "time": "Tijd",
+            "size": "Grootte",
             "allProjects": "Alle projecten",
             "thisProject": "{{name}} (dit project)",
             "allKinds": "Alle soorten",

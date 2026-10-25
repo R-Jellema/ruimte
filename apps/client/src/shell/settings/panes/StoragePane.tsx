@@ -1,9 +1,9 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, CircleAlert, Folder, Package, Server, Sparkles, Trash2 } from 'lucide-react';
+import { ChevronDown, CircleAlert, Eraser, Folder, Package, Server, Trash2 } from 'lucide-react';
 import type { ArtifactCleanupProposal, ArtifactStorageResult } from '@ruimte/contracts';
 import { Button, ErrorBoundary, Icon, Menu, SegmentBar } from '@adecore/ui';
-import { formatBytes, formatWeekdayDay } from '@adecore/ui/format';
+import { formatBytes } from '@adecore/ui/format';
 import { SettingsRow, TopIcon } from '@adecore/ui/settings';
 import { create } from 'zustand';
 import { holdArtifacts, useArtifacts } from '@/output/artifacts';
@@ -237,26 +237,18 @@ function Proposals({
     const [reviewing, setReviewing] = useState<ArtifactCleanupProposal | null>(null);
     const shown = proposals.filter((proposal) => !deferred.has(endpointKey(endpointId, proposal.id)));
     return (
-        <SettingsSection title={t('storage.cleanup.title')} description={t('storage.cleanup.description')} icon={Sparkles}>
+        <SettingsSection title={t('storage.cleanup.title')} description={t('storage.cleanup.description')} icon={Eraser}>
             {shown.length === 0 ? (
                 <SettingsRow searchId="storage.cleanup" muted label={t('storage.cleanup.nothing')} />
             ) : (
                 shown.map((proposal, index) => {
-                    // Proposed versions run oldest first.
-                    const from = proposal.versions[0]?.createdAt ?? 0;
-                    const to = proposal.versions.at(-1)?.createdAt ?? from;
                     return (
                         <SettingsRow
                             key={proposal.id}
                             searchId={index === 0 ? 'storage.cleanup' : undefined}
                             leading={<TopIcon icon={Trash2} className="text-text-faint" />}
                             label={t('storage.cleanup.proposal', { title: proposal.title })}
-                            description={t('storage.cleanup.frees', {
-                                count: proposal.versions.length,
-                                size: formatBytes(proposal.bytes),
-                                from: formatWeekdayDay(from),
-                                to: formatWeekdayDay(to)
-                            })}
+                            description={t('storage.cleanup.frees', { count: proposal.versions.length, size: formatBytes(proposal.bytes) })}
                             control={
                                 <span className="flex items-center gap-2">
                                     <Button variant="ghost" onClick={() => deferProposal(endpointKey(endpointId, proposal.id))}>

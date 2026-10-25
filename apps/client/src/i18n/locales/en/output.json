@@ -31,7 +31,15 @@
             "week": "This week",
             "earlier": "Earlier"
         },
+        "narrowed_one": "· {{count}} filter",
+        "narrowed_other": "· {{count}} filters",
         "filter": {
+            "project": "Project",
+            "kind": "Kind",
+            "source": "Source",
+            "routine": "Routine",
+            "time": "Time",
+            "size": "Size",
             "allProjects": "All projects",
             "thisProject": "{{name}} (this project)",
             "allKinds": "All kinds",
