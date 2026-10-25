@@ -141,12 +141,16 @@ describe('the Output panel', () => {
         expect(text()).not.toContain('Beacon build');
         expect(text()).toContain('2 shown');
 
-        expect(page.host.querySelector('button[aria-label="Filters"]')?.getAttribute('aria-pressed')).not.toBe('true');
+        // Where the panel starts says nothing about filters.
+        expect(buttonWithText('Reset')).toBeNull();
         await filterBy('Project', 'All projects');
         await until(() => text().includes('Beacon build'));
         expect(text()).toContain('All projects');
         expect(text()).toContain('Earlier');
         expect(text()).toContain('3 shown');
+        await clickOn(buttonWithText('Reset'));
+        await until(() => !text().includes('Beacon build'));
+        expect(buttonWithText('Reset')).toBeNull();
     });
 
     test('a kind narrows the list, and a filter nothing passes says so', async () => {

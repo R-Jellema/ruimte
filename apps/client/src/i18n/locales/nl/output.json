@@ -31,8 +31,8 @@
             "week": "Deze week",
             "earlier": "Eerder"
         },
-        "narrowed_one": "· {{count}} filter",
-        "narrowed_other": "· {{count}} filters",
+        "narrowed_one": "{{count}} filter",
+        "narrowed_other": "{{count}} filters",
         "filter": {
             "project": "Project",
             "kind": "Soort",

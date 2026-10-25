@@ -132,7 +132,13 @@ export function OutputPanel() {
     return (
         <>
             {header}
-            <ScopeLine endpointId={endpointId} artifacts={list.artifacts} filters={filters} projectId={projectId} />
+            <ScopeLine
+                endpointId={endpointId}
+                artifacts={list.artifacts}
+                filters={filters}
+                projectId={projectId}
+                onReset={() => setFilters(defaultFilters(projectId))}
+            />
             {searchOpen && (
                 <div className="flex shrink-0 px-2 pt-2">
                     <Input
@@ -311,30 +317,49 @@ function narrowing(filters: OutputFilters): number {
     return [filters.kind, filters.source, filters.routine, filters.date, filters.size].filter((value) => value !== ALL).length;
 }
 
-/* Which project the list shows, always on screen since every other filter sits behind the header's button. */
+/* What the list is narrowed to, only while it differs from where the panel starts, with the way back. */
 function ScopeLine({
     endpointId,
     artifacts,
     filters,
-    projectId
+    projectId,
+    onReset
 }: {
     endpointId: string;
     artifacts: readonly ArtifactSummary[];
     filters: OutputFilters;
     projectId: string | null;
+    onReset(): void;
 }) {
     const { t } = useTranslation('output');
     const projectName = useProjectName(artifacts, projectId);
+    if (!filtersChanged(filters, projectId)) {
+        return null;
+    }
     const count = narrowing(filters);
+    const otherProject = filters.project !== defaultFilters(projectId).project;
     return (
-        <div className="flex h-8 shrink-0 items-center gap-1.5 border-b border-border px-3 text-xs text-text-muted">
-            {filters.project === ALL ? (
-                <Icon icon={LayoutGrid} size={12} className="shrink-0 text-text-faint" />
-            ) : (
-                <OutputProjectGlyph endpointId={endpointId} projectId={filters.project} size={12} />
+        <div className="flex h-8 shrink-0 items-center gap-1.5 border-b border-border pr-1 pl-3 text-xs text-text-muted">
+            {otherProject && (
+                <>
+                    {filters.project === ALL ? (
+                        <Icon icon={LayoutGrid} size={12} className="shrink-0 text-text-faint" />
+                    ) : (
+                        <OutputProjectGlyph endpointId={endpointId} projectId={filters.project} size={12} />
+                    )}
+                    <span className="min-w-0 truncate">{filters.project === ALL ? t('panel.filter.allProjects') : projectName(filters.project)}</span>
+                </>
             )}
-            <span className="min-w-0 truncate">{filters.project === ALL ? t('panel.filter.allProjects') : projectName(filters.project)}</span>
-            {count > 0 && <span className="shrink-0 text-text-faint">{t('panel.narrowed', { count })}</span>}
+            {otherProject && count > 0 && (
+                <span aria-hidden="true" className="text-text-faint">
+                    ·
+                </span>
+            )}
+            {count > 0 && <span className="shrink-0">{t('panel.narrowed', { count })}</span>}
+            <span className="grow" />
+            <Button size="xs" variant="ghost" onClick={onReset}>
+                {t('panel.reset')}
+            </Button>
         </div>
     );
 }
