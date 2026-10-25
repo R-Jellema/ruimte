@@ -194,4 +194,41 @@ describe('a # after the message went out', () => {
         await until(() => machine.requests('chat.send').length === 1);
         expect(machine.requests('chat.send')[0]).toMatchObject({ text: 'Look at #Schets', references: [SKETCH.id] });
     });
+
+    test('Copy message in the thread menu carries the chips too, and a paste sends them again', async () => {
+        const answered = { id: 'answered', kind: 'assistant', turnId: 'turn-0', createdAt: 2, text: 'I drew in #Schets.', streaming: false };
+        await open(true, [answered]);
+        const cell = (): Element => page.host.querySelector(`[data-split-cell][data-view-id="${LEAD.id}"]`)!;
+        await until(() => cell().querySelectorAll('[data-chip="reference"]').length === 1);
+
+        const words = cell().querySelector('[data-find-item="answered"] p')!;
+        await act(async () => {
+            words.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 40, button: 2 }));
+        });
+        const item = (): HTMLElement | undefined =>
+            ([...document.querySelectorAll('[role="menuitem"]')] as HTMLElement[]).find((candidate) => candidate.textContent?.includes('Copy message'));
+        await until(() => item() !== undefined);
+
+        const clipboard = clipboardOf();
+        const original = document.execCommand;
+        document.execCommand = () => {
+            document.dispatchEvent(Object.assign(new Event('copy', { bubbles: true, cancelable: true }), { clipboardData: clipboard }));
+            return true;
+        };
+        try {
+            await clickOn(item() ?? null);
+        } finally {
+            document.execCommand = original;
+        }
+        expect(clipboard.data['text/plain']).toBe('I drew in #Schets.');
+        expect(JSON.parse(clipboard.data['application/x-adecore-chips'] ?? 'null')).toMatchObject({ references: [{ id: SKETCH.id, name: 'Schets' }] });
+
+        await act(async () => {
+            const event = Object.assign(new Event('paste', { bubbles: true, cancelable: true }), { clipboardData: clipboard });
+            composer()!.contentDOM.dispatchEvent(event);
+        });
+        await pressKey(composer()!.contentDOM, 'Enter');
+        await until(() => machine.requests('chat.send').length === 1);
+        expect(machine.requests('chat.send')[0]).toMatchObject({ text: 'I drew in #Schets.', references: [SKETCH.id] });
+    });
 });
