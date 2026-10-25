@@ -1,20 +1,18 @@
 import { useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { CircleAlert, Download, FilePlus, GitCompare, Info, Lock, Package, Pin, WifiOff } from 'lucide-react';
+import { CircleAlert, Download, FilePlus, GitCompare, Info, Lock, Package, Pin, Trash2, WifiOff } from 'lucide-react';
 import { patchOf } from '@adecore/merge';
 import { VisualPageFrame } from '@adecore/agents-react/chat/ui';
 import { AgentIcon, modelName, ProviderLogo } from '@adecore/agents-react/providers';
 import { useChats, useProvidersStore } from '@adecore/agents-react/state';
-import { BYTES_READ_MAX_BYTES, isCanvasView, type Artifact, type ArtifactGetResult, type ArtifactProvenance, type ArtifactVersion } from '@ruimte/contracts';
+import { BYTES_READ_MAX_BYTES, type Artifact, type ArtifactGetResult, type ArtifactProvenance, type ArtifactVersion } from '@ruimte/contracts';
 import { hasProviderLogo } from '@/agents/provider-logo';
-import { EmptyState, ErrorBoundary, Icon, IconButton, LazyBoundary, Menu, Pill, SectionLabel, lazyNamed, Tooltip } from '@adecore/ui';
+import { ContextMenu, EmptyState, ErrorBoundary, Icon, IconButton, LazyBoundary, Menu, Pill, SectionLabel, lazyNamed, Tooltip } from '@adecore/ui';
 import type { CopyToProjectRequest } from '@/output/CopyToProjectDialog';
+import { pinArtifact, useCanRemove, usePinCanvases } from '@/output/artifact-actions';
+import { RemoveArtifactDialog, type RemoveArtifactRequest } from '@/output/RemoveArtifactDialog';
 import { ActionRow } from '@/output/look';
-import { createNodeAction } from '@/actions/client-actions';
-import { showView } from '@/project/views';
-import { canvasSettled } from '@/state/canvas';
-import { useDocument } from '@/state/document';
 import { formatBytes, formatDayClock } from '@adecore/ui/format';
 import { comparable, drawnKind, isTextMime } from '@/output/artifact-list';
 import { downloadArtifactFile, readArtifactFile, useArtifactText, type ArtifactFileRef } from '@/output/artifact-bytes';
@@ -34,7 +32,6 @@ import { useMachineUrl } from '@/transport/machine-url';
 
 const UnifiedDiff = lazyNamed(() => import('@adecore/agents-react/chat/ui'), 'UnifiedDiff');
 const CopyToProjectDialog = lazyNamed(() => import('@/output/CopyToProjectDialog'), 'CopyToProjectDialog');
-
 /*
  * One artifact of Output as a loose view: its versions on the left, the version picked in the middle,
  * where it came from on the right. Every byte is read by the artifact's id and a version's id; the
@@ -86,7 +83,12 @@ function ArtifactBody({ endpointId, machineId, result }: { endpointId: string; m
     const [baseId, setBaseId] = useState<string | null>(null);
     const [infoOpen, setInfoOpen] = useState(true);
     const [copy, setCopy] = useState<CopyToProjectRequest | null>(null);
+    const [removing, setRemoving] = useState<RemoveArtifactRequest | null>(null);
+    const canRemove = useCanRemove(endpointId, machineId);
     const latest = versions[0]!;
+    const totalBytes = versions.reduce((sum, entry) => sum + entry.bytes, 0);
+    const askRemove = (picked: ArtifactVersion | null): void =>
+        setRemoving({ artifact, version: picked, versionCount: versions.length, totalBytes, open: true });
     // A version picked from the panel that a cleanup took since is said to be gone, not swapped for another.
     const version = chosen === null ? latest : (versions.find((entry) => entry.versionId === chosen) ?? null);
     const canCompare = version !== null && versions.length > 1 && drawnKind(artifact.kind) === 'report' && comparable(version);
@@ -107,7 +109,14 @@ function ArtifactBody({ endpointId, machineId, result }: { endpointId: string; m
                 <IconButton icon={Info} size="sm" label={t('view.info')} aria-pressed={infoOpen} onClick={() => setInfoOpen(!infoOpen)} />
             </ArtifactToolbar>
             <div className="flex min-h-0 grow">
-                <VersionsColumn versions={versions} selected={version} base={base} compare={compare} onPick={pick} />
+                <VersionsColumn
+                    versions={versions}
+                    selected={version}
+                    base={base}
+                    compare={compare}
+                    onPick={pick}
+                    onRemove={canRemove ? askRemove : undefined}
+                />
                 <div className="flex min-h-0 min-w-0 grow flex-col">
                     {version === null ? (
                         <Centered icon={Package}>
@@ -144,6 +153,11 @@ function ArtifactBody({ endpointId, machineId, result }: { endpointId: string; m
                                     {t('view.copyToProject')}
                                 </ActionRow>
                                 <PinToCanvas artifact={artifact} version={version.versionId === latest.versionId ? null : version.versionId} />
+                                {canRemove && (
+                                    <ActionRow icon={Trash2} onClick={() => askRemove(null)}>
+                                        {t('remove.action')}
+                                    </ActionRow>
+                                )}
                             </>
                         ) : (
                             <CopyToThisMachine machineId={machineId} artifact={artifact} version={version} />
@@ -161,37 +175,21 @@ function ArtifactBody({ endpointId, machineId, result }: { endpointId: string; m
                     />
                 </LazyBoundary>
             )}
+            <RemoveArtifactDialog endpointId={endpointId} request={removing} onClose={() => removing !== null && setRemoving({ ...removing, open: false })} />
         </div>
     );
 }
 
-/*
- * Puts the artifact on a canvas of the window's project, staying on the version picked unless that is
- * the latest, which the node then follows. The artifact is the window's machine's, and so is every
- * canvas of the project on it, so a node never points at another machine's Output.
- */
+/* Pin to canvas as a row of the actions, with the version picked unless that is the latest, which the node then follows. */
 function PinToCanvas({ artifact, version }: { artifact: Artifact; version: string | null }) {
     const { t } = useTranslation('output');
-    const views = useDocument((s) => s.views);
-    const canvases = views.filter((view) => isCanvasView(view) && view.hidden !== true);
-    const pin = async (viewId: string): Promise<void> => {
-        showView(viewId);
-        if (!(await canvasSettled(viewId))) {
-            return;
-        }
-        await createNodeAction('artifact', {
-            viewId,
-            artifact: artifact.artifactId,
-            title: artifact.title,
-            ...(version === null ? {} : { artifactVersion: version })
-        });
-    };
+    const canvases = usePinCanvases();
     return (
         <Menu.Root>
             <Menu.Trigger render={<ActionRow icon={Pin} disabled={canvases.length === 0} />}>{t('view.pinToCanvas')}</Menu.Trigger>
             <Menu.Popup align="start" className="min-w-48">
                 {canvases.map((view) => (
-                    <Menu.Item key={view.id} onClick={() => void pin(view.id)}>
+                    <Menu.Item key={view.id} onClick={() => void pinArtifact(artifact, version, view.id)}>
                         <span className="truncate">{view.name}</span>
                     </Menu.Item>
                 ))}
@@ -232,13 +230,16 @@ function VersionsColumn({
     selected,
     base,
     compare,
-    onPick
+    onPick,
+    onRemove
 }: {
     versions: readonly ArtifactVersion[];
     selected: ArtifactVersion | null;
     base: ArtifactVersion | null;
     compare: boolean;
     onPick(version: ArtifactVersion): void;
+    /* Set where a person may remove a version, which a right click on its row offers. */
+    onRemove?: (version: ArtifactVersion) => void;
 }) {
     const { t } = useTranslation('output');
     return (
@@ -253,7 +254,7 @@ function VersionsColumn({
                 {versions.map((version, index) => {
                     const isSelected = selected?.versionId === version.versionId;
                     const isBase = base?.versionId === version.versionId;
-                    return (
+                    const row = (
                         <button
                             key={version.versionId}
                             type="button"
@@ -269,6 +270,19 @@ function VersionsColumn({
                             {isBase && <Pill size="sm">{t('view.base')}</Pill>}
                             {!compare && index !== 0 && <span className="shrink-0 text-xs text-text-faint tabular-nums">{formatBytes(version.bytes)}</span>}
                         </button>
+                    );
+                    if (onRemove === undefined) {
+                        return row;
+                    }
+                    return (
+                        <ContextMenu.Root key={version.versionId}>
+                            <ContextMenu.Trigger render={row} />
+                            <ContextMenu.Popup>
+                                <ContextMenu.Item className="text-status-error" onClick={() => onRemove(version)}>
+                                    <Icon icon={Trash2} size={14} /> {t('remove.version')}
+                                </ContextMenu.Item>
+                            </ContextMenu.Popup>
+                        </ContextMenu.Root>
                     );
                 })}
             </div>

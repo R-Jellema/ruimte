@@ -63,7 +63,7 @@
         "loading": "Loading",
         "gone": "No longer in Output.",
         "versionGone": "Removed",
-        "versionGoneDetail": "This version was cleaned up.",
+        "versionGoneDetail": "This version was removed.",
         "unreachable": "The machine is not reachable.",
         "versions": "Versions",
         "versionRow": "v{{number}}, {{date}}",
@@ -148,5 +148,23 @@
         "save": "Save to Output",
         "saved": "Saved to Output",
         "saveFailed": "Could not save to Output"
+    },
+    "menu": {
+        "open": "Open",
+        "copyToProject": "Copy to project…"
+    },
+    "remove": {
+        "action": "Remove…",
+        "version": "Remove version…",
+        "title": "Remove {{title}}?",
+        "versionTitle": "Remove version {{number}}?",
+        "description_one": "{{count}} version, {{size}}, will be removed from {{machine}} for good.",
+        "description_other": "{{count}} versions, {{size}}, will be removed from {{machine}} for good.",
+        "versionDescription": "This version, {{size}}, will be removed from {{machine}} for good.",
+        "lastVersion": "It is the only version, so {{title}} goes with it.",
+        "confirm": "Remove",
+        "removed": "Removed",
+        "freed": "{{size}} freed",
+        "failed": "Could not remove this"
     }
 }

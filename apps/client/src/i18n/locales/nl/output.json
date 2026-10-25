@@ -63,7 +63,7 @@
         "loading": "Laden",
         "gone": "Staat niet meer in Output.",
         "versionGone": "Verwijderd",
-        "versionGoneDetail": "Deze versie is opgeruimd.",
+        "versionGoneDetail": "Deze versie is verwijderd.",
         "unreachable": "De machine is niet bereikbaar.",
         "versions": "Versies",
         "versionRow": "v{{number}}, {{date}}",
@@ -148,5 +148,23 @@
         "save": "Bewaar in Output",
         "saved": "Bewaard in Output",
         "saveFailed": "Kon niet in Output bewaren"
+    },
+    "menu": {
+        "open": "Openen",
+        "copyToProject": "Kopiëren naar project…"
+    },
+    "remove": {
+        "action": "Verwijderen…",
+        "version": "Versie verwijderen…",
+        "title": "{{title}} verwijderen?",
+        "versionTitle": "Versie {{number}} verwijderen?",
+        "description_one": "{{count}} versie, {{size}}, verdwijnt voorgoed van {{machine}}.",
+        "description_other": "{{count}} versies, {{size}}, verdwijnen voorgoed van {{machine}}.",
+        "versionDescription": "Deze versie, {{size}}, verdwijnt voorgoed van {{machine}}.",
+        "lastVersion": "Het is de enige versie, dus {{title}} verdwijnt mee.",
+        "confirm": "Verwijderen",
+        "removed": "Verwijderd",
+        "freed": "{{size}} vrijgemaakt",
+        "failed": "Kon dit niet verwijderen"
     }
 }

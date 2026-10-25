@@ -126,6 +126,33 @@ describe('Output on a linked machine', () => {
         await until(() => text().includes('Copied from'));
     });
 
+    test('a right click on its row offers only Open and Copy to this machine', async () => {
+        await act(async () => useUi.getState().setPanel({ open: true, kind: 'output' }));
+        await until(() => text().includes('Nothing saved yet'));
+        await clickOn(document.querySelector('button[aria-label="Filters"]'));
+        await openSubmenu('Project');
+        await clickOn(
+            ([...document.querySelectorAll('[role="menuitemradio"]')] as HTMLElement[]).find((item) => item.textContent?.includes('All projects')) ?? null
+        );
+        while (document.querySelector('[role="menu"]') !== null) {
+            const menus = document.querySelectorAll('[role="menu"]');
+            await pressKey(menus[menus.length - 1]!, 'Escape');
+        }
+        await until(() => text().includes('Release notes'));
+        const row = ([...document.querySelectorAll('section button')] as HTMLElement[]).find((button) => button.textContent?.startsWith('Release notes'))!;
+        await act(async () => {
+            row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 10, button: 2 }));
+        });
+        await until(() => document.querySelector('[role="menu"]') !== null);
+        const items = [...document.querySelectorAll('[role="menu"] [role="menuitem"]')] as HTMLElement[];
+        expect(items.map((item) => item.textContent?.trim())).toEqual(['Open', 'Copy to this machine']);
+        await clickOn(items[1]!);
+        await until(() => text().includes('Copied to this machine'));
+        expect(here.requests('artifact.importFrom')).toEqual([
+            { machineId: REMOTE, artifactId: 'art-remote', versionId: 'ver-remote', projectId: useProject.getState().current!.projectId }
+        ]);
+    });
+
     test('a refusal says what went wrong in plain words', async () => {
         here.answer('artifact.importFrom', () => {
             throw new TransportError('machine-unreachable', 'The other machine did not answer');

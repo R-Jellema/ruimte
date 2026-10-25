@@ -13,7 +13,7 @@ import { liveCanvas } from '@/state/canvas';
 import { useProvidersStore } from '@adecore/agents-react/state';
 import { useProject } from '@/state/project';
 import { useUi } from '@/state/ui';
-import { useFiles } from '@/state/files';
+import { artifactTabKey, useFiles } from '@/state/files';
 import { TransportError } from '@/transport/transport';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
@@ -107,6 +107,34 @@ async function filterBy(title: string, choice: string): Promise<void> {
     }
 }
 
+/* What a right click does: the menu opens at the pointer. */
+async function rightClick(target: Element | null | undefined): Promise<void> {
+    expect(target ?? null).not.toBeNull();
+    await act(async () => {
+        target!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 10, button: 2 }));
+    });
+    await until(() => document.querySelector('[role="menu"]') !== null);
+}
+
+function menuItems(): string[] {
+    return [...document.querySelectorAll('[role="menu"] [role="menuitem"]')].map((item) => item.textContent?.trim() ?? '');
+}
+
+function menuItemNamed(label: string): HTMLElement | null {
+    return ([...document.querySelectorAll('[role="menuitem"]')] as HTMLElement[]).find((item) => item.textContent?.trim() === label) ?? null;
+}
+
+function panelRow(title: string): HTMLElement | undefined {
+    return ([...page.host.querySelectorAll('section button')] as HTMLElement[]).find((button) => button.textContent?.startsWith(title));
+}
+
+/* The confirm of the question that is open. */
+async function confirmDialog(label: string): Promise<void> {
+    await until(() => document.querySelector('[role="dialog"]') !== null);
+    const dialog = document.querySelector('[role="dialog"]')!;
+    await clickOn(([...dialog.querySelectorAll('button')] as HTMLElement[]).find((button) => button.textContent?.trim() === label) ?? null);
+}
+
 async function openPanel(): Promise<void> {
     await act(async () => useUi.getState().setPanel({ open: true, kind: 'output' }));
 }
@@ -192,6 +220,22 @@ describe('the Output panel', () => {
         // A chat can be removed, so a row names neither it nor who saved.
         expect(text()).not.toContain('2 versions,');
         expect(machine.requests('artifact.get')).toHaveLength(0);
+    });
+
+    test('a right click on a row offers what the view does with its latest version', async () => {
+        await openPanel();
+        await until(() => text().includes('Dependency report'));
+        await rightClick(panelRow('Dependency report'));
+        expect(menuItems()).toEqual(['Open', 'Copy to project…', 'Pin to canvas', 'Remove…']);
+
+        await clickOn(menuItemNamed('Remove…'));
+        await until(() => (document.querySelector('[role="dialog"]')?.textContent ?? '').includes('Remove Dependency report?'));
+        expect(document.querySelector('[role="dialog"]')!.textContent).toContain('2 versions');
+        machine.answer('artifact.remove', () => ({ removed: 2, freedBytes: 50 }));
+        await confirmDialog('Remove');
+        await until(() => machine.requests('artifact.remove').length === 1);
+        expect(machine.requests('artifact.remove')[0]).toEqual({ artifactId: 'deps' });
+        await until(() => text().includes('50 B freed'));
     });
 
     test('a machine with nothing saved says how something gets there', async () => {
@@ -284,6 +328,38 @@ describe('the artifact view', () => {
         expect(node.y).toBeGreaterThanOrEqual(seen.y);
         expect(node.x + node.w).toBeLessThanOrEqual(seen.x + seen.w);
         expect(node.y + node.h).toBeLessThanOrEqual(seen.y + seen.h);
+    });
+
+    test('Remove takes the artifact whole and closes its view', async () => {
+        machine.answer('artifact.remove', () => ({ removed: 2, freedBytes: 50 }));
+        await openDependencies();
+        expect(useFiles.getState().tabs.some((tab) => tab.key === artifactTabKey('deps'))).toBe(true);
+        await clickOn(buttonWithText('Remove…'));
+        await confirmDialog('Remove');
+        await until(() => machine.requests('artifact.remove').length === 1);
+        expect(machine.requests('artifact.remove')[0]).toEqual({ artifactId: 'deps' });
+        await until(() => !useFiles.getState().tabs.some((tab) => tab.key === artifactTabKey('deps')));
+    });
+
+    test('a right click on a version removes only that version', async () => {
+        machine.answer('artifact.remove', () => ({ removed: 1, freedBytes: 10 }));
+        await openDependencies();
+        await rightClick(
+            ([...page.host.querySelectorAll('nav[aria-label="Versions"] button')] as HTMLElement[]).find((row) => row.textContent?.startsWith('v1, '))
+        );
+        await clickOn(menuItemNamed('Remove version…'));
+        await until(() => (document.querySelector('[role="dialog"]')?.textContent ?? '').includes('Remove version 1?'));
+        await confirmDialog('Remove');
+        await until(() => machine.requests('artifact.remove').length === 1);
+        expect(machine.requests('artifact.remove')[0]).toEqual({ artifactId: 'deps', versionIds: ['v-old'] });
+        expect(useFiles.getState().tabs.some((tab) => tab.key === artifactTabKey('deps'))).toBe(true);
+    });
+
+    test('a machine that cannot remove offers no Remove', async () => {
+        const all = Object.keys(REQUEST_SCHEMAS) as RequestType[];
+        machine.answersOnly(all.filter((type) => type !== 'artifact.remove'));
+        await openDependencies();
+        expect(buttonWithText('Remove…')).toBeNull();
     });
 
     test('Copy to project shows the folders of the project in a tree of its own height', async () => {

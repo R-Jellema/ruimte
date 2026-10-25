@@ -1,8 +1,41 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Bot, CircleAlert, HardDrive, LayoutGrid, ListFilter, Package, Search, User, CalendarClock, type LucideIcon } from 'lucide-react';
+import {
+    Bot,
+    CalendarClock,
+    CircleAlert,
+    FilePlus,
+    HardDrive,
+    LayoutGrid,
+    ListFilter,
+    MonitorDown,
+    Package,
+    Search,
+    Pin,
+    SquareArrowOutUpRight,
+    Trash2,
+    User,
+    type LucideIcon
+} from 'lucide-react';
 import type { ArtifactSummary, RemoteLink } from '@ruimte/contracts';
-import { Button, ButtonGroup, ErrorBoundary, Icon, IconButton, Input, Menu, PanelEmpty, SectionLabel, useNow } from '@adecore/ui';
+import {
+    Button,
+    ButtonGroup,
+    ContextMenu,
+    ErrorBoundary,
+    Icon,
+    IconButton,
+    Input,
+    LazyBoundary,
+    lazyNamed,
+    Menu,
+    PanelEmpty,
+    SectionLabel,
+    useNow
+} from '@adecore/ui';
+import { pinArtifact, useCanRemove, useCopyToThisMachine, usePinCanvases } from '@/output/artifact-actions';
+import { RemoveArtifactDialog, type RemoveArtifactRequest } from '@/output/RemoveArtifactDialog';
+import type { CopyToProjectRequest } from '@/output/CopyToProjectDialog';
 import { formatBytes, formatMoment } from '@adecore/ui/format';
 import {
     ALL,
@@ -29,6 +62,8 @@ import { useEndpointId } from '@/state/keys';
 import { useProject } from '@/state/project';
 import { useUi } from '@/state/ui';
 import { useMachineAnswers } from '@/transport/features';
+
+const CopyToProjectDialog = lazyNamed(() => import('@/output/CopyToProjectDialog'), 'CopyToProjectDialog');
 
 const MINUTE_MS = 60_000;
 
@@ -68,6 +103,12 @@ export function OutputPanel() {
     const [query, setQuery] = useState('');
     const now = useNow(MINUTE_MS);
     const linked = useLinkedMachines();
+    const [copying, setCopying] = useState<{ artifact: ArtifactSummary; request: CopyToProjectRequest } | null>(null);
+    const [removing, setRemoving] = useState<RemoveArtifactRequest | null>(null);
+    const actions: RowActions = {
+        copy: (artifact) => setCopying({ artifact, request: { version: artifact.latest, open: true, round: (copying?.request.round ?? 0) + 1 } }),
+        remove: (artifact) => setRemoving({ artifact, version: null, versionCount: artifact.versionCount, totalBytes: artifact.totalBytes, open: true })
+    };
 
     const artifacts = list?.status === 'ready' ? list.artifacts : NO_ARTIFACTS;
     const header = (
@@ -151,7 +192,14 @@ export function OutputPanel() {
                                 {t(`panel.groups.${group}`)}
                             </SectionLabel>
                             {grouped.map((artifact) => (
-                                <ArtifactRow key={artifact.artifactId} endpointId={endpointId} artifact={artifact} everywhere={everywhere} now={now} />
+                                <ArtifactRow
+                                    key={artifact.artifactId}
+                                    endpointId={endpointId}
+                                    artifact={artifact}
+                                    everywhere={everywhere}
+                                    now={now}
+                                    actions={actions}
+                                />
                             ))}
                         </section>
                     ))
@@ -170,6 +218,17 @@ export function OutputPanel() {
                     {t('panel.storage')}
                 </Button>
             </div>
+            {copying !== null && (
+                <LazyBoundary>
+                    <CopyToProjectDialog
+                        endpointId={endpointId}
+                        artifact={copying.artifact}
+                        request={copying.request}
+                        onClose={() => setCopying({ ...copying, request: { ...copying.request, open: false } })}
+                    />
+                </LazyBoundary>
+            )}
+            <RemoveArtifactDialog endpointId={endpointId} request={removing} onClose={() => removing !== null && setRemoving({ ...removing, open: false })} />
         </>
     );
 }
@@ -201,12 +260,107 @@ function LinkedMachineOutput({ link, filters, query, now }: { link: RemoteLink; 
     );
 }
 
+/* What a row's right click asks the panel for, with the dialogs that live once in the panel. */
+interface RowActions {
+    copy(artifact: ArtifactSummary): void;
+    remove(artifact: ArtifactSummary): void;
+}
+
+/* The right click on a row, about the latest version. A row of another machine is only opened or copied here. */
+function ArtifactRowMenu({
+    endpointId,
+    machineId,
+    artifact,
+    actions
+}: {
+    endpointId: string;
+    machineId: string | undefined;
+    artifact: ArtifactSummary;
+    actions: RowActions | undefined;
+}) {
+    const { t } = useTranslation('output');
+    const open = (
+        <ContextMenu.Item onClick={() => openArtifact(artifact.artifactId, artifact.title, null, machineId)}>
+            <Icon icon={SquareArrowOutUpRight} size={14} /> {t('menu.open')}
+        </ContextMenu.Item>
+    );
+    if (machineId !== undefined) {
+        return (
+            <>
+                {open}
+                <CopyHereItem machineId={machineId} artifact={artifact} />
+            </>
+        );
+    }
+    return (
+        <>
+            {open}
+            {actions !== undefined && (
+                <ContextMenu.Item onClick={() => actions.copy(artifact)}>
+                    <Icon icon={FilePlus} size={14} /> {t('menu.copyToProject')}
+                </ContextMenu.Item>
+            )}
+            <PinToCanvasSubmenu artifact={artifact} />
+            {actions !== undefined && <RemoveItem endpointId={endpointId} onRemove={() => actions.remove(artifact)} />}
+        </>
+    );
+}
+
+/* Pin to canvas as a submenu of the right click, one row per canvas; the node follows the latest. */
+function PinToCanvasSubmenu({ artifact }: { artifact: ArtifactSummary }) {
+    const { t } = useTranslation('output');
+    const canvases = usePinCanvases();
+    return (
+        <ContextMenu.SubmenuRoot disabled={canvases.length === 0}>
+            <ContextMenu.SubmenuTrigger disabled={canvases.length === 0}>
+                <Icon icon={Pin} size={14} /> <span className="grow">{t('view.pinToCanvas')}</span>
+            </ContextMenu.SubmenuTrigger>
+            <ContextMenu.Popup className="min-w-48">
+                {canvases.map((view) => (
+                    <ContextMenu.Item key={view.id} onClick={() => void pinArtifact(artifact, null, view.id)}>
+                        <span className="truncate">{view.name}</span>
+                    </ContextMenu.Item>
+                ))}
+            </ContextMenu.Popup>
+        </ContextMenu.SubmenuRoot>
+    );
+}
+
+function RemoveItem({ endpointId, onRemove }: { endpointId: string; onRemove(): void }) {
+    const { t } = useTranslation('output');
+    if (!useCanRemove(endpointId, undefined)) {
+        return null;
+    }
+    return (
+        <>
+            <ContextMenu.Separator />
+            <ContextMenu.Item className="text-status-error" onClick={onRemove}>
+                <Icon icon={Trash2} size={14} /> {t('remove.action')}
+            </ContextMenu.Item>
+        </>
+    );
+}
+
+function CopyHereItem({ machineId, artifact }: { machineId: string; artifact: ArtifactSummary }) {
+    const { t } = useTranslation('output');
+    const machineCopy = useCopyToThisMachine(machineId, artifact);
+    if (machineCopy === null) {
+        return null;
+    }
+    return (
+        <ContextMenu.Item disabled={machineCopy.copying} onClick={() => machineCopy.copy(artifact.latest)}>
+            <Icon icon={MonitorDown} size={14} /> {t('copyHere.action')}
+        </ContextMenu.Item>
+    );
+}
+
 function ArtifactRow({
     endpointId,
     machineId,
     artifact,
     everywhere,
-    now
+    now,
+    actions
 }: {
     endpointId: string;
     /* Set for a row of another machine of the account. */
@@ -214,32 +368,42 @@ function ArtifactRow({
     artifact: ArtifactSummary;
     everywhere: boolean;
     now: number;
+    actions?: RowActions;
 }) {
     const { t } = useTranslation('output');
     const maker = artifact.latest.provenance.maker;
     return (
-        <button
-            type="button"
-            className="flex min-w-0 items-start gap-2.5 rounded-md px-2 py-2 text-left hover:bg-surface-hover"
-            onClick={() => openArtifact(artifact.artifactId, artifact.title, null, machineId)}
-        >
-            <KindTile kind={artifact.kind} />
-            <span className="flex min-w-0 grow flex-col">
-                <span className="truncate text-sm font-medium text-text">{artifact.title}</span>
-                <span className="flex min-w-0 items-center gap-1 text-xs text-text-muted">
-                    {everywhere ? (
-                        <>
-                            <OutputProjectGlyph endpointId={endpointId} projectId={artifact.projectId} />
-                            <span className="max-w-28 shrink-0 truncate">{artifact.projectName},</span>
-                        </>
-                    ) : (
-                        <Icon icon={SOURCE_ICONS[maker]} size={12} className="shrink-0 text-text-faint" />
-                    )}
-                    <span className="truncate">{t('panel.versions', { count: artifact.versionCount })}</span>
+        <ContextMenu.Root>
+            <ContextMenu.Trigger
+                render={
+                    <button
+                        type="button"
+                        className="flex min-w-0 items-start gap-2.5 rounded-md px-2 py-2 text-left hover:bg-surface-hover data-popup-open:bg-surface-hover"
+                        onClick={() => openArtifact(artifact.artifactId, artifact.title, null, machineId)}
+                    />
+                }
+            >
+                <KindTile kind={artifact.kind} />
+                <span className="flex min-w-0 grow flex-col">
+                    <span className="truncate text-sm font-medium text-text">{artifact.title}</span>
+                    <span className="flex min-w-0 items-center gap-1 text-xs text-text-muted">
+                        {everywhere ? (
+                            <>
+                                <OutputProjectGlyph endpointId={endpointId} projectId={artifact.projectId} />
+                                <span className="max-w-28 shrink-0 truncate">{artifact.projectName},</span>
+                            </>
+                        ) : (
+                            <Icon icon={SOURCE_ICONS[maker]} size={12} className="shrink-0 text-text-faint" />
+                        )}
+                        <span className="truncate">{t('panel.versions', { count: artifact.versionCount })}</span>
+                    </span>
                 </span>
-            </span>
-            <span className="shrink-0 text-xs text-text-faint tabular-nums">{formatMoment(artifact.latest.createdAt, now)}</span>
-        </button>
+                <span className="shrink-0 text-xs text-text-faint tabular-nums">{formatMoment(artifact.latest.createdAt, now)}</span>
+            </ContextMenu.Trigger>
+            <ContextMenu.Popup>
+                <ArtifactRowMenu endpointId={endpointId} machineId={machineId} artifact={artifact} actions={actions} />
+            </ContextMenu.Popup>
+        </ContextMenu.Root>
     );
 }
 
