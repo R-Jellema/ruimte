@@ -1448,51 +1448,51 @@
         "machine": "Machine"
     },
     "storage": {
-        "failed": "Storage could not be shown.",
+        "failed": "Could not show storage.",
         "output": {
             "title": "Output",
-            "description": "Saved results of agents and you, kept as versions on the machine.",
+            "description": "Saved results, kept on the machine.",
             "machine": "Machine",
             "on": "Output on {{machine}}",
             "bar": "Output by project",
             "free": "{{size}} free on the disk"
         },
         "state": {
-            "loading": "Reading what {{machine}} keeps.",
-            "unreachable": "{{machine}} does not answer right now. Its output stays on it.",
-            "tooOld": "{{machine}} runs an older Ruimte that does not keep Output. Update it to see its storage.",
-            "failed": "Could not read the storage of {{machine}}.",
+            "loading": "Loading",
+            "unreachable": "{{machine}} is not reachable.",
+            "tooOld": "Update {{machine}} to use Output.",
+            "failed": "Could not load storage of {{machine}}.",
             "retry": "Try again"
         },
         "cleanup": {
             "title": "Clean up",
-            "description": "Versions beyond the last 30 of an item, or beyond the last 7 builds. Nothing is removed until you confirm.",
+            "description": "Keeps the last 30 versions of each item and the last 7 builds. Nothing goes until you confirm.",
             "nothing": "Nothing to clean up",
             "proposal": "Older versions of {{title}}",
             "frees_one": "Frees {{size}}, {{count}} version",
             "frees_other": "Frees {{size}}, {{count}} versions",
             "notNow": "Not now",
             "review": "Review",
-            "dialogDescription": "The checked versions go from {{machine}} for good. The latest version stays, and so does a version copied to a project or pinned to a canvas.",
+            "dialogDescription": "Checked versions are removed from {{machine}} for good.",
             "all_one": "{{checked}} of {{count}} version",
             "all_other": "{{checked}} of {{count}} versions",
             "version": "Version {{number}}",
             "remove_one": "Remove {{count}} version",
             "remove_other": "Remove {{count}} versions",
             "freed": "{{size}} freed on {{machine}}",
-            "failed": "Could not remove these versions."
+            "failed": "Could not remove the versions."
         },
         "projects": {
             "title": "By project",
-            "footer": "Output stays private to the machine that keeps it: never in a project file, never shared with your team.",
-            "empty": "Nothing saved on this machine yet.",
+            "footer": "Output stays on this machine and is never shared with your team.",
+            "empty": "Nothing saved yet.",
             "counts": "{{artifacts}}, {{versions}}",
             "artifacts_one": "{{count}} item",
             "artifacts_other": "{{count}} items",
             "versions_one": "{{count}} version",
             "versions_other": "{{count}} versions",
             "show": "Show in Output",
-            "elsewhere": "Show in Output works in a window of a project on {{machine}}."
+            "elsewhere": "Open a project on {{machine}} to show this."
         }
     },
     "providers": {

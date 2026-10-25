@@ -133,14 +133,14 @@ describe('Output on a linked machine', () => {
         await act(async () => openArtifact('art-remote', 'Release notes', null, REMOTE));
         await until(() => buttonWithText('Copy to this machine') !== null);
         await clickOn(buttonWithText('Copy to this machine'));
-        await until(() => text().includes('MacBook Pro did not answer. Try again once it is back.'));
-        expect(text()).toContain('Not copied to this machine');
+        await until(() => text().includes('MacBook Pro is not reachable.'));
+        expect(text()).toContain('Not copied');
     });
 
     test('is not offered for a project this one is not linked to there', async () => {
         links = [];
         await act(async () => openArtifact('art-remote', 'Release notes', null, REMOTE));
-        await until(() => text().includes('Where it came from'));
+        await until(() => text().includes('Origin'));
         expect(buttonWithText('Copy to this machine')).toBeNull();
         expect(here.requests('artifact.importFrom')).toHaveLength(0);
     });

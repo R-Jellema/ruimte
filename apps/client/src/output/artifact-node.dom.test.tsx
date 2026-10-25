@@ -107,7 +107,7 @@ describe('an artifact node', () => {
         expect(button(frame, 'v1')).not.toBeNull();
         expect(frame.textContent).toContain('Version 2 is newer');
 
-        await clickOn(button(frame, 'Show it'));
+        await clickOn(button(frame, 'Show'));
         await until(() => (frame.textContent ?? '').includes('All green'));
         expect(button(frame, 'v2')).not.toBeNull();
     });

@@ -11,11 +11,11 @@
         "search": "Search Output",
         "filters": "Filters",
         "reset": "Reset",
-        "loading": "Reading Output",
-        "failed": "Output could not be read from this machine.",
-        "tooOld": "This machine runs an older Ruimte. Update it to keep Output there.",
+        "loading": "Loading",
+        "failed": "Could not load Output.",
+        "tooOld": "Update this machine to use Output.",
         "emptyTitle": "Nothing saved yet",
-        "empty": "An agent publishes a result to Output, and you save a page or an image from a chat with Save to Output.",
+        "empty": "Results agents publish and pages or images you save from a chat show up here.",
         "noMatch": "Nothing matches these filters.",
         "shown_one": "{{count}} shown, {{size}}",
         "shown_other": "{{count}} shown, {{size}}",
@@ -59,44 +59,44 @@
         }
     },
     "view": {
-        "failed": "This could not be shown",
-        "loading": "Reading",
-        "gone": "This is no longer in Output on this machine.",
-        "versionGone": "Removed in a cleanup",
-        "versionGoneDetail": "This version is no longer on this machine. The others are still here.",
-        "unreachable": "The machine is not reachable. Output stays on it and shows here again once it is back.",
+        "failed": "Could not show this",
+        "loading": "Loading",
+        "gone": "No longer in Output.",
+        "versionGone": "Removed",
+        "versionGoneDetail": "This version was cleaned up.",
+        "unreachable": "The machine is not reachable.",
         "versions": "Versions",
         "versionRow": "v{{number}}, {{date}}",
         "pickBase": "Compare with",
         "latest": "Latest",
         "base": "Compared",
         "compare": "Compare",
-        "compareOff": "Only a report of one text file can be compared",
-        "noChange": "These two versions are the same.",
+        "compareOff": "Only text reports can be compared",
+        "noChange": "No changes.",
         "copyToProject": "Copy to project",
-        "info": "Where it came from",
+        "info": "Origin",
         "download": "Download",
-        "downloadTooLarge": "Larger than {{size}}, too large to download here. Copy it to the project instead.",
+        "downloadTooLarge": "Too large to download. Copy it to the project instead.",
         "pinToCanvas": "Pin to canvas",
-        "downloadFailed": "The file could not be downloaded",
-        "readFailed": "This file could not be read",
-        "noPreview": "This kind has no preview. Download a file or copy it into the project.",
+        "downloadFailed": "Could not download the file",
+        "readFailed": "Could not read this file",
+        "noPreview": "No preview.",
         "files": "Files"
     },
     "copyHere": {
         "action": "Copy to this machine",
-        "copying": "Copying to this machine",
-        "tip": "Keeps a copy of this version in Output of {{project}} on this machine.",
+        "copying": "Copying",
+        "tip": "Keeps a copy in Output of {{project}} here.",
         "copied": "Copied to this machine",
-        "copiedDetail": "It is in Output of {{project}}.",
-        "failed": "Not copied to this machine",
-        "unreachable": "{{machine}} did not answer. Try again once it is back.",
-        "unlinked": "This project is no longer linked on {{machine}}.",
+        "copiedDetail": "In Output of {{project}}.",
+        "failed": "Not copied",
+        "unreachable": "{{machine}} is not reachable.",
+        "unlinked": "This project is no longer linked to {{machine}}.",
         "gone": "This version is no longer on {{machine}}.",
-        "mismatch": "What {{machine}} sent did not match what it keeps, so nothing was copied.",
-        "diskFull": "The disk of this machine is too full. Nothing was copied.",
-        "tooLarge": "This version is larger than this machine keeps in Output.",
-        "other": "Nothing was copied. Try again."
+        "mismatch": "The copy from {{machine}} was damaged. Nothing was copied.",
+        "diskFull": "The disk is full.",
+        "tooLarge": "This version is too large.",
+        "other": "Try again."
     },
     "node": {
         "pinned": "v{{number}}",
@@ -104,18 +104,18 @@
         "open": "Open",
         "version": "Version {{number}}, {{date}}",
         "newer": "Version {{number}} is newer",
-        "showIt": "Show it",
+        "showIt": "Show",
         "notHere": "Not on this machine",
-        "notHereDetail": "This node shows Output that someone keeps on their own machine.",
+        "notHereDetail": "Output stays on the machine that made it.",
         "removed": "Removed",
-        "removedDetail": "What this node showed is no longer in Output on this machine."
+        "removedDetail": "No longer in Output."
     },
     "info": {
         "maker": "Made by",
         "makers": {
             "agent": "Agent",
             "person": "You",
-            "routine": "A routine"
+            "routine": "Routine"
         },
         "chat": "Chat",
         "chatRemoved": "Chat removed",
@@ -124,20 +124,20 @@
         "copiedTo": "Copied to",
         "copiedFrom": "Copied from",
         "otherMachine": "Another machine",
-        "note": "Ruimte noted this when the version was saved. An agent cannot change it."
+        "note": "Recorded by Ruimte. Agents cannot change it."
     },
     "copy": {
         "title": "Copy to project",
-        "description": "A copy of this version goes into {{project}}. Git sees it as a new file from then on.",
+        "description": "Git sees the copy as a new file.",
         "folder": "Folder",
         "name": "Name",
         "folderName": "Folder name",
-        "several": "The {{count}} files of this version go into a folder of this name.",
-        "exists": "{{path}} exists. Ruimte never overwrites a file.",
-        "invalidName": "Give the file a name.",
+        "several": "The {{count}} files go into this folder.",
+        "exists": "{{path}} already exists.",
+        "invalidName": "Enter a name.",
         "copy": "Copy",
         "copied": "Copied to {{path}}",
-        "failed": "The copy did not go through"
+        "failed": "Could not copy"
     },
     "card": {
         "saved": "Saved to Output",
@@ -147,6 +147,6 @@
     "chat": {
         "save": "Save to Output",
         "saved": "Saved to Output",
-        "saveFailed": "This could not be saved to Output"
+        "saveFailed": "Could not save to Output"
     }
 }

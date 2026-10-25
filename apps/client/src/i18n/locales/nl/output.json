@@ -11,11 +11,11 @@
         "search": "Output doorzoeken",
         "filters": "Filters",
         "reset": "Herstellen",
-        "loading": "Output lezen",
-        "failed": "Output kon niet van deze machine gelezen worden.",
-        "tooOld": "Deze machine draait een oudere Ruimte. Werk hem bij om daar Output te bewaren.",
+        "loading": "Laden",
+        "failed": "Kon Output niet laden.",
+        "tooOld": "Werk deze machine bij om Output te gebruiken.",
         "emptyTitle": "Nog niets bewaard",
-        "empty": "Een agent publiceert een resultaat naar Output, en jij bewaart een pagina of afbeelding uit een chat met Bewaar in Output.",
+        "empty": "Resultaten van agents en pagina's of afbeeldingen die je uit een chat bewaart, verschijnen hier.",
         "noMatch": "Niets past bij deze filters.",
         "shown_one": "{{count}} getoond, {{size}}",
         "shown_other": "{{count}} getoond, {{size}}",
@@ -59,44 +59,44 @@
         }
     },
     "view": {
-        "failed": "Dit kon niet getoond worden",
-        "loading": "Lezen",
-        "gone": "Dit staat niet meer in Output op deze machine.",
-        "versionGone": "Verwijderd bij een opruiming",
-        "versionGoneDetail": "Deze versie staat niet meer op deze machine. De andere staan er nog.",
-        "unreachable": "De machine is niet bereikbaar. Output blijft daar staan en verschijnt hier weer zodra hij terug is.",
+        "failed": "Kon dit niet tonen",
+        "loading": "Laden",
+        "gone": "Staat niet meer in Output.",
+        "versionGone": "Verwijderd",
+        "versionGoneDetail": "Deze versie is opgeruimd.",
+        "unreachable": "De machine is niet bereikbaar.",
         "versions": "Versies",
         "versionRow": "v{{number}}, {{date}}",
         "pickBase": "Vergelijk met",
         "latest": "Nieuwste",
         "base": "Vergeleken",
         "compare": "Vergelijken",
-        "compareOff": "Alleen een rapport van één tekstbestand is te vergelijken",
-        "noChange": "Deze twee versies zijn gelijk.",
+        "compareOff": "Alleen tekstrapporten zijn te vergelijken",
+        "noChange": "Geen wijzigingen.",
         "copyToProject": "Kopiëren naar project",
-        "info": "Waar het vandaan komt",
+        "info": "Herkomst",
         "download": "Downloaden",
-        "downloadTooLarge": "Groter dan {{size}}, te groot om hier te downloaden. Kopieer het naar het project.",
+        "downloadTooLarge": "Te groot om te downloaden. Kopieer het naar het project.",
         "pinToCanvas": "Op canvas vastzetten",
-        "downloadFailed": "Het bestand kon niet gedownload worden",
-        "readFailed": "Dit bestand kon niet gelezen worden",
-        "noPreview": "Deze soort heeft geen voorbeeld. Download een bestand of kopieer het naar het project.",
+        "downloadFailed": "Kon het bestand niet downloaden",
+        "readFailed": "Kon dit bestand niet lezen",
+        "noPreview": "Geen voorbeeld.",
         "files": "Bestanden"
     },
     "copyHere": {
         "action": "Kopiëren naar deze machine",
-        "copying": "Kopiëren naar deze machine",
-        "tip": "Bewaart een kopie van deze versie in Output van {{project}} op deze machine.",
+        "copying": "Kopiëren",
+        "tip": "Bewaart hier een kopie in Output van {{project}}.",
         "copied": "Gekopieerd naar deze machine",
-        "copiedDetail": "Hij staat in Output van {{project}}.",
-        "failed": "Niet gekopieerd naar deze machine",
-        "unreachable": "{{machine}} antwoordde niet. Probeer het opnieuw zodra hij terug is.",
-        "unlinked": "Dit project is niet meer gekoppeld op {{machine}}.",
+        "copiedDetail": "In Output van {{project}}.",
+        "failed": "Niet gekopieerd",
+        "unreachable": "{{machine}} is niet bereikbaar.",
+        "unlinked": "Dit project is niet meer gekoppeld aan {{machine}}.",
         "gone": "Deze versie staat niet meer op {{machine}}.",
-        "mismatch": "Wat {{machine}} stuurde klopte niet met wat hij bewaart, dus er is niets gekopieerd.",
-        "diskFull": "De schijf van deze machine is te vol. Er is niets gekopieerd.",
-        "tooLarge": "Deze versie is groter dan deze machine in Output bewaart.",
-        "other": "Er is niets gekopieerd. Probeer het opnieuw."
+        "mismatch": "De kopie van {{machine}} was beschadigd. Er is niets gekopieerd.",
+        "diskFull": "De schijf is vol.",
+        "tooLarge": "Deze versie is te groot.",
+        "other": "Probeer het opnieuw."
     },
     "node": {
         "pinned": "v{{number}}",
@@ -106,16 +106,16 @@
         "newer": "Versie {{number}} is nieuwer",
         "showIt": "Tonen",
         "notHere": "Niet op deze machine",
-        "notHereDetail": "Deze node toont Output die iemand op een eigen machine bewaart.",
+        "notHereDetail": "Output blijft op de machine die het maakte.",
         "removed": "Verwijderd",
-        "removedDetail": "Wat deze node toonde staat niet meer in Output op deze machine."
+        "removedDetail": "Staat niet meer in Output."
     },
     "info": {
         "maker": "Gemaakt door",
         "makers": {
             "agent": "Agent",
             "person": "Jij",
-            "routine": "Een routine"
+            "routine": "Routine"
         },
         "chat": "Chat",
         "chatRemoved": "Chat verwijderd",
@@ -124,20 +124,20 @@
         "copiedTo": "Gekopieerd naar",
         "copiedFrom": "Gekopieerd van",
         "otherMachine": "Een andere machine",
-        "note": "Ruimte noteerde dit toen de versie bewaard werd. Een agent kan het niet veranderen."
+        "note": "Vastgelegd door Ruimte. Agents kunnen het niet veranderen."
     },
     "copy": {
         "title": "Kopiëren naar project",
-        "description": "Een kopie van deze versie gaat naar {{project}}. Git ziet het vanaf dan als een nieuw bestand.",
+        "description": "Git ziet de kopie als een nieuw bestand.",
         "folder": "Map",
         "name": "Naam",
         "folderName": "Mapnaam",
-        "several": "De {{count}} bestanden van deze versie gaan in een map met deze naam.",
-        "exists": "{{path}} bestaat al. Ruimte overschrijft nooit een bestand.",
-        "invalidName": "Geef het bestand een naam.",
+        "several": "De {{count}} bestanden gaan in deze map.",
+        "exists": "{{path}} bestaat al.",
+        "invalidName": "Vul een naam in.",
         "copy": "Kopiëren",
         "copied": "Gekopieerd naar {{path}}",
-        "failed": "De kopie is niet gelukt"
+        "failed": "Kon niet kopiëren"
     },
     "card": {
         "saved": "Bewaard in Output",
@@ -147,6 +147,6 @@
     "chat": {
         "save": "Bewaar in Output",
         "saved": "Bewaard in Output",
-        "saveFailed": "Dit kon niet in Output bewaard worden"
+        "saveFailed": "Kon niet in Output bewaren"
     }
 }

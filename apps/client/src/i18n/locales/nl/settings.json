@@ -1448,51 +1448,51 @@
         "machine": "Machine"
     },
     "storage": {
-        "failed": "Opslag kon niet getoond worden.",
+        "failed": "Kon de opslag niet tonen.",
         "output": {
             "title": "Output",
-            "description": "Bewaarde resultaten van agents en van jou, als versies op de machine.",
+            "description": "Bewaarde resultaten, op de machine.",
             "machine": "Machine",
             "on": "Output op {{machine}}",
             "bar": "Output per project",
             "free": "{{size}} vrij op de schijf"
         },
         "state": {
-            "loading": "Lezen wat {{machine}} bewaart.",
-            "unreachable": "{{machine}} antwoordt nu niet. De output blijft daar staan.",
-            "tooOld": "{{machine}} draait een oudere Ruimte die geen Output bewaart. Werk hem bij om de opslag te zien.",
-            "failed": "De opslag van {{machine}} kon niet gelezen worden.",
+            "loading": "Laden",
+            "unreachable": "{{machine}} is niet bereikbaar.",
+            "tooOld": "Werk {{machine}} bij om Output te gebruiken.",
+            "failed": "Kon de opslag van {{machine}} niet laden.",
             "retry": "Opnieuw proberen"
         },
         "cleanup": {
             "title": "Opruimen",
-            "description": "Versies voorbij de laatste 30 van een item, of voorbij de laatste 7 builds. Er gaat niets weg tot je bevestigt.",
+            "description": "Houdt de laatste 30 versies per item en de laatste 7 builds. Er gaat niets weg tot je bevestigt.",
             "nothing": "Niets om op te ruimen",
             "proposal": "Oudere versies van {{title}}",
             "frees_one": "Maakt {{size}} vrij, {{count}} versie",
             "frees_other": "Maakt {{size}} vrij, {{count}} versies",
             "notNow": "Niet nu",
             "review": "Bekijken",
-            "dialogDescription": "De aangevinkte versies gaan voorgoed weg van {{machine}}. De nieuwste versie blijft, en ook een versie die naar een project gekopieerd is of op een canvas vastgezet.",
+            "dialogDescription": "Aangevinkte versies gaan voorgoed weg van {{machine}}.",
             "all_one": "{{checked}} van {{count}} versie",
             "all_other": "{{checked}} van {{count}} versies",
             "version": "Versie {{number}}",
             "remove_one": "{{count}} versie verwijderen",
             "remove_other": "{{count}} versies verwijderen",
             "freed": "{{size}} vrijgemaakt op {{machine}}",
-            "failed": "Deze versies konden niet verwijderd worden."
+            "failed": "Kon de versies niet verwijderen."
         },
         "projects": {
             "title": "Per project",
-            "footer": "Output blijft privé op de machine die hem bewaart: nooit in een projectbestand, nooit gedeeld met je team.",
-            "empty": "Nog niets bewaard op deze machine.",
+            "footer": "Output blijft op deze machine en wordt nooit met je team gedeeld.",
+            "empty": "Nog niets bewaard.",
             "counts": "{{artifacts}}, {{versions}}",
             "artifacts_one": "{{count}} item",
             "artifacts_other": "{{count}} items",
             "versions_one": "{{count}} versie",
             "versions_other": "{{count}} versies",
             "show": "Tonen in Output",
-            "elsewhere": "Tonen in Output werkt in een venster van een project op {{machine}}."
+            "elsewhere": "Open een project op {{machine}} om dit te tonen."
         }
     },
     "providers": {

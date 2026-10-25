@@ -128,7 +128,7 @@ describe('the Storage pane', () => {
         const all = Object.keys(REQUEST_SCHEMAS) as RequestType[];
         machine.answersOnly(all.filter((type) => !type.startsWith('artifact.')));
         await openStorage();
-        await until(() => text().includes('Fake machine runs an older Ruimte'));
+        await until(() => text().includes('Update Fake machine to use Output.'));
         expect(machine.requests('artifact.storage')).toHaveLength(0);
     });
 
@@ -136,7 +136,7 @@ describe('the Storage pane', () => {
         await openStorage();
         await until(() => text().includes('Output on Fake machine'));
         await act(async () => machine.lose());
-        await until(() => text().includes('Fake machine does not answer right now.'));
+        await until(() => text().includes('Fake machine is not reachable.'));
         expect(text()).not.toContain('Show in Output');
     });
 });

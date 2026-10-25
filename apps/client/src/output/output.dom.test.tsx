@@ -204,7 +204,7 @@ describe('the Output panel', () => {
         const all = Object.keys(REQUEST_SCHEMAS) as RequestType[];
         machine.answersOnly(all.filter((type) => !type.startsWith('artifact.')));
         await openPanel();
-        await until(() => text().includes('This machine runs an older Ruimte'));
+        await until(() => text().includes('Update this machine to use Output.'));
         expect(machine.requests('artifact.list')).toHaveLength(0);
         expect(machine.requests('artifact.watch')).toHaveLength(0);
     });
@@ -217,7 +217,7 @@ describe('the artifact view', () => {
         await clickOn(
             ([...page.host.querySelectorAll('section button')] as HTMLElement[]).find((button) => button.textContent?.startsWith('Dependency report')) ?? null
         );
-        await until(() => text().includes('Where it came from') && text().includes('9 behind'));
+        await until(() => text().includes('Origin') && text().includes('9 behind'));
     }
 
     test('shows the latest version, its record and a chat that is gone', async () => {
@@ -226,7 +226,7 @@ describe('the artifact view', () => {
         // A version saved before the machine noted the CLI and the model says only that an agent made it.
         expect(infoRow('Made by')).toBe('Agent');
         expect(text()).toContain('Chat removed');
-        expect(text()).toContain('An agent cannot change it.');
+        expect(text()).toContain('Agents cannot change it.');
         expect(machine.requests('bytes.read')[0]!.resource).toEqual({ kind: 'artifact', artifactId: 'deps', versionId: 'v-new', file: 0 });
     });
 
@@ -317,7 +317,7 @@ describe('the artifact view', () => {
         await act(async () => {
             dialog.querySelector('form')!.requestSubmit();
         });
-        await until(() => (dialog.textContent ?? '').includes('dependency-report.md exists. Ruimte never overwrites a file.'));
+        await until(() => (dialog.textContent ?? '').includes('dependency-report.md already exists.'));
         expect(machine.requests('artifact.copyToProject')[0]).toEqual({
             artifactId: 'deps',
             versionId: 'v-new',
