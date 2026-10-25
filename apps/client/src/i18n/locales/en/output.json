@@ -31,6 +31,7 @@
             "week": "This week",
             "earlier": "Earlier"
         },
+        "onMachine": "On {{machine}}",
         "narrowed_one": "{{count}} filter",
         "narrowed_other": "{{count}} filters",
         "filter": {
@@ -90,6 +91,21 @@
         "noPreview": "This kind has no preview. Download a file or copy it into the project.",
         "files": "Files"
     },
+    "copyHere": {
+        "action": "Copy to this machine",
+        "copying": "Copying to this machine",
+        "tip": "Keeps a copy of this version in Output of {{project}} on this machine.",
+        "copied": "Copied to this machine",
+        "copiedDetail": "It is in Output of {{project}}.",
+        "failed": "Not copied to this machine",
+        "unreachable": "{{machine}} did not answer. Try again once it is back.",
+        "unlinked": "This project is no longer linked on {{machine}}.",
+        "gone": "This version is no longer on {{machine}}.",
+        "mismatch": "What {{machine}} sent did not match what it keeps, so nothing was copied.",
+        "diskFull": "The disk of this machine is too full. Nothing was copied.",
+        "tooLarge": "This version is larger than this machine keeps in Output.",
+        "other": "Nothing was copied. Try again."
+    },
     "node": {
         "pinned": "v{{number}}",
         "pin": "Stay on version {{number}}",
@@ -118,6 +134,8 @@
         "machine": "Machine",
         "key": "Key",
         "copiedTo": "Copied to",
+        "copiedFrom": "Copied from",
+        "otherMachine": "Another machine",
         "note": "The machine wrote this record when the version was saved. An agent cannot set or change it.",
         "kept": "Kept",
         "keptText": "Until you remove it. Only on this machine, never in the project or with your team."

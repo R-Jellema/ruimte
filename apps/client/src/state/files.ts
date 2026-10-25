@@ -42,11 +42,13 @@ export type DatabaseTab =
 
 /* A version of an artifact in Output, read by its id from the machine; never a path. */
 export interface ArtifactTab {
-    /* `artifact:` and the artifact's id, so an artifact is open once. */
+    /* `artifactTabKey`, so an artifact is open once. */
     key: string;
     kind: 'artifact';
     pinned: boolean;
     artifactId: string;
+    /* Another machine of the account the artifact is kept on, by its daemon id; absent is the window's machine. */
+    machineId?: string;
     /* The name the tab carries until the machine answered. */
     title: string;
 }
@@ -78,8 +80,8 @@ export function isFileTab(tab: Tab): tab is FileTab {
 
 const ARTIFACT_TAB_PREFIX = 'artifact:';
 
-export function artifactTabKey(artifactId: string): string {
-    return `${ARTIFACT_TAB_PREFIX}${artifactId}`;
+export function artifactTabKey(artifactId: string, machineId?: string): string {
+    return machineId === undefined ? `${ARTIFACT_TAB_PREFIX}${artifactId}` : `${ARTIFACT_TAB_PREFIX}${machineId}/${artifactId}`;
 }
 
 /* The file tab under a key, or undefined for another kind of tab or a key that is not open. */
@@ -97,12 +99,12 @@ export function isPromotableTab(tab: Tab | undefined): boolean {
 }
 
 /* The artifact tab already open, or a new one at the end of the pool; either way in front. */
-export function openArtifactTab(state: TabPool, artifactId: string, title: string): TabState {
-    const key = artifactTabKey(artifactId);
+export function openArtifactTab(state: TabPool, artifactId: string, title: string, machineId?: string): TabState {
+    const key = artifactTabKey(artifactId, machineId);
     if (state.tabs.some((tab) => tab.key === key)) {
         return { tabs: state.tabs, active: key };
     }
-    return placeTab(state, { key, kind: 'artifact', pinned: false, artifactId, title });
+    return placeTab(state, { key, kind: 'artifact', pinned: false, artifactId, title, ...(machineId === undefined ? {} : { machineId }) });
 }
 
 /* A base diff of the checkout itself rather than of a file in it: everything a worktree holds over where it came from. */

@@ -14,8 +14,8 @@ import {
     CalendarClock,
     type LucideIcon
 } from 'lucide-react';
-import type { ArtifactSummary } from '@ruimte/contracts';
-import { Button, ButtonGroup, Icon, IconButton, Input, Menu, PanelEmpty, Pill, SectionLabel, useNow } from '@adecore/ui';
+import type { ArtifactSummary, RemoteLink } from '@ruimte/contracts';
+import { Button, ButtonGroup, ErrorBoundary, Icon, IconButton, Input, Menu, PanelEmpty, Pill, SectionLabel, useNow } from '@adecore/ui';
 import { formatBytes, formatDayClock, formatMoment } from '@adecore/ui/format';
 import {
     ALL,
@@ -33,6 +33,8 @@ import {
 } from '@/output/artifact-list';
 import { useArtifactList } from '@/output/artifacts';
 import { useChatName } from '@/output/kinds';
+import { useLinkedMachines } from '@/output/linked-machines';
+import { useEndpointIdOfMachine, useEndpoints } from '@/state/endpoints';
 import { KindTile, OutputProjectGlyph } from '@/output/look';
 import { openArtifact, useOutputRequest } from '@/output/open';
 import { useArtifact } from '@/output/use-artifact';
@@ -83,6 +85,7 @@ export function OutputPanel() {
     const [query, setQuery] = useState('');
     const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
     const now = useNow(MINUTE_MS);
+    const linked = useLinkedMachines();
 
     const artifacts = list?.status === 'ready' ? list.artifacts : NO_ARTIFACTS;
     const header = (
@@ -166,12 +169,12 @@ export function OutputPanel() {
                 ) : shown.length === 0 ? (
                     <PanelEmpty fill="full">{t('panel.noMatch')}</PanelEmpty>
                 ) : (
-                    groupByDate(shown, now).map(({ group, artifacts }) => (
+                    groupByDate(shown, now).map(({ group, artifacts: grouped }) => (
                         <section key={group} className="flex flex-col gap-0.5" aria-label={t(`panel.groups.${group}`)}>
                             <SectionLabel render={<h3 />} className="px-2 pt-3 pb-1">
                                 {t(`panel.groups.${group}`)}
                             </SectionLabel>
-                            {artifacts.map((artifact) => (
+                            {grouped.map((artifact) => (
                                 <ArtifactRow
                                     key={artifact.artifactId}
                                     endpointId={endpointId}
@@ -185,6 +188,12 @@ export function OutputPanel() {
                         </section>
                     ))
                 )}
+                {everywhere &&
+                    linked.map((link) => (
+                        <ErrorBoundary key={link.machineId} label={t('panel.failed')} resetKeys={[link.machineId]}>
+                            <LinkedMachineOutput link={link} filters={filters} query={query} now={now} />
+                        </ErrorBoundary>
+                    ))}
             </div>
             <div className="flex h-9 shrink-0 items-center gap-2 border-t border-border px-3 text-xs text-text-muted">
                 <Icon icon={HardDrive} size={14} className="shrink-0 text-text-faint" />
@@ -197,8 +206,53 @@ export function OutputPanel() {
     );
 }
 
+/*
+ * The Output of the project a linked machine keeps for this one, read straight from that machine, and
+ * only while something else holds its link: a list never opens one.
+ */
+function LinkedMachineOutput({ link, filters, query, now }: { link: RemoteLink; filters: OutputFilters; query: string; now: number }) {
+    const { t } = useTranslation('output');
+    const endpointId = useEndpointIdOfMachine(link.machineId);
+    const answers = useMachineAnswers(endpointId, 'artifact.list');
+    const machine = useEndpoints((s) => s.endpoints.find((entry) => entry.id === endpointId)?.label) ?? link.label;
+    const list = useArtifactList(endpointId, { projectId: link.remoteProjectId }, answers);
+    const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+    const shown = list?.status === 'ready' ? list.artifacts.filter((artifact) => matchesFilters(artifact, filters, query, now)) : NO_ARTIFACTS;
+    if (shown.length === 0) {
+        return null;
+    }
+    const toggle = (artifactId: string): void => {
+        const next = new Set(expanded);
+        if (!next.delete(artifactId)) {
+            next.add(artifactId);
+        }
+        setExpanded(next);
+    };
+    const label = t('panel.onMachine', { machine });
+    return (
+        <section className="flex flex-col gap-0.5" aria-label={label}>
+            <SectionLabel render={<h3 />} className="px-2 pt-3 pb-1">
+                {label}
+            </SectionLabel>
+            {shown.map((artifact) => (
+                <ArtifactRow
+                    key={artifact.artifactId}
+                    endpointId={endpointId}
+                    machineId={link.machineId}
+                    artifact={artifact}
+                    everywhere
+                    open={expanded.has(artifact.artifactId)}
+                    onToggle={() => toggle(artifact.artifactId)}
+                    now={now}
+                />
+            ))}
+        </section>
+    );
+}
+
 function ArtifactRow({
     endpointId,
+    machineId,
     artifact,
     everywhere,
     open,
@@ -206,6 +260,8 @@ function ArtifactRow({
     now
 }: {
     endpointId: string;
+    /* Set for a row of another machine of the account. */
+    machineId?: string;
     artifact: ArtifactSummary;
     everywhere: boolean;
     open: boolean;
@@ -223,7 +279,7 @@ function ArtifactRow({
                 <button
                     type="button"
                     className="flex min-w-0 grow items-start gap-2.5 text-left"
-                    onClick={() => openArtifact(artifact.artifactId, artifact.title)}
+                    onClick={() => openArtifact(artifact.artifactId, artifact.title, null, machineId)}
                 >
                     <KindTile kind={artifact.kind} />
                     <span className="flex min-w-0 grow flex-col">
@@ -255,13 +311,13 @@ function ArtifactRow({
                     />
                 )}
             </div>
-            {open && several && <VersionRows endpointId={endpointId} artifact={artifact} />}
+            {open && several && <VersionRows endpointId={endpointId} machineId={machineId} artifact={artifact} />}
         </div>
     );
 }
 
 /* The latest versions of one artifact, read when the row opens. */
-function VersionRows({ endpointId, artifact }: { endpointId: string; artifact: ArtifactSummary }) {
+function VersionRows({ endpointId, machineId, artifact }: { endpointId: string; machineId: string | undefined; artifact: ArtifactSummary }) {
     const { t } = useTranslation('output');
     const state = useArtifact(endpointId, artifact.artifactId, true);
     if (state.status !== 'ready') {
@@ -276,7 +332,7 @@ function VersionRows({ endpointId, artifact }: { endpointId: string; artifact: A
                     key={version.versionId}
                     type="button"
                     className="flex h-7 items-center gap-2 rounded-md px-2 text-left text-xs text-text hover:bg-surface-hover"
-                    onClick={() => openArtifact(artifact.artifactId, artifact.title, index === 0 ? null : version.versionId)}
+                    onClick={() => openArtifact(artifact.artifactId, artifact.title, index === 0 ? null : version.versionId, machineId)}
                 >
                     <span className="truncate tabular-nums">{formatDayClock(version.createdAt)}</span>
                     <span className="grow" />
@@ -292,7 +348,7 @@ function VersionRows({ endpointId, artifact }: { endpointId: string; artifact: A
                 <button
                     type="button"
                     className="flex h-7 items-center rounded-md px-2 text-left text-xs text-text-faint hover:bg-surface-hover"
-                    onClick={() => openArtifact(artifact.artifactId, artifact.title)}
+                    onClick={() => openArtifact(artifact.artifactId, artifact.title, null, machineId)}
                 >
                     {t('panel.older', { count: older })}
                 </button>

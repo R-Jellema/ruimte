@@ -1000,7 +1000,8 @@ export const ProjectStripTabSchema = z.discriminatedUnion('kind', [
     // Without a table the designer makes a new one.
     z.object({ kind: z.literal('designer'), ...ProjectDatabaseTabFields, table: z.string().min(1).optional() }),
     // A version of Output, read by the artifact's id; the title is what the tab says until the machine answers.
-    z.object({ kind: z.literal('artifact'), artifactId: z.string().min(1), title: z.string(), pinned: z.boolean() })
+    // `machineId` names another machine of the account it is kept on; absent is the window's machine.
+    z.object({ kind: z.literal('artifact'), artifactId: z.string().min(1), title: z.string(), pinned: z.boolean(), machineId: z.string().min(1).optional() })
 ]);
 export type ProjectStripTab = z.infer<typeof ProjectStripTabSchema>;
 

@@ -60,7 +60,7 @@ function tabOf(stored: ProjectStripTab): Tab {
         return fileTabOf(stored);
     }
     if (stored.kind === 'artifact') {
-        return { ...stored, key: artifactTabKey(stored.artifactId) };
+        return { ...stored, key: artifactTabKey(stored.artifactId, stored.machineId) };
     }
     const { id, ...tab } = stored;
     return { ...tab, key: databaseTabKey(id) };
@@ -119,7 +119,13 @@ function storedDatabaseTab(tab: DatabaseTab): ProjectStripTab {
 
 function storedTab(tab: Tab): ProjectStripTab {
     if (isArtifactTab(tab)) {
-        return { kind: 'artifact', artifactId: tab.artifactId, title: tab.title, pinned: tab.pinned };
+        return {
+            kind: 'artifact',
+            artifactId: tab.artifactId,
+            title: tab.title,
+            pinned: tab.pinned,
+            ...(tab.machineId === undefined ? {} : { machineId: tab.machineId })
+        };
     }
     return isDatabaseTab(tab) ? storedDatabaseTab(tab) : { kind: 'file', ...storedFileTab(tab) };
 }

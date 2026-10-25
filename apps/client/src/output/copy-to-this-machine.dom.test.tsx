@@ -1,0 +1,147 @@
+import { afterEach, beforeEach, describe, expect, setSystemTime, test } from 'bun:test';
+import { act } from 'react';
+import type { ArtifactGetResult, ArtifactSummary, ArtifactVersion, ProjectCanvasView, RemoteLink } from '@ruimte/contracts';
+import { openArtifact } from '@/output/open';
+import { LOCAL_ENDPOINT_ID, useEndpoints } from '@/state/endpoints';
+import { useFiles } from '@/state/files';
+import { useProject } from '@/state/project';
+import { useUi } from '@/state/ui';
+import { TransportError } from '@/transport/transport';
+import { connectFakeMachine, FakeMachine } from '../../testing/fake-machine';
+import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
+import { clickOn, mount, openSubmenu, pressKey, until, type Mounted } from '../../testing/dom';
+
+const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [], texts: [], edges: [], layouts: [] };
+const REMOTE = 'machine-b';
+const NOW = new Date(2026, 9, 25, 12, 0).getTime();
+const LINK: RemoteLink = { machineId: REMOTE, remoteProjectId: 'remote-atlas', label: 'MacBook Pro', rootCommit: 'root' };
+
+const VERSION: ArtifactVersion = {
+    versionId: 'ver-remote',
+    number: 1,
+    createdAt: NOW,
+    files: [{ name: 'notes.bin', mime: 'application/octet-stream', size: 10, sha256: 'hash' }],
+    bytes: 10,
+    provenance: { maker: 'agent', machineId: REMOTE },
+    copiedTo: []
+};
+const ARTIFACT = { artifactId: 'art-remote', projectId: 'remote-atlas', projectName: 'Atlas', title: 'Release notes', kind: 'build', createdAt: NOW };
+const SUMMARY: ArtifactSummary = { ...ARTIFACT, latest: VERSION, versionCount: 1, totalBytes: 10 };
+const REMOTE_RESULT: ArtifactGetResult = { artifact: ARTIFACT, versions: [VERSION], chatPresent: false };
+
+let here: FakeMachine;
+let there: FakeMachine;
+let links: RemoteLink[];
+let workspace: FakeWorkspace;
+let page: Mounted;
+let disconnectThere: () => void;
+
+function text(): string {
+    return document.body.textContent ?? '';
+}
+
+function buttonWithText(label: string): HTMLElement | null {
+    return ([...document.querySelectorAll('button')] as HTMLElement[]).find((button) => button.textContent?.trim() === label) ?? null;
+}
+
+beforeEach(async () => {
+    setSystemTime(NOW);
+    localStorage.clear();
+    links = [LINK];
+    here = new FakeMachine();
+    here.answer('artifact.list', () => ({ artifacts: [] }));
+    here.answer('remote.list', () => ({ links }));
+    here.answer('artifact.importFrom', () => ({ artifactId: 'art-copy', versionId: 'ver-copy' }));
+    here.answer('artifact.get', () => ({
+        artifact: { ...ARTIFACT, artifactId: 'art-copy', projectId: 'project-atlas' },
+        versions: [
+            {
+                ...VERSION,
+                versionId: 'ver-copy',
+                origin: { machineId: REMOTE, artifactId: 'art-remote', versionId: 'ver-remote', provenance: VERSION.provenance, hashes: ['hash'] }
+            }
+        ],
+        chatPresent: false
+    }));
+    there = new FakeMachine();
+    there.answer('artifact.list', ({ projectId }) => ({ artifacts: projectId === 'remote-atlas' ? [SUMMARY] : [] }));
+    there.answer('artifact.get', ({ artifactId }) => {
+        if (artifactId !== 'art-remote') {
+            throw new TransportError('not-found', 'No such artifact');
+        }
+        return REMOTE_RESULT;
+    });
+    useEndpoints.getState().add({
+        id: REMOTE,
+        label: 'MacBook Pro',
+        httpBaseUrl: 'http://127.0.0.1:2',
+        wsBaseUrl: 'ws://127.0.0.1:2',
+        reachability: 'lan',
+        daemonId: null,
+        daemonPublicKey: null
+    });
+    disconnectThere = connectFakeMachine(there, REMOTE);
+    workspace = await openFakeWorkspace(here, { views: [MAIN] }, { activeViewId: MAIN.id, views: {} });
+    page = mount();
+    await page.renderApp();
+});
+
+afterEach(async () => {
+    await act(async () => useUi.getState().setPanel({ open: false, kind: 'files' }));
+    await page.unmount();
+    workspace.close();
+    disconnectThere();
+    useFiles.setState({ tabs: [] });
+    useEndpoints.getState().setActive(LOCAL_ENDPOINT_ID);
+    useEndpoints.getState().remove(REMOTE);
+    setSystemTime();
+});
+
+describe('Output on a linked machine', () => {
+    test('All projects shows it, and Copy to this machine copies the version into this project', async () => {
+        await act(async () => useUi.getState().setPanel({ open: true, kind: 'output' }));
+        await until(() => text().includes('Nothing saved yet'));
+        expect(text()).not.toContain('Release notes');
+        await clickOn(document.querySelector('button[aria-label="Filters"]'));
+        await openSubmenu('Project');
+        await clickOn(
+            ([...document.querySelectorAll('[role="menuitemradio"]')] as HTMLElement[]).find((item) => item.textContent?.includes('All projects')) ?? null
+        );
+        while (document.querySelector('[role="menu"]') !== null) {
+            const menus = document.querySelectorAll('[role="menu"]');
+            await pressKey(menus[menus.length - 1]!, 'Escape');
+        }
+        await until(() => text().includes('On MacBook Pro') && text().includes('Release notes'));
+        expect(there.requests('artifact.list')).toContainEqual({ projectId: 'remote-atlas' });
+
+        await clickOn(([...document.querySelectorAll('button')] as HTMLElement[]).find((button) => button.textContent?.includes('Release notes')) ?? null);
+        await until(() => buttonWithText('Copy to this machine') !== null);
+        // What the window cannot write into on the other machine is not offered there.
+        expect(buttonWithText('Copy to project')).toBeNull();
+        await clickOn(buttonWithText('Copy to this machine'));
+        await until(() => text().includes('Copied to this machine'));
+        expect(here.requests('artifact.importFrom')).toEqual([
+            { machineId: REMOTE, artifactId: 'art-remote', versionId: 'ver-remote', projectId: useProject.getState().current!.projectId }
+        ]);
+        await until(() => text().includes('Copied from'));
+    });
+
+    test('a refusal says what went wrong in plain words', async () => {
+        here.answer('artifact.importFrom', () => {
+            throw new TransportError('machine-unreachable', 'The other machine did not answer');
+        });
+        await act(async () => openArtifact('art-remote', 'Release notes', null, REMOTE));
+        await until(() => buttonWithText('Copy to this machine') !== null);
+        await clickOn(buttonWithText('Copy to this machine'));
+        await until(() => text().includes('MacBook Pro did not answer. Try again once it is back.'));
+        expect(text()).toContain('Not copied to this machine');
+    });
+
+    test('is not offered for a project this one is not linked to there', async () => {
+        links = [];
+        await act(async () => openArtifact('art-remote', 'Release notes', null, REMOTE));
+        await until(() => text().includes('Where it came from'));
+        expect(buttonWithText('Copy to this machine')).toBeNull();
+        expect(here.requests('artifact.importFrom')).toHaveLength(0);
+    });
+});

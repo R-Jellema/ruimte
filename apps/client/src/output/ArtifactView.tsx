@@ -19,7 +19,8 @@ import { useArtifact } from '@/output/use-artifact';
 import { FileMarkdown } from '@/shell/panels/FileMarkdown';
 import { FILE_TOOLBAR } from '@/shell/panels/classes';
 import { useFileToolbarSlot } from '@/shell/panels/file-toolbar-slot';
-import { useEndpoints } from '@/state/endpoints';
+import { CopyToThisMachine } from '@/output/CopyToThisMachine';
+import { useEndpointIdOfMachine, useEndpoints } from '@/state/endpoints';
 import { artifactTabKey } from '@/state/files';
 import { endpointKey, useEndpointId } from '@/state/keys';
 import { useToasts } from '@/state/toasts';
@@ -34,9 +35,11 @@ const CopyToProjectDialog = lazyNamed(() => import('@/output/CopyToProjectDialog
  * where it came from on the right. Every byte is read by the artifact's id and a version's id; the
  * view never names a path on the machine.
  */
-export function ArtifactView({ artifactId }: { artifactId: string }) {
+export function ArtifactView({ artifactId, machineId }: { artifactId: string; machineId?: string }) {
     const { t } = useTranslation('output');
-    const endpointId = useEndpointId();
+    const own = useEndpointId();
+    const elsewhere = useEndpointIdOfMachine(machineId ?? '');
+    const endpointId = machineId === undefined ? own : elsewhere;
     const answers = useMachineAnswers(endpointId, 'artifact.get');
     const state = useArtifact(endpointId, artifactId, answers);
 
@@ -56,7 +59,7 @@ export function ArtifactView({ artifactId }: { artifactId: string }) {
     if (state.status === 'gone' || state.result.versions.length === 0) {
         return <Centered icon={Package}>{t('view.gone')}</Centered>;
     }
-    return <ArtifactBody endpointId={endpointId} result={state.result} />;
+    return <ArtifactBody endpointId={endpointId} machineId={machineId} result={state.result} />;
 }
 
 function Centered({ icon, busy, children }: { icon?: typeof Package; busy?: boolean; children: ReactNode }) {
@@ -69,10 +72,11 @@ function Centered({ icon, busy, children }: { icon?: typeof Package; busy?: bool
     );
 }
 
-function ArtifactBody({ endpointId, result }: { endpointId: string; result: ArtifactGetResult }) {
+/* `machineId` is set for an artifact another machine of the account keeps, which the window copies but never writes into. */
+function ArtifactBody({ endpointId, machineId, result }: { endpointId: string; machineId: string | undefined; result: ArtifactGetResult }) {
     const { t } = useTranslation('output');
     const { artifact, versions } = result;
-    const chosen = useArtifactSelection((s) => s.versions[artifactTabKey(artifact.artifactId)] ?? null);
+    const chosen = useArtifactSelection((s) => s.versions[artifactTabKey(artifact.artifactId, machineId)] ?? null);
     const [comparing, setComparing] = useState(false);
     const [baseId, setBaseId] = useState<string | null>(null);
     const [infoOpen, setInfoOpen] = useState(true);
@@ -89,7 +93,7 @@ function ArtifactBody({ endpointId, result }: { endpointId: string; result: Arti
             setBaseId(picked.versionId);
             return;
         }
-        selectArtifactVersion(artifact.artifactId, picked.versionId === latest.versionId ? null : picked.versionId);
+        selectArtifactVersion(artifact.artifactId, picked.versionId === latest.versionId ? null : picked.versionId, machineId);
     };
 
     return (
@@ -100,10 +104,16 @@ function ArtifactBody({ endpointId, result }: { endpointId: string; result: Arti
                         <Icon icon={GitCompare} size={14} /> {t('view.compare')}
                     </Button>
                 </Tooltip>
-                <Button size="sm" disabled={version === null} onClick={() => setCopying(true)}>
-                    <Icon icon={FilePlus} size={14} /> {t('view.copyToProject')}
-                </Button>
-                <PinToCanvas artifact={artifact} />
+                {machineId === undefined ? (
+                    <>
+                        <Button size="sm" disabled={version === null} onClick={() => setCopying(true)}>
+                            <Icon icon={FilePlus} size={14} /> {t('view.copyToProject')}
+                        </Button>
+                        <PinToCanvas artifact={artifact} />
+                    </>
+                ) : (
+                    version !== null && <CopyToThisMachine machineId={machineId} artifact={artifact} version={version} />
+                )}
                 <Separator />
                 <IconButton icon={Info} size="sm" label={t('view.info')} aria-pressed={infoOpen} onClick={() => setInfoOpen(!infoOpen)} />
             </ArtifactToolbar>
@@ -421,6 +431,10 @@ function InfoColumn({
     const listed = useChats((s) => chatId !== undefined && s.statusByKey[endpointKey(endpointId, chatId)] !== undefined);
     const present = chatName !== null || listed || (chatId !== undefined && chatId === latest.provenance.chatId && chatPresent);
     const machine = useEndpoints((s) => s.endpoints.find((entry) => entry.id === endpointId)?.label ?? '');
+    const originId = version.origin?.machineId;
+    const origin = useEndpoints((s) =>
+        originId === undefined ? null : (s.endpoints.find((entry) => entry.id === originId || entry.daemonId === originId)?.label ?? null)
+    );
     return (
         <aside className="flex w-72 shrink-0 flex-col gap-5 overflow-y-auto border-l border-border px-4 py-3" aria-label={t('view.info')}>
             <div className="flex flex-col gap-3">
@@ -443,6 +457,7 @@ function InfoColumn({
                     {provenance.turnId !== undefined && <InfoRow label={t('info.turn')}>{shortId(provenance.turnId)}</InfoRow>}
                     {provenance.taskId !== undefined && <InfoRow label={t('info.task')}>{shortId(provenance.taskId)}</InfoRow>}
                     <InfoRow label={t('info.machine')}>{machine}</InfoRow>
+                    {originId !== undefined && <InfoRow label={t('info.copiedFrom')}>{origin ?? t('info.otherMachine')}</InfoRow>}
                     {artifact.key !== undefined && (
                         <InfoRow label={t('info.key')}>
                             <span className="font-mono">{artifact.key}</span>

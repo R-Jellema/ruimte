@@ -36,6 +36,7 @@ const REQUEST_TIMEOUT_MS = 60_000;
 // Requests whose answer waits on a network, a model, a person's database, a whole history bundled or fetched, a program installed, or a disk writing as much as an archive holds, and that a caller ends itself when it has to.
 const UNBOUNDED_REQUESTS: ReadonlySet<RequestType> = new Set<RequestType>([
     'archive.extract',
+    'artifact.importFrom',
     'chat.continueOn',
     'chat.summarize',
     'database.request',

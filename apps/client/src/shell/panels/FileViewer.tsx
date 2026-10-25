@@ -63,7 +63,7 @@ export function FileViewer({ active, ids }: { active: string | null; ids: readon
                     ) : isArtifactTab(entry) ? (
                         <ErrorBoundary label={to('view.failed')} resetKeys={[entry.key]} className="h-full">
                             <LazyBoundary>
-                                <ArtifactView artifactId={entry.artifactId} />
+                                <ArtifactView artifactId={entry.artifactId} machineId={entry.machineId} />
                             </LazyBoundary>
                         </ErrorBoundary>
                     ) : entry.view ? (

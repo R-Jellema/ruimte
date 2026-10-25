@@ -6,19 +6,22 @@ import { useUi } from '@/state/ui';
 /* The version each open artifact view shows, by tab key; absent follows the latest. */
 export const useArtifactSelection = create<{ versions: Readonly<Record<string, string>> }>(() => ({ versions: {} }));
 
-export function selectArtifactVersion(artifactId: string, versionId: string | null): void {
-    const key = artifactTabKey(artifactId);
+export function selectArtifactVersion(artifactId: string, versionId: string | null, machineId?: string): void {
+    const key = artifactTabKey(artifactId, machineId);
     useArtifactSelection.setState((state) => {
         const { [key]: _was, ...rest } = state.versions;
         return { versions: versionId === null ? rest : { ...rest, [key]: versionId } };
     });
 }
 
-/* An artifact as a loose view of the window's project, the way a file opens from the files panel. */
-export function openArtifact(artifactId: string, title: string, versionId: string | null = null): void {
-    selectArtifactVersion(artifactId, versionId);
+/*
+ * An artifact as a loose view of the window's project, the way a file opens from the files panel;
+ * `machineId` names another machine of the account it is kept on.
+ */
+export function openArtifact(artifactId: string, title: string, versionId: string | null = null, machineId?: string): void {
+    selectArtifactVersion(artifactId, versionId, machineId);
     const files = useFiles.getState();
-    files.show(openArtifactTab(files, artifactId, title), useSettings.getState().filesTabLimit);
+    files.show(openArtifactTab(files, artifactId, title, machineId), useSettings.getState().filesTabLimit);
 }
 
 /* A project the panel is asked to show, taken by the panel when it draws; null once taken. */

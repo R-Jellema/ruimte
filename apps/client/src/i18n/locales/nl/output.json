@@ -31,6 +31,7 @@
             "week": "Deze week",
             "earlier": "Eerder"
         },
+        "onMachine": "Op {{machine}}",
         "narrowed_one": "{{count}} filter",
         "narrowed_other": "{{count}} filters",
         "filter": {
@@ -90,6 +91,21 @@
         "noPreview": "Deze soort heeft geen voorbeeld. Download een bestand of kopieer het naar het project.",
         "files": "Bestanden"
     },
+    "copyHere": {
+        "action": "Kopiëren naar deze machine",
+        "copying": "Kopiëren naar deze machine",
+        "tip": "Bewaart een kopie van deze versie in Output van {{project}} op deze machine.",
+        "copied": "Gekopieerd naar deze machine",
+        "copiedDetail": "Hij staat in Output van {{project}}.",
+        "failed": "Niet gekopieerd naar deze machine",
+        "unreachable": "{{machine}} antwoordde niet. Probeer het opnieuw zodra hij terug is.",
+        "unlinked": "Dit project is niet meer gekoppeld op {{machine}}.",
+        "gone": "Deze versie staat niet meer op {{machine}}.",
+        "mismatch": "Wat {{machine}} stuurde klopte niet met wat hij bewaart, dus er is niets gekopieerd.",
+        "diskFull": "De schijf van deze machine is te vol. Er is niets gekopieerd.",
+        "tooLarge": "Deze versie is groter dan deze machine in Output bewaart.",
+        "other": "Er is niets gekopieerd. Probeer het opnieuw."
+    },
     "node": {
         "pinned": "v{{number}}",
         "pin": "Op versie {{number}} blijven",
@@ -118,6 +134,8 @@
         "machine": "Machine",
         "key": "Sleutel",
         "copiedTo": "Gekopieerd naar",
+        "copiedFrom": "Gekopieerd van",
+        "otherMachine": "Een andere machine",
         "note": "De machine schreef dit op toen de versie bewaard werd. Een agent kan het niet zetten of veranderen.",
         "kept": "Bewaard",
         "keptText": "Tot je het verwijdert. Alleen op deze machine, nooit in het project of bij je team."
