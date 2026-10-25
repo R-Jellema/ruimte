@@ -14,8 +14,11 @@ export const ClaudeApiSettingsSchema = z.object({
 });
 export type ClaudeApiSettings = z.infer<typeof ClaudeApiSettingsSchema>;
 
-/* Unlike a subscription, every call here is paid for, so a chat does not go on by itself unless a person turned that on. */
-export const DEFAULT_CLAUDE_API_SETTINGS: ClaudeApiSettings = { autoContinue: false, roundsPerRun: 40, runs: 3, maxOutputTokens: 8192 };
+/*
+ * Unlike a subscription, every call here is paid for, so a chat does not go on by itself unless a person turned that on.
+ * Thinking counts toward `max_tokens` and a request is billed for what it used, so the default leaves room for a long reply.
+ */
+export const DEFAULT_CLAUDE_API_SETTINGS: ClaudeApiSettings = { autoContinue: false, roundsPerRun: 40, runs: 3, maxOutputTokens: 32_000 };
 
 /* Whether this machine holds a key for the API of Claude, and how many models it offers. Never the key. */
 export const ClaudeApiStatusSchema = z.object({

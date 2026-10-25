@@ -4,7 +4,13 @@ import { z } from 'zod';
 import { isNotFound, Serializer, writeAtomic } from '@adecore/agents';
 import { hostUsageLine } from '@adecore/agents/usage';
 import { ModelCatalog } from '@adecore/agents/providers';
-import { ClaudeApiSettingsSchema, DEFAULT_CLAUDE_API_SETTINGS, type ClaudeApiSettings, type ClaudeApiStatus } from '@ruimte/contracts';
+import {
+    ClaudeApiSettingsSchema,
+    DEFAULT_CLAUDE_API_SETTINGS,
+    type ClaudeApiConfigurePayload,
+    type ClaudeApiSettings,
+    type ClaudeApiStatus
+} from '@ruimte/contracts';
 
 // Deliberately not configurable: a key is sent to Anthropic and nowhere else, and a redirect is an error.
 export const ANTHROPIC_URL = 'https://api.anthropic.com';
@@ -253,6 +259,17 @@ export class AnthropicClaudeApiService {
             this.setModels(models);
             return this.status();
         });
+    }
+
+    /* What `anthropic.configure` asks. A key is checked before the settings sent along are kept, so a key Anthropic rejects changes nothing. */
+    async apply({ apiKey, settings }: ClaudeApiConfigurePayload): Promise<ClaudeApiStatus> {
+        if (settings === undefined) {
+            return await this.configure(apiKey);
+        }
+        if (apiKey !== undefined) {
+            await this.configure(apiKey);
+        }
+        return await this.setSettings(settings);
     }
 
     /* Every page of the list, newest first as Anthropic sends it, without the models that are retired. */

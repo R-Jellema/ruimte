@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import type { RuntimeMode } from '@ruimte/contracts';
 import type { BackendEvent, BackendLaunch, TurnInput } from '@adecore/agents/chat';
 import { ANTHROPIC_URL, AnthropicClaudeApiService } from '../providers/anthropic-claude-api-service.ts';
-import { AnthropicClaudeApiBackend, type ClaudeApiLimits } from './anthropic-claude-api-backend.ts';
+import { AnthropicClaudeApiBackend, STREAM_IDLE_MS, type ClaudeApiLimits, type IdleTimer } from './anthropic-claude-api-backend.ts';
 import type { executeNanoTool } from './nanogpt-tools.ts';
 
 const turn: TurnInput = { text: 'What is in the project?', preamble: null, attachments: [], mentions: [], skills: [] };
@@ -97,8 +97,8 @@ interface Rig {
 
 /* A backend against a fake API that answers each message request with the next response given. */
 async function rig(
-    responses: Array<() => Response>,
-    options: { resume?: string; home?: string; mode?: RuntimeMode; limits?: ClaudeApiLimits; model?: string } = {}
+    responses: Array<(init?: RequestInit) => Response>,
+    options: { resume?: string; home?: string; mode?: RuntimeMode; limits?: ClaudeApiLimits; model?: string; idleTimer?: IdleTimer } = {}
 ): Promise<Rig> {
     const home = options.home ?? (await mkdtemp(join(tmpdir(), 'ruimte-claude-api-chat-')));
     if (options.home === undefined) {
@@ -114,7 +114,7 @@ async function rig(
         bodies.push(JSON.parse(String(init?.body)));
         headers.push(new Headers(init?.headers));
         const next = responses.shift();
-        return next ? next() : new Response('', { status: 500 });
+        return next ? next(init) : new Response('', { status: 500 });
     });
     await service.load(home);
     await service.configure('sk-ant-key');
@@ -151,8 +151,7 @@ async function rig(
             }
         },
         service,
-        executeTool,
-        options.limits
+        { executeTool, limits: options.limits, idleTimer: options.idleTimer }
     );
     backends.push(backend);
     return {
@@ -172,6 +171,31 @@ async function rig(
 
 const isDone = (event: BackendEvent) => event.type === 'turn.done';
 
+/* An idle timer that only fires when a test says so. */
+function fakeIdle() {
+    const entries: Array<{ ms: number; run: () => void; cancelled: boolean }> = [];
+    const live = () => entries.filter((entry) => !entry.cancelled);
+    const timer: IdleTimer = (ms, run) => {
+        const entry = { ms, run, cancelled: false };
+        entries.push(entry);
+        return () => {
+            entry.cancelled = true;
+        };
+    };
+    return {
+        timer,
+        live,
+        get started() {
+            return entries.length;
+        },
+        fire: () => {
+            for (const entry of live()) {
+                entry.run();
+            }
+        }
+    };
+}
+
 describe('Claude API backend', () => {
     test('a request carries the key, the tools, and a cache mark on the system prompt, the last tool and the last message', async () => {
         const chat = await rig([() => text('Hello.')]);
@@ -181,7 +205,7 @@ describe('Claude API backend', () => {
 
         const body = chat.bodies[0]!;
         expect(chat.headers[0]!.get('x-api-key')).toBe('sk-ant-key');
-        expect(body).toMatchObject({ model: 'claude-sonnet-5-5', max_tokens: 8192, stream: true });
+        expect(body).toMatchObject({ model: 'claude-sonnet-5-5', max_tokens: 32_000, stream: true });
         expect(body.system).toEqual([expect.objectContaining({ type: 'text', cache_control: { type: 'ephemeral' } })]);
         expect(body.system[0]!.text).toContain('Be brief.');
         expect(body.tools.map((entry) => entry.name)).toEqual([
@@ -453,6 +477,68 @@ describe('Claude API backend', () => {
         expect(roles).toEqual(['user', 'assistant', 'user']);
         expect(JSON.stringify(second.bodies[0]!.messages[2]!.content)).toContain('And now?');
         expect(JSON.stringify(second.bodies[0]!.messages[2]!.content)).toContain('tool_result');
+    });
+
+    test('a stream that goes quiet fails once nothing came for the idle time, and every chunk starts that time again', async () => {
+        const idle = fakeIdle();
+        const quiet = (init?: RequestInit) => {
+            const encoder = new TextEncoder();
+            return new Response(
+                new ReadableStream<Uint8Array>({
+                    start(controller) {
+                        const start = { type: 'message_start', message: { usage: { input_tokens: 100, output_tokens: 1 } } };
+                        controller.enqueue(encoder.encode(`event: message_start\ndata: ${JSON.stringify(start)}\n\n`));
+                        init?.signal?.addEventListener('abort', () => controller.error(init.signal!.reason), { once: true });
+                    }
+                })
+            );
+        };
+        const chat = await rig([quiet], { idleTimer: idle.timer });
+        await chat.backend.start();
+        chat.backend.sendTurn(turn);
+        await chat.until((event) => event.type === 'usage');
+
+        expect(idle.started).toBe(2);
+        expect(idle.live().map((entry) => entry.ms)).toEqual([STREAM_IDLE_MS]);
+        idle.fire();
+        expect(await chat.until(isDone)).toMatchObject({ state: 'error', error: 'Anthropic sent nothing for 2 minutes. Try again.' });
+    });
+
+    test('a finished reply leaves no idle time running', async () => {
+        const idle = fakeIdle();
+        const chat = await rig([() => text('Hello.')], { idleTimer: idle.timer });
+        await chat.backend.start();
+        chat.backend.sendTurn(turn);
+        expect(await chat.until(isDone)).toMatchObject({ state: 'done' });
+        expect(idle.live()).toEqual([]);
+    });
+
+    test('each text and thinking block of a reply is an item of its own', async () => {
+        const chat = await rig([
+            () =>
+                message([
+                    { type: 'thinking', thinking: '', signature: 'sig-1', delta: { type: 'thinking_delta', thinking: 'First.' } },
+                    { type: 'text', text: '', delta: { type: 'text_delta', text: 'One.' } },
+                    { type: 'thinking', thinking: '', signature: 'sig-2', delta: { type: 'thinking_delta', thinking: 'Second.' } },
+                    { type: 'text', text: '', delta: { type: 'text_delta', text: 'Two.' } }
+                ])
+        ]);
+        await chat.backend.start();
+        chat.backend.sendTurn(turn);
+        await chat.until(isDone);
+
+        const done = chat.events.filter((event) => event.type === 'text.done' || event.type === 'thinking.done') as Array<{
+            type: string;
+            ref: string;
+            text: string;
+        }>;
+        expect(done.map((event) => [event.type, event.text])).toEqual([
+            ['thinking.done', 'First.'],
+            ['text.done', 'One.'],
+            ['thinking.done', 'Second.'],
+            ['text.done', 'Two.']
+        ]);
+        expect(new Set(done.map((event) => event.ref)).size).toBe(4);
     });
 
     test('a chat does not start without a key, or for a model Anthropic does not list', async () => {

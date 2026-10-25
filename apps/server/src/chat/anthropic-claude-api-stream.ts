@@ -14,7 +14,7 @@ const EventSchema = z.discriminatedUnion('type', [
     z.object({ type: z.literal('message_start'), message: z.object({ usage: UsageSchema.optional() }) }),
     z.object({
         type: z.literal('content_block_start'),
-        index: z.number().int().min(0).max(63),
+        index: z.number().int().min(0),
         content_block: z.object({
             type: z.string(),
             text: z.string().optional(),
@@ -27,7 +27,7 @@ const EventSchema = z.discriminatedUnion('type', [
     }),
     z.object({
         type: z.literal('content_block_delta'),
-        index: z.number().int().min(0).max(63),
+        index: z.number().int().min(0),
         delta: z.object({
             type: z.string(),
             text: z.string().optional(),
@@ -36,7 +36,7 @@ const EventSchema = z.discriminatedUnion('type', [
             partial_json: z.string().optional()
         })
     }),
-    z.object({ type: z.literal('content_block_stop'), index: z.number().int().min(0).max(63) }),
+    z.object({ type: z.literal('content_block_stop'), index: z.number().int().min(0) }),
     z.object({
         type: z.literal('message_delta'),
         delta: z.object({ stop_reason: z.string().nullish() }).optional(),
@@ -68,13 +68,25 @@ export type AnthropicBlock =
     | { type: 'text'; text: string }
     | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> };
 
+/* A block of text or thinking as the thread shows it; `index` is its place in the message, so each block is an item of its own. */
+export interface AnthropicPart {
+    index: number;
+    type: 'text' | 'thinking';
+    text: string;
+}
+
 export interface AnthropicTurn {
     /* In the order the model wrote them, which is the order they are sent back in. */
     content: AnthropicBlock[];
-    text: string;
-    thinking: string;
+    parts: AnthropicPart[];
     toolCalls: AnthropicToolUse[];
     stopReason: string;
+}
+
+export interface AnthropicStreamSink {
+    text(index: number, text: string): void;
+    thinking(index: number, text: string): void;
+    usage(usage: AnthropicUsage): void;
 }
 
 interface OpenBlock {
@@ -108,12 +120,7 @@ function streamError(type: string | undefined): Error {
  * stream (a ping, an event this version does not know) is skipped, and a stream that stops before `message_stop` is an
  * error and not a short answer.
  */
-export async function readAnthropicStream(
-    body: ReadableStream<Uint8Array>,
-    onText: (text: string) => void,
-    onThinking: (text: string) => void,
-    onUsage: (usage: AnthropicUsage) => void
-): Promise<AnthropicTurn> {
+export async function readAnthropicStream(body: AsyncIterable<Uint8Array>, sink: AnthropicStreamSink): Promise<AnthropicTurn> {
     const blocks = new Map<number, OpenBlock>();
     const usage: AnthropicUsage = { input: 0, cacheRead: 0, cacheWrite: 0, output: 0 };
     let stopReason: string | null = null;
@@ -131,7 +138,7 @@ export async function readAnthropicStream(
         usage.cacheRead = counts.cache_read_input_tokens ?? usage.cacheRead;
         usage.cacheWrite = counts.cache_creation_input_tokens ?? usage.cacheWrite;
         usage.output = counts.output_tokens ?? usage.output;
-        onUsage({ ...usage });
+        sink.usage({ ...usage });
     };
 
     const consume = (frame: string): void => {
@@ -167,10 +174,10 @@ export async function readAnthropicStream(
                 json: ''
             });
             if (start.type === 'text' && start.text) {
-                onText(start.text);
+                sink.text(event.index, start.text);
             }
             if (start.type === 'thinking' && start.thinking) {
-                onThinking(start.thinking);
+                sink.thinking(event.index, start.thinking);
             }
         } else if (event.type === 'content_block_delta') {
             const block = blocks.get(event.index);
@@ -180,10 +187,10 @@ export async function readAnthropicStream(
             }
             if (delta.type === 'text_delta' && delta.text) {
                 block.text += delta.text;
-                onText(delta.text);
+                sink.text(event.index, delta.text);
             } else if (delta.type === 'thinking_delta' && delta.thinking) {
                 block.thinking += delta.thinking;
-                onThinking(delta.thinking);
+                sink.thinking(event.index, delta.thinking);
             } else if (delta.type === 'signature_delta' && delta.signature) {
                 block.signature += delta.signature;
             } else if (delta.type === 'input_json_delta' && delta.partial_json) {
@@ -218,16 +225,17 @@ export async function readAnthropicStream(
     }
 
     const content: AnthropicBlock[] = [];
+    const parts: AnthropicPart[] = [];
     const toolCalls: AnthropicToolUse[] = [];
-    let text = '';
-    let thinking = '';
-    for (const [, block] of [...blocks.entries()].sort(([a], [b]) => a - b)) {
+    for (const [index, block] of [...blocks.entries()].sort(([a], [b]) => a - b)) {
         if (block.type === 'text' && block.text !== '') {
             content.push({ type: 'text', text: block.text });
-            text += block.text;
+            parts.push({ index, type: 'text', text: block.text });
         } else if (block.type === 'thinking') {
             content.push({ type: 'thinking', thinking: block.thinking, signature: block.signature });
-            thinking += block.thinking;
+            if (block.thinking !== '') {
+                parts.push({ index, type: 'thinking', text: block.thinking });
+            }
         } else if (block.type === 'redacted_thinking') {
             content.push({ type: 'redacted_thinking', data: block.data });
         } else if (block.type === 'tool_use') {
@@ -243,5 +251,5 @@ export async function readAnthropicStream(
             toolCalls.push({ id: block.id, name: block.name, input });
         }
     }
-    return { content, text, thinking, toolCalls, stopReason };
+    return { content, parts, toolCalls, stopReason };
 }

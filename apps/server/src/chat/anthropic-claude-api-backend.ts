@@ -37,6 +37,33 @@ const CONTINUE_MESSAGE =
 
 const INTERRUPTED = 'Interrupted. The outcome is unknown; inspect the project before retrying anything with side effects.';
 
+/*
+ * A request fails only once Anthropic sent nothing for this long, never on its total length: a long reply with
+ * thinking can stream for many minutes, and the API pings an open stream well within it.
+ */
+export const STREAM_IDLE_MS = 120_000;
+
+/* Runs `run` after `ms` unless the function it hands back cancels it first. */
+export type IdleTimer = (ms: number, run: () => void) => () => void;
+
+const realIdleTimer: IdleTimer = (ms, run) => {
+    const handle = setTimeout(run, ms);
+    return () => clearTimeout(handle);
+};
+
+export interface AnthropicClaudeApiBackendOptions {
+    executeTool?: typeof executeNanoTool;
+    limits?: ClaudeApiLimits;
+    idleTimer?: IdleTimer;
+}
+
+async function* touching(body: AsyncIterable<Uint8Array>, touch: () => void): AsyncIterable<Uint8Array> {
+    for await (const chunk of body) {
+        touch();
+        yield chunk;
+    }
+}
+
 /* The tools of the NanoGPT chat in the form this API takes: the schema is `input_schema`, and the last one carries a cache mark. */
 const TOOLS = NANOGPT_TOOLS.map((tool, index) => ({
     name: tool.function.name,
@@ -65,14 +92,16 @@ export class AnthropicClaudeApiBackend implements ChatBackend {
     private readonly service: AnthropicClaudeApiService;
     private readonly executeTool: typeof executeNanoTool;
     private readonly limitsOverride: ClaudeApiLimits | undefined;
+    private readonly idleTimer: IdleTimer;
     readonly pid = null;
     private readonly mode: RuntimeMode;
-    constructor(launch: BackendLaunch, host: BackendHost, service: AnthropicClaudeApiService, executeTool = executeNanoTool, limits?: ClaudeApiLimits) {
+    constructor(launch: BackendLaunch, host: BackendHost, service: AnthropicClaudeApiService, options: AnthropicClaudeApiBackendOptions = {}) {
         this.launch = launch;
         this.host = host;
         this.service = service;
-        this.executeTool = executeTool;
-        this.limitsOverride = limits;
+        this.executeTool = options.executeTool ?? executeNanoTool;
+        this.limitsOverride = options.limits;
+        this.idleTimer = options.idleTimer ?? realIdleTimer;
         // A change of mode restarts the backend, so the mode it started with holds for its whole life.
         this.mode = nanoEffectiveMode(launch.runtimeMode);
         this.sessionId = launch.resume ?? randomUUID();
@@ -159,59 +188,15 @@ export class AnthropicClaudeApiBackend implements ChatBackend {
                     throw new Error('The Claude API was disconnected in Settings.');
                 }
                 const ref = randomUUID();
-                const model = this.launch.selection.model;
-                const key = this.service.apiKey;
-                const response = await this.service.request(`${ANTHROPIC_URL}/v1/messages`, {
-                    method: 'POST',
-                    redirect: 'error',
-                    headers: { ...anthropicHeaders(key), accept: 'text/event-stream' },
-                    signal: AbortSignal.any([controller.signal, AbortSignal.timeout(180_000)]),
-                    body: JSON.stringify({
-                        model,
-                        max_tokens: this.service.maxOutputTokensFor(model),
-                        stream: true,
-                        system: [{ type: 'text', text: this.instructions(), cache_control: { type: 'ephemeral' } }],
-                        messages: this.withCacheMark(this.messages),
-                        tools: TOOLS,
-                        // The newer models think on their own; the older ones have to be asked, and say so in the model list.
-                        ...(this.service.supportsAdaptiveThinking(model) ? { thinking: { type: 'adaptive', display: 'summarized' } } : {})
-                    })
-                });
-                if (!response.ok) {
-                    throw anthropicHttpError(response.status, response.status === 400 ? await this.messageOf(response, key) : undefined);
-                }
-                if (!response.body) {
-                    throw new Error('Anthropic returned an empty response.');
-                }
-                let counted: AnthropicUsage | null = null;
-                let turn: AnthropicTurn;
-                try {
-                    turn = await readAnthropicStream(
-                        response.body,
-                        (text) => this.host.onEvent({ type: 'text.delta', ref, text }),
-                        (text) => this.host.onEvent({ type: 'thinking.delta', ref: `${ref}-thinking`, text }),
-                        (usage) => {
-                            counted = usage;
-                            this.host.onEvent({
-                                type: 'usage',
-                                // What the turn holds is the input and both cache kinds together, since Anthropic counts the input apart from them.
-                                contextTokens: usage.input + usage.cacheRead + usage.cacheWrite,
-                                contextWindow: this.service.catalog.contextWindowFor(this.launch.selection) ?? undefined
-                            });
-                        }
-                    );
-                } finally {
-                    // A failed or interrupted stream may already have spent tokens.
-                    if (counted !== null) {
-                        await this.service.logUsage({ model, session: this.sessionId, cwd: this.launch.cwd, ...(counted as AnthropicUsage) });
-                    }
-                }
+                const turn = await this.exchange(ref, controller.signal);
                 controller.signal.throwIfAborted();
-                if (turn.text) {
-                    this.host.onEvent({ type: 'text.done', ref, text: turn.text });
-                }
-                if (turn.thinking) {
-                    this.host.onEvent({ type: 'thinking.done', ref: `${ref}-thinking`, text: turn.thinking });
+                for (const part of turn.parts) {
+                    const partRef = `${ref}-${part.index}`;
+                    if (part.type === 'text') {
+                        this.host.onEvent({ type: 'text.done', ref: partRef, text: part.text });
+                    } else {
+                        this.host.onEvent({ type: 'thinking.done', ref: partRef, text: part.text });
+                    }
                 }
                 if (turn.content.length > 0) {
                     this.messages.push({ role: 'assistant', content: turn.content });
@@ -250,6 +235,67 @@ export class AnthropicClaudeApiBackend implements ChatBackend {
                 costUsd: 0,
                 ...(failure && !controller.signal.aborted ? { error: failure } : {})
             });
+        }
+    }
+    /* One request of a round, streamed into the thread under `ref` with a ref per block, and the tokens it spent logged even when it fails. */
+    private async exchange(ref: string, signal: AbortSignal): Promise<AnthropicTurn> {
+        const model = this.launch.selection.model;
+        const key = this.service.apiKey;
+        const idle = new AbortController();
+        let cancelIdle = (): void => {};
+        const touch = (): void => {
+            cancelIdle();
+            cancelIdle = this.idleTimer(STREAM_IDLE_MS, () => idle.abort());
+        };
+        let counted: AnthropicUsage | null = null;
+        touch();
+        try {
+            const response = await this.service.request(`${ANTHROPIC_URL}/v1/messages`, {
+                method: 'POST',
+                redirect: 'error',
+                headers: { ...anthropicHeaders(key), accept: 'text/event-stream' },
+                signal: AbortSignal.any([signal, idle.signal]),
+                body: JSON.stringify({
+                    model,
+                    max_tokens: this.service.maxOutputTokensFor(model),
+                    stream: true,
+                    system: [{ type: 'text', text: this.instructions(), cache_control: { type: 'ephemeral' } }],
+                    messages: this.withCacheMark(this.messages),
+                    tools: TOOLS,
+                    // The newer models think on their own; the older ones have to be asked, and say so in the model list.
+                    ...(this.service.supportsAdaptiveThinking(model) ? { thinking: { type: 'adaptive', display: 'summarized' } } : {})
+                })
+            });
+            if (!response.ok) {
+                throw anthropicHttpError(response.status, response.status === 400 ? await this.messageOf(response, key) : undefined);
+            }
+            if (!response.body) {
+                throw new Error('Anthropic returned an empty response.');
+            }
+            return await readAnthropicStream(touching(response.body, touch), {
+                text: (index, text) => this.host.onEvent({ type: 'text.delta', ref: `${ref}-${index}`, text }),
+                thinking: (index, text) => this.host.onEvent({ type: 'thinking.delta', ref: `${ref}-${index}`, text }),
+                usage: (usage) => {
+                    counted = usage;
+                    this.host.onEvent({
+                        type: 'usage',
+                        // What the turn holds is the input and both cache kinds together, since Anthropic counts the input apart from them.
+                        contextTokens: usage.input + usage.cacheRead + usage.cacheWrite,
+                        contextWindow: this.service.catalog.contextWindowFor(this.launch.selection) ?? undefined
+                    });
+                }
+            });
+        } catch (error) {
+            if (idle.signal.aborted && !signal.aborted) {
+                throw new Error(`Anthropic sent nothing for ${STREAM_IDLE_MS / 60_000} minutes. Try again.`);
+            }
+            throw error;
+        } finally {
+            cancelIdle();
+            // A failed or interrupted stream may already have spent tokens.
+            if (counted !== null) {
+                await this.service.logUsage({ model, session: this.sessionId, cwd: this.launch.cwd, ...(counted as AnthropicUsage) });
+            }
         }
     }
     /* Anthropic wrote the message of a 400 and it says what to do; the body of any other status is never read. */

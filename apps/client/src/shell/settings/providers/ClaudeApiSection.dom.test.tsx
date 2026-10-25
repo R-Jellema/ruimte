@@ -7,7 +7,7 @@ import { FakeMachine } from '../../../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../../../testing/fake-workspace';
 
 const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [], texts: [], edges: [], layouts: [] };
-const DEFAULTS = { autoContinue: false, roundsPerRun: 40, runs: 3, maxOutputTokens: 8192 };
+const DEFAULTS = { autoContinue: false, roundsPerRun: 40, runs: 3, maxOutputTokens: 32_000 };
 
 let page: Mounted;
 let workspace: FakeWorkspace;
@@ -199,7 +199,7 @@ describe('How a Claude API chat behaves', () => {
     test('the tokens of a reply have a field of their own, from 1,024 to 128,000', async () => {
         await openClaudeApi();
         const tokens = numberField('Output tokens per reply')!;
-        expect(tokens.value).toBe('8192');
+        expect(tokens.value).toBe('32000');
 
         await typeInto(tokens, '500');
         await leave(tokens);

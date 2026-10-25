@@ -30,12 +30,11 @@ async function read(stream: ReadableStream<Uint8Array>) {
     const text: string[] = [];
     const thinking: string[] = [];
     const usage: AnthropicUsage[] = [];
-    const turn = await readAnthropicStream(
-        stream,
-        (piece) => text.push(piece),
-        (piece) => thinking.push(piece),
-        (counts) => usage.push(counts)
-    );
+    const turn = await readAnthropicStream(stream, {
+        text: (_index, piece) => text.push(piece),
+        thinking: (_index, piece) => thinking.push(piece),
+        usage: (counts) => usage.push(counts)
+    });
     return { turn, text, thinking, usage };
 }
 
@@ -54,7 +53,12 @@ describe('readAnthropicStream', () => {
             )
         );
         expect(text).toEqual(['Hello ', 'there.']);
-        expect(turn).toEqual({ content: [{ type: 'text', text: 'Hello there.' }], text: 'Hello there.', thinking: '', toolCalls: [], stopReason: 'end_turn' });
+        expect(turn).toEqual({
+            content: [{ type: 'text', text: 'Hello there.' }],
+            parts: [{ index: 0, type: 'text', text: 'Hello there.' }],
+            toolCalls: [],
+            stopReason: 'end_turn'
+        });
         // The counts of the start, then the cumulative ones of the end, a later one replacing an earlier one field by field.
         expect(usage).toEqual([
             { input: 25, cacheRead: 0, cacheWrite: 0, output: 1 },
@@ -109,7 +113,35 @@ describe('readAnthropicStream', () => {
         );
         const split = whole.indexOf('\r\n\r\n') + 1;
         const { turn } = await read(body(whole.slice(0, split), whole.slice(split, split + 40), whole.slice(split + 40)));
-        expect(turn.text).toBe('Fine.');
+        expect(turn.parts).toEqual([{ index: 0, type: 'text', text: 'Fine.' }]);
+    });
+
+    test('keeps every text and thinking block apart, in the order of their index', async () => {
+        const { turn } = await read(
+            body(
+                start(),
+                block(0, { type: 'thinking', thinking: 'First.', signature: 's1' }),
+                stop(0),
+                block(1, { type: 'text', text: 'One.' }),
+                stop(1),
+                block(2, { type: 'thinking', thinking: 'Second.', signature: 's2' }),
+                stop(2),
+                block(3, { type: 'text', text: 'Two.' }),
+                stop(3),
+                end('end_turn')
+            )
+        );
+        expect(turn.parts).toEqual([
+            { index: 0, type: 'thinking', text: 'First.' },
+            { index: 1, type: 'text', text: 'One.' },
+            { index: 2, type: 'thinking', text: 'Second.' },
+            { index: 3, type: 'text', text: 'Two.' }
+        ]);
+    });
+
+    test('a tool call far down the message is kept', async () => {
+        const { turn } = await read(body(start(), block(70, { type: 'tool_use', id: 'toolu_70', name: 'list_files', input: {} }), stop(70), end('tool_use')));
+        expect(turn.toolCalls).toEqual([{ id: 'toolu_70', name: 'list_files', input: {} }]);
     });
 
     test('a tool call whose input does not make JSON has no input, and is sent back as an empty one', async () => {

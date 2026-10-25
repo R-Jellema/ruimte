@@ -203,14 +203,14 @@ describe('Claude API settings', () => {
         const folder = await home();
         const first = new AnthropicClaudeApiService(api().request);
         await first.load(folder);
-        expect(first.status().settings).toEqual({ autoContinue: false, roundsPerRun: 40, runs: 3, maxOutputTokens: 8192 });
+        expect(first.status().settings).toEqual({ autoContinue: false, roundsPerRun: 40, runs: 3, maxOutputTokens: 32_000 });
         expect(first.runLimits()).toEqual({ roundsPerRun: 40, runs: 1 });
 
         await first.setSettings({ autoContinue: true, runs: 2 });
         expect(first.runLimits()).toEqual({ roundsPerRun: 40, runs: 2 });
         const again = new AnthropicClaudeApiService(api().request);
         await again.load(folder);
-        expect(again.status().settings).toEqual({ autoContinue: true, roundsPerRun: 40, runs: 2, maxOutputTokens: 8192 });
+        expect(again.status().settings).toEqual({ autoContinue: true, roundsPerRun: 40, runs: 2, maxOutputTokens: 32_000 });
     });
 
     test('stay inside what the wire allows, and a refused change changes nothing', async () => {
@@ -221,7 +221,7 @@ describe('Claude API settings', () => {
         await expect(service.setSettings({ runs: 21 })).rejects.toThrow();
         await expect(service.setSettings({ maxOutputTokens: 100 })).rejects.toThrow();
         await expect(service.setSettings({ maxOutputTokens: 12.5 })).rejects.toThrow();
-        expect(service.status().settings).toEqual({ autoContinue: false, roundsPerRun: 40, runs: 3, maxOutputTokens: 8192 });
+        expect(service.status().settings).toEqual({ autoContinue: false, roundsPerRun: 40, runs: 3, maxOutputTokens: 32_000 });
     });
 
     test('a file that cannot be read leaves the defaults', async () => {
@@ -256,6 +256,33 @@ describe('Claude API settings', () => {
         expect(service.supportsAdaptiveThinking('claude-opus-4-6')).toBe(true);
         expect(service.supportsAdaptiveThinking('claude-haiku-4-5')).toBe(false);
         expect(service.supportsAdaptiveThinking('unknown')).toBe(false);
+    });
+
+    test('settings sent along with a key Anthropic rejects are not kept', async () => {
+        const folder = await home();
+        const service = new AnthropicClaudeApiService(api({ status: 401 }).request);
+        await service.load(folder);
+
+        await expect(service.apply({ apiKey: 'sk-ant-wrong', settings: { autoContinue: true } })).rejects.toThrow('Anthropic rejected the API key.');
+        expect(service.status()).toMatchObject({ configured: false, settings: { autoContinue: false } });
+
+        const again = new AnthropicClaudeApiService(api().request);
+        await again.load(folder);
+        expect(again.status().settings?.autoContinue).toBe(false);
+    });
+
+    test('settings alone are kept without asking Anthropic, and with an accepted key both are', async () => {
+        const folder = await home();
+        const { request, calls } = api();
+        const service = new AnthropicClaudeApiService(request);
+        await service.load(folder);
+
+        expect(await service.apply({ settings: { runs: 5 } })).toMatchObject({ configured: false, settings: { runs: 5 } });
+        expect(calls).toHaveLength(0);
+        expect(await service.apply({ apiKey: 'sk-ant-key', settings: { autoContinue: true } })).toMatchObject({
+            configured: true,
+            settings: { autoContinue: true, runs: 5 }
+        });
     });
 
     test('the tokens of a reply are what a person set, never more than the model allows', async () => {

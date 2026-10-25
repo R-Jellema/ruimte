@@ -425,13 +425,11 @@ A call to `ruimte-context` runs without a prompt in every mode, since the daemon
 
 ### Claude API
 
-Claude API is a chat provider with no CLI. Save an Anthropic API key in Settings, Providers, Claude API. `anthropic.configure` validates it against the model list before saving it, and `anthropic.status` reports whether the machine has a key without returning the key. Only the machine's owner can configure it. Requests go only to `https://api.anthropic.com`, with redirects refused.
+Claude API is a chat provider with no CLI. Save an Anthropic API key in Settings, Providers, Claude API. `anthropic.configure` validates it against the model list before saving it or any settings sent along, and `anthropic.status` reports whether the machine has a key without returning the key. Only the machine's owner can configure it. Requests go only to `https://api.anthropic.com`, with redirects refused.
 
 The key, cached model list, settings and saved conversations live under `$RUIMTE_HOME/anthropic-claude-api`. The model picker offers the models the key can use, preferring the newest active Sonnet. Tool approvals follow the same runtime modes as NanoGPT. The chat can read, search and edit project files, run commands, and ask the person with a question card. It does not offer attachments, MCP, subagents, forks or compaction.
 
-Automatic continuing is off by default because each call spends API credits. Settings controls tool rounds per run (40), the maximum number of runs (3 when continuing is enabled), and output tokens per request (8192, capped by the selected model). Prompt caching is enabled. The usage page counts input, cache reads, cache writes and output separately, including usage reported before an interrupted or failed stream. No subscription limits card is shown for this provider.
-
-This fork carries reproducible Bun patches for the published ADE CORE 0.36.0 usage vocabulary and provider appearance. Their source changes are preserved in the separate `adecore-claude-api-v036` checkout; the installer uses the patched npm packages rather than local development links. Remove the patches only after a published dependency provides the same usage support.
+Automatic continuing is off by default because each call spends API credits. Settings controls tool rounds per run (40), the maximum number of runs (3 when continuing is enabled), and output tokens per request (32000, capped by the selected model; thinking counts toward it). A request fails only when Anthropic sent nothing for two minutes, never on how long a reply streams. Prompt caching is enabled. The usage page counts input, cache reads, cache writes and output separately, including usage reported before an interrupted or failed stream. No subscription limits card is shown for this provider.
 
 ### NanoGPT
 
