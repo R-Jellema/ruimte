@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { HeldWatches } from '@/state/held-watches';
+import { endpointKey } from '@/state/keys';
+import { HeldWatches, type HeldWatch } from '@/state/held-watches';
 import { machineTransport } from '@/transport';
 import type { Transport } from '@/transport/transport';
 
@@ -13,6 +14,30 @@ export function isUnderFolder(path: string, ancestor: string): boolean {
  * same folder would otherwise leave that node blind to every write after it.
  */
 export class FolderWatches extends HeldWatches {
+    private readonly prepared = new Map<string, () => void>();
+
+    /* Starts the watch while a view loads; its first reader takes over the hold. */
+    prepare(endpointId: string, path: string): () => void {
+        const key = endpointKey(endpointId, path);
+        const held = super.watch(endpointId, path);
+        const previous = this.prepared.get(key);
+        const release = (): void => {
+            if (this.prepared.get(key) === release) {
+                this.prepared.delete(key);
+            }
+            held.release();
+        };
+        this.prepared.set(key, release);
+        previous?.();
+        return release;
+    }
+
+    override watch(endpointId: string, path: string, renewed?: () => void): HeldWatch {
+        const held = super.watch(endpointId, path, renewed);
+        this.prepared.get(endpointKey(endpointId, path))?.();
+        return held;
+    }
+
     protected ask(link: Transport, path: string): Promise<unknown> {
         return link.request('fs.watch', { path });
     }
@@ -21,12 +46,23 @@ export class FolderWatches extends HeldWatches {
         return link.request('fs.unwatch', { path });
     }
 
-    /*
-     * A folder a recursive watch above it already covers is one the daemon skips, so the folders
-     * still held under the one that just went were never registered and have to ask again.
-     */
+    protected override opened(endpointId: string, path: string): void {
+        this.renewBelow(endpointId, path);
+    }
+
     protected override released(endpointId: string, path: string): void {
-        this.askAgain(endpointId, (other) => isUnderFolder(other, path));
+        this.renewBelow(endpointId, path);
+    }
+
+    /* An ancestor can replace the native stream. Refresh after its new startup barrier to cover changes during the gap. */
+    private renewBelow(endpointId: string, path: string): void {
+        for (const held of this.askAgain(endpointId, (other) => isUnderFolder(other, path))) {
+            void held.ready.then(() => {
+                for (const reader of [...held.renewed]) {
+                    reader();
+                }
+            });
+        }
     }
 }
 

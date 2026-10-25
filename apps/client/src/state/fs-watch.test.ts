@@ -145,3 +145,121 @@ describe('FolderWatches', () => {
         expect(calls).toEqual([]);
     });
 });
+
+describe('prepared folder watches', () => {
+    test('the first reader keeps the readiness barrier and takes ownership without restarting it', async () => {
+        const calls: string[] = [];
+        let finish!: () => void;
+        const ready = new Promise<void>((resolve) => {
+            finish = resolve;
+        });
+        const link = {
+            status: 'open',
+            request(type: string) {
+                calls.push(type);
+                return type === 'fs.watch' ? ready : Promise.resolve();
+            },
+            subscribeStatus: () => () => undefined
+        } as unknown as Transport;
+        const watches = new FolderWatches(() => link);
+        const releasePreparation = watches.prepare('machine', '/folder');
+        const reader = watches.watch('machine', '/folder');
+        let readable = false;
+        void reader.ready.then(() => {
+            readable = true;
+        });
+        await Promise.resolve();
+        expect(readable).toBe(false);
+        expect(calls).toEqual(['fs.watch']);
+        releasePreparation();
+        expect(calls).toEqual(['fs.watch']);
+        finish();
+        await reader.ready;
+        expect(readable).toBe(true);
+        reader.release();
+        expect(calls).toEqual(['fs.watch', 'fs.unwatch']);
+    });
+
+    test('cancelling before a reader arrives releases the watch and a later read starts its own', () => {
+        const calls: Call[] = [];
+        const watches = new FolderWatches(fakePool(calls));
+        const cancel = watches.prepare('machine', '/folder');
+        cancel();
+        const reader = watches.watch('machine', '/folder');
+        cancel();
+        expect(calls.map((call) => call.type)).toEqual(['fs.watch', 'fs.unwatch', 'fs.watch']);
+        reader.release();
+        expect(calls.map((call) => call.type)).toEqual(['fs.watch', 'fs.unwatch', 'fs.watch', 'fs.unwatch']);
+    });
+
+    test('a replaced preparation cannot cancel the next owner or leave a hold behind', () => {
+        const calls: Call[] = [];
+        const pool = fakePool(calls);
+        const watches = new FolderWatches(pool);
+        const first = watches.prepare('machine', '/folder');
+        const second = watches.prepare('machine', '/folder');
+        first();
+        expect(calls).toHaveLength(1);
+        const reader = watches.watch('machine', '/folder');
+        second();
+        expect(calls).toHaveLength(1);
+        reader.release();
+        expect(calls.map((call) => call.type)).toEqual(['fs.watch', 'fs.unwatch']);
+        expect(pool.listening('machine')).toBe(0);
+    });
+});
+
+test('a descendant refreshes only after the watch replacing its removed ancestor is ready', async () => {
+    let finish!: () => void;
+    const replacement = new Promise<void>((resolve) => {
+        finish = resolve;
+    });
+    let childAsks = 0;
+    let refreshed = 0;
+    const link = {
+        status: 'open',
+        request(type: string, payload: { path: string }) {
+            return type === 'fs.watch' && payload.path === '/folder/src' && ++childAsks > 1 ? replacement : Promise.resolve();
+        },
+        subscribeStatus: () => () => undefined
+    } as unknown as Transport;
+    const watches = new FolderWatches(() => link);
+    const root = watches.watch('machine', '/folder');
+    const child = watches.watch('machine', '/folder/src', () => refreshed++);
+    await child.ready;
+    root.release();
+    const joined = watches.watch('machine', '/folder/src');
+    expect(refreshed).toBe(0);
+    finish();
+    await joined.ready;
+    expect(refreshed).toBe(1);
+    child.release();
+    joined.release();
+});
+
+test('a new ancestor renews existing descendants after its readiness barrier', async () => {
+    let finish!: () => void;
+    const replacement = new Promise<void>((resolve) => {
+        finish = resolve;
+    });
+    let asks = 0;
+    let refreshed = 0;
+    const link = {
+        status: 'open',
+        request(type: string, payload: { path: string }) {
+            return type === 'fs.watch' && payload.path === '/folder/src' && ++asks > 1 ? replacement : Promise.resolve();
+        },
+        subscribeStatus: () => () => undefined
+    } as unknown as Transport;
+    const watches = new FolderWatches(() => link);
+    const child = watches.watch('machine', '/folder/src', () => refreshed++);
+    await child.ready;
+    const root = watches.watch('machine', '/folder');
+    expect(asks).toBe(2);
+    expect(refreshed).toBe(0);
+    finish();
+    await child.ready;
+    expect(refreshed).toBe(1);
+    child.release();
+    root.release();
+});

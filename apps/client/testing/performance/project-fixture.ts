@@ -10,10 +10,11 @@ interface ProjectFixture {
     secret: string;
     projectId: string;
     profile: string;
+    filePath: string;
 }
 
 export async function withProjectFixture<Result>(
-    options: { projects: number; views: number },
+    options: { projects: number; views: number; looseFile?: boolean },
     run: (fixture: ProjectFixture) => Promise<Result>
 ): Promise<Result> {
     const root = await mkdtemp(join(tmpdir(), 'ruimte-project-fixture-'));
@@ -39,7 +40,18 @@ export async function withProjectFixture<Result>(
                         : { id: `view-${project}-${index}`, name: `Chat ${index}`, kind: 'chat', node: { provider: 'claude' } }
                 )
             });
-            await seed.saveLocal(opened.summary.projectId, { ...opened.local, activeViewId: options.views > 0 ? `view-${project}-0` : null });
+            const loosePath = join(opened.summary.folder, 'fixture.txt');
+            await seed.saveLocal(
+                opened.summary.projectId,
+                options.looseFile
+                    ? {
+                          ...opened.local,
+                          activeViewId: loosePath,
+                          layout: { columns: [{ size: 1, cells: [{ size: 1, viewId: loosePath }] }], focus: { column: 0, cell: 0 } },
+                          panels: { panel: { open: false, kind: 'files' }, strip: [{ kind: 'file', path: loosePath, pinned: true }] }
+                      }
+                    : { ...opened.local, activeViewId: options.views > 0 ? `view-${project}-0` : null }
+            );
             seed.release(opened.summary.projectId);
         }
         seed.closeAll();
@@ -50,6 +62,7 @@ export async function withProjectFixture<Result>(
             [
                 process.execPath,
                 '--conditions=source',
+                ...(process.env.BENCH_DAEMON_PRELOAD ? ['--preload', process.env.BENCH_DAEMON_PRELOAD] : []),
                 'src/main.ts',
                 '--host',
                 '127.0.0.1',
@@ -79,7 +92,14 @@ export async function withProjectFixture<Result>(
             throw new Error('Isolated project daemon did not start');
         }
         const secret = (await readFile(join(home, 'local.key'), 'utf8')).trim();
-        return await run({ daemonUrl, secret, projectId: first, profile: join(root, 'profiles') });
+        const filePath = join(root, 'project-0', 'fixture.txt');
+        return await run({
+            daemonUrl,
+            secret,
+            projectId: first,
+            profile: join(root, 'profiles'),
+            filePath
+        });
     } finally {
         seed.closeAll();
         if (child) {

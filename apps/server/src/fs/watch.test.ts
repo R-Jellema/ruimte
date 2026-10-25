@@ -101,3 +101,96 @@ describe('FolderWatcher', () => {
         await expect(watcher.watch('client-1', join(root, 'nowhere'))).resolves.toBeUndefined();
     });
 });
+
+describe('watch startup handoff', () => {
+    test('joining a pending watch waits for the same readiness barrier', async () => {
+        const watcher = new FolderWatcher('darwin', fake, 100);
+        try {
+            const first = watcher.watch('client-1', root);
+            const joined = watcher.watch('client-1', join(root, 'src'));
+            let ready = false;
+            void joined.then(() => {
+                ready = true;
+            });
+            await Promise.resolve();
+            expect(ready).toBe(false);
+            await fake.settle();
+            await Promise.all([first, joined]);
+            expect(ready).toBe(true);
+        } finally {
+            watcher.detachAll('client-1');
+        }
+    });
+
+    test('a pending child follows its parent barrier and transfers queued changes', async () => {
+        const starts: Array<() => unknown> = [];
+        const watcher = new FolderWatcher(
+            'darwin',
+            {
+                watch: fake.watch,
+                schedule(callback, ms) {
+                    if (ms === 100) {
+                        starts.push(callback);
+                        return () => undefined;
+                    }
+                    return fake.schedule(callback, ms);
+                }
+            },
+            100
+        );
+        watcher.subscribe('client-1', sink);
+        try {
+            const child = join(root, 'src');
+            const childReady = watcher.watch('client-1', child);
+            fake.on(child).emit('a.ts');
+            const parentReady = watcher.watch('client-1', root);
+            expect(fake.openOn(child)).toHaveLength(0);
+            let readable = false;
+            void childReady.then(() => {
+                readable = true;
+            });
+            starts[0]!();
+            await Promise.resolve();
+            expect(readable).toBe(false);
+            starts[1]!();
+            await Promise.all([childReady, parentReady]);
+            expect(readable).toBe(true);
+            await fake.settle();
+            expect(changes).toEqual([{ root, paths: [child] }]);
+        } finally {
+            watcher.detachAll('client-1');
+        }
+    });
+
+    test('a cancelled readiness barrier leaves a replacement registration alone', async () => {
+        const starts: Array<() => unknown> = [];
+        const watcher = new FolderWatcher(
+            'darwin',
+            {
+                watch: fake.watch,
+                schedule(callback, ms) {
+                    if (ms === 100) {
+                        starts.push(callback);
+                        return () => undefined;
+                    }
+                    return fake.schedule(callback, ms);
+                }
+            },
+            100
+        );
+        try {
+            const first = watcher.watch('client-1', root);
+            watcher.unwatch('client-1', root);
+            const next = watcher.watch('client-1', root);
+            const handle = fake.on(root);
+            starts[0]!();
+            await first;
+            expect(handle.closed).toBe(false);
+            starts[1]!();
+            await next;
+            expect(fake.openOn(root)).toEqual([handle]);
+        } finally {
+            watcher.detachAll('client-1');
+        }
+    });
+});

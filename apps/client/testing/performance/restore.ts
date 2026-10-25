@@ -46,7 +46,7 @@ export async function measureRestore(options: {
                         constructor(...args){super(...args);this.benchSent=new Map();this.addEventListener('message',event=>{
                             if(typeof event.data!=='string')return;
                             const reply=JSON.parse(event.data);const sent=this.benchSent.get(reply.id);
-                            if(sent){window.benchRequests.push({type:sent.type,start:sent.at,end:performance.now()});this.benchSent.delete(reply.id)}
+                            if(sent){window.benchRequests.push({id:reply.id,type:sent.type,start:sent.at,end:performance.now()});this.benchSent.delete(reply.id)}
                         });}
                         send(raw){if(typeof raw==='string'){const request=JSON.parse(raw);if(request.id)this.benchSent.set(request.id,{type:request.type,at:performance.now()})}super.send(raw);}
                     };
