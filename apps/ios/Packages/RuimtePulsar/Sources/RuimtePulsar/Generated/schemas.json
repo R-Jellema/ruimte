@@ -35246,7 +35246,8 @@
                                   "note",
                                   "drawing",
                                   "diagram",
-                                  "file"
+                                  "file",
+                                  "artifact"
                                 ]
                               },
                               {
@@ -35433,6 +35434,24 @@
                           "machine": {
                             "type": "string",
                             "minLength": 1
+                          },
+                          "artifact": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 64
+                              },
+                              "version": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 64
+                              }
+                            },
+                            "required": [
+                              "id"
+                            ]
                           }
                         },
                         "required": [
@@ -35455,7 +35474,8 @@
                             "note",
                             "drawing",
                             "diagram",
-                            "file"
+                            "file",
+                            "artifact"
                           ],
                           "template": {
                             "id": "future-id",
@@ -38881,7 +38901,8 @@
                                   "note",
                                   "drawing",
                                   "diagram",
-                                  "file"
+                                  "file",
+                                  "artifact"
                                 ]
                               },
                               {
@@ -39068,6 +39089,24 @@
                           "machine": {
                             "type": "string",
                             "minLength": 1
+                          },
+                          "artifact": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 64
+                              },
+                              "version": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 64
+                              }
+                            },
+                            "required": [
+                              "id"
+                            ]
                           }
                         },
                         "required": [
@@ -39090,7 +39129,8 @@
                             "note",
                             "drawing",
                             "diagram",
-                            "file"
+                            "file",
+                            "artifact"
                           ],
                           "template": {
                             "id": "future-id",
@@ -58527,7 +58567,8 @@
           "note",
           "drawing",
           "diagram",
-          "file"
+          "file",
+          "artifact"
         ]
       },
       "size": {
@@ -71460,7 +71501,8 @@
                                   "note",
                                   "drawing",
                                   "diagram",
-                                  "file"
+                                  "file",
+                                  "artifact"
                                 ]
                               },
                               {
@@ -71647,6 +71689,24 @@
                           "machine": {
                             "type": "string",
                             "minLength": 1
+                          },
+                          "artifact": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 64
+                              },
+                              "version": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 64
+                              }
+                            },
+                            "required": [
+                              "id"
+                            ]
                           }
                         },
                         "required": [
@@ -71669,7 +71729,8 @@
                             "note",
                             "drawing",
                             "diagram",
-                            "file"
+                            "file",
+                            "artifact"
                           ],
                           "template": {
                             "id": "future-id",

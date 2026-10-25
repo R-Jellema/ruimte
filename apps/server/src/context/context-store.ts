@@ -63,6 +63,8 @@ interface ContextReaders {
     drawingElements(viewId: string): Promise<DrawingElement[] | null>;
     /* The diagram of a view in the project of the agent asking, whether or not anyone has that project open. */
     diagramDocument(targetId: string, viewId: string): Promise<DiagramDocument | null>;
+    /* The version an artifact node shows, as text when its first file is text, checked against the project of the one reading; null when it is not there. */
+    artifactReport?(targetId: string, artifact: NonNullable<ContextSource['artifact']>): Promise<string | null>;
     /* The plain text of a terminal session's screen and scrollback, or null when there is none. */
     terminalText(sessionId: string): Promise<string | null>;
     /* A chat's thread, or null when there is none. */
@@ -300,6 +302,10 @@ export class ContextStore {
              */
             case 'file':
                 return asReading(source.text ? `This is a file on disk. Read it with your own tools.\n\n${source.text}` : null);
+            case 'artifact': {
+                const text = source.artifact ? ((await this.readers.artifactReport?.(targetId, source.artifact).catch(() => null)) ?? null) : null;
+                return asReading(text === null ? null : tail === null ? text : lastLines(text, tail));
+            }
         }
     }
 

@@ -1,6 +1,7 @@
 import { AppWindow, Box, FileText, Image, Sheet, Video, type LucideIcon } from 'lucide-react';
 import type { KnownArtifactKind, ProjectView } from '@ruimte/contracts';
 import { drawnKind } from '@/output/artifact-list';
+import { nodesOfView } from '@/project/view-nodes';
 import { revealNode, showView } from '@/project/views';
 import { useDocument } from '@/state/document';
 
@@ -23,11 +24,9 @@ export function chatNameIn(views: readonly ProjectView[], chatId: string): strin
         if (view.id === chatId) {
             return view.name ?? '';
         }
-        if (view.kind === 'canvas') {
-            const node = view.nodes.find((candidate) => candidate.id === chatId);
-            if (node !== undefined) {
-                return node.title;
-            }
+        const node = nodesOfView(view).find((candidate) => candidate.id === chatId);
+        if (node !== undefined) {
+            return node.title;
         }
     }
     return null;

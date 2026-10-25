@@ -55,6 +55,9 @@ function sourceOf(
            reached. A node without one is a source all the same: it is a page an agent may send somewhere. */
         return { id: node.id, kind: 'browser', title: node.title, text: node.url ?? '' };
     }
+    if (node.kind === 'artifact' && node.artifact) {
+        return { id: node.id, kind: 'artifact', title: node.title, artifact: node.artifact };
+    }
     if (node.kind === 'device' && node.device) {
         // What the node points at, never what it is: the daemon looks the device up at the moment of reading.
         return { id: node.id, kind: 'device', title: node.title, device: node.device };

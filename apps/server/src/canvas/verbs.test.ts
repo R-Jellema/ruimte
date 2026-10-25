@@ -37,6 +37,7 @@ import {
 import { ManualTimers } from '../computer/computer-test-helpers.ts';
 import { SESSION_VARIABLES } from '../config.ts';
 import { MAX_SCREEN_LINES } from '../context/context-store.ts';
+import { ArtifactError } from '../artifacts/artifact-names.ts';
 import { DeviceDriver } from '../devices/agent-driver.ts';
 import { RecordingBackend, SIMULATOR } from '../devices/device-test-helpers.ts';
 import { DeviceManager } from '../devices/manager.ts';
@@ -348,8 +349,28 @@ function host(): CanvasHost {
                 return pageOpen ? { state: pageStand(browserId) } : null;
             },
             shot: async (browserId) => (pageOpen ? { path: shotPath, state: pageStand(browserId) } : null)
-        }
+        },
+        artifacts: { read: readOutput } as unknown as NonNullable<CanvasHost['artifacts']>
     };
+}
+
+/* One report in the Output of the test's project, with two versions; anything else answers as Output does for what it does not hold. */
+async function readOutput(asking: string, query: { artifactId: string; versionId?: string }) {
+    const versions = ['ver-2', 'ver-1'].map((versionId, index) => ({
+        versionId,
+        number: 2 - index,
+        createdAt: 0,
+        files: [{ name: 'summary.md', mime: 'text/markdown', size: 6, sha256: versionId }],
+        bytes: 6,
+        provenance: { maker: 'agent' as const, machineId: 'machine-1' },
+        copiedTo: []
+    }));
+    const version = query.versionId === undefined ? versions[0] : versions.find((entry) => entry.versionId === query.versionId);
+    if (asking !== projectId || query.artifactId !== 'art-1' || version === undefined) {
+        throw new ArtifactError('not-found', 'No such artifact in this project');
+    }
+    const artifact = { artifactId: 'art-1', projectId, projectName: 'repo', title: 'Morning summary', kind: 'report', createdAt: 0 };
+    return { artifact, version, file: version.files[0]!, text: `v${version.number} ok`, truncated: false };
 }
 
 /* Where the fake page stands: enough for a test to read every column the verb prints. */
@@ -817,13 +838,13 @@ describe('refusals', () => {
                 verb: 'node new',
                 argv: [],
                 code: 'bad-arguments',
-                message: 'node new needs a kind: note, browser, drawing, diagram, file, device, terminal, chat'
+                message: 'node new needs a kind: note, browser, drawing, diagram, file, device, terminal, chat, artifact'
             },
             {
                 verb: 'node new',
                 argv: ['group'],
                 code: 'bad-arguments',
-                message: 'node new needs a kind: note, browser, drawing, diagram, file, device, terminal, chat'
+                message: 'node new needs a kind: note, browser, drawing, diagram, file, device, terminal, chat, artifact'
             },
             {
                 verb: 'node new',
@@ -841,7 +862,7 @@ describe('refusals', () => {
                 argv: ['note', '--cmd', 'ls'],
                 code: 'unknown-flag',
                 message:
-                    '--cmd is not one of --title, --text, --url, --path, --source, --device, --cwd, --view, --beside, --color, --json, --revision, --dry-run'
+                    '--cmd is not one of --title, --text, --url, --path, --source, --device, --cwd, --artifact, --version, --view, --beside, --color, --json, --revision, --dry-run'
             },
             { verb: 'view list', argv: ['--view', 'main'], code: 'unknown-flag', message: '--view is not a flag here; this verb takes none' },
             {
@@ -1302,6 +1323,18 @@ describe('node new', () => {
         const nodes = (await canvasOnDisk()).nodes;
         expect(nodes.find((node) => node.id === inside)).toMatchObject({ path: 'src/main.ts', title: 'main.ts' });
         expect(nodes.find((node) => node.id === absolute)).toMatchObject({ path: join(outside, 'notes.md'), title: 'notes.md' });
+    });
+
+    test('an artifact node names an artifact of this project, follows the latest without a version and reads as its report', async () => {
+        expect((await post('node', ['new', 'artifact'])).lines[0]).toStartWith('refused\tmissing-flag\t');
+        expect((await post('node', ['new', 'artifact', '--artifact', 'art-9'])).lines[0]).toStartWith('refused\tnot-found\t');
+        expect((await post('node', ['new', 'artifact', '--artifact', 'art-1', '--version', 'ver-9'])).lines[0]).toStartWith('refused\tnot-found\t');
+        expect((await post('node', ['new', 'note', '--artifact', 'art-1'])).lines[0]).toStartWith('refused\tflag-not-for-kind\t');
+        const latest = (await post('node', ['new', 'artifact', '--artifact', 'art-1'])).lines[0]!.split('\t')[0]!;
+        const pinned = (await post('node', ['new', 'artifact', '--artifact', 'art-1', '--version', 'ver-1'])).lines[0]!.split('\t')[0]!;
+        const nodes = (await canvasOnDisk()).nodes;
+        expect(nodes.find((node) => node.id === latest)).toMatchObject({ kind: 'artifact', title: 'Morning summary', artifact: { id: 'art-1' } });
+        expect(nodes.find((node) => node.id === pinned)).toMatchObject({ artifact: { id: 'art-1', version: 'ver-1' } });
     });
 
     test('a drawing needs a drawing view of the same project as its source', async () => {

@@ -4,6 +4,7 @@ import {
     Globe,
     LayoutGrid,
     MessageSquare,
+    Package,
     PenTool,
     Smartphone,
     StickyNote,
@@ -24,5 +25,6 @@ export const NODE_KIND_ICONS: Record<CanvasNodeKind, LucideIcon> = {
     drawing: PenTool,
     diagram: Workflow,
     file: FileText,
+    artifact: Package,
     unknown: CircleQuestionMark
 };

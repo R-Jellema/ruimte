@@ -7,6 +7,7 @@ import {
     Globe,
     LayoutGrid,
     MessageSquare,
+    Package,
     PenTool,
     SlidersHorizontal,
     Smartphone,
@@ -51,6 +52,7 @@ const KIND_ICON: Record<CanvasNodeKind, React.ReactNode> = {
     drawing: <Icon icon={PenTool} size={14} />,
     diagram: <Icon icon={Workflow} size={14} />,
     file: <Icon icon={FileText} size={14} />,
+    artifact: <Icon icon={Package} size={14} />,
     unknown: <Icon icon={CircleQuestionMark} size={14} />
 };
 

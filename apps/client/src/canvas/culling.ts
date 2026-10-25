@@ -51,8 +51,8 @@ export function useHeldWhileVisible(visible: boolean): boolean {
     return visible || held;
 }
 
-/* Kinds whose frame holds nothing that lives without it: a file's editor already lets go of its document off screen. */
-const DRAWN_WHEN_NEAR: ReadonlySet<string> = new Set(['note', 'file']);
+/* Kinds whose frame holds nothing that lives without it: a file's editor already lets go of its document off screen, and an artifact is read again from the machine. */
+const DRAWN_WHEN_NEAR: ReadonlySet<string> = new Set(['note', 'file', 'artifact']);
 
 /*
  * The nodes left out of the page for now: a note or a file further than a viewport past every edge,

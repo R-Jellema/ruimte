@@ -19,6 +19,7 @@ import {
     LayoutGrid,
     Link2,
     MessageSquare,
+    Package,
     PenTool,
     Shrink,
     Workflow,
@@ -68,7 +69,7 @@ import { useUi } from '@/state/ui';
 import { useCellHasFocus } from '@/state/document';
 import { useProject } from '@/state/project';
 import { useGroupWorktrees, useWorktreeOf } from '@/state/worktrees';
-import { ButtonGroup, ErrorBoundary, Pill, messageOf, Tooltip, FileIcon, Icon, IconButton, Input, ContextMenu } from '@adecore/ui';
+import { ButtonGroup, ErrorBoundary, Pill, messageOf, Tooltip, FileIcon, Icon, IconButton, Input, ContextMenu, LazyBoundary, lazyNamed } from '@adecore/ui';
 import { useHeldWhileVisible, useNodeInViewport, useReadableZoom } from '@/canvas/culling';
 import { TerminalBody, TerminalPlate } from '@/nodes/TerminalBody';
 import { SessionPorts } from '@/terminal/SessionPorts';
@@ -91,6 +92,9 @@ import { useUnsavedStoredPath } from '@/shell/panels/use-unsaved';
 import { resetTitle } from '@/nodes/node-host';
 import { AgentIcon } from '@adecore/agents-react/providers';
 
+// Draws what the artifact view draws, which a canvas without one never loads.
+const ArtifactNodeBody = lazyNamed(() => import('@/output/ArtifactNode'), 'ArtifactNodeBody');
+
 const ICONS: Record<CanvasNodeKind, ReactNode> = {
     terminal: <Icon icon={Terminal} size={14} />,
     chat: <Icon icon={MessageSquare} size={14} />,
@@ -102,6 +106,7 @@ const ICONS: Record<CanvasNodeKind, ReactNode> = {
     diagram: <Icon icon={Workflow} size={14} />,
     // The floor under a file node that has no path yet; with one it wears the mark of its own name.
     file: <Icon icon={FileText} size={14} />,
+    artifact: <Icon icon={Package} size={14} />,
     unknown: <Icon icon={CircleQuestionMark} size={14} />
 };
 
@@ -564,7 +569,7 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-text-muted" />
                         </Tooltip>
                     )}
-                    {node.kind === 'file' && <ButtonGroup ref={setFileControls} render={<span />} className="shrink-0" />}
+                    {(node.kind === 'file' || node.kind === 'artifact') && <ButtonGroup ref={setFileControls} render={<span />} className="shrink-0" />}
                     {node.kind === 'device' && <DeviceToolbar id={id} narrow={node.w < MACHINE_PILL_MIN_WIDTH} />}
                     <ButtonGroup className="shrink-0">
                         {maximized ? (
@@ -620,6 +625,13 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                                     {node.kind === 'drawing' && <DrawingNode id={id} />}
                                     {node.kind === 'diagram' && (live && readable ? <DiagramNode id={id} /> : <DiagramPlate id={id} />)}
                                     {isUnknown && <UnknownNodePlate id={id} />}
+                                    {node.kind === 'artifact' && (
+                                        <FileToolbarSlotProvider value={toolbarSlot}>
+                                            <LazyBoundary>
+                                                <ArtifactNodeBody id={id} />
+                                            </LazyBoundary>
+                                        </FileToolbarSlotProvider>
+                                    )}
                                     {node.kind === 'file' &&
                                         (live && readable ? (
                                             <FileToolbarSlotProvider value={toolbarSlot}>

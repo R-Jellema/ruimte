@@ -37,6 +37,8 @@ import type { DatabasesBundle } from './databases.ts';
 import type { DevicesBundle } from './devices.ts';
 import type { GitBundle } from './git.ts';
 import type { LaunchesBundle } from './launches.ts';
+import type { ArtifactsBundle } from './artifacts.ts';
+import { artifactReport } from '../artifacts/artifact-report.ts';
 import type { ProjectsBundle } from './projects.ts';
 import type { ProvidersBundle } from './providers.ts';
 import type { DaemonRuntime } from './runtime.ts';
@@ -106,6 +108,7 @@ export interface AgentsLater {
     launches(): LaunchesBundle;
     usage(): UsageBundle;
     work(): AgentWorkBundle;
+    artifacts(): ArtifactsBundle;
 }
 
 export interface AgentsInput {
@@ -232,7 +235,11 @@ export async function wireAgents({ runtime, identity, stores, providers, compute
             const place = index().locate(targetId);
             return place ? later.projects().diagrams.read(place.projectId, viewId) : null;
         },
-        canvasOf: (targetId) => index().canvasOf(targetId)
+        canvasOf: (targetId) => index().canvasOf(targetId),
+        artifactReport: async (targetId, artifact) => {
+            const place = index().locate(targetId);
+            return place ? artifactReport(later.artifacts().artifacts, place.projectId, artifact) : null;
+        }
     });
     const outboxLink = new OutboxLink({ outbox, projectOf: (id) => index().locate(id)?.projectId ?? null });
     const attachments = new AttachmentStore(config.home);

@@ -4,13 +4,18 @@ import type { Artifact, ArtifactCleanupProposal, ArtifactVersion } from '@ruimte
 const KEEP_VERSIONS = 30;
 const KEEP_BUILDS = 7;
 
-/* Versions a canvas node shows, as `<artifactId>/<versionId>`; empty until nodes of artifacts exist. */
+/* Versions a canvas node is pinned to, as `<artifactId>/<versionId>`. */
 export type PinnedVersions = () => ReadonlySet<string>;
 
 export const NO_PINS: PinnedVersions = () => new Set();
 
 export function pinKey(artifactId: string, versionId: string): string {
     return `${artifactId}/${versionId}`;
+}
+
+/* The pins the nodes of every project hold, read at the moment a cleanup is asked for or confirmed. */
+export function pinnedVersionsOf(pins: ReadonlyArray<{ artifactId: string; versionId: string }>): ReadonlySet<string> {
+    return new Set(pins.map((pin) => pinKey(pin.artifactId, pin.versionId)));
 }
 
 /* Whether a version may ever be proposed or removed: never one copied into a project, nor one a node is pinned to. */

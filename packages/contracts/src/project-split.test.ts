@@ -1,5 +1,14 @@
 import { describe, expect, test } from 'bun:test';
-import { EMPTY_PRIVATE_FILE, PROJECT_VERSION, type ProjectCanvasView, type ProjectContent, type ProjectSharedFile, type ProjectView } from './project.ts';
+import {
+    EMPTY_PRIVATE_FILE,
+    PROJECT_VERSION,
+    ProjectSharedFileSchema,
+    storedViewsOf,
+    type ProjectCanvasView,
+    type ProjectContent,
+    type ProjectSharedFile,
+    type ProjectView
+} from './project.ts';
 import { canShareView, mergeFiles, overlayOfLegacy, privateFieldsOf, privateFileOf, splitContent, viewShareRefusal } from './project-split.ts';
 
 function canvas(id: string, nodes: ProjectCanvasView['nodes'] = []): ProjectView {
@@ -429,5 +438,42 @@ describe("fields a newer Ruimte keeps one person's", () => {
         const merged = mergeFiles(sharedOf(node('n1')), file, fallback);
         expect(nodesOf(merged.content)[0]).toEqual(node('n1', { resume: 'mine' }));
         expect(merged.overlayFields).toEqual([]);
+    });
+});
+
+describe('an artifact node', () => {
+    const reference = { id: 'art-1', version: 'ver-3' };
+    const frame = { id: 'out', kind: 'artifact', title: 'Morning summary', x: 0, y: 0, w: 440, h: 520 };
+    const sharedFile = (nodes: unknown[]): ProjectSharedFile =>
+        ProjectSharedFileSchema.parse({ version: PROJECT_VERSION, name: 'repo', color: '#7c74ff', views: [canvas('main', nodes as never)] });
+    const nodesOf = (views: readonly unknown[]) => (views[0] as ProjectCanvasView).nodes;
+
+    test('keeps what it shows in the overlay, and the shared file holds only its kind and title', () => {
+        const split = splitContent(content([canvas('main', [{ ...frame, artifact: reference } as never])]), ['main'], 1);
+        expect(storedViewsOf(split.shared.views)).toEqual([canvas('main', [frame as never])]);
+        expect(JSON.stringify(split.shared)).not.toContain('art-1');
+        expect(split.private.overlay.out).toEqual({ artifact: reference });
+        expect('overlayFields' in split.private).toBe(false);
+
+        const merged = mergeFiles(sharedFile([frame]), split.private, fallback);
+        expect(nodesOf(merged.content.views)[0]).toEqual({ ...frame, artifact: reference } as never);
+    });
+
+    test("never takes a reference from the shared file, which is anyone's who can push", () => {
+        const merged = mergeFiles(sharedFile([{ ...frame, artifact: { id: 'theirs' } }]), { ...EMPTY_PRIVATE_FILE, order: ['main'] }, fallback);
+        expect(nodesOf(merged.content.views)[0]).toEqual(frame as never);
+    });
+
+    /*
+     * A release that knows neither the kind nor the field reads the node as `unknown` around the entry
+     * of the shared file, and the reference as a private field it found in the overlay. Handed the same
+     * shapes, the split writes the entry back as it was and the reference back to the overlay.
+     */
+    test('comes back unchanged through a Ruimte that knows neither the kind nor the field', () => {
+        const older = { id: 'out', kind: 'unknown', title: 'Morning summary', x: 0, y: 0, w: 440, h: 520, raw: frame, artifact: reference };
+        const split = splitContent(content([canvas('main', [older as never])]), ['main'], 2, ['artifact']);
+        expect(storedViewsOf(split.shared.views)).toEqual([canvas('main', [frame as never])]);
+        expect(JSON.stringify(split.shared)).not.toContain('art-1');
+        expect(split.private.overlay.out).toEqual({ artifact: reference });
     });
 });

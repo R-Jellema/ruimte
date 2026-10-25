@@ -4,7 +4,7 @@ import { COLOR_LINES } from '../actions/node-actions.ts';
 import { z } from 'zod';
 import { canvasIdFor, defineActionVerb, runAction } from './action-verb.ts';
 import { ONE_WRITE, idBatch, jsonBatch } from './batch.ts';
-import { EVERY_KIND_LINE, NODE_VERB_KINDS, REQUIRED_FLAG, kindLine, kindsFor } from './node-kinds.ts';
+import { EVERY_KIND_LINE, JSON_NODE_KINDS, NODE_VERB_KINDS, REQUIRED_FLAG, kindLine, kindsFor } from './node-kinds.ts';
 import { MAX_CANVAS_NODES } from './nodes.ts';
 import { unescapeText } from './text-escapes.ts';
 import {
@@ -33,14 +33,15 @@ const REQUIRED_NOTE = `${Object.entries(REQUIRED_FLAG)
 
 const LISTED = 'ruimte-context view list lists them';
 
-const NEW_USAGE = `(<${NODE_VERB_KINDS.join('|')}> [--title T] [--text B] [--url U] [--path P] [--source V] [--device D] [--cwd P] [--color C] [--beside N] | --json J) [--view V] [--dry-run]`;
+const NEW_USAGE = `(<${NODE_VERB_KINDS.join('|')}> [--title T] [--text B] [--url U] [--path P] [--source V] [--device D] [--cwd P] [--artifact A] [--version R] [--color C] [--beside N] | --json J) [--view V] [--dry-run]`;
 
 // What the parser answers a call it cannot read with, for the two it cannot catch on its own: no kind, and a kind beside --json.
 const NEW_USAGE_LINES = [`usage\tnode new\t${NEW_USAGE}`, 'detail\truimte-context help node new'];
 
 /* One node of a --json call: the kind and the fields of the flags a single call takes, by their flag names. */
 const JsonNodeSchema = z.strictObject({
-    kind: z.enum(NODE_VERB_KINDS, { error: KIND_MESSAGE }),
+    // An artifact node is left out: it names its artifact with flags of its own.
+    kind: z.enum(JSON_NODE_KINDS, { error: `node new needs a kind: ${JSON_NODE_KINDS.join(', ')}` }),
     title: titleField('title', 'title needs a title').optional(),
     text: z.string().optional(),
     url: z.string().min(1, 'url needs an http or https address').optional(),
@@ -94,6 +95,18 @@ export const nodeNewAction = defineActionVerb('node', {
         { syntax: '--device D', need: kindsFor('device'), field: 'device', more: 'ruimte-context device list lists the ones of this machine' },
         { syntax: '--cwd P', need: kindsFor('cwd'), field: 'cwd' },
         {
+            syntax: '--artifact A',
+            need: kindsFor('artifact'),
+            field: 'artifact',
+            more: "an artifact of this project's Output; ruimte-context artifact list lists them"
+        },
+        {
+            syntax: '--version R',
+            need: kindsFor('version'),
+            field: 'artifactVersion',
+            more: 'the node stays on this version; without it the node follows the latest'
+        },
+        {
             syntax: '--json J',
             need: 'in place of <kind>',
             text: `Several nodes in one call: an array of up to ${MAX_PER_CALL} objects, each with kind and the fields of the flags above by their names (title, text, url, path, source, device, cwd, beside, color)`,
@@ -132,6 +145,8 @@ export const nodeNewAction = defineActionVerb('node', {
         source: z.string().min(1, '--source needs the id of a drawing or diagram view').optional(),
         device: z.string().min(1, '--device needs the id of a device of this machine').optional(),
         cwd: z.string().min(1, '--cwd needs the path of a directory').optional(),
+        artifact: z.string().min(1, '--artifact needs the id of an artifact').optional(),
+        version: z.string().min(1, '--version needs the id of a version').optional(),
         view: z.string().min(1, '--view needs the id of a canvas').optional(),
         beside: z.string().min(1, '--beside needs the id of a node on that canvas').optional(),
         color: z.string().min(1, '--color needs one of the colors').optional(),
@@ -139,7 +154,7 @@ export const nodeNewAction = defineActionVerb('node', {
     }),
     async run({ positionals: [kind], flags, dryRun }, call) {
         if (flags.json !== undefined) {
-            const single = (['title', 'text', 'url', 'path', 'source', 'device', 'cwd', 'beside', 'color'] as const).filter(
+            const single = (['title', 'text', 'url', 'path', 'source', 'device', 'cwd', 'beside', 'color', 'artifact', 'version'] as const).filter(
                 (flag) => flags[flag] !== undefined
             );
             if (kind !== undefined || single.length > 0) {
@@ -200,7 +215,9 @@ export const nodeNewAction = defineActionVerb('node', {
                 device: flags.device ?? null,
                 cwd: flags.cwd ?? null,
                 beside: flags.beside ?? null,
-                color: flags.color ?? null
+                color: flags.color ?? null,
+                artifact: flags.artifact ?? null,
+                artifactVersion: flags.version ?? null
             },
             dryRun
         );

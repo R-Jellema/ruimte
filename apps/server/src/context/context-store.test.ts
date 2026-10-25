@@ -6,6 +6,8 @@ import { handleContextRequest } from './context-route.ts';
 import { ContextStore, MAX_SCREEN_LINES, renderTranscript } from './context-store.ts';
 import type { ChatUsageInfo } from './chat-usage.ts';
 import { RUIMTE_UI_FENCE } from '../chat/ui-fence.ts';
+import { artifactReport } from '../artifacts/artifact-report.ts';
+import { ArtifactError } from '../artifacts/artifact-names.ts';
 
 /* The route in front of a store, for a caller no project places: `list` and `read` never ask where it stands. */
 function route(context: ContextStore) {
@@ -646,4 +648,51 @@ test('a transcript retains the intent of a chosen UI action without changing the
     };
     expect(renderTranscript([item])).toContain('Chose "Fix errors"\n\nThe selected files');
     expect(item.text).toBe('The selected files');
+});
+
+describe('an artifact node read', () => {
+    const versions = ['ver-2', 'ver-1'].map((versionId, index) => ({
+        versionId,
+        number: 2 - index,
+        createdAt: 0,
+        files: [{ name: 'summary.md', mime: 'text/markdown', size: 6, sha256: versionId }],
+        bytes: 6,
+        provenance: { maker: 'agent' as const, machineId: 'machine-1' },
+        copiedTo: []
+    }));
+    // Output as `Artifacts.read` answers: only the project it is asked for, and a version by id or the latest.
+    const output = {
+        read: async (projectId: string, query: { artifactId: string; versionId?: string }) => {
+            const version = query.versionId === undefined ? versions[0] : versions.find((entry) => entry.versionId === query.versionId);
+            if (projectId !== 'p1' || query.artifactId !== 'art-1' || version === undefined) {
+                throw new ArtifactError('not-found', 'No such artifact in this project');
+            }
+            const artifact = { artifactId: 'art-1', projectId, projectName: 'One', title: 'Morning summary', kind: 'report', createdAt: 0 };
+            return { artifact, version, file: version.files[0]!, text: `version ${version.number}`, truncated: false };
+        }
+    };
+    const projectOf: Record<string, string> = { agent: 'p1', stranger: 'p2' };
+    const sources: ContextSource[] = [
+        { id: 'latest', kind: 'artifact', title: 'Morning summary', artifact: { id: 'art-1' } },
+        { id: 'pinned', kind: 'artifact', title: 'Morning summary', artifact: { id: 'art-1', version: 'ver-1' } }
+    ];
+    const reading = new ContextStore({
+        sources: () => sources,
+        terminalText: async () => null,
+        chatItems: () => null,
+        drawingElements: async () => null,
+        diagramDocument: async () => null,
+        artifactReport: async (targetId, artifact) => (projectOf[targetId] ? artifactReport(output, projectOf[targetId], artifact) : null)
+    });
+
+    test('gives the version the node shows, the latest when it follows', async () => {
+        expect(await reading.read('agent', 'latest')).toEndWith('\n\nversion 2');
+        const pinned = (await reading.read('agent', 'pinned')) ?? '';
+        expect(pinned).toContain('pinned\tthis version, whatever is newer');
+        expect(pinned).toEndWith('\n\nversion 1');
+    });
+
+    test("reads nothing of another project's Output", async () => {
+        expect(await reading.read('stranger', 'latest')).toBeNull();
+    });
 });

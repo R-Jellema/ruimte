@@ -185,13 +185,33 @@ export function canvasActions(document: StoreApi<DocumentState>, reach: CanvasRe
                 }
             };
         },
-        'node.create': ({ viewId, kind, title, content, url, browserOwner, command, path, provider, account, at, cwd, resume, issue }) => {
+        'node.create': ({
+            viewId,
+            kind,
+            title,
+            content,
+            url,
+            browserOwner,
+            command,
+            path,
+            provider,
+            account,
+            at,
+            cwd,
+            resume,
+            issue,
+            artifact,
+            artifactVersion
+        }) => {
             refuseUnreachableBrowser(kind, url, browserOwner);
             const { view, canvas } = canvasOnScreen(document, viewId);
             refuseResumeWithout(resume, provider);
             const agent = agentFor(providers(), kind, provider, command, account ?? null);
             if (kind === 'file' && path === null) {
                 throw new ActionRefusal('missing-path', 'Name the file a file node shows.');
+            }
+            if (kind === 'artifact' && artifact == null) {
+                throw new ActionRefusal('missing-artifact', 'Name the artifact an artifact node shows.');
             }
             const depth = canvas.past.length;
             const options: AddNodeOptions = {
@@ -208,7 +228,10 @@ export function canvasActions(document: StoreApi<DocumentState>, reach: CanvasRe
                         : {}),
                 ...(kind === 'browser' ? { ...(url ? { url } : {}), ...(browserOwner ? { browserOwner } : {}) } : {}),
                 ...(command && kind === 'terminal' ? { command } : {}),
-                ...(path && kind === 'file' ? { path: storedFilePath(path) } : {})
+                ...(path && kind === 'file' ? { path: storedFilePath(path) } : {}),
+                ...(kind === 'artifact' && artifact != null
+                    ? { artifact: { id: artifact, ...(artifactVersion == null ? {} : { version: artifactVersion }) } }
+                    : {})
             };
             const nodeId = at === null ? addNodeInFreeSpace(canvas, kind, options) : canvas.addNode(kind, at, options);
             if (!nodeId) {

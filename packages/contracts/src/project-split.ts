@@ -24,8 +24,8 @@ import {
  * waits in the private file's overlay and is laid back over the node on the way in.
  */
 
-// One person's, whatever canvas the node is on. An account id names a config folder on this machine.
-const OVERLAY_FIELDS = ['resume', 'account', 'runtimeMode', 'worktree'] as const;
+// One person's, whatever canvas the node is on. An account id names a config folder on this machine, and an artifact lives in this machine's Output.
+const OVERLAY_FIELDS = ['resume', 'account', 'runtimeMode', 'worktree', 'artifact'] as const;
 
 // One machine's only when they name a place outside the project folder.
 const PATH_FIELDS = ['cwd', 'path'] as const;

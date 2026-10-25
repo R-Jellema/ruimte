@@ -1,12 +1,15 @@
 import { useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { CircleAlert, Download, FilePlus, GitCompare, Info, Lock, Package, WifiOff } from 'lucide-react';
+import { CircleAlert, Download, FilePlus, GitCompare, Info, Lock, Package, Pin, WifiOff } from 'lucide-react';
 import { patchOf } from '@adecore/merge';
 import { VisualPageFrame } from '@adecore/agents-react/chat/ui';
 import { useChats } from '@adecore/agents-react/state';
-import type { Artifact, ArtifactGetResult, ArtifactVersion } from '@ruimte/contracts';
-import { Button, EmptyState, ErrorBoundary, Icon, IconButton, LazyBoundary, Pill, SectionLabel, Separator, lazyNamed, Tooltip } from '@adecore/ui';
+import { BYTES_READ_MAX_BYTES, isCanvasView, type Artifact, type ArtifactGetResult, type ArtifactVersion } from '@ruimte/contracts';
+import { Button, EmptyState, ErrorBoundary, Icon, IconButton, LazyBoundary, Menu, Pill, SectionLabel, Separator, lazyNamed, Tooltip } from '@adecore/ui';
+import { createNodeAction } from '@/actions/client-actions';
+import { showView } from '@/project/views';
+import { useDocument } from '@/state/document';
 import { formatBytes, formatDayClock } from '@adecore/ui/format';
 import { comparable, drawnKind, isTextMime } from '@/output/artifact-list';
 import { downloadArtifactFile, readArtifactFile, useArtifactText, type ArtifactFileRef } from '@/output/artifact-bytes';
@@ -100,6 +103,7 @@ function ArtifactBody({ endpointId, result }: { endpointId: string; result: Arti
                 <Button size="sm" disabled={version === null} onClick={() => setCopying(true)}>
                     <Icon icon={FilePlus} size={14} /> {t('view.copyToProject')}
                 </Button>
+                <PinToCanvas artifact={artifact} />
                 <Separator />
                 <IconButton icon={Info} size="sm" label={t('view.info')} aria-pressed={infoOpen} onClick={() => setInfoOpen(!infoOpen)} />
             </ArtifactToolbar>
@@ -133,6 +137,35 @@ function ArtifactBody({ endpointId, result }: { endpointId: string; result: Arti
                 </LazyBoundary>
             )}
         </div>
+    );
+}
+
+/*
+ * Puts the artifact on a canvas of the window's project, following its latest version. The artifact is
+ * the window's machine's, and so is every canvas of the project on it, so a node never points at
+ * another machine's Output.
+ */
+function PinToCanvas({ artifact }: { artifact: Artifact }) {
+    const { t } = useTranslation('output');
+    const views = useDocument((s) => s.views);
+    const canvases = views.filter((view) => isCanvasView(view) && view.hidden !== true);
+    const pin = (viewId: string): void => {
+        showView(viewId);
+        void createNodeAction('artifact', { viewId, artifact: artifact.artifactId, title: artifact.title });
+    };
+    return (
+        <Menu.Root>
+            <Menu.Trigger render={<Button size="sm" disabled={canvases.length === 0} />}>
+                <Icon icon={Pin} size={14} /> {t('view.pinToCanvas')}
+            </Menu.Trigger>
+            <Menu.Popup align="end" className="min-w-48">
+                {canvases.map((view) => (
+                    <Menu.Item key={view.id} onClick={() => pin(view.id)}>
+                        <span className="truncate">{view.name}</span>
+                    </Menu.Item>
+                ))}
+            </Menu.Popup>
+        </Menu.Root>
     );
 }
 
@@ -218,8 +251,8 @@ function refOf(artifact: Artifact, version: ArtifactVersion, file: number): Arti
     return { artifactId: artifact.artifactId, versionId: version.versionId, file };
 }
 
-/* What a version holds, drawn the way its kind reads best. */
-function VersionBody({ endpointId, artifact, version }: { endpointId: string; artifact: Artifact; version: ArtifactVersion }) {
+/* What a version holds, drawn the way its kind reads best; an artifact node on a canvas draws the same. */
+export function VersionBody({ endpointId, artifact, version }: { endpointId: string; artifact: Artifact; version: ArtifactVersion }) {
     const kind = drawnKind(artifact.kind);
     const first = version.files[0]!;
     if (kind === 'report' && isTextMime(first.mime)) {
@@ -350,7 +383,18 @@ function FileRows({ endpointId, artifact, version }: { endpointId: string; artif
                 <li key={index} className="flex h-8 items-center gap-2 text-sm">
                     <span className="min-w-0 grow truncate text-text">{file.name}</span>
                     <span className="shrink-0 text-xs text-text-faint tabular-nums">{formatBytes(file.size)}</span>
-                    <IconButton icon={Download} size="sm" label={t('view.download')} onClick={() => download(index)} />
+                    {/* A download is read whole into this window first, and nothing on the desktop bridge writes a machine's file to disk in pieces. */}
+                    {file.size > BYTES_READ_MAX_BYTES ? (
+                        <IconButton
+                            icon={Download}
+                            size="sm"
+                            label={t('view.downloadTooLarge', { size: formatBytes(BYTES_READ_MAX_BYTES) })}
+                            aria-disabled
+                            onClick={() => undefined}
+                        />
+                    ) : (
+                        <IconButton icon={Download} size="sm" label={t('view.download')} onClick={() => download(index)} />
+                    )}
                 </li>
             ))}
         </ul>

@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import type { ArtifactProvenance } from '@ruimte/contracts';
+import { pinnedVersionsOf } from '../artifacts/artifact-cleanup.ts';
 import { ArtifactStore } from '../artifacts/artifact-store.ts';
 import { Artifacts } from '../artifacts/artifacts.ts';
 import type { MachineHome } from '../fs/machine-home.ts';
@@ -50,7 +51,8 @@ export async function wireArtifacts(input: ArtifactsInput): Promise<ArtifactsBun
         projects: { known: () => projects.known(), projectOf: (id) => projects.locate(id)?.projectId ?? null },
         chats: { findAttachment: (chatId, id) => chats.findAttachment(chatId, id), hasStored: (chatId) => chats.hasStored(chatId) },
         machineHome: input.machineHome,
-        provenanceOf
+        provenanceOf,
+        pinned: () => pinnedVersionsOf(projects.index.pinnedArtifactVersions())
     });
     return { store, artifacts };
 }

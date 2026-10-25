@@ -50,6 +50,8 @@ export interface AddNodeOptions {
     path?: string;
     // Chats and terminals: the GitHub issue the agent was started on.
     issue?: ProjectNode['issue'];
+    // Artifacts only: what of this machine's Output it shows.
+    artifact?: ProjectNode['artifact'];
 }
 
 /* A label on the canvas. Style belongs to the whole element; the text itself holds no runs. */

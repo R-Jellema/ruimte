@@ -137,7 +137,7 @@ export interface CanvasState extends CameraSlice {
     /* A null source unnames the node, since nothing named it, so its own source may name it again. */
     renameNode(id: string, title: string, source?: NodeTitleSource | null): void;
     /* Changes what a node carries (its page, its folder) without touching its placement. */
-    updateNode(id: string, patch: Partial<Pick<CanvasNode, 'url' | 'cwd' | 'command' | 'resume' | 'body' | 'provider'>>, undoable?: boolean): void;
+    updateNode(id: string, patch: Partial<Pick<CanvasNode, 'url' | 'cwd' | 'command' | 'resume' | 'body' | 'provider' | 'artifact'>>, undoable?: boolean): void;
     duplicateNode(id: string): void;
     /* Null with no view under the canvas, since nothing in the project file could hold such a node. */
     addNode(kind: NodeKind, at: Point, options?: AddNodeOptions): string | null;

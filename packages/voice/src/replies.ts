@@ -52,6 +52,7 @@ const NODE_LABELS = {
     drawing: 'drawing',
     diagram: 'diagram',
     file: 'file',
+    artifact: 'output',
     unknown: 'node'
 } as const;
 

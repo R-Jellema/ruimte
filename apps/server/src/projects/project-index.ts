@@ -123,6 +123,24 @@ export class ProjectIndex {
         return this.projects.get(projectId)?.content.sql;
     }
 
+    /* Every version a node of a known project is pinned to; a node that follows the latest pins nothing, since the latest is never proposed. */
+    pinnedArtifactVersions(): Array<{ artifactId: string; versionId: string }> {
+        const pins: Array<{ artifactId: string; versionId: string }> = [];
+        for (const project of this.projects.values()) {
+            for (const view of project.content.views) {
+                if (!isCanvasView(view)) {
+                    continue;
+                }
+                for (const node of view.nodes) {
+                    if (node.kind === 'artifact' && node.artifact?.version !== undefined) {
+                        pins.push({ artifactId: node.artifact.id, versionId: node.artifact.version });
+                    }
+                }
+            }
+        }
+        return pins;
+    }
+
     /* What the agent under this id may read. Empty for an id no known project places on a canvas. */
     sourcesFor(targetId: string): ContextSource[] {
         for (const project of this.projects.values()) {

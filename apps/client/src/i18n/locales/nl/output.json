@@ -83,10 +83,25 @@
         "copyToProject": "Kopiëren naar project",
         "info": "Waar het vandaan komt",
         "download": "Downloaden",
+        "downloadTooLarge": "Groter dan {{size}}, te groot om hier te downloaden. Kopieer het naar het project.",
+        "pinToCanvas": "Op canvas vastzetten",
         "downloadFailed": "Het bestand kon niet gedownload worden",
         "readFailed": "Dit bestand kon niet gelezen worden",
         "noPreview": "Deze soort heeft geen voorbeeld. Download een bestand of kopieer het naar het project.",
         "files": "Bestanden"
+    },
+    "node": {
+        "pinned": "v{{number}}",
+        "pin": "Op versie {{number}} blijven",
+        "follow": "De nieuwste volgen",
+        "open": "Openen als weergave",
+        "footer": "Versie {{number}}, {{date}}",
+        "newer": "Versie {{number}} is nieuwer",
+        "showIt": "Tonen",
+        "notHere": "Niet op deze machine",
+        "notHereDetail": "Deze node toont Output die iemand op een eigen machine bewaart.",
+        "removed": "Verwijderd",
+        "removedDetail": "Wat deze node toonde staat niet meer in Output op deze machine."
     },
     "info": {
         "maker": "Gemaakt",

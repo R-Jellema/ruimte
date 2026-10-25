@@ -184,6 +184,9 @@ export const ARRANGE_LAYOUTS = ['grid', 'row', 'column'] as const;
  */
 const AGENT_NODE_KINDS = ['drawing', 'diagram', 'device'] as const;
 
+/* A node of an artifact this machine keeps in Output, which Voice has no words to name. */
+const OUTPUT_NODE_KINDS = ['artifact'] as const;
+
 /* A view only a person makes: a device is picked from a panel of what this machine has attached. */
 const PERSON_VIEW_KINDS = ['device'] as const;
 
@@ -925,7 +928,11 @@ export const ACTION_DEFINITIONS = {
         actors: ACTION_ACTOR_KINDS,
         input: z.object({
             viewId,
-            kind: z.union([ActionCreatableCanvasNodeKindSchema, z.enum(AGENT_NODE_KINDS).meta({ actors: [...AGENT] })]),
+            kind: z.union([
+                ActionCreatableCanvasNodeKindSchema,
+                z.enum(AGENT_NODE_KINDS).meta({ actors: [...AGENT] }),
+                z.enum(OUTPUT_NODE_KINDS).meta({ actors: [...PERSON_AND_AGENT] })
+            ]),
             title: givenName.nullable(),
             content: z.string().nullable().describe('The body of a note'),
             url: z.string().trim().min(1).nullable().describe('An http or https address'),
@@ -948,7 +955,11 @@ export const ACTION_DEFINITIONS = {
             issue: forActors(PERSON, z.object({ repo: z.string().min(1), number: z.number().int().positive(), url: z.string().min(1) })).describe(
                 'The GitHub issue an agent node is started on, which the node shows as a pill'
             ),
-            color: agentField(z.enum(NODE_ACCENT_NAMES)).describe('The color of the node; a note takes its paper from it')
+            color: agentField(z.enum(NODE_ACCENT_NAMES)).describe('The color of the node; a note takes its paper from it'),
+            artifact: forActors(PERSON_AND_AGENT, ArtifactIdSchema).describe("The artifact of this project's Output an artifact node shows"),
+            artifactVersion: forActors(PERSON_AND_AGENT, ArtifactVersionIdSchema).describe(
+                'The version an artifact node stays on; without it the node follows the latest'
+            )
         }),
         output: z.object({
             viewId,

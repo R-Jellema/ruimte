@@ -32,6 +32,7 @@ import { NEW_NODE, VerbRefusal, canvasNamed, field, orNote, referencedBy, snooze
 import type { IndexedPlace } from '../projects/project-index.ts';
 import { verbCallOf, type ServerActionCall, type ServerActionContext } from './context.ts';
 import { machineDevice } from './device-actions.ts';
+import { ArtifactError } from '../artifacts/artifact-names.ts';
 
 /* The set is closed and short enough to print whole, unlike the Lucide names a view picks from. */
 export const COLOR_LINES: readonly string[] = [['colors', ...NODE_ACCENT_NAMES].join('\t')];
@@ -181,10 +182,15 @@ function placeName(container: ProjectNode | undefined): string {
 }
 
 /* One node to make, as node.create and node.createMany both take it. */
-type NodeSpec = { [Field in keyof ActionInput<'node.createMany'>['nodes'][number]]?: ActionInput<'node.createMany'>['nodes'][number][Field] | null } & {
+type NodeSpec = {
+    [Field in Exclude<keyof ActionInput<'node.createMany'>['nodes'][number], 'kind'>]?: ActionInput<'node.createMany'>['nodes'][number][Field] | null;
+} & {
     kind: ActionInput<'node.create'>['kind'];
     title: string | null;
     at?: { x: number; y: number } | null;
+    // Only node.create names an artifact: a batch carries none.
+    artifact?: string | null;
+    artifactVersion?: string | null;
 };
 
 /* What a spec names on the disk or the machine, looked up before the project's lock is taken. */
@@ -194,6 +200,24 @@ interface Checked {
     path: string | undefined;
     cwd: string | undefined;
     device: ProjectNode['device'];
+    artifact: { reference: NonNullable<ProjectNode['artifact']>; title: string } | undefined;
+}
+
+/* An artifact of the caller's own project, and a version of it when one is named; one of another project answers as not there. */
+async function checkArtifact(call: ServerActionCall, artifactId: string, versionId: string | null | undefined): Promise<Checked['artifact']> {
+    const { host, place } = call.context;
+    if (!host.artifacts) {
+        throw new VerbRefusal('no-output', 'This machine keeps no Output');
+    }
+    try {
+        const { artifact, version } = await host.artifacts.read(place.projectId, { artifactId, ...(versionId == null ? {} : { versionId }) });
+        return { reference: { id: artifact.artifactId, ...(versionId == null ? {} : { version: version.versionId }) }, title: artifact.title };
+    } catch (error) {
+        if (error instanceof ArtifactError) {
+            throw new VerbRefusal('not-found', error.message, ['see\truimte-context artifact list\twhat this project keeps']);
+        }
+        throw error;
+    }
 }
 
 type Made = ActionOutput<'node.createMany'>['nodes'][number];
@@ -224,9 +248,11 @@ async function checkNode(spec: NodeSpec, call: ServerActionCall): Promise<Checke
         path: spec.path,
         source: spec.source,
         device: spec.device,
-        cwd: spec.cwd
+        cwd: spec.cwd,
+        artifact: spec.artifact,
+        version: spec.artifactVersion
     };
-    for (const flag of ['text', 'url', 'path', 'source', 'device', 'cwd'] as const) {
+    for (const flag of ['text', 'url', 'path', 'source', 'device', 'cwd', 'artifact', 'version'] as const) {
         if (given[flag] != null && !KIND_FLAGS[kind].includes(flag)) {
             throw new VerbRefusal('flag-not-for-kind', `--${flag} does not go with a ${kind} node`, kindLines);
         }
@@ -240,7 +266,8 @@ async function checkNode(spec: NodeSpec, call: ServerActionCall): Promise<Checke
         url: spec.url == null ? undefined : checkUrl(spec.url),
         path: spec.path == null ? undefined : await checkPath(place.folder, spec.path),
         cwd: spec.cwd == null ? undefined : await checkCwd(place.folder, spec.cwd, (folder) => host.checkouts.paths(folder)),
-        device: spec.device == null ? undefined : await machineDevice(host, spec.device)
+        device: spec.device == null ? undefined : await machineDevice(host, spec.device),
+        artifact: spec.artifact == null ? undefined : await checkArtifact(call, spec.artifact, spec.artifactVersion)
     };
 }
 
@@ -290,7 +317,7 @@ async function createNodes(call: ServerActionCall, viewId: string, specs: readon
         let current = content;
         const made: Made[] = [];
         const owned: string[] = [];
-        for (const [index, { spec, url, path, cwd, device }] of checked.entries()) {
+        for (const [index, { spec, url, path, cwd, device, artifact }] of checked.entries()) {
             const { kind } = spec;
             const placed = await forNode(counted ? index : null, async () => {
                 const sourceName = sourceNameOf(current, spec);
@@ -304,7 +331,10 @@ async function createNodes(call: ServerActionCall, viewId: string, specs: readon
                     : spec.at != null
                       ? { x: Math.round(spec.at.x - size.w / 2), y: Math.round(spec.at.y - size.h / 2), ...size }
                       : placeFree(canvas.nodes, size, caller);
-                return { rect, title: spec.title ?? sourceName ?? (path === undefined ? (device?.name ?? DEFAULT_TITLES[kind]) : basename(path)) };
+                return {
+                    rect,
+                    title: spec.title ?? sourceName ?? artifact?.title ?? (path === undefined ? (device?.name ?? DEFAULT_TITLES[kind]) : basename(path))
+                };
             });
             const id = newId(kind, current);
             const node: ProjectNode = {
@@ -320,7 +350,8 @@ async function createNodes(call: ServerActionCall, viewId: string, specs: readon
                 ...(path === undefined ? {} : { path: isInside(place.folder, path) ? storedPathOf(place.folder, path) : path }),
                 ...(spec.source == null ? {} : { viewId: spec.source }),
                 ...(device === undefined ? {} : { device }),
-                ...(cwd === undefined ? {} : { cwd })
+                ...(cwd === undefined ? {} : { cwd }),
+                ...(artifact === undefined ? {} : { artifact: artifact.reference })
             };
             const edge = caller ? openingEdge(caller.id, node, current) : null;
             canvas = { ...canvas, nodes: [...canvas.nodes, node], edges: edge ? [...canvas.edges, edge] : canvas.edges };

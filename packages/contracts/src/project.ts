@@ -10,7 +10,7 @@ import { NODE_ACCENT_NAMES } from './node-accents.ts';
 export const ProjectIdSchema = z.string().min(1);
 export type ProjectId = z.infer<typeof ProjectIdSchema>;
 
-export const NodeKindSchema = z.enum(['terminal', 'chat', 'browser', 'device', 'group', 'note', 'drawing', 'diagram', 'file']);
+export const NodeKindSchema = z.enum(['terminal', 'chat', 'browser', 'device', 'group', 'note', 'drawing', 'diagram', 'file', 'artifact']);
 export type NodeKind = z.infer<typeof NodeKindSchema>;
 
 // Wraps an entry of a newer version so it is written back verbatim; a reserved kind keeps narrowing useful.
@@ -156,7 +156,9 @@ export const ProjectNodeSchema = keepingUnknown(
         // Unknown kind only: the entry exactly as it was read.
         raw: RawEntrySchema.optional(),
         // The daemon id of the machine the node runs on. The daemon lays it over what it sends and never writes it to a project file.
-        machine: z.string().min(1).optional()
+        machine: z.string().min(1).optional(),
+        // Artifact only: what in Output this machine shows, one person's and kept in the overlay. Without `version` it follows the latest.
+        artifact: z.object({ id: z.string().min(1).max(64), version: z.string().min(1).max(64).optional() }).optional()
     })
 );
 export type ProjectNode = z.infer<typeof ProjectNodeSchema>;
@@ -882,7 +884,8 @@ export const ProjectNodeOverlaySchema = pickKeepingUnknown(
         account: true,
         runtimeMode: true,
         worktree: true,
-        path: true
+        path: true,
+        artifact: true
     },
     {
         // The name a session gave a shared node (`title`) or view (`name`): the session is one person's too.

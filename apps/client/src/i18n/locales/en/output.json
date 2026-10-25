@@ -83,10 +83,25 @@
         "copyToProject": "Copy to project",
         "info": "Where it came from",
         "download": "Download",
+        "downloadTooLarge": "Larger than {{size}}, too large to download here. Copy it to the project instead.",
+        "pinToCanvas": "Pin to canvas",
         "downloadFailed": "The file could not be downloaded",
         "readFailed": "This file could not be read",
         "noPreview": "This kind has no preview. Download a file or copy it into the project.",
         "files": "Files"
+    },
+    "node": {
+        "pinned": "v{{number}}",
+        "pin": "Stay on version {{number}}",
+        "follow": "Follow the latest",
+        "open": "Open as a view",
+        "footer": "Version {{number}}, {{date}}",
+        "newer": "Version {{number}} is newer",
+        "showIt": "Show it",
+        "notHere": "Not on this machine",
+        "notHereDetail": "This node shows Output that someone keeps on their own machine.",
+        "removed": "Removed",
+        "removedDetail": "What this node showed is no longer in Output on this machine."
     },
     "info": {
         "maker": "Made",
