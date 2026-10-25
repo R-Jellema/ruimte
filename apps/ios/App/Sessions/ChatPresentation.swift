@@ -118,6 +118,8 @@ final class ChatPresentation {
     /// The forks this device knows of per turn, for the line under the turn.
     private(set) var forks: [String: [String]] = [:]
     var places: ChatPlaces?
+    /// What a person pointed at with `#` in this thread, which a reply's `#Name` wins over another of the same name.
+    private(set) var referenced: [String] = []
     @ObservationIgnored var agentSources: ChatAgentSources?
     /// The messages a person marked, by item id, as the machine last said.
     private(set) var bookmarks: [String: ChatBookmark] = [:]
@@ -312,6 +314,8 @@ final class ChatPresentation {
 
     private func rebuild() {
         let all = order.compactMap { records[$0] }
+        let pointed = ChatReferables.referenced(all.map(\.item))
+        if pointed != referenced { referenced = pointed }
         let children = Dictionary(grouping: all.filter { $0.item.parentToolUseID != nil }) {
             $0.item.parentToolUseID!
         }

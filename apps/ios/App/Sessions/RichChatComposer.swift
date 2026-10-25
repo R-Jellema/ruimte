@@ -7,6 +7,7 @@ struct RichChatComposer: UIViewRepresentable {
     @Binding var selection: NSRange
     let mentions: [String]
     let skills: [String]
+    var references: [ChatDraftReference] = []
     @Binding var focused: Bool
     var placeholder = String(localized: "Message the agent…")
     var maximumHeight: CGFloat = 144
@@ -111,13 +112,14 @@ struct RichChatComposer: UIViewRepresentable {
             view.placeholder.font = font
             view.placeholder.isHidden = !view.text.isEmpty
             let signature =
-                "\(view.text ?? "")\u{0}\(parent.mentions)\(parent.skills)\(font.pointSize)\(parent.colorScheme)"
+                "\(view.text ?? "")\u{0}\(parent.mentions)\(parent.skills)\(parent.references)\(font.pointSize)\(parent.colorScheme)"
             guard signature != lastStyle else { return }
             lastStyle = signature
             let selected = view.selectedRange
             let offset = view.contentOffset
             let attributes = ChatDraftStyle.attributed(
-                view.text, font: font, mentions: parent.mentions, skills: parent.skills)
+                view.text, font: font, mentions: parent.mentions, skills: parent.skills,
+                references: parent.references)
             let wasUpdating = updating
             updating = true
             defer { updating = wasUpdating }
@@ -191,7 +193,16 @@ private final class ComposerLayoutManager: NSLayoutManager {
                 var bounds = self.boundingRect(forGlyphRange: intersection, in: container)
                 bounds = bounds.offsetBy(dx: origin.x, dy: origin.y).insetBy(dx: 0, dy: -1)
                 color.setFill()
-                UIBezierPath(roundedRect: bounds, cornerRadius: 5).fill()
+                let path = UIBezierPath(roundedRect: bounds, cornerRadius: 5)
+                path.fill()
+                if let border = storage.attribute(ChatDraftStyle.badgeBorder, at: range.location, effectiveRange: nil)
+                    as? UIColor
+                {
+                    border.setStroke()
+                    let edge = UIBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), cornerRadius: 4.5)
+                    edge.lineWidth = 1
+                    edge.stroke()
+                }
             }
         }
     }
@@ -199,8 +210,11 @@ private final class ComposerLayoutManager: NSLayoutManager {
 
 private enum ChatDraftStyle {
     static let badge = NSAttributedString.Key("RuimteComposerBadge")
+    static let badgeBorder = NSAttributedString.Key("RuimteComposerBadgeBorder")
 
-    static func attributed(_ text: String, font: UIFont, mentions: [String], skills: [String]) -> NSAttributedString {
+    static func attributed(
+        _ text: String, font: UIFont, mentions: [String], skills: [String], references: [ChatDraftReference]
+    ) -> NSAttributedString {
         let result = NSMutableAttributedString(
             string: text, attributes: [.font: font, .foregroundColor: MobileStyle.textColor])
         // Full-document Markdown matching competes with typing on pasted logs; keep those in plain text.
@@ -230,8 +244,18 @@ private enum ChatDraftStyle {
                     .backgroundColor: UIColor.secondarySystemFill,
                 ], range: range)
         }
-        for token in ChatDraftSyntax.tokens(in: text, mentions: mentions, skills: skills) {
-            result.addAttributes([.font: weight(.traitBold), badge: UIColor.tertiarySystemFill], range: token.range)
+        for token in ChatDraftSyntax.tokens(in: text, mentions: mentions, skills: skills, references: references) {
+            if token.kind == "#" {
+                // Neutral, so a reference never reads as a file or a skill.
+                result.addAttributes(
+                    [
+                        .font: weight(.traitBold), badge: MobileStyle.textColor.withAlphaComponent(0.08),
+                        badgeBorder: MobileStyle.textColor.withAlphaComponent(0.16),
+                    ], range: token.range)
+            } else {
+                result.addAttributes(
+                    [.font: weight(.traitBold), badge: UIColor.tertiarySystemFill], range: token.range)
+            }
         }
         return result
     }

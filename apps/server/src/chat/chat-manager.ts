@@ -25,7 +25,7 @@ import { HOST_TASK_ORIGIN } from '@ruimte/contracts';
 import { ChatCore, type ChatCoreOptions, claudeProjectSlug, limitedTurn } from '@adecore/agents/chat';
 import type { ChatReferences, ChatSession, PromptNotes, ResumeWords, ChatRecord, ChatRecordExtras } from '@adecore/agents/chat';
 import { storedAccount, narrowerMode } from '@adecore/agents/providers';
-import { referenceNote, resolveReferences, type Reference } from '../context/references.ts';
+import { attachedReferences, type Reference } from '../context/references.ts';
 import { chatNote, chatPrompt, contextChangeNote, contextPrompt, type ChatPromptOptions, VISUAL_RESUME_NOTE } from '../context/context-note.ts';
 import { errorText } from '../error-text.ts';
 import { RUIMTE_CODEX_CLIENT } from '../providers/codex-provider.ts';
@@ -591,18 +591,7 @@ export class ChatManager extends ChatCore {
     }
 
     private referencesFor(chatId: string): ChatReferences {
-        return (attached) => {
-            const lookup = (id: string): Reference | null => this.reference(chatId, id);
-            // `chats` stays what its chips draw, so only a chat resolves there.
-            const chats = resolveReferences(attached.chats, lookup).filter((reference) => reference.kind === 'chat');
-            const taken = new Set(chats.map((reference) => reference.id));
-            const references = resolveReferences(attached.references, lookup).filter((reference) => !taken.has(reference.id));
-            return {
-                chats: chats.map((reference) => reference.id),
-                references: references.map((reference) => reference.id),
-                note: referenceNote([...chats, ...references])
-            };
-        };
+        return (attached) => attachedReferences(attached, (id: string): Reference | null => this.reference(chatId, id));
     }
 
     /* A token per load of the chat, which the CLI's `ruimte-context` presents to the daemon. */

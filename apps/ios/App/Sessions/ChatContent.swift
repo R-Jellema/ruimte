@@ -14,6 +14,26 @@ struct ChatContentContext {
     var workspace: MobileWorkspace? = nil
     var connected = false
     var scopeID: String? = nil
+    /// What a person pointed at with `#` in the thread.
+    var referenced: [String] = []
+}
+
+/// What the views, nodes and chats of a thread stand for now, for the rows that draw them as chips.
+struct ChatReferenceLookup {
+    var items: [ChatReferable] = []
+    var referenced: [String] = []
+    /// False outside a project, where a reference cannot be told apart from one that left it.
+    var known = false
+
+    func item(_ id: String) -> ChatReferable? { items.first { $0.id == id } }
+}
+
+/// The references a run of text draws as chips: picked ones a user message spells, or, in a reply, every `#Name` of
+/// the project.
+struct ChatInlineReferences {
+    var picked: [ChatDraftReference] = []
+    var named = false
+    var lookup = ChatReferenceLookup()
 }
 
 struct ChatUiModels {
@@ -44,6 +64,11 @@ extension EnvironmentValues {
     @Entry var chatMentions: [String] = []
     @Entry var chatSkills: [String] = []
     @Entry var markdownReferences = ""
+    @Entry var chatReferenceLookup = ChatReferenceLookup()
+    /// Set by a user message: the references it picked, under the names they have now.
+    @Entry var chatPickedReferences: [ChatDraftReference]? = nil
+    /// Set by a reply, whose `#Name` for a view, node or chat of the project becomes a chip.
+    @Entry var chatNamesReferences = false
     /// How far a table may scroll past the text column: the inset to the screen edge, where nothing clips it sooner.
     @Entry var markdownTableBleed: CGFloat = 0
 }
@@ -108,11 +133,19 @@ struct ChatLinkRouting: ViewModifier {
     func body(content: Content) -> some View {
         content
             .environment(\.chatContent, context)
+            .environment(\.chatReferenceLookup, lookup)
             .environment(\.uiHost, host)
             .environment(
                 \.openURL,
                 OpenURLAction { url in
                     if ["http", "https", "mailto"].contains(url.scheme?.lowercased() ?? "") { return .systemAction }
+                    if let id = ChatReferables.id(from: url) {
+                        guard let workspace = context.workspace,
+                            let place = ChatReferables.destination(id, views: workspace.views)
+                        else { return .discarded }
+                        uiTarget = .node(viewID: place.viewID, nodeID: place.nodeID)
+                        return .handled
+                    }
                     if let scheme = url.scheme, !["file", "ruimte-file"].contains(scheme) { return .discarded }
                     if let reference = ChatFileReference.parse(url.absoluteString, cwd: context.cwd, explicit: true) {
                         target = reference
@@ -141,6 +174,13 @@ struct ChatLinkRouting: ViewModifier {
                     }
                 }
             }
+    }
+
+    private var lookup: ChatReferenceLookup {
+        guard let workspace = context.workspace else { return ChatReferenceLookup(referenced: context.referenced) }
+        return ChatReferenceLookup(
+            items: ChatReferables.project(views: workspace.views, chatID: context.chatID),
+            referenced: context.referenced, known: true)
     }
 
     private var host: UiHost {
@@ -191,6 +231,9 @@ struct ChatInlineText: View {
     @Environment(\.chatMentions) private var mentions
     @Environment(\.chatSkills) private var skills
     @Environment(\.markdownReferences) private var references
+    @Environment(\.chatReferenceLookup) private var lookup
+    @Environment(\.chatPickedReferences) private var picked
+    @Environment(\.chatNamesReferences) private var namesReferences
     @Environment(\.font) private var font
 
     var body: some View { ChatFadingText(text: attributed, streaming: streaming) }
@@ -198,16 +241,20 @@ struct ChatInlineText: View {
     private var attributed: AttributedString {
         ChatInlineMarks.marked(
             MarkdownInline.parse(text, references: references), font: font, mentions: mentions, skills: skills,
-            cwd: context?.cwd)
+            cwd: context?.cwd,
+            references: ChatInlineReferences(
+                picked: picked ?? [], named: picked == nil && namesReferences, lookup: lookup))
     }
 }
 
-/// A span of a message drawn on a rounded ground of its own: inline code, or a file or skill a person picked.
+/// A span of a message drawn on a rounded ground of its own: inline code, or a file, skill or `#` reference.
 struct ChatPill: Hashable, Sendable {
     enum Kind: Hashable, Sendable {
         case code
         case file(String)
         case skill
+        /// A view, node or chat, by its kind.
+        case reference(String)
     }
 
     let kind: Kind
@@ -220,15 +267,21 @@ struct ChatPill: Hashable, Sendable {
         case .code: nil
         case .file(let path): FileKinds.icon(name: path, kind: path.hasSuffix("/") ? "directory" : "file")
         case .skill: "zap"
+        case .reference(let kind): ChatReferables.icon(kind)
         }
     }
 
     var tint: Color {
         switch kind {
-        case .code: MobileStyle.text
+        case .code, .reference: MobileStyle.text
         case .file: MobileStyle.accent
         case .skill: MobileStyle.skill
         }
+    }
+
+    var isReference: Bool {
+        if case .reference = kind { return true }
+        return false
     }
 }
 
@@ -244,10 +297,11 @@ enum ChatInlineMarks {
     /// `source` with its inline code and the picked files and skills marked as pills, each padded on both sides.
     /// Inline code overrules a pick: `@a.ts` between backticks is code.
     static func marked(
-        _ source: AttributedString, font: Font?, mentions: [String], skills: [String], cwd: String?
+        _ source: AttributedString, font: Font?, mentions: [String], skills: [String], cwd: String?,
+        references: ChatInlineReferences = ChatInlineReferences()
     ) -> AttributedString {
         var value = source
-        var pills: [(range: Range<Int>, kind: ChatPill.Kind, font: Font)] = []
+        var pills: [(range: Range<Int>, kind: ChatPill.Kind, font: Font, link: URL?)] = []
         let codeFont = ChatInlineFonts.code(around: font)
         let codeRuns = value.runs[\.inlinePresentationIntent].filter { $0.0?.contains(.code) == true }.map(\.1)
         for range in codeRuns {
@@ -256,17 +310,32 @@ enum ChatInlineMarks {
             if let cwd, ChatFileReference.parse(token, cwd: cwd) != nil {
                 value[range].link = ChatFileReference.url(token)
             }
-            pills.append((offsets(range, in: value), .code, codeFont))
+            pills.append((offsets(range, in: value), .code, codeFont, nil))
         }
         let plain = String(value.characters)
         let code = pills.map(\.range)
+        // A link already leads somewhere of its own, so a reply's `#Name` inside one stays text.
+        let links = value.runs[\.link].filter { $0.0 != nil }.map { offsets($0.1, in: value) }
         let chipFont = ChatInlineFonts.chip(around: font)
-        for token in ChatDraftSyntax.tokens(in: plain, mentions: mentions, skills: skills) {
+        let lookup = references.lookup
+        var tokens = ChatDraftSyntax.tokens(
+            in: plain, mentions: mentions, skills: skills, references: references.picked)
+        if references.named {
+            tokens += ChatReferables.namedRanges(in: plain, items: lookup.items, referenced: lookup.referenced)
+        }
+        for token in tokens {
             guard let range = Range(token.range, in: plain) else { continue }
             let lower = plain.distance(from: plain.startIndex, to: range.lowerBound)
             let span = lower..<(lower + plain[range].count)
             guard !code.contains(where: { $0.overlaps(span) }) else { continue }
-            pills.append((span, token.kind == "$" ? .skill : .file(token.value), chipFont))
+            switch token.kind {
+            case "#":
+                guard !references.named || !links.contains(where: { $0.overlaps(span) }) else { continue }
+                let kind = lookup.item(token.value)?.kind ?? "text"
+                pills.append((span, .reference(kind), chipFont, ChatReferables.url(token.value)))
+            case "$": pills.append((span, .skill, chipFont, nil))
+            default: pills.append((span, .file(token.value), chipFont, nil))
+            }
         }
         for (id, pill) in pills.sorted(by: { $0.range.lowerBound < $1.range.lowerBound }).enumerated().reversed() {
             let mark = ChatPill(kind: pill.kind, id: id)
@@ -276,6 +345,7 @@ enum ChatInlineMarks {
                 value[range].swiftUI.font = pill.font
                 value[range].swiftUI.foregroundColor = mark.tint
             }
+            if let link = pill.link { value[range].link = link }
             // In the proportional font, since a monospaced space is as wide as a letter.
             var pad = AttributedString(String(padding))
             pad.swiftUI.font = chipFont

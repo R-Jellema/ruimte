@@ -28,10 +28,12 @@ import XCTest
     }
 
     func testSuccessfulSendClearsOnlyTheSubmittedDraft() async throws {
-        model.draft = "Read @file.swift using $review"
+        model.draft = "Read @file.swift using $review and #Related"
         model.mentions = ["file.swift", "deleted.swift"]
         model.skills = ["review"]
-        model.composition.chats = [ChatDraftReference(id: "related", title: "Related")]
+        model.composition.chats = [
+            ChatDraftReference(id: "related", title: "Related"), ChatDraftReference(id: "erased", title: "Erased"),
+        ]
         await model.addAttachment(data: Data("File".utf8), name: "file.txt", mime: "text/plain")
         await model.send()
         let payload = try XCTUnwrap(client.requests.first { $0.0 == "chat.send" }?.1)

@@ -145,6 +145,12 @@ takes the touch as soon as it lands, so there is no long press beside it. Compar
 `GET /v1/models/benchmarks` on every opening; the terms of the numbers allow a chart and not the data, so there is
 no table and no copy.
 
+`@` offers files and `#` the project's views, and for a chat on a canvas that canvas's nodes and texts first, as
+`ChatReferables` mirrors the desktop's `referables.ts`. A pick is a neutral chip in the text; chats go in `chats` and
+the rest in `references`, which only a machine with `viewReferences` in `endpoint.info` is offered or sent. A reply's
+`#Name` for one of them is a chip as well, and a chip opens what it points at. `Tests/Fixtures/view-references.json`
+holds the iPhone, the desktop's offer and the daemon's note to one payload.
+
 The composer and timeline share a UIKit container anchored to `UIKeyboardLayoutGuide`. SwiftUI keyboard avoidance is
 off on that screen so it cannot resize the timeline ahead of the native keyboard animation. A lost send
 acknowledgement keeps the draft and asks the person to check the conversation before retrying.

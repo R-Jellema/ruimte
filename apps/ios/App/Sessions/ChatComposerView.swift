@@ -28,7 +28,7 @@ struct ChatComposerView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if !model.composition.chats.isEmpty || !model.attachments.isEmpty || !model.composition.imports.isEmpty {
+            if !model.attachments.isEmpty || !model.composition.imports.isEmpty {
                 contextStrip.padding(.top, 10)
             }
             HStack(alignment: .bottom, spacing: 6) {
@@ -145,7 +145,7 @@ struct ChatComposerView: View {
         let pasteAction: ((String) -> Void)? = model.canAttach ? { pastedText = $0 } : nil
         return RichChatComposer(
             text: $model.draft, selection: selection,
-            mentions: model.mentions, skills: model.skills, focused: focus,
+            mentions: model.mentions, skills: model.skills, references: model.composition.picked, focused: focus,
             placeholder: model.working ? String(localized: "Add to queue…") : String(localized: "Message the agent…"),
             maximumHeight: maximumHeight,
             importItems: importAction, pasteLongText: pasteAction
@@ -174,17 +174,6 @@ struct ChatComposerView: View {
     private var contextStrip: some View {
         ScrollView(.horizontal) {
             HStack(spacing: 8) {
-                ForEach(model.composition.chats) { chat in
-                    HStack(spacing: 4) {
-                        Label(chat.title, lucideIcon: "messages-square", iconSize: 16).lineLimit(1)
-                        Button {
-                            model.composition.chats.removeAll { $0.id == chat.id }
-                        } label: {
-                            Image(lucide: "x", size: 14).frame(width: 44, height: 44)
-                        }.accessibilityLabel("Remove conversation \(chat.title)")
-                    }.font(.caption).padding(.leading, 12).background(
-                        MobileStyle.inset, in: RoundedRectangle(cornerRadius: 12))
-                }
                 ForEach(model.attachments) { upload in
                     ChatDraftAttachment(upload: upload, preview: { preview = upload.url }) {
                         model.attachments.removeAll { $0.id == upload.id }
@@ -400,7 +389,7 @@ struct ChatContextPicker: View {
             }
             .searchable(text: $query)
             .task(id: query) { await model.search(kind, query: query) }
-            .navigationTitle(kind == "@" ? "Files and conversations" : kind == "$" ? "Skills" : "Commands")
+            .navigationTitle(ChatSuggestion.heading(kind))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } } }
         }
@@ -423,7 +412,14 @@ struct ChatSuggestionRows: View {
         } else if model.suggestions.isEmpty {
             Text("No matches").font(.subheadline).foregroundStyle(MobileStyle.muted).padding(12)
         } else {
-            ForEach(Array(model.suggestions.prefix(limit))) { suggestion in
+            let shown = Array(model.suggestions.prefix(limit))
+            ForEach(Array(shown.enumerated()), id: \.element.id) { index, suggestion in
+                if let group = suggestion.referable?.group, index == 0 || shown[index - 1].referable?.group != group {
+                    Text(group == .canvas ? String(localized: "On this canvas") : String(localized: "Views"))
+                        .font(.caption.weight(.semibold)).foregroundStyle(MobileStyle.muted)
+                        .frame(maxWidth: .infinity, alignment: .leading).padding(.top, index == 0 ? 0 : 6)
+                        .accessibilityAddTraits(.isHeader)
+                }
                 Button {
                     choose(suggestion)
                 } label: {

@@ -316,12 +316,13 @@ struct ChatScreen: View {
             chat?.providers.first { $0.text("kind") == provider }?["models"]?.arrayValue ?? []
         }
         if let workspace {
-            let items = workspace.views.flatMap { view in [view] + view.list("nodes") }
-            model.projectChats = items.filter { $0.text("kind") == "chat" }.map {
-                ChatDraftReference(
-                    id: $0.stableID,
-                    title: $0.text("title", fallback: $0.text("name", fallback: String(localized: "Conversation"))))
-            }
+            let chatID = model.chatID
+            let session = machineSession
+            model.referenceSource = ChatReferenceSource(
+                items: { [weak workspace] in
+                    workspace.map { ChatReferables.project(views: $0.views, chatID: chatID) } ?? []
+                },
+                viewReferences: { [weak session] in session?.icons.viewReferences ?? false })
             model.presentation.places = ChatPlaces(
                 title: { ChatForking.origin(in: workspace.views, chatID: $0)?.title },
                 shape: { ChatForking.origin(in: workspace.views, chatID: $0)?.shape },

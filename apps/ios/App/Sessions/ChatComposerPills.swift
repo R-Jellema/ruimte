@@ -63,8 +63,11 @@ struct ChatComposerPills: View {
                 Button(String(localized: "File"), lucideIcon: "paperclip") { open { sheets.files = true } }
             }
             Section {
-                Button(String(localized: "Mention file or chat"), lucideIcon: "at-sign") {
+                Button(String(localized: "Mention file"), lucideIcon: "at-sign") {
                     open { sheets.picker = "@" }
+                }
+                Button(String(localized: "Refer to view or node"), lucideIcon: "hash") {
+                    open { sheets.picker = "#" }
                 }
                 Button(String(localized: "Use skill"), lucideIcon: "sparkles") { open { sheets.picker = "$" } }
                 Button(String(localized: "Command"), lucideIcon: "circle-slash") { open { sheets.picker = "/" } }

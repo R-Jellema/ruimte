@@ -8,8 +8,7 @@ struct ChatComposerAccessory: View {
     @State private var dismissedQuery: ChatDraftQuery?
 
     private var query: ChatDraftQuery? {
-        focused && model.connected
-            ? ChatDraftSyntax.query(in: model.draft, selection: model.composition.selection) : nil
+        focused && model.connected ? model.draftQuery : nil
     }
 
     private var hasContent: Bool {
@@ -23,7 +22,7 @@ struct ChatComposerAccessory: View {
             if let query, query != dismissedQuery {
                 VStack(spacing: 0) {
                     HStack {
-                        Text(query.kind == "@" ? "Files and conversations" : query.kind == "$" ? "Skills" : "Commands")
+                        Text(ChatSuggestion.heading(query.kind))
                             .font(.caption.weight(.semibold)).foregroundStyle(MobileStyle.muted)
                         Spacer()
                         Button {

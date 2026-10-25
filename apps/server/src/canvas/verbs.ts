@@ -64,7 +64,7 @@ const listVerb: ContextVerb = {
         'prints\tid\tkind\ttitle\tflag\tsnoozed\tone line per linked source, nothing when the person linked none; flag is the color the person flagged it with, or -',
         SNOOZE_LINE,
         `kinds\t${ContextSourceSchema.shape.kind.options.join('\t')}\ta note and a text on the canvas both arrive as text`,
-        'note\tThe id is what ruimte-context read takes; this list is what your lines let you read, and besides it only what a person pointed you at with # or @ in a message and an agent you opened yourself',
+        'note\tThe id is what ruimte-context read takes; this list is what your lines let you read, and besides it only what a person pointed you at with # in a message and an agent you opened yourself',
         'note\tA line from a group lists what lies inside that frame, each on a line of its own, a frame inside it included; the group itself is never a line here',
         SCOPE_LINE
     ]
@@ -90,7 +90,7 @@ const readVerb: ContextVerb = {
         'kind\tchat\tA prompt cache that went cold makes the next turn of that chat read its whole context again, so a message sent while it is warm costs less; ruimte-context provider limits reads the plan of the account you run on',
         'kind\tchat\tA Workflow call has one line per phase under its > Tool line, each agent of that phase with its state and the id --subagent takes',
         'kind\tchat\tA question or an approval in the thread is one > Question or > Approval line with its state and its request id; a question that still waits lists its question ids and choices under it, which is what ruimte-context answer takes',
-        'reference\tA view, node or text the person pointed you at with # in one of your messages (or a chat with @) reads by the id that message named, with no line to it and without showing up in ruimte-context list, for as long as that message is in your thread',
+        'reference\tA view, node, text or chat the person pointed you at with # in one of your messages reads by the id that message named, with no line to it and without showing up in ruimte-context list, for as long as that message is in your thread',
         'reference\tA # to a whole canvas lets you read every node and text on it by its id; writing in one of them still takes a # or a line of its own',
         'kind\tcanvas\tOnly one a person pointed you at with #: every node with its id, kind, title, place and size, what each group frames, every text and every line between nodes; each id then reads on its own\t--tail does nothing here',
         'kind\tdatabase\tOnly one a person pointed you at with #: its connection, schema, table, mode and filter, and the ruimte-context database command that reads that table; a connection this machine does not have is said, and nothing is refused\t--tail does nothing here',

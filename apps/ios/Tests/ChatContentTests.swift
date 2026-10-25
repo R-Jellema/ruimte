@@ -129,11 +129,41 @@ final class ChatContentTests: XCTestCase {
         XCTAssertEqual(groups.map(\.count), [1, 3, 1])
     }
 
-    @MainActor func testAnAttachedChatReadsItsCurrentTitle() {
-        let places = ChatPlaces(
-            title: { $0 == "chat-1" ? "Release plan" : nil }, shape: { _ in nil }, arrival: { _ in false })
-        XCTAssertEqual(ChatReferencePill.title("chat-1", places: places), "Release plan")
-        XCTAssertEqual(ChatReferencePill.title("chat-2", places: places), "Chat not in this project")
-        XCTAssertEqual(ChatReferencePill.title("chat-1", places: nil), "Chat")
+    @MainActor func testAReferenceBesideTheTextReadsItsCurrentNameOrSaysItWent() {
+        let lookup = ChatReferenceLookup(
+            items: [ChatReferable(id: "chat-1", name: "Release plan", kind: "chat", group: .views)], known: true)
+        XCTAssertEqual(ChatReferenceChip.look("chat-1", chat: true, lookup: lookup).title, "Release plan")
+        XCTAssertTrue(ChatReferenceChip.look("chat-1", chat: true, lookup: lookup).opens)
+        XCTAssertEqual(ChatReferenceChip.look("chat-2", chat: true, lookup: lookup).title, "Not in this project")
+        XCTAssertTrue(ChatReferenceChip.look("chat-2", chat: true, lookup: lookup).gone)
+        XCTAssertEqual(ChatReferenceChip.look("chat-1", chat: true, lookup: ChatReferenceLookup()).title, "Chat")
+    }
+
+    func testAPickedReferenceIsANeutralChipThatOpensUnderItsCurrentName() {
+        let source = MarkdownInline.parse("Look at #Sketch and `#Sketch`.", references: "")
+        let lookup = ChatReferenceLookup(
+            items: [ChatReferable(id: "sketch", name: "Sketch", kind: "drawing", group: .views)], known: true)
+        let marked = ChatInlineMarks.marked(
+            source, font: nil, mentions: [], skills: [], cwd: nil,
+            references: ChatInlineReferences(
+                picked: [ChatDraftReference(id: "sketch", title: "Sketch")], lookup: lookup))
+        let pills = marked.runs[ChatPillAttribute.self].compactMap { pill, _ in pill?.kind }
+        XCTAssertEqual(pills, [.reference("drawing"), .code])
+        XCTAssertEqual(marked.runs[\.link].compactMap(\.0).first, ChatReferables.url("sketch"))
+        XCTAssertEqual(ChatPill(kind: .reference("drawing"), id: 0).icon, "pen-tool")
+    }
+
+    func testAReplyNamesAViewByExactlyItsNameAndTheLongestNameWins() {
+        let items = [
+            ChatReferable(id: "q3", name: "Research Q3", kind: "chat", group: .views),
+            ChatReferable(id: "research", name: "Research", kind: "note", group: .canvas),
+            ChatReferable(id: "twin-a", name: "Twin", kind: "note", group: .canvas),
+            ChatReferable(id: "twin-b", name: "Twin", kind: "chat", group: .views),
+        ]
+        let text = "See #Research Q3, (#Research) and a#Research, #Twin and #research."
+        let found = ChatReferables.namedRanges(in: text, items: items, referenced: []).map(\.value)
+        XCTAssertEqual(found, ["q3", "research"])
+        XCTAssertEqual(
+            ChatReferables.namedRanges(in: "#Twin", items: items, referenced: ["twin-b"]).map(\.value), ["twin-b"])
     }
 }

@@ -2,6 +2,7 @@ import Foundation
 
 struct ChatDraftToken: Equatable {
     let range: NSRange
+    /// The path, the skill's name or, for a `#` reference, its id.
     let value: String
     let kind: String
 }
@@ -13,21 +14,32 @@ struct ChatDraftQuery: Equatable, Hashable {
 }
 
 enum ChatDraftSyntax {
+    /// The punctuation that ends a token, as the shared composer's `TOKEN_END`: "open @a.ts." mentions a.ts.
+    private static let tokenEnd = #"[.,;:!?)\]}"'\x{201D}\x{2019}]"#
+
     static func query(in text: String, selection: NSRange) -> ChatDraftQuery? {
         let source = text as NSString
         guard selection.length == 0, selection.location > 0, selection.location <= source.length else { return nil }
         let prefix = source.substring(to: selection.location)
-        guard let match = matches(#"(?:^|\s)([@$/])([^\s@$]*)$"#, in: prefix).last else { return nil }
+        guard let match = matches(#"(?:^|\s)([@$/#])([^\s@$]*)$"#, in: prefix).last else { return nil }
         let kind = (prefix as NSString).substring(with: match.range(at: 1))
         let start = match.range(at: 1).location
         if kind == "/" && !source.substring(to: start).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return nil
+        }
+        let typed = (prefix as NSString).substring(with: match.range(at: 2))
+        // A `# ` heading, `#123` and a bare `#` stay text, and so does `#Admin?` once its punctuation closed it.
+        if kind == "#"
+            && (typed.range(of: #"^\p{L}"#, options: .regularExpression) == nil
+                || typed.range(of: tokenEnd + "$", options: .regularExpression) != nil)
+        {
             return nil
         }
         let range = NSRange(location: start, length: selection.location - start)
         guard !codeRanges(in: text).contains(where: { NSIntersectionRange($0, range).length > 0 }) else { return nil }
         let line = prefix.components(separatedBy: "\n").last ?? ""
         if line.filter({ $0 == "`" }).count % 2 != 0 { return nil }
-        return ChatDraftQuery(kind: kind, text: (prefix as NSString).substring(with: match.range(at: 2)), range: range)
+        return ChatDraftQuery(kind: kind, text: typed, range: range)
     }
 
     static func matches(_ pattern: String, in text: String) -> [NSTextCheckingResult] {
@@ -39,13 +51,26 @@ enum ChatDraftSyntax {
         matches(#"(?m)^\s*(`{3,}|~{3,})[^\n]*\n[\s\S]*?(?:^\s*\1\s*$|\z)|(`+)[^`\n]*?\2"#, in: text).map(\.range)
     }
 
-    static func tokens(in text: String, mentions: [String], skills: [String]) -> [ChatDraftToken] {
-        guard !mentions.isEmpty || !skills.isEmpty else { return [] }
+    /// Whether the character at `index` closes a token: the end of the text, whitespace or closing punctuation.
+    static func endsToken(at index: Int, in source: NSString) -> Bool {
+        guard index < source.length else { return true }
+        return source.substring(with: NSRange(location: index, length: 1)).range(
+            of: #"^(?:\s|"# + tokenEnd + ")$", options: .regularExpression) != nil
+    }
+
+    /// Where the picked files, skills and references sit in the text, longest first when one prefixes another. A
+    /// reference is spelled by the name it was picked with and carries its id.
+    static func tokens(
+        in text: String, mentions: [String], skills: [String], references: [ChatDraftReference] = []
+    ) -> [ChatDraftToken] {
+        guard !mentions.isEmpty || !skills.isEmpty || !references.isEmpty else { return [] }
         let code = codeRanges(in: text)
-        let choices = mentions.map { ("@", $0) } + skills.map { ("$", $0) }
+        let choices =
+            mentions.map { ("@", $0, $0) } + skills.map { ("$", $0, $0) } + references.map { ("#", $0.title, $0.id) }
         var found: [ChatDraftToken] = []
-        for (kind, value) in choices.sorted(by: { $0.1.count > $1.1.count }) where !value.isEmpty {
-            let pattern = #"(?<!\S)"# + NSRegularExpression.escapedPattern(for: kind + value) + #"(?=$|\s|[.,;:!?)])"#
+        for (kind, spelled, value) in choices.sorted(by: { $0.1.count > $1.1.count }) where !spelled.isEmpty {
+            let pattern =
+                #"(?<!\S)"# + NSRegularExpression.escapedPattern(for: kind + spelled) + #"(?=$|\s|"# + tokenEnd + ")"
             for match in matches(pattern, in: text) {
                 guard !code.contains(where: { NSIntersectionRange($0, match.range).length > 0 }),
                     !found.contains(where: { NSIntersectionRange($0.range, match.range).length > 0 })
@@ -54,6 +79,24 @@ enum ChatDraftSyntax {
             }
         }
         return found.sorted { $0.range.location < $1.range.location }
+    }
+
+    /// The ids among `references` whose `#name` still stands in the text, in text order and once each.
+    static func presentReferences(in text: String, references: [ChatDraftReference]) -> [String] {
+        var seen = Set<String>()
+        return tokens(in: text, mentions: [], skills: [], references: references).map(\.value).filter {
+            seen.insert($0).inserted
+        }
+    }
+
+    /// `text` with a `#name` in front for each picked reference it no longer spells, so a chat attached beside the
+    /// text before `#` existed stays attached.
+    static func spelling(_ references: [ChatDraftReference], in text: String) -> String {
+        let present = Set(presentReferences(in: text, references: references))
+        let missing = references.filter { !present.contains($0.id) && !$0.title.isEmpty }
+        guard !missing.isEmpty else { return text }
+        let lead = missing.map { "#" + $0.title }.joined(separator: " ")
+        return text.isEmpty ? lead + " " : lead + " " + text
     }
 
     static func insertion(text: String, selection: NSRange, kind: String, value: String) -> (

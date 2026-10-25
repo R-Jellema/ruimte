@@ -3,7 +3,8 @@ import type { ChatItem, ProjectCanvasView, ProjectView } from '@ruimte/contracts
 import type { CanvasHost } from '../canvas/verb.ts';
 import { runContext } from '../cli/context.ts';
 import { ProjectIndex } from '../projects/project-index.ts';
-import { referenceNote, referenced, referencedIds, resolveReferences } from './references.ts';
+import fixture from '../../../ios/Tests/Fixtures/view-references.json';
+import { attachedReferences, referenceNote, referenced, referencedIds, resolveReferences } from './references.ts';
 import { handleContextRequest } from './context-route.ts';
 import { ContextStore } from './context-store.ts';
 
@@ -189,5 +190,14 @@ describe('reading what a message referenced', () => {
         threads.set('asker', [{ id: 'u1', kind: 'user', createdAt: 1, turnId: 't1', text: 'What is on #Planning?', references: ['main'] }]);
         expect(await store.read('asker', 'research')).toBe('The cache is per machine.');
         expect(store.referenced('asker').map((reference) => reference.id)).toEqual(['main']);
+    });
+});
+
+describe('a reference sent from the iPhone', () => {
+    test('gets the note a reference from the desktop gets, from the payload both clients send for the same picks', () => {
+        const project = new ProjectIndex();
+        project.set('fixture', '/work/fixture', { views: fixture.views as ProjectView[] });
+        const attached = attachedReferences(fixture.send, (id) => project.referenceBeside(fixture.chatId, id));
+        expect(attached).toEqual({ chats: fixture.send.chats, references: fixture.send.references, note: fixture.note });
     });
 });

@@ -288,23 +288,12 @@
         }
       }
     },
-    "Chat %@" : {
-      "comment" : "A chat attached to a message; %@ is its title",
+    "Choose up to 16 views and nodes." : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Chat %@"
-          }
-        }
-      }
-    },
-    "Chat not in this project" : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Chat niet in dit project"
+            "value" : "Kies maximaal 16 weergaven en nodes."
           }
         }
       }
@@ -406,6 +395,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Gevaar"
+          }
+        }
+      }
+    },
+    "Database" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Database"
           }
         }
       }
@@ -690,6 +689,16 @@
         }
       }
     },
+    "Mention file" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bestand vermelden"
+          }
+        }
+      }
+    },
     "Microphone muted" : {
       "localizations" : {
         "nl" : {
@@ -821,6 +830,16 @@
         }
       }
     },
+    "Not in this project" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Niet in dit project"
+          }
+        }
+      }
+    },
     "Not on the map" : {
       "localizations" : {
         "nl" : {
@@ -848,6 +867,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tekst van de melding"
+          }
+        }
+      }
+    },
+    "On this canvas" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Op dit canvas"
           }
         }
       }
@@ -918,6 +947,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Minder transparantie"
+          }
+        }
+      }
+    },
+    "Refer to view or node" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Naar weergave of node verwijzen"
           }
         }
       }
@@ -1550,6 +1589,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Dempen opheffen"
+          }
+        }
+      }
+    },
+    "View or node" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Weergave of node"
+          }
+        }
+      }
+    },
+    "Views and nodes" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Weergaven en nodes"
           }
         }
       }
@@ -10373,16 +10432,6 @@
         }
       }
     },
-    "Files and conversations" : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bestanden en gesprekken"
-          }
-        }
-      }
-    },
     "Files and Git" : {
       "localizations" : {
         "nl" : {
@@ -12889,16 +12938,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Vermelden"
-          }
-        }
-      }
-    },
-    "Mention file or chat" : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bestand of chat vermelden"
           }
         }
       }

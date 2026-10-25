@@ -1,0 +1,44 @@
+{
+  "chatId": "asker",
+  "views": [
+    {
+      "id": "main",
+      "kind": "canvas",
+      "name": "Planning",
+      "nodes": [
+        { "id": "asker", "kind": "chat", "title": "Planner", "x": 0, "y": 0, "w": 400, "h": 300 },
+        { "id": "reviewer", "kind": "chat", "title": "Release notes", "x": 500, "y": 0, "w": 400, "h": 300 },
+        { "id": "research", "kind": "note", "title": "Research", "body": "The cache is per machine.", "x": 0, "y": 400, "w": 300, "h": 200 },
+        { "id": "sketch-node", "kind": "drawing", "title": "Sketch", "viewId": "sketch", "x": 400, "y": 400, "w": 400, "h": 300 },
+        { "id": "frame", "kind": "group", "title": "Frame", "x": 0, "y": 800, "w": 400, "h": 300 },
+        { "id": "far", "kind": "terminal", "title": "Remote shell", "machine": "machine-b", "x": 500, "y": 800, "w": 400, "h": 300 }
+      ],
+      "texts": [{ "id": "label", "text": "Next steps\nand more", "x": 0, "y": 1200, "size": 16 }],
+      "edges": [],
+      "layouts": []
+    },
+    { "id": "standalone", "kind": "chat", "name": "Release notes", "node": { "provider": "codex" } },
+    { "id": "inline", "kind": "chat", "name": "Inline edit", "hidden": true, "node": { "provider": "claude" } },
+    { "id": "sketch", "kind": "drawing", "name": "Sketch" },
+    { "id": "line", "kind": "separator" }
+  ],
+  "referables": [
+    { "id": "reviewer", "name": "Release notes", "kind": "chat", "group": "canvas", "detail": "Planning" },
+    { "id": "research", "name": "Research", "kind": "note", "group": "canvas" },
+    { "id": "sketch", "name": "Sketch", "kind": "drawing", "group": "canvas" },
+    { "id": "label", "name": "Next steps", "kind": "text", "group": "canvas" },
+    { "id": "main", "name": "Planning", "kind": "canvas", "group": "views" },
+    { "id": "standalone", "name": "Release notes", "kind": "chat", "group": "views" }
+  ],
+  "picks": [
+    { "typed": "Compare #Res", "id": "research" },
+    { "typed": "with #Ske", "id": "sketch" },
+    { "typed": "then ask #Release", "id": "standalone" }
+  ],
+  "send": {
+    "text": "Compare #Research with #Sketch then ask #Release notes",
+    "chats": ["standalone"],
+    "references": ["research", "sketch"]
+  },
+  "note": "The person referenced views and nodes of this project in this message. Read each with the command beside it before you answer.\n- \"Release notes\" (chat): `ruimte-context read standalone` · message it with `ruimte-context notify standalone`\n- \"Research\" (note on \"Planning\"): `ruimte-context read research` · write with `ruimte-context node edit research`\n- \"Sketch\" (drawing): `ruimte-context read sketch` · see its elements with `ruimte-context read sketch --elements` · write with `ruimte-context view drawing sketch --revision R`\nWhen you refer back to one of them, write `#` and its name exactly as listed (#Name), and the person can open it from your answer."
+}

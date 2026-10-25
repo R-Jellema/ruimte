@@ -166,7 +166,14 @@ private struct ChatWordRenderer: TextRenderer {
             for run in line {
                 var context = context
                 context.opacity = opacity(run)
-                context.draw(run)
+                if run[ChatPillMark.self]?.pill.isReference == true {
+                    // A link takes the tint whatever color it carries, so a reference draws as a mask in the text's.
+                    context.clipToLayer { layer in layer.draw(run) }
+                    context.fill(
+                        Path(run.typographicBounds.rect.insetBy(dx: -4, dy: -4)), with: .color(MobileStyle.text))
+                } else {
+                    context.draw(run)
+                }
             }
         }
     }
@@ -183,6 +190,10 @@ private struct ChatWordRenderer: TextRenderer {
         if pill.kind == .code {
             let shape = RoundedRectangle(cornerRadius: 4).path(in: rect.insetBy(dx: 0, dy: -1))
             context.fill(shape, with: .color(MobileStyle.inset))
+        } else if pill.isReference {
+            let shape = RoundedRectangle(cornerRadius: 6).path(in: rect.insetBy(dx: 0, dy: -2))
+            context.fill(shape, with: .color(MobileStyle.text.opacity(0.08)))
+            context.stroke(shape, with: .color(MobileStyle.text.opacity(0.16)), lineWidth: 1)
         } else {
             let shape = RoundedRectangle(cornerRadius: 6).path(in: rect.insetBy(dx: 0, dy: -2))
             context.fill(shape, with: .color(pill.tint.opacity(0.12)))

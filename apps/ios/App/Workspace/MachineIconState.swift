@@ -9,6 +9,9 @@ final class MachineIconState {
     /// Whether the machine may take up a chat that stopped on a limit on a clock, `resumeAtReset` in `endpoint.info`.
     /// Read beside the icon since both come from there.
     private(set) var resumeAtReset = false
+    /// Whether the machine resolves the views and nodes a message points at with `#`, `viewReferences` in
+    /// `endpoint.info`; without it a `#` reaches chats only.
+    private(set) var viewReferences = false
     @ObservationIgnored private let client: any MachineRequesting
     @ObservationIgnored private var unsubscribe: (() -> Void)?
     @ObservationIgnored private var unobserve: (() -> Void)?
@@ -72,6 +75,7 @@ final class MachineIconState {
         } else if complete {
             resumeAtReset = false
         }
+        if complete { viewReferences = endpoint["viewReferences"]?.boolValue == true }
         guard let value = endpoint["icon"] else { return }
         if value == .null {
             icon = nil

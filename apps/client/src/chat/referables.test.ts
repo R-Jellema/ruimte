@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { isCanvasView, type ProjectNode, type ProjectText, type ProjectView } from '@ruimte/contracts';
+import fixture from '../../../ios/Tests/Fixtures/view-references.json';
+import type { Referable } from '@adecore/agents-react/chat';
 import { projectReferables } from '@/chat/referables';
 
 function node(id: string, kind: ProjectNode['kind'], title: string, extra: Partial<ProjectNode> = {}): ProjectNode {
@@ -55,5 +57,14 @@ describe('projectReferables', () => {
         expect(items.find((item) => item.id === 'chat-twin')?.detail).toBe('Board');
         expect(items.find((item) => item.id === 'chat-view')?.detail).toBeUndefined();
         expect(items.find((item) => item.id === 'note-1')?.detail).toBeUndefined();
+    });
+});
+
+describe('the offer the iPhone shares', () => {
+    test('is the same list, groups, order and names the iPhone offers for the fixture project', () => {
+        const views = fixture.views as unknown as ProjectView[];
+        const nodesOf = (view: ProjectView): readonly ProjectNode[] => (isCanvasView(view) ? view.nodes : []);
+        const textsOf = (view: ProjectView): readonly ProjectText[] => (isCanvasView(view) ? view.texts : []);
+        expect(projectReferables(views, nodesOf, textsOf, fixture.chatId)).toEqual(fixture.referables as Referable[]);
     });
 });

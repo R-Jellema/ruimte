@@ -12,7 +12,7 @@ import {
 
 export type ReferenceKind = 'canvas' | 'chat' | 'terminal' | 'note' | 'text' | 'drawing' | 'diagram' | 'browser' | 'device' | 'file' | 'database';
 
-/* A view, node or text of the chat's own project that a person pointed at with `#`, or a chat with `@`. */
+/* A view, node, text or chat of the chat's own project that a person pointed at with `#` (a chat, before `#`, with `@`). */
 export interface Reference {
     id: string;
     kind: ReferenceKind;
@@ -158,6 +158,24 @@ export function referenceNote(references: readonly Reference[]): string | null {
         ...references.map(referenceLine),
         'When you refer back to one of them, write `#` and its name exactly as listed (#Name), and the person can open it from your answer.'
     ].join('\n');
+}
+
+/*
+ * What a message carries on to its thread and the note in front of it, from the ids a client sent. `chats`
+ * stays what its chips draw, so only a chat resolves there; the rest goes in `references`.
+ */
+export function attachedReferences(
+    attached: { readonly chats?: readonly string[]; readonly references?: readonly string[] },
+    lookup: (id: string) => Reference | null
+): { chats: string[]; references: string[]; note: string | null } {
+    const chats = resolveReferences(attached.chats, lookup).filter((reference) => reference.kind === 'chat');
+    const taken = new Set(chats.map((reference) => reference.id));
+    const references = resolveReferences(attached.references, lookup).filter((reference) => !taken.has(reference.id));
+    return {
+        chats: chats.map((reference) => reference.id),
+        references: references.map((reference) => reference.id),
+        note: referenceNote([...chats, ...references])
+    };
 }
 
 /* Every id a person attached to a message of this thread, with `@` or with `#`. Only a user item counts, so an agent cannot give itself one. */

@@ -2,6 +2,7 @@ import CryptoKit
 import Foundation
 import Observation
 
+/// A view, node or chat picked with `#`, under the name the text spells it by, which a rename leaves alone.
 struct ChatDraftReference: Codable, Equatable, Identifiable, Sendable {
     let id: String
     let title: String
@@ -33,6 +34,9 @@ struct ChatDraftRecord: Codable, Equatable, Sendable {
     var caret = 0
     var selectedLength = 0
     var deliveryUncertain = false
+    /// Views and nodes picked with `#`, apart from `chats` since every machine takes a chat. Optional, so a draft
+    /// saved before it still reads.
+    var references: [ChatDraftReference]?
 }
 
 enum ChatDraftLimits {
@@ -189,6 +193,7 @@ final class ChatComposition {
     var mentions: [String] { didSet { changed() } }
     var skills: [String] { didSet { changed() } }
     var chats: [ChatDraftReference] { didSet { changed() } }
+    var references: [ChatDraftReference] { didSet { changed() } }
     var uploads: [ChatUpload] { didSet { changed() } }
     var selection: NSRange { didSet { if selection != oldValue { changed() } } }
     var deliveryUncertain: Bool { didSet { changed() } }
@@ -217,6 +222,7 @@ final class ChatComposition {
         mentions = record.mentions
         skills = record.skills
         chats = record.chats
+        references = record.references ?? []
         deliveryUncertain = record.deliveryUncertain
         uploads = record.uploads.map(files.upload)
         let location = min(max(0, record.caret), (record.text as NSString).length)
@@ -246,7 +252,15 @@ final class ChatComposition {
         ChatDraftRecord(
             text: text, mentions: mentions, skills: skills, chats: chats,
             uploads: uploads.map(\.descriptor), caret: selection.location, selectedLength: selection.length,
-            deliveryUncertain: deliveryUncertain)
+            deliveryUncertain: deliveryUncertain, references: references)
+    }
+
+    /// Every pick a `#` in the text may stand for, chats first.
+    var picked: [ChatDraftReference] { chats + references }
+
+    /// The files, skills and references that stand in the text as chips.
+    var tokens: [ChatDraftToken] {
+        ChatDraftSyntax.tokens(in: text, mentions: mentions, skills: skills, references: picked)
     }
 
     var hasContent: Bool { !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !uploads.isEmpty }
@@ -264,6 +278,7 @@ final class ChatComposition {
             return String(localized: "Choose up to 16 skills.")
         }
         if chats.count > 16 { return String(localized: "Choose up to 16 conversations.") }
+        if references.count > 16 { return String(localized: "Choose up to 16 views and nodes.") }
         return ChatDraftLimits.attachmentProblem(count: uploads.count, bytes: uploads.reduce(0) { $0 + $1.size })
     }
 
@@ -330,11 +345,14 @@ final class ChatComposition {
         {
             throw DraftFailure(problem)
         }
-        text =
-            text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? incoming.text : incoming.text + "\n\n" + text
+        let taken = ChatDraftSyntax.spelling(incoming.chats + (incoming.references ?? []), in: incoming.text)
+        text = text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? taken : taken + "\n\n" + text
         mentions = Array(Set(incoming.mentions + mentions)).sorted()
         skills = Array(Set(incoming.skills + skills)).sorted()
         chats = incoming.chats + chats.filter { existing in !incoming.chats.contains { $0.id == existing.id } }
+        let incomingReferences = incoming.references ?? []
+        references =
+            incomingReferences + references.filter { existing in !incomingReferences.contains { $0.id == existing.id } }
         uploads = added + uploads
         selection = NSRange(location: (text as NSString).length, length: 0)
     }

@@ -58,7 +58,11 @@ final class ChatModel {
     var suggestionKind = ""
     var searching = false
     var searchProblem: String?
-    var projectChats: [ChatDraftReference] = []
+    @ObservationIgnored var referenceSource = ChatReferenceSource()
+    /// What `#` offers in this chat now.
+    var referables: [ChatReferable] { referenceSource.items() }
+    /// A machine from before `viewReferences` drops `references`, so its `#` reaches chats only.
+    var chatsOnly: Bool { !referenceSource.viewReferences() }
     var sendProblem: String?
     var sendUncertain: Bool {
         get { composition.deliveryUncertain }
@@ -418,6 +422,15 @@ final class ChatModel {
     var capabilities: JSONValue { providerEntry?["capabilities"] ?? .null }
     var canAttach: Bool { capabilities["attachments"]?.boolValue != false }
     var canMention: Bool { capabilities["mentions"]?.boolValue != false }
+
+    /// The `@`, `$`, `/` or `#` word the caret is in, unless it is already a chip or `#` has nothing to offer.
+    var draftQuery: ChatDraftQuery? {
+        guard let query = ChatDraftSyntax.query(in: draft, selection: composition.selection),
+            !composition.tokens.contains(where: { $0.range.location == query.range.location })
+        else { return nil }
+        if query.kind == "#" && !ChatReferables.offers(referables, chatsOnly: chatsOnly) { return nil }
+        return query
+    }
     var queue: [ChatInfoQueueItem] { info?.queue ?? [] }
     var working: Bool { info?.activeTurnId != nil }
     var canSend: Bool {
@@ -432,7 +445,14 @@ final class ChatModel {
         defer { sending = false }
         let snapshot = composition.record
         let uploads = attachments
-        let tokens = ChatDraftSyntax.tokens(in: snapshot.text, mentions: snapshot.mentions, skills: snapshot.skills)
+        let picks = snapshot.chats + (snapshot.references ?? [])
+        let tokens = ChatDraftSyntax.tokens(
+            in: snapshot.text, mentions: snapshot.mentions, skills: snapshot.skills, references: picks)
+        let placed = ChatDraftSyntax.presentReferences(in: snapshot.text, references: picks)
+        let chatIDs = Set(snapshot.chats.map(\.id))
+        let chats = placed.filter { chatIDs.contains($0) }
+        // A machine without `viewReferences` drops the field, so only the chats it does know reach it.
+        let references = chatsOnly ? [] : placed.filter { !chatIDs.contains($0) }
         do {
             let payloads = try await Task.detached {
                 try uploads.map { upload -> JSONValue in
@@ -449,27 +469,28 @@ final class ChatModel {
             // An interrupted or killed client cannot know whether the machine accepted this request.
             sendUncertain = true
             await composition.flush()
-            _ = try await client.request(
-                "chat.send",
-                payload: target([
-                    "text": .string(snapshot.text),
-                    "mentions": .array(
-                        snapshot.mentions.filter { value in tokens.contains { $0.kind == "@" && $0.value == value } }
-                            .map(JSONValue.string)),
-                    "skills": .array(
-                        snapshot.skills.filter { value in tokens.contains { $0.kind == "$" && $0.value == value } }.map(
-                            JSONValue.string)),
-                    "chats": .array(snapshot.chats.map { .string($0.id) }),
-                    "attachments": .array(payloads),
-                ]))
+            var values: [String: JSONValue] = [
+                "text": .string(snapshot.text),
+                "mentions": .array(
+                    snapshot.mentions.filter { value in tokens.contains { $0.kind == "@" && $0.value == value } }
+                        .map(JSONValue.string)),
+                "skills": .array(
+                    snapshot.skills.filter { value in tokens.contains { $0.kind == "$" && $0.value == value } }.map(
+                        JSONValue.string)),
+                "chats": .array(chats.map(JSONValue.string)),
+                "attachments": .array(payloads),
+            ]
+            if !references.isEmpty { values["references"] = .array(references.map(JSONValue.string)) }
+            _ = try await client.request("chat.send", payload: target(values))
             sendUncertain = false
             if draft == snapshot.text && mentions == snapshot.mentions && skills == snapshot.skills
-                && composition.chats == snapshot.chats
+                && composition.chats == snapshot.chats && composition.references == (snapshot.references ?? [])
             {
                 draft = ""
                 mentions = []
                 skills = []
                 composition.chats = []
+                composition.references = []
                 composition.selection = NSRange(location: 0, length: 0)
             }
             attachments.removeAll { upload in uploads.contains { $0.id == upload.id } }
@@ -524,12 +545,15 @@ final class ChatModel {
         defer { queueBusy = false }
         var recovered: [ChatUpload] = []
         var requestedRemoval = false
+        let known = referables
+        let picked = { (ids: [String]?) in
+            (ids ?? []).compactMap { id in
+                known.first { $0.id == id }.map { ChatDraftReference(id: id, title: $0.name) }
+            }
+        }
         let incoming = ChatDraftRecord(
             text: message.text, mentions: message.mentions ?? [], skills: message.skills ?? [],
-            chats: (message.chats ?? []).map { id in
-                projectChats.first { $0.id == id }
-                    ?? ChatDraftReference(id: id, title: String(localized: "Conversation"))
-            })
+            chats: picked(message.chats), references: picked(message.references))
         do {
             if edit {
                 for stored in message.attachments ?? [] {
@@ -594,15 +618,16 @@ final class ChatModel {
             try await Task.sleep(for: .milliseconds(180))
             var found: [ChatSuggestion] = []
             switch kind {
+            case "#":
+                let exclude = [chatID] + composition.picked.map(\.id)
+                found = ChatReferables.suggestions(referables, chatsOnly: chatsOnly, query: query, exclude: exclude)
+                    .map {
+                        ChatSuggestion(
+                            kind: "#", value: $0.id, title: $0.name,
+                            detail: $0.detail ?? ChatReferables.kindName($0.kind),
+                            referable: $0)
+                    }
             case "@":
-                found = projectChats.filter {
-                    $0.id != chatID && !composition.chats.contains($0)
-                        && (query.isEmpty || $0.title.localizedCaseInsensitiveContains(query))
-                }
-                .prefix(4).map {
-                    ChatSuggestion(
-                        kind: "chat", value: $0.id, title: $0.title, detail: String(localized: "Conversation"))
-                }
                 if canMention {
                     let result = try await client.request(
                         "fs.search",
@@ -610,7 +635,7 @@ final class ChatModel {
                             "cwd": .string(info?.cwd ?? ""), "query": .string(String(query.prefix(256))),
                             "limit": .number(20),
                         ]))
-                    found += result.list("files").compactMap(\.stringValue).map {
+                    found = result.list("files").compactMap(\.stringValue).map {
                         ChatSuggestion(kind: "@", value: $0, title: ($0 as NSString).lastPathComponent, detail: $0)
                     }
                 }
@@ -646,23 +671,25 @@ final class ChatModel {
         }
     }
 
+    /// A picked view, node or chat becomes a `#name` chip in the text; the draft keeps the name it was spelled with,
+    /// since a rename would otherwise unmake the chip. A chat goes apart, as `chats`.
     func chooseSuggestion(_ suggestion: ChatSuggestion) {
-        if suggestion.kind == "chat" {
-            if !composition.chats.contains(where: { $0.id == suggestion.value }) {
-                composition.chats.append(ChatDraftReference(id: suggestion.value, title: suggestion.title))
+        var spelled = suggestion.value
+        if let item = suggestion.referable {
+            spelled = item.name
+            let pick = ChatDraftReference(id: item.id, title: item.name)
+            if item.kind == "chat" {
+                if !composition.chats.contains(where: { $0.id == item.id }) { composition.chats.append(pick) }
+            } else if !composition.references.contains(where: { $0.id == item.id }) {
+                composition.references.append(pick)
             }
-            if let query = ChatDraftSyntax.query(in: draft, selection: composition.selection), query.kind == "@" {
-                draft = (draft as NSString).replacingCharacters(in: query.range, with: "")
-                composition.selection = NSRange(location: query.range.location, length: 0)
-            }
-        } else {
-            if suggestion.kind == "@" { mentions = Array(Set(mentions + [suggestion.value])).sorted() }
-            if suggestion.kind == "$" { skills = Array(Set(skills + [suggestion.value])).sorted() }
-            let insertion = ChatDraftSyntax.insertion(
-                text: draft, selection: composition.selection, kind: suggestion.kind, value: suggestion.value)
-            draft = insertion.text
-            composition.selection = insertion.selection
         }
+        if suggestion.kind == "@" { mentions = Array(Set(mentions + [suggestion.value])).sorted() }
+        if suggestion.kind == "$" { skills = Array(Set(skills + [suggestion.value])).sorted() }
+        let insertion = ChatDraftSyntax.insertion(
+            text: draft, selection: composition.selection, kind: suggestion.kind, value: spelled)
+        draft = insertion.text
+        composition.selection = insertion.selection
     }
 }
 
@@ -671,9 +698,22 @@ struct ChatSuggestion: Identifiable {
     let value: String
     let title: String
     let detail: String
+    /// What a `#` suggestion points at.
+    var referable: ChatReferable?
+
+    /// The heading over the suggestions a sigil opens.
+    static func heading(_ kind: String) -> String {
+        switch kind {
+        case "@": String(localized: "Files")
+        case "#": String(localized: "Views and nodes")
+        case "$": String(localized: "Skills")
+        default: String(localized: "Commands")
+        }
+    }
     var id: String { kind + value }
     var icon: String {
-        kind == "chat" ? "messages-square" : kind == "@" ? "file-text" : kind == "$" ? "sparkles" : "circle-slash"
+        if let referable { return ChatReferables.icon(referable.kind) }
+        return kind == "@" ? "file-text" : kind == "$" ? "sparkles" : "circle-slash"
     }
     static let terminalOnly: Set<String> = [
         "bug", "color", "config", "doctor", "exit", "heapdump", "help", "hooks", "ide", "install-github-app",

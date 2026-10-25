@@ -8,8 +8,25 @@ struct ChatUserMessage: View {
     let client: any MachineRequesting
     let chatID: String
     var presentation: ChatPresentation?
+    @Environment(\.chatReferenceLookup) private var lookup
     @State private var expanded = false
     private var long: Bool { item.text.count > 600 || item.text.split(separator: "\n").count > 8 }
+
+    private var referenced: [String] {
+        var seen = Set<String>()
+        return ((item.chats ?? []) + (item.references ?? [])).filter { seen.insert($0).inserted }
+    }
+
+    /// Each reference under the name it has now, which is how the text spells one that was not renamed since.
+    private var tokens: [ChatDraftReference] {
+        referenced.compactMap { id in lookup.item(id).map { ChatDraftReference(id: id, title: $0.name) } }
+    }
+
+    /// A chat attached before `#` existed, or a view renamed or gone since, is not in the text; it stands beside it.
+    private var beside: [String] {
+        let placed = Set(ChatDraftSyntax.presentReferences(in: item.text, references: tokens))
+        return referenced.filter { !placed.contains($0) }
+    }
 
     private func choiceReveal(_ origin: ChatUserItemUiChoice) -> (() -> Void)? {
         guard let presentation, UiChoiceJump(origin) != nil else { return nil }
@@ -23,10 +40,12 @@ struct ChatUserMessage: View {
                     client: client, chatID: chatID, id: attachment.id, name: attachment.name, mime: attachment.mime,
                     size: attachment.size)
             }
-            if let chats = item.chats, !chats.isEmpty {
+            let beside = beside
+            if !beside.isEmpty {
                 UiFlowLayout(spacing: 6) {
-                    ForEach(chats, id: \.self) { id in
-                        ChatReferencePill(title: ChatReferencePill.title(id, places: presentation?.places))
+                    ForEach(beside, id: \.self) { id in
+                        ChatReferenceChip(
+                            look: ChatReferenceChip.look(id, chat: item.chats?.contains(id) == true, lookup: lookup))
                     }
                 }
             }
@@ -38,6 +57,7 @@ struct ChatUserMessage: View {
                     MarkdownMessage(text: item.text)
                         .environment(\.chatMentions, item.mentions ?? [])
                         .environment(\.chatSkills, item.skills ?? [])
+                        .environment(\.chatPickedReferences, tokens)
                         .frame(maxHeight: long && !expanded ? 180 : nil, alignment: .top)
                         .clipped()
                         .mask {
@@ -73,28 +93,55 @@ struct ChatUserMessage: View {
     }
 }
 
-/// A chat attached to a message, under the title it has now rather than the one it had when it was attached.
-struct ChatReferencePill: View {
-    let title: String
-
-    var body: some View {
-        HStack(spacing: 4) {
-            Image(lucide: "message-square", size: 12)
-            Text(title).lineLimit(1)
-        }
-        .font(.footnote.weight(.medium)).foregroundStyle(MobileStyle.accent)
-        .padding(.horizontal, 6).frame(minHeight: 22)
-        .background(MobileStyle.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
-        .overlay { RoundedRectangle(cornerRadius: 6).strokeBorder(MobileStyle.accent.opacity(0.25)) }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-            String(localized: "Chat \(title)", comment: "A chat attached to a message; %@ is its title"))
+/// A view, node or chat a message points at that its text does not spell, under the name it has now; one that went
+/// says so. It opens what it points at, as the chips in the text do.
+struct ChatReferenceChip: View {
+    struct Look: Equatable {
+        let id: String
+        let icon: String
+        let title: String
+        /// False for one that is no longer in the project, or a thread outside any project.
+        let opens: Bool
+        let gone: Bool
     }
 
-    /// Without the project around it the thread cannot tell a chat that left it from one it does not know.
-    static func title(_ id: String, places: ChatPlaces?) -> String {
-        guard let places else { return String(localized: "Chat") }
-        return places.title(id) ?? String(localized: "Chat not in this project")
+    let look: Look
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        Button {
+            if let url = ChatReferables.url(look.id) { openURL(url) }
+        } label: {
+            HStack(spacing: 4) {
+                Image(lucide: look.icon, size: 12)
+                Text(look.title).lineLimit(1)
+            }
+            .font(.footnote.weight(.medium)).foregroundStyle(look.gone ? MobileStyle.faint : MobileStyle.text)
+            .padding(.horizontal, 6).frame(minHeight: 22)
+            .background(MobileStyle.text.opacity(look.gone ? 0.04 : 0.08), in: RoundedRectangle(cornerRadius: 6))
+            .overlay {
+                RoundedRectangle(cornerRadius: 6).strokeBorder(MobileStyle.text.opacity(look.gone ? 0.08 : 0.16))
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(!look.opens)
+        .accessibilityLabel(look.title)
+    }
+
+    /// Without the project around it a thread cannot tell a reference that left it from one it does not know.
+    static func look(_ id: String, chat: Bool, lookup: ChatReferenceLookup) -> Look {
+        guard lookup.known else {
+            return Look(
+                id: id, icon: chat ? "message-square" : "hash",
+                title: chat ? String(localized: "Chat") : String(localized: "View or node"), opens: false, gone: false)
+        }
+        guard let item = lookup.item(id) else {
+            return Look(
+                id: id, icon: "circle-off", title: String(localized: "Not in this project"), opens: false, gone: true)
+        }
+        return Look(
+            id: id, icon: ChatReferables.icon(item.kind),
+            title: item.name.isEmpty ? String(localized: "Untitled") : item.name, opens: true, gone: false)
     }
 }
 

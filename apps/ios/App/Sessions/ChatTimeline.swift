@@ -1181,7 +1181,8 @@ struct ChatEntryView: View {
             ChatLinkRouting(
                 context: ChatContentContext(
                     client: client, chatID: chatID, cwd: presentation.cwd, workspace: workspace,
-                    connected: presentation.connected, scopeID: uiModels?.scopeID))
+                    connected: presentation.connected, scopeID: uiModels?.scopeID,
+                    referenced: presentation.referenced))
         )
         .frame(maxWidth: 720, alignment: .leading)
         .frame(maxWidth: .infinity)
@@ -1269,6 +1270,7 @@ private struct ChatTimelineRow: View {
                     }
                 }
                 .environment(\.markdownTableBleed, ChatTimeline.rowInset)
+                .environment(\.chatNamesReferences, true)
                 .accessibilityElement(children: .contain).accessibilityLabel("Agent")
             case .thinking(let thought):
                 ChatThinkingRow(item: thought)
