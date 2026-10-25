@@ -4,7 +4,7 @@ export interface FileToolbarSlot {
     /* Where a file's controls go instead of into a bar of their own; null means it draws its own. */
     host: HTMLElement | null;
     /* How the surface hands its element over, as a ref callback. Null where the host is fixed. */
-    mount: ((element: HTMLElement | null) => void) | null;
+    mount: ((element: HTMLElement | null) => void | (() => void)) | null;
 }
 
 const EMPTY: FileToolbarSlot = { host: null, mount: null };

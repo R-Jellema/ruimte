@@ -1,14 +1,29 @@
 import { useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, CircleAlert, Download, FilePlus, GitCompare, Info, Lock, MonitorDown, MoreHorizontal, Package, Pin, Trash2, WifiOff } from 'lucide-react';
+import {
+    ArrowRight,
+    ChevronDown,
+    CircleAlert,
+    Download,
+    FilePlus,
+    GitCompare,
+    Info,
+    Lock,
+    MonitorDown,
+    MoreHorizontal,
+    Package,
+    Pin,
+    Trash2,
+    WifiOff
+} from 'lucide-react';
 import { patchOf } from '@adecore/merge';
 import { VisualPageFrame } from '@adecore/agents-react/chat/ui';
 import { AgentIcon, modelName, ProviderLogo } from '@adecore/agents-react/providers';
 import { useChats, useProvidersStore } from '@adecore/agents-react/state';
 import { BYTES_READ_MAX_BYTES, type Artifact, type ArtifactGetResult, type ArtifactProvenance, type ArtifactVersion } from '@ruimte/contracts';
 import { hasProviderLogo } from '@/agents/provider-logo';
-import { Button, EmptyState, ErrorBoundary, Icon, IconButton, LazyBoundary, Menu, Pill, Popover, SectionLabel, lazyNamed } from '@adecore/ui';
+import { Button, EmptyState, ErrorBoundary, Icon, IconButton, LazyBoundary, Menu, Pill, Popover, SectionLabel, Tooltip, lazyNamed } from '@adecore/ui';
 import type { CopyToProjectRequest } from '@/output/CopyToProjectDialog';
 import { pinArtifact, useCanRemove, useCopyToThisMachine, usePinCanvases } from '@/output/artifact-actions';
 import { RemoveArtifactDialog, type RemoveArtifactRequest } from '@/output/RemoveArtifactDialog';
@@ -199,9 +214,13 @@ function baseFor(versions: readonly ArtifactVersion[], version: ArtifactVersion 
 
 /* A view hands its controls to the bar its view already carries; a loose tab draws one under the tabs, so the tab bar keeps only tabs. */
 function ArtifactToolbar({ asView, children }: { asView: boolean; children: ReactNode }) {
-    const { host } = useFileToolbarSlot();
+    const { host, mount } = useFileToolbarSlot();
     if (asView && host !== null) {
         return createPortal(children, host);
+    }
+    // A slot between two mounts, as when the cell bar folds, is not a bar to draw instead.
+    if (asView && mount !== null) {
+        return null;
     }
     // The measures of a view's separate bar (`data-view-bar` in CellToolbar and its slot in ViewToolbar), so both read the same.
     return (
@@ -213,6 +232,15 @@ function ArtifactToolbar({ asView, children }: { asView: boolean; children: Reac
 
 function versionLabel(version: ArtifactVersion): { number: number; date: string } {
     return { number: version.number, date: formatDayClock(version.createdAt) };
+}
+
+/* A label that adds nothing to the bar's least width, so a narrow bar truncates it before the cell folds the controls away. */
+function ShrinkingLabel({ children }: { children: ReactNode }) {
+    return (
+        <span className="grid min-w-6 grid-cols-[minmax(0,max-content)]">
+            <span className="truncate tabular-nums">{children}</span>
+        </span>
+    );
 }
 
 /* The version on screen as the bar's first control, and every version behind it, newest first. */
@@ -232,8 +260,8 @@ function VersionsMenu({
     const latest = versions[0]!;
     return (
         <Menu.Root>
-            <Menu.Trigger render={<Button size="xs" variant="ghost" className="min-w-0" aria-label={t('view.versions')} />}>
-                <span className="truncate tabular-nums">{selected === null ? t('view.versionGone') : t('view.versionRow', versionLabel(selected))}</span>
+            <Menu.Trigger render={<Button size="xs" variant="ghost" className="shrink!" aria-label={t('view.versions')} />}>
+                <ShrinkingLabel>{selected === null ? t('view.versionGone') : t('view.versionRow', versionLabel(selected))}</ShrinkingLabel>
                 {selected?.versionId === latest.versionId && <Pill size="sm">{t('view.latest')}</Pill>}
                 <Icon icon={ChevronDown} size={12} className="shrink-0" />
             </Menu.Trigger>
@@ -287,8 +315,8 @@ function BaseMenu({
     const choices = versions.filter((entry) => entry.versionId !== version.versionId && comparable(entry));
     return (
         <Menu.Root>
-            <Menu.Trigger render={<Button size="xs" variant="ghost" className="min-w-0" aria-label={t('view.pickBase')} />}>
-                <span className="truncate tabular-nums">{t('view.comparedWith', versionLabel(base))}</span>
+            <Menu.Trigger render={<Button size="xs" variant="ghost" className="shrink!" aria-label={t('view.pickBase')} />}>
+                <ShrinkingLabel>{t('view.comparedWith', { number: base.number })}</ShrinkingLabel>
                 <Icon icon={ChevronDown} size={12} className="shrink-0" />
             </Menu.Trigger>
             <Menu.Popup align="start" className="max-h-80 min-w-64 overflow-y-auto">
@@ -424,9 +452,11 @@ function ReportBody({ endpointId, artifact, version }: { endpointId: string; art
 
 function CompareBody({ endpointId, artifact, version, base }: { endpointId: string; artifact: Artifact; version: ArtifactVersion; base: ArtifactVersion }) {
     const { t } = useTranslation('output');
-    const file = version.files[0]!;
-    const next = useArtifactText(endpointId, refOf(artifact, version, 0), file);
-    const old = useArtifactText(endpointId, refOf(artifact, base, 0), base.files[0]!);
+    // Whichever of the two is on screen, the diff runs forward in time, so + is what the newer one added.
+    const [older, newer] = base.number < version.number ? [base, version] : [version, base];
+    const file = newer.files[0]!;
+    const next = useArtifactText(endpointId, refOf(artifact, newer, 0), file);
+    const old = useArtifactText(endpointId, refOf(artifact, older, 0), older.files[0]!);
     if (next.status === 'loading' || old.status === 'loading') {
         return <Centered busy>{t('view.loading')}</Centered>;
     }
@@ -440,6 +470,15 @@ function CompareBody({ endpointId, artifact, version, base }: { endpointId: stri
     return (
         <div className="flex min-h-0 grow flex-col">
             <div className="flex h-8 shrink-0 items-center gap-2 border-b border-border px-4 text-xs text-text-muted">
+                <span
+                    role="group"
+                    aria-label={t('view.compareRange', { from: older.number, to: newer.number })}
+                    className="flex min-w-0 items-center gap-1.5 tabular-nums"
+                >
+                    <span>{t('view.versionNumber', { number: older.number })}</span>
+                    <Icon icon={ArrowRight} size={12} className="shrink-0" />
+                    <span className="text-text">{t('view.versionNumber', { number: newer.number })}</span>
+                </span>
                 <span className="grow" />
                 <span className="text-positive tabular-nums">+{added}</span>
                 <span className="text-status-error tabular-nums">-{removed}</span>
@@ -570,9 +609,16 @@ function OriginPopover({
                         {chatId !== undefined && (
                             <InfoRow label={t('info.chat')}>
                                 {chatName !== null ? (
-                                    <button type="button" className="truncate text-left text-text hover:underline" onClick={() => showChat(chatId)}>
-                                        {chatName === '' ? t('info.chatElsewhere') : chatName}
-                                    </button>
+                                    <Tooltip label={chatName === '' ? t('info.chatElsewhere') : chatName}>
+                                        {/* A block, since an inline button as wide as its text overflows the row without an ellipsis. */}
+                                        <button
+                                            type="button"
+                                            className="block max-w-full truncate text-left text-text hover:underline"
+                                            onClick={() => showChat(chatId)}
+                                        >
+                                            {chatName === '' ? t('info.chatElsewhere') : chatName}
+                                        </button>
+                                    </Tooltip>
                                 ) : present ? (
                                     t('info.chatElsewhere')
                                 ) : (

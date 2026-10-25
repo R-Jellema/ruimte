@@ -87,6 +87,11 @@ function barButton(label: string): HTMLElement | null {
     return page.host.querySelector<HTMLElement>(`button[aria-label="${label}"]`);
 }
 
+/* The pair a diff runs between, as a screen reader names it. */
+function compareRange(): string | null {
+    return page.host.querySelector('[role="group"][aria-label^="From v"]')?.getAttribute('aria-label') ?? null;
+}
+
 async function openOrigin(): Promise<void> {
     await clickOn(barButton('Origin'));
     await until(() => infoRow('Made by') !== undefined);
@@ -331,15 +336,35 @@ describe('the artifact view', () => {
         machine.answer('artifact.get', () => ({ ...DEPENDENCIES, versions: three }));
         await openDependencies();
         await clickOn(barButton('Compare'));
-        await until(() => barButton('Compare with')?.textContent?.startsWith('With v2, ') === true);
-        await until(() => text().includes('+1') && text().includes('-1'));
+        await until(() => barButton('Compare with')?.textContent === 'Compare with v2');
+        await until(() => compareRange() === 'From v2 to v3');
+        expect(text()).toContain('+1');
+        expect(text()).toContain('-1');
 
         await clickOn(barButton('Compare with'));
         await until(() => radioRows().length === 2);
         expect(radioRows().map((row) => row.slice(0, 3))).toEqual(['v2,', 'v1,']);
         await clickOn(([...document.querySelectorAll('[role="menuitemradio"]')] as HTMLElement[]).find((row) => row.textContent?.startsWith('v1, ')) ?? null);
-        await until(() => barButton('Compare with')?.textContent?.startsWith('With v1, ') === true);
+        await until(() => barButton('Compare with')?.textContent === 'Compare with v1');
+        await until(() => compareRange() === 'From v1 to v3');
         delete REPORTS['v-first'];
+    });
+
+    test('Compare reads from the older version to the newer, also when the one on screen is the older', async () => {
+        REPORTS['v-more'] = '# Dependency report\n\n9 behind\n2 major\n';
+        machine.answer('artifact.get', () => ({ ...DEPENDENCIES, versions: [version('v-more', 3, NOW), version('v-new', 2, NOW - DAY)] }));
+        await openDependencies();
+        await pickVersion('v2, ');
+        await clickOn(barButton('Compare'));
+        await until(() => barButton('Compare with')?.textContent === 'Compare with v3');
+        await until(() => compareRange() === 'From v2 to v3');
+        const range = document.querySelector('[role="group"][aria-label="From v2 to v3"]')!;
+        expect(range.textContent).toBe('v2v3');
+        expect(range.querySelector('svg')).not.toBeNull();
+        // v3 added a line to v2, so that is what the counts say.
+        expect(text()).toContain('+1');
+        expect(text()).toContain('-0');
+        delete REPORTS['v-more'];
     });
 
     test('names every version by its number in the versions menu, and a pick shows it', async () => {

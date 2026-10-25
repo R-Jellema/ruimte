@@ -12,7 +12,7 @@ import { SessionPorts } from '@/terminal/SessionPorts';
 import { useSessionPortControl } from '@/terminal/session-port-controls';
 import { useNodeHost } from '@/nodes/node-host';
 import { useFileToolbarSlot } from '@/shell/panels/file-toolbar-slot';
-import { isDatabaseTab } from '@/state/files';
+import { isFileTab } from '@/state/files';
 import { useEndpointId } from '@/state/keys';
 import { useHasPlans } from '@/state/plans';
 import { Pill, Tooltip } from '@adecore/ui';
@@ -30,7 +30,7 @@ export function ViewToolbar({ view, focused }: { view: CellView | null; focused:
 
     // The file's own controls portal up into this slot, the way they do for a file view.
     if (isLooseView(view)) {
-        if (isDatabaseTab(view.tab)) {
+        if (!isFileTab(view.tab)) {
             return null;
         }
         return <div ref={mount} className="flex min-w-0 grow items-center justify-end gap-1" />;

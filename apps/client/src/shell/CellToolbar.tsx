@@ -70,6 +70,15 @@ export function CellToolbar({ at, view, focused, children }: { at: CellAt; view:
     /* The file's controls are portaled up into this bar, so every cell holds a host of its own:
        one shared host would put the controls of one file over the bar of another. */
     const [host, setHost] = useState<HTMLElement | null>(null);
+    /* Folding moves the slot, and a popover's slot leaves only once it has animated out, after the
+       new one came; only the slot that is the host may clear it, or the controls draw a bar of their own. */
+    const mountHost = (element: HTMLElement | null): (() => void) | undefined => {
+        if (element === null) {
+            return undefined;
+        }
+        setHost(element);
+        return () => setHost((current) => (current === element ? null : current));
+    };
     /* Whether the pointer came down on the bar itself. A drag starts on the nearest draggable
        ancestor, so `draggable` on a child does not hold it back: the attribute itself has to go
        while the pointer is in something that controls the view, or selecting text in a browser's
@@ -133,7 +142,7 @@ export function CellToolbar({ at, view, focused, children }: { at: CellAt; view:
         </>
     );
     return (
-        <FileToolbarSlotProvider value={{ host, mount: setHost }}>
+        <FileToolbarSlotProvider value={{ host, mount: mountHost }}>
             {!bare && (
                 <ContextMenu.Root>
                     {/* The size of the toolbar under a panel's header (`FILE_TOOLBAR`): a cell is a body
@@ -167,7 +176,8 @@ export function CellToolbar({ at, view, focused, children }: { at: CellAt; view:
                             className={clsx(
                                 'flex items-center gap-2',
                                 hosted ? 'min-w-24 self-stretch' : 'min-w-5 pl-1',
-                                hosted || folded || !hasViewToolbar ? 'grow' : 'shrink'
+                                // A weight rather than `shrink`, since controls whose labels truncate shrink as well.
+                                hosted || folded || !hasViewToolbar ? 'grow' : 'shrink-100'
                             )}
                         >
                             {tabs !== undefined ? (
