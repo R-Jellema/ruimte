@@ -1,6 +1,14 @@
 import { extname, join } from 'node:path';
 
-export async function measureRestore(options: { daemonUrl: string; secret: string; projectId: string; profile: string }) {
+export async function measureRestore(options: {
+    daemonUrl: string;
+    secret: string;
+    projectId: string;
+    profile: string;
+    settings?: Record<string, unknown>;
+    inject?: string;
+    probe?: (view: Bun.WebView) => Promise<unknown>;
+}) {
     const root = process.env.BENCH_CLIENT_DIST ?? join(import.meta.dir, '../../dist');
     const gateMs = Number(process.env.BENCH_SECRET_DELAY ?? 0);
     const waitBeforeWindow = process.env.BENCH_WAIT_BEFORE_WINDOW === '1';
@@ -20,7 +28,7 @@ export async function measureRestore(options: { daemonUrl: string; secret: strin
                         `<head><script>
                     performance.setResourceTimingBufferSize(10000);
                     Object.defineProperty(navigator,'connection',{value:{saveData:true}});
-                    localStorage.setItem('ruimte.settings',JSON.stringify({onboardingSeen:true,onboardingIntroSeen:true}));
+                    localStorage.setItem('ruimte.settings',JSON.stringify({onboardingSeen:true,onboardingIntroSeen:true,...${JSON.stringify(options.settings ?? {})}}));
                     window.ruimteDesktop={platform:'darwin',daemonUrl:${JSON.stringify(options.daemonUrl)},
                         pickFolder:async()=>null,openExternal:async()=>{},openGuestDevTools:()=>{},isFullscreen:async()=>false,onFullscreen:()=>()=>{},
                         localSecret:()=>new Promise(resolve=>setTimeout(()=>resolve(${JSON.stringify(options.secret)}),${waitBeforeWindow ? 0 : gateMs})),claimWindow:async()=>true
@@ -38,6 +46,7 @@ export async function measureRestore(options: { daemonUrl: string; secret: strin
                         });}
                         send(raw){if(typeof raw==='string'){const request=JSON.parse(raw);if(request.id)this.benchSent.set(request.id,{type:request.type,at:performance.now()})}super.send(raw);}
                     };
+                    ${options.inject ?? ''}
                     window.benchReady=new Promise((resolve,reject)=>{
                         let statusShown=false;
                         const timer=setTimeout(()=>reject(new Error('Workspace did not open: '+document.body.innerText.slice(0,400)+'; '+window.benchErrors.join('; '))),15000);
@@ -80,7 +89,8 @@ export async function measureRestore(options: { daemonUrl: string; secret: strin
                 if (sample.errors.length > 0) {
                     throw new Error(sample.errors.join('\n'));
                 }
-                samples.push({ ...sample, launchWaitMs, totalMs: launchWaitMs + sample.readyMs });
+                const probe = options.probe ? await options.probe(view) : undefined;
+                samples.push({ ...sample, launchWaitMs, totalMs: launchWaitMs + sample.readyMs, ...(probe === undefined ? {} : { probe }) });
             } finally {
                 view.close();
             }
