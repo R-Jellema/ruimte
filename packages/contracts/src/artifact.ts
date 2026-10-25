@@ -6,9 +6,22 @@ import { z } from 'zod';
  * output key makes a new version of the same artifact.
  */
 
+// The kinds this version saves and draws. Append-only.
 export const ARTIFACT_KINDS = ['report', 'image', 'build', 'export', 'recording', 'page'] as const;
-export const ArtifactKindSchema = z.enum(ARTIFACT_KINDS);
-export type ArtifactKind = z.infer<typeof ArtifactKindSchema>;
+export type KnownArtifactKind = (typeof ARTIFACT_KINDS)[number];
+export const KnownArtifactKindSchema = z.enum(ARTIFACT_KINDS);
+
+/* Open on a reply, so an older client still reads a list that holds a kind a newer machine saved, and draws it as an export. */
+export const ArtifactKindSchema = z
+    .string()
+    .min(1)
+    .max(32)
+    .regex(/^[a-z][a-z0-9-]*$/);
+export type ArtifactKind = KnownArtifactKind | (string & {});
+
+export function isKnownArtifactKind(kind: string): kind is KnownArtifactKind {
+    return (ARTIFACT_KINDS as readonly string[]).includes(kind);
+}
 
 export const ARTIFACT_LIMITS = {
     // Every file of one version together.
@@ -136,7 +149,7 @@ export type ArtifactSaveSource = z.infer<typeof ArtifactSaveSourceSchema>;
 export const ArtifactSavePayloadSchema = z.object({
     projectId: z.string().min(1),
     title: z.string().trim().min(1).max(ARTIFACT_LIMITS.titleLength).optional(),
-    kind: ArtifactKindSchema.optional(),
+    kind: KnownArtifactKindSchema.optional(),
     key: ArtifactKeySchema.optional(),
     requestId: ArtifactRequestIdSchema,
     source: ArtifactSaveSourceSchema

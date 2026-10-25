@@ -10,6 +10,7 @@ import {
     ProjectCanvasViewSchema
 } from '../src/project.ts';
 import { REQUEST_SCHEMAS, EVENT_SCHEMAS } from '../src/index.ts';
+import { ARTIFACT_KINDS, ArtifactKindSchema } from '../src/artifact.ts';
 import { RuntimeModeSchema } from '../src/model.ts';
 import { MachineUpdateStatusSchema } from '../src/machine-update.ts';
 import { PushNotifyKindSchema } from '../src/push.ts';
@@ -264,6 +265,7 @@ const constantSource = Object.entries(constants)
 const openVocabularies: ReadonlyMap<unknown, readonly string[]> = new Map<unknown, readonly string[]>([
     [agent.AgentKindSchema, agent.KNOWN_AGENT_KINDS],
     [agent.AgentStatusSchema, agent.AgentStatusSchema.options],
+    [ArtifactKindSchema, ARTIFACT_KINDS],
     [RuntimeModeSchema, RuntimeModeSchema.options],
     [chat.ChatRequestKindSchema, chat.ChatRequestKindSchema.options],
     [MachineUpdateStatusSchema, MachineUpdateStatusSchema.options],

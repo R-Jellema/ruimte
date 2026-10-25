@@ -3,13 +3,13 @@ import {
     ArtifactFileSchema,
     ArtifactIdSchema,
     ArtifactKeySchema,
-    ArtifactKindSchema,
     ArtifactRequestIdSchema,
     ArtifactSchema,
     ArtifactSummarySchema,
     ArtifactVersionIdSchema,
     ArtifactVersionSchema,
     CliVersionSchema,
+    KnownArtifactKindSchema,
     RegistryCatalogSchema,
     TerminalPrepareSourceSchema,
     TerminalPreparePreviewResultSchema,
@@ -2268,7 +2268,7 @@ export const ACTION_DEFINITIONS = {
                 .max(ARTIFACT_LIMITS.filesPerVersion)
                 .describe('Each file sent, in the order it was sent, with its name and size'),
             title: z.string().trim().min(1).max(ARTIFACT_LIMITS.titleLength).optional().describe('What the person sees the artifact as'),
-            kind: ArtifactKindSchema.optional().describe('report, image, build, export, recording or page'),
+            kind: KnownArtifactKindSchema.optional().describe('report, image, build, export, recording or page'),
             key: ArtifactKeySchema.optional().describe('A name of your choosing for a result you publish again, such as weekly-report'),
             requestId: ArtifactRequestIdSchema.describe('The same id for a retry of the same publish, which then lands once')
         }),

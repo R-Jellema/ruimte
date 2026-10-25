@@ -62269,7 +62269,10 @@
             },
             "kind": {
               "type": "string",
-              "enum": [
+              "minLength": 1,
+              "maxLength": 32,
+              "pattern": "^[a-z][a-z0-9-]*$",
+              "x-open-enum": [
                 "report",
                 "image",
                 "build",
@@ -62564,7 +62567,10 @@
           },
           "kind": {
             "type": "string",
-            "enum": [
+            "minLength": 1,
+            "maxLength": 32,
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "x-open-enum": [
               "report",
               "image",
               "build",
