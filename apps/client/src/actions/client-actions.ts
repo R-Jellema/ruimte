@@ -484,8 +484,10 @@ export interface CreateNodeOptions extends AgentSession {
     issue?: { repo: string; number: number; url: string };
     /* The node's middle in world units, which a click or a drop knows and a menu does not. */
     at?: Point;
-    /* Artifacts only: the one it shows, following the latest version. */
+    /* Artifacts only: the one it shows. */
     artifact?: string;
+    /* Artifacts only: the version it stays on; absent follows the latest. */
+    artifactVersion?: string;
 }
 
 /* On the canvas on screen, at `at` or in free space near the middle of what it shows. Resolves the new node's id. */
@@ -509,7 +511,8 @@ export async function createNodeAction(kind: CreatableNodeKind, options: CreateN
         resume: options.resume ?? null,
         cwd: options.cwd ?? null,
         issue: options.issue ?? null,
-        artifact: options.artifact ?? null
+        artifact: options.artifact ?? null,
+        artifactVersion: options.artifactVersion ?? null
     }).catch(ignoreRefusal);
     return created?.nodeId ?? null;
 }

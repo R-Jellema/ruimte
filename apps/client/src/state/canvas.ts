@@ -2,7 +2,7 @@ import { createStore, type StoreApi } from 'zustand';
 import type { ProjectCanvasLine, ProjectCanvasView, ProjectLayout, ProjectViewLocal, NodeAccent, NodeKind, NodeTitleSource } from '@ruimte/contracts';
 import { DEFAULT_TITLES, NODE_SIZE, isAgentKind } from '@ruimte/contracts';
 import { textRect } from '@/canvas/edge-lines';
-import { unionOf, type Point, type Rect } from '@/canvas/math';
+import { isMeasured, unionOf, type Point, type Rect } from '@/canvas/math';
 import type { NodeDirection } from '@/canvas/node-navigation';
 import { createCameraSlice, type CameraSlice } from '@/canvas/camera-slice';
 import type { ArrangeRefusal } from '@/canvas/arrange-group';
@@ -309,6 +309,32 @@ export function revealWhenItLands(viewId: string, nodeId: string): void {
             off();
             state.goToNode(nodeId);
         }
+    });
+}
+
+/*
+ * Resolves once the canvas of a view just put on screen has its nodes, its size and its camera, since a
+ * node placed in free space before then lands in the corner of an editor one frame old. False when the
+ * canvas left the screen first.
+ */
+export function canvasSettled(viewId: string): Promise<boolean> {
+    const settled = (state: CanvasState): boolean => !state.loading && isMeasured(state.viewport) && state.pendingCamera === null;
+    return new Promise((resolve) => {
+        let seen = false;
+        const offs: (() => void)[] = [];
+        const check = (): void => {
+            const store = defaultCanvases.peek(viewId);
+            seen ||= store !== null;
+            const done = store !== null && settled(store.getState());
+            if (done || (seen && store === null)) {
+                for (const off of offs) {
+                    off();
+                }
+                resolve(done);
+            }
+        };
+        offs.push(defaultCanvases.subscribe(check), defaultCanvases.subscribeShape(check));
+        check();
     });
 }
 

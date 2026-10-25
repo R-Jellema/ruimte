@@ -58,11 +58,6 @@
             }
         }
     },
-    "source": {
-        "agent": "by an agent",
-        "person": "saved by you",
-        "routine": "by a routine"
-    },
     "view": {
         "failed": "This could not be shown",
         "loading": "Reading",
@@ -71,6 +66,7 @@
         "versionGoneDetail": "This version is no longer on this machine. The others are still here.",
         "unreachable": "The machine is not reachable. Output stays on it and shows here again once it is back.",
         "versions": "Versions",
+        "versionRow": "v{{number}}, {{date}}",
         "pickBase": "Compare with",
         "latest": "Latest",
         "base": "Compared",
@@ -104,10 +100,9 @@
     },
     "node": {
         "pinned": "v{{number}}",
-        "pin": "Stay on version {{number}}",
         "follow": "Follow the latest",
         "open": "Open",
-        "footer": "Version {{number}}, {{date}}",
+        "version": "Version {{number}}, {{date}}",
         "newer": "Version {{number}} is newer",
         "showIt": "Show it",
         "notHere": "Not on this machine",

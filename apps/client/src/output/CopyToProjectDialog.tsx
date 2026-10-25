@@ -79,7 +79,7 @@ export function CopyToProjectDialog({
                     <fieldset disabled={pending} className="mt-4 flex flex-col gap-4">
                         {project !== null && (
                             <Field label={t('copy.folder')} group>
-                                <div className="max-h-56 overflow-auto rounded-md border border-border">
+                                <div className="overflow-hidden rounded-md border border-border">
                                     <ProjectFolderPicker
                                         root={project.folder}
                                         transport={machineTransport(endpointId)}

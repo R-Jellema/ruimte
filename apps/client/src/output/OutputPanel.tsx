@@ -19,7 +19,6 @@ import {
     type OutputFilters
 } from '@/output/artifact-list';
 import { useArtifactList } from '@/output/artifacts';
-import { useChatName } from '@/output/kinds';
 import { useLinkedMachines } from '@/output/linked-machines';
 import { useEndpointIdOfMachine, useEndpoints } from '@/state/endpoints';
 import { KindTile, OutputProjectGlyph } from '@/output/look';
@@ -218,8 +217,6 @@ function ArtifactRow({
 }) {
     const { t } = useTranslation('output');
     const maker = artifact.latest.provenance.maker;
-    const chatName = useChatName(artifact.latest.provenance.chatId);
-    const source = chatName !== null && chatName !== '' ? chatName : t(`source.${maker}`);
     return (
         <button
             type="button"
@@ -238,10 +235,7 @@ function ArtifactRow({
                     ) : (
                         <Icon icon={SOURCE_ICONS[maker]} size={12} className="shrink-0 text-text-faint" />
                     )}
-                    <span className="truncate">
-                        {t('panel.versions', { count: artifact.versionCount })}
-                        {everywhere ? '' : `, ${source}`}
-                    </span>
+                    <span className="truncate">{t('panel.versions', { count: artifact.versionCount })}</span>
                 </span>
             </span>
             <span className="shrink-0 text-xs text-text-faint tabular-nums">{formatMoment(artifact.latest.createdAt, now)}</span>

@@ -15,6 +15,9 @@ import { useMachineAnswers } from '@/transport/features';
 
 type ArtifactReference = NonNullable<ProjectNode['artifact']>;
 
+// A version id is the machine's and never empty, so the empty string is free to mean no version at all.
+const FOLLOW_LATEST = '';
+
 /*
  * An artifact of this machine's Output on a canvas. The reference is one person's on one machine and
  * lives in the private overlay, so a teammate's node arrives without it and says so. Without a version
@@ -100,12 +103,19 @@ function ArtifactVersionOnCanvas({
                     {reference.version === undefined ? t('view.latest') : t('node.pinned', { number: version?.number ?? '?' })}
                     <Icon icon={ChevronDown} size={12} />
                 </Menu.Trigger>
-                <Menu.Popup align="end" className="min-w-48">
-                    {reference.version === undefined ? (
-                        <Menu.Item onClick={() => pin(latest.versionId)}>{t('node.pin', { number: latest.number })}</Menu.Item>
-                    ) : (
-                        <Menu.Item onClick={() => pin(null)}>{t('node.follow')}</Menu.Item>
-                    )}
+                <Menu.Popup align="end" className="max-h-80 min-w-56 overflow-y-auto">
+                    <Menu.RadioGroup
+                        value={reference.version ?? FOLLOW_LATEST}
+                        onValueChange={(next: string) => pin(next === FOLLOW_LATEST ? null : next)}
+                    >
+                        <Menu.RadioItem value={FOLLOW_LATEST} closeOnClick>{t('node.follow')}</Menu.RadioItem>
+                        <Menu.Separator />
+                        {versions.map((entry) => (
+                            <Menu.RadioItem key={entry.versionId} value={entry.versionId} className="tabular-nums" closeOnClick>
+                                {t('node.version', { number: entry.number, date: formatDayClock(entry.createdAt) })}
+                            </Menu.RadioItem>
+                        ))}
+                    </Menu.RadioGroup>
                 </Menu.Popup>
             </Menu.Root>
             <IconButton
@@ -129,7 +139,7 @@ function ArtifactVersionOnCanvas({
                     <footer className="flex h-8 shrink-0 items-center gap-2 border-t border-border px-3 text-xs text-text-muted">
                         {version.versionId === latest.versionId ? (
                             <span className="truncate tabular-nums">
-                                {t('node.footer', { number: version.number, date: formatDayClock(version.createdAt) })}
+                                {t('node.version', { number: version.number, date: formatDayClock(version.createdAt) })}
                             </span>
                         ) : (
                             <>

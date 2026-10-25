@@ -65,7 +65,7 @@ export function GeneratedImageSaveDialog({
                 <form onSubmit={submit} aria-busy={pending || undefined}>
                     <fieldset disabled={pending} className="mt-4 flex flex-col gap-4">
                         <Field label={t('generatedImage.folder')} group>
-                            <div className="max-h-56 overflow-auto rounded-md border border-border">{folderTree}</div>
+                            <div className="overflow-hidden rounded-md border border-border">{folderTree}</div>
                         </Field>
                         <Field
                             label={t('generatedImage.name')}

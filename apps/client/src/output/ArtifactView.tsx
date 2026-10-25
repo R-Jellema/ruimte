@@ -9,6 +9,7 @@ import { BYTES_READ_MAX_BYTES, isCanvasView, type Artifact, type ArtifactGetResu
 import { Button, EmptyState, ErrorBoundary, Icon, IconButton, LazyBoundary, Menu, Pill, SectionLabel, Separator, lazyNamed, Tooltip } from '@adecore/ui';
 import { createNodeAction } from '@/actions/client-actions';
 import { showView } from '@/project/views';
+import { canvasSettled } from '@/state/canvas';
 import { useDocument } from '@/state/document';
 import { formatBytes, formatDayClock } from '@adecore/ui/format';
 import { comparable, drawnKind, isTextMime } from '@/output/artifact-list';
@@ -109,7 +110,7 @@ function ArtifactBody({ endpointId, machineId, result }: { endpointId: string; m
                         <Button size="sm" disabled={version === null} onClick={() => setCopying(true)}>
                             <Icon icon={FilePlus} size={14} /> {t('view.copyToProject')}
                         </Button>
-                        <PinToCanvas artifact={artifact} />
+                        <PinToCanvas artifact={artifact} version={version === null || version.versionId === latest.versionId ? null : version.versionId} />
                     </>
                 ) : (
                     version !== null && <CopyToThisMachine machineId={machineId} artifact={artifact} version={version} />
@@ -151,17 +152,25 @@ function ArtifactBody({ endpointId, machineId, result }: { endpointId: string; m
 }
 
 /*
- * Puts the artifact on a canvas of the window's project, following its latest version. The artifact is
- * the window's machine's, and so is every canvas of the project on it, so a node never points at
- * another machine's Output.
+ * Puts the artifact on a canvas of the window's project, staying on the version picked unless that is
+ * the latest, which the node then follows. The artifact is the window's machine's, and so is every
+ * canvas of the project on it, so a node never points at another machine's Output.
  */
-function PinToCanvas({ artifact }: { artifact: Artifact }) {
+function PinToCanvas({ artifact, version }: { artifact: Artifact; version: string | null }) {
     const { t } = useTranslation('output');
     const views = useDocument((s) => s.views);
     const canvases = views.filter((view) => isCanvasView(view) && view.hidden !== true);
-    const pin = (viewId: string): void => {
+    const pin = async (viewId: string): Promise<void> => {
         showView(viewId);
-        void createNodeAction('artifact', { viewId, artifact: artifact.artifactId, title: artifact.title });
+        if (!(await canvasSettled(viewId))) {
+            return;
+        }
+        await createNodeAction('artifact', {
+            viewId,
+            artifact: artifact.artifactId,
+            title: artifact.title,
+            ...(version === null ? {} : { artifactVersion: version })
+        });
     };
     return (
         <Menu.Root>
@@ -170,7 +179,7 @@ function PinToCanvas({ artifact }: { artifact: Artifact }) {
             </Menu.Trigger>
             <Menu.Popup align="end" className="min-w-48">
                 {canvases.map((view) => (
-                    <Menu.Item key={view.id} onClick={() => pin(view.id)}>
+                    <Menu.Item key={view.id} onClick={() => void pin(view.id)}>
                         <span className="truncate">{view.name}</span>
                     </Menu.Item>
                 ))}
@@ -240,7 +249,7 @@ function VersionsColumn({
                             className={`flex h-8 shrink-0 items-center gap-2 rounded-md px-2 text-left text-sm ${isSelected ? 'bg-surface-active text-text' : 'text-text-muted hover:bg-surface-hover'} ${isBase ? 'inset-ring inset-ring-border-strong' : ''}`}
                             onClick={() => onPick(version)}
                         >
-                            <span className="truncate tabular-nums">{formatDayClock(version.createdAt)}</span>
+                            <span className="truncate tabular-nums">{t('view.versionRow', { number: version.number, date: formatDayClock(version.createdAt) })}</span>
                             <span className="grow" />
                             {index === 0 && (
                                 <Pill tone="accent" size="sm">
@@ -316,9 +325,9 @@ function CompareBody({ endpointId, artifact, version, base }: { endpointId: stri
     return (
         <div className="flex min-h-0 grow flex-col">
             <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border px-4 text-xs text-text-muted">
-                <span className="tabular-nums">{formatDayClock(base.createdAt)}</span>
+                <span className="tabular-nums">{t('view.versionRow', { number: base.number, date: formatDayClock(base.createdAt) })}</span>
                 <span aria-hidden="true">›</span>
-                <span className="text-text tabular-nums">{formatDayClock(version.createdAt)}</span>
+                <span className="text-text tabular-nums">{t('view.versionRow', { number: version.number, date: formatDayClock(version.createdAt) })}</span>
                 <span className="grow" />
                 <span className="text-positive tabular-nums">+{added}</span>
                 <span className="text-status-error tabular-nums">-{removed}</span>

@@ -49,6 +49,10 @@ function button(frame: HTMLElement, label: string): HTMLElement | null {
     return ([...frame.querySelectorAll('button')] as HTMLElement[]).find((element) => element.textContent?.trim() === label) ?? null;
 }
 
+function versionItems(): HTMLElement[] {
+    return [...document.querySelectorAll('[role="menuitemradio"]')] as HTMLElement[];
+}
+
 function savedArtifact(): unknown {
     const view = machine
         .requests('project.save')
@@ -75,19 +79,26 @@ afterEach(async () => {
 });
 
 describe('an artifact node', () => {
-    test('follows the latest version, says so, and stays on it when asked', async () => {
+    test('follows the latest version, stays on any version picked and follows again', async () => {
         const frame = await open(artifactNode('out', { id: 'art-1' }));
         await until(() => (frame.textContent ?? '').includes('All green'));
         expect(frame.textContent).toContain('Version 2,');
         expect(machine.requests('bytes.read')[0]!.resource).toEqual({ kind: 'artifact', artifactId: 'art-1', versionId: 'ver-2', file: 0 });
 
         await clickOn(button(frame, 'Latest'));
-        await until(() => document.querySelector('[role="menuitem"]') !== null);
-        await clickOn(([...document.querySelectorAll('[role="menuitem"]')] as HTMLElement[]).find((item) => item.textContent === 'Stay on version 2') ?? null);
-        await until(() => button(frame, 'v2') !== null);
+        await until(() => versionItems().length > 0);
+        // Every version is offered, newest first, each with its number beside the time it was saved.
+        expect(versionItems().map((item) => item.textContent?.split(',')[0])).toEqual(['Follow the latest', 'Version 2', 'Version 1']);
+        await clickOn(versionItems().find((item) => item.textContent?.startsWith('Version 1,')) ?? null);
+        await until(() => versionItems().length === 0 && button(frame, 'v1') !== null && (frame.textContent ?? '').includes('Two red'));
         await act(async () => windowWorkspace()!.connection.projects.flush());
         await until(() => machine.requests('project.save').length > 0);
-        expect(savedArtifact()).toEqual({ id: 'art-1', version: 'ver-2' });
+        expect(savedArtifact()).toEqual({ id: 'art-1', version: 'ver-1' });
+
+        await clickOn(button(frame, 'v1'));
+        await until(() => versionItems().length > 0);
+        await clickOn(versionItems().find((item) => item.textContent === 'Follow the latest') ?? null);
+        await until(() => button(frame, 'Latest') !== null && (frame.textContent ?? '').includes('All green'));
     });
 
     test('pinned to an older version, says a newer one exists and shows it on request', async () => {

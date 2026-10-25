@@ -101,5 +101,6 @@ export function ProjectFolderPicker({
         );
     }, [model, rootName, input]);
 
-    return <FileTree.Root model={model} label={label} resetKey={root} onFocusMove={select} />;
+    // The tree draws only the rows its own height holds, so it needs a height of its own; a cap on its parent leaves it none.
+    return <FileTree.Root model={model} className="h-56" label={label} resetKey={root} onFocusMove={select} />;
 }

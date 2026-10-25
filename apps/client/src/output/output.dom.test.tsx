@@ -8,6 +8,8 @@ import {
     type ProjectCanvasView,
     type RequestType
 } from '@ruimte/contracts';
+import { visibleRect } from '@/canvas/math';
+import { liveCanvas } from '@/state/canvas';
 import { useUi } from '@/state/ui';
 import { useFiles } from '@/state/files';
 import { TransportError } from '@/transport/transport';
@@ -180,6 +182,8 @@ describe('the Output panel', () => {
         await openPanel();
         await until(() => text().includes('Dependency report'));
         expect(text()).toContain('2 versions');
+        // A chat can be removed, so a row names neither it nor who saved.
+        expect(text()).not.toContain('2 versions,');
         expect(machine.requests('artifact.get')).toHaveLength(0);
     });
 
@@ -223,6 +227,53 @@ describe('the artifact view', () => {
         await clickOn(buttonWithText('Compare'));
         await until(() => text().includes('Compare with') && text().includes('Compared'));
         await until(() => text().includes('+1') && text().includes('-1'));
+    });
+
+    test('names every version by its number, so two of the same minute tell apart', async () => {
+        await openDependencies();
+        const rows = [...page.host.querySelectorAll('nav[aria-label="Versions"] button')].map((row) => row.textContent ?? '');
+        expect(rows[0]).toStartWith('v2, ');
+        expect(rows[1]).toStartWith('v1, ');
+    });
+
+    test('Pin to canvas stays on the version picked, in view of that canvas', async () => {
+        await openDependencies();
+        await clickOn(([...page.host.querySelectorAll('nav[aria-label="Versions"] button')] as HTMLElement[]).find((row) => row.textContent?.startsWith('v1, ')) ?? null);
+        await until(() => text().includes('8 behind'));
+        await clickOn(buttonWithText('Pin to canvas'));
+        await until(() => document.querySelector('[role="menuitem"]') !== null);
+        await clickOn(([...document.querySelectorAll('[role="menuitem"]')] as HTMLElement[]).find((item) => item.textContent?.trim() === 'Main') ?? null);
+        await until(() => liveCanvas('main') !== null);
+        // The page has no layout to measure, so the canvas gets the size a window would give it, after the camera it opened on.
+        await act(async () => {
+            liveCanvas('main')!.setCamera({ x: -2000, y: -1000, zoom: 1 });
+            liveCanvas('main')!.setViewport({ w: 1280, h: 800 });
+        });
+        await until(() => Object.values(liveCanvas('main')!.nodes).some((node) => node.kind === 'artifact'));
+        const node = Object.values(liveCanvas('main')!.nodes).find((candidate) => candidate.kind === 'artifact')!;
+        expect(node.artifact).toEqual({ id: 'deps', version: 'v-old' });
+        const seen = visibleRect({ x: -2000, y: -1000, zoom: 1 }, { w: 1280, h: 800 });
+        expect(node.x).toBeGreaterThanOrEqual(seen.x);
+        expect(node.y).toBeGreaterThanOrEqual(seen.y);
+        expect(node.x + node.w).toBeLessThanOrEqual(seen.x + seen.w);
+        expect(node.y + node.h).toBeLessThanOrEqual(seen.y + seen.h);
+    });
+
+    test('Copy to project shows the folders of the project in a tree of its own height', async () => {
+        machine.answer('fs.list', ({ path }) => ({
+            path,
+            entries: path === '/work/atlas' ? [{ name: 'docs', path: '/work/atlas/docs', kind: 'directory', size: null, mtime: 0 }] : [],
+            truncated: false
+        }));
+        await openDependencies();
+        await clickOn(buttonWithText('Copy to project'));
+        await until(() => document.querySelector('[role="dialog"] .adecore-file-tree') !== null);
+        const tree = document.querySelector<HTMLElement>('[role="dialog"] .adecore-file-tree')!;
+        // A tree only draws the rows its own height holds; under a parent that only caps it, it had none.
+        expect(tree.className).toContain('h-56');
+        const host = tree.querySelector('.adecore-file-tree-host');
+        await until(() => ((host?.shadowRoot ?? host)?.querySelector('[data-item-path="atlas/"]') ?? null) !== null);
+        expect(machine.requests('fs.list')[0]).toEqual({ path: '/work/atlas', depth: 1, hidden: true });
     });
 
     test('Copy to project refuses a name that is taken, beside the name', async () => {

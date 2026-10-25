@@ -58,11 +58,6 @@
             }
         }
     },
-    "source": {
-        "agent": "door een agent",
-        "person": "door jou bewaard",
-        "routine": "door een routine"
-    },
     "view": {
         "failed": "Dit kon niet getoond worden",
         "loading": "Lezen",
@@ -71,6 +66,7 @@
         "versionGoneDetail": "Deze versie staat niet meer op deze machine. De andere staan er nog.",
         "unreachable": "De machine is niet bereikbaar. Output blijft daar staan en verschijnt hier weer zodra hij terug is.",
         "versions": "Versies",
+        "versionRow": "v{{number}}, {{date}}",
         "pickBase": "Vergelijk met",
         "latest": "Nieuwste",
         "base": "Vergeleken",
@@ -104,10 +100,9 @@
     },
     "node": {
         "pinned": "v{{number}}",
-        "pin": "Op versie {{number}} blijven",
         "follow": "De nieuwste volgen",
         "open": "Openen",
-        "footer": "Versie {{number}}, {{date}}",
+        "version": "Versie {{number}}, {{date}}",
         "newer": "Versie {{number}} is nieuwer",
         "showIt": "Tonen",
         "notHere": "Niet op deze machine",
