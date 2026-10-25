@@ -308,6 +308,10 @@ export class ContextStore {
         return this.readers.referenced?.(targetId) ?? [];
     }
 
+    sourceFor(targetId: string, sourceId: string): ContextSource | null {
+        return this.findSource(targetId, sourceId);
+    }
+
     // Only what is linked into the asker matches, so a node id opens nothing an edge, a person's reference or the asker's own lineage did not.
     private findSource(targetId: string, sourceId: string): ContextSource | null {
         const linked = [...this.readers.sources(targetId), ...this.referenced(targetId).flatMap((reference) => reference.sources)];

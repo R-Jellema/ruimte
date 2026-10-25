@@ -43,6 +43,7 @@ import { DeviceManager } from '../devices/manager.ts';
 import { documentOnDisk, rawPrivateViews, setPrivateViews, projectLinks } from '../projects/project-file-test-helpers.ts';
 import { ProjectStore } from '../projects/project-store.ts';
 import { DiagramStore } from '../projects/diagram-store.ts';
+import { DrawingStore } from '../projects/drawing-store.ts';
 import { peerCanvasId } from '../peering/links.ts';
 import type { SessionEvent } from '../sessions/manager.ts';
 import { AgentLineageStore, TaskStore } from '@adecore/agents/coordination';
@@ -85,6 +86,8 @@ let worktree: string;
 let store: ProjectStore;
 let diagrams: DiagramStore;
 let diagramEvents: SessionEvent[];
+let drawings: DrawingStore;
+let drawingEvents: SessionEvent[];
 let projectId: string;
 let worktrees: string[];
 let startClaims: StartClaims;
@@ -204,10 +207,13 @@ beforeEach(async () => {
     lineage = new AgentLineageStore(join(root, 'home'));
     tasks = new TaskStore(join(root, 'home'));
     await lineage.load();
-    store = new ProjectStore(join(root, 'home'), projectLinks({ viewFiles: () => [diagrams] }));
+    store = new ProjectStore(join(root, 'home'), projectLinks({ viewFiles: () => [diagrams, drawings] }));
     diagrams = new DiagramStore(store);
     diagramEvents = [];
     diagrams.subscribe('client-1', (event) => diagramEvents.push(event));
+    drawings = new DrawingStore(store);
+    drawingEvents = [];
+    drawings.subscribe('client-1', (event) => drawingEvents.push(event));
     // A client on its socket, which is what `open` asks the store to tell.
     store.subscribe('client-1', (event) => {
         if (event.event === 'project.showView') {
@@ -242,6 +248,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
     diagrams.closeAll();
+    drawings.closeAll();
     store.closeAll();
     await rm(root, { recursive: true, force: true });
 });
@@ -312,12 +319,16 @@ function host(): CanvasHost {
             }
         },
         diagrams,
+        drawings,
         devices,
         context: {
             list: () => [],
             answer: () => Promise.reject(new Error('no reads in these tests')),
             answerSource: () => Promise.reject(new Error('no reads in these tests')),
-            referenced: (targetId) => pointed[targetId] ?? []
+            referenced: (targetId) => pointed[targetId] ?? [],
+            sourceFor: (targetId, sourceId) =>
+                (pointed[targetId] ?? []).flatMap((reference) => reference.sources).find((source) => source.id === sourceId || source.nodeId === sourceId) ??
+                null
         },
         tasks: {
             open: (record) => tasks.open(record, 1),
@@ -498,7 +509,7 @@ describe('the tree', () => {
         const words = (noun: string): string[] => nounNamed(noun).actions.map((action) => action.word);
         expect(words('node')).toEqual(['list', 'new', 'edit', 'rename', 'color', 'delete', 'group', 'arrange']);
         expect(words('link')).toEqual(['list', 'new', 'delete']);
-        expect(words('view')).toEqual(['list', 'new', 'rename', 'icon', 'move', 'delete', 'open', 'diagram']);
+        expect(words('view')).toEqual(['list', 'new', 'rename', 'icon', 'move', 'delete', 'open', 'diagram', 'drawing']);
         expect(words('task')).toEqual(['list', 'new']);
         expect(words('worktree')).toEqual(['list', 'diff', 'merge']);
         expect(VERBS.filter((entry) => entry.served !== 'noun').map((entry) => entry.name)).toEqual([
@@ -544,7 +555,9 @@ describe('help', () => {
             'detail',
             'refusal'
         ]);
-        expect(lines[2]).toBe('verb\tread\t<id> [--tail N] [--subagent T] [--view V] [--json]\tPrints one linked source, whole or its last lines.');
+        expect(lines[2]).toBe(
+            'verb\tread\t<id> [--tail N] [--subagent T] [--view V] [--elements | --image] [--json]\tPrints one linked source, whole or its last lines.'
+        );
         expect(lines).toContain(
             'noun\tnode\tlist|new|edit|rename|color|delete|group|arrange\tLists, adds, writes in, renames, colors, removes, frames and lays out the nodes of a canvas'
         );
@@ -552,7 +565,7 @@ describe('help', () => {
         expect(lines.at(-6)).toBe('ids\tIds in this output are for your commands. When you talk to the person, name things by their title, never by id');
         const dryRun = lines.at(-5)!.split('\t');
         expect(dryRun.slice(0, 2)).toEqual(['dry run', '--dry-run']);
-        expect(dryRun[2]!.split(', ').toSorted()).toEqual(['agent', 'node color', 'node new', 'plan new', 'team']);
+        expect(dryRun[2]!.split(', ').toSorted()).toEqual(['agent', 'node color', 'node new', 'plan new', 'team', 'view drawing']);
         expect(dryRun[3]).toBe(
             'same checks, nothing made; a refused call makes nothing either, so it is only a preview and never needed for safety; every other verb refuses the flag'
         );
@@ -2384,7 +2397,8 @@ describe('--dry-run', () => {
             'verb\tnode color\ttakes --dry-run',
             'verb\tnode new\ttakes --dry-run',
             'verb\tplan new\ttakes --dry-run',
-            'verb\tteam\ttakes --dry-run'
+            'verb\tteam\ttakes --dry-run',
+            'verb\tview drawing\ttakes --dry-run'
         ]);
         expect((await post('link', ['new', '--to', 'note-1', '--dry-run'])).lines[0]).toStartWith('refused\tno-dry-run\t');
     });
@@ -2867,10 +2881,10 @@ describe('the view verb itself', () => {
     test('needs one of its words, and says which they are', async () => {
         const { status, lines } = await post('view', []);
         expect(status).toBe(422);
-        expect(lines[0]).toBe('refused\tunknown-action\tview needs one of list, new, rename, icon, move, delete, open, diagram');
+        expect(lines[0]).toBe('refused\tunknown-action\tview needs one of list, new, rename, icon, move, delete, open, diagram, drawing');
         expect(lines.slice(1)).toEqual([...VIEW_SUBS.map((sub) => `usage\t${sub.name}\t${sub.usage}`), 'detail\truimte-context help view']);
         expect((await post('view', ['duplicate', 'board'])).lines[0]).toBe(
-            'refused\tunknown-action\tview needs one of list, new, rename, icon, move, delete, open, diagram, and duplicate is not one'
+            'refused\tunknown-action\tview needs one of list, new, rename, icon, move, delete, open, diagram, drawing, and duplicate is not one'
         );
     });
 
@@ -4438,5 +4452,158 @@ describe('a # in a message', () => {
         await pointAt('chat-1', [page]);
         expect((await post('browser', ['go', page, '--url', 'https://example.com/two'], 'chat')).status).toBe(200);
         expect(driven).toEqual([{ browserId: page, action: { kind: 'go', url: 'https://example.com/two' } }]);
+    });
+});
+
+describe('a drawing an agent writes in', () => {
+    const SUN = JSON.stringify({ add: [{ kind: 'ellipse', x: 620, y: 40, w: 90, h: 90, stroke: 'orange', fill: 'solid', fillColor: 'yellow' }] });
+
+    test('takes a # to it, prints the new ids and tells every client', async () => {
+        const refused = await post('view', ['drawing', 'sketch-1', '--revision', '0', `--edit=${SUN}`], 'chat');
+        expect(refused.lines[0]).toStartWith('refused\tnot-linked\t');
+        await pointAt('chat-1', ['sketch-1']);
+        const dry = await post('view', ['drawing', 'sketch-1', '--revision', '0', '--dry-run', `--edit=${SUN}`], 'chat');
+        expect(dry.lines[0]).toBe('sketch-1\t0\t1');
+        expect(drawingEvents).toEqual([]);
+        const drawn = await post('view', ['drawing', 'sketch-1', '--revision', '0', `--edit=${SUN}`], 'chat');
+        expect(drawn.lines[0]).toBe('sketch-1\t1\t1');
+        expect(drawn.lines[1]).toMatch(/^added\tel-[0-9a-f]{10}$/);
+        expect(drawingEvents.map((event) => event.event)).toEqual(['drawing.changed']);
+        const [element] = (await drawings.read(projectId, 'sketch-1'))!.elements;
+        expect(element).toMatchObject({ kind: 'ellipse', stroke: 'orange', fillColor: 'yellow', strokeWidth: 2 });
+    });
+
+    test('refuses a field on its path, a hex color and an unknown element', async () => {
+        await pointAt('chat-1', ['sketch-1']);
+        const odd = await post('view', ['drawing', 'sketch-1', '--revision', '0', '--edit={"add":[{"kind":"rect","x":0,"y":0,"w":1,"h":1,"glow":1}]}'], 'chat');
+        expect(odd.lines.slice(0, 2)).toEqual(['refused\tbad-edit\tadd[0] has no field glow', 'problem\tadd[0]\thas no field glow']);
+        const hex = await post(
+            'view',
+            ['drawing', 'sketch-1', '--revision', '0', '--edit={"add":[{"kind":"rect","x":0,"y":0,"w":1,"h":1,"stroke":"#ff0000"}]}'],
+            'chat'
+        );
+        expect(hex.lines[0]).toStartWith('refused\tbad-edit\tadd[0].stroke ');
+        const gone = await post('view', ['drawing', 'sketch-1', '--revision', '0', '--edit={"remove":["el-x"]}'], 'chat');
+        expect(gone.lines[0]).toBe('refused\tbad-edit\tremove[0] the drawing has no element el-x');
+        expect((await post('view', ['drawing', 'sketch-1', `--edit=${SUN}`], 'chat')).lines[0]).toStartWith('refused\tbad-arguments\t');
+    });
+
+    test('takes a drawing the agent made itself, and a # to the canvas a drawing stands on is not enough', async () => {
+        const mine = await made('Mine', ['--kind', 'drawing'], 'chat');
+        expect((await post('view', ['drawing', mine, '--revision', '0', `--edit=${SUN}`], 'chat')).lines[0]).toBe(`${mine}\t1\t1`);
+        await pointAt('chat-1', ['main']);
+        expect((await post('view', ['drawing', 'sketch-1', '--revision', '0', `--edit=${SUN}`], 'chat')).lines[0]).toStartWith('refused\tnot-linked\t');
+    });
+
+    test('node color takes a node the person pointed at, with no --view', async () => {
+        expect((await post('node', ['color', 'note-1', '--color', 'teal'], 'chat')).lines[0]).toStartWith('refused\tview-required\t');
+        await pointAt('chat-1', ['note-1']);
+        expect((await post('node', ['color', 'note-1', '--color', 'teal'], 'chat')).lines).toEqual(['colored\tnote-1\tnote\tteal']);
+    });
+});
+
+describe('reading what a # points at in another form', () => {
+    async function read(caller: string, input: { sourceId: string; form?: 'elements' | 'image' | null }, hostValue: CanvasHost = host()) {
+        return serverActions.execute(
+            'context.read',
+            { tail: null, subagent: null, viewId: null, ...input },
+            serverActionCall(hostValue, store.locate(caller), caller)
+        );
+    }
+
+    function textOf(result: ActionResult<'context.read'>): string {
+        return result.status === 'completed' ? result.output.text : `${result.status} ${result.status === 'failed' ? result.error.code : ''}`;
+    }
+
+    test('a canvas reads as an overview of its nodes, texts and lines', async () => {
+        await pointAt('chat-1', ['main']);
+        expect(textOf(await read('chat-1', { sourceId: 'main' }))).toBe(
+            [
+                '# Canvas "Canvas"',
+                '',
+                '## Nodes',
+                '',
+                '- term-1 terminal "shell" at 0,0, 560x360',
+                '- note-1 note "Plan\\twith a tab" at 0,601, 320x240',
+                '',
+                '## Texts',
+                '',
+                '- text-1 "hi" at 0,0',
+                '',
+                '## Lines',
+                '',
+                'None.'
+            ].join('\n')
+        );
+    });
+
+    test('a drawing reads as its revision and its elements', async () => {
+        await pointAt('chat-1', ['sketch-1']);
+        await post(
+            'view',
+            ['drawing', 'sketch-1', '--revision', '0', '--edit={"add":[{"kind":"note","x":1,"y":2,"w":3,"h":4,"text":"Hi","fillColor":"yellow"}]}'],
+            'chat'
+        );
+        const json = JSON.parse(textOf(await read('chat-1', { sourceId: 'sketch-1', form: 'elements' }))) as { revision: number; elements: unknown[] };
+        expect(json.revision).toBe(1);
+        expect(json.elements).toEqual([
+            { id: expect.stringMatching(/^el-/), kind: 'note', box: { x: 1, y: 2, w: 3, h: 4 }, stroke: 'ink', fillColor: 'yellow', text: 'Hi' }
+        ]);
+        await pointAt('chat-1', ['sketch-1', 'main']);
+        expect(textOf(await read('chat-1', { sourceId: 'main', form: 'elements' }))).toBe('failed bad-arguments');
+    });
+
+    test('a database view names its table and the command that reads it, or says its connection is not here', async () => {
+        await store.mutate(projectId, (current) => ({
+            content: {
+                ...current,
+                views: [
+                    ...current.views,
+                    {
+                        kind: 'database',
+                        id: 'orders',
+                        name: 'Orders',
+                        connectionId: 'shop-1',
+                        schema: 'shop',
+                        table: 'orders',
+                        mode: 'data',
+                        where: 'total > 10'
+                    },
+                    { kind: 'database', id: 'far', name: 'Far', connectionId: 'elsewhere-1', schema: '', table: 't', mode: 'structure' }
+                ]
+            },
+            result: null
+        }));
+        await pointAt('chat-1', ['orders', 'far']);
+        const orders = textOf(await read('chat-1', { sourceId: 'orders' }));
+        expect(orders).toContain('connection: Shop (shop-1, mysql, read)');
+        expect(orders).toContain('filter: total > 10');
+        expect(orders).toContain('ruimte-context database query "shop-1" --schema "shop" <<\'SQL\'\nSELECT * FROM `orders` WHERE total > 10 LIMIT 50\nSQL');
+        expect(textOf(await read('chat-1', { sourceId: 'far' }))).toContain('connection: elsewhere-1 (not on this machine)');
+    });
+
+    test('an image is drawn through the preview into the chat, and only a chat has a folder for it', async () => {
+        await pointAt('chat-1', ['sketch-1']);
+        await pointAt('term-1', ['sketch-1']);
+        expect(textOf(await read('term-1', { sourceId: 'sketch-1', form: 'image' }))).toBe('failed visual-needs-chat');
+        const previews: { chatId: string; width: number; html: string }[] = [];
+        const drawing: CanvasHost = {
+            ...host(),
+            visuals: {
+                enabled: () => false,
+                publish: () => Promise.reject(new Error('nothing is shown')),
+                list: async () => [],
+                remove: async () => [],
+                preview: async (chatId, input) => {
+                    previews.push({ chatId, width: input.width, html: input.html });
+                    return { path: '/home/chats/chat-1.visuals/preview-1.png', width: input.width, height: 120, shotHeight: 120, console: [], omitted: 0 };
+                }
+            }
+        };
+        const text = textOf(await read('chat-1', { sourceId: 'sketch-1', form: 'image' }, drawing));
+        expect(text.split('\n').slice(1, 2)).toEqual(['/home/chats/chat-1.visuals/preview-1.png']);
+        expect(previews[0]).toMatchObject({ chatId: 'chat-1', width: 240 });
+        expect(previews[0]!.html).toContain('<svg');
+        expect(textOf(await read('chat-1', { sourceId: 'sketch-1', form: 'image' }))).toBe('failed preview-unavailable');
     });
 });

@@ -12,6 +12,7 @@ import { COMPUTER_ACTIONS, COMPUTER_DETAIL, COMPUTER_SUMMARY } from './computer-
 import { DATABASE_ACTIONS, DATABASE_DETAIL, DATABASE_SUMMARY } from './database-verb.ts';
 import { DEVICE_ACTIONS, DEVICE_DETAIL, DEVICE_SUMMARY } from './device-verb.ts';
 import { diagramAction } from './diagram-verb.ts';
+import { drawingAction } from './drawing-verb.ts';
 import { flagVerb } from './flag-verb.ts';
 import { forkVerb } from './fork-verb.ts';
 import { nodeColorAction } from './color-verb.ts';
@@ -72,13 +73,15 @@ const listVerb: ContextVerb = {
 const readVerb: ContextVerb = {
     served: 'context',
     name: 'read',
-    usage: '<id> [--tail N] [--subagent T] [--view V] [--json]',
+    usage: '<id> [--tail N] [--subagent T] [--view V] [--elements | --image] [--json]',
     summary: actionDescription('context.read', 'agent'),
     detail: [
         'argument\t<id>\trequired\tThe id of a source, from ruimte-context list, or of an agent you opened yourself, or of what a person pointed you at with #, or with --view of any node or text on that canvas; a drawing or diagram also takes the id of the node that shows it',
         'flag\t--tail N\toptional\tOnly the last N lines, N a positive whole number; without it the whole source',
         'flag\t--view V\toptional\tOnly from a chat view: the canvas the source stands on, which lets you read every node and text there, other chats and terminals included, without a line; a node on a canvas reads over its lines and leaves it out',
         `flag\t--subagent T\toptional\tThe whole conversation of one subagent of a chat you may read instead of the chat, T the id in its > Subagent line; read from ${ChatSubagentSourceSchema.options.join(' or ')}; --tail counts lines of that conversation`,
+        'flag\t--elements\toptional\tOnly a drawing: its revision and its elements as JSON, each with id, kind, box, stroke, fill, fillColor and text, which is what ruimte-context view drawing edits by id',
+        "flag\t--image\toptional\tA drawing, a diagram or a canvas a person pointed you at, drawn to a PNG in this chat's own folder outside the project; prints the path, which your own tool that reads images opens. Only an AI chat has that folder",
         'flag\t--json\toptional\tOne JSON object instead: text holds what the read prints, and a chat adds usage, the same numbers as its > Usage line with cache.expiresInMs negative once the cache went cold',
         'prints\tThe source itself, as text, not as tab-separated lines',
         'kind\ttext\tThe text the person wrote: a note or a text on the canvas\t--tail counts its lines',
@@ -89,6 +92,8 @@ const readVerb: ContextVerb = {
         'kind\tchat\tA question or an approval in the thread is one > Question or > Approval line with its state and its request id; a question that still waits lists its question ids and choices under it, which is what ruimte-context answer takes',
         'reference\tA view, node or text the person pointed you at with # in one of your messages (or a chat with @) reads by the id that message named, with no line to it and without showing up in ruimte-context list, for as long as that message is in your thread',
         'reference\tA # to a whole canvas lets you read every node and text on it by its id; writing in one of them still takes a # or a line of its own',
+        'kind\tcanvas\tOnly one a person pointed you at with #: every node with its id, kind, title, place and size, what each group frames, every text and every line between nodes; each id then reads on its own\t--tail does nothing here',
+        'kind\tdatabase\tOnly one a person pointed you at with #: its connection, schema, table, mode and filter, and the ruimte-context database command that reads that table; a connection this machine does not have is said, and nothing is refused\t--tail does nothing here',
         'own\tAn agent you opened yourself, with agent or team, reads by its id with no line from it into you and without showing up in ruimte-context list, --tail and --subagent included; an agent it opened in turn is its to read, not yours',
         'kind\tdrawing\tThe text of the drawing in reading order, and the picture itself as SVG under it\t--tail counts lines of the reading order and leaves the SVG out',
         'kind\tdiagram\tIts title, every node layer by layer (sub in brackets), every edge with its label, what each group wraps, and the SVG under it\t--tail counts lines of that list and leaves the SVG out',
@@ -101,7 +106,7 @@ const readVerb: ContextVerb = {
         'direction\tBetween two agents a line runs one way: the one you draw into another agent lets it read you, and reading it back takes a line from it into you, which ruimte-context link new --from <id> --to <you> draws; an agent you opened yourself needs none',
         'direction\tA node that is no agent, a note, a page, a file, a drawing or a diagram, you read over a line whichever way that line runs',
         'chat view\tA chat that is a view of its own has no lines, since a line only joins two nodes of one canvas: it reads a node by naming its canvas with --view, and without it a node of a canvas refuses with view-required',
-        'refusals\tnot-linked\tunreadable\tunknown-source\tunknown-subagent\tview-required\tnot-on-view\tnot-a-chat-view\tnot-a-canvas\tbad-arguments\tthe whole set this verb refuses with',
+        'refusals\tnot-linked\tunreadable\tunknown-source\tunknown-subagent\tview-required\tnot-on-view\tnot-a-chat-view\tnot-a-canvas\tbad-arguments\tvisual-needs-chat\tvisual-too-large\tpreview-unavailable\tpreview-timeout\tpreview-failed\tthe whole set this verb refuses with',
         SCOPE_LINE
     ]
 };
@@ -148,7 +153,7 @@ const viewNoun = defineNoun({
     name: 'view',
     summary: VIEW_SUMMARY,
     detail: VIEW_DETAIL,
-    actions: [...VIEW_ACTIONS, openAction, diagramAction]
+    actions: [...VIEW_ACTIONS, openAction, diagramAction, drawingAction]
 });
 
 const uiNoun = defineNoun({

@@ -46,7 +46,7 @@ export async function callerNodeKind({ host, place }: ServerActionContext, calle
 }
 
 /* A visual shows in the thread of an AI chat, and a terminal has no thread to show it in. */
-async function callerChat(context: ServerActionContext, caller: string): Promise<string> {
+export async function callerChat(context: ServerActionContext, caller: string): Promise<string> {
     const kind = await callerNodeKind(context, caller);
     if (kind !== 'chat') {
         throw new VerbRefusal(

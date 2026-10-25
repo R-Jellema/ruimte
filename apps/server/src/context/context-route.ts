@@ -6,6 +6,7 @@ import { bearerCaller } from '../canvas/canvas-route.ts';
 import type { CanvasHost } from '../canvas/verb.ts';
 import { refusalRows } from '@adecore/agents/context';
 import { CONTEXT_PATH } from './context-store.ts';
+import { READ_FORM_REFUSALS, type ReadForm } from './read-forms.ts';
 import { countVerb } from '../stats/usage-stats.ts';
 
 /* The refusals of a read that the CLI prints as its own, with what `list` would have said under them;
@@ -29,6 +30,9 @@ function failed(result: ActionResult): Response {
     if (error.code === 'unknown-subagent') {
         return new Response(error.message, { status: 422, headers: TEXT });
     }
+    if (READ_FORM_REFUSALS.has(error.code)) {
+        return new Response(refusalRows(error.code, error.message, linesOf(error.details)), { status: 422, headers: TEXT });
+    }
     return new Response(`The read failed: ${error.message}`, { status: 500, headers: TEXT });
 }
 
@@ -39,7 +43,7 @@ interface ContextRouteDeps {
 }
 
 /*
- * `GET /context` lists, `GET /context/<id>[?tail=N][&subagent=T][&view=V][&json]` reads; the bearer token names the
+ * `GET /context` lists, `GET /context/<id>[?tail=N][&subagent=T][&view=V][&form=F][&json]` reads; the bearer token names the
  * agent asking. Both run `context.list` and `context.read`, so the CLI is one adapter among others.
  */
 export async function handleContextRequest(request: Request, pathname: string, deps: ContextRouteDeps): Promise<Response> {
@@ -71,9 +75,14 @@ export async function handleContextRequest(request: Request, pathname: string, d
     } catch {
         return new Response('The source id is not valid percent-encoding', { status: 400 });
     }
+    const asForm = query.get('form');
+    if (asForm !== null && asForm !== 'elements' && asForm !== 'image') {
+        return new Response('form takes elements or image', { status: 400 });
+    }
+    const form: ReadForm | null = asForm;
     const read = await serverActions.execute(
         'context.read',
-        { sourceId, tail, subagent: query.get('subagent') || null, viewId: query.get('view') || null },
+        { sourceId, tail, subagent: query.get('subagent') || null, viewId: query.get('view') || null, form },
         call
     );
     if (read.status !== 'completed') {

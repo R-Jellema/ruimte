@@ -38,6 +38,9 @@ async function verbArgv(command: string, args: string[], stdin: () => Promise<st
     if (command === 'view' && args[1] === 'diagram') {
         return ['diagram', ...(await withStdinFlag(rest, 'document', stdin))];
     }
+    if (command === 'view' && args[1] === 'drawing') {
+        return ['drawing', ...(await withStdinFlag(rest, 'edit', stdin))];
+    }
     if (command === 'database' && (args[1] === 'query' || args[1] === 'execute')) {
         return [args[1], ...(await withStdinFlag(rest, 'sql', stdin))];
     }
@@ -83,9 +86,17 @@ async function runRead(url: string, id: string | undefined, flags: string[], hea
     if (view === '') {
         return refuse('bad-arguments', '--view needs the id of the canvas the source stands on', [READ_USAGE, READ_HELP]);
     }
+    const elements = flags.includes('--elements');
+    const image = flags.includes('--image');
+    if (elements && image) {
+        return refuse('bad-arguments', 'read takes --elements or --image, not both', [READ_USAGE, READ_HELP]);
+    }
     const query = new URLSearchParams();
     if (view !== null) {
         query.set('view', view);
+    }
+    if (elements || image) {
+        query.set('form', elements ? 'elements' : 'image');
     }
     if (tail !== null) {
         query.set('tail', String(tail));
@@ -114,7 +125,10 @@ async function runRead(url: string, id: string | undefined, flags: string[], hea
         return refuse(code, message, [...(await linkedLines(url, headers, env)), ...lines]);
     }
     if (response.status === 422) {
-        return refuse('unknown-subagent', await response.text(), [READ_USAGE, READ_HELP]);
+        // A refusal of the form asked for arrives whole; anything else is the sentence about a subagent.
+        const body = await response.text();
+        const parsed = parseRefusalBody(body);
+        return parsed ? refuse(parsed.code, parsed.message, parsed.lines) : refuse('unknown-subagent', body, [READ_USAGE, READ_HELP]);
     }
     if (!response.ok) {
         console.error(`The daemon answered ${response.status}`);
@@ -225,7 +239,7 @@ interface ContextRow {
     snoozedUntil?: string;
 }
 
-const READ_USAGE = 'usage\tread\t<id> [--tail N] [--subagent T] [--view V] [--json]';
+const READ_USAGE = 'usage\tread\t<id> [--tail N] [--subagent T] [--view V] [--elements | --image] [--json]';
 const READ_HELP = 'detail\truimte-context help read';
 
 /* What follows `--name` or `--name=`: null when the flag is not there, empty when it has no value. */

@@ -95,7 +95,7 @@ describe('the note in front of a message', () => {
         expect(note).toBe(
             [
                 'The person referenced views and nodes of this project in this message. Read each with the command beside it before you answer.',
-                '- "Sketch" (drawing): `ruimte-context read sketch`',
+                '- "Sketch" (drawing): `ruimte-context read sketch` · see its elements with `ruimte-context read sketch --elements` · write with `ruimte-context view drawing sketch --revision R`',
                 '- "Research" (note on "Planning"): `ruimte-context read research` · write with `ruimte-context node edit research`',
                 '- "Auth \\"rewrite\\"" (chat on "Planning"): `ruimte-context read earlier` · message it with `ruimte-context notify earlier`',
                 '- "dev server" (terminal on "Planning"): `ruimte-context read shell` · message it with `ruimte-context notify shell`',
@@ -103,7 +103,7 @@ describe('the note in front of a message', () => {
                 '- "Preview" (browser on "Planning"): `ruimte-context read page` · drive it with `ruimte-context browser go page --url U`',
                 '- "Docs" (browser): `ruimte-context read docs`',
                 '- "Next steps" (text on "Planning"): `ruimte-context read label`',
-                '- "Planning" (canvas): `ruimte-context node list --view main` · read any node on it with `ruimte-context read <id>` · add nodes with `ruimte-context node new <kind> --view main`'
+                '- "Planning" (canvas): `ruimte-context read main` · read any node on it with `ruimte-context read <id>` · add nodes with `ruimte-context node new <kind> --view main`'
             ].join('\n')
         );
     });

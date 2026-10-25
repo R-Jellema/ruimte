@@ -5,6 +5,7 @@ import { arrangedCanvas, canvasHolding, isChatView, notOnView, viewRequired } fr
 import { VerbRefusal, snoozedAt, type ContextHost } from '../canvas/verb.ts';
 import { refuseOtherMachine } from '../canvas/remote-node.ts';
 import { ContextRefusal } from '../context/context-store.ts';
+import { readInForm, readReference } from '../context/read-forms.ts';
 import type { ServerActionContext } from './context.ts';
 
 function contextOf(context: ServerActionContext): ContextHost {
@@ -58,10 +59,25 @@ export const contextActions: ActionHandlers<ServerActionContext> = {
                 })
         }
     }),
-    'context.read': async ({ sourceId, tail, subagent, viewId }, { actor, context }) => {
+    'context.read': async ({ sourceId, tail, subagent, viewId, form }, { actor, context }) => {
         const store = contextOf(context);
         refuseOtherMachine(context.host, sourceId);
+        const whole = store
+            .referenced?.(actor.id)
+            .find((reference) => reference.id === sourceId && (reference.kind === 'canvas' || reference.kind === 'database'));
+        if (whole) {
+            return { output: await readReference(context, actor.id, whole, form ?? null) };
+        }
         const arranged = viewId == null ? null : await arrangedSource(context, actor.id, sourceId, viewId);
+        if (form != null) {
+            const source = arranged ?? store.sourceFor?.(actor.id, sourceId) ?? null;
+            if (source === null) {
+                // The read whole says why this id is not the caller's to read, which holds for every form of it.
+                await store.answer(actor.id, sourceId, null, null);
+                throw new ContextRefusal('unknown-source', `${sourceId} is not linked to you`);
+            }
+            return { output: await readInForm(context, actor.id, source, form) };
+        }
         if (arranged) {
             return { output: await store.answerSource(actor.id, arranged, tail ?? null, subagent ?? null) };
         }

@@ -2839,6 +2839,12 @@ export const ACTION_DEFINITIONS = {
                 .nullable()
                 .describe(
                     `The whole conversation of one subagent of a chat the caller may read instead of the chat, read from ${ChatSubagentSourceSchema.options.join(' or ')}`
+                ),
+            form: z
+                .enum(['elements', 'image'])
+                .nullish()
+                .describe(
+                    'Instead of the text: the elements of a drawing as JSON, or a PNG of a drawing, a diagram or a canvas written to the chat and named by its path'
                 )
         }),
         output: z.object({
@@ -3841,6 +3847,19 @@ export const ACTION_DEFINITIONS = {
         actors: PERSON,
         input: z.object({ viewId: drawingView, format: imageFormat }),
         output: z.object({ viewId, view: z.string(), format: z.string() })
+    },
+    'drawing.edit': {
+        title: 'Edit a drawing',
+        description: 'Adds, changes and removes elements of a drawing view by id in one step, while a person may draw in it at the same time.',
+        effect: 'shared',
+        domain: 'content',
+        actors: AGENT,
+        input: z.object({
+            viewId: viewId.describe('A drawing view of this project, or the id of a node that shows one'),
+            revision: revision.describe('The revision of the drawing the edit was decided on, as read --elements printed it'),
+            edit: z.string().describe('One JSON object with add, update and remove')
+        }),
+        output: z.object({ viewId, rev: z.number().int(), added: z.array(z.string()), elements: z.number().int() })
     },
     'diagram.read': {
         title: 'Read a diagram',

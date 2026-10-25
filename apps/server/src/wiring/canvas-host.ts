@@ -79,6 +79,7 @@ export function wireCanvasHost(input: CanvasHostInput): CanvasHost {
         endSession: input.projects.endSession,
         messages: agentMessages({ notices: stores.notices, sessions, chats, projects, enqueue, push: later.push }),
         diagrams: input.projects.diagrams,
+        drawings: input.projects.drawings,
         tasks: work.tasks.host,
         plans: agents.plans,
         worktrees: worktreeHost(git.worktrees, git.merges),

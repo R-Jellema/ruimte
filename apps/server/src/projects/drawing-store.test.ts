@@ -260,3 +260,64 @@ describe('DrawingStore', () => {
         expect(await exists(drawingFile('view-c'))).toBe(false);
     });
 });
+
+describe('an edit by element id', () => {
+    const mint = () => {
+        let next = 0;
+        return { id: () => `new-${++next}`, seed: () => 5 };
+    };
+    const ids = async (): Promise<string[]> => ((await drawings.read(projectId, 'view-a'))?.elements ?? []).map((each) => each.id);
+
+    test('lands on what a person drew since, tells every client and names the new ids', async () => {
+        await drawings.open(projectId, 'view-a');
+        await drawings.save(projectId, 'view-a', 0, drawn(element('el-1'), element('el-2', 200)), 'c1');
+        // The person draws on while the agent decides on revision 1.
+        await drawings.save(projectId, 'view-a', 1, drawn(element('el-1'), element('el-2', 200), element('el-3', 400)), 'c1');
+        events = [];
+
+        const edited = await drawings.edit(
+            projectId,
+            'view-a',
+            1,
+            { add: [{ kind: 'ellipse', x: 0, y: 200, w: 50, h: 50 }], remove: ['el-1'] },
+            { dryRun: false, mint: mint() }
+        );
+
+        expect(edited).toEqual({ rev: 3, added: ['new-1'], elements: 3 });
+        expect(await ids()).toEqual(['el-2', 'el-3', 'new-1']);
+        expect(events.map((event) => event.event)).toEqual(['drawing.changed']);
+        // The client's next save builds on the agent's rev.
+        expect(await drawings.save(projectId, 'view-a', 3, drawn(element('el-2', 200)), 'c1')).toBe(4);
+    });
+
+    test('refuses an update of an element that changed after the revision, and leaves the rest of the file', async () => {
+        await drawings.open(projectId, 'view-a');
+        await drawings.save(projectId, 'view-a', 0, drawn(element('el-1'), element('el-2', 200)), 'c1');
+        await drawings.save(projectId, 'view-a', 1, drawn(element('el-1', 50), element('el-2', 200)), 'c1');
+
+        const stale = drawings.edit(projectId, 'view-a', 1, { update: [{ id: 'el-1', stroke: 'blue' }] }, { dryRun: false, mint: mint() });
+        await expect(stale).rejects.toMatchObject({ code: 'rev-conflict', lines: ['changed\tel-1'] });
+        expect(await drawings.edit(projectId, 'view-a', 1, { update: [{ id: 'el-2', stroke: 'blue' }] }, { dryRun: false, mint: mint() })).toMatchObject({
+            rev: 3
+        });
+        await expect(drawings.edit(projectId, 'view-a', 7, { remove: ['el-2'] }, { dryRun: false, mint: mint() })).rejects.toMatchObject({
+            code: 'rev-conflict'
+        });
+    });
+
+    test('a dry run checks everything and writes nothing; a bad edit is refused by its path', async () => {
+        const dry = await drawings.edit(projectId, 'view-a', 0, { add: [{ kind: 'rect', x: 0, y: 0, w: 10, h: 10 }] }, { dryRun: true, mint: mint() });
+        expect(dry).toEqual({ rev: 0, added: ['new-1'], elements: 1 });
+        expect(await exists(drawingFile('view-a'))).toBe(false);
+
+        const bad = drawings.edit(projectId, 'view-a', 0, { update: [{ id: 'nope', x: 1 }] }, { dryRun: false, mint: mint() });
+        await expect(bad).rejects.toMatchObject({ code: 'bad-edit', lines: ['problem\tupdate[0].id\tthe drawing has no element nope'] });
+    });
+
+    test('a new id never repeats one the drawing holds', async () => {
+        await drawings.open(projectId, 'view-a');
+        await drawings.save(projectId, 'view-a', 0, drawn(element('new-1')), 'c1');
+        const edited = await drawings.edit(projectId, 'view-a', 1, { add: [{ kind: 'rect', x: 0, y: 0, w: 10, h: 10 }] }, { dryRun: false, mint: mint() });
+        expect(edited.added).toEqual(['new-2']);
+    });
+});

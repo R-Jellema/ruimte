@@ -52,6 +52,7 @@ import type { VisualPreview } from '../visuals/renderer.ts';
 import type { StartRemoteAgentPayload } from '../outbox/outbox.ts';
 import type { ProjectMutation, ProjectStore } from '../projects/project-store.ts';
 import type { DiagramStore } from '../projects/diagram-store.ts';
+import type { DrawingStore } from '../projects/drawing-store.ts';
 import type { SnoozeStore } from '../push/snoozes.ts';
 import type { EndpointIdentity } from '../endpoint-id.ts';
 import type { UntrustedFolders } from '../peering/untrusted.ts';
@@ -115,7 +116,9 @@ export interface CanvasHost {
     endSession(kind: 'terminal' | 'chat', nodeId: string): Promise<void>;
     messages: MessageHost;
     /* Replaces the diagram of a view, whether or not anyone has its project open, and answers the new rev. */
-    diagrams: Pick<DiagramStore, 'write'>;
+    diagrams: Pick<DiagramStore, 'write'> & Partial<Pick<DiagramStore, 'read'>>;
+    /* Reads and edits the drawing of a view, whether or not anyone has its project open; absent on a host that keeps none. */
+    drawings?: Pick<DrawingStore, 'read' | 'edit'>;
     /* The tasks a chat gives the nodes it opens with `--task`, kept by the daemon outside the project. */
     tasks: TaskHost;
     /* The plans of the caller's own chat, kept beside its record. */
@@ -321,6 +324,8 @@ export interface ContextHost {
     answerSource(targetId: string, source: ContextSource, tail: number | null, subagent: string | null): Promise<ContextReading>;
     /* What a person pointed this agent at with `#` or `@` in its messages, read again at every call. */
     referenced?(targetId: string): Reference[];
+    /* The source behind an id the caller may read, by a line, a reference or as its own child; null for any other. */
+    sourceFor?(targetId: string, sourceId: string): ContextSource | null;
 }
 
 /* Whether a person pointed the caller at this very id, which lets it write and operate there as a line does. */

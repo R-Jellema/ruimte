@@ -1,11 +1,23 @@
-import { DRAWING_VERSION, EMPTY_DRAWING, duplicateElementIdIn, type DrawingContent, type DrawingDocument, type DrawingElement } from '@ruimte/contracts';
+import {
+    DRAWING_VERSION,
+    EMPTY_DRAWING,
+    duplicateElementIdIn,
+    isDrawingView,
+    type DrawingContent,
+    type DrawingDocument,
+    type DrawingElement
+} from '@ruimte/contracts';
+import { applyDrawingEdit, type DrawingEdit, type DrawingEditMint, type DrawingEditProblem } from '@adecore/drawing';
+import type { SessionEvent } from '../sessions/manager.ts';
 import type { WatchSeams } from '@adecore/agents';
+import { ElementChanges } from './element-changes.ts';
 import { drawingsDirOf, privateDrawingsDirOf, readDrawing, tooNewMessage, viewFilePathOf, writeDrawing } from './project-files.ts';
-import type { ProjectStore } from './project-store.ts';
+import { ProjectError } from './project-error.ts';
+import type { ProjectPlace, ProjectStore } from './project-store.ts';
 import { ProjectViewFileStore, type ViewFileKind } from './view-file-store.ts';
 import { CodedError } from '@adecore/agents';
 
-type DrawingErrorCode = 'project-not-found' | 'drawing-not-found' | 'drawing-invalid' | 'rev-conflict';
+type DrawingErrorCode = 'project-not-found' | 'drawing-not-found' | 'drawing-invalid' | 'rev-conflict' | 'bad-edit';
 
 export class DrawingError extends CodedError<DrawingErrorCode> {}
 
@@ -33,6 +45,8 @@ const DRAWING_FILES: ViewFileKind<DrawingDocument, DrawingContent> = {
 
 /* The drawings of every open project, one file per drawing view under `.ruimte/drawings`. */
 export class DrawingStore extends ProjectViewFileStore<DrawingDocument, DrawingContent> {
+    private readonly changes = new ElementChanges();
+
     constructor(projects: ProjectStore, seams?: WatchSeams) {
         super(projects, DRAWING_FILES, seams);
     }
@@ -65,4 +79,125 @@ export class DrawingStore extends ProjectViewFileStore<DrawingDocument, DrawingC
         }
         return null;
     }
+
+    override async open(projectId: string, viewId: string): Promise<DrawingDocument> {
+        const document = await super.open(projectId, viewId);
+        this.changes.note(changeKey(projectId, viewId), document);
+        return document;
+    }
+
+    /* What an agent reads: the drawing of a view, open or not, or null when the project has no drawing under that id or its file is not one. */
+    async read(projectId: string, viewId: string): Promise<DrawingDocument | null> {
+        const place = await this.projects.place(projectId).catch(() => null);
+        if (!place || !place.views.some((view) => view.id === viewId && isDrawingView(view))) {
+            return null;
+        }
+        const outcome = await readDrawing(viewFilePathOf(place.documentPath, 'drawing', viewId, place.shared), { setAside: false });
+        if (outcome.kind === 'missing') {
+            return EMPTY_DRAWING;
+        }
+        if (outcome.kind !== 'ok') {
+            return null;
+        }
+        this.changes.note(changeKey(projectId, viewId), outcome.document);
+        return outcome.document;
+    }
+
+    /*
+     * One edit by element id on the drawing of a view, open or not, and every client told. It builds on
+     * the file as it is now, so a person drawing elsewhere loses nothing; only an update or a remove of
+     * an element that changed after `revision` is a conflict. A dry run checks all of it and writes nothing.
+     */
+    edit(projectId: string, viewId: string, revision: number, edit: DrawingEdit, options: { dryRun: boolean; mint: DrawingEditMint }): Promise<DrawingEdited> {
+        return this.lockedInPlace(projectId, async (placeOf) => {
+            const place = await drawingPlace(placeOf, projectId, viewId);
+            const path = viewFilePathOf(place.documentPath, 'drawing', viewId, place.shared);
+            const outcome = await readDrawing(path, { setAside: false });
+            if (outcome.kind === 'invalid' || outcome.kind === 'too-new') {
+                const why = outcome.kind === 'invalid' ? outcome.message : tooNewMessage('drawing', outcome.version, DRAWING_VERSION);
+                throw new DrawingError('drawing-invalid', `The file of ${viewId} is not a drawing Ruimte will write over: ${why}`);
+            }
+            if (outcome.kind === 'unreadable' || outcome.kind === 'corrupt') {
+                throw new DrawingError('drawing-invalid', `The file of ${viewId} could not be read`);
+            }
+            const current = outcome.kind === 'ok' ? outcome.document : EMPTY_DRAWING;
+            if (revision > current.rev) {
+                throw new DrawingError('rev-conflict', `${viewId} is at revision ${current.rev}, so it never was at ${revision}`);
+            }
+            const named = [...(edit.update ?? []).map((patch) => patch.id), ...(edit.remove ?? [])];
+            const stale = this.changes.changedSince(changeKey(projectId, viewId), current, revision, named);
+            if (stale.length > 0) {
+                throw new DrawingError(
+                    'rev-conflict',
+                    `${stale.join(', ')} changed after revision ${revision}; the drawing is at ${current.rev} now`,
+                    stale.map((id) => `changed\t${id}`)
+                );
+            }
+            const taken = new Set(current.elements.map((element) => element.id));
+            const unique = (): string => {
+                let id = options.mint.id();
+                while (taken.has(id)) {
+                    id = options.mint.id();
+                }
+                taken.add(id);
+                return id;
+            };
+            const applied = applyDrawingEdit(current.elements, edit, { id: unique, seed: () => options.mint.seed() });
+            if (!applied.ok) {
+                const [first] = applied.problems;
+                throw new DrawingError('bad-edit', `${pathText(first!) || 'edit'} ${first!.message}`, applied.problems.map(problemLine));
+            }
+            if (options.dryRun) {
+                return { rev: current.rev, added: applied.added, elements: applied.elements.length };
+            }
+            const document: DrawingDocument = { version: DRAWING_VERSION, rev: current.rev + 1, elements: applied.elements };
+            const text = await writeDrawing(path, document);
+            this.noteWritten(projectId, viewId, document.rev, text);
+            this.emit(DRAWING_FILES.changed(projectId, viewId, document));
+            return { rev: document.rev, added: applied.added, elements: document.elements.length };
+        });
+    }
+
+    /* Every document that goes out to the clients passes here, so the changes are seen whoever made them. */
+    protected override emit(event: SessionEvent, except: string | null = null): void {
+        if (event.event === 'drawing.changed') {
+            this.changes.note(changeKey(event.payload.projectId, event.payload.viewId), event.payload.document);
+        }
+        super.emit(event, except);
+    }
+}
+
+/* What an edit left: the rev the drawing is at, the ids of the elements it added, and how many it holds. */
+export interface DrawingEdited {
+    rev: number;
+    added: string[];
+    elements: number;
+}
+
+function changeKey(projectId: string, viewId: string): string {
+    return `${projectId}\u0000${viewId}`;
+}
+
+async function drawingPlace(placeOf: () => Promise<ProjectPlace>, projectId: string, viewId: string): Promise<ProjectPlace> {
+    let place: ProjectPlace;
+    try {
+        place = await placeOf();
+    } catch (e) {
+        if (e instanceof ProjectError && (e.code === 'project-not-found' || e.code === 'project-missing')) {
+            throw new DrawingError('project-not-found', e.message);
+        }
+        throw e;
+    }
+    if (!place.views.some((view) => view.id === viewId && isDrawingView(view))) {
+        throw new DrawingError('drawing-not-found', `${viewId} is not a drawing of project ${projectId}`);
+    }
+    return place;
+}
+
+function pathText(problem: DrawingEditProblem): string {
+    return problem.path.reduce<string>((text, key) => (typeof key === 'number' ? `${text}[${key}]` : text === '' ? key : `${text}.${key}`), '');
+}
+
+function problemLine(problem: DrawingEditProblem): string {
+    return `problem\t${pathText(problem) || 'edit'}\t${problem.message}`;
 }

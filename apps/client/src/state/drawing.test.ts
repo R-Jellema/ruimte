@@ -236,6 +236,25 @@ describe('a document that comes in from disk', () => {
         expect(drawing().camera).toEqual(camera);
         expect(drawing().rev).toBe(9);
         expect(drawing().dirty).toBe(false);
-        expect(drawing().past).toEqual([]);
+    });
+
+    test('it is one step that undo takes back, saved like an edit, and the steps before it stay', () => {
+        drawing().addElement(rect('c', 400));
+        const edits = drawing().edits;
+        drawing().applyDocument(document([rect('a'), rect('b', 200), rect('c', 400), rect('sun', 600)], 9));
+        expect(drawing().edits).toBe(edits);
+        drawing().undo();
+        expect(ids()).toEqual(['a', 'b', 'c']);
+        // The counter is what the client saves on, against the rev the change came with.
+        expect(drawing().edits).toBe(edits + 1);
+        expect(drawing().rev).toBe(9);
+        drawing().undo();
+        expect(ids()).toEqual(['a', 'b']);
+    });
+
+    test('the same elements again add no step', () => {
+        const past = drawing().past.length;
+        drawing().applyDocument(document([rect('a'), rect('b', 200)], 4));
+        expect(drawing().past.length).toBe(past);
     });
 });

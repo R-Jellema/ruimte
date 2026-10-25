@@ -78,9 +78,9 @@ function mayWrite(canvas: ProjectCanvasView, node: ProjectNode, call: VerbCall, 
     return mayTouch(canvas, node, call, chatView) || referencedBy(call.host, call.caller, node.id);
 }
 
-/* Its own node too: how a session's node looks is that session's to say. */
+/* Its own node too: how a session's node looks is that session's to say. A node pointed at with `#` counts as along a line. */
 function mayColor(canvas: ProjectCanvasView, node: ProjectNode, call: VerbCall, chatView: boolean): boolean {
-    return node.id === call.caller || mayTouch(canvas, node, call, chatView);
+    return node.id === call.caller || mayWrite(canvas, node, call, chatView);
 }
 
 /* What a refusal may offer instead: only the nodes this same call would really color. */

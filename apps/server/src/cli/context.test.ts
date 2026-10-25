@@ -45,6 +45,12 @@ const daemon = {
             }
             return new Response(`subagent ${subagent}${url.searchParams.has('tail') ? ` tail ${url.searchParams.get('tail')}` : ''}`);
         }
+        if (url.pathname === '/context/sketch') {
+            const form = url.searchParams.get('form');
+            return form === 'image'
+                ? new Response('refused\tvisual-needs-chat\tA visual shows only in the thread of an AI chat', { status: 422 })
+                : new Response(`sketch as ${form}`);
+        }
         if (url.pathname === '/context/term-2') {
             return new Response(`the screen of term-2 on ${url.searchParams.get('view')}`);
         }
@@ -166,7 +172,7 @@ describe('runContext', () => {
         expect(stderr).toBe(
             [
                 'refused\tbad-arguments\tread takes the id of a linked source',
-                'usage\tread\t<id> [--tail N] [--subagent T] [--view V] [--json]',
+                'usage\tread\t<id> [--tail N] [--subagent T] [--view V] [--elements | --image] [--json]',
                 'detail\truimte-context help read',
                 'n1\ttext\tPlan'
             ].join('\n') + '\n'
@@ -191,6 +197,16 @@ describe('runContext', () => {
         stderr = '';
         expect(await runContext(['read', 'c1', '--subagent'], env)).toBe(3);
         expect(stderr).toStartWith('refused\tbad-arguments\t--subagent needs');
+    });
+
+    test('--elements and --image ask for a form, one at a time, and a refusal of the form arrives whole', async () => {
+        expect(await runContext(['read', 'sketch', '--elements'], env)).toBe(0);
+        expect(stdout).toBe('sketch as elements\n');
+        expect(await runContext(['read', 'sketch', '--image'], env)).toBe(3);
+        expect(stderr).toBe('refused\tvisual-needs-chat\tA visual shows only in the thread of an AI chat\n');
+        stderr = '';
+        expect(await runContext(['read', 'sketch', '--image', '--elements'], env)).toBe(3);
+        expect(stderr).toStartWith('refused\tbad-arguments\tread takes --elements or --image, not both');
     });
 
     test('--view rides along as the canvas a chat view reads a node of, and an empty one is refused before anything is asked', async () => {

@@ -428,6 +428,8 @@ export function createDrawingStore(): StoreApi<DrawingState> {
             const state = get();
             const alive = new Set(document.elements.map((element) => element.id));
             const editing = state.editingTextId;
+            // A change from elsewhere is one step the person can take back, and their own steps before it stay.
+            const same = JSON.stringify(state.elements) === JSON.stringify(document.elements);
             set({
                 loading: true,
                 elements: document.elements,
@@ -437,8 +439,7 @@ export function createDrawingStore(): StoreApi<DrawingState> {
                 // The camera never moves on a reload, and what still exists stays selected.
                 selection: state.selection.filter((id) => alive.has(id)),
                 editingTextId: editing && alive.has(editing) ? editing : null,
-                past: [],
-                future: []
+                ...(same ? {} : remember(state))
             });
             set({ loading: false });
         }

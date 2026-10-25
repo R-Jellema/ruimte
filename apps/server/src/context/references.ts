@@ -1,14 +1,16 @@
 import {
     canvasContextSources,
     isCanvasView,
+    isDatabaseView,
     resolveStoredPath,
     type ChatItem,
     type ContextSource,
     type ProjectCanvasView,
+    type ProjectDatabaseTarget,
     type ProjectView
 } from '@ruimte/contracts';
 
-export type ReferenceKind = 'canvas' | 'chat' | 'terminal' | 'note' | 'text' | 'drawing' | 'diagram' | 'browser' | 'device' | 'file';
+export type ReferenceKind = 'canvas' | 'chat' | 'terminal' | 'note' | 'text' | 'drawing' | 'diagram' | 'browser' | 'device' | 'file' | 'database';
 
 /* A view, node or text of the chat's own project that a person pointed at with `#`, or a chat with `@`. */
 export interface Reference {
@@ -19,6 +21,8 @@ export interface Reference {
     canvas: { id: string; name: string } | null;
     /* What `read` takes through it: the thing itself, and for a canvas every node and text on it. */
     sources: ContextSource[];
+    /* The table a database view shows, which `read` names with the command that reads it. */
+    database?: ProjectDatabaseTarget;
 }
 
 function viewSource(view: ProjectView, folder: string | null): ContextSource | null {
@@ -67,6 +71,18 @@ export function resolveReference(views: readonly ProjectView[], id: string, fold
             if (isCanvasView(view)) {
                 return { id, kind: 'canvas', name: view.name, canvas: null, sources: canvasContextSources(view, folder) };
             }
+            if (isDatabaseView(view)) {
+                const { connectionId, schema, table, mode, where, tableKind } = view;
+                const database = {
+                    connectionId,
+                    schema,
+                    table,
+                    mode,
+                    ...(where === undefined ? {} : { where }),
+                    ...(tableKind === undefined ? {} : { tableKind })
+                };
+                return { id, kind: 'database', name: view.name, canvas: null, sources: [], database };
+            }
             const source = viewSource(view, folder);
             return source === null ? null : { id, kind: source.kind === 'text' ? 'text' : source.kind, name: source.title, canvas: null, sources: [source] };
         }
@@ -109,6 +125,10 @@ function writeCommand(reference: Reference): string | null {
             return `message it with ${command(`notify ${id}`)}`;
         case 'diagram':
             return `write with ${command(`view diagram ${reference.sources[0]?.id ?? id}`)}`;
+        case 'drawing': {
+            const viewId = reference.sources[0]?.id ?? id;
+            return `see its elements with ${command(`read ${viewId} --elements`)} · write with ${command(`view drawing ${viewId} --revision R`)}`;
+        }
         // A browser or a device that is a view of its own has no node the verbs drive.
         case 'browser':
             return canvas === null ? null : `drive it with ${command(`browser go ${id} --url U`)}`;
@@ -123,7 +143,7 @@ function writeCommand(reference: Reference): string | null {
 
 function referenceLine(reference: Reference): string {
     const what = reference.canvas === null ? reference.kind : `${reference.kind} on ${JSON.stringify(reference.canvas.name)}`;
-    const read = reference.kind === 'canvas' ? command(`node list --view ${reference.id}`) : command(`read ${reference.id}`);
+    const read = command(`read ${reference.id}`);
     const write = writeCommand(reference);
     return `- ${JSON.stringify(reference.name)} (${what}): ${read}${write === null ? '' : ` · ${write}`}`;
 }

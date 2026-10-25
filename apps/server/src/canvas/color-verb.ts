@@ -25,6 +25,7 @@ export const nodeColorAction = defineActionVerb('node', {
         'note\tThe color it already has writes nothing and is not a refusal',
         'who\tYour own node, a node you made yourself, or one a line joins you to, whichever way that line runs, the rule node edit follows',
         'who\tA chat view has no lines: it colors any node of the canvas it names with --view, the way the person arranging that canvas would',
+        'who\tA node the person pointed you at with # in one of your messages is yours to color as along a line, with no --view; a # to its canvas alone is not',
         'refusals\tunknown-color\tnot-linked\tunknown-node\tnode-on-other-machine\tthe whole set this verb refuses with',
         'ids\tOnly ids, never titles; ruimte-context node list lists the nodes of a canvas with theirs',
         'see\truimte-context node group --color C\ta frame around nodes in one of the same colors'
@@ -43,7 +44,9 @@ export const nodeColorAction = defineActionVerb('node', {
                 ...COLOR_LINES
             ]);
         }
-        const viewId = await canvasIdFor(call, placeOf(call), flags.view);
+        // A node the person pointed the caller at already says which canvas it stands on.
+        const pointed = (call.host.context?.referenced?.(call.caller) ?? []).find((reference) => reference.id === id)?.canvas?.id;
+        const viewId = flags.view ?? pointed ?? (await canvasIdFor(call, placeOf(call), flags.view));
         const colored = await runAction(call, 'node.setColor', { viewId, nodeId: id, color: flags.color === NONE ? null : flags.color }, dryRun);
         return [[dryRun ? 'dry-run' : 'colored', id, colored.kind, colored.color ?? '-'].join('\t')];
     }

@@ -40,7 +40,7 @@ function nodeReferable(node: Pick<ProjectNode, 'id' | 'kind' | 'title' | 'viewId
     }
 }
 
-const VIEW_KINDS: ReadonlySet<string> = new Set<ReferableKind>(['canvas', 'chat', 'terminal', 'browser', 'device', 'drawing', 'diagram', 'file']);
+const VIEW_KINDS: ReadonlySet<string> = new Set<ReferableKind>(['canvas', 'chat', 'terminal', 'browser', 'device', 'drawing', 'diagram', 'file', 'database']);
 
 function viewReferable(view: ProjectView): Referable | null {
     if (isDividerView(view) || isUnlistedView(view) || view.kind === UNKNOWN_KIND || !VIEW_KINDS.has(view.kind)) {

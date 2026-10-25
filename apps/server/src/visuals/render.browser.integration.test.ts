@@ -2,7 +2,9 @@ import { afterAll, describe, expect, test } from 'bun:test';
 import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { networkInterfaces, tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
-import { VISUAL_MEASURE_WIDTHS } from '@ruimte/contracts';
+import { VISUAL_MEASURE_WIDTHS, type DrawingElement } from '@ruimte/contracts';
+import { DEFAULT_PALETTE, toSvg } from '@adecore/drawing';
+import { imagePage, imageWidth } from '../context/read-forms.ts';
 import { pngSize } from '../shots.ts';
 import { childLauncher, renderCommand, VisualRenderer, type RenderedPreview, type VisualRendererOptions } from './renderer.ts';
 
@@ -106,6 +108,16 @@ afterAll(async () => {
 });
 
 describe.skipIf(!available)('a preview in a Chrome of its own', () => {
+    test('draws the SVG of a drawing at the width read --image picks, within the tallest png', async () => {
+        const elements: DrawingElement[] = [{ kind: 'rect', id: 'tall', x: 0, y: 0, w: 400, h: 9000, stroke: 'ink', strokeWidth: 2, seed: 1 }];
+        const svg = toSvg(elements, { palette: DEFAULT_PALETTE, background: '#ffffff' });
+        const width = imageWidth(svg);
+        const preview = await leavesNothing(() => shared.preview(imagePage(svg, width), width, 'light'));
+        expect(preview.width).toBe(width);
+        expect(pngSize(preview.png)!.height).toBeLessThanOrEqual(4000);
+        expect(preview.height).toBeLessThanOrEqual(4000);
+    }, 30_000);
+
     test('answers a png as wide as asked, the content height, and the console with an uncaught exception at its line', async () => {
         const page = [
             '<!doctype html>',

@@ -108,6 +108,15 @@ export const cases: WriteCases = {
         input: { viewId: 'sketch', format: 'svg' },
         refused: { 'elements, which are no image': { viewId: 'sketch', format: 'elements' } }
     },
+    'drawing.edit': {
+        actors: ['agent'],
+        input: { viewId: 'sketch', revision: 4, edit: '{"remove":["el-1"]}' },
+        refused: {
+            'no revision': { viewId: 'sketch', edit: '{}' },
+            'a revision below zero': { viewId: 'sketch', revision: -1, edit: '{}' },
+            'an edit that is no text': { viewId: 'sketch', revision: 4, edit: { remove: [] } }
+        }
+    },
     'diagram.updateNode': {
         actors: ['person', 'voice'],
         input: { viewId: 'flow', diagramNodeId: 'api', label: 'Gateway', tone: 'purple' },

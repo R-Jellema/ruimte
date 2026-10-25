@@ -9,6 +9,7 @@ import { contextActions } from './context-actions.ts';
 import { databaseActions } from './database-actions.ts';
 import { deviceActions } from './device-actions.ts';
 import { diagramActions } from './diagram-actions.ts';
+import { drawingActions } from './drawing-actions.ts';
 import { flagActions } from './flag-actions.ts';
 import { forkActions } from './fork-actions.ts';
 import { languageActions } from './language-actions.ts';
@@ -48,6 +49,7 @@ export const serverActions = new ActionRegistry<ServerActionContext>(
         ...visualActions,
         ...chatAttachActions,
         ...diagramActions,
+        ...drawingActions,
         ...browserActions,
         ...computerActions,
         ...deviceActions,
@@ -63,7 +65,7 @@ export const serverActions = new ActionRegistry<ServerActionContext>(
         ...voiceActions
     },
     {
-        previews: ['node.create', 'node.createMany', 'node.setColor', 'plan.create', 'agent.start', 'team.start'],
+        previews: ['node.create', 'node.createMany', 'node.setColor', 'plan.create', 'agent.start', 'team.start', 'drawing.edit'],
         checkRevision: checkProjectRevision,
         // Every refusal the daemon raises is coded, with what to pick instead as its lines.
         refusalOf: (error) => (error instanceof CodedError ? { code: error.code, message: error.message, details: error.lines } : null)
