@@ -62,6 +62,8 @@ export interface ServerInfo {
     nodeSizes: NodeSizes;
     /* Whether the machine sends its anonymous usage counts; undefined from a machine without the switch. */
     usageStats: boolean | undefined;
+    /* Whether the machine resolves `references` on `chat.send`; without it a `#` reaches only chats. */
+    viewReferences: boolean;
 }
 
 /* One object for a machine that has not said hello yet, so a selector gets a stable snapshot. Its settings are the daemon's own defaults. */
@@ -96,7 +98,8 @@ const UNKNOWN: ServerInfo = {
     accountId: undefined,
     worktreeRoot: undefined,
     nodeSizes: {},
-    usageStats: undefined
+    usageStats: undefined,
+    viewReferences: false
 };
 
 interface ServersStore {
@@ -133,6 +136,7 @@ interface ServersStore {
             | 'worktreeRoot'
             | 'nodeSizes'
             | 'usageStats'
+            | 'viewReferences'
         >
     ): void;
     /* What a person allowed in the CLIs' settings, after this client changed it. */

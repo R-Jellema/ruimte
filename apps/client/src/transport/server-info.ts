@@ -64,7 +64,8 @@ export function adoptEndpointInfo(endpointId: string, info: EndpointInfo): void 
         accountId: info.accountId,
         worktreeRoot: info.worktreeRoot,
         nodeSizes: knownNodeSizes(info.nodeSizes),
-        usageStats: info.usageStats
+        usageStats: info.usageStats,
+        viewReferences: info.viewReferences === true
     });
     adoptMachineName(endpointId, info.label, info.nameSource ?? 'default');
 }

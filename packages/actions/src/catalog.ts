@@ -1317,9 +1317,10 @@ export const ACTION_DEFINITIONS = {
             delivery: forActors(PERSON_AND_VOICE, ChatDeliverySchema).describe('Steer the running agent, or queue until its current turn finishes'),
             mentions: forActors(PERSON, z.array(z.string().min(1)).max(64)).describe('Paths picked with @'),
             skills: forActors(PERSON, z.array(z.string().min(1)).max(16)).describe('Skills picked with $'),
-            chats: forActors(PERSON, z.array(z.string().min(1)).max(16)).describe('Chats of this project picked with @'),
+            chats: forActors(PERSON, z.array(z.string().min(1)).max(16)).describe('Chats of this project picked with #'),
             quoteSource: forActors(PERSON, ChatQuoteSourceSchema).describe('The reply a quote at the head of the prompt was taken from'),
-            attachments: forActors(PERSON, ChatAttachmentUploadsSchema).describe('Files dropped or pasted into the composer')
+            attachments: forActors(PERSON, ChatAttachmentUploadsSchema).describe('Files dropped or pasted into the composer'),
+            references: forActors(PERSON, z.array(z.string().min(1)).max(16)).describe('Views and nodes of this project picked with #')
         }),
         output: z.object({
             chatId: z.string().min(1),

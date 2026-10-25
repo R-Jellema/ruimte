@@ -26,7 +26,8 @@ export const cases: WriteCases = {
             skills: { value: ['review'], actors: ['person'] },
             chats: { value: ['chat-2'], actors: ['person'] },
             quoteSource: { value: { itemId: 'item-9' }, actors: ['person'] },
-            attachments: { value: [attachment], actors: ['person'] }
+            attachments: { value: [attachment], actors: ['person'] },
+            references: { value: ['view-2'], actors: ['person'] }
         }
     },
     'chat.uiChoice': {

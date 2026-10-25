@@ -7,6 +7,7 @@ import { ChatModelView } from '@/chat/ChatModelView';
 import { ComposerDictation } from '@/chat/ComposerDictation';
 import { prepareCodeBlockAction } from '@/chat/prepare-code-block';
 import { useProjectChats } from '@/chat/project-chats';
+import { openReference, useReferables } from '@/chat/referables';
 import { openUiLink, openUiUrl } from '@/chat/ui-links';
 import { openNewChatAfterSend } from '@/chat/new-chat-after-send';
 import { MarkdownImage, ReadImage } from '@/chat/ReadImage';
@@ -76,6 +77,8 @@ export const WORKSPACE_CHAT_HOST: Partial<ChatHost> = {
     },
     openNewChat: (endpointId, chatId) => void openNewChatAfterSend(endpointId, chatId),
     useReferableChats: useProjectChats,
+    useReferables,
+    openReference,
     useChatPlace,
     useContextSources
 };

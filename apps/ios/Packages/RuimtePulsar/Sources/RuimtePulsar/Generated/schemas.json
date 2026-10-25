@@ -13141,6 +13141,12 @@
               "required": [
                 "itemId"
               ]
+            },
+            "references": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           },
           "required": [
@@ -13715,6 +13721,12 @@
                   "required": [
                     "itemId"
                   ]
+                },
+                "references": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
                 }
               },
               "required": [
@@ -15520,6 +15532,12 @@
                   "required": [
                     "itemId"
                   ]
+                },
+                "references": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
                 }
               },
               "required": [
@@ -16066,6 +16084,12 @@
                   "required": [
                     "itemId"
                   ]
+                },
+                "references": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
                 }
               },
               "required": [
@@ -17657,6 +17681,12 @@
                   "required": [
                     "itemId"
                   ]
+                },
+                "references": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
                 }
               },
               "required": [
@@ -19242,6 +19272,12 @@
                           "required": [
                             "itemId"
                           ]
+                        },
+                        "references": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
                         }
                       },
                       "required": [
@@ -21334,6 +21370,12 @@
                             "required": [
                               "itemId"
                             ]
+                          },
+                          "references": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
                           }
                         },
                         "required": [
@@ -22001,6 +22043,12 @@
                             "required": [
                               "itemId"
                             ]
+                          },
+                          "references": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
                           }
                         },
                         "required": [
@@ -22547,6 +22595,12 @@
                             "required": [
                               "itemId"
                             ]
+                          },
+                          "references": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
                           }
                         },
                         "required": [
@@ -24412,6 +24466,14 @@
             "data"
           ]
         }
+      },
+      "references": {
+        "maxItems": 16,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "required": [
@@ -24934,6 +24996,12 @@
             "required": [
               "itemId"
             ]
+          },
+          "references": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -25396,6 +25464,12 @@
               "required": [
                 "itemId"
               ]
+            },
+            "references": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           },
           "required": [
@@ -26364,6 +26438,12 @@
                   "required": [
                     "itemId"
                   ]
+                },
+                "references": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
                 }
               },
               "required": [
@@ -27144,6 +27224,12 @@
                       "required": [
                         "itemId"
                       ]
+                    },
+                    "references": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
                     }
                   },
                   "required": [
@@ -27901,6 +27987,12 @@
                   "required": [
                     "itemId"
                   ]
+                },
+                "references": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
                 }
               },
               "required": [
@@ -60825,6 +60917,12 @@
                     "required": [
                       "itemId"
                     ]
+                  },
+                  "references": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
                   }
                 },
                 "required": [
@@ -63435,6 +63533,12 @@
                         "required": [
                           "itemId"
                         ]
+                      },
+                      "references": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
                       }
                     },
                     "required": [
@@ -65527,6 +65631,12 @@
                           "required": [
                             "itemId"
                           ]
+                        },
+                        "references": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
                         }
                       },
                       "required": [
@@ -66194,6 +66304,12 @@
                           "required": [
                             "itemId"
                           ]
+                        },
+                        "references": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
                         }
                       },
                       "required": [
@@ -66740,6 +66856,12 @@
                           "required": [
                             "itemId"
                           ]
+                        },
+                        "references": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
                         }
                       },
                       "required": [
@@ -68520,6 +68642,12 @@
                   "required": [
                     "itemId"
                   ]
+                },
+                "references": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
                 }
               },
               "required": [

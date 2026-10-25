@@ -147,21 +147,23 @@ describe('a chat view', () => {
     });
 });
 
-/* Puts a chat of the project on the draft the way a person does, from the `@` picker. */
+/* Puts a chat of the project in the draft the way a person does, from the `#` picker. */
 async function attachChat(viewId: string, title: string): Promise<void> {
-    await type(viewId, '@');
+    await type(viewId, `#${title.slice(0, 3)}`);
     await until(() => option(viewId, title) !== null);
     await clickOn(option(viewId, title));
 }
 
+/* A row of the picker, which names the chat and then its kind. */
 function option(viewId: string, title: string): Element | null {
     const options = page.host.querySelectorAll(`[data-split-cell][data-view-id="${viewId}"] [role="option"]`);
-    return Array.from(options).find((candidate) => candidate.textContent?.trim() === title) ?? null;
+    return Array.from(options).find((candidate) => candidate.textContent?.trim() === `${title}chat`) ?? null;
 }
 
-/* The chats on the draft, by the remove button each chip carries. */
-function chipOf(title: string): Element | null {
-    return button(`Remove ${title}`);
+/* A chat in the text of a draft, drawn as a chip. */
+function chipOf(viewId: string, title: string): Element | null {
+    const spans = page.host.querySelectorAll(`[data-split-cell][data-view-id="${viewId}"] .cm-content span`);
+    return Array.from(spans).find((span) => span.className.includes('bg-text/8') && span.textContent === title) ?? null;
 }
 
 async function toggleStash(viewId: string): Promise<void> {
@@ -178,15 +180,15 @@ describe('a stashed prompt', () => {
         await attachChat(first, 'Third');
         await type(first, 'Compare these');
         await toggleStash(first);
-        await until(() => chipOf('Third') === null);
+        await until(() => text(first) === '');
         await showView(second);
         await toggleStash(second);
-        await until(() => chipOf('Third') !== null);
-        expect(text(second)).toBe('Compare these');
+        await until(() => chipOf(second, 'Third') !== null);
+        expect(text(second)).toBe('#Third Compare these');
         expect(notice(second)).toBeNull();
         await pressKey(composer(second)!.contentDOM, 'Enter');
         await until(() => machine.requests('chat.send').length === 1);
-        expect(machine.requests('chat.send')[0]).toMatchObject({ chatId: second, text: 'Compare these', chats: [third] });
+        expect(machine.requests('chat.send')[0]).toMatchObject({ chatId: second, text: '#Third Compare these', chats: [third] });
     });
 
     test('leaves out the chats another project does not have and says so', async () => {
@@ -194,7 +196,7 @@ describe('a stashed prompt', () => {
         await attachChat(first, 'Third');
         await type(first, 'Compare these');
         await toggleStash(first);
-        await until(() => chipOf('Second') === null);
+        await until(() => text(first) === '');
 
         await page.unmount();
         workspace.close();
@@ -213,9 +215,8 @@ describe('a stashed prompt', () => {
         await until(() => composer(first) !== null);
 
         await toggleStash(first);
-        await until(() => text(first) !== '');
-        expect(chipOf('Third')).not.toBeNull();
-        expect(chipOf('Second')).toBeNull();
+        await until(() => chipOf(first, 'Third') !== null);
+        expect(chipOf(first, 'Second')).toBeNull();
         expect(notice(first)).toBe('Left out 1 chat from another project');
         await pressKey(composer(first)!.contentDOM, 'Enter');
         await until(() => machine.requests('chat.send').length === 1);

@@ -159,7 +159,7 @@ export function createClientActionRegistry(document: StoreApi<DocumentState>, ma
             clearTerminal(terminalId);
             return { output: { terminalId, terminal } };
         },
-        'chat.send': async ({ chatId, prompt, delivery, mentions, skills, chats, quoteSource, attachments }, call) => {
+        'chat.send': async ({ chatId, prompt, delivery, mentions, skills, chats, quoteSource, attachments, references }, call) => {
             const chat = sessionTitle(document, chatId, 'chat');
             if (!chat) {
                 throw new ActionRefusal('unknown-chat', `No AI Chat with id “${chatId}” exists in this project.`);
@@ -175,7 +175,8 @@ export function createClientActionRegistry(document: StoreApi<DocumentState>, ma
                     ...(skills == null ? {} : { skills }),
                     ...(chats == null ? {} : { chats }),
                     ...(quoteSource == null ? {} : { quoteSource }),
-                    ...(attachments == null ? {} : { attachments })
+                    ...(attachments == null ? {} : { attachments }),
+                    ...(references == null ? {} : { references })
                 });
                 return { output: { chatId, chat, ...submitted } };
             } catch (error: unknown) {

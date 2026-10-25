@@ -275,7 +275,17 @@ describe('Voice domain tools', () => {
             const result = await run('communicate', { action: 'chat.send', chatId, prompt: 'Give a motivating quote' });
             expect(send).toHaveBeenCalledWith(
                 'chat.send',
-                { chatId, prompt: 'Give a motivating quote', delivery: null, mentions: null, skills: null, chats: null, quoteSource: null, attachments: null },
+                {
+                    chatId,
+                    prompt: 'Give a motivating quote',
+                    delivery: null,
+                    mentions: null,
+                    skills: null,
+                    chats: null,
+                    quoteSource: null,
+                    attachments: null,
+                    references: null
+                },
                 VOICE_ACTION_CALL
             );
             expect(result.output).toMatchObject({

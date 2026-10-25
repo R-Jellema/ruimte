@@ -4545,8 +4545,9 @@ public struct ChatUserItem: Codable, Sendable, Equatable {
     public let `attachments`: [ChatUserItemAttachmentsItem]?
     public let `uiChoice`: ChatUserItemUiChoice?
     public let `quoteSource`: ChatUserItemQuoteSource?
+    public let `references`: [String]?
 
-    public init(`id`: String, `createdAt`: Double, `turnId`: String?, `kind`: String = "user", `text`: String, `mentions`: [String]? = nil, `skills`: [String]? = nil, `chats`: [String]? = nil, `attachments`: [ChatUserItemAttachmentsItem]? = nil, `uiChoice`: ChatUserItemUiChoice? = nil, `quoteSource`: ChatUserItemQuoteSource? = nil) {
+    public init(`id`: String, `createdAt`: Double, `turnId`: String?, `kind`: String = "user", `text`: String, `mentions`: [String]? = nil, `skills`: [String]? = nil, `chats`: [String]? = nil, `attachments`: [ChatUserItemAttachmentsItem]? = nil, `uiChoice`: ChatUserItemUiChoice? = nil, `quoteSource`: ChatUserItemQuoteSource? = nil, `references`: [String]? = nil) {
         self.`id` = `id`
         self.`createdAt` = `createdAt`
         self.`turnId` = `turnId`
@@ -4558,6 +4559,7 @@ public struct ChatUserItem: Codable, Sendable, Equatable {
         self.`attachments` = `attachments`
         self.`uiChoice` = `uiChoice`
         self.`quoteSource` = `quoteSource`
+        self.`references` = `references`
     }
 
     public init(from decoder: Decoder) throws {
@@ -4573,6 +4575,7 @@ public struct ChatUserItem: Codable, Sendable, Equatable {
         `attachments` = try container.decodeIfPresent([ChatUserItemAttachmentsItem].self, forKey: .`attachments`)
         `uiChoice` = try container.decodeIfPresent(ChatUserItemUiChoice.self, forKey: .`uiChoice`)
         `quoteSource` = try container.decodeIfPresent(ChatUserItemQuoteSource.self, forKey: .`quoteSource`)
+        `references` = try container.decodeIfPresent([String].self, forKey: .`references`)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -4588,6 +4591,7 @@ public struct ChatUserItem: Codable, Sendable, Equatable {
         try container.encodeIfPresent(`attachments`, forKey: .`attachments`)
         try container.encodeIfPresent(`uiChoice`, forKey: .`uiChoice`)
         try container.encodeIfPresent(`quoteSource`, forKey: .`quoteSource`)
+        try container.encodeIfPresent(`references`, forKey: .`references`)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -4602,6 +4606,7 @@ public struct ChatUserItem: Codable, Sendable, Equatable {
         case `attachments` = "attachments"
         case `uiChoice` = "uiChoice"
         case `quoteSource` = "quoteSource"
+        case `references` = "references"
     }
 }
 
@@ -6819,8 +6824,9 @@ public struct ChatInfoQueueItem: Codable, Sendable, Equatable {
     public let `createdAt`: Double
     public let `uiChoice`: ChatInfoQueueItemUiChoice?
     public let `quoteSource`: ChatInfoQueueItemQuoteSource?
+    public let `references`: [String]?
 
-    public init(`id`: String, `turnId`: String? = nil, `text`: String, `mentions`: [String]? = nil, `skills`: [String]? = nil, `chats`: [String]? = nil, `attachments`: [ChatInfoQueueItemAttachmentsItem]? = nil, `createdAt`: Double, `uiChoice`: ChatInfoQueueItemUiChoice? = nil, `quoteSource`: ChatInfoQueueItemQuoteSource? = nil) {
+    public init(`id`: String, `turnId`: String? = nil, `text`: String, `mentions`: [String]? = nil, `skills`: [String]? = nil, `chats`: [String]? = nil, `attachments`: [ChatInfoQueueItemAttachmentsItem]? = nil, `createdAt`: Double, `uiChoice`: ChatInfoQueueItemUiChoice? = nil, `quoteSource`: ChatInfoQueueItemQuoteSource? = nil, `references`: [String]? = nil) {
         self.`id` = `id`
         self.`turnId` = `turnId`
         self.`text` = `text`
@@ -6831,6 +6837,7 @@ public struct ChatInfoQueueItem: Codable, Sendable, Equatable {
         self.`createdAt` = `createdAt`
         self.`uiChoice` = `uiChoice`
         self.`quoteSource` = `quoteSource`
+        self.`references` = `references`
     }
 
     public init(from decoder: Decoder) throws {
@@ -6845,6 +6852,7 @@ public struct ChatInfoQueueItem: Codable, Sendable, Equatable {
         `createdAt` = try container.decode(Double.self, forKey: .`createdAt`)
         `uiChoice` = try container.decodeIfPresent(ChatInfoQueueItemUiChoice.self, forKey: .`uiChoice`)
         `quoteSource` = try container.decodeIfPresent(ChatInfoQueueItemQuoteSource.self, forKey: .`quoteSource`)
+        `references` = try container.decodeIfPresent([String].self, forKey: .`references`)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -6859,6 +6867,7 @@ public struct ChatInfoQueueItem: Codable, Sendable, Equatable {
         try container.encode(`createdAt`, forKey: .`createdAt`)
         try container.encodeIfPresent(`uiChoice`, forKey: .`uiChoice`)
         try container.encodeIfPresent(`quoteSource`, forKey: .`quoteSource`)
+        try container.encodeIfPresent(`references`, forKey: .`references`)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -6872,6 +6881,7 @@ public struct ChatInfoQueueItem: Codable, Sendable, Equatable {
         case `createdAt` = "createdAt"
         case `uiChoice` = "uiChoice"
         case `quoteSource` = "quoteSource"
+        case `references` = "references"
     }
 }
 
