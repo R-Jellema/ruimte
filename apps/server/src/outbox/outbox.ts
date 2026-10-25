@@ -108,6 +108,12 @@ const DeliverRemoteResultSchema = z.object({
     payload: z.object({ machineId: z.string().min(1), nodeId: z.string().min(1), taskId: z.string().min(1) })
 });
 
+const RoutineRunWorkSchema = z.object({
+    kind: z.literal('routine-run'),
+    // The target is `routine:<projectId>:<routineId>`; `due` is the time it is owed for, which `notBefore` holds too.
+    payload: z.object({ routineId: z.string().min(1), due: z.number().int().nonnegative() })
+});
+
 // The kinds of tasks, ending children and delivering a message are @adecore/agents' own, each at the place it always had.
 const OutboxWorkSchema = z.discriminatedUnion('kind', [
     StartAgentSchema,
@@ -126,7 +132,8 @@ const OutboxWorkSchema = z.discriminatedUnion('kind', [
     DeliverRemoteResultSchema,
     StartRemoteAgentSchema,
     StopRemoteAgentSchema,
-    TakeRemoteResultSchema
+    TakeRemoteResultSchema,
+    RoutineRunWorkSchema
 ]);
 
 export type OutboxWork = z.infer<typeof OutboxWorkSchema>;
@@ -149,13 +156,15 @@ export type StopRemoteAgentEntry = Extract<OutboxEntry, { kind: 'stop-remote-age
 export type TakeRemoteResultEntry = Extract<OutboxEntry, { kind: 'take-remote-result' }>;
 export type StartRemoteAgentPayload = StartRemoteAgentEntry['payload'];
 export type DeliverRemoteResultEntry = Extract<OutboxEntry, { kind: 'deliver-remote-result' }>;
+export type RoutineRunEntry = Extract<OutboxEntry, { kind: 'routine-run' }>;
 
 /*
  * Work the daemon still owes, under `$RUIMTE_HOME/outbox`. Only a verb or a restart puts something
  * here, never a clock; the exceptions are a `resume-limit`, only where a person turned it on, a
  * `background-limit`, the grace of a `deliver-waiting` and a `connect-peer`, each due at a time. A `deliver-remote-result`, a `start-remote-agent`, a `take-remote-result` and a `stop-remote-agent` are due at once and wait for the link to a machine, never for a clock of their own. A `deliver-pr-watch`
  * is due at once: the poll that wrote it is the PR-watch's own clock, not the outbox's. A
- * `run-after-settle` is due at once too, owed when a chat in a worktree settles.
+ * `run-after-settle` is due at once too, owed when a chat in a worktree settles. A `routine-run` is due at
+ * the time a person's approved routine set, one entry per routine at most.
  */
 export class OutboxStore extends BaseOutboxStore<OutboxWork> {
     constructor(home: string) {
@@ -164,9 +173,13 @@ export class OutboxStore extends BaseOutboxStore<OutboxWork> {
             work: OutboxWorkSchema,
             // Ending children holds their lanes too, so no start or resume of one runs beside it.
             lanesOf: (entry) => (entry.kind === 'end-children' ? [entry.target, ...entry.payload.nodeIds] : [entry.target]),
-            // Ending the children of a deleted node is owed exactly because it is gone, and what is owed to a machine has no node for a target.
+            // Ending the children of a deleted node is owed exactly because it is gone, and what is owed to a machine or a routine has no node for a target.
             outlivesTarget: (entry) =>
-                entry.kind === 'end-children' || entry.kind === 'connect-peer' || entry.kind === 'deliver-remote-result' || entry.kind === 'stop-remote-agent'
+                entry.kind === 'end-children' ||
+                entry.kind === 'connect-peer' ||
+                entry.kind === 'deliver-remote-result' ||
+                entry.kind === 'stop-remote-agent' ||
+                entry.kind === 'routine-run'
         });
     }
 }

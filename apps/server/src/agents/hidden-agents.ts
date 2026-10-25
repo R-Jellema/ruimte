@@ -83,9 +83,10 @@ export class HiddenAgentStore {
         }
     }
 
+    /* A routine's run chats stay without a place of their own, and outlive their routine. */
     async pruneOrphans(projectId: string, placed: ReadonlySet<string>): Promise<void> {
         const agents = this.inProject(projectId);
-        const kept = new Set(placed);
+        const kept = new Set([...placed, ...agents.flatMap((agent) => (agent.openedBy.startsWith('routine:') ? [agent.openedBy] : []))]);
         let added = true;
         while (added) {
             added = false;

@@ -13,6 +13,8 @@ import { noteShutdown, rememberSecret, stopTelemetry, watchProjects, type Launch
 import { COMPILED as compiled, VERSION } from './version.ts';
 import { loadAgentStores, wireAgents } from './wiring/agents.ts';
 import { wireArtifacts } from './wiring/artifacts.ts';
+import { wireRoutines } from './wiring/routines.ts';
+import { registerRoutineHandlers } from './handlers/routine.ts';
 import { wireAgentWork } from './wiring/agent-work.ts';
 import { wireCanvasHost } from './wiring/canvas-host.ts';
 import { repairChatMoves } from './wiring/chat-move.ts';
@@ -91,7 +93,15 @@ export async function startDaemon(config: ServerConfig, launcher: Launcher = 'st
         later: { launches: () => launches, work: () => work, databases: () => databases, language: () => language }
     });
     watchProjects(projects.store);
-    const artifacts = await wireArtifacts({ home, machineId: identity.id, machineHome: machine.machineHome, stores, agents, projects });
+    const artifacts = await wireArtifacts({
+        home,
+        machineId: identity.id,
+        machineHome: machine.machineHome,
+        stores,
+        agents,
+        projects,
+        later: { routines: () => routines.routines }
+    });
     const databases = await wireDatabases(home, machine.machineHome, projects.store, { language: () => language });
     const remote = await wireRemote({ home, identity, machine, outbox: stores.outbox, later: { brokerUrl: () => network.brokerSwitch.describe().brokerUrl } });
     const work = wireAgentWork({
@@ -102,9 +112,10 @@ export async function startDaemon(config: ServerConfig, launcher: Launcher = 'st
         projects: projects.store,
         remote,
         providers,
-        later: { push: () => push, launches: () => launches, git: () => git, clients: () => clients }
+        later: { push: () => push, launches: () => launches, git: () => git, clients: () => clients, routines: () => routines.routines }
     });
     const launches = wireLaunches({ home, stores, agents, work, projects: projects.store, later: { git: () => git } });
+    const routines = await wireRoutines({ home, machineId: identity.id, stores, agents, projects, launches, artifacts });
     // Before the socket answers, so an agent whose project nobody opened since the restart still reads its links.
     await projects.store.warmIndex();
     const git = wireGit(home, identity, agents, work, projects.store.peers);
@@ -179,6 +190,7 @@ export async function startDaemon(config: ServerConfig, launcher: Launcher = 'st
         later: { network: () => network, clients: () => clients }
     });
     registerVoiceHandlers(dispatcher, voice);
+    registerRoutineHandlers(dispatcher, routines);
     const language = await wireLanguage({
         home,
         compiled,
@@ -252,7 +264,8 @@ export async function startDaemon(config: ServerConfig, launcher: Launcher = 'st
         computer,
         secrets: launches.secrets,
         proposals: agents.proposals,
-        artifacts: artifacts.artifacts
+        artifacts: artifacts.artifacts,
+        routines: routines.watchers
     });
     // Before the socket answers, so no client attaches to or writes in a chat that is half moved; the outbox starts after.
     await repairChatMoves({
@@ -289,6 +302,8 @@ export async function startDaemon(config: ServerConfig, launcher: Launcher = 'st
     // Only once `hookUrl` is set: a terminal the worker starts before that runs without hooks for good.
     await work.tasks.recover();
     await work.peerTasks.recover();
+    // Before the outbox works, so a routine whose time passed while the machine was off runs once now.
+    await routines.routines.start().catch((e: unknown) => console.error('Scheduling routines failed:', errorText(e)));
     work.worker.start();
     work.endChildren.start();
     // Beside the daemon answering: a turn a restart interrupted is taken up again without waiting for a client.

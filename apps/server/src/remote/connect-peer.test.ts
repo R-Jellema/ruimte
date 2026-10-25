@@ -87,7 +87,8 @@ function handlersWith(connectPeer: (entry: ConnectPeerEntry) => Promise<void>): 
         'deliver-remote-result': () => Promise.reject(new Error('not used here')),
         'start-remote-agent': () => Promise.reject(new Error('not used here')),
         'stop-remote-agent': () => Promise.reject(new Error('not used here')),
-        'take-remote-result': () => Promise.reject(new Error('not used here'))
+        'take-remote-result': () => Promise.reject(new Error('not used here')),
+        'routine-run': () => Promise.reject(new Error('not used here'))
     };
 }
 

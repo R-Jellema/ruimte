@@ -9,6 +9,7 @@ import type { EndChildrenWiring } from '../outbox/end-children.ts';
 import type { OutboxWork } from '../outbox/outbox.ts';
 import type { SummaryWiring } from '../chat/summary.ts';
 import { wireOutbox } from '../outbox/wiring.ts';
+import { wakefulClock } from '../outbox/wakeful-clock.ts';
 import type { PushService } from '../push/service.ts';
 import { SnoozeStore } from '../push/snoozes.ts';
 import type { TaskWiring } from '../tasks/wiring.ts';
@@ -24,6 +25,7 @@ import type { ProvidersBundle } from './providers.ts';
 import { PeerTasks } from '../peering/peer-tasks.ts';
 import { RemoteTasks } from '../remote/remote-tasks.ts';
 import { BundleStore } from '../git/bundles.ts';
+import type { Routines } from '../routines/routines.ts';
 
 /* What the outbox drives on behalf of agents: starts, tasks, wakes and what a node takes along when it goes. */
 export interface AgentWorkBundle {
@@ -53,6 +55,7 @@ export interface AgentWorkInput {
         launches(): LaunchesBundle;
         git(): GitBundle;
         clients(): ClientsBundle;
+        routines(): Routines;
     };
 }
 
@@ -125,10 +128,12 @@ export function wireAgentWork({ home, identity, stores, agents, projects, remote
         chats: agents.chats,
         sessions: agents.sessions,
         alert: (target, nodeId, title, body) => later.push().alert(target, nodeId, title, body),
+        clock: wakefulClock(),
         checkCwd: agents.startCwd,
         resumeAtReset: () => identity.resumeAtReset,
         runAfterSettle: (entry) => later.launches().afterSettle.handle(entry),
         connectPeer: reconnect.handler,
+        runRoutine: (entry) => later.routines().handle(entry),
         peerTasks: {
             deliver: (entry) => peerTasksNow().deliver(entry),
             isPeerTask: (task) => peerTasks?.isPeerTask(task) === true,

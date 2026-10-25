@@ -7,6 +7,7 @@ import { Artifacts } from '../artifacts/artifacts.ts';
 import type { MachineHome } from '../fs/machine-home.ts';
 import type { AgentStores, AgentsBundle } from './agents.ts';
 import type { ProjectsBundle } from './projects.ts';
+import type { Routines } from '../routines/routines.ts';
 
 /* Output on this machine: the store under `$RUIMTE_HOME/artifacts` and what a person and an agent do with it. */
 export interface ArtifactsBundle {
@@ -21,6 +22,7 @@ export interface ArtifactsInput {
     stores: AgentStores;
     agents: AgentsBundle;
     projects: ProjectsBundle;
+    later?: { routines(): Routines };
 }
 
 export async function wireArtifacts(input: ArtifactsInput): Promise<ArtifactsBundle> {
@@ -35,13 +37,16 @@ export async function wireArtifacts(input: ArtifactsInput): Promise<ArtifactsBun
         const chat = chats.get(caller);
         const isChat = chat !== undefined || (await chats.hasStored(caller));
         const taskId = stores.tasks.openFor(caller)?.id;
-        return agentProvenance({
+        // A routine's run is named from the daemon's own record of the chat, never from the call.
+        const routine = input.later?.routines().provenanceOf(caller) ?? null;
+        const provenance = agentProvenance({
             machineId,
             caller,
             isChat,
             ...(chat === undefined ? {} : { chat: chat.info }),
             ...(taskId === undefined ? {} : { taskId })
         });
+        return routine === null ? provenance : { ...provenance, maker: 'routine', ...routine };
     };
     const artifacts = new Artifacts({
         store,

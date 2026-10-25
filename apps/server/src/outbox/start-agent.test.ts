@@ -141,6 +141,7 @@ async function boot(): Promise<Daemon> {
         clock: stillClock,
         handlers: {
             'deliver-message': () => Promise.reject(new Error('no messages in these tests')),
+            'routine-run': () => Promise.reject(new Error('no routines in these tests')),
             'deliver-summary': () => Promise.reject(new Error('no summaries in these tests')),
             'deliver-waiting': () => Promise.reject(new Error('no waiting children in these tests')),
             'deliver-pr-watch': () => Promise.reject(new Error('no pull request watches in these tests')),

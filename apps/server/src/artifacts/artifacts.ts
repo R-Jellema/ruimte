@@ -83,6 +83,16 @@ export interface PublishInput {
     requestId: string;
 }
 
+export interface DeliverInput {
+    projectId: string;
+    key: string;
+    title: string;
+    kind?: ArtifactKind;
+    requestId: string;
+    provenance: ArtifactProvenance;
+    files: ReadonlyArray<{ name: string; bytes: Uint8Array }>;
+}
+
 export interface UploadState {
     /* The bytes each staged file holds, by its place. */
     sizes: number[];
@@ -289,6 +299,42 @@ export class Artifacts {
                 names: input.files.map((file) => file.name)
             });
             return this.published(committed);
+        });
+    }
+
+    /*
+     * A version the machine makes itself, such as the output of a routine's command: the bytes are its
+     * own and so is the provenance, which no agent passes in. The same request id lands once.
+     */
+    async deliver(input: DeliverInput): Promise<CommitResult> {
+        const project = await this.requireProject(input.projectId);
+        const earlier = this.store.findRequest(input.projectId, input.requestId);
+        if (earlier) {
+            return earlier;
+        }
+        const bytes = input.files.reduce((sum, file) => sum + file.bytes.byteLength, 0);
+        if (bytes > ARTIFACT_LIMITS.versionBytes) {
+            throw new ArtifactError('too-large', 'A version holds at most 2 GiB');
+        }
+        await this.store.ensureRoom(bytes);
+        const stagingId = await this.store.openStaging();
+        try {
+            for (const [index, file] of input.files.entries()) {
+                await this.store.stageAppend(stagingId, index, file.bytes);
+            }
+        } catch (e) {
+            await this.store.discardStaging(stagingId);
+            throw e;
+        }
+        return this.store.commit(stagingId, {
+            projectId: input.projectId,
+            projectName: project.name,
+            title: input.title,
+            ...(input.kind === undefined ? {} : { kind: input.kind }),
+            key: input.key,
+            requestId: input.requestId,
+            provenance: input.provenance,
+            names: input.files.map((file) => file.name)
         });
     }
 

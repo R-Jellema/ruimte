@@ -25,6 +25,18 @@ import {
     ArtifactStorageResultSchema
 } from './artifact.ts';
 import {
+    RoutineApprovePayloadSchema,
+    RoutineChangedEventSchema,
+    RoutineGetResultSchema,
+    RoutineListPayloadSchema,
+    RoutineListResultSchema,
+    RoutineRemovePayloadSchema,
+    RoutineRunNowResultSchema,
+    RoutineSavePayloadSchema,
+    RoutineSaveResultSchema,
+    RoutineTargetPayloadSchema
+} from './routine.ts';
+import {
     CliUpdatePayloadSchema,
     CliUpdateResultSchema,
     CliVersionsPayloadSchema,
@@ -451,6 +463,7 @@ export * from './agent.ts';
 export * from './agent-integrations.ts';
 export * from './agent-registry.ts';
 export * from './artifact.ts';
+export * from './routine.ts';
 export * from './agent-server.ts';
 export * from './archive.ts';
 export * from './auth.ts';
@@ -858,6 +871,18 @@ export const REQUEST_SCHEMAS = {
     'artifact.cleanup': { payload: ArtifactCleanupPayloadSchema, result: ArtifactCleanupResultSchema },
     'artifact.importFrom': { payload: ArtifactImportFromPayloadSchema, result: ArtifactImportFromResultSchema },
     'artifact.remove': { payload: ArtifactRemovePayloadSchema, result: ArtifactRemoveResultSchema },
+    // A person's own: no request of these is on a peer's list, and an agent reaches routines only through its verbs.
+    'routine.list': { payload: RoutineListPayloadSchema, result: RoutineListResultSchema },
+    'routine.get': { payload: RoutineTargetPayloadSchema, result: RoutineGetResultSchema },
+    'routine.save': { payload: RoutineSavePayloadSchema, result: RoutineSaveResultSchema },
+    'routine.approve': { payload: RoutineApprovePayloadSchema, result: EmptySchema },
+    'routine.decline': { payload: RoutineApprovePayloadSchema, result: EmptySchema },
+    'routine.pause': { payload: RoutineTargetPayloadSchema, result: EmptySchema },
+    'routine.resume': { payload: RoutineTargetPayloadSchema, result: EmptySchema },
+    'routine.runNow': { payload: RoutineTargetPayloadSchema, result: RoutineRunNowResultSchema },
+    'routine.remove': { payload: RoutineRemovePayloadSchema, result: EmptySchema },
+    'routine.watch': { payload: EmptySchema, result: EmptySchema },
+    'routine.unwatch': { payload: EmptySchema, result: EmptySchema },
     'provenance.read': { payload: ProvenanceReadPayloadSchema, result: ProvenanceReadResultSchema },
     'provenance.review': { payload: ProvenanceReviewPayloadSchema, result: ProvenanceReviewResultSchema },
     'nanogpt.status': { payload: EmptySchema, result: NanoGptStatusSchema },
@@ -962,7 +987,9 @@ export const EVENT_SCHEMAS = {
     'plan.created': PlanCreatedEventSchema,
     // Only to the clients that asked with `artifact.watch`.
     'artifact.changed': ArtifactChangedEventSchema,
-    'provenance.changed': ProvenanceChangedEventSchema
+    'provenance.changed': ProvenanceChangedEventSchema,
+    // Only to the clients that asked with `routine.watch`.
+    'routine.changed': RoutineChangedEventSchema
 } as const satisfies Record<string, z.ZodType>;
 
 export type EventType = keyof typeof EVENT_SCHEMAS;

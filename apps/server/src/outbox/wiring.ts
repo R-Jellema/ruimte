@@ -17,6 +17,7 @@ import type {
     DeliverRemoteResultEntry,
     OutboxStore,
     OutboxWork,
+    RoutineRunEntry,
     RunAfterSettleEntry,
     StartRemoteAgentEntry,
     StopRemoteAgentEntry,
@@ -127,6 +128,8 @@ export interface OutboxWiringDeps {
     onFailed?: (what: string, error: unknown) => void;
     /* Starts the task a chat's project runs after it settled in a worktree; absent on a host that runs no launches, where the entry lapses. */
     runAfterSettle?: (entry: RunAfterSettleEntry) => Promise<void>;
+    /* Takes up a routine that is due (`routines/routines.ts`); absent on a host that runs none, where the entry lapses. */
+    runRoutine?: (entry: RoutineRunEntry) => Promise<void>;
     /* The reconnect of the link to another machine (`remote/connect-peer.ts`); absent on a host that links to none, where the entry lapses. */
     connectPeer?: (entry: ConnectPeerEntry) => Promise<void>;
     /*
@@ -276,6 +279,7 @@ export function wireOutbox(deps: OutboxWiringDeps): OutboxWiring {
             },
             'run-after-settle': (entry) => deps.runAfterSettle?.(entry) ?? Promise.resolve(),
             'connect-peer': (entry) => deps.connectPeer?.(entry) ?? Promise.resolve(),
+            'routine-run': (entry) => deps.runRoutine?.(entry) ?? Promise.resolve(),
             'deliver-remote-result': (entry) => deps.peerTasks?.deliver(entry) ?? Promise.resolve(undefined),
             'start-remote-agent': (entry) => deps.remoteTasks?.start(entry) ?? Promise.resolve(undefined),
             'stop-remote-agent': (entry) => deps.remoteTasks?.stop(entry) ?? Promise.resolve(undefined),

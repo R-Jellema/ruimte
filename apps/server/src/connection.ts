@@ -105,6 +105,8 @@ export interface ConnectionServices {
     voicePreferences?: Subscribable;
     /* The artifacts of this machine, which only a client that asked with `artifact.watch` hears change. */
     artifacts?: Subscribable;
+    /* The routines of this machine, which only a client that asked with `routine.watch` hears change. */
+    routines?: Subscribable;
 }
 
 export interface OpenConnection {
@@ -203,7 +205,8 @@ export function connectionOpener(services: ConnectionServices): (channel: Client
                       services.peers?.subscribe(clientId, sink) ?? (() => undefined),
                       services.remote?.subscribe(clientId, sink) ?? (() => undefined),
                       services.voicePreferences?.subscribe(clientId, sink) ?? (() => undefined),
-                      services.artifacts?.subscribe(clientId, sink) ?? (() => undefined)
+                      services.artifacts?.subscribe(clientId, sink) ?? (() => undefined),
+                      services.routines?.subscribe(clientId, sink) ?? (() => undefined)
                   ];
 
         channel.onDrain(() => {

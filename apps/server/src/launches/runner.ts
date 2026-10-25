@@ -172,6 +172,15 @@ export class LaunchRunner {
         return this.runs.get(sessionId)?.name ?? null;
     }
 
+    /* Resolves once the run of a launch that runs now exits, with its status then; null when none runs. */
+    ended(projectId: string, launchId: string): Promise<LaunchStatus> | null {
+        const run = this.runs.get(launchSessionIdOf(projectId, launchId));
+        if (run === undefined || run.state === 'exited') {
+            return null;
+        }
+        return run.exited.then(() => statusOf(run));
+    }
+
     /* The session a launch last ran in, for an agent that reads its screen. */
     sessionOf(projectId: string, launchId: string): string | null {
         const sessionId = launchSessionIdOf(projectId, launchId);
