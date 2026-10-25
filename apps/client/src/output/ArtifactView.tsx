@@ -454,15 +454,8 @@ function InfoColumn({
                             )}
                         </InfoRow>
                     )}
-                    {provenance.turnId !== undefined && <InfoRow label={t('info.turn')}>{shortId(provenance.turnId)}</InfoRow>}
-                    {provenance.taskId !== undefined && <InfoRow label={t('info.task')}>{shortId(provenance.taskId)}</InfoRow>}
                     <InfoRow label={t('info.machine')}>{machine}</InfoRow>
                     {originId !== undefined && <InfoRow label={t('info.copiedFrom')}>{origin ?? t('info.otherMachine')}</InfoRow>}
-                    {artifact.key !== undefined && (
-                        <InfoRow label={t('info.key')}>
-                            <span className="font-mono">{artifact.key}</span>
-                        </InfoRow>
-                    )}
                 </dl>
                 <p className="flex gap-2 rounded-md bg-surface-sunken px-3 py-2 text-xs text-text-muted">
                     <Icon icon={Lock} size={14} className="mt-0.5 shrink-0 text-text-faint" />
@@ -500,9 +493,4 @@ function InfoRow({ label, children }: { label: string; children: ReactNode }) {
             <dd className="min-w-0 truncate text-text">{children}</dd>
         </>
     );
-}
-
-// An id says nothing to a person; its first characters tell two apart.
-function shortId(id: string): string {
-    return id.length > 12 ? id.slice(0, 12) : id;
 }

@@ -970,7 +970,7 @@
         "launchStop": "{{name}} stoppen",
         "launchStopNone": "Stoppen",
         "launchesStopAll": "Alle launches stoppen",
-        "launchesOutput": "Output tonen",
+        "launchesOutput": "Uitvoer van launch tonen",
         "launchesEdit": "Launches bewerken…",
         "launchesAfterSettle": "Als een worktree-chat klaar is",
         "launchesAfterSettleOff": "Niets uitvoeren",

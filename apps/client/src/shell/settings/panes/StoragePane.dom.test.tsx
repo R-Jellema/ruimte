@@ -72,7 +72,7 @@ describe('the Storage pane', () => {
         expect(document.querySelector('[aria-label="Output by project"]')?.querySelectorAll('li')).toHaveLength(2);
         // The largest project first.
         expect(text().indexOf('Atlas')).toBeLessThan(text().indexOf('Chats'));
-        expect(text()).toContain('8 artifacts, 163 versions');
+        expect(text()).toContain('8 items, 163 versions');
     });
 
     test('Show in Output opens the panel on this project, and on All projects for another one', async () => {

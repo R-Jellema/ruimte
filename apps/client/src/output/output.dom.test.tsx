@@ -215,14 +215,14 @@ describe('the artifact view', () => {
         expect(text()).toContain('Versions');
         expect(text()).toContain('By an agent');
         expect(text()).toContain('Chat removed');
-        expect(text()).toContain('An agent cannot set or change it.');
+        expect(text()).toContain('An agent cannot change it.');
         expect(machine.requests('bytes.read')[0]!.resource).toEqual({ kind: 'artifact', artifactId: 'deps', versionId: 'v-new', file: 0 });
     });
 
     test('Compare sets the version before it beside the latest', async () => {
         await openDependencies();
         await clickOn(buttonWithText('Compare'));
-        await until(() => text().includes('Pick a base') && text().includes('Base'));
+        await until(() => text().includes('Compare with') && text().includes('Compared'));
         await until(() => text().includes('+1') && text().includes('-1'));
     });
 

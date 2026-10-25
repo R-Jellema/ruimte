@@ -970,7 +970,7 @@
         "launchStop": "Stop {{name}}",
         "launchStopNone": "Stop",
         "launchesStopAll": "Stop All Launches",
-        "launchesOutput": "Show Output",
+        "launchesOutput": "Show Launch Output",
         "launchesEdit": "Edit Launches…",
         "launchesAfterSettle": "After a Worktree Chat Finishes",
         "launchesAfterSettleOff": "Run Nothing",
