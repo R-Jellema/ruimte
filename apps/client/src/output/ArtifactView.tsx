@@ -37,7 +37,7 @@ const CopyToProjectDialog = lazyNamed(() => import('@/output/CopyToProjectDialog
  * where it came from on the right. Every byte is read by the artifact's id and a version's id; the
  * view never names a path on the machine.
  */
-export function ArtifactView({ artifactId, machineId }: { artifactId: string; machineId?: string }) {
+export function ArtifactView({ artifactId, machineId, pin }: { artifactId: string; machineId?: string; pin?: ArtifactPin }) {
     const { t } = useTranslation('output');
     const own = useEndpointId();
     const elsewhere = useEndpointIdOfMachine(machineId ?? '');
@@ -61,7 +61,16 @@ export function ArtifactView({ artifactId, machineId }: { artifactId: string; ma
     if (state.status === 'gone' || state.result.versions.length === 0) {
         return <Centered icon={Package}>{t('view.gone')}</Centered>;
     }
-    return <ArtifactBody endpointId={endpointId} machineId={machineId} result={state.result} />;
+    return <ArtifactBody endpointId={endpointId} machineId={machineId} result={state.result} pin={pin} />;
+}
+
+/*
+ * The version a view of the project stays on, stored with the view the way a node stores it: null
+ * follows the latest. Without one the version picked is the window's, as for a loose tab.
+ */
+export interface ArtifactPin {
+    version: string | null;
+    set(version: string | null): void;
 }
 
 function Centered({ icon, busy, children }: { icon?: typeof Package; busy?: boolean; children: ReactNode }) {
@@ -75,10 +84,21 @@ function Centered({ icon, busy, children }: { icon?: typeof Package; busy?: bool
 }
 
 /* `machineId` is set for an artifact another machine of the account keeps, which the window copies but never writes into. */
-function ArtifactBody({ endpointId, machineId, result }: { endpointId: string; machineId: string | undefined; result: ArtifactGetResult }) {
+function ArtifactBody({
+    endpointId,
+    machineId,
+    result,
+    pin
+}: {
+    endpointId: string;
+    machineId: string | undefined;
+    result: ArtifactGetResult;
+    pin: ArtifactPin | undefined;
+}) {
     const { t } = useTranslation('output');
     const { artifact, versions } = result;
-    const chosen = useArtifactSelection((s) => s.versions[artifactTabKey(artifact.artifactId, machineId)] ?? null);
+    const selected = useArtifactSelection((s) => s.versions[artifactTabKey(artifact.artifactId, machineId)] ?? null);
+    const chosen = pin === undefined ? selected : pin.version;
     const [comparing, setComparing] = useState(false);
     const [baseId, setBaseId] = useState<string | null>(null);
     const [infoOpen, setInfoOpen] = useState(true);
@@ -100,7 +120,12 @@ function ArtifactBody({ endpointId, machineId, result }: { endpointId: string; m
             setBaseId(picked.versionId);
             return;
         }
-        selectArtifactVersion(artifact.artifactId, picked.versionId === latest.versionId ? null : picked.versionId, machineId);
+        const next = picked.versionId === latest.versionId ? null : picked.versionId;
+        if (pin === undefined) {
+            selectArtifactVersion(artifact.artifactId, next, machineId);
+        } else {
+            pin.set(next);
+        }
     };
 
     return (

@@ -9,7 +9,7 @@ import { useHasPlans } from '@/state/plans';
 import { useSessionPortControl } from '@/terminal/session-port-controls';
 
 /* The kinds that put something in the toolbar; the bar draws its separators around that part. */
-export const KINDS_WITH_TOOLBAR = new Set<ProjectViewKind>(['browser', 'device', 'terminal', 'file', 'diagram', 'chat']);
+export const KINDS_WITH_TOOLBAR = new Set<ProjectViewKind>(['browser', 'device', 'terminal', 'file', 'diagram', 'chat', 'artifact']);
 
 export function modeOf(host: NodeHost | null): RuntimeMode | undefined {
     return RUNTIME_MODES.find((mode) => mode === host?.runtimeMode);
@@ -43,6 +43,7 @@ export function useHasViewToolbar(view: CellView | null): boolean {
         view.kind === 'device' ||
         view.kind === 'file' ||
         view.kind === 'diagram' ||
+        view.kind === 'artifact' ||
         modeOf(host) !== undefined
     );
 }

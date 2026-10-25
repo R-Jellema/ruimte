@@ -30,6 +30,7 @@ export function createDocumentViewsSlice({
     | 'addFileView'
     | 'addDatabaseView'
     | 'addStandaloneView'
+    | 'addArtifactView'
     | 'renameView'
     | 'setViewIcon'
     | 'deleteView'
@@ -126,6 +127,10 @@ export function createDocumentViewsSlice({
                     : { kind: request.kind, id, name: request.name, node: request.node },
                 true
             );
+        },
+
+        addArtifactView(name, artifact, opens = true) {
+            return addView({ kind: 'artifact', id: nextId('view'), name, node: { artifact } }, opens);
         },
 
         renameView(id, name, source = 'user') {

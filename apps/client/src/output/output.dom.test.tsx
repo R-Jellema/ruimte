@@ -226,7 +226,7 @@ describe('the Output panel', () => {
         await openPanel();
         await until(() => text().includes('Dependency report'));
         await rightClick(panelRow('Dependency report'));
-        expect(menuItems()).toEqual(['Open', 'Copy to project…', 'Pin to canvas', 'Remove…']);
+        expect(menuItems()).toEqual(['Open', 'Copy to project…', 'Pin to canvas', 'Add to sidebar', 'Remove…']);
 
         await clickOn(menuItemNamed('Remove…'));
         await until(() => (document.querySelector('[role="dialog"]')?.textContent ?? '').includes('Remove Dependency report?'));

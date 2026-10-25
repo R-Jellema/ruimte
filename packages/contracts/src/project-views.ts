@@ -8,6 +8,7 @@ import {
     isSessionView,
     isUnknownView,
     type NodeTitleSource,
+    ProjectArtifactViewSchema,
     ProjectBrowserViewSchema,
     ProjectCanvasViewSchema,
     ProjectChatViewSchema,
@@ -177,12 +178,14 @@ export function withNodeAsView(views: readonly ProjectView[], nodeId: string): {
         return null;
     }
     const node = source.nodes.find((candidate) => candidate.id === nodeId)!;
-    if (node.kind !== 'chat' && node.kind !== 'terminal' && node.kind !== 'browser' && node.kind !== 'device') {
+    if (node.kind !== 'chat' && node.kind !== 'terminal' && node.kind !== 'browser' && node.kind !== 'device' && node.kind !== 'artifact') {
         return null;
     }
     const extras = extraFieldsOf(node, ProjectNodeSchema);
     let view: ProjectView;
-    if (node.kind === 'browser') {
+    if (node.kind === 'artifact') {
+        view = { kind: 'artifact', id: node.id, name: node.title, node: { ...extras, ...(node.artifact ? { artifact: node.artifact } : {}) } };
+    } else if (node.kind === 'browser') {
         view = {
             ...extras,
             kind: 'browser',
@@ -230,7 +233,8 @@ const VIEW_SCHEMAS_OF_SESSIONS = {
     chat: ProjectChatViewSchema,
     terminal: ProjectTerminalViewSchema,
     browser: ProjectBrowserViewSchema,
-    device: ProjectDeviceViewSchema
+    device: ProjectDeviceViewSchema,
+    artifact: ProjectArtifactViewSchema
 } as const;
 
 /*
@@ -248,7 +252,7 @@ export function withViewAsNode(
     const source = views.find((view) => view.id === viewId);
     const target = views.find((view) => view.id === canvasViewId);
     // A drawing is a file, not a session, so it is mirrored onto a canvas instead of moved there.
-    if (!source || !isSessionView(source) || !target || !isCanvasView(target)) {
+    if (!source || !(isSessionView(source) || source.kind === 'artifact') || !target || !isCanvasView(target)) {
         return null;
     }
     const own =

@@ -7,6 +7,7 @@ import {
     Heading,
     MessageSquare,
     Minus,
+    Package,
     PenTool,
     Smartphone,
     Table,
@@ -36,6 +37,7 @@ const VIEW_KIND_GLYPHS: Record<ProjectViewKind, LucideIcon> = {
     database: Table,
     separator: Minus,
     subheader: Heading,
+    artifact: Package,
     unknown: CircleQuestionMark
 };
 

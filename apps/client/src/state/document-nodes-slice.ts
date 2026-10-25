@@ -61,7 +61,13 @@ export function createDocumentNodesSlice({
         updateStandalone(id, patch) {
             set((state) => ({
                 views: state.views.map((view) => {
-                    if (view.id !== id || !isSessionView(view)) {
+                    if (view.id !== id) {
+                        return view;
+                    }
+                    if (view.kind === 'artifact') {
+                        return patch.artifact === undefined ? view : { ...view, node: { ...view.node, artifact: patch.artifact } };
+                    }
+                    if (!isSessionView(view)) {
                         return view;
                     }
                     if (view.kind === 'browser') {

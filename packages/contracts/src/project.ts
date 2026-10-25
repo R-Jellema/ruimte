@@ -586,7 +586,8 @@ export const StandaloneNodeSchema = pickKeepingUnknown(ProjectNodeSchema, {
     providerFixed: true,
     runtimeMode: true,
     accent: true,
-    issue: true
+    issue: true,
+    artifact: true
 });
 export type StandaloneNode = z.infer<typeof StandaloneNodeSchema>;
 
@@ -671,6 +672,10 @@ export const ProjectDatabaseViewSchema = ViewBaseSchema.extend({
     tableKind: ProjectTableKindSchema.optional()
 });
 export type ProjectDatabaseView = z.infer<typeof ProjectDatabaseViewSchema>;
+// An Output artifact as a sidebar row. Which artifact is one person's on one machine, so `node.artifact` lives in the private overlay.
+export const ProjectArtifactViewSchema = ViewBaseSchema.extend({ kind: z.literal('artifact'), node: StandaloneNodeSchema });
+export type ProjectArtifactView = z.infer<typeof ProjectArtifactViewSchema>;
+
 export type ProjectDatabaseTarget = Pick<ProjectDatabaseView, 'connectionId' | 'schema' | 'table' | 'mode' | 'where' | 'tableKind'>;
 
 const KNOWN_VIEW_SCHEMAS = [
@@ -684,7 +689,8 @@ const KNOWN_VIEW_SCHEMAS = [
     ProjectFileViewSchema,
     ProjectDatabaseViewSchema,
     ProjectSeparatorViewSchema,
-    ProjectSubheaderViewSchema
+    ProjectSubheaderViewSchema,
+    ProjectArtifactViewSchema
 ] as const;
 
 export const PROJECT_VIEW_KINDS = KNOWN_VIEW_SCHEMAS.map((schema) => schema.shape.kind.value);
@@ -752,6 +758,10 @@ export function isFileView(view: ProjectView): view is ProjectFileView {
 
 export function isDatabaseView(view: ProjectView): view is ProjectDatabaseView {
     return view.kind === 'database';
+}
+
+export function isArtifactView(view: ProjectView): view is ProjectArtifactView {
+    return view.kind === 'artifact';
 }
 
 export function isUnknownView(view: ProjectView): view is ProjectUnknownView {

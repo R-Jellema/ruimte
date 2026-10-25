@@ -151,7 +151,8 @@
     },
     "menu": {
         "open": "Openen",
-        "copyToProject": "Kopiëren naar project…"
+        "copyToProject": "Kopiëren naar project…",
+        "addToSidebar": "Aan zijbalk toevoegen"
     },
     "remove": {
         "action": "Verwijderen…",

@@ -203,6 +203,16 @@ describe('a node and a view of its own', () => {
         expect(withNodeAsView([canvas('a')], 'nobody')).toBeNull();
     });
 
+    test('an artifact node becomes a view and back with what it shows', () => {
+        const reference = { id: 'art-1', version: 'ver-3' };
+        const promoted = withNodeAsView([canvas('a', [{ ...node('out', 'artifact'), artifact: reference }])], 'out')!;
+        expect(promoted.view).toEqual({ kind: 'artifact', id: 'out', name: 'out', node: { artifact: reference } });
+        // Through the schema, as the next load reads it.
+        const stored = ProjectDocumentSchema.shape.views.parse(promoted.views);
+        const back = withViewAsNode(stored, 'out', 'a', { x: 0, y: 0 })!;
+        expect(back.node).toMatchObject({ id: 'out', kind: 'artifact', title: 'out', artifact: reference });
+    });
+
     test('a view put back on a canvas is the same node under the same id', () => {
         const views: ProjectView[] = [canvas('a'), { kind: 'terminal', id: 'term', name: 'Shell', node: { cwd: '/repo' } }];
         const result = withViewAsNode(views, 'term', 'a', { x: 20, y: 30 })!;

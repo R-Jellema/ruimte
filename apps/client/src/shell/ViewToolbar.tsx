@@ -52,7 +52,7 @@ export function ViewToolbar({ view, focused }: { view: CellView | null; focused:
             </div>
         );
     }
-    if (view.kind === 'file' || view.kind === 'diagram') {
+    if (view.kind === 'file' || view.kind === 'diagram' || view.kind === 'artifact') {
         // The active renderer portals its controls here after the body mounts.
         return <div ref={mount} className="flex min-w-0 grow items-center justify-end gap-1" />;
     }

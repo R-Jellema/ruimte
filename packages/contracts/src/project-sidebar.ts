@@ -9,6 +9,7 @@ import {
     NodeTitleSourceSchema,
     ProjectIconChoiceSchema,
     ProjectSummarySchema,
+    UNKNOWN_KIND,
     viewIconOf,
     type ProjectFlags,
     type ProjectView
@@ -72,7 +73,8 @@ export function projectSidebarViews(views: readonly ProjectView[], shared: reado
                 id: view.id,
                 name: view.name ?? '',
                 titleSource: 'titleSource' in view ? view.titleSource : undefined,
-                kind: view.kind,
+                // The row's kinds are a closed list on the wire, which an artifact view joins only as a row an older client can draw.
+                kind: view.kind === 'artifact' ? UNKNOWN_KIND : view.kind,
                 icon: viewIconOf(view),
                 provider,
                 path: view.kind === 'file' ? view.path : null,

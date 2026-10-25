@@ -477,3 +477,44 @@ describe('an artifact node', () => {
         expect(split.private.overlay.out).toEqual({ artifact: reference });
     });
 });
+
+describe('an artifact view', () => {
+    const view: ProjectView = { kind: 'artifact', id: 'view-out', name: 'Morning summary', node: { artifact: { id: 'art-1', version: 'ver-3' } } };
+
+    test('is never shared and stays whole in the private file', () => {
+        expect(viewShareRefusal(view)).toBe('stays-on-machine');
+        const split = splitContent(content([canvas('main'), view]), ['main', 'view-out'], 1);
+        expect(split.shared.views.map((entry) => entry.id)).toEqual(['main']);
+        expect(split.private.views).toEqual([view]);
+        expect(JSON.stringify(split.shared)).not.toContain('art-1');
+    });
+
+    test('its node keeps the reference on the way in from the file', () => {
+        const parsed = ProjectSharedFileSchema.parse({ version: PROJECT_VERSION, name: 'repo', color: '#7c74ff', views: [view] });
+        expect(parsed.views[0]).toEqual(view);
+    });
+
+    /* A Ruimte that does not know the kind reads the private view as `unknown` around its entry and writes that entry back. */
+    test('comes back unchanged through a Ruimte that does not know the kind', () => {
+        const older = { kind: 'unknown', id: 'view-out', name: 'Morning summary', raw: view };
+        const split = splitContent(content([canvas('main'), older as never]), ['main'], 2);
+        expect(storedViewsOf(split.private.views)).toEqual([view]);
+    });
+});
+
+describe('a shared view of a kind this version does not know', () => {
+    const raw = { kind: 'gallery', id: 'view-g', name: 'Gallery', node: { title: 'Gallery' } };
+    const unknown = { kind: 'unknown', id: 'view-g', name: 'Gallery', raw } as never;
+
+    test('keeps its entry in the overlay, which it has no node to give back', () => {
+        const kept = { 'view-g': { picture: 'pic-1' } };
+        const split = splitContent(content([canvas('main'), unknown]), ['main', 'view-g'], 3, [], kept);
+        expect(storedViewsOf(split.shared.views)).toEqual([canvas('main'), raw as never]);
+        expect(split.private.overlay).toEqual(kept);
+    });
+
+    test('lets an entry go once the view is gone', () => {
+        const split = splitContent(content([canvas('main')]), ['main'], 3, [], { 'view-g': { picture: 'pic-1' } });
+        expect(split.private.overlay).toEqual({});
+    });
+});

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { isCanvasView, isDatabaseView, isFileView, type ProjectView } from '@ruimte/contracts';
+import { isArtifactView, isCanvasView, isDatabaseView, isFileView, type ProjectView } from '@ruimte/contracts';
 import { isLooseView, type CellView } from '@/shell/cell-view';
 import { FileViewer } from '@/shell/panels/FileViewer';
 import { Canvas } from '@/canvas/Canvas';
@@ -23,6 +23,7 @@ import { ErrorBoundary, lazyNamed, LazyBoundary } from '@adecore/ui';
 const DrawingView = lazyNamed(() => import('@/drawing/DrawingView'), 'DrawingView');
 const DiagramView = lazyNamed(() => import('@/diagram/DiagramView'), 'DiagramView');
 const DatabaseViewBody = lazyNamed(() => import('@/database/DatabaseViewBody'), 'DatabaseViewBody');
+const ArtifactViewBody = lazyNamed(() => import('@/output/ArtifactViewBody'), 'ArtifactViewBody');
 
 function StandaloneView({ view }: { view: ProjectView }) {
     // `bodyFocused` is one flag for the whole grid, so without the cell every chat and terminal would grab it.
@@ -59,6 +60,11 @@ function StandaloneView({ view }: { view: ProjectView }) {
             {/* No column around it: prose centers itself at 768px inside its own renderer, and
                 code wants every pixel the window has. */}
             {isFileView(view) && <FileSurface path={view.path} on="view" />}
+            {isArtifactView(view) && (
+                <LazyBoundary>
+                    <ArtifactViewBody view={view} />
+                </LazyBoundary>
+            )}
         </div>
     );
 }

@@ -246,9 +246,9 @@ export function stepView(delta: -1 | 1): void {
     showView(views[(at + delta + views.length) % views.length]!.id);
 }
 
-/* Which nodes can leave a canvas for a view of their own: the ones that are a session, not a frame. */
+/* Which nodes can leave a canvas for a view of their own: the ones that are a session, not a frame, and an artifact. */
 export function canOpenAsView(kind: string): boolean {
-    return kind === 'chat' || kind === 'terminal' || kind === 'browser' || kind === 'device';
+    return kind === 'chat' || kind === 'terminal' || kind === 'browser' || kind === 'device' || kind === 'artifact';
 }
 
 /*

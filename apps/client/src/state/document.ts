@@ -170,6 +170,8 @@ export interface DocumentState {
     addDatabaseView(name: string, table: ProjectDatabaseTarget, opens?: boolean): string;
     /* A chat, terminal or browser without a canvas under it. The id is the session id, as for a node. */
     addStandaloneView(view: StandaloneRequest): string;
+    /* An artifact of this machine's Output as a view; `opens` means the same as for a file. */
+    addArtifactView(name: string, artifact: NonNullable<StandaloneNode['artifact']>, opens?: boolean): string;
     renameView(id: string, name: string, source?: NodeTitleSource | null): void;
     /* Overrules the mark a view wears in the lists; null hands it back to its kind. */
     setViewIcon(id: string, icon: ProjectIconChoice | null): void;

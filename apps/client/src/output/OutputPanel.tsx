@@ -10,6 +10,7 @@ import {
     ListFilter,
     MonitorDown,
     Package,
+    PanelLeft,
     Search,
     Pin,
     SquareArrowOutUpRight,
@@ -34,6 +35,8 @@ import {
     useNow
 } from '@adecore/ui';
 import { pinArtifact, useCanRemove, useCopyToThisMachine, usePinCanvases } from '@/output/artifact-actions';
+import { addArtifactToSidebar, startArtifactDrag } from '@/output/artifact-drag';
+import { setDragging } from '@/shell/view-drag';
 import { RemoveArtifactDialog, type RemoveArtifactRequest } from '@/output/RemoveArtifactDialog';
 import type { CopyToProjectRequest } from '@/output/CopyToProjectDialog';
 import { formatBytes, formatMoment } from '@adecore/ui/format';
@@ -301,6 +304,9 @@ function ArtifactRowMenu({
                 </ContextMenu.Item>
             )}
             <PinToCanvasSubmenu artifact={artifact} />
+            <ContextMenu.Item onClick={() => void addArtifactToSidebar(artifact)}>
+                <Icon icon={PanelLeft} size={14} /> {t('menu.addToSidebar')}
+            </ContextMenu.Item>
             {actions !== undefined && <RemoveItem endpointId={endpointId} onRemove={() => actions.remove(artifact)} />}
         </>
     );
@@ -380,6 +386,9 @@ function ArtifactRow({
                         type="button"
                         className="flex min-w-0 items-start gap-2.5 rounded-md px-2 py-2 text-left hover:bg-surface-hover data-popup-open:bg-surface-hover"
                         onClick={() => openArtifact(artifact.artifactId, artifact.title, null, machineId)}
+                        draggable={machineId === undefined}
+                        onDragStart={(event) => machineId === undefined && startArtifactDrag(event.dataTransfer, artifact)}
+                        onDragEnd={() => setDragging(null)}
                     />
                 }
             >

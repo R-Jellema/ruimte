@@ -13,6 +13,7 @@ import { useProcessWarnings } from '@/state/processes';
 import { carriesFiles, carriesPaths, dropEffectFor, droppedPaths } from '@/canvas/drop';
 import { finderPaths } from '@/canvas/finder-drop';
 import { askDeleteView, newFileViewsAfter, promoteLooseDatabase, promoteLooseFile, revealNode } from '@/project/views';
+import { addArtifactToSidebar, carriesArtifact, droppedArtifact } from '@/output/artifact-drag';
 import { useChats } from '@adecore/agents-react/state';
 import { useDocument } from '@/state/document';
 import { isDatabaseTab, isPromotableTab, useFiles } from '@/state/files';
@@ -242,6 +243,11 @@ export function Sidebar() {
         setInsertAt(null);
         const { views } = useDocument.getState();
         const after = index === 0 ? null : (views[Math.min(index, views.length) - 1]?.id ?? null);
+        const artifact = droppedArtifact(transfer);
+        if (artifact !== null) {
+            void addArtifactToSidebar(artifact, after);
+            return;
+        }
         const loose = draggedViewId(transfer);
         // A loose file or table takes its place in the grid with it; anything else a person drags here is a file by its path.
         const tab = useFiles.getState().tabs.find((entry) => entry.key === loose);
@@ -445,7 +451,13 @@ export function Sidebar() {
                                       // Only a file or a table promotes: a diff, a commit or a designer has no row to become, and a whole host is no tab.
                                       const loose = useFiles.getState().tabs.find((entry) => entry.key === draggedView());
                                       const temporary = isPromotableTab(loose) && !draggingWholeCell();
-                                      if (!reorderable && !temporary && !carriesPaths(e.dataTransfer.types) && !carriesFiles(e.dataTransfer.types)) {
+                                      if (
+                                          !reorderable &&
+                                          !temporary &&
+                                          !carriesArtifact(e.dataTransfer) &&
+                                          !carriesPaths(e.dataTransfer.types) &&
+                                          !carriesFiles(e.dataTransfer.types)
+                                      ) {
                                           return;
                                       }
                                       e.preventDefault();

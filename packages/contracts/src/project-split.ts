@@ -8,6 +8,7 @@ import {
     ProjectNodeSchema,
     isCanvasView,
     isDividerView,
+    isUnknownView,
     type NodeKind,
     type ProjectContent,
     type ProjectNode,
@@ -219,10 +220,13 @@ function withSessionTitles(view: ProjectView, overlay: Record<string, ProjectNod
     return { ...next, name, titleSource: 'auto' } as ProjectView;
 }
 
-// A file view is its path, so one off the project folder has nothing left to share.
-export function viewShareRefusal(view: ProjectView): 'path-outside-project' | 'follows-its-group' | null {
+// A file view is its path, so one off the project folder has nothing left to share; an artifact is in this machine's Output only.
+export function viewShareRefusal(view: ProjectView): 'path-outside-project' | 'follows-its-group' | 'stays-on-machine' | null {
     if (isDividerView(view)) {
         return 'follows-its-group';
+    }
+    if (view.kind === 'artifact') {
+        return 'stays-on-machine';
     }
     return view.kind === 'file' && !isPortablePath(view.path) ? 'path-outside-project' : null;
 }
@@ -253,12 +257,12 @@ function sharedIdsOf(views: readonly ProjectView[], shared: readonly string[]): 
     return ids;
 }
 
-// A chat and a terminal view are one session under the view's own id; other kinds carry nothing.
+// A chat, a terminal and an artifact view are one node under the view's own id; other kinds carry nothing.
 function withCarriers(view: ProjectView, map: (id: string, carrier: Carrier) => Carrier): ProjectView {
     if (isCanvasView(view)) {
         return { ...view, nodes: view.nodes.map((node: ProjectNode) => map(node.id, node) as ProjectNode) };
     }
-    return view.kind === 'chat' || view.kind === 'terminal' ? { ...view, node: map(view.id, view.node) as typeof view.node } : view;
+    return view.kind === 'chat' || view.kind === 'terminal' || view.kind === 'artifact' ? { ...view, node: map(view.id, view.node) as typeof view.node } : view;
 }
 
 function isEmptySql(sql: ProjectSql): boolean {
@@ -270,7 +274,17 @@ export interface ProjectSplit {
     private: ProjectPrivateFile;
 }
 
-export function splitContent(content: ProjectContent, shared: readonly string[], rev: number, overlayFields: readonly string[] = []): ProjectSplit {
+/*
+ * `kept` is the overlay the private file holds now. A shared view of a kind this version does not know
+ * carries no node to take its entry from, so the entry stays as it was instead of being lost.
+ */
+export function splitContent(
+    content: ProjectContent,
+    shared: readonly string[],
+    rev: number,
+    overlayFields: readonly string[] = [],
+    kept: Readonly<Record<string, ProjectNodeOverlay>> = {}
+): ProjectSplit {
     const privateFields = privateFieldsAmong(overlayFields);
     const views = content.views.map(withoutHome);
     const ids = sharedIdsOf(views, shared);
@@ -280,6 +294,14 @@ export function splitContent(content: ProjectContent, shared: readonly string[],
     for (const view of views) {
         if (!ids.has(view.id)) {
             rest.push(view);
+            continue;
+        }
+        if (isUnknownView(view)) {
+            const entry = Object.hasOwn(kept, view.id) ? kept[view.id] : undefined;
+            if (entry !== undefined) {
+                overlay[view.id] = entry;
+            }
+            travelling.push(view);
             continue;
         }
         const carried = withCarriers(view, (id, carrier) => {

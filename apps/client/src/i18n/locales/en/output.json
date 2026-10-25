@@ -151,7 +151,8 @@
     },
     "menu": {
         "open": "Open",
-        "copyToProject": "Copy to project…"
+        "copyToProject": "Copy to project…",
+        "addToSidebar": "Add to sidebar"
     },
     "remove": {
         "action": "Remove…",

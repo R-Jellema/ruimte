@@ -22,6 +22,7 @@ import {
     type ProjectDocument,
     type ProjectIconChoice,
     type ProjectLocal,
+    type ProjectNodeOverlay,
     type ProjectOpenPayload,
     type ProjectOpenResult,
     type ProjectSetIconPayload,
@@ -82,6 +83,18 @@ function asProjectError(e: unknown): unknown {
 const WATCH_SETTLE_MS = 150;
 
 export const DEFAULT_COLOR = DEFAULT_PROJECT_COLOR;
+
+/* The overlay the private file holds now, whose entries a shared view of a kind this version does not know keeps. */
+async function keptOverlayOf(path: string): Promise<Record<string, ProjectNodeOverlay>> {
+    let text: string;
+    try {
+        text = await readFile(privatePathOf(path), 'utf8');
+    } catch {
+        return {};
+    }
+    const parsed = parsePrivateFile(text);
+    return parsed.kind === 'ok' ? parsed.document.overlay : {};
+}
 
 function newId(): string {
     return randomBytes(6).toString('base64url');
@@ -361,7 +374,7 @@ export class ProjectStore {
         moved: readonly string[],
         overlayFields: readonly string[]
     ): Promise<{ text: string; private: string }> {
-        const split = splitContent(content, shared, rev, overlayFields);
+        const split = splitContent(content, shared, rev, overlayFields, await keptOverlayOf(path));
         const sharedText = serializeSharedFile(split.shared);
         const privateText = serializePrivateFile(split.private);
         await writeProjectFiles(path, { text: sharedText, private: privateText }, moved, shared, this.writeIO).catch((e: unknown) => {
@@ -1244,7 +1257,7 @@ export class ProjectStore {
     private async takeOutsideEdit(state: OpenProject, path: string, text: string, read: SharedFileRead): Promise<void> {
         const loaded = await this.loadFiles(path, state.entry, read);
         const rev = state.rev + 1;
-        const privateFile = splitContent(loaded.content, loaded.shared, rev, loaded.overlayFields).private;
+        const privateFile = splitContent(loaded.content, loaded.shared, rev, loaded.overlayFields, await keptOverlayOf(path)).private;
         const privateText = serializePrivateFile(privateFile);
         if (privateText !== state.lastPrivate) {
             await writePrivateFile(privatePathOf(path), privateFile);

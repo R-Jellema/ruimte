@@ -6,6 +6,7 @@ import { finderPaths } from '@/canvas/finder-drop';
 import { carriesDiff, droppedDiff } from '@/shell/diff-drag';
 import { carriesDatabase, droppedDatabase } from '@/database/drag';
 import { dropDatabaseTab } from '@/database/open';
+import { carriesArtifact, dropArtifactTab, droppedArtifact } from '@/output/artifact-drag';
 import { isLooseView } from '@/shell/cell-view';
 import { useCellView } from '@/shell/use-cell-view';
 import { placeFilesAction, placeViewAction } from '@/actions/client-actions';
@@ -162,7 +163,7 @@ function Cell({
             return null;
         }
         const moving = dragging();
-        if (!carriesDiff(event.dataTransfer) && !carriesDatabase(event.dataTransfer) && !usesPaths(event)) {
+        if (!carriesDiff(event.dataTransfer) && !carriesDatabase(event.dataTransfer) && !carriesArtifact(event.dataTransfer) && !usesPaths(event)) {
             if (moving === null || draggingWholeCell() || !canStandInCell(useDocument.getState(), moving) || !canDropAsTab(layout, at, moving)) {
                 return null;
             }
@@ -211,7 +212,7 @@ function Cell({
             return null;
         }
         // A change dropped in the middle of a cell opens as a tab of it, whatever the cell holds.
-        if (here === 'center' && (carriesDiff(event.dataTransfer) || carriesDatabase(event.dataTransfer))) {
+        if (here === 'center' && (carriesDiff(event.dataTransfer) || carriesDatabase(event.dataTransfer) || carriesArtifact(event.dataTransfer))) {
             return here;
         }
         // The bar of a host carries every tab, so the question is whether the whole cell fits there.
@@ -258,6 +259,11 @@ function Cell({
             dropDatabaseTab(database, at, 'center', tabIndexFor(tab.gap, dragging() ?? ''));
             return;
         }
+        const artifact = droppedArtifact(event.dataTransfer);
+        if (artifact !== null) {
+            dropArtifactTab(artifact, at, 'center', tabIndexFor(tab.gap, dragging() ?? ''));
+            return;
+        }
         if (usesPaths(event)) {
             placeFilesAction(pathsOf(event), viewId, 'center', tabs === undefined ? null : tab.gap);
             return;
@@ -287,6 +293,11 @@ function Cell({
         const database = droppedDatabase(event.dataTransfer);
         if (database !== null) {
             dropDatabaseTab(database, at, here);
+            return;
+        }
+        const artifact = droppedArtifact(event.dataTransfer);
+        if (artifact !== null) {
+            dropArtifactTab(artifact, at, here);
             return;
         }
         if (paths.length > 0) {

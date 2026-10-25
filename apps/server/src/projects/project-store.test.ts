@@ -1529,6 +1529,17 @@ describe('fields this version does not know', () => {
         expect(file.overlayFields).toEqual(['sandbox']);
     });
 
+    test('a shared view of a kind this daemon does not know keeps its overlay entry through a save', async () => {
+        const gallery = { kind: 'gallery', id: 'gallery-1', name: 'Gallery', node: { title: 'Gallery' } };
+        const projectId = await seed([canvasView([CHAT]), gallery], { overlay: { 'gallery-1': { picture: 'pic-1' } } });
+        const opened = await store.openProject({ projectId });
+        expect(opened.document.views.map((view) => view.kind)).toEqual(['canvas', 'unknown']);
+
+        await store.save(projectId, 0, contentOf(opened.document), opened.document.shared);
+        expect(await sharedText()).not.toContain('pic-1');
+        expect(JSON.parse(await privateText()).overlay['gallery-1']).toEqual({ picture: 'pic-1' });
+    });
+
     test('a duplicate of such a node under a new id keeps the field private as well', async () => {
         const projectId = await seed([canvasView([CHAT])], { overlay: { c1: { sandbox: 'B' } }, overlayFields: ['sandbox'] });
         const opened = await store.openProject({ projectId });
