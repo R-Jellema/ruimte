@@ -307,6 +307,17 @@ public enum WireRequest: String, CaseIterable, Sendable {
     case `artifactCleanup` = "artifact.cleanup"
     case `artifactImportFrom` = "artifact.importFrom"
     case `artifactRemove` = "artifact.remove"
+    case `routineList` = "routine.list"
+    case `routineGet` = "routine.get"
+    case `routineSave` = "routine.save"
+    case `routineApprove` = "routine.approve"
+    case `routineDecline` = "routine.decline"
+    case `routinePause` = "routine.pause"
+    case `routineResume` = "routine.resume"
+    case `routineRunNow` = "routine.runNow"
+    case `routineRemove` = "routine.remove"
+    case `routineWatch` = "routine.watch"
+    case `routineUnwatch` = "routine.unwatch"
     case `provenanceRead` = "provenance.read"
     case `provenanceReview` = "provenance.review"
     case `nanogptStatus` = "nanogpt.status"
@@ -387,6 +398,7 @@ public enum WireEvent: String, CaseIterable, Sendable {
     case `planCreated` = "plan.created"
     case `artifactChanged` = "artifact.changed"
     case `provenanceChanged` = "provenance.changed"
+    case `routineChanged` = "routine.changed"
 
     public func validatePayload(_ value: JSONValue) throws -> JSONValue { try WireSchema.validate("event.\(rawValue)", value) }
 }

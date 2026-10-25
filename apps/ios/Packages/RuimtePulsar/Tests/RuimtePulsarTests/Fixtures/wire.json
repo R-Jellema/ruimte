@@ -399,6 +399,17 @@
     "artifact.cleanup",
     "artifact.importFrom",
     "artifact.remove",
+    "routine.list",
+    "routine.get",
+    "routine.save",
+    "routine.approve",
+    "routine.decline",
+    "routine.pause",
+    "routine.resume",
+    "routine.runNow",
+    "routine.remove",
+    "routine.watch",
+    "routine.unwatch",
     "provenance.read",
     "provenance.review",
     "nanogpt.status",
@@ -474,7 +485,8 @@
     "plan.removed",
     "plan.created",
     "artifact.changed",
-    "provenance.changed"
+    "provenance.changed",
+    "routine.changed"
   ],
   "crypto": [
     {

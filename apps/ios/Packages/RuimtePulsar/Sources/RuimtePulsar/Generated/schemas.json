@@ -64843,6 +64843,1762 @@
       "freedBytes"
     ]
   },
+  "request.routine.list.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "projectId": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "request.routine.list.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "routines": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "routine": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+                    },
+                    "title": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 120
+                    },
+                    "schedule": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "once"
+                            },
+                            "date": {
+                              "type": "string",
+                              "pattern": "^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$"
+                            },
+                            "time": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "date",
+                            "time"
+                          ],
+                          "additionalProperties": {}
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "weekly"
+                            },
+                            "days": {
+                              "minItems": 1,
+                              "maxItems": 7,
+                              "type": "array",
+                              "items": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 7
+                              }
+                            },
+                            "time": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "days",
+                            "time"
+                          ],
+                          "additionalProperties": {}
+                        }
+                      ]
+                    },
+                    "outputKey": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "const": "agent"
+                    },
+                    "prompt": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 20000
+                    },
+                    "provider": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 32,
+                      "pattern": "^[a-z][a-z0-9-]*$",
+                      "x-open-enum": [
+                        "claude",
+                        "codex",
+                        "gemini",
+                        "copilot",
+                        "apple"
+                      ]
+                    },
+                    "selection": {
+                      "type": "object",
+                      "properties": {
+                        "model": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "options": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {
+                            "type": [
+                              "string",
+                              "boolean"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "model",
+                        "options"
+                      ]
+                    },
+                    "mode": {
+                      "type": "string",
+                      "x-open-enum": [
+                        "supervised",
+                        "auto-accept-edits",
+                        "auto",
+                        "full-access"
+                      ]
+                    },
+                    "perRun": {
+                      "type": "string",
+                      "enum": [
+                        "new",
+                        "continue"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "schedule",
+                    "outputKey",
+                    "kind",
+                    "prompt",
+                    "provider",
+                    "mode",
+                    "perRun"
+                  ],
+                  "additionalProperties": {}
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+                    },
+                    "title": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 120
+                    },
+                    "schedule": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "once"
+                            },
+                            "date": {
+                              "type": "string",
+                              "pattern": "^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$"
+                            },
+                            "time": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "date",
+                            "time"
+                          ],
+                          "additionalProperties": {}
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "weekly"
+                            },
+                            "days": {
+                              "minItems": 1,
+                              "maxItems": 7,
+                              "type": "array",
+                              "items": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 7
+                              }
+                            },
+                            "time": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "days",
+                            "time"
+                          ],
+                          "additionalProperties": {}
+                        }
+                      ]
+                    },
+                    "outputKey": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "const": "command"
+                    },
+                    "command": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 20000
+                    },
+                    "cwd": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "schedule",
+                    "outputKey",
+                    "kind",
+                    "command"
+                  ],
+                  "additionalProperties": {}
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+                    },
+                    "title": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 120
+                    },
+                    "schedule": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "once"
+                            },
+                            "date": {
+                              "type": "string",
+                              "pattern": "^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$"
+                            },
+                            "time": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "date",
+                            "time"
+                          ],
+                          "additionalProperties": {}
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "weekly"
+                            },
+                            "days": {
+                              "minItems": 1,
+                              "maxItems": 7,
+                              "type": "array",
+                              "items": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 7
+                              }
+                            },
+                            "time": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "days",
+                            "time"
+                          ],
+                          "additionalProperties": {}
+                        }
+                      ]
+                    },
+                    "outputKey": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "const": "launch"
+                    },
+                    "launchId": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "schedule",
+                    "outputKey",
+                    "kind",
+                    "launchId"
+                  ],
+                  "additionalProperties": {}
+                }
+              ]
+            },
+            "projectId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "projectName": {
+              "type": "string"
+            },
+            "shared": {
+              "type": "boolean"
+            },
+            "local": {
+              "type": "object",
+              "properties": {
+                "account": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                },
+                "pausedAt": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "declined": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": {}
+            },
+            "digest": {
+              "type": "string",
+              "minLength": 1
+            },
+            "approved": {
+              "type": "boolean"
+            },
+            "held": {
+              "type": "string",
+              "enum": [
+                "agent",
+                "outside"
+              ]
+            },
+            "madeBy": {
+              "type": "object",
+              "properties": {
+                "chatId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "title": {
+                  "type": "string"
+                },
+                "at": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "chatId",
+                "title",
+                "at"
+              ]
+            },
+            "next": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "runs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "runId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "routineId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "projectId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "scheduled",
+                      "caught-up",
+                      "manual"
+                    ]
+                  },
+                  "due": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "at": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "missed": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "skipped",
+                      "starting",
+                      "running",
+                      "needs-you",
+                      "limit",
+                      "done",
+                      "failed"
+                    ]
+                  },
+                  "skipped": {
+                    "type": "string",
+                    "enum": [
+                      "overlap",
+                      "held",
+                      "paused"
+                    ]
+                  },
+                  "chatId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "exitCode": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "waited": {
+                    "type": "boolean"
+                  },
+                  "limitUntil": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "endedAt": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "error": {
+                    "type": "string"
+                  },
+                  "artifactId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "versionId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "versionNumber": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "runId",
+                  "routineId",
+                  "projectId",
+                  "kind",
+                  "due",
+                  "at",
+                  "state"
+                ]
+              }
+            },
+            "artifactId": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "routine",
+            "projectId",
+            "projectName",
+            "shared",
+            "local",
+            "digest",
+            "approved",
+            "next",
+            "runs"
+          ]
+        }
+      },
+      "revs": {
+        "type": "object",
+        "propertyNames": {
+          "type": "string"
+        },
+        "additionalProperties": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "timeZone": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "routines",
+      "revs",
+      "timeZone"
+    ]
+  },
+  "request.routine.get.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "projectId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "routineId": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required": [
+      "projectId",
+      "routineId"
+    ]
+  },
+  "request.routine.get.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "routine": {
+        "type": "object",
+        "properties": {
+          "routine": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "schedule": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "once"
+                          },
+                          "date": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$"
+                          },
+                          "time": {
+                            "type": "string",
+                            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "date",
+                          "time"
+                        ],
+                        "additionalProperties": {}
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "weekly"
+                          },
+                          "days": {
+                            "minItems": 1,
+                            "maxItems": 7,
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 7
+                            }
+                          },
+                          "time": {
+                            "type": "string",
+                            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "days",
+                          "time"
+                        ],
+                        "additionalProperties": {}
+                      }
+                    ]
+                  },
+                  "outputKey": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "const": "agent"
+                  },
+                  "prompt": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 20000
+                  },
+                  "provider": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 32,
+                    "pattern": "^[a-z][a-z0-9-]*$",
+                    "x-open-enum": [
+                      "claude",
+                      "codex",
+                      "gemini",
+                      "copilot",
+                      "apple"
+                    ]
+                  },
+                  "selection": {
+                    "type": "object",
+                    "properties": {
+                      "model": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "options": {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {
+                          "type": [
+                            "string",
+                            "boolean"
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "model",
+                      "options"
+                    ]
+                  },
+                  "mode": {
+                    "type": "string",
+                    "x-open-enum": [
+                      "supervised",
+                      "auto-accept-edits",
+                      "auto",
+                      "full-access"
+                    ]
+                  },
+                  "perRun": {
+                    "type": "string",
+                    "enum": [
+                      "new",
+                      "continue"
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "title",
+                  "schedule",
+                  "outputKey",
+                  "kind",
+                  "prompt",
+                  "provider",
+                  "mode",
+                  "perRun"
+                ],
+                "additionalProperties": {}
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "schedule": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "once"
+                          },
+                          "date": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$"
+                          },
+                          "time": {
+                            "type": "string",
+                            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "date",
+                          "time"
+                        ],
+                        "additionalProperties": {}
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "weekly"
+                          },
+                          "days": {
+                            "minItems": 1,
+                            "maxItems": 7,
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 7
+                            }
+                          },
+                          "time": {
+                            "type": "string",
+                            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "days",
+                          "time"
+                        ],
+                        "additionalProperties": {}
+                      }
+                    ]
+                  },
+                  "outputKey": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "const": "command"
+                  },
+                  "command": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 20000
+                  },
+                  "cwd": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "title",
+                  "schedule",
+                  "outputKey",
+                  "kind",
+                  "command"
+                ],
+                "additionalProperties": {}
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "schedule": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "once"
+                          },
+                          "date": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$"
+                          },
+                          "time": {
+                            "type": "string",
+                            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "date",
+                          "time"
+                        ],
+                        "additionalProperties": {}
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "weekly"
+                          },
+                          "days": {
+                            "minItems": 1,
+                            "maxItems": 7,
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 7
+                            }
+                          },
+                          "time": {
+                            "type": "string",
+                            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "days",
+                          "time"
+                        ],
+                        "additionalProperties": {}
+                      }
+                    ]
+                  },
+                  "outputKey": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "const": "launch"
+                  },
+                  "launchId": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "id",
+                  "title",
+                  "schedule",
+                  "outputKey",
+                  "kind",
+                  "launchId"
+                ],
+                "additionalProperties": {}
+              }
+            ]
+          },
+          "projectId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "projectName": {
+            "type": "string"
+          },
+          "shared": {
+            "type": "boolean"
+          },
+          "local": {
+            "type": "object",
+            "properties": {
+              "account": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+              },
+              "pausedAt": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "declined": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": {}
+          },
+          "digest": {
+            "type": "string",
+            "minLength": 1
+          },
+          "approved": {
+            "type": "boolean"
+          },
+          "held": {
+            "type": "string",
+            "enum": [
+              "agent",
+              "outside"
+            ]
+          },
+          "madeBy": {
+            "type": "object",
+            "properties": {
+              "chatId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "title": {
+                "type": "string"
+              },
+              "at": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "chatId",
+              "title",
+              "at"
+            ]
+          },
+          "next": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "runs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "runId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "routineId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "projectId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "scheduled",
+                    "caught-up",
+                    "manual"
+                  ]
+                },
+                "due": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "at": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "missed": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "skipped",
+                    "starting",
+                    "running",
+                    "needs-you",
+                    "limit",
+                    "done",
+                    "failed"
+                  ]
+                },
+                "skipped": {
+                  "type": "string",
+                  "enum": [
+                    "overlap",
+                    "held",
+                    "paused"
+                  ]
+                },
+                "chatId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "exitCode": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "waited": {
+                  "type": "boolean"
+                },
+                "limitUntil": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "endedAt": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "error": {
+                  "type": "string"
+                },
+                "artifactId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "versionId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "versionNumber": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "runId",
+                "routineId",
+                "projectId",
+                "kind",
+                "due",
+                "at",
+                "state"
+              ]
+            }
+          },
+          "artifactId": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "routine",
+          "projectId",
+          "projectName",
+          "shared",
+          "local",
+          "digest",
+          "approved",
+          "next",
+          "runs"
+        ]
+      },
+      "rev": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "timeZone": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "routine",
+      "rev",
+      "timeZone"
+    ]
+  },
+  "request.routine.save.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "projectId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "baseRev": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "routine": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "schedule": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "once"
+                      },
+                      "date": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$"
+                      },
+                      "time": {
+                        "type": "string",
+                        "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "date",
+                      "time"
+                    ],
+                    "additionalProperties": {}
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "weekly"
+                      },
+                      "days": {
+                        "minItems": 1,
+                        "maxItems": 7,
+                        "type": "array",
+                        "items": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 7
+                        }
+                      },
+                      "time": {
+                        "type": "string",
+                        "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "days",
+                      "time"
+                    ],
+                    "additionalProperties": {}
+                  }
+                ]
+              },
+              "outputKey": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+              },
+              "kind": {
+                "type": "string",
+                "const": "agent"
+              },
+              "prompt": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 20000
+              },
+              "provider": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32,
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "x-open-enum": [
+                  "claude",
+                  "codex",
+                  "gemini",
+                  "copilot",
+                  "apple"
+                ]
+              },
+              "selection": {
+                "type": "object",
+                "properties": {
+                  "model": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "options": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {
+                      "type": [
+                        "string",
+                        "boolean"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "model",
+                  "options"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "x-open-enum": [
+                  "supervised",
+                  "auto-accept-edits",
+                  "auto",
+                  "full-access"
+                ]
+              },
+              "perRun": {
+                "type": "string",
+                "enum": [
+                  "new",
+                  "continue"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "schedule",
+              "outputKey",
+              "kind",
+              "prompt",
+              "provider",
+              "mode",
+              "perRun"
+            ],
+            "additionalProperties": {}
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "schedule": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "once"
+                      },
+                      "date": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$"
+                      },
+                      "time": {
+                        "type": "string",
+                        "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "date",
+                      "time"
+                    ],
+                    "additionalProperties": {}
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "weekly"
+                      },
+                      "days": {
+                        "minItems": 1,
+                        "maxItems": 7,
+                        "type": "array",
+                        "items": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 7
+                        }
+                      },
+                      "time": {
+                        "type": "string",
+                        "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "days",
+                      "time"
+                    ],
+                    "additionalProperties": {}
+                  }
+                ]
+              },
+              "outputKey": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+              },
+              "kind": {
+                "type": "string",
+                "const": "command"
+              },
+              "command": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 20000
+              },
+              "cwd": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "schedule",
+              "outputKey",
+              "kind",
+              "command"
+            ],
+            "additionalProperties": {}
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "schedule": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "once"
+                      },
+                      "date": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$"
+                      },
+                      "time": {
+                        "type": "string",
+                        "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "date",
+                      "time"
+                    ],
+                    "additionalProperties": {}
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "weekly"
+                      },
+                      "days": {
+                        "minItems": 1,
+                        "maxItems": 7,
+                        "type": "array",
+                        "items": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 7
+                        }
+                      },
+                      "time": {
+                        "type": "string",
+                        "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "days",
+                      "time"
+                    ],
+                    "additionalProperties": {}
+                  }
+                ]
+              },
+              "outputKey": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+              },
+              "kind": {
+                "type": "string",
+                "const": "launch"
+              },
+              "launchId": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "schedule",
+              "outputKey",
+              "kind",
+              "launchId"
+            ],
+            "additionalProperties": {}
+          }
+        ]
+      },
+      "shared": {
+        "type": "boolean"
+      },
+      "account": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "required": [
+      "projectId",
+      "baseRev",
+      "routine",
+      "shared"
+    ]
+  },
+  "request.routine.save.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "rev": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "routineId": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required": [
+      "rev",
+      "routineId"
+    ]
+  },
+  "request.routine.approve.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "projectId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "routineId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "digest": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required": [
+      "projectId",
+      "routineId",
+      "digest"
+    ]
+  },
+  "request.routine.approve.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {}
+  },
+  "request.routine.decline.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "projectId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "routineId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "digest": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required": [
+      "projectId",
+      "routineId",
+      "digest"
+    ]
+  },
+  "request.routine.decline.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {}
+  },
+  "request.routine.pause.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "projectId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "routineId": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required": [
+      "projectId",
+      "routineId"
+    ]
+  },
+  "request.routine.pause.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {}
+  },
+  "request.routine.resume.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "projectId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "routineId": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required": [
+      "projectId",
+      "routineId"
+    ]
+  },
+  "request.routine.resume.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {}
+  },
+  "request.routine.runNow.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "projectId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "routineId": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required": [
+      "projectId",
+      "routineId"
+    ]
+  },
+  "request.routine.runNow.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "outcome": {
+        "type": "string",
+        "enum": [
+          "started",
+          "held",
+          "busy"
+        ]
+      },
+      "runId": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required": [
+      "outcome"
+    ]
+  },
+  "request.routine.remove.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "projectId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "routineId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "baseRev": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      }
+    },
+    "required": [
+      "projectId",
+      "routineId",
+      "baseRev"
+    ]
+  },
+  "request.routine.remove.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {}
+  },
+  "request.routine.watch.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {}
+  },
+  "request.routine.watch.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {}
+  },
+  "request.routine.unwatch.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {}
+  },
+  "request.routine.unwatch.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {}
+  },
   "request.provenance.read.payload": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -81447,6 +83203,19 @@
       "chatId",
       "turnId",
       "live"
+    ]
+  },
+  "event.routine.changed": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "projectId": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required": [
+      "projectId"
     ]
   }
 }
