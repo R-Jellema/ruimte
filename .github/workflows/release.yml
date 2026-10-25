@@ -245,6 +245,8 @@ jobs:
   # that is down never holds up a release.
   error-tracking:
     needs: publish
+    # A skipped Windows build upstream would otherwise skip this job too, published or not.
+    if: ${{ !cancelled() && needs.publish.result == 'success' }}
     runs-on: ubuntu-latest
     continue-on-error: true
     timeout-minutes: 5
