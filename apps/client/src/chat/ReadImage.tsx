@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CornerUpRight, ImageOff } from 'lucide-react';
+import { CornerUpRight, ImageOff, PackagePlus } from 'lucide-react';
+import { useOutputChat } from '@/output/chat-scope';
+import { saveToOutput, useOutputProject } from '@/output/save';
 import { isImageMime, type FsReadResult } from '@ruimte/contracts';
 import { ImageThumb } from '@adecore/agents-react/chat/ui';
 import { drawsImageMime, imageFormatName } from '@/shell/panels/file-kind';
@@ -20,7 +22,7 @@ const PLACES = {
  * asked what the file is; anything that is not an image draws nothing at all.
  */
 export function ReadImage({ path }: { path: string }) {
-    return <MachineImage path={path} alt={path} place="tool" />;
+    return <MachineImage path={path} alt={path} place="tool" saves />;
 }
 
 /* An image a reply names by its path on the machine. It sits inside a paragraph, which is why every box here is a span. */
@@ -28,13 +30,16 @@ export function MarkdownImage({ path, alt }: { path: string; alt: string }) {
     return <MachineImage path={path} alt={alt === '' ? path : alt} place="reply" />;
 }
 
-function MachineImage({ path, alt, place }: { path: string; alt: string; place: keyof typeof PLACES }) {
-    const { t } = useTranslation(['chat', 'panels']);
+function MachineImage({ path, alt, place, saves = false }: { path: string; alt: string; place: keyof typeof PLACES; saves?: boolean }) {
+    const { t } = useTranslation(['chat', 'panels', 'output']);
+    const chatId = useOutputChat();
+    const [saving, setSaving] = useState(false);
     const platform = useServer((s) => s.platform);
     const [read, setRead] = useState<FsReadResult | null>(null);
     const [failed, setFailed] = useState(false);
     const transport = useTransport();
     const endpointId = useEndpointId();
+    const outputProject = useOutputProject(endpointId);
     const binary = read?.kind === 'binary' && isImageMime(read.mime) ? read : null;
     const drawable = binary !== null && drawsImageMime(binary.mime);
     const source = useMachineUrl(binary === null || !drawable ? null : { kind: 'file', path, mtime: binary.mtime, size: binary.size }, endpointId);
@@ -78,9 +83,22 @@ function MachineImage({ path, alt, place }: { path: string; alt: string; place: 
             </span>
         );
     }
+    const projectId = saves && chatId !== null ? outputProject : null;
+    const save = (): void => {
+        if (chatId === null || projectId === null) {
+            return;
+        }
+        setSaving(true);
+        void saveToOutput(endpointId, projectId, { kind: 'image', chatId, path }).finally(() => setSaving(false));
+    };
     return (
-        <span className={`${PLACES[place].box} block`}>
+        <span className={`${PLACES[place].box} flex items-start gap-2`}>
             <ImageThumb source={source} alt={alt} className={PLACES[place].image} />
+            {projectId !== null && (
+                <Button size="xs" disabled={saving} onClick={save}>
+                    <Icon icon={PackagePlus} size={12} /> {t('output:chat.save')}
+                </Button>
+            )}
         </span>
     );
 }

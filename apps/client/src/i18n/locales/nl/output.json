@@ -117,6 +117,7 @@
     },
     "chat": {
         "made": "Gemaakt in deze chat",
+        "failed": "Wat deze chat bewaarde kon niet getoond worden",
         "open": "Output openen",
         "save": "Bewaar in Output",
         "saved": "Bewaard in Output",

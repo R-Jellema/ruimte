@@ -15,6 +15,7 @@ import { useTimelineFind } from '@/chat/use-chat-find';
 import { useChatPlace } from '@/chat/use-chat-place';
 import { useContextSources } from '@/context/sources';
 import { isApplePlatform } from '@/desktop/bridge';
+import { saveToOutputActions } from '@/output/save';
 import { DictationTextarea } from '@/dictation/DictationTextarea';
 import { dictationPreview, dictationRange } from '@/dictation/editor';
 import { answerRuimtePrompt, computerPrompt, isRuimtePrompt, proposalPrompt, secretPrompt } from '@/prompts/ruimte-prompts';
@@ -35,6 +36,9 @@ import { isComposerShortcut } from '@/terminal/keymap';
  * hands it to the chat views under it, over `CHAT_HOST`.
  */
 const intelligentUi = CHAT_HOST.intelligentUi;
+// `CHAT_HOST` always sets both; it is typed as a part of a host since the library fills in the rest.
+const attachments = CHAT_HOST.attachments!;
+const visuals = CHAT_HOST.visuals ?? null;
 
 export const WORKSPACE_CHAT_HOST: Partial<ChatHost> = {
     ...(intelligentUi ? { intelligentUi: { ...intelligentUi, openLink: openUiLink, openUrl: openUiUrl } } : {}),
@@ -80,5 +84,20 @@ export const WORKSPACE_CHAT_HOST: Partial<ChatHost> = {
     useReferables,
     openReference,
     useChatPlace,
-    useContextSources
+    useContextSources,
+    // Saving needs the project the chat is in, which only a workspace has.
+    attachments: {
+        ...attachments,
+        actions: (scopeId, chatId, attachment) =>
+            attachment.mime.startsWith('image/')
+                ? saveToOutputActions(scopeId, { kind: 'attachment', chatId, attachmentId: attachment.id }, attachment.name)
+                : []
+    },
+    visuals:
+        visuals === null
+            ? null
+            : {
+                  ...visuals,
+                  actions: (scopeId, chatId, visual) => saveToOutputActions(scopeId, { kind: 'visual', chatId, visualId: visual.id }, visual.title)
+              }
 };

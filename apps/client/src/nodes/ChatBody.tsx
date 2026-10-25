@@ -22,6 +22,8 @@ import { endpointKey, useEndpointId } from '@/state/keys';
 import { chatClientFor } from '@/transport/connections';
 import { useTransportStatus } from '@/transport/status';
 import { MissingProviderNote } from '@/nodes/MissingProviderNote';
+import { OutputChatContext } from '@/output/chat-scope';
+import { MadeInChat } from '@/output/MadeInChat';
 import { NodeNotice } from '@/nodes/NodeNotice';
 import { useMountCount } from '@/measure/mounts';
 import { readNodeHost, renameHost, useNodeHost, useSuggestedTitle } from '@/nodes/node-host';
@@ -37,6 +39,7 @@ function messageOf(error: unknown, fallback: string): string {
 export function ChatBody({ id, focused, onCanvas = false }: { id: string; focused: boolean; onCanvas?: boolean }) {
     useMountCount('chat');
     const { t } = useTranslation('canvas');
+    const { t: to } = useTranslation('output');
     const info = useChatRow(id, (row) => row?.info);
     const nodeHost = useNodeHost(id);
     const providerFixed = nodeHost?.providerFixed === true;
@@ -134,33 +137,38 @@ export function ChatBody({ id, focused, onCanvas = false }: { id: string; focuse
                     {failure}
                 </NodeNotice>
             )}
-            <LazyBoundary fallback={<div className="grow" />}>
-                <Timeline
-                    chatId={id}
-                    composer={
-                        info && (
-                            <Composer
-                                chatId={id}
-                                info={info}
-                                focused={focused}
-                                answerPromptsElsewhere={onCanvas && !PROMPTS_IN_NODES ? () => bringPromptToFront(id) : undefined}
-                                disabled={status !== 'open'}
-                                readOnly={!composerWrites(trail)}
-                                providerFixed={providerFixed}
-                                onSend={send}
-                                onRetarget={retarget}
-                            />
-                        )
-                    }
-                    overlay={
-                        shown && (
-                            <ErrorBoundary key={shown.toolUseId} label={t('chat.conversationFailed')} resetKeys={[shown.toolUseId]}>
-                                <SubagentTimeline chatId={id} toolUseId={shown.toolUseId} />
-                            </ErrorBoundary>
-                        )
-                    }
-                />
-            </LazyBoundary>
+            <ErrorBoundary label={to('chat.failed')} resetKeys={[id]}>
+                <MadeInChat endpointId={endpointId} chatId={id} />
+            </ErrorBoundary>
+            <OutputChatContext value={id}>
+                <LazyBoundary fallback={<div className="grow" />}>
+                    <Timeline
+                        chatId={id}
+                        composer={
+                            info && (
+                                <Composer
+                                    chatId={id}
+                                    info={info}
+                                    focused={focused}
+                                    answerPromptsElsewhere={onCanvas && !PROMPTS_IN_NODES ? () => bringPromptToFront(id) : undefined}
+                                    disabled={status !== 'open'}
+                                    readOnly={!composerWrites(trail)}
+                                    providerFixed={providerFixed}
+                                    onSend={send}
+                                    onRetarget={retarget}
+                                />
+                            )
+                        }
+                        overlay={
+                            shown && (
+                                <ErrorBoundary key={shown.toolUseId} label={t('chat.conversationFailed')} resetKeys={[shown.toolUseId]}>
+                                    <SubagentTimeline chatId={id} toolUseId={shown.toolUseId} />
+                                </ErrorBoundary>
+                            )
+                        }
+                    />
+                </LazyBoundary>
+            </OutputChatContext>
         </div>
     );
 }

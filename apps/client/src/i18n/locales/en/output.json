@@ -117,6 +117,7 @@
     },
     "chat": {
         "made": "Made in this chat",
+        "failed": "What this chat saved could not be shown",
         "open": "Open Output",
         "save": "Save to Output",
         "saved": "Saved to Output",

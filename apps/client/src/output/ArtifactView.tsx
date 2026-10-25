@@ -50,7 +50,7 @@ export function ArtifactView({ artifactId }: { artifactId: string }) {
     if (state.status === 'unreachable') {
         return <Centered icon={WifiOff}>{t('view.unreachable')}</Centered>;
     }
-    if (state.status === 'gone') {
+    if (state.status === 'gone' || state.result.versions.length === 0) {
         return <Centered icon={Package}>{t('view.gone')}</Centered>;
     }
     return <ArtifactBody endpointId={endpointId} result={state.result} />;

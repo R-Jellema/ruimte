@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, setSystemTime, test } from 'bun:test';
 import { act } from 'react';
 import {
     REQUEST_SCHEMAS,
@@ -16,7 +16,8 @@ import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-worksp
 import { clickOn, mount, until, type Mounted } from '../../testing/dom';
 
 const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [], texts: [], edges: [], layouts: [] };
-const NOW = Date.now();
+// The panel groups by the day it is now, so the clock stands still on a known one.
+const NOW = new Date(2026, 9, 25, 12, 0).getTime();
 const DAY = 24 * 60 * 60 * 1000;
 const REPORTS: Record<string, string> = {
     'v-new': '# Dependency report\n\n9 behind\n',
@@ -91,6 +92,7 @@ async function openPanel(): Promise<void> {
 }
 
 beforeEach(async () => {
+    setSystemTime(NOW);
     localStorage.clear();
     machine = new FakeMachine();
     machine.answer('artifact.list', () => ({ artifacts: LIST }));
@@ -114,6 +116,7 @@ afterEach(async () => {
     await page.unmount();
     workspace.close();
     useFiles.setState({ tabs: [] });
+    setSystemTime();
 });
 
 describe('the Output panel', () => {

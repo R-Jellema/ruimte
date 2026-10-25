@@ -1,0 +1,180 @@
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { act } from 'react';
+import type { ArtifactSummary, ChatInfo, ChatItem, ProviderInfo } from '@ruimte/contracts';
+import { WORKSPACE_CHAT_HOST } from '@/chat/workspace-host';
+import { useFiles } from '@/state/files';
+import { useProject } from '@/state/project';
+import { FakeMachine } from '../../testing/fake-machine';
+import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
+import { clickOn, mount, until, type Mounted } from '../../testing/dom';
+
+const CLAUDE = {
+    kind: 'claude',
+    name: 'Claude Code',
+    installed: true,
+    version: '2.1.0',
+    models: [{ slug: 'model', name: 'Model', legacy: false, isDefault: true, options: [] }],
+    defaultModel: 'model',
+    capabilities: { chat: true, terminal: true, hooks: true, diffs: 'before-after', slashCommands: true },
+    resumeCommand: 'claude --resume {id}'
+} as unknown as ProviderInfo;
+
+const SHOT = '/work/atlas/screens/settings.png';
+
+// A chat view per test, named apart from the last test's, so no row of one test is in the next.
+let views = 0;
+let chatId: string;
+let saved: ArtifactSummary[];
+let machine: FakeMachine;
+let workspace: FakeWorkspace;
+let page: Mounted;
+const offsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
+
+function infoOf(id: string): ChatInfo {
+    return {
+        chatId: id,
+        provider: 'claude',
+        cwd: '/work/atlas',
+        agentSessionId: null,
+        model: null,
+        selection: { model: 'model', options: {} },
+        runtimeMode: 'supervised',
+        status: 'idle',
+        running: false,
+        activeTurnId: null,
+        slashCommands: [],
+        usage: { turns: 1, contextTokens: 0, contextWindow: 200_000, costUsd: 0 },
+        background: []
+    } as unknown as ChatInfo;
+}
+
+function readShot(): ChatItem {
+    return {
+        id: 'read-shot',
+        kind: 'tool',
+        createdAt: 1,
+        turnId: null,
+        toolUseId: 'read-shot',
+        name: 'Read',
+        input: { file_path: SHOT },
+        output: '',
+        state: 'done',
+        parentToolUseId: null
+    } as ChatItem;
+}
+
+function artifact(artifactId: string, title: string, kind: string): ArtifactSummary {
+    const latest = {
+        versionId: `${artifactId}-v1`,
+        number: 1,
+        createdAt: 1_761_400_000_000,
+        files: [{ name: 'settings.png', mime: 'image/png', size: 4096, sha256: 'aa' }],
+        bytes: 4096,
+        provenance: { maker: 'person' as const, machineId: 'mac', chatId },
+        copiedTo: []
+    };
+    return {
+        artifactId,
+        projectId: 'project-atlas',
+        projectName: 'Atlas',
+        title,
+        kind,
+        createdAt: latest.createdAt,
+        latest,
+        versionCount: 1,
+        totalBytes: 4096
+    };
+}
+
+function strip(): Element | null {
+    return page.host.querySelector('[role="region"][aria-label="Made in this chat"]');
+}
+
+function buttonWithText(label: string): HTMLElement | null {
+    return ([...page.host.querySelectorAll('button')] as HTMLElement[]).find((button) => button.textContent?.trim() === label) ?? null;
+}
+
+beforeEach(async () => {
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+        configurable: true,
+        get(this: HTMLElement) {
+            return this.classList.contains('chat-scroll') ? 800 : (offsetHeight?.get?.call(this) ?? 0);
+        }
+    });
+    views += 1;
+    chatId = `chat-output${views}`;
+    saved = [];
+    machine = new FakeMachine();
+    machine.answer('provider.list', () => ({ providers: [CLAUDE] }));
+    machine.answer('chat.attach', ({ chatId: attached }) => ({ info: infoOf(attached), items: [readShot()], seq: 1 }) as never);
+    machine.answer('fs.read', () => ({ kind: 'binary' as const, mime: 'image/png', size: 4096, mtime: 1 }));
+    machine.answer('artifact.list', ({ chatId: asked }) => ({ artifacts: asked === chatId ? saved : [] }));
+    machine.answer('artifact.save', () => {
+        saved = [artifact('shot', 'settings.png', 'image')];
+        return { artifactId: 'shot', versionId: 'shot-v1' };
+    });
+    const chat = { kind: 'chat', id: chatId, name: 'Agent', node: { provider: 'claude' } };
+    workspace = await openFakeWorkspace(machine, { views: [chat] } as never, { activeViewId: chatId, views: {} });
+    page = mount();
+    await page.renderApp();
+    await until(() => page.host.querySelector('[data-find-item="read-shot"]') !== null);
+});
+
+afterEach(async () => {
+    await page.unmount();
+    workspace.close();
+    useFiles.setState({ tabs: [] });
+    if (offsetHeight !== undefined) {
+        Object.defineProperty(HTMLElement.prototype, 'offsetHeight', offsetHeight);
+    }
+});
+
+describe('what a chat saved to Output', () => {
+    test('has no strip while the chat made nothing', async () => {
+        await until(() => machine.requests('artifact.list').some((payload) => payload.chatId === chatId));
+        expect(strip()).toBeNull();
+    });
+
+    test('a screenshot a tool read saves to Output and then stands in the strip above the thread', async () => {
+        await until(() => buttonWithText('Save to Output') !== null);
+        await clickOn(buttonWithText('Save to Output'));
+        await until(() => machine.requests('artifact.save').length === 1);
+        const request = machine.requests('artifact.save')[0]!;
+        expect(request.projectId).toBe('project-atlas');
+        expect(request.source).toEqual({ kind: 'image', chatId, path: SHOT });
+        expect(request.requestId).toMatch(/^[A-Za-z0-9_-]{1,64}$/);
+
+        await act(async () => machine.emit('artifact.changed', { artifactId: 'shot', projectId: 'project-atlas' }));
+        await until(() => strip()?.textContent?.includes('settings.png') === true);
+        expect(strip()?.textContent).toContain('Open Output');
+
+        await clickOn(strip()!.querySelector('button'));
+        await until(() => useFiles.getState().tabs.some((tab) => tab.key === 'artifact:shot'));
+    });
+
+    test('a visual and a generated image offer Save to Output, which names them by id', async () => {
+        const visualActions = WORKSPACE_CHAT_HOST.visuals!.actions!(workspaceEndpoint(), chatId, {
+            id: 'visual-1',
+            title: 'Suite timings',
+            at: 1,
+            maxHeight: 600,
+            size: 10
+        });
+        expect(visualActions.map((action) => action.label)).toEqual(['Save to Output']);
+        await act(async () => visualActions[0]!.run());
+        await until(() => machine.requests('artifact.save').length === 1);
+        expect(machine.requests('artifact.save')[0]).toMatchObject({ title: 'Suite timings', source: { kind: 'visual', chatId, visualId: 'visual-1' } });
+
+        const image = { id: 'image-1', name: 'chart.png', mime: 'image/png', size: 10, path: '/x/chart.png' };
+        const imageActions = WORKSPACE_CHAT_HOST.attachments!.actions!(workspaceEndpoint(), chatId, image);
+        await act(async () => imageActions[0]!.run());
+        await until(() => machine.requests('artifact.save').length === 2);
+        expect(machine.requests('artifact.save')[1]!.source).toEqual({ kind: 'attachment', chatId, attachmentId: 'image-1' });
+        expect(WORKSPACE_CHAT_HOST.attachments!.actions!(workspaceEndpoint(), chatId, { ...image, mime: 'application/pdf' })).toEqual([]);
+    });
+});
+
+/* The machine the window's project is on, which is the scope a chat of it hands the host. */
+function workspaceEndpoint(): string {
+    return useProject.getState().currentEndpointId ?? '';
+}
