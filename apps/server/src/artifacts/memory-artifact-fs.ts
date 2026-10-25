@@ -97,6 +97,11 @@ export class MemoryArtifactFs implements ArtifactFs {
         return (this.files.get(path) ?? new Uint8Array()).slice(0, length);
     }
 
+    async readRange(path: string, offset: number, length: number): Promise<Uint8Array> {
+        this.check('readRange', path);
+        return (this.files.get(path) ?? new Uint8Array()).slice(offset, offset + length);
+    }
+
     async syncFile(path: string): Promise<void> {
         this.check('syncFile', path);
     }

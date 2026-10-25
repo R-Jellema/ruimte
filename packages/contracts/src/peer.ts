@@ -1,5 +1,6 @@
 import { AgentKindSchema, TaskResultSchema, TaskStatusSchema } from '@adecore/agent-contracts';
 import { z } from 'zod';
+import { ARTIFACT_LIMITS, ArtifactIdSchema, ArtifactVersionIdSchema } from './artifact.ts';
 import { GitBundlePutPayloadSchema, GitBundlePutResultSchema, GitBundleResultSchema } from './git.ts';
 import { RuntimeModeSchema } from './model.ts';
 import { ProjectEdgeSchema, ProjectNodeSchema } from './project.ts';
@@ -161,3 +162,40 @@ export type PeerClosePayload = z.infer<typeof PeerClosePayloadSchema>;
 // A task of that machine settled here; it asks `peer.result` for the rest.
 export const PeerTaskSettledEventSchema = z.object({ nodeId: ProjectNodeSchema.shape.id });
 export type PeerTaskSettledEvent = z.infer<typeof PeerTaskSettledEventSchema>;
+
+/*
+ * Output of the project the link names, read only, for a copy a person on that machine asked for.
+ * An artifact of any other project here answers `not-found`, the way one that is not here does.
+ */
+export const PeerArtifactListPayloadSchema = z.object({ projectId: PeerLinkSchema.shape.projectId });
+export type PeerArtifactListPayload = z.infer<typeof PeerArtifactListPayloadSchema>;
+
+export const PeerArtifactGetPayloadSchema = z.object({ projectId: PeerLinkSchema.shape.projectId, artifactId: ArtifactIdSchema });
+export type PeerArtifactGetPayload = z.infer<typeof PeerArtifactGetPayloadSchema>;
+
+// The most `peer.artifactRead` answers at a time, as `peer.bundleRead` does.
+export const PEER_ARTIFACT_PIECE_BYTES = 256 * 1024;
+
+export const PeerArtifactReadPayloadSchema = z.object({
+    projectId: PeerLinkSchema.shape.projectId,
+    artifactId: ArtifactIdSchema,
+    versionId: ArtifactVersionIdSchema,
+    // The file's place in the version's manifest.
+    file: z
+        .number()
+        .int()
+        .nonnegative()
+        .max(ARTIFACT_LIMITS.filesPerVersion - 1),
+    offset: z.number().int().nonnegative(),
+    length: z.number().int().positive().max(PEER_ARTIFACT_PIECE_BYTES)
+});
+export type PeerArtifactReadPayload = z.infer<typeof PeerArtifactReadPayloadSchema>;
+
+export const PeerArtifactReadResultSchema = z.object({
+    // The whole file, so a piece of a file that changed size tells.
+    size: z.number().int().nonnegative(),
+    offset: z.number().int().nonnegative(),
+    // Base64.
+    data: z.string().max(Math.ceil(PEER_ARTIFACT_PIECE_BYTES / 3) * 4)
+});
+export type PeerArtifactReadResult = z.infer<typeof PeerArtifactReadResultSchema>;

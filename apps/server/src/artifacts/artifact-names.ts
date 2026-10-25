@@ -17,7 +17,11 @@ export type ArtifactErrorCode =
     | 'too-many-uploads'
     | 'not-an-image'
     | 'outside-project'
-    | 'chat-elsewhere';
+    | 'chat-elsewhere'
+    | 'not-linked'
+    | 'machine-unreachable'
+    | 'hash-mismatch'
+    | 'bad-reply';
 
 /* Never carries a title, a file name or content: the first line of a message may reach a report. */
 export class ArtifactError extends CodedError<ArtifactErrorCode> {}

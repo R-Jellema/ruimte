@@ -127,7 +127,10 @@ const PAYLOADS: Record<string, unknown> = {
     'peer.result': { nodeId: 'chat-one' },
     'peer.bundlePut': { bundleId: 'a-bundle-id', offset: 0, data: '' },
     'peer.bundleRead': { bundleId: 'a-bundle-id', offset: 0, length: 10 },
-    'peer.close': { projectId: 'project-1' }
+    'peer.close': { projectId: 'project-1' },
+    'peer.artifactList': { projectId: 'project-1' },
+    'peer.artifactGet': { projectId: 'project-1', artifactId: 'art-1' },
+    'peer.artifactRead': { projectId: 'project-1', artifactId: 'art-1', versionId: 'ver-1', file: 0, offset: 0, length: 10 }
 };
 
 describe('a peer in the whole daemon', () => {
@@ -135,6 +138,9 @@ describe('a peer in the whole daemon', () => {
         const info = await link.request<{ features: string[]; accountId?: string }>('endpoint.info', {});
         expect(info.features.toSorted()).toEqual([
             'endpoint.info',
+            'peer.artifactGet',
+            'peer.artifactList',
+            'peer.artifactRead',
             'peer.bundlePut',
             'peer.bundleRead',
             'peer.close',
@@ -162,14 +168,17 @@ describe('a peer in the whole daemon', () => {
             'peer.placeNodes',
             'git.bundlePut',
             'git.fetchBundle',
-            'bytes.read'
+            'bytes.read',
+            'artifact.list',
+            'artifact.get',
+            'artifact.importFrom'
         ]) {
             await expect(link.request(type, {})).rejects.toThrow(/^forbidden:/);
         }
     }, 30_000);
 
     test('and every request on the list answers peer-not-linked until a person here links the machine', async () => {
-        for (const type of ['peer.taskStart', 'peer.taskStop', 'peer.result', 'peer.bundlePut', 'peer.bundleRead', 'peer.close']) {
+        for (const type of Object.keys(PAYLOADS)) {
             await expect(link.request(type, PAYLOADS[type])).rejects.toThrow(/^peer-not-linked:/);
         }
     }, 30_000);

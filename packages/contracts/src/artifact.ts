@@ -214,6 +214,23 @@ export const ArtifactCleanupProposalSchema = z.object({
 });
 export type ArtifactCleanupProposal = z.infer<typeof ArtifactCleanupProposalSchema>;
 
+/*
+ * A copy of a version another machine of the account keeps, into a project here, over the link between
+ * the two machines. `machineId` is that machine and `projectId` the project here it goes into. A second
+ * copy of the same version answers the one already made. Errors: `not-linked`, `machine-unreachable`,
+ * `not-found`, `hash-mismatch`, `too-large`, `disk-full`.
+ */
+export const ArtifactImportFromPayloadSchema = z.object({
+    machineId: z.string().min(1).max(256),
+    artifactId: ArtifactIdSchema,
+    versionId: ArtifactVersionIdSchema,
+    projectId: z.string().min(1)
+});
+export type ArtifactImportFromPayload = z.infer<typeof ArtifactImportFromPayloadSchema>;
+
+export const ArtifactImportFromResultSchema = ArtifactSaveResultSchema;
+export type ArtifactImportFromResult = z.infer<typeof ArtifactImportFromResultSchema>;
+
 // A preview answers `proposals`, a confirm `removed` and `freedBytes`.
 export const ArtifactCleanupResultSchema = z.object({
     proposals: z.array(ArtifactCleanupProposalSchema).optional(),

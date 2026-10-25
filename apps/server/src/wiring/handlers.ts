@@ -34,6 +34,8 @@ import { registerOnDeviceHandlers } from '../handlers/ondevice.ts';
 import { registerPeerHandlers } from '../handlers/peer.ts';
 import { registerPeerTaskHandlers } from '../handlers/peer-tasks.ts';
 import { registerArtifactHandlers } from '../handlers/artifact.ts';
+import { registerPeerArtifactHandlers } from '../handlers/peer-artifacts.ts';
+import { ArtifactImporter } from '../artifacts/artifact-import.ts';
 import { registerPlanHandlers } from '../handlers/plan.ts';
 import { registerRemoteHandlers } from '../handlers/remote.ts';
 import { trustedStatementKeys } from '../pulsar/statement.ts';
@@ -267,7 +269,18 @@ export async function registerHandlers(dispatcher: Dispatcher, input: HandlersIn
         })
     );
     registerPlanHandlers(dispatcher, agents.plans);
-    registerArtifactHandlers(dispatcher, artifacts.artifacts);
+    registerArtifactHandlers(
+        dispatcher,
+        artifacts.artifacts,
+        new ArtifactImporter({
+            store: artifacts.store,
+            machineId: identity.id,
+            known: () => store.known(),
+            remoteProjectOf: (projectId, machineId) => store.remote.linksOf(projectId).find((link) => link.machineId === machineId)?.remoteProjectId ?? null,
+            connect: (machineId) => remote.connections.connect(machineId)
+        })
+    );
+    registerPeerArtifactHandlers(dispatcher, store.peers, artifacts.artifacts);
     registerProjectHandlers(dispatcher, store, async (chatId) => (await chats.readChat(chatId))?.items.some((item) => item.kind === 'user') ?? false, {
         start: (payload) => chats.create(payload),
         // Loaded first: a chat nobody opened since a restart has no session to end, only a record to remove.

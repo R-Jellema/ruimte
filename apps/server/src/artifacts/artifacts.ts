@@ -2,6 +2,7 @@ import { lstat, realpath } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
 import {
     ARTIFACT_LIMITS,
+    PEER_ARTIFACT_PIECE_BYTES,
     type Artifact,
     type ArtifactChangedEvent,
     type ArtifactCleanupProposal,
@@ -352,6 +353,38 @@ export class Artifacts {
         const start = (await this.store.readStart(query.artifactId, version.versionId, index, MAX_READ_BYTES)) ?? new Uint8Array();
         // A cut inside a character reads as one replacement character at the end, which is all a cut costs.
         return { artifact, version, file, text: new TextDecoder().decode(start), truncated: file.size > MAX_READ_BYTES };
+    }
+
+    /* One artifact of one project; an artifact of another project answers as one that is not there. */
+    async getIn(projectId: string, artifactId: string): Promise<ArtifactGetResult> {
+        if (this.store.get(artifactId)?.artifact.projectId !== projectId) {
+            throw new ArtifactError('not-found', 'No such artifact in this project');
+        }
+        return this.get(artifactId);
+    }
+
+    /* A piece of a file of an artifact of one project, as base64, with the size of the whole file. */
+    async readPiece(
+        projectId: string,
+        query: { artifactId: string; versionId: string; file: number; offset: number; length: number }
+    ): Promise<{ size: number; offset: number; data: string }> {
+        const found = this.store.get(query.artifactId);
+        const file =
+            found?.artifact.projectId === projectId ? found.versions.find((version) => version.versionId === query.versionId)?.files[query.file] : undefined;
+        if (file === undefined) {
+            throw new ArtifactError('not-found', 'No such file of an artifact in this project');
+        }
+        if (query.offset > file.size) {
+            throw new ArtifactError('bad-path', `This file holds ${file.size} bytes`);
+        }
+        const bytes = await this.store.readRange(
+            query.artifactId,
+            query.versionId,
+            query.file,
+            query.offset,
+            Math.min(query.length, PEER_ARTIFACT_PIECE_BYTES)
+        );
+        return { size: file.size, offset: query.offset, data: Buffer.from(bytes ?? new Uint8Array()).toString('base64') };
     }
 
     cleanupPreview(): ArtifactCleanupProposal[] {

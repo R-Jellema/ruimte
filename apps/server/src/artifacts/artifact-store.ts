@@ -359,6 +359,12 @@ export class ArtifactStore {
         return found ? this.fs.readHead(found.path, length) : null;
     }
 
+    /* At most `length` bytes of a file of a version from `offset` on; null for one the register does not hold. */
+    async readRange(artifactId: string, versionId: string, index: number, offset: number, length: number): Promise<Uint8Array | null> {
+        const found = this.file(artifactId, versionId, index);
+        return found ? this.fs.readRange(found.path, offset, length) : null;
+    }
+
     private async commitStaged(stagingId: string, input: CommitInput): Promise<CommitResult> {
         const names = input.names.map(checkFileName);
         if (input.key !== undefined) {
@@ -384,7 +390,13 @@ export class ArtifactStore {
                 await this.discardStaging(stagingId);
                 return again;
             }
-            const keyed = input.key === undefined ? undefined : this.byKey(input.projectId, input.key);
+            // A copy from another machine joins the artifact earlier copies of the same one made here, and never one by key.
+            const keyed =
+                input.origin !== undefined
+                    ? this.byOrigin(input.projectId, input.origin)
+                    : input.key === undefined
+                      ? undefined
+                      : this.byKey(input.projectId, input.key);
             const artifactId = keyed?.artifact.artifactId ?? `art-${this.newId()}`;
             const versionId = `ver-${this.newId()}`;
             const createdAt = this.now();
@@ -449,6 +461,14 @@ export class ArtifactStore {
 
     private byKey(projectId: string, key: string): Entry | undefined {
         return [...this.entries.values()].find((entry) => entry.artifact.projectId === projectId && entry.artifact.key === key);
+    }
+
+    private byOrigin(projectId: string, origin: ArtifactOrigin): Entry | undefined {
+        return [...this.entries.values()].find(
+            (entry) =>
+                entry.artifact.projectId === projectId &&
+                entry.versions.some((version) => version.origin?.machineId === origin.machineId && version.origin.artifactId === origin.artifactId)
+        );
     }
 
     private summaryOf(entry: Entry): ArtifactSummary {

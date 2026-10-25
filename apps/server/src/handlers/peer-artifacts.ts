@@ -1,0 +1,34 @@
+import type { Artifacts } from '../artifacts/artifacts.ts';
+import { RequestError, type ClientConnection, type Dispatcher } from '../dispatcher.ts';
+import { requirePeerLinks } from '../peering/peer-access.ts';
+import type { PeerLinks } from '../peering/links.ts';
+
+/*
+ * The Output another machine may read here, for a copy a person there asked for: only the project its
+ * link names, read only. Each request starts with `requirePeerLinks`, and a project the link does not
+ * name answers as if that machine had no link at all.
+ */
+export function registerPeerArtifactHandlers(dispatcher: Dispatcher, links: Pick<PeerLinks, 'list' | 'linkOf'>, artifacts: Artifacts): void {
+    const linkedProject = (client: ClientConnection, projectId: string): string => {
+        requirePeerLinks(client, links);
+        const machineId = client.access?.peer?.machineId;
+        if (machineId === undefined || links.linkOf(machineId, projectId) === null) {
+            throw new RequestError('peer-not-linked', 'That project here is not linked to this machine');
+        }
+        return projectId;
+    };
+
+    dispatcher.register(
+        'peer.artifactList',
+        async ({ projectId }, client) => ({ artifacts: await artifacts.list({ projectId: linkedProject(client, projectId) }) }),
+        { peer: true }
+    );
+
+    dispatcher.register('peer.artifactGet', ({ projectId, artifactId }, client) => artifacts.getIn(linkedProject(client, projectId), artifactId), {
+        peer: true
+    });
+
+    dispatcher.register('peer.artifactRead', ({ projectId, ...query }, client) => artifacts.readPiece(linkedProject(client, projectId), query), {
+        peer: true
+    });
+}

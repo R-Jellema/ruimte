@@ -14,6 +14,8 @@ import {
     ArtifactCopyToProjectResultSchema,
     ArtifactGetPayloadSchema,
     ArtifactGetResultSchema,
+    ArtifactImportFromPayloadSchema,
+    ArtifactImportFromResultSchema,
     ArtifactListPayloadSchema,
     ArtifactListResultSchema,
     ArtifactSavePayloadSchema,
@@ -101,6 +103,10 @@ import {
 } from './push.ts';
 import { RenderSceneResultSchema } from './render.ts';
 import {
+    PeerArtifactGetPayloadSchema,
+    PeerArtifactListPayloadSchema,
+    PeerArtifactReadPayloadSchema,
+    PeerArtifactReadResultSchema,
     PeerBindPayloadSchema,
     PeerBundlePutPayloadSchema,
     PeerBundlePutResultSchema,
@@ -534,6 +540,9 @@ export const REQUEST_SCHEMAS = {
     'peer.bundlePut': { payload: PeerBundlePutPayloadSchema, result: PeerBundlePutResultSchema },
     'peer.bundleRead': { payload: PeerBundleReadPayloadSchema, result: PeerBundleReadResultSchema },
     'peer.close': { payload: PeerClosePayloadSchema, result: EmptySchema },
+    'peer.artifactList': { payload: PeerArtifactListPayloadSchema, result: ArtifactListResultSchema },
+    'peer.artifactGet': { payload: PeerArtifactGetPayloadSchema, result: ArtifactGetResultSchema },
+    'peer.artifactRead': { payload: PeerArtifactReadPayloadSchema, result: PeerArtifactReadResultSchema },
     'remote.list': { payload: RemoteListPayloadSchema, result: RemoteListResultSchema },
     'remote.link': { payload: RemoteLinkPayloadSchema, result: RemoteLinkSchema },
     'remote.connect': { payload: RemoteConnectPayloadSchema, result: EmptySchema },
@@ -845,6 +854,7 @@ export const REQUEST_SCHEMAS = {
     'artifact.copyToProject': { payload: ArtifactCopyToProjectPayloadSchema, result: ArtifactCopyToProjectResultSchema },
     'artifact.storage': { payload: EmptySchema, result: ArtifactStorageResultSchema },
     'artifact.cleanup': { payload: ArtifactCleanupPayloadSchema, result: ArtifactCleanupResultSchema },
+    'artifact.importFrom': { payload: ArtifactImportFromPayloadSchema, result: ArtifactImportFromResultSchema },
     'provenance.read': { payload: ProvenanceReadPayloadSchema, result: ProvenanceReadResultSchema },
     'provenance.review': { payload: ProvenanceReviewPayloadSchema, result: ProvenanceReviewResultSchema },
     'nanogpt.status': { payload: EmptySchema, result: NanoGptStatusSchema },

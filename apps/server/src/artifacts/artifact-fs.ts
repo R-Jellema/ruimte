@@ -28,6 +28,8 @@ export interface ArtifactFs {
     digest(path: string): Promise<FileDigest>;
     /* At most `length` bytes from the start of a file. */
     readHead(path: string, length: number): Promise<Uint8Array>;
+    /* At most `length` bytes from `offset` on; fewer at the end of the file. */
+    readRange(path: string, offset: number, length: number): Promise<Uint8Array>;
     syncFile(path: string): Promise<void>;
     syncDir(path: string): Promise<void>;
     rename(from: string, to: string): Promise<void>;
@@ -118,6 +120,13 @@ export const NODE_ARTIFACT_FS: ArtifactFs = {
     digest: (path) => digestStream(createReadStream(path)),
     async readHead(path, length) {
         return new Uint8Array(await Bun.file(path).slice(0, length).arrayBuffer());
+    },
+    async readRange(path, offset, length) {
+        return new Uint8Array(
+            await Bun.file(path)
+                .slice(offset, offset + length)
+                .arrayBuffer()
+        );
     },
     syncFile: syncPath,
     syncDir: syncPath,
