@@ -271,15 +271,22 @@ export class Routines {
      * An agent's save, through a verb: never an approval, and never a mode wider than the agent's own.
      * The chat that made it is written down here, so the person who approves it sees where it came from.
      */
-    async saveByAgent(projectId: string, routine: Routine, ceiling: RuntimeMode, madeBy: RoutineMadeBy): Promise<{ routine: Routine; rev: number }> {
+    async saveByAgent(
+        projectId: string,
+        routine: Routine,
+        ceiling: RuntimeMode,
+        madeBy: RoutineMadeBy,
+        shared = false
+    ): Promise<{ routine: Routine; rev: number; shared: boolean }> {
         const bounded = routine.kind === 'agent' ? { ...routine, mode: narrowerMode(routine.mode, ceiling) } : routine;
         this.check(bounded);
         const before = await this.deps.store.fresh(projectId);
         const existing = before.routines.find((candidate) => candidate.routine.id === routine.id);
-        const document = await this.deps.store.put(projectId, before.rev, bounded, existing?.shared ?? false);
+        const placed = existing?.shared ?? shared;
+        const document = await this.deps.store.put(projectId, before.rev, bounded, placed);
         await this.deps.authors.put(projectId, bounded.id, digestOf(bounded), madeBy);
         await this.changed(projectId);
-        return { routine: bounded, rev: document.rev };
+        return { routine: bounded, rev: document.rev, shared: placed };
     }
 
     async approve(projectId: string, routineId: string, digest: string): Promise<void> {
