@@ -16,7 +16,7 @@ import { LaunchButtons, LaunchStatusIcon } from '@/launches/LaunchControls';
 import { chosenLaunch, othersOf, outputOf, shortAddress, type LaunchView } from '@/launches/model';
 import { useAddressReachable, useLaunches, useProjectLaunches } from '@/launches/state';
 import { NodeNotice } from '@/nodes/NodeNotice';
-import { PanelHeaderSlot } from '@/shell/PanelHeaderSlot';
+import { PanelHeaderActions, PanelHeaderSlot } from '@/shell/PanelHeaderSlot';
 import { useProjectRepos } from '@/state/git-repos';
 import { useEndpointId } from '@/state/keys';
 import { useSettings } from '@/state/settings';
@@ -123,9 +123,11 @@ function LaunchPicker({ view }: { view: LaunchView }) {
                     <LaunchMenu repos={repos} showOutput={false} />
                 </Menu.Popup>
             </Menu.Root>
-            <ButtonGroup className="ml-auto shrink-0">
-                <LaunchButtons view={view} size="xs" />
-            </ButtonGroup>
+            <PanelHeaderActions>
+                <ButtonGroup>
+                    <LaunchButtons view={view} size="xs" />
+                </ButtonGroup>
+            </PanelHeaderActions>
         </PanelHeaderSlot>
     );
 }

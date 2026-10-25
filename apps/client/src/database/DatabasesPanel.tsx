@@ -20,7 +20,7 @@ import { RuimteDatabaseProvider } from '@/database/RuimteDatabaseProvider';
 import { openNewConsole } from '@/database/console-file';
 import { useConsoleFolders } from '@/database/console-folders';
 import { useDatabasePanel } from '@/database/state';
-import { PanelHeaderSlot } from '@/shell/PanelHeaderSlot';
+import { PanelHeaderActions, PanelHeaderSlot } from '@/shell/PanelHeaderSlot';
 import { basenameOf } from '@/shell/panels/files-tree';
 import { useProject } from '@/state/project';
 import { startDatabaseDrag } from '@/database/drag';
@@ -50,11 +50,12 @@ function DatabasesPanelBody() {
 
     const header = (
         <PanelHeaderSlot>
-            <span className="grow" />
-            <ButtonGroup>
-                <IconButton icon={SquareTerminal} label={t('panel.newConsole')} disabled={connections.length === 0} onClick={() => void openNewConsole()} />
-                <IconButton icon={Settings2} label={t('panel.manage')} onClick={() => useDatabasePanel.getState().openConnections()} />
-            </ButtonGroup>
+            <PanelHeaderActions>
+                <ButtonGroup>
+                    <IconButton icon={SquareTerminal} label={t('panel.newConsole')} disabled={connections.length === 0} onClick={() => void openNewConsole()} />
+                    <IconButton icon={Settings2} label={t('panel.manage')} onClick={() => useDatabasePanel.getState().openConnections()} />
+                </ButtonGroup>
+            </PanelHeaderActions>
         </PanelHeaderSlot>
     );
 

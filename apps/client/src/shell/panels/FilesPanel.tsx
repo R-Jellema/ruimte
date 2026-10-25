@@ -34,7 +34,7 @@ import { repoParts } from '@/shell/panels/git-tree';
 import { GitTreeMarks } from '@/shell/panels/GitTreeMarks';
 import { WorktreeBar } from '@/shell/panels/WorktreeMenu';
 import { nodesInWorktree, worktreeBase } from '@/shell/panels/worktree-rows';
-import { PanelHeaderLeadingSlot, PanelHeaderSlot, PanelHeaderTitleHidden } from '@/shell/PanelHeaderSlot';
+import { PanelHeaderActions, PanelHeaderLeadingSlot, PanelHeaderSlot, PanelHeaderTitleHidden } from '@/shell/PanelHeaderSlot';
 import { FileSearch as FileSearchFlow, type FileSearchResult } from './file-search';
 import { FileActionItems } from '@/shell/panels/FileActionItems';
 import { FileCopyRow } from '@/shell/panels/FileCopyRow';
@@ -87,7 +87,7 @@ import { fileManagerName, useServer } from '@/state/server';
 import { useSettings } from '@/state/settings';
 import { useUi } from '@/state/ui';
 import { useTransport } from '@/transport/context';
-import { Button, EmptyState, Icon, IconButton, Input, Menu, Kbd, PanelEmpty, ContextMenu, PromptDialog } from '@adecore/ui';
+import { Button, ButtonGroup, EmptyState, Icon, IconButton, Input, Menu, Kbd, PanelEmpty, ContextMenu, PromptDialog } from '@adecore/ui';
 import { APP_SHORTCUTS } from '@/shell/shortcuts';
 
 const { directoryHandle, menuTargetsOf, resetExpandedPaths, rowPathOf } = FileTree;
@@ -838,44 +838,47 @@ export function FilesPanel() {
                 />
             </PanelHeaderLeadingSlot>
             <PanelHeaderSlot>
-                <span className="grow" />
-                <IconButton
-                    icon={FilePlus}
-                    label={t('files.create.file')}
-                    onClick={() => startCreate('file', creationParentOf(selectionRef.current[0] ?? null))}
-                />
-                <IconButton
-                    icon={FolderPlus}
-                    label={t('files.create.folder')}
-                    onClick={() => startCreate('directory', creationParentOf(selectionRef.current[0] ?? null))}
-                />
-                <Menu.Root>
-                    <IconButton icon={MoreHorizontal} label={t('common:action.more')} render={<Menu.Trigger />} />
-                    <Menu.Popup align="end">
-                        <Menu.Item onClick={() => useUi.getState().openFindInFiles()}>
-                            <Icon icon={FileSearch} size={14} /> {t('file.empty.findInFiles')} <Kbd shortcut={APP_SHORTCUTS.findInFiles} />
-                        </Menu.Item>
-                        <Menu.Separator />
-                        <Menu.CheckboxItem
-                            checked={showHidden}
-                            onCheckedChange={(checked) => useSettings.getState().update({ filesShowHidden: checked })}
-                            closeOnClick={false}
-                        >
-                            {t('files.showHidden')}
-                        </Menu.CheckboxItem>
-                        <Menu.Separator />
-                        <Menu.Item onClick={expandAll}>
-                            <Icon icon={ChevronsUpDown} size={14} /> {t('git.panel.expandAll')}
-                        </Menu.Item>
-                        <Menu.Item onClick={collapseAll}>
-                            <Icon icon={ChevronsDownUp} size={14} /> {t('git.panel.collapseAll')}
-                        </Menu.Item>
-                        <Menu.Separator />
-                        <Menu.Item onClick={reloadListed}>
-                            <Icon icon={RefreshCw} size={14} /> {t('file.menu.refresh')}
-                        </Menu.Item>
-                    </Menu.Popup>
-                </Menu.Root>
+                <PanelHeaderActions>
+                    <ButtonGroup key="create">
+                        <IconButton
+                            icon={FilePlus}
+                            label={t('files.create.file')}
+                            onClick={() => startCreate('file', creationParentOf(selectionRef.current[0] ?? null))}
+                        />
+                        <IconButton
+                            icon={FolderPlus}
+                            label={t('files.create.folder')}
+                            onClick={() => startCreate('directory', creationParentOf(selectionRef.current[0] ?? null))}
+                        />
+                    </ButtonGroup>
+                    <Menu.Root key="more">
+                        <IconButton icon={MoreHorizontal} label={t('common:action.more')} render={<Menu.Trigger />} />
+                        <Menu.Popup align="end">
+                            <Menu.Item onClick={() => useUi.getState().openFindInFiles()}>
+                                <Icon icon={FileSearch} size={14} /> {t('file.empty.findInFiles')} <Kbd shortcut={APP_SHORTCUTS.findInFiles} />
+                            </Menu.Item>
+                            <Menu.Separator />
+                            <Menu.CheckboxItem
+                                checked={showHidden}
+                                onCheckedChange={(checked) => useSettings.getState().update({ filesShowHidden: checked })}
+                                closeOnClick={false}
+                            >
+                                {t('files.showHidden')}
+                            </Menu.CheckboxItem>
+                            <Menu.Separator />
+                            <Menu.Item onClick={expandAll}>
+                                <Icon icon={ChevronsUpDown} size={14} /> {t('git.panel.expandAll')}
+                            </Menu.Item>
+                            <Menu.Item onClick={collapseAll}>
+                                <Icon icon={ChevronsDownUp} size={14} /> {t('git.panel.collapseAll')}
+                            </Menu.Item>
+                            <Menu.Separator />
+                            <Menu.Item onClick={reloadListed}>
+                                <Icon icon={RefreshCw} size={14} /> {t('file.menu.refresh')}
+                            </Menu.Item>
+                        </Menu.Popup>
+                    </Menu.Root>
+                </PanelHeaderActions>
             </PanelHeaderSlot>
             {worktree !== null && (
                 <WorktreeBar label={several ? folderRepo : t('git.worktree.label')} names={insideNames} tooltip={worktree.path}>

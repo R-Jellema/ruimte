@@ -4,9 +4,9 @@ import { CircleCheck, CircleX, Info, Search, TriangleAlert } from 'lucide-react'
 import { resolveStoredPath } from '@ruimte/contracts';
 import type { EditorPosition } from '@adecore/editor';
 import { pathToFileUri } from '@adecore/lsp';
-import { Icon, PanelEmpty } from '@adecore/ui';
+import { ButtonGroup, Icon, PanelEmpty } from '@adecore/ui';
 import { formatNumber } from '@adecore/ui/format';
-import { PanelHeaderSlot } from '@/shell/PanelHeaderSlot';
+import { PanelHeaderActions, PanelHeaderSlot } from '@/shell/PanelHeaderSlot';
 import { countsOf, createHolder, type ProblemFile } from '@adecore/editor-react';
 import { basenameOf } from '@/shell/panels/files-tree';
 import { useEndpointId } from '@/state/keys';
@@ -93,20 +93,24 @@ export function ProblemsPanel() {
     return (
         <>
             <PanelHeaderSlot>
-                {SEVERITIES.map((severity) => (
-                    <button
-                        key={severity}
-                        type="button"
-                        aria-pressed={!hidden.has(severity)}
-                        className={`inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-xs hover:bg-surface-hover ${hidden.has(severity) ? 'opacity-50' : ''}`}
-                        onClick={() => toggle(severity)}
-                    >
-                        <Icon icon={ICONS[severity]} size={12} className={COLORS[severity]} />
-                        <span aria-label={t(`problems.${severity}`, { count: counts[severity], formatted: formatNumber(counts[severity]) })}>
-                            {formatNumber(counts[severity])}
-                        </span>
-                    </button>
-                ))}
+                <PanelHeaderActions>
+                    <ButtonGroup>
+                        {SEVERITIES.map((severity) => (
+                            <button
+                                key={severity}
+                                type="button"
+                                aria-pressed={!hidden.has(severity)}
+                                className={`inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-xs hover:bg-surface-hover ${hidden.has(severity) ? 'opacity-50' : ''}`}
+                                onClick={() => toggle(severity)}
+                            >
+                                <Icon icon={ICONS[severity]} size={12} className={COLORS[severity]} />
+                                <span aria-label={t(`problems.${severity}`, { count: counts[severity], formatted: formatNumber(counts[severity]) })}>
+                                    {formatNumber(counts[severity])}
+                                </span>
+                            </button>
+                        ))}
+                    </ButtonGroup>
+                </PanelHeaderActions>
             </PanelHeaderSlot>
             {files.length === 0 ? (
                 <PanelEmpty icon={CircleCheck}>{t('problems.empty')}</PanelEmpty>

@@ -21,7 +21,7 @@ import { AndroidMark } from '@/devices/AndroidMark';
 import { controlDevice } from '@/devices/control';
 import { DeviceControls, DeviceSurface } from '@/devices/DeviceBody';
 import { deviceStateText, unavailableNotes } from '@/devices/device-text';
-import { PanelHeaderLeadingSlot, PanelHeaderSlot, PanelHeaderTitleHidden } from '@/shell/PanelHeaderSlot';
+import { PanelHeaderActions, PanelHeaderLeadingSlot, PanelHeaderSlot, PanelHeaderTitleHidden } from '@/shell/PanelHeaderSlot';
 import { canvasInReach } from '@/state/canvas-target';
 import { useDocument } from '@/state/document';
 import { useEndpoints } from '@/state/endpoints';
@@ -384,18 +384,19 @@ export function DevicesPanel() {
     const listHeader = (
         <PanelHeaderSlot>
             <span className="min-w-0 truncate text-xs text-text-muted">{machineName}</span>
-            <span className="grow" />
-            <IconButton
-                icon={RefreshCw}
-                busy={row.loading}
-                label={t('devices.refresh')}
-                disabled={row.loading}
-                onClick={() =>
-                    void deviceClientFor(endpointId)
-                        ?.refresh()
-                        .catch(() => undefined)
-                }
-            />
+            <PanelHeaderActions>
+                <IconButton
+                    icon={RefreshCw}
+                    busy={row.loading}
+                    label={t('devices.refresh')}
+                    disabled={row.loading}
+                    onClick={() =>
+                        void deviceClientFor(endpointId)
+                            ?.refresh()
+                            .catch(() => undefined)
+                    }
+                />
+            </PanelHeaderActions>
         </PanelHeaderSlot>
     );
 

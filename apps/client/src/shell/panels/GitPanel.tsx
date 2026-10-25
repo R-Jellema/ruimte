@@ -21,7 +21,7 @@ import { useGitActions, type ActionOutcome, type ManyJob } from '@/shell/panels/
 import { useWorktreeInspection } from '@/shell/panels/use-worktree-inspection';
 import { WorktreeBar, WorktreeInspectDialog, type WorktreeActions } from '@/shell/panels/WorktreeMenu';
 import { nodesInWorktree, worktreeBase, worktreeDiffTab } from '@/shell/panels/worktree-rows';
-import { PanelHeaderLeadingSlot, PanelHeaderSlot, PanelHeaderTitleHidden } from '@/shell/PanelHeaderSlot';
+import { PanelHeaderActions, PanelHeaderLeadingSlot, PanelHeaderSlot, PanelHeaderTitleHidden } from '@/shell/PanelHeaderSlot';
 import { revealNode } from '@/project/views';
 import { useCanvas } from '@/state/canvas';
 import { useDocument } from '@/state/document';
@@ -557,23 +557,33 @@ export function GitPanel() {
                 />
             </PanelHeaderLeadingSlot>
             <PanelHeaderSlot>
-                <span className="grow" />
-                <PushMenu button={push} active={cwd} entries={entries} busy={busy} onPush={(path, kind) => void actOn(path, kind)} onPushAll={pushAll} />
-                <ActionsMenu
-                    busy={busy}
-                    foldable={changes > 0}
-                    onOpen={() => cwd !== null && loadRefs(cwd)}
-                    onAll={actAll}
-                    onRefresh={refreshAll}
-                    onExpandAll={() => useGit.getState().setCollapsedDirs([])}
-                    onCollapseAll={() =>
-                        useGit.getState().setCollapsedDirs(checkouts.flatMap((checkout) => allCollapseKeys(checkout.status?.files ?? [], checkout.path)))
-                    }
-                >
-                    {/* One repository keeps the menu it always had; over several, what acts on one
+                <PanelHeaderActions>
+                    <PushMenu
+                        key="push"
+                        button={push}
+                        active={cwd}
+                        entries={entries}
+                        busy={busy}
+                        onPush={(path, kind) => void actOn(path, kind)}
+                        onPushAll={pushAll}
+                    />
+                    <ActionsMenu
+                        key="actions"
+                        busy={busy}
+                        foldable={changes > 0}
+                        onOpen={() => cwd !== null && loadRefs(cwd)}
+                        onAll={actAll}
+                        onRefresh={refreshAll}
+                        onExpandAll={() => useGit.getState().setCollapsedDirs([])}
+                        onCollapseAll={() =>
+                            useGit.getState().setCollapsedDirs(checkouts.flatMap((checkout) => allCollapseKeys(checkout.status?.files ?? [], checkout.path)))
+                        }
+                    >
+                        {/* One repository keeps the menu it always had; over several, what acts on one
                         of them sits on its row in the list and in its own level of the branch menu. */}
-                    {!named && cwd !== null ? repoActions(cwd) : undefined}
-                </ActionsMenu>
+                        {!named && cwd !== null ? repoActions(cwd) : undefined}
+                    </ActionsMenu>
+                </PanelHeaderActions>
             </PanelHeaderSlot>
             {worktree !== null && (
                 /* While the selection put the panel here, the row says so; the chip's project row leaves. */

@@ -8,7 +8,7 @@ import { PanelHeaderProvider } from '@/shell/PanelHeaderSlot';
 import { FilesPanel } from '@/shell/panels/FilesPanel';
 import { ProcessesPanel } from '@/shell/panels/ProcessesPanel';
 import { DevicesPanel } from '@/shell/panels/DevicesPanel';
-import { clampColumnSize, ErrorBoundary, CloseButton, SlidingColumn, lazyNamed, PanelHeader, SectionLabel, LazyBoundary } from '@adecore/ui';
+import { clampColumnSize, ErrorBoundary, CloseButton, SlidingColumn, lazyNamed, PanelHeader, SectionLabel, Separator, LazyBoundary } from '@adecore/ui';
 import { useInstantWidth } from '@/shell/useInstantWidth';
 import { useShownPanel, useUi, type PanelKind } from '@/state/ui';
 import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
@@ -72,7 +72,8 @@ export function Panel() {
                 <div ref={setTitleSignal} className="panel-title-signal hidden" />
                 <SectionLabel className="panel-title shrink-0">{label}</SectionLabel>
                 {/* The panel's own controls, between its name and the close button. */}
-                <div ref={setHeaderSlot} className="flex min-w-0 grow items-center gap-2" />
+                <div ref={setHeaderSlot} className="peer flex min-w-0 grow items-center gap-2" />
+                <Separator className="peer-empty:hidden" />
                 <CloseButton
                     label={t('panel.close', { name: label })}
                     kbd={CANVAS_SHORTCUTS.togglePanel}

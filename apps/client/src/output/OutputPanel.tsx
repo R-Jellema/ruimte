@@ -38,7 +38,7 @@ import { useEndpointIdOfMachine, useEndpoints } from '@/state/endpoints';
 import { KindTile, OutputProjectGlyph } from '@/output/look';
 import { openArtifact, useOutputRequest } from '@/output/open';
 import { useArtifact } from '@/output/use-artifact';
-import { PanelHeaderSlot } from '@/shell/PanelHeaderSlot';
+import { PanelHeaderActions, PanelHeaderSlot } from '@/shell/PanelHeaderSlot';
 import { FILE_TOOLBAR } from '@/shell/panels/classes';
 import { useEndpointId } from '@/state/keys';
 import { useProject } from '@/state/project';
@@ -90,11 +90,12 @@ export function OutputPanel() {
     const artifacts = list?.status === 'ready' ? list.artifacts : NO_ARTIFACTS;
     const header = (
         <PanelHeaderSlot>
-            <span className="grow" />
-            <ButtonGroup>
-                <IconButton icon={Search} label={t('panel.search')} active={searchOpen} onClick={() => setSearchOpen(!searchOpen)} />
-                <FiltersMenu artifacts={artifacts} filters={filters} projectId={projectId} onChange={setFilters} />
-            </ButtonGroup>
+            <PanelHeaderActions>
+                <ButtonGroup>
+                    <IconButton icon={Search} label={t('panel.search')} active={searchOpen} onClick={() => setSearchOpen(!searchOpen)} />
+                    <FiltersMenu artifacts={artifacts} filters={filters} projectId={projectId} onChange={setFilters} />
+                </ButtonGroup>
+            </PanelHeaderActions>
         </PanelHeaderSlot>
     );
 

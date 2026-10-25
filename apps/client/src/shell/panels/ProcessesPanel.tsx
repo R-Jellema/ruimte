@@ -35,7 +35,7 @@ import { ignoreRefusal, perform } from '@/actions/client-actions';
 import { messageOf, Segmented, Button, Icon, IconButton, ListRow, Menu, Tooltip, PanelEmpty, PromptDialog, SectionLabel, ContextMenu } from '@adecore/ui';
 import { useProjectNodes } from '@/project/view-nodes';
 import { revealNode } from '@/project/views';
-import { PanelHeaderSlot } from '@/shell/PanelHeaderSlot';
+import { PanelHeaderActions, PanelHeaderSlot } from '@/shell/PanelHeaderSlot';
 import { ProcessChart } from '@/shell/panels/ProcessChart';
 import { niceScale } from '@adecore/agents-react/usage';
 import { useEndpoints } from '@/state/endpoints';
@@ -195,8 +195,9 @@ export function ProcessesPanel() {
     const header = (
         <PanelHeaderSlot>
             {machineName !== null && <span className="min-w-0 truncate text-xs text-text-muted">{machineName}</span>}
-            <span className="grow" />
-            <Segmented value={scope} options={scopes} label={t('processes.scopeLabel')} onValueChange={(next) => useProcesses.getState().setScope(next)} />
+            <PanelHeaderActions>
+                <Segmented value={scope} options={scopes} label={t('processes.scopeLabel')} onValueChange={(next) => useProcesses.getState().setScope(next)} />
+            </PanelHeaderActions>
         </PanelHeaderSlot>
     );
 

@@ -1,5 +1,6 @@
-import { createContext, useContext, type ReactNode } from 'react';
+import { Children, createContext, Fragment, isValidElement, useContext, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { Separator } from '@adecore/ui';
 
 interface PanelHeaderHosts {
     leading: HTMLElement | null;
@@ -17,6 +18,21 @@ export function PanelHeaderProvider({ hosts, children }: { hosts: PanelHeaderHos
 export function PanelHeaderSlot({ children }: { children: ReactNode }) {
     const host = useContext(PanelHeaderContext).trailing;
     return host === null ? null : createPortal(children, host);
+}
+
+/* The panel's actions at the end of its header: each child is one group, with the toolbar's separator between groups. */
+export function PanelHeaderActions({ children }: { children: ReactNode }) {
+    const groups = Children.toArray(children);
+    return (
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+            {groups.map((group, index) => (
+                <Fragment key={isValidElement(group) && group.key !== null ? group.key : index}>
+                    {index > 0 && <Separator />}
+                    {group}
+                </Fragment>
+            ))}
+        </div>
+    );
 }
 
 export function PanelHeaderLeadingSlot({ children }: { children: ReactNode }) {
