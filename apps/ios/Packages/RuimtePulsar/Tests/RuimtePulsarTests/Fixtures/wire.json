@@ -386,6 +386,14 @@
     "agent.children",
     "plan.list",
     "plan.apply",
+    "artifact.list",
+    "artifact.get",
+    "artifact.watch",
+    "artifact.unwatch",
+    "artifact.save",
+    "artifact.copyToProject",
+    "artifact.storage",
+    "artifact.cleanup",
     "provenance.read",
     "provenance.review",
     "nanogpt.status",
@@ -460,6 +468,7 @@
     "plan.changed",
     "plan.removed",
     "plan.created",
+    "artifact.changed",
     "provenance.changed"
   ],
   "crypto": [

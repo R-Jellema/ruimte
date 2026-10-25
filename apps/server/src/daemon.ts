@@ -12,6 +12,7 @@ import { readMachineModel } from './machine-model.ts';
 import { noteShutdown, rememberSecret, stopTelemetry, watchProjects, type Launcher } from './telemetry/reporter.ts';
 import { COMPILED as compiled, VERSION } from './version.ts';
 import { loadAgentStores, wireAgents } from './wiring/agents.ts';
+import { wireArtifacts } from './wiring/artifacts.ts';
 import { wireAgentWork } from './wiring/agent-work.ts';
 import { wireCanvasHost } from './wiring/canvas-host.ts';
 import { repairChatMoves } from './wiring/chat-move.ts';
@@ -89,6 +90,7 @@ export async function startDaemon(config: ServerConfig, launcher: Launcher = 'st
         later: { launches: () => launches, work: () => work, databases: () => databases, language: () => language }
     });
     watchProjects(projects.store);
+    const artifacts = await wireArtifacts({ home, machineId: identity.id, machineHome: machine.machineHome, stores, agents, projects });
     const databases = await wireDatabases(home, machine.machineHome, projects.store, { language: () => language });
     const remote = await wireRemote({ home, identity, machine, outbox: stores.outbox, later: { brokerUrl: () => network.brokerSwitch.describe().brokerUrl } });
     const work = wireAgentWork({
@@ -171,6 +173,7 @@ export async function startDaemon(config: ServerConfig, launcher: Launcher = 'st
         canvasHost,
         remote,
         stats,
+        artifacts,
         later: { network: () => network, clients: () => clients }
     });
     registerVoiceHandlers(dispatcher, voice);
@@ -183,7 +186,21 @@ export async function startDaemon(config: ServerConfig, launcher: Launcher = 'st
         sqlAnalysis: databases.sqlAnalysis,
         agents
     });
-    registerEditorHandlers(dispatcher, { machine, providers, projects, work, launches, git, devices, databases, usage, processes, language, agents });
+    registerEditorHandlers(dispatcher, {
+        machine,
+        providers,
+        projects,
+        work,
+        launches,
+        git,
+        devices,
+        databases,
+        usage,
+        processes,
+        language,
+        agents,
+        artifacts
+    });
     const network = wireNetwork(config, compiled, machine, dispatcher, { clients: () => clients });
 
     // Only from here on has the identity everything its announce describes; a CLI found sooner took the daemon down.
@@ -232,7 +249,8 @@ export async function startDaemon(config: ServerConfig, launcher: Launcher = 'st
         provenance: language.provenance,
         computer,
         secrets: launches.secrets,
-        proposals: agents.proposals
+        proposals: agents.proposals,
+        artifacts: artifacts.artifacts
     });
     // Before the socket answers, so no client attaches to or writes in a chat that is half moved; the outbox starts after.
     await repairChatMoves({

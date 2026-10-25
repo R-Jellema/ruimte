@@ -21,9 +21,15 @@ export interface ByteSources {
     bundle?(bundleId: string): Promise<string | null>;
     /* A bundle was read to its last byte, so nobody needs the file again. */
     bundleRead?(bundleId: string): Promise<void>;
+    /* A file of a saved version, found in the register by its ids only; its hash is its version, since it never changes. */
+    artifact?(artifactId: string, versionId: string, file: number): Promise<{ path: string; mime: string; sha256: string } | null>;
 }
 
-async function locate(sources: ByteSources, resource: ByteResource): Promise<{ path: string; mime: string } | null> {
+async function locate(sources: ByteSources, resource: ByteResource): Promise<{ path: string; mime: string; version?: string } | null> {
+    if (resource.kind === 'artifact') {
+        const found = await sources.artifact?.(resource.artifactId, resource.versionId, resource.file);
+        return found ? { path: found.path, mime: found.mime, version: found.sha256 } : null;
+    }
     if (resource.kind === 'attachment') {
         const attachment = await sources.attachment(resource.chatId, resource.attachmentId);
         return attachment ? { path: attachment.path, mime: attachment.mime } : null;
@@ -73,7 +79,7 @@ export async function readBytes(sources: ByteSources, payload: BytesReadPayload)
     return {
         mime: found.mime,
         size: info.size,
-        version: `${Math.trunc(info.mtimeMs)}-${info.size}`,
+        version: found.version ?? `${Math.trunc(info.mtimeMs)}-${info.size}`,
         offset: payload.offset,
         bytes: piece
     };

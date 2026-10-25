@@ -15,7 +15,14 @@ export const ByteResourceSchema = z.discriminatedUnion('kind', [
     // With an `entry`, that entry of the archive at `path`, whole up to `BYTES_READ_MAX_BYTES`, with the mime its own bytes claim.
     z.object({ kind: z.literal('file'), path: z.string().min(1), entry: z.string().min(1).max(ARCHIVE_ENTRY_PATH_MAX).optional() }),
     // A git bundle this machine wrote for a handoff, named by the id `git.bundle` answered.
-    z.object({ kind: z.literal('bundle'), bundleId: z.string().min(1).max(64) })
+    z.object({ kind: z.literal('bundle'), bundleId: z.string().min(1).max(64) }),
+    // A file of a saved version by its place in the manifest, never by a name or a path.
+    z.object({
+        kind: z.literal('artifact'),
+        artifactId: z.string().min(1).max(64),
+        versionId: z.string().min(1).max(64),
+        file: z.number().int().nonnegative().max(1024)
+    })
 ]);
 export type ByteResource = z.infer<typeof ByteResourceSchema>;
 

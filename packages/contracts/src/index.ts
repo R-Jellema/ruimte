@@ -7,6 +7,20 @@ import {
 export * from './terminal-prepare.ts';
 import { AgentIntegrationSetPayloadSchema, AgentIntegrationSetResultSchema, AgentIntegrationsResultSchema } from './agent-integrations.ts';
 import {
+    ArtifactChangedEventSchema,
+    ArtifactCleanupPayloadSchema,
+    ArtifactCleanupResultSchema,
+    ArtifactCopyToProjectPayloadSchema,
+    ArtifactCopyToProjectResultSchema,
+    ArtifactGetPayloadSchema,
+    ArtifactGetResultSchema,
+    ArtifactListPayloadSchema,
+    ArtifactListResultSchema,
+    ArtifactSavePayloadSchema,
+    ArtifactSaveResultSchema,
+    ArtifactStorageResultSchema
+} from './artifact.ts';
+import {
     CliUpdatePayloadSchema,
     CliUpdateResultSchema,
     CliVersionsPayloadSchema,
@@ -428,6 +442,7 @@ import {
 export * from './agent.ts';
 export * from './agent-integrations.ts';
 export * from './agent-registry.ts';
+export * from './artifact.ts';
 export * from './agent-server.ts';
 export * from './archive.ts';
 export * from './auth.ts';
@@ -821,6 +836,15 @@ export const REQUEST_SCHEMAS = {
     'agent.children': { payload: AgentChildrenPayloadSchema, result: AgentChildrenResultSchema },
     'plan.list': { payload: PlanListPayloadSchema, result: PlanListResultSchema },
     'plan.apply': { payload: PlanApplyPayloadSchema, result: PlanApplyResultSchema },
+    // A person's own: no request of these is on a peer's list, and bytes go only through `bytes.read`.
+    'artifact.list': { payload: ArtifactListPayloadSchema, result: ArtifactListResultSchema },
+    'artifact.get': { payload: ArtifactGetPayloadSchema, result: ArtifactGetResultSchema },
+    'artifact.watch': { payload: EmptySchema, result: EmptySchema },
+    'artifact.unwatch': { payload: EmptySchema, result: EmptySchema },
+    'artifact.save': { payload: ArtifactSavePayloadSchema, result: ArtifactSaveResultSchema },
+    'artifact.copyToProject': { payload: ArtifactCopyToProjectPayloadSchema, result: ArtifactCopyToProjectResultSchema },
+    'artifact.storage': { payload: EmptySchema, result: ArtifactStorageResultSchema },
+    'artifact.cleanup': { payload: ArtifactCleanupPayloadSchema, result: ArtifactCleanupResultSchema },
     'provenance.read': { payload: ProvenanceReadPayloadSchema, result: ProvenanceReadResultSchema },
     'provenance.review': { payload: ProvenanceReviewPayloadSchema, result: ProvenanceReviewResultSchema },
     'nanogpt.status': { payload: EmptySchema, result: NanoGptStatusSchema },
@@ -923,6 +947,8 @@ export const EVENT_SCHEMAS = {
     'plan.changed': PlanChangedEventSchema,
     'plan.removed': PlanRemovedEventSchema,
     'plan.created': PlanCreatedEventSchema,
+    // Only to the clients that asked with `artifact.watch`.
+    'artifact.changed': ArtifactChangedEventSchema,
     'provenance.changed': ProvenanceChangedEventSchema
 } as const satisfies Record<string, z.ZodType>;
 

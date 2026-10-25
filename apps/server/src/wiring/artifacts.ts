@@ -1,0 +1,56 @@
+import { join } from 'node:path';
+import type { ArtifactProvenance } from '@ruimte/contracts';
+import { ArtifactStore } from '../artifacts/artifact-store.ts';
+import { Artifacts } from '../artifacts/artifacts.ts';
+import type { MachineHome } from '../fs/machine-home.ts';
+import type { AgentStores, AgentsBundle } from './agents.ts';
+import type { ProjectsBundle } from './projects.ts';
+
+/* Output on this machine: the store under `$RUIMTE_HOME/artifacts` and what a person and an agent do with it. */
+export interface ArtifactsBundle {
+    store: ArtifactStore;
+    artifacts: Artifacts;
+}
+
+export interface ArtifactsInput {
+    home: string;
+    machineId: string;
+    machineHome: MachineHome;
+    stores: AgentStores;
+    agents: AgentsBundle;
+    projects: ProjectsBundle;
+}
+
+export async function wireArtifacts(input: ArtifactsInput): Promise<ArtifactsBundle> {
+    const { home, machineId, stores, agents } = input;
+    const { chats } = agents;
+    const projects = input.projects.store;
+    const store = new ArtifactStore({ root: join(home, 'artifacts') });
+    // Before a client or an agent can ask, so a save a stop cut short is gone or whole by then.
+    await store.load();
+    // From the daemon's own records of the caller only: an agent never states where its work came from.
+    const provenanceOf = async (caller: string): Promise<ArtifactProvenance> => {
+        const chat = chats.get(caller);
+        const isChat = chat !== undefined || (await chats.hasStored(caller));
+        const turnId = chat?.info.activeTurnId ?? null;
+        const taskId = stores.tasks.openFor(caller)?.id;
+        return {
+            maker: 'agent',
+            machineId,
+            nodeId: caller,
+            ...(isChat ? { chatId: caller } : {}),
+            ...(turnId === null ? {} : { turnId }),
+            ...(taskId === undefined ? {} : { taskId })
+        };
+    };
+    const artifacts = new Artifacts({
+        store,
+        home,
+        machineId,
+        projects: { known: () => projects.known(), projectOf: (id) => projects.locate(id)?.projectId ?? null },
+        chats: { findAttachment: (chatId, id) => chats.findAttachment(chatId, id), hasStored: (chatId) => chats.hasStored(chatId) },
+        machineHome: input.machineHome,
+        provenanceOf
+    });
+    return { store, artifacts };
+}

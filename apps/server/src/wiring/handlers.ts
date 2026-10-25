@@ -33,6 +33,7 @@ import { registerLaunchHandlers } from '../handlers/launches.ts';
 import { registerOnDeviceHandlers } from '../handlers/ondevice.ts';
 import { registerPeerHandlers } from '../handlers/peer.ts';
 import { registerPeerTaskHandlers } from '../handlers/peer-tasks.ts';
+import { registerArtifactHandlers } from '../handlers/artifact.ts';
 import { registerPlanHandlers } from '../handlers/plan.ts';
 import { registerRemoteHandlers } from '../handlers/remote.ts';
 import { trustedStatementKeys } from '../pulsar/statement.ts';
@@ -57,6 +58,7 @@ import type { PushService } from '../push/service.ts';
 import { PrepareTerminal, shellSyntax } from '../sessions/prepare-terminal.ts';
 import { VERSION } from '../version.ts';
 import type { AgentStores, AgentsBundle } from './agents.ts';
+import type { ArtifactsBundle } from './artifacts.ts';
 import type { AgentWorkBundle } from './agent-work.ts';
 import { chatMoveHandlers } from './chat-move.ts';
 import type { ClientsBundle } from './clients.ts';
@@ -92,6 +94,7 @@ export interface HandlersInput {
     canvasHost: CanvasHost;
     remote: RemoteBundle;
     stats: UsageStatsBundle;
+    artifacts: ArtifactsBundle;
     later: {
         network(): NetworkBundle;
         clients(): ClientsBundle;
@@ -100,8 +103,26 @@ export interface HandlersInput {
 
 /* What a client asks of sessions, chats, projects and the machine itself. */
 export async function registerHandlers(dispatcher: Dispatcher, input: HandlersInput): Promise<void> {
-    const { runtime, machine, stores, providers, agents, projects, work, launches, git, devices, processes, power, push, canvasHost, remote, stats, later } =
-        input;
+    const {
+        runtime,
+        machine,
+        stores,
+        providers,
+        agents,
+        projects,
+        work,
+        launches,
+        git,
+        devices,
+        processes,
+        power,
+        push,
+        canvasHost,
+        remote,
+        stats,
+        artifacts,
+        later
+    } = input;
     const { config } = runtime;
     dispatcher.register('nanogpt.status', () => providers.nanogpt.status());
     // A key bills a person's subscription, so only the owner of the machine sets or removes one.
@@ -246,6 +267,7 @@ export async function registerHandlers(dispatcher: Dispatcher, input: HandlersIn
         })
     );
     registerPlanHandlers(dispatcher, agents.plans);
+    registerArtifactHandlers(dispatcher, artifacts.artifacts);
     registerProjectHandlers(dispatcher, store, async (chatId) => (await chats.readChat(chatId))?.items.some((item) => item.kind === 'user') ?? false, {
         start: (payload) => chats.create(payload),
         // Loaded first: a chat nobody opened since a restart has no session to end, only a record to remove.
@@ -347,11 +369,12 @@ export interface EditorHandlersInput {
     processes: ProcessesBundle;
     language: LanguageBundle;
     agents: AgentsBundle;
+    artifacts: ArtifactsBundle;
 }
 
 /* What a client asks of a project's files: languages, databases, git, and what runs on the machine meanwhile. */
 export function registerEditorHandlers(dispatcher: Dispatcher, input: EditorHandlersInput): void {
-    const { machine, providers, projects, work, launches, git, devices, databases, usage, processes, language, agents } = input;
+    const { machine, providers, projects, work, launches, git, devices, databases, usage, processes, language, agents, artifacts } = input;
     const store = projects.store;
     registerLanguageHandlers(dispatcher, language.host);
     registerAgentServerHandlers(dispatcher, providers.servers);
@@ -376,7 +399,8 @@ export function registerEditorHandlers(dispatcher: Dispatcher, input: EditorHand
             file: readServedFile,
             archiveEntry: readArchiveEntry,
             bundle: (id) => git.bundles.made(id),
-            bundleRead: (id) => git.bundles.discard(id)
+            bundleRead: (id) => git.bundles.discard(id),
+            artifact: async (artifactId, versionId, file) => artifacts.artifacts.file(artifactId, versionId, file)
         },
         machine.machineHome
     );
