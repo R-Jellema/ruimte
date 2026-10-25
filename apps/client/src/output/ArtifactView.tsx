@@ -20,7 +20,6 @@ import { selectArtifactVersion, useArtifactSelection } from '@/output/open';
 import { useArtifact } from '@/output/use-artifact';
 import { FileMarkdown } from '@/shell/panels/FileMarkdown';
 import { FileToolbarToggle } from '@/shell/panels/FileToolbar';
-import { FILE_TOOLBAR } from '@/shell/panels/classes';
 import { useFileToolbarSlot } from '@/shell/panels/file-toolbar-slot';
 import { useEndpointIdOfMachine, useEndpoints } from '@/state/endpoints';
 import { artifactTabKey } from '@/state/files';
@@ -204,7 +203,12 @@ function ArtifactToolbar({ asView, children }: { asView: boolean; children: Reac
     if (asView && host !== null) {
         return createPortal(children, host);
     }
-    return <div className={FILE_TOOLBAR}>{children}</div>;
+    // The measures of a view's bar (CellToolbar and its slot in ViewToolbar), so both read the same.
+    return (
+        <div className="flex h-10 shrink-0 items-center border-b border-border bg-surface pr-1.5 pl-2 text-xs">
+            <div className="flex min-w-0 grow items-center justify-end gap-1">{children}</div>
+        </div>
+    );
 }
 
 function versionLabel(version: ArtifactVersion): { number: number; date: string } {
