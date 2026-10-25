@@ -46,7 +46,8 @@ export function RoutineForm({
 }) {
     const { t } = useTranslation('routines');
     const editing = request.editing?.routine;
-    const projects = useProjectList((s) => s.projects.filter((row) => row.endpointId === endpointId));
+    const allProjects = useProjectList((s) => s.projects);
+    const projects = allProjects.filter((row) => row.endpointId === endpointId);
     const list = useRoutineLists((s) => s.lists[endpointId]);
     const providers = useProviders((s) => s.providers);
     const pickable = availableAgents(providers, 'chat');

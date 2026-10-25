@@ -51,6 +51,7 @@ export const REQUEST_AREAS = [
     'provider',
     'push',
     'remote',
+    'routine',
     'secret',
     'server',
     'session',
