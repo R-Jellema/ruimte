@@ -299,6 +299,9 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
     },
     { id: 'files.git.layout', section: 'files', label: 'settings:files.git.layout.label', description: 'settings:files.git.layout.description' },
     { id: 'files.git.whitespace', section: 'files', label: 'settings:files.git.whitespace.label', description: 'settings:files.git.whitespace.description' },
+    { id: 'storage.output', section: 'storage', label: 'settings:storage.output.title', description: 'settings:storage.output.description' },
+    { id: 'storage.cleanup', section: 'storage', label: 'settings:storage.cleanup.title', description: 'settings:storage.cleanup.description' },
+    { id: 'storage.projects', section: 'storage', label: 'settings:storage.projects.title', description: 'settings:storage.projects.footer' },
     // On the detail of the CLI the pane opens on.
     {
         id: 'providers.defaults.account',

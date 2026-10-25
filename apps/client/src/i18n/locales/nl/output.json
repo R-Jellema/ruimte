@@ -19,6 +19,7 @@
         "noMatch": "Niets past bij deze filters.",
         "shown_one": "{{count}} getoond, {{size}}",
         "shown_other": "{{count}} getoond, {{size}}",
+        "storage": "Opslag",
         "versions_one": "{{count}} versie",
         "versions_other": "{{count}} versies",
         "older_one": "{{count}} oudere versie",

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     Bot,
@@ -35,11 +35,12 @@ import {
 import { useArtifactList } from '@/output/artifacts';
 import { useChatName } from '@/output/kinds';
 import { KindTile, OutputProjectGlyph } from '@/output/look';
-import { openArtifact } from '@/output/open';
+import { openArtifact, useOutputRequest } from '@/output/open';
 import { useArtifact } from '@/output/use-artifact';
 import { PanelHeaderSlot } from '@/shell/PanelHeaderSlot';
 import { useEndpointId } from '@/state/keys';
 import { useProject } from '@/state/project';
+import { useUi } from '@/state/ui';
 import { useMachineAnswers } from '@/transport/features';
 
 const MINUTE_MS = 60_000;
@@ -58,8 +59,24 @@ export function OutputPanel() {
     const answers = useMachineAnswers(endpointId, 'artifact.list');
     const projectId = useProject((s) => s.current?.projectId ?? null);
     const list = useArtifactList(endpointId, {}, answers);
-    const [filters, setFilters] = useState<OutputFilters>(() => defaultFilters(projectId));
+    const request = useOutputRequest((s) => s.project);
+    const [filters, setFilters] = useState<OutputFilters>(() => ({
+        ...defaultFilters(projectId),
+        ...(request === null ? {} : { project: request.projectId })
+    }));
+    const [taken, setTaken] = useState(request);
     const [filtersOpen, setFiltersOpen] = useState(true);
+    // A request that came while the panel was already open sets the filters the way a person would.
+    if (request !== null && request !== taken) {
+        setTaken(request);
+        setFilters({ ...defaultFilters(projectId), project: request.projectId });
+        setFiltersOpen(true);
+    }
+    useEffect(() => {
+        if (request !== null) {
+            useOutputRequest.setState({ project: null });
+        }
+    }, [request]);
     const [searchOpen, setSearchOpen] = useState(false);
     const [query, setQuery] = useState('');
     const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
@@ -168,7 +185,10 @@ export function OutputPanel() {
             </div>
             <div className="flex h-9 shrink-0 items-center gap-2 border-t border-border px-3 text-xs text-text-muted">
                 <Icon icon={HardDrive} size={14} className="shrink-0 text-text-faint" />
-                <span className="truncate tabular-nums">{t('panel.shown', { count: shown.length, size: formatBytes(shownBytes) })}</span>
+                <span className="grow truncate tabular-nums">{t('panel.shown', { count: shown.length, size: formatBytes(shownBytes) })}</span>
+                <Button size="xs" variant="ghost" onClick={() => useUi.getState().setSettings({ open: true, section: 'storage' })}>
+                    {t('panel.storage')}
+                </Button>
             </div>
         </>
     );

@@ -11,6 +11,7 @@ export type SettingsSectionId =
     | 'terminal'
     | 'views'
     | 'files'
+    | 'storage'
     | 'providers'
     | 'voice'
     | 'computer'

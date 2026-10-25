@@ -1,5 +1,19 @@
 import i18next from 'i18next';
-import { Bot, CodeXml, Folder, Info, Keyboard, LayoutGrid, Mic, MousePointer2, Palette, Server, SquareTerminal, type LucideIcon } from 'lucide-react';
+import {
+    Bot,
+    CodeXml,
+    Folder,
+    HardDrive,
+    Info,
+    Keyboard,
+    LayoutGrid,
+    Mic,
+    MousePointer2,
+    Palette,
+    Server,
+    SquareTerminal,
+    type LucideIcon
+} from 'lucide-react';
 import { PROVIDERS_SECTION, USAGE_SECTION, type AgentsSettingsSection } from '@adecore/agents-react';
 import type { SettingsSectionId } from '@/state/ui';
 
@@ -35,7 +49,8 @@ export const SETTINGS_GROUPS: readonly SettingsNavGroup[] = [
             { id: 'editor', icon: CodeXml },
             { id: 'terminal', icon: SquareTerminal },
             { id: 'views', icon: LayoutGrid },
-            { id: 'files', icon: Folder }
+            { id: 'files', icon: Folder },
+            { id: 'storage', icon: HardDrive }
         ]
     },
     {

@@ -21,7 +21,16 @@ export function openArtifact(artifactId: string, title: string, versionId: strin
     files.show(openArtifactTab(files, artifactId, title), useSettings.getState().filesTabLimit);
 }
 
+/* A project the panel is asked to show, taken by the panel when it draws; null once taken. */
+export const useOutputRequest = create<{ project: { projectId: string } | null }>(() => ({ project: null }));
+
 /* Output in the panel of the window, from a chat or anywhere else that points at it. */
 export function showOutputPanel(): void {
     useUi.getState().setPanel({ open: true, kind: 'output' });
+}
+
+/* The panel filtered to one project of the window's machine. */
+export function showProjectOutput(projectId: string): void {
+    useOutputRequest.setState({ project: { projectId } });
+    showOutputPanel();
 }

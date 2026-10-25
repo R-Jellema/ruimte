@@ -19,6 +19,7 @@
         "noMatch": "Nothing matches these filters.",
         "shown_one": "{{count}} shown, {{size}}",
         "shown_other": "{{count}} shown, {{size}}",
+        "storage": "Storage",
         "versions_one": "{{count}} version",
         "versions_other": "{{count}} versions",
         "older_one": "{{count}} older version",

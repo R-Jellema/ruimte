@@ -482,6 +482,10 @@
             "label": "Bestanden en Git",
             "description": "Panelen Bestanden en Git, en waar bladeren begint."
         },
+        "storage": {
+            "label": "Opslag",
+            "description": "Wat Ruimte op een machine bewaart, en wat je kunt laten gaan."
+        },
         "agents": {
             "label": "Agents",
             "description": "Standaarden, permissies en meldingen voor agents."
@@ -1442,6 +1446,54 @@
         "client": "Dit apparaat",
         "computer": "Deze computer",
         "machine": "Machine"
+    },
+    "storage": {
+        "failed": "Opslag kon niet getoond worden.",
+        "output": {
+            "title": "Output",
+            "description": "Bewaarde resultaten van agents en van jou, als versies op de machine.",
+            "machine": "Machine",
+            "on": "Output op {{machine}}",
+            "bar": "Output per project",
+            "free": "{{size}} vrij op de schijf"
+        },
+        "state": {
+            "loading": "Lezen wat {{machine}} bewaart.",
+            "unreachable": "{{machine}} antwoordt nu niet. De output blijft daar staan.",
+            "tooOld": "{{machine}} draait een oudere Ruimte die geen Output bewaart. Werk hem bij om de opslag te zien.",
+            "failed": "De opslag van {{machine}} kon niet gelezen worden.",
+            "retry": "Opnieuw proberen"
+        },
+        "cleanup": {
+            "title": "Opruimvoorstellen",
+            "description": "Ruimte verwijdert nooit zelf output. Een voorstel noemt de versies, en er gaat niets weg tot je bevestigt.",
+            "nothing": "Niets voor te stellen",
+            "proposal": "Oudere versies van {{title}}",
+            "frees_one": "Maakt {{size}} vrij, {{count}} versie van {{from}} tot {{to}}",
+            "frees_other": "Maakt {{size}} vrij, {{count}} versies van {{from}} tot {{to}}",
+            "notNow": "Niet nu",
+            "review": "Bekijken",
+            "dialogDescription": "De aangevinkte versies gaan voorgoed weg van {{machine}}. De nieuwste versie blijft, en ook een versie die naar een project gekopieerd is of op een canvas vastgezet.",
+            "all_one": "{{checked}} van {{count}} versie",
+            "all_other": "{{checked}} van {{count}} versies",
+            "version": "Versie {{number}}",
+            "remove_one": "{{count}} versie verwijderen",
+            "remove_other": "{{count}} versies verwijderen",
+            "freed": "{{size}} vrijgemaakt op {{machine}}",
+            "failed": "Deze versies konden niet verwijderd worden."
+        },
+        "projects": {
+            "title": "Per project",
+            "footer": "Output blijft privé op de machine die hem bewaart: nooit in een projectbestand, nooit gedeeld met je team.",
+            "empty": "Nog niets bewaard op deze machine.",
+            "counts": "{{artifacts}}, {{versions}}",
+            "artifacts_one": "{{count}} artefact",
+            "artifacts_other": "{{count}} artefacten",
+            "versions_one": "{{count}} versie",
+            "versions_other": "{{count}} versies",
+            "show": "Tonen in Output",
+            "elsewhere": "Tonen in Output werkt in een venster van een project op {{machine}}."
+        }
     },
     "providers": {
         "apple": {
