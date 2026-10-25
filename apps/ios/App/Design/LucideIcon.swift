@@ -97,6 +97,7 @@ struct WorkspaceViewIcon: View {
         case "database": return "table"
         case "note": return "sticky-note"
         case "group": return "layout-grid"
+        case "artifact": return "package"
         default: return "circle-question-mark"
         }
     }

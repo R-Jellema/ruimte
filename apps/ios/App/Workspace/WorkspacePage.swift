@@ -255,6 +255,19 @@ struct WorkspacePage: View {
                 }
             }
         }
+        .mobileSheet(isPresented: $navigation.showingOutput) {
+            NavigationStack {
+                OutputPage(
+                    context: OutputContext(workspace: workspace), projectID: workspace.projectID,
+                    projectName: workspace.title
+                )
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(role: .close) { navigation.showingOutput = false }
+                    }
+                }
+            }
+        }
         .alert(
             renamed?.text("kind") == "subheader" ? "Name the heading" : "Rename view",
             isPresented: Binding(get: { renamed != nil }, set: { if !$0 { renamed = nil } })
@@ -304,7 +317,7 @@ struct WorkspacePage: View {
     }
 
     /// The project's menu beside the avatar, so Settings is one tap away here too. The Chats project's folder is the
-    /// machine's own, so its menu holds New chat and Usage only. Its entries wait for the project, not the item, so the
+    /// machine's own, so its menu holds New chat, Output and Usage only. Its entries wait for the project, not the item, so the
     /// item stays the same through a push the project opens during.
     @ToolbarContentBuilder private var phoneToolbar: some ToolbarContent {
         if let runtime, let voiceScene, showsVoice(runtime.voice, scene: voiceScene) {
@@ -333,6 +346,10 @@ struct WorkspacePage: View {
                         Button(String(localized: "Git"), lucideIcon: "git-branch") { navigation.showingGit = true }
                             .accessibilityIdentifier("project.git")
                         Button(String(localized: "Launches"), lucideIcon: "play") { navigation.showingLaunches = true }
+                    }
+                    if OutputMachine.answers(workspace.client) {
+                        Button(String(localized: "Output"), lucideIcon: "package") { navigation.showingOutput = true }
+                            .accessibilityIdentifier("project.output")
                     }
                     Button(String(localized: "Usage"), lucideIcon: "chart-no-axes-column") {
                         navigation.showingUsage = true
@@ -779,6 +796,19 @@ struct ProjectItemPage: View {
                         String(localized: "Nothing in this group"), lucideIcon: "layout-grid",
                         description: Text("Nodes inside its frame on the canvas are listed here."))
                 }
+            }
+        case "artifact" where OutputMachine.answers(workspace.client):
+            // The reference is one person's on one machine, so a teammate's copy of the view has none.
+            if let reference = current["artifact"] ?? current["node"]?["artifact"],
+                let artifactID = reference["id"]?.stringValue
+            {
+                OutputItemPage(
+                    context: OutputContext(workspace: workspace), artifactID: artifactID, title: title,
+                    pinned: reference["version"]?.stringValue)
+            } else {
+                ContentUnavailableView(
+                    String(localized: "Not on this machine"), lucideIcon: "package",
+                    description: Text("Output stays on the machine that made it."))
             }
         default:
             ContentUnavailableView(

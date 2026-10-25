@@ -14,6 +14,7 @@ struct PadDetailColumn: View {
     @State private var diagnostics = false
     @State private var newChat = false
     @State private var launches = false
+    @State private var output = false
     @Environment(\.voiceScene) private var voiceScene
 
     var body: some View {
@@ -67,8 +68,8 @@ struct PadDetailColumn: View {
         }
     }
 
-    /// What every page beside the sidebar has in its bar: a new chat, the project's launches, the palette, and Files
-    /// and Git while a project folder is open.
+    /// What every page beside the sidebar has in its bar: a new chat, the project's launches and Output, the palette,
+    /// and Files and Git while a project folder is open.
     @ToolbarContentBuilder private var toolbar: some ToolbarContent {
         ToolbarItemGroup(placement: .topBarTrailing) {
             if let voiceScene, runtime.showsVoice(in: voiceScene) {
@@ -105,6 +106,26 @@ struct PadDetailColumn: View {
                             .navigationBarTitleDisplayMode(.inline)
                     }
                     .frame(minWidth: 400, idealWidth: 440, minHeight: 520)
+                    .modifier(MobileSheetSurface())
+                }
+            }
+            if let navigation = router.project, router.detail == .project,
+                OutputMachine.answers(navigation.workspace.client)
+            {
+                Button {
+                    output = true
+                } label: {
+                    Image(lucide: "package").accessibilityLabel("Output")
+                }
+                .disabled(!navigation.workspace.ready)
+                .accessibilityIdentifier("pad.output")
+                .popover(isPresented: $output, arrowEdge: .top) {
+                    NavigationStack {
+                        OutputPage(
+                            context: OutputContext(workspace: navigation.workspace),
+                            projectID: navigation.workspace.projectID)
+                    }
+                    .frame(minWidth: 400, idealWidth: 440, minHeight: 560)
                     .modifier(MobileSheetSurface())
                 }
             }

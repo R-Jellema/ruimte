@@ -42,6 +42,7 @@ enum NewViewFactory {
         case "note": String(localized: "Note")
         case "separator": String(localized: "Separator")
         case "subheader": String(localized: "Subheader")
+        case "artifact": String(localized: "Output")
         default: kind.capitalized
         }
     }

@@ -1,6 +1,17 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ is not reachable" : {
+      "comment" : "%@ is the name of a machine",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is niet bereikbaar"
+          }
+        }
+      }
+    },
     "%@ · audio goes to OpenAI via %@" : {
       "comment" : "The first %@ is where the sound plays, as iOS names it; the second is the name of a machine",
       "localizations" : {
@@ -114,6 +125,46 @@
         }
       }
     },
+    "%lld versions" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld version"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld versions"
+                }
+              }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld versie"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld versies"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "3D model" : {
       "localizations" : {
         "nl" : {
@@ -183,6 +234,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Amber"
+          }
+        }
+      }
+    },
+    "Another chat" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Een andere chat"
           }
         }
       }
@@ -288,6 +349,16 @@
         }
       }
     },
+    "Chat removed" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chat verwijderd"
+          }
+        }
+      }
+    },
     "Choose up to 16 views and nodes." : {
       "localizations" : {
         "nl" : {
@@ -379,6 +450,36 @@
         }
       }
     },
+    "Could not load Output." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kon Output niet laden."
+          }
+        }
+      }
+    },
+    "Could not read this file" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kon dit bestand niet lezen"
+          }
+        }
+      }
+    },
+    "Could not show this" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kon dit niet tonen"
+          }
+        }
+      }
+    },
     "Cyan" : {
       "localizations" : {
         "nl" : {
@@ -435,6 +536,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Scherm"
+          }
+        }
+      }
+    },
+    "Earlier" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eerder"
           }
         }
       }
@@ -609,6 +720,16 @@
         }
       }
     },
+    "Latest" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nieuwste"
+          }
+        }
+      }
+    },
     "Lime" : {
       "localizations" : {
         "nl" : {
@@ -635,6 +756,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Locatie"
+          }
+        }
+      }
+    },
+    "Made by" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemaakt door"
           }
         }
       }
@@ -725,6 +856,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Microfoon dempen of weer aanzetten"
+          }
+        }
+      }
+    },
+    "No longer in Output." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Staat niet meer in Output."
           }
         }
       }
@@ -820,6 +961,16 @@
         }
       }
     },
+    "No preview." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Geen voorbeeld."
+          }
+        }
+      }
+    },
     "Not every folder is shown" : {
       "localizations" : {
         "nl" : {
@@ -901,6 +1052,37 @@
         }
       }
     },
+    "Origin" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Herkomst"
+          }
+        }
+      }
+    },
+    "Output stays on that machine and is never copied to this phone. It shows here again once %@ is awake and online." : {
+      "comment" : "%@ is the name of a machine",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Output blijft op die machine en wordt nooit naar deze telefoon gekopieerd. Het staat hier weer zodra %@ wakker en online is."
+          }
+        }
+      }
+    },
+    "Output stays on the machine that made it." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Output blijft op de machine die het maakte."
+          }
+        }
+      }
+    },
     "Package name" : {
       "localizations" : {
         "nl" : {
@@ -917,6 +1099,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Toestemming"
+          }
+        }
+      }
+    },
+    "Recorded by Ruimte. Agents cannot change it." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vastgelegd door Ruimte. Agents kunnen het niet veranderen."
           }
         }
       }
@@ -1001,12 +1193,32 @@
         }
       }
     },
+    "Results agents publish and pages or images you save from a chat show up here." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resultaten van agents en pagina's of afbeeldingen die je uit een chat bewaart, verschijnen hier."
+          }
+        }
+      }
+    },
     "Rose" : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Rozerood"
+          }
+        }
+      }
+    },
+    "Routine" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Routine"
           }
         }
       }
@@ -1027,6 +1239,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Afbeelding opslaan in project"
+          }
+        }
+      }
+    },
+    "Show the latest" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toon de nieuwste"
           }
         }
       }
@@ -1541,12 +1763,42 @@
         }
       }
     },
+    "This version was removed." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deze versie is verwijderd."
+          }
+        }
+      }
+    },
+    "This week" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deze week"
+          }
+        }
+      }
+    },
     "Tinted" : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Getint"
+          }
+        }
+      }
+    },
+    "Too large for this phone" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Te groot voor deze telefoon"
           }
         }
       }
@@ -1589,6 +1841,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Dempen opheffen"
+          }
+        }
+      }
+    },
+    "v%lld, %@" : {
+      "comment" : "A version: its number, then its day and time",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "v%1$lld, %2$@"
           }
         }
       }

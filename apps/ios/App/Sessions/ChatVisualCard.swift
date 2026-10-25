@@ -76,8 +76,9 @@ private struct ChatVisualBox: Layout {
     }
 }
 
-/// A visual's page with what stands in its place while it loads or when it cannot, in the same box.
-private struct ChatVisualContent: View {
+/// A visual's page with what stands in its place while it loads or when it cannot, in the same box. A page saved to
+/// Output draws through it too.
+struct ChatVisualContent: View {
     let visual: ChatVisual
     @Binding var failed: Bool
     let read: () async throws -> Data

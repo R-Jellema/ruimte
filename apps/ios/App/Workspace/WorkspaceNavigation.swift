@@ -16,6 +16,7 @@ final class WorkspaceNavigation: Hashable, Identifiable {
     var showingFiles = false
     var showingGit = false
     var showingLaunches = false
+    var showingOutput = false
     var showingSettings = false
     /// A kind of view to make once the project is there, as a command from Search asks.
     var pendingKind: String?

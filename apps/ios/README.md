@@ -31,6 +31,10 @@ The app follows the desktop wherever a phone can. These are the places where it 
   `device.open` with JPEG frames only. A device that streams video says its picture shows in its view.
 - The phone is a person to the machine, so a launch nobody approved shows its command, folder and environment, and
   only Launch on that sheet sends `approve`. Saving launches writes the whole list against its rev.
+- Output is read only on a phone and shows only while the machine names `artifact.list`. A page saved there runs in
+  the same sandboxed web view as a visual reply, images open in Quick Look beside the other images of their version,
+  and Share reads a file only once a person picks where it goes. Output never leaves its machine, so without a link
+  the page says the machine is not reachable instead of showing anything kept.
 - Force quit on a process asks first, and the machine refuses a pid that now names another process.
 - Git conflicts are worked out in the app and never through markers. The stretch logic is a Swift port of
   `@adecore/merge` that splits and fingerprints as the daemon does, so a resolution written over the digest it was
