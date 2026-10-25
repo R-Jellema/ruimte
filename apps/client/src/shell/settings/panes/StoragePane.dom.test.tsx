@@ -75,12 +75,19 @@ describe('the Storage pane', () => {
         expect(text()).toContain('8 artifacts, 163 versions');
     });
 
-    test('Show in Output opens the panel on that project', async () => {
+    test('Show in Output opens the panel on this project, and on All projects for another one', async () => {
+        await openStorage();
+        await until(() => text().includes('Show in Output'));
+        // Atlas is the window's project and comes first; Chats is another one of this machine.
+        await clickOn([...document.querySelectorAll('button')].filter((element) => element.textContent?.trim() === 'Show in Output')[1] ?? null);
+        expect(useUi.getState().settings.open).toBe(false);
+        expect(useUi.getState().panel.open && useUi.getState().panel.kind).toBe('output');
+        await until(() => text().includes('All projects'));
+
         await openStorage();
         await until(() => text().includes('Show in Output'));
         await clickOn(button('Show in Output'));
-        expect(useUi.getState().settings.open).toBe(false);
-        expect(useUi.getState().panel.open && useUi.getState().panel.kind).toBe('output');
+        await until(() => !text().includes('All projects'));
     });
 
     test('Review removes exactly the versions left checked', async () => {

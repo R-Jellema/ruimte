@@ -143,6 +143,14 @@ describe('the Output panel', () => {
 
         // Where the panel starts says nothing about filters.
         expect(buttonWithText('Reset')).toBeNull();
+        await openFilters();
+        await openSubmenu('Project');
+        // This project or all of them; another single project is never a choice.
+        expect([...document.querySelectorAll('[role="menuitemradio"]')].map((item) => item.textContent?.trim())).toEqual(['This project', 'All projects']);
+        while (document.querySelector('[role="menu"]') !== null) {
+            const menus = document.querySelectorAll('[role="menu"]');
+            await pressKey(menus[menus.length - 1]!, 'Escape');
+        }
         await filterBy('Project', 'All projects');
         await until(() => text().includes('Beacon build'));
         expect(text()).toContain('All projects');

@@ -25,7 +25,6 @@ import {
     groupByDate,
     KINDS,
     matchesFilters,
-    projectsOf,
     routinesOf,
     SIZES,
     SOURCES,
@@ -52,6 +51,11 @@ const SOURCE_ICONS: Record<ArtifactSource, LucideIcon> = { agent: Bot, person: U
 
 const NO_ARTIFACTS: readonly ArtifactSummary[] = [];
 
+/* The panel asked to show one project: this window's own as it starts, any other among All projects, where its rows carry its mark. */
+function filtersFor(asked: string, projectId: string | null): OutputFilters {
+    return asked === projectId ? defaultFilters(projectId) : { ...defaultFilters(projectId), project: ALL };
+}
+
 /*
  * Everything the machine keeps in Output, the window's project first. A row opens the artifact as a
  * view; its chevron shows the latest versions under it. Filters beyond a project are the client's.
@@ -63,15 +67,12 @@ export function OutputPanel() {
     const projectId = useProject((s) => s.current?.projectId ?? null);
     const list = useArtifactList(endpointId, {}, answers);
     const request = useOutputRequest((s) => s.project);
-    const [filters, setFilters] = useState<OutputFilters>(() => ({
-        ...defaultFilters(projectId),
-        ...(request === null ? {} : { project: request.projectId })
-    }));
+    const [filters, setFilters] = useState<OutputFilters>(() => (request === null ? defaultFilters(projectId) : filtersFor(request.projectId, projectId)));
     const [taken, setTaken] = useState(request);
     // A request that came while the panel was already open sets the filters the way a person would.
     if (request !== null && request !== taken) {
         setTaken(request);
-        setFilters({ ...defaultFilters(projectId), project: request.projectId });
+        setFilters(filtersFor(request.projectId, projectId));
     }
     useEffect(() => {
         if (request !== null) {
@@ -133,13 +134,7 @@ export function OutputPanel() {
     return (
         <>
             {header}
-            <ScopeLine
-                endpointId={endpointId}
-                artifacts={list.artifacts}
-                filters={filters}
-                projectId={projectId}
-                onReset={() => setFilters(defaultFilters(projectId))}
-            />
+            <ScopeLine filters={filters} projectId={projectId} onReset={() => setFilters(defaultFilters(projectId))} />
             {searchOpen && (
                 <div className="flex shrink-0 px-2 pt-2">
                     <Input
@@ -306,34 +301,14 @@ function VersionRows({ endpointId, artifact }: { endpointId: string; artifact: A
     );
 }
 
-/* The name a project filter reads as: the one Output knows it by, or the window's own before it has anything there. */
-function useProjectName(artifacts: readonly ArtifactSummary[], projectId: string | null): (id: string) => string {
-    const currentName = useProject((s) => s.current?.name ?? '');
-    const projects = projectsOf(artifacts);
-    return (id: string): string => projects.find((entry) => entry.projectId === id)?.projectName ?? (id === projectId ? currentName : '');
-}
-
 /* How many filters beyond the project narrow the list. */
 function narrowing(filters: OutputFilters): number {
     return [filters.kind, filters.source, filters.routine, filters.date, filters.size].filter((value) => value !== ALL).length;
 }
 
 /* What the list is narrowed to, only while it differs from where the panel starts, with the way back. */
-function ScopeLine({
-    endpointId,
-    artifacts,
-    filters,
-    projectId,
-    onReset
-}: {
-    endpointId: string;
-    artifacts: readonly ArtifactSummary[];
-    filters: OutputFilters;
-    projectId: string | null;
-    onReset(): void;
-}) {
+function ScopeLine({ filters, projectId, onReset }: { filters: OutputFilters; projectId: string | null; onReset(): void }) {
     const { t } = useTranslation('output');
-    const projectName = useProjectName(artifacts, projectId);
     if (!filtersChanged(filters, projectId)) {
         return null;
     }
@@ -343,12 +318,8 @@ function ScopeLine({
         <div className={`${FILE_TOOLBAR} text-xs text-text-muted`}>
             {otherProject && (
                 <>
-                    {filters.project === ALL ? (
-                        <Icon icon={LayoutGrid} size={12} className="shrink-0 text-text-faint" />
-                    ) : (
-                        <OutputProjectGlyph endpointId={endpointId} projectId={filters.project} size={12} />
-                    )}
-                    <span className="min-w-0 truncate">{filters.project === ALL ? t('panel.filter.allProjects') : projectName(filters.project)}</span>
+                    <Icon icon={LayoutGrid} size={12} className="shrink-0 text-text-faint" />
+                    <span className="min-w-0 truncate">{t('panel.filter.allProjects')}</span>
                 </>
             )}
             {otherProject && count > 0 && (
@@ -378,73 +349,63 @@ function FiltersMenu({
     onChange(filters: OutputFilters): void;
 }) {
     const { t } = useTranslation('output');
-    const currentName = useProject((s) => s.current?.name ?? '');
-    const projects = projectsOf(artifacts);
     const routines = routinesOf(artifacts);
-    const projectName = useProjectName(artifacts, projectId);
     const changed = filtersChanged(filters, projectId);
+    const any = t('panel.filter.any');
     const set = (patch: Partial<OutputFilters>): void => onChange({ ...filters, ...patch });
+    // The window's project or every project: a row in All projects carries its project's mark, so no other single project is a choice.
     const projectOptions = [
-        { value: ALL, label: t('panel.filter.allProjects') },
-        ...projects.map((entry) => ({
-            value: entry.projectId,
-            label: entry.projectId === projectId ? t('panel.filter.thisProject', { name: entry.projectName }) : entry.projectName,
-            hint: formatBytes(entry.bytes)
-        }))
+        ...(projectId === null ? [] : [{ value: projectId, label: t('panel.filter.thisProject') }]),
+        { value: ALL, label: t('panel.filter.allProjects') }
     ];
-    // The window's project is a choice even before it has anything in Output, since it is where the panel starts.
-    if (projectId !== null && !projects.some((entry) => entry.projectId === projectId)) {
-        projectOptions.splice(1, 0, { value: projectId, label: t('panel.filter.thisProject', { name: currentName }) });
-    }
     return (
         <Menu.Root>
             <IconButton icon={ListFilter} label={t('panel.filters')} active={changed} render={<Menu.Trigger />} />
             <Menu.Popup align="end" className="min-w-56">
-                <FilterSubmenu
-                    title={t('panel.filter.project')}
-                    label={filters.project === ALL ? t('panel.filter.allProjects') : projectName(filters.project)}
-                    value={filters.project}
-                    options={projectOptions}
-                    onChange={(project) => set({ project })}
-                />
+                {projectId !== null && (
+                    <FilterSubmenu
+                        title={t('panel.filter.project')}
+                        label={filters.project === ALL ? t('panel.filter.allProjects') : t('panel.filter.thisProject')}
+                        value={filters.project}
+                        options={projectOptions}
+                        onChange={(project) => set({ project })}
+                    />
+                )}
                 <FilterSubmenu
                     title={t('panel.filter.kind')}
-                    label={filters.kind === ALL ? t('panel.filter.allKinds') : t(`kinds.${filters.kind}`)}
+                    label={filters.kind === ALL ? any : t(`kinds.${filters.kind}`)}
                     value={filters.kind}
-                    options={[{ value: ALL, label: t('panel.filter.allKinds') }, ...KINDS.map((kind) => ({ value: kind, label: t(`kinds.${kind}`) }))]}
+                    options={[{ value: ALL, label: any }, ...KINDS.map((kind) => ({ value: kind, label: t(`kinds.${kind}`) }))]}
                     onChange={(kind) => set({ kind: kind as OutputFilters['kind'] })}
                 />
                 <FilterSubmenu
                     title={t('panel.filter.source')}
-                    label={filters.source === ALL ? t('panel.filter.anySource') : t(`panel.filter.sources.${filters.source}`)}
+                    label={filters.source === ALL ? any : t(`panel.filter.sources.${filters.source}`)}
                     value={filters.source}
-                    options={[
-                        { value: ALL, label: t('panel.filter.anySource') },
-                        ...SOURCES.map((source) => ({ value: source, label: t(`panel.filter.sources.${source}`) }))
-                    ]}
+                    options={[{ value: ALL, label: any }, ...SOURCES.map((source) => ({ value: source, label: t(`panel.filter.sources.${source}`) }))]}
                     onChange={(source) => set({ source: source as OutputFilters['source'] })}
                 />
                 {routines.length > 0 && (
                     <FilterSubmenu
                         title={t('panel.filter.routine')}
-                        label={filters.routine === ALL ? t('panel.filter.anyRoutine') : filters.routine}
+                        label={filters.routine === ALL ? any : filters.routine}
                         value={filters.routine}
-                        options={[{ value: ALL, label: t('panel.filter.anyRoutine') }, ...routines.map((routine) => ({ value: routine, label: routine }))]}
+                        options={[{ value: ALL, label: any }, ...routines.map((routine) => ({ value: routine, label: routine }))]}
                         onChange={(routine) => set({ routine })}
                     />
                 )}
                 <FilterSubmenu
                     title={t('panel.filter.time')}
-                    label={filters.date === ALL ? t('panel.filter.anyTime') : t(`panel.filter.dates.${filters.date}`)}
+                    label={filters.date === ALL ? any : t(`panel.filter.dates.${filters.date}`)}
                     value={filters.date}
-                    options={DATES.map((date) => ({ value: date, label: date === ALL ? t('panel.filter.anyTime') : t(`panel.filter.dates.${date}`) }))}
+                    options={DATES.map((date) => ({ value: date, label: date === ALL ? any : t(`panel.filter.dates.${date}`) }))}
                     onChange={(date) => set({ date: date as OutputFilters['date'] })}
                 />
                 <FilterSubmenu
                     title={t('panel.filter.size')}
-                    label={filters.size === ALL ? t('panel.filter.anySize') : t(`panel.filter.sizes.${filters.size}`)}
+                    label={filters.size === ALL ? any : t(`panel.filter.sizes.${filters.size}`)}
                     value={filters.size}
-                    options={SIZES.map((size) => ({ value: size, label: size === ALL ? t('panel.filter.anySize') : t(`panel.filter.sizes.${size}`) }))}
+                    options={SIZES.map((size) => ({ value: size, label: size === ALL ? any : t(`panel.filter.sizes.${size}`) }))}
                     onChange={(size) => set({ size: size as OutputFilters['size'] })}
                 />
                 <Menu.Separator />
