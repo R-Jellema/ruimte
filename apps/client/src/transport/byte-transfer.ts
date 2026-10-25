@@ -35,8 +35,8 @@ export async function readResource(read: ReadPiece, resource: ByteResource, opti
         if (first.size > maxBytes) {
             throw new Error(i18next.t('machines:file.tooLarge', { size: Math.ceil(first.size / 1024 / 1024), max: Math.ceil(maxBytes / 1024 / 1024) }));
         }
-        const parts = await readPieces(read, resource, first, chunkBytes, inFlight);
-        if (parts !== null) {
+        const parts: Uint8Array<ArrayBuffer>[] = [];
+        if (await readPieces(read, resource, first, chunkBytes, inFlight, (bytes) => void parts.push(bytes))) {
             return new Blob(parts, { type: blobTypeFor(first.mime) });
         }
         if (restarts <= 0) {
@@ -46,15 +46,35 @@ export async function readResource(read: ReadPiece, resource: ByteResource, opti
     }
 }
 
-/* Every piece from `first` on, in order, or null when the resource changed under the read. */
+export type AcceptPiece = (bytes: Uint8Array<ArrayBuffer>) => void | Promise<void>;
+
+/*
+ * A resource's bytes handed on piece by piece, in order, for one too large to hold whole. A change under
+ * the read fails it rather than starting over, since the pieces before it were handed on already.
+ */
+export async function streamResource(
+    read: ReadPiece,
+    resource: ByteResource,
+    accept: AcceptPiece,
+    options: Pick<ReadResourceOptions, 'chunkBytes' | 'piecesInFlight'> = {}
+): Promise<void> {
+    const chunkBytes = Math.min(options.chunkBytes ?? BYTES_CHUNK_MAX, BYTES_CHUNK_MAX);
+    const inFlight = Math.max(1, Math.min(options.piecesInFlight ?? PIECES_IN_FLIGHT, PIECES_IN_FLIGHT));
+    const first = await read({ resource, offset: 0, length: chunkBytes });
+    if (!(await readPieces(read, resource, first, chunkBytes, inFlight, accept))) {
+        throw new Error(i18next.t('machines:file.changed'));
+    }
+}
+
+/* Hands on every piece from `first` on, in order; false when the resource changed under the read. */
 async function readPieces(
     read: ReadPiece,
     resource: ByteResource,
     first: BytesPiece,
     chunkBytes: number,
-    inFlight: number
-): Promise<Uint8Array<ArrayBuffer>[] | null> {
-    const parts: Uint8Array<ArrayBuffer>[] = [];
+    inFlight: number,
+    accept: AcceptPiece
+): Promise<boolean> {
     const queue: Array<{ offset: number; piece: Promise<BytesPiece> }> = [];
     let offset = 0;
     let piece = first;
@@ -67,12 +87,12 @@ async function readPieces(
             piece.bytes.length > first.size - offset
         ) {
             await Promise.allSettled(queue.map((pending) => pending.piece));
-            return null;
+            return false;
         }
-        parts.push(piece.bytes);
+        await accept(piece.bytes);
         offset += piece.bytes.length;
         if (offset >= first.size) {
-            return parts;
+            return true;
         }
         if (piece.bytes.length === 0) {
             throw new Error(i18next.t('machines:file.emptyPiece'));

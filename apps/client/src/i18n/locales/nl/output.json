@@ -80,6 +80,9 @@
         "downloadTooLarge": "Te groot om te downloaden. Kopieer het naar het project.",
         "pinToCanvas": "Op canvas vastzetten",
         "downloadFailed": "Kon het bestand niet downloaden",
+        "downloading": "{{name}} downloaden",
+        "downloadProgress": "{{done}} van {{total}}",
+        "downloaded": "{{name}} gedownload",
         "readFailed": "Kon dit bestand niet lezen",
         "noPreview": "Geen voorbeeld.",
         "files": "Bestanden"

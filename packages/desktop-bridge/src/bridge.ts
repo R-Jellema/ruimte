@@ -48,6 +48,20 @@ export interface BrowserContextAction {
 }
 
 /*
+ * A file written to this computer piece by piece. An id answers only the window that began it, and a
+ * save that is not ended leaves nothing under the chosen name, also when the window goes.
+ */
+export interface SaveFileStreamBridge {
+    /* Asks where it goes; null when the person cancelled. */
+    begin(suggestedName: string, mime: string): Promise<string | null>;
+    /* At most 1 MiB per piece; a larger one ends the save. */
+    write(id: string, bytes: Uint8Array): Promise<void>;
+    /* Answers the path the file got. */
+    end(id: string): Promise<string>;
+    abort(id: string): Promise<void>;
+}
+
+/*
  * Signing in to the Pulsar address book. The answers are unknown because they crossed a process
  * boundary; `pulsar/desktop.ts` in the client parses each one.
  */
@@ -189,6 +203,9 @@ export interface DesktopBridge {
     setAgentActivity?(activity: AgentActivity): void;
     /* A native save dialog for bytes the client made. Without it the client falls back to a download. */
     saveFile?(suggestedName: string, bytes: Uint8Array, mime: string): Promise<string | null>;
+    /* The same dialog for a file too large to hold in the page, written as it arrives. Without it the
+       client saves only what fits in memory. */
+    saveFileStream?: SaveFileStreamBridge;
     /* Opens a temporary image copy in the system viewer; older shells fall back to a download. */
     openImage?(suggestedName: string, bytes: Uint8Array, mime: string): Promise<void>;
     /* A native save dialog that writes nothing itself. Without it a database offers no export. */

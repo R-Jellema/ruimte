@@ -29,7 +29,7 @@ import { pinArtifact, useCanRemove, useCopyToThisMachine, usePinCanvases } from 
 import { RemoveArtifactDialog, type RemoveArtifactRequest } from '@/output/RemoveArtifactDialog';
 import { formatBytes, formatDayClock } from '@adecore/ui/format';
 import { comparable, drawnKind, isTextMime } from '@/output/artifact-list';
-import { downloadArtifactFile, readArtifactFile, useArtifactText, type ArtifactFileRef } from '@/output/artifact-bytes';
+import { canDownload, downloadArtifactFile, readArtifactFile, useArtifactText, type ArtifactFileRef } from '@/output/artifact-bytes';
 import { showChat, useChatName } from '@/output/kinds';
 import { selectArtifactVersion, useArtifactSelection } from '@/output/open';
 import { useArtifact } from '@/output/use-artifact';
@@ -553,8 +553,8 @@ function FileRows({ endpointId, artifact, version }: { endpointId: string; artif
                 <li key={index} className="flex h-8 items-center gap-2 text-sm">
                     <span className="min-w-0 grow truncate text-text">{file.name}</span>
                     <span className="shrink-0 text-xs text-text-faint tabular-nums">{formatBytes(file.size)}</span>
-                    {/* A download is read whole into this window first, and nothing on the desktop bridge writes a machine's file to disk in pieces. */}
-                    {file.size > BYTES_READ_MAX_BYTES ? (
+                    {/* Without a shell that writes it in pieces, a download is read whole into this window first. */}
+                    {!canDownload(file) ? (
                         <IconButton
                             icon={Download}
                             size="sm"

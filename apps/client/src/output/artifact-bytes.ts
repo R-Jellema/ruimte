@@ -1,9 +1,13 @@
+import i18next from 'i18next';
 import { useEffect, useState } from 'react';
-import type { ArtifactFile } from '@ruimte/contracts';
+import { BYTES_READ_MAX_BYTES, type ArtifactFile } from '@ruimte/contracts';
+import { desktop, type SaveFileStreamBridge } from '@/desktop/bridge';
 import { saveBlob } from '@/download';
+import { useToasts } from '@/state/toasts';
 import { machineTransport } from '@/transport';
-import { readResource } from '@/transport/byte-transfer';
+import { readResource, streamResource } from '@/transport/byte-transfer';
 import { readPiece } from '@/transport/piece';
+import { formatBytes } from '@adecore/ui/format';
 
 export interface ArtifactFileRef {
     artifactId: string;
@@ -18,9 +22,71 @@ export function readArtifactFile(endpointId: string, ref: ArtifactFileRef, file:
     return readResource((piece) => readPiece(transport, piece), { kind: 'artifact', ...ref }, { maxBytes: Math.max(file.size, 1) });
 }
 
+/* Whole up to the read bound, and past it only where the shell writes a file as its pieces arrive. */
+export function canDownload(file: ArtifactFile): boolean {
+    return file.size <= BYTES_READ_MAX_BYTES || desktop()?.saveFileStream !== undefined;
+}
+
 export async function downloadArtifactFile(endpointId: string, ref: ArtifactFileRef, file: ArtifactFile): Promise<void> {
+    const name = file.name.slice(file.name.lastIndexOf('/') + 1);
+    const stream = desktop()?.saveFileStream;
+    if (file.size > BYTES_READ_MAX_BYTES && stream !== undefined) {
+        await saveInPieces(stream, endpointId, ref, file, name);
+        return;
+    }
     const blob = await readArtifactFile(endpointId, ref, file);
-    await saveBlob(blob, file.name.slice(file.name.lastIndexOf('/') + 1), file.mime);
+    await saveBlob(blob, name, file.mime);
+}
+
+class Cancelled extends Error {}
+
+/* Each piece goes to disk as it arrives, under one toast that counts and can stop it. */
+async function saveInPieces(stream: SaveFileStreamBridge, endpointId: string, ref: ArtifactFileRef, file: ArtifactFile, name: string): Promise<void> {
+    const id = await stream.begin(name, file.mime);
+    if (id === null) {
+        return;
+    }
+    const toasts = useToasts.getState();
+    const total = formatBytes(file.size);
+    let cancelled = false;
+    let written = 0;
+    const toastId = toasts.show({
+        kind: 'progress',
+        title: i18next.t('output:view.downloading', { name }),
+        description: i18next.t('output:view.downloadProgress', { done: formatBytes(0), total }),
+        action: {
+            label: i18next.t('common:action.cancel'),
+            run: () => {
+                cancelled = true;
+            }
+        }
+    });
+    const transport = machineTransport(endpointId);
+    try {
+        await streamResource(
+            (piece) => readPiece(transport, piece),
+            { kind: 'artifact', ...ref },
+            async (bytes) => {
+                if (cancelled) {
+                    throw new Cancelled();
+                }
+                await stream.write(id, bytes);
+                written += bytes.length;
+                toasts.update(toastId, { description: i18next.t('output:view.downloadProgress', { done: formatBytes(written), total }) });
+            }
+        );
+        if (cancelled) {
+            throw new Cancelled();
+        }
+        const path = await stream.end(id);
+        toasts.update(toastId, { kind: 'success', title: i18next.t('output:view.downloaded', { name }), description: path, action: undefined });
+    } catch (error: unknown) {
+        await stream.abort(id).catch(() => undefined);
+        toasts.dismiss(toastId);
+        if (!(error instanceof Cancelled)) {
+            throw error;
+        }
+    }
 }
 
 export type TextState = { status: 'loading' } | { status: 'ready'; text: string } | { status: 'failed' };

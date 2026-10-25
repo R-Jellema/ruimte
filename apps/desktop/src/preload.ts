@@ -155,6 +155,12 @@ const bridge = {
     setAgentActivity: (activity: { working: number; attention: number }): void => ipcRenderer.send('agents:activity', activity),
     saveFile: (suggestedName: string, bytes: Uint8Array, mime: string): Promise<string | null> =>
         ipcRenderer.invoke('dialog:save-file', suggestedName, bytes, mime),
+    saveFileStream: {
+        begin: (suggestedName: string, mime: string): Promise<string | null> => ipcRenderer.invoke('save-stream:begin', suggestedName, mime),
+        write: (id: string, bytes: Uint8Array): Promise<void> => ipcRenderer.invoke('save-stream:write', id, bytes),
+        end: (id: string): Promise<string> => ipcRenderer.invoke('save-stream:end', id),
+        abort: (id: string): Promise<void> => ipcRenderer.invoke('save-stream:abort', id)
+    },
     openImage: (suggestedName: string, bytes: Uint8Array, mime: string): Promise<void> => ipcRenderer.invoke('image:open', suggestedName, bytes, mime),
     chooseSavePath: (request: SavePathRequest): Promise<string | null> => ipcRenderer.invoke('dialog:choose-save-path', request),
     chooseOpenPath: (request: OpenPathRequest): Promise<string | null> => ipcRenderer.invoke('dialog:choose-open-path', request),

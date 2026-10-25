@@ -80,6 +80,9 @@
         "downloadTooLarge": "Too large to download. Copy it to the project instead.",
         "pinToCanvas": "Pin to canvas",
         "downloadFailed": "Could not download the file",
+        "downloading": "Downloading {{name}}",
+        "downloadProgress": "{{done}} of {{total}}",
+        "downloaded": "Downloaded {{name}}",
         "readFailed": "Could not read this file",
         "noPreview": "No preview.",
         "files": "Files"

@@ -27,6 +27,7 @@ export type {
     PulsarBridge,
     Release,
     ReleaseNotesState,
+    SaveFileStreamBridge,
     SavePathRequest,
     ServiceSupport,
     SystemIdleState,

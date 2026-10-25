@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { allFilesLabel, openDialogPlan, parseOpenPathRequest, parseSavePathRequest } from '../database-bridge';
 import { copyablePaths, fileClipboard, osClipboardFormat } from '../file-clipboard';
 import { openImageCopy } from '../open-image';
+import { SaveStreams } from '../save-streams';
 import { isSystemSettingsPane, isWebLink } from '../web-guards';
 import { electron } from './electron';
 import type { AppIpc } from './ipc';
@@ -41,6 +42,8 @@ export function installDialogs(ipc: AppIpc, language: () => string | undefined):
         await writeFile(result.filePath, Buffer.from(bytes));
         return result.filePath;
     });
+
+    installSaveStreams(ipc);
 
     const openedImagesFolder = join(app.getPath('temp'), `ruimte-images-${process.pid}-${randomBytes(8).toString('hex')}`);
     app.on('will-quit', () => void rm(openedImagesFolder, { recursive: true, force: true }).catch(() => undefined));
@@ -103,4 +106,40 @@ export function installDialogs(ipc: AppIpc, language: () => string | undefined):
         await clipboard.write([new ClipboardItem({ 'text/plain': contents.text, ...Object.fromEntries(formats) })]);
         return true;
     });
+}
+
+/* A machine's file saved as its pieces arrive, owned by the page that asked, which loses its saves when it goes. */
+function installSaveStreams(ipc: AppIpc): void {
+    const streams = new SaveStreams();
+    const watched = new Set<number>();
+
+    ipc.handle('save-stream:begin', async (event, suggestedName: string, mime: string) => {
+        const window = ipc.senderWindow(event);
+        if (!window) {
+            return null;
+        }
+        const extension = suggestedName.split('.').pop() ?? '';
+        const result = await dialog.showSaveDialog(window, {
+            defaultPath: suggestedName,
+            ...(extension ? { filters: [{ name: mime, extensions: [extension] }] } : {})
+        });
+        if (result.canceled || !result.filePath) {
+            return null;
+        }
+        const contents = event.sender;
+        if (!watched.has(contents.id)) {
+            watched.add(contents.id);
+            const owner = contents.id;
+            // A reload drops the ids the page held, so what it began is abandoned like a closed window's.
+            contents.on('did-navigate', () => void streams.abortOwner(owner));
+            contents.once('destroyed', () => {
+                watched.delete(owner);
+                void streams.abortOwner(owner);
+            });
+        }
+        return streams.begin(contents.id, result.filePath);
+    });
+    ipc.handle('save-stream:write', (event, id: string, bytes: Uint8Array) => streams.write(event.sender.id, id, bytes));
+    ipc.handle('save-stream:end', (event, id: string) => streams.end(event.sender.id, id));
+    ipc.handle('save-stream:abort', (event, id: string) => streams.abort(event.sender.id, id));
 }
