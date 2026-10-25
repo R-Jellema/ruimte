@@ -141,16 +141,24 @@ describe('the agents of the menus', () => {
     const agents = [
         { kind: 'claude', name: 'Claude Code', chat: true, terminal: false },
         { kind: 'codex', name: 'Codex', chat: true, terminal: false },
-        { kind: 'grok', name: 'Grok', chat: true, terminal: false }
+        { kind: 'grok', name: 'Grok', chat: true, terminal: false },
+        { kind: 'nanogpt', name: 'NanoGPT', chat: true, terminal: false }
     ];
     const rowsOf = (nodes: readonly MenuNode[]): string[] => nodes.map((node) => (node.kind === 'command' ? node.id : node.kind));
 
-    test('a line sets the frontier labs apart from the other agents', () => {
+    test('a line sets each group of agents apart from the next', () => {
         const spec = menuModel(context({ agents }));
         const newAgent = flatten(spec.menus.flatMap((entry) => entry.items)).find((node) => node.kind === 'submenu' && node.id === 'new-agent');
-        expect(newAgent?.kind === 'submenu' ? rowsOf(newAgent.items) : []).toEqual(['agent-chat-claude', 'agent-chat-codex', 'separator', 'agent-chat-grok']);
+        expect(newAgent?.kind === 'submenu' ? rowsOf(newAgent.items) : []).toEqual([
+            'agent-chat-claude',
+            'agent-chat-codex',
+            'separator',
+            'agent-chat-grok',
+            'separator',
+            'agent-chat-nanogpt'
+        ]);
         const rows = rowsOf(flatten(spec.menus.flatMap((entry) => entry.items))).filter((id) => id.startsWith('agent-view-') || id === 'separator');
-        expect(rows.join(' ')).toContain('agent-view-chat-codex separator agent-view-chat-grok');
+        expect(rows.join(' ')).toContain('agent-view-chat-codex separator agent-view-chat-grok separator agent-view-chat-nanogpt');
     });
 });
 

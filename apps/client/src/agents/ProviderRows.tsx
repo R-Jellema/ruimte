@@ -1,6 +1,6 @@
 import { ChevronRight, Bot, LoaderCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { groupProvidersByFrontier, type ProviderInfo } from '@ruimte/contracts';
+import { pickerGroupsOf, type ProviderInfo } from '@ruimte/contracts';
 import { AgentIcon, modelName } from '@adecore/agents-react/providers';
 import { startingSelection, useChatPreferences } from '@adecore/agents-react/chat';
 import { useProviders } from '@adecore/agents-react/state';
@@ -14,9 +14,9 @@ export function ProviderRows({ onPick }: { onPick(provider: ProviderInfo): void 
     const providers = useProviders((s) => s.providers);
     const loaded = useProviders((s) => s.loaded);
     const preferences = useChatPreferences();
-    const { frontier, others } = groupProvidersByFrontier(availableAgents(providers, 'chat'));
-    // The frontier labs and the other agents each get a card, the way a menu draws a line between them.
-    const cards = [frontier, others].filter((card) => card.length > 0);
+    const { frontier, others, api } = pickerGroupsOf(availableAgents(providers, 'chat'));
+    // Each group of providers gets a card, the way a menu draws a line between them.
+    const cards = [frontier, others, api].filter((card) => card.length > 0);
     useDetectProviders();
     return (
         <section className="flex flex-col gap-2">

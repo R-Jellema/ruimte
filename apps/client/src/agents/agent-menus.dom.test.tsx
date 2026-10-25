@@ -168,9 +168,16 @@ describe('the agent submenu', () => {
         expect(groups.some((text) => text?.startsWith('Claude Code'))).toBe(true);
     });
 
-    test('lists the frontier labs first and the other CLIs by name under a line, whatever order the machine sends', async () => {
+    test('lists the frontier labs, the other CLIs and the API providers by name, a line between groups, whatever order the machine sends', async () => {
         machine.answer('provider.list', () => ({
-            providers: [providerOf('grok', 'Grok'), providerOf('codex', 'Codex'), providerOf('antigravity', 'Antigravity'), providerOf('claude', 'Claude Code')]
+            providers: [
+                providerOf('nanogpt', 'NanoGPT'),
+                providerOf('grok', 'Grok'),
+                providerOf('codex', 'Codex'),
+                providerOf('anthropic-claude-api', 'Claude API'),
+                providerOf('antigravity', 'Antigravity'),
+                providerOf('claude', 'Claude Code')
+            ]
         }));
         await start(() => ({ accounts: { claude: { kind: 'claude' }, codex: { kind: 'codex' } }, statuses: [] }));
         await openAgentChatMenu();
@@ -179,7 +186,7 @@ describe('the agent submenu', () => {
         const rows = [...menu.querySelectorAll('[role="menuitem"], [role="separator"]')].map((node) =>
             node.getAttribute('role') === 'separator' ? '--' : labelOf(node as HTMLElement)
         );
-        expect(rows).toEqual(['Claude Code', 'Codex', '--', 'Antigravity', 'Grok']);
+        expect(rows).toEqual(['Claude Code', 'Codex', '--', 'Antigravity', 'Grok', '--', 'Claude API', 'NanoGPT']);
     });
 
     test('a CLI that is not installed is not offered', async () => {

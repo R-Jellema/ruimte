@@ -6,7 +6,7 @@ import { AccountDot, AgentIcon } from '@adecore/agents-react/providers';
 import { agentTargetLabel, type AgentTarget } from '@/agents/nodes';
 import { runtimeModeLabel, useChatPreferences, useNewAccountChoice } from '@adecore/agents-react/chat';
 import { useProviders } from '@adecore/agents-react/state';
-import { availableAgents, separatesFrontier } from './creation';
+import { availableAgents, separatesGroups } from './creation';
 import { useUi } from '@/state/ui';
 import { useDetectProviders } from '@/transport/provider-detection';
 import { Icon, Menu } from '@adecore/ui';
@@ -101,7 +101,7 @@ function ProviderChain({ target, provider, rest, hint, onPick, drawn, previous, 
     const nextDrawn = mine === 'nothing' ? drawn : mine;
     const nextPrevious = mine === 'nothing' ? previous : provider.kind;
     const [next, ...after] = rest;
-    const separated = mine === 'group' || drawn === 'group' || separatesFrontier(previous, provider.kind);
+    const separated = mine === 'group' || drawn === 'group' || separatesGroups(previous, provider.kind);
     return (
         <>
             {mine !== 'nothing' && drawn !== 'nothing' && separated && <Menu.Separator />}

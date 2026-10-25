@@ -3,6 +3,7 @@ import type { AgentKind, GitRefsResult, ModelSelection, Worktree } from '@ruimte
 import { branchRefusal, defaultProvider, readChatPreferences, startingSelection } from '@adecore/agents-react/chat';
 import { useProviders } from '@adecore/agents-react/state';
 import { messageOf } from '@adecore/ui';
+import { availableAgents } from '@/agents/creation';
 import { proposedBranch } from '@/shell/new-worktree-chat';
 import { useTransport } from '@/transport/context';
 
@@ -46,7 +47,7 @@ export interface WorktreeStart {
 export function useWorktreeStart(folder: string | null, proposed: string | null = null): WorktreeStart | null {
     const transport = useTransport();
     const providers = useProviders((s) => s.providers);
-    const pickable = providers.filter((entry) => entry.installed && entry.capabilities.chat);
+    const pickable = availableAgents(providers, 'chat');
     const [refs, setRefs] = useState<GitRefsResult | null>(null);
     const [refsFailure, setRefsFailure] = useState<string | null>(null);
     const [typedBranch, setBranch] = useState<string | null>(null);

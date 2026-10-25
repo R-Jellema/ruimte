@@ -415,6 +415,12 @@ describe('the agent of an inline edit', () => {
         installed();
         expect(inlineAgentNow('e1')).toEqual({ provider: 'codex', model: 'gpt-x' });
     });
+
+    test('falls back on a CLI before a provider billed per key, whatever order the machine sends', () => {
+        useSettings.setState({ aiInlineAgent: { provider: 'codex', model: 'gpt-x' } });
+        installed('anthropic-claude-api', 'nanogpt', 'grok', 'claude');
+        expect(inlineAgentNow('e1')).toEqual({ provider: 'claude', model: null });
+    });
 });
 
 /* The row of the question, which the fake editor keeps under its own owner. */

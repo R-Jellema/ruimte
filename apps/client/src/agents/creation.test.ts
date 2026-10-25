@@ -1,12 +1,12 @@
 import { describe, expect, test } from 'bun:test';
 import type { ProviderInfo } from '@ruimte/contracts';
-import { availableAgents, separatesFrontier } from './creation';
+import { availableAgents, separatesGroups } from './creation';
 
 const provider = (kind: string, name: string, installed = true): ProviderInfo =>
     ({ kind, name, installed, capabilities: { chat: true, terminal: kind !== 'apple' } }) as ProviderInfo;
 
 describe('availableAgents', () => {
-    test('offers the frontier labs first and then the rest, each by name, whatever order the machine sent', () => {
+    test('offers the frontier labs, then the rest, then the API providers, each by name, whatever order the machine sent', () => {
         const providers = [
             provider('grok', 'Grok'),
             provider('claude', 'Claude Code'),
@@ -18,15 +18,17 @@ describe('availableAgents', () => {
             provider('kimi', 'Kimi', false)
         ];
         const names = availableAgents(providers, 'chat').map((entry) => entry.name);
-        expect(names).toEqual(['Claude API', 'Claude Code', 'Codex', 'Antigravity', 'GitHub Copilot', 'Grok', 'NanoGPT']);
+        expect(names).toEqual(['Claude Code', 'Codex', 'Antigravity', 'GitHub Copilot', 'Grok', 'Claude API', 'NanoGPT']);
     });
 });
 
-describe('separatesFrontier', () => {
-    test('only between the last frontier lab and the first other provider', () => {
-        expect(separatesFrontier('codex', 'antigravity')).toBe(true);
-        expect(separatesFrontier('claude', 'codex')).toBe(false);
-        expect(separatesFrontier('antigravity', 'grok')).toBe(false);
-        expect(separatesFrontier(undefined, 'grok')).toBe(false);
+describe('separatesGroups', () => {
+    test('only where one group ends and the next begins', () => {
+        expect(separatesGroups('codex', 'antigravity')).toBe(true);
+        expect(separatesGroups('grok', 'anthropic-claude-api')).toBe(true);
+        expect(separatesGroups('claude', 'codex')).toBe(false);
+        expect(separatesGroups('antigravity', 'grok')).toBe(false);
+        expect(separatesGroups('anthropic-claude-api', 'nanogpt')).toBe(false);
+        expect(separatesGroups(undefined, 'grok')).toBe(false);
     });
 });
