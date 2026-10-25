@@ -1,9 +1,7 @@
 {
-    "title": "Voice Control",
     "button": "Voice Control",
     "shortcut": "Voice Control: press to toggle, hold to talk",
     "displayFailed": "Could not show Voice Control",
-    "close": "Hide Voice Control",
     "waveform": "Conversation audio activity",
     "phase": {
         "idle": "Ready",

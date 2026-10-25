@@ -34,7 +34,6 @@
             "machine": "The machine status could not be shown",
             "projectSwitch": "The project switch screen could not be shown",
             "projectBanner": "The project banner could not be shown",
-            "voice": "The Voice panel could not be shown",
             "dialog": "This dialog could not be shown",
             "conflicts": "The conflict overlay could not be shown",
             "palette": "The command palette could not be shown",
