@@ -178,7 +178,7 @@ export function createMachine(options: MachineOptions): Machine {
             if (health && accept(health)) {
                 return;
             }
-            await new Promise((resolve) => setTimeout(resolve, 150));
+            await new Promise((resolve) => setTimeout(resolve, 25));
         }
         throw new Error('The background service did not come up');
     };

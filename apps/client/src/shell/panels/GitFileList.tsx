@@ -413,7 +413,7 @@ function GitTree({
         <ContextMenu.Root>
             <ContextMenu.Trigger
                 render={<div />}
-                className="flex min-h-0 flex-col overflow-hidden pt-1"
+                className="flex min-h-0 grow flex-col overflow-hidden pt-1"
                 onKeyDownCapture={onKeyDownCapture}
                 onContextMenu={(event) => {
                     const row = rowPathOf(event);
@@ -427,7 +427,7 @@ function GitTree({
             >
                 <FileTree.Root
                     model={model}
-                    className="min-h-0"
+                    className="min-h-0 grow"
                     label={t('shell:panel.names.git')}
                     resetKey={folder ?? ''}
                     onActivate={openPath}
@@ -446,7 +446,6 @@ function GitTree({
                         const node = nodeOf(layout, row.path);
                         return node?.kind === 'repo' && node.items.length === 0 ? t('git.list.clean') : undefined;
                     }}
-                    fitContent
                 />
             </ContextMenu.Trigger>
             <ContextMenu.Popup>

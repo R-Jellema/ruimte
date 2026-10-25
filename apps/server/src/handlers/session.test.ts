@@ -24,6 +24,28 @@ async function request(clientId: string, type: string, payload: unknown): Promis
     return frames[0]!;
 }
 
+test('an attach reply precedes output buffered after its screen', async () => {
+    const frames: ServerFrame[] = [];
+    harness.manager.subscribe('reader', ({ event, payload }) => frames.push({ type: 'event', event, payload } as ServerFrame));
+    const pty = harness.adapter.forSession('terminal');
+    pty.emit('screen-before');
+
+    const attaching = dispatcher.handle(
+        { id: 'reader', send: (frame) => frames.push(frame) },
+        JSON.stringify({ id: 'attach', type: 'session.attach', payload: { sessionId: 'terminal', follow: true } })
+    );
+    pty.emit('stream-after');
+    await attaching;
+    harness.manager.get('terminal')!.flush();
+
+    const wire = frames.filter((frame) => 'id' in frame || frame.event === 'session.output');
+    expect(wire).toMatchObject([
+        { id: 'attach', ok: true, result: { screen: expect.stringContaining('screen-before') } },
+        { event: 'session.output', payload: { sessionId: 'terminal', data: 'stream-after' } }
+    ]);
+    expect(wire[0]).toMatchObject({ result: { screen: expect.not.stringContaining('stream-after') } });
+});
+
 describe('following a shared terminal', () => {
     test('a phone follows the desktop dimensions and receives the same output', async () => {
         const desktop = new Recorder();

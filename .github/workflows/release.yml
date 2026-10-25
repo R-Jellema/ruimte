@@ -49,8 +49,34 @@ jobs:
     permissions:
       contents: read
 
-  build:
-    needs: draft
+  # The client is the same bundle on every platform, so it is built once: one set of debug ids and
+  # source maps under `ruimte@<version>`, matching the page every build ships.
+  client:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/install
+      - name: Version from the tag
+        run: echo "RUIMTE_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+      # Only a release build reports crashes; every other build stays silent.
+      - name: Build the client
+        env:
+          RUIMTE_TELEMETRY: '1'
+        run: bun run --cwd apps/client build
+      - uses: ./.github/actions/client-source-maps
+        with:
+          dist: apps/client/dist
+          release: ruimte@${{ env.RUIMTE_VERSION }}
+          token: ${{ secrets.OBSERVATORY_UPLOAD_TOKEN }}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: client
+          path: apps/client/dist
+          if-no-files-found: error
+          retention-days: 7
+
+  mac:
+    needs: [draft, client]
     runs-on: macos-latest
     steps:
       # Without them the build goes out unsigned or unnotarized, which Squirrel refuses as an update
@@ -79,16 +105,10 @@ jobs:
       - uses: ./.github/actions/install
       - name: Version from the tag
         run: echo "RUIMTE_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
-      # Only a release build reports crashes; every other build stays silent.
-      - name: Build the client
-        env:
-          RUIMTE_TELEMETRY: '1'
-        run: bun run --cwd apps/client build
-      - uses: ./.github/actions/client-source-maps
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          dist: apps/client/dist
-          release: ruimte@${{ env.RUIMTE_VERSION }}
-          token: ${{ secrets.OBSERVATORY_UPLOAD_TOKEN }}
+          name: client
+          path: apps/client/dist
       - name: Compile the daemon
         env:
           RUIMTE_TELEMETRY: '1'
@@ -128,7 +148,7 @@ jobs:
         run: rm -f "$RUNNER_TEMP/AuthKey.p8"
 
   linux:
-    needs: draft
+    needs: [draft, client]
     strategy:
       matrix:
         include:
@@ -150,15 +170,10 @@ jobs:
       - uses: ./.github/actions/install
       - name: Version from the tag
         run: echo "RUIMTE_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
-      - name: Build the client
-        env:
-          RUIMTE_TELEMETRY: '1'
-        run: bun run --cwd apps/client build
-      - uses: ./.github/actions/client-source-maps
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          dist: apps/client/dist
-          release: ruimte@${{ env.RUIMTE_VERSION }}
-          token: ${{ secrets.OBSERVATORY_UPLOAD_TOKEN }}
+          name: client
+          path: apps/client/dist
       - name: Compile the daemon
         env:
           RUIMTE_TELEMETRY: '1'
@@ -186,7 +201,7 @@ jobs:
   # Off unless the repository variable WINDOWS_RELEASE is `true`, so it never holds up the others.
   # NSIS only builds on Windows; the daemon would cross-compile anywhere.
   windows:
-    needs: draft
+    needs: [draft, client]
     if: vars.WINDOWS_RELEASE == 'true'
     runs-on: windows-latest
     defaults:
@@ -197,15 +212,10 @@ jobs:
       - uses: ./.github/actions/install
       - name: Version from the tag
         run: echo "RUIMTE_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
-      - name: Build the client
-        env:
-          RUIMTE_TELEMETRY: '1'
-        run: bun run --cwd apps/client build
-      - uses: ./.github/actions/client-source-maps
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          dist: apps/client/dist
-          release: ruimte@${{ env.RUIMTE_VERSION }}
-          token: ${{ secrets.OBSERVATORY_UPLOAD_TOKEN }}
+          name: client
+          path: apps/client/dist
       - name: Compile the daemon
         env:
           RUIMTE_TELEMETRY: '1'
@@ -230,11 +240,13 @@ jobs:
 
   # The deploy of the release the daemon, the shell and the page report under, `ruimte@<version>`, once
   # it is published, so its commits run from the release before. Bun maps a stack trace of the daemon
-  # back to the source inside the binary; the page's source maps and Electron's symbols go up from the
-  # build jobs. Reports arrive without it as well, so an error tracker that is down never holds up a
-  # release.
+  # back to the source inside the binary; the page's source maps go up from the client job and
+  # Electron's symbols from the platform builds. Reports arrive without it as well, so an error tracker
+  # that is down never holds up a release.
   error-tracking:
     needs: publish
+    # A skipped Windows build upstream would otherwise skip this job too, published or not.
+    if: ${{ !cancelled() && needs.publish.result == 'success' }}
     runs-on: ubuntu-latest
     continue-on-error: true
     timeout-minutes: 5
@@ -255,9 +267,9 @@ jobs:
           version: ruimte@${{ env.RUIMTE_VERSION }}
 
   publish:
-    needs: [verify, build, linux, windows]
+    needs: [verify, mac, linux, windows]
     # A skipped Windows build (WINDOWS_RELEASE off) holds nothing up; a failed one keeps the draft a draft.
-    if: ${{ !cancelled() && needs.verify.result == 'success' && needs.build.result == 'success' && needs.linux.result == 'success' && (needs.windows.result == 'success' || needs.windows.result == 'skipped') }}
+    if: ${{ !cancelled() && needs.verify.result == 'success' && needs.mac.result == 'success' && needs.linux.result == 'success' && (needs.windows.result == 'success' || needs.windows.result == 'skipped') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write

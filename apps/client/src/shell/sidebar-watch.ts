@@ -26,6 +26,21 @@ function statusKeyOf(part: Part): string | null {
     return part === 'sessions' ? 'terminal:' : part === 'chats' ? 'chat:' : null;
 }
 
+function sameStatuses(left: SidebarMachineSnapshot['statuses'], right: SidebarMachineSnapshot['statuses']): boolean {
+    if (left === right) {
+        return true;
+    }
+    const keys = Object.keys(left);
+    return keys.length === Object.keys(right).length && keys.every((key) => left[key] === right[key]);
+}
+
+function sameProjects(left: SidebarMachineSnapshot['projects'], right: SidebarMachineSnapshot['projects']): boolean {
+    return (
+        left === right ||
+        (left.length === right.length && left.every((project, index) => project === right[index] || JSON.stringify(project) === JSON.stringify(right[index])))
+    );
+}
+
 export class SidebarWatch {
     private snapshot: SidebarMachineSnapshot = { projects: [], statuses: {}, state: 'loading' };
     private readonly listeners = new Set<() => void>();
@@ -89,6 +104,9 @@ export class SidebarWatch {
 
     private status(key: string, status: AgentStatus): void {
         this.touched.add(key);
+        if (this.snapshot.statuses[key] === status) {
+            return;
+        }
         this.set({ ...this.snapshot, statuses: { ...this.snapshot.statuses, [key]: status } });
     }
 
@@ -123,7 +141,12 @@ export class SidebarWatch {
     }
 
     private set(snapshot: SidebarMachineSnapshot): void {
-        if (this.disposed || JSON.stringify(snapshot) === JSON.stringify(this.snapshot)) {
+        if (
+            this.disposed ||
+            (snapshot.state === this.snapshot.state &&
+                sameStatuses(snapshot.statuses, this.snapshot.statuses) &&
+                sameProjects(snapshot.projects, this.snapshot.projects))
+        ) {
             return;
         }
         this.snapshot = snapshot;

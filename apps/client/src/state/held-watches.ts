@@ -8,12 +8,12 @@ interface Held<A> {
     count: number;
     ready: Promise<void>;
     answer: Promise<A | undefined>;
-    /* What each reader does once the daemon watches again after its link came back. */
+    /* Refreshes each reader after its watch is registered again. */
     renewed: Set<() => void>;
 }
 
 export interface HeldWatch<A = unknown> {
-    /* Resolves once the daemon is watching, which is what a first read waits for so a write in between is reported rather than missed. */
+    /* The current readiness barrier; re-registering a watch replaces it so reads cannot miss writes during startup. */
     ready: Promise<void>;
     /* What the daemon answered the call that opened the watch; undefined for a reader that joined one
        already open, since that answer may be long out of date. */
@@ -37,7 +37,7 @@ export abstract class HeldWatches<A = unknown> {
         this.linkFor = linkFor;
     }
 
-    /* `renewed` runs every time the daemon watches again after a lost link, since nothing was reported in between. */
+    /* Re-registration refreshes readers because changes during the gap were not reported. */
     watch(endpointId: string, path: string, renewed?: () => void): HeldWatch<A> {
         const key = endpointKey(endpointId, path);
         const link = this.linkFor(endpointId);
@@ -51,9 +51,14 @@ export abstract class HeldWatches<A = unknown> {
         if (reader !== null) {
             held.renewed.add(reader);
         }
+        if (open === undefined) {
+            this.opened(endpointId, path);
+        }
         let released = false;
         return {
-            ready: held.ready,
+            get ready() {
+                return held.ready;
+            },
             answer: open === undefined ? held.answer : Promise.resolve(undefined),
             release: () => {
                 if (released) {
@@ -82,6 +87,8 @@ export abstract class HeldWatches<A = unknown> {
     protected abstract ask(link: Transport, path: string): Promise<A>;
 
     protected abstract unask(link: Transport, path: string): Promise<unknown>;
+
+    protected opened(_endpointId: string, _path: string): void {}
 
     /* After the last reader of a path let go. */
     protected released(_endpointId: string, _path: string): void {}

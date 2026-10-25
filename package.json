@@ -14,7 +14,9 @@
     "adecore:status": "bun scripts/adecore.ts status",
     "adecore:bump": "bun scripts/adecore.ts bump",
     "dev": "bun scripts/adecore.ts status --brief && bun run --filter './apps/*' dev",
+    "dev:built": "bun scripts/adecore.ts status --brief && bun run --cwd apps/client build && bun run --parallel dev:client:built dev:server dev:desktop:built",
     "dev:client": "bun run --cwd apps/client dev",
+    "dev:client:built": "bun run --cwd apps/client preview --port 4212 --strictPort",
     "dev:server": "bun run --cwd apps/server dev",
     "build": "bun run --cwd apps/client build && bun run --cwd apps/desktop build",
     "check": "bun run check:types && bun run check:generated && bun run lint && bun run format:check",
@@ -32,6 +34,7 @@
     "format": "oxfmt --write \"apps/*/src/**/*.{ts,tsx}\" \"packages/*/src/**/*.ts\" \"scripts/**/*.ts\"",
     "format:check": "oxfmt --check \"apps/*/src/**/*.{ts,tsx}\" \"packages/*/src/**/*.ts\" \"scripts/**/*.ts\"",
     "dev:desktop": "bun run --cwd apps/desktop dev",
+    "dev:desktop:built": "RUIMTE_DEV_WAIT_FOR_DAEMON=1 bun run dev:desktop",
     "dist": "bun run --cwd apps/client build && bun run --cwd apps/server compile && bun run --cwd apps/desktop pack"
   },
   "devDependencies": {

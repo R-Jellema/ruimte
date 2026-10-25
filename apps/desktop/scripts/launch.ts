@@ -19,6 +19,10 @@ delete env.ELECTRON_RUN_AS_NODE;
 
 // `bun dev` starts Vite beside this script, and a window that loads before Vite listens stays blank.
 await waitForDevServer(process.env.RUIMTE_DEV_URL);
+// The built-client run waits out native daemon preparation before opening a window that needs it.
+if (process.env.RUIMTE_DEV_WAIT_FOR_DAEMON === '1') {
+    await waitForDevServer(`http://127.0.0.1:${process.env.RUIMTE_PORT ?? '4211'}/health`, 50);
+}
 
 // The fourth descriptor is a pipe Electron watches: it quits the moment this script is gone, however it went.
 const child = spawn(executable, ['.', ...process.argv.slice(2)], { stdio: ['inherit', 'inherit', 'inherit', 'pipe'], env });
@@ -34,7 +38,7 @@ for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) {
 /**
  * Waits until the dev server answers, for at most two minutes; after that Electron starts anyway and shows why.
  */
-async function waitForDevServer(url: string | undefined): Promise<void> {
+async function waitForDevServer(url: string | undefined, pollMs = 250): Promise<void> {
     if (url === undefined) {
         return;
     }
@@ -44,7 +48,7 @@ async function waitForDevServer(url: string | undefined): Promise<void> {
             await fetch(url, { signal: AbortSignal.timeout(2_000) });
             return;
         } catch {
-            await sleep(250);
+            await sleep(pollMs);
         }
     }
 }

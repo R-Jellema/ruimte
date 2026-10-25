@@ -9,8 +9,7 @@ import { openShellEditor } from './shell-editor.ts';
 
 const SCROLLBACK_LINES = 10_000;
 
-// Roughly one animation frame: enough to fold a burst of small PTY reads into one frame on the
-// wire without adding a delay anyone can see.
+// Bundle sustained output into roughly one frame per animation frame; idle output goes immediately.
 const OUTPUT_TICK_MS = 16;
 
 // A shell that traps SIGHUP would otherwise keep a killed session alive forever.
@@ -126,6 +125,7 @@ export class Session {
     private screensAsked = 0;
     private restoring = false;
     private flushTimer: ReturnType<typeof setTimeout> | null = null;
+    private lastOutputAt: number | null = null;
     private killTimer: ReturnType<typeof setTimeout> | null = null;
     // Bytes of one UTF-8 character can straddle two PTY reads; the streaming decoder keeps the tail.
     private readonly decoder = new TextDecoder('utf-8', { fatal: false });
@@ -290,7 +290,8 @@ export class Session {
                 waiter(screen);
             }
             if (owner.buffered !== '' && this.clients.get(clientId) === owner) {
-                this.scheduleFlush();
+                // The attach reply resolves through promises before its output may resume.
+                this.scheduleFlush(true);
             }
         });
     }
@@ -447,6 +448,7 @@ export class Session {
             clearTimeout(this.flushTimer);
             this.flushTimer = null;
         }
+        let delivered = false;
         for (const [clientId, stream] of this.clients) {
             if (stream.snapshot !== null || stream.buffered === '') {
                 continue;
@@ -454,6 +456,10 @@ export class Session {
             const data = stream.buffered;
             stream.buffered = '';
             this.deliver(clientId, data);
+            delivered = true;
+        }
+        if (delivered) {
+            this.lastOutputAt = Date.now();
         }
     }
 
@@ -504,9 +510,15 @@ export class Session {
         this.terminal.write('', run);
     }
 
-    private scheduleFlush(): void {
+    private scheduleFlush(defer = false): void {
         if (this.flushTimer === null) {
-            this.flushTimer = setTimeout(() => this.flush(), OUTPUT_TICK_MS);
+            const elapsed = this.lastOutputAt === null ? OUTPUT_TICK_MS : Math.max(0, Date.now() - this.lastOutputAt);
+            const delay = Math.max(0, OUTPUT_TICK_MS - elapsed);
+            if (delay === 0 && !defer) {
+                this.flush();
+            } else {
+                this.flushTimer = setTimeout(() => this.flush(), delay);
+            }
         }
     }
 

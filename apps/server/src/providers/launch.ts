@@ -94,7 +94,7 @@ function quote(value: string): string {
  */
 let codexNoDaemon = false;
 
-// The daemon's boot waits on the probe, so a Codex that hangs counts as one without the flag.
+// A hanging CLI must not hold its terminal launch indefinitely.
 const CODEX_PROBE_TIMEOUT_MS = 5_000;
 
 async function codexHelp(signal: AbortSignal): Promise<string> {
@@ -108,11 +108,14 @@ export async function probeCodexNoDaemon(
     timeoutMs: number = CODEX_PROBE_TIMEOUT_MS
 ): Promise<void> {
     const controller = new AbortController();
+    const abort = (): void => controller.abort();
+    process.once('exit', abort);
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     const timedOut = new Promise<string>((resolve) => controller.signal.addEventListener('abort', () => resolve(''), { once: true }));
     try {
         codexNoDaemon = (await Promise.race([help(controller.signal).catch(() => ''), timedOut])).includes('--no-daemon');
     } finally {
+        process.off('exit', abort);
         clearTimeout(timer);
         controller.abort();
     }

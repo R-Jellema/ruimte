@@ -24,10 +24,48 @@ function kindOf(dirent: { isDirectory(): boolean; isFile(): boolean; isSymbolicL
     return dirent.isFile() ? 'file' : 'other';
 }
 
+type ListCandidate = Pick<FsEntry, 'name' | 'kind' | 'hidden'> & { index: number };
+
+let nameCollator: Intl.Collator | undefined;
+
 // Directories first, then by name the way a person reads them: `item2` before `item10`.
-function compare(left: FsEntry, right: FsEntry): number {
-    const rank = (entry: FsEntry): number => (entry.kind === 'directory' ? 0 : 1);
-    return rank(left) - rank(right) || left.name.localeCompare(right.name, undefined, { numeric: true });
+function compare(left: ListCandidate, right: ListCandidate): number {
+    const rank = (entry: Pick<FsEntry, 'kind'>): number => (entry.kind === 'directory' ? 0 : 1);
+    nameCollator ??= new Intl.Collator(undefined, { numeric: true });
+    return rank(left) - rank(right) || nameCollator.compare(left.name, right.name) || left.index - right.index;
+}
+
+function sinkCandidate(heap: ListCandidate[], from: number): void {
+    const entry = heap[from]!;
+    let index = from;
+    while (index * 2 + 1 < heap.length) {
+        let child = index * 2 + 1;
+        if (child + 1 < heap.length && compare(heap[child + 1]!, heap[child]!) < 0) {
+            child++;
+        }
+        if (compare(entry, heap[child]!) <= 0) {
+            break;
+        }
+        heap[index] = heap[child]!;
+        index = child;
+    }
+    heap[index] = entry;
+}
+
+// A capped listing needs only its first entries in order; the rest never needs sorting.
+function* orderedCandidates(heap: ListCandidate[]): Generator<ListCandidate> {
+    for (let index = Math.floor(heap.length / 2) - 1; index >= 0; index--) {
+        sinkCandidate(heap, index);
+    }
+    while (heap.length > 0) {
+        const best = heap[0]!;
+        const last = heap.pop()!;
+        if (heap.length > 0) {
+            heap[0] = last;
+            sinkCandidate(heap, 0);
+        }
+        yield best;
+    }
 }
 
 /*
@@ -47,30 +85,50 @@ async function repositoryRootOf(dir: string, cache: Map<string, string | null>):
     return found;
 }
 
-async function readEntries(dir: string, includeHidden: boolean, inRepository: boolean): Promise<FsEntry[]> {
+async function readEntries(dir: string, includeHidden: boolean, inRepository: boolean, limit: number): Promise<{ entries: FsEntry[]; truncated: boolean }> {
     const dirents = await readdir(dir, { withFileTypes: true });
-    const entries = await Promise.all(
-        dirents.map(async (dirent): Promise<FsEntry | null> => {
-            const visibility = classifyEntry(dirent.name, { inRepository });
-            if (visibility === 'never' || (visibility === 'shy' && !includeHidden)) {
-                return null;
+    const candidates: ListCandidate[] = [];
+    for (const dirent of dirents) {
+        const visibility = classifyEntry(dirent.name, { inRepository });
+        if (visibility === 'never' || (visibility === 'shy' && !includeHidden)) {
+            continue;
+        }
+        candidates.push({ name: dirent.name, kind: kindOf(dirent), hidden: visibility === 'shy', index: candidates.length });
+    }
+    const truncated = candidates.length > limit;
+    let retained = candidates;
+    if (truncated) {
+        retained = [];
+        if (limit > 0) {
+            for (const candidate of orderedCandidates(candidates)) {
+                retained.push(candidate);
+                if (retained.length === limit) {
+                    break;
+                }
             }
-            const path = join(dir, dirent.name);
-            const kind = kindOf(dirent);
+        }
+        candidates.length = 0;
+    } else {
+        retained.sort(compare);
+    }
+    // Names and kinds determine the retained rows; metadata for rows beyond the cap is never used.
+    const entries = await Promise.all(
+        retained.map(async (entry): Promise<FsEntry> => {
+            const path = join(dir, entry.name);
             // lstat, not stat: a symlink reports itself, so a loop or a dead link cannot stall a listing.
             const stats = await lstat(path).catch(() => null);
             return {
-                name: dirent.name,
+                name: entry.name,
                 path,
-                kind,
-                size: kind === 'file' ? (stats?.size ?? 0) : null,
+                kind: entry.kind,
+                size: entry.kind === 'file' ? (stats?.size ?? 0) : null,
                 mtime: Math.round(stats?.mtimeMs ?? 0),
-                hidden: visibility === 'shy',
+                hidden: entry.hidden,
                 ignored: false
             };
         })
     );
-    return entries.filter((entry) => entry !== null).sort(compare);
+    return { entries, truncated };
 }
 
 /*
@@ -102,17 +160,15 @@ export async function listDirectory(path: string, options: ListOptions = {}): Pr
             const repository = await repositoryRootOf(dir, repositories);
             let read: FsEntry[];
             try {
-                read = await readEntries(dir, includeHidden, repository !== null);
+                const listed = await readEntries(dir, includeHidden, repository !== null, FS_LIST_MAX_ENTRIES - total);
+                read = listed.entries;
+                truncated = listed.truncated;
             } catch {
                 // A directory nobody may read lists as empty; the root is the one place that is an error.
                 if (dir === root) {
                     throw new ListError('not-found', 'That folder cannot be read');
                 }
                 continue;
-            }
-            if (total + read.length > FS_LIST_MAX_ENTRIES) {
-                read = read.slice(0, FS_LIST_MAX_ENTRIES - total);
-                truncated = true;
             }
             total += read.length;
             byDirectory.set(dir, read);

@@ -17,6 +17,8 @@ interface Watch {
     root: string;
     recursive: boolean;
     watcher: DirectoryWatcher;
+    ready: Promise<void>;
+    replacement?: Watch;
     // The directories that changed since the last flush, absolute.
     touched: Set<string>;
     settle: Settled;
@@ -50,9 +52,9 @@ export class FolderWatcher {
     watch(clientId: string, path: string): Promise<void> {
         const root = resolve(path);
         for (const [, existing] of this.watches.all(clientId)) {
-            // The same folder or a recursive watch above it already reports everything this one would.
+            // Covered paths share the stream's startup barrier.
             if (existing.root === root || (existing.recursive && isUnder(root, existing.root))) {
-                return Promise.resolve();
+                return existing.ready;
             }
         }
         const recursive = supportsRecursive(this.platform);
@@ -69,18 +71,20 @@ export class FolderWatcher {
             // A folder that cannot be watched still lists; the tree just goes stale until a refresh.
             return Promise.resolve();
         }
-        const state: Watch = { root, recursive, watcher, touched: new Set(), settle: settled(this.seams, SETTLE_MS, () => this.flush(clientId, state)) };
+        const starting = this.platform === 'darwin' && this.streamStartMs > 0;
+        const ready = starting
+            ? new Promise<void>((resolve) => {
+                  this.seams.schedule(resolve, this.streamStartMs);
+              })
+            : Promise.resolve();
+        const state: Watch = { root, recursive, watcher, ready, touched: new Set(), settle: settled(this.seams, SETTLE_MS, () => this.flush(clientId, state)) };
         watcher.on('error', () => undefined);
-        if (recursive) {
-            // The new watch covers them, and two watchers over one directory would report twice.
-            for (const [key, existing] of this.watches.all(clientId)) {
-                if (isUnder(existing.root, root)) {
-                    this.watches.remove(clientId, key);
-                }
-            }
-        }
         this.watches.put(clientId, root, state);
-        return this.platform === 'darwin' && this.streamStartMs > 0 ? Bun.sleep(this.streamStartMs) : Promise.resolve();
+        state.ready = ready.then(() => state.replacement?.ready);
+        if (recursive) {
+            this.coverDescendants(clientId, state);
+        }
+        return state.ready;
     }
 
     unwatch(clientId: string, path: string): void {
@@ -89,6 +93,25 @@ export class FolderWatcher {
 
     detachAll(clientId: string): void {
         this.watches.detachAll(clientId);
+    }
+
+    private coverDescendants(clientId: string, state: Watch): void {
+        if (this.watches.get(clientId, state.root) !== state) {
+            return;
+        }
+        for (const [key, existing] of this.watches.all(clientId)) {
+            if (existing !== state && isUnder(existing.root, state.root)) {
+                // Pending readers follow the new stream, and queued changes survive closing the old handle.
+                existing.replacement = state;
+                for (const path of existing.touched) {
+                    state.touched.add(path);
+                }
+                if (existing.touched.size > 0) {
+                    state.settle.nudge();
+                }
+                this.watches.remove(clientId, key);
+            }
+        }
     }
 
     private flush(clientId: string, state: Watch): void {

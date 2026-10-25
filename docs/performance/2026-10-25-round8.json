@@ -1,0 +1,1147 @@
+{
+  "environment": {
+    "date": "2026-10-25",
+    "ruimteBase": "4e1384273",
+    "adecoreBase": "19fb7247",
+    "bun": "1.4.2",
+    "os": "macOS 27.2",
+    "cpu": "Apple M4 Max"
+  },
+  "measurements": {
+    "before": {
+      "benchmark": "chat-client-replay",
+      "count": 6000,
+      "updates": 200,
+      "runs": 7,
+      "batch": false,
+      "samples": [
+        {
+          "ms": 23.348084,
+          "notifications": 200
+        },
+        {
+          "ms": 24.704832999999994,
+          "notifications": 200
+        },
+        {
+          "ms": 24.761375000000015,
+          "notifications": 200
+        },
+        {
+          "ms": 23.357833,
+          "notifications": 200
+        },
+        {
+          "ms": 23.04120800000001,
+          "notifications": 200
+        },
+        {
+          "ms": 23.285082999999986,
+          "notifications": 200
+        },
+        {
+          "ms": 23.53720899999999,
+          "notifications": 200
+        }
+      ]
+    },
+    "after": {
+      "benchmark": "chat-client-replay",
+      "count": 6000,
+      "updates": 200,
+      "runs": 7,
+      "batch": true,
+      "samples": [
+        {
+          "ms": 0.18454200000000043,
+          "notifications": 1
+        },
+        {
+          "ms": 0.16866699999999923,
+          "notifications": 1
+        },
+        {
+          "ms": 0.14841599999999744,
+          "notifications": 1
+        },
+        {
+          "ms": 0.14920899999999904,
+          "notifications": 1
+        },
+        {
+          "ms": 0.15400000000000347,
+          "notifications": 1
+        },
+        {
+          "ms": 0.1475419999999943,
+          "notifications": 1
+        },
+        {
+          "ms": 0.14458299999999724,
+          "notifications": 1
+        }
+      ]
+    },
+    "browser": {
+      "benchmark": "chat-replay-browser",
+      "samples": [
+        {
+          "stage": "control",
+          "run": 0,
+          "result": {
+            "benchmark": "chat-client-replay",
+            "count": 6000,
+            "updates": 200,
+            "runs": 7,
+            "batch": false,
+            "samples": [
+              {
+                "ms": 111.80000001192093,
+                "notifications": 200
+              },
+              {
+                "ms": 113.30000001192093,
+                "notifications": 200
+              },
+              {
+                "ms": 108.59999996423721,
+                "notifications": 200
+              },
+              {
+                "ms": 107.90000003576279,
+                "notifications": 200
+              },
+              {
+                "ms": 109.69999998807907,
+                "notifications": 200
+              },
+              {
+                "ms": 111.69999998807907,
+                "notifications": 200
+              },
+              {
+                "ms": 109.80000001192093,
+                "notifications": 200
+              }
+            ]
+          }
+        },
+        {
+          "stage": "control",
+          "run": 1,
+          "result": {
+            "benchmark": "chat-client-replay",
+            "count": 6000,
+            "updates": 200,
+            "runs": 7,
+            "batch": false,
+            "samples": [
+              {
+                "ms": 111,
+                "notifications": 200
+              },
+              {
+                "ms": 105.5,
+                "notifications": 200
+              },
+              {
+                "ms": 108.59999996423721,
+                "notifications": 200
+              },
+              {
+                "ms": 112.29999995231628,
+                "notifications": 200
+              },
+              {
+                "ms": 109.5,
+                "notifications": 200
+              },
+              {
+                "ms": 106,
+                "notifications": 200
+              },
+              {
+                "ms": 107.19999998807907,
+                "notifications": 200
+              }
+            ]
+          }
+        },
+        {
+          "stage": "control",
+          "run": 2,
+          "result": {
+            "benchmark": "chat-client-replay",
+            "count": 6000,
+            "updates": 200,
+            "runs": 7,
+            "batch": false,
+            "samples": [
+              {
+                "ms": 117,
+                "notifications": 200
+              },
+              {
+                "ms": 110.80000001192093,
+                "notifications": 200
+              },
+              {
+                "ms": 107,
+                "notifications": 200
+              },
+              {
+                "ms": 109.89999997615814,
+                "notifications": 200
+              },
+              {
+                "ms": 108.30000001192093,
+                "notifications": 200
+              },
+              {
+                "ms": 108.19999998807907,
+                "notifications": 200
+              },
+              {
+                "ms": 103.19999998807907,
+                "notifications": 200
+              }
+            ]
+          }
+        },
+        {
+          "stage": "current",
+          "run": 0,
+          "result": {
+            "benchmark": "chat-client-replay",
+            "count": 6000,
+            "updates": 200,
+            "runs": 7,
+            "batch": true,
+            "samples": [
+              {
+                "ms": 0.8999999761581421,
+                "notifications": 1
+              },
+              {
+                "ms": 0.9000000357627869,
+                "notifications": 1
+              },
+              {
+                "ms": 0.699999988079071,
+                "notifications": 1
+              },
+              {
+                "ms": 0.800000011920929,
+                "notifications": 1
+              },
+              {
+                "ms": 0.699999988079071,
+                "notifications": 1
+              },
+              {
+                "ms": 0.800000011920929,
+                "notifications": 1
+              },
+              {
+                "ms": 0.7999999523162842,
+                "notifications": 1
+              }
+            ]
+          }
+        },
+        {
+          "stage": "current",
+          "run": 1,
+          "result": {
+            "benchmark": "chat-client-replay",
+            "count": 6000,
+            "updates": 200,
+            "runs": 7,
+            "batch": true,
+            "samples": [
+              {
+                "ms": 0.800000011920929,
+                "notifications": 1
+              },
+              {
+                "ms": 0.699999988079071,
+                "notifications": 1
+              },
+              {
+                "ms": 0.699999988079071,
+                "notifications": 1
+              },
+              {
+                "ms": 0.7999999523162842,
+                "notifications": 1
+              },
+              {
+                "ms": 0.800000011920929,
+                "notifications": 1
+              },
+              {
+                "ms": 0.699999988079071,
+                "notifications": 1
+              },
+              {
+                "ms": 0.800000011920929,
+                "notifications": 1
+              }
+            ]
+          }
+        },
+        {
+          "stage": "current",
+          "run": 2,
+          "result": {
+            "benchmark": "chat-client-replay",
+            "count": 6000,
+            "updates": 200,
+            "runs": 7,
+            "batch": true,
+            "samples": [
+              {
+                "ms": 0.9000000357627869,
+                "notifications": 1
+              },
+              {
+                "ms": 0.7999999523162842,
+                "notifications": 1
+              },
+              {
+                "ms": 0.7000000476837158,
+                "notifications": 1
+              },
+              {
+                "ms": 0.7000000476837158,
+                "notifications": 1
+              },
+              {
+                "ms": 0.6000000238418579,
+                "notifications": 1
+              },
+              {
+                "ms": 0.5999999642372131,
+                "notifications": 1
+              },
+              {
+                "ms": 0.6000000238418579,
+                "notifications": 1
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "live-browser": {
+      "benchmark": "chat-replay-browser",
+      "samples": [
+        {
+          "stage": "control",
+          "run": 0,
+          "result": {
+            "benchmark": "chat-client-replay",
+            "count": 6000,
+            "updates": 200,
+            "runs": 7,
+            "batch": false,
+            "samples": [
+              {
+                "ms": 116.80000001192093,
+                "notifications": 200
+              },
+              {
+                "ms": 109.90000003576279,
+                "notifications": 200
+              },
+              {
+                "ms": 107.09999996423721,
+                "notifications": 200
+              },
+              {
+                "ms": 110.10000002384186,
+                "notifications": 200
+              },
+              {
+                "ms": 108.20000004768372,
+                "notifications": 200
+              },
+              {
+                "ms": 107.5,
+                "notifications": 200
+              },
+              {
+                "ms": 111.19999998807907,
+                "notifications": 200
+              }
+            ]
+          }
+        },
+        {
+          "stage": "control",
+          "run": 1,
+          "result": {
+            "benchmark": "chat-client-replay",
+            "count": 6000,
+            "updates": 200,
+            "runs": 7,
+            "batch": false,
+            "samples": [
+              {
+                "ms": 111.60000002384186,
+                "notifications": 200
+              },
+              {
+                "ms": 110,
+                "notifications": 200
+              },
+              {
+                "ms": 106.69999998807907,
+                "notifications": 200
+              },
+              {
+                "ms": 114,
+                "notifications": 200
+              },
+              {
+                "ms": 109.40000003576279,
+                "notifications": 200
+              },
+              {
+                "ms": 108.29999995231628,
+                "notifications": 200
+              },
+              {
+                "ms": 107.5,
+                "notifications": 200
+              }
+            ]
+          }
+        },
+        {
+          "stage": "control",
+          "run": 2,
+          "result": {
+            "benchmark": "chat-client-replay",
+            "count": 6000,
+            "updates": 200,
+            "runs": 7,
+            "batch": false,
+            "samples": [
+              {
+                "ms": 114.20000004768372,
+                "notifications": 200
+              },
+              {
+                "ms": 113.39999997615814,
+                "notifications": 200
+              },
+              {
+                "ms": 109.40000003576279,
+                "notifications": 200
+              },
+              {
+                "ms": 108.5,
+                "notifications": 200
+              },
+              {
+                "ms": 107,
+                "notifications": 200
+              },
+              {
+                "ms": 106.89999997615814,
+                "notifications": 200
+              },
+              {
+                "ms": 106.69999998807907,
+                "notifications": 200
+              }
+            ]
+          }
+        },
+        {
+          "stage": "current",
+          "run": 0,
+          "result": {
+            "benchmark": "chat-client-replay",
+            "count": 6000,
+            "updates": 200,
+            "runs": 7,
+            "batch": false,
+            "samples": [
+              {
+                "ms": 119.20000004768372,
+                "notifications": 200
+              },
+              {
+                "ms": 122.69999998807907,
+                "notifications": 200
+              },
+              {
+                "ms": 111.5,
+                "notifications": 200
+              },
+              {
+                "ms": 112.19999998807907,
+                "notifications": 200
+              },
+              {
+                "ms": 110.80000001192093,
+                "notifications": 200
+              },
+              {
+                "ms": 115.70000004768372,
+                "notifications": 200
+              },
+              {
+                "ms": 109.89999997615814,
+                "notifications": 200
+              }
+            ]
+          }
+        },
+        {
+          "stage": "current",
+          "run": 1,
+          "result": {
+            "benchmark": "chat-client-replay",
+            "count": 6000,
+            "updates": 200,
+            "runs": 7,
+            "batch": false,
+            "samples": [
+              {
+                "ms": 114.30000001192093,
+                "notifications": 200
+              },
+              {
+                "ms": 111.89999997615814,
+                "notifications": 200
+              },
+              {
+                "ms": 106.10000002384186,
+                "notifications": 200
+              },
+              {
+                "ms": 107.09999996423721,
+                "notifications": 200
+              },
+              {
+                "ms": 107.90000003576279,
+                "notifications": 200
+              },
+              {
+                "ms": 111.5,
+                "notifications": 200
+              },
+              {
+                "ms": 111.80000001192093,
+                "notifications": 200
+              }
+            ]
+          }
+        },
+        {
+          "stage": "current",
+          "run": 2,
+          "result": {
+            "benchmark": "chat-client-replay",
+            "count": 6000,
+            "updates": 200,
+            "runs": 7,
+            "batch": false,
+            "samples": [
+              {
+                "ms": 115.80000001192093,
+                "notifications": 200
+              },
+              {
+                "ms": 111.69999998807907,
+                "notifications": 200
+              },
+              {
+                "ms": 110,
+                "notifications": 200
+              },
+              {
+                "ms": 112.09999996423721,
+                "notifications": 200
+              },
+              {
+                "ms": 109.40000003576279,
+                "notifications": 200
+              },
+              {
+                "ms": 109.59999996423721,
+                "notifications": 200
+              },
+              {
+                "ms": 108.19999998807907,
+                "notifications": 200
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "initial-browser": {
+      "benchmark": "chat-replay-browser",
+      "samples": [
+        {
+          "stage": "control",
+          "run": 0,
+          "result": {
+            "benchmark": "chat-client-replay",
+            "count": 6000,
+            "updates": 200,
+            "runs": 7,
+            "batch": false,
+            "samples": [
+              {
+                "ms": 109.80000001192093,
+                "notifications": 200
+              },
+              {
+                "ms": 106.30000001192093,
+                "notifications": 200
+              },
+              {
+                "ms": 104.40000003576279,
+                "notifications": 200
+              },
+              {
+                "ms": 109.40000003576279,
+                "notifications": 200
+              },
+              {
+                "ms": 105.5,
+                "notifications": 200
+              },
+              {
+                "ms": 112.19999998807907,
+                "notifications": 200
+              },
+              {
+                "ms": 109.59999996423721,
+                "notifications": 200
+              }
+            ]
+          }
+        },
+        {
+          "stage": "control",
+          "run": 1,
+          "result": {
+            "benchmark": "chat-client-replay",
+            "count": 6000,
+            "updates": 200,
+            "runs": 7,
+            "batch": false,
+            "samples": [
+              {
+                "ms": 109,
+                "notifications": 200
+              },
+              {
+                "ms": 105.19999998807907,
+                "notifications": 200
+              },
+              {
+                "ms": 106.10000002384186,
+                "notifications": 200
+              },
+              {
+                "ms": 108,
+                "notifications": 200
+              },
+              {
+                "ms": 104.69999998807907,
+                "notifications": 200
+              },
+              {
+                "ms": 107.80000001192093,
+                "notifications": 200
+              },
+              {
+                "ms": 107.89999997615814,
+                "notifications": 200
+              }
+            ]
+          }
+        },
+        {
+          "stage": "control",
+          "run": 2,
+          "result": {
+            "benchmark": "chat-client-replay",
+            "count": 6000,
+            "updates": 200,
+            "runs": 7,
+            "batch": false,
+            "samples": [
+              {
+                "ms": 110.5,
+                "notifications": 200
+              },
+              {
+                "ms": 111.39999997615814,
+                "notifications": 200
+              },
+              {
+                "ms": 112.19999998807907,
+                "notifications": 200
+              },
+              {
+                "ms": 117.90000003576279,
+                "notifications": 200
+              },
+              {
+                "ms": 110.39999997615814,
+                "notifications": 200
+              },
+              {
+                "ms": 107,
+                "notifications": 200
+              },
+              {
+                "ms": 108,
+                "notifications": 200
+              }
+            ]
+          }
+        },
+        {
+          "stage": "current",
+          "run": 0,
+          "result": {
+            "benchmark": "chat-client-replay",
+            "count": 6000,
+            "updates": 200,
+            "runs": 7,
+            "batch": true,
+            "samples": [
+              {
+                "ms": 0.699999988079071,
+                "notifications": 1
+              },
+              {
+                "ms": 0.7000000476837158,
+                "notifications": 1
+              },
+              {
+                "ms": 0.6000000238418579,
+                "notifications": 1
+              },
+              {
+                "ms": 0.800000011920929,
+                "notifications": 1
+              },
+              {
+                "ms": 0.699999988079071,
+                "notifications": 1
+              },
+              {
+                "ms": 0.800000011920929,
+                "notifications": 1
+              },
+              {
+                "ms": 0.699999988079071,
+                "notifications": 1
+              }
+            ]
+          }
+        },
+        {
+          "stage": "current",
+          "run": 1,
+          "result": {
+            "benchmark": "chat-client-replay",
+            "count": 6000,
+            "updates": 200,
+            "runs": 7,
+            "batch": true,
+            "samples": [
+              {
+                "ms": 0.9000000357627869,
+                "notifications": 1
+              },
+              {
+                "ms": 0.699999988079071,
+                "notifications": 1
+              },
+              {
+                "ms": 0.7000000476837158,
+                "notifications": 1
+              },
+              {
+                "ms": 0.7999999523162842,
+                "notifications": 1
+              },
+              {
+                "ms": 0.800000011920929,
+                "notifications": 1
+              },
+              {
+                "ms": 0.7000000476837158,
+                "notifications": 1
+              },
+              {
+                "ms": 0.5999999642372131,
+                "notifications": 1
+              }
+            ]
+          }
+        },
+        {
+          "stage": "current",
+          "run": 2,
+          "result": {
+            "benchmark": "chat-client-replay",
+            "count": 6000,
+            "updates": 200,
+            "runs": 7,
+            "batch": true,
+            "samples": [
+              {
+                "ms": 0.800000011920929,
+                "notifications": 1
+              },
+              {
+                "ms": 0.800000011920929,
+                "notifications": 1
+              },
+              {
+                "ms": 0.699999988079071,
+                "notifications": 1
+              },
+              {
+                "ms": 0.6000000238418579,
+                "notifications": 1
+              },
+              {
+                "ms": 0.699999988079071,
+                "notifications": 1
+              },
+              {
+                "ms": 0.5999999642372131,
+                "notifications": 1
+              },
+              {
+                "ms": 0.6000000238418579,
+                "notifications": 1
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "initial-after": {
+      "benchmark": "chat-client-replay",
+      "count": 6000,
+      "updates": 200,
+      "runs": 7,
+      "batch": true,
+      "samples": [
+        {
+          "ms": 0.16483300000000156,
+          "notifications": 1
+        },
+        {
+          "ms": 0.15000000000000568,
+          "notifications": 1
+        },
+        {
+          "ms": 0.14350000000000307,
+          "notifications": 1
+        },
+        {
+          "ms": 0.15133300000000816,
+          "notifications": 1
+        },
+        {
+          "ms": 0.15295799999999815,
+          "notifications": 1
+        },
+        {
+          "ms": 0.15004199999999912,
+          "notifications": 1
+        },
+        {
+          "ms": 0.14391699999998764,
+          "notifications": 1
+        }
+      ]
+    },
+    "initial-live-browser": {
+      "benchmark": "chat-replay-browser",
+      "samples": [
+        {
+          "stage": "control",
+          "run": 0,
+          "result": {
+            "benchmark": "chat-client-replay",
+            "count": 6000,
+            "updates": 200,
+            "runs": 7,
+            "batch": false,
+            "samples": [
+              {
+                "ms": 113.39999997615814,
+                "notifications": 200
+              },
+              {
+                "ms": 109.30000001192093,
+                "notifications": 200
+              },
+              {
+                "ms": 107.10000002384186,
+                "notifications": 200
+              },
+              {
+                "ms": 109.89999997615814,
+                "notifications": 200
+              },
+              {
+                "ms": 108.60000002384186,
+                "notifications": 200
+              },
+              {
+                "ms": 111,
+                "notifications": 200
+              },
+              {
+                "ms": 108.10000002384186,
+                "notifications": 200
+              }
+            ]
+          }
+        },
+        {
+          "stage": "control",
+          "run": 1,
+          "result": {
+            "benchmark": "chat-client-replay",
+            "count": 6000,
+            "updates": 200,
+            "runs": 7,
+            "batch": false,
+            "samples": [
+              {
+                "ms": 114.39999997615814,
+                "notifications": 200
+              },
+              {
+                "ms": 107.80000001192093,
+                "notifications": 200
+              },
+              {
+                "ms": 110,
+                "notifications": 200
+              },
+              {
+                "ms": 110.69999998807907,
+                "notifications": 200
+              },
+              {
+                "ms": 109.10000002384186,
+                "notifications": 200
+              },
+              {
+                "ms": 108.09999996423721,
+                "notifications": 200
+              },
+              {
+                "ms": 108.30000001192093,
+                "notifications": 200
+              }
+            ]
+          }
+        },
+        {
+          "stage": "control",
+          "run": 2,
+          "result": {
+            "benchmark": "chat-client-replay",
+            "count": 6000,
+            "updates": 200,
+            "runs": 7,
+            "batch": false,
+            "samples": [
+              {
+                "ms": 113.69999998807907,
+                "notifications": 200
+              },
+              {
+                "ms": 112.09999996423721,
+                "notifications": 200
+              },
+              {
+                "ms": 109.39999997615814,
+                "notifications": 200
+              },
+              {
+                "ms": 112.19999998807907,
+                "notifications": 200
+              },
+              {
+                "ms": 110.30000001192093,
+                "notifications": 200
+              },
+              {
+                "ms": 106.10000002384186,
+                "notifications": 200
+              },
+              {
+                "ms": 109.40000003576279,
+                "notifications": 200
+              }
+            ]
+          }
+        },
+        {
+          "stage": "current",
+          "run": 0,
+          "result": {
+            "benchmark": "chat-client-replay",
+            "count": 6000,
+            "updates": 200,
+            "runs": 7,
+            "batch": false,
+            "samples": [
+              {
+                "ms": 116.09999996423721,
+                "notifications": 200
+              },
+              {
+                "ms": 117.10000002384186,
+                "notifications": 200
+              },
+              {
+                "ms": 112.19999998807907,
+                "notifications": 200
+              },
+              {
+                "ms": 112.40000003576279,
+                "notifications": 200
+              },
+              {
+                "ms": 111.29999995231628,
+                "notifications": 200
+              },
+              {
+                "ms": 114,
+                "notifications": 200
+              },
+              {
+                "ms": 110.40000003576279,
+                "notifications": 200
+              }
+            ]
+          }
+        },
+        {
+          "stage": "current",
+          "run": 1,
+          "result": {
+            "benchmark": "chat-client-replay",
+            "count": 6000,
+            "updates": 200,
+            "runs": 7,
+            "batch": false,
+            "samples": [
+              {
+                "ms": 116,
+                "notifications": 200
+              },
+              {
+                "ms": 110.39999997615814,
+                "notifications": 200
+              },
+              {
+                "ms": 107.80000001192093,
+                "notifications": 200
+              },
+              {
+                "ms": 110.89999997615814,
+                "notifications": 200
+              },
+              {
+                "ms": 109.20000004768372,
+                "notifications": 200
+              },
+              {
+                "ms": 112.79999995231628,
+                "notifications": 200
+              },
+              {
+                "ms": 112.19999998807907,
+                "notifications": 200
+              }
+            ]
+          }
+        },
+        {
+          "stage": "current",
+          "run": 2,
+          "result": {
+            "benchmark": "chat-client-replay",
+            "count": 6000,
+            "updates": 200,
+            "runs": 7,
+            "batch": false,
+            "samples": [
+              {
+                "ms": 117.5,
+                "notifications": 200
+              },
+              {
+                "ms": 114,
+                "notifications": 200
+              },
+              {
+                "ms": 113,
+                "notifications": 200
+              },
+              {
+                "ms": 111.20000004768372,
+                "notifications": 200
+              },
+              {
+                "ms": 109.30000001192093,
+                "notifications": 200
+              },
+              {
+                "ms": 111.19999998807907,
+                "notifications": 200
+              },
+              {
+                "ms": 109.90000003576279,
+                "notifications": 200
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "validation": {
+    "timeline": {
+      "count": 6000,
+      "anchor": {
+        "before": {
+          "id": "item-4524",
+          "offset": -95
+        },
+        "after": {
+          "id": "item-4524",
+          "offset": -95
+        }
+      },
+      "following": {
+        "readingOffset": -95,
+        "gap": 0,
+        "lastVisible": true
+      }
+    }
+  }
+}

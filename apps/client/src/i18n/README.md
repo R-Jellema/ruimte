@@ -11,6 +11,10 @@ folder a component lives in (`NAMESPACES` in `namespaces.ts`), with `shell` spli
 every namespace of its language before the first render, with English beside it as the fallback,
 and never the words of a language nobody asked for.
 
+The production build groups the namespace files into one lazy bundle per language. The active
+language, its English fallback and the library namespaces load in parallel and stay loaded when the
+language changes again.
+
 The chat, its prompt cards, the providers pane and the usage page carry their words in
 `@adecore/agents-react` (`agent-chat`, `agent-prompts`, `agent-providers`, `agent-usage`), and the
 components of `@adecore/ui` in `ui`, which `UIProvider` adds in every language the library

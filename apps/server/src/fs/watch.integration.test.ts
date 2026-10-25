@@ -83,3 +83,26 @@ test(
     },
     DEADLINE_MS + 5_000
 );
+
+test.skipIf(process.platform !== 'darwin')(
+    'an earlier child readiness follows a parent that takes over during startup',
+    async () => {
+        const child = join(root, 'src');
+        const nested = join(child, 'nested');
+        await mkdir(nested);
+        const childReady = watcher.watch('client-1', child);
+        await Bun.sleep(50);
+        const parentReady = watcher.watch('client-1', root);
+        await childReady;
+        await writeFile(join(nested, 'handoff.ts'), 'changed during startup');
+        await parentReady;
+        const deadline = Date.now() + DEADLINE_MS;
+        while (!changes.some((change) => change.paths.includes(nested))) {
+            if (Date.now() > deadline) {
+                throw new Error('The parent handoff lost a change from its ready child');
+            }
+            await Bun.sleep(25);
+        }
+    },
+    DEADLINE_MS + 5_000
+);

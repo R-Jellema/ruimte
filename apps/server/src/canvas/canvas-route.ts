@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { ProjectError } from '../projects/project-error.ts';
 import { VerbRefusal, type CanvasHost } from './verb.ts';
-import { verbNamed, verbSummaryLines } from './verbs.ts';
 import { errorText } from '../error-text.ts';
 import { countVerb } from '../stats/usage-stats.ts';
 import { refusalBody } from '@adecore/agents/context';
@@ -24,18 +23,6 @@ function text(lines: string[], status = 200): Response {
 
 function refusal(code: string, message: string, lines: string[] = [], status = 422): Response {
     return new Response(`${refusalBody(code, message, lines)}\n`, { status, headers: TEXT });
-}
-
-/*
- * A name with a space in it is a caller that quoted the whole line ("help agent"), which otherwise
- * only gets the verb list back and no hint of what went wrong.
- */
-function joinedWordsLines(name: string): string[] {
-    const [first, ...rest] = name.split(/\s+/).filter((word) => word !== '');
-    if (rest.length === 0 || !first || !verbNamed(first)) {
-        return [];
-    }
-    return [`note\tA verb and its arguments are separate words, so this is ruimte-context ${first} ${rest.join(' ')}, not one name`];
 }
 
 /* The session or chat the request's bearer token speaks for; null for a missing or unknown token. */
@@ -69,12 +56,19 @@ export async function handleCanvasRequest(request: Request, pathname: string, de
     } catch {
         name = '';
     }
+    const { verbNamed, verbSummaryLines } = await import('./verbs.ts');
     const verb = verbNamed(name);
     if (!verb) {
+        // Quoting the whole command ("help agent") otherwise gives no hint about the misplaced space.
+        const [first, ...rest] = name.split(/\s+/).filter((word) => word !== '');
+        const joined =
+            rest.length > 0 && first && verbNamed(first)
+                ? [`note\tA verb and its arguments are separate words, so this is ruimte-context ${first} ${rest.join(' ')}, not one name`]
+                : [];
         return refusal(
             'unknown-verb',
             `${name || '(none)'} is not a verb or a noun`,
-            [...joinedWordsLines(name), 'detail\truimte-context help\tevery verb and noun, with what each takes', ...verbSummaryLines()],
+            [...joined, 'detail\truimte-context help\tevery verb and noun, with what each takes', ...verbSummaryLines()],
             404
         );
     }

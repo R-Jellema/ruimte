@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactElement, type ReactNode } from 'react';
+import { useRef, useState, type ReactElement, type ReactNode } from 'react';
 import { ChevronRight, Globe, PanelTop, Pencil, Plus, Trash, TriangleAlert, Users } from 'lucide-react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
@@ -52,8 +52,6 @@ const ROW_PLAIN = 'text-text-muted hover:bg-surface-hover hover:text-text';
 interface RowProps {
     /* The one row Tab reaches: the list is a single stop and the arrows move inside it. */
     tabbable: boolean;
-    onFocus(): void;
-    onArrow(delta: -1 | 1): void;
 }
 
 /*
@@ -149,7 +147,7 @@ function SnoozableRow({ endpointId, nodeId, children }: { endpointId: string; no
     );
 }
 
-export function NodeRow({ row, tabbable, onFocus, onArrow, snoozable }: RowProps & { row: SidebarNodeRow; snoozable: boolean }) {
+export function NodeRow({ row, tabbable, snoozable }: RowProps & { row: SidebarNodeRow; snoozable: boolean }) {
     const { t } = useTranslation('shell');
     const { node } = row;
     const currentEndpointId = useEndpointId();
@@ -192,11 +190,9 @@ export function NodeRow({ row, tabbable, onFocus, onArrow, snoozable }: RowProps
                 aria-current={selected ? 'true' : undefined}
                 tabIndex={tabbable ? 0 : -1}
                 className={clsx(ROW, row.viewName === null && 'pl-6', selected ? ROW_SELECTED : ROW_PLAIN)}
-                onFocus={onFocus}
                 onClick={() => (row.target ? void openSidebarTarget(row.target) : revealNode(node.id))}
                 onDoubleClick={() => setRenaming(true)}
                 onKeyDown={(e) => {
-                    arrowStep(e, onArrow);
                     if (e.key === 'F2') {
                         e.preventDefault();
                         setRenaming(true);
@@ -261,14 +257,6 @@ interface ViewRowProps extends RowProps {
     onDrag(id: string | null, transfer?: DataTransfer): void;
 }
 
-/* Up and down walk the list, from whichever row has the keyboard. */
-function arrowStep(event: ReactKeyboardEvent<HTMLElement>, onArrow: (delta: 1 | -1) => void): void {
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-        event.preventDefault();
-        onArrow(event.key === 'ArrowDown' ? 1 : -1);
-    }
-}
-
 /* All a row with nothing to open offers: a separator, and a view this version cannot draw. */
 function DeleteRowMenu({ onDelete }: { onDelete(): void }) {
     const { t } = useTranslation('common');
@@ -285,7 +273,7 @@ function DeleteRowMenu({ onDelete }: { onDelete(): void }) {
  * A separator is a line, not a place: it never opens, but drags and reorders like any other row. With
  * a heading right under it the line sits at the bottom of a shorter row, so rule and heading read as one.
  */
-export function SeparatorRow({ row, tabbable, onFocus, onArrow, onDelete, onDrag }: Omit<ViewRowProps, 'onToggle'>) {
+export function SeparatorRow({ row, tabbable, onDelete, onDrag }: Omit<ViewRowProps, 'onToggle'>) {
     const { t } = useTranslation(['shell', 'common']);
     const { view } = row;
     return (
@@ -299,10 +287,8 @@ export function SeparatorRow({ row, tabbable, onFocus, onArrow, onDelete, onDrag
                 data-view-index={row.index}
                 tabIndex={tabbable ? 0 : -1}
                 className={clsx('focus-ring flex w-full cursor-default', row.headingBelow ? 'h-4 items-end' : 'h-6 items-center')}
-                onFocus={onFocus}
                 onDragStart={(event) => onDrag(view.id, event.dataTransfer)}
                 onDragEnd={() => onDrag(null)}
-                onKeyDown={(e) => arrowStep(e, onArrow)}
             >
                 {/* Edge to edge: the negative margin takes back the padding of the list around it,
                     the way the line in a menu takes back the padding of its popup. */}
@@ -317,7 +303,7 @@ export function SeparatorRow({ row, tabbable, onFocus, onArrow, onDelete, onDrag
  * A heading over the rows under it, which never opens. Its text starts where the marks of the view
  * rows start, and it is as tall as a view row, so a drag lands between the same gaps everywhere.
  */
-export function SubheaderRow({ row, tabbable, onFocus, onArrow, onDelete, onDrag }: Omit<ViewRowProps, 'onToggle'>) {
+export function SubheaderRow({ row, tabbable, onDelete, onDrag }: Omit<ViewRowProps, 'onToggle'>) {
     const { t } = useTranslation(['shell', 'common']);
     const { view } = row;
     const renaming = useUi((state) => state.renamingViewId) === view.id;
@@ -349,12 +335,10 @@ export function SubheaderRow({ row, tabbable, onFocus, onArrow, onDelete, onDrag
                 data-view-index={row.index}
                 tabIndex={tabbable ? 0 : -1}
                 className="focus-ring flex h-8 w-full cursor-default items-center px-2"
-                onFocus={onFocus}
                 onDoubleClick={() => rename(true)}
                 onDragStart={(event) => onDrag(view.id, event.dataTransfer)}
                 onDragEnd={() => onDrag(null)}
                 onKeyDown={(e) => {
-                    arrowStep(e, onArrow);
                     if (e.key === 'F2') {
                         e.preventDefault();
                         rename(true);
@@ -381,7 +365,7 @@ export function SubheaderRow({ row, tabbable, onFocus, onArrow, onDelete, onDrag
  * is, but this version has nothing to draw it with: it neither opens nor drags into a cell, and a
  * person may still delete it.
  */
-export function UnknownViewRow({ row, tabbable, onFocus, onArrow, onDelete }: Omit<ViewRowProps, 'onToggle' | 'onDrag'>) {
+export function UnknownViewRow({ row, tabbable, onDelete }: Omit<ViewRowProps, 'onToggle' | 'onDrag'>) {
     const { t } = useTranslation(['shell', 'common']);
     const { view } = row;
     return (
@@ -393,8 +377,6 @@ export function UnknownViewRow({ row, tabbable, onFocus, onArrow, onDelete }: Om
                 data-view-index={row.index}
                 tabIndex={tabbable ? 0 : -1}
                 className={clsx(ROW, 'focus-ring cursor-default font-medium text-text-faint')}
-                onFocus={onFocus}
-                onKeyDown={(e) => arrowStep(e, onArrow)}
             >
                 <Tooltip label={t('sidebar.needsNewerRuimte')}>
                     <span className="flex min-w-0 grow items-center gap-2">
@@ -410,7 +392,7 @@ export function UnknownViewRow({ row, tabbable, onFocus, onArrow, onDelete }: Om
     );
 }
 
-export function ViewRow({ row, tabbable, onFocus, onArrow, onToggle, onDrag }: ViewRowProps) {
+export function ViewRow({ row, tabbable, onToggle, onDrag }: ViewRowProps) {
     const { t } = useTranslation(['shell', 'common']);
     const { view } = row;
     const endpointId = useEndpointId();
@@ -448,13 +430,11 @@ export function ViewRow({ row, tabbable, onFocus, onArrow, onToggle, onDrag }: V
                 aria-expanded={row.expandable ? row.expanded : undefined}
                 tabIndex={tabbable ? 0 : -1}
                 className={clsx(ROW, 'group font-medium', row.active ? ROW_SELECTED : row.beside ? ROW_BESIDE : ROW_PLAIN)}
-                onFocus={onFocus}
                 onClick={(event) => (row.target ? void openSidebarTarget(row.target) : showView(view.id, { newTab: wantsNewTab(event, isApplePlatform()) }))}
                 onDoubleClick={() => setRenaming(true)}
                 onDragStart={(event) => onDrag(view.id, event.dataTransfer)}
                 onDragEnd={() => onDrag(null)}
                 onKeyDown={(e) => {
-                    arrowStep(e, onArrow);
                     if (e.key === 'F2') {
                         // A double click still renames the row in place; the key goes to the dialog,
                         // where the name and the mark sit together.
@@ -543,8 +523,6 @@ export function ViewRow({ row, tabbable, onFocus, onArrow, onToggle, onDrag }: V
 export function ProjectHeading({
     group,
     tabbable,
-    onFocus,
-    onArrow,
     menu,
     onDrag
 }: RowProps & {
@@ -569,10 +547,8 @@ export function ProjectHeading({
                     tabIndex={tabbable ? 0 : -1}
                     aria-expanded={!group.collapsed}
                     aria-label={`${group.summary.name} · ${group.machineLabel}${group.active ? ` · ${t('sidebar.activeProject')}` : ''}`}
-                    onFocus={onFocus}
                     onClick={() => collapse(!group.collapsed)}
                     onKeyDown={(event) => {
-                        arrowStep(event, onArrow);
                         if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
                             event.preventDefault();
                             collapse(event.key === 'ArrowLeft');
@@ -623,8 +599,6 @@ export function ProjectHeading({
 export function ProjectSeparatorRow({
     separator,
     tabbable,
-    onFocus,
-    onArrow,
     moveItems,
     onDrag
 }: RowProps & {
@@ -664,14 +638,12 @@ export function ProjectSeparatorRow({
                 tabIndex={tabbable ? 0 : -1}
                 aria-expanded={folds ? open : undefined}
                 className={clsx('group focus-ring flex w-full cursor-default items-center', separator.label ? 'mt-3 mb-1 h-8 gap-2 px-2' : 'my-1 h-6')}
-                onFocus={onFocus}
                 // A click on a heading folds, so only a bare line still opens its field on a double click.
                 onClick={folds ? () => fold(open) : undefined}
                 onDoubleClick={separator.label === '' ? () => rename(true) : undefined}
                 onDragStart={(event) => onDrag(event.dataTransfer)}
                 onDragEnd={() => onDrag(null)}
                 onKeyDown={(e) => {
-                    arrowStep(e, onArrow);
                     if (e.key === 'F2') {
                         e.preventDefault();
                         rename(true);
@@ -718,7 +690,7 @@ export function ProjectSeparatorRow({
  * is switched to first, and its menu opens once it is on screen, since every row of it acts on the
  * project the window shows. Without a group it is the plus of the one project on screen.
  */
-export function NewViewRow({ group, rowId, tabbable, onFocus, onArrow }: RowProps & { group: SidebarGroup; rowId: string }) {
+export function NewViewRow({ group, rowId, tabbable }: RowProps & { group: SidebarGroup; rowId: string }) {
     const { t } = useTranslation('shell');
     const asked = useSidebarProjects((state) => state.newViewFor === group.key);
     const [open, setOpen] = useState(false);
@@ -726,8 +698,6 @@ export function NewViewRow({ group, rowId, tabbable, onFocus, onArrow }: RowProp
         variant: 'inset' as const,
         'data-sidebar-row': rowId,
         tabIndex: tabbable ? 0 : -1,
-        onFocus,
-        onKeyDown: (event: ReactKeyboardEvent<HTMLElement>) => arrowStep(event, onArrow),
         className: clsx(ROW, ROW_PLAIN, 'focus-visible:outline-2 focus-visible:outline-accent')
     };
     const label = (text: string): ReactNode => (
@@ -779,38 +749,72 @@ export function NewViewRow({ group, rowId, tabbable, onFocus, onArrow }: RowProp
     );
 }
 
-export function BackgroundRow({ row, group, tabbable, onFocus, onArrow, snoozable }: RowProps & { row: SidebarRow; group: SidebarGroup; snoozable: boolean }) {
+export function BackgroundRow({
+    row,
+    group,
+    tabbable,
+    snoozable
+}: RowProps & {
+    row: SidebarRow;
+    group: SidebarGroup;
+    snoozable: boolean;
+}) {
     const { t } = useTranslation('shell');
     const view = row.type === 'view' ? row.view : null;
     const item = row.type === 'node' ? row.node : null;
-    const inert = view?.kind === 'separator' || view?.kind === 'subheader' || view?.kind === 'unknown' || !group.summary.available;
+    // Rows are derived again on a status event; closures and children depend on their displayed values.
+    const rowId = row.rowId;
+    const viewId = view?.id;
+    const viewKind = view?.kind;
+    const icon = view?.icon ?? null;
+    const provider = view?.provider ?? null;
+    const path = view?.path ?? null;
+    const itemId = item?.id;
+    const itemKind = item?.kind;
+    const itemProvider = item?.provider ?? null;
+    const groupKey = group.key;
+    const endpointId = group.endpointId;
+    const ready = group.state === 'ready';
+    const shared = view?.shared;
+    const expandable = row.type === 'view' && row.expandable;
+    const expanded = row.type === 'view' && row.expanded;
+    const extraName = row.type === 'node' ? viewNameOf(row) : null;
+    const unindented = row.type === 'node' && row.viewName === null;
+    const targetEndpoint = row.target?.endpointId;
+    const targetProject = row.target?.projectId;
+    const targetView = row.target?.viewId;
+    const targetNode = row.target?.nodeId;
+    const inert = viewKind === 'separator' || viewKind === 'subheader' || viewKind === 'unknown' || !group.summary.available;
     const toggle = () => {
-        if (row.type === 'view') {
-            useSidebarProjects.getState().expandView(group.key, row.view.id, !row.expanded);
+        if (viewId !== undefined) {
+            useSidebarProjects.getState().expandView(groupKey, viewId, !expanded);
         }
     };
     const label = view?.name ?? item?.title ?? '';
     const status = row.type === 'view' ? row.status : row.node.status;
     const button = (
-        <MaybeTooltip label={row.type === 'node' ? null : label}>
+        <MaybeTooltip label={viewId === undefined ? null : label}>
             <ListRow
                 variant="inset"
                 render={<button type="button" />}
-                data-sidebar-row={row.rowId}
+                data-sidebar-row={rowId}
                 tabIndex={tabbable ? 0 : -1}
                 aria-disabled={inert || undefined}
-                aria-expanded={row.type === 'view' && row.expandable ? row.expanded : undefined}
-                onFocus={onFocus}
+                aria-expanded={expandable ? expanded : undefined}
                 onClick={() => {
-                    if (!inert && row.target) {
-                        void openSidebarTarget(row.target);
+                    if (!inert && targetEndpoint !== undefined && targetProject !== undefined && targetView !== undefined) {
+                        void openSidebarTarget({
+                            endpointId: targetEndpoint,
+                            projectId: targetProject,
+                            viewId: targetView,
+                            ...(targetNode === undefined ? {} : { nodeId: targetNode })
+                        });
                     }
                 }}
                 onKeyDown={(event) => {
-                    arrowStep(event, onArrow);
-                    if (row.type === 'view' && row.expandable && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
+                    if (expandable && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
                         event.preventDefault();
-                        if (row.expanded !== (event.key === 'ArrowRight')) {
+                        if (expanded !== (event.key === 'ArrowRight')) {
                             toggle();
                         }
                     }
@@ -819,50 +823,50 @@ export function BackgroundRow({ row, group, tabbable, onFocus, onArrow, snoozabl
                     ROW,
                     'focus-visible:outline-2 focus-visible:outline-accent',
                     inert ? 'cursor-default text-text-faint' : ROW_PLAIN,
-                    row.type === 'node' && row.viewName === null && 'pl-6'
+                    unindented && 'pl-6'
                 )}
             >
-                {view?.kind === 'separator' ? (
+                {viewKind === 'separator' ? (
                     <span className="h-px w-full bg-border" />
                 ) : (
                     <>
                         <span
                             className={ICON_SLOT}
                             onClick={(event) => {
-                                if (row.type === 'view' && row.expandable) {
+                                if (expandable) {
                                     event.stopPropagation();
                                     toggle();
                                 }
                             }}
                         >
-                            {row.type === 'view' && row.expandable ? (
-                                <Icon icon={ChevronRight} size={14} className={clsx(row.expanded && 'rotate-90')} />
-                            ) : view ? (
-                                view.kind === 'browser' && !view.icon ? (
+                            {expandable ? (
+                                <Icon icon={ChevronRight} size={14} className={clsx(expanded && 'rotate-90')} />
+                            ) : viewId !== undefined && viewKind !== undefined ? (
+                                viewKind === 'browser' && !icon ? (
                                     <Icon icon={Globe} size={14} />
                                 ) : (
-                                    <ViewGlyph id={view.id} kind={view.kind} icon={view.icon} provider={view.provider} path={view.path} />
+                                    <ViewGlyph id={viewId} kind={viewKind} icon={icon} provider={provider} path={path} />
                                 )
-                            ) : item?.kind === 'browser' ? (
+                            ) : itemKind === 'browser' ? (
                                 <Icon icon={Globe} size={14} />
-                            ) : item ? (
-                                <RowIcon id={item.id} kind={item.kind} provider={item.provider} />
+                            ) : itemId !== undefined && itemKind !== undefined ? (
+                                <RowIcon id={itemId} kind={itemKind} provider={itemProvider} />
                             ) : null}
                         </span>
                         <span className="min-w-0 truncate">{label || t('sidebar.noViews')}</span>
-                        {row.type === 'node' && viewNameOf(row) && <span className="min-w-0 shrink truncate text-xs text-text-faint">{viewNameOf(row)}</span>}
+                        {extraName && <span className="min-w-0 shrink truncate text-xs text-text-faint">{extraName}</span>}
                         <span className="grow" />
                         <span className={SNOOZE_MARKS}>
-                            {group.state === 'ready' && <RowStatus status={status} work={undefined} />}
-                            {view?.shared && <Icon icon={Users} size={12} className="shrink-0 text-text-faint" />}
+                            {ready && <RowStatus status={status} work={undefined} />}
+                            {shared && <Icon icon={Users} size={12} className="shrink-0 text-text-faint" />}
                         </span>
                     </>
                 )}
             </ListRow>
         </MaybeTooltip>
     );
-    return snoozable && item ? (
-        <SnoozableRow endpointId={group.endpointId} nodeId={item.id}>
+    return snoozable && itemId !== undefined ? (
+        <SnoozableRow endpointId={endpointId} nodeId={itemId}>
             {button}
         </SnoozableRow>
     ) : (

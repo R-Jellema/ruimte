@@ -217,6 +217,45 @@ describe('background sidebar updates', () => {
         expect(watcher.getSnapshot().statuses).toEqual({ 'chat:chat': 'needs-you', 'terminal:fresh': 'idle', 'terminal:other': 'error' });
     });
 
+    test('an unchanged status still wins over a list that was already in flight', async () => {
+        const transport = new FakeTransport();
+        const watcher = watch(transport);
+        await settle();
+        transport.emit('session.status', { sessionId: 'fresh', agent: { status: 'idle' } });
+        const snapshot = watcher.getSnapshot();
+        let notifications = 0;
+        watcher.subscribe(() => notifications++);
+        let reply: (value: unknown) => void = () => {};
+        transport.answer = () =>
+            new Promise((resolve) => {
+                reply = resolve;
+            });
+        transport.emit('session.list-changed', {});
+        transport.emit('session.status', { sessionId: 'fresh', agent: { status: 'idle' } });
+        expect(watcher.getSnapshot()).toBe(snapshot);
+        reply({ sessions: [{ sessionId: 'fresh', exited: false, agent: { live: true, status: 'running' } }] });
+        await settle();
+        expect(watcher.getSnapshot().statuses['terminal:fresh']).toBe('idle');
+        expect(notifications).toBe(0);
+    });
+
+    test('equal summary rows keep the snapshot while a changed name reaches listeners', async () => {
+        const transport = new FakeTransport();
+        transport.answer = (type) =>
+            type === 'project.sidebar' ? { projects: [{ summary: summary('p1'), views: [] }] } : type === 'session.list' ? { sessions: [] } : { chats: [] };
+        const watcher = watch(transport);
+        await settle();
+        const snapshot = watcher.getSnapshot();
+        let notifications = 0;
+        watcher.subscribe(() => notifications++);
+        transport.emit('project.summary', { summary: summary('p1'), views: [] });
+        expect(watcher.getSnapshot()).toBe(snapshot);
+        expect(notifications).toBe(0);
+        transport.emit('project.summary', { summary: { ...summary('p1'), name: 'Renamed' } });
+        expect(watcher.getSnapshot().projects[0]?.summary.name).toBe('Renamed');
+        expect(notifications).toBe(1);
+    });
+
     test('only a page that polls asks, and then for the projects alone', async () => {
         jest.useFakeTimers();
         let polls = false;

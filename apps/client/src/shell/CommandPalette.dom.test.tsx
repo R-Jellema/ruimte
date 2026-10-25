@@ -2,10 +2,13 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
 import { LOCAL_ENDPOINT_ID, useEndpoints } from '@/state/endpoints';
 import { useUi } from '@/state/ui';
+import { useDocument } from '@/state/document';
+import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { mount, pressKey, until, type Mounted } from '../../testing/dom';
 import { connectFakeMachine, FakeMachine } from '../../testing/fake-machine';
 
 let page: Mounted;
+let workspace: FakeWorkspace | null = null;
 
 function field(): HTMLInputElement | null {
     return document.querySelector('input[role="combobox"]');
@@ -50,6 +53,8 @@ async function openPalette(open: () => void, ready: () => boolean): Promise<void
 afterEach(async () => {
     await act(async () => useUi.getState().setPaletteOpen(false));
     await page.unmount();
+    await act(async () => workspace?.close());
+    workspace = null;
 });
 
 describe('the command palette keeps the keyboard in its field', () => {
@@ -181,5 +186,56 @@ describe('choosing a machine to browse', () => {
         expect(labels()[0]).toStartWith('Studio');
         expect(labels()[1]).toStartWith('MacBook Pro');
         expectFieldHoldsTheKeys(rows()[0]!);
+    });
+});
+
+describe('the command catalog stays current while its query changes', () => {
+    beforeEach(async () => {
+        const machine = new FakeMachine();
+        machine.answer('fs.read', ({ path }) => ({
+            kind: 'text' as const,
+            text: path.endsWith('alpha.txt') ? 'Alpha file content' : 'Beta file content',
+            encoding: 'utf-8' as const,
+            size: 18,
+            mtime: 1
+        }));
+        workspace = await openFakeWorkspace(
+            machine,
+            {
+                views: [
+                    { id: 'alpha', kind: 'file', name: 'Open alpha', path: 'alpha.txt' },
+                    { id: 'beta', kind: 'file', name: 'Open beta', path: 'beta.txt' }
+                ]
+            },
+            { activeViewId: null, views: {} }
+        );
+        await openPalette(
+            () => useUi.getState().setPaletteOpen(true),
+            () => labels()[0]?.startsWith('Open alpha') === true
+        );
+    });
+
+    test('arrows cross from views into actions and filtering selects the current first result', async () => {
+        await type('open');
+        await pressKey(field()!, 'ArrowDown');
+        expect(highlighted()?.textContent).toStartWith('Open beta');
+        await pressKey(field()!, 'ArrowDown');
+        expect(highlighted()?.textContent).toStartWith('Open folder as project');
+        expectFieldHoldsTheKeys(highlighted()!);
+        await type('alpha');
+        expect(highlighted()?.textContent).toStartWith('Open alpha');
+        await pressKey(field()!, 'Enter');
+        await until(() => page.host.textContent?.includes('Alpha file content') === true);
+    });
+
+    test('a rename updates the catalog under the current query and keeps the renamed view runnable', async () => {
+        await type('beta');
+        expect(highlighted()?.textContent).toStartWith('Open beta');
+        await act(async () => useDocument.getState().renameView('beta', 'Gamma document'));
+        expect(labels().some((label) => label.startsWith('Open beta'))).toBe(false);
+        await type('gamma');
+        expect(highlighted()?.textContent).toStartWith('Gamma document');
+        await pressKey(field()!, 'Enter');
+        await until(() => page.host.textContent?.includes('Beta file content') === true);
     });
 });

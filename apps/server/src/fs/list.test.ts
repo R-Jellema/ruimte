@@ -92,12 +92,21 @@ describe('listDirectory', () => {
     });
 
     test('caps a long directory and says so', async () => {
-        const wide = join(root, 'wide');
-        await mkdir(wide);
+        const parent = join(root, 'outer');
+        const wide = join(parent, 'wide');
+        await mkdir(wide, { recursive: true });
         await Promise.all(Array.from({ length: FS_LIST_MAX_ENTRIES + 5 }, (_value, index) => writeFile(join(wide, `f${index}.txt`), '')));
         const result = await listDirectory(wide);
         expect(result.entries).toHaveLength(FS_LIST_MAX_ENTRIES);
         expect(result.truncated).toBe(true);
+        expect(result.entries[0]!.name).toBe('f0.txt');
+        expect(result.entries.at(-1)!.name).toBe(`f${FS_LIST_MAX_ENTRIES - 1}.txt`);
+
+        const nested = await listDirectory(parent, { depth: 2 });
+        expect(nested.entries).toHaveLength(FS_LIST_MAX_ENTRIES);
+        expect(nested.truncated).toBe(true);
+        expect(nested.entries[0]!.path).toBe(wide);
+        expect(nested.entries.at(-1)!.name).toBe(`f${FS_LIST_MAX_ENTRIES - 2}.txt`);
     });
 
     test('a dot the repository keeps is listed like any other name', async () => {

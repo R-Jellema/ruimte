@@ -200,7 +200,7 @@ export function Sidebar() {
     const roving = rovingId !== null && rows.includes(rovingId) ? rovingId : (rows[0] ?? null);
     useEffect(() => {
         if (rovingId !== null && !rows.includes(rovingId) && roving !== null && listHadFocus.current && document.activeElement === document.body) {
-            listRef.current?.querySelector<HTMLElement>(`[data-sidebar-row="${CSS.escape(roving)}"]`)?.focus();
+            listRef.current?.querySelector<HTMLElement>(`[data-sidebar-row=${CSS.escape(roving)}]`)?.focus();
         }
     }, [rows, rovingId, roving]);
 
@@ -330,17 +330,13 @@ export function Sidebar() {
                     moveItems={moveItems(key)}
                     onDrag={(transfer) => onProjectDrag(transfer === null ? null : key, transfer ?? undefined)}
                     tabbable={roving === key}
-                    onFocus={() => setRovingId(key)}
-                    onArrow={moveFocus}
                 />
                 {projectInsert?.key === key && projectInsert.after && <div className={INSERT_LINE} />}
             </div>
         );
     };
 
-    const newViewRow = (group: SidebarGroup, rowId: string): ReactNode => (
-        <NewViewRow group={group} rowId={rowId} tabbable={roving === rowId} onFocus={() => setRovingId(rowId)} onArrow={moveFocus} />
-    );
+    const newViewRow = (group: SidebarGroup, rowId: string): ReactNode => <NewViewRow group={group} rowId={rowId} tabbable={roving === rowId} />;
 
     /* The group of another project a row stands for, which then draws as a background row. */
     const ownerOf = (row: SidebarRow): SidebarGroup | undefined => {
@@ -354,7 +350,7 @@ export function Sidebar() {
         }
         const target = row.target;
         const owner = ownerOf(row);
-        const common = { row, snoozable: true, tabbable: row.rowId === roving, onFocus: () => setRovingId(row.rowId), onArrow: moveFocus };
+        const common = { row, snoozable: true, tabbable: row.rowId === roving };
         return (
             <NeedsYouCard
                 key={row.rowId}
@@ -367,13 +363,14 @@ export function Sidebar() {
         );
     };
 
+    // The list owns navigation so status updates do not replace every row's handlers.
     const moveFocus = (delta: -1 | 1): void => {
         const next = rowAfterArrow(rows, roving, delta);
         if (next === null) {
             return;
         }
         setRovingId(next);
-        listRef.current?.querySelector<HTMLElement>(`[data-sidebar-row="${CSS.escape(next)}"]`)?.focus();
+        listRef.current?.querySelector<HTMLElement>(`[data-sidebar-row=${CSS.escape(next)}]`)?.focus();
     };
 
     return (
@@ -400,8 +397,21 @@ export function Sidebar() {
                 <div
                     ref={listRef}
                     className="mt-2 min-h-0 grow overflow-auto px-2"
-                    onFocusCapture={() => {
+                    onFocusCapture={(event) => {
                         listHadFocus.current = true;
+                        const row = (event.target as HTMLElement).closest<HTMLElement>('[data-sidebar-row]');
+                        if (row && event.currentTarget.contains(row)) {
+                            setRovingId(row.dataset.sidebarRow!);
+                        }
+                    }}
+                    onKeyDown={(event) => {
+                        if (event.defaultPrevented || !(event.target as HTMLElement).closest('[data-sidebar-row]')) {
+                            return;
+                        }
+                        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                            event.preventDefault();
+                            moveFocus(event.key === 'ArrowDown' ? 1 : -1);
+                        }
                     }}
                     onBlurCapture={(event) => {
                         listHadFocus.current = event.currentTarget.contains(event.relatedTarget as Node | null);
@@ -519,8 +529,6 @@ export function Sidebar() {
                                                             : (transfer) => onProjectDrag(transfer === null ? null : movableGroup.key, transfer ?? undefined)
                                                     }
                                                     tabbable={roving === `project:${section.id}`}
-                                                    onFocus={() => setRovingId(`project:${section.id}`)}
-                                                    onArrow={moveFocus}
                                                 />
                                             )}
                                             {section.group && !section.group.collapsed && (section.group.state !== 'ready' || section.rows.length === 0) && (
@@ -554,28 +562,15 @@ export function Sidebar() {
                                                                   group={owner}
                                                                   snoozable={false}
                                                                   tabbable={row.rowId === roving}
-                                                                  onFocus={() => setRovingId(row.rowId)}
-                                                                  onArrow={moveFocus}
                                                               />
                                                           );
                                                       }
                                                       if (row.type === 'node') {
-                                                          return (
-                                                              <NodeRow
-                                                                  key={row.rowId}
-                                                                  row={row}
-                                                                  snoozable={false}
-                                                                  tabbable={row.rowId === roving}
-                                                                  onFocus={() => setRovingId(row.rowId)}
-                                                                  onArrow={moveFocus}
-                                                              />
-                                                          );
+                                                          return <NodeRow key={row.rowId} row={row} snoozable={false} tabbable={row.rowId === roving} />;
                                                       }
                                                       const shared = {
                                                           row,
                                                           tabbable: row.rowId === roving,
-                                                          onFocus: () => setRovingId(row.rowId),
-                                                          onArrow: moveFocus,
                                                           onDelete: () => askDeleteView(row.view.id),
                                                           onDrag: (viewId: string | null, transfer?: DataTransfer) =>
                                                               onDrag(viewId === null ? null : { sectionId: section.id, viewId }, transfer)

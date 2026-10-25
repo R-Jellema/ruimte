@@ -50,6 +50,27 @@ describe('fuzzyScore', () => {
     test('rankFiles keeps the limit and breaks ties on length', () => {
         expect(rankFiles(['b/index.ts', 'index.ts', 'a/index.ts'], '', 2)).toEqual(['index.ts', 'a/index.ts']);
     });
+
+    test('limited ranking keeps tracked files ahead of ignored ties and returns every remaining match in order', () => {
+        const files = ['file-h.ts', 'file-c.ts', 'file-f.ts', 'file-a.ts', 'file-g.ts', 'file-d.ts', 'file-b.ts', 'file-e.ts'];
+        const ignored = ['file-2.ts', 'file-0.ts', 'file-1.ts'];
+        const ordered = [
+            'file-a.ts',
+            'file-b.ts',
+            'file-c.ts',
+            'file-d.ts',
+            'file-e.ts',
+            'file-f.ts',
+            'file-g.ts',
+            'file-h.ts',
+            'file-0.ts',
+            'file-1.ts',
+            'file-2.ts'
+        ];
+        for (const limit of [0, 1, 3, 8, 9, 20]) {
+            expect(rankFiles(files, 'file', limit, ignored)).toEqual(ordered.slice(0, limit));
+        }
+    });
 });
 
 describe('searchFiles', () => {
@@ -115,6 +136,14 @@ describe('searchFiles', () => {
     test('ranks the query and honors the limit', async () => {
         const { files } = await searchFiles(root, 'comp', 1);
         expect(files).toEqual(['src/chat/composer.ts']);
+    });
+
+    test('fills the result limit after the best cached matches disappeared', async () => {
+        const names = Array.from({ length: 12 }, (_, index) => `item-${String(index).padStart(2, '0')}.ts`);
+        await Promise.all(names.map((name) => writeFile(join(root, name), '')));
+        await listSearchableFiles(root);
+        await Promise.all(names.slice(0, 8).map((name) => rm(join(root, name))));
+        expect((await searchFiles(root, 'item', 3)).files).toEqual(['item-08.ts', 'item-09.ts', 'item-10.ts']);
     });
 });
 

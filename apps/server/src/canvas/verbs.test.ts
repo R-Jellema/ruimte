@@ -534,8 +534,11 @@ describe('help', () => {
         );
         expect(lines.at(-7)).toStartWith('scope\tlist and read are what a person linked into this session;');
         expect(lines.at(-6)).toBe('ids\tIds in this output are for your commands. When you talk to the person, name things by their title, never by id');
-        expect(lines.at(-5)).toBe(
-            'dry run\t--dry-run\tnode new, agent, node color, plan new, team\tsame checks, nothing made; a refused call makes nothing either, so it is only a preview and never needed for safety; every other verb refuses the flag'
+        const dryRun = lines.at(-5)!.split('\t');
+        expect(dryRun.slice(0, 2)).toEqual(['dry run', '--dry-run']);
+        expect(dryRun[2]!.split(', ').toSorted()).toEqual(['agent', 'node color', 'node new', 'plan new', 'team']);
+        expect(dryRun[3]).toBe(
+            'same checks, nothing made; a refused call makes nothing either, so it is only a preview and never needed for safety; every other verb refuses the flag'
         );
         expect(lines.slice(-4, -1)).toEqual([
             'detail\truimte-context help <noun>\tthe signature of every action of a noun',
@@ -2359,11 +2362,11 @@ describe('--dry-run', () => {
     test('a verb that makes nothing refuses the flag and names the ones that take it', async () => {
         const { status, lines } = await post('node', ['list', '--dry-run']);
         expect(status).toBe(422);
-        expect(lines).toEqual([
-            'refused\tno-dry-run\tnode list takes no --dry-run; only the verbs that make something do',
-            'verb\tnode new\ttakes --dry-run',
+        expect(lines[0]).toBe('refused\tno-dry-run\tnode list takes no --dry-run; only the verbs that make something do');
+        expect(lines.slice(1).toSorted()).toEqual([
             'verb\tagent\ttakes --dry-run',
             'verb\tnode color\ttakes --dry-run',
+            'verb\tnode new\ttakes --dry-run',
             'verb\tplan new\ttakes --dry-run',
             'verb\tteam\ttakes --dry-run'
         ]);

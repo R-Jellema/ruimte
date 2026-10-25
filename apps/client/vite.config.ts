@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { dirname, join, normalize } from 'node:path';
+import { dirname, join, normalize, sep } from 'node:path';
 import { fileURLToPath, URL } from 'node:url';
 import babel from '@rolldown/plugin-babel';
 import react, { reactCompilerPreset } from '@vitejs/plugin-react';
@@ -32,6 +32,8 @@ const adecore = Object.keys(clientManifest.dependencies)
     .map((name) => fileURLToPath(new URL(`./node_modules/${name}`, import.meta.url)))
     .filter(existsSync)
     .map((path) => searchForWorkspaceRoot(realpathSync(path)));
+
+const uiSource = realpathSync(fileURLToPath(new URL('./node_modules/@adecore/ui/src', import.meta.url))) + sep;
 
 /* The TypeScript of ADE CORE's React packages, linked or from npm, as globs the dependency scan starts from. */
 const reactCompiledSources = REACT_COMPILED_PACKAGES.map((name) => fileURLToPath(new URL(`./node_modules/${name}`, import.meta.url)))
@@ -175,7 +177,10 @@ const shiki = shikiModules();
  * The model comparison alone at `bench.ruimte.app` (`vite build --mode bench`), from `bench.html`. It has
  * no workspace, video or visual to serve, so the plugins that write those stay out of its build.
  */
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ command, mode }) => ({
+    experimental: {
+        bundledDev: command === 'serve' && process.env.RUIMTE_BUNDLED_DEV !== '0'
+    },
     plugins: [
         adecoreSources(),
         react(),
@@ -192,7 +197,24 @@ export default defineConfig(({ mode }) => ({
     },
     build: {
         sourcemap: telemetryVersion === '' ? false : 'hidden',
-        ...(mode === 'bench' ? { rolldownOptions: { input: fileURLToPath(new URL('./bench.html', import.meta.url)) } } : {})
+        rolldownOptions: {
+            ...(mode === 'bench' ? { input: fileURLToPath(new URL('./bench.html', import.meta.url)) } : {}),
+            // In dev, compile lazy features before their first open; production keeps its dynamic imports.
+            ...(command === 'serve' ? { experimental: { devMode: { lazy: false } } } : {}),
+            output: {
+                // Initial code stays together; shared controls otherwise make the workspace fetch many tiny chunks.
+                codeSplitting: {
+                    groups: [
+                        { name: 'startup', tags: ['$initial'] },
+                        {
+                            name: 'controls',
+                            test: (id) => normalize(id).startsWith(uiSource) || /[\\/]node_modules[\\/]@base-ui[\\/]react[\\/]/.test(id)
+                        },
+                        { name: 'icons', test: /[\\/]node_modules[\\/]lucide-react[\\/]/ }
+                    ]
+                }
+            }
+        }
     },
     resolve: {
         alias: {
@@ -206,6 +228,8 @@ export default defineConfig(({ mode }) => ({
             'react-dom',
             'i18next',
             'react-i18next',
+            'zod',
+            'zustand',
             '@base-ui/react',
             '@codemirror/state',
             '@codemirror/view',

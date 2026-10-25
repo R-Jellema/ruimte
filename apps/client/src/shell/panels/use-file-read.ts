@@ -23,22 +23,49 @@ export function useFileRead(path: string): { state: FileRead; retry(): void } {
     const endpointId = useEndpointId();
     const folder = dirnameOf(path);
     const large = useRef<{ path: string; read: FsReadText } | null>(null);
-    const watched = useRef<Promise<void>>(Promise.resolve());
+    const watched = useRef<{ ready: Promise<void> } | null>(null);
 
     /* Every reader holds the watch itself rather than leaving it to the files panel: a file node on
        a canvas with that panel closed would otherwise never hear that the file changed. */
     useEffect(() => {
         const watch = folderWatches.watch(endpointId, folder, () => setAttempt((count) => count + 1));
-        watched.current = watch.ready;
-        return watch.release;
+        watched.current = watch;
+        return () => {
+            if (watched.current === watch) {
+                watched.current = null;
+            }
+            watch.release();
+        };
     }, [endpointId, folder]);
 
     useEffect(() => {
         let cancelled = false;
-        // The watch goes up before the first read, so a write in between is reported, not missed.
-        watched.current
-            .then(() => transport.request('fs.read', { path }))
+        const readWhenReady = async (): Promise<FsReadResult | undefined> => {
+            while (!cancelled) {
+                const watch = watched.current;
+                if (watch === null) {
+                    return undefined;
+                }
+                const ready = watch.ready;
+                await ready;
+                if (cancelled) {
+                    return undefined;
+                }
+                // Closing an ancestor or reconnecting can replace the barrier while this read waits.
+                if (watched.current === watch && watch.ready === ready) {
+                    const read = await transport.request('fs.read', { path });
+                    if (!cancelled && watched.current === watch && watch.ready === ready) {
+                        return read;
+                    }
+                }
+            }
+            return undefined;
+        };
+        void readWhenReady()
             .then(async (read) => {
+                if (cancelled || read === undefined) {
+                    return undefined;
+                }
                 if (read.kind !== 'too-large') {
                     return read;
                 }
@@ -49,7 +76,7 @@ export function useFileRead(path: string): { state: FileRead; retry(): void } {
                 return fetched;
             })
             .then((read) => {
-                if (!cancelled) {
+                if (!cancelled && read !== undefined) {
                     setState({ status: 'ready', read });
                 }
             })

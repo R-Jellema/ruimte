@@ -188,6 +188,8 @@ describe('Session.snapshotFor', () => {
 
         const lines = emitLines('s1', 0, 10);
         const { screen } = await harness.manager.attach('s1', 'c1', 80, 24);
+        // The new screen replaces output delivered before the second attach.
+        recorder.events.length = 0;
         lines.push(...emitLines('s1', 10, 20));
         harness.manager.get('s1')!.flush();
 

@@ -18,6 +18,7 @@ export interface TreeInput {
 }
 
 export { absoluteOf, isAbsolutePath, isPathBelow, relativeTo, resolveStoredPath, storedPathOf };
+export { dirnameOf } from '@/project/file-path';
 
 /* Whether a folder listed again says what it said before, so the tree is not built again for nothing. */
 export function sameEntries(before: readonly FsEntry[], after: readonly FsEntry[]): boolean {
@@ -63,12 +64,6 @@ export function isDirectoryPath(treePath: string): boolean {
 /* The last segment of a path, whichever separator the daemon's machine uses. */
 export function basenameOf(path: string): string {
     return path.slice(Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')) + 1);
-}
-
-/* The folder a path sits in, which is what `fs.changed` names when something in it moves. */
-export function dirnameOf(path: string): string {
-    const cut = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
-    return cut > 0 ? path.slice(0, cut) : path.slice(0, cut + 1);
 }
 
 export function treePathOf(root: string, entry: FsEntry): string {

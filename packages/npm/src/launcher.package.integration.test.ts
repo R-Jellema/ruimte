@@ -1,5 +1,5 @@
 import { afterAll, expect, test } from 'bun:test';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { platformPackageOf } from './launcher';
@@ -16,7 +16,7 @@ afterAll(() => {
 });
 
 // The timeout is a budget for a real build, not a wait: on a cold runner compile.ts builds both Rust helpers.
-test('node runs the launcher, which runs the compiled binary', () => {
+test('node runs the packaged daemon and its search worker', async () => {
     const target = `${process.platform}-${process.arch}`;
     const version = '0.0.0-integration';
     const compile = Bun.spawnSync(['bun', 'apps/server/scripts/compile.ts', '--target', target, '--outdir', join(work, 'binaries', target)], {
@@ -46,4 +46,107 @@ test('node runs the launcher, which runs the compiled binary', () => {
     expect(run.stderr.toString()).toBe('');
     expect(run.stdout.toString().trim()).toBe(version);
     expect(run.exitCode).toBe(0);
+
+    const reservation = Bun.serve({ hostname: '127.0.0.1', port: 0, fetch: () => new Response() });
+    const port = reservation.port!;
+    await reservation.stop(true);
+    const home = join(work, 'home');
+    const project = join(work, 'project');
+    mkdirSync(project);
+    writeFileSync(join(project, 'hello.txt'), 'A packaged worker finds this line.\n');
+    const daemon = Bun.spawn(
+        [
+            Bun.which('node')!,
+            join(out, 'ruimte', 'bin', 'ruimte.js'),
+            '--host',
+            '127.0.0.1',
+            '--port',
+            String(port),
+            '--no-hooks',
+            '--no-broker',
+            '--no-lan',
+            '--no-stun',
+            '--no-model-fetch',
+            '--no-price-fetch'
+        ],
+        // No ripgrep: the fallback must resolve its worker inside the executable.
+        { env: { ...process.env, RUIMTE_HOME: home, PATH: '' }, stdout: 'ignore', stderr: 'inherit' }
+    );
+    let socket: WebSocket | undefined;
+    try {
+        const base = `http://127.0.0.1:${port}`;
+        const deadline = Date.now() + 20_000;
+        let ready = false;
+        while (Date.now() < deadline && daemon.exitCode === null) {
+            if ((await fetch(`${base}/health`, { signal: AbortSignal.timeout(200) }).catch(() => null))?.ok) {
+                ready = true;
+                break;
+            }
+            await Bun.sleep(20);
+        }
+        expect(ready).toBe(true);
+        const secret = readFileSync(join(home, 'local.key'), 'utf8').trim();
+        const response = await fetch(`${base}/auth/local-ticket`, { method: 'POST', headers: { authorization: `Bearer ${secret}` } });
+        expect(response.ok).toBe(true);
+        const { ticket } = (await response.json()) as { ticket: string };
+        const connected = new WebSocket(`ws://127.0.0.1:${port}/ws?token=${encodeURIComponent(ticket)}`);
+        socket = connected;
+        const pending = new Map<string, { resolve(value: unknown): void; reject(error: Error): void }>();
+        connected.onmessage = (event) => {
+            const frame = JSON.parse(String(event.data)) as { id?: string; ok: boolean; result: unknown; error?: { message: string } };
+            const waiter = frame.id === undefined ? undefined : pending.get(frame.id);
+            if (waiter === undefined) {
+                return;
+            }
+            pending.delete(frame.id!);
+            if (frame.ok) {
+                waiter.resolve(frame.result);
+            } else {
+                waiter.reject(new Error(frame.error?.message ?? 'Packaged request failed'));
+            }
+        };
+        await new Promise<void>((resolve, reject) => {
+            const timer = setTimeout(() => reject(new Error('The packaged socket did not open')), 5000);
+            connected.onopen = () => {
+                clearTimeout(timer);
+                resolve();
+            };
+            connected.onerror = () => {
+                clearTimeout(timer);
+                reject(new Error('The packaged daemon refused its local ticket'));
+            };
+        });
+        let nextId = 0;
+        function request<T>(type: string, payload: object): Promise<T> {
+            return new Promise((resolve, reject) => {
+                const id = String(++nextId);
+                const timer = setTimeout(() => {
+                    pending.delete(id);
+                    reject(new Error(`The packaged daemon did not answer ${type}`));
+                }, 5000);
+                pending.set(id, {
+                    resolve: (value) => {
+                        clearTimeout(timer);
+                        resolve(value as T);
+                    },
+                    reject: (error) => {
+                        clearTimeout(timer);
+                        reject(error);
+                    }
+                });
+                connected.send(JSON.stringify({ id, type, payload }));
+            });
+        }
+        const hello = await request<{ version: string; home: string }>('server.hello', {});
+        expect(hello).toMatchObject({ version, home });
+        await request('project.open', { folder: project });
+        const found = await request<{ matches: Array<{ path: string; line: number; text: string }> }>('fs.grep', { cwd: project, query: 'packaged worker' });
+        expect(found.matches).toMatchObject([{ path: 'hello.txt', line: 1, text: 'A packaged worker finds this line.' }]);
+    } finally {
+        socket?.close();
+        daemon.kill('SIGTERM');
+        const force = setTimeout(() => daemon.kill('SIGKILL'), 5000);
+        await daemon.exited;
+        clearTimeout(force);
+    }
 }, 900_000);

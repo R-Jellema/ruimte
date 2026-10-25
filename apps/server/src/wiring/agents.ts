@@ -113,7 +113,7 @@ export interface AgentsInput {
     stores: AgentStores;
     providers: ProvidersBundle;
     computer: ComputerUse;
-    /* Runs while the stores load; it never rejects, and the managers await it before any launch. */
+    /* Runs beside boot; only Codex terminal commands need its result. */
     codexProbe: Promise<void>;
     later: AgentsLater;
 }
@@ -202,10 +202,10 @@ export async function wireAgents({ runtime, identity, stores, providers, compute
         claudeTitles,
         codexTitles: new CodexTitleReader(),
         accounts: providers.accounts,
-        preferredAccount: (kind) => chats.composerPreferences.for(kind).account
+        preferredAccount: (kind) => chats.composerPreferences.for(kind).account,
+        prepareAgent: (kind) => (kind === 'codex' ? codexProbe : Promise.resolve())
     });
     const snapshotSchedule = scheduleSnapshots(sessions, snapshots);
-    await codexProbe;
     const targetForToken = (token: string): string | null => sessions.sessionIdForToken(token) ?? chats.chatIdForToken(token);
     const context: ContextStore = new ContextStore({
         sources: (targetId) =>

@@ -38,8 +38,8 @@ function SourceRow({
     onGoTo(): void;
 }) {
     const { t } = useTranslation('canvas');
-    const node = useCanvas((s) => s.nodes[prompt.subject.nodeId]);
-    const status = useNodeStatus(node ?? { id: prompt.subject.nodeId, kind: prompt.surface });
+    const node = useCanvas((s) => s.nodes[prompt.sourceNodeId ?? prompt.subject.nodeId]);
+    const status = useNodeStatus(node ?? { id: prompt.sourceNodeId ?? prompt.subject.nodeId, kind: prompt.surface });
     return (
         <div className="flex min-w-0 items-center gap-2 border-b border-dashed border-border px-3 py-1.5 text-xs text-text-muted">
             {status && <StatusDot status={status} />}
@@ -97,7 +97,7 @@ export function PromptStack({ viewId, dockShown }: { viewId: string; dockShown: 
         if (front === null) {
             return;
         }
-        const target = waiting.find((prompt) => prompt.subject.nodeId === front.nodeId);
+        const target = waiting.find((prompt) => (prompt.sourceNodeId ?? prompt.subject.nodeId) === front.nodeId);
         if (target) {
             setActive(target.id);
             usePromptFront.getState().consume(front.seq);
@@ -108,7 +108,7 @@ export function PromptStack({ viewId, dockShown }: { viewId: string; dockShown: 
         return null;
     }
 
-    const nodeId = active.subject.nodeId;
+    const nodeId = active.sourceNodeId ?? active.subject.nodeId;
     const goTo = (): void => {
         focusNodeAction(viewId, nodeId);
     };

@@ -49,6 +49,9 @@ const args = [
     '--conditions=source',
     '--compile',
     `--target=bun-${bunOs[values.os]}-${values.arch}`,
+    // Keep top-level await and dynamic imports while moving JavaScript compilation out of every daemon start.
+    '--bytecode',
+    '--format=esm',
     // Names stay, and the source map goes into the binary, so Bun maps every stack trace back to the source: in the log and in a crash report.
     '--minify-whitespace',
     '--minify-syntax',

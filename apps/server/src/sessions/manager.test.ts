@@ -132,20 +132,27 @@ describe('SessionManager', () => {
         expect(recorder.output).toBe(outputBefore);
     });
 
-    test('output coalesces per client until its tick, and a detach hands over what was buffered', async () => {
+    test('a detach hands over the tail buffered after the first output', async () => {
         const recorder = new Recorder();
         harness.manager.subscribe('c1', recorder.sink());
         await create('s1');
         await harness.manager.attach('s1', 'c1', 80, 24);
         const pty = harness.adapter.forSession('s1');
 
-        pty.emit('one ');
-        pty.emit('two');
-        expect(recorder.output).toBe('');
-        harness.manager.detach('s1', 'c1');
-        expect(recorder.events.filter((event) => event.event === 'session.output').map((event) => event.payload)).toEqual([
-            { sessionId: 's1', data: 'one two' }
-        ]);
+        jest.useFakeTimers();
+        jest.setSystemTime(1000);
+        try {
+            pty.emit('one ');
+            pty.emit('two');
+            expect(recorder.output).toBe('one ');
+            harness.manager.detach('s1', 'c1');
+            expect(recorder.events.filter((event) => event.event === 'session.output').map((event) => event.payload)).toEqual([
+                { sessionId: 's1', data: 'one ' },
+                { sessionId: 's1', data: 'two' }
+            ]);
+        } finally {
+            jest.useRealTimers();
+        }
     });
 
     test('a UTF-8 character split over two reads arrives whole', async () => {
