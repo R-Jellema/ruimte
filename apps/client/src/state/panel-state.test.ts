@@ -145,9 +145,11 @@ describe('panels in the machine-local file', () => {
         );
     });
 
-    test('the problems panel is for this session only, so the file stores it as closed', () => {
-        const problems: PanelsState = { ...defaults, panel: { open: true, kind: 'problems' } };
-        expect(serializePanels(problems).panel).toEqual({ open: false, kind: 'files' });
+    test('the problems and Voice Control panels are for this session only, so the file stores them as closed', () => {
+        for (const kind of ['problems', 'voice'] as const) {
+            const state: PanelsState = { ...defaults, panel: { open: true, kind } };
+            expect(serializePanels(state).panel).toEqual({ open: false, kind: 'files' });
+        }
     });
 
     test('a folder where nothing is hidden writes no list of hidden repositories', () => {

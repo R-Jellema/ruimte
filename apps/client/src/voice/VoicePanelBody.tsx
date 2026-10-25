@@ -18,10 +18,10 @@ import {
     type LucideIcon
 } from 'lucide-react';
 import { FadingWords } from '@adecore/agents-react/chat/ui';
-import { hasOverlayControls } from '@/desktop/bridge';
 import { formatClockDuration } from '@adecore/ui/format';
-import { Button, CloseButton, EmptyState, FormError, Icon, IconButton, PanelHeader, SectionLabel, useNow } from '@adecore/ui';
-import { closeVoicePanel, startVoice, stopVoice, undoVoiceAction, undoVoiceActions } from '@/voice/controller';
+import { Button, EmptyState, FormError, Icon, IconButton, useNow } from '@adecore/ui';
+import { PanelHeaderActions, PanelHeaderSlot } from '@/shell/PanelHeaderSlot';
+import { startVoice, stopVoice, undoVoiceAction, undoVoiceActions } from '@/voice/controller';
 import { VoiceWaveform } from '@/voice/VoiceWaveform';
 import { useVoice, type VoiceAction, type VoiceActionKind, type VoicePhase, type VoiceUtterance } from '@/voice/state';
 import { voiceTimeline, type VoiceTimelineEntry } from '@/voice/timeline';
@@ -218,11 +218,11 @@ export function VoicePanelBody() {
 
     return (
         <>
-            <PanelHeader className={clsx('app-drag', hasOverlayControls() && 'toolbar-overlay-inset')}>
-                <SectionLabel className="grow">{t('title')}</SectionLabel>
-                <VoiceStatus elapsedMs={elapsedMs} phase={phase} />
-                <CloseButton label={t('close')} onClick={closeVoicePanel} />
-            </PanelHeader>
+            <PanelHeaderSlot>
+                <PanelHeaderActions>
+                    <VoiceStatus elapsedMs={elapsedMs} phase={phase} />
+                </PanelHeaderActions>
+            </PanelHeaderSlot>
             <VoiceWaveform phase={phase} />
             <div className="min-h-0 grow overflow-y-auto px-4 py-5" role="log" aria-live="polite">
                 {timeline.length === 0 &&

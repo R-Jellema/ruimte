@@ -495,10 +495,6 @@ function stopOutputWaveform(): void {
     useVoice.setState({ outputBands: silentBands() });
 }
 
-export function closeVoicePanel(): void {
-    useVoice.setState({ open: false });
-}
-
 export function undoVoiceAction(id: string): void {
     undo.get(id)?.();
     undo.delete(id);

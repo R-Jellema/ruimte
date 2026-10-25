@@ -37,7 +37,6 @@ import { ViewHost } from '@/shell/ViewHost';
 import { WorktreeDialog } from '@/shell/WorktreeDialog';
 import { useSettings } from '@/state/settings';
 import { workspaceShown } from '@/telemetry/workspace-load';
-import { useVoice } from '@/voice/state';
 import { useShownPanel, useUi } from '@/state/ui';
 import { useDevices } from '@/devices/state';
 import { startBytesWorker } from '@/transport/bytes-worker-host';
@@ -48,7 +47,6 @@ import { ErrorBoundary, Workspace as CoreWorkspace, lazyDialog, prefetcher } fro
 import { ChatHostProvider } from '@adecore/agents-react';
 import { stopVoice } from '@/voice/controller';
 import { VoiceOverlay } from '@/voice/VoiceOverlay';
-import { VoicePanel } from '@/voice/VoicePanel';
 
 startBytesWorker();
 startLaunchWatch();
@@ -152,7 +150,6 @@ export function WorkspaceShell({ workspace }: { workspace: Workspace }) {
     const sidebarOpen = useUi((state) => state.sidebarOpen);
     const planOpen = useUi((state) => state.planOpen);
     const panelOpen = useShownPanel().open;
-    const voiceOpen = useVoice((state) => state.open);
     const lost = useMachineLost();
 
     useEffect(() => {
@@ -193,14 +190,11 @@ export function WorkspaceShell({ workspace }: { workspace: Workspace }) {
                             </ErrorBoundary>
                         }
                         sidePanelWidth="auto"
-                        sidePanelOpen={planOpen || panelOpen || voiceOpen}
+                        sidePanelOpen={planOpen || panelOpen}
                         sidePanel={
                             <>
                                 <PlanPanel />
                                 <Panel />
-                                <ErrorBoundary label={failed('voice')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                                    <VoicePanel />
-                                </ErrorBoundary>
                             </>
                         }
                     >

@@ -172,7 +172,7 @@ export function serializePanels(state: PanelsState): ProjectPanels {
         panel:
             state.panel.kind === 'launches' || state.panel.kind === 'databases' || state.panel.kind === 'output'
                 ? { open: state.panel.open, kind: 'files' }
-                : state.panel.kind === 'problems'
+                : state.panel.kind === 'problems' || state.panel.kind === 'voice'
                   ? { open: false, kind: 'files' }
                   : { open: state.panel.open, kind: state.panel.kind },
         ...(state.panel.kind === 'launches' ? { launchesPanel: true } : {}),

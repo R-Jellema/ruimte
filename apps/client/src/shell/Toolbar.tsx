@@ -20,7 +20,6 @@ import { hasUpdate, useUpdates } from '@/state/updates';
 import { ButtonGroup, ErrorBoundary, IconButton, Separator, lazyNamed, LazyBoundary } from '@adecore/ui';
 import { APP_SHORTCUTS } from '@/shell/shortcuts';
 import { VoiceButton } from '@/voice/VoiceButton';
-import { useVoice } from '@/voice/state';
 
 const ProjectTabs = lazyNamed(() => import('@/shell/ProjectTabs'), 'ProjectTabs');
 
@@ -38,7 +37,6 @@ export function Toolbar() {
     // The Chats project has no folder to show, so no files, git, devices or launches either.
     const scratch = useProject((s) => isScratchProject(s.current));
     const hasPanelButtons = toolbarPanels(scratch).length > 0;
-    const voiceOpen = useVoice((s) => s.open);
     const sidebarOpen = useUi((s) => s.sidebarOpen);
     const tabs = useSettings((s) => s.projectNavigation === 'tabs');
     const inset = useTrafficLightInset();
@@ -87,7 +85,7 @@ export function Toolbar() {
             )}
             {/* With no panel open the palette's icon sits under the window controls on Windows and
                 Linux, so the inset lands here; an open panel's header takes it over. */}
-            <ButtonGroup className={clsx(!panel.open && !voiceOpen && hasOverlayControls() && 'toolbar-overlay-inset')}>
+            <ButtonGroup className={clsx(!panel.open && hasOverlayControls() && 'toolbar-overlay-inset')}>
                 <UpdateButton />
                 <VoiceButton />
                 <IconButton icon={Search} label={t('toolbar.search')} kbd={APP_SHORTCUTS.palette} onClick={() => useUi.getState().setPaletteOpen(true)} />

@@ -61,7 +61,8 @@
             "devices": "Devices",
             "processes": "Processes",
             "launches": "Launches",
-            "problems": "Problems"
+            "problems": "Problems",
+            "voice": "Voice Control"
         }
     },
     "layoutDialog": {

@@ -10,8 +10,8 @@ import { SettingsSection } from '@/shell/settings/SettingsSection';
 import { useSettings } from '@/state/settings';
 import { useToasts } from '@/state/toasts';
 import { useMachineVoicePreferences, useWindowEndpointId } from '@/voice/machine-preferences';
-import { useVoice } from '@/voice/state';
-import { closeVoicePanel, stopVoice } from '@/voice/controller';
+import { closeVoicePanel, useVoice } from '@/voice/state';
+import { stopVoice } from '@/voice/controller';
 import { DictationSection } from './DictationSection';
 import { VoiceInputSection } from './VoiceInputSection';
 

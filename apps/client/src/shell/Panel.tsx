@@ -18,6 +18,7 @@ const ProblemsPanel = lazyNamed(() => import('@/language/ProblemsPanel'), 'Probl
 const LaunchesPanel = lazyNamed(() => import('@/launches/LaunchesPanel'), 'LaunchesPanel');
 const DatabasesPanel = lazyNamed(() => import('@/database/DatabasesPanel'), 'DatabasesPanel');
 const OutputPanel = lazyNamed(() => import('@/output/OutputPanel'), 'OutputPanel');
+const VoicePanelBody = lazyNamed(() => import('@/voice/VoicePanelBody'), 'VoicePanelBody');
 
 const DEFAULT_WIDTH = 540;
 // A drag stops here instead of squeezing the canvas away.
@@ -41,6 +42,8 @@ function PanelBody({ kind }: { kind: PanelKind }) {
             return <OutputPanel />;
         case 'problems':
             return <ProblemsPanel />;
+        case 'voice':
+            return <VoicePanelBody />;
     }
 }
 

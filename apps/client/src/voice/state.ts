@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { VoiceActionKind } from '@ruimte/voice';
 import { silentBands } from '@/audio/waveform';
 import { desktop, type OpenAiCredentialStatus } from '@/desktop/bridge';
-import { storedText } from '@/state/stored-json';
+import { useShownPanel, useUi } from '@/state/ui';
 import { voiceOnMachine } from '@/voice/route';
 
 export type VoicePhase = 'idle' | 'connecting' | 'listening' | 'closing' | 'error';
@@ -30,16 +30,6 @@ export interface VoiceAction {
 }
 
 let timelineOrder = 0;
-const storedVoiceWidth = storedText('ruimte.voice.width');
-
-function readVoiceWidth(): number | null {
-    const value = Number.parseInt(storedVoiceWidth.read() ?? '', 10);
-    return Number.isFinite(value) && value > 0 ? value : null;
-}
-
-function persistVoiceWidth(width: number): void {
-    storedVoiceWidth.write(String(width));
-}
 
 export function nextVoiceTimelineOrder(): number {
     return ++timelineOrder;
@@ -47,7 +37,6 @@ export function nextVoiceTimelineOrder(): number {
 
 interface VoiceState {
     credential: OpenAiCredentialStatus | null;
-    open: boolean;
     phase: VoicePhase;
     error: string | null;
     transcript: VoiceUtterance[];
@@ -55,15 +44,11 @@ interface VoiceState {
     inputBands: number[];
     outputBands: number[];
     sessionStartedAt: number | null;
-    width: number | null;
     setCredential(credential: OpenAiCredentialStatus): void;
-    setOpen(open: boolean): void;
-    setWidth(width: number): void;
 }
 
 export const useVoice = create<VoiceState>((set) => ({
     credential: null,
-    open: false,
     phase: 'idle',
     error: null,
     transcript: [],
@@ -71,14 +56,30 @@ export const useVoice = create<VoiceState>((set) => ({
     inputBands: silentBands(),
     outputBands: silentBands(),
     sessionStartedAt: null,
-    width: readVoiceWidth(),
-    setCredential: (credential) => set((state) => ({ credential, open: credential.configured ? state.open : false })),
-    setOpen: (open) => set({ open }),
-    setWidth: (width) => {
-        persistVoiceWidth(width);
-        set({ width });
+    setCredential: (credential) => {
+        set({ credential });
+        if (!credential.configured) {
+            closeVoicePanel();
+        }
     }
 }));
+
+export function openVoicePanel(): void {
+    useUi.getState().setPanel({ open: true, kind: 'voice' });
+}
+
+export function closeVoicePanel(): void {
+    const panel = useUi.getState().panel;
+    if (panel.open && panel.kind === 'voice') {
+        useUi.getState().setPanel({ open: false });
+    }
+}
+
+/* Whether the window shows the Voice Control panel, which hides the floating caption. */
+export function useVoicePanelOpen(): boolean {
+    const panel = useShownPanel();
+    return panel.open && panel.kind === 'voice';
+}
 
 export async function refreshVoiceCredential(): Promise<void> {
     if (voiceOnMachine()) {

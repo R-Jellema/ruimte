@@ -3,13 +3,13 @@ import { Mic } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
 import { IconButton } from '@adecore/ui';
-import { closeVoicePanel } from '@/voice/controller';
-import { refreshVoiceCredential, useVoice } from '@/voice/state';
+import { useUi } from '@/state/ui';
+import { refreshVoiceCredential, useVoice, useVoicePanelOpen } from '@/voice/state';
 
 export function VoiceButton() {
     const { t } = useTranslation('voice');
     const configured = useVoice((state) => state.credential?.configured === true);
-    const open = useVoice((state) => state.open);
+    const open = useVoicePanelOpen();
     const active = useVoice((state) => state.phase === 'connecting' || state.phase === 'listening');
 
     useEffect(() => {
@@ -26,7 +26,7 @@ export function VoiceButton() {
             kbd={CANVAS_SHORTCUTS.voiceControl}
             aria-pressed={open}
             active={active}
-            onClick={() => (open ? closeVoicePanel() : useVoice.getState().setOpen(true))}
+            onClick={() => useUi.getState().togglePanel('voice')}
         />
     );
 }

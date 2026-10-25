@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FadingWords } from '@adecore/agents-react/chat/ui';
 import { ErrorBoundary } from '@adecore/ui';
-import { useVoice } from '@/voice/state';
+import { openVoicePanel, useVoice, useVoicePanelOpen } from '@/voice/state';
 import { VoiceWaveform } from '@/voice/VoiceWaveform';
 
 function VoiceOverlayContent({ visible }: { visible: boolean }) {
@@ -31,7 +31,7 @@ function VoiceOverlayContent({ visible }: { visible: boolean }) {
                 type="button"
                 className="pointer-events-auto relative flex w-full max-w-lg flex-col items-center gap-3 rounded-xl px-4 py-2 text-center text-text"
                 aria-label={t('button')}
-                onClick={() => useVoice.getState().setOpen(true)}
+                onClick={openVoicePanel}
             >
                 <p ref={caption} className="max-h-24 overflow-y-auto text-sm leading-6 whitespace-pre-wrap [text-wrap:pretty]" role="status" aria-live="polite">
                     <FadingWords key={displayed.key} text={displayed.text} />
@@ -44,7 +44,7 @@ function VoiceOverlayContent({ visible }: { visible: boolean }) {
 
 export function VoiceOverlay() {
     const { t } = useTranslation('voice');
-    const open = useVoice((state) => state.open);
+    const open = useVoicePanelOpen();
     const phase = useVoice((state) => state.phase);
     const visible = !open && phase !== 'idle';
     const [present, setPresent] = useState(visible);
