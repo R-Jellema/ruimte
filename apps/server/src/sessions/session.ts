@@ -290,7 +290,8 @@ export class Session {
                 waiter(screen);
             }
             if (owner.buffered !== '' && this.clients.get(clientId) === owner) {
-                this.scheduleFlush();
+                // The attach reply resolves through promises before its output may resume.
+                this.scheduleFlush(true);
             }
         });
     }
@@ -509,11 +510,11 @@ export class Session {
         this.terminal.write('', run);
     }
 
-    private scheduleFlush(): void {
+    private scheduleFlush(defer = false): void {
         if (this.flushTimer === null) {
             const elapsed = this.lastOutputAt === null ? OUTPUT_TICK_MS : Math.max(0, Date.now() - this.lastOutputAt);
             const delay = Math.max(0, OUTPUT_TICK_MS - elapsed);
-            if (delay === 0) {
+            if (delay === 0 && !defer) {
                 this.flush();
             } else {
                 this.flushTimer = setTimeout(() => this.flush(), delay);
