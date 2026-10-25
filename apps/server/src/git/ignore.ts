@@ -1,6 +1,20 @@
-import { dirname } from 'node:path';
+import { realpath } from 'node:fs/promises';
+import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { nativePath } from './native-path.ts';
 import { runGit } from './run.ts';
+
+function relativeIgnorePath(path: string, cwd: string): string {
+    if (!isAbsolute(path)) {
+        return path;
+    }
+    const local = relative(cwd, path);
+    if (local === '' || isAbsolute(local) || local === '..' || local.startsWith(`..${sep}`)) {
+        return path;
+    }
+    const trailing = path.endsWith(sep) || (sep !== '/' && path.endsWith('/'));
+    // A leading colon in a filename must not become Git pathspec magic.
+    return `.${sep}${local}${trailing ? sep : ''}`;
+}
 
 /*
  * Whether git has this file in its index. A project file someone committed was shared on purpose,
@@ -19,16 +33,36 @@ export async function isTrackedPath(path: string): Promise<boolean> {
  * back the same way, which is the only form a name with a newline in it survives.
  */
 async function checkIgnore(paths: readonly string[], cwd: string): Promise<Set<string>> {
-    const { code, stdout } = await runGit(['check-ignore', '-z', '--stdin'], cwd, { stdin: `${paths.join('\0')}\0` });
+    let queries: Map<string, string[]> | undefined;
+    if (paths.some((path) => isAbsolute(path))) {
+        const canonical = await realpath(cwd).catch(() => null);
+        // With an aliased cwd, Git canonicalizes every absolute path again; relative input avoids it.
+        if (canonical !== null && canonical !== resolve(cwd)) {
+            queries = new Map();
+            for (const path of paths) {
+                const query = nativePath(relativeIgnorePath(path, cwd));
+                const originals = queries.get(query);
+                if (originals) {
+                    originals.push(nativePath(path));
+                } else {
+                    queries.set(query, [nativePath(path)]);
+                }
+            }
+        }
+    }
+    const input = queries ? [...queries.keys()].map((path) => (sep === '\\' ? path.replaceAll('\\', '/') : path)) : paths;
+    const { code, stdout } = await runGit(['check-ignore', '-z', '--stdin'], cwd, { stdin: `${input.join('\0')}\0` });
     if (code > 1) {
         return new Set();
     }
-    return new Set(
-        stdout
-            .split('\0')
-            .filter((path) => path !== '')
-            .map((path) => nativePath(path))
-    );
+    const matches = stdout
+        .split('\0')
+        .filter((path) => path !== '')
+        .map((path) => nativePath(path));
+    if (!queries) {
+        return new Set(matches);
+    }
+    return new Set(matches.flatMap((path) => queries.get(path) ?? []));
 }
 
 interface Batch {
