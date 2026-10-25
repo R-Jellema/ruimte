@@ -131,6 +131,7 @@ export async function startDaemon(config: ServerConfig, launcher: Launcher = 'st
         databases,
         remote,
         usage,
+        artifacts,
         later: { language: () => language.host, push: () => push }
     });
 
@@ -274,7 +275,7 @@ export async function startDaemon(config: ServerConfig, launcher: Launcher = 'st
         chats,
         now: Date.now
     }).catch((e) => console.error('Removing old hidden agent chats failed:', errorText(e)));
-    const server = serveDaemon({ runtime, machine, stores, agents, projects, devices, processes, power, network, clients, canvasHost, voice });
+    const server = serveDaemon({ runtime, machine, stores, agents, projects, devices, processes, power, network, clients, canvasHost, voice, artifacts });
 
     // The first read runs now, so a page opened straight after a start already has the plan on it.
     usage.limits.start();

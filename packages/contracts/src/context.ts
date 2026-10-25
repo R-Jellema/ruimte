@@ -45,6 +45,7 @@ export const CONTEXT_VERBS = [
     'task',
     'plan',
     'visual',
+    'artifact',
     'chat',
     'ui',
     'worktree',

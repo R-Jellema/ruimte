@@ -62252,7 +62252,8 @@
           "properties": {
             "artifactId": {
               "type": "string",
-              "pattern": "^art-[a-z0-9]{8,32}$"
+              "minLength": 1,
+              "maxLength": 64
             },
             "projectId": {
               "type": "string",
@@ -62291,7 +62292,8 @@
               "properties": {
                 "versionId": {
                   "type": "string",
-                  "pattern": "^ver-[a-z0-9]{8,32}$"
+                  "minLength": 1,
+                  "maxLength": 64
                 },
                 "number": {
                   "type": "integer",
@@ -62326,7 +62328,8 @@
                       },
                       "sha256": {
                         "type": "string",
-                        "pattern": "^[0-9a-f]{64}$"
+                        "minLength": 1,
+                        "maxLength": 128
                       }
                     },
                     "required": [
@@ -62407,11 +62410,13 @@
                     },
                     "artifactId": {
                       "type": "string",
-                      "pattern": "^art-[a-z0-9]{8,32}$"
+                      "minLength": 1,
+                      "maxLength": 64
                     },
                     "versionId": {
                       "type": "string",
-                      "pattern": "^ver-[a-z0-9]{8,32}$"
+                      "minLength": 1,
+                      "maxLength": 64
                     },
                     "provenance": {
                       "type": "object",
@@ -62466,7 +62471,8 @@
                       "type": "array",
                       "items": {
                         "type": "string",
-                        "pattern": "^[0-9a-f]{64}$"
+                        "minLength": 1,
+                        "maxLength": 128
                       }
                     }
                   },
@@ -62524,7 +62530,8 @@
     "properties": {
       "artifactId": {
         "type": "string",
-        "pattern": "^art-[a-z0-9]{8,32}$"
+        "minLength": 1,
+        "maxLength": 64
       }
     },
     "required": [
@@ -62540,7 +62547,8 @@
         "properties": {
           "artifactId": {
             "type": "string",
-            "pattern": "^art-[a-z0-9]{8,32}$"
+            "minLength": 1,
+            "maxLength": 64
           },
           "projectId": {
             "type": "string",
@@ -62592,7 +62600,8 @@
           "properties": {
             "versionId": {
               "type": "string",
-              "pattern": "^ver-[a-z0-9]{8,32}$"
+              "minLength": 1,
+              "maxLength": 64
             },
             "number": {
               "type": "integer",
@@ -62627,7 +62636,8 @@
                   },
                   "sha256": {
                     "type": "string",
-                    "pattern": "^[0-9a-f]{64}$"
+                    "minLength": 1,
+                    "maxLength": 128
                   }
                 },
                 "required": [
@@ -62708,11 +62718,13 @@
                 },
                 "artifactId": {
                   "type": "string",
-                  "pattern": "^art-[a-z0-9]{8,32}$"
+                  "minLength": 1,
+                  "maxLength": 64
                 },
                 "versionId": {
                   "type": "string",
-                  "pattern": "^ver-[a-z0-9]{8,32}$"
+                  "minLength": 1,
+                  "maxLength": 64
                 },
                 "provenance": {
                   "type": "object",
@@ -62767,7 +62779,8 @@
                   "type": "array",
                   "items": {
                     "type": "string",
-                    "pattern": "^[0-9a-f]{64}$"
+                    "minLength": 1,
+                    "maxLength": 128
                   }
                 }
               },
@@ -62937,11 +62950,13 @@
     "properties": {
       "artifactId": {
         "type": "string",
-        "pattern": "^art-[a-z0-9]{8,32}$"
+        "minLength": 1,
+        "maxLength": 64
       },
       "versionId": {
         "type": "string",
-        "pattern": "^ver-[a-z0-9]{8,32}$"
+        "minLength": 1,
+        "maxLength": 64
       }
     },
     "required": [
@@ -62955,11 +62970,13 @@
     "properties": {
       "artifactId": {
         "type": "string",
-        "pattern": "^art-[a-z0-9]{8,32}$"
+        "minLength": 1,
+        "maxLength": 64
       },
       "versionId": {
         "type": "string",
-        "pattern": "^ver-[a-z0-9]{8,32}$"
+        "minLength": 1,
+        "maxLength": 64
       },
       "projectId": {
         "type": "string",
@@ -63129,11 +63146,13 @@
               "properties": {
                 "artifactId": {
                   "type": "string",
-                  "pattern": "^art-[a-z0-9]{8,32}$"
+                  "minLength": 1,
+                  "maxLength": 64
                 },
                 "versionId": {
                   "type": "string",
-                  "pattern": "^ver-[a-z0-9]{8,32}$"
+                  "minLength": 1,
+                  "maxLength": 64
                 }
               },
               "required": [
@@ -63165,7 +63184,8 @@
             },
             "artifactId": {
               "type": "string",
-              "pattern": "^art-[a-z0-9]{8,32}$"
+              "minLength": 1,
+              "maxLength": 64
             },
             "title": {
               "type": "string"
@@ -63177,7 +63197,8 @@
                 "properties": {
                   "versionId": {
                     "type": "string",
-                    "pattern": "^ver-[a-z0-9]{8,32}$"
+                    "minLength": 1,
+                    "maxLength": 64
                   },
                   "number": {
                     "type": "integer",
@@ -79420,7 +79441,8 @@
     "properties": {
       "artifactId": {
         "type": "string",
-        "pattern": "^art-[a-z0-9]{8,32}$"
+        "minLength": 1,
+        "maxLength": 64
       },
       "projectId": {
         "type": "string",

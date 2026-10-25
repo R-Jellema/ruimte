@@ -12,6 +12,7 @@ import { agentStartHost } from '../outbox/start-agent.ts';
 import type { PushService } from '../push/service.ts';
 import { agentVisuals } from '../visuals/agent-host.ts';
 import type { AgentStores, AgentsBundle } from './agents.ts';
+import type { ArtifactsBundle } from './artifacts.ts';
 import type { AgentWorkBundle } from './agent-work.ts';
 import type { DatabasesBundle } from './databases.ts';
 import type { DevicesBundle } from './devices.ts';
@@ -36,6 +37,7 @@ export interface CanvasHostInput {
     databases: DatabasesBundle;
     remote: RemoteBundle;
     usage: UsageBundle;
+    artifacts: ArtifactsBundle;
     later: {
         language(): LanguageHost;
         push(): PushService;
@@ -123,7 +125,8 @@ export function wireCanvasHost(input: CanvasHostInput): CanvasHost {
         planLimits: { snapshot: () => usage.limits.snapshot(), now: Date.now },
         secrets: launches.secrets,
         proposals: { inChats: (chatId) => chatIsInChats(projects, chatId), propose: (ask) => Promise.resolve(agents.proposals.ask(ask)) },
-        snoozes: work.snoozes
+        snoozes: work.snoozes,
+        artifacts: input.artifacts.artifacts
     };
     const forkDeps = chatForkDeps({
         chats,

@@ -23,6 +23,7 @@ export const REQUEST_AREAS = [
     'agent',
     'anthropic',
     'archive',
+    'artifact',
     'auth',
     'browser',
     'bytes',

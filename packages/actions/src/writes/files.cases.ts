@@ -43,5 +43,15 @@ export const cases: WriteCases = {
         actors: ['person', 'voice'],
         input: { paths: ['README.md'] },
         refused: { 'nothing to copy': { paths: [] } }
+    },
+    'artifact.publish': {
+        actors: ['agent'],
+        input: { upload: 'publish-1', files: [{ name: 'report.md', size: 12 }], key: 'weekly-report', requestId: 'publish-1' },
+        refused: {
+            'no files': { upload: 'publish-1', files: [], requestId: 'publish-1' },
+            'a key with capitals': { upload: 'publish-1', files: [{ name: 'a.md', size: 1 }], key: 'Weekly', requestId: 'publish-1' },
+            'a kind it does not have': { upload: 'publish-1', files: [{ name: 'a.md', size: 1 }], kind: 'video', requestId: 'publish-1' },
+            'no request id': { upload: 'publish-1', files: [{ name: 'a.md', size: 1 }] }
+        }
     }
 };

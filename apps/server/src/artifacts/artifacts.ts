@@ -6,6 +6,7 @@ import {
     type ArtifactChangedEvent,
     type ArtifactCleanupProposal,
     type ArtifactCopyToProjectPayload,
+    type ArtifactFile,
     type ArtifactGetResult,
     type ArtifactKind,
     type ArtifactProjectStorage,
@@ -28,11 +29,23 @@ import { DEVICE_CAPTURES_FOLDER } from '../shots.ts';
 import type { SessionSink } from '../sessions/manager.ts';
 import { cleanupProposals, NO_PINS, removable, type PinnedVersions } from './artifact-cleanup.ts';
 import { copyVersionInto } from './artifact-copy.ts';
-import { ArtifactError, SNIFF_HEAD_BYTES } from './artifact-names.ts';
+import { ArtifactError, isTextMime, SNIFF_HEAD_BYTES } from './artifact-names.ts';
 import type { ArtifactStore, CommitResult } from './artifact-store.ts';
 
 // One agent with this many publishes half sent holds them all; the next waits until one is done.
 export const MAX_OPEN_UPLOADS = 8;
+
+// What `artifact read` prints of a text file; past it the agent reads the rest from its own copy.
+export const MAX_READ_BYTES = 256 * 1024;
+
+export interface ArtifactReading {
+    artifact: Artifact;
+    version: ArtifactVersion;
+    file: ArtifactFile;
+    /* Null for a file that is no text. */
+    text: string | null;
+    truncated: boolean;
+}
 
 /* What the service needs to know of a project: its name and its folder; null for a project this machine does not know. */
 export interface ArtifactProjects {
@@ -312,6 +325,33 @@ export class Artifacts {
         const names = await this.projectNames();
         const projects = [...byProject.values()].map((row) => this.named(names, row));
         return { projects: projects.sort((a, b) => b.bytes - a.bytes), total, disk: await this.store.volume() };
+    }
+
+    /*
+     * A file of an artifact of one project, its text when it is text: an artifact of another project
+     * answers as one that is not there. Without a version the latest, without an index the first file.
+     */
+    async read(projectId: string, query: { artifactId: string; versionId?: string; file?: number }): Promise<ArtifactReading> {
+        const found = this.store.get(query.artifactId);
+        if (!found || found.artifact.projectId !== projectId) {
+            throw new ArtifactError('not-found', 'No such artifact in this project');
+        }
+        const version = query.versionId === undefined ? found.versions[0]! : found.versions.find((candidate) => candidate.versionId === query.versionId);
+        if (!version) {
+            throw new ArtifactError('not-found', 'No such version of this artifact');
+        }
+        const index = query.file ?? 0;
+        const file = version.files[index];
+        if (!file) {
+            throw new ArtifactError('not-found', `This version holds ${version.files.length} files, counted from 0`);
+        }
+        const artifact = this.named(await this.projectNames(), found.artifact);
+        if (!isTextMime(file.mime)) {
+            return { artifact, version, file, text: null, truncated: false };
+        }
+        const start = (await this.store.readStart(query.artifactId, version.versionId, index, MAX_READ_BYTES)) ?? new Uint8Array();
+        // A cut inside a character reads as one replacement character at the end, which is all a cut costs.
+        return { artifact, version, file, text: new TextDecoder().decode(start), truncated: file.size > MAX_READ_BYTES };
     }
 
     cleanupPreview(): ArtifactCleanupProposal[] {

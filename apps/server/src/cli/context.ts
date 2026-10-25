@@ -26,6 +26,9 @@ export async function runContext(args: string[], env: Environment = process.env,
     if (command === 'chat' && args[1] === 'attach') {
         return runChatAttach(canvasUrl, args.slice(2), headers, env);
     }
+    if (command === 'artifact' && args[1] === 'publish') {
+        return runArtifactPublish(canvasUrl, args.slice(2), headers, env);
+    }
     return runVerb(canvasUrl, command, await verbArgv(command, args, stdin), headers, env);
 }
 
@@ -199,6 +202,24 @@ async function runChatAttach(canvasUrl: string, argv: string[], headers: Record<
         return refuse(prepared.refusal.code, prepared.refusal.message, prepared.refusal.lines);
     }
     return runVerb(canvasUrl, 'chat', ['attach', ...prepared.argv], headers, env);
+}
+
+/* `artifact publish` sends its files from here, in raw pieces, and only then asks the daemon to keep them. */
+async function runArtifactPublish(canvasUrl: string, argv: string[], headers: Record<string, string>, env: Environment): Promise<number> {
+    const { prepareArtifactPublish } = await import('./artifact-publish.ts');
+    const prepared = await prepareArtifactPublish(canvasUrl, argv, headers);
+    if ('refusal' in prepared) {
+        return refuse(prepared.refusal.code, prepared.refusal.message, prepared.refusal.lines);
+    }
+    if ('failure' in prepared) {
+        console.error(prepared.failure);
+        return 1;
+    }
+    if ('unreachable' in prepared) {
+        console.error(unreachable(prepared.unreachable, env));
+        return 1;
+    }
+    return runVerb(canvasUrl, 'artifact', ['publish', ...prepared.argv], headers, env);
 }
 
 /*

@@ -56,6 +56,7 @@ import type { DrawingStore } from '../projects/drawing-store.ts';
 import type { SnoozeStore } from '../push/snoozes.ts';
 import type { EndpointIdentity } from '../endpoint-id.ts';
 import type { UntrustedFolders } from '../peering/untrusted.ts';
+import type { Artifacts } from '../artifacts/artifacts.ts';
 import {
     field,
     REVISION_FLAG,
@@ -169,6 +170,8 @@ export interface CanvasHost {
     untrusted?: Pick<UntrustedFolders, 'node' | 'inFolder' | 'fromPeer'>;
     /* When a person's snooze on a node ends, in epoch milliseconds; absent on a host without snoozes. */
     snoozes?: Pick<SnoozeStore, 'until'>;
+    /* The Output of the caller's project, where results that should stay are kept; absent on a host that keeps none. */
+    artifacts?: Pick<Artifacts, 'publish' | 'list' | 'read'>;
 }
 
 /* A chat's items and info as they stand, whether its CLI runs or the chat is only a record; null for no chat of that id. */
@@ -441,7 +444,7 @@ export const { defineVerb, defineAction, defineNoun, defineHelp, dryRunVerbNames
 
 /* Two things an agent keeps mixing up, so the line is in the root of `help` and in the detail of each verb it is about. */
 export const SCOPE_LINE =
-    'scope\tlist and read are what a person linked into this session; node, link, browser, device, view, task, agent, team, done, notify, alert, answer, worktree, launches, database and language are the project itself, plan, visual and chat are the chat of the caller, secret is a card in that chat for a launch, computer the apps of this machine\ta node you add is readable through read only once a line joins it to you, and a terminal or a chat only once that line runs from it into you; a chat view has no lines and reads and operates every node of the canvas it names with --view';
+    'scope\tlist and read are what a person linked into this session; node, link, browser, device, view, task, agent, team, done, notify, alert, answer, worktree, launches, database and language are the project itself, artifact is the Output of the project, plan, visual and chat are the chat of the caller, secret is a card in that chat for a launch, computer the apps of this machine\ta node you add is readable through read only once a line joins it to you, and a terminal or a chat only once that line runs from it into you; a chat view has no lines and reads and operates every node of the canvas it names with --view';
 
 /* What a snooze means to an agent, said wherever a list prints the column. */
 export const SNOOZE_LINE =

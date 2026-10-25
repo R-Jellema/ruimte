@@ -142,6 +142,7 @@ export const USAGE_VERB_COUNTERS = {
     ui: 'verbsCanvas',
     project: 'verbsCanvas',
     visual: 'verbsCanvas',
+    artifact: 'verbsCanvas',
     browser: 'verbsBrowser',
     device: 'verbsDevice',
     database: 'verbsDatabase',

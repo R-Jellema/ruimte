@@ -37,6 +37,7 @@ const VERB_LOOKS: Record<ContextVerb, VerbLook> = {
     task: { name: 'Task', from: 1 },
     plan: { name: 'Plan', from: 1 },
     visual: { name: 'Visual', from: 1 },
+    artifact: { name: 'Output', from: 1 },
     chat: { name: 'Chat', from: 1 },
     ui: { name: 'Help', from: 0 },
     worktree: { name: 'Worktree', from: 1 },

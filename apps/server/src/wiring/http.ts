@@ -21,6 +21,7 @@ import { crossOriginHeaders, decideAccess, handleLocalTicketRequest, isOwner, pr
 import { handleLocalProofRequest } from '../auth/local-proof.ts';
 import { MachineAccountError, signForAccount, signLinkRequest } from '../auth/registration.ts';
 import { SOCKET_BACKPRESSURE_LIMIT } from '../backpressure.ts';
+import { ARTIFACT_UPLOAD_BODY_BYTES, ARTIFACT_UPLOAD_PATH, handleArtifactUpload } from '../canvas/artifact-upload-route.ts';
 import { CANVAS_PATH, CANVAS_REQUEST_TIMEOUT_S, handleCanvasRequest } from '../canvas/canvas-route.ts';
 import type { CanvasHost } from '../canvas/verb.ts';
 import { ATTACHMENTS_PATH, handleAttachmentRequest } from '../chat/attachment-route.ts';
@@ -38,6 +39,7 @@ import { takesNoteOnLine } from '../providers/launch.ts';
 import { handleLiveStreamRequest, LIVE_STREAM_PATH } from '../streams/http-stream.ts';
 import { BUILD, VERSION } from '../version.ts';
 import type { AgentStores, AgentsBundle } from './agents.ts';
+import type { ArtifactsBundle } from './artifacts.ts';
 import type { ClientsBundle } from './clients.ts';
 import type { DevicesBundle } from './devices.ts';
 import type { MachineBundle } from './machine.ts';
@@ -78,6 +80,7 @@ export interface HttpInput {
     clients: ClientsBundle;
     canvasHost: CanvasHost;
     voice: VoiceBundle;
+    artifacts: ArtifactsBundle;
 }
 
 /* Every HTTP route and the upgrade, before the cross-origin headers the desktop app's page needs. */
@@ -254,6 +257,12 @@ function daemonRoutes(input: HttpInput): Route<SocketData>[] {
                         computer: devices.computer.usable
                     });
                 })
+        },
+        // Before the verbs, whose prefix it shares: an agent's files arrive here in raw pieces, never in a verb's body.
+        {
+            below: ARTIFACT_UPLOAD_PATH,
+            bodyBytes: ARTIFACT_UPLOAD_BODY_BYTES,
+            handle: ({ request, url }) => handleArtifactUpload(request, url, { targetForToken: agents.targetForToken, artifacts: input.artifacts.artifacts })
         },
         {
             below: CANVAS_PATH,

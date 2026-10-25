@@ -15,12 +15,17 @@ export const ARTIFACT_LIMITS = {
     versionBytes: 2 * 1024 * 1024 * 1024,
     filesPerVersion: 64,
     titleLength: 200,
-    fileNameLength: 255
+    fileNameLength: 255,
+    // The raw piece an agent's `artifact publish` sends at a time.
+    uploadChunkBytes: 8 * 1024 * 1024
 } as const;
 
-// Ids the machine makes; a client only ever hands one back.
-export const ArtifactIdSchema = z.string().regex(/^art-[a-z0-9]{8,32}$/);
-export const ArtifactVersionIdSchema = z.string().regex(/^ver-[a-z0-9]{8,32}$/);
+// Ids the machine makes and looks up in its register; a client only ever hands one back, and no id becomes a path.
+export const ArtifactIdSchema = z.string().min(1).max(64);
+export const ArtifactVersionIdSchema = z.string().min(1).max(64);
+
+// Hex; a hash only says which bytes these are, so the wire does not hold it to a shape.
+const Sha256Schema = z.string().min(1).max(128);
 
 export const ARTIFACT_KEY_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
 export const ArtifactKeySchema = z.string().regex(ARTIFACT_KEY_PATTERN);
@@ -33,7 +38,7 @@ export const ArtifactFileSchema = z.object({
     name: z.string().min(1).max(ARTIFACT_LIMITS.fileNameLength),
     mime: z.string().min(1),
     size: z.number().int().nonnegative(),
-    sha256: z.string().regex(/^[0-9a-f]{64}$/)
+    sha256: Sha256Schema
 });
 export type ArtifactFile = z.infer<typeof ArtifactFileSchema>;
 
@@ -57,7 +62,7 @@ export const ArtifactOriginSchema = z.object({
     artifactId: ArtifactIdSchema,
     versionId: ArtifactVersionIdSchema,
     provenance: ArtifactProvenanceSchema,
-    hashes: z.array(z.string().regex(/^[0-9a-f]{64}$/))
+    hashes: z.array(Sha256Schema)
 });
 export type ArtifactOrigin = z.infer<typeof ArtifactOriginSchema>;
 

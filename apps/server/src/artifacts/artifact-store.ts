@@ -353,6 +353,12 @@ export class ArtifactStore {
         return this.fs.volume(this.root);
     }
 
+    /* At most `length` bytes from the start of a file of a version; null for one the register does not hold. */
+    async readStart(artifactId: string, versionId: string, index: number, length: number): Promise<Uint8Array | null> {
+        const found = this.file(artifactId, versionId, index);
+        return found ? this.fs.readHead(found.path, length) : null;
+    }
+
     private async commitStaged(stagingId: string, input: CommitInput): Promise<CommitResult> {
         const names = input.names.map(checkFileName);
         if (input.key !== undefined) {

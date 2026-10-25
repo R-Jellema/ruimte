@@ -1,6 +1,7 @@
 import { ActionRegistry } from '@ruimte/actions';
 import { CodedError } from '@adecore/agents';
 import { agentActions } from './agent-actions.ts';
+import { artifactActions } from './artifact-actions.ts';
 import { browserActions } from './browser-actions.ts';
 import { chatAttachActions } from './chat-attach-actions.ts';
 import { computerActions } from './computer-actions.ts';
@@ -48,6 +49,7 @@ export const serverActions = new ActionRegistry<ServerActionContext>(
         ...planActions,
         ...visualActions,
         ...chatAttachActions,
+        ...artifactActions,
         ...diagramActions,
         ...drawingActions,
         ...browserActions,
