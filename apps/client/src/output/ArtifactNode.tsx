@@ -104,11 +104,10 @@ function ArtifactVersionOnCanvas({
                     <Icon icon={ChevronDown} size={12} />
                 </Menu.Trigger>
                 <Menu.Popup align="end" className="max-h-80 min-w-56 overflow-y-auto">
-                    <Menu.RadioGroup
-                        value={reference.version ?? FOLLOW_LATEST}
-                        onValueChange={(next: string) => pin(next === FOLLOW_LATEST ? null : next)}
-                    >
-                        <Menu.RadioItem value={FOLLOW_LATEST} closeOnClick>{t('node.follow')}</Menu.RadioItem>
+                    <Menu.RadioGroup value={reference.version ?? FOLLOW_LATEST} onValueChange={(next: string) => pin(next === FOLLOW_LATEST ? null : next)}>
+                        <Menu.RadioItem value={FOLLOW_LATEST} closeOnClick>
+                            {t('node.follow')}
+                        </Menu.RadioItem>
                         <Menu.Separator />
                         {versions.map((entry) => (
                             <Menu.RadioItem key={entry.versionId} value={entry.versionId} className="tabular-nums" closeOnClick>

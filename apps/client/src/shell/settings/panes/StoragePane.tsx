@@ -9,7 +9,7 @@ import { create } from 'zustand';
 import { holdArtifacts, useArtifacts } from '@/output/artifacts';
 import { OutputProjectGlyph } from '@/output/look';
 import { showProjectOutput } from '@/output/open';
-import { CleanupReviewDialog } from '@/shell/settings/panes/CleanupReviewDialog';
+import { CleanupReviewDialog, type CleanupReview } from '@/shell/settings/panes/CleanupReviewDialog';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
 import { useEndpoints, type Endpoint } from '@/state/endpoints';
 import { endpointKey } from '@/state/keys';
@@ -234,7 +234,8 @@ function Proposals({
 }) {
     const { t } = useTranslation('settings');
     const deferred = useDeferredProposals((s) => s.deferred);
-    const [reviewing, setReviewing] = useState<ArtifactCleanupProposal | null>(null);
+    const [review, setReview] = useState<CleanupReview | null>(null);
+    const close = (): void => setReview(review === null ? null : { ...review, open: false });
     const shown = proposals.filter((proposal) => !deferred.has(endpointKey(endpointId, proposal.id)));
     return (
         <SettingsSection title={t('storage.cleanup.title')} description={t('storage.cleanup.description')} icon={Eraser}>
@@ -254,7 +255,7 @@ function Proposals({
                                     <Button variant="ghost" onClick={() => deferProposal(endpointKey(endpointId, proposal.id))}>
                                         {t('storage.cleanup.notNow')}
                                     </Button>
-                                    <Button variant="secondary" onClick={() => setReviewing(proposal)}>
+                                    <Button variant="secondary" onClick={() => setReview({ proposal, open: true, round: (review?.round ?? 0) + 1 })}>
                                         {t('storage.cleanup.review')}
                                     </Button>
                                 </span>
@@ -263,18 +264,16 @@ function Proposals({
                     );
                 })
             )}
-            {reviewing !== null && (
-                <CleanupReviewDialog
-                    endpointId={endpointId}
-                    machine={machine}
-                    proposal={reviewing}
-                    onClose={() => setReviewing(null)}
-                    onRemoved={() => {
-                        setReviewing(null);
-                        onRemoved();
-                    }}
-                />
-            )}
+            <CleanupReviewDialog
+                endpointId={endpointId}
+                machine={machine}
+                review={review}
+                onClose={close}
+                onRemoved={() => {
+                    close();
+                    onRemoved();
+                }}
+            />
         </SettingsSection>
     );
 }

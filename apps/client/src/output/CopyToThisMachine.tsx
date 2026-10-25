@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MonitorDown } from 'lucide-react';
 import type { Artifact, ArtifactVersion } from '@ruimte/contracts';
-import { Button, Icon, Spinner, Tooltip } from '@adecore/ui';
+import { Tooltip } from '@adecore/ui';
 import { useLinkedMachines } from '@/output/linked-machines';
+import { ActionRow } from '@/output/look';
 import { openArtifact } from '@/output/open';
 import { useEndpoints } from '@/state/endpoints';
 import { useEndpointId } from '@/state/keys';
@@ -58,10 +59,9 @@ export function CopyToThisMachine({ machineId, artifact, version }: { machineId:
 
     return (
         <Tooltip label={t('copyHere.tip', { project: project.name })}>
-            <Button size="sm" aria-disabled={copying} onClick={() => !copying && copy()}>
-                {copying ? <Spinner size={14} /> : <Icon icon={MonitorDown} size={14} />}
+            <ActionRow icon={MonitorDown} busy={copying} aria-disabled={copying} onClick={() => !copying && copy()}>
                 {copying ? t('copyHere.copying') : t('copyHere.action')}
-            </Button>
+            </ActionRow>
         </Tooltip>
     );
 }

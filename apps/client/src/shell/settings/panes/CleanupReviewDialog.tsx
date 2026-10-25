@@ -7,6 +7,16 @@ import { formatBytes, formatDayClock } from '@adecore/ui/format';
 import { useToasts } from '@/state/toasts';
 import { machineTransport } from '@/transport';
 
+/* One opening of the review. It stays after a close, so the dialog keeps what it showed while it fades out. */
+export interface CleanupReview {
+    proposal: ArtifactCleanupProposal;
+    open: boolean;
+    round: number;
+}
+
+const NOTHING: ReadonlySet<string> = new Set();
+const NO_PROPOSAL: ArtifactCleanupProposal = { id: '', artifactId: '', title: '', versions: [], bytes: 0 };
+
 /*
  * A cleanup proposal as concrete versions, each checked to start with. Only the versions still checked
  * go to the machine, which checks them again; nothing is removed by the proposal itself.
@@ -14,18 +24,22 @@ import { machineTransport } from '@/transport';
 export function CleanupReviewDialog({
     endpointId,
     machine,
-    proposal,
+    review,
     onClose,
     onRemoved
 }: {
     endpointId: string;
     machine: string;
-    proposal: ArtifactCleanupProposal;
+    review: CleanupReview | null;
     onClose(): void;
     onRemoved(): void;
 }) {
     const { t } = useTranslation('settings');
-    const [unchecked, setUnchecked] = useState<ReadonlySet<string>>(new Set());
+    const [left, setLeft] = useState<{ round: number; ids: ReadonlySet<string> }>({ round: 0, ids: new Set() });
+    const proposal = review?.proposal ?? NO_PROPOSAL;
+    // What a person unchecked holds for one opening; the next starts with every version checked again.
+    const unchecked = left.round === review?.round ? left.ids : NOTHING;
+    const setUnchecked = (ids: ReadonlySet<string>): void => setLeft({ round: review?.round ?? 0, ids });
     const picked = proposal.versions.filter((version) => !unchecked.has(version.versionId));
     const bytes = picked.reduce((sum, version) => sum + version.bytes, 0);
     const all = picked.length === proposal.versions.length;
@@ -49,7 +63,7 @@ export function CleanupReviewDialog({
 
     return (
         <PromptDialog
-            open
+            open={review?.open === true}
             nested
             title={t('storage.cleanup.proposal', { title: proposal.title })}
             description={t('storage.cleanup.dialogDescription', { machine })}

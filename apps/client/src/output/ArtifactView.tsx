@@ -6,7 +6,9 @@ import { patchOf } from '@adecore/merge';
 import { VisualPageFrame } from '@adecore/agents-react/chat/ui';
 import { useChats } from '@adecore/agents-react/state';
 import { BYTES_READ_MAX_BYTES, isCanvasView, type Artifact, type ArtifactGetResult, type ArtifactVersion } from '@ruimte/contracts';
-import { Button, EmptyState, ErrorBoundary, Icon, IconButton, LazyBoundary, Menu, Pill, SectionLabel, Separator, lazyNamed, Tooltip } from '@adecore/ui';
+import { EmptyState, ErrorBoundary, Icon, IconButton, LazyBoundary, Menu, Pill, SectionLabel, lazyNamed, Tooltip } from '@adecore/ui';
+import type { CopyToProjectRequest } from '@/output/CopyToProjectDialog';
+import { ActionRow } from '@/output/look';
 import { createNodeAction } from '@/actions/client-actions';
 import { showView } from '@/project/views';
 import { canvasSettled } from '@/state/canvas';
@@ -81,7 +83,7 @@ function ArtifactBody({ endpointId, machineId, result }: { endpointId: string; m
     const [comparing, setComparing] = useState(false);
     const [baseId, setBaseId] = useState<string | null>(null);
     const [infoOpen, setInfoOpen] = useState(true);
-    const [copying, setCopying] = useState(false);
+    const [copy, setCopy] = useState<CopyToProjectRequest | null>(null);
     const latest = versions[0]!;
     // A version picked from the panel that a cleanup took since is said to be gone, not swapped for another.
     const version = chosen === null ? latest : (versions.find((entry) => entry.versionId === chosen) ?? null);
@@ -100,22 +102,6 @@ function ArtifactBody({ endpointId, machineId, result }: { endpointId: string; m
     return (
         <div className="flex min-h-0 min-w-0 grow flex-col">
             <ArtifactToolbar>
-                <Tooltip label={t('view.compareOff')} disabled={canCompare}>
-                    <Button size="sm" aria-pressed={compare} aria-disabled={!canCompare} onClick={() => canCompare && setComparing(!comparing)}>
-                        <Icon icon={GitCompare} size={14} /> {t('view.compare')}
-                    </Button>
-                </Tooltip>
-                {machineId === undefined ? (
-                    <>
-                        <Button size="sm" disabled={version === null} onClick={() => setCopying(true)}>
-                            <Icon icon={FilePlus} size={14} /> {t('view.copyToProject')}
-                        </Button>
-                        <PinToCanvas artifact={artifact} version={version === null || version.versionId === latest.versionId ? null : version.versionId} />
-                    </>
-                ) : (
-                    version !== null && <CopyToThisMachine machineId={machineId} artifact={artifact} version={version} />
-                )}
-                <Separator />
                 <IconButton icon={Info} size="sm" label={t('view.info')} aria-pressed={infoOpen} onClick={() => setInfoOpen(!infoOpen)} />
             </ArtifactToolbar>
             <div className="flex min-h-0 grow">
@@ -139,12 +125,38 @@ function ArtifactBody({ endpointId, machineId, result }: { endpointId: string; m
                     )}
                 </div>
                 {infoOpen && version !== null && (
-                    <InfoColumn endpointId={endpointId} artifact={artifact} version={version} latest={latest} chatPresent={result.chatPresent} />
+                    <InfoColumn endpointId={endpointId} artifact={artifact} version={version} latest={latest} chatPresent={result.chatPresent}>
+                        <Tooltip label={t('view.compareOff')} disabled={canCompare}>
+                            <ActionRow
+                                icon={GitCompare}
+                                aria-pressed={compare}
+                                aria-disabled={!canCompare}
+                                onClick={() => canCompare && setComparing(!comparing)}
+                            >
+                                {t('view.compare')}
+                            </ActionRow>
+                        </Tooltip>
+                        {machineId === undefined ? (
+                            <>
+                                <ActionRow icon={FilePlus} onClick={() => setCopy({ version, open: true, round: (copy?.round ?? 0) + 1 })}>
+                                    {t('view.copyToProject')}
+                                </ActionRow>
+                                <PinToCanvas artifact={artifact} version={version.versionId === latest.versionId ? null : version.versionId} />
+                            </>
+                        ) : (
+                            <CopyToThisMachine machineId={machineId} artifact={artifact} version={version} />
+                        )}
+                    </InfoColumn>
                 )}
             </div>
-            {copying && version !== null && (
+            {machineId === undefined && (
                 <LazyBoundary>
-                    <CopyToProjectDialog endpointId={endpointId} artifact={artifact} version={version} onClose={() => setCopying(false)} />
+                    <CopyToProjectDialog
+                        endpointId={endpointId}
+                        artifact={artifact}
+                        request={copy}
+                        onClose={() => copy !== null && setCopy({ ...copy, open: false })}
+                    />
                 </LazyBoundary>
             )}
         </div>
@@ -174,10 +186,8 @@ function PinToCanvas({ artifact, version }: { artifact: Artifact; version: strin
     };
     return (
         <Menu.Root>
-            <Menu.Trigger render={<Button size="sm" disabled={canvases.length === 0} />}>
-                <Icon icon={Pin} size={14} /> {t('view.pinToCanvas')}
-            </Menu.Trigger>
-            <Menu.Popup align="end" className="min-w-48">
+            <Menu.Trigger render={<ActionRow icon={Pin} disabled={canvases.length === 0} />}>{t('view.pinToCanvas')}</Menu.Trigger>
+            <Menu.Popup align="start" className="min-w-48">
                 {canvases.map((view) => (
                     <Menu.Item key={view.id} onClick={() => void pin(view.id)}>
                         <span className="truncate">{view.name}</span>
@@ -249,13 +259,11 @@ function VersionsColumn({
                             className={`flex h-8 shrink-0 items-center gap-2 rounded-md px-2 text-left text-sm ${isSelected ? 'bg-surface-active text-text' : 'text-text-muted hover:bg-surface-hover'} ${isBase ? 'inset-ring inset-ring-border-strong' : ''}`}
                             onClick={() => onPick(version)}
                         >
-                            <span className="truncate tabular-nums">{t('view.versionRow', { number: version.number, date: formatDayClock(version.createdAt) })}</span>
+                            <span className="truncate tabular-nums">
+                                {t('view.versionRow', { number: version.number, date: formatDayClock(version.createdAt) })}
+                            </span>
                             <span className="grow" />
-                            {index === 0 && (
-                                <Pill tone="accent" size="sm">
-                                    {t('view.latest')}
-                                </Pill>
-                            )}
+                            {index === 0 && <Pill size="sm">{t('view.latest')}</Pill>}
                             {isBase && <Pill size="sm">{t('view.base')}</Pill>}
                             {!compare && index !== 0 && <span className="shrink-0 text-xs text-text-faint tabular-nums">{formatBytes(version.bytes)}</span>}
                         </button>
@@ -425,13 +433,16 @@ function InfoColumn({
     artifact,
     version,
     latest,
-    chatPresent
+    chatPresent,
+    children
 }: {
     endpointId: string;
     artifact: Artifact;
     version: ArtifactVersion;
     latest: ArtifactVersion;
     chatPresent: boolean;
+    /* What a person does with the version shown, in a list at the foot of the column. */
+    children: ReactNode;
 }) {
     const { t } = useTranslation('output');
     const provenance = version.provenance;
@@ -445,48 +456,51 @@ function InfoColumn({
         originId === undefined ? null : (s.endpoints.find((entry) => entry.id === originId || entry.daemonId === originId)?.label ?? null)
     );
     return (
-        <aside className="flex w-72 shrink-0 flex-col gap-5 overflow-y-auto border-l border-border px-4 py-3" aria-label={t('view.info')}>
-            <div className="flex flex-col gap-3">
-                <SectionLabel render={<h3 />}>{t('view.info')}</SectionLabel>
-                <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-                    <InfoRow label={t('info.maker')}>{t(`info.makers.${provenance.maker}`)}</InfoRow>
-                    {chatId !== undefined && (
-                        <InfoRow label={t('info.chat')}>
-                            {chatName !== null ? (
-                                <button type="button" className="truncate text-left text-text hover:underline" onClick={() => showChat(chatId)}>
-                                    {chatName === '' ? t('info.chatElsewhere') : chatName}
-                                </button>
-                            ) : present ? (
-                                t('info.chatElsewhere')
-                            ) : (
-                                <span className="text-text-muted">{t('info.chatRemoved')}</span>
-                            )}
-                        </InfoRow>
-                    )}
-                    <InfoRow label={t('info.machine')}>{machine}</InfoRow>
-                    {originId !== undefined && <InfoRow label={t('info.copiedFrom')}>{origin ?? t('info.otherMachine')}</InfoRow>}
-                </dl>
-                <p className="flex gap-2 rounded-md bg-surface-sunken px-3 py-2 text-xs text-text-muted">
-                    <Icon icon={Lock} size={14} className="mt-0.5 shrink-0 text-text-faint" />
-                    <span>{t('info.note')}</span>
-                </p>
-            </div>
-            <div className="flex flex-col gap-2">
-                <SectionLabel render={<h3 />}>{t('view.files')}</SectionLabel>
-                <FileRows endpointId={endpointId} artifact={artifact} version={version} />
-            </div>
-            {version.copiedTo.length > 0 && (
-                <div className="flex flex-col gap-2">
-                    <SectionLabel render={<h3 />}>{t('info.copiedTo')}</SectionLabel>
-                    <ul className="flex flex-col gap-1 text-xs text-text-muted">
-                        {version.copiedTo.map((path) => (
-                            <li key={path} className="truncate font-mono">
-                                {path}
-                            </li>
-                        ))}
-                    </ul>
+        <aside className="flex w-72 shrink-0 flex-col border-l border-border" aria-label={t('view.info')}>
+            <div className="flex min-h-0 grow flex-col gap-5 overflow-y-auto px-4 py-3">
+                <div className="flex flex-col gap-3">
+                    <SectionLabel render={<h3 />}>{t('view.info')}</SectionLabel>
+                    <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+                        <InfoRow label={t('info.maker')}>{t(`info.makers.${provenance.maker}`)}</InfoRow>
+                        {chatId !== undefined && (
+                            <InfoRow label={t('info.chat')}>
+                                {chatName !== null ? (
+                                    <button type="button" className="truncate text-left text-text hover:underline" onClick={() => showChat(chatId)}>
+                                        {chatName === '' ? t('info.chatElsewhere') : chatName}
+                                    </button>
+                                ) : present ? (
+                                    t('info.chatElsewhere')
+                                ) : (
+                                    <span className="text-text-muted">{t('info.chatRemoved')}</span>
+                                )}
+                            </InfoRow>
+                        )}
+                        <InfoRow label={t('info.machine')}>{machine}</InfoRow>
+                        {originId !== undefined && <InfoRow label={t('info.copiedFrom')}>{origin ?? t('info.otherMachine')}</InfoRow>}
+                    </dl>
+                    <p className="flex gap-2 rounded-md bg-surface-sunken px-3 py-2 text-xs text-text-muted">
+                        <Icon icon={Lock} size={14} className="mt-0.5 shrink-0 text-text-faint" />
+                        <span>{t('info.note')}</span>
+                    </p>
                 </div>
-            )}
+                <div className="flex flex-col gap-2">
+                    <SectionLabel render={<h3 />}>{t('view.files')}</SectionLabel>
+                    <FileRows endpointId={endpointId} artifact={artifact} version={version} />
+                </div>
+                {version.copiedTo.length > 0 && (
+                    <div className="flex flex-col gap-2">
+                        <SectionLabel render={<h3 />}>{t('info.copiedTo')}</SectionLabel>
+                        <ul className="flex flex-col gap-1 text-xs text-text-muted">
+                            {version.copiedTo.map((path) => (
+                                <li key={path} className="truncate font-mono">
+                                    {path}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+            </div>
+            <div className="flex shrink-0 flex-col gap-0.5 border-t border-border p-2">{children}</div>
         </aside>
     );
 }

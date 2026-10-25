@@ -238,7 +238,9 @@ describe('the artifact view', () => {
 
     test('Pin to canvas stays on the version picked, in view of that canvas', async () => {
         await openDependencies();
-        await clickOn(([...page.host.querySelectorAll('nav[aria-label="Versions"] button')] as HTMLElement[]).find((row) => row.textContent?.startsWith('v1, ')) ?? null);
+        await clickOn(
+            ([...page.host.querySelectorAll('nav[aria-label="Versions"] button')] as HTMLElement[]).find((row) => row.textContent?.startsWith('v1, ')) ?? null
+        );
         await until(() => text().includes('8 behind'));
         await clickOn(buttonWithText('Pin to canvas'));
         await until(() => document.querySelector('[role="menuitem"]') !== null);
@@ -262,7 +264,10 @@ describe('the artifact view', () => {
     test('Copy to project shows the folders of the project in a tree of its own height', async () => {
         machine.answer('fs.list', ({ path }) => ({
             path,
-            entries: path === '/work/atlas' ? [{ name: 'docs', path: '/work/atlas/docs', kind: 'directory', size: null, mtime: 0 }] : [],
+            entries:
+                path === '/work/atlas'
+                    ? [{ name: 'docs', path: '/work/atlas/docs', kind: 'directory' as const, size: null, mtime: 0, hidden: false, ignored: false }]
+                    : [],
             truncated: false
         }));
         await openDependencies();

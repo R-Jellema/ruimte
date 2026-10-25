@@ -1,7 +1,23 @@
 import { kindIcon } from '@/output/kinds';
 import { ProjectGlyph } from '@/project/ProjectGlyph';
 import { useProjectList } from '@/state/project-list';
-import { Icon } from '@adecore/ui';
+import type { ComponentProps } from 'react';
+import type { LucideIcon } from 'lucide-react';
+import { Icon, ListRow, Spinner } from '@adecore/ui';
+
+/* One thing to do with the version an artifact view shows, a row of the list at the foot of its info column. */
+export function ActionRow({ icon, busy = false, children, ...props }: ComponentProps<'button'> & { icon: LucideIcon; busy?: boolean }) {
+    return (
+        <ListRow
+            variant="inset"
+            render={<button type="button" {...props} />}
+            className="w-full gap-2 text-left text-sm text-text hover:bg-surface-hover disabled:text-text-faint disabled:hover:bg-transparent aria-disabled:text-text-faint aria-disabled:hover:bg-transparent aria-pressed:bg-surface-active"
+        >
+            {busy ? <Spinner size={14} /> : <Icon icon={icon} size={14} className="shrink-0 text-text-muted" />}
+            <span className="min-w-0 truncate">{children}</span>
+        </ListRow>
+    );
+}
 
 /* The square mark of a kind at the start of a row or a chip. */
 export function KindTile({ kind, size = 'md' }: { kind: string; size?: 'sm' | 'md' }) {
