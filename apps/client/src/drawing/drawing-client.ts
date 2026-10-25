@@ -1,3 +1,4 @@
+import { rebaseDrawingElements } from '@adecore/drawing';
 import { isDrawingView, type DrawingContent, type DrawingDocument } from '@ruimte/contracts';
 import type { DrawingState } from '@/state/drawing';
 import type { EditorRegistry } from '@/state/editors';
@@ -11,6 +12,10 @@ const DRAWINGS: FileEditorChannel<DrawingDocument, DrawingContent> = {
     save: (transport, projectId, viewId, baseRev, content) => transport.request('drawing.save', { projectId, viewId, baseRev, content }).then(({ rev }) => rev),
     close: (transport, projectId, viewId) => transport.request('drawing.close', { projectId, viewId }),
     copy: (transport, projectId, from, to) => transport.request('drawing.copy', { projectId, from, to }),
+    rebase: (base, mine, theirs) => {
+        const outcome = rebaseDrawingElements(base.elements, mine.elements, theirs.elements);
+        return outcome.ok ? { elements: outcome.elements } : null;
+    },
     errors: {
         open: 'drawing:error.drawingOpen',
         save: 'drawing:error.drawingSave',

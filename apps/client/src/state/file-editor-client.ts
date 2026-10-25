@@ -57,6 +57,11 @@ export interface FileEditorChannel<TDocument, TContent> {
     save(transport: Transport, projectId: string, viewId: string, baseRev: number, content: TContent): Promise<number>;
     close(transport: Transport, projectId: string, viewId: string): Promise<unknown>;
     copy(transport: Transport, projectId: string, from: string, to: string): Promise<unknown>;
+    /*
+     * Puts the unsaved `mine` on top of `theirs`, both grown from `base`, or null when they changed the
+     * same part. Without it every newer file that meets unsaved work goes to the banner.
+     */
+    rebase?(base: TDocument, mine: TContent, theirs: TDocument): TContent | null;
     /* Keys rather than words, translated when it fails, so a changed language reaches the next error. */
     errors: { open: string; save: string; copy: string };
 }
@@ -71,7 +76,7 @@ export interface FileEditorClientOptions {
 }
 
 /* One file the daemon has open for this client, with everything a save of that one file needs. */
-interface OpenFile<TState> {
+interface OpenFile<TState, TDocument> {
     projectId: string;
     viewId: string;
     store: StoreApi<TState>;
@@ -85,6 +90,10 @@ interface OpenFile<TState> {
     loaded: boolean;
     /* The rev a refused save was already tried again on, so a refusal never turns into a circle. */
     retriedRev: number | null;
+    /* The file as the daemon has it at the editor's rev, which unsaved work is rebased from. */
+    base: TDocument | null;
+    /* A newer file that came while a save was out, taken up once that save is answered. */
+    newer: TDocument | null;
 }
 
 /* Every document this client edits is its content with a version and a rev beside it. */
@@ -109,12 +118,12 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
     private readonly flushProject: () => Promise<void>;
     private readonly unsubscribe: Array<() => void> = [];
     /* By view id, every view of this kind on screen and every one still being closed: the grid can show several files, each with a rev of its own. */
-    private readonly open = new Map<string, OpenFile<TState>>();
+    private readonly open = new Map<string, OpenFile<TState, TDocument>>();
     /*
      * Off screen but not closed, since what they hold has not reached the file yet: the link was down,
      * a save failed or a conflict waits. They close once that is written, or go back on screen as they are.
      */
-    private readonly parked = new Map<string, OpenFile<TState>>();
+    private readonly parked = new Map<string, OpenFile<TState, TDocument>>();
     /* One round of closing at a time; a call while one runs asks for one more, which reads the grid afresh. */
     private closing: Promise<void> | null = null;
     private closeAgain = false;
@@ -165,7 +174,7 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
     }
 
     /* The file of the cell that has the focus, which is the one a banner or a menu is about. */
-    private get focused(): OpenFile<TState> | null {
+    private get focused(): OpenFile<TState, TDocument> | null {
         const { activeViewId } = this.documents.getState();
         return activeViewId === null ? null : (this.open.get(activeViewId) ?? null);
     }
@@ -212,6 +221,7 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
             // The edit that caused the conflict still has a save waiting; it would write their file back as ours.
             this.cancelSave(file);
             state.applyDocument(conflict);
+            file.base = conflict;
             return;
         }
         state.setRev(conflict.rev);
@@ -232,20 +242,20 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
     }
 
     /* Every file the daemon holds open for this client, on screen or parked. */
-    private held(): OpenFile<TState>[] {
+    private held(): OpenFile<TState, TDocument>[] {
         return [...this.open.values(), ...this.parked.values()];
     }
 
-    private heldFile(viewId: string): OpenFile<TState> | null {
+    private heldFile(viewId: string): OpenFile<TState, TDocument> | null {
         return this.open.get(viewId) ?? this.parked.get(viewId) ?? null;
     }
 
     /* Whether a reply to request `generation` of this file may still land on its editor. */
-    private isCurrent(file: OpenFile<TState>, generation: number): boolean {
+    private isCurrent(file: OpenFile<TState, TDocument>, generation: number): boolean {
         return !this.disposed && generation === file.generation && this.heldFile(file.viewId) === file;
     }
 
-    private async flushOne(file: OpenFile<TState>): Promise<void> {
+    private async flushOne(file: OpenFile<TState, TDocument>): Promise<void> {
         this.cancelSave(file);
         if (file.store.getState().dirty) {
             await this.save(file);
@@ -277,7 +287,7 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
     }
 
     /* Null between projects, which is no answer yet, so nothing closes on it. */
-    private isLeaving(file: OpenFile<TState>, target = this.target()): boolean {
+    private isLeaving(file: OpenFile<TState, TDocument>, target = this.target()): boolean {
         return target !== null && (target.projectId !== file.projectId || !target.viewIds.has(file.viewId));
     }
 
@@ -285,13 +295,13 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
      * A view gone from the project it is in, in which case what it held may not be written, since the
      * save would resurrect the file as an orphan. A file of another project is not gone: it is written.
      */
-    private isGone(file: OpenFile<TState>): boolean {
+    private isGone(file: OpenFile<TState, TDocument>): boolean {
         const projectId = this.projects.getState().current?.projectId ?? null;
         return file.projectId === projectId && !this.inProject(this.documents.getState(), file.viewId);
     }
 
     /* Nothing of the file waits any more: no unsaved edit, no conflict and no save on its way. */
-    private isSettled(file: OpenFile<TState>): boolean {
+    private isSettled(file: OpenFile<TState, TDocument>): boolean {
         const state = file.store.getState();
         return !state.dirty && state.conflict === null && file.saving === null;
     }
@@ -377,7 +387,7 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
         return this.closing;
     }
 
-    private async close(file: OpenFile<TState>): Promise<void> {
+    private async close(file: OpenFile<TState, TDocument>): Promise<void> {
         if (this.isGone(file)) {
             this.discard(file);
             return;
@@ -415,7 +425,7 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
     }
 
     /* Closes a parked file once what it held is written, or the file it was behind on has been taken. */
-    private settleParked(file: OpenFile<TState>): void {
+    private settleParked(file: OpenFile<TState, TDocument>): void {
         if (this.parked.get(file.viewId) !== file || !this.isSettled(file)) {
             return;
         }
@@ -423,7 +433,7 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
         this.release(file);
     }
 
-    private discard(file: OpenFile<TState>): void {
+    private discard(file: OpenFile<TState, TDocument>): void {
         this.cancelSave(file);
         if (this.open.get(file.viewId) === file) {
             this.open.delete(file.viewId);
@@ -434,14 +444,14 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
         this.release(file);
     }
 
-    private release(file: OpenFile<TState>): void {
+    private release(file: OpenFile<TState, TDocument>): void {
         file.store.getState().unload();
         this.editors.release(file.viewId);
         void this.channel.close(this.transport, file.projectId, file.viewId).catch(() => undefined);
     }
 
     private async openOne(projectId: string, viewId: string, local: ProjectViewLocal | null): Promise<void> {
-        const file: OpenFile<TState> = {
+        const file: OpenFile<TState, TDocument> = {
             projectId,
             viewId,
             store: this.editors.of(viewId),
@@ -450,7 +460,9 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
             generation: 1,
             opening: true,
             loaded: false,
-            retriedRev: null
+            retriedRev: null,
+            base: null,
+            newer: null
         };
         this.open.set(viewId, file);
         let document: TDocument;
@@ -479,11 +491,12 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
      * The first document of a file. Work drawn into the editor before it came had nothing to stand on,
      * so it stays on screen with the file in the banner, and a person says which of the two is kept.
      */
-    private receive(file: OpenFile<TState>, document: TDocument, local: ProjectViewLocal | null): void {
+    private receive(file: OpenFile<TState, TDocument>, document: TDocument, local: ProjectViewLocal | null): void {
         const before = file.store.getState();
         const early = before.dirty || before.edits > 0 ? before.exportContent() : null;
         before.load(file.viewId, document, local);
         file.loaded = true;
+        file.base = document;
         if (early !== null) {
             const state = file.store.getState();
             state.applyDocument(withContent(document, early));
@@ -499,7 +512,7 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
      * the screen is still the file and only the daemon had forgotten, a newer one is a conflict
      * while there is unsaved work and otherwise simply what the file is now.
      */
-    private async reopen(file: OpenFile<TState>): Promise<void> {
+    private async reopen(file: OpenFile<TState, TDocument>): Promise<void> {
         if (file.opening) {
             return;
         }
@@ -533,12 +546,7 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
             this.settleParked(file);
             return;
         }
-        if (state.dirty || file.saving) {
-            state.setConflict(document);
-            return;
-        }
-        state.applyDocument(document);
-        this.settleParked(file);
+        this.takeNewer(file, document);
     }
 
     private onEditor(viewId: string, state: TState, previous: TState): void {
@@ -555,22 +563,25 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
         }
     }
 
-    private cancelSave(file: OpenFile<TState>): void {
+    private cancelSave(file: OpenFile<TState, TDocument>): void {
         if (file.saveTimer) {
             clearTimeout(file.saveTimer);
             file.saveTimer = null;
         }
     }
 
-    private scheduleSave(file: OpenFile<TState>): void {
+    private scheduleSave(file: OpenFile<TState, TDocument>): void {
         this.cancelSave(file);
         file.saveTimer = setTimeout(() => {
             file.saveTimer = null;
-            void this.save(file);
+            // A save that was out meanwhile may have written it already.
+            if (file.store.getState().dirty) {
+                void this.save(file);
+            }
         }, this.saveDelayMs);
     }
 
-    private save(file: OpenFile<TState>): Promise<void> {
+    private save(file: OpenFile<TState, TDocument>): Promise<void> {
         if (file.saving) {
             // One write at a time per file; the edits made meanwhile ride the next one.
             return file.saving.then(() => (file.store.getState().dirty ? this.save(file) : undefined));
@@ -582,10 +593,12 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
         }
         state.setDirty(false);
         let stale = false;
+        const content = state.exportContent();
         file.saving = this.channel
-            .save(this.transport, file.projectId, file.viewId, state.rev, state.exportContent())
+            .save(this.transport, file.projectId, file.viewId, state.rev, content)
             .then((rev) => {
                 file.retriedRev = null;
+                file.base = file.base === null ? null : { ...withContent(file.base, content), rev };
                 file.store.getState().setRev(rev);
                 file.store.getState().setError(null);
             })
@@ -600,8 +613,13 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
             })
             .finally(() => {
                 file.saving = null;
+                const newer = file.newer;
+                file.newer = null;
                 if (stale) {
+                    // The refusal means the file moved on; the reopen reads where it is now.
                     void this.reopen(file);
+                } else if (newer !== null && newer.rev > file.store.getState().rev) {
+                    this.takeNewer(file, newer);
                 } else {
                     this.settleParked(file);
                 }
@@ -615,17 +633,41 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
         if (!file || file.projectId !== projectId || !file.loaded) {
             return;
         }
+        this.takeNewer(file, document);
+    }
+
+    /*
+     * A file other than the one on screen. Unsaved work goes on top of it where the channel can
+     * rebase it and saves against its rev; the change itself is one step back. Only work that
+     * clashes with it, or a file whose rev went back, goes to the banner.
+     */
+    private takeNewer(file: OpenFile<TState, TDocument>, document: TDocument): void {
         const state = file.store.getState();
-        if (state.dirty || file.saving) {
+        if (!state.dirty && !file.saving) {
+            state.applyDocument(document);
+            file.base = document;
+            this.settleParked(file);
+            return;
+        }
+        if (file.saving) {
+            // What the save in flight is answered with says which rev this document follows.
+            file.newer = document;
+            return;
+        }
+        const rebased =
+            this.channel.rebase && file.base !== null && document.rev > state.rev ? this.channel.rebase(file.base, state.exportContent(), document) : null;
+        if (rebased === null) {
             state.setConflict(document);
             return;
         }
-        state.applyDocument(document);
-        this.settleParked(file);
+        state.applyDocument(withContent(document, rebased));
+        file.base = document;
+        state.setDirty(true);
+        this.scheduleSave(file);
     }
 
     /* An error without a file goes to the focused editor, whose banner a person is looking at. */
-    private report(file: OpenFile<TState> | null, e: unknown, fallbackKey: string): void {
+    private report(file: OpenFile<TState, TDocument> | null, e: unknown, fallbackKey: string): void {
         if (isConnectionError(e)) {
             return;
         }

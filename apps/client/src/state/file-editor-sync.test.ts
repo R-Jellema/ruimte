@@ -88,7 +88,7 @@ afterEach(() => {
 for (const kind of ['drawing', 'diagram'] as const) {
     describe(`${kind} synchronization through the save handler`, () => {
         for (const otherHasEdits of [false, true]) {
-            test(`a save updates the other editor ${otherHasEdits ? 'through its conflict flow' : 'in place'}`, async () => {
+            test(`a save updates the other editor ${otherHasEdits ? 'that has unsaved edits of its own' : 'in place'}`, async () => {
                 const root = await mkdtemp(join(tmpdir(), 'ruimte-file-sync-'));
                 const folder = join(root, 'repo');
                 await mkdir(folder);
@@ -162,6 +162,14 @@ for (const kind of ['drawing', 'diagram'] as const) {
                     expect(screens[0]!.state().conflict).toBeNull();
                     expect(first.events).toEqual([]);
                     expect(second.events).toHaveLength(1);
+                    if (otherHasEdits && kind === 'drawing') {
+                        // Elements apart from each other merge by id, so the other editor rebases without a banner.
+                        expect(screens[1]!.ids()).toEqual(['mine', 'new']);
+                        expect(screens[1]!.state().conflict).toBeNull();
+                        expect(screens[1]!.state().dirty).toBe(true);
+                        expect(screens[1]!.state().rev).toBe(1);
+                        return;
+                    }
                     if (otherHasEdits) {
                         expect(screens[1]!.ids()).toEqual(['mine']);
                         expect(screens[1]!.state().dirty).toBe(true);

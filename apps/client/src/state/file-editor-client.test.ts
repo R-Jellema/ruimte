@@ -41,6 +41,8 @@ interface Kind<S extends EditorState> {
     client(transport: Transport, stores: WorkspaceStores, options: FileEditorClientOptions): Client;
     document(rev: number, ...ids: string[]): unknown;
     add(state: S, id: string): void;
+    /* An unsaved edit that a document without `a` clashes with, whatever the kind can rebase. */
+    clash(state: S): void;
     ids(state: S): string[];
     written(content: unknown): string[];
 }
@@ -70,6 +72,7 @@ const DRAWING: Kind<DrawingState> = {
     client: (transport, stores, options) => new DrawingClient(transport, stores.drawings, stores.document, stores.project, options),
     document: (rev, ...ids): DrawingDocument => ({ version: 1, rev, elements: ids.map(rect) }),
     add: (state, id) => state.addElement(rect(id)),
+    clash: (state) => state.updateElement('a', { x: 50 }),
     ids: (state) => state.elements.map((element) => element.id),
     written: (content) => (content as { elements: DrawingElement[] }).elements.map((element) => element.id)
 };
@@ -80,6 +83,7 @@ const DIAGRAM: Kind<DiagramState> = {
     client: (transport, stores, options) => new DiagramClient(transport, stores.diagrams, stores.document, stores.project, options),
     document: (rev, ...ids) => diagramDocument(rev, ...ids.map(node)),
     add: (state, id) => state.replaceContent({ ...state.content, nodes: [...state.content.nodes, node(id)] }),
+    clash: (state) => state.replaceContent({ ...state.content, nodes: [...state.content.nodes, node('b')] }),
     ids: (state) => state.content.nodes.map((entry) => entry.id),
     written: (content) => (content as { nodes: DiagramNode[] }).nodes.map((entry) => entry.id)
 };
@@ -407,7 +411,7 @@ function suite<S extends EditorState>(kind: Kind<S>): void {
         test('a save the daemon refuses waits for the file, and the banner gets it', async () => {
             await open();
             harness.transport.conflictOnSave = true;
-            kind.add(harness.current(), 'b');
+            kind.clash(harness.current());
             await tick(20);
             expect(harness.current().dirty).toBe(true);
             expect(harness.current().error).toBeNull();
@@ -422,7 +426,7 @@ function suite<S extends EditorState>(kind: Kind<S>): void {
 
         test('taking theirs drops the save the edit that caused the conflict still had waiting', async () => {
             await open();
-            kind.add(harness.current(), 'b');
+            kind.clash(harness.current());
             // Their write lands before the pause after the edit is over.
             harness.transport.changed('view-1', kind.document(8, 'z'));
             expect(harness.current().conflict).toMatchObject({ rev: 8 });
@@ -867,5 +871,84 @@ describe('a diagram node dragged against an agent', () => {
         expect(harness.current().past).toHaveLength(0);
         await tick(20);
         expect(harness.transport.of('save')).toHaveLength(0);
+    });
+});
+
+describe('a drawing edited while an agent writes', () => {
+    const harness = harnessFor(DRAWING);
+    const sun = (): DrawingElement => ({ ...rect('sun'), x: 600 });
+    const open = async (): Promise<void> => {
+        harness.stores.document.getState().setActiveView('view-1');
+        await tick();
+    };
+
+    test('unsaved work on other elements goes on top of their change and saves against its rev', async () => {
+        await open();
+        harness.current().addElement(rect('b'));
+        // The agent's write lands before the pause after the edit is over.
+        harness.transport.changed('view-1', { version: 1, rev: 8, elements: [rect('a'), sun()] });
+        expect(harness.current().conflict).toBeNull();
+        expect(DRAWING.ids(harness.current())).toEqual(['a', 'b', 'sun']);
+        await tick(20);
+        const saves = harness.transport.of('save');
+        expect(saves).toHaveLength(1);
+        expect(saves[0]!.payload).toMatchObject({ baseRev: 8 });
+        expect(DRAWING.written((saves[0]!.payload as { content: unknown }).content)).toEqual(['a', 'b', 'sun']);
+        expect(harness.current().rev).toBe(9);
+        expect(harness.current().dirty).toBe(false);
+
+        // Their change is one step back, and the person's own steps before it stay.
+        harness.current().undo();
+        expect(DRAWING.ids(harness.current())).toEqual(['a', 'b']);
+        harness.current().undo();
+        expect(DRAWING.ids(harness.current())).toEqual(['a']);
+    });
+
+    test('only an element both sides changed goes to the banner, and nothing is written', async () => {
+        await open();
+        harness.current().updateElement('a', { x: 50 });
+        harness.transport.changed('view-1', { version: 1, rev: 8, elements: [{ ...rect('a'), x: 90 }, sun()] });
+        expect(harness.current().conflict).toMatchObject({ rev: 8 });
+        expect(harness.current().elements[0]).toMatchObject({ id: 'a', x: 50 });
+        await tick(20);
+        expect(harness.transport.of('save')).toHaveLength(0);
+    });
+
+    test('a change that comes while a save is out waits for its answer and is rebased on what that save wrote', async () => {
+        await open();
+        const release = harness.transport.hold('save', 'view-1');
+        harness.current().addElement(rect('b'));
+        await tick(20);
+        expect(harness.transport.of('save')).toHaveLength(1);
+        harness.current().addElement(rect('c'));
+        // Written after the person's save landed at 6, so it holds `b` but not `c`.
+        harness.transport.changed('view-1', { version: 1, rev: 7, elements: [rect('a'), rect('b'), sun()] });
+        expect(harness.current().conflict).toBeNull();
+        release();
+        await tick(20);
+        expect(harness.current().conflict).toBeNull();
+        expect(DRAWING.ids(harness.current())).toEqual(['a', 'b', 'c', 'sun']);
+        const saves = harness.transport.of('save');
+        expect(saves.map((call) => (call.payload as { baseRev: number }).baseRev)).toEqual([5, 7]);
+        expect(harness.current().rev).toBe(8);
+    });
+
+    test('a save refused for their change reads the file again and rebases onto it', async () => {
+        await open();
+        const release = harness.transport.hold('save', 'view-1');
+        harness.current().addElement(rect('b'));
+        await tick(20);
+        // Their write landed first, so the daemon refuses this one save and has their file on the next open.
+        harness.transport.conflictOnSave = true;
+        harness.transport.document = { version: 1, rev: 6, elements: [rect('a'), sun()] };
+        void harness.transport.next('open', 'view-1').then(() => {
+            harness.transport.conflictOnSave = false;
+        });
+        release();
+        await tick(20);
+        expect(harness.current().conflict).toBeNull();
+        expect(DRAWING.ids(harness.current())).toEqual(['a', 'b', 'sun']);
+        expect(harness.transport.of('save').at(-1)!.payload).toMatchObject({ baseRev: 6 });
+        expect(harness.current().rev).toBe(7);
     });
 });
