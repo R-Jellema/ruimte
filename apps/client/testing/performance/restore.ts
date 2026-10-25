@@ -6,6 +6,7 @@ export async function measureRestore(options: {
     projectId: string;
     profile: string;
     settings?: Record<string, unknown>;
+    assetDelayMs?: number;
     inject?: string;
     probe?: (view: Bun.WebView) => Promise<unknown>;
 }) {
@@ -17,6 +18,9 @@ export async function measureRestore(options: {
         port: 0,
         async fetch(request) {
             const path = new URL(request.url).pathname;
+            if (path.endsWith('.js') && options.assetDelayMs) {
+                await Bun.sleep(options.assetDelayMs);
+            }
             const file = Bun.file(join(root, path === '/' ? 'index.html' : path));
             if (!(await file.exists())) {
                 return new Response(null, { status: 404 });

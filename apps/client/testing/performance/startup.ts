@@ -2,7 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 
-const root = join(import.meta.dir, '../../dist');
+const root = process.env.BENCH_CLIENT_DIST ?? join(import.meta.dir, '../../dist');
 const runs = Number(process.env.BENCH_RUNS ?? 9);
 const language = process.env.BENCH_LANGUAGE ?? 'en';
 const latency = Number(process.env.BENCH_LATENCY ?? 0);

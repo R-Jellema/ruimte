@@ -152,16 +152,19 @@ try {
                     }
                 }
             }
-            const hmrMs = await probeHmr(
-                view,
-                join(client, 'src/shell/StartScreen.tsx'),
-                (source) =>
-                    source.replace(
-                        '<div className="mx-auto flex min-h-full w-full max-w-4xl',
-                        '<div data-bench-hmr="1" className="mx-auto flex min-h-full w-full max-w-4xl'
-                    ),
-                '[data-bench-hmr="1"]'
-            );
+            const hmrMs =
+                process.env.BENCH_HMR === '0'
+                    ? null
+                    : await probeHmr(
+                          view,
+                          join(client, 'src/shell/StartScreen.tsx'),
+                          (source) =>
+                              source.replace(
+                                  '<div className="mx-auto flex min-h-full w-full max-w-4xl',
+                                  '<div data-bench-hmr="1" className="mx-auto flex min-h-full w-full max-w-4xl'
+                              ),
+                          '[data-bench-hmr="1"]'
+                      );
             let linkedHmrMs: number | null = null;
             if (process.env.BENCH_LINKED_HMR === '1') {
                 const path = realpathSync(join(client, 'node_modules/@adecore/ui/src/Button.tsx'));
