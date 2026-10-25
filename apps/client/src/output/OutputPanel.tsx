@@ -38,6 +38,7 @@ import { KindTile, OutputProjectGlyph } from '@/output/look';
 import { openArtifact, useOutputRequest } from '@/output/open';
 import { useArtifact } from '@/output/use-artifact';
 import { PanelHeaderSlot } from '@/shell/PanelHeaderSlot';
+import { FILE_TOOLBAR } from '@/shell/panels/classes';
 import { useEndpointId } from '@/state/keys';
 import { useProject } from '@/state/project';
 import { useUi } from '@/state/ui';
@@ -339,7 +340,7 @@ function ScopeLine({
     const count = narrowing(filters);
     const otherProject = filters.project !== defaultFilters(projectId).project;
     return (
-        <div className="flex h-8 shrink-0 items-center gap-1.5 border-b border-border pr-1 pl-3 text-xs text-text-muted">
+        <div className={`${FILE_TOOLBAR} text-xs text-text-muted`}>
             {otherProject && (
                 <>
                     {filters.project === ALL ? (
