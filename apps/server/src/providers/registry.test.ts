@@ -15,10 +15,11 @@ describe('ProviderRegistry', () => {
             'GitHub Copilot',
             'Grok',
             'Apple Foundation Models',
-            'NanoGPT Subscription'
+            'NanoGPT Subscription',
+            'Claude API'
         ]);
-        expect(providers.map((provider) => provider.capabilities.chat)).toEqual([true, true, true, true, true, true, true]);
-        expect(providers.map((provider) => provider.capabilities.terminal)).toEqual([true, true, true, true, true, false, false]);
+        expect(providers.map((provider) => provider.capabilities.chat)).toEqual([true, true, true, true, true, true, true, true]);
+        expect(providers.map((provider) => provider.capabilities.terminal)).toEqual([true, true, true, true, true, false, false, false]);
         for (const provider of providers) {
             expect(provider.capabilities.hooks).toBe(hasHooks(provider.kind));
         }

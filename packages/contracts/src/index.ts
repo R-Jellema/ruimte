@@ -405,6 +405,8 @@ import {
     ComputerUseSetEnabledPayloadSchema,
     ComputerUseStatusSchema
 } from './computer.ts';
+import { ClaudeApiConfigurePayloadSchema, ClaudeApiStatusSchema } from './claude-api.ts';
+export * from './claude-api.ts';
 import { NanoGptConfigurePayloadSchema, NanoGptStatusSchema } from './nanogpt.ts';
 export * from './nanogpt.ts';
 import { SecretAnswerResultSchema, SecretDeclinePayloadSchema, SecretRequestsSchema, SecretSavePayloadSchema } from './secrets.ts';
@@ -822,7 +824,9 @@ export const REQUEST_SCHEMAS = {
     'provenance.read': { payload: ProvenanceReadPayloadSchema, result: ProvenanceReadResultSchema },
     'provenance.review': { payload: ProvenanceReviewPayloadSchema, result: ProvenanceReviewResultSchema },
     'nanogpt.status': { payload: EmptySchema, result: NanoGptStatusSchema },
-    'nanogpt.configure': { payload: NanoGptConfigurePayloadSchema, result: NanoGptStatusSchema }
+    'nanogpt.configure': { payload: NanoGptConfigurePayloadSchema, result: NanoGptStatusSchema },
+    'anthropic.status': { payload: EmptySchema, result: ClaudeApiStatusSchema },
+    'anthropic.configure': { payload: ClaudeApiConfigurePayloadSchema, result: ClaudeApiStatusSchema }
 } as const satisfies Record<string, { payload: z.ZodType; result: z.ZodType }>;
 
 export type RequestType = keyof typeof REQUEST_SCHEMAS;

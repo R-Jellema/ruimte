@@ -18,6 +18,7 @@ import {
 import type { AcpServerLaunch } from './acp-server.ts';
 import { BUILT_IN_KINDS } from './kinds.ts';
 import { nanoGptProvider } from './nanogpt-provider.ts';
+import { anthropicClaudeApiProvider } from './anthropic-claude-api-provider.ts';
 
 // The CLIs the daemon ships with, in the order of `BUILT_IN_KINDS`. A new one is one more value there, here and in `builtInProviders`.
 const BUILT_IN_PROVIDERS: ChatProvider[] = [claudeProvider, codexProvider, createAntigravityProvider(null), copilotProvider, grokProvider];
@@ -35,6 +36,9 @@ const ADDED_PROVIDERS = new Map<AgentKind, ChatProvider>();
 export function providerFor(kind: AgentKind): ChatProvider {
     if (kind === 'apple') {
         return appleProvider;
+    }
+    if (kind === 'anthropic-claude-api') {
+        return anthropicClaudeApiProvider;
     }
     if (kind === 'nanogpt') {
         return nanoGptProvider;
@@ -72,7 +76,8 @@ function builtInProviders(options: ProviderRegistryOptions): ChatProvider[] {
         createCopilotProvider(store('copilot'), options.home === undefined ? undefined : copilotUsageDirectory(options.home)),
         createGrokProvider(store('grok')),
         createAppleProvider(options.appleEnabled ?? (() => false)),
-        nanoGptProvider
+        nanoGptProvider,
+        anthropicClaudeApiProvider
     ];
 }
 

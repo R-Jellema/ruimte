@@ -53415,7 +53415,8 @@
                 "codex",
                 "nanogpt",
                 "grok",
-                "copilot"
+                "copilot",
+                "anthropic-claude-api"
               ]
             },
             "model": {
@@ -53512,7 +53513,8 @@
                 "codex",
                 "nanogpt",
                 "grok",
-                "copilot"
+                "copilot",
+                "anthropic-claude-api"
               ]
             },
             "model": {
@@ -53629,7 +53631,8 @@
                   "codex",
                   "nanogpt",
                   "grok",
-                  "copilot"
+                  "copilot",
+                  "anthropic-claude-api"
                 ]
               },
               "additionalProperties": {
@@ -53827,7 +53830,8 @@
                 "codex",
                 "nanogpt",
                 "grok",
-                "copilot"
+                "copilot",
+                "anthropic-claude-api"
               ]
             },
             "path": {
@@ -53872,7 +53876,8 @@
                 "codex",
                 "nanogpt",
                 "grok",
-                "copilot"
+                "copilot",
+                "anthropic-claude-api"
               ]
             },
             "label": {
@@ -53946,7 +53951,8 @@
                 "codex",
                 "nanogpt",
                 "grok",
-                "copilot"
+                "copilot",
+                "anthropic-claude-api"
               ]
             },
             "account": {
@@ -54133,7 +54139,8 @@
                 "codex",
                 "nanogpt",
                 "grok",
-                "copilot"
+                "copilot",
+                "anthropic-claude-api"
               ]
             },
             "account": {
@@ -62355,6 +62362,138 @@
           "autoContinue",
           "roundsPerRun",
           "runs"
+        ]
+      }
+    },
+    "required": [
+      "configured",
+      "models"
+    ]
+  },
+  "request.anthropic.status.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {}
+  },
+  "request.anthropic.status.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "configured": {
+        "type": "boolean"
+      },
+      "models": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "settings": {
+        "type": "object",
+        "properties": {
+          "autoContinue": {
+            "type": "boolean"
+          },
+          "roundsPerRun": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 200
+          },
+          "runs": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          },
+          "maxOutputTokens": {
+            "type": "integer",
+            "minimum": 1024,
+            "maximum": 128000
+          }
+        },
+        "required": [
+          "autoContinue",
+          "roundsPerRun",
+          "runs",
+          "maxOutputTokens"
+        ]
+      }
+    },
+    "required": [
+      "configured",
+      "models"
+    ]
+  },
+  "request.anthropic.configure.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "apiKey": {
+        "type": "string",
+        "maxLength": 4096
+      },
+      "settings": {
+        "type": "object",
+        "properties": {
+          "autoContinue": {
+            "type": "boolean"
+          },
+          "roundsPerRun": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 200
+          },
+          "runs": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          },
+          "maxOutputTokens": {
+            "type": "integer",
+            "minimum": 1024,
+            "maximum": 128000
+          }
+        }
+      }
+    }
+  },
+  "request.anthropic.configure.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "configured": {
+        "type": "boolean"
+      },
+      "models": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "settings": {
+        "type": "object",
+        "properties": {
+          "autoContinue": {
+            "type": "boolean"
+          },
+          "roundsPerRun": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 200
+          },
+          "runs": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          },
+          "maxOutputTokens": {
+            "type": "integer",
+            "minimum": 1024,
+            "maximum": 128000
+          }
+        },
+        "required": [
+          "autoContinue",
+          "roundsPerRun",
+          "runs",
+          "maxOutputTokens"
         ]
       }
     },
@@ -75898,7 +76037,8 @@
                 "codex",
                 "nanogpt",
                 "grok",
-                "copilot"
+                "copilot",
+                "anthropic-claude-api"
               ]
             },
             "account": {

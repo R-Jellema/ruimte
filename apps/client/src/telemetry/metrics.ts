@@ -21,6 +21,7 @@ export type ReconnectReason = (typeof RECONNECT_REASONS)[number];
 export const REQUEST_AREAS = [
     'accounts',
     'agent',
+    'anthropic',
     'archive',
     'auth',
     'browser',

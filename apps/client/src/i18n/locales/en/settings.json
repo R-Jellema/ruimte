@@ -1547,6 +1547,41 @@
             "remove": "Remove from this machine",
             "removeDescription": "{{name}}'s chats stay and work again once it is reinstalled.",
             "removeButton": "Remove"
+        },
+        "claudeApi": {
+            "description": "Chat with Claude through the API, with a key of your own. Anthropic bills every call per token, so check your spending there.",
+            "footer": "The key stays on this machine and is never shown again. Tools follow the chat permission mode. A chat only continues automatically if you allow it below.",
+            "key": "API key",
+            "keyDescription": "A key from console.anthropic.com. Saving checks it and fetches the models it can use.",
+            "saved": "Saved",
+            "status": "API key",
+            "save": "Save",
+            "refresh": "Refresh models",
+            "disconnect": "Disconnect",
+            "loading": "Checking with Anthropic…",
+            "unknown": "The machine has not answered yet.",
+            "ready_one": "Connected, {{count}} model available.",
+            "ready_other": "Connected, {{count}} models available.",
+            "disconnected": "No key saved on this machine.",
+            "unavailable": "This machine does not offer the Claude API yet. Update Ruimte on it.",
+            "failed": "Could not change the Claude API on this machine.",
+            "continue": {
+                "label": "Continue automatically",
+                "description": "When a chat reaches its tool rounds for one run, it goes on by itself, and every call is paid for. Off, it stops and waits for your message."
+            },
+            "rounds": {
+                "label": "Tool rounds per run",
+                "description": "How many rounds of tools a run takes before it is cut, from 5 to 200."
+            },
+            "runs": {
+                "label": "Runs before it stops",
+                "description": "How many runs a chat takes by itself, from 1 to 20. This is the limit on a loop that never ends."
+            },
+            "tokens": {
+                "label": "Output tokens per reply",
+                "description": "The most a single reply may use, from 1,024 to 128,000, and never more than the model allows. Thinking counts toward it."
+            },
+            "noKey": "No API key saved"
         }
     }
 }

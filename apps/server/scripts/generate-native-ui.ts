@@ -185,6 +185,7 @@ if (!bundle.success) {
 
 /* The package a bundled file belongs to and its place there, so the digest does not depend on where packages are installed or linked. */
 function sourceName(path: string): readonly [name: string, contents: string] {
+    const normalizedPath = path.replaceAll('\\', '/');
     let folder = dirname(path);
     while (dirname(folder) !== folder) {
         const manifest = resolve(folder, 'package.json');
@@ -192,14 +193,14 @@ function sourceName(path: string): readonly [name: string, contents: string] {
         const { name, version } = existsSync(manifest) ? JSON.parse(readFileSync(manifest, 'utf8')) : {};
         if (name) {
             // Which files of a third-party package a bundle lists differs between Bun versions, its version does not.
-            if (path.includes('/node_modules/') && !name.startsWith('@adecore/')) {
+            if (normalizedPath.includes('/node_modules/') && !name.startsWith('@adecore/')) {
                 return [`${name}@${version}`, ''];
             }
-            return [`${name}/${relative(folder, path)}`, readFileSync(path, 'utf8')];
+            return [`${name}/${relative(folder, path).replaceAll('\\', '/')}`, readFileSync(path, 'utf8')];
         }
         folder = dirname(folder);
     }
-    return [path, readFileSync(path, 'utf8')];
+    return [normalizedPath, readFileSync(path, 'utf8')];
 }
 
 // Minified output differs between Bun versions, so a check compares what went in rather than the bytes that came out.
