@@ -10,6 +10,8 @@ import {
 } from '@ruimte/contracts';
 import { visibleRect } from '@/canvas/math';
 import { liveCanvas } from '@/state/canvas';
+import { useProvidersStore } from '@adecore/agents-react/state';
+import { useProject } from '@/state/project';
 import { useUi } from '@/state/ui';
 import { useFiles } from '@/state/files';
 import { TransportError } from '@/transport/transport';
@@ -73,6 +75,11 @@ const LIST: ArtifactSummary[] = [
 
 function text(): string {
     return page.host.textContent ?? '';
+}
+
+function infoRow(label: string): string | undefined {
+    const term = ([...page.host.querySelectorAll('aside dt')] as HTMLElement[]).find((entry) => entry.textContent === label);
+    return term?.nextElementSibling?.textContent ?? undefined;
 }
 
 function buttonWithText(label: string): HTMLElement | null {
@@ -216,10 +223,28 @@ describe('the artifact view', () => {
     test('shows the latest version, its record and a chat that is gone', async () => {
         await openDependencies();
         expect(text()).toContain('Versions');
-        expect(text()).toContain('By an agent');
+        // A version saved before the machine noted the CLI and the model says only that an agent made it.
+        expect(infoRow('Made by')).toBe('Agent');
         expect(text()).toContain('Chat removed');
         expect(text()).toContain('An agent cannot change it.');
         expect(machine.requests('bytes.read')[0]!.resource).toEqual({ kind: 'artifact', artifactId: 'deps', versionId: 'v-new', file: 0 });
+    });
+
+    test('names the model an agent ran as the machine names it, beside the mark of its CLI', async () => {
+        const latest = version('v-new', 2, NOW, {
+            provenance: { maker: 'agent', machineId: 'mac', chatId: 'chat-gone', agent: 'claude', model: 'claude-opus-5-5' }
+        });
+        machine.answer('artifact.get', () => ({ ...DEPENDENCIES, versions: [latest, DEPENDENCIES.versions[1]!] }));
+        act(() =>
+            useProvidersStore
+                .getState()
+                .setProviders(useProject.getState().currentEndpointId ?? '', [
+                    { kind: 'claude', name: 'Claude Code', models: [{ slug: 'claude-opus-5-5', name: 'Claude Opus 5.5' }] } as never
+                ])
+        );
+        await openDependencies();
+        expect(infoRow('Made by')).toBe('Claude Opus 5.5');
+        expect(page.host.querySelector('aside dd svg')).not.toBeNull();
     });
 
     test('Compare sets the version before it beside the latest', async () => {

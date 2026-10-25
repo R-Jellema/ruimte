@@ -111,11 +111,11 @@
         "removedDetail": "Wat deze node toonde staat niet meer in Output op deze machine."
     },
     "info": {
-        "maker": "Gemaakt",
+        "maker": "Gemaakt door",
         "makers": {
-            "agent": "Door een agent",
-            "person": "Door jou",
-            "routine": "Door een routine"
+            "agent": "Agent",
+            "person": "Jij",
+            "routine": "Een routine"
         },
         "chat": "Chat",
         "chatRemoved": "Chat verwijderd",

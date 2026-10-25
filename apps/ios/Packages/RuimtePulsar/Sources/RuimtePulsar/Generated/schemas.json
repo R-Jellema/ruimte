@@ -8295,6 +8295,16 @@
                     "runId": {
                       "type": "string",
                       "minLength": 1
+                    },
+                    "agent": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    },
+                    "model": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
                     }
                   },
                   "required": [
@@ -8368,6 +8378,16 @@
                         "runId": {
                           "type": "string",
                           "minLength": 1
+                        },
+                        "agent": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64
+                        },
+                        "model": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
                         }
                       },
                       "required": [
@@ -8612,6 +8632,16 @@
                 "runId": {
                   "type": "string",
                   "minLength": 1
+                },
+                "agent": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "model": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
                 }
               },
               "required": [
@@ -8685,6 +8715,16 @@
                     "runId": {
                       "type": "string",
                       "minLength": 1
+                    },
+                    "agent": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    },
+                    "model": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
                     }
                   },
                   "required": [
@@ -63105,6 +63145,16 @@
                     "runId": {
                       "type": "string",
                       "minLength": 1
+                    },
+                    "agent": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    },
+                    "model": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
                     }
                   },
                   "required": [
@@ -63178,6 +63228,16 @@
                         "runId": {
                           "type": "string",
                           "minLength": 1
+                        },
+                        "agent": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64
+                        },
+                        "model": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
                         }
                       },
                       "required": [
@@ -63416,6 +63476,16 @@
                 "runId": {
                   "type": "string",
                   "minLength": 1
+                },
+                "agent": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "model": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
                 }
               },
               "required": [
@@ -63489,6 +63559,16 @@
                     "runId": {
                       "type": "string",
                       "minLength": 1
+                    },
+                    "agent": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    },
+                    "model": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
                     }
                   },
                   "required": [

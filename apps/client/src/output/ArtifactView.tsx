@@ -4,8 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { CircleAlert, Download, FilePlus, GitCompare, Info, Lock, Package, Pin, WifiOff } from 'lucide-react';
 import { patchOf } from '@adecore/merge';
 import { VisualPageFrame } from '@adecore/agents-react/chat/ui';
-import { useChats } from '@adecore/agents-react/state';
-import { BYTES_READ_MAX_BYTES, isCanvasView, type Artifact, type ArtifactGetResult, type ArtifactVersion } from '@ruimte/contracts';
+import { AgentIcon, modelName, ProviderLogo } from '@adecore/agents-react/providers';
+import { useChats, useProvidersStore } from '@adecore/agents-react/state';
+import { BYTES_READ_MAX_BYTES, isCanvasView, type Artifact, type ArtifactGetResult, type ArtifactProvenance, type ArtifactVersion } from '@ruimte/contracts';
+import { hasProviderLogo } from '@/agents/provider-logo';
 import { EmptyState, ErrorBoundary, Icon, IconButton, LazyBoundary, Menu, Pill, SectionLabel, lazyNamed, Tooltip } from '@adecore/ui';
 import type { CopyToProjectRequest } from '@/output/CopyToProjectDialog';
 import { ActionRow } from '@/output/look';
@@ -461,7 +463,9 @@ function InfoColumn({
                 <div className="flex flex-col gap-3">
                     <SectionLabel render={<h3 />}>{t('view.info')}</SectionLabel>
                     <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-                        <InfoRow label={t('info.maker')}>{t(`info.makers.${provenance.maker}`)}</InfoRow>
+                        <InfoRow label={t('info.maker')}>
+                            <Maker endpointId={endpointId} provenance={provenance} />
+                        </InfoRow>
                         {chatId !== undefined && (
                             <InfoRow label={t('info.chat')}>
                                 {chatName !== null ? (
@@ -502,6 +506,27 @@ function InfoColumn({
             </div>
             <div className="flex shrink-0 flex-col gap-0.5 border-t border-border p-2">{children}</div>
         </aside>
+    );
+}
+
+/*
+ * Who made a version: a person, a routine, or an agent by its CLI's mark and the model it ran, named
+ * the way the machine's catalog names it. A version saved before the machine noted either says Agent.
+ */
+function Maker({ endpointId, provenance }: { endpointId: string; provenance: ArtifactProvenance }) {
+    const { t } = useTranslation('output');
+    const { agent, model } = provenance;
+    const catalog = useProvidersStore((s) => (agent === undefined ? undefined : s.byScope[endpointId]?.providers.find((entry) => entry.kind === agent)));
+    if (provenance.maker !== 'agent' || (agent === undefined && model === undefined)) {
+        return t(`info.makers.${provenance.maker}`);
+    }
+    const name = model === undefined ? (catalog?.name ?? t('info.makers.agent')) : modelName(model, catalog?.models);
+    return (
+        <span className="flex min-w-0 items-center gap-1.5">
+            {agent !== undefined &&
+                (hasProviderLogo(agent) ? <ProviderLogo provider={agent} size={14} /> : <AgentIcon kind={agent} size={14} className="shrink-0" />)}
+            <span className="truncate">{name}</span>
+        </span>
     );
 }
 

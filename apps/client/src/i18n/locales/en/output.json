@@ -111,11 +111,11 @@
         "removedDetail": "What this node showed is no longer in Output on this machine."
     },
     "info": {
-        "maker": "Made",
+        "maker": "Made by",
         "makers": {
-            "agent": "By an agent",
-            "person": "By you",
-            "routine": "By a routine"
+            "agent": "Agent",
+            "person": "You",
+            "routine": "A routine"
         },
         "chat": "Chat",
         "chatRemoved": "Chat removed",

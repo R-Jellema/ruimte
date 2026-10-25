@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import type { ArtifactProvenance } from '@ruimte/contracts';
 import { pinnedVersionsOf } from '../artifacts/artifact-cleanup.ts';
+import { agentProvenance } from '../artifacts/artifact-provenance.ts';
 import { ArtifactStore } from '../artifacts/artifact-store.ts';
 import { Artifacts } from '../artifacts/artifacts.ts';
 import type { MachineHome } from '../fs/machine-home.ts';
@@ -33,16 +34,14 @@ export async function wireArtifacts(input: ArtifactsInput): Promise<ArtifactsBun
     const provenanceOf = async (caller: string): Promise<ArtifactProvenance> => {
         const chat = chats.get(caller);
         const isChat = chat !== undefined || (await chats.hasStored(caller));
-        const turnId = chat?.info.activeTurnId ?? null;
         const taskId = stores.tasks.openFor(caller)?.id;
-        return {
-            maker: 'agent',
+        return agentProvenance({
             machineId,
-            nodeId: caller,
-            ...(isChat ? { chatId: caller } : {}),
-            ...(turnId === null ? {} : { turnId }),
+            caller,
+            isChat,
+            ...(chat === undefined ? {} : { chat: chat.info }),
             ...(taskId === undefined ? {} : { taskId })
-        };
+        });
     };
     const artifacts = new Artifacts({
         store,

@@ -65,7 +65,10 @@ export const ArtifactProvenanceSchema = z.object({
     nodeId: z.string().min(1).optional(),
     launchId: z.string().min(1).optional(),
     routineId: z.string().min(1).optional(),
-    runId: z.string().min(1).optional()
+    runId: z.string().min(1).optional(),
+    // The CLI of the chat an agent published from and the model it ran, from the chat's own record.
+    agent: z.string().min(1).max(64).optional(),
+    model: z.string().min(1).max(200).optional()
 });
 export type ArtifactProvenance = z.infer<typeof ArtifactProvenanceSchema>;
 
