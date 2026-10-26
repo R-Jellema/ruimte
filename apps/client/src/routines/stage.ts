@@ -29,8 +29,9 @@ interface RoutinesStage {
  */
 export const useRoutinesStage = create<RoutinesStage>(() => ({ open: false, week: 0, filter: 'project', layout: 'week', routine: null, runId: null }));
 
+/* Always the start: this week's overview, never the routine or week left open last time. Filter and layout stay. */
 export function openRoutines(): void {
-    useRoutinesStage.setState({ open: true });
+    useRoutinesStage.setState({ open: true, week: 0, routine: null, runId: null });
 }
 
 export function leaveRoutines(): void {
