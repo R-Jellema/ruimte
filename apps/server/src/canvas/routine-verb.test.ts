@@ -136,6 +136,27 @@ describe('the schedule --at takes', () => {
             expect(parseSchedule(text)).toBeNull();
         }
     });
+
+    test('reads a repeat within a day and writes it back the same way', () => {
+        for (const text of ['weekdays every 1h 09:00-17:00', 'daily every 30m 08:00-18:00', 'mon,wed every 2h 10:00-16:00', 'sat every 45m 07:15-12:00']) {
+            expect(scheduleText(parseSchedule(text)!)).toBe(text);
+        }
+        expect(parseSchedule('weekdays every 1h 09:00-17:00')).toEqual({ kind: 'interval', days: [1, 2, 3, 4, 5], every: 60, from: '09:00', to: '17:00' });
+        expect(scheduleText(parseSchedule('Tue every 60m 8:00-9:00')!)).toBe('tue every 1h 08:00-09:00');
+    });
+
+    test('refuses a repeat off the quarter hours, past half a day or with its end before its start', () => {
+        for (const text of [
+            'daily every 20m 09:00-17:00',
+            'daily every 13h 00:00-23:00',
+            'daily every 0m 09:00-17:00',
+            'daily every 1h 17:00-09:00',
+            'daily every 1h 09:00',
+            'daily every 1x 09:00-17:00'
+        ]) {
+            expect(parseSchedule(text)).toBeNull();
+        }
+    });
 });
 
 describe('ruimte-context routine', () => {

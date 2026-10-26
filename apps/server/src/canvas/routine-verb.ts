@@ -1,6 +1,6 @@
 import { modeFlag } from '@adecore/agents/providers';
 import type { ActionInput } from '@ruimte/actions';
-import { RoutinePerRunSchema, type RoutineEntry, type RoutineRun, type RoutineSchedule } from '@ruimte/contracts';
+import { RoutinePerRunSchema, RoutineScheduleSchema, type RoutineEntry, type RoutineRun, type RoutineSchedule } from '@ruimte/contracts';
 import { z } from 'zod';
 import { defineActionVerb, runAction } from './action-verb.ts';
 import { modelFlag } from './model.ts';
@@ -14,7 +14,8 @@ const DAY_SETS: Record<string, readonly number[]> = {
     weekends: [6, 7]
 };
 
-const SCHEDULE_SYNTAX = '"daily 23:00", "weekdays 09:00", "weekends 10:30", "mon,thu 17:00" or "once 2026-10-27 22:00"';
+const SCHEDULE_SYNTAX =
+    '"daily 23:00", "weekdays 09:00", "weekends 10:30", "mon,thu 17:00", "once 2026-10-27 22:00", or a repeat within a day such as "weekdays every 1h 09:00-17:00" or "daily every 30m 08:00-18:00" (steps of 15m up to 12h, both ends included)';
 
 const APPROVAL_LINE =
     'approval\tA routine runs only once a person approved it on this machine as it stands; whatever you add or change waits for them in Routines, and you never approve one';
@@ -49,6 +50,9 @@ export function parseSchedule(text: string): RoutineSchedule | null {
         const valid = /^\d{4}-\d{2}-\d{2}$/.test(date) && new Date(`${date}T00:00:00Z`).toISOString().startsWith(date);
         return time === null || !valid ? null : { kind: 'once', date, time };
     }
+    if (words.length === 4 && words[1] === 'every') {
+        return intervalOf(words[0]!, words[2]!, words[3]!);
+    }
     if (words.length !== 2) {
         return null;
     }
@@ -57,14 +61,39 @@ export function parseSchedule(text: string): RoutineSchedule | null {
     return days === null || time === null ? null : { kind: 'weekly', days, time };
 }
 
+/* `weekdays every 1h 09:00-17:00`: the steps in minutes or hours, the window with both ends included. */
+function intervalOf(dayText: string, everyText: string, windowText: string): RoutineSchedule | null {
+    const days = daysOf(dayText);
+    const step = /^(\d+)(m|h)$/.exec(everyText);
+    const [fromText, toText, ...rest] = windowText.split('-');
+    if (days === null || step === null || rest.length > 0 || fromText === undefined || toText === undefined) {
+        return null;
+    }
+    const schedule = RoutineScheduleSchema.safeParse({
+        kind: 'interval',
+        days,
+        every: Number(step[1]) * (step[2] === 'h' ? 60 : 1),
+        from: clockOf(fromText),
+        to: clockOf(toText)
+    });
+    return schedule.success ? schedule.data : null;
+}
+
+function everyText(minutes: number): string {
+    return minutes % 60 === 0 ? `${minutes / 60}h` : `${minutes}m`;
+}
+
 /* A schedule in the words `--at` takes, so a list reads back as what an edit would give. */
 export function scheduleText(schedule: RoutineSchedule): string {
     if (schedule.kind === 'once') {
         return `once ${schedule.date} ${schedule.time}`;
     }
     const days = [...schedule.days].sort((a, b) => a - b).join(',');
-    const named = Object.entries(DAY_SETS).find(([, set]) => set.join(',') === days)?.[0];
-    return `${named ?? schedule.days.map((day) => DAY_NAMES[day - 1]).join(',')} ${schedule.time}`;
+    const named = Object.entries(DAY_SETS).find(([, set]) => set.join(',') === days)?.[0] ?? schedule.days.map((day) => DAY_NAMES[day - 1]).join(',');
+    if (schedule.kind === 'interval') {
+        return `${named} every ${everyText(schedule.every)} ${schedule.from}-${schedule.to}`;
+    }
+    return `${named} ${schedule.time}`;
 }
 
 const scheduleFlag = z.string().transform((text, context) => {
