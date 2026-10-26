@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { CONTENT_SECURITY_POLICY, notFoundForMissingAsset, withSecurityHeaders } from './headers';
+import { notFoundForMissingAsset } from '@ruimte/csp';
+import { CONTENT_SECURITY_POLICY, withSecurityHeaders } from './headers';
 
 function directive(name: string): string[] {
     return (

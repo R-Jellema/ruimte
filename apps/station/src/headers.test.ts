@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { TELEMETRY_INGEST, VISUAL_HOST_CSP, VISUAL_HOST_PATH } from '@ruimte/csp';
-import { CONTENT_SECURITY_POLICY, notFoundForMissingAsset, withSecurityHeaders } from './headers';
+import { notFoundForMissingAsset, TELEMETRY_INGEST, VISUAL_HOST_CSP, VISUAL_HOST_PATH } from '@ruimte/csp';
+import { CONTENT_SECURITY_POLICY, withSecurityHeaders } from './headers';
 
 function directive(name: string): string[] {
     return (

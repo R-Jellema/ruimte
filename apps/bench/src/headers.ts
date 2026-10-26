@@ -1,4 +1,4 @@
-import { cspString } from '@ruimte/csp';
+import { cspString, withHeaders } from '@ruimte/csp';
 
 /*
  * The client's policy, narrowed to what the comparison does: it reads the address book and nothing
@@ -27,25 +27,6 @@ export const SECURITY_HEADERS: Readonly<Record<string, string>> = {
     'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()'
 };
 
-/*
- * Every answer with the headers above. Vite names what is under `/assets/` after its content, so those
- * never change and are cached for a year; the page is asked for again, so a deploy reaches the next load.
- */
 export function withSecurityHeaders(response: Response, pathname: string): Response {
-    const headers = new Headers(response.headers);
-    for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
-        headers.set(name, value);
-    }
-    if (response.ok) {
-        headers.set('cache-control', pathname.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : 'no-cache');
-    }
-    return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
-}
-
-/* A chunk that is gone after a deploy must fail, not come back as the page cached for a year. */
-export function notFoundForMissingAsset(response: Response, pathname: string): Response {
-    if (!pathname.startsWith('/assets/') || !response.headers.get('content-type')?.startsWith('text/html')) {
-        return response;
-    }
-    return new Response('Not found', { status: 404, headers: { 'content-type': 'text/plain' } });
+    return withHeaders(response, pathname, SECURITY_HEADERS);
 }

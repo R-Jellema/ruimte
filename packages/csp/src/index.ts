@@ -74,3 +74,5 @@ export const VISUAL_HOST_HEADERS: Readonly<Record<string, string>> = {
     'referrer-policy': 'no-referrer',
     'cache-control': 'no-cache'
 };
+
+export { notFoundForMissingAsset, staticAssetsWorker, withHeaders, type AssetsEnv } from './static-assets.ts';

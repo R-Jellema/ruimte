@@ -1,4 +1,4 @@
-import { cspString, TELEMETRY_INGEST, VISUAL_HOST_HEADERS, VISUAL_HOST_PATH } from '@ruimte/csp';
+import { cspString, TELEMETRY_INGEST, VISUAL_HOST_HEADERS, VISUAL_HOST_PATH, withHeaders } from '@ruimte/csp';
 
 /*
  * The client's policy, tightened for a page on the public web. A daemon serves a paired host that
@@ -36,30 +36,8 @@ const VISUAL_HOST_SECURITY_HEADERS: Readonly<Record<string, string>> = {
     ...VISUAL_HOST_HEADERS
 };
 
-/*
- * Every answer with the headers above. Vite names what is under `/assets/` after its content, so those
- * never change and are cached for a year; everything else (the page, the manifest) is asked for again,
- * so a deploy reaches a person on the next load.
- */
+/* Every answer with the headers above; the host page of a visual keeps the cache rule of its own. */
 export function withSecurityHeaders(response: Response, pathname: string): Response {
-    const headers = new Headers(response.headers);
     const visualHost = pathname === VISUAL_HOST_PATH;
-    for (const [name, value] of Object.entries(visualHost ? VISUAL_HOST_SECURITY_HEADERS : SECURITY_HEADERS)) {
-        headers.set(name, value);
-    }
-    if (response.ok && !visualHost) {
-        headers.set('cache-control', pathname.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : 'no-cache');
-    }
-    return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
-}
-
-/*
- * A path under `/assets/` that is no file would get the page from `not_found_handling`, cached for a year
- * as if it were that chunk. A tab left open over a deploy asks for a chunk that is gone, and has to see it fail.
- */
-export function notFoundForMissingAsset(response: Response, pathname: string): Response {
-    if (!pathname.startsWith('/assets/') || !response.headers.get('content-type')?.startsWith('text/html')) {
-        return response;
-    }
-    return new Response('Not found', { status: 404, headers: { 'content-type': 'text/plain' } });
+    return withHeaders(response, pathname, visualHost ? VISUAL_HOST_SECURITY_HEADERS : SECURITY_HEADERS, !visualHost);
 }
