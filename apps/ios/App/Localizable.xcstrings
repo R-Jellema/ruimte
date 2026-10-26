@@ -22413,6 +22413,88 @@
         }
       }
     },
+    "%@, %@ from %@ to %@" : {
+      "comment" : "A routine that repeats within a day: its days, how often, then the first and last time",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$@ from %3$@ to %4$@"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, %2$@ van %3$@ tot %4$@"
+          }
+        }
+      }
+    },
+    "Daily" : {
+      "comment" : "The days of a routine that repeats within a day",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dagelijks"
+          }
+        }
+      }
+    },
+    "Weekdays" : {
+      "comment" : "The days of a routine that repeats within a day",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Op werkdagen"
+          }
+        }
+      }
+    },
+    "Weekends" : {
+      "comment" : "The days of a routine that repeats within a day",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In het weekend"
+          }
+        }
+      }
+    },
+    "every hour" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "elk uur"
+          }
+        }
+      }
+    },
+    "every %lld hours" : {
+      "comment" : "How often a routine repeats, two hours or more",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "elke %lld uur"
+          }
+        }
+      }
+    },
+    "every %lld minutes" : {
+      "comment" : "How often a routine repeats",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "elke %lld minuten"
+          }
+        }
+      }
+    },
     "What changes and how it was tested" : {
       "localizations" : {
         "nl" : {

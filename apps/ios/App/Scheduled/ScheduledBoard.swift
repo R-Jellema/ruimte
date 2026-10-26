@@ -1,22 +1,26 @@
 import Foundation
 import RuimtePulsar
 
-/// When a routine starts, as `RoutineScheduleSchema` writes it: a day and a time, or weekdays and a time, on the
-/// machine's clock.
+/// When a routine starts, as `RoutineScheduleSchema` writes it: a day and a time, weekdays and a time, or
+/// weekdays and a repeat within a day, on the machine's clock.
 enum RoutineSchedule: Equatable {
     case once(date: String, time: String)
     /// ISO weekdays: 1 is Monday, 7 is Sunday.
     case weekly(days: [Int], time: String)
+    /// On those days every `every` minutes from `from` up to and including `to`.
+    case interval(days: [Int], every: Int, from: String, to: String)
     /// A kind a newer machine knows and this app does not.
     case unknown
 
     init(json: JSONValue?) {
+        let days = (json?.list("days") ?? []).compactMap { $0.numberValue.map(Int.init) }.sorted()
         switch json?.text("kind") {
         case "once": self = .once(date: json?.text("date") ?? "", time: json?.text("time") ?? "")
-        case "weekly":
-            self = .weekly(
-                days: (json?.list("days") ?? []).compactMap { $0.numberValue.map(Int.init) }.sorted(),
-                time: json?.text("time") ?? "")
+        case "weekly": self = .weekly(days: days, time: json?.text("time") ?? "")
+        case "interval":
+            self = .interval(
+                days: days, every: Int(json?.number("every", fallback: 60) ?? 60), from: json?.text("from") ?? "",
+                to: json?.text("to") ?? "")
         default: self = .unknown
         }
     }
@@ -46,9 +50,38 @@ enum RoutineSchedule: Equatable {
                     localized: "\(names) at \(clock)",
                     comment: "Weekdays a routine runs on, such as Mon, Thu, then a time")
             }
+        case .interval(let days, let every, let from, let to):
+            let start = Self.clock(from, in: locale)
+            let end = Self.clock(to, in: locale)
+            return String(
+                localized: "\(Self.dayWords(days, in: locale)), \(Self.stepWords(every)) from \(start) to \(end)",
+                comment: "A routine that repeats within a day: its days, how often, then the first and last time")
         case .unknown:
             return String(localized: "On a schedule this app does not know")
         }
+    }
+
+    private static func dayWords(_ days: [Int], in locale: FormatLocale) -> String {
+        switch Set(days) {
+        case Set(1...7): return String(localized: "Daily", comment: "The days of a routine that repeats within a day")
+        case Set(1...5):
+            return String(localized: "Weekdays", comment: "The days of a routine that repeats within a day")
+        case [6, 7]: return String(localized: "Weekends", comment: "The days of a routine that repeats within a day")
+        default:
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.locale = locale.language
+            let symbols = calendar.shortWeekdaySymbols
+            return days.filter { (1...7).contains($0) }.map { symbols[$0 % 7] }.joined(separator: ", ")
+        }
+    }
+
+    private static func stepWords(_ minutes: Int) -> String {
+        if minutes == 60 { return String(localized: "every hour") }
+        if minutes % 60 == 0 {
+            let hours = minutes / 60
+            return String(localized: "every \(hours) hours", comment: "How often a routine repeats, two hours or more")
+        }
+        return String(localized: "every \(minutes) minutes", comment: "How often a routine repeats")
     }
 
     /// A schedule's `HH:MM` as the region writes a time, so a twelve-hour region reads `08:00 AM`.

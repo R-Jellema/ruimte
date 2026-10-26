@@ -71,6 +71,29 @@ import Testing
             words(.object(["kind": .string("monthly")])) == String(localized: "On a schedule this app does not know"))
     }
 
+    @Test func anIntervalReadsItsDaysStepAndWindow() {
+        func words(_ days: [Int], _ every: Int) -> String {
+            RoutineSchedule(
+                json: .object([
+                    "kind": .string("interval"), "days": .array(days.map { .number(Double($0)) }),
+                    "every": .number(Double(every)), "from": .string("09:00"), "to": .string("17:00"),
+                ])
+            ).words(timeZone: nil, in: Self.english)
+        }
+        let start = "09:00"
+        let end = "17:00"
+        func expected(_ days: String, _ step: String) -> String {
+            String(localized: "\(days), \(step) from \(start) to \(end)")
+        }
+        let minutes = 30
+        let hours = 2
+        #expect(words([1, 2, 3, 4, 5], 60) == expected(String(localized: "Weekdays"), String(localized: "every hour")))
+        #expect(
+            words([1, 2, 3, 4, 5, 6, 7], minutes)
+                == expected(String(localized: "Daily"), String(localized: "every \(minutes) minutes")))
+        #expect(words([3, 1], 120) == expected("Mon, Wed", String(localized: "every \(hours) hours")))
+    }
+
     @Test func anEntryReadsWhatTheMachineKeepsOfIt() {
         let entry = RoutineEntry(
             json: .object([
