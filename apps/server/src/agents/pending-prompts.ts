@@ -8,10 +8,17 @@ const PendingPromptSchema = z.object({
     projectId: z.string().min(1),
     nodeId: z.string().min(1),
     prompt: z.string().min(1),
-    createdAt: z.number()
+    createdAt: z.number(),
+    // Ruimte's own instructions for the first turn, which a chat hears beside the prompt and folds away in its thread.
+    brief: z.string().min(1).optional()
 });
 
 type PendingPrompt = z.infer<typeof PendingPromptSchema>;
+
+export interface FirstPrompt {
+    prompt: string;
+    brief?: string;
+}
 
 /*
  * The first prompt of an agent node, held against the node id until its session or chat exists. Not
@@ -32,8 +39,8 @@ export class PendingPromptStore {
         return this.pending.load();
     }
 
-    async put(projectId: string, nodeId: string, prompt: string): Promise<void> {
-        await this.pending.write({ projectId, nodeId, prompt, createdAt: Date.now() });
+    async put(projectId: string, nodeId: string, prompt: string, brief?: string): Promise<void> {
+        await this.pending.write({ projectId, nodeId, prompt, createdAt: Date.now(), ...(brief === undefined ? {} : { brief }) });
     }
 
     /*
@@ -41,13 +48,13 @@ export class PendingPromptStore {
      * first await, so two clients mounting the same node cannot both get it, and the file is gone
      * before the caller is answered, so a restart in between does not hand it out a second time.
      */
-    async take(nodeId: string): Promise<string | null> {
+    async take(nodeId: string): Promise<FirstPrompt | null> {
         const entry = this.pending.get(nodeId);
         if (!entry) {
             return null;
         }
         await this.pending.remove(nodeId);
-        return entry.prompt;
+        return entry.brief === undefined ? { prompt: entry.prompt } : { prompt: entry.prompt, brief: entry.brief };
     }
 
     has(nodeId: string): boolean {

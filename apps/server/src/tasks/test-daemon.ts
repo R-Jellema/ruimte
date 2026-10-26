@@ -168,7 +168,7 @@ export async function bootTestDaemon({
     const sessions = new SessionManager({
         adapter: ptyAdapter ?? adapter,
         env,
-        firstPrompt: (id) => prompts.take(id),
+        firstPrompt: async (id) => (await prompts.take(id))?.prompt ?? null,
         modeCeiling: (sessionId) => lineage.ceilingOf(sessionId),
         ...(accounts ? { accounts } : {}),
         preferredAccount: (kind) => chats.composerPreferences.for(kind).account,

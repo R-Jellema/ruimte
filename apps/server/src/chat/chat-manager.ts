@@ -34,6 +34,7 @@ import { AgentImages } from './agent-images.ts';
 import { ChatError } from './errors.ts';
 import { RUIMTE_UI_FENCE } from './ui-fence.ts';
 import { InlineEditNotes } from './inline-edit.ts';
+import type { FirstPrompt } from '../agents/pending-prompts.ts';
 import { TurnUsage } from '../stats/turn-usage.ts';
 import { countChatStarted } from '../stats/usage-stats.ts';
 import { prependPath } from '../env-path.ts';
@@ -80,8 +81,8 @@ interface ChatManagerOptions extends ChatCoreOptions {
     messageNotes?: (chatId: string) => PromptNotes;
     // The same messages, as the lines a person reads in the thread; asked once, when the chat is loaded.
     unshownMessages?: (chatId: string) => Promise<string[]>;
-    // The prompt an agent node was made with, taken once; it becomes the thread's first message.
-    firstPrompt?: (chatId: string) => Promise<string | null>;
+    // The prompt an agent node was made with, taken once; it becomes the thread's first message, and its brief is heard beside it.
+    firstPrompt?: (chatId: string) => Promise<FirstPrompt | null>;
     // When stopping the agent that opened a chat ended it too; a turn from before that is never resumed.
     endedAt?: (chatId: string) => number | null;
     // Whether the chat is the hidden one an inline edit runs in, which hears how to answer and is no list's business.
@@ -117,25 +118,37 @@ function chatEnvOf(env: Record<string, string | undefined>, binDir: string | und
     return chat;
 }
 
-/* What a chat hears about its links in front of a prompt: a link made or removed since the last one, and what another node left for it. */
+export const BRIEF_TITLE = 'Instructions from Ruimte';
+
+/*
+ * What a chat hears in front of a prompt: Ruimte's brief for that prompt, a link made or removed since
+ * the last one, and what another node left for it. The brief goes first, so its title is the line the
+ * thread's note shows folded.
+ */
 class ContextNotes implements PromptNotes {
     private readonly sources: () => ContextSource[];
     private readonly messages: PromptNotes | null;
+    private readonly takeBrief: () => string | null;
     // The links at the previous prompt; null before the first, whose CLI hears about them at launch.
     private last: ContextSource[] | null = null;
 
-    constructor(sources: () => ContextSource[], messages: PromptNotes | null) {
+    constructor(sources: () => ContextSource[], messages: PromptNotes | null, takeBrief: () => string | null) {
         this.sources = sources;
         this.messages = messages;
+        this.takeBrief = takeBrief;
     }
 
     next(): { shown: string[]; heard: string[] } {
         const current = this.sources();
         const previous = this.last;
         this.last = current;
+        const brief = this.takeBrief();
         const change = previous === null ? null : contextChangeNote(previous, current);
         const messages = this.messages?.next() ?? { shown: [], heard: [] };
-        return { shown: [...(change === null ? [] : [change]), ...messages.shown], heard: messages.heard };
+        return {
+            shown: [...(brief === null ? [] : [`${BRIEF_TITLE}\n${brief}`]), ...(change === null ? [] : [change]), ...messages.shown],
+            heard: messages.heard
+        };
     }
 
     reset(): void {
@@ -220,7 +233,9 @@ export class ChatManager extends ChatCore {
     private readonly reference: (chatId: string, id: string) => Reference | null;
     private readonly messageNotes: ((chatId: string) => PromptNotes) | null;
     private readonly unshownMessages: (chatId: string) => Promise<string[]>;
-    private readonly firstPrompt: (chatId: string) => Promise<string | null>;
+    private readonly firstPrompt: (chatId: string) => Promise<FirstPrompt | null>;
+    // Ruimte's instructions for a chat's next prompt, handed out once (`ContextNotes`).
+    private readonly briefs = new Map<string, string>();
     private readonly inlineChat: (chatId: string) => boolean;
     private readonly modeCeiling: (chatId: string) => RuntimeMode | null;
     private readonly peerChat: (chatId: string) => boolean;
@@ -506,6 +521,22 @@ export class ChatManager extends ChatCore {
     }
 
     /*
+     * Runs a synchronous wake of the chat with Ruimte's brief beside its text: heard on that turn, and folded
+     * in its thread as a note. A wake hears its notes before it returns, so a brief still here was refused.
+     */
+    withBrief<T>(chatId: string, brief: string | undefined, wake: () => T): T {
+        if (brief === undefined) {
+            return wake();
+        }
+        this.briefs.set(chatId, brief);
+        try {
+            return wake();
+        } finally {
+            this.briefs.delete(chatId);
+        }
+    }
+
+    /*
      * Moves the chat to an account that reads its conversation and takes its limited turn up there at
      * once, carrying the tasks and messages that turn answered, the way a resume at the reset does.
      */
@@ -586,7 +617,12 @@ export class ChatManager extends ChatCore {
     }
 
     private promptNotesFor(chatId: string): PromptNotes {
-        const notes = new ContextNotes(() => this.contextSources(chatId), this.messageNotes?.(chatId) ?? null);
+        const takeBrief = (): string | null => {
+            const brief = this.briefs.get(chatId) ?? null;
+            this.briefs.delete(chatId);
+            return brief;
+        };
+        const notes = new ContextNotes(() => this.contextSources(chatId), this.messageNotes?.(chatId) ?? null, takeBrief);
         return this.inlineChat(chatId) ? new InlineEditNotes(notes) : notes;
     }
 
@@ -632,11 +668,16 @@ export class ChatManager extends ChatCore {
             console.error(`Showing the messages left for chat ${chatId} failed:`, errorText(e));
         }
         // Send before returning info so attach includes the initial prompt as the thread's first message.
-        const prompt = await this.firstPrompt(chatId);
-        if (prompt !== null) {
+        const first = await this.firstPrompt(chatId);
+        if (first !== null) {
+            // Left in place after the send: a send that queues hears its notes only when the queue lets it go.
+            if (first.brief !== undefined) {
+                this.briefs.set(chatId, first.brief);
+            }
             try {
-                session.send(prompt);
+                session.send(first.prompt);
             } catch (e) {
+                this.briefs.delete(chatId);
                 // A CLI that will not start must not take chat.create down with it: the node is there either way.
                 console.error(`The first prompt of chat ${chatId} failed:`, errorText(e));
             }
@@ -654,6 +695,7 @@ export class ChatManager extends ChatCore {
     }
 
     private forgotten(chatId: string): void {
+        this.briefs.delete(chatId);
         for (const [key, hold] of this.childHolds) {
             if (hold.parentId === chatId) {
                 this.childHolds.delete(key);

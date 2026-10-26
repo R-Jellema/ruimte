@@ -120,7 +120,7 @@ async function boot(): Promise<Daemon> {
     const sessions = new SessionManager({
         adapter,
         env: { HOME: home, PATH: process.env.PATH },
-        firstPrompt: (id) => prompts.take(id),
+        firstPrompt: async (id) => (await prompts.take(id))?.prompt ?? null,
         modeCeiling,
         checkCwd
     });

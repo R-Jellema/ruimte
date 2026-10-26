@@ -181,7 +181,8 @@ export async function wireAgents({ runtime, identity, stores, providers, compute
         contextUrl: runtime.contextUrl,
         binDir: runtime.binDir,
         contextFor: (sessionId) => context.list(sessionId),
-        firstPrompt: (sessionId) => prompts.take(sessionId),
+        // Only a chat starts with a brief, which a routine run gives; a terminal hears the prompt alone.
+        firstPrompt: async (sessionId) => (await prompts.take(sessionId))?.prompt ?? null,
         firstNotices: messagesFor,
         depthOf: (sessionId) => lineage.depthOf(sessionId),
         standalone: (sessionId) => index().locate(sessionId)?.canvasId === null,

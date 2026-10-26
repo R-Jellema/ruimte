@@ -6,7 +6,8 @@ import { showNotices, NoticeNotes, unshownNotes, NoticeStore, type Notice } from
 import { deliverNotice, MESSAGE_WORDS } from '../context/notices.ts';
 import { VisualStore } from '@adecore/agents/chat';
 import { referenceNote, type Reference } from '../context/references.ts';
-import { ChatManager } from './chat-manager.ts';
+import type { FirstPrompt } from '../agents/pending-prompts.ts';
+import { BRIEF_TITLE, ChatManager } from './chat-manager.ts';
 import { ChatRecorder } from './chat-test-helpers.ts';
 import { makeChatFixture, retire, LINKED } from './chat-manager.fixture.test.ts';
 
@@ -136,8 +137,8 @@ test('a chat attached with @ and a view with # go to the CLI as the commands tha
 });
 
 describe('the first prompt of an agent node', () => {
-    const withPrompt = (prompt: string | null) => {
-        let left = prompt;
+    const withPrompt = (prompt: string | null, brief?: string) => {
+        let left: FirstPrompt | null = prompt === null ? null : { prompt, ...(brief === undefined ? {} : { brief }) };
         const taken = () =>
             makeManager({
                 firstPrompt: async () => {
@@ -171,6 +172,54 @@ describe('the first prompt of an agent node', () => {
                 .map((item) => item.kind === 'assistant' && item.text)
         ).toEqual(['echo: start on the parser']);
         expect(held.left()).toBeNull();
+    });
+
+    test('its brief is heard on the first turn and folds in the thread under the title, never in the message', async () => {
+        await retire(manager);
+        manager = withPrompt('summarize main', 'publish it to Output').taken();
+        manager.subscribe('c1', recorder.sink());
+        await manager.create({ chatId: 'chat-b', cwd: home });
+        manager.attach('chat-b', 'c1');
+        await recorder.until(settledIn('chat-b'));
+        await manager.send('chat-b', 'and again');
+        await recorder.until(() => manager.get('chat-b')?.info.usage.turns === 2 && settledIn('chat-b')());
+
+        const thread = threadOf('chat-b');
+        expect(thread.filter((item) => item.kind === 'user').map((item) => item.kind === 'user' && item.text)).toEqual(['summarize main', 'and again']);
+        const notes = thread.filter((item) => item.kind === 'note');
+        expect(notes.map((item) => item.kind === 'note' && item.text)).toEqual([`${BRIEF_TITLE}\npublish it to Output`]);
+        expect(notes[0]?.turnId).toBe(thread.find((item) => item.kind === 'turn')!.turnId);
+        // The fake echoes its prompt: the first turn heard the brief, the second only the person.
+        expect(thread.filter((item) => item.kind === 'assistant').map((item) => item.kind === 'assistant' && item.text)).toEqual([
+            `echo: ${BRIEF_TITLE}\npublish it to Output\n\nsummarize main`,
+            'echo: and again'
+        ]);
+    });
+
+    test('a wake with a brief hears it on that turn only, and a refused wake leaves it for nobody', async () => {
+        await retire(manager);
+        manager = withPrompt('start').taken();
+        manager.subscribe('c1', recorder.sink());
+        await manager.create({ chatId: 'chat-w', cwd: home });
+        manager.attach('chat-w', 'c1');
+        await recorder.until(settledIn('chat-w'));
+        const session = manager.get('chat-w')!;
+
+        const woke = manager.withBrief('chat-w', 'the brief', () => session.wake({ text: 'run again', label: 'Morning', taskIds: [] }));
+        expect(woke).not.toBeNull();
+        // In a turn, so this wake is refused, and its brief must not reach the next prompt.
+        expect(manager.withBrief('chat-w', 'a refused brief', () => session.wake({ text: 'too soon', label: 'Morning', taskIds: [] }))).toBeNull();
+        await recorder.until(() => session.info.usage.turns === 2 && settledIn('chat-w')());
+        await manager.send('chat-w', 'by hand');
+        await recorder.until(() => session.info.usage.turns === 3 && settledIn('chat-w')());
+
+        const thread = threadOf('chat-w');
+        expect(thread.filter((item) => item.kind === 'note').map((item) => item.kind === 'note' && item.text)).toEqual([`${BRIEF_TITLE}\nthe brief`]);
+        expect(thread.filter((item) => item.kind === 'assistant').map((item) => item.kind === 'assistant' && item.text)).toEqual([
+            'echo: start',
+            `echo: ${BRIEF_TITLE}\nthe brief\n\nrun again`,
+            'echo: by hand'
+        ]);
     });
 
     test('a second create of the same chat sends nothing again', async () => {

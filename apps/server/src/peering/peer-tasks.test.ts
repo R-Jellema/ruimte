@@ -73,7 +73,7 @@ function deps(): PeerTasksDeps {
             take: async (nodeId: string) => {
                 const held = prompts.get(nodeId) ?? null;
                 prompts.delete(nodeId);
-                return held;
+                return held === null ? null : { prompt: held };
             }
         },
         stopNode: async () => undefined,

@@ -8,7 +8,7 @@ import { OutboxStore, type RoutineRunEntry } from '../outbox/outbox.ts';
 import { CommandApprovals } from '../sessions/command-approvals.ts';
 import { RoutineAuthorStore, RoutineRunStore } from './routine-runs.ts';
 import { RoutineStore } from './routine-store.ts';
-import { digestOf, Routines, type AgentRunStart, type CommandResult } from './routines.ts';
+import { digestOf, Routines, runMessage, type AgentRunStart, type CommandResult, type RunMessage } from './routines.ts';
 
 const ZONE = 'Europe/Amsterdam';
 const PROJECT = 'p1';
@@ -19,6 +19,7 @@ let home: string;
 let now: number;
 let outbox: OutboxStore;
 let started: AgentRunStart[];
+let continued: Array<{ chatId: string; message: RunMessage }>;
 let chats: Map<string, Pick<ChatInfo, 'status'> & Partial<ChatInfo>>;
 let commands: Array<{ resolve: (result: CommandResult) => void }>;
 let delivered: string[];
@@ -63,7 +64,13 @@ async function build(): Promise<{ routines: Routines; store: RoutineStore; runs:
             },
             info: (chatId) => chats.get(chatId) as ChatInfo | undefined,
             starting: () => false,
-            continueIn: async (chatId) => chats.get(chatId)?.status !== 'running',
+            continueIn: async (chatId, message) => {
+                if (chats.get(chatId)?.status === 'running') {
+                    return false;
+                }
+                continued.push({ chatId, message });
+                return true;
+            },
             exists: async (chatId) => chats.has(chatId)
         },
         commands: {
@@ -106,6 +113,7 @@ beforeEach(async () => {
     // Monday 19 Oct 2026, 08:00 in Amsterdam.
     now = zonedTime(2026, 10, 19, 8, 0, ZONE);
     started = [];
+    continued = [];
     chats = new Map();
     commands = [];
     delivered = [];
@@ -133,7 +141,9 @@ describe('the clock', () => {
         now = zonedTime(2026, 10, 19, 9, 0, ZONE);
         await fire(routines, owed()[0]!);
         expect(started).toHaveLength(1);
-        expect(started[0]?.prompt).toContain('ruimte-context artifact publish --key morning-summary');
+        // The person's prompt is the message; Ruimte's instructions ride beside it.
+        expect(started[0]?.prompt).toBe(morning.prompt);
+        expect(started[0]?.brief).toContain('ruimte-context artifact publish --key morning-summary');
         const [run] = runs.of(PROJECT, 'morning');
         expect(run?.kind).toBe('scheduled');
         expect(run?.chatId).toBe(started[0]!.chatId);
@@ -180,6 +190,21 @@ describe('the clock', () => {
         expect(latest?.state).toBe('skipped');
         expect(latest?.skipped).toBe('overlap');
         expect(owed()).toHaveLength(1);
+    });
+
+    test('a run that continues the last chat says the prompt there, with the brief beside it', async () => {
+        const { routines } = await build();
+        await routines.save(PROJECT, 0, { ...morning, perRun: 'continue' }, false);
+        now = zonedTime(2026, 10, 19, 9, 0, ZONE);
+        await fire(routines, owed()[0]!);
+        const chatId = started[0]!.chatId;
+        chats.set(chatId, { status: 'idle', usage: { turns: 1 } as ChatInfo['usage'] });
+        now = zonedTime(2026, 10, 20, 9, 0, ZONE);
+        await fire(routines, owed()[0]!);
+        expect(started).toHaveLength(1);
+        expect(continued).toHaveLength(1);
+        expect(continued[0]).toMatchObject({ chatId, message: { prompt: morning.prompt } });
+        expect(continued[0]?.message.brief).toContain('started at Tue, Oct 20 at 09:00');
     });
 
     test('pause owes nothing, and resume owes the next time from now, not the ones it skipped', async () => {
@@ -288,5 +313,15 @@ describe('approval', () => {
         expect((await routines.list(PROJECT)).routines[0]?.held).toBeUndefined();
         await routines.saveByAgent(PROJECT, { ...morning, prompt: 'Another prompt.' }, 'supervised', { chatId: 'chat-agent', title: 'x', at: now });
         expect((await routines.list(PROJECT)).routines[0]?.held).toBe('agent');
+    });
+});
+
+describe('what a run says', () => {
+    test('the prompt is the message and the brief rides beside it', () => {
+        expect(runMessage('Summarize main.', 'Publish it.')).toEqual({ prompt: 'Summarize main.', brief: 'Publish it.' });
+    });
+
+    test('a slash command carries the brief as its arguments, since a CLI hears nothing in front of one', () => {
+        expect(runMessage('/review', 'Publish it.')).toEqual({ prompt: '/review\n\n---\nPublish it.' });
     });
 });

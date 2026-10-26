@@ -12,7 +12,7 @@ let prompts: PendingPromptStore | null;
 beforeEach(async () => {
     prompts = null;
     // The store lives in the home the harness makes, so it is only built once that home is there.
-    harness = await makeHarness({ firstPrompt: (sessionId) => prompts?.take(sessionId) ?? Promise.resolve(null) });
+    harness = await makeHarness({ firstPrompt: async (sessionId) => (await prompts?.take(sessionId))?.prompt ?? null });
     prompts = new PendingPromptStore(harness.home);
 });
 

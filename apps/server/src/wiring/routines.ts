@@ -82,14 +82,14 @@ export async function wireRoutines({ home, machineId, stores, agents, projects, 
             remove: (id) => stores.outbox.remove(id)
         },
         agents: {
-            start: async ({ projectId, folder, chatId, routine, account, prompt }) => {
+            start: async ({ projectId, folder, chatId, routine, account, prompt, brief }) => {
                 // A hidden agent of the routine: in the project without a canvas, and kept when the routine goes.
                 await project.hiddenAgents.put({
                     projectId,
                     openedBy: routineOpener(routine.id),
                     node: { id: chatId, kind: 'chat', title: routine.title, x: 0, y: 0, w: 480, h: 560 }
                 });
-                await stores.prompts.put(projectId, chatId, prompt);
+                await stores.prompts.put(projectId, chatId, prompt, brief);
                 await outboxLink.enqueue(projectId, chatId, {
                     kind: 'start-agent',
                     payload: {
@@ -106,12 +106,12 @@ export async function wireRoutines({ home, machineId, stores, agents, projects, 
             },
             info: (chatId) => chats.get(chatId)?.info,
             starting: (chatId) => stores.outbox.list().some((entry) => entry.kind === 'start-agent' && entry.target === chatId),
-            continueIn: async (chatId, text, label) => {
+            continueIn: async (chatId, { prompt, brief }, label) => {
                 const chat = await openChat(chatId);
                 if (chat === null || chat.relocating?.() === true) {
                     return false;
                 }
-                return chat.wake({ text, label, taskIds: [] });
+                return chats.withBrief(chatId, brief, () => chat.wake({ text: prompt, label, taskIds: [] }));
             },
             // Opens a stored chat as well, so what it ran before is known before the run's turn opens.
             exists: async (chatId) => placed(chatId) && (await openChat(chatId)) !== null

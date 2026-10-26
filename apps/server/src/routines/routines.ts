@@ -43,6 +43,7 @@ export interface AgentRunStart {
     routine: AgentRoutine;
     account?: string;
     prompt: string;
+    brief?: string;
 }
 
 /* The project folder a command runs in, and what it printed when it ended. */
@@ -69,7 +70,7 @@ export interface RoutineDeps {
         /* Whether a start of this chat is still owed. */
         starting(chatId: string): boolean;
         /* Opens a turn in a chat a person already has; false while it is in one, or gone. */
-        continueIn(chatId: string, text: string, label: string): Promise<boolean>;
+        continueIn(chatId: string, message: RunMessage, label: string): Promise<boolean>;
         exists(chatId: string): Promise<boolean>;
     };
     commands: { run(cwd: string, command: string, capBytes: number): Promise<CommandResult> };
@@ -171,9 +172,15 @@ function formatDue(at: number, timeZone: string): string {
     }).format(at);
 }
 
+/* What a run of an agent routine says: the person's prompt as the message, and Ruimte's brief heard beside it. */
+export interface RunMessage {
+    prompt: string;
+    brief?: string;
+}
+
 /*
- * The instructions a run of an agent routine starts with: the person's prompt, then where a result goes
- * when it has one. A routine's result is a version of one artifact, never loose files in the project.
+ * Ruimte's instructions to a run of an agent routine: where a result goes when it has one. A routine's
+ * result is a version of one artifact, never loose files in the project.
  */
 export function runBrief(
     routine: AgentRoutine,
@@ -182,9 +189,6 @@ export function runBrief(
     kind: RoutineRunKind
 ): string {
     const lines = [
-        routine.prompt,
-        '',
-        '---',
         `This is a run of the routine "${routine.title}", which Ruimte started ${kind === 'manual' ? 'by hand' : kind === 'caught-up' ? `late, after this machine woke (it was due ${when})` : `at ${when}`}.`,
         `When this run has a result to keep, such as a report, deliver it to Output and never as files in the project: write it to a file outside the project folder, such as a Markdown report in a temporary folder, and publish it with \`ruimte-context artifact publish --key ${routine.outputKey} --title ${JSON.stringify(routine.title)} --file <path>\`. Every run that publishes adds one version of that artifact. A run with nothing to keep publishes nothing.`
     ];
@@ -194,6 +198,14 @@ export function runBrief(
         );
     }
     return lines.join('\n');
+}
+
+/*
+ * The brief goes beside the prompt, except after a slash command: a CLI hears nothing in front of one,
+ * so it rides in the message as the command's arguments, as it did before the two were apart.
+ */
+export function runMessage(prompt: string, brief: string): RunMessage {
+    return prompt.startsWith('/') ? { prompt: `${prompt}\n\n---\n${brief}` } : { prompt, brief };
 }
 
 /*
@@ -560,13 +572,13 @@ export class Routines {
 
     private async beginAgent(projectId: string, folder: string, stored: StoredRoutine, routine: AgentRoutine, base: RoutineRun): Promise<RoutineRun> {
         const previous = this.deps.output.latest(projectId, routine.outputKey);
-        const prompt = runBrief(routine, formatDue(base.due, this.deps.timeZone()), previous, base.kind);
+        const message = runMessage(routine.prompt, runBrief(routine, formatDue(base.due, this.deps.timeZone()), previous, base.kind));
         if (routine.perRun === 'continue') {
             const last = this.deps.runs.of(projectId, routine.id).find((run) => run.chatId !== undefined);
             if (last?.chatId !== undefined && (await this.deps.agents.exists(last.chatId))) {
                 const run: RoutineRun = { ...base, chatId: last.chatId, state: 'running', turnsBefore: this.deps.agents.info(last.chatId)?.usage.turns ?? 0 };
                 await this.deps.runs.put(run);
-                if (!(await this.deps.agents.continueIn(last.chatId, prompt, routine.title))) {
+                if (!(await this.deps.agents.continueIn(last.chatId, message, routine.title))) {
                     const skipped: RoutineRun = { ...base, state: 'skipped', skipped: 'overlap' };
                     await this.deps.runs.put(skipped);
                     return skipped;
@@ -584,7 +596,7 @@ export class Routines {
             chatId,
             routine,
             ...(stored.local.account === undefined ? {} : { account: stored.local.account }),
-            prompt
+            ...message
         });
         return run;
     }
