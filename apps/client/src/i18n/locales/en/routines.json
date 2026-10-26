@@ -299,7 +299,19 @@
     "countWaited_one": "{{count}} needed you",
     "countWaited_other": "{{count}} needed you",
     "countFailed_one": "{{count}} failed",
-    "countFailed_other": "{{count}} failed",
-    "latest": "Latest version"
+    "countFailed_other": "{{count}} failed"
+  },
+  "beside": {
+    "runTitle": "{{title}} · {{date}}",
+    "openRun": "Open this run in Routines",
+    "olderRuns_one": "{{count}} older run",
+    "olderRuns_other": "{{count}} older runs",
+    "caughtUp": "Caught up on wake",
+    "waited": "Waited for you",
+    "collapse": "Collapse",
+    "output": "Output",
+    "noVersion": "This run saved no version.",
+    "noVersionShowing": "This run saved no version. Showing the one from {{date}}.",
+    "resize": "Resize"
   }
 }

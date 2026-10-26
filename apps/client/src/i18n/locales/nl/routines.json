@@ -299,7 +299,19 @@
     "countWaited_one": "{{count}} had je nodig",
     "countWaited_other": "{{count}} hadden je nodig",
     "countFailed_one": "{{count}} mislukt",
-    "countFailed_other": "{{count}} mislukt",
-    "latest": "Laatste versie"
+    "countFailed_other": "{{count}} mislukt"
+  },
+  "beside": {
+    "runTitle": "{{title}} · {{date}}",
+    "openRun": "Deze run openen in Routines",
+    "olderRuns_one": "{{count}} oudere run",
+    "olderRuns_other": "{{count}} oudere runs",
+    "caughtUp": "Ingehaald na het ontwaken",
+    "waited": "Wachtte op jou",
+    "collapse": "Inklappen",
+    "output": "Output",
+    "noVersion": "Deze run heeft geen versie bewaard.",
+    "noVersionShowing": "Deze run heeft geen versie bewaard. Je ziet die van {{date}}.",
+    "resize": "Formaat wijzigen"
   }
 }

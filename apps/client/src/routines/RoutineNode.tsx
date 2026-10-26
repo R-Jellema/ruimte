@@ -2,14 +2,11 @@ import { useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
-import { CalendarClock, CircleAlert, CirclePause, Clock, Folder, Hand, Package, Play, Rocket, SquareArrowOutUpRight, WifiOff } from 'lucide-react';
+import { CalendarClock, CircleAlert, CirclePause, Clock, Folder, Hand, Package, Play, Rocket, WifiOff } from 'lucide-react';
 import type { RoutineEntry, RoutineRun } from '@ruimte/contracts';
-import { Button, EmptyState, ErrorBoundary, Icon, IconButton, Pill, SectionLabel, Switch, Tooltip, useNow } from '@adecore/ui';
+import { ButtonGroup, EmptyState, Icon, IconButton, Pill, Separator, Switch, Tooltip, useNow } from '@adecore/ui';
 import { formatCountdown, formatDateTime } from '@adecore/ui/format';
 import { runtimeModeLabel } from '@adecore/agents-react/chat';
-import { VersionBody } from '@/output/ArtifactView';
-import { openArtifact } from '@/output/open';
-import { useArtifact } from '@/output/use-artifact';
 import { lookOfRun, type BlockLook } from '@/routines/agenda';
 import { blockClass } from '@/routines/look-class';
 import { RoutineAgent } from '@/routines/RoutineAgent';
@@ -22,7 +19,6 @@ import { useFileToolbarSlot } from '@/shell/panels/file-toolbar-slot';
 import { useCanvas } from '@/state/canvas';
 import { useEndpointId } from '@/state/keys';
 import { useProject } from '@/state/project';
-import { useMachineAnswers } from '@/transport/features';
 
 // The newest runs the strip shows; the stage has the rest.
 const STRIP_RUNS = 14;
@@ -78,7 +74,6 @@ function RoutineOnCanvas({ endpointId, entry, timeZone }: { endpointId: string; 
     const routine = entry.routine;
     const run = entry.runs.find((candidate) => candidate.runId === picked) ?? entry.runs.find((candidate) => candidate.state !== 'skipped') ?? entry.runs[0];
     const strip = entry.runs.slice(0, STRIP_RUNS).reverse();
-    const artifactId = entry.artifactId;
     // A block opens its run where its chat is drawn: in Routines, at that run.
     const openRun = (runId: string): void => {
         setPicked(runId);
@@ -94,14 +89,17 @@ function RoutineOnCanvas({ endpointId, entry, timeZone }: { endpointId: string; 
                     disabled={!entry.approved}
                     onCheckedChange={(runs) => setRoutinePaused(endpointId, entry, !runs)}
                 />
-                <IconButton
-                    icon={Play}
-                    size="sm"
-                    label={t('actions.runNow')}
-                    disabled={!entry.approved}
-                    onClick={() => void runRoutineNow(endpointId, entry)}
-                />
-                <IconButton icon={Clock} size="sm" label={t('node.openInRoutines')} onClick={() => showRoutine(target)} />
+                <ButtonGroup render={<span />}>
+                    <IconButton
+                        icon={Play}
+                        size="sm"
+                        label={t('actions.runNow')}
+                        disabled={!entry.approved}
+                        onClick={() => void runRoutineNow(endpointId, entry)}
+                    />
+                    <IconButton icon={Clock} size="sm" label={t('node.openInRoutines')} onClick={() => showRoutine(target)} />
+                </ButtonGroup>
+                <Separator />
             </HeaderControls>
             <p className="text-lg font-semibold text-text">{scheduleWords(routine.schedule)}</p>
             {routine.kind === 'agent' && (
@@ -135,12 +133,6 @@ function RoutineOnCanvas({ endpointId, entry, timeZone }: { endpointId: string; 
                 {strip.length > 0 && <StripCounts runs={strip} />}
                 {run !== undefined && <p className="text-xs text-text-muted">{runSentence(run, timeZone)}</p>}
             </section>
-            {artifactId !== undefined && (
-                <section className="flex min-h-48 grow flex-col gap-1.5" aria-label={t('node.latest')}>
-                    <SectionLabel render={<h3 />}>{t('node.latest')}</SectionLabel>
-                    <LatestVersion endpointId={endpointId} artifactId={artifactId} />
-                </section>
-            )}
         </div>
     );
 }
@@ -244,46 +236,6 @@ function StripCounts({ runs }: { runs: readonly RoutineRun[] }) {
             <span>{t('node.lastRuns', { count: runs.length })}</span>
             <span className="truncate">{parts.join(' · ')}</span>
         </p>
-    );
-}
-
-/* The newest version of the routine's Output artifact, drawn as the artifact node draws one. */
-function LatestVersion({ endpointId, artifactId }: { endpointId: string; artifactId: string }) {
-    const { t } = useTranslation('output');
-    const { t: words } = useTranslation('routines');
-    const answers = useMachineAnswers(endpointId, 'artifact.get');
-    const state = useArtifact(endpointId, artifactId, answers);
-    if (!answers) {
-        return <Plate icon={CircleAlert}>{t('panel.tooOld')}</Plate>;
-    }
-    if (state.status === 'loading') {
-        return <Plate busy>{t('view.loading')}</Plate>;
-    }
-    if (state.status === 'unreachable') {
-        return <Plate icon={WifiOff}>{t('view.unreachable')}</Plate>;
-    }
-    if (state.status === 'gone') {
-        return <Plate icon={Package}>{t('node.removed')}</Plate>;
-    }
-    const { artifact, versions } = state.result;
-    const latest = versions[0]!;
-    return (
-        <div className="flex min-h-0 grow flex-col overflow-hidden rounded-lg border border-border bg-clip-padding">
-            <header className="flex h-8 shrink-0 items-center gap-2 border-b border-border px-3 text-xs">
-                <Icon icon={Package} size={12} className="text-text-muted" />
-                <span className="truncate text-text">{artifact.title}</span>
-                <Pill className="tabular-nums">{`v${latest.number}`}</Pill>
-            </header>
-            <ErrorBoundary label={t('view.failed')} resetKeys={[latest.versionId]} className="flex min-h-0 grow flex-col">
-                <VersionBody endpointId={endpointId} artifact={artifact} version={latest} />
-            </ErrorBoundary>
-            <footer className="flex h-8 shrink-0 items-center border-t border-border px-1">
-                <Button size="xs" variant="ghost" onClick={() => openArtifact(artifact.artifactId, artifact.title)}>
-                    <Icon icon={SquareArrowOutUpRight} size={12} />
-                    {words('detail.openInOutput')}
-                </Button>
-            </footer>
-        </div>
     );
 }
 

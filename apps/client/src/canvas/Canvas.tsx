@@ -44,6 +44,8 @@ import { EdgeLayer } from '@/canvas/EdgeLayer';
 import { PortHints } from '@/canvas/PortHints';
 import { ResizeHandles } from '@/canvas/ResizeHandles';
 import { NodeFrame } from '@/canvas/NodeFrame';
+import { DerivedCards } from '@/canvas/DerivedCards';
+import { derivedOwnerOf } from '@/canvas/node-body';
 import { TextElementView } from '@/canvas/TextElementView';
 import { TextToolbar } from '@/canvas/TextToolbar';
 import { CanvasLineLayer, CanvasLineTool, CanvasLineToolbar } from '@/canvas/CanvasLines';
@@ -355,7 +357,8 @@ export function Canvas() {
            scale only in the top-most widget, never in a `<webview>` guest, and the canvas never sees
            the event. Two fingers over a node nobody is working in pan the canvas. */
         defer: (e, zooming) => {
-            const ownerId = (e.target as HTMLElement).closest('[data-node-body]')?.closest('[data-node-id]')?.getAttribute('data-node-id');
+            const ownerId =
+                derivedOwnerOf(e.target) ?? (e.target as HTMLElement).closest('[data-node-body]')?.closest('[data-node-id]')?.getAttribute('data-node-id');
             const s = canvasStore.getState();
             return !zooming && ownerId !== null && ownerId !== undefined && (isNodeActive(s.bodyFocusId, ownerId) || maximizedNodeOf(s) === ownerId);
         }
@@ -507,6 +510,14 @@ export function Canvas() {
                 },
                 e
             );
+            return;
+        }
+
+        const derivedOf = derivedOwnerOf(target);
+        if (derivedOf !== null) {
+            if (!isNodeActive(s.bodyFocusId, derivedOf)) {
+                s.setBodyFocus(derivedOf);
+            }
             return;
         }
 
@@ -750,6 +761,7 @@ export function Canvas() {
         const target = e.target as HTMLElement;
         if (
             target.closest('[data-node-id]') ||
+            derivedOwnerOf(target) !== null ||
             target.closest('[data-text-id]') ||
             target.closest('[data-canvas-line]') ||
             lineTool !== null ||
@@ -800,6 +812,7 @@ export function Canvas() {
                     {drawIds.map((id) => (
                         <NodeFrame key={id} id={id} z={id === maximizedId ? order.length + 1 : (stacking[id] ?? 1)} />
                     ))}
+                    {maximizedId === null && <DerivedCards stacking={stacking} />}
                     {/* Over the nodes, so a port beside one is never covered by the node standing next to it. */}
                     {maximizedId === null && <PortHints rootRef={rootRef} />}
                     {/* Over every node, or a press on the handle of a node in a group lands on the group's frame and moves the group. */}

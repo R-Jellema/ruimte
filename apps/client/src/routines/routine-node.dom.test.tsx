@@ -4,6 +4,7 @@ import { zonedTime, type ArtifactGetResult, type ProjectCanvasView, type Project
 import { showRoutine, useRoutinesStage } from '@/routines/stage';
 import { liveCanvas } from '@/state/canvas';
 import { windowWorkspace } from '@/state/window';
+import { chatInfoOf } from '../../testing/chat-info';
 import { clickOn, mount, openSubmenu, until, type Mounted } from '../../testing/dom';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
@@ -40,7 +41,7 @@ const MORNING: RoutineEntry = {
     runs: [
         run('fri', 23, { state: 'skipped', skipped: 'overlap' }),
         run('thu', 22, { state: 'done', waited: true, chatId: 'chat-thu' }),
-        run('wed', 21, { state: 'done', kind: 'caught-up' })
+        run('wed', 21, { state: 'done', kind: 'caught-up', artifactId: 'art-1', versionId: 'ver-14', versionNumber: 14 })
     ],
     artifactId: 'art-1'
 };
@@ -53,6 +54,15 @@ const ARTIFACT: ArtifactGetResult = {
             number: 15,
             createdAt: zonedTime(2026, 10, 22, 9, 3, AMS),
             files: [{ name: 'morning.md', mime: 'text/markdown', size: REPORT.length, sha256: 'ver-15' }],
+            bytes: REPORT.length,
+            provenance: { maker: 'routine', machineId: 'mac' },
+            copiedTo: []
+        },
+        {
+            versionId: 'ver-14',
+            number: 14,
+            createdAt: zonedTime(2026, 10, 21, 9, 3, AMS),
+            files: [{ name: 'morning.md', mime: 'text/markdown', size: REPORT.length, sha256: 'ver-14' }],
             bytes: REPORT.length,
             provenance: { maker: 'routine', machineId: 'mac' },
             copiedTo: []
@@ -102,9 +112,9 @@ afterEach(async () => {
 });
 
 describe('a routine node', () => {
-    test('draws its runs oldest first with the next time, its schedule and the latest version of its Output', async () => {
+    test('draws its runs oldest first with the next time and its schedule, and leaves its Output to the card beside it', async () => {
         await open([routineNode('node-1', 'morning')]);
-        await until(() => (frameOf('node-1')?.textContent ?? '').includes('All green'));
+        await until(() => frameOf('node-1')?.querySelector('[data-look="next"]') != null);
         const frame = frameOf('node-1')!;
         expect(looks(frame)).toEqual(['caught-up', 'waited', 'skipped', 'next']);
         expect(frame.textContent).toContain('Weekdays at');
@@ -112,7 +122,7 @@ describe('a routine node', () => {
         // The newest run that ran is picked, and says what happened.
         expect(frame.textContent).toContain('after waiting for you');
         expect(frame.querySelector('[aria-pressed="true"]')?.getAttribute('data-look')).toBe('waited');
-        expect(frame.textContent).toContain('v15');
+        expect(frame.textContent).not.toContain('v15');
     });
 
     test("a block opens that run in Routines, and the clock the routine's own page", async () => {
@@ -194,5 +204,96 @@ describe('a routine node', () => {
             .at(-1)
             ?.content.views.find((candidate) => candidate.id === 'main');
         expect(view?.kind === 'canvas' ? view.nodes[0] : null).toMatchObject({ kind: 'routine', routine: 'morning', title: 'Morning summary' });
+    });
+});
+
+describe('beside a routine node', () => {
+    const THREAD = [
+        { id: 'u1', kind: 'user', turnId: 'turn-1', createdAt: 0, text: 'Summarize what changed on main.' },
+        { id: 'a1', kind: 'assistant', turnId: 'turn-1', createdAt: 1, text: 'Three commits on main, all checks green.', streaming: false }
+    ];
+
+    beforeEach(() => {
+        machine.answer('chat.attach', ({ chatId }) => ({ info: chatInfoOf(chatId), items: THREAD, seq: THREAD.length }) as never);
+    });
+
+    function cards(): HTMLElement[] {
+        return [...page.host.querySelectorAll<HTMLElement>('[data-derived-of="node-1"]')];
+    }
+
+    function card(label: string): HTMLElement | undefined {
+        return cards().find((candidate) => candidate.getAttribute('aria-label') === label);
+    }
+
+    test('the newest run that ran is open with its chat, and the others are a line each', async () => {
+        await open([routineNode('node-1', 'morning')]);
+        // The thread is virtualized and happy-dom lays nothing out, so its chat shows as the attach and the composer to reply in.
+        await until(() => card('Morning summary · Thu, Oct 22')?.querySelector('.chat-column [contenteditable="true"]') != null);
+        expect(card('Morning summary · Fri, Oct 23')?.querySelector('button[aria-expanded="false"]')?.textContent).toContain('Skipped');
+        expect(card('Morning summary · Wed, Oct 21')?.querySelector('button[aria-expanded="false"]')?.textContent).toContain('Caught up on wake');
+        expect(machine.requests('chat.attach').map((request) => request.chatId)).toEqual(['chat-thu']);
+    });
+
+    test('a line opens its run in place of the open one', async () => {
+        await open([routineNode('node-1', 'morning')]);
+        await until(() => card('Morning summary · Wed, Oct 21')?.querySelector('button[aria-expanded="false"]') != null);
+        await clickOn(card('Morning summary · Wed, Oct 21')!.querySelector('button[aria-expanded="false"]'));
+        await until(() => (card('Morning summary · Wed, Oct 21')?.textContent ?? '').includes('ran when the machine woke'));
+        expect(card('Morning summary · Thu, Oct 22')?.querySelector('button[aria-expanded="false"]')).not.toBeNull();
+        // The Output follows the open run to the version it kept.
+        await until(() => (card('Output')?.textContent ?? '').includes('v14'));
+        expect(card('Output')!.textContent).not.toContain('saved no version');
+    });
+
+    test('the open run collapses too, so every run is a line', async () => {
+        await open([routineNode('node-1', 'morning')]);
+        await until(() => card('Morning summary · Thu, Oct 22')?.querySelector('button[aria-label="Collapse"]') != null);
+        await clickOn(card('Morning summary · Thu, Oct 22')!.querySelector('button[aria-label="Collapse"]'));
+        await until(() => cards().filter((candidate) => candidate.querySelector(':scope > button[aria-expanded="false"]') !== null).length === 3);
+        expect(machine.requests('chat.attach').length).toBeLessThanOrEqual(1);
+    });
+
+    test("the Output card says when the open run kept no version and shows the newest run's", async () => {
+        await open([routineNode('node-1', 'morning')]);
+        await until(() => (card('Output')?.textContent ?? '').includes('All green'));
+        expect(card('Output')!.textContent).toContain('v14');
+        expect(card('Output')!.textContent).toContain('This run saved no version. Showing the one from Wed, Oct 21.');
+    });
+
+    test("a person sizes the Output card, and the size stays this client's", async () => {
+        await open([routineNode('node-1', 'morning')]);
+        await until(() => card('Output')?.querySelector('[role="separator"]') != null);
+        const grip = card('Output')!.querySelector('[role="separator"]')!;
+        const at = (type: string, x: number, y: number): PointerEvent =>
+            new PointerEvent(type, { bubbles: true, button: 0, pointerId: 1, clientX: x, clientY: y });
+        await act(async () => {
+            grip.dispatchEvent(at('pointerdown', 100, 100));
+            grip.dispatchEvent(at('pointermove', 160, 140));
+            grip.dispatchEvent(at('pointerup', 160, 140));
+        });
+        expect(card('Output')!.style.width).toBe('500px');
+        expect(JSON.parse(localStorage.getItem('ruimte.routineOutput.main.node-1') ?? 'null')).toEqual({ w: 500, h: 520 });
+        expect(Object.keys(liveCanvas('main')!.nodes)).toEqual(['node-1']);
+    });
+
+    test('a press in a card gives the routine node the keyboard and selects nothing', async () => {
+        await open([routineNode('node-1', 'morning')]);
+        await until(() => card('Morning summary · Fri, Oct 23') !== undefined);
+        await act(async () => {
+            card('Morning summary · Fri, Oct 23')!.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, pointerId: 1 }));
+        });
+        expect(liveCanvas('main')).toMatchObject({ bodyFocusId: 'node-1', selection: [] });
+    });
+
+    test('the cards are drawn, never stored', async () => {
+        await open([routineNode('node-1', 'morning')]);
+        await until(() => card('Morning summary · Wed, Oct 21')?.querySelector('button[aria-expanded="false"]') != null);
+        await clickOn(card('Morning summary · Wed, Oct 21')!.querySelector('button[aria-expanded="false"]'));
+        await act(async () => windowWorkspace()!.connection.projects.flush());
+        expect(Object.keys(liveCanvas('main')!.nodes)).toEqual(['node-1']);
+        for (const save of machine.requests('project.save')) {
+            const view = save.content.views.find((candidate) => candidate.id === 'main');
+            expect(view?.kind === 'canvas' ? view.nodes.map((node) => node.id) : null).toEqual(['node-1']);
+        }
     });
 });
