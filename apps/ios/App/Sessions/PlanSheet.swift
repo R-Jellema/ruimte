@@ -63,7 +63,7 @@ struct PlanSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .modifier(PlanPicker(plans: plans, selection: Binding(get: { plan?.id ?? "" }, set: { selectedID = $0 })))
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) { Button(role: .close) { dismiss() } }
                 if let shown = activity.shown {
                     ToolbarItem(placement: .topBarTrailing) { activityButton(shown) }
                 }

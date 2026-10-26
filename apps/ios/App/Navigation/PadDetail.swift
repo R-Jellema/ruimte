@@ -25,7 +25,7 @@ struct PadDetailColumn: View {
                 NavigationStack {
                     ConnectionScreen(runtime: runtime)
                         .toolbar {
-                            ToolbarItem(placement: .confirmationAction) { Button("Done") { diagnostics = false } }
+                            ToolbarItem(placement: .confirmationAction) { Button(role: .close) { diagnostics = false } }
                         }
                 }
             }

@@ -104,7 +104,7 @@ struct SearchPage: View {
                 NavigationStack {
                     MachineUsagePage(client: runtime.session(for: machine).rpc)
                         .toolbar {
-                            ToolbarItem(placement: .confirmationAction) { Button("Done") { usage = nil } }
+                            ToolbarItem(placement: .confirmationAction) { Button(role: .close) { usage = nil } }
                         }
                 }
             }

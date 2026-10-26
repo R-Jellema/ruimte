@@ -30,7 +30,7 @@ struct ChatQueueSheet: View {
             .navigationTitle("Queue (\(model.queue.count))")
             .navigationSubtitle("Sent as soon as the current turn finishes.")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button(role: .close) { dismiss() } } }
         }
         .presentationDetents([.medium, .large])
     }

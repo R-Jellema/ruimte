@@ -100,7 +100,7 @@ struct MobileSettings: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
-                Button(role: .confirm) { dismiss() }
+                Button(role: .close) { dismiss() }
             }
         }
     }

@@ -445,7 +445,7 @@ private struct GitBlockEditSheet: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button("Cancel", action: onCancel) }
-                    ToolbarItem(placement: .confirmationAction) { Button("Done") { onSave(text) } }
+                    ToolbarItem(placement: .confirmationAction) { Button(role: .confirm) { onSave(text) } }
                 }
         }
         .task { text = initial }

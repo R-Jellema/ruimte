@@ -34,7 +34,7 @@ struct ModelComparisonSheet: View {
             .navigationSubtitle("Intelligence against cost")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) { Button(role: .close) { dismiss() } }
             }
         }
         .task { await comparison.reload() }

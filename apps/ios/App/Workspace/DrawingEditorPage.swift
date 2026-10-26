@@ -226,7 +226,7 @@ struct DrawingEditorPage: View {
             }
             .navigationTitle(model.selection.isEmpty ? "Drawing style" : "Selection style")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showStyle = false } } }
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button(role: .close) { showStyle = false } } }
         }
     }
     private func binding<Value>(_ path: WritableKeyPath<DrawingStyle, Value>, _ key: String) -> Binding<Value> {
@@ -293,7 +293,7 @@ private struct DrawingTextSheet: View {
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                     ToolbarItem(placement: .confirmationAction) {
-                        Button("Done") {
+                        Button(role: .confirm) {
                             save(text)
                             dismiss()
                         }

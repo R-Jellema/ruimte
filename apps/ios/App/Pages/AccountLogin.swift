@@ -168,7 +168,7 @@ struct AccountLoginSheet: View {
             }
             .modifier(MobilePageSurface())
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button(role: .close) { dismiss() } }
             }
         }
         .task { await model.begin() }

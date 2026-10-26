@@ -208,7 +208,7 @@ struct ChatBookmarkList: View {
             .navigationTitle("Bookmarks")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) { Button(role: .close) { dismiss() } }
             }
         }
         .frame(idealWidth: 400, idealHeight: 560)

@@ -106,7 +106,7 @@ struct ChatComposerView: View {
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
                         ToolbarItem(placement: .confirmationAction) {
-                            Button("Done") {
+                            Button(role: .confirm) {
                                 sheets.expanded = false
                                 focused = true
                             }
@@ -400,7 +400,7 @@ struct ChatContextPicker: View {
             .task(id: query) { await model.search(kind, query: query) }
             .navigationTitle(ChatSuggestion.heading(kind))
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } } }
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button(role: .close) { dismiss() } } }
         }
     }
 }

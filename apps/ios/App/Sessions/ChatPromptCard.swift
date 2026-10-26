@@ -95,7 +95,7 @@ struct ChatPromptCard: View {
                 ScrollView { diffContent.padding() }
                     .navigationTitle("Changes in this request")
                     .toolbar {
-                        ToolbarItem(placement: .confirmationAction) { Button("Done") { showingFullDiff = false } }
+                        ToolbarItem(placement: .confirmationAction) { Button(role: .close) { showingFullDiff = false } }
                     }
             }
         }

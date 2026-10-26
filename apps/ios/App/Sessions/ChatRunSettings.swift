@@ -174,7 +174,7 @@ struct ChatRunSettings: View {
             .navigationTitle("Run settings")
             .navigationSubtitle("This chat")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button(role: .close) { dismiss() } } }
         }
     }
 

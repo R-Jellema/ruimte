@@ -324,7 +324,7 @@ private struct CanvasLinkSheet: View {
                 }
             }
             .navigationTitle("Link as context").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done", action: done) } }
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button(role: .close, action: done) } }
         }
     }
 
@@ -375,7 +375,7 @@ private struct CanvasColorSheet: View {
                 }
             }
             .navigationTitle("Color").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done", action: done) } }
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button(role: .close, action: done) } }
         }
     }
 

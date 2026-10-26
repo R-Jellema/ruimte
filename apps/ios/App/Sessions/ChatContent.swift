@@ -159,7 +159,9 @@ struct ChatLinkRouting: ViewModifier {
                     NavigationStack {
                         FileContentPage(client: context.client, path: target.path, initialLine: target.line)
                             .toolbar {
-                                ToolbarItem(placement: .cancellationAction) { Button("Done") { self.target = nil } }
+                                ToolbarItem(placement: .cancellationAction) {
+                                    Button(role: .close) { self.target = nil }
+                                }
                             }
                     }
                 }
@@ -169,7 +171,9 @@ struct ChatLinkRouting: ViewModifier {
                     NavigationStack {
                         destination(uiTarget)
                             .toolbar {
-                                ToolbarItem(placement: .cancellationAction) { Button("Done") { self.uiTarget = nil } }
+                                ToolbarItem(placement: .cancellationAction) {
+                                    Button(role: .close) { self.uiTarget = nil }
+                                }
                             }
                     }
                 }

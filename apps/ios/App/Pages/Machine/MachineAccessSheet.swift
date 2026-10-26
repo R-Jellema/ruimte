@@ -107,7 +107,7 @@ struct MachineAccessSheet: View {
             .navigationSubtitle(name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button(role: .confirm) { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) { Button(role: .close) { dismiss() } }
             }
         }
     }

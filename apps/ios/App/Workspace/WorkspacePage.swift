@@ -198,7 +198,7 @@ struct WorkspacePage: View {
                 NavigationStack {
                     ConnectionScreen(runtime: runtime)
                         .toolbar {
-                            ToolbarItem(placement: .confirmationAction) { Button("Done") { showDiagnostics = false } }
+                            ToolbarItem(placement: .confirmationAction) { Button(role: .close) { showDiagnostics = false } }
                         }
                 }
             }
@@ -208,7 +208,7 @@ struct WorkspacePage: View {
                 MachineUsagePage(client: workspace.client)
                     .toolbar {
                         ToolbarItem(placement: .confirmationAction) {
-                            Button("Done") { navigation.showingUsage = false }
+                            Button(role: .close) { navigation.showingUsage = false }
                         }
                     }
             }
@@ -221,7 +221,7 @@ struct WorkspacePage: View {
                 }
                     .toolbar {
                         ToolbarItem(placement: .confirmationAction) {
-                            Button("Done") { navigation.showingFiles = false }
+                            Button(role: .close) { navigation.showingFiles = false }
                         }
                     }
             }
@@ -230,7 +230,7 @@ struct WorkspacePage: View {
             NavigationStack {
                 ProcessesPage(client: workspace.client, titles: workspace.nodeTitles)
                     .toolbar {
-                        ToolbarItem(placement: .confirmationAction) { Button("Done") { showProcesses = false } }
+                        ToolbarItem(placement: .confirmationAction) { Button(role: .close) { showProcesses = false } }
                     }
             }
         }
@@ -238,7 +238,7 @@ struct WorkspacePage: View {
             NavigationStack {
                 GitPage(client: workspace.client, folder: workspace.folder, workspace: workspace)
                     .toolbar {
-                        ToolbarItem(placement: .confirmationAction) { Button("Done") { navigation.showingGit = false } }
+                        ToolbarItem(placement: .confirmationAction) { Button(role: .close) { navigation.showingGit = false } }
                     }
             }
         }
