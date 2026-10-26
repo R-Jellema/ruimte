@@ -290,6 +290,16 @@
     "resume": "Gepauzeerd, zet aan om te hervatten",
     "openInRoutines": "Openen in Routines",
     "nextBlock": "Volgende run {{time}}",
+    "nextRun": "Volgende run {{time}}",
+    "inTime": "over {{time}}",
+    "lastRuns_one": "Laatste run",
+    "lastRuns_other": "Laatste {{count}} runs",
+    "countDone_one": "{{count}} klaar",
+    "countDone_other": "{{count}} klaar",
+    "countWaited_one": "{{count}} had je nodig",
+    "countWaited_other": "{{count}} hadden je nodig",
+    "countFailed_one": "{{count}} mislukt",
+    "countFailed_other": "{{count}} mislukt",
     "latest": "Laatste versie"
   }
 }

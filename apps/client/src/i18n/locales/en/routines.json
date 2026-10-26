@@ -290,6 +290,16 @@
     "resume": "Paused, turn on to resume",
     "openInRoutines": "Open in Routines",
     "nextBlock": "Next run {{time}}",
+    "nextRun": "Next run {{time}}",
+    "inTime": "in {{time}}",
+    "lastRuns_one": "Last run",
+    "lastRuns_other": "Last {{count}} runs",
+    "countDone_one": "{{count}} done",
+    "countDone_other": "{{count}} done",
+    "countWaited_one": "{{count}} needed you",
+    "countWaited_other": "{{count}} needed you",
+    "countFailed_one": "{{count}} failed",
+    "countFailed_other": "{{count}} failed",
     "latest": "Latest version"
   }
 }

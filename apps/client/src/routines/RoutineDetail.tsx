@@ -1,18 +1,16 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Ban, CircleCheck, Hand, SquareArrowOutUpRight } from 'lucide-react';
-import type { AgentKind, RoutineEntry, RoutineRun } from '@ruimte/contracts';
+import type { RoutineEntry, RoutineRun } from '@ruimte/contracts';
 import { Button, EmptyState, ErrorBoundary, FormError, Icon, IconButton, KeyValueList, Pill, SectionLabel, Segmented } from '@adecore/ui';
 import { formatDateTime } from '@adecore/ui/format';
 import { runtimeModeLabel } from '@adecore/agents-react/chat';
-import { AgentIcon, modelName, ProviderLogo } from '@adecore/agents-react/providers';
-import { useProvidersStore } from '@adecore/agents-react/state';
-import { hasProviderLogo } from '@/agents/provider-logo';
 import { ArtifactView } from '@/output/ArtifactView';
 import { openArtifact } from '@/output/open';
 import { FileToolbarSlotProvider, fixedSlot } from '@/shell/panels/file-toolbar-slot';
 import { lookOfRun } from '@/routines/agenda';
 import { LookIcon } from '@/routines/look';
+import { RoutineAgent } from '@/routines/RoutineAgent';
 import { RoutineRunChat } from '@/routines/RoutineRunChat';
 import { useRoutineApproval } from '@/routines/routine-approval';
 import { useRoutineWhat } from '@/routines/routine-what';
@@ -110,18 +108,6 @@ function Definition({ endpointId, entry }: { endpointId: string; entry: RoutineE
                 </KeyValueList.Item>
             </KeyValueList.Root>
         </section>
-    );
-}
-
-/* The agent a routine starts, by its CLI's mark and the model it picked, as Output names who made a version. */
-function RoutineAgent({ endpointId, provider, model }: { endpointId: string; provider: AgentKind; model: string | undefined }) {
-    const catalog = useProvidersStore((s) => s.byScope[endpointId]?.providers.find((entry) => entry.kind === provider));
-    const name = model === undefined ? (catalog?.name ?? provider) : modelName(model, catalog?.models);
-    return (
-        <span className="flex min-w-0 items-center gap-1.5">
-            {hasProviderLogo(provider) ? <ProviderLogo provider={provider} size={14} /> : <AgentIcon kind={provider} size={14} className="shrink-0" />}
-            <span className="truncate">{name}</span>
-        </span>
     );
 }
 
