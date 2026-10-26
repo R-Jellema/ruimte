@@ -39,7 +39,11 @@
     "allTitle": "Alle routines op deze machine",
     "block": "{{title}}, {{time}}, {{state}}",
     "drag": "Sleep over de dagen",
-    "dragDay": "Nieuwe routine op {{day}}"
+    "dragDay": "Nieuwe routine op {{day}}",
+    "folded": "{{title}}, {{runs}}",
+    "foldedList": "Runs van {{title}}",
+    "coming_one": "{{title}}, nog {{count}} keer vanaf {{from}}, {{times}}",
+    "coming_other": "{{title}}, nog {{count}} keer vanaf {{from}}, {{times}}"
   },
   "row": {
     "next": "Volgende {{time}}",
@@ -76,7 +80,12 @@
     "limit": "Limiet bereikt",
     "failed": "Mislukt",
     "skipped": "Overgeslagen",
-    "paused": "Gepauzeerd"
+    "paused": "Gepauzeerd",
+    "runs_one": "{{count}} run",
+    "runs_other": "{{count}} runs",
+    "runsFailed_one": "{{runs}} · {{count}} mislukt",
+    "runsFailed_other": "{{runs}} · {{count}} mislukt",
+    "coming": "{{every}} tot {{to}}"
   },
   "band": {
     "since": "Gepauzeerd sinds {{since}}",
@@ -126,7 +135,20 @@
     "weekdays": "Doordeweeks om {{time}}",
     "weekends": "In het weekend om {{time}}",
     "every": "Elke {{day}} om {{time}}",
-    "some": "{{days}} om {{time}}"
+    "some": "{{days}} om {{time}}",
+    "interval": "{{days}}, {{every}} van {{from}} tot {{to}}"
+  },
+  "repeatDays": {
+    "daily": "Dagelijks",
+    "weekdays": "Doordeweeks",
+    "weekends": "In het weekend"
+  },
+  "step": {
+    "hour": "elk uur",
+    "hours_one": "elk {{count}} uur",
+    "hours_other": "elke {{count}} uur",
+    "minutes_one": "elke {{count}} minuut",
+    "minutes_other": "elke {{count}} minuten"
   },
   "run": {
     "skippedOverlap": "Overgeslagen, de vorige run wachtte nog op je",
@@ -196,6 +218,12 @@
     "repeat": "Herhalen",
     "once": "Eenmalig",
     "weekly": "Op dagen",
+    "interval": "Door de dag",
+    "every": "Hoe vaak",
+    "from": "van",
+    "to": "tot",
+    "fromTime": "Eerste keer",
+    "toTime": "Laatste keer",
     "date": "Datum",
     "days": "Dagen",
     "time": "Tijd",

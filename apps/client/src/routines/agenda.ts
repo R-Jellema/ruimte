@@ -2,6 +2,9 @@ import { dueTimesBetween, wallTimeOf, zonedTime, type RoutineEntry, type Routine
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+// Every quarter hour of a week, the most a schedule can be due in one.
+const WEEK_TIMES_MAX = 7 * 24 * 4;
+
 /* What a block in the week says about its run. `next` and a `paused` without a run are times the client works out from the schedule. */
 export type BlockLook = 'done' | 'waited' | 'caught-up' | 'limit' | 'skipped' | 'paused' | 'next' | 'running' | 'waiting' | 'failed';
 
@@ -116,13 +119,57 @@ export function blocksOf(entry: RoutineEntry, week: AgendaWeek, now: number, tim
     if (scheduled(entry) && week.end > now) {
         const taken = new Set(entry.runs.map((run) => run.due));
         const paused = entry.local.pausedAt !== undefined;
-        for (const at of dueTimesBetween(entry.routine.schedule, Math.max(now, week.start - 1), week.end - 1, timeZone)) {
+        for (const at of dueTimesBetween(entry.routine.schedule, Math.max(now, week.start - 1), week.end - 1, timeZone, WEEK_TIMES_MAX)) {
             if (!taken.has(at)) {
                 blocks.push({ key: `next-${at}`, day: dayIndexOf(week, at), at, look: paused ? 'paused' : 'next', run: null });
             }
         }
     }
     return blocks.sort((left, right) => left.at - right.at);
+}
+
+// The runs of one day a cell shows as blocks of their own; more fold into one chip so a day of half-hourly runs stays a cell.
+const RUNS_PER_CELL = 2;
+
+// A run that asks for a person, or still goes on, keeps its block however many there are.
+const STANDS_OUT: ReadonlySet<BlockLook> = new Set(['running', 'waiting', 'limit']);
+
+export type CellItem =
+    | { kind: 'block'; key: string; at: number; block: AgendaBlock }
+    | { kind: 'runs'; key: string; at: number; blocks: AgendaBlock[]; failed: number }
+    | { kind: 'coming'; key: string; at: number; blocks: AgendaBlock[]; every: number; to: string };
+
+function single(block: AgendaBlock): CellItem {
+    return { kind: 'block', key: block.key, at: block.at, block };
+}
+
+/*
+ * What one routine's cell of a day shows. Up to two runs are blocks; past that the quiet ones fold into one
+ * chip that lists them. The times still to come of a repeat within a day are one chip with its step and end.
+ */
+export function cellItems(blocks: readonly AgendaBlock[], schedule: RoutineSchedule): CellItem[] {
+    const runs = blocks.filter((block) => block.run !== null);
+    const coming = blocks.filter((block) => block.run === null);
+    const items: CellItem[] = [];
+    const quiet = runs.filter((block) => !STANDS_OUT.has(block.look));
+    if (runs.length > RUNS_PER_CELL && quiet.length > 1) {
+        items.push({
+            kind: 'runs',
+            key: `runs-${quiet[0]!.key}`,
+            at: quiet[0]!.at,
+            blocks: quiet,
+            failed: quiet.filter((block) => block.look === 'failed').length
+        });
+        items.push(...runs.filter((block) => STANDS_OUT.has(block.look)).map(single));
+    } else {
+        items.push(...runs.map(single));
+    }
+    if (schedule.kind === 'interval' && coming.length > 1) {
+        items.push({ kind: 'coming', key: `coming-${coming[0]!.key}`, at: coming[0]!.at, blocks: coming, every: schedule.every, to: schedule.to });
+    } else {
+        items.push(...coming.map(single));
+    }
+    return items.sort((left, right) => left.at - right.at);
 }
 
 /*

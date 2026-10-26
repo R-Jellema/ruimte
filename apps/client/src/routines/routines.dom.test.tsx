@@ -290,6 +290,65 @@ describe('Routines', () => {
         });
     });
 
+    test('a routine through the day sends its days, its step and its first and last time', async () => {
+        await openStage();
+        await clickOn(buttonWithText('New routine', page.host));
+        await until(() => document.querySelector('form[aria-label="New routine"]') !== null);
+        const form = document.querySelector('form[aria-label="New routine"]')!;
+        const type = async (field: HTMLInputElement | HTMLTextAreaElement, value: string): Promise<void> => {
+            await act(async () => {
+                Object.getOwnPropertyDescriptor(Object.getPrototypeOf(field), 'value')!.set!.call(field, value);
+                field.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+        };
+        await type(form.querySelector('textarea')!, 'Check the build.');
+        await clickOn(buttonWithText('Through the day', form));
+        await until(() => form.querySelector('[aria-label="How often"]') !== null);
+        await clickOn(buttonWithText('Sat', form));
+        await clickOn(form.querySelector('[aria-label="How often"]'));
+        await until(() => document.querySelector('[role="option"]') !== null);
+        await clickOn([...document.querySelectorAll('[role="option"]')].find((option) => option.textContent === 'every 30 minutes') ?? null);
+        await type(form.querySelector<HTMLInputElement>('input[aria-label="First time"]')!, '08:00');
+        await type(form.querySelector<HTMLInputElement>('input[aria-label="Last time"]')!, '18:00');
+        await clickOn(buttonWithText('Create routine', form));
+        await until(() => machine.requests('routine.save').length === 1);
+        expect(machine.requests('routine.save')[0]!.routine.schedule).toEqual({
+            kind: 'interval',
+            days: [1, 2, 3, 4, 5, 6],
+            every: 30,
+            from: '08:00',
+            to: '18:00'
+        });
+    });
+
+    test('the day of a routine through the day folds its runs and its coming times', async () => {
+        const hour = (value: number): number => zonedTime(2026, 10, 23, value, 0, AMS);
+        const runs = [9, 10, 11, 12].map((value) => ({
+            ...run(`h${value}`, 23, { state: value === 10 ? 'failed' : 'done' }),
+            routineId: 'hourly',
+            due: hour(value),
+            at: hour(value)
+        }));
+        const hourly = entry('hourly', 'Build check', { runs });
+        routines = [
+            { ...hourly, routine: { ...hourly.routine, schedule: { kind: 'interval', days: [1, 2, 3, 4, 5, 6, 7], every: 60, from: '09:00', to: '17:00' } } }
+        ];
+        await openStage();
+        await act(async () => machine.emit('routine.changed', { projectId: 'project-atlas' }));
+        await until(() => page.host.querySelector('[data-routine="hourly"] [data-fold="runs"]') !== null);
+        const row = page.host.querySelector('[data-routine="hourly"]')!;
+        const folded = row.querySelector<HTMLElement>('[data-fold="runs"]')!;
+        expect(folded.textContent).toBe('4 runs · 1 failed');
+        // Sunday from 14:20 on: 15:00, 16:00 and 17:00 are still to come.
+        expect(row.querySelector('[data-fold="coming"]')?.getAttribute('aria-label')).toStartWith('Build check, 3 more times from');
+        await clickOn(folded);
+        await until(() => document.querySelector('[aria-label="Runs of Build check"]') !== null);
+        const list = document.querySelector('[aria-label="Runs of Build check"]')!;
+        expect([...list.querySelectorAll('[data-look]')].map((block) => block.getAttribute('data-look'))).toEqual(['done', 'failed', 'done', 'done']);
+        await clickOn(list.querySelector('[data-look="failed"]'));
+        await until(() => document.querySelector('[aria-label="Runs of Build check"]') === null);
+    });
+
     test('the keys of the canvas under it do nothing while it is open', async () => {
         await openStage();
         await pressKey(document.body, 'n', { altKey: true });

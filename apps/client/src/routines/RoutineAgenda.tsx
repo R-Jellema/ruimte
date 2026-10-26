@@ -6,7 +6,7 @@ import type { RoutineEntry, RoutineKind } from '@ruimte/contracts';
 import { EmptyState, Icon, Popover, Switch } from '@adecore/ui';
 import { formatClock, formatDateTime } from '@adecore/ui/format';
 import { OutputProjectGlyph } from '@/output/look';
-import { blocksOf, LEGEND, pausedBand, skippedWhilePaused, type AgendaBlock, type AgendaWeek } from '@/routines/agenda';
+import { blocksOf, cellItems, LEGEND, pausedBand, skippedWhilePaused, type AgendaBlock, type AgendaWeek, type CellItem } from '@/routines/agenda';
 import { LookIcon } from '@/routines/look';
 import { blockClass, HATCH } from '@/routines/look-class';
 import { setRoutinePaused } from '@/routines/routine-commands';
@@ -14,7 +14,7 @@ import { useRoutineWhat } from '@/routines/routine-what';
 import { RoutineQuickForm } from '@/routines/RoutineQuickForm';
 import { RoutineRunPopover, type PickedRun } from '@/routines/RoutineRunPopover';
 import { showRoutine } from '@/routines/stage';
-import { blockWords, rowStatus, scheduleWords, spanWords } from '@/routines/words';
+import { blockWords, foldWords, rowStatus, scheduleWords, spanWords } from '@/routines/words';
 
 const NAME_COLUMN = 208;
 // A day never narrower than a block that says "09:00 · 3m"; a narrow stage scrolls sideways instead.
@@ -276,18 +276,25 @@ function AgendaRow({
             </div>
             {cells.map((day, index) => (
                 <div key={day.date} role="gridcell" className="flex min-w-0 flex-col gap-1 p-1">
-                    {blocks
-                        .filter((block) => block.day === index)
-                        .map((block) => (
+                    {cellItems(
+                        blocks.filter((block) => block.day === index),
+                        entry.routine.schedule
+                    ).map((item) =>
+                        item.kind === 'block' ? (
                             <Block
-                                key={block.key}
-                                block={block}
+                                key={item.key}
+                                block={item.block}
                                 entry={entry}
                                 timeZone={timeZone}
-                                picked={block.run !== null && block.run.runId === pickedRunId}
+                                picked={item.block.run !== null && item.block.run.runId === pickedRunId}
                                 onPick={onPick}
                             />
-                        ))}
+                        ) : item.kind === 'runs' ? (
+                            <FoldedRuns key={item.key} item={item} entry={entry} timeZone={timeZone} pickedRunId={pickedRunId} onPick={onPick} />
+                        ) : (
+                            <ComingChip key={item.key} item={item} entry={entry} timeZone={timeZone} />
+                        )
+                    )}
                 </div>
             ))}
             {band !== null && (
@@ -369,6 +376,85 @@ function Block({
         >
             {body}
         </button>
+    );
+}
+
+/* A day's quiet runs in one chip, whose popover lists each as the block it would have been. */
+function FoldedRuns({
+    item,
+    entry,
+    timeZone,
+    pickedRunId,
+    onPick
+}: {
+    item: Extract<CellItem, { kind: 'runs' }>;
+    entry: RoutineEntry;
+    timeZone: string;
+    pickedRunId: string | null;
+    onPick(picked: PickedRun): void;
+}) {
+    const { t } = useTranslation('routines');
+    const [open, setOpen] = useState(false);
+    const [chip, setChip] = useState<HTMLButtonElement | null>(null);
+    const look = item.failed > 0 ? 'failed' : 'done';
+    const words = foldWords(item);
+    return (
+        <Popover.Root open={open} onOpenChange={setOpen}>
+            <button
+                ref={setChip}
+                type="button"
+                className={clsx('flex h-7 w-full min-w-0 items-center gap-1 px-1.5 text-xs hover:brightness-110', blockClass(look))}
+                aria-label={t('agenda.folded', { title: entry.routine.title, runs: words })}
+                aria-haspopup="dialog"
+                aria-expanded={open}
+                data-fold="runs"
+                onClick={() => setOpen(!open)}
+            >
+                <LookIcon look={look} />
+                <span className="truncate tabular-nums">{words}</span>
+            </button>
+            <Popover.Popup
+                anchor={chip}
+                className="flex max-h-80 w-56 flex-col gap-1 overflow-y-auto p-2"
+                aria-label={t('agenda.foldedList', { title: entry.routine.title })}
+            >
+                {item.blocks.map((block) => (
+                    <Block
+                        key={block.key}
+                        block={block}
+                        entry={entry}
+                        timeZone={timeZone}
+                        picked={block.run !== null && block.run.runId === pickedRunId}
+                        onPick={(picked) => {
+                            setOpen(false);
+                            onPick({ ...picked, anchor: chip ?? picked.anchor });
+                        }}
+                    />
+                ))}
+            </Popover.Popup>
+        </Popover.Root>
+    );
+}
+
+/* The rest of a day of a repeat within a day, as one outlined chip rather than a block per time. */
+function ComingChip({ item, entry, timeZone }: { item: Extract<CellItem, { kind: 'coming' }>; entry: RoutineEntry; timeZone: string }) {
+    const { t } = useTranslation('routines');
+    const look = item.blocks[0]!.look;
+    return (
+        <span
+            className={clsx('flex h-7 w-full min-w-0 items-center gap-1 px-1.5 text-xs', blockClass(look))}
+            aria-label={t('agenda.coming', {
+                title: entry.routine.title,
+                count: item.blocks.length,
+                from: formatClock(item.at, timeZone),
+                times: foldWords(item)
+            })}
+            data-look={look}
+            data-fold="coming"
+        >
+            <LookIcon look={look} />
+            <span className="truncate tabular-nums">{foldWords(item)}</span>
+        </span>
     );
 }
 

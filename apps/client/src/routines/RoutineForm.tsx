@@ -10,11 +10,16 @@ import { firstLine, useAgentPick, type AgentPick } from '@/routines/agent-pick';
 import { freshRoutineId } from '@/routines/agenda';
 import type { RoutineFormRequest } from '@/routines/form-state';
 import { routineIdsTaken, saveRoutine } from '@/routines/routine-save';
-import { weekdayWords } from '@/routines/words';
+import { everyWords, weekdayWords } from '@/routines/words';
 import { endpointKey } from '@/state/keys';
 import { useProjectList } from '@/state/project-list';
 
 const DAYS = [1, 2, 3, 4, 5, 6, 7];
+
+const CLOCK = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+// The steps the form offers; a routine an agent set to another step keeps it as an extra choice.
+const STEPS = [15, 30, 60, 120, 180, 240];
 
 function today(): string {
     const now = new Date();
@@ -55,8 +60,10 @@ export function RoutineForm({
     const schedule: RoutineSchedule = editing?.schedule ?? request.schedule ?? { kind: 'weekly', days: [1, 2, 3, 4, 5], time: '09:00' };
     const [repeat, setRepeat] = useState<RoutineSchedule['kind']>(schedule.kind);
     const [date, setDate] = useState(schedule.kind === 'once' ? schedule.date : today());
-    const [days, setDays] = useState<number[]>(schedule.kind === 'weekly' ? schedule.days : [1, 2, 3, 4, 5]);
-    const [time, setTime] = useState(schedule.time);
+    const [days, setDays] = useState<number[]>(schedule.kind === 'once' ? [1, 2, 3, 4, 5] : schedule.days);
+    const [time, setTime] = useState(schedule.kind === 'interval' ? schedule.from : schedule.time);
+    const [every, setEvery] = useState(schedule.kind === 'interval' ? schedule.every : 60);
+    const [until, setUntil] = useState(schedule.kind === 'interval' ? schedule.to : '17:00');
     const [shared, setShared] = useState(request.editing?.shared ?? false);
     const [pickerOpen, setPickerOpen] = useState(false);
     const [failure, setFailure] = useState<string | null>(null);
@@ -68,16 +75,25 @@ export function RoutineForm({
 
     const ready =
         shownTitle !== '' &&
-        /^([01]\d|2[0-3]):[0-5]\d$/.test(time) &&
+        CLOCK.test(time) &&
         (repeat === 'once' ? /^\d{4}-\d{2}-\d{2}$/.test(date) : days.length > 0) &&
+        (repeat !== 'interval' || (CLOCK.test(until) && until > time)) &&
         (kind === 'agent' ? prompt.trim() !== '' && provider !== null : kind === 'command' ? command.trim() !== '' : launchId !== null);
+
+    const scheduleOf = (): RoutineSchedule => {
+        const sorted = [...days].sort();
+        if (repeat === 'once') {
+            return { kind: 'once', date, time };
+        }
+        return repeat === 'interval' ? { kind: 'interval', days: sorted, every, from: time, to: until } : { kind: 'weekly', days: sorted, time };
+    };
 
     const build = (): Routine => {
         const id = editing?.id ?? freshRoutineId(shownTitle, routineIdsTaken(endpointId, projectId));
         const base = {
             id,
             title: shownTitle,
-            schedule: repeat === 'once' ? { kind: 'once' as const, date, time } : { kind: 'weekly' as const, days: [...days].sort(), time },
+            schedule: scheduleOf(),
             outputKey: editing?.outputKey ?? id
         };
         // What a newer release stored on the routine rides along unchanged.
@@ -212,7 +228,8 @@ export function RoutineForm({
                         onValueChange={(id) => setRepeat(id as RoutineSchedule['kind'])}
                         options={[
                             { id: 'once', label: t('form.once') },
-                            { id: 'weekly', label: t('form.weekly') }
+                            { id: 'weekly', label: t('form.weekly') },
+                            { id: 'interval', label: t('form.interval') }
                         ]}
                     />
                     {repeat === 'once' ? (
@@ -235,10 +252,43 @@ export function RoutineForm({
                             })}
                         </div>
                     )}
-                    <div className="flex items-center gap-2">
-                        <Input type="time" size="sm" className="w-28" aria-label={t('form.time')} value={time} onChange={(e) => setTime(e.target.value)} />
-                        <span className="text-xs text-text-muted">{t('form.machineClock')}</span>
-                    </div>
+                    {repeat === 'interval' ? (
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Select
+                                label={t('form.every')}
+                                size="sm"
+                                value={String(every)}
+                                onValueChange={(value) => setEvery(Number(value))}
+                                items={[...new Set([...STEPS, every])]
+                                    .sort((left, right) => left - right)
+                                    .map((minutes) => ({ value: String(minutes), label: everyWords(minutes) }))}
+                            />
+                            <span className="text-xs text-text-muted">{t('form.from')}</span>
+                            <Input
+                                type="time"
+                                size="sm"
+                                className="w-28"
+                                aria-label={t('form.fromTime')}
+                                value={time}
+                                onChange={(e) => setTime(e.target.value)}
+                            />
+                            <span className="text-xs text-text-muted">{t('form.to')}</span>
+                            <Input
+                                type="time"
+                                size="sm"
+                                className="w-28"
+                                aria-label={t('form.toTime')}
+                                value={until}
+                                onChange={(e) => setUntil(e.target.value)}
+                            />
+                            <span className="text-xs text-text-muted">{t('form.machineClock')}</span>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-2">
+                            <Input type="time" size="sm" className="w-28" aria-label={t('form.time')} value={time} onChange={(e) => setTime(e.target.value)} />
+                            <span className="text-xs text-text-muted">{t('form.machineClock')}</span>
+                        </div>
+                    )}
                 </div>
             </Field>
             <label className="flex items-start gap-2 text-sm text-text">

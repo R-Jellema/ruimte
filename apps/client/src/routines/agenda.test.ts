@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { zonedTime, type RoutineEntry, type RoutineRun } from '@ruimte/contracts';
-import { awaitingApproval, blocksOf, freshRoutineId, pausedBand, scheduleForDays, weekOf } from './agenda';
+import { awaitingApproval, blocksOf, cellItems, freshRoutineId, pausedBand, scheduleForDays, weekOf } from './agenda';
 
 const AMS = 'Europe/Amsterdam';
 // Sunday 25 October 2026, 14:20 in Amsterdam: the night the clocks went back.
@@ -107,4 +107,49 @@ test('an id out of the title that no other routine of the project has', () => {
     expect(freshRoutineId('Morning summary of main!', new Set())).toBe('morning-summary-of-main');
     expect(freshRoutineId('Morning summary', new Set(['morning-summary']))).toBe('morning-summary-2');
     expect(freshRoutineId('…', new Set())).toBe('routine');
+});
+
+describe('a day of a repeat within a day', () => {
+    const hourly = { kind: 'interval' as const, days: [7], every: 60, from: '09:00', to: '17:00' };
+    const interval = (runs: RoutineRun[] = []): RoutineEntry => {
+        const base = entry({ runs });
+        return { ...base, routine: { ...base.routine, schedule: hourly } };
+    };
+    const sunday = (hour: number): number => zonedTime(2026, 10, 25, hour, 0, AMS);
+    const itemsOfToday = (subject: RoutineEntry) => {
+        const week = weekOf(NOW, AMS, 0);
+        return cellItems(
+            blocksOf(subject, week, NOW, AMS).filter((block) => block.day === 6),
+            subject.routine.schedule
+        );
+    };
+
+    test('folds its past runs into one chip and its coming times into another', () => {
+        const runs = [9, 10, 11, 12, 13, 14].map((hour) => run({ runId: `r${hour}`, due: sunday(hour), state: hour === 11 ? 'failed' : 'done' }));
+        const items = itemsOfToday(interval(runs));
+        expect(items.map((item) => item.kind)).toEqual(['runs', 'coming']);
+        const [folded, coming] = items;
+        expect(folded!.kind === 'runs' && [folded.blocks.length, folded.failed]).toEqual([6, 1]);
+        expect(coming!.kind === 'coming' && [coming.blocks.map((block) => block.at), coming.every, coming.to]).toEqual([[15, 16, 17].map(sunday), 60, '17:00']);
+    });
+
+    test('keeps a run that needs a person or still goes on as a block of its own', () => {
+        const runs = [9, 10, 11, 12, 13].map((hour) => run({ runId: `r${hour}`, due: sunday(hour), state: 'done' }));
+        runs.push(run({ runId: 'r14', due: sunday(14), state: 'needs-you' }));
+        const items = itemsOfToday(interval(runs));
+        expect(items.map((item) => (item.kind === 'block' ? item.block.look : item.kind))).toEqual(['runs', 'waiting', 'coming']);
+    });
+
+    test('shows up to two runs and a last coming time as blocks', () => {
+        const late = { ...hourly, from: '13:00', to: '15:00' };
+        const subject = interval([run({ runId: 'r13', due: sunday(13), state: 'done' }), run({ runId: 'r14', due: sunday(14), state: 'done' })]);
+        const items = itemsOfToday({ ...subject, routine: { ...subject.routine, schedule: late } });
+        expect(items.map((item) => (item.kind === 'block' ? item.block.look : item.kind))).toEqual(['done', 'done', 'next']);
+    });
+
+    test('a weekly routine run by hand many times keeps its coming time a block', () => {
+        const runs = [9, 10, 11].map((hour) => run({ runId: `m${hour}`, due: sunday(hour), state: 'done', kind: 'manual' }));
+        const subject = entry({ runs, routine: { ...entry().routine, schedule: { kind: 'weekly', days: [7], time: '18:00' } } });
+        expect(itemsOfToday(subject).map((item) => (item.kind === 'block' ? item.block.look : item.kind))).toEqual(['runs', 'next']);
+    });
 });

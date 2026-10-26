@@ -39,7 +39,11 @@
     "allTitle": "All routines on this machine",
     "block": "{{title}}, {{time}}, {{state}}",
     "drag": "Drag across the days",
-    "dragDay": "New routine on {{day}}"
+    "dragDay": "New routine on {{day}}",
+    "folded": "{{title}}, {{runs}}",
+    "foldedList": "Runs of {{title}}",
+    "coming_one": "{{title}}, {{count}} more time from {{from}}, {{times}}",
+    "coming_other": "{{title}}, {{count}} more times from {{from}}, {{times}}"
   },
   "row": {
     "next": "Next {{time}}",
@@ -76,7 +80,12 @@
     "limit": "Usage limit",
     "failed": "Failed",
     "skipped": "Skipped",
-    "paused": "Paused"
+    "paused": "Paused",
+    "runs_one": "{{count}} run",
+    "runs_other": "{{count}} runs",
+    "runsFailed_one": "{{runs}} · {{count}} failed",
+    "runsFailed_other": "{{runs}} · {{count}} failed",
+    "coming": "{{every}} until {{to}}"
   },
   "band": {
     "since": "Paused since {{since}}",
@@ -126,7 +135,20 @@
     "weekdays": "Weekdays at {{time}}",
     "weekends": "Weekends at {{time}}",
     "every": "Every {{day}} at {{time}}",
-    "some": "{{days}} at {{time}}"
+    "some": "{{days}} at {{time}}",
+    "interval": "{{days}}, {{every}} from {{from}} to {{to}}"
+  },
+  "repeatDays": {
+    "daily": "Daily",
+    "weekdays": "Weekdays",
+    "weekends": "Weekends"
+  },
+  "step": {
+    "hour": "every hour",
+    "hours_one": "every {{count}} hour",
+    "hours_other": "every {{count}} hours",
+    "minutes_one": "every {{count}} minute",
+    "minutes_other": "every {{count}} minutes"
   },
   "run": {
     "skippedOverlap": "Skipped, the previous run still waited for you",
@@ -196,6 +218,12 @@
     "repeat": "Repeat",
     "once": "Once",
     "weekly": "On days",
+    "interval": "Through the day",
+    "every": "How often",
+    "from": "from",
+    "to": "to",
+    "fromTime": "First time",
+    "toTime": "Last time",
     "date": "Date",
     "days": "Days",
     "time": "Time",

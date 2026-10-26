@@ -1,7 +1,7 @@
 import i18next from 'i18next';
 import type { RoutineEntry, RoutineRun, RoutineSchedule } from '@ruimte/contracts';
 import { formatClock, formatDateTime, formatDay, formatDuration, formatElapsedShort } from '@adecore/ui/format';
-import type { AgendaBlock, AgendaWeek } from '@/routines/agenda';
+import type { AgendaBlock, AgendaWeek, CellItem } from '@/routines/agenda';
 
 // A day's noon, so a date written from its midnight never slips to the day before around a clock change.
 const NOON_MS = 12 * 60 * 60 * 1000;
@@ -28,8 +28,38 @@ function sameDays(days: readonly number[], expected: readonly number[]): boolean
     return days.length === expected.length && expected.every((day) => days.includes(day));
 }
 
-/* `Weekdays at 09:00`, `Every Friday at 16:00`, `Once, 26 Oct at 09:00`. */
+/* `every 15 minutes`, `every hour`, `every 2 hours`. */
+export function everyWords(minutes: number): string {
+    if (minutes === 60) {
+        return i18next.t('routines:step.hour');
+    }
+    return minutes % 60 === 0 ? i18next.t('routines:step.hours', { count: minutes / 60 }) : i18next.t('routines:step.minutes', { count: minutes });
+}
+
+/* The days of a repeat within a day: `Daily`, `Weekdays`, `Monday`, `Mon, Wed`. */
+function intervalDayWords(days: readonly number[]): string {
+    if (days.length === 7) {
+        return i18next.t('routines:repeatDays.daily');
+    }
+    if (sameDays(days, WEEKDAYS)) {
+        return i18next.t('routines:repeatDays.weekdays');
+    }
+    if (sameDays(days, WEEKEND)) {
+        return i18next.t('routines:repeatDays.weekends');
+    }
+    return days.length === 1 ? weekdayWords(days[0]!, 'long') : days.map((day) => weekdayWords(day)).join(', ');
+}
+
+/* `Weekdays at 09:00`, `Every Friday at 16:00`, `Once, 26 Oct at 09:00`, `Weekdays, every hour from 09:00 to 17:00`. */
 export function scheduleWords(schedule: RoutineSchedule): string {
+    if (schedule.kind === 'interval') {
+        return i18next.t('routines:repeat.interval', {
+            days: intervalDayWords([...new Set(schedule.days)].sort((left, right) => left - right)),
+            every: everyWords(schedule.every),
+            from: clockWords(schedule.from),
+            to: clockWords(schedule.to)
+        });
+    }
     const time = clockWords(schedule.time);
     if (schedule.kind === 'once') {
         const [year, month, day] = schedule.date.split('-').map(Number);
@@ -92,6 +122,15 @@ export function blockWords(block: AgendaBlock, timeZone: string): string {
         case 'next':
             return time;
     }
+}
+
+/* What a folded chip of a day says: `9 runs · 1 failed`, or `every hour until 17:00` for the times still to come. */
+export function foldWords(item: Exclude<CellItem, { kind: 'block' }>): string {
+    if (item.kind === 'coming') {
+        return i18next.t('routines:chip.coming', { every: everyWords(item.every), to: clockWords(item.to) });
+    }
+    const runs = i18next.t('routines:chip.runs', { count: item.blocks.length });
+    return item.failed === 0 ? runs : i18next.t('routines:chip.runsFailed', { runs, count: item.failed });
 }
 
 /* A moment on the machine's clock with its weekday: `Mon 09:00`. */
