@@ -40,10 +40,13 @@ import UIKit
         ]
         let page = MobileList {
             MachineLimitLegend().listRowInsets(MachinesPage.textInsets)
-            MobileRowGroup(items: rows) { row in
+            ForEach(rows) { row in
                 MachineRow(
                     name: row.name, icon: row.icon, reach: row.reach, connected: row.connected, update: row.update,
-                    limits: row.limits, retry: row.retries ? {} : nil, open: {})
+                    limits: row.limits, retry: row.retries ? {} : nil, open: {}
+                )
+                .mobileCard(padding: 0, filled: true)
+                .listRowInsets(NowSections.cardInsets)
             }
             Button {
             } label: {

@@ -1,7 +1,7 @@
 import RuimtePulsar
 import SwiftUI
 
-/// Every machine as a row: how it is reached and how fast, the limits of its CLIs and an update when one is there. A
+/// Every machine as a card: how it is reached and how fast, the limits of its CLIs and an update when one is there. A
 /// machine opens its page; one that is away offers Retry. Add machine stands under the rows, and on the iPhone's
 /// Machines tab the plus as well.
 struct MachinesPage: View {
@@ -26,9 +26,10 @@ struct MachinesPage: View {
                 if showsLegend {
                     MachineLimitLegend().listRowInsets(MachinesPage.textInsets)
                 }
-                MobileRowGroup(items: runtime.machines.map { MachineItem(session: runtime.session(for: $0)) }) {
-                    item in
+                ForEach(runtime.machines.map { MachineItem(session: runtime.session(for: $0)) }) { item in
                     MachineSessionRow(session: item.session, selected: selectedID == item.id) { open(item.id) }
+                        .mobileCard(padding: 0, filled: true)
+                        .listRowInsets(NowSections.cardInsets)
                 }
                 Button(action: addMachine) {
                     Label(String(localized: "Add machine"), lucideIcon: "plus")
@@ -148,7 +149,7 @@ struct MachineRow: View {
         .padding(.horizontal, MobileSpacing.cardPadding)
         .padding(.vertical, MobileSpacing.medium)
         .frame(maxWidth: .infinity, minHeight: height, alignment: .leading)
-        .background(selected ? MobileStyle.active : .clear, in: .rect(cornerRadius: MobileMetrics.tileRadius))
+        .background(selected ? MobileStyle.active : .clear, in: .rect(cornerRadius: MobileMetrics.cardRadius))
     }
 }
 
