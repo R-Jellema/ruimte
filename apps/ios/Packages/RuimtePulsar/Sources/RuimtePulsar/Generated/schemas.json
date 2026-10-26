@@ -65393,6 +65393,11 @@
                     "type": "integer",
                     "exclusiveMinimum": 0,
                     "maximum": 9007199254740991
+                  },
+                  "turnsBefore": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
                   }
                 },
                 "required": [
@@ -65985,6 +65990,11 @@
                 "versionNumber": {
                   "type": "integer",
                   "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "turnsBefore": {
+                  "type": "integer",
+                  "minimum": 0,
                   "maximum": 9007199254740991
                 }
               },
