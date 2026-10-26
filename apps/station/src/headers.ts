@@ -17,7 +17,7 @@ export const CONTENT_SECURITY_POLICY = cspString({
 
 export const SECURITY_HEADERS: Readonly<Record<string, string>> = {
     'content-security-policy': CONTENT_SECURITY_POLICY,
-    // Two years, the length the preload list asks for; the subdomains of `station` are nothing, so including them costs nothing.
+    // Two years, the length the preload list asks for; `station` has no subdomains to break.
     'strict-transport-security': 'max-age=63072000; includeSubDomains',
     // A login returns here with a code in the query; no link out of the page should carry this address along.
     'referrer-policy': 'no-referrer',
