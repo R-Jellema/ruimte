@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CircleCheck, GitCompare, Hand, Package, SquareArrowOutUpRight } from 'lucide-react';
 import type { RoutineEntry, RoutinePerRun, RoutineRun } from '@ruimte/contracts';
-import { Banner, Button, EmptyState, ErrorBoundary, FormError, Icon, KeyValueList, Pill, SectionLabel, Segmented, messageOf } from '@adecore/ui';
+import { Button, EmptyState, ErrorBoundary, FormError, Icon, KeyValueList, Pill, SectionLabel, Segmented, messageOf } from '@adecore/ui';
 import { formatDateTime } from '@adecore/ui/format';
 import { ArtifactView } from '@/output/ArtifactView';
 import { openArtifact, openArtifactCompared } from '@/output/open';
@@ -240,18 +240,14 @@ function ApprovalBanner({ endpointId, entry }: { endpointId: string; entry: Rout
     const { t } = useTranslation('routines');
     const { origin, busy, failure, approve, decline } = useRoutineApproval(endpointId, entry);
     return (
-        <div className="flex flex-col gap-1.5">
-            <Banner
-                placement="inline"
-                icon={Hand}
-                tone="attention"
-                message={
-                    <span className="flex flex-col">
-                        <span>{t('row.held')}</span>
-                        <span className="text-xs text-text-muted">{origin}</span>
-                    </span>
-                }
-            >
+        <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface-raised bg-clip-padding p-3" role="status">
+            <span className="flex items-center gap-2 text-sm font-medium text-text">
+                <Icon icon={Hand} size={14} className="text-status-needs-you" />
+                {t('row.held')}
+            </span>
+            <span className="text-xs text-text-muted">{origin}</span>
+            {failure !== null && <FormError className="break-words">{failure}</FormError>}
+            <span className="flex items-center justify-end gap-1.5">
                 <Button size="sm" disabled={busy} onClick={decline}>
                     {t('approval.deny')}
                 </Button>
@@ -259,8 +255,7 @@ function ApprovalBanner({ endpointId, entry }: { endpointId: string; entry: Rout
                     <Icon icon={CircleCheck} size={14} />
                     {t('approval.approve')}
                 </Button>
-            </Banner>
-            {failure !== null && <FormError className="break-words">{failure}</FormError>}
+            </span>
         </div>
     );
 }
