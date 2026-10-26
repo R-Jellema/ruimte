@@ -356,7 +356,7 @@ describe('agent status via hooks', () => {
         const pty = harness.adapter.forSession('s8');
         await harness.manager.resumeAgent('s8');
         expect(pty.input).toEqual([
-            `codex resume --ask-for-approval never --sandbox danger-full-access 'codex-1' || ${terminalCommand({ kind: 'codex', runtimeMode: 'full-access' }, undefined, verbsNote({ depth: 0 }))}\n`
+            `codex resume --ask-for-approval never --sandbox danger-full-access 'codex-1' || ${terminalCommand({ kind: 'codex', runtimeMode: 'full-access' }, undefined, verbsNote({ depth: 0, terminal: true }))}\n`
         ]);
     });
 

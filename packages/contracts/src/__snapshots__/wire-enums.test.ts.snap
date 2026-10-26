@@ -634,6 +634,7 @@ exports[`every reply and event field keeps its vocabulary 1`] = `
   "reply routine.list #/properties/routines/items/properties/runs/items/properties/skipped = ["held", "overlap", "paused"]",
   "reply routine.list #/properties/routines/items/properties/runs/items/properties/state = ["done", "failed", "limit", "needs-you", "running", "skipped", "starting"]",
   "reply routine.runNow #/properties/outcome = ["busy", "held", "started"]",
+  "reply routine.skills #/properties/skills/items/properties/source = ["plugin", "project", "user"]",
   "reply session.create #/properties/agent/anyOf/0/properties/requests/items/properties/kind = ["approval", "question"]",
   "reply session.create #/properties/agent/anyOf/0/properties/status = ["error", "exited", "idle", "needs-you", "running"]",
   "reply session.list #/properties/sessions/items/properties/agent/anyOf/0/properties/requests/items/properties/kind = ["approval", "question"]",
