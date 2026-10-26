@@ -1,8 +1,10 @@
+import clsx from 'clsx';
 import { useEffect, type ReactNode } from 'react';
+import { QUIET_EDGE_LINE } from '@/canvas/accents';
 import { routeEdge, type Obstacle } from '@/canvas/edge-route';
 import { intersects, isMeasured, visibleRect, type Rect } from '@/canvas/math';
 import type { ResizableCard } from '@/canvas/resize-handles';
-import { useCanvas, type CanvasState } from '@/state/canvas';
+import { isNodeActive, useCanvas, type CanvasState } from '@/state/canvas';
 
 export interface DerivedCard {
     key: string;
@@ -29,7 +31,7 @@ export function DerivedSet({
     z,
     cards,
     lineDown,
-    stroke = 'var(--edge-line)'
+    stroke = QUIET_EDGE_LINE
 }: {
     owner: string;
     z: number;
@@ -93,6 +95,7 @@ function Card({ owner, z, card }: { owner: string; z: number; card: DerivedCard 
     const { x, y, w, h } = card.rect;
     const near = useCanvas((s) => nearView(s, { x, y, w, h }));
     const setResizableCard = useCanvas((s) => s.setResizableCard);
+    const active = useCanvas((s) => isNodeActive(s.bodyFocusId, owner));
     const { resize } = card;
     // An id no node has, so a press on its handle can never be read as one on a node.
     const resizeId = `derived:${owner}:${card.key}`;
@@ -111,7 +114,9 @@ function Card({ owner, z, card }: { owner: string; z: number; card: DerivedCard 
             data-derived-of={owner}
             data-node-body
             aria-label={card.label}
-            className="absolute flex flex-col"
+            // The canvas hands the wheel over a card to the card only once its node has the focus
+            // (`useWheelCamera`), and a frame's page would take it before the canvas ever sees it.
+            className={clsx('absolute flex flex-col', !active && '[&_iframe]:pointer-events-none')}
             style={{ left: x, top: y, width: w, height: h, zIndex: z }}
             // A card has no menu of its own, and the canvas's would offer to add a node under it.
             onContextMenu={(e) => e.stopPropagation()}

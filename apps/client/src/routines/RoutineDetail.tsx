@@ -215,7 +215,7 @@ function RunPane({ entry, run, timeZone }: { entry: RoutineEntry; run: RoutineRu
                 </FileToolbarSlotProvider>
             ) : run.chatId !== undefined ? (
                 <ArtifactOpenerContext value={openHere}>
-                    <RoutineRunChat chatId={run.chatId} />
+                    <RoutineRunChat chatId={run.chatId} revision={`${run.state}:${run.endedAt ?? ''}`} />
                 </ArtifactOpenerContext>
             ) : (
                 <div className="grid grow place-items-center">

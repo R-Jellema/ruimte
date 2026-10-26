@@ -1,12 +1,24 @@
 import type { RoutineRun } from '@ruimte/contracts';
-import { snapToGrid, type Rect } from '@/canvas/math';
+import { GRID, snapToGrid, type Rect } from '@/canvas/math';
+import type { CardSize } from '@/routines/output-size';
+
+/* What a person or the open run's thread set beside the layout's own sizes; null keeps the layout's. */
+export interface BesideSizes {
+    output?: CardSize | null;
+    runsWidth?: number | null;
+    /* Each run's header and thread as last measured open, kept between the minimum and maximum; one not measured yet starts at the minimum. */
+    openHeights?: Readonly<Record<string, number>>;
+}
 
 /* The run cards beside a routine node, the open one included; the rest wait behind the line under them. */
 export const BESIDE_RUNS = 4;
 
 const GUTTER = 72;
 const COLUMN_W = 440;
-const OPEN_H = 480;
+/* The open run grows with its thread up to this, and scrolls inside past it. */
+export const OPEN_H = 480;
+/* Its header and a line of the thread, while that is not measured yet or shorter. */
+export const OPEN_MIN_H = 120;
 const LINE_H = 40;
 const OLDER_H = 28;
 const STACK_GAP = 8;
@@ -36,29 +48,34 @@ export function defaultOpenRun(runs: readonly RoutineRun[]): string | null {
  * Where the cards beside a routine node go, in world units: a column to its right with its newest runs,
  * at most one of them open, and the count of the older ones; and a column right of that with its
  * Output at the version of the open run, or the newest version with none open. Sizes are known up
- * front, so the lines and the culling place every card without measuring one. `openRunId` is
- * undefined until a person picked, which opens the default, and null once they closed them all.
+ * front, or measured once (the open run's thread), so the lines and the culling place every card
+ * without measuring the rest. `openRunId` is undefined until a person picked, which opens the
+ * default, and null once they closed them all.
  */
 export function besideLayout(
     node: Rect,
     runs: readonly RoutineRun[],
     openRunId: string | null | undefined,
     artifactId: string | undefined,
-    outputSize: { w: number; h: number } | null = null
+    sizes: BesideSizes = {}
 ): BesideCard[] {
+    const { output: outputSize = null, runsWidth = null, openHeights = {} } = sizes;
     const x = node.x + node.w + GUTTER;
+    const columnW = snapToGrid(runsWidth ?? COLUMN_W);
     const shown = runs.slice(0, BESIDE_RUNS);
     const open = openRunId === null ? null : shown.some((run) => run.runId === openRunId) ? openRunId : defaultOpenRun(shown);
+    const measured = open === null || open === undefined ? undefined : openHeights[open];
+    const openH = measured === undefined ? OPEN_MIN_H : Math.min(OPEN_H, Math.max(OPEN_MIN_H, Math.ceil(measured / GRID) * GRID));
     const cards: BesideCard[] = [];
     let y = node.y;
     for (const run of shown) {
         const isOpen = run.runId === open;
-        const h = isOpen ? OPEN_H : LINE_H;
-        cards.push({ kind: 'run', key: `run:${run.runId}`, run, open: isOpen, rect: { x, y, w: COLUMN_W, h } });
+        const h = isOpen ? openH : LINE_H;
+        cards.push({ kind: 'run', key: `run:${run.runId}`, run, open: isOpen, rect: { x, y, w: columnW, h } });
         y += h + STACK_GAP;
     }
     if (runs.length > shown.length) {
-        cards.push({ kind: 'older', key: 'older', count: runs.length - shown.length, rect: { x, y, w: COLUMN_W, h: OLDER_H } });
+        cards.push({ kind: 'older', key: 'older', count: runs.length - shown.length, rect: { x, y, w: columnW, h: OLDER_H } });
     }
     if (artifactId === undefined) {
         return cards;
@@ -76,7 +93,7 @@ export function besideLayout(
         fallback: openRun !== undefined && openRun.versionId === undefined ? { run: latest } : null,
         from: from?.key ?? null,
         // Top aligned with the node whichever run is open, so the version stays put while a person moves through the runs.
-        rect: { x: x + COLUMN_W + GUTTER, y: node.y, w: snapToGrid(outputSize?.w ?? COLUMN_W), h: snapToGrid(outputSize?.h ?? OPEN_H) }
+        rect: { x: x + columnW + GUTTER, y: node.y, w: snapToGrid(outputSize?.w ?? COLUMN_W), h: snapToGrid(outputSize?.h ?? OPEN_H) }
     });
     return cards;
 }

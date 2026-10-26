@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 import { Archive, ChevronsDownUp, CircleAlert, Package, SquareArrowOutUpRight, WifiOff } from 'lucide-react';
@@ -18,7 +18,7 @@ import { RoutineRunChat } from '@/routines/RoutineRunChat';
 import { useRoutineList } from '@/routines/routine-list';
 import { showRoutine } from '@/routines/stage';
 import { runWords } from '@/routines/words';
-import { OUTPUT_MIN, storedOutputSize, type CardSize } from '@/routines/output-size';
+import { OUTPUT_MIN, RUNS_MIN_W, storedOutputSize, storedRunsWidth, type CardSize } from '@/routines/output-size';
 import { useCanvas } from '@/state/canvas';
 import type { Rect } from '@/canvas/math';
 import type { ResizeEdge } from '@/canvas/resize-handles';
@@ -34,6 +34,8 @@ const HEADER_MIDDLE = 20;
 
 /* The card is placed by its top-left corner beside the node, so only its right and bottom edges move. */
 const OUTPUT_EDGES: readonly ResizeEdge[] = ['e', 's', 'se'];
+/* A run card sets the width of its whole column, whose cards stack by the layout's heights. */
+const RUN_EDGES: readonly ResizeEdge[] = ['e'];
 
 const DOT: Record<BlockLook, string> = {
     done: 'bg-positive',
@@ -63,6 +65,9 @@ export function RoutineBeside({ id, z }: { id: string; z: number }) {
     // Which run is open is this window's alone, like the scroll of a node: undefined opens the newest, null none.
     const [picked, setPicked] = useState<string | null | undefined>(undefined);
     const [outputSize, setOutputSize] = useState<CardSize | null>(() => (viewId === null ? null : storedOutputSize(viewId, id).read()));
+    const [runsWidth, setRunsWidth] = useState<number | null>(() => (viewId === null ? null : (storedRunsWidth(viewId, id).read()?.w ?? null)));
+    // What each run's header and thread measured while open, in memory, so a run opens again at its own height at once.
+    const [openHeights, setOpenHeights] = useState<Readonly<Record<string, number>>>({});
     if (node === undefined || list === null || list.status !== 'ready') {
         return null;
     }
@@ -78,6 +83,12 @@ export function RoutineBeside({ id, z }: { id: string; z: number }) {
         setOutputSize({ w, h });
         if (viewId !== null) {
             storedOutputSize(viewId, id).write({ w, h });
+        }
+    };
+    const resizeRuns = ({ w }: Rect): void => {
+        setRunsWidth(w);
+        if (viewId !== null) {
+            storedRunsWidth(viewId, id).write({ w });
         }
     };
     const cardContent = (card: BesideCard): { label: string; body: ReactNode } => {
@@ -124,6 +135,7 @@ export function RoutineBeside({ id, z }: { id: string; z: number }) {
                     timeZone={timeZone}
                     artifactId={entry.artifactId}
                     accent={accent}
+                    onMeasure={(h) => setOpenHeights((last) => (last[card.run.runId] === h ? last : { ...last, [card.run.runId]: h }))}
                     onShow={() => showRoutine(target, card.run.runId)}
                     onCollapse={() => setPicked(null)}
                 />
@@ -132,10 +144,16 @@ export function RoutineBeside({ id, z }: { id: string; z: number }) {
             )
         };
     };
-    const cards = besideLayout(node, entry.runs, picked, entry.artifactId, outputSize).map((card): DerivedCard => {
+    const sizes = { output: outputSize, runsWidth, openHeights };
+    const cards = besideLayout(node, entry.runs, picked, entry.artifactId, sizes).map((card): DerivedCard => {
         const content = cardContent(card);
         const linkedFrom = card.kind === 'older' ? null : card.kind === 'output' ? (card.from ?? 'node') : 'node';
-        const resize = card.kind === 'output' ? { edges: OUTPUT_EDGES, minimum: OUTPUT_MIN, apply: resizeOutput } : undefined;
+        const resize =
+            card.kind === 'output'
+                ? { edges: OUTPUT_EDGES, minimum: OUTPUT_MIN, apply: resizeOutput }
+                : card.kind === 'run'
+                  ? { edges: RUN_EDGES, minimum: { w: RUNS_MIN_W, h: card.rect.h }, apply: resizeRuns }
+                  : undefined;
         return { key: card.key, rect: card.rect, linkedFrom, label: content.label, content: content.body, lineDown: HEADER_MIDDLE, resize };
     });
 
@@ -202,6 +220,7 @@ function OpenRun({
     timeZone,
     artifactId,
     accent,
+    onMeasure,
     onShow,
     onCollapse
 }: {
@@ -211,13 +230,38 @@ function OpenRun({
     // The routine's Output, which its own card beside the run already shows, so the thread keeps only its rows.
     artifactId: string | undefined;
     accent: string | undefined;
+    /* The height the card would take to show all of its thread, which the layout keeps under its maximum. */
+    onMeasure: (height: number) => void;
     onShow: () => void;
     onCollapse: () => void;
 }) {
     const { t } = useTranslation('routines');
     const look = lookOfRun(run);
+    const frameRef = useRef<HTMLDivElement>(null);
+    const measured = useRef(onMeasure);
+    useLayoutEffect(() => {
+        measured.current = onMeasure;
+    });
+    // Before paint, so a run that opens is drawn at its height and what stands under it moves once.
+    useLayoutEffect(() => {
+        const frame = frameRef.current;
+        if (frame === null) {
+            return;
+        }
+        const measure = (): void => measured.current(contentHeight(frame));
+        // A row the thread measures sets its own height in a style, and a thread that loads adds rows.
+        const resizes = new ResizeObserver(measure);
+        resizes.observe(frame);
+        const rows = new MutationObserver(measure);
+        rows.observe(frame, { subtree: true, childList: true, attributes: true, attributeFilter: ['style'] });
+        measure();
+        return () => {
+            resizes.disconnect();
+            rows.disconnect();
+        };
+    }, []);
     return (
-        <div className={clsx(FRAME, 'bg-surface')} style={frameStyle(accent)}>
+        <div ref={frameRef} className={clsx(FRAME, 'bg-surface')} style={frameStyle(accent)}>
             <header className={HEADER} style={accent === undefined ? undefined : accentHeaderStyle(accent)}>
                 <span className="min-w-0 grow truncate font-medium">{title}</span>
                 {look !== 'done' && <RunMark run={run} />}
@@ -229,15 +273,35 @@ function OpenRun({
             </header>
             {run.chatId !== undefined ? (
                 <OutputShownBesideContext value={artifactId ?? null}>
-                    <RoutineRunChat chatId={run.chatId} />
+                    <RoutineRunChat chatId={run.chatId} revision={`${run.state}:${run.endedAt ?? ''}`} composer={false} />
                 </OutputShownBesideContext>
             ) : (
-                <div className="grid grow place-items-center px-4">
+                <div data-run-words className="grid grow place-items-center p-4">
                     <EmptyState>{runWords(run, timeZone)}</EmptyState>
                 </div>
             )}
         </div>
     );
+}
+
+/*
+ * What the open run's card would measure with its whole thread in view: the frame without the thread's
+ * viewport, plus what the thread holds. The thread fills whatever height it gets, so its own content is
+ * read: the rows under `.chat-thread`, which the virtualized timeline gives their full height.
+ */
+function contentHeight(frame: HTMLElement): number {
+    const scroll = frame.querySelector<HTMLElement>('.chat-scroll');
+    const thread = frame.querySelector<HTMLElement>('.chat-thread');
+    const inner = scroll !== null && thread !== null ? { viewport: scroll.clientHeight, box: thread } : null;
+    const words = frame.querySelector<HTMLElement>('[data-run-words]');
+    const measured = inner ?? (words === null ? null : { viewport: words.clientHeight, box: words });
+    if (measured === null) {
+        return frame.offsetHeight;
+    }
+    const style = getComputedStyle(measured.box);
+    const children = [...measured.box.children].reduce((sum, child) => sum + (child as HTMLElement).offsetHeight, 0);
+    const padding = (Number.parseFloat(style.paddingTop) || 0) + (Number.parseFloat(style.paddingBottom) || 0);
+    return frame.offsetHeight - measured.viewport + children + padding;
 }
 
 /* A version of the routine's Output artifact, drawn as the artifact node draws one; the newest when the one asked for is not there. */

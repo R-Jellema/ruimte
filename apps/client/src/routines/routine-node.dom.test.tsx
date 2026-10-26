@@ -213,8 +213,23 @@ describe('beside a routine node', () => {
         { id: 'a1', kind: 'assistant', turnId: 'turn-1', createdAt: 1, text: 'Three commits on main, all checks green.', streaming: false }
     ];
 
+    const offsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
+
     beforeEach(() => {
+        // The thread is virtualized and happy-dom lays nothing out: a viewport gives it room to draw its rows.
+        Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+            configurable: true,
+            get(this: HTMLElement) {
+                return this.classList.contains('chat-scroll') ? 800 : (offsetHeight?.get?.call(this) ?? 0);
+            }
+        });
         machine.answer('chat.attach', ({ chatId }) => ({ info: chatInfoOf(chatId), items: THREAD, seq: THREAD.length }) as never);
+    });
+
+    afterEach(() => {
+        if (offsetHeight !== undefined) {
+            Object.defineProperty(HTMLElement.prototype, 'offsetHeight', offsetHeight);
+        }
     });
 
     function cards(): HTMLElement[] {
@@ -225,13 +240,100 @@ describe('beside a routine node', () => {
         return cards().find((candidate) => candidate.getAttribute('aria-label') === label);
     }
 
-    test('the newest run that ran is open with its chat, and the others are a line each', async () => {
+    test('the newest run that ran is open with its thread and no composer, and the others are a line each', async () => {
         await open([routineNode('node-1', 'morning')]);
-        // The thread is virtualized and happy-dom lays nothing out, so its chat shows as the attach and the composer to reply in.
-        await until(() => card('Morning summary · Thu, Oct 22')?.querySelector('.chat-column [contenteditable="true"]') != null);
+        await until(() => (card('Morning summary · Thu, Oct 22')?.textContent ?? '').includes('Summarize what changed on main.'));
+        expect(card('Morning summary · Thu, Oct 22')!.textContent).toContain('Three commits on main, all checks green.');
+        // Replying is the routine's own view's: the card only reads.
+        expect(card('Morning summary · Thu, Oct 22')!.querySelector('[contenteditable="true"]')).toBeNull();
         expect(card('Morning summary · Fri, Oct 23')?.querySelector('button[aria-expanded="false"]')?.textContent).toContain('Skipped');
         expect(card('Morning summary · Wed, Oct 21')?.querySelector('button[aria-expanded="false"]')?.textContent).toContain('Caught up on wake');
         expect(machine.requests('chat.attach').map((request) => request.chatId)).toEqual(['chat-thu']);
+    });
+
+    test('a run whose chat was not there yet when the card opened shows its thread once the run moves on', async () => {
+        let started = false;
+        machine.answer('chat.attach', ({ chatId }) => {
+            if (!started) {
+                throw new Error('No chat with that id');
+            }
+            return { info: chatInfoOf(chatId), items: THREAD, seq: THREAD.length } as never;
+        });
+        await open([routineNode('node-1', 'morning')]);
+        await until(() => machine.requests('chat.attach').length === 1);
+        expect(card('Morning summary · Thu, Oct 22')!.textContent).not.toContain('Summarize what changed on main.');
+        started = true;
+        const thursday = { ...MORNING.runs[1]!, endedAt: MORNING.runs[1]!.endedAt! + 60_000 };
+        machine.answer('routine.list', () => ({
+            routines: [{ ...MORNING, runs: [MORNING.runs[0]!, thursday, MORNING.runs[2]!] }],
+            revs: { 'project-atlas': 5 },
+            timeZone: AMS
+        }));
+        await act(async () => machine.emit('routine.changed', { projectId: 'project-atlas' }));
+        await until(() => (card('Morning summary · Thu, Oct 22')?.textContent ?? '').includes('Summarize what changed on main.'));
+    });
+
+    test('the open run starts at its smallest height, never the largest, and the cards under it follow', async () => {
+        await open([routineNode('node-1', 'morning')]);
+        await until(() => card('Morning summary · Thu, Oct 22') !== undefined);
+        // happy-dom lays out nothing, so the thread measures empty and the card keeps its minimum.
+        expect(card('Morning summary · Thu, Oct 22')!.style.height).toBe('120px');
+        expect(card('Morning summary · Wed, Oct 21')!.style.top).toBe(`${40 + 8 + 120 + 8}px`);
+    });
+
+    test("a wheel over a card moves the canvas until a press gives the card's node the focus", async () => {
+        await open([routineNode('node-1', 'morning')]);
+        await until(() => card('Output') !== undefined);
+        await act(async () => liveCanvas('main')!.setCamera({ x: 0, y: 0, zoom: 1 }));
+        const wheel = (): WheelEvent => new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaY: 40, clientX: 1100, clientY: 200 });
+        const output = card('Output')!.firstElementChild!;
+        // First with the focus, since a pan once started keeps the wheel for a moment whatever it passes over.
+        await act(async () => {
+            output.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, pointerId: 1 }));
+        });
+        expect(liveCanvas('main')!.bodyFocusId).toBe('node-1');
+        const scrolled = wheel();
+        await act(async () => {
+            output.dispatchEvent(scrolled);
+        });
+        expect(scrolled.defaultPrevented).toBe(false);
+        expect(liveCanvas('main')!.camera.y).toBe(0);
+        await act(async () => liveCanvas('main')!.setBodyFocus(null));
+        const panned = wheel();
+        await act(async () => {
+            output.dispatchEvent(panned);
+        });
+        expect(panned.defaultPrevented).toBe(true);
+        await until(() => liveCanvas('main')!.camera.y !== 0);
+    });
+
+    test('a person widens the column of runs, which the Output moves with, and the width stays this client’s', async () => {
+        await open([routineNode('node-1', 'morning')]);
+        await until(() => card('Output') !== undefined);
+        await act(async () => liveCanvas('main')!.setCamera({ x: 0, y: 0, zoom: 1 }));
+        const surface = page.host.querySelector('[data-canvas-surface]')!;
+        const at = (type: string, x: number, y: number): PointerEvent =>
+            new PointerEvent(type, { bubbles: true, cancelable: true, button: 0, pointerId: 1, clientX: x, clientY: y });
+        // Just right of the first run's line (472 + 440, 0 to 40), which offers only that edge.
+        await act(async () => {
+            surface.dispatchEvent(at('pointermove', 918, 20));
+        });
+        await until(() => page.host.querySelector('[data-resize-node="derived:node-1:run:fri"]') !== null);
+        const handle = page.host.querySelector('[data-resize-node="derived:node-1:run:fri"]')!;
+        expect(handle.getAttribute('data-resize')).toBe('e');
+        await act(async () => {
+            handle.dispatchEvent(at('pointerdown', 918, 20));
+            surface.dispatchEvent(at('pointermove', 1017, 20));
+            surface.dispatchEvent(at('pointerup', 1017, 20));
+        });
+        // 539 wide by the pointer, 536 on the grid, for every run and the Output beside them.
+        expect(card('Morning summary · Fri, Oct 23')!.style.width).toBe('536px');
+        expect(card('Morning summary · Thu, Oct 22')!.style.width).toBe('536px');
+        expect(card('Output')!.style.left).toBe(`${472 + 536 + 72}px`);
+        expect(JSON.parse(localStorage.getItem('ruimte.routineRuns.main.node-1') ?? 'null')).toEqual({ w: 536 });
+        expect(liveCanvas('main')).toMatchObject({ resizing: null, past: [] });
+        await act(async () => windowWorkspace()!.connection.projects.flush());
+        expect(machine.requests('project.save')).toEqual([]);
     });
 
     test('a line opens its run in place of the open one', async () => {

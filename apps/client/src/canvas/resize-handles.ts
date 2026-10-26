@@ -86,7 +86,8 @@ function handleOn(node: ResizeCandidate, distance: number, point: Point, zoom: n
         return cornerHandle(node, cornerOf(outY < 0 ? 'n' : 's', outX < 0 ? 'w' : 'e'), strength, near);
     }
     const side: ResizeSide = outY < 0 ? 'n' : outY > 0 ? 's' : outX < 0 ? 'w' : 'e';
-    return sideHandle(node, side, point, zoom, strength, near);
+    const offers = (edge: ResizeEdge): boolean => node.edges === undefined || node.edges.includes(edge);
+    return sideHandle(node, side, point, zoom, strength, near, false, offers);
 }
 
 /* The handle under a resize that is running: on the edge it started from, following the pointer. */
@@ -183,7 +184,8 @@ function sideHandle(
     zoom: number,
     strength: number,
     near: boolean,
-    held = false
+    held = false,
+    offers: (edge: ResizeEdge) => boolean = () => true
 ): ResizeHandle | null {
     const horizontal = side === 'n' || side === 's';
     const length = (horizontal ? node.w : node.h) * zoom;
@@ -191,16 +193,22 @@ function sideHandle(
     const pill = Math.min(PILL, length / 2 - PORT_CLEAR - RESIZE_CORNER);
     const startCorner = horizontal ? cornerOf(side, 'w') : cornerOf('n', side);
     const endCorner = horizontal ? cornerOf(side, 'e') : cornerOf('s', side);
+    // A card that offers an edge without its corners keeps the pill on it, at an end and on a short edge too.
+    const bendsAtStart = !held && offers(startCorner);
+    const bendsAtEnd = !held && offers(endCorner);
     if (pill < PILL_MIN) {
-        if (held) {
-            return { ...pillAt(node, side, length / 2, PILL_MIN, zoom), strength, hot: near };
+        if (bendsAtStart && (along < length / 2 || !bendsAtEnd)) {
+            return cornerHandle(node, startCorner, strength, near);
         }
-        return cornerHandle(node, along < length / 2 ? startCorner : endCorner, strength, near);
+        if (bendsAtEnd) {
+            return cornerHandle(node, endCorner, strength, near);
+        }
+        return { ...pillAt(node, side, length / 2, PILL_MIN, zoom), strength, hot: near };
     }
-    if (!held && along < RESIZE_CORNER) {
+    if (bendsAtStart && along < RESIZE_CORNER) {
         return cornerHandle(node, startCorner, strength, near);
     }
-    if (!held && along > length - RESIZE_CORNER) {
+    if (bendsAtEnd && along > length - RESIZE_CORNER) {
         return cornerHandle(node, endCorner, strength, near);
     }
     const port = length / 2;

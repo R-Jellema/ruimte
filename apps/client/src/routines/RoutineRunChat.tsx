@@ -15,19 +15,43 @@ import { useTransportStatus } from '@/transport/status';
  * The chat of one run, drawn the way a chat view draws one. A run's chat is a hidden chat of the
  * project, so this only observes it: it never opens one, and a person still answers its questions here.
  */
+const RETRY_FIRST_MS = 2000;
+const RETRY_MAX_MS = 30_000;
+
 // A run keeps the agent its routine names, so the composer never offers another one to switch to.
 function keepProvider(): Promise<void> {
     return Promise.resolve();
 }
 
-export function RoutineRunChat({ chatId }: { chatId: string }) {
+export function RoutineRunChat({ chatId, revision = '', composer = true }: { chatId: string; revision?: string; composer?: boolean }) {
     const { t } = useTranslation('canvas');
     const endpointId = useEndpointId();
     const info = useChatRow(chatId, (row) => row?.info);
     const status = useTransportStatus();
     const [failure, setFailure] = useState<string | null>(null);
+    /*
+     * A run is on the list with its chat id before the outbox started that chat, so a first attach can
+     * find no chat and the client never tries it again. Until the chat is read, a change of the run and
+     * a growing pause try it again.
+     */
+    const [attempt, setAttempt] = useState(0);
+    const [seenRevision, setSeenRevision] = useState(revision);
+    const unread = info === undefined && status === 'open';
+    if (revision !== seenRevision) {
+        setSeenRevision(revision);
+        if (unread) {
+            setAttempt((count) => count + 1);
+        }
+    }
 
-    useEffect(() => chatClientFor(endpointId)?.observe(chatId), [endpointId, chatId]);
+    useEffect(() => chatClientFor(endpointId)?.observe(chatId), [endpointId, chatId, attempt]);
+    useEffect(() => {
+        if (!unread) {
+            return;
+        }
+        const timer = window.setTimeout(() => setAttempt((count) => count + 1), Math.min(RETRY_MAX_MS, RETRY_FIRST_MS * 2 ** attempt));
+        return () => window.clearTimeout(timer);
+    }, [attempt, unread]);
 
     const send = async (text: string, extras: ChatSendExtras): Promise<boolean> => {
         try {
@@ -52,6 +76,7 @@ export function RoutineRunChat({ chatId }: { chatId: string }) {
                     <Timeline
                         chatId={chatId}
                         composer={
+                            composer &&
                             info && (
                                 <Composer
                                     chatId={chatId}
