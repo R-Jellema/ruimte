@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActionRefusal } from '@ruimte/actions';
 import type { Worktree } from '@ruimte/contracts';
@@ -77,10 +77,9 @@ export function RemoveWorktreeDialog() {
                 ? t('removeWorktree.alreadyGone')
                 : null;
     const question = shown !== null && shown.worktrees.length > 0 ? removeAllQuestion(shown.worktrees) : null;
-    const working = useMemo(
-        () => (shown?.worktrees ?? []).flatMap((worktree) => nodesInWorktree(nodes, worktree)).filter((node) => nodeWorking(node, sessions, chats, endpointId)),
-        [shown, nodes, sessions, chats, endpointId]
-    );
+    const working = (shown?.worktrees ?? [])
+        .flatMap((worktree) => nodesInWorktree(nodes, worktree))
+        .filter((node) => nodeWorking(node, sessions, chats, endpointId));
     const stopping = agentWorking || working.length > 0;
     const mergeable = shown?.worktrees.filter((worktree) => !worktree.missing) ?? [];
 

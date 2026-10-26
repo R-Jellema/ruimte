@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import i18next from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { Columns2, FileWarning, GitCompare, RefreshCw, Rows2 } from 'lucide-react';
@@ -62,7 +62,7 @@ function FileDiffView({ tabKey, path, name, view }: { tabKey: string; path: stri
     const [nonce, setNonce] = useState(0);
     /* Goes up whenever the checkout moved, which is the tab reading itself again. */
     const signal = useGitSignal(view.cwd);
-    const relative = useMemo(() => relativeTo(view.cwd, path), [view.cwd, path]);
+    const relative = relativeTo(view.cwd, path);
     /* Which diff was asked for, so an answer to an older question is not drawn and a switch of scope
        reads as loading. A reread of the same question keeps the diff on screen until the new one
        lands, or every write would blink the tab back to its spinner. */

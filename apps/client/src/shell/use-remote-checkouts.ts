@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { DeviceInfo, GitIdentity, RemoteLink } from '@ruimte/contracts';
 import { ensureMachine } from '@/endpoint/reach';
 import { rankCandidates, type RemoteCandidate } from '@/project/remote-candidates';
@@ -37,10 +37,10 @@ export function useRemoteCheckouts(
 ): { checkouts: Checkouts; retry(): void } {
     const [checkouts, setCheckouts] = useState<Checkouts>({ state: 'loading' });
     const [attempt, setAttempt] = useState(0);
-    const retry = useCallback(() => {
+    const retry = (): void => {
         setCheckouts({ state: 'loading' });
         setAttempt((before) => before + 1);
-    }, []);
+    };
 
     useEffect(() => {
         if (here === null) {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { Server } from 'lucide-react';
@@ -133,7 +133,7 @@ function RemoteNodeForm({
     const linkedFolder = request.relink && checkouts.state === 'ready' ? checkouts.linkedFolder : null;
     const candidate =
         candidates.find((entry) => entry.projectId === picked) ?? candidates.find((entry) => entry.folder === linkedFolder) ?? candidates[0] ?? null;
-    const scoped = useMemo(() => endpointById(machineEndpointId) !== null, [machineEndpointId]);
+    const scoped = endpointById(machineEndpointId) !== null;
     const hereId = workspace?.connection.endpointId ?? '';
     const canSign = useMachineAnswers(hereId, 'endpoint.signPeerAccess');
     const canConnect = useMachineAnswers(hereId, 'remote.connect');

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { ActionInput } from '@ruimte/actions';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
@@ -39,10 +39,9 @@ export function useProjectMenu() {
     const connected = useOpenEndpoints();
     const [closing, setClosing] = useState<{ row: ProjectMenuRow; name: string; sessions: number; otherClients: number } | null>(null);
     const currentKey = current !== null && currentEndpointId !== null ? `${currentEndpointId}:${current.projectId}` : null;
-    const { open, recent } = useMemo(() => {
-        const lists = menuProjects(rows, endpoints, connected);
-        return { open: openableRows(lists.open, currentKey), recent: openableRows(lists.recent, currentKey) };
-    }, [rows, endpoints, connected, currentKey]);
+    const lists = menuProjects(rows, endpoints, connected);
+    const open = openableRows(lists.open, currentKey);
+    const recent = openableRows(lists.recent, currentKey);
     const showMachine = endpoints.length > 1;
     const machineId = currentEndpointId ?? activeId;
     const chats = chatsProjects(rows, endpoints, connected).find((row) => row.endpointId === machineId && row.summary.available) ?? null;

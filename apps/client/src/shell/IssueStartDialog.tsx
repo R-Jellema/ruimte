@@ -9,6 +9,7 @@ import { Button, Dialog, ErrorBoundary, Field, FormError, Icon, Input, Pill, Tex
 import { focusChat } from '@/plan/plan-actions';
 import { nodesOfView, useViewNodes } from '@/project/view-nodes';
 import { findIssueNode, issueBranch, issuePrompt } from '@/shell/issue-start';
+import { submitOnEnter } from '@/shell/submit-on-enter';
 import { createWorktreeChat } from '@/shell/worktree-chat';
 import { useWorktreeStart } from '@/shell/use-worktree-start';
 import { WorktreeStartFields } from '@/shell/WorktreeStartFields';
@@ -169,15 +170,7 @@ function IssueStartForm({ onDone }: { onDone(): void }) {
                             placeholder={t('issueStart.refPlaceholder')}
                             spellCheck={false}
                             onChange={(e) => setText(e.target.value)}
-                            onKeyDown={(e) => {
-                                // Escape must reach the dialog's own listener.
-                                if (e.key !== 'Escape') {
-                                    e.stopPropagation();
-                                }
-                                if (e.key === 'Enter') {
-                                    void read();
-                                }
-                            }}
+                            onKeyDown={submitOnEnter(() => void read())}
                         />
                         <Button variant="secondary" disabled={reading || text.trim() === '' || folder === null} onClick={() => void read()}>
                             {reading ? t('issueStart.reading') : t('issueStart.read')}

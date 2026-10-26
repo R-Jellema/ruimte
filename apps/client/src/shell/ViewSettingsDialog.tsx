@@ -7,6 +7,7 @@ import { ViewGlyph } from '@/project/ViewGlyph';
 import { resetTitle } from '@/nodes/node-host';
 import { PROJECT_ICON_KEYWORDS } from '@/project/project-icons';
 import { useProjectIconGroups } from '@/project/use-project-icon-groups';
+import { submitOnEnter } from '@/shell/submit-on-enter';
 import { Button, Dialog, Field, IconPicker, Input, SectionLabel } from '@adecore/ui';
 
 /*
@@ -48,15 +49,7 @@ export function ViewSettingsDialog({ view, onClose }: { view: ProjectView; onClo
                     maxLength={MAX_TITLE_LENGTH}
                     value={name}
                     onChange={(event) => setName(event.target.value)}
-                    onKeyDown={(event) => {
-                        // Escape must reach the dialog's own listener, so it closes like any other.
-                        if (event.key !== 'Escape') {
-                            event.stopPropagation();
-                        }
-                        if (event.key === 'Enter') {
-                            save();
-                        }
-                    }}
+                    onKeyDown={submitOnEnter(save)}
                 />
             </Field>
 

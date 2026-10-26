@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { ModelPicker } from '@adecore/agents-react/chat/ui';
 import { useProviders } from '@adecore/agents-react/state';
 import { Dialog, Field, FormError, Input } from '@adecore/ui';
+import { submitOnEnter } from '@/shell/submit-on-enter';
 import type { WorktreeStart } from '@/shell/use-worktree-start';
 
 /* The branch name, the base with the commit it names, and the model, for a dialog that starts a chat in a worktree. */
@@ -11,15 +12,7 @@ export function WorktreeStartFields({ start, idPrefix, onSubmit }: { start: Work
     const providers = useProviders((s) => s.providers);
     const pickable = providers.filter((entry) => entry.installed && entry.capabilities.chat);
     const [pickerOpen, setPickerOpen] = useState(false);
-    const submitOnEnter = (e: React.KeyboardEvent): void => {
-        // Escape must reach the dialog's own listener, also while the suggestion list is open.
-        if (e.key !== 'Escape') {
-            e.stopPropagation();
-        }
-        if (e.key === 'Enter') {
-            onSubmit();
-        }
-    };
+    const keys = submitOnEnter(onSubmit);
     const baseMissing = start.commit === 'missing';
     const baseHint =
         start.base.trim() === ''
@@ -39,7 +32,7 @@ export function WorktreeStartFields({ start, idPrefix, onSubmit }: { start: Work
                 hint={start.reuses ? t('newWorktreeChat.reusesWorktree') : undefined}
                 className="mt-3"
             >
-                <Input mono value={start.branch} spellCheck={false} onChange={(e) => start.setBranch(e.target.value)} onKeyDown={submitOnEnter} />
+                <Input mono value={start.branch} spellCheck={false} onChange={(e) => start.setBranch(e.target.value)} onKeyDown={keys} />
             </Field>
             {!start.reuses && (
                 <Field
@@ -55,7 +48,7 @@ export function WorktreeStartFields({ start, idPrefix, onSubmit }: { start: Work
                         value={start.base}
                         spellCheck={false}
                         onChange={(e) => start.setBase(e.target.value)}
-                        onKeyDown={submitOnEnter}
+                        onKeyDown={keys}
                     />
                     <datalist id={`${idPrefix}-refs`}>
                         {(start.refs?.refs ?? []).map((ref) => (

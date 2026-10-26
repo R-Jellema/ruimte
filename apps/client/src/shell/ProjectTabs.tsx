@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent, type PointerEvent } from 'react';
+import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, ArrowRight, Pin, PinOff } from 'lucide-react';
 import { openProjectAction } from '@/actions/client-actions';
@@ -136,13 +136,7 @@ export function ProjectTabs({ dirty }: { readonly dirty: boolean }) {
         };
     }, []);
 
-    const byKey = useMemo(() => {
-        const found = new Map<string, ProjectRow>();
-        for (const row of rows) {
-            found.set(`${row.endpointId}:${row.summary.projectId}`, row);
-        }
-        return found;
-    }, [rows]);
+    const byKey = new Map<string, ProjectRow>(rows.map((row) => [`${row.endpointId}:${row.summary.projectId}`, row]));
     const shown = tabs.keys.filter((key) => byKey.has(key));
     const menuRow = menuKey === null ? null : (byKey.get(menuKey) ?? null);
 

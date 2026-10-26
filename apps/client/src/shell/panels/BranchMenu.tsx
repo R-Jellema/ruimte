@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, Copy, Eye, Folders, GitBranch, GitFork, GitMerge, Plus, Search } from 'lucide-react';
 import type { GitRef, Worktree } from '@ruimte/contracts';
@@ -343,10 +343,8 @@ function BranchList({ cwd, state, branch, onCheckout, onCreate }: BranchListProp
     const inputRef = useRef<HTMLInputElement>(null);
     const { refs, loading } = state;
 
-    const shown = useMemo(() => {
-        const needle = query.trim().toLowerCase();
-        return needle === '' ? refs : refs.filter((ref) => ref.name.toLowerCase().includes(needle));
-    }, [refs, query]);
+    const needle = query.trim().toLowerCase();
+    const shown = needle === '' ? refs : refs.filter((ref) => ref.name.toLowerCase().includes(needle));
 
     const current = refs.find((ref) => ref.current)?.name ?? branch ?? '';
 

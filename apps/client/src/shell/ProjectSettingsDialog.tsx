@@ -8,6 +8,7 @@ import { accentLabel, NODE_ACCENTS } from '@/canvas/accents';
 import { ProjectGlyph } from '@/project/ProjectGlyph';
 import { PROJECT_ICON_KEYWORDS } from '@/project/project-icons';
 import { useProjectIconGroups } from '@/project/use-project-icon-groups';
+import { submitOnEnter } from '@/shell/submit-on-enter';
 import { Button, ColorSwatch, Icon, useAsyncAction, Dialog, Field, FormError, IconPicker, Input, SectionLabel, Tooltip } from '@adecore/ui';
 
 // The daemon rejects larger files, so the picker catches them before sending the bytes.
@@ -92,15 +93,7 @@ function ProjectSettingsForm({ project, endpointId, actions, onOpenChange }: Pro
                         aria-label={t('projectName.label')}
                         value={name}
                         onChange={(event) => setName(event.target.value)}
-                        onKeyDown={(event) => {
-                            // Escape must reach the dialog's own listener, so it closes like any other.
-                            if (event.key !== 'Escape') {
-                                event.stopPropagation();
-                            }
-                            if (event.key === 'Enter') {
-                                void save();
-                            }
-                        }}
+                        onKeyDown={submitOnEnter(() => void save())}
                     />
                 </Field>
             )}
