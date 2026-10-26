@@ -20,6 +20,7 @@ import {
     type DirectChallengeFrame,
     type DirectProofFrame
 } from '@ruimte/contracts';
+import { randomToken } from '@ruimte/pulsar';
 import { mergeIceServers, relayedFromStats } from './ice';
 import type { Link, LinkOpener } from './link-transport';
 import { protocolRefusal } from './protocol';
@@ -89,21 +90,13 @@ export async function inflateFrame(deflated: Uint8Array<ArrayBuffer>, maxBytes: 
     return frame;
 }
 
-function connectionIdOf(): string {
-    const bytes = crypto.getRandomValues(new Uint8Array(16));
-    return btoa(String.fromCharCode(...bytes))
-        .replaceAll('+', '-')
-        .replaceAll('/', '_')
-        .replace(/=+$/, '');
-}
-
 /*
  * Close signaling once the DataChannel opens, then authenticate against its DTLS fingerprints
  * before reporting the link ready. Direct failures stay visible instead of falling back silently.
  */
 export function webRtcLink(options: WebRtcLinkOptions): LinkOpener {
     return (url, events): Link => {
-        const connectionId = connectionIdOf();
+        const connectionId = randomToken(16);
         const assembler = new FrameAssembler();
         const binaryAssembler = new BinaryFrameAssembler();
         const deflatedAssembler = new DeflatedFrameAssembler();

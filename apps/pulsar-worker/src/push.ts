@@ -10,6 +10,7 @@ import {
     pushCollapseIdMessage,
     pushMessage,
     randomToken,
+    sha256,
     type PushEnvelope
 } from '@ruimte/pulsar';
 import { apnsConfigured, invalidApnsToken, deliverApns, type ApnsResult } from './apns.ts';
@@ -54,12 +55,7 @@ interface ActivitySelection {
 
 async function selectsActivity(device: ActivitySelection, machineId: string, collapseId: string): Promise<boolean> {
     if (device.activity_scope === 'machines') {
-        const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pushCollapseIdMessage(machineId, MACHINE_ACTIVITY_NODE)));
-        const expected = btoa(String.fromCharCode(...new Uint8Array(hash)))
-            .replaceAll('+', '-')
-            .replaceAll('/', '_')
-            .replaceAll('=', '');
-        return collapseId === expected;
+        return collapseId === (await sha256(pushCollapseIdMessage(machineId, MACHINE_ACTIVITY_NODE)));
     }
     return device.start_machine_id === machineId && device.start_collapse_id === collapseId;
 }

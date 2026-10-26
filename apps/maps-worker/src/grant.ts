@@ -1,4 +1,4 @@
-import { signMapsPath, verifyMapsPath } from '@ruimte/pulsar';
+import { fromBase64Url, signMapsPath, toBase64Url, verifyMapsPath } from '@ruimte/pulsar';
 import { z } from 'zod';
 import { TOMTOM_ORIGIN } from './upstream.ts';
 
@@ -119,20 +119,8 @@ export function upstreamPathAllowed(path: string): boolean {
     }
 }
 
-function base64UrlOf(text: string): string {
-    return btoa(String.fromCharCode(...new TextEncoder().encode(text)))
-        .replaceAll('+', '-')
-        .replaceAll('/', '_')
-        .replace(/=+$/, '');
-}
-
-function textOfBase64Url(value: string): string {
-    const binary = atob(value.replaceAll('-', '+').replaceAll('_', '/'));
-    return new TextDecoder().decode(Uint8Array.from(binary, (char) => char.charCodeAt(0)));
-}
-
 export async function issueGrant(secret: string, grant: Grant): Promise<string> {
-    const payload = base64UrlOf(JSON.stringify({ k: grant.kind, p: grant.path, q: grant.query }));
+    const payload = toBase64Url(new TextEncoder().encode(JSON.stringify({ k: grant.kind, p: grant.path, q: grant.query })));
     return `${payload}.${await signMapsPath(secret, payload)}`;
 }
 
@@ -143,7 +131,7 @@ export async function readGrant(secret: string, token: string): Promise<Grant | 
         return null;
     }
     try {
-        const parsed = GrantSchema.safeParse(JSON.parse(textOfBase64Url(payload)));
+        const parsed = GrantSchema.safeParse(JSON.parse(new TextDecoder().decode(fromBase64Url(payload))));
         if (!parsed.success) {
             return null;
         }
