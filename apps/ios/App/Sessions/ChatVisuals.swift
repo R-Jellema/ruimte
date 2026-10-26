@@ -69,7 +69,7 @@ enum ChatVisuals {
         switch entry.kind {
         case .activity: return .infinity
         case .turnFold, .turnStart, .subagent, .tools: return entry.items.first?.item.createdAt
-        case .changedFiles, .forks, .visual: return nil
+        case .changedFiles, .forks, .visual, .output: return nil
         // It stands for the call it is repeated over, which it carries after the thought.
         case .liveThought: return entry.items.last?.item.createdAt
         case .message:
@@ -82,13 +82,17 @@ enum ChatVisuals {
         }
     }
 
-    /// The thread's rows with the visuals among them, each right before the first row that began after it: in a
-    /// folded turn under the fold and above the answer, in a running one between its calls, and always above the
-    /// working row. While an earlier page of the thread is not read yet, a visual from before `heldFrom` waits for it.
-    @MainActor static func placed(_ rows: [ChatTimelineEntry], visuals: [ChatVisual], heldFrom: Double?)
-        -> [ChatTimelineEntry]
-    {
-        let pending = visuals.filter { visual in heldFrom.map { visual.at >= $0 } ?? true }.enumerated()
+    /// The thread's rows with the visuals and Output cards among them, each right before the first row that began
+    /// after it: in a folded turn under the fold and above the answer, in a running one between its calls, and always
+    /// above the working row. A visual comes first among those of the same moment. While an earlier page of the thread
+    /// is not read yet, a visual from before `heldFrom` waits for it.
+    @MainActor static func placed(
+        _ rows: [ChatTimelineEntry], visuals: [ChatVisual], cards: [ChatOutputCard] = [], heldFrom: Double?
+    ) -> [ChatTimelineEntry] {
+        let timed =
+            visuals.filter { visual in heldFrom.map { visual.at >= $0 } ?? true }.map { (at: $0.at, row: entry($0)) }
+            + cards.map { (at: $0.at, row: ChatTimelineEntry(id: "app-card-\($0.id)", kind: .output, output: $0)) }
+        let pending = timed.enumerated()
             .sorted { $0.element.at == $1.element.at ? $0.offset < $1.offset : $0.element.at < $1.element.at }
             .map(\.element)
         guard !pending.isEmpty else { return rows }
@@ -97,13 +101,13 @@ enum ChatVisuals {
         for row in rows {
             if let time = rowTime(row) {
                 while next < pending.count, pending[next].at < time {
-                    merged.append(entry(pending[next]))
+                    merged.append(pending[next].row)
                     next += 1
                 }
             }
             merged.append(row)
         }
-        merged += pending[next...].map(entry)
+        merged += pending[next...].map(\.row)
         return merged
     }
 

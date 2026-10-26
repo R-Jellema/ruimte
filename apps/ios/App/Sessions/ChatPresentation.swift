@@ -41,18 +41,19 @@ struct ChatAgentSources {
 
 struct ChatTimelineEntry: Identifiable, Equatable {
     enum Kind: Equatable {
-        case message, tools, activity, turnFold, turnStart, changedFiles, subagent, forks, visual, liveThought
+        case message, tools, activity, turnFold, turnStart, changedFiles, subagent, forks, visual, liveThought, output
     }
     let id: String
     let kind: Kind
     var items: [ChatItemState] = []
     var visual: ChatVisual?
     var branch: ChatSubagentBranch?
+    var output: ChatOutputCard?
 
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.id == rhs.id && lhs.kind == rhs.kind
             && lhs.items.map(ObjectIdentifier.init) == rhs.items.map(ObjectIdentifier.init) && lhs.visual == rhs.visual
-            && lhs.branch == rhs.branch
+            && lhs.branch == rhs.branch && lhs.output == rhs.output
     }
 }
 
@@ -127,7 +128,7 @@ extension ChatTimelineEntry {
     @MainActor var isWorkLine: Bool {
         switch kind {
         case .tools, .turnFold, .turnStart, .subagent, .liveThought, .activity: return true
-        case .changedFiles, .forks, .visual: return false
+        case .changedFiles, .forks, .visual, .output: return false
         case .message:
             switch items.first?.item {
             case .thinking?, .approval?: return true
@@ -216,6 +217,10 @@ final class ChatPresentation {
     private(set) var visuals: [ChatVisual] = []
     /// A card asked to open its visual large or to remove it; the screen carries it out.
     var visualRequest: ChatVisualRequest?
+    /// What the chat saved to Output, as the machine last said.
+    private(set) var saved: [ChatSavedVersion] = []
+    /// A card asked to open an item of Output; the screen pushes it.
+    var outputRequest: ChatOutputOpen?
     @ObservationIgnored let visualPages = ChatVisualPages()
     /// Whether the machine holds a page of the thread before the first item here, which a visual from before that
     /// item waits for.
@@ -390,6 +395,12 @@ final class ChatPresentation {
         rebuild()
     }
 
+    func setSaved(_ saved: [ChatSavedVersion]) {
+        guard saved != self.saved else { return }
+        self.saved = saved
+        rebuild()
+    }
+
     func setBookmarks(_ bookmarks: [ChatBookmark]) {
         let next = Dictionary(bookmarks.map { ($0.itemID, $0) }, uniquingKeysWith: { first, _ in first })
         if next != self.bookmarks { self.bookmarks = next }
@@ -500,7 +511,9 @@ final class ChatPresentation {
         }
         if let activeID { rows.append(ChatTimelineEntry(id: "working-\(activeID)", kind: .activity)) }
         let heldFrom = earlierPageWaits ? order.first.flatMap { records[$0]?.item.createdAt } : nil
-        rows = ChatVisuals.placed(rows, visuals: visuals, heldFrom: heldFrom)
+        let groups = saved.isEmpty ? [] : ChatOutputCards.groups(saved, itemTimes: records.values.map(\.item.createdAt))
+        let cards = groups.map(ChatOutputCard.init(saved:))
+        rows = ChatVisuals.placed(rows, visuals: visuals, cards: cards, heldFrom: heldFrom)
         guard rows != entries else { return }
         entries = rows
         revision += 1

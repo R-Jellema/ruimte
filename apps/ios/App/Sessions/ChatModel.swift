@@ -86,6 +86,10 @@ final class ChatModel {
     private var unsubscribe: [() -> Void] = []
     private var attachTask: Task<Void, Never>?
     @ObservationIgnored private var attachment: MachineAttachment?
+    @ObservationIgnored private lazy var output = ChatOutputWatch(client: client, chatID: chatID) {
+        [weak self] saved in
+        self?.presentation.setSaved(saved)
+    }
     private var positions: [String: Int] = [:]
     /// The place of the last event applied here in the chat's stream, offered as `since` on the next attach so the
     /// machine answers only what came after it.
@@ -138,6 +142,7 @@ final class ChatModel {
     func start() {
         guard unsubscribe.isEmpty else { return }
         attachment = client.acquireAttachment("chat", id: chatID)
+        output.start()
         unsubscribe.append(
             client.subscribe("chat.event") { [weak self] payload in
                 guard let self, !self.loading, let envelope = try? payload.decoded(as: ChatEventEnvelope.self),
@@ -202,6 +207,7 @@ final class ChatModel {
         generation += 1
         attachTask?.cancel()
         uiModels.imageSave.stop()
+        output.stop()
         for cancel in unsubscribe { cancel() }
         unsubscribe.removeAll()
         loading = false

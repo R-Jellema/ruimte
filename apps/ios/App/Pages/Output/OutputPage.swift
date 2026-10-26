@@ -17,6 +17,14 @@ struct OutputContext {
         chatName = { [weak workspace] chatID in workspace.flatMap { OutputContext.chatName($0.views, chatID: chatID) } }
     }
 
+    /// For a chat outside any project, which has no views to name a chat by.
+    @MainActor init(session: SharedMachineSession, client: any MachineRequesting) {
+        self.client = client
+        machineName = session.machine.name
+        reconnect = { if !session.connected { session.reconnect() } }
+        chatName = { _ in nil }
+    }
+
     /// What the project calls a chat: a view of its own, or a node on one of its canvases. Empty for one without a name.
     static func chatName(_ views: [JSONValue], chatID: String) -> String? {
         for view in views {

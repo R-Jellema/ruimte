@@ -5800,6 +5800,26 @@
         }
       }
     },
+    "Saved to Output" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bewaard in Output"
+          }
+        }
+      }
+    },
+    "Version %lld saved to Output" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Versie %lld bewaard in Output"
+          }
+        }
+      }
+    },
     "Workflow running" : {
       "localizations" : {
         "nl" : {

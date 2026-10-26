@@ -241,6 +241,11 @@ struct ChatScreen: View {
         ) { crumb in
             SubagentConversationPage(model: model, crumb: crumb, session: machineSession)
         }
+        .navigationDestination(item: Bindable(model.presentation).outputRequest) { open in
+            if let context = outputContext {
+                OutputItemPage(context: context, artifactID: open.artifactID, title: open.title, pinned: open.versionID)
+            }
+        }
         .onChange(of: model.presentation.conversationRequest) { _, crumb in
             guard let crumb, let padCells else { return }
             model.presentation.conversationRequest = nil
@@ -548,6 +553,11 @@ struct ChatScreen: View {
     }
 
     private var showScrollButton: Bool { messagesBelow && !model.loading }
+
+    private var outputContext: OutputContext? {
+        if let workspace { return OutputContext(workspace: workspace) }
+        return machineSession.map { OutputContext(session: $0, client: model.client) }
+    }
     private var scrollButtonBesideComposer: Bool { sizeClass == .regular && viewportWidth >= 640 }
 
     private var scrollToBottomButton: some View {

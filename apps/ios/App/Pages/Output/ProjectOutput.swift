@@ -29,10 +29,12 @@ struct OutputProvenance: Equatable {
     let chatID: String?
     let agent: String?
     let model: String?
+    let turnID: String?
 
     init(json: JSONValue) {
         maker = json.text("maker")
         chatID = json["chatId"]?.stringValue
+        turnID = json["turnId"]?.stringValue
         agent = json["agent"]?.stringValue
         model = json["model"]?.stringValue
     }
