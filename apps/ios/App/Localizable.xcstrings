@@ -5930,6 +5930,136 @@
         }
       }
     },
+    "Working toward a goal" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Werkt aan een doel"
+          }
+        }
+      }
+    },
+    "Goal paused" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Doel gepauzeerd"
+          }
+        }
+      }
+    },
+    "Goal blocked" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Doel geblokkeerd"
+          }
+        }
+      }
+    },
+    "Goal stopped on a usage limit" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Doel gestopt op een gebruikslimiet"
+          }
+        }
+      }
+    },
+    "Goal used up its token budget" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Doel heeft zijn tokenbudget op"
+          }
+        }
+      }
+    },
+    "Goal met" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Doel bereikt"
+          }
+        }
+      }
+    },
+    "%lld checks not met yet" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld check not met yet"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld checks not met yet"
+                }
+              }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld controle nog niet gehaald"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld controles nog niet gehaald"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%@ of %@ tokens" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ van %2$@ tokens"
+          }
+        }
+      }
+    },
+    "Last check: %@" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Laatste controle: %@"
+          }
+        }
+      }
+    },
+    "Could not change goal" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kon het doel niet wijzigen"
+          }
+        }
+      }
+    },
     "Workflow running" : {
       "localizations" : {
         "nl" : {
