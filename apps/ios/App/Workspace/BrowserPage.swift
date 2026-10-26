@@ -158,6 +158,8 @@ private struct BrowserContent: UIViewRepresentable {
     func updateUIView(_ view: WKWebView, context: Context) {
         view.scrollView.contentInset = viewportInsets
         view.scrollView.scrollIndicatorInsets = viewportInsets
+        // The scroll inset only moves the page; the page's own fixed and sticky parts follow the layout viewport.
+        view.obscuredContentInsets = viewportInsets
     }
     static func dismantleUIView(_ view: WKWebView, coordinator: Coordinator) {
         view.stopLoading()
