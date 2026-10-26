@@ -224,7 +224,7 @@ struct ChatChangedFilesRow: View {
                             ForEach(files) { change in ChatFileChangeView(change: change) }
                         }
                     }
-                    if work.loading { ProgressView("Loading changes...").font(.caption).padding(12) }
+                    if work.loading { ProgressView("Loading changes…").font(.caption).padding(12) }
                     if let problem = work.problem {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(problem).font(.caption).foregroundStyle(MobileStyle.muted)

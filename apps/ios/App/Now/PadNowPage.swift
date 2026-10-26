@@ -26,7 +26,7 @@ struct PadNowPage: View {
                         ContentUnavailableView {
                             Label(String(localized: "No machines yet"), lucideIcon: "server", iconSize: 48)
                         } description: {
-                            Text("Connect your computer to see what your agents are doing.")
+                            Text("Connect a machine to see what your agents are doing.")
                         } actions: {
                             Button("Add machine", action: addMachine)
                         }

@@ -429,9 +429,9 @@ enum UiReason {
 
     static func text(code: String?, reason: String?) -> String? {
         switch code {
-        case "access-unavailable": String(localized: "The access of the chat that wrote this is no longer available.")
+        case "access-unavailable": String(localized: "The chat that wrote this no longer has access.")
         case "block-stale": String(localized: "This block changed since it was drawn.")
-        case "busy": String(localized: "Too many live blocks reading.")
+        case "busy": String(localized: "Too many live blocks read at once.")
         case "link-unchecked": String(localized: "This link has to be checked again.")
         case "link-unsupported": String(localized: "This is not a link the machine can open.")
         case "links-unsupported": String(localized: "The machine does not open links from blocks.")

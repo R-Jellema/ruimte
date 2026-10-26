@@ -99,7 +99,7 @@ struct RoutineDetailPage: View {
                 localized: "Approve it on \(machineName) before it runs.", comment: "%@ is the name of a machine")
         }
         if entry.waitingRun != nil {
-            return String(localized: "A run waits for you, so the next one is skipped until you answer.")
+            return String(localized: "A run waits for you. The next one is skipped until you answer.")
         }
         if let next = entry.next {
             return String(localized: "Runs next at \(Format.moment(next))", comment: "%@ is a moment, such as 08:30")

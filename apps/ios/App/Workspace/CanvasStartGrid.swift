@@ -100,7 +100,7 @@ struct CanvasStartGrid: View {
         } else if agents.isEmpty {
             VStack(alignment: .leading, spacing: 4) {
                 Text("No agents on this machine").font(.callout.weight(.medium)).foregroundStyle(MobileStyle.text)
-                Text("Install an agent CLI, then set it up under Agents in Ruimte's settings on your computer.")
+                Text("Install a CLI or add an account in Ruimte on the machine itself, under Agents.")
                     .font(.caption).foregroundStyle(MobileStyle.muted)
             }
             .mobileCard(padding: 14)

@@ -109,7 +109,7 @@ struct ChatThinkingRow: View {
                     if streaming {
                         // Whole, the thought stays behind its placeholder until it is done.
                         let live = streamingMode == .whole ? "" : ChatThought.line(item.text)
-                        ChatLiveLabel(text: live.isEmpty ? String(localized: "Thinking...") : live).lineLimit(1)
+                        ChatLiveLabel(text: live.isEmpty ? String(localized: "Thinking…") : live).lineLimit(1)
                     } else {
                         let duration = ChatToolPresentation.elapsed((item.endedAt ?? item.createdAt) - item.createdAt)
                         let preview = ChatThought.preview(item.text)

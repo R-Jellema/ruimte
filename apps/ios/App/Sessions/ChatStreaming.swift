@@ -71,7 +71,7 @@ struct ChatStreamingMessage: View {
         Group {
             if mode == .whole {
                 if streaming {
-                    ChatLiveLabel(text: String(localized: "Writing..."))
+                    ChatLiveLabel(text: String(localized: "Writing…"))
                 } else {
                     MarkdownMessage(text: text).modifier(ChatBlockArrival(enabled: sawWriting))
                 }
@@ -82,10 +82,10 @@ struct ChatStreamingMessage: View {
                         MarkdownMessage(text: chunk).modifier(
                             ChatBlockArrival(enabled: sawWriting && index >= initialBlocks))
                     }
-                    if streaming { ChatLiveLabel(text: String(localized: "Writing...")) }
+                    if streaming { ChatLiveLabel(text: String(localized: "Writing…")) }
                 }
             } else if text.isEmpty && streaming {
-                ChatLiveLabel(text: String(localized: "Writing...")).font(.body)
+                ChatLiveLabel(text: String(localized: "Writing…")).font(.body)
             } else {
                 MarkdownMessage(text: reduceMotion ? text : shown, streaming: streaming || shown != text)
             }

@@ -558,7 +558,7 @@ struct DeviceViewPage: View {
                 String(localized: "No screen to show"), lucideIcon: "monitor-off", description: Text(problem))
         case .unsupportedFormat:
             ContentUnavailableView(
-                String(localized: "Shown on the computer only"), lucideIcon: "monitor-smartphone",
+                String(localized: "Shown on the machine only"), lucideIcon: "monitor-smartphone",
                 description: Text(
                     "\(name) sends its screen as video, which this app does not show yet. Simulators show here."))
         case .offline:

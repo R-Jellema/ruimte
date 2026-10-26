@@ -204,7 +204,9 @@ struct DrawingEditorPage: View {
                 if model.selected.contains(where: { $0.text("kind") == "line" }) {
                     Section("Arrowheads") {
                         Toggle(
-                            "Start",
+                            String(
+                                localized: "drawing.arrowhead.start", defaultValue: "Start",
+                                comment: "The arrowhead at the start of a line, beside End"),
                             isOn: Binding(
                                 get: {
                                     model.selected.first(where: { $0.text("kind") == "line" })?["arrowStart"]

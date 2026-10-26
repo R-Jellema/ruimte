@@ -20,7 +20,7 @@ struct NotificationsSettingsPage: View {
                         })
                 ).disabled(coordinator.busy)
             } footer: {
-                Text("Notifications reach this iPhone while Ruimte is closed. Approval messages are encrypted for it.")
+                Text("Get notified on this iPhone while Ruimte is closed.")
             }
             if coordinator.enabled {
                 Section("Notify me when") {
@@ -60,7 +60,7 @@ struct NotificationsSettingsPage: View {
             if let problem = coordinator.problem {
                 Section {
                     Text(problem).foregroundStyle(MobileStyle.statusError)
-                    Button("Retry registration") { Task { await coordinator.synchronize() } }
+                    Button("Try again") { Task { await coordinator.synchronize() } }
                 }
             }
             Section {

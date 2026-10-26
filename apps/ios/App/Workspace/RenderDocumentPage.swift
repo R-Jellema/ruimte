@@ -34,7 +34,7 @@ struct RenderDocumentPage: View {
                         } else {
                             ContentUnavailableView(
                                 String(localized: "Nothing in this diagram yet"), lucideIcon: "workflow",
-                                description: Text("An agent draws it with ruimte-context view diagram.")
+                                description: Text("An agent can fill it for you.")
                             )
                             .allowsHitTesting(false)
                             .accessibilityIdentifier("diagram.empty")

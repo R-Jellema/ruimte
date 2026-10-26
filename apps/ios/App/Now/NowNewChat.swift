@@ -136,7 +136,7 @@ struct NowNewChatSheet: View {
                 Section("Chat with") {
                     if let agents = model.catalog?.agents {
                         if agents.isEmpty {
-                            Text("Install an agent CLI, then set it up under Agents in Ruimte's settings on your computer.")
+                            Text("Install a CLI or add an account in Ruimte on the machine itself, under Agents.")
                                 .foregroundStyle(MobileStyle.muted)
                         }
                         ForEach(agents, id: \.agentKind) { agent in
@@ -169,7 +169,7 @@ struct NowNewChatSheet: View {
                 } footer: {
                     Text(
                         model.projectID == nil
-                            ? "A chat in Chats has no folder of a project."
+                            ? "A chat in Chats works outside any project."
                             : "The chat works in the project's folder and is listed with its views.")
                 }
                 if let problem = model.problem ?? model.catalog?.problem {

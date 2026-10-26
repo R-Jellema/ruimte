@@ -299,7 +299,7 @@ private struct CanvasLinkSheet: View {
                     Text("Who reads \(source?.text("title") ?? String(localized: "this node"))")
                 } footer: {
                     Text(
-                        "An agent reads what a line runs into it from, with ruimte-context. Between two agents the line runs both ways."
+                        "An agent reads every node a line runs to it from. Between two agents a line runs both ways."
                     )
                 }
                 if !links.isEmpty {
@@ -370,7 +370,7 @@ private struct CanvasColorSheet: View {
                     row(nil) { Text("None").foregroundStyle(MobileStyle.text) }
                 } footer: {
                     if node?.text("kind") == "note" {
-                        Text("A note takes its paper from its color.")
+                        Text("The paper of a note follows its color.")
                     }
                 }
             }

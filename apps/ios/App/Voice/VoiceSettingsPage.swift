@@ -60,9 +60,7 @@ struct VoiceSettingsPage: View {
                             Text(
                                 "Changes apply when you start the next conversation. Only an active conversation sends microphone audio to OpenAI."
                             )
-                            Text(
-                                "The key stays on the machine and never reaches this phone. Set it in Ruimte on that computer, under Settings, Voice, or there with ruimte voice key set."
-                            )
+                            Text("The key stays on the machine. Set it in Ruimte there, under Settings, Voice.")
                         }
                     }
                 }

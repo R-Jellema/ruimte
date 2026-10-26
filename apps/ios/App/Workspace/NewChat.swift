@@ -115,9 +115,7 @@ struct NewChatSheet: View {
                 Section {
                     if let agents = model.agents {
                         if agents.isEmpty {
-                            Text(
-                                "Install an agent CLI, then set it up under Agents in Ruimte's settings on your computer."
-                            )
+                            Text("Install a CLI or add an account in Ruimte on the machine itself, under Agents.")
                             .foregroundStyle(MobileStyle.muted)
                         }
                         ForEach(agents, id: \.agentKind) { agent in row(agent) }

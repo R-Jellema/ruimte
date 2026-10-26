@@ -161,9 +161,7 @@ struct OutputUnreachableView: View {
         ContentUnavailableView {
             Label(String(localized: "\(machineName) is not reachable"), lucideIcon: "wifi-off", iconSize: 48)
         } description: {
-            Text(
-                "Output stays on that machine and is never copied to this phone. It shows here again once \(machineName) is awake and online."
-            )
+            Text("Output stays on that machine. It shows here again once \(machineName) is online.")
         } actions: {
             Button("Try again", action: retry)
         }

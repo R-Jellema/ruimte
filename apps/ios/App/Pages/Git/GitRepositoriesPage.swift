@@ -16,9 +16,7 @@ struct GitRepositoriesPage: View {
 
     var body: some View {
         MobileList {
-            Text(
-                "This project holds \(checkouts.count) repositories. Changes, fetch, pull and push cover all of them; branches, stashes and pull requests belong to one."
-            ).font(.callout).foregroundStyle(MobileStyle.muted)
+            Text("This project holds \(checkouts.count) repositories. Fetch, pull and push cover all of them.").font(.callout).foregroundStyle(MobileStyle.muted)
             if repositories.busy {
                 GitBusyRow(text: repositories.step ?? repositories.progress ?? String(localized: "Working"))
             }
@@ -37,7 +35,7 @@ struct GitRepositoriesPage: View {
                 }
             }
             if repositories.truncated {
-                Text("This folder holds more repositories than the list carries.")
+                Text("Not every repository in this folder is listed.")
                     .font(.caption).foregroundStyle(MobileStyle.muted)
             }
         }

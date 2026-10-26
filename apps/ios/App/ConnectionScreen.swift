@@ -13,7 +13,7 @@ struct ConnectionScreen: View {
         NavigationStack {
             MobileList {
                 Section {
-                    Text("Connect to one of your machines to test sign-in, WebRTC and reconnecting.")
+                    Text("Test how this iPhone reaches each of your machines.")
                         .foregroundStyle(MobileStyle.muted)
                     LabeledContent("Protocol", value: String(WireConstants.protocolVersion))
                     Toggle("Require relay for this test", isOn: $runtime.relayOnly)
@@ -81,7 +81,7 @@ struct ConnectionScreen: View {
                         LabeledContent("Route", value: probe.route?.label ?? String(localized: "Not measured"))
                         if let elapsed = probe.elapsedMilliseconds {
                             LabeledContent(
-                                "Connection to server.hello",
+                                "Response time",
                                 value: String(localized: "\(elapsed) ms", comment: "Duration in milliseconds")
                             )
                             .monospacedDigit()
@@ -91,7 +91,7 @@ struct ConnectionScreen: View {
                     }
                 }
                 if let hello = probe.hello {
-                    Section("server.hello") {
+                    Section("Response") {
                         LabeledContent("Version", value: hello.version)
                         LabeledContent("Platform", value: hello.platform)
                         if let model = hello.model { LabeledContent("Model", value: model) }

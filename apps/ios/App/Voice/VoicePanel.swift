@@ -137,7 +137,7 @@ struct VoiceSheet: View {
                 title: problem == .microphoneDenied
                     ? String(localized: "Ruimte may not use the microphone") : String(localized: "Voice stopped"),
                 message: problem == .microphoneDenied
-                    ? String(localized: "Turn on the microphone for Ruimte in Settings to talk to Voice.")
+                    ? String(localized: "Ruimte may not use the microphone. Turn it on in Settings to talk to Voice.")
                     : VoiceText.problem(problem)
             ) {
                 if problem == .microphoneDenied {

@@ -236,7 +236,7 @@ struct MachinePage: View {
                 MachineSettingLabel(
                     title: String(localized: "Reachable on the local network"),
                     detail: endpoint.lanDoorFixed
-                        ? String(localized: "A flag this machine started with decides this.")
+                        ? String(localized: "Set when this machine started.")
                         : String(localized: "Devices on the same network connect directly."))
             }
             .disabled(endpoint.lanDoorFixed || endpoint.savingLanDoor || !session.connected)

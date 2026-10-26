@@ -471,7 +471,7 @@ private struct SubagentComposerDock: View {
     var body: some View {
         ChatComposerMorph(request: prompts.active) {
             HStack(alignment: .bottom, spacing: 6) {
-                Text("Go back to the main agent to write")
+                Text("Go back to the main chat to write")
                     .foregroundStyle(MobileStyle.muted)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 15)

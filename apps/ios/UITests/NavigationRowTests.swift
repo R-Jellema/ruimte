@@ -25,7 +25,7 @@ final class NavigationRowTests: XCTestCase {
         let recent = app.buttons["projects.recent"]
         if recent.exists {
             recent.tap()
-            let navigation = app.navigationBars["Recently closed"]
+            let navigation = app.navigationBars["Recent"]
             XCTAssertTrue(navigation.waitForExistence(timeout: 5))
             navigation.buttons.firstMatch.tap()
         }

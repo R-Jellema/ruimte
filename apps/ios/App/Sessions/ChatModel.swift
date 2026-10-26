@@ -585,7 +585,7 @@ final class ChatModel {
     private static let uncertainSendMessage =
         String(
             localized:
-                "The send was interrupted. Check the conversation before sending again; the machine may already have received it."
+                "Sending was interrupted. The machine may already have it, so check the chat before you send again."
         )
 
     func addAttachment(data: Data, name: String, mime: String) async {
@@ -659,9 +659,7 @@ final class ChatModel {
                         try composition.takeBack(incoming, uploads: recovered)
                         sendUncertain = true
                         sendProblem = String(
-                            localized:
-                                "Taking the message out of the queue was interrupted. A copy is saved in your draft. Check the conversation and queue before sending again."
-                        )
+                            localized: "Could not take the message out of the queue. A copy is in your draft.")
                         queueProblem = sendProblem
                         await composition.flush()
                         if connected { attach() }

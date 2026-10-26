@@ -52,7 +52,7 @@ struct MobileSettings: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Map tiles")
                         Text(
-                            "Maps in chats draw their base map with Apple Maps, which receives the area you look at. When this is off, a map shows only dots and its list of places."
+                            "Draws maps in chats with Apple Maps, which sees the area you look at. Off, maps show only their places."
                         )
                         .font(.caption).foregroundStyle(MobileStyle.muted)
                     }

@@ -260,7 +260,7 @@ struct FileContentPage: View {
                 Button("Copy my edits") { UIPasteboard.general.string = edit.text }
                 Button("Keep editing", role: .cancel) {}
             } message: {
-                Text("Your edits are still here. Saving over a file that moved would lose what changed it.")
+                Text("Your edits are still here. Saving now overwrites the change on the machine.")
             }
             .task(id: state.value.map(versionKey)) {
                 guard project != nil, state.value != nil else { return }

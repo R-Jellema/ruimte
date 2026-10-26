@@ -131,7 +131,7 @@ enum PaletteCommands {
         }
         commands.append(
             PaletteCommand(
-                title: String(localized: "Recently closed"), icon: "clock-arrow-left", action: .recentlyClosed))
+                title: String(localized: "Recent"), icon: "clock-arrow-left", action: .recentlyClosed))
         commands.append(PaletteCommand(title: String(localized: "Add machine"), icon: "plus", action: .addMachine))
         commands.append(PaletteCommand(title: String(localized: "Settings"), icon: "settings", action: .settings))
         let looks = [

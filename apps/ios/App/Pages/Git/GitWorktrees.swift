@@ -279,10 +279,7 @@ enum GitWorktreeText {
     static func refusalHint(_ code: String) -> String? {
         switch code {
         case "target-not-checked-out":
-            String(
-                localized:
-                    "A worktree is merged in the checkout that has the target branch out, and never by moving a branch behind a working tree. Check that branch out in the project folder or in a worktree first."
-            )
+            String(localized: "Check out the target branch in the project folder or a worktree first.")
         case "target-busy": String(localized: "Finish or abort what waits in the target checkout first.")
         case "target-dirty": String(localized: "Commit or stash the changes in the target checkout first.")
         case "worktree-busy": String(localized: "Finish or abort what waits in the worktree first.")

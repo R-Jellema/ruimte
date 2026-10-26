@@ -198,7 +198,7 @@ struct ChatLimitBanner: View {
             .font(.subheadline)
             .disabled(!state.enabled || !model.connected)
             if !state.enabled {
-                Text("Turned off for this machine. Turn it on in Ruimte's settings on your computer, under Agents.")
+                Text("Turned off for this machine. Turn it on there, under Settings, Agents.")
                     .font(.caption).foregroundStyle(MobileStyle.muted)
             }
         }

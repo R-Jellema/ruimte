@@ -45,16 +45,13 @@ enum ProjectSettingsLogic {
         if otherClients > 0 {
             return String(
                 localized:
-                    "\(otherClients) other devices still have it open, so nothing stops running. It moves to Recently closed on this phone only."
+                    "This project is still open on \(otherClients) other devices, so nothing stops. It moves to Recent here only."
             )
         }
         if sessions == 0 {
-            return String(localized: "Nothing in it is running. It moves to Recently closed just as it was left.")
+            return String(localized: "Nothing is running. It moves to Recent as you left it.")
         }
-        return String(
-            localized:
-                "\(sessions) running sessions end: a terminal loses its scrollback and an agent stops. The rest moves to Recently closed."
-        )
+        return String(localized: "Closing ends its \(sessions) running sessions. Terminals lose scrollback and agents stop.")
     }
 
     /// A picked picture as a PNG the daemon takes, scaled down until it fits under the limit; nil when it cannot be

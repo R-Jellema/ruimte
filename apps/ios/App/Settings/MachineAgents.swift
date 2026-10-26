@@ -246,9 +246,7 @@ struct MachineAgentsPage: View {
         } header: {
             Text("Defaults")
         } footer: {
-            Text(
-                "The permissions and models are this iPhone's picks for the chats it starts, and every machine hears of them."
-            )
+            Text("The chats this iPhone starts use these, on every machine.")
         }
     }
 

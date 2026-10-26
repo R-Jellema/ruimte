@@ -126,16 +126,16 @@ final class ProjectSettingsTests: XCTestCase {
     func testClosingSaysWhatEndsAndWhoKeepsItOpen() {
         XCTAssertEqual(
             ProjectSettingsLogic.closing(sessions: 0, otherClients: 0),
-            "Nothing in it is running. It moves to Recently closed just as it was left.")
+            "Nothing is running. It moves to Recent as you left it.")
         XCTAssertEqual(
             ProjectSettingsLogic.closing(sessions: 1, otherClients: 0),
-            "1 running session ends: a terminal loses its scrollback and an agent stops. The rest moves to Recently closed."
-        )
-        XCTAssertTrue(ProjectSettingsLogic.closing(sessions: 3, otherClients: 0).hasPrefix("3 running sessions end:"))
+            "Closing ends its running session. Terminals lose scrollback and agents stop.")
+        XCTAssertEqual(
+            ProjectSettingsLogic.closing(sessions: 3, otherClients: 0),
+            "Closing ends its 3 running sessions. Terminals lose scrollback and agents stop.")
         XCTAssertEqual(
             ProjectSettingsLogic.closing(sessions: 3, otherClients: 2),
-            "2 other devices still have it open, so nothing stops running. It moves to Recently closed on this phone only."
-        )
+            "This project is still open on 2 other devices, so nothing stops. It moves to Recent here only.")
     }
 
     func testRenamingSendsOnlyANewName() {

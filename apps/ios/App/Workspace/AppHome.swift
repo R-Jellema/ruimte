@@ -162,12 +162,12 @@ struct RecentProjectsPage: View {
                 ContentUnavailableView.search(for: search)
                     .listRowBackground(Color.clear).listRowSeparator(.hidden)
             } else {
-                ContentUnavailableView(String(localized: "No recently closed projects"), lucideIcon: "clock-arrow-left")
+                ContentUnavailableView(String(localized: "No recent projects"), lucideIcon: "clock-arrow-left")
                     .listRowBackground(Color.clear).listRowSeparator(.hidden)
             }
         }
         .modifier(ProjectListWidth())
-        .navigationTitle("Recently closed")
+        .navigationTitle("Recent")
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $search, prompt: "Search projects or machines")
         .refreshable { await projects.refresh() }

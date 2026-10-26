@@ -156,7 +156,7 @@ struct ChatForkSheet: View {
             Section {
                 HStack(spacing: 10) {
                     ProgressView()
-                    Text("Looking at the folder...").foregroundStyle(MobileStyle.muted)
+                    Text("Looking at the folder…").foregroundStyle(MobileStyle.muted)
                 }
             }
         } else if !repository {

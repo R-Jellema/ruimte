@@ -46,8 +46,8 @@ struct ProjectsPage<Notice: View>: View {
                     } description: {
                         Text(
                             runtime.machines.isEmpty
-                                ? "Connect your computer to pick up your projects and conversations."
-                                : "Open a project on your computer or choose one from Recently closed.")
+                                ? "Connect a machine to pick up your projects and chats."
+                                : "Open a project on a machine, or pick one from Recent.")
                     }
                 }.listRowBackground(Color.clear).listRowSeparator(.hidden)
             }
@@ -147,7 +147,7 @@ struct ProjectsPage<Notice: View>: View {
             Button(action: showRecent) {
                 HStack(spacing: 12) {
                     Image(lucide: "clock-arrow-left").frame(width: 20, height: 20).frame(width: 32)
-                    Text("Recently closed")
+                    Text("Recent")
                 }
                 .modifier(MobileSidebarLabel(disclosure: true))
             }
@@ -201,7 +201,7 @@ struct ProjectsCapsuleActions: View {
         HStack(spacing: MobileSpacing.small) {
             NewChatRow(machines: machines, capsule: true, start: newChat)
             Button(action: showRecent) {
-                ProjectsCapsuleLabel(title: String(localized: "Recently closed"), icon: "clock-arrow-left")
+                ProjectsCapsuleLabel(title: String(localized: "Recent"), icon: "clock-arrow-left")
             }
             .buttonStyle(.mobileCapsule)
             .accessibilityIdentifier("projects.recent")

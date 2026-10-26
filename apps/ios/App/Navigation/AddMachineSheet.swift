@@ -12,7 +12,7 @@ struct AddMachineSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 28) {
-                    Text("A machine on your account shows up here by itself. You put it there from the machine itself.")
+                    Text("A machine shows up here once it is on your account. You add it from the machine.")
                         .font(.subheadline).foregroundStyle(MobileStyle.muted)
                     VStack(alignment: .leading, spacing: 18) {
                         step("terminal", "On the machine, run `npx ruimte login`.")

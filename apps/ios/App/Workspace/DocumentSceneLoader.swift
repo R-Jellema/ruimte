@@ -29,7 +29,7 @@ actor LocalDocumentRenderer {
         _ = try openRequest.validateResult(.object(["document": document]))
         let data = try document.encoded()
         guard data.count <= 8 * 1024 * 1024 else {
-            throw MachineClientError.invalid(String(localized: "This document is too large to render on this device."))
+            throw MachineClientError.invalid(String(localized: "This document is too large to show on this device."))
         }
         let engine = try engine()
         engine.exception = nil
@@ -49,11 +49,11 @@ actor LocalDocumentRenderer {
         if let context { return context }
         guard let url = Bundle.main.url(forResource: "document-renderer", withExtension: "js"), let engine = JSContext()
         else {
-            throw MachineClientError.invalid(String(localized: "The document renderer is unavailable."))
+            throw MachineClientError.invalid(String(localized: "Could not show this document."))
         }
         engine.evaluateScript(try String(contentsOf: url, encoding: .utf8))
         guard engine.exception == nil, engine.objectForKeyedSubscript("ruimteRenderDocument")?.isObject == true else {
-            throw MachineClientError.invalid(String(localized: "Could not load the document view."))
+            throw MachineClientError.invalid(String(localized: "Could not show this document."))
         }
         context = engine
         return engine

@@ -287,7 +287,7 @@ struct ProjectCardRow: View {
 
     private var title: String {
         overview.isChats
-            ? String(localized: "Chats without project")
+            ? String(localized: "Chats")
             : overview.row.summary.text("name", fallback: String(localized: "Untitled project"))
     }
 

@@ -59,7 +59,7 @@ final class CommandPaletteTests: XCTestCase {
         XCTAssertFalse(titles.contains("Follow the system appearance"))
         XCTAssertTrue(titles.contains("Use the dark appearance"))
         XCTAssertEqual(
-            PaletteCommands.featured(one).map(\.title), ["New chat", "Recently closed", "Add machine", "Settings"])
+            PaletteCommands.featured(one).map(\.title), ["New chat", "Recent", "Add machine", "Settings"])
 
         let studio = machine("studio")
         let several = PaletteCommands.all(projects: [], machines: [mac, studio], appearance: "dark").map(\.title)

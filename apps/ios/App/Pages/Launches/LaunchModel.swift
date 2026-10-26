@@ -90,7 +90,7 @@ enum LaunchPhase: String, Equatable {
 
     var label: String {
         switch self {
-        case .idle: String(localized: "At rest")
+        case .idle: String(localized: "launch.phase.idle", defaultValue: "Idle", comment: "A launch that is not running")
         case .held: String(localized: "needs approval")
         case .starting: String(localized: "starting")
         case .running: String(localized: "Running")

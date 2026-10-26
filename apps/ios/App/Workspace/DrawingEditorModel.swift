@@ -364,7 +364,7 @@ final class DrawingEditorModel {
                     if conflicts > 2 {
                         problem = String(
                             localized:
-                                "This drawing keeps changing on another device. Your changes are saved locally. Tap Retry to sync."
+                                "This drawing keeps changing on another device. Your changes are saved on this device. Tap Try again."
                         )
                         return
                     }

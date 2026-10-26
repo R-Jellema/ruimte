@@ -21,7 +21,7 @@ struct ScheduledPage: View {
                     ContentUnavailableView {
                         Label(String(localized: "No machines yet"), lucideIcon: "server", iconSize: 48)
                     } description: {
-                        Text("Connect your computer to see its routines.")
+                        Text("Connect a machine to see its routines.")
                     } actions: {
                         Button("Add machine", action: addMachine)
                     }
@@ -30,7 +30,7 @@ struct ScheduledPage: View {
                 } else if board.isEmpty {
                     ContentUnavailableView(
                         String(localized: "No routines"), lucideIcon: "clock",
-                        description: Text("Routines you set up on your Mac show up here."))
+                        description: Text("Routines you set up on a machine show up here."))
                 } else {
                     ScheduledSections(
                         now: now, board: board, date: timeline.date, namesMachines: runtime.machines.count > 1,
@@ -63,7 +63,7 @@ struct ScheduledPage: View {
             ContentUnavailableView(
                 String(localized: "Your machine needs an update"), lucideIcon: "clock",
                 description: Text(
-                    "Routines show here once \(board.outdated.formatted(.list(type: .and))) runs a newer Ruimte."
+                    "Update Ruimte on \(board.outdated.formatted(.list(type: .and))) to see its routines here."
                 ))
         } else {
             ContentUnavailableView {

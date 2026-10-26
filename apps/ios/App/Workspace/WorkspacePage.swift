@@ -127,7 +127,7 @@ struct WorkspacePage: View {
                     HStack {
                         Text(problem).font(.caption)
                         Spacer()
-                        Button("Retry save") { Task { await workspace.save() } }
+                        Button("Try saving again") { Task { await workspace.save() } }
                     }.padding().background(.thinMaterial)
                 }
             }

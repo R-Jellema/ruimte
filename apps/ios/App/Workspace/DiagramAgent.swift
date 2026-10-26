@@ -193,7 +193,7 @@ struct DiagramAgentSheet: View {
                         DiagramAgentPicker(model: model)
                     }
                 } footer: {
-                    Text("The chat gets the diagram's id and file, and writes it with ruimte-context.")
+                    Text("The chat changes the diagram for you.")
                 }
                 if let problem = model.problem {
                     Section { Text(problem).foregroundStyle(MobileStyle.statusError) }

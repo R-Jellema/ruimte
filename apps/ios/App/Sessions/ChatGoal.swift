@@ -7,7 +7,7 @@ extension ChatGoalAction {
         switch self {
         case .pause: String(localized: "Pause")
         case .resume: String(localized: "Resume")
-        case .clear: String(localized: "Clear")
+        case .clear: String(localized: "goal.clear", defaultValue: "Clear", comment: "Ends the goal of a chat")
         }
     }
 }

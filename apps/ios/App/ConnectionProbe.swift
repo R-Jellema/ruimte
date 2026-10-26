@@ -73,7 +73,7 @@ final class ConnectionProbe {
     }
 
     private func opened() {
-        status = String(localized: "Reading server.hello")
+        status = String(localized: "Checking the machine")
         let identifier = UUID().uuidString
         helloID = identifier
         // A held connection can announce itself synchronously before hold returns its lease.
@@ -85,7 +85,7 @@ final class ConnectionProbe {
                 timeout = Task { @MainActor [weak self] in
                     do { try await Task.sleep(for: .seconds(30)) } catch { return }
                     guard let self, helloID == identifier else { return }
-                    status = String(localized: "The machine did not answer server.hello.")
+                    status = String(localized: "The machine did not answer.")
                     record(status)
                 }
             } catch { status = error.localizedDescription }
@@ -100,7 +100,7 @@ final class ConnectionProbe {
             helloID = nil
             guard frame["ok"] == .bool(true), let result = frame["result"] else {
                 status =
-                    frame["error"]?["message"]?.stringValue ?? String(localized: "The machine refused server.hello.")
+                    frame["error"]?["message"]?.stringValue ?? String(localized: "The machine refused the connection.")
                 record(status)
                 return
             }
@@ -108,7 +108,7 @@ final class ConnectionProbe {
             let duration = startedAt.duration(to: .now).components
             elapsedMilliseconds = Int(duration.seconds * 1000 + duration.attoseconds / 1_000_000_000_000_000)
             status = String(localized: "Connected")
-            record(String(localized: "server.hello in \(elapsedMilliseconds ?? 0) ms"))
+            record(String(localized: "Answered in \(elapsedMilliseconds ?? 0) ms"))
         } catch {
             status = error.localizedDescription
             record(status)
