@@ -60,6 +60,7 @@
     },
     "view": {
         "failed": "Kon dit niet tonen",
+        "openInRoutine": "Openen in routine",
         "loading": "Laden",
         "gone": "Staat niet meer in Output.",
         "versionGone": "Verwijderd",

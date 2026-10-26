@@ -60,6 +60,7 @@
     },
     "view": {
         "failed": "Could not show this",
+        "openInRoutine": "Open in routine",
         "loading": "Loading",
         "gone": "No longer in Output.",
         "versionGone": "Removed",

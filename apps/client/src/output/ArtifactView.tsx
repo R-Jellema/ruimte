@@ -5,6 +5,7 @@ import {
     ArrowRight,
     ChevronDown,
     CircleAlert,
+    Clock,
     Download,
     FilePlus,
     GitCompare,
@@ -33,6 +34,7 @@ import { canDownload, downloadArtifactFile, readArtifactFile, useArtifactText, t
 import { showChat, useChatName } from '@/output/kinds';
 import { selectArtifactVersion, takeCompareRequest, useArtifactCompareRequest, useArtifactSelection } from '@/output/open';
 import { useArtifact } from '@/output/use-artifact';
+import { showRoutine, useRoutinesStage } from '@/routines/stage';
 import { FileMarkdown } from '@/shell/panels/FileMarkdown';
 import { FileToolbarToggle } from '@/shell/panels/FileToolbar';
 import { useFileToolbarSlot } from '@/shell/panels/file-toolbar-slot';
@@ -139,6 +141,8 @@ function ArtifactBody({
     const canCompare = version !== null && versions.length > 1 && drawnKind(artifact.kind) === 'report' && comparable(version);
     const compare = comparing && canCompare;
     const base = compare ? baseFor(versions, version, baseId) : null;
+    const routineId = version?.provenance.routineId;
+    const inItsRoutine = useRoutinesStage((s) => s.open && s.routine !== null && s.routine.routineId === routineId);
 
     const pick = (picked: ArtifactVersion): void => {
         const next = picked.versionId === latest.versionId ? null : picked.versionId;
@@ -164,6 +168,14 @@ function ArtifactBody({
                     disabled={!canCompare}
                     onClick={() => setComparing(!comparing)}
                 />
+                {machineId === undefined && routineId !== undefined && !inItsRoutine && (
+                    <IconButton
+                        icon={Clock}
+                        size="sm"
+                        label={t('view.openInRoutine')}
+                        onClick={() => showRoutine({ projectId: artifact.projectId, routineId }, version?.provenance.runId ?? null)}
+                    />
+                )}
                 {version !== null && (
                     <OriginPopover endpointId={endpointId} artifact={artifact} version={version} latest={latest} chatPresent={result.chatPresent} />
                 )}
