@@ -1,15 +1,14 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
-import { Archive, ChevronsDownUp, CircleAlert, Package, SquareArrowOutUpRight, WifiOff } from 'lucide-react';
+import { Archive, ChevronsDownUp, Package, SquareArrowOutUpRight } from 'lucide-react';
 import { nodeColorOf, type RoutineRun } from '@ruimte/contracts';
-import { ButtonGroup, EmptyState, ErrorBoundary, Icon, IconButton, Pill } from '@adecore/ui';
+import { ButtonGroup, EmptyState, Icon, IconButton, Pill } from '@adecore/ui';
 import { formatClock, formatDateTime, formatElapsedShort } from '@adecore/ui/format';
 import { accentColor, accentHeaderStyle, accentShades } from '@/canvas/accents';
 import { DerivedSet, type DerivedCard } from '@/canvas/DerivedSet';
-import { VersionBody } from '@/output/ArtifactView';
-import { openArtifact } from '@/output/open';
-import { useArtifact } from '@/output/use-artifact';
+import { ArtifactOnCanvas } from '@/output/ArtifactNode';
+import { FileToolbarSlotProvider, fixedSlot } from '@/shell/panels/file-toolbar-slot';
 import { lookOfRun, type BlockLook } from '@/routines/agenda';
 import { besideLayout, type BesideCard } from '@/routines/beside-layout';
 import { LookIcon } from '@/routines/look';
@@ -25,7 +24,6 @@ import type { Rect } from '@/canvas/math';
 import type { ResizeEdge } from '@/canvas/resize-handles';
 import { useEndpointId } from '@/state/keys';
 import { useProject } from '@/state/project';
-import { useMachineAnswers } from '@/transport/features';
 
 const FRAME = 'flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-clip-padding shadow-node';
 const HEADER = 'flex h-[39px] shrink-0 items-center gap-2 border-b border-border bg-surface-raised pr-1 pl-3 text-sm text-text';
@@ -70,6 +68,8 @@ export function RoutineBeside({ id, z }: { id: string; z: number }) {
     // What each run's header and thread measured while open, in memory, so a run opens again at its own height at once.
     const [openHeights, setOpenHeights] = useState<Readonly<Record<string, number>>>({});
     const runsHidden = useRunsHidden(viewId, id);
+    // The version a person picked on the Output with the runs hidden, in memory; undefined follows the latest.
+    const [outputPin, setOutputPin] = useState<string | undefined>(undefined);
     if (node === undefined || list === null || list.status !== 'ready') {
         return null;
     }
@@ -124,7 +124,18 @@ export function RoutineBeside({ id, z }: { id: string; z: number }) {
                       : t('beside.noVersionShowing', { date: runDay(fallback.run, timeZone) });
             return {
                 label: t('beside.output'),
-                body: <OutputCard endpointId={endpointId} artifactId={card.artifactId} versionId={card.versionId} note={note} accent={accent} />
+                // With the runs shown the open run is the picker; hidden, a person picks any version on the card.
+                body: runsHidden ? (
+                    <OutputCard
+                        artifactId={card.artifactId}
+                        version={outputPin}
+                        onPin={(versionId) => setOutputPin(versionId ?? undefined)}
+                        note={null}
+                        accent={accent}
+                    />
+                ) : (
+                    <OutputCard artifactId={card.artifactId} version={card.versionId ?? undefined} onPin={null} note={note} accent={accent} />
+                )
             };
         }
         const label = t('beside.runTitle', { title: entry.routine.title, date: runDay(card.run, timeZone) });
@@ -322,60 +333,33 @@ function contentHeight(frame: HTMLElement): number | null {
     return frame.offsetHeight - measured.viewport + children + padding;
 }
 
-/* A version of the routine's Output artifact, drawn as the artifact node draws one; the newest when the one asked for is not there. */
+/*
+ * The routine's Output, drawn by the artifact node's own body with its controls in this card's header.
+ * `onPin` is the version picker's, there only with the runs hidden; with them shown the open run picks.
+ */
 function OutputCard({
-    endpointId,
     artifactId,
-    versionId,
+    version,
+    onPin,
     note,
     accent
 }: {
-    endpointId: string;
     artifactId: string;
-    versionId: string | null;
+    version: string | undefined;
+    onPin: ((versionId: string | null) => void) | null;
     note: string | null;
     accent: string | undefined;
 }) {
-    const { t } = useTranslation('output');
-    const { t: words } = useTranslation('routines');
-    const answers = useMachineAnswers(endpointId, 'artifact.get');
-    const state = useArtifact(endpointId, artifactId, answers);
-    if (!answers || state.status !== 'ready') {
-        const [icon, text] = !answers
-            ? [CircleAlert, t('panel.tooOld')]
-            : state.status === 'unreachable'
-              ? [WifiOff, t('view.unreachable')]
-              : state.status === 'gone'
-                ? [Package, t('node.removed')]
-                : [undefined, t('view.loading')];
-        return (
-            <div className={clsx(FRAME, 'place-items-center justify-center bg-surface')} style={frameStyle(accent)}>
-                <EmptyState icon={icon} busy={state.status === 'loading'}>
-                    {text}
-                </EmptyState>
-            </div>
-        );
-    }
-    const { artifact, versions } = state.result;
-    const version = versions.find((candidate) => candidate.versionId === versionId) ?? versions[0]!;
+    const [controls, setControls] = useState<HTMLElement | null>(null);
     return (
         <div className={clsx(FRAME, 'bg-surface')} style={frameStyle(accent)}>
             <header className={HEADER} style={accent === undefined ? undefined : accentHeaderStyle(accent)}>
                 <Icon icon={Package} size={14} className="shrink-0 text-text-muted" />
-                <span className="min-w-0 truncate font-medium">{artifact.title}</span>
-                <Pill className="tabular-nums">{`v${version.number}`}</Pill>
-                <span className="grow" />
-                <IconButton
-                    icon={SquareArrowOutUpRight}
-                    size="sm"
-                    label={words('detail.openInOutput')}
-                    onClick={() => openArtifact(artifact.artifactId, artifact.title, version.versionId)}
-                />
+                <span ref={setControls} className="flex min-w-0 grow items-center gap-1.5" />
             </header>
-            {note !== null && <p className="shrink-0 border-b border-border bg-surface-sunken px-3 py-1.5 text-xs text-text-muted">{note}</p>}
-            <ErrorBoundary label={t('view.failed')} resetKeys={[version.versionId]} className="flex min-h-0 grow flex-col">
-                <VersionBody endpointId={endpointId} artifact={artifact} version={version} />
-            </ErrorBoundary>
+            <FileToolbarSlotProvider value={fixedSlot(controls)}>
+                <ArtifactOnCanvas artifactId={artifactId} version={version} onPin={onPin} titled note={note} />
+            </FileToolbarSlotProvider>
         </div>
     );
 }

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, setSystemTime, test } from 'bun:test';
 import { act } from 'react';
 import { zonedTime, type ArtifactGetResult, type ProjectCanvasView, type ProjectNode, type RoutineEntry, type RoutineRun } from '@ruimte/contracts';
+import { setRunsHidden } from '@/routines/runs-hidden';
 import { showRoutine, useRoutinesStage } from '@/routines/stage';
 import { liveCanvas } from '@/state/canvas';
 import { useSettings } from '@/state/settings';
@@ -231,6 +232,8 @@ describe('beside a routine node', () => {
         if (offsetHeight !== undefined) {
             Object.defineProperty(HTMLElement.prototype, 'offsetHeight', offsetHeight);
         }
+        // The switch is held for the window as well as in storage, so one test's never reaches the next.
+        setRunsHidden('main', 'node-1', false);
     });
 
     function cards(): HTMLElement[] {
@@ -346,6 +349,9 @@ describe('beside a routine node', () => {
         // The Output follows the open run to the version it kept.
         await until(() => (card('Output')?.textContent ?? '').includes('v14'));
         expect(card('Output')!.textContent).not.toContain('saved no version');
+        // The run column picks the version, so the card offers no picker of its own.
+        expect([...card('Output')!.querySelectorAll('header button')].some((button) => button.getAttribute('aria-haspopup') === 'menu')).toBe(false);
+        expect(card('Output')!.querySelector('header button[aria-label="Open"]')).not.toBeNull();
     });
 
     test('the open run collapses too, so every run is a line', async () => {
@@ -476,7 +482,18 @@ describe('beside a routine node', () => {
         expect(card('Output')!.style.left).toBe('472px');
         expect(card('Output')!.style.top).toBe('0px');
         expect(card('Output')!.style.width).toBe('440px');
-        await until(() => (card('Output')?.textContent ?? '').includes('v14'));
+        // Without runs to pick from the card has the artifact node's version picker, on the latest at first.
+        const picker = (): HTMLElement | undefined =>
+            [...card('Output')!.querySelectorAll<HTMLElement>('header button')].find(
+                (button) => button.textContent?.includes('Latest') || /^v\d+/.test(button.textContent ?? '')
+            );
+        await until(() => picker() !== undefined);
+        expect(picker()!.textContent).toContain('Latest');
+        expect(picker()!.getAttribute('aria-haspopup')).toBe('menu');
+        await clickOn(picker()!);
+        await until(() => [...document.querySelectorAll('[role="menuitemradio"]')].some((item) => item.textContent?.includes('Version 14')));
+        await clickOn([...document.querySelectorAll<HTMLElement>('[role="menuitemradio"]')].find((item) => item.textContent?.includes('Version 14'))!);
+        await until(() => picker()?.textContent?.includes('v14') === true);
         expect(localStorage.getItem('ruimte.routineRunsHidden.main.node-1')).toBe('true');
         await act(async () => windowWorkspace()!.connection.projects.flush());
         expect(machine.requests('project.save')).toEqual([]);

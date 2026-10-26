@@ -2,8 +2,8 @@ import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, CircleAlert, Maximize2, Package, WifiOff } from 'lucide-react';
-import type { ArtifactGetResult, ProjectNode } from '@ruimte/contracts';
-import { Button, EmptyState, ErrorBoundary, Icon, IconButton, Menu } from '@adecore/ui';
+import type { ArtifactGetResult } from '@ruimte/contracts';
+import { Button, EmptyState, ErrorBoundary, Icon, IconButton, Menu, Pill } from '@adecore/ui';
 import { formatDayClock } from '@adecore/ui/format';
 import { VersionBody } from '@/output/ArtifactView';
 import { openArtifact } from '@/output/open';
@@ -12,8 +12,6 @@ import { useFileToolbarSlot } from '@/shell/panels/file-toolbar-slot';
 import { useCanvas, useCanvasStore } from '@/state/canvas';
 import { useEndpointId } from '@/state/keys';
 import { useMachineAnswers } from '@/transport/features';
-
-type ArtifactReference = NonNullable<ProjectNode['artifact']>;
 
 // A version id is the machine's and never empty, so the empty string is free to mean no version at all.
 const FOLLOW_LATEST = '';
@@ -25,6 +23,7 @@ const FOLLOW_LATEST = '';
  */
 export function ArtifactNodeBody({ id }: { id: string }) {
     const { t } = useTranslation('output');
+    const canvas = useCanvasStore();
     const reference = useCanvas((s) => s.nodes[id]?.artifact);
     if (reference === undefined) {
         return (
@@ -34,7 +33,22 @@ export function ArtifactNodeBody({ id }: { id: string }) {
             </Plate>
         );
     }
-    return <ArtifactOnCanvas id={id} reference={reference} />;
+    const pin = (versionId: string | null): void => {
+        canvas.getState().updateNode(id, { artifact: { id: reference.id, ...(versionId === null ? {} : { version: versionId }) } }, true);
+    };
+    return <ArtifactOnCanvas artifactId={reference.id} version={reference.version} onPin={pin} />;
+}
+
+export interface ArtifactOnCanvasProps {
+    artifactId: string;
+    /* The version it shows; the latest when undefined. */
+    version: string | undefined;
+    /* How a person picks another version, with null for following the latest; without it the version is set elsewhere and offers no picker. */
+    onPin: ((versionId: string | null) => void) | null;
+    /* Puts the artifact's title in the header beside the controls, for a header that has no title of its own. */
+    titled?: boolean;
+    /* A line over the version, for what the surface around it has to say about which one it shows. */
+    note?: string | null;
 }
 
 function Plate({ icon, busy, children }: { icon?: typeof Package; busy?: boolean; children: ReactNode }) {
@@ -47,11 +61,15 @@ function Plate({ icon, busy, children }: { icon?: typeof Package; busy?: boolean
     );
 }
 
-function ArtifactOnCanvas({ id, reference }: { id: string; reference: ArtifactReference }) {
+/*
+ * An artifact the way a node on the canvas draws it: its version, with the controls in the header slot
+ * of the surface around it (`useFileToolbarSlot`). A routine's Output beside its node draws the same.
+ */
+export function ArtifactOnCanvas(props: ArtifactOnCanvasProps) {
     const { t } = useTranslation('output');
     const endpointId = useEndpointId();
     const answers = useMachineAnswers(endpointId, 'artifact.get');
-    const state = useArtifact(endpointId, reference.id, answers);
+    const state = useArtifact(endpointId, props.artifactId, answers);
     if (!answers) {
         return <Plate icon={CircleAlert}>{t('panel.tooOld')}</Plate>;
     }
@@ -64,7 +82,7 @@ function ArtifactOnCanvas({ id, reference }: { id: string; reference: ArtifactRe
     if (state.status === 'gone') {
         return <Removed />;
     }
-    return <ArtifactVersionOnCanvas id={id} endpointId={endpointId} reference={reference} result={state.result} />;
+    return <ArtifactVersionOnCanvas {...props} endpointId={endpointId} result={state.result} />;
 }
 
 function Removed() {
@@ -78,56 +96,50 @@ function Removed() {
 }
 
 function ArtifactVersionOnCanvas({
-    id,
     endpointId,
-    reference,
-    result
-}: {
-    id: string;
-    endpointId: string;
-    reference: ArtifactReference;
-    result: ArtifactGetResult;
-}) {
+    result,
+    version: picked,
+    onPin,
+    titled = false,
+    note = null
+}: ArtifactOnCanvasProps & { endpointId: string; result: ArtifactGetResult }) {
     const { t } = useTranslation('output');
-    const canvas = useCanvasStore();
     const { artifact, versions } = result;
     const latest = versions[0]!;
-    const version = reference.version === undefined ? latest : versions.find((entry) => entry.versionId === reference.version);
-    const pin = (versionId: string | null): void => {
-        canvas.getState().updateNode(id, { artifact: { id: reference.id, ...(versionId === null ? {} : { version: versionId }) } }, true);
-    };
+    const version = picked === undefined ? latest : versions.find((entry) => entry.versionId === picked);
     const controls = (
         <>
-            <Menu.Root>
-                <Menu.Trigger render={<Button size="xs" variant="secondary" />}>
-                    {reference.version === undefined ? t('view.latest') : t('node.pinned', { number: version?.number ?? '?' })}
-                    <Icon icon={ChevronDown} size={12} />
-                </Menu.Trigger>
-                <Menu.Popup align="end" className="max-h-80 min-w-56 overflow-y-auto">
-                    <Menu.RadioGroup value={reference.version ?? FOLLOW_LATEST} onValueChange={(next: string) => pin(next === FOLLOW_LATEST ? null : next)}>
-                        <Menu.RadioItem value={FOLLOW_LATEST} closeOnClick>
-                            {t('node.follow')}
-                        </Menu.RadioItem>
-                        <Menu.Separator />
-                        {versions.map((entry) => (
-                            <Menu.RadioItem key={entry.versionId} value={entry.versionId} className="tabular-nums" closeOnClick>
-                                {t('node.version', { number: entry.number, date: formatDayClock(entry.createdAt) })}
+            {titled && <span className="min-w-0 grow truncate text-sm font-medium text-text">{artifact.title}</span>}
+            {onPin !== null ? (
+                <Menu.Root>
+                    <Menu.Trigger render={<Button size="xs" variant="secondary" />}>
+                        {picked === undefined ? t('view.latest') : t('node.pinned', { number: version?.number ?? '?' })}
+                        <Icon icon={ChevronDown} size={12} />
+                    </Menu.Trigger>
+                    <Menu.Popup align="end" className="max-h-80 min-w-56 overflow-y-auto">
+                        <Menu.RadioGroup value={picked ?? FOLLOW_LATEST} onValueChange={(next: string) => onPin(next === FOLLOW_LATEST ? null : next)}>
+                            <Menu.RadioItem value={FOLLOW_LATEST} closeOnClick>
+                                {t('node.follow')}
                             </Menu.RadioItem>
-                        ))}
-                    </Menu.RadioGroup>
-                </Menu.Popup>
-            </Menu.Root>
-            <IconButton
-                icon={Maximize2}
-                size="sm"
-                label={t('node.open')}
-                onClick={() => openArtifact(artifact.artifactId, artifact.title, reference.version ?? null)}
-            />
+                            <Menu.Separator />
+                            {versions.map((entry) => (
+                                <Menu.RadioItem key={entry.versionId} value={entry.versionId} className="tabular-nums" closeOnClick>
+                                    {t('node.version', { number: entry.number, date: formatDayClock(entry.createdAt) })}
+                                </Menu.RadioItem>
+                            ))}
+                        </Menu.RadioGroup>
+                    </Menu.Popup>
+                </Menu.Root>
+            ) : (
+                version !== undefined && <Pill className="tabular-nums">{t('node.pinned', { number: version.number })}</Pill>
+            )}
+            <IconButton icon={Maximize2} size="sm" label={t('node.open')} onClick={() => openArtifact(artifact.artifactId, artifact.title, picked ?? null)} />
         </>
     );
     return (
         <div className="flex h-full min-h-0 w-full flex-col">
             <HeaderControls>{controls}</HeaderControls>
+            {note !== null && <p className="shrink-0 border-b border-border bg-surface-sunken px-3 py-1.5 text-xs text-text-muted">{note}</p>}
             {version === undefined ? (
                 <Removed />
             ) : (
@@ -143,9 +155,11 @@ function ArtifactVersionOnCanvas({
                         ) : (
                             <>
                                 <span className="grow truncate">{t('node.newer', { number: latest.number })}</span>
-                                <Button size="xs" variant="ghost" onClick={() => pin(latest.versionId)}>
-                                    {t('node.showIt')}
-                                </Button>
+                                {onPin !== null && (
+                                    <Button size="xs" variant="ghost" onClick={() => onPin(latest.versionId)}>
+                                        {t('node.showIt')}
+                                    </Button>
+                                )}
                             </>
                         )}
                     </footer>
