@@ -167,6 +167,7 @@ export function RoutineForm({
                                         kbd={null}
                                         side="bottom"
                                         trigger="chip"
+                                        chipSize="md"
                                     />
                                 </div>
                             </Field>

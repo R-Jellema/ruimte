@@ -40,7 +40,7 @@ export function RoutineRunChat({ chatId }: { chatId: string }) {
     };
 
     return (
-        <div className="relative flex min-h-0 grow flex-col bg-surface">
+        <div className="chat-column relative flex min-h-0 grow flex-col bg-surface">
             {status !== 'open' && <NodeNotice>{status === 'closed' ? t('notice.reconnecting') : t('notice.connecting')}</NodeNotice>}
             {failure !== null && (
                 <NodeNotice tone="error" onRetry={() => setFailure(null)}>
