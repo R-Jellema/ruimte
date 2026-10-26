@@ -11,6 +11,7 @@ import {
     type ResizeEdge,
     type ResizeHandle
 } from '@/canvas/resize-handles';
+import { stackingOrder } from '@/canvas/stacking';
 import { useWorldPointer } from '@/canvas/use-world-pointer';
 import { useCanvas } from '@/state/canvas';
 
@@ -42,6 +43,8 @@ const CURSOR: Record<ResizeEdge, string> = {
  */
 export function ResizeHandles({ rootRef }: { rootRef: RefObject<HTMLDivElement | null> }) {
     const nodes = useCanvas((s) => s.nodes);
+    const order = useCanvas((s) => s.order);
+    const selection = useCanvas((s) => s.selection);
     const hidden = useCanvas((s) => s.hidden);
     const zoom = useCanvas((s) => s.camera.zoom);
     const locked = useCanvas((s) => s.locks.resize);
@@ -52,8 +55,10 @@ export function ResizeHandles({ rootRef }: { rootRef: RefObject<HTMLDivElement |
     // The edge a press took, so a running resize keeps it whatever the pointer passes over.
     const [grabbed, setGrabbed] = useState<{ nodeId: string; edge: ResizeEdge } | null>(null);
 
-    const candidates = useMemo<ResizeCandidate[]>(
-        () => [
+    const candidates = useMemo<ResizeCandidate[]>(() => {
+        const stacking = stackingOrder(nodes, order);
+
+        return [
             ...Object.values(nodes)
                 .filter((node) => !hidden.has(node.id) && !(node.kind === 'group' && node.collapsed === true))
                 // A folded node keeps its header's height and changes only its width.
@@ -64,12 +69,20 @@ export function ResizeHandles({ rootRef }: { rootRef: RefObject<HTMLDivElement |
                     w,
                     h,
                     group: kind === 'group',
+                    stack: stacking[id] ?? 1,
+                    selected: selection.includes(id),
                     ...(collapsed === true ? { edges: FOLDED_EDGES } : {})
                 })),
-            ...Object.entries(cards).map(([id, card]) => ({ id, ...card.rect, group: false, edges: card.resize?.edges ?? [] }))
-        ],
-        [cards, hidden, nodes]
-    );
+            ...Object.entries(cards).map(([id, card]) => ({
+                id,
+                ...card.rect,
+                group: false,
+                stack: stacking[card.owner] ?? 1,
+                selected: selection.includes(card.owner),
+                edges: card.resize?.edges ?? []
+            }))
+        ];
+    }, [cards, hidden, nodes, order, selection]);
 
     const handle = useMemo(() => {
         if (locked || point === null) {

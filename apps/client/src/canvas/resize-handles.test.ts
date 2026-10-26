@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { handleRail, heldHandle, resizeHandle, type ResizeCandidate } from '@/canvas/resize-handles';
 
-const node: ResizeCandidate = { id: 'a', x: 0, y: 0, w: 400, h: 200, group: false };
+const node: ResizeCandidate = { id: 'a', x: 0, y: 0, w: 400, h: 200, group: false, stack: 1, selected: false };
 
 describe('resizeHandle', () => {
     test('offers nothing to a pointer out of reach', () => {
@@ -39,7 +39,7 @@ describe('resizeHandle', () => {
     });
 
     test('a short edge leaves only the corners', () => {
-        const small: ResizeCandidate = { id: 'b', x: 0, y: 0, w: 100, h: 60, group: false };
+        const small: ResizeCandidate = { id: 'b', x: 0, y: 0, w: 100, h: 60, group: false, stack: 1, selected: false };
         expect(resizeHandle([small], { x: 106, y: 25 }, 1)?.edge).toBe('ne');
     });
 
@@ -48,14 +48,24 @@ describe('resizeHandle', () => {
     });
 
     test('a pointer inside a group still reaches the node in it, and not the group', () => {
-        const group: ResizeCandidate = { id: 'g', x: -100, y: -100, w: 700, h: 500, group: true };
+        const group: ResizeCandidate = { id: 'g', x: -100, y: -100, w: 700, h: 500, group: true, stack: 1, selected: false };
         expect(resizeHandle([group, node], { x: 100, y: -5 }, 1)?.nodeId).toBe('a');
     });
 
-    test('a pointer inside another node offers nothing for the node beside it', () => {
-        const neighbor: ResizeCandidate = { id: 'c', x: 404, y: 0, w: 200, h: 200, group: false };
-        expect(resizeHandle([node, neighbor], { x: 405, y: 50 }, 1)).toBeNull();
-        expect(resizeHandle([node, neighbor], { x: 401, y: 50 }, 1)?.nodeId).toBe('a');
+    test('a pointer inside a node above offers nothing for the node under it', () => {
+        const above: ResizeCandidate = { id: 'c', x: 300, y: 0, w: 300, h: 200, group: false, stack: 2, selected: false };
+        expect(resizeHandle([node, above], { x: 405, y: 50 }, 1)).toBeNull();
+        expect(resizeHandle([node, above], { x: 100, y: -5 }, 1)?.nodeId).toBe('a');
+    });
+
+    test('a pointer inside a node below offers the handle of the node on top', () => {
+        const below: ResizeCandidate = { id: 'c', x: 300, y: 0, w: 300, h: 200, group: false, stack: 0, selected: false };
+        expect(resizeHandle([node, below], { x: 405, y: 50 }, 1)).toMatchObject({ nodeId: 'a', edge: 'e', hot: true });
+    });
+
+    test('the band of the selected node wins over the body of a node above it', () => {
+        const above: ResizeCandidate = { id: 'c', x: 300, y: 0, w: 300, h: 200, group: false, stack: 2, selected: false };
+        expect(resizeHandle([{ ...node, selected: true }, above], { x: 405, y: 50 }, 1)).toMatchObject({ nodeId: 'a', edge: 'e' });
     });
 });
 

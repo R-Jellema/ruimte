@@ -32,6 +32,9 @@ export interface ResizeCandidate extends Rect {
     id: string;
     /* A group is a frame under its nodes: a pointer inside one is still out on the canvas. */
     group: boolean;
+    /* Its z-index (`canvas/stacking.ts`); a card beside a node shares its owner's. */
+    stack: number;
+    selected: boolean;
     /* The only edges it offers; every edge when absent. */
     edges?: readonly ResizeEdge[];
 }
@@ -51,16 +54,15 @@ export interface CardResize {
 
 /*
  * The handle a pointer at `point` brings up: on the nearest node within reach, and only while the
- * pointer is outside every node, so the content of a node keeps every pixel of its own.
+ * pointer is outside every node that lies above it, so the content on top keeps every pixel of its
+ * own. The band of a selected node wins over any body: the person picked that node to work on.
  */
 export function resizeHandle(nodes: readonly ResizeCandidate[], point: Point, zoom: number): ResizeHandle | null {
-    if (nodes.some((node) => !node.group && contains(node, point))) {
-        return null;
-    }
+    const under = nodes.filter((node) => !node.group && contains(node, point));
     const reach = HINT_REACH / zoom;
     let nearest: { node: ResizeCandidate; distance: number } | null = null;
     for (const node of nodes) {
-        if (contains(node, point)) {
+        if (contains(node, point) || (!node.selected && under.some((over) => over.stack > node.stack))) {
             continue;
         }
         const distance = distanceTo(node, point);
