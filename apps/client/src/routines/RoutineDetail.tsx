@@ -6,6 +6,7 @@ import { Button, EmptyState, ErrorBoundary, FormError, Icon, IconButton, KeyValu
 import { formatDateTime } from '@adecore/ui/format';
 import { runtimeModeLabel } from '@adecore/agents-react/chat';
 import { ArtifactView } from '@/output/ArtifactView';
+import { ArtifactOpenerContext } from '@/output/artifact-opener';
 import { openArtifact } from '@/output/open';
 import { FileToolbarSlotProvider, fixedSlot } from '@/shell/panels/file-toolbar-slot';
 import { lookOfRun } from '@/routines/agenda';
@@ -172,6 +173,16 @@ function RunPane({ entry, run, timeZone }: { entry: RoutineEntry; run: RoutineRu
             openArtifact(version.artifactId, entry.routine.title, pinned ?? version.versionId);
         }
     };
+    // A version the run's chat saved opens in this run's Output tab; any other artifact leaves for Output.
+    const openHere = (artifactId: string, title: string, versionId: string | null, clicked: string): void => {
+        if (version !== null && artifactId === version.artifactId) {
+            setPinned(clicked === version.versionId ? null : clicked);
+            setShown('output');
+            return;
+        }
+        leaveRoutines();
+        openArtifact(artifactId, title, versionId);
+    };
     return (
         <div className="flex min-h-0 grow flex-col">
             <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border-soft px-3 text-xs text-text-muted">
@@ -203,7 +214,9 @@ function RunPane({ entry, run, timeZone }: { entry: RoutineEntry; run: RoutineRu
                     </div>
                 </FileToolbarSlotProvider>
             ) : run.chatId !== undefined ? (
-                <RoutineRunChat chatId={run.chatId} />
+                <ArtifactOpenerContext value={openHere}>
+                    <RoutineRunChat chatId={run.chatId} />
+                </ArtifactOpenerContext>
             ) : (
                 <div className="grid grow place-items-center">
                     <EmptyState>{runWords(run, timeZone)}</EmptyState>

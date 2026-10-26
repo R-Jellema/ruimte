@@ -5,7 +5,7 @@ import { VisualPageFrame } from '@adecore/agents-react/chat/ui';
 import { ErrorBoundary, Icon } from '@adecore/ui';
 import type { ArtifactFile } from '@ruimte/contracts';
 import { readArtifactFile, useArtifactText, type ArtifactFileRef } from '@/output/artifact-bytes';
-import { openArtifact } from '@/output/open';
+import { useOpenArtifact } from '@/output/artifact-opener';
 import type { Saved } from '@/output/SavedCard';
 import type { SavedPreviewKind } from '@/output/saved-preview';
 import { FileMarkdown } from '@/shell/panels/FileMarkdown';
@@ -30,10 +30,6 @@ export function SavedPreview({ endpointId, entry, preview }: { endpointId: strin
 
 function refOf(entry: Saved, file: number): ArtifactFileRef {
     return { artifactId: entry.artifact.artifactId, versionId: entry.version.versionId, file };
-}
-
-function openEntry(entry: Saved): void {
-    openArtifact(entry.artifact.artifactId, entry.artifact.title, entry.latest ? null : entry.version.versionId);
 }
 
 function ReportPreview({ endpointId, entry }: { endpointId: string; entry: Saved }) {
@@ -113,11 +109,16 @@ function ImagesPreview({ endpointId, entry }: { endpointId: string; entry: Saved
 
 function SavedImage({ endpointId, entry, reference, file }: { endpointId: string; entry: Saved; reference: ArtifactFileRef; file: ArtifactFile }) {
     const bytes = useMachineUrl({ kind: 'artifact', ...reference }, endpointId);
+    const open = useOpenArtifact();
     if (bytes.url === null) {
         return null;
     }
     return (
-        <button type="button" className="overflow-hidden rounded-lg" onClick={() => openEntry(entry)}>
+        <button
+            type="button"
+            className="overflow-hidden rounded-lg"
+            onClick={() => open(entry.artifact.artifactId, entry.artifact.title, entry.latest ? null : entry.version.versionId, entry.version.versionId)}
+        >
             <img src={bytes.url} alt={file.name} className="block max-h-80 max-w-full object-contain" />
         </button>
     );
