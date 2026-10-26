@@ -152,7 +152,7 @@ function RunBlock({ run, picked, timeZone, onOpen }: { run: RoutineRun; picked: 
                 data-look={look}
                 aria-pressed={picked}
                 aria-label={label}
-                className={clsx('size-5', blockClass(look), picked && 'outline-2 outline-offset-1 outline-text-muted')}
+                className={clsx('size-5', blockClass(look))}
                 onClick={() => onOpen(run.runId)}
             />
         </Tooltip>
