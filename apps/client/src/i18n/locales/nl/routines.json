@@ -227,7 +227,7 @@
     "time": "Tijd",
     "machineClock": "op de klok van de machine",
     "shared": "Delen met team",
-    "sharedHint": "Gedeelde routines worden met het project gecommit. Iedereen keurt er een op de eigen machine goed.",
+    "sharedHint": "Gedeelde routines worden met het project gecommit.",
     "create": "Routine maken",
     "save": "Opslaan",
     "failed": "De routine kon niet opgeslagen worden.",

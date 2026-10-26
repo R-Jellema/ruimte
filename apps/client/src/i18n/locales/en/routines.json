@@ -227,7 +227,7 @@
     "time": "Time",
     "machineClock": "on the machine’s clock",
     "shared": "Share with team",
-    "sharedHint": "Shared routines are committed with the project. Each person approves one on their own machine.",
+    "sharedHint": "Shared routines are committed with the project.",
     "create": "Create routine",
     "save": "Save",
     "failed": "The routine could not be saved.",
