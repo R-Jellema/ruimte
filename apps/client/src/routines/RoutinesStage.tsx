@@ -250,26 +250,25 @@ function DetailHeader({ endpointId, entry, rev }: { endpointId: string; entry: R
             }
         >
             <span className="grow" />
-            <Button size="sm" variant="secondary" disabled={!entry.approved} onClick={() => void runNow()}>
+            <Button size="sm" variant="primary" disabled={!entry.approved} onClick={() => void runNow()}>
                 <Icon icon={Play} size={14} />
                 {t('actions.runNow')}
             </Button>
-            <Button size="sm" disabled={!entry.approved} onClick={() => setRoutinePaused(endpointId, entry, !paused)}>
-                <Icon icon={paused ? Play : Pause} size={14} />
-                {paused ? t('actions.resume') : t('actions.pause')}
-            </Button>
-            {hasCanvas && entry.projectId === projectId && (
-                <Button size="sm" onClick={() => void showRoutineOnCanvas(entry)}>
-                    <Icon icon={LayoutGrid} size={14} />
-                    {t('detail.showOnCanvas')}
-                </Button>
-            )}
             <Menu.Root>
                 <IconButton icon={MoreHorizontal} size="sm" label={t('actions.more')} render={<Menu.Trigger />} />
                 <Menu.Popup align="end">
+                    <Menu.Item disabled={!entry.approved} onClick={() => setRoutinePaused(endpointId, entry, !paused)}>
+                        <Icon icon={paused ? Play : Pause} size={14} /> {paused ? t('actions.resume') : t('actions.pause')}
+                    </Menu.Item>
+                    {hasCanvas && entry.projectId === projectId && (
+                        <Menu.Item onClick={() => void showRoutineOnCanvas(entry)}>
+                            <Icon icon={LayoutGrid} size={14} /> {t('detail.showOnCanvas')}
+                        </Menu.Item>
+                    )}
                     <Menu.Item onClick={() => openRoutineForm({ projectId: entry.projectId, editing: entry })}>
                         <Icon icon={Pencil} size={14} /> {t('actions.edit')}
                     </Menu.Item>
+                    <Menu.Separator />
                     <Menu.Item className="text-status-error" onClick={() => setRemoving(true)}>
                         <Icon icon={Trash2} size={14} /> {t('actions.remove')}
                     </Menu.Item>

@@ -145,8 +145,10 @@ describe('a routine node', () => {
     test("Show on canvas in a routine's page places it on the canvas", async () => {
         await open([]);
         await act(async () => showRoutine({ projectId: 'project-atlas', routineId: 'morning' }));
-        await until(() => [...page.host.querySelectorAll('button')].some((button) => button.textContent?.trim() === 'Show on canvas'));
-        await clickOn([...page.host.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Show on canvas') ?? null);
+        await until(() => page.host.querySelector('section[aria-label="Routines"] [aria-label="More"]') !== null);
+        await clickOn(page.host.querySelector<HTMLElement>('section[aria-label="Routines"] [aria-label="More"]'));
+        await until(() => document.querySelector('[role="menu"]') !== null);
+        await clickOn([...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find((item) => item.textContent?.trim() === 'Show on canvas') ?? null);
         await until(() => !useRoutinesStage.getState().open && liveCanvas('main') !== null);
         // The page has no layout to measure, so the canvas gets the size a window would give it.
         await act(async () => liveCanvas('main')!.setViewport({ w: 1280, h: 800 }));
