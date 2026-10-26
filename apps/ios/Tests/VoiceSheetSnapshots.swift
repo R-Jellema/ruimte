@@ -106,6 +106,7 @@ import UIKit
         let talking = await Self.conversation()
         try await Self.render(sheet(talking.voice), name: "4-conversation")
         try await Self.render(sheet(talking.voice), name: "5-conversation-light", dark: false)
+        try await Self.render(sheet(talking.voice), name: "5b-conversation-large-type", typeSize: .xxxLarge)
         talking.voice.setMuted(true, scene: "A")
         try await Self.render(sheet(talking.voice), name: "6-muted")
 
@@ -194,7 +195,8 @@ import UIKit
 
     /// Draws `view` in a window of its own over the app, presented as a sheet unless `presented` is false.
     private static func render(
-        _ view: some View, name: String, dark: Bool = true, presented: Bool = true
+        _ view: some View, name: String, dark: Bool = true, presented: Bool = true,
+        typeSize: DynamicTypeSize = .large
     ) async throws {
         let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
         let window = UIWindow(windowScene: scene)
@@ -203,7 +205,7 @@ import UIKit
         if presented {
             window.rootViewController = UIHostingController(
                 rootView: Color.black.ignoresSafeArea().sheet(isPresented: .constant(true)) {
-                    view.modifier(VoiceSheetSurface())
+                    view.modifier(VoiceSheetSurface()).dynamicTypeSize(typeSize)
                 })
         } else {
             window.rootViewController = UIHostingController(rootView: view.ignoresSafeArea())

@@ -25,8 +25,10 @@ struct VoiceTimelineList: View {
     @ViewBuilder private func row(_ item: VoiceTimelineItem) -> some View {
         switch item {
         case .line(let line):
-            VoiceLineRow(line: line, streaming: line.speaker == .model && line.id == voice.transcript.current?.id
-                && voice.speaking)
+            VoiceLineRow(
+                line: line,
+                streaming: line.speaker == .model && line.id == voice.transcript.current?.id && voice.speaking,
+                subtitle: line.id == lastVoiceLine)
         case .action(let action):
             if let question = action.question, let scene = voice.owner {
                 VoiceQuestionCard(
@@ -39,6 +41,13 @@ struct VoiceTimelineList: View {
             }
         case .ended: VoiceEndedRow(problem: problem)
         }
+    }
+
+    private var lastVoiceLine: VoiceUtterance.ID? {
+        for case .line(let line) in items.reversed() where line.speaker == .model {
+            return line.id
+        }
+        return nil
     }
 
     private func spacing(above item: VoiceTimelineItem) -> CGFloat {
@@ -54,13 +63,16 @@ private struct VoiceLineRow: View {
     let line: VoiceUtterance
     /// The reply still comes in, so a cursor stands at its end.
     let streaming: Bool
+    /// The last thing Voice said, which stands as a subtitle above the rest.
+    let subtitle: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: subtitle ? 8 : 6) {
             Text(line.speaker == .person ? String(localized: "You") : String(localized: "Voice"))
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(line.speaker == .person ? MobileStyle.muted : VoiceStyle.voice)
-            Text(text).font(.body).textSelection(.enabled)
+            Text(text).font(subtitle ? .title2.weight(.medium) : .callout).lineSpacing(subtitle ? 4 : 2)
+                .textSelection(.enabled)
             if line.interrupted {
                 Text("Interrupted").font(.caption).foregroundStyle(MobileStyle.faint)
             }
@@ -89,7 +101,7 @@ private struct VoiceActionRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(lucide: Self.icon(action.kind), size: 16).foregroundStyle(MobileStyle.muted)
-            Text(title).font(.callout).lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
+            Text(title).font(.subheadline).lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
             status
         }
         .padding(.horizontal, 14).padding(.vertical, 12)
