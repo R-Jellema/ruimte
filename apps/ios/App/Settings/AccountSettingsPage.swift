@@ -41,7 +41,7 @@ struct AccountSettingsPage: View {
                 ForEach(runtime.machines, id: \.id) { machine in
                     MobileTileLabel(
                         title: machine.name, subtitle: reach(runtime.session(for: machine)),
-                        symbol: machine.icon?.value ?? "monitor")
+                        symbol: machine.icon?.value ?? "server")
                 }
                 if runtime.machines.isEmpty {
                     Text("No machines yet.").foregroundStyle(MobileStyle.muted)

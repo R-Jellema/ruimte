@@ -78,7 +78,7 @@ struct SearchPage: View {
                 if views.isEmpty && found.isEmpty && fileResults.isEmpty && matching.isEmpty && !fileSearching
                     && fileFailures.isEmpty
                 {
-                    ContentUnavailableView.search(text: typed)
+                    ContentUnavailableView.search(for: typed)
                 }
             }
         }

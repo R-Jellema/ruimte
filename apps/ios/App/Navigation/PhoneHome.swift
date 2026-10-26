@@ -44,7 +44,7 @@ struct PhoneHome: View {
                         runtime: runtime, now: now, model: scheduled, open: { router.show($0) },
                         addMachine: addMachine)
                 } label: {
-                    Label(String(localized: "Scheduled"), lucideIcon: "calendar-clock")
+                    Label(String(localized: "Scheduled"), lucideIcon: "clock")
                 }
 
                 Tab(value: PhoneTab.projects) {
@@ -61,7 +61,7 @@ struct PhoneHome: View {
                 Tab(value: PhoneTab.machines) {
                     MachinesPage(runtime: runtime, addMachine: addMachine, open: router.showMachine)
                 } label: {
-                    Label(String(localized: "Machines"), lucideIcon: "monitor")
+                    Label(String(localized: "Machines"), lucideIcon: "server")
                 }
 
                 Tab(value: PhoneTab.search, role: .search) {
@@ -115,7 +115,7 @@ struct PhoneHome: View {
                 Button {
                     newChat = true
                 } label: {
-                    Image(lucide: "square-pen").accessibilityLabel("New chat")
+                    Image(lucide: "message-square-plus").accessibilityLabel("New chat")
                 }
                 .accessibilityIdentifier("now.newChat")
             }

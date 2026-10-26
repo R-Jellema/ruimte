@@ -294,7 +294,7 @@ struct ChatPromptCard: View {
                         .accessibilityHint(rule.description)
                 }
                 if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 0) }
-                primary(String(localized: "Allow"), icon: "check") { approve("allow") }
+                primary(String(localized: "Allow"), icon: "circle-check") { approve("allow") }
             } else {
                 if prompts.draft.index > 0 {
                     Button("Previous") { prompts.draft.index -= 1 }.frame(minHeight: 44).disabled(sending)

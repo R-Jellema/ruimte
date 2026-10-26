@@ -44,7 +44,7 @@ struct ChatQueueSheet: View {
                     .foregroundStyle(MobileStyle.muted)
             }
             HStack(spacing: 8) {
-                Button(String(localized: "Send now"), lucideIcon: "zap") {
+                Button(String(localized: "Send now"), lucideIcon: "fast-forward") {
                     Task { await model.queueAction(message, sendNow: true) }
                 }
                 .accessibilityHint("Stops the current turn and sends this message.")
@@ -61,7 +61,7 @@ struct ChatQueueSheet: View {
                 Button(role: .destructive) {
                     Task { await model.queueAction(message) }
                 } label: {
-                    Image(lucide: "trash", size: 16)
+                    Image(lucide: "x", size: 16)
                 }
                 .buttonStyle(.mobileIcon)
                 .accessibilityLabel("Remove from queue")

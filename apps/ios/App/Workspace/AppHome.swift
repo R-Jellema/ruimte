@@ -159,7 +159,7 @@ struct RecentProjectsPage: View {
                 MobileLoadingRow(String(localized: "Loading projects")).frame(maxWidth: .infinity, minHeight: 120)
                     .listRowBackground(Color.clear).listRowSeparator(.hidden)
             } else if !search.isEmpty {
-                ContentUnavailableView.search(text: search)
+                ContentUnavailableView.search(for: search)
                     .listRowBackground(Color.clear).listRowSeparator(.hidden)
             } else {
                 ContentUnavailableView(String(localized: "No recently closed projects"), lucideIcon: "clock-arrow-left")

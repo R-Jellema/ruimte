@@ -19,7 +19,7 @@ struct ScheduledPage: View {
             MobileList {
                 if runtime.machines.isEmpty {
                     ContentUnavailableView {
-                        Label(String(localized: "No machines yet"), lucideIcon: "monitor", iconSize: 48)
+                        Label(String(localized: "No machines yet"), lucideIcon: "server", iconSize: 48)
                     } description: {
                         Text("Connect your computer to see what is scheduled on it.")
                     } actions: {
@@ -29,7 +29,7 @@ struct ScheduledPage: View {
                     unanswered(board)
                 } else if board.isEmpty {
                     ContentUnavailableView(
-                        String(localized: "Nothing scheduled"), lucideIcon: "calendar-clock",
+                        String(localized: "Nothing scheduled"), lucideIcon: "clock",
                         description: Text("Routines you set up on your Mac show up here."))
                 } else {
                     ScheduledSections(
@@ -61,7 +61,7 @@ struct ScheduledPage: View {
                 .frame(maxWidth: .infinity, minHeight: 120)
         } else if !board.outdated.isEmpty {
             ContentUnavailableView(
-                String(localized: "Your machine needs an update"), lucideIcon: "calendar-clock",
+                String(localized: "Your machine needs an update"), lucideIcon: "clock",
                 description: Text(
                     "Scheduled shows routines once \(board.outdated.formatted(.list(type: .and))) runs a newer Ruimte."
                 ))

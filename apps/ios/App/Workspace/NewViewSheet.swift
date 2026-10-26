@@ -128,7 +128,7 @@ struct NewViewSheet: View {
                     heading(String(localized: "Divide the list")).padding(.top, 10)
                     HStack(spacing: 8) {
                         capsule(String(localized: "Separator"), icon: "minus") { create("separator") }
-                        capsule(String(localized: "Subheader"), icon: "type") { create("subheader") }
+                        capsule(String(localized: "Subheader"), icon: "heading") { create("subheader") }
                     }
                     if let problem = workspace.problem {
                         Text(problem).font(.footnote).foregroundStyle(MobileStyle.statusError).padding(.top, 8)

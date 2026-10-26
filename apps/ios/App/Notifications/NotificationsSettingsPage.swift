@@ -36,7 +36,7 @@ struct NotificationsSettingsPage: View {
             if coordinator.supportsActivities {
                 Section {
                     Toggle(isOn: $coordinator.activities) {
-                        Label(String(localized: "While agents work"), lucideIcon: "loader")
+                        Label(String(localized: "While agents work"), lucideIcon: "loader-circle")
                     }
                 } header: {
                     Text("Live Activity")

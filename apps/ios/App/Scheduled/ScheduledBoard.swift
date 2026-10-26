@@ -135,10 +135,10 @@ struct RoutineRun: Equatable, Identifiable {
     var icon: String {
         switch state {
         case "skipped": "skip-forward"
-        case "starting", "running": "loader"
-        case "needs-you": "message-circle-question-mark"
+        case "starting", "running": "circle-dot"
+        case "needs-you": "hand"
         case "limit": "gauge"
-        case "done": "circle-check"
+        case "done": "check"
         case "failed": "circle-x"
         default: "circle"
         }

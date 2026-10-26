@@ -236,7 +236,7 @@ private struct ProjectRowMenu: View {
                 Button(String(localized: "Change icon"), lucideIcon: "palette") { act(.icon, item) }
             }
             if actions.contains(.settings) {
-                Button(String(localized: "View settings"), lucideIcon: "sliders-horizontal") { act(.settings, item) }
+                Button(String(localized: "View settings"), lucideIcon: "settings-2") { act(.settings, item) }
             }
         }
         Section {
@@ -259,7 +259,7 @@ private struct ProjectRowMenu: View {
         }
         if actions.contains(.delete) {
             Section {
-                Button(String(localized: "Delete"), lucideIcon: "trash-2", role: .destructive) { act(.delete, item) }
+                Button(String(localized: "Delete"), lucideIcon: "trash", role: .destructive) { act(.delete, item) }
             }
         }
     }

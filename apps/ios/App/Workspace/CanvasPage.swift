@@ -209,13 +209,13 @@ struct CanvasPage: View {
                 Button {
                     Task { await promote(node) }
                 } label: {
-                    Label(String(localized: "Open as view"), lucideIcon: "maximize-2")
+                    Label(String(localized: "Open as view"), lucideIcon: "square-arrow-out-up-right")
                     Text("Keeps its session")
                 }
             case .linkAsContext:
                 Button(String(localized: "Link as context"), lucideIcon: "link") { linkID = node.stableID }
             case .groupSelection:
-                Button(String(localized: "Group selection"), lucideIcon: "layout-grid") { groupingID = node.stableID }
+                Button(String(localized: "Group selection"), lucideIcon: "square-dashed") { groupingID = node.stableID }
             case .rename:
                 Button(String(localized: "Rename"), lucideIcon: "pencil") {
                     name = node.text("title")

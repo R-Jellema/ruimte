@@ -111,7 +111,7 @@ enum PaletteCommands {
                 (String(localized: "New terminal in \(name)"), "terminal", .newTerminal),
                 (String(localized: "Files of \(name)"), "folder", .files),
                 (String(localized: "Git of \(name)"), "git-branch", .git),
-                (String(localized: "Launches of \(name)"), "play", .launches),
+                (String(localized: "Launches of \(name)"), "rocket", .launches),
                 (String(localized: "Settings of \(name)"), "settings-2", .settings),
             ]
             commands += entries.map { PaletteCommand(title: $0.0, icon: $0.1, action: .project(row.id, $0.2)) }

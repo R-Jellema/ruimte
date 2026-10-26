@@ -30,11 +30,11 @@ enum MobileTone: CaseIterable {
     var symbol: String {
         switch self {
         case .waiting: "hand"
-        case .working: "loader"
-        case .done: "check"
-        case .error: "circle-alert"
+        case .working: "loader-circle"
+        case .done: "circle-check"
+        case .error: "circle-x"
         case .idle: "circle"
-        case .voice: "audio-lines"
+        case .voice: "mic"
         }
     }
 

@@ -35,7 +35,7 @@ enum AccountAvatar {
 
     @MainActor static func image(for account: Account?, picture: UIImage?) -> Image {
         if let picture { return Image(uiImage: picture) }
-        guard let initial = initial(of: name(of: account)) else { return Image(lucide: "circle-user-round") }
+        guard let initial = initial(of: name(of: account)) else { return Image(lucide: "user") }
         if let image = glyphs[initial] { return image }
         let image = Image(uiImage: glyph(initial))
         glyphs[initial] = image

@@ -345,7 +345,9 @@ struct WorkspacePage: View {
                             .accessibilityIdentifier("project.files")
                         Button(String(localized: "Git"), lucideIcon: "git-branch") { navigation.showingGit = true }
                             .accessibilityIdentifier("project.git")
-                        Button(String(localized: "Launches"), lucideIcon: "play") { navigation.showingLaunches = true }
+                        Button(String(localized: "Launches"), lucideIcon: "rocket") {
+                            navigation.showingLaunches = true
+                        }
                     }
                     if OutputMachine.answers(workspace.client) {
                         Button(String(localized: "Output"), lucideIcon: "package") { navigation.showingOutput = true }
@@ -749,7 +751,11 @@ struct ProjectItemPage: View {
         case "browser":
             if current["browserOwner"] != nil {
                 ContentUnavailableView {
-                    Label("The project's machine cannot be reached", systemImage: "network.slash")
+                    Label {
+                        Text("The project's machine cannot be reached")
+                    } icon: {
+                        Image(lucide: "unplug", size: 48)
+                    }
                 } description: {
                     Text("Open this browser in Ruimte on the machine running the session.")
                 }

@@ -18,7 +18,7 @@ struct NowPage: View {
             MobileList {
                 if runtime.machines.isEmpty {
                     ContentUnavailableView {
-                        Label(String(localized: "No machines yet"), lucideIcon: "monitor", iconSize: 48)
+                        Label(String(localized: "No machines yet"), lucideIcon: "server", iconSize: 48)
                     } description: {
                         Text("Connect your computer to see what your agents are doing.")
                     } actions: {

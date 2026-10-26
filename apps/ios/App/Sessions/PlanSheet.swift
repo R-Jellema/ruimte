@@ -215,7 +215,7 @@ struct PlanSheet: View {
             Button(String(localized: "Send results to chat"), lucideIcon: "send") { sendResults(plan) }
                 .disabled(plan.resultsText == nil)
         } label: {
-            Image(lucide: "circle-ellipsis")
+            Image(lucide: "ellipsis")
         }
         .accessibilityLabel("Plan actions")
     }

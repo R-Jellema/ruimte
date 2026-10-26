@@ -153,11 +153,11 @@ struct ChatComposerView: View {
 
     private var sendButton: some View {
         Button(action: send) {
-            Image(lucide: model.working ? "list-plus" : "arrow-up", size: 19)
+            Image(lucide: "arrow-up", size: 19)
                 .frame(width: 40, height: 40)
                 .modifier(
                     ChatComposerAction(
-                        prompt: false, icon: model.working ? "list-plus" : "arrow-up",
+                        prompt: false, icon: "arrow-up",
                         loading: model.sending, enabled: model.canSend, emphasized: model.composition.hasContent)
                 )
                 .contentShape(Circle())

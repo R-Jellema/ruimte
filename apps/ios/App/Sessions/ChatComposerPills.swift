@@ -69,8 +69,8 @@ struct ChatComposerPills: View {
                 Button(String(localized: "Refer to view or node"), lucideIcon: "hash") {
                     open { sheets.picker = "#" }
                 }
-                Button(String(localized: "Use skill"), lucideIcon: "sparkles") { open { sheets.picker = "$" } }
-                Button(String(localized: "Command"), lucideIcon: "circle-slash") { open { sheets.picker = "/" } }
+                Button(String(localized: "Use skill"), lucideIcon: "zap") { open { sheets.picker = "$" } }
+                Button(String(localized: "Command"), lucideIcon: "square-slash") { open { sheets.picker = "/" } }
             }
             .disabled(!model.connected)
             Button(String(localized: "Expand editor"), lucideIcon: "maximize-2") { open { sheets.expanded = true } }
@@ -121,13 +121,20 @@ struct ChatComposerPills: View {
                 Button(String(localized: "Compare models"), lucideIcon: "chart-spline") {
                     open { sheets.compare = true }
                 }
-                Button(String(localized: "Run settings"), lucideIcon: "sliders-horizontal") {
+                Button(String(localized: "Run settings"), lucideIcon: "settings") {
                     open { sheets.settings = true }
                 }
             }
         } label: {
             HStack(spacing: 6) {
-                Image(lucide: "sparkles", size: 14).foregroundStyle(MobileStyle.muted)
+                Group {
+                    if model.provider.isEmpty {
+                        Image(lucide: "settings", size: 14)
+                    } else {
+                        ChatProviderMark(provider: model.provider, size: 14)
+                    }
+                }
+                .foregroundStyle(MobileStyle.muted)
                 Text(ModelName.short(name, in: model.models)).lineLimit(1)
                 if let account { AccountDot(color: account.color, size: 6) }
                 Image(lucide: "chevron-down", size: 12).foregroundStyle(MobileStyle.muted)

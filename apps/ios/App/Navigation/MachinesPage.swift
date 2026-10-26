@@ -151,7 +151,7 @@ struct PadMachinesPage: View {
                     MachineRoutePage(runtime: runtime, machineID: shownID)
                 } else {
                     ContentUnavailableView(
-                        String(localized: "No machines yet"), lucideIcon: "monitor",
+                        String(localized: "No machines yet"), lucideIcon: "server",
                         description: Text("Add a machine to see its projects, devices and processes."))
                 }
             }

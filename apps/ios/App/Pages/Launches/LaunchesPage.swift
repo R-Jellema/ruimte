@@ -51,7 +51,7 @@ struct LaunchesPage: View {
                     Button(String(localized: "New launch"), lucideIcon: "plus") { sheet = .edit(nil) }
                     Button(String(localized: "Find in project…"), lucideIcon: "search") { sheet = .importing }
                     if store.anyLive {
-                        Button(String(localized: "Stop all"), lucideIcon: "square", role: .destructive) {
+                        Button(String(localized: "Stop all"), lucideIcon: "circle-stop", role: .destructive) {
                             Task { await store.stopAll() }
                         }
                     }
@@ -253,7 +253,7 @@ struct LaunchButtons: View {
             } else if view.live {
                 if let showOutput {
                     Button(action: showOutput) {
-                        Image(lucide: "terminal", size: 13)
+                        Image(lucide: "square-terminal", size: 13)
                     }
                     .buttonStyle(.mobileIcon)
                     .accessibilityLabel("Output of \(name)")

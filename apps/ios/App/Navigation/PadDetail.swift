@@ -103,7 +103,7 @@ struct PadDetailColumn: View {
                 Button {
                     newChat = true
                 } label: {
-                    Image(lucide: "square-pen").accessibilityLabel("New chat")
+                    Image(lucide: "message-square-plus").accessibilityLabel("New chat")
                 }
                 .accessibilityIdentifier("pad.newChat")
                 .popover(isPresented: $newChat, arrowEdge: .top) {
@@ -116,7 +116,7 @@ struct PadDetailColumn: View {
                 Button {
                     launches = true
                 } label: {
-                    Image(lucide: "play").accessibilityLabel("Launches")
+                    Image(lucide: "rocket").accessibilityLabel("Launches")
                 }
                 .disabled(!navigation.workspace.ready)
                 .accessibilityIdentifier("pad.launches")

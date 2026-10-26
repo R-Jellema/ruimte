@@ -379,7 +379,7 @@ struct ChatScreen: View {
                 Button {
                     showingPlans = true
                 } label: {
-                    Label(String(localized: "Plan"), lucideIcon: "list-checks")
+                    Label(String(localized: "Plan"), lucideIcon: "check-check")
                     Text(
                         plans.unseen.contains(model.chatID)
                             ? "New · \(plan.progress.finished) of \(plan.progress.total)"
@@ -492,11 +492,11 @@ struct ChatScreen: View {
             Button {
                 summarize()
             } label: {
-                Label(String(localized: "Summarize for the original"), lucideIcon: "send")
+                Label(String(localized: "Summarize for the original"), lucideIcon: "message-square-share")
                 Text(refusal ?? originalTitle ?? "")
             }
             .disabled(refusal != nil)
-            Button(String(localized: "Show original"), lucideIcon: "arrow-left") {
+            Button(String(localized: "Show original"), lucideIcon: "undo-2") {
                 model.presentation.openRequest = forkOf
             }
             .disabled(originalTitle == nil)

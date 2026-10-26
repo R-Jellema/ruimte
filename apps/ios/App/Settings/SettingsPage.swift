@@ -75,7 +75,7 @@ struct MobileSettings: View {
                     } label: {
                         Label(
                             String(localized: "Agents on \(machine.name)"),
-                            lucideIcon: machine.icon?.value ?? "monitor")
+                            lucideIcon: machine.icon?.value ?? "server")
                     }
                 }
             }
@@ -145,7 +145,7 @@ struct AccountPicture: View {
             } else if let initial = AccountAvatar.initial(of: AccountAvatar.name(of: account)) {
                 Text(initial).font(.system(size: size * 0.4, weight: .semibold)).foregroundStyle(MobileStyle.text)
             } else {
-                Image(lucide: "circle-user-round", size: size * 0.5).foregroundStyle(MobileStyle.muted)
+                Image(lucide: "user", size: size * 0.5).foregroundStyle(MobileStyle.muted)
             }
         }
         .frame(width: size, height: size)

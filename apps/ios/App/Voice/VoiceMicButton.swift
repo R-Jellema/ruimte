@@ -14,7 +14,7 @@ struct VoiceMicButton: View {
     var body: some View {
         if voice.isOwner(scene.id) {
             Button(action: open) {
-                Image(lucide: voice.muted ? "mic-off" : "audio-lines").accessibilityLabel("Voice is on")
+                Image(lucide: voice.muted ? "mic-off" : "mic").accessibilityLabel("Voice is on")
             }
             .buttonStyle(.glassProminent)
             .tint(VoiceStyle.voice)

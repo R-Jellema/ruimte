@@ -111,11 +111,11 @@ struct DrawingEditorPage: View {
                         edit = DrawingTextEdit(element: item, isNew: false)
                     }
                 }
-                Button(String(localized: "Duplicate"), lucideIcon: "copy-plus") { model.duplicate() }
+                Button(String(localized: "Duplicate"), lucideIcon: "copy") { model.duplicate() }
                 Button(String(localized: "Copy"), lucideIcon: "copy") { model.copySelection() }
                 Button(String(localized: "Cut"), lucideIcon: "scissors") { model.copySelection(cut: true) }
-                Button(String(localized: "Bring to front"), lucideIcon: "bring-to-front") { model.reorder(front: true) }
-                Button(String(localized: "Send to back"), lucideIcon: "send-to-back") { model.reorder(front: false) }
+                Button(String(localized: "Bring to front"), lucideIcon: "arrow-up-to-line") { model.reorder(front: true) }
+                Button(String(localized: "Send to back"), lucideIcon: "arrow-down-to-line") { model.reorder(front: false) }
                 Button(String(localized: "Lock"), lucideIcon: "lock") { model.lockSelection() }
                 Button(String(localized: "Delete"), lucideIcon: "trash", role: .destructive) { model.deleteSelected() }
             }

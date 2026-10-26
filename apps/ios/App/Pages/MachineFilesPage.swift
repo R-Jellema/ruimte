@@ -41,7 +41,7 @@ struct MachineFilesPage: View {
                 Button {
                     finding = true
                 } label: {
-                    Label(String(localized: "Find in files"), lucideIcon: "text-search").modifier(MobileSidebarLabel(disclosure: true))
+                    Label(String(localized: "Find in files"), lucideIcon: "file-search").modifier(MobileSidebarLabel(disclosure: true))
                 }
                 .modifier(MobileSidebarRow())
             }

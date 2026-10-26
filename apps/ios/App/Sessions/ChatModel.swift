@@ -782,7 +782,7 @@ struct ChatSuggestion: Identifiable {
     var id: String { kind + value }
     var icon: String {
         if let referable { return ChatReferables.icon(referable.kind) }
-        return kind == "@" ? "file-text" : kind == "$" ? "sparkles" : "circle-slash"
+        return kind == "@" ? "file-text" : kind == "$" ? "zap" : "square-slash"
     }
     static let terminalOnly: Set<String> = [
         "bug", "color", "config", "doctor", "exit", "heapdump", "help", "hooks", "ide", "install-github-app",

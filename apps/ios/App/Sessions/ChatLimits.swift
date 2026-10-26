@@ -160,7 +160,7 @@ struct ChatLimitBanner: View {
                 VStack(alignment: .leading, spacing: 10) {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 8) {
-                            Image(lucide: "clock", size: 15).foregroundStyle(MobileStyle.statusNeedsYou)
+                            Image(lucide: "hourglass", size: 15).foregroundStyle(MobileStyle.statusNeedsYou)
                                 .accessibilityHidden(true)
                             Text(view.title).font(.subheadline.weight(.semibold)).foregroundStyle(MobileStyle.text)
                                 .accessibilityAddTraits(.isHeader)

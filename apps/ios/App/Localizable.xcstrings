@@ -8356,6 +8356,16 @@
         }
       }
     },
+    "Check the spelling or try a new search." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Controleer de spelling of probeer een nieuwe zoekopdracht."
+          }
+        }
+      }
+    },
     "Checked out in %@" : {
       "localizations" : {
         "nl" : {
@@ -14901,6 +14911,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Geen recent gesloten projecten"
+          }
+        }
+      }
+    },
+    "No results for “%@”" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Geen resultaten voor “%@”"
           }
         }
       }

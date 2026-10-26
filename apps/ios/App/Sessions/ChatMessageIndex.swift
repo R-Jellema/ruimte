@@ -44,7 +44,7 @@ struct ChatMessageIndex: View {
                 .listStyle(.plain)
                 .overlay {
                     if !query.isEmpty && shown.isEmpty {
-                        ContentUnavailableView.search(text: query)
+                        ContentUnavailableView.search(for: query)
                     }
                 }
                 .onAppear {

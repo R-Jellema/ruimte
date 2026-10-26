@@ -61,7 +61,7 @@ struct MachinePage: View {
                 }
                 row(String(localized: "Files"), icon: "folder") { destination = .files }
                     .disabled(!session.connected)
-                row(String(localized: "Devices"), icon: "smartphone", value: devicesValue, highlighted: devices.runningCount > 0) {
+                row(String(localized: "Devices"), icon: "tablet-smartphone", value: devicesValue, highlighted: devices.runningCount > 0) {
                     destination = .devices
                 }
                 row(String(localized: "Processes"), icon: "activity") { destination = .processes }

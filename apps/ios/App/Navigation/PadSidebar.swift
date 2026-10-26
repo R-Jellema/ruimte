@@ -28,12 +28,12 @@ struct PadSidebar: View {
                         }
                     }
                     row(
-                        String(localized: "Scheduled"), icon: "calendar-clock", detail: .scheduled,
+                        String(localized: "Scheduled"), icon: "clock", detail: .scheduled,
                         id: "sidebar.scheduled"
                     ) {
                         EmptyView()
                     }
-                    row(String(localized: "Machines"), icon: "monitor", detail: .machines, id: "sidebar.machines") {
+                    row(String(localized: "Machines"), icon: "server", detail: .machines, id: "sidebar.machines") {
                         EmptyView()
                     }
                 }

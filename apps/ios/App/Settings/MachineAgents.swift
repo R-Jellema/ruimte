@@ -281,7 +281,7 @@ struct MachineAgentsPage: View {
                 LabeledContent {
                     Text(computerState(computer))
                 } label: {
-                    Label(String(localized: "Computer Use"), lucideIcon: "monitor")
+                    Label(String(localized: "Computer Use"), lucideIcon: "mouse-pointer-2")
                 }
             } header: {
                 Text("On this machine")

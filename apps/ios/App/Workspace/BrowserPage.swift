@@ -55,7 +55,7 @@ struct BrowserPage: View {
                             Button {
                                 state.webView?.goBack()
                             } label: {
-                                Image(lucide: "chevron-left", size: 18).frame(width: 48, height: 48)
+                                Image(lucide: "arrow-left", size: 18).frame(width: 48, height: 48)
                             }
                             .disabled(!state.back)
                             .buttonStyle(MobileGlassButtonStyle(shape: .circle))
@@ -123,12 +123,12 @@ struct BrowserPage: View {
 
     private var moreMenu: some View {
         Menu {
-            Button(String(localized: "Forward"), lucideIcon: "chevron-right") { state.webView?.goForward() }
+            Button(String(localized: "Forward"), lucideIcon: "arrow-right") { state.webView?.goForward() }
                 .disabled(!state.forward)
             if let url {
                 ShareLink(item: url) { Label(String(localized: "Share"), lucideIcon: "share") }
                 Button(String(localized: "Copy link"), lucideIcon: "copy") { UIPasteboard.general.url = url }
-                Button(String(localized: "Open in Safari"), lucideIcon: "compass") { UIApplication.shared.open(url) }
+                Button(String(localized: "Open in Safari"), lucideIcon: "external-link") { UIApplication.shared.open(url) }
             }
         } label: {
             Image(lucide: "ellipsis", size: 18).frame(width: 48, height: 48)

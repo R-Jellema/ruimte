@@ -35,12 +35,12 @@ struct ProjectsPage<Notice: View>: View {
                         .accessibilityIdentifier("projects.loading")
                 }.listRowBackground(Color.clear).listRowSeparator(.hidden)
             } else if !search.isEmpty {
-                ContentUnavailableView.search(text: search)
+                ContentUnavailableView.search(for: search)
                     .listRowBackground(Color.clear).listRowSeparator(.hidden)
             } else {
                 Section {
                     ContentUnavailableView {
-                        Label(String(localized: "No open projects"), lucideIcon: "folder", iconSize: 48)
+                        Label(String(localized: "No open projects"), lucideIcon: "folders", iconSize: 48)
                     } description: {
                         Text(
                             runtime.machines.isEmpty

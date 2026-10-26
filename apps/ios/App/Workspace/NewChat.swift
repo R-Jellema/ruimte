@@ -199,7 +199,7 @@ struct NewChatRow: View {
             Menu {
                 Section("On which machine?") {
                     ForEach(machines, id: \.id) { machine in
-                        Button(machine.name, lucideIcon: machine.icon?.value ?? "monitor") { start(machine) }
+                        Button(machine.name, lucideIcon: machine.icon?.value ?? "server") { start(machine) }
                     }
                 }
             } label: {

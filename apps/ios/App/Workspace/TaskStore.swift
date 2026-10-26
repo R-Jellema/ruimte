@@ -132,7 +132,7 @@ struct TaskMark: View {
         let icon =
             switch status {
             case .open: "circle-dashed"
-            case .done: "list-checks"
+            case .done: "circle-check"
             case .failed: "circle-x"
             case .cancelled: "circle-slash"
             }

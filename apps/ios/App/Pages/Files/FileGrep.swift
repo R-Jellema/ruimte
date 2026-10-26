@@ -130,10 +130,10 @@ struct FileGrepPage: View {
                 Label(problem, lucideIcon: "triangle-alert").foregroundStyle(MobileStyle.statusError)
             }
             if let answered = model.answered, model.groups.isEmpty, model.problem == nil, !model.searching {
-                ContentUnavailableView(String(localized: "Nothing matches \(answered)"), lucideIcon: "text-search")
+                ContentUnavailableView(String(localized: "Nothing matches \(answered)"), lucideIcon: "file-search")
             } else if model.answered == nil && !model.searching {
                 ContentUnavailableView(
-                    String(localized: "Find in files"), lucideIcon: "text-search",
+                    String(localized: "Find in files"), lucideIcon: "file-search",
                     description: Text(
                         "Searches the text of every file under \((model.cwd as NSString).lastPathComponent)."))
             }

@@ -1372,7 +1372,7 @@ private struct ChatApprovalHistoryLine: View {
         let denied = approval.decision == .deny
         let summary = ChatToolPresentation.summary(name: approval.toolName, input: approval.input)
         HStack(spacing: 8) {
-            Image(lucide: denied ? "circle-x" : "circle-check", size: 14)
+            Image(lucide: denied ? "x" : "check", size: 14)
                 .foregroundStyle(denied ? MobileStyle.statusError : MobileStyle.faint)
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(Self.decisionWord(approval.decision))
