@@ -61,7 +61,8 @@ export function accentShades(accent: string): { frameBorder: string; header: str
         line: `color-mix(in srgb, ${accent} 20%, ${QUIET_EDGE_LINE})`,
         frameBorder: `color-mix(in srgb, ${accent} 45%, var(--border))`,
         header: `color-mix(in srgb, ${accent} 20%, var(--surface-raised))`,
-        headerBorder: `color-mix(in srgb, ${accent} 35%, var(--border))`,
+        // Over the tinted header the line reads stronger than the same mix on the frame's edge, so it takes less of the color.
+        headerBorder: `color-mix(in srgb, ${accent} 20%, var(--border))`,
         // A button's hover in a colored header is a deeper shade of that color, not the gray of a plain surface.
         hover: `color-mix(in srgb, ${accent} 34%, var(--surface-raised))`
     };
