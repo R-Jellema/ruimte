@@ -4,14 +4,13 @@ import type { FsReadText } from '@ruimte/contracts';
 
 // Named stand-ins keep this dispatch test independent of the DOM and editor engine.
 const stand = (name: string) => ({ [name]: Object.assign(() => null, { displayName: name }) });
-mock.module('./AudioFile.tsx', () => stand('AudioFile'));
 mock.module('./CodeFile.tsx', () => stand('CodeFile'));
 mock.module('./HtmlFile.tsx', () => stand('HtmlFile'));
 mock.module('./ImageFile.tsx', () => stand('ImageFile'));
 mock.module('./MarkdownFile.tsx', () => stand('MarkdownFile'));
+mock.module('./MediaFile.tsx', () => stand('MediaFile'));
 mock.module('./UnsupportedFile.tsx', () => stand('UnsupportedFile'));
 mock.module('./PdfPreview.tsx', () => stand('PdfPreview'));
-mock.module('./VideoFile.tsx', () => stand('VideoFile'));
 mock.module('./patch-file-lazy.tsx', () => stand('PatchFileSlot'));
 
 const { renderFile } = await import('./renderers.tsx');

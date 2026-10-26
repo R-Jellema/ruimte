@@ -83,8 +83,3 @@ export function MediaFile({ kind, source, name, read }: MediaFileProps) {
         </div>
     );
 }
-
-/* Output's file body still renders by these two names. */
-export function VideoFile(props: Omit<MediaFileProps, 'kind'>) {
-    return <MediaFile kind="video" {...props} />;
-}

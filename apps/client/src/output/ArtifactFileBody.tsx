@@ -6,14 +6,13 @@ import { injectVisualBootstrap, type ArtifactFile } from '@ruimte/contracts';
 import { EmptyState } from '@adecore/ui';
 import { readArtifactFile, useArtifactText, type ArtifactFileRef } from '@/output/artifact-bytes';
 import { artifactBinaryRead, artifactSource, fileViewOf, languageOfName } from '@/output/file-view';
-import { AudioFile } from '@/shell/panels/AudioFile';
 import { CodeText } from '@/shell/panels/CodeFile';
 import { FileActionsContext } from '@/shell/panels/file-actions';
 import { FileMarkdown } from '@/shell/panels/FileMarkdown';
 import { ImageFile } from '@/shell/panels/ImageFile';
 import { ModelPreview } from '@/shell/panels/ModelPreview';
 import { PdfPreview } from '@/shell/panels/PdfPreview';
-import { VideoFile } from '@/shell/panels/VideoFile';
+import { MediaFile } from '@/shell/panels/MediaFile';
 
 interface ArtifactFileProps {
     endpointId: string;
@@ -45,9 +44,9 @@ export function ArtifactFileBody(props: ArtifactFileProps) {
             case 'image':
                 return <ImageFile source={source} name={file.name} read={read} />;
             case 'video':
-                return <VideoFile source={source} name={file.name} read={read} />;
+                return <MediaFile kind="video" source={source} name={file.name} read={read} />;
             case 'audio':
-                return <AudioFile source={source} name={file.name} read={read} />;
+                return <MediaFile kind="audio" source={source} name={file.name} read={read} />;
             case 'pdf':
                 return <PdfPreview source={source} name={file.name} read={read} />;
             case 'model':

@@ -1,6 +1,5 @@
 import { isArchiveMime, isAudioMime, isImageMime, isModelMime, isPdfMime, isVideoMime, type FsReadResult, type FsReadText } from '@ruimte/contracts';
 import { ArchivePreview } from '@/shell/panels/ArchivePreview';
-import { AudioFile } from '@/shell/panels/AudioFile';
 import { CodeFile } from '@/shell/panels/CodeFile';
 import { isDelimitedName, isHtmlName, isMarkdownName, isPatchName } from '@/shell/panels/file-kind';
 import { fileSource } from '@/shell/panels/file-source';
@@ -12,7 +11,7 @@ import { UnsupportedFile } from '@/shell/panels/UnsupportedFile';
 import { PatchFileSlot } from '@/shell/panels/patch-file-lazy';
 import { PdfPreview } from '@/shell/panels/PdfPreview';
 import { TableFile } from '@/shell/panels/TableFile';
-import { VideoFile } from '@/shell/panels/VideoFile';
+import { MediaFile } from '@/shell/panels/MediaFile';
 
 interface FileRendererProps {
     /* Absolute on the daemon's machine. */
@@ -65,10 +64,10 @@ export function renderFile({ path, name, read }: FileRendererProps): React.JSX.E
         return <ImageFile source={fileSource(path)} name={name} read={read} />;
     }
     if (read.kind === 'binary' && isVideoMime(read.mime)) {
-        return <VideoFile source={fileSource(path)} name={name} read={read} />;
+        return <MediaFile kind="video" source={fileSource(path)} name={name} read={read} />;
     }
     if (read.kind === 'binary' && isAudioMime(read.mime)) {
-        return <AudioFile source={fileSource(path)} name={name} read={read} />;
+        return <MediaFile kind="audio" source={fileSource(path)} name={name} read={read} />;
     }
     if (read.kind === 'binary' && isPdfMime(read.mime)) {
         return <PdfPreview source={fileSource(path)} name={name} read={read} />;

@@ -13,7 +13,6 @@ import {
     type ArchiveEntry,
     type FsReadBinary
 } from '@ruimte/contracts';
-import { AudioFile } from '@/shell/panels/AudioFile';
 import { canSaveEntry, hasArchiveName } from '@/shell/panels/archive-tree';
 import { CodeText } from '@/shell/panels/CodeFile';
 import { FileActionsContext, FileMenuRowsContext } from '@/shell/panels/file-actions';
@@ -24,7 +23,7 @@ import { basenameOf } from '@/shell/panels/files-tree';
 import { ImageFile } from '@/shell/panels/ImageFile';
 import { ModelPreview } from '@/shell/panels/ModelPreview';
 import { PdfPreview } from '@/shell/panels/PdfPreview';
-import { VideoFile } from '@/shell/panels/VideoFile';
+import { MediaFile } from '@/shell/panels/MediaFile';
 import { readResource } from '@/transport/byte-transfer';
 import { useTransport } from '@/transport/context';
 import { readPiece } from '@/transport/piece';
@@ -196,10 +195,10 @@ export function ArchiveEntryPreview({
             return <ImageFile source={source} name={name} read={read} />;
         }
         if (isVideoMime(probe.mime)) {
-            return <VideoFile source={source} name={name} read={read} />;
+            return <MediaFile kind="video" source={source} name={name} read={read} />;
         }
         if (isAudioMime(probe.mime)) {
-            return <AudioFile source={source} name={name} read={read} />;
+            return <MediaFile kind="audio" source={source} name={name} read={read} />;
         }
         if (isPdfMime(probe.mime)) {
             return <PdfPreview source={source} name={name} read={read} />;
