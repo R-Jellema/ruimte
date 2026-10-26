@@ -4,6 +4,7 @@ import {
     DEFAULT_TITLES,
     NODE_ACCENT_NAMES,
     flagOf,
+    emptyCanvasGroupIds,
     groupFrame,
     nodeColorOf,
     nodeColorPatch,
@@ -517,6 +518,11 @@ export const nodeActions: ActionHandlers<ServerActionContext> = {
             }
 
             const gone = new Set(ids);
+
+            for (const id of emptyCanvasGroupIds(canvas, gone)) {
+                gone.add(id);
+            }
+
             const edges = canvas.edges.filter((edge) => !gone.has(edge.from) && !gone.has(edge.to));
             /* A collapsed frame keeps its members by id, so a node that goes has to leave those lists
                too; nothing reads geometry while a group is shut. */

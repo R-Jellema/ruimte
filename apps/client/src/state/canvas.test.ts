@@ -25,6 +25,51 @@ function node(id: string, x: number, y: number, kind: CanvasNode['kind'] = 'term
 }
 
 describe('groups', () => {
+    test('deletion clears remembered members of a collapsed group and removes it with its last member', () => {
+        const store = createCanvasStore();
+        const group = { ...node('frame', 0, 0, 'group'), collapsed: true, memberIds: ['first', 'last'] };
+
+        store.setState({
+            nodes: { frame: group, first: node('first', 500, 0), last: node('last', 1000, 0) },
+            order: ['frame', 'first', 'last'],
+            hidden: new Set(['first', 'last']),
+            selection: ['first']
+        });
+
+        store.getState().deleteSelected();
+
+        expect(store.getState().nodes.frame?.memberIds).toEqual(['last']);
+        expect([...store.getState().hidden]).toEqual(['last']);
+
+        store.getState().select(['last']);
+        store.getState().deleteSelected();
+
+        expect(store.getState().nodes).toEqual({});
+        expect(store.getState().hidden.size).toBe(0);
+    });
+
+    test('deleting the last member removes its frame and connections in the same undo step', () => {
+        const store = createCanvasStore();
+        const frame = { ...node('frame', 0, 0, 'group'), w: 400, h: 400 };
+        store.setState({
+            nodes: { frame, member: node('member', 50, 50), empty: node('empty', 2000, 0, 'group') },
+            order: ['frame', 'member', 'empty'],
+            edges: [{ id: 'edge', from: 'empty', to: 'frame' }],
+            selection: ['member']
+        });
+
+        store.getState().deleteSelected();
+
+        expect(Object.keys(store.getState().nodes)).toEqual(['empty']);
+        expect(store.getState().order).toEqual(['empty']);
+        expect(store.getState().edges).toEqual([]);
+
+        store.getState().undo();
+
+        expect(Object.keys(store.getState().nodes)).toEqual(['frame', 'member', 'empty']);
+        expect(store.getState().edges).toHaveLength(1);
+    });
+
     test('a group carries the nodes, texts and nested groups inside it, never the selected ones', () => {
         const nodes = {
             g: node('g', 0, 0, 'group'),

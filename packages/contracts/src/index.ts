@@ -503,6 +503,7 @@ export * from './machine-http.ts';
 export * from './machine-update.ts';
 export * from './model.ts';
 export * from './node-defaults.ts';
+export { emptyCanvasGroupIds } from './canvas-groups.ts';
 export * from './plan-host.ts';
 export * from './processes.ts';
 export * from './provenance.ts';

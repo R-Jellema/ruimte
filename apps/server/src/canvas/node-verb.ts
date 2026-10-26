@@ -263,6 +263,7 @@ export const nodeDeleteAction = defineActionVerb('node', {
         'rule\tA machine can free every node and view of every project on it; a refusal says whether this one does',
         'rule\tNever your own node, since that would end the session asking',
         'group\tRemoving a group takes the frame and nothing else: the nodes inside it stay where they stand, because they are not yours to remove with it',
+        'group\tA group emptied by removing its last member goes with it, together with its connections',
         'note\tThe nodes are found on any canvas of this project, so this takes no --view; one call takes the nodes of one canvas',
         'see\truimte-context node list\tthe nodes of a canvas, with the ids this takes'
     ],

@@ -3569,6 +3569,18 @@ describe('notify', () => {
 });
 
 describe('node delete', () => {
+    test('deleting the last member also removes its group and the line into the frame', async () => {
+        const member = (await post('node', ['new', 'note', '--title', 'Member'])).lines[0]!.split('\t')[0]!;
+        const group = (await post('node', ['group', '--nodes', member, '--label', 'Work'])).lines[0]!.split('\t')[0]!;
+
+        const result = await post('node', ['delete', member]);
+        const canvas = await canvasOnDisk();
+
+        expect(result.status).toBe(200);
+        expect(canvas.nodes.some((node) => node.id === member || node.id === group)).toBe(false);
+        expect(canvas.edges.some((edge) => edge.from === group || edge.to === group)).toBe(false);
+    });
+
     test('removes a node the caller made, with the lines that ran into it', async () => {
         const note = (await post('node', ['new', 'note', '--title', 'Scratch'])).lines[0]!.split('\t')[0]!;
         await post('link', ['new', '--to', note]);

@@ -1,4 +1,4 @@
-import { DEFAULT_TITLES, groupFrame, isUnknownNode, nodeColorPatch } from '@ruimte/contracts';
+import { DEFAULT_TITLES, emptyCanvasGroupIds, groupFrame, isUnknownNode, nodeColorPatch } from '@ruimte/contracts';
 import { arrangeGroupMembers } from '@/canvas/arrange-group';
 import { snapToGrid } from '@/canvas/math';
 import type { CanvasState } from '@/state/canvas';
@@ -179,6 +179,11 @@ export function createCanvasNodesSlice(
                     }
                 }
             }
+
+            for (const id of emptyCanvasGroupIds({ nodes: Object.values(nodes), texts: Object.values(texts), lines: Object.values(lines) }, gone)) {
+                gone.add(id);
+            }
+
             const nextNodes = { ...nodes };
             const nextTexts = { ...texts };
             const nextLines = { ...lines };
@@ -187,6 +192,13 @@ export function createCanvasNodesSlice(
                 delete nextTexts[id];
                 delete nextLines[id];
             }
+
+            for (const node of Object.values(nextNodes)) {
+                if (node.memberIds?.some((id) => gone.has(id))) {
+                    nextNodes[node.id] = { ...node, memberIds: node.memberIds.filter((id) => !gone.has(id)) };
+                }
+            }
+
             set({
                 nodes: nextNodes,
                 texts: nextTexts,
