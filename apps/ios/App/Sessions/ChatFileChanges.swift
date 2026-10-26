@@ -104,8 +104,9 @@ struct ChatDiffView: View {
     private var lines: [String] { diff.components(separatedBy: "\n") }
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // A plain stack: a lazy one does not report the width of its widest line, so nothing scrolled sideways.
             ScrollView(.horizontal) {
-                LazyVStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 0) {
                     ForEach(Array((showAll ? lines : Array(lines.prefix(400))).enumerated()), id: \.offset) { _, line in
                         Text(line.isEmpty ? " " : line)
                             .font(.system(.caption, design: .monospaced)).textSelection(.enabled)
@@ -122,6 +123,7 @@ struct ChatDiffView: View {
                     }
                 }.fixedSize(horizontal: true, vertical: false)
             }
+            .fixedSize(horizontal: false, vertical: true)
             if lines.count > 400 && !showAll {
                 ChatExpansionButton(expanding: true) {
                     showAll = true
