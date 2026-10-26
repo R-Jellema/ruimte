@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { PALETTE_PRESETS, palettePresetFrom, presetSample, presetTokens } from './palette-presets';
+import { PALETTE_PRESETS, palettePresetFrom, presetTokens } from './palette-presets';
 
 function luminance(hex: string): number {
     const [red, green, blue] = [1, 3, 5].map((start) => {
@@ -37,7 +37,7 @@ describe('palette presets', () => {
 
     test('writes six-digit hex colors only', () => {
         for (const preset of PALETTE_PRESETS) {
-            for (const value of Object.values(presetSample(preset, 'dark'))) {
+            for (const value of Object.values(presetTokens(preset, 'dark'))) {
                 expect(value).toMatch(/^#[0-9a-f]{6}$/);
             }
         }

@@ -6,7 +6,7 @@ import { endpointById, endpointIdOfMachine, useEndpoints, type Endpoint } from '
 import { pool } from '@/transport';
 
 /* The machines other than the workspace's that a node of the project runs on, each once. */
-export function machinesOfNodes(views: readonly ProjectView[], nodesOf: NodesOfView, workspaceEndpointId: string): string[] {
+function machinesOfNodes(views: readonly ProjectView[], nodesOf: NodesOfView, workspaceEndpointId: string): string[] {
     const machines = new Set<string>();
     for (const view of views) {
         for (const node of nodesOf(view)) {

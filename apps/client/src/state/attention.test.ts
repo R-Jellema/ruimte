@@ -1,16 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { AgentInfo, AgentStatus } from '@ruimte/contracts';
-import {
-    attentionTotal,
-    groupAttention,
-    isUnseen,
-    nextUnseen,
-    readableNodes,
-    seenNodes,
-    settledSince,
-    visibleNodes,
-    type AttentionPass
-} from '@/state/attention';
+import { groupAttention, isUnseen, nextUnseen, readableNodes, seenNodes, settledSince, visibleNodes, type AttentionPass } from '@/state/attention';
 import type { ChatState } from '@adecore/agents-react/state';
 import type { SessionState, StatusOf } from '@/state/sessions';
 
@@ -214,14 +204,14 @@ describe('the counts', () => {
             },
             {}
         );
-        expect(attentionTotal(groups)).toBe(2);
+        expect([...groups.needsYou, ...groups.finished]).toEqual(['t1', 'c1']);
     });
 
     test('a snoozed node waits outside every count', () => {
         const groups = groupAttention(nodes, { 'local:t1': session(agent('needs-you')) }, {}, 'local', {}, { 'local:t1': 2_000 });
         expect(groups.needsYou).toEqual([]);
         expect(groups.snoozed).toEqual(['t1']);
-        expect(attentionTotal(groups)).toBe(0);
+        expect(groups.finished).toEqual([]);
     });
 
     test('a snooze on another machine leaves this node counted', () => {

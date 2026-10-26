@@ -8,7 +8,7 @@ type TasksById = Readonly<Record<string, Task>>;
 type StatusByMachine = Readonly<Record<string, RemoteStatusEvent>> | undefined;
 
 /* The open task of a node that works on another machine, which is the task that waits when that machine does not answer. */
-export function openTaskOf(tasks: TasksById | undefined, childId: string): Task | null {
+function openTaskOf(tasks: TasksById | undefined, childId: string): Task | null {
     let found: Task | null = null;
     for (const task of Object.values(tasks ?? {})) {
         if (task.childId === childId && task.status === 'open' && (found === null || task.createdAt >= found.createdAt)) {

@@ -24,11 +24,6 @@ export const useRemoteStatus = create<RemoteStatusStore>((set, get) => ({
     }
 }));
 
-/* A link that failed while work for that machine is owed, which the machine tries again by itself. */
-export function isWaiting(status: RemoteStatusEvent | undefined): boolean {
-    return status?.state === 'waiting';
-}
-
 /*
  * Whether the task of this node has not been asked of its machine yet, because the link is not open.
  * An open link is about to ask, so it counts as started; the standing says which nodes the machine

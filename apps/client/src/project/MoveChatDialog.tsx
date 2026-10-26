@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AtSign, Folder, FolderInput, FolderOpen, FolderPlus, TriangleAlert, type LucideIcon } from 'lucide-react';
 import type { ChatMoveInfoResult, ChatMoveRefusal, ProjectSummary } from '@ruimte/contracts';
@@ -73,7 +73,7 @@ function MoveChatForm({ request, onDone }: { request: MoveChatRequest; onDone():
     const chatName = useViewNodes((views) => views.find((view) => view.id === request.chatId)?.name ?? '');
     const rows = useProjectList((s) => s.projects);
     const endpoints = useEndpoints((s) => s.endpoints);
-    const projects = useMemo(() => moveCandidatesOf(rows, endpoints, endpointId), [rows, endpoints, endpointId]);
+    const projects = moveCandidatesOf(rows, endpoints, endpointId);
 
     const asksProject = request.mode === 'pick' && request.projectId === null;
     const [typed, setTyped] = useState<MoveForm>({

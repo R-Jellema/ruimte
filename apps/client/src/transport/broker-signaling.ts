@@ -173,7 +173,7 @@ export class BrokerSockets {
     }
 }
 
-export const brokerSockets = new BrokerSockets();
+const brokerSockets = new BrokerSockets();
 
 export interface BrokerSignalingOptions {
     brokerUrl: string;

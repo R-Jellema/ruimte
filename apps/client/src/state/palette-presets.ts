@@ -69,7 +69,7 @@ const toGamma = (value: number): number => (value <= 0.0031308 ? 12.92 * value :
 
 /* OKLCH to a six-digit hex color. The chromas here are far inside sRGB, so clamping a channel never
    moves a hue. */
-export function oklchHex(lightness: number, chroma: number, hue: number): string {
+function oklchHex(lightness: number, chroma: number, hue: number): string {
     const radians = (hue * Math.PI) / 180;
     const a = chroma * Math.cos(radians);
     const b = chroma * Math.sin(radians);
@@ -110,12 +110,12 @@ function tintAt(steps: TailwindSteps, lightness: number): { chroma: number; hue:
     return { chroma: highChroma + (lowChroma - highChroma) * share, hue: (highHue + turn * share + 360) % 360 };
 }
 
-function tintedTokens(palette: TailwindPalette | null, side: PaletteSide): PaletteSideInput {
+function tintedTokens(palette: TailwindPalette, side: PaletteSide): PaletteSideInput {
     const lightness = LIGHTNESS[side];
-    const colored = palette !== null && (TAILWIND_COLORS as readonly string[]).includes(palette);
+    const colored = (TAILWIND_COLORS as readonly string[]).includes(palette);
     const tokens: PaletteSideInput = {};
     for (const token of Object.keys(lightness) as NeutralToken[]) {
-        const tint = palette === null ? { chroma: 0, hue: 0 } : tintAt(TAILWIND_STEPS[palette], lightness[token]);
+        const tint = tintAt(TAILWIND_STEPS[palette], lightness[token]);
         const chroma = colored ? Math.min(tint.chroma, COLOR_GROUND_CHROMA) * (CHROMA_SHARE[token] ?? 1) : tint.chroma;
         tokens[token] = oklchHex(lightness[token], chroma, tint.hue);
     }
@@ -125,12 +125,6 @@ function tintedTokens(palette: TailwindPalette | null, side: PaletteSide): Palet
 /* The tokens a preset sets on one side. The default sets none, so the theme's own values stay exactly. */
 export function presetTokens(preset: PalettePreset, side: PaletteSide): PaletteSideInput {
     return preset === 'default' ? {} : tintedTokens(preset, side);
-}
-
-/* What a preset looks like, for a sample drawn while another one is in use. The default is drawn as the
-   grays it keeps, which no token on the page still holds once another palette is chosen. */
-export function presetSample(preset: PalettePreset, side: PaletteSide): PaletteSideInput {
-    return tintedTokens(preset === 'default' ? null : preset, side);
 }
 
 /* A preset as one round swatch: its color and a lighter step of it, split on the diagonal. The grounds

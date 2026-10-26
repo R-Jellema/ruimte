@@ -11,7 +11,7 @@ import type { ConnectionState } from '@/transport/transport';
  */
 export type RemoteNodeState = 'ready' | 'connecting' | 'offline' | 'unlinked' | 'too-old';
 
-export function remoteNodeStateOf(input: {
+function remoteNodeStateOf(input: {
     known: boolean;
     connection: Pick<ConnectionState, 'status' | 'attempts' | 'failure' | 'features'>;
     unlinked: boolean;

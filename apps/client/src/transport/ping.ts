@@ -9,7 +9,7 @@ interface PingStore {
     setLatency(endpointId: string, latency: number | null): void;
 }
 
-export const usePing = create<PingStore>((set, get) => ({
+const usePing = create<PingStore>((set, get) => ({
     byEndpoint: {},
     setLatency(endpointId, latency) {
         set({ byEndpoint: { ...get().byEndpoint, [endpointId]: latency } });

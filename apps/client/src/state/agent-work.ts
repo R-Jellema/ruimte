@@ -17,7 +17,7 @@ export function chatWorking(chat: Pick<ChatState, 'info'> | undefined): boolean 
 }
 
 /* A chat between turns whose CLI still runs subagents or a workflow in the background. Waiting on a person outranks it. */
-export function chatDelegating(chat: Pick<ChatState, 'info'> | undefined): boolean {
+function chatDelegating(chat: Pick<ChatState, 'info'> | undefined): boolean {
     return chat?.info.status === 'idle' && chat.info.delegating === true;
 }
 

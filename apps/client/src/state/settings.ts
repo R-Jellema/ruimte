@@ -27,7 +27,7 @@ import { palettePresetFrom, presetTokens, type PalettePreset } from '@/state/pal
 export const SETTINGS_STORAGE_KEY = 'ruimte.settings';
 
 /* The editor's own defaults, written out so the settings never load the editor to know them. */
-export const DEFAULT_SMART_KEYS: EditorSmartKeys = {
+const DEFAULT_SMART_KEYS: EditorSmartKeys = {
     autoPairBrackets: true,
     autoPairQuotes: true,
     surroundSelection: true,
@@ -40,7 +40,7 @@ export const DEFAULT_SMART_KEYS: EditorSmartKeys = {
 };
 
 /* A key a client has not stored is what a fresh one gets, so the keys a later version adds start as it decides. */
-export function smartKeysFrom(stored: unknown): EditorSmartKeys {
+function smartKeysFrom(stored: unknown): EditorSmartKeys {
     const keys: Partial<Record<keyof EditorSmartKeys, unknown>> = typeof stored === 'object' && stored !== null ? stored : {};
     const result = { ...DEFAULT_SMART_KEYS };
     for (const name of Object.keys(DEFAULT_SMART_KEYS) as (keyof EditorSmartKeys)[]) {
@@ -80,10 +80,10 @@ const WORKTREE_MERGE_STRATEGIES: readonly WorktreeMergeStrategy[] = WorktreeMerg
  */
 export type ChatStreamingMode = 'words' | 'blocks' | 'whole';
 
-export const CHAT_STREAMING_MODES: readonly ChatStreamingMode[] = ['words', 'blocks', 'whole'];
+const CHAT_STREAMING_MODES: readonly ChatStreamingMode[] = ['words', 'blocks', 'whole'];
 
 /* A stored mode, or the switch it used to be: on was a word at a time, off was whole. */
-export function chatStreamingFrom(stored: unknown): ChatStreamingMode {
+function chatStreamingFrom(stored: unknown): ChatStreamingMode {
     if (stored === false) {
         return 'whole';
     }
@@ -93,10 +93,10 @@ export function chatStreamingFrom(stored: unknown): ChatStreamingMode {
 /* When this computer stays awake: never, while an agent works, or all the time. */
 export type KeepAwakeMode = 'off' | 'working' | 'always';
 
-export const KEEP_AWAKE_MODES: readonly KeepAwakeMode[] = ['off', 'working', 'always'];
+const KEEP_AWAKE_MODES: readonly KeepAwakeMode[] = ['off', 'working', 'always'];
 
 /* A stored mode, or the switch before it under `agentsKeepAwake`, whose on was while an agent works. */
-export function keepAwakeFrom(stored: unknown, legacy: unknown): KeepAwakeMode {
+function keepAwakeFrom(stored: unknown, legacy: unknown): KeepAwakeMode {
     const mode = KEEP_AWAKE_MODES.find((entry) => entry === stored);
     if (mode) {
         return mode;

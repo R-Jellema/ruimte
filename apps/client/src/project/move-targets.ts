@@ -4,7 +4,7 @@ import type { ProjectRow } from '@/state/project-list';
 import { openableRows, recentProjects } from '@/project/list';
 
 /* How many projects the menu names before "Other project…". */
-export const MOVE_TARGET_LIMIT = 5;
+const MOVE_TARGET_LIMIT = 5;
 
 /*
  * The projects of one machine a chat in Chats can move to without a dialog first: the ones touched

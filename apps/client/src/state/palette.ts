@@ -11,7 +11,7 @@ export type PaletteSide = 'light' | 'dark';
 
 /* The tokens a palette may set, by their names without the dashes. A token the theme derives from
    these (the soft accent, the selection, the terminal's cursor, the lines on a canvas) follows by itself. */
-export const PALETTE_TOKENS = [
+const PALETTE_TOKENS = [
     'accent',
     'bg',
     'surface',

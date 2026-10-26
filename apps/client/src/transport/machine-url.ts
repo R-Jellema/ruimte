@@ -107,7 +107,7 @@ export async function readMachineFile(
     return response.arrayBuffer();
 }
 
-export function machineResourceKey(endpointId: string, resource: MachineResource): string {
+function machineResourceKey(endpointId: string, resource: MachineResource): string {
     if (resource.kind === 'attachment') {
         return JSON.stringify([endpointId, resource.kind, resource.chatId, resource.attachmentId]);
     }

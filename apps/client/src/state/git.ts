@@ -7,7 +7,7 @@ export const DEFAULT_SCOPE: GitDiffScope = 'worktree';
 export const DEFAULT_LOG_HEIGHT = 200;
 
 // The file tree of a commit tab, until a drag gives it a width of its own.
-export const DEFAULT_COMMIT_TREE_WIDTH = 240;
+const DEFAULT_COMMIT_TREE_WIDTH = 240;
 
 export interface TabCounts {
     added: number;

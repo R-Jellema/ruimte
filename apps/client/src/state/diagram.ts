@@ -256,7 +256,7 @@ export function createDiagramStore(frame: (callback: () => void) => void = nextF
     });
 }
 
-export const defaultDiagramStore = createDiagramStore();
+const defaultDiagramStore = createDiagramStore();
 
 /* Its blank editor is the store this module made. */
 export const defaultDiagrams = createEditorRegistry(createDiagramStore, defaultDiagramStore);

@@ -199,7 +199,7 @@ export function canStandInCell(state: Pick<DocumentState, 'views' | 'layout'>, i
 }
 
 /* Which view a banner would put on screen if its button were pressed; null for one that offers nothing. */
-export function noticeTarget(notice: ViewNotice | null): string | null {
+function noticeTarget(notice: ViewNotice | null): string | null {
     if (notice === null || notice.action === null) {
         return null;
     }
@@ -216,7 +216,7 @@ export function keptNotice(notice: ViewNotice | null, views: ProjectView[]): Vie
  * A manual grid move makes an undo offer stale. A navigation offer survives until the requested
  * view becomes active; neither expires on a timer because the person may still need the action.
  */
-export function afterMove(notice: ViewNotice | null, activeViewId: string | null): ViewNotice | null {
+function afterMove(notice: ViewNotice | null, activeViewId: string | null): ViewNotice | null {
     if (notice === null || notice.action === null) {
         return notice;
     }

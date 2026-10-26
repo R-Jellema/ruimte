@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from 'bun:test';
 import i18next from 'i18next';
 import type { RemoteStatusEvent, Task } from '@ruimte/contracts';
 import { waitingMachinesOf } from '@/canvas/remote-wait';
-import { isUnstarted, isUntaken, isWaiting, useRemoteStatus } from './remote-status';
+import { isUnstarted, isUntaken, useRemoteStatus } from './remote-status';
 
 function task(id: string, patch: Partial<Task> = {}): Task {
     return {
@@ -31,8 +31,8 @@ describe('the link state of a machine', () => {
         store.receive('a', WAITING);
         store.receive('a', { machineId: 'machine-c', state: 'open', owed: 0 });
         store.receive('z', WAITING);
-        expect(isWaiting(useRemoteStatus.getState().byEndpoint['a']?.['machine-b'])).toBe(true);
-        expect(isWaiting(useRemoteStatus.getState().byEndpoint['a']?.['machine-c'])).toBe(false);
+        expect(useRemoteStatus.getState().byEndpoint['a']?.['machine-b']?.state).toBe('waiting');
+        expect(useRemoteStatus.getState().byEndpoint['a']?.['machine-c']?.state).toBe('open');
 
         store.receive('a', { machineId: 'machine-b', state: 'closed', owed: 0 });
         expect(useRemoteStatus.getState().byEndpoint['a']?.['machine-b']).toBeUndefined();
@@ -57,7 +57,6 @@ describe('a task that has not started', () => {
 
     test('is none for a task the machine took, whose result is what waits on the link', () => {
         const { unstartedNodeIds: _started, ...taken } = WAITING;
-        expect(isWaiting(taken)).toBe(true);
         expect(isUnstarted(taken, 'child-one')).toBe(false);
     });
 });

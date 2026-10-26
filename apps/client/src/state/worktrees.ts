@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import { create } from 'zustand';
 import { shallow } from 'zustand/shallow';
 import { type CanvasNodeKind, type Worktree } from '@ruimte/contracts';
@@ -196,23 +196,21 @@ export function useGroupWorktrees(groupId: string | null): readonly Worktree[] {
     const group = groupId === null || nodes === null ? undefined : nodes[groupId];
     const wanted = group?.kind === 'group' && folder !== null;
     const worktrees = useWorktrees(wanted ? (connection?.transport ?? null) : null, endpointId, wanted ? folder : null);
-    return useMemo(() => {
-        if (!wanted || group === undefined || nodes === null || texts === null || worktrees.length === 0) {
-            return NONE;
+    if (!wanted || group === undefined || nodes === null || texts === null || worktrees.length === 0) {
+        return NONE;
+    }
+    const found: Worktree[] = [];
+    const add = (worktree: Worktree | null | undefined): void => {
+        if (worktree && !found.includes(worktree)) {
+            found.push(worktree);
         }
-        const found: Worktree[] = [];
-        const add = (worktree: Worktree | null | undefined): void => {
-            if (worktree && !found.includes(worktree)) {
-                found.push(worktree);
-            }
-        };
-        add(group.worktree ? worktrees.find((entry) => entry.path === group.worktree?.path) : null);
-        for (const id of membersOf(group, nodes, texts)) {
-            const member = nodes[id];
-            if (member?.kind === 'terminal' || member?.kind === 'chat') {
-                add(worktreeOfPath(worktrees, member.cwd));
-            }
+    };
+    add(group.worktree ? worktrees.find((entry) => entry.path === group.worktree?.path) : null);
+    for (const id of membersOf(group, nodes, texts)) {
+        const member = nodes[id];
+        if (member?.kind === 'terminal' || member?.kind === 'chat') {
+            add(worktreeOfPath(worktrees, member.cwd));
         }
-        return found.length === 0 ? NONE : found;
-    }, [wanted, group, worktrees, nodes, texts]);
+    }
+    return found.length === 0 ? NONE : found;
 }

@@ -15,7 +15,7 @@ interface ChatRows {
 }
 
 /* Whether a thread got or lost a row, or a chat's status moved. A streamed word grows `items` and changes neither. */
-export function chatThreadsChanged(state: ChatRows, previous: ChatRows): boolean {
+function chatThreadsChanged(state: ChatRows, previous: ChatRows): boolean {
     if (state.statusByKey !== previous.statusByKey) {
         return true;
     }

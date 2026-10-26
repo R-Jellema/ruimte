@@ -16,7 +16,7 @@ const askedAt = new WeakMap<Transport, number>();
  * Asks a machine to look for its agent CLIs again, so one a person installed while Ruimte was open shows up
  * when they come back to it. A machine before `provider.detect` answers its list as it has it.
  */
-export function detectProviders(endpointId: string): void {
+function detectProviders(endpointId: string): void {
     const link = transportFor(endpointId);
     const connection = pool.statusOf(endpointId);
     if (!link || connection.status !== 'open') {

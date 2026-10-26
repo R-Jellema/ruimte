@@ -32,7 +32,7 @@ export function canShowReleaseNotes(): boolean {
 let pending: Promise<void> | null = null;
 let running = 0;
 
-export function loadReleaseNotes(refresh: boolean): Promise<void> {
+function loadReleaseNotes(refresh: boolean): Promise<void> {
     const bridge = desktop();
     if (!bridge?.releaseNotes) {
         return Promise.resolve();

@@ -22,7 +22,7 @@ export type KeepAwakeSettings = Pick<Settings, 'keepAwake' | 'keepAwakeOnBattery
  * that is handed to the machine once (`startKeepAwakeMove`). While the machine does not hold keep awake
  * (it has not answered, or cannot), `startKeepAwake` has the shell hold a block from those stored settings.
  */
-export function machineKeepsAwake(info: Pick<ServerInfo, 'keepAwakeAvailable'>): boolean {
+function machineKeepsAwake(info: Pick<ServerInfo, 'keepAwakeAvailable'>): boolean {
     return info.keepAwakeAvailable;
 }
 

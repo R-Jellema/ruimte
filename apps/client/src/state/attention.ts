@@ -158,11 +158,6 @@ export function groupAttention(
     return groups;
 }
 
-/* One number for the dock badge, everything a person still has to come back to. */
-export function attentionTotal(groups: AttentionGroups): number {
-    return groups.needsYou.length + groups.finished.length;
-}
-
 interface AttentionStore {
     /* Keyed with `endpointKey`. A plain record, so a render subscribes to the object it reads. */
     unseen: Record<string, true>;

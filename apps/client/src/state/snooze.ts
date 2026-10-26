@@ -244,7 +244,7 @@ export function useSnoozedUntil(endpointId: string, nodeId: string): number | nu
  * A timer asleep with the machine runs late by as long as it slept, so it never waits longer than
  * this before it reads the wall clock again.
  */
-export const MAX_TICK_MS = MINUTE;
+const MAX_TICK_MS = MINUTE;
 
 /*
  * Nothing moves in any store when a snooze runs out, so this clock takes it out on time, and every

@@ -23,7 +23,7 @@ import { fitTextBox } from '@/drawing/measure';
 export type DrawingTool = 'select' | 'hand' | 'rect' | 'diamond' | 'ellipse' | 'arrow' | 'line' | 'freehand' | 'text' | 'note' | 'eraser';
 
 /* The tools that make an element by dragging; after one the tool goes back to select unless locked. */
-export function isShapeTool(tool: DrawingTool): boolean {
+function isShapeTool(tool: DrawingTool): boolean {
     return tool !== 'select' && tool !== 'hand' && tool !== 'eraser';
 }
 
@@ -446,7 +446,7 @@ export function createDrawingStore(): StoreApi<DrawingState> {
     }));
 }
 
-export const defaultDrawingStore = createDrawingStore();
+const defaultDrawingStore = createDrawingStore();
 
 /* Its blank editor is the store this module made. */
 export const defaultDrawings = createEditorRegistry(createDrawingStore, defaultDrawingStore);

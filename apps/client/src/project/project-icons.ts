@@ -409,10 +409,7 @@ export const PROJECT_ICON_GROUPS: readonly ProjectIconGroup[] = [
     }
 ];
 
-export const PROJECT_ICON_GLYPHS = Object.fromEntries(PROJECT_ICON_GROUPS.flatMap((group) => Object.entries(group.icons))) as Record<
-    ProjectIconName,
-    LucideIcon
->;
+const PROJECT_ICON_GLYPHS = Object.fromEntries(PROJECT_ICON_GROUPS.flatMap((group) => Object.entries(group.icons))) as Record<ProjectIconName, LucideIcon>;
 
 /* The glyph of a picked name, or null for one a newer Ruimte offers that this version cannot draw. */
 export function projectIconGlyphOf(name: string): LucideIcon | null {

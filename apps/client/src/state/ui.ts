@@ -63,7 +63,7 @@ export type PlanAnchor = NonNullable<ProjectPanels['plan']>;
 const CLOSED_PANEL: PanelState = { open: false, kind: 'files' };
 
 /* What the Chats project has no panel for: its folder is the daemon's, and so are its repository and what runs in it. */
-export const SCRATCH_HIDDEN_PANELS: readonly PanelKind[] = ['files', 'git', 'devices', 'launches', 'databases', 'problems'];
+const SCRATCH_HIDDEN_PANELS: readonly PanelKind[] = ['files', 'git', 'devices', 'launches', 'databases', 'problems'];
 
 export function panelHidden(kind: PanelKind, scratch: boolean): boolean {
     return scratch && SCRATCH_HIDDEN_PANELS.includes(kind);

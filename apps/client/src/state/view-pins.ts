@@ -9,7 +9,7 @@ import { storedJson } from '@/state/stored-json';
  * and not in the project's local file, since a field written there would be a new stored field, which
  * an older release drops. A loose tab keeps its pin in the pool (`state/files.ts`).
  */
-export const VIEW_PINS_STORAGE_KEY = 'ruimte.tabs.pinnedViews';
+const VIEW_PINS_STORAGE_KEY = 'ruimte.tabs.pinnedViews';
 
 const storedPins = storedJson(
     VIEW_PINS_STORAGE_KEY,
@@ -44,7 +44,7 @@ export const useViewPins = create<ViewPinsState>((set) => ({
 }));
 
 /* The project on screen, as the key its pins are under; null on the start screen. */
-export function currentProjectKey(): string | null {
+function currentProjectKey(): string | null {
     return projectKeyOf(useProject.getState());
 }
 

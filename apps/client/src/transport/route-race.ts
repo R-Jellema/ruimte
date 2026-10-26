@@ -9,7 +9,7 @@ import type { SignalRoute } from './transport';
 export const LAN_HEAD_START_MS = 1_000;
 
 /* How long a machine's doors are left alone after an attempt through one of them came to nothing. */
-export const LAN_SKIP_MS = 5 * 60_000;
+const LAN_SKIP_MS = 5 * 60_000;
 
 /* The one timer a race needs, so a test moves it by hand. Returns what cancels it. */
 export interface RaceClock {

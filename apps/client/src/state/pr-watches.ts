@@ -82,8 +82,3 @@ export function useChatPrWatch(chatId: string): GitPrWatch | null {
     const endpointId = useEndpointId();
     return usePrWatches((s) => s.byChat[endpointKey(endpointId, chatId)] ?? null);
 }
-
-export function useChatPrWatchEnded(chatId: string): GitPrWatchEndReason | null {
-    const endpointId = useEndpointId();
-    return usePrWatches((s) => s.ended[endpointKey(endpointId, chatId)] ?? null);
-}

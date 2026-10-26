@@ -44,7 +44,7 @@ export function foldList(endpointId: string, summaries: ProjectSummary[]): void 
 }
 
 /* One project of one machine into the union, and into the list it is remembered by. */
-export function foldSummary(endpointId: string, summary: ProjectSummary): void {
+function foldSummary(endpointId: string, summary: ProjectSummary): void {
     useProjectList.getState().patchProject(endpointId, summary);
     const projects = useProjectList
         .getState()
@@ -74,7 +74,7 @@ export async function listProjects(endpointId: string): Promise<ProjectRow[]> {
 }
 
 /* Re-asks every machine whose socket is up and folds the answers in. A machine that is not there keeps its remembered list. */
-export async function refreshAllLists(): Promise<void> {
+async function refreshAllLists(): Promise<void> {
     const open = openEndpointIds();
     await Promise.all(open.map((endpointId) => listProjects(endpointId).catch(() => [])));
 }

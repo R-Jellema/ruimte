@@ -18,7 +18,7 @@ export function tabsToClose(ids: readonly string[], id: string, closing: TabsClo
     return candidates.filter((one) => !pinned(one));
 }
 
-export function isTabPinned(id: string): boolean {
+function isTabPinned(id: string): boolean {
     const loose = useFiles.getState().tabs.find((tab) => tab.key === id);
     return loose === undefined ? isViewPinned(id) : loose.pinned;
 }
@@ -33,7 +33,7 @@ export function setTabPinned(id: string, pinned: boolean): void {
 }
 
 /* The tabs of the host `id` stands in, in their order; nothing for a view that is no tab. */
-export function hostTabIds(id: string): string[] {
+function hostTabIds(id: string): string[] {
     const { layout } = useDocument.getState();
     const at = layout === null ? null : locateView(layout, id);
     const cell = layout === null || at === null ? null : cellAt(layout, at);
@@ -50,7 +50,7 @@ export function closeTabGuarded(id: string): Promise<boolean> {
     return Promise.resolve(true);
 }
 
-export async function closeTabsGuarded(ids: readonly string[]): Promise<boolean> {
+async function closeTabsGuarded(ids: readonly string[]): Promise<boolean> {
     for (const id of ids) {
         if (!(await closeTabGuarded(id))) {
             return false;

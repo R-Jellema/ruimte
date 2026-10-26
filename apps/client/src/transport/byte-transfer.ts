@@ -17,7 +17,7 @@ export interface ReadResourceOptions {
  * Two pieces stay under the daemon's output gate of 1 MB even when base64 encoded; above it, a terminal
  * on the same connection loses output until it resyncs.
  */
-export const PIECES_IN_FLIGHT = 2;
+const PIECES_IN_FLIGHT = 2;
 
 /*
  * A resource's bytes over the wire, a few pieces on their way at once so a slow link is not one
