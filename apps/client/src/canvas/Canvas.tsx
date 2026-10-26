@@ -665,15 +665,16 @@ export function Canvas() {
                 }
                 break;
             }
-            case 'resize':
-                s.resizeNode(
-                    g.nodeId,
-                    resizedRect(g.rect, g.edge, (point.x - g.start.x) / s.camera.zoom, (point.y - g.start.y) / s.camera.zoom, {
-                        centered: e.altKey,
-                        proportional: e.shiftKey
-                    })
-                );
+            case 'resize': {
+                const folded = s.nodes[g.nodeId]?.collapsed === true;
+                const rect = resizedRect(g.rect, g.edge, (point.x - g.start.x) / s.camera.zoom, (point.y - g.start.y) / s.camera.zoom, {
+                    centered: e.altKey,
+                    proportional: e.shiftKey && !folded
+                });
+                // A folded node is only its header, below the least height a node takes: it changes its width alone.
+                s.resizeNode(g.nodeId, folded ? { ...rect, y: g.rect.y, h: g.rect.h } : rect);
                 break;
+            }
             case 'card-resize': {
                 const card = s.derivedCards[g.cardId];
                 if (card === undefined || card.resize === null || s.locks.resize) {
