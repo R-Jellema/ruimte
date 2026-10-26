@@ -15,7 +15,7 @@ export const TELEMETRY_INGEST = 'https://ingest.bmnw.nl';
  * frame only ever shows a visual's sandbox host page, on the page's own origin. The model preview
  * fetches the textures it unpacks from a file through `blob:` URLs the page made itself.
  */
-export const CLIENT_CSP_DIRECTIVES = {
+const CLIENT_CSP_DIRECTIVES = {
     'default-src': ["'self'"],
     'base-uri': ["'self'"],
     'object-src': ["'none'"],

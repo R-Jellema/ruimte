@@ -28,7 +28,7 @@ export function scheduledTaskFile(home: string, env: HostEnvironment = process.e
 }
 
 /* The account the scheduled task starts for at logon, as `DOMAIN\name`. */
-export function serviceUser(env: HostEnvironment = process.env): string {
+function serviceUser(env: HostEnvironment = process.env): string {
     const name = env.USERNAME || userInfo().username;
     return env.USERDOMAIN ? `${env.USERDOMAIN}\\${name}` : name;
 }
