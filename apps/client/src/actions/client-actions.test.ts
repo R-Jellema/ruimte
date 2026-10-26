@@ -316,7 +316,7 @@ describe('client actions', () => {
         expect(await clientActions.undo(result.undoToken, PERSON_ACTION_CALL)).toMatchObject({ status: 'completed' });
         expect(store.getState().nodes).toEqual(before);
 
-        store.getState().toggleGroupCollapse('g');
+        store.getState().toggleCollapse('g');
         expect(await clientActions.execute('group.arrange', { viewId: 'main', groupId: 'g' }, PERSON_ACTION_CALL)).toMatchObject({
             status: 'failed',
             error: { code: 'arrange-refused', message: 'Expand the group first.' }

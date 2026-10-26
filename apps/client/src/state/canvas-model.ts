@@ -90,6 +90,8 @@ export interface LinkDraft {
 
 // The height of a node frame's header; a collapsed group is its header only.
 export const GROUP_HEADER_PX = 39;
+/* A collapsed node other than a group, on the grid: its header between the frame's borders, which takes the place of the header's own line. */
+export const COLLAPSED_NODE_PX = GROUP_HEADER_PX + 1;
 
 export type Locks = ViewLocks;
 

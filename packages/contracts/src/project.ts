@@ -138,7 +138,8 @@ export const ProjectNodeSchema = keepingUnknown(
         browserOwner: z.string().min(1).optional(),
         // Device only: a portable identity resolved to a local simulator when it is shown.
         device: DeviceReferenceSchema.optional(),
-        // Group only: folded to its header, with the nodes it held out of sight until it opens again.
+        // Folded to its header, with the height it opens to again. A group also keeps the nodes it held
+        // out of sight (`memberIds`, group only); any other node keeps its body as it was, under the header.
         collapsed: z.boolean().optional(),
         memberIds: z.array(z.string()).optional(),
         expandedHeight: z.number().positive().optional(),

@@ -179,6 +179,8 @@ function DesktopWebviewParking() {
                     node !== undefined &&
                     node.kind === 'browser' &&
                     !canvas.hidden.has(nodeId) &&
+                    // Folded to its header, the page stays parked out of sight and keeps running.
+                    node.collapsed !== true &&
                     (maximized === null || maximized === nodeId);
                 host.style.visibility = shown ? 'visible' : 'hidden';
                 if (!shown) {

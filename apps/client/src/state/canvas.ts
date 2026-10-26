@@ -167,7 +167,8 @@ export interface CanvasState extends CameraSlice {
     deleteSelected(): void;
     toggleLock(key: keyof Locks): void;
 
-    toggleGroupCollapse(id: string): void;
+    /* Folds a node to its header and opens it again, one undo step. A group hides what it holds as well. */
+    toggleCollapse(id: string): void;
     setGroupWorktree(id: string, worktree: { path: string; branch: string } | null): void;
     /*
      * Edges: nodes connect to other nodes. Into an agent node (terminal or chat) the edge also makes

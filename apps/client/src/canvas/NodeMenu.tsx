@@ -295,7 +295,7 @@ function NodeMenuContent({ id, viewId: targetViewId, node, onRename, snooze, fin
                         <Icon icon={Group} size={14} /> {t('kinds.group')}
                     </ContextMenu.SubmenuTrigger>
                     <ContextMenu.Popup>
-                        <ContextMenu.Item onClick={() => canvas().getState().toggleGroupCollapse(id)}>
+                        <ContextMenu.Item onClick={() => canvas().getState().toggleCollapse(id)}>
                             {node.collapsed ? <Icon icon={ChevronsUpDown} size={14} /> : <Icon icon={ChevronsDownUp} size={14} />}{' '}
                             {node.collapsed ? t('group.expand') : t('group.collapse')}
                         </ContextMenu.Item>

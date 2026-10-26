@@ -3,7 +3,18 @@ import { arrangeGroupMembers } from '@/canvas/arrange-group';
 import { snapToGrid } from '@/canvas/math';
 import type { CanvasState } from '@/state/canvas';
 import { defaultNodeSize } from '@/state/node-size';
-import { contains, GROUP_HEADER_PX, hiddenIn, membersOf, nextId, remember, type CanvasGet, type CanvasNode, type CanvasSet } from '@/state/canvas-model';
+import {
+    COLLAPSED_NODE_PX,
+    contains,
+    GROUP_HEADER_PX,
+    hiddenIn,
+    membersOf,
+    nextId,
+    remember,
+    type CanvasGet,
+    type CanvasNode,
+    type CanvasSet
+} from '@/state/canvas-model';
 
 /* Adding, changing, grouping and removing the nodes of the canvas. */
 export function createCanvasNodesSlice(
@@ -20,7 +31,7 @@ export function createCanvasNodesSlice(
     | 'groupSelection'
     | 'arrangeGroup'
     | 'deleteSelected'
-    | 'toggleGroupCollapse'
+    | 'toggleCollapse'
     | 'setGroupWorktree'
 > {
     return {
@@ -188,10 +199,19 @@ export function createCanvasNodesSlice(
                 ...remember(get())
             });
         },
-        toggleGroupCollapse(id) {
+        toggleCollapse(id) {
             const s = get();
             const group = s.nodes[id];
-            if (!group || group.kind !== 'group') {
+            if (!group) {
+                return;
+            }
+            if (group.kind !== 'group') {
+                // Its body stays as it was under the header (`NodeFrame`), so a terminal keeps its size and a chat its place.
+                const folded: CanvasNode = group.collapsed
+                    ? { ...group, collapsed: undefined, h: group.expandedHeight ?? group.h, expandedHeight: undefined }
+                    : { ...group, collapsed: true, expandedHeight: group.h, h: COLLAPSED_NODE_PX };
+                // A folded body is out of reach, so it gives up the keyboard.
+                set({ nodes: { ...s.nodes, [id]: folded }, bodyFocusId: folded.collapsed && s.bodyFocusId === id ? null : s.bodyFocusId, ...remember(s) });
                 return;
             }
             const next: CanvasNode = group.collapsed

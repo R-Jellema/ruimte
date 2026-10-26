@@ -70,7 +70,7 @@ describe('groups', () => {
             hidden: new Set()
         });
         const groupId = canvas().groupSelection()!;
-        canvas().toggleGroupCollapse(groupId);
+        canvas().toggleCollapse(groupId);
         canvas().clearSelection();
 
         canvas().selectInRect({ x: 0, y: 0, w: 1000, h: 1000 });

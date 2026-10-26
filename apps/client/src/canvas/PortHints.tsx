@@ -19,8 +19,9 @@ export function PortHints({ rootRef }: { rootRef: RefObject<HTMLDivElement | nul
     const quiet = useCanvas((s) => s.gesturing || s.linkDraft !== null);
     const point = useWorldPointer(rootRef);
 
-    /* A group is a frame under its nodes, never something you draw a line from by brushing past its border. */
-    const open = Object.values(nodes).filter((node) => node.kind !== 'group' && !hidden.has(node.id));
+    /* A group is a frame under its nodes, never something you draw a line from by brushing past its border,
+       and a node folded to its header takes no new line until it opens again. */
+    const open = Object.values(nodes).filter((node) => node.kind !== 'group' && node.collapsed !== true && !hidden.has(node.id));
 
     const hints = point === null || quiet ? [] : portHints(open, point, HINT_REACH / zoom);
 

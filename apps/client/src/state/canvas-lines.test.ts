@@ -49,11 +49,11 @@ test('group moves and collapses carry lines, and a gap edit expands the enclosin
     store.getState().moveSelected(8, 8, true);
     expect(store.getState().lines[id]).toMatchObject({ x: 32, y: 56, endX: 112, endY: 56 });
     store.getState().undo();
-    store.getState().toggleGroupCollapse('group');
+    store.getState().toggleCollapse('group');
     expect(store.getState().hidden.has(id)).toBe(true);
     store.getState().selectInRect({ x: -20, y: -20, w: 300, h: 300 });
     expect(store.getState().selection).toEqual(['group']);
-    store.getState().toggleGroupCollapse('group');
+    store.getState().toggleCollapse('group');
     expect(store.getState().beginGapMove([id])).toBe(true);
     store.getState().moveGapNodes({ [id]: { x: 300, y: 0 } });
     store.getState().endGapMove();

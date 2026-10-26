@@ -14,6 +14,8 @@ import {
 import { useWorldPointer } from '@/canvas/use-world-pointer';
 import { useCanvas } from '@/state/canvas';
 
+const FOLDED_EDGES: readonly ResizeEdge[] = ['e', 'w'];
+
 /* As long as `duration-150` on the path and the fades. */
 const MORPH_MS = 150;
 
@@ -54,7 +56,16 @@ export function ResizeHandles({ rootRef }: { rootRef: RefObject<HTMLDivElement |
         () => [
             ...Object.values(nodes)
                 .filter((node) => !hidden.has(node.id) && !(node.kind === 'group' && node.collapsed === true))
-                .map(({ id, x, y, w, h, kind }) => ({ id, x, y, w, h, group: kind === 'group' })),
+                // A folded node keeps its header's height and changes only its width.
+                .map(({ id, x, y, w, h, kind, collapsed }) => ({
+                    id,
+                    x,
+                    y,
+                    w,
+                    h,
+                    group: kind === 'group',
+                    ...(collapsed === true ? { edges: FOLDED_EDGES } : {})
+                })),
             ...Object.entries(cards).map(([id, card]) => ({ id, ...card.rect, group: false, edges: card.resize?.edges ?? [] }))
         ],
         [cards, hidden, nodes]

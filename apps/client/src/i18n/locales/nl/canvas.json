@@ -47,6 +47,8 @@
     "node": {
         "failed": "Deze node kon niet worden getoond",
         "zoomTo": "Naar node zoomen",
+        "collapse": "Node inklappen",
+        "expand": "Node uitklappen",
         "maximize": "Node maximaliseren",
         "restore": "Node herstellen",
         "close": "Node sluiten",

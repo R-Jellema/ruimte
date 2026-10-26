@@ -11,7 +11,8 @@ export function createCanvasEdgesSlice(
     return {
         addEdge(from, to, sides) {
             const s = get();
-            const exists = (id: string): boolean => Boolean(s.nodes[id]);
+            // A node folded to its header takes no new line, from or to it; the ones it has stay.
+            const exists = (id: string): boolean => s.nodes[id] !== undefined && s.nodes[id].collapsed !== true;
             if (!exists(from) || !exists(to) || !canLink(s.edges, from, to)) {
                 return null;
             }

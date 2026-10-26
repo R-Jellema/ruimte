@@ -40,6 +40,7 @@ import { useChildTask } from '@/state/tasks';
 import { useUnseen } from '@/state/attention';
 import { useHiddenNeedsYou } from '@/canvas/use-group-waits';
 import { deleteSelectionAsking } from '@/canvas/delete-selection';
+import { KindIcon } from '@/canvas/KindIcon';
 import { useWorkspace } from '@/transport/connections';
 import { markPeerLapsed, usePeerLapse } from '@/project/peer-lapse';
 import { linkToPeer } from '@/project/peer-linker';
@@ -53,7 +54,7 @@ import { useRemoteNodeState } from '@/canvas/remote-node-state';
 import { useMachineEntry } from '@/shell/use-machine-entry';
 import { useMachineIcon } from '@/shell/settings/machine-icon';
 import { nameOf } from '@/shell/settings/machine-list';
-import { isNodeActive, maximizedNodeOf, useCanvas, useCanvasStore, type AgentStatus } from '@/state/canvas';
+import { GROUP_HEADER_PX, isNodeActive, maximizedNodeOf, useCanvas, useCanvasStore, type AgentStatus } from '@/state/canvas';
 import type { AgentWork } from '@/state/agent-work';
 import { useNodeStatus, useNodeWork } from '@/state/chats';
 import { ProcessAlertMark } from '@/processes/ProcessAlertMark';
@@ -428,6 +429,8 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
     // A newer Ruimte's node: it moves, resizes and goes away like any other, and nothing else about it is this version's to change.
     const isUnknown = node.kind === 'unknown';
     const collapsed = isGroup && node.collapsed === true;
+    // Any other node folded to its header: its body stays mounted at the height it had, under the header and out of reach.
+    const folded = !isGroup && node.collapsed === true;
     const visibleTitle = node.kind === 'browser' && !renaming ? browserTitle : node.title;
     const remove = (): void => {
         canvasStore.getState().select([id]);
@@ -477,8 +480,7 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
             >
                 <header
                     className={clsx(
-                        'flex h-[39px] shrink-0 items-center gap-2 pr-1 text-text-muted',
-                        // The collapse button carries 6px of optical padding inside its 28px square, so
+                        'group/header flex h-[39px] shrink-0 items-center gap-2 pr-1 text-text-muted', // The collapse button carries 6px of optical padding inside its 28px square, so
                         // 4px of header padding puts its glyph in the same column as a node's kind icon.
                         isGroup ? 'pl-1' : 'pl-2.5',
                         isGroup
@@ -505,10 +507,20 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                             icon={collapsed ? ChevronRight : ChevronDown}
                             size="sm"
                             label={collapsed ? t('group.expand') : t('group.collapse')}
-                            onClick={() => canvasStore.getState().toggleGroupCollapse(id)}
+                            onClick={() => canvasStore.getState().toggleCollapse(id)}
                         />
                     )}
-                    <span className="flex shrink-0 items-center text-text-muted">
+                    <KindIcon
+                        toggle={
+                            isGroup
+                                ? null
+                                : {
+                                      folded,
+                                      label: folded ? t('node.expand') : t('node.collapse'),
+                                      onToggle: () => canvasStore.getState().toggleCollapse(id)
+                                  }
+                        }
+                    >
                         {node.provider ? (
                             <AgentIcon kind={node.provider} />
                         ) : node.kind === 'browser' ? (
@@ -518,7 +530,7 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                         ) : (
                             ICONS[node.kind]
                         )}
-                    </span>
+                    </KindIcon>
                     <span className="flex min-w-0 grow items-center" onDoubleClick={() => setRenaming(!isUnknown)}>
                         {node.kind === 'chat' && !renaming ? (
                             <SubagentTitleCrumb chatId={id}>
@@ -598,10 +610,15 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                     <div
                         data-node-body
                         className={clsx(
-                            'relative min-h-0 grow',
+                            'relative min-h-0',
+                            folded ? 'shrink-0' : 'grow',
                             // A thread reads at the node's own 14px, over the 22px a chat gives its prose.
                             node.kind === 'chat' && '[--text-sm--line-height:22px]'
                         )}
+                        /* Folded, the body keeps the height it had under the header, where the frame cuts it off:
+                           a terminal keeps its rows and its session, a chat its thread and its place in it. */
+                        style={folded ? { height: Math.max(0, (node.expandedHeight ?? node.h) - GROUP_HEADER_PX - 2) } : undefined}
+                        inert={folded ? true : undefined}
                     >
                         {/* Around the body only, so the header, the menu, a drag and a resize keep working. */}
                         <NodeBodyBoundary kind={node.kind}>

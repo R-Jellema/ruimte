@@ -100,7 +100,7 @@ function linkTargetUnder(clientX: number, clientY: number): { id: string; side?:
 function linkTargetAt(state: CanvasState, from: string, clientX: number, clientY: number): string | null {
     const id = linkTargetUnder(clientX, clientY)?.id ?? null;
     // A target that would take no line says nothing either.
-    return id !== null && canLink(state.edges, from, id) ? id : null;
+    return id !== null && state.nodes[id]?.collapsed !== true && canLink(state.edges, from, id) ? id : null;
 }
 
 /* Hands the keyboard back to the page, so the node that had it stops answering keys. */

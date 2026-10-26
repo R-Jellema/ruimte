@@ -1,12 +1,13 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
-import { Archive, ChevronsDownUp, Package, SquareArrowOutUpRight } from 'lucide-react';
+import { Archive, ChevronRight, History, Package, SquareArrowOutUpRight } from 'lucide-react';
 import { nodeColorOf, type RoutineRun } from '@ruimte/contracts';
-import { ButtonGroup, EmptyState, Icon, IconButton, Pill } from '@adecore/ui';
+import { EmptyState, Icon, IconButton, Pill } from '@adecore/ui';
 import { formatClock, formatDateTime, formatElapsedShort } from '@adecore/ui/format';
 import { accentColor, accentHeaderStyle, accentShades } from '@/canvas/accents';
 import { DerivedSet, type DerivedCard } from '@/canvas/DerivedSet';
+import { KindIcon } from '@/canvas/KindIcon';
 import { ArtifactOnCanvas } from '@/output/ArtifactNode';
 import { FileToolbarSlotProvider, fixedSlot } from '@/shell/panels/file-toolbar-slot';
 import { lookOfRun, type BlockLook } from '@/routines/agenda';
@@ -210,7 +211,7 @@ function RunLine({ run, timeZone, accent, onOpen }: { run: RoutineRun; timeZone:
             aria-expanded={false}
             className={clsx(
                 FRAME,
-                'flex-row items-center gap-2 px-3 text-left text-sm text-text',
+                'group/header flex-row items-center gap-2 px-3 text-left text-sm text-text',
                 shades === null ? 'bg-surface hover:bg-surface-raised' : 'bg-(--run-tint) hover:bg-(--run-hover)'
             )}
             style={
@@ -218,6 +219,11 @@ function RunLine({ run, timeZone, accent, onOpen }: { run: RoutineRun; timeZone:
             }
             onClick={onOpen}
         >
+            {/* The run's kind icon, which shows the chevron to open it while the pointer is on the line, as a node's header does. */}
+            <span aria-hidden className="relative flex size-3.5 shrink-0 items-center justify-center text-text-muted">
+                <Icon icon={History} size={14} className="transition-opacity group-hover/header:opacity-0" />
+                <Icon icon={ChevronRight} size={14} className="absolute opacity-0 transition-opacity group-hover/header:opacity-100" />
+            </span>
             <span className="min-w-0 grow truncate">
                 {runDay(run, timeZone)} <span className="text-text-muted">· {formatClock(run.at, timeZone)}</span>
             </span>
@@ -280,14 +286,14 @@ function OpenRun({
     }, []);
     return (
         <div ref={frameRef} className={clsx(FRAME, 'bg-surface')} style={frameStyle(accent)}>
-            <header className={HEADER} style={accent === undefined ? undefined : accentHeaderStyle(accent)}>
+            <header className={clsx(HEADER, 'group/header')} style={accent === undefined ? undefined : accentHeaderStyle(accent)}>
+                <KindIcon toggle={{ folded: false, label: t('beside.collapse'), onToggle: onCollapse }}>
+                    <Icon icon={History} size={14} />
+                </KindIcon>
                 <span className="min-w-0 grow truncate font-medium">{title}</span>
                 {look !== 'done' && <RunMark run={run} />}
                 <StateDot run={run} />
-                <ButtonGroup render={<span />}>
-                    <IconButton icon={SquareArrowOutUpRight} size="sm" label={t('beside.openRun')} onClick={onShow} />
-                    <IconButton icon={ChevronsDownUp} size="sm" label={t('beside.collapse')} aria-expanded onClick={onCollapse} />
-                </ButtonGroup>
+                <IconButton icon={SquareArrowOutUpRight} size="sm" label={t('beside.openRun')} onClick={onShow} />
             </header>
             {run.chatId !== undefined ? (
                 <OutputShownBesideContext value={artifactId ?? null}>
