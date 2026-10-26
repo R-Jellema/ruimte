@@ -177,10 +177,8 @@ function inputFields(name: ActionName): [string, { schema: JsonSchema; nullable:
         .map(([field, value]) => [field, withoutNull(supported(voiceMembers(value)) as JsonSchema)]);
 }
 
-function signature(name: ActionName): string {
-    return `${name}(${inputFields(name)
-        .map(([field, entry]) => `${field}${entry.nullable ? '?' : ''}`)
-        .join(', ')})`;
+function signature(name: ActionName, fields: ReturnType<typeof inputFields>): string {
+    return `${name}(${fields.map(([field, entry]) => `${field}${entry.nullable ? '?' : ''}`).join(', ')})`;
 }
 
 /* What a tool says of itself and its actions where it runs apart from a window, as on a phone; absent keeps the catalog's words. */
@@ -190,9 +188,11 @@ export interface VoiceToolWords {
 }
 
 function toolOf(domain: ActionDomain, actions: readonly ActionName[], words: VoiceToolWords = {}): VoiceToolDefinition {
+    const inputs = new Map(actions.map((action) => [action, inputFields(action)]));
     const fields = new Map<string, { schema: JsonSchema; nullable: boolean; actions: number }>();
-    for (const action of actions) {
-        for (const [field, entry] of inputFields(action)) {
+
+    for (const [, input] of inputs) {
+        for (const [field, entry] of input) {
             const known = fields.get(field);
             fields.set(
                 field,
@@ -215,7 +215,7 @@ function toolOf(domain: ActionDomain, actions: readonly ActionName[], words: Voi
         name,
         description: [
             `${description} Actions take ids, never names. Pass null for every field the chosen action does not list; a field marked ? may be null.`,
-            ...actions.map((action) => `- ${signature(action)}: ${words.actions?.[action] ?? ACTION_DEFINITIONS[action].description}`)
+            ...actions.map((action) => `- ${signature(action, inputs.get(action)!)}: ${words.actions?.[action] ?? ACTION_DEFINITIONS[action].description}`)
         ].join('\n'),
         parameters: { type: 'object', properties, required: Object.keys(properties), additionalProperties: false },
         strict: true
