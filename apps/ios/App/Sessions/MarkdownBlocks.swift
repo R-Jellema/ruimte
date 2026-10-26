@@ -13,6 +13,8 @@ struct MarkdownBlock: Sendable, Equatable {
     var children: [MarkdownBlock] = []
     var marker = ""
     var checked: Bool?
+    /// Whether a code block's fence was closed, which a reply still streaming has not done yet.
+    var closed = true
 
     /// The gap between the items of a list, which stand closer than the blocks of a message do.
     static let itemSpacing: CGFloat = 6
@@ -55,7 +57,8 @@ struct MarkdownBlock: Sendable, Equatable {
                     code.append(lines[index])
                     index += 1
                 }
-                result.append(MarkdownBlock(kind: .code(language), text: code.joined(separator: "\n")))
+                let closed = index < lines.count
+                result.append(MarkdownBlock(kind: .code(language), text: code.joined(separator: "\n"), closed: closed))
             } else if line.contains("|"), index + 1 < lines.count, tableDivider(lines[index + 1]) {
                 flush()
                 var rows = [cells(line)]

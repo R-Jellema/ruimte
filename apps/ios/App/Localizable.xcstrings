@@ -5820,6 +5820,116 @@
         }
       }
     },
+    "Prepare in terminal" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Klaarzetten in terminal"
+          }
+        }
+      }
+    },
+    "Review the command. Ruimte pastes it without Enter, so you run it yourself." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Controleer het commando. Ruimte plakt het zonder Enter, dus je voert het zelf uit."
+          }
+        }
+      }
+    },
+    "Working folder" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Werkmap"
+          }
+        }
+      }
+    },
+    "Paste without Enter" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plakken zonder Enter"
+          }
+        }
+      }
+    },
+    "No empty zsh terminal in this folder. Open one here, or clear its input." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Geen lege zsh-terminal in deze map. Open er hier een of maak de invoer leeg."
+          }
+        }
+      }
+    },
+    "This chat's machine is not connected." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De machine van deze chat is niet verbonden."
+          }
+        }
+      }
+    },
+    "Could not prepare the command." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kon het commando niet klaarzetten."
+          }
+        }
+      }
+    },
+    "Command prepared" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commando klaargezet"
+          }
+        }
+      }
+    },
+    "Ready in %@. Press Enter there to run it." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Klaar in %@. Druk daar op Enter om het uit te voeren."
+          }
+        }
+      }
+    },
+    "Not confirmed. The command may already be in the terminal, so check its input first." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Niet bevestigd. Het commando staat mogelijk al in de terminal, dus controleer eerst de invoer."
+          }
+        }
+      }
+    },
+    "The terminal did not accept the command. Open the preview again." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De terminal nam het commando niet aan. Open het voorbeeld opnieuw."
+          }
+        }
+      }
+    },
     "Workflow running" : {
       "localizations" : {
         "nl" : {

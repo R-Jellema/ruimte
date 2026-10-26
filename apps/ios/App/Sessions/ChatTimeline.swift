@@ -1280,6 +1280,11 @@ private struct ChatTimelineRow: View {
         }
     }
 
+    /// Only the chat's own reply can hand a command to a terminal, never a sub-agent's text.
+    private func replySource(_ reply: ChatAssistantItem) -> ChatReplySource? {
+        record.item.parentToolUseID == nil ? ChatReplySource(itemID: reply.id, streaming: reply.streaming) : nil
+    }
+
     private var content: some View {
         VStack(alignment: .leading, spacing: 8) {
             switch record.item {
@@ -1297,6 +1302,7 @@ private struct ChatTimelineRow: View {
                 }
                 .environment(\.markdownTableBleed, ChatTimeline.rowInset)
                 .environment(\.chatNamesReferences, true)
+                .environment(\.chatReplySource, replySource(reply))
                 .accessibilityElement(children: .contain).accessibilityLabel("Agent")
             case .thinking(let thought):
                 ChatThinkingRow(item: thought)

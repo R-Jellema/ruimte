@@ -64,7 +64,7 @@ private struct MarkdownBlockView: View {
 
     @ViewBuilder var body: some View {
         switch block.kind {
-        case .code(let language): CodeMessage(text: block.text, language: language)
+        case .code(let language): CodeMessage(text: block.text, language: language, closed: block.closed)
         case .heading(let level):
             ChatInlineText(text: block.text, streaming: streaming)
                 .font(MarkdownHeading.font(level)).lineSpacing(2)
@@ -72,6 +72,7 @@ private struct MarkdownBlockView: View {
         case .quote:
             VStack(alignment: .leading, spacing: 8) { MarkdownBlocksView(blocks: block.children, streaming: streaming) }
                 .environment(\.markdownTableBleed, 0)
+                .environment(\.chatReplySource, nil)
                 .foregroundStyle(MobileStyle.muted).padding(.leading, 14)
                 .overlay(alignment: .leading) { Rectangle().fill(MobileStyle.border).frame(width: 3) }
         case .list:
@@ -89,6 +90,7 @@ private struct MarkdownBlockView: View {
                     MarkdownBlocksView(blocks: block.children, streaming: streaming)
                 }
                 .environment(\.markdownTableBleed, 0)
+                .environment(\.chatReplySource, nil)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         case .table:
@@ -178,7 +180,9 @@ private struct MarkdownTableCell: Layout {
 struct CodeMessage: View {
     let text: String
     var language = ""
+    var closed = true
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.chatReplySource) private var replySource
     @State private var colors = CodeHighlightState()
     @State private var wrapsLines = false
     @State private var copied = false
@@ -191,6 +195,9 @@ struct CodeMessage: View {
                         .font(.caption.weight(.medium)).foregroundStyle(MobileStyle.muted)
                         .padding(.leading, 14)
                     Spacer()
+                    if ChatShellPrepare.offers(language: language, code: text, closed: closed, source: replySource) {
+                        ChatPrepareButton(language: language, code: text)
+                    }
                     Button {
                         wrapsLines.toggle()
                     } label: {
