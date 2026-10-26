@@ -1,7 +1,10 @@
+import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ArtifactSummary, ArtifactVersion } from '@ruimte/contracts';
 import { KindTile } from '@/output/look';
 import { openArtifact } from '@/output/open';
+import { savedPreviewOf } from '@/output/saved-preview';
+import { SavedPreview } from '@/output/SavedPreview';
 
 export interface Saved {
     artifact: Pick<ArtifactSummary, 'artifactId' | 'title' | 'kind'>;
@@ -9,13 +12,24 @@ export interface Saved {
     latest: boolean;
 }
 
-// The versions a turn of a chat saved, as one block of tight rows; the timeline gives it the room around it.
-export function SavedCard({ saved }: { saved: readonly Saved[] }) {
+/*
+ * The versions a turn of a chat saved, as one block of tight rows; the timeline gives it the room around it.
+ * An artifact's last version in the block shows what it holds under its row when its kind draws inline.
+ */
+export function SavedCard({ endpointId, saved }: { endpointId: string; saved: readonly Saved[] }) {
     return (
         <div className="flex flex-col">
-            {saved.map((entry) => (
-                <SavedRow key={entry.version.versionId} {...entry} />
-            ))}
+            {saved.map((entry, index) => {
+                const preview = saved.slice(index + 1).some((later) => later.artifact.artifactId === entry.artifact.artifactId)
+                    ? null
+                    : savedPreviewOf(entry.artifact.kind, entry.version);
+                return (
+                    <Fragment key={entry.version.versionId}>
+                        <SavedRow {...entry} />
+                        {preview !== null && <SavedPreview endpointId={endpointId} entry={entry} preview={preview} />}
+                    </Fragment>
+                );
+            })}
         </div>
     );
 }

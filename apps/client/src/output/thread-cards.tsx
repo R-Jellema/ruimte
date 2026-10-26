@@ -27,13 +27,13 @@ export function useOutputThreadCards(scopeId: string, chatId: string): readonly 
         .flatMap((summary) => read[summary.artifactId] ?? [{ artifact: summary, version: summary.latest, latest: true }])
         .filter((entry) => entry.version.provenance.chatId === chatId);
     const groups = groupsBetweenItems(saved, structure === undefined ? [] : Object.values(structure).map((item) => item.createdAt));
-    const shape = groups
+    const shape = `${scopeId}\n\n${groups
         .map((group) => group.map((entry) => `${entry.version.versionId}:${entry.latest}:${entry.artifact.title}:${entry.artifact.kind}`).join('\n'))
-        .join('\n\n');
+        .join('\n\n')}`;
     const [held, setHeld] = useState<{ shape: string; cards: readonly ThreadCard[] }>({ shape: '', cards: NO_CARDS });
     // The thread lays its rows out again on every new array, so a new one is made only when what it shows changed.
     if (held.shape !== shape) {
-        setHeld({ shape, cards: groups.map(cardOf) });
+        setHeld({ shape, cards: groups.map((group) => cardOf(scopeId, group)) });
     }
     return held.cards;
 }
@@ -78,11 +78,11 @@ function useReadVersions(endpointId: string, artifacts: readonly ArtifactSummary
 }
 
 // Placed at the last version, so a turn's card stands under the commands that made it.
-function cardOf(group: readonly Saved[]): ThreadCard {
+function cardOf(endpointId: string, group: readonly Saved[]): ThreadCard {
     const first = group[0]!.version;
     return {
         id: `output:${first.versionId}`,
         at: group.at(-1)!.version.createdAt,
-        render: () => <SavedCard saved={group} />
+        render: () => <SavedCard endpointId={endpointId} saved={group} />
     };
 }

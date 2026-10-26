@@ -147,7 +147,9 @@
     "card": {
         "saved": "Bewaard in Output",
         "savedVersion": "Versie {{number}} bewaard in Output",
-        "row": "{{title}}, {{what}}"
+        "row": "{{title}}, {{what}}",
+        "showAll": "Alles tonen",
+        "showLess": "Minder tonen"
     },
     "chat": {
         "save": "Bewaar in Output",

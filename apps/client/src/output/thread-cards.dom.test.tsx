@@ -195,6 +195,27 @@ describe('what a chat saved to Output', () => {
         expect(useArtifactSelection.getState().versions['artifact:shot']).toBe('shot-v1');
     });
 
+    test('a report an agent published shows its text under its row, so the reply need not repeat it', async () => {
+        const body = '# Morning summary\n\n| Check | State |\n| --- | --- |\n| Build | green |\n';
+        const report = artifact('morning', 'Morning summary', 'report');
+        saved = [
+            {
+                ...report,
+                latest: {
+                    ...report.latest,
+                    files: [{ name: 'morning.md', mime: 'text/markdown', size: body.length, sha256: 'bb' }],
+                    provenance: { maker: 'agent', machineId: 'mac', chatId }
+                }
+            }
+        ];
+        machine.answer('bytes.read', ({ offset }) => ({ mime: 'text/markdown', size: body.length, version: 'v', offset, data: btoa(body.slice(offset)) }));
+        await act(async () => machine.emit('artifact.changed', { artifactId: 'morning', projectId: 'project-atlas' }));
+
+        await until(() => page.host.querySelector('[role="group"][aria-label="Morning summary"]')?.textContent?.includes('green') === true);
+        expect(machine.requests('bytes.read')[0]!.resource).toEqual({ kind: 'artifact', artifactId: 'morning', versionId: 'morning-v1', file: 0 });
+        expect(page.host.querySelector('button[aria-label="Morning summary, Saved to Output"]')).not.toBeNull();
+    });
+
     test('a visual and a generated image offer Save to Output, which names them by id', async () => {
         const visualActions = WORKSPACE_CHAT_HOST.visuals!.actions!(workspaceEndpoint(), chatId, {
             id: 'visual-1',

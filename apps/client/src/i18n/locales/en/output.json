@@ -147,7 +147,9 @@
     "card": {
         "saved": "Saved to Output",
         "savedVersion": "Version {{number}} saved to Output",
-        "row": "{{title}}, {{what}}"
+        "row": "{{title}}, {{what}}",
+        "showAll": "Show all",
+        "showLess": "Show less"
     },
     "chat": {
         "save": "Save to Output",
