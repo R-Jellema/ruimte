@@ -25,6 +25,7 @@ export const REQUEST_AREAS = [
     'archive',
     'auth',
     'browser',
+    'bridge',
     'bytes',
     'chat',
     'computer',
