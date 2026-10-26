@@ -113,6 +113,22 @@ import UIKit
         try await render(sections.navigationTitle("Scheduled"), name: "scheduled")
     }
 
+    /// Every tone on the shared row and the glyph label of a machine, at the default size and at the largest, where the
+    /// glyph has to stay on the title's line.
+    @Test(.enabled(if: folder != nil)) func statusRows() async throws {
+        for (name, typeSize) in [("rows", DynamicTypeSize.large), ("rows-large-type", .accessibility2)] {
+            let rows = MobileList {
+                MobileRowGroup(items: MobileTone.allCases.map { SnapshotTone(tone: $0) }) { item in
+                    MobileStatusRow(
+                        tone: item.tone, title: item.tone.label, subtitle: "score-engine · MacBook Pro", value: "2 min")
+                }
+                MobileGlyphLabel(title: "MacBook Pro", subtitle: "Connected via relay", symbol: "laptop")
+                MobileGlyphLabel(title: "Mac Studio", subtitle: "Offline", symbol: "server")
+            }
+            try await render(rows.navigationTitle("Rows").dynamicTypeSize(typeSize), name: name)
+        }
+    }
+
     private func now(_ board: NowBoard, comingUp: [NowComingUp] = []) -> some View {
         MobileList {
             NowSections(
@@ -219,4 +235,9 @@ import UIKit
                 "runs": .array(runs),
             ]))
     }
+}
+
+private struct SnapshotTone: Identifiable {
+    let tone: MobileTone
+    var id: String { tone.label }
 }
