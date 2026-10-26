@@ -102,7 +102,6 @@ export function shortcutFor(id: KeymapId, apple: boolean): Shortcut | undefined 
     return chord === null ? undefined : shortcut(chord);
 }
 
-/* The key on this platform. */
 export function editorShortcut(id: KeymapId): Shortcut | undefined {
     return shortcutFor(id, isApplePlatform());
 }

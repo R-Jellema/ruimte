@@ -86,7 +86,6 @@ export interface MenuContext {
     moveTargets: { id: string; name: string }[];
     layouts: string[];
     agents: MenuAgent[];
-    /* The launches of the project, in their order. */
     launches: MenuLaunch[];
     /* The launch on the chip, which the Run menu's first rows act on. */
     chosenLaunch: string | null;

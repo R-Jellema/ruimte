@@ -299,7 +299,6 @@ export function dropAsTab(layout: SplitLayout, viewId: string, at: CellAt, index
     return settled(replaceCell(columns, source, withoutTab(cellAt(layout, source)!, viewId)), at);
 }
 
-/* The view's cell gets the focus and the view becomes its active tab. */
 export function activateTab(layout: SplitLayout, viewId: string): SplitLayout {
     const at = locateView(layout, viewId);
     if (at === null) {
@@ -343,7 +342,6 @@ export function moveTabBy(layout: SplitLayout, viewId: string, delta: number): S
     return { ...layout, columns: replaceCell(layout.columns, at, { ...cell, tabs }) };
 }
 
-/* A host with exactly one tab becomes a plain cell again; anything else is left alone. */
 export function ungroup(layout: SplitLayout, at: CellAt): SplitLayout {
     const cell = cellAt(layout, at);
     if (cell === null || cell.tabs === undefined || cell.tabs.length !== 1) {
@@ -384,16 +382,14 @@ export function replaceViewId(layout: SplitLayout, from: string, to: string): Sp
 /* What showing a view did, which is everything the way back needs. */
 export interface ShownView {
     layout: SplitLayout;
-    /* The cell the view is standing in now. */
     at: CellAt;
     /* The view that made room for it, null when the view was already on screen or came in as a tab. */
     replaced: string | null;
-    /* The cell the person was working in, which is where the focus goes back to. */
+    /* The cell the person was working in, where the focus goes back to. */
     from: CellAt;
-    /* Set when the view came in as a tab: what taking it out again needs to know. */
+    /* Set when the view came in as a tab. */
     tab?: {
         viewId: string;
-        /* The tab that was active before, which the cell goes back to. */
         activeBefore: string;
         /* The cell was a plain one that became a host for this tab. */
         wasPlain: boolean;
@@ -517,7 +513,6 @@ export function closeCell(layout: SplitLayout, at: CellAt): SplitLayout | null {
     return settled(columns, target);
 }
 
-/* Every cell but the one at `at`, which then fills the grid and has the focus. */
 export function closeOtherCells(layout: SplitLayout, at: CellAt): SplitLayout {
     const kept = cellAt(layout, at);
     if (kept === null || cellCount(layout) === 1) {
@@ -526,7 +521,6 @@ export function closeOtherCells(layout: SplitLayout, at: CellAt): SplitLayout {
     return { columns: [{ size: 1, cells: [{ ...kept, size: 1 }] }], focus: { column: 0, cell: 0 } };
 }
 
-/* The cells in the columns right of the one `at` stands in, which is what "close to the right" closes. */
 export function cellsRightOf(layout: SplitLayout, at: CellAt): number {
     return layout.columns.slice(at.column + 1).reduce((total, column) => total + column.cells.length, 0);
 }
@@ -685,12 +679,11 @@ function evenOut<T extends { size: number }>(items: readonly T[], at: number, al
     return items.map((item, index) => (index === at - 1 || index === at ? { ...item, size: half } : item));
 }
 
-/* A double click on the splitter in front of column `at`. */
 export function evenColumns(layout: SplitLayout, at: number, all: boolean): SplitLayout {
     return { ...layout, columns: evenOut(layout.columns, at, all) };
 }
 
-/* A double click on the splitter in front of cell `at` of a column; `all` stays inside that column. */
+/* `all` stays inside the column. */
 export function evenCells(layout: SplitLayout, column: number, at: number, all: boolean): SplitLayout {
     if (layout.columns[column] === undefined) {
         return layout;
