@@ -78,13 +78,15 @@ export async function rewriteDocument(document: unknown, secret: string, key: st
         return withoutTomTom(document);
     }
     const out: Record<string, unknown> = { ...document };
+    const address = async (kind: GrantKind, value: unknown): Promise<unknown> =>
+        typeof value === 'string' ? granted(secret, key, origin, kind, value) : withoutTomTom(value);
     const tiles = async (list: unknown): Promise<unknown> =>
         Array.isArray(list) ? Promise.all(list.map((entry) => granted(secret, key, origin, 'tile', entry))) : withoutTomTom(list);
     if ('sprite' in out) {
-        out.sprite = typeof out.sprite === 'string' ? await granted(secret, key, origin, 'sprite', out.sprite) : withoutTomTom(out.sprite);
+        out.sprite = await address('sprite', out.sprite);
     }
     if ('glyphs' in out) {
-        out.glyphs = typeof out.glyphs === 'string' ? await granted(secret, key, origin, 'glyphs', out.glyphs) : withoutTomTom(out.glyphs);
+        out.glyphs = await address('glyphs', out.glyphs);
     }
     if ('tiles' in out) {
         out.tiles = await tiles(out.tiles);
@@ -101,7 +103,7 @@ export async function rewriteDocument(document: unknown, secret: string, key: st
                 next.tiles = await tiles(next.tiles);
             }
             if ('url' in next) {
-                next.url = typeof next.url === 'string' ? await granted(secret, key, origin, 'json', next.url) : withoutTomTom(next.url);
+                next.url = await address('json', next.url);
             }
             for (const name of Object.keys(next)) {
                 if (name !== 'tiles' && name !== 'url') {

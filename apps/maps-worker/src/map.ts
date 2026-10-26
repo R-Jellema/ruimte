@@ -52,25 +52,26 @@ export async function fetchMapResource(deps: Deps, env: Env, resource: Resource,
     } catch {
         return failure('upstream', 'The map provider did not answer');
     }
-    if (upstream.status === 404) {
+    const refuse = async (refusal: Response): Promise<Response> => {
         await upstream.body?.cancel();
-        return failure('not-found', 'No such map resource');
+        return refusal;
+    };
+
+    if (upstream.status === 404) {
+        return refuse(failure('not-found', 'No such map resource'));
     }
     if (upstream.status === 429) {
-        await upstream.body?.cancel();
-        return failure('rate-limited', 'The map provider is limiting this service, try again later', { 'retry-after': '60' });
+        return refuse(failure('rate-limited', 'The map provider is limiting this service, try again later', { 'retry-after': '60' }));
     }
     if (!upstream.ok) {
         // Whatever TomTom said may echo the key, so the client gets only that it failed.
-        await upstream.body?.cancel();
-        return failure('upstream', `The map provider refused the request (${upstream.status})`);
+        return refuse(failure('upstream', `The map provider refused the request (${upstream.status})`));
     }
     const seconds = cacheSeconds(upstream.headers);
     const contentType = upstream.headers.get('content-type');
     const kind = bodyKind(contentType);
     if (kind === 'refused') {
-        await upstream.body?.cancel();
-        return failure('upstream', 'The map provider sent a kind of body this service does not pass on');
+        return refuse(failure('upstream', 'The map provider sent a kind of body this service does not pass on'));
     }
     let body: BodyInit | null = upstream.body;
     if (kind === 'json') {

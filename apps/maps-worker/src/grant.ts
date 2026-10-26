@@ -23,7 +23,7 @@ export interface Grant {
 const SEGMENT = /^(?:[A-Za-z0-9._~*@-]|\{(?:z|x|y|fontstack|range)\})+$/;
 
 /* Only map display and its assets, in plain characters: a `%` in what the style names is not an address this service serves. */
-export function validTemplatePath(path: string): boolean {
+function validTemplatePath(path: string): boolean {
     const segments = path.split('/');
     return (
         path.length <= 300 &&
