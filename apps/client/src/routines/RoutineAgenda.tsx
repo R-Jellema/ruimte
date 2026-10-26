@@ -48,6 +48,8 @@ interface AgendaProps {
     week: AgendaWeek;
     now: number;
     timeZone: string;
+    /* No routine to show: the empty state over the week has the attention, so nothing here asks for it. */
+    empty?: boolean;
 }
 
 function todayIndex(week: AgendaWeek, now: number): number {
@@ -58,7 +60,7 @@ function todayIndex(week: AgendaWeek, now: number): number {
  * The week: a row per routine under its project, with a block per run on the day it was due, the times
  * still to come outlined, and a line at now. Dragging across the days of the bottom row makes a routine on those days.
  */
-export function RoutineAgenda({ endpointId, projectId, groups, grouped, week, now, timeZone }: AgendaProps) {
+export function RoutineAgenda({ endpointId, projectId, groups, grouped, week, now, timeZone, empty = false }: AgendaProps) {
     const { t } = useTranslation('routines');
     const [picked, setPicked] = useState<PickedRun | null>(null);
     const today = todayIndex(week, now);
@@ -74,7 +76,7 @@ export function RoutineAgenda({ endpointId, projectId, groups, grouped, week, no
                         <span key={day.date} className={clsx('border-l border-border-soft', index === today && 'bg-surface-hover/40')} />
                     ))}
                 </div>
-                <div className={`${GRID} sticky top-0 z-[1] h-12 items-end border-b border-border bg-surface pb-2 text-xs`} role="row">
+                <div className={`${GRID} sticky top-0 z-[1] h-14 items-end border-b border-border bg-surface pb-2 text-xs`} role="row">
                     <span role="columnheader">
                         <span className="sr-only">{t('agenda.routine')}</span>
                     </span>
@@ -83,7 +85,7 @@ export function RoutineAgenda({ endpointId, projectId, groups, grouped, week, no
                             <span
                                 className={clsx(
                                     'flex items-center gap-1 rounded-md px-1.5 py-0.5',
-                                    index === today ? 'bg-accent font-medium text-accent-text' : 'text-text-muted'
+                                    index === today ? 'font-medium text-text' : 'text-text-muted'
                                 )}
                             >
                                 {formatDateTime(day.start + NOON_MS, { weekday: 'short', timeZone })}
@@ -116,14 +118,21 @@ export function RoutineAgenda({ endpointId, projectId, groups, grouped, week, no
                         ))}
                     </div>
                 ))}
-                <DragRow endpointId={endpointId} projectId={projectId} grouped={grouped} week={week} timeZone={timeZone} />
+                {!empty && <DragRow endpointId={endpointId} projectId={projectId} grouped={grouped} week={week} timeZone={timeZone} />}
                 {nowAt !== null && (
                     <div
                         aria-hidden="true"
-                        className="pointer-events-none absolute top-0 bottom-0 z-[2] w-px bg-accent"
+                        className="pointer-events-none absolute top-0 bottom-0 z-[2] w-px"
                         style={{ left: `calc(${NAME_COLUMN}px + (100% - ${NAME_COLUMN}px) * ${nowAt})` }}
                     >
-                        <span className="absolute top-1 left-1/2 -translate-x-1/2 rounded-sm bg-accent px-1 text-2xs font-medium text-accent-text tabular-nums">
+                        {/* Under the day headers only, so it never runs through a day's name. */}
+                        <span className={clsx('absolute top-14 bottom-0 w-px', empty ? 'bg-text-faint' : 'bg-accent')} />
+                        <span
+                            className={clsx(
+                                'absolute top-1 left-1/2 -translate-x-1/2 rounded-sm px-1 text-2xs font-medium tabular-nums',
+                                empty ? 'bg-surface-raised text-text-muted' : 'bg-accent text-accent-text'
+                            )}
+                        >
                             {formatClock(now, timeZone)}
                         </span>
                     </div>
@@ -162,7 +171,7 @@ export function RoutineWeekList({ endpointId, groups, week, now, timeZone }: Omi
                             aria-label={formatDateTime(day.start + NOON_MS, { weekday: 'long', day: 'numeric', month: 'long', timeZone })}
                         >
                             <h3 className="flex items-center gap-2 px-1 pb-1 text-xs">
-                                <span className={clsx('rounded-md px-1.5 py-0.5 font-medium', index === today ? 'bg-accent text-accent-text' : 'text-text')}>
+                                <span className={clsx('rounded-md px-1.5 py-0.5 font-medium', index === today ? 'bg-surface-hover text-text' : 'text-text')}>
                                     {formatDateTime(day.start + NOON_MS, { weekday: 'long', day: 'numeric', month: 'long', timeZone })}
                                 </span>
                             </h3>

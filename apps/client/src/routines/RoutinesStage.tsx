@@ -117,14 +117,15 @@ function WeekStage({ endpointId, result, projectId, projectName }: { endpointId:
                 <span className="truncate text-base font-medium text-text">{rangeWords(week, result.timeZone)}</span>
                 <span className="shrink-0 text-xs text-text-faint">{t('stage.week', { number: week.number })}</span>
                 <IconButton icon={Info} size="sm" label={t('side.legend')} tooltip={<AgendaLegend />} />
+                <span className="grow" />
                 <ButtonGroup>
                     <IconButton icon={ChevronLeft} size="sm" label={t('stage.previousWeek')} onClick={() => stepWeek(-1)} />
                     <IconButton icon={ChevronRight} size="sm" label={t('stage.nextWeek')} onClick={() => stepWeek(1)} />
                 </ButtonGroup>
-                <Button size="sm" variant="secondary" disabled={offset === 0} onClick={() => stepWeek(0)}>
+                <Button size="sm" disabled={offset === 0} onClick={() => stepWeek(0)}>
                     {t('stage.today')}
                 </Button>
-                <span className="grow" />
+                <Separator />
                 <Segmented
                     label={t('layout.label')}
                     size="sm"
@@ -159,13 +160,14 @@ function WeekStage({ endpointId, result, projectId, projectName }: { endpointId:
                             endpointId={endpointId}
                             projectId={projectId}
                             groups={[]}
+                            empty
                             grouped={false}
                             week={week}
                             now={now}
                             timeZone={result.timeZone}
                         />
                         {/* Over the empty week, which shows through, and never in the way of a drag across the days. */}
-                        <div className="pointer-events-none absolute inset-x-0 top-12 bottom-0 grid place-items-center bg-surface/50 p-6">
+                        <div className="pointer-events-none absolute inset-x-0 top-14 bottom-0 grid place-items-center bg-surface/50 p-6">
                             <EmptyState icon={Clock} title={t('stage.emptyTitle')}>
                                 {t('stage.empty')}
                             </EmptyState>
