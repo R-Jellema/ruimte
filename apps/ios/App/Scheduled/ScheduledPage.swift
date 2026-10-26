@@ -125,6 +125,9 @@ struct ScheduledSections: View {
         if !board.needsYou.isEmpty {
             Section {
                 ForEach(board.needsYou) { wait in
+                    if wait.id != board.needsYou.first?.id {
+                        MobileRowDivider(betweenCards: true).listRowInsets(NowSections.cardInsets)
+                    }
                     card(wait)
                         .accessibilityIdentifier("scheduled.wait.\(wait.item.entry.id)")
                         .listRowInsets(NowSections.cardInsets)

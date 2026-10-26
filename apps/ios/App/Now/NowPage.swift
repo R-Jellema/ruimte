@@ -61,10 +61,11 @@ struct NowSections: View {
     let openProject: (ProjectViewTarget) -> Void
     let openRoutine: (ScheduledRoute) -> Void
 
-    /// Half the gap between two cards above and below each, so they stand the design's 12 apart.
+    /// Half the gap between two cards above and below each. A card pads its own content, so its sides stand in from the
+    /// margin by that padding and the content lines up with the page.
     static let cardInsets = EdgeInsets(
-        top: MobileSpacing.medium / 2, leading: MobileSpacing.margin, bottom: MobileSpacing.medium / 2,
-        trailing: MobileSpacing.margin)
+        top: MobileSpacing.medium / 2, leading: MobileSpacing.margin - MobileSpacing.cardPadding,
+        bottom: MobileSpacing.medium / 2, trailing: MobileSpacing.margin - MobileSpacing.cardPadding)
 
     var body: some View {
         if board.needsYou.isEmpty {
@@ -72,6 +73,9 @@ struct NowSections: View {
         } else {
             Section {
                 ForEach(board.needsYou) { entry in
+                    if entry.id != board.needsYou.first?.id {
+                        MobileRowDivider(betweenCards: true).listRowInsets(Self.cardInsets)
+                    }
                     NowCard(
                         now: now, entry: entry,
                         subtitle: NowCard.subtitle(entry, namesMachine: board.namesMachines, at: date),

@@ -1,8 +1,8 @@
 import RuimtePulsar
 import SwiftUI
 
-/// The one card of the app: a panel with a radius of 20 and a hairline. Rows inside one pass `padding: 0` and pad
-/// themselves, so their dividers run to the card's edge.
+/// The one card of the app: a group of content straight on the page, without a ground or an edge, held apart by the
+/// lines between its rows. Rows inside one pass `padding: 0` and pad themselves.
 struct MobileCardSurface: ViewModifier {
     var padding: CGFloat = MobileSpacing.cardPadding
 
@@ -10,8 +10,6 @@ struct MobileCardSurface: ViewModifier {
         content
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(MobileStyle.panel, in: .rect(cornerRadius: MobileMetrics.cardRadius))
-            .overlay(RoundedRectangle(cornerRadius: MobileMetrics.cardRadius).strokeBorder(MobileStyle.hairline))
     }
 }
 
@@ -31,14 +29,17 @@ struct MobileCard<Content: View>: View {
     }
 }
 
-/// The line between two rows of a card, starting where the row's text does.
+/// The line between two rows of a card, starting where the row's text does, or between two cards, starting where the
+/// card's content does.
 struct MobileRowDivider: View {
+    var betweenCards = false
     @Environment(\.displayScale) private var displayScale
     @ScaledMetric(relativeTo: .subheadline) private var column = MobileMetrics.statusColumn
 
     var body: some View {
         MobileStyle.hairline.frame(height: 1 / displayScale)
-            .padding(.leading, MobileSpacing.cardPadding + column + MobileSpacing.medium)
+            .padding(
+                .leading, MobileSpacing.cardPadding + (betweenCards ? 0 : column + MobileSpacing.medium))
             .accessibilityHidden(true)
     }
 }
@@ -156,7 +157,10 @@ struct MobileSectionHeader: View {
             Spacer(minLength: 0)
         }
         .textCase(nil)
-        .padding(.horizontal, MobileSpacing.xSmall)
+        .listRowInsets(
+            EdgeInsets(
+                top: MobileSpacing.small, leading: MobileSpacing.margin, bottom: MobileSpacing.xSmall,
+                trailing: MobileSpacing.margin))
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
     }

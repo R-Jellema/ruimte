@@ -211,7 +211,6 @@ struct ProjectMachineHeading: View {
             .font(.footnote)
             .foregroundStyle(MobileStyle.muted)
         }
-        .padding(.horizontal, MobileSpacing.xSmall)
         .padding(.top, MobileSpacing.small)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
