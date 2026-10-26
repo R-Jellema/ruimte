@@ -22,7 +22,7 @@ export function RoutineSide({ endpointId, entries, grouped, timeZone }: { endpoi
         return null;
     }
     return (
-        <aside className="flex w-[288px] shrink-0 flex-col overflow-y-auto border-l border-border" aria-label={t('side.label')}>
+        <aside className="flex w-[248px] shrink-0 flex-col overflow-y-auto border-l border-border" aria-label={t('side.label')}>
             {held.length > 0 && (
                 <section className="flex flex-col gap-2 border-b border-border p-3" aria-label={t('side.approvals')}>
                     <SectionLabel render={<h3 />} className="flex items-center gap-2">

@@ -16,8 +16,9 @@ import { RoutineRunPopover, type PickedRun } from '@/routines/RoutineRunPopover'
 import { showRoutine } from '@/routines/stage';
 import { blockWords, rowStatus, scheduleWords, spanWords } from '@/routines/words';
 
-const NAME_COLUMN = 264;
-const GRID = 'grid grid-cols-[264px_repeat(7,minmax(0,1fr))]';
+const NAME_COLUMN = 208;
+// A day never narrower than a block that says "09:00 · 3m"; a narrow stage scrolls sideways instead.
+const GRID = 'grid grid-cols-[208px_repeat(7,minmax(100px,1fr))]';
 // A day's noon, so a date written from its midnight never slips to the day before around a clock change.
 const NOON_MS = 12 * 60 * 60 * 1000;
 
@@ -65,10 +66,10 @@ export function RoutineAgenda({ endpointId, projectId, groups, grouped, week, no
 
     return (
         <div className="flex min-h-0 min-w-0 grow flex-col overflow-auto">
-            <div className="relative" role="grid" aria-label={t('agenda.label')}>
+            <div className="relative min-w-[908px]" role="grid" aria-label={t('agenda.label')}>
                 <div className={`${GRID} sticky top-0 z-[1] h-12 items-end border-b border-border bg-surface pb-2 text-xs`} role="row">
-                    <span role="columnheader" className="sr-only">
-                        {t('agenda.routine')}
+                    <span role="columnheader">
+                        <span className="sr-only">{t('agenda.routine')}</span>
                     </span>
                     {week.days.map((day, index) => (
                         <span key={day.date} role="columnheader" className="flex px-2">
@@ -332,7 +333,7 @@ function Block({
         </>
     );
     const className = clsx(
-        'flex h-7 w-full min-w-0 items-center gap-1.5 px-2 text-xs',
+        'flex h-7 w-full min-w-0 items-center gap-1 px-1.5 text-xs',
         blockClass(block.look),
         picked && 'outline-2 outline-offset-1 outline-accent'
     );
