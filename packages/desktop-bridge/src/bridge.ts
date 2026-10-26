@@ -147,9 +147,9 @@ export interface DesktopBridge {
     /* The application menu, built from what has the focus (`shell/menu`). A click comes back as the
        command's id. Without them the shell keeps its own fixed menu. */
     setMenu?(spec: MenuSpec): void;
+    onMenuCommand?(listener: (id: string) => void): () => void;
     /* Retained by the shell after its last window closes, for the native quit question. */
     setLanguage?(language: string): void;
-    onMenuCommand?(listener: (id: string) => void): () => void;
     isFullscreen(): Promise<boolean>;
     onFullscreen(listener: (fullscreen: boolean) => void): () => void;
     /* For the native window controls, the `prefers-color-scheme` of every hosted page, and the ground
