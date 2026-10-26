@@ -1,4 +1,3 @@
-import type { KnownAgentKind } from '@adecore/agent-contracts/agent';
 import { z } from 'zod';
 
 /*
@@ -10,14 +9,11 @@ export const USAGE_PATH = '/v1/usage';
 
 // A machine sends at most the last seven finished days it missed; one day more absorbs a slow clock.
 export const USAGE_MAX_DAYS_PER_BATCH = 7;
-export const USAGE_MAX_AGE_DAYS = 8;
+const USAGE_MAX_AGE_DAYS = 8;
 
 // Well above a heavy day of one machine, so only a broken or forged counter meets it. A machine clamps before it sends.
 export const USAGE_MAX_COUNT = 100_000;
 export const USAGE_MAX_STARTUP_MS = 600_000;
-
-// The versions the release scripts never ship; a test batch carries one so every view of the data can leave it out.
-export const USAGE_TEST_VERSION_PREFIX = '0.0.0';
 
 // The fields of the address book's batch, frozen: daemons before 0.22 send exactly these, and the batch is read strictly.
 export const USAGE_POINTS = {
@@ -85,14 +81,14 @@ export const USAGE_POINT_KINDS = Object.keys(USAGE_POINTS) as UsagePointKind[];
 export type UsageField = (typeof USAGE_POINTS)[UsagePointKind][number];
 
 // The fields of `day` that describe the day rather than count something in it.
-export const USAGE_DAY_MEASURES = ['active', 'firstThisWeek', 'firstThisMonth', 'startupMs'] as const;
-export type UsageDayMeasure = (typeof USAGE_DAY_MEASURES)[number];
+const USAGE_DAY_MEASURES = ['active', 'firstThisWeek', 'firstThisMonth', 'startupMs'] as const;
+type UsageDayMeasure = (typeof USAGE_DAY_MEASURES)[number];
 
 export type UsageCounter = Exclude<UsageField, UsageDayMeasure>;
 
 const MEASURES: ReadonlySet<string> = new Set(USAGE_DAY_MEASURES);
 
-export const USAGE_COUNTERS = USAGE_POINT_KINDS.flatMap((kind) => USAGE_POINTS[kind].filter((key) => !MEASURES.has(key))) as UsageCounter[];
+const USAGE_COUNTERS = USAGE_POINT_KINDS.flatMap((kind) => USAGE_POINTS[kind].filter((key) => !MEASURES.has(key))) as UsageCounter[];
 
 /*
  * The project view kinds a machine counts openings of, and the counter of each. A kind added to the
@@ -109,15 +105,6 @@ export const USAGE_VIEW_COUNTERS = {
     file: 'viewsFile',
     database: 'viewsDatabase'
 } as const satisfies Record<string, UsageCounter>;
-
-// Only the kinds the batch has counters for; a chat of any other kind is not counted.
-export const USAGE_CHAT_COUNTERS = {
-    claude: { chats: 'chatsClaude', turns: 'turnsClaude' },
-    codex: { chats: 'chatsCodex', turns: 'turnsCodex' },
-    gemini: { chats: 'chatsGemini', turns: 'turnsGemini' },
-    copilot: { chats: 'chatsCopilot', turns: 'turnsCopilot' },
-    apple: { chats: 'chatsApple', turns: 'turnsApple' }
-} as const satisfies Record<KnownAgentKind, { chats: UsageCounter; turns: UsageCounter }>;
 
 // Every `ruimte-context` verb in one group, since the batch has fewer counters than there are verbs.
 export const USAGE_VERB_COUNTERS = {

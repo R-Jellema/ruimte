@@ -6,7 +6,7 @@ import { mapsTicketBytes } from './signing.ts';
 export const MAPS_TICKET_LIFETIME_MS = 3_600_000;
 
 // The secret is 32 random bytes in base64url; anything shorter would make every ticket cheaper to forge.
-export const MAPS_SECRET_MIN_BYTES = 32;
+const MAPS_SECRET_MIN_BYTES = 32;
 
 const SUBJECT_KEY_PURPOSE = 'pulsar-maps-ticket-subject-v1';
 const PATH_KEY_PURPOSE = 'pulsar-maps-path-key-v1';

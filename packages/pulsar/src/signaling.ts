@@ -10,7 +10,7 @@ import { AccessStatementSchema, PeerStatementSchema } from './address-book.ts';
  * candidate is there for a peer that trickles, and close is how either side gives up on an attempt.
  */
 
-export const SDP_MAX_LENGTH = 32_768;
+const SDP_MAX_LENGTH = 32_768;
 
 /*
  * What an offer from a key the machine has never paired with carries to get in: a statement from the

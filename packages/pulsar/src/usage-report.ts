@@ -24,7 +24,7 @@ export const USAGE_REPORT_MAX_BYTES = 32 * 1024;
 export const USAGE_PROVIDERS = ['claude', 'codex', 'copilot', 'grok', 'antigravity', 'apple', 'nanogpt', 'other'] as const;
 export type UsageProvider = (typeof USAGE_PROVIDERS)[number];
 
-export const USAGE_MODEL_FAMILIES = [
+const USAGE_MODEL_FAMILIES = [
     'fable',
     'opus',
     'sonnet',
@@ -45,7 +45,7 @@ export const USAGE_MODEL_FAMILIES = [
 export type UsageModelFamily = (typeof USAGE_MODEL_FAMILIES)[number];
 
 // The runtime modes of `@adecore/agent-contracts` a chat turn ran with, and plan mode beside them, in Observatory's alphabet.
-export const USAGE_MODES = ['supervised', 'autoAcceptEdits', 'auto', 'fullAccess', 'plan'] as const;
+const USAGE_MODES = ['supervised', 'autoAcceptEdits', 'auto', 'fullAccess', 'plan'] as const;
 export type UsageMode = (typeof USAGE_MODES)[number];
 
 const MODE_OF: Readonly<Record<string, UsageMode>> = {
@@ -62,10 +62,10 @@ export function usageModeOf(mode: string): UsageMode | null {
 }
 
 // How a connection to a machine went: this machine's own socket, the local network, a direct channel or one through TURN.
-export const USAGE_CONNECTION_PATHS = ['local', 'lan', 'direct', 'turn'] as const;
+const USAGE_CONNECTION_PATHS = ['local', 'lan', 'direct', 'turn'] as const;
 
 // Why a connection to a machine did not open.
-export const USAGE_CONNECT_FAILURES = ['timeout', 'refused', 'signaling', 'ice', 'closed', 'other'] as const;
+const USAGE_CONNECT_FAILURES = ['timeout', 'refused', 'signaling', 'ice', 'closed', 'other'] as const;
 
 // Observatory's limit; a day stays far below it, since zeros are left out.
 export const USAGE_REPORT_MAX_COUNTERS = 500;

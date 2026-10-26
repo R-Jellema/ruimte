@@ -43,7 +43,7 @@ export const SESSION_REFRESH_MAX_SKEW_MS = 600_000;
  */
 export const APP_REDIRECT_SCHEME_URI = 'ruimte://pulsar/callback';
 export const APP_REDIRECT_LOOPBACK_PATH = '/pulsar/callback';
-export const WEB_REDIRECT_URIS: readonly string[] = ['https://station.ruimte.app/pulsar/callback', 'http://localhost:4212/pulsar/callback'];
+const WEB_REDIRECT_URIS: readonly string[] = ['https://station.ruimte.app/pulsar/callback', 'http://localhost:4212/pulsar/callback'];
 
 export function isAppRedirectUri(value: string): boolean {
     if (value === APP_REDIRECT_SCHEME_URI || WEB_REDIRECT_URIS.includes(value)) {
@@ -81,10 +81,7 @@ export const LoginStartQuerySchema = z.object({
      * A link token from `POST /v1/account/link`: this login adds an identity to the signed-in account
      * instead of opening a session, and the code it ends in goes to `POST /v1/account/identities`.
      */
-    link: z
-        .string()
-        .regex(/^[A-Za-z0-9_-]{43}$/, 'Expected a token')
-        .optional()
+    link: TokenSchema.optional()
 });
 export type LoginStartQuery = z.infer<typeof LoginStartQuerySchema>;
 
@@ -402,6 +399,16 @@ export const RegisterMachineResultSchema = z.object({
 });
 export type RegisterMachineResult = z.infer<typeof RegisterMachineResultSchema>;
 
+function lifetimeCheck(
+    what: string,
+    lifetimeMs: number
+): [(statement: { issuedAt: number; expiresAt: number }) => boolean, { message: string; path: string[] }] {
+    return [
+        (statement) => statement.expiresAt > statement.issuedAt && statement.expiresAt - statement.issuedAt <= lifetimeMs,
+        { message: `${what} is valid for at most ${lifetimeMs} ms`, path: ['expiresAt'] }
+    ];
+}
+
 /*
  * `POST /v1/statements`: a signed-in client asking for a statement to show one machine. The client
  * picks the nonce fresh for every request and the machine spends it, so a statement opens that machine
@@ -432,10 +439,7 @@ export const AccessStatementSchema = z
         accountId: AccountSchema.shape.id.optional(),
         accountSignature: SignatureSchema.optional()
     })
-    .refine((statement) => statement.expiresAt > statement.issuedAt && statement.expiresAt - statement.issuedAt <= ACCESS_STATEMENT_LIFETIME_MS, {
-        message: `A statement is valid for at most ${ACCESS_STATEMENT_LIFETIME_MS} ms`,
-        path: ['expiresAt']
-    });
+    .refine(...lifetimeCheck('A statement', ACCESS_STATEMENT_LIFETIME_MS));
 export type AccessStatement = z.infer<typeof AccessStatementSchema>;
 
 /*
@@ -468,10 +472,7 @@ export const PeerStatementSchema = z
         expiresAt: z.number().int().min(0),
         signature: SignatureSchema
     })
-    .refine((statement) => statement.expiresAt > statement.issuedAt && statement.expiresAt - statement.issuedAt <= PEER_STATEMENT_LIFETIME_MS, {
-        message: `A peer statement is valid for at most ${PEER_STATEMENT_LIFETIME_MS} ms`,
-        path: ['expiresAt']
-    });
+    .refine(...lifetimeCheck('A peer statement', PEER_STATEMENT_LIFETIME_MS));
 export type PeerStatement = z.infer<typeof PeerStatementSchema>;
 
 export const AddressBookErrorCodeSchema = z.enum([
