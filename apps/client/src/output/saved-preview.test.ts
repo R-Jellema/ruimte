@@ -15,30 +15,30 @@ function version(maker: 'agent' | 'person' | 'routine', files: { name: string; m
 }
 
 describe('what the thread draws of a saved version', () => {
-    test('a report, an image and a page an agent or a routine published draw inline', () => {
-        expect(savedPreviewOf('report', version('agent', [{ name: 'summary.md', mime: 'text/markdown' }]))).toBe('report');
-        expect(savedPreviewOf('report', version('routine', [{ name: 'summary.txt', mime: 'text/plain' }]))).toBe('report');
+    test('a page, a document, text, an image and a PDF an agent or a routine published draw inline', () => {
+        expect(savedPreviewOf(version('agent', [{ name: 'summary.md', mime: 'text/markdown' }]))).toEqual({ view: 'markdown', file: 0 });
+        expect(savedPreviewOf(version('routine', [{ name: 'summary.txt', mime: 'text/plain' }]))).toEqual({ view: 'code', file: 0 });
+        expect(savedPreviewOf(version('routine', [{ name: 'rapport.html', mime: 'text/html' }]))).toEqual({ view: 'page', file: 0 });
+        expect(savedPreviewOf(version('agent', [{ name: 'report.pdf', mime: 'application/pdf' }]))).toEqual({ view: 'pdf', file: 0 });
         expect(
             savedPreviewOf(
-                'image',
                 version('agent', [
-                    { name: 'notes.txt', mime: 'text/plain' },
+                    { name: 'app.zip', mime: 'application/zip' },
                     { name: 'chart.png', mime: 'image/png' }
                 ])
             )
-        ).toBe('image');
-        expect(savedPreviewOf('page', version('agent', [{ name: 'index.html', mime: 'text/html' }]))).toBe('page');
+        ).toEqual({ view: 'image', file: 1 });
     });
 
     test('what a person saved from the thread is already in it', () => {
-        expect(savedPreviewOf('report', version('person', [{ name: 'summary.md', mime: 'text/markdown' }]))).toBeNull();
-        expect(savedPreviewOf('image', version('person', [{ name: 'shot.png', mime: 'image/png' }]))).toBeNull();
+        expect(savedPreviewOf(version('person', [{ name: 'summary.md', mime: 'text/markdown' }]))).toBeNull();
+        expect(savedPreviewOf(version('person', [{ name: 'shot.png', mime: 'image/png' }]))).toBeNull();
     });
 
-    test('a build, an export, a long report or a kind that does not match its file stays a row', () => {
-        expect(savedPreviewOf('build', version('agent', [{ name: 'app.zip', mime: 'application/zip' }]))).toBeNull();
-        expect(savedPreviewOf('export', version('agent', [{ name: 'rows.csv', mime: 'text/csv' }]))).toBeNull();
-        expect(savedPreviewOf('report', version('agent', [{ name: 'big.md', mime: 'text/markdown', size: PREVIEW_MAX_BYTES + 1 }]))).toBeNull();
-        expect(savedPreviewOf('report', version('agent', [{ name: 'report.pdf', mime: 'application/pdf' }]))).toBeNull();
+    test('a file with nothing to show, a long file or a model stays a row', () => {
+        expect(savedPreviewOf(version('agent', [{ name: 'app.zip', mime: 'application/zip' }]))).toBeNull();
+        expect(savedPreviewOf(version('agent', [{ name: 'scene.glb', mime: 'model/gltf-binary' }]))).toBeNull();
+        expect(savedPreviewOf(version('agent', [{ name: 'big.md', mime: 'text/markdown', size: PREVIEW_MAX_BYTES + 1 }]))).toBeNull();
+        expect(savedPreviewOf(version('agent', [{ name: 'big.pdf', mime: 'application/pdf', size: PREVIEW_MAX_BYTES + 1 }]))).toBeNull();
     });
 });

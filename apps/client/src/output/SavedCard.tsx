@@ -14,7 +14,7 @@ export interface Saved {
 
 /*
  * The versions a turn of a chat saved, as one block of tight rows; the timeline gives it the room around it.
- * An artifact's last version in the block shows what it holds under its row when its kind draws inline.
+ * An artifact's last version in the block shows what it holds under its row when one of its files draws inline.
  */
 export function SavedCard({ endpointId, saved }: { endpointId: string; saved: readonly Saved[] }) {
     return (
@@ -22,7 +22,7 @@ export function SavedCard({ endpointId, saved }: { endpointId: string; saved: re
             {saved.map((entry, index) => {
                 const preview = saved.slice(index + 1).some((later) => later.artifact.artifactId === entry.artifact.artifactId)
                     ? null
-                    : savedPreviewOf(entry.artifact.kind, entry.version);
+                    : savedPreviewOf(entry.version);
                 return (
                     <Fragment key={entry.version.versionId}>
                         <SavedRow {...entry} />

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, setSystemTime, test } from 'bu
 import { act } from 'react';
 import {
     REQUEST_SCHEMAS,
+    type ArtifactFile,
     type ArtifactGetResult,
     type ArtifactSummary,
     type ArtifactVersion,
@@ -477,5 +478,61 @@ describe('the artifact view', () => {
             projectId: 'project-atlas',
             path: 'dependency-report.md'
         });
+    });
+});
+
+describe('a version drawn by what its files are', () => {
+    async function openWith(kind: string, files: ArtifactFile[], bodies: Record<number, string>): Promise<void> {
+        machine.answer('artifact.get', () => ({
+            ...DEPENDENCIES,
+            artifact: { ...DEPENDENCIES.artifact, kind },
+            versions: [version('v-new', 2, NOW, { files })]
+        }));
+        machine.answer('bytes.read', ({ resource, offset }) => {
+            const body = resource.kind === 'artifact' ? (bodies[resource.file] ?? '') : '';
+            return { mime: 'text/plain', size: body.length, version: 'v', offset, data: btoa(body.slice(offset)) };
+        });
+        await openPanel();
+        await until(() => text().includes('Dependency report'));
+        await clickOn(panelRow('Dependency report') ?? null);
+        await until(() => barButton('Versions') !== null);
+    }
+
+    test('an HTML file of a report draws in the sandboxed frame of an agent page, not as a file without a preview', async () => {
+        // happy-dom lays nothing out, and the frame opens only once its box has a width.
+        const width = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth');
+        Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get: () => 800 });
+        // The sandbox host page is served by Vite or the shell, neither of which runs here.
+        const settings = (window as unknown as { happyDOM: { settings: { disableIframePageLoading: boolean } } }).happyDOM.settings;
+        settings.disableIframePageLoading = true;
+        try {
+            const html = '<h1>Rapport</h1>';
+            await openWith('report', [{ name: 'rapport.html', mime: 'text/html', size: html.length, sha256: 'h' }], { 0: html });
+            await until(() => page.host.querySelector('iframe[title="Dependency report"]') !== null);
+            expect(page.host.querySelector('iframe[title="Dependency report"]')!.getAttribute('sandbox')).toBe('allow-scripts allow-forms');
+            expect(text()).not.toContain('No preview.');
+        } finally {
+            settings.disableIframePageLoading = false;
+            Object.defineProperty(HTMLElement.prototype, 'clientWidth', width!);
+        }
+    });
+
+    test('a text file of a build reads as code, and a file without a preview is a pick away', async () => {
+        const log = 'compiled 42 modules\n';
+        await openWith(
+            'build',
+            [
+                { name: 'app.zip', mime: 'application/zip', size: 2048, sha256: 'z' },
+                { name: 'build.log', mime: 'text/plain', size: log.length, sha256: 'l' }
+            ],
+            { 1: log }
+        );
+        await until(() => page.host.querySelector('.file-code')?.textContent?.includes('compiled 42 modules') === true);
+        expect(buttonWithText('build.log')!.getAttribute('aria-pressed')).toBe('true');
+        expect(machine.requests('bytes.read')[0]!.resource).toEqual({ kind: 'artifact', artifactId: 'deps', versionId: 'v-new', file: 1 });
+
+        await clickOn(buttonWithText('app.zip'));
+        await until(() => text().includes('No preview.'));
+        expect(page.host.querySelector('.file-code')).toBeNull();
     });
 });

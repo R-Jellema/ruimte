@@ -19,23 +19,30 @@ import {
     WifiOff
 } from 'lucide-react';
 import { patchOf } from '@adecore/merge';
-import { VisualPageFrame } from '@adecore/agents-react/chat/ui';
 import { AgentIcon, modelName, ProviderLogo } from '@adecore/agents-react/providers';
 import { useChats, useProvidersStore } from '@adecore/agents-react/state';
-import { BYTES_READ_MAX_BYTES, type Artifact, type ArtifactGetResult, type ArtifactProvenance, type ArtifactVersion } from '@ruimte/contracts';
+import {
+    BYTES_READ_MAX_BYTES,
+    type Artifact,
+    type ArtifactFile,
+    type ArtifactGetResult,
+    type ArtifactProvenance,
+    type ArtifactVersion
+} from '@ruimte/contracts';
 import { hasProviderLogo } from '@/agents/provider-logo';
 import { Button, EmptyState, ErrorBoundary, Icon, IconButton, LazyBoundary, Menu, Pill, Popover, SectionLabel, Tooltip, lazyNamed } from '@adecore/ui';
 import type { CopyToProjectRequest } from '@/output/CopyToProjectDialog';
 import { pinArtifact, useCanRemove, useCopyToThisMachine, usePinCanvases } from '@/output/artifact-actions';
 import { RemoveArtifactDialog, type RemoveArtifactRequest } from '@/output/RemoveArtifactDialog';
 import { formatBytes, formatDayClock } from '@adecore/ui/format';
-import { comparable, drawnKind, isTextMime } from '@/output/artifact-list';
-import { canDownload, downloadArtifactFile, readArtifactFile, useArtifactText, type ArtifactFileRef } from '@/output/artifact-bytes';
+import { comparable } from '@/output/artifact-list';
+import { canDownload, downloadArtifactFile, useArtifactText, type ArtifactFileRef } from '@/output/artifact-bytes';
+import { ArtifactFileBody } from '@/output/ArtifactFileBody';
+import { fileViewOf, firstShownFile } from '@/output/file-view';
 import { showChat, useChatName } from '@/output/kinds';
 import { selectArtifactVersion, takeCompareRequest, useArtifactCompareRequest, useArtifactSelection } from '@/output/open';
 import { useArtifact } from '@/output/use-artifact';
 import { showRoutine, useRoutinesStage } from '@/routines/stage';
-import { FileMarkdown } from '@/shell/panels/FileMarkdown';
 import { FileToolbarToggle } from '@/shell/panels/FileToolbar';
 import { useFileToolbarSlot } from '@/shell/panels/file-toolbar-slot';
 import { useEndpointIdOfMachine, useEndpoints } from '@/state/endpoints';
@@ -138,7 +145,7 @@ function ArtifactBody({
         setRemoving({ artifact, version: picked, versionCount: versions.length, totalBytes, open: true });
     // A version picked from the panel that a cleanup took since is said to be gone, not swapped for another.
     const version = chosen === null ? latest : (versions.find((entry) => entry.versionId === chosen) ?? null);
-    const canCompare = version !== null && versions.length > 1 && drawnKind(artifact.kind) === 'report' && comparable(version);
+    const canCompare = version !== null && versions.length > 1 && comparable(version);
     const compare = comparing && canCompare;
     const base = compare ? baseFor(versions, version, baseId) : null;
     const routineId = version?.provenance.routineId;
@@ -437,39 +444,54 @@ function refOf(artifact: Artifact, version: ArtifactVersion, file: number): Arti
     return { artifactId: artifact.artifactId, versionId: version.versionId, file };
 }
 
-/* What a version holds, drawn the way its kind reads best; an artifact node on a canvas draws the same. */
+/*
+ * What a version holds, drawn by what its files are, whatever its kind says; an artifact node on a
+ * canvas draws the same. Several pictures stand together, any other set shows one file at a time.
+ */
 export function VersionBody({ endpointId, artifact, version }: { endpointId: string; artifact: Artifact; version: ArtifactVersion }) {
-    const kind = drawnKind(artifact.kind);
-    const first = version.files[0]!;
-    if (kind === 'report' && isTextMime(first.mime)) {
-        return <ReportBody endpointId={endpointId} artifact={artifact} version={version} />;
-    }
-    if (kind === 'image' && version.files.some((file) => file.mime.startsWith('image/'))) {
+    const [picked, setPicked] = useState<{ versionId: string; file: number } | null>(null);
+    if (version.files.length > 1 && version.files.every((file) => fileViewOf(file) === 'image')) {
         return <ImagesBody endpointId={endpointId} artifact={artifact} version={version} />;
     }
-    if (kind === 'page' && first.mime === 'text/html') {
-        return <PageBody endpointId={endpointId} artifact={artifact} version={version} />;
-    }
-    return <FilesBody endpointId={endpointId} artifact={artifact} version={version} />;
+    const index = picked !== null && picked.versionId === version.versionId ? picked.file : firstShownFile(version);
+    const file = version.files[index]!;
+    return (
+        <div className="flex min-h-0 min-w-0 grow flex-col">
+            {version.files.length > 1 && (
+                <FilePicker files={version.files} index={index} onPick={(next) => setPicked({ versionId: version.versionId, file: next })} />
+            )}
+            {fileViewOf(file) === 'none' ? (
+                <FilesBody endpointId={endpointId} artifact={artifact} version={version} />
+            ) : (
+                <ArtifactFileBody
+                    key={`${version.versionId}:${index}`}
+                    endpointId={endpointId}
+                    reference={refOf(artifact, version, index)}
+                    file={file}
+                    title={artifact.title}
+                    createdAt={version.createdAt}
+                />
+            )}
+        </div>
+    );
 }
 
-function ReportBody({ endpointId, artifact, version }: { endpointId: string; artifact: Artifact; version: ArtifactVersion }) {
+function FilePicker({ files, index, onPick }: { files: readonly ArtifactFile[]; index: number; onPick: (index: number) => void }) {
     const { t } = useTranslation('output');
-    const file = version.files[0]!;
-    const text = useArtifactText(endpointId, refOf(artifact, version, 0), file);
-    if (text.status === 'loading') {
-        return <Centered busy>{t('view.loading')}</Centered>;
-    }
-    if (text.status === 'failed') {
-        return <Centered icon={CircleAlert}>{t('view.readFailed')}</Centered>;
-    }
     return (
-        <div className="min-h-0 grow overflow-y-auto px-6 py-6 select-text">
-            {file.mime === 'text/markdown' ? (
-                <FileMarkdown text={text.text} />
-            ) : (
-                <pre className="font-mono text-sm whitespace-pre-wrap text-text">{text.text}</pre>
-            )}
+        <div role="group" aria-label={t('view.files')} className="flex h-9 shrink-0 items-center gap-1 overflow-x-auto border-b border-border px-2">
+            {files.map((file, i) => (
+                <Button
+                    key={i}
+                    size="xs"
+                    variant={i === index ? 'secondary' : 'ghost'}
+                    aria-pressed={i === index}
+                    className="shrink-0"
+                    onClick={() => onPick(i)}
+                >
+                    {file.name}
+                </Button>
+            ))}
         </div>
     );
 }
@@ -540,18 +562,6 @@ function ImagesBody({ endpointId, artifact, version }: { endpointId: string; art
 function ArtifactImage({ endpointId, reference, name }: { endpointId: string; reference: ArtifactFileRef; name: string }) {
     const bytes = useMachineUrl({ kind: 'artifact', ...reference }, endpointId);
     return bytes.url === null ? null : <img src={bytes.url} alt={name} className="max-w-full object-contain" />;
-}
-
-/* A page in the same sandboxed frame a chat draws a visual in, never on the app's own origin. */
-function PageBody({ endpointId, artifact, version }: { endpointId: string; artifact: Artifact; version: ArtifactVersion }) {
-    const file = version.files[0]!;
-    const reference = refOf(artifact, version, 0);
-    const page = (): Promise<string> => readArtifactFile(endpointId, reference, file).then((blob) => blob.text());
-    return (
-        <div className="relative min-h-0 grow">
-            <VisualPageFrame key={version.versionId} page={page} title={artifact.title} fill />
-        </div>
-    );
 }
 
 function FilesBody({ endpointId, artifact, version }: { endpointId: string; artifact: Artifact; version: ArtifactVersion }) {

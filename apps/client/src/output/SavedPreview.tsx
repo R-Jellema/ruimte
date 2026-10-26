@@ -1,29 +1,55 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown } from 'lucide-react';
-import { VisualPageFrame } from '@adecore/agents-react/chat/ui';
 import { ErrorBoundary, Icon } from '@adecore/ui';
 import type { ArtifactFile } from '@ruimte/contracts';
-import { readArtifactFile, useArtifactText, type ArtifactFileRef } from '@/output/artifact-bytes';
+import { useArtifactText, type ArtifactFileRef } from '@/output/artifact-bytes';
+import { ArtifactPage } from '@/output/ArtifactFileBody';
 import { useOpenArtifact } from '@/output/artifact-opener';
+import { artifactBinaryRead, artifactSource, languageOfName } from '@/output/file-view';
 import type { Saved } from '@/output/SavedCard';
-import type { SavedPreviewKind } from '@/output/saved-preview';
+import type { SavedPreviewOf } from '@/output/saved-preview';
+import { CodeText } from '@/shell/panels/CodeFile';
+import { FileActionsContext } from '@/shell/panels/file-actions';
 import { FileMarkdown } from '@/shell/panels/FileMarkdown';
+import { FileToolbarSlotProvider, fixedSlot } from '@/shell/panels/file-toolbar-slot';
+import { PdfPreview } from '@/shell/panels/PdfPreview';
 import { useMachineUrl } from '@/transport/machine-url';
 
 const MAX_IMAGES = 4;
 const PAGE_MAX_HEIGHT = 480;
 
+// A renderer in a thread draws its own bar, never into a bar of the view the chat sits in.
+const OWN_BAR = fixedSlot(null);
+
 /* A folded report fades out at the bottom instead of cutting a line in half, the way a long prompt folds. */
 const FOLD = '[mask-image:linear-gradient(to_bottom,black_70%,transparent)]';
 
-export function SavedPreview({ endpointId, entry, preview }: { endpointId: string; entry: Saved; preview: SavedPreviewKind }) {
+export function SavedPreview({ endpointId, entry, preview }: { endpointId: string; entry: Saved; preview: SavedPreviewOf }) {
     const { t } = useTranslation('output');
+    const reference = refOf(entry, preview.file);
+    const file = entry.version.files[preview.file]!;
     return (
         <ErrorBoundary label={t('view.failed')} resetKeys={[entry.version.versionId]} compact className="mt-1 mb-2">
-            {preview === 'report' && <ReportPreview endpointId={endpointId} entry={entry} />}
-            {preview === 'image' && <ImagesPreview endpointId={endpointId} entry={entry} />}
-            {preview === 'page' && <PagePreview endpointId={endpointId} entry={entry} />}
+            <FileToolbarSlotProvider value={OWN_BAR}>
+                <FileActionsContext.Provider value={null}>
+                    {(preview.view === 'markdown' || preview.view === 'code') && (
+                        <TextPreview endpointId={endpointId} entry={entry} reference={reference} file={file} markdown={preview.view === 'markdown'} />
+                    )}
+                    {preview.view === 'image' && <ImagesPreview endpointId={endpointId} entry={entry} />}
+                    {preview.view === 'page' && (
+                        <ArtifactPage
+                            endpointId={endpointId}
+                            reference={reference}
+                            file={file}
+                            title={entry.artifact.title}
+                            createdAt={entry.version.createdAt}
+                            maxHeight={PAGE_MAX_HEIGHT}
+                        />
+                    )}
+                    {preview.view === 'pdf' && <PdfPreviewInline endpointId={endpointId} entry={entry} reference={reference} file={file} />}
+                </FileActionsContext.Provider>
+            </FileToolbarSlotProvider>
         </ErrorBoundary>
     );
 }
@@ -32,10 +58,30 @@ function refOf(entry: Saved, file: number): ArtifactFileRef {
     return { artifactId: entry.artifact.artifactId, versionId: entry.version.versionId, file };
 }
 
-function ReportPreview({ endpointId, entry }: { endpointId: string; entry: Saved }) {
+function ShowAll({ open, onToggle }: { open: boolean; onToggle: () => void }) {
     const { t } = useTranslation('output');
-    const file = entry.version.files[0]!;
-    const text = useArtifactText(endpointId, refOf(entry, 0), file);
+    return (
+        <button type="button" aria-expanded={open} className="mt-1 flex items-center gap-1 text-xs text-text-muted hover:text-text" onClick={onToggle}>
+            <Icon icon={ChevronDown} size={12} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+            {open ? t('card.showLess') : t('card.showAll')}
+        </button>
+    );
+}
+
+function TextPreview({
+    endpointId,
+    entry,
+    reference,
+    file,
+    markdown
+}: {
+    endpointId: string;
+    entry: Saved;
+    reference: ArtifactFileRef;
+    file: ArtifactFile;
+    markdown: boolean;
+}) {
+    const text = useArtifactText(endpointId, reference, file);
     const [open, setOpen] = useState(false);
     const [long, setLong] = useState(false);
 
@@ -60,35 +106,39 @@ function ReportPreview({ endpointId, entry }: { endpointId: string; entry: Saved
         return () => observer.disconnect();
     };
 
-    // A report that cannot be read stays the row above, which opens it in Output.
+    // A file that cannot be read stays the row above, which opens it in Output.
     if (text.status !== 'ready') {
         return null;
     }
+    const body: ReactNode = markdown ? <FileMarkdown text={text.text} /> : <CodeText text={text.text} language={languageOfName(file.name)} />;
     return (
         <div className="flex flex-col items-start">
             <div
                 ref={measure}
                 aria-label={entry.artifact.title}
                 role="group"
-                className={`w-full rounded-lg border border-border bg-clip-padding px-4 py-3 text-sm select-text ${open ? '' : 'max-h-80 overflow-hidden'} ${long && !open ? FOLD : ''}`}
+                className={`w-full rounded-lg border border-border bg-clip-padding text-sm select-text ${markdown ? 'px-4 py-3' : 'py-1'} ${open ? '' : 'max-h-80 overflow-hidden'} ${long && !open ? FOLD : ''}`}
             >
-                {file.mime === 'text/markdown' ? (
-                    <FileMarkdown text={text.text} />
-                ) : (
-                    <pre className="font-mono text-sm whitespace-pre-wrap text-text">{text.text}</pre>
-                )}
+                {body}
             </div>
-            {long && (
-                <button
-                    type="button"
-                    aria-expanded={open}
-                    className="mt-1 flex items-center gap-1 text-xs text-text-muted hover:text-text"
-                    onClick={() => setOpen(!open)}
-                >
-                    <Icon icon={ChevronDown} size={12} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
-                    {open ? t('card.showLess') : t('card.showAll')}
-                </button>
-            )}
+            {long && <ShowAll open={open} onToggle={() => setOpen(!open)} />}
+        </div>
+    );
+}
+
+/* pdf.js scrolls its own pages, so folded is a shorter window on them and Show all a taller one. */
+function PdfPreviewInline({ endpointId, entry, reference, file }: { endpointId: string; entry: Saved; reference: ArtifactFileRef; file: ArtifactFile }) {
+    const [open, setOpen] = useState(false);
+    return (
+        <div className="flex flex-col items-start">
+            <div
+                aria-label={entry.artifact.title}
+                role="group"
+                className={`flex w-full flex-col overflow-hidden rounded-lg border border-border bg-clip-padding ${open ? 'h-[720px]' : 'h-80'}`}
+            >
+                <PdfPreview source={artifactSource(endpointId, reference)} name={file.name} read={artifactBinaryRead(file, entry.version.createdAt)} />
+            </div>
+            <ShowAll open={open} onToggle={() => setOpen(!open)} />
         </div>
     );
 }
@@ -122,11 +172,4 @@ function SavedImage({ endpointId, entry, reference, file }: { endpointId: string
             <img src={bytes.url} alt={file.name} className="block max-h-80 max-w-full object-contain" />
         </button>
     );
-}
-
-/* A page in the same sandboxed frame a chat draws a visual in, never on the app's own origin. */
-function PagePreview({ endpointId, entry }: { endpointId: string; entry: Saved }) {
-    const file = entry.version.files[0]!;
-    const page = (): Promise<string> => readArtifactFile(endpointId, refOf(entry, 0), file).then((blob) => blob.text());
-    return <VisualPageFrame key={entry.version.versionId} page={page} title={entry.artifact.title} maxHeight={PAGE_MAX_HEIGHT} />;
 }
