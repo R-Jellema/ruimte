@@ -64944,6 +64944,47 @@
                             "time"
                           ],
                           "additionalProperties": {}
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "interval"
+                            },
+                            "days": {
+                              "minItems": 1,
+                              "maxItems": 7,
+                              "type": "array",
+                              "items": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 7
+                              }
+                            },
+                            "every": {
+                              "type": "integer",
+                              "minimum": 15,
+                              "maximum": 720,
+                              "multipleOf": 15
+                            },
+                            "from": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            },
+                            "to": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "days",
+                            "every",
+                            "from",
+                            "to"
+                          ],
+                          "additionalProperties": {}
                         }
                       ]
                     },
@@ -65093,6 +65134,47 @@
                             "time"
                           ],
                           "additionalProperties": {}
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "interval"
+                            },
+                            "days": {
+                              "minItems": 1,
+                              "maxItems": 7,
+                              "type": "array",
+                              "items": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 7
+                              }
+                            },
+                            "every": {
+                              "type": "integer",
+                              "minimum": 15,
+                              "maximum": 720,
+                              "multipleOf": 15
+                            },
+                            "from": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            },
+                            "to": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "days",
+                            "every",
+                            "from",
+                            "to"
+                          ],
+                          "additionalProperties": {}
                         }
                       ]
                     },
@@ -65186,6 +65268,47 @@
                             "kind",
                             "days",
                             "time"
+                          ],
+                          "additionalProperties": {}
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "interval"
+                            },
+                            "days": {
+                              "minItems": 1,
+                              "maxItems": 7,
+                              "type": "array",
+                              "items": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 7
+                              }
+                            },
+                            "every": {
+                              "type": "integer",
+                              "minimum": 15,
+                              "maximum": 720,
+                              "multipleOf": 15
+                            },
+                            "from": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            },
+                            "to": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "days",
+                            "every",
+                            "from",
+                            "to"
                           ],
                           "additionalProperties": {}
                         }
@@ -65542,6 +65665,47 @@
                           "time"
                         ],
                         "additionalProperties": {}
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "interval"
+                          },
+                          "days": {
+                            "minItems": 1,
+                            "maxItems": 7,
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 7
+                            }
+                          },
+                          "every": {
+                            "type": "integer",
+                            "minimum": 15,
+                            "maximum": 720,
+                            "multipleOf": 15
+                          },
+                          "from": {
+                            "type": "string",
+                            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                          },
+                          "to": {
+                            "type": "string",
+                            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "days",
+                          "every",
+                          "from",
+                          "to"
+                        ],
+                        "additionalProperties": {}
                       }
                     ]
                   },
@@ -65691,6 +65855,47 @@
                           "time"
                         ],
                         "additionalProperties": {}
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "interval"
+                          },
+                          "days": {
+                            "minItems": 1,
+                            "maxItems": 7,
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 7
+                            }
+                          },
+                          "every": {
+                            "type": "integer",
+                            "minimum": 15,
+                            "maximum": 720,
+                            "multipleOf": 15
+                          },
+                          "from": {
+                            "type": "string",
+                            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                          },
+                          "to": {
+                            "type": "string",
+                            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "days",
+                          "every",
+                          "from",
+                          "to"
+                        ],
+                        "additionalProperties": {}
                       }
                     ]
                   },
@@ -65784,6 +65989,47 @@
                           "kind",
                           "days",
                           "time"
+                        ],
+                        "additionalProperties": {}
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "interval"
+                          },
+                          "days": {
+                            "minItems": 1,
+                            "maxItems": 7,
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 7
+                            }
+                          },
+                          "every": {
+                            "type": "integer",
+                            "minimum": 15,
+                            "maximum": 720,
+                            "multipleOf": 15
+                          },
+                          "from": {
+                            "type": "string",
+                            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                          },
+                          "to": {
+                            "type": "string",
+                            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "days",
+                          "every",
+                          "from",
+                          "to"
                         ],
                         "additionalProperties": {}
                       }
@@ -66121,6 +66367,47 @@
                       "time"
                     ],
                     "additionalProperties": {}
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "interval"
+                      },
+                      "days": {
+                        "minItems": 1,
+                        "maxItems": 7,
+                        "type": "array",
+                        "items": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 7
+                        }
+                      },
+                      "every": {
+                        "type": "integer",
+                        "minimum": 15,
+                        "maximum": 720,
+                        "multipleOf": 15
+                      },
+                      "from": {
+                        "type": "string",
+                        "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                      },
+                      "to": {
+                        "type": "string",
+                        "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "days",
+                      "every",
+                      "from",
+                      "to"
+                    ],
+                    "additionalProperties": {}
                   }
                 ]
               },
@@ -66270,6 +66557,47 @@
                       "time"
                     ],
                     "additionalProperties": {}
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "interval"
+                      },
+                      "days": {
+                        "minItems": 1,
+                        "maxItems": 7,
+                        "type": "array",
+                        "items": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 7
+                        }
+                      },
+                      "every": {
+                        "type": "integer",
+                        "minimum": 15,
+                        "maximum": 720,
+                        "multipleOf": 15
+                      },
+                      "from": {
+                        "type": "string",
+                        "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                      },
+                      "to": {
+                        "type": "string",
+                        "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "days",
+                      "every",
+                      "from",
+                      "to"
+                    ],
+                    "additionalProperties": {}
                   }
                 ]
               },
@@ -66363,6 +66691,47 @@
                       "kind",
                       "days",
                       "time"
+                    ],
+                    "additionalProperties": {}
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "interval"
+                      },
+                      "days": {
+                        "minItems": 1,
+                        "maxItems": 7,
+                        "type": "array",
+                        "items": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 7
+                        }
+                      },
+                      "every": {
+                        "type": "integer",
+                        "minimum": 15,
+                        "maximum": 720,
+                        "multipleOf": 15
+                      },
+                      "from": {
+                        "type": "string",
+                        "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                      },
+                      "to": {
+                        "type": "string",
+                        "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "days",
+                      "every",
+                      "from",
+                      "to"
                     ],
                     "additionalProperties": {}
                   }
