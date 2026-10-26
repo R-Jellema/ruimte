@@ -128,7 +128,7 @@ private struct VoiceActionRow: View {
         switch action.status {
         case "running":
             if followed {
-                Text("Running").font(.footnote).foregroundStyle(VoiceStyle.voice)
+                Spinner(size: 14, label: String(localized: "Running")).foregroundStyle(VoiceStyle.voice)
             }
         case "failed":
             Label {
@@ -138,7 +138,7 @@ private struct VoiceActionRow: View {
             }
             .labelStyle(.titleAndIcon).font(.footnote).foregroundStyle(MobileStyle.statusError)
         default:
-            Image(lucide: "check", size: 16).foregroundStyle(MobileStyle.positive)
+            Image(lucide: "circle-check", size: 16).foregroundStyle(MobileStyle.positive)
                 .accessibilityLabel("Done")
         }
     }
