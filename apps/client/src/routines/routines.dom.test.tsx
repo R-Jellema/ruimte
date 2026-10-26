@@ -228,7 +228,7 @@ describe('Routines', () => {
         await until(() => page.host.querySelector('article[aria-label="Weekly changelog draft"]') !== null);
         const card = page.host.querySelector('article[aria-label="Weekly changelog draft"]');
         expect(card?.textContent).toContain('Every Friday at');
-        expect(card?.textContent).toContain('From git, in the project file');
+        expect(card?.textContent).toContain('Added through the project file');
         await clickOn(buttonWithText('Approve', card!));
         await until(() => machine.requests('routine.approve').length === 1);
         expect(machine.requests('routine.approve')[0]).toEqual({ projectId: 'project-atlas', routineId: 'changelog', digest: 'digest-changelog' });
@@ -241,15 +241,15 @@ describe('Routines', () => {
         await until(() => page.host.querySelector('article[aria-label="Weekly changelog draft"]') !== null);
         // The week stays this project's; only the column reaches further.
         expect(page.host.querySelector('[data-routine="changelog"]')).toBeNull();
-        expect(clock()?.getAttribute('aria-label')).toBe('Routines, 1 waits for you');
+        expect(clock()?.getAttribute('aria-label')).toBe('Routines, 1 needs you');
     });
 
     test('a routine that waits for approval says so over its definition, and approves from there', async () => {
         routines = [MORNING, HELD];
         await act(async () => machine.emit('routine.changed', { projectId: 'project-atlas' }));
         await act(async () => showRoutine({ projectId: 'project-atlas', routineId: 'changelog' }));
-        await until(() => text().includes('Waits for your approval'));
-        expect(text()).toContain('From git, in the project file');
+        await until(() => text().includes('Needs your approval'));
+        expect(text()).toContain('Added through the project file');
         await clickOn(buttonWithText('Approve', page.host));
         await until(() => machine.requests('routine.approve').length === 1);
         expect(machine.requests('routine.approve')[0]).toEqual({ projectId: 'project-atlas', routineId: 'changelog', digest: 'digest-changelog' });
@@ -409,7 +409,7 @@ describe('Routines', () => {
         await openStage();
         await act(async () => machine.emit('routine.changed', { projectId: 'project-atlas' }));
         const needsYou = (): string => page.host.querySelector('section[aria-label="Needs you"]')?.textContent ?? '';
-        await until(() => needsYou().includes('Waits since'));
+        await until(() => needsYou().includes('Since'));
         const question = { id: 'q1', header: 'Branch', question: 'Which branch should the summary cover?', choices: [], multiSelect: false };
         const info = chatInfoOf('routine-chat-sun', {
             status: 'needs-you',

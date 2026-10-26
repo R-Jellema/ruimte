@@ -1,8 +1,8 @@
 {
   "toolbar": {
     "routines": "Routines",
-    "attention_one": "Routines, {{count}} wacht op je",
-    "attention_other": "Routines, {{count}} wachten op je"
+    "attention_one": "Routines, {{count}} heeft je nodig",
+    "attention_other": "Routines, {{count}} hebben je nodig"
   },
   "stage": {
     "title": "Routines",
@@ -14,9 +14,9 @@
     "range": "{{from}} tot {{to}}",
     "week": "Week {{number}}",
     "loading": "Routines laden…",
-    "failed": "De routines konden niet van de machine gelezen worden.",
+    "failed": "Kon de routines niet van de machine laden.",
     "emptyTitle": "Nog geen routines",
-    "empty": "Een routine start op een vast moment een agent, een commando of een launch. Sleep hierboven over de dagen, of kies Nieuwe routine."
+    "empty": "Een routine start op een vast moment een agent, een commando of een launch. Sleep hierboven over de dagen, of klik op Nieuwe routine."
   },
   "filter": {
     "label": "Welke projecten",
@@ -35,8 +35,6 @@
   "agenda": {
     "label": "Routines deze week",
     "routine": "Routine",
-    "projectTitle": "Routines van {{name}}",
-    "allTitle": "Alle routines op deze machine",
     "block": "{{title}}, {{time}}, {{state}}",
     "drag": "Sleep over de dagen",
     "dragDay": "Nieuwe routine op {{day}}",
@@ -48,17 +46,17 @@
   "row": {
     "next": "Volgende {{time}}",
     "paused": "Gepauzeerd",
-    "waits": "Wacht op je sinds {{time}}",
+    "waits": "Heeft je nodig sinds {{time}}",
     "held": "Wacht op je goedkeuring",
-    "declined": "Geweigerd op deze machine",
-    "ended": "Niets meer gepland"
+    "declined": "Geweigerd",
+    "ended": "Niet gepland"
   },
   "looks": {
     "done": "Klaar",
-    "waited": "Wachtte op je",
-    "waiting": "Wacht",
+    "waited": "Had je nodig",
+    "waiting": "Heeft je nodig",
     "caught-up": "Ingehaald",
-    "limit": "Limiet bereikt",
+    "limit": "Verbruikslimiet",
     "skipped": "Overgeslagen",
     "paused": "Gepauzeerd",
     "next": "Volgende",
@@ -68,16 +66,16 @@
   "legend": {
     "done": "Klaar",
     "running": "Bezig",
-    "waiting": "Wacht op jou",
-    "caught-up": "Gemist, ingehaald",
+    "waiting": "Heeft je nodig",
+    "caught-up": "Ingehaald",
     "failed": "Mislukt",
     "next": "Gepland"
   },
   "chip": {
     "took": "{{time}} · {{duration}}",
-    "needsYou": "Wacht op jou",
-    "woke": "Gewekt {{time}}",
-    "limit": "Limiet bereikt",
+    "needsYou": "Heeft je nodig",
+    "woke": "Ingehaald {{time}}",
+    "limit": "Verbruikslimiet",
     "failed": "Mislukt",
     "skipped": "Overgeslagen",
     "paused": "Gepauzeerd",
@@ -112,23 +110,23 @@
   },
   "quick": {
     "onMachine": "Op {{machine}}",
-    "missed": "Gemist: één keer bij ontwaken",
+    "missed": "Gemiste tijden draaien één keer als de machine wakker wordt",
     "more": "Meer opties"
   },
   "side": {
-    "label": "Goedkeuringen en runs die wachten",
+    "label": "Goedkeuringen en runs",
     "approvals": "Wacht op goedkeuring",
-    "needsYou": "Wacht op jou",
-    "waitsSince": "Wacht sinds {{time}}",
+    "needsYou": "Heeft je nodig",
+    "waitsSince": "Sinds {{time}}",
     "legend": "Wat de blokken betekenen"
   },
   "approval": {
-    "fromOutside": "Uit git, in het projectbestand",
-    "byAgent": "Gemaakt door een agent in “{{title}}”",
+    "fromOutside": "Toegevoegd via het projectbestand",
+    "byAgent": "Toegevoegd door een agent in “{{title}}”",
     "anAgent": "een chat",
     "deny": "Weigeren",
     "approve": "Goedkeuren",
-    "failed": "Het antwoord kwam niet aan bij de machine.",
+    "failed": "Kon je antwoord niet naar de machine sturen.",
     "fromOutsidePrivate": "Buiten Ruimte veranderd"
   },
   "repeat": {
@@ -154,19 +152,19 @@
     "minutes_other": "elke {{count}} minuten"
   },
   "run": {
-    "skippedOverlap": "Overgeslagen, de vorige run wachtte nog op je",
-    "skippedHeld": "Overgeslagen, hij wachtte op goedkeuring",
+    "skippedOverlap": "Overgeslagen, de vorige run was nog niet klaar",
+    "skippedHeld": "Overgeslagen, nog niet goedgekeurd",
     "skippedPaused": "Gepauzeerd",
     "starting": "Start",
     "running": "Bezig sinds {{time}}",
-    "needsYou": "Wacht op je",
-    "limit": "Verbruikslimiet bereikt",
-    "limitUntil": "Verbruikslimiet bereikt, gaat om {{time}} verder",
+    "needsYou": "Heeft je nodig",
+    "limit": "Gestopt op de verbruikslimiet",
+    "limitUntil": "Gestopt op de verbruikslimiet, gaat om {{time}} verder",
     "failed": "Mislukt",
     "failedWith": "Mislukt: {{error}}",
     "failedExit": "Mislukt met exitcode {{code}}",
-    "caughtUp": "Gemist om {{time}}, ingehaald toen de machine wakker werd",
-    "waitedDone": "Wachtte op je, daarna klaar in {{duration}}",
+    "caughtUp": "Gemist om {{time}}, gedraaid toen de machine wakker werd",
+    "waitedDone": "Klaar in {{duration}}, na op je te wachten",
     "done": "Klaar in {{duration}}",
     "doneManual": "Met de hand gestart, klaar in {{duration}}"
   },
@@ -187,15 +185,15 @@
     "more": "Meer",
     "edit": "Bewerken",
     "remove": "Verwijderen",
-    "runHeld": "Deze routine wacht op goedkeuring, dus hij is niet gestart.",
-    "runBusy": "De vorige run loopt nog, dus deze is niet gestart.",
-    "failed": "De machine nam dit niet aan."
+    "runHeld": "Keur deze routine goed voordat hij kan draaien.",
+    "runBusy": "De vorige run is nog niet klaar.",
+    "failed": "De machine kon dit niet doen."
   },
   "remove": {
     "title": "“{{title}}” verwijderen?",
-    "description": "Hij draait niet meer. Zijn runs, hun chats en wat hij in Output bewaarde blijven staan.",
+    "description": "Hij draait niet meer. Zijn eerdere runs, hun chats en zijn Output blijven staan.",
     "confirm": "Verwijderen",
-    "failed": "De routine kon niet verwijderd worden."
+    "failed": "Kon de routine niet verwijderen."
   },
   "form": {
     "newTitle": "Nieuwe routine",
@@ -208,14 +206,14 @@
     "promptPlaceholder": "Wat moet de agent elke keer doen?",
     "agent": "Agent",
     "noAgent": "Er is geen agent geïnstalleerd op deze machine.",
-    "mode": "Onbewaakte modus",
+    "mode": "Modus",
     "perRun": "Per run",
     "command": "Commando",
     "folder": "Map",
-    "folderHint": "Binnen de projectmap. Leeg is de map zelf.",
+    "folderHint": "Ten opzichte van de projectmap. Laat leeg voor de map zelf.",
     "launch": "Launch",
     "launchPlaceholder": "Kies een launch",
-    "noLaunches": "Dit project heeft geen launches om uit te kiezen.",
+    "noLaunches": "Dit project heeft geen launches.",
     "repeat": "Herhalen",
     "once": "Eenmalig",
     "weekly": "Op dagen",
@@ -248,12 +246,13 @@
     "sharedHint": "Gedeelde routines worden met het project gecommit.",
     "create": "Routine maken",
     "save": "Opslaan",
-    "failed": "De routine kon niet opgeslagen worden.",
-    "outputAgent": "Een resultaat dat de agent bewaart gaat naar Output, niet in het project.",
-    "outputPrinted": "Wat hij print gaat naar Output."
+    "failed": "Kon de routine niet opslaan.",
+    "outputAgent": "Resultaten gaan naar Output, niet in het project.",
+    "outputPrinted": "Zijn uitvoer gaat naar Output."
   },
   "detail": {
     "definition": "Wat deze routine doet",
+    "instructions": "Instructies",
     "repeat": "Herhalen",
     "what": {
       "agent": "Agent",
@@ -265,29 +264,28 @@
     "defaultAccount": "Standaard",
     "runsOn": "Draait op",
     "thisMachine": "Deze machine",
-    "kept": "Bewaard",
+    "kept": "Opgeslagen",
     "shared": "Gedeeld met team",
     "private": "Alleen op deze machine",
-    "deliverNote": "Ruimte vraagt de agent zijn resultaat in Output te zetten, nooit als rapportbestanden in het project.",
     "runs": "Runs",
     "nextRun": "Volgende run",
     "noRunsYet": "Hij heeft nog niet gedraaid.",
     "noRuns": "Er is niets gepland voor deze routine.",
-    "firstRun": "Zijn eerste run is {{time}}.",
+    "firstRun": "Eerste run {{time}}.",
     "version": "v{{number}}",
     "versionOf": "{{title}} v{{number}}",
-    "runAt": "Run van de routine, {{time}}",
+    "runAt": "Run van {{time}}",
     "openInOutput": "Openen in Output",
     "show": "Tonen",
     "chat": "Chat",
     "output": "Output",
-    "runFailed": "Deze run kon niet getoond worden",
+    "runFailed": "Kon deze run niet tonen",
     "showOnCanvas": "Op canvas tonen"
   },
   "node": {
     "noRoutines": "Werk deze machine bij om routines te gebruiken.",
     "notHere": "Deze routine staat niet op deze machine",
-    "notHereDetail": "Misschien houdt een teamgenoot hem alleen op zijn eigen machine, of hij is verwijderd.",
+    "notHereDetail": "Misschien bewaart een teamgenoot hem alleen op de eigen machine, of hij is verwijderd.",
     "pause": "Loopt volgens schema, zet uit om te pauzeren",
     "resume": "Gepauzeerd, zet aan om te hervatten",
     "openInRoutines": "Openen in Routines",

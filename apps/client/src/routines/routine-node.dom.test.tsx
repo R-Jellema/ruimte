@@ -110,7 +110,7 @@ describe('a routine node', () => {
         expect(frame.textContent).toContain('Weekdays at');
         expect(frame.textContent).toContain('Mon 09:00');
         // The newest run that ran is picked, and says what happened.
-        expect(frame.textContent).toContain('Waited for you, then done in');
+        expect(frame.textContent).toContain('after waiting for you');
         expect(frame.querySelector('[aria-pressed="true"]')?.getAttribute('data-look')).toBe('waited');
         expect(frame.textContent).toContain('v15');
     });

@@ -59,9 +59,17 @@ function Definition({ endpointId, entry }: { endpointId: string; entry: RoutineE
     return (
         <section className="flex flex-col gap-3 border-b border-border p-4" aria-label={t('detail.definition')}>
             {(entry.held !== undefined || entry.local.declined === entry.digest) && <ApprovalBanner endpointId={endpointId} entry={entry} />}
-            {routine.kind === 'agent' && <p className="rounded-lg bg-surface-sunken p-3 text-sm whitespace-pre-wrap text-text select-text">{routine.prompt}</p>}
+            {routine.kind === 'agent' && (
+                <div className="flex flex-col gap-1.5">
+                    <SectionLabel render={<h3 />}>{t('detail.instructions')}</SectionLabel>
+                    <p className="text-sm whitespace-pre-wrap text-text select-text">{routine.prompt}</p>
+                </div>
+            )}
             {routine.kind === 'command' && (
-                <p className="rounded-lg bg-surface-sunken p-3 font-mono text-code whitespace-pre-wrap text-text select-text">{routine.command}</p>
+                <div className="flex flex-col gap-1.5">
+                    <SectionLabel render={<h3 />}>{t('form.command')}</SectionLabel>
+                    <p className="font-mono text-code whitespace-pre-wrap text-text select-text">{routine.command}</p>
+                </div>
             )}
             <KeyValueList.Root>
                 <KeyValueList.Item>
@@ -193,7 +201,7 @@ function RunPane({ entry, run, timeZone }: { entry: RoutineEntry; run: RoutineRu
                         label={t('detail.show')}
                         size="sm"
                         value={shown}
-                        onValueChange={setShown}
+                        onValueChange={(id) => setShown(id === 'output' ? 'output' : 'chat')}
                         options={[
                             { id: 'chat', label: t('detail.chat') },
                             { id: 'output', label: t('detail.output') }

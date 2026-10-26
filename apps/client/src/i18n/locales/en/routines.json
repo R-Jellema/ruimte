@@ -1,8 +1,8 @@
 {
   "toolbar": {
     "routines": "Routines",
-    "attention_one": "Routines, {{count}} waits for you",
-    "attention_other": "Routines, {{count}} wait for you"
+    "attention_one": "Routines, {{count}} needs you",
+    "attention_other": "Routines, {{count}} need you"
   },
   "stage": {
     "title": "Routines",
@@ -14,9 +14,9 @@
     "range": "{{from}} to {{to}}",
     "week": "Week {{number}}",
     "loading": "Loading routines…",
-    "failed": "The routines could not be read from the machine.",
+    "failed": "Could not load the routines from the machine.",
     "emptyTitle": "No routines yet",
-    "empty": "A routine starts an agent, a command or a launch at a set time. Drag across the days above, or use New routine."
+    "empty": "A routine runs an agent, a command or a launch at a set time. Drag across the days above, or click New routine."
   },
   "filter": {
     "label": "Which projects",
@@ -35,8 +35,6 @@
   "agenda": {
     "label": "Routines this week",
     "routine": "Routine",
-    "projectTitle": "Routines of {{name}}",
-    "allTitle": "All routines on this machine",
     "block": "{{title}}, {{time}}, {{state}}",
     "drag": "Drag across the days",
     "dragDay": "New routine on {{day}}",
@@ -48,17 +46,17 @@
   "row": {
     "next": "Next {{time}}",
     "paused": "Paused",
-    "waits": "Waits for you since {{time}}",
-    "held": "Waits for your approval",
-    "declined": "Denied on this machine",
-    "ended": "Nothing more planned"
+    "waits": "Needs you since {{time}}",
+    "held": "Needs your approval",
+    "declined": "Denied",
+    "ended": "Not scheduled"
   },
   "looks": {
     "done": "Done",
-    "waited": "Waited for you",
-    "waiting": "Waiting",
+    "waited": "Needed you",
+    "waiting": "Needs you",
     "caught-up": "Caught up",
-    "limit": "Hit a limit",
+    "limit": "Usage limit",
     "skipped": "Skipped",
     "paused": "Paused",
     "next": "Next",
@@ -69,14 +67,14 @@
     "done": "Done",
     "running": "Running",
     "waiting": "Needs you",
-    "caught-up": "Missed, caught up",
+    "caught-up": "Caught up",
     "failed": "Failed",
     "next": "Upcoming"
   },
   "chip": {
     "took": "{{time}} · {{duration}}",
     "needsYou": "Needs you",
-    "woke": "Woke {{time}}",
+    "woke": "Caught up {{time}}",
     "limit": "Usage limit",
     "failed": "Failed",
     "skipped": "Skipped",
@@ -112,23 +110,23 @@
   },
   "quick": {
     "onMachine": "On {{machine}}",
-    "missed": "Missed: once on wake",
+    "missed": "Missed times run once when the machine wakes",
     "more": "More options"
   },
   "side": {
-    "label": "Approvals and runs that wait",
-    "approvals": "Waiting for approval",
+    "label": "Approvals and runs",
+    "approvals": "Needs approval",
     "needsYou": "Needs you",
-    "waitsSince": "Waits since {{time}}",
+    "waitsSince": "Since {{time}}",
     "legend": "What the blocks mean"
   },
   "approval": {
-    "fromOutside": "From git, in the project file",
-    "byAgent": "Made by an agent in “{{title}}”",
+    "fromOutside": "Added through the project file",
+    "byAgent": "Added by an agent in “{{title}}”",
     "anAgent": "a chat",
     "deny": "Deny",
     "approve": "Approve",
-    "failed": "The answer did not reach the machine.",
+    "failed": "Could not send your answer to the machine.",
     "fromOutsidePrivate": "Changed outside Ruimte"
   },
   "repeat": {
@@ -154,21 +152,21 @@
     "minutes_other": "every {{count}} minutes"
   },
   "run": {
-    "skippedOverlap": "Skipped, the previous run still waited for you",
-    "skippedHeld": "Skipped, it waited for approval",
+    "skippedOverlap": "Skipped, the previous run had not finished",
+    "skippedHeld": "Skipped, not approved yet",
     "skippedPaused": "Paused",
     "starting": "Starting",
     "running": "Running since {{time}}",
-    "needsYou": "Waits for you",
-    "limit": "Hit the usage limit",
-    "limitUntil": "Hit the usage limit, goes on at {{time}}",
+    "needsYou": "Needs you",
+    "limit": "Stopped at the usage limit",
+    "limitUntil": "Stopped at the usage limit, resumes at {{time}}",
     "failed": "Failed",
     "failedWith": "Failed: {{error}}",
     "failedExit": "Failed with exit code {{code}}",
-    "caughtUp": "Missed at {{time}}, caught up when the machine woke",
-    "waitedDone": "Waited for you, then done in {{duration}}",
+    "caughtUp": "Missed at {{time}}, ran when the machine woke",
+    "waitedDone": "Done in {{duration}}, after waiting for you",
     "done": "Done in {{duration}}",
-    "doneManual": "Run by hand, done in {{duration}}"
+    "doneManual": "Started by hand, done in {{duration}}"
   },
   "kinds": {
     "agent": "Agent",
@@ -187,15 +185,15 @@
     "more": "More",
     "edit": "Edit",
     "remove": "Remove",
-    "runHeld": "This routine waits for approval, so it did not start.",
-    "runBusy": "The previous run still goes on, so this one did not start.",
-    "failed": "The machine did not take this."
+    "runHeld": "Approve this routine before it can run.",
+    "runBusy": "The previous run has not finished yet.",
+    "failed": "The machine could not do this."
   },
   "remove": {
     "title": "Remove “{{title}}”?",
-    "description": "It stops running. Its runs, their chats and what it saved in Output stay.",
+    "description": "It will not run again. Its past runs, their chats and its Output stay.",
     "confirm": "Remove",
-    "failed": "The routine could not be removed."
+    "failed": "Could not remove the routine."
   },
   "form": {
     "newTitle": "New routine",
@@ -208,14 +206,14 @@
     "promptPlaceholder": "What should the agent do each time?",
     "agent": "Agent",
     "noAgent": "No agent is installed on this machine.",
-    "mode": "Unattended mode",
+    "mode": "Mode",
     "perRun": "Per run",
     "command": "Command",
     "folder": "Folder",
-    "folderHint": "Inside the project folder. Empty is the folder itself.",
+    "folderHint": "Relative to the project folder. Leave it empty for the folder itself.",
     "launch": "Launch",
     "launchPlaceholder": "Pick a launch",
-    "noLaunches": "This project has no launches to pick from.",
+    "noLaunches": "This project has no launches.",
     "repeat": "Repeat",
     "once": "Once",
     "weekly": "On days",
@@ -248,12 +246,13 @@
     "sharedHint": "Shared routines are committed with the project.",
     "create": "Create routine",
     "save": "Save",
-    "failed": "The routine could not be saved.",
-    "outputAgent": "A result the agent keeps goes to Output, not into the project.",
-    "outputPrinted": "What it prints goes to Output."
+    "failed": "Could not save the routine.",
+    "outputAgent": "Results go to Output, not into the project.",
+    "outputPrinted": "Its output goes to Output."
   },
   "detail": {
     "definition": "What this routine does",
+    "instructions": "Instructions",
     "repeat": "Repeat",
     "what": {
       "agent": "Agent",
@@ -265,29 +264,28 @@
     "defaultAccount": "Default",
     "runsOn": "Runs on",
     "thisMachine": "This machine",
-    "kept": "Kept",
+    "kept": "Stored",
     "shared": "Shared with team",
     "private": "Only on this machine",
-    "deliverNote": "Ruimte tells the agent to deliver its result to Output, never to write report files into the project.",
     "runs": "Runs",
     "nextRun": "Next run",
     "noRunsYet": "It has not run yet.",
     "noRuns": "Nothing is planned for this routine.",
-    "firstRun": "Its first run is {{time}}.",
+    "firstRun": "First run {{time}}.",
     "version": "v{{number}}",
     "versionOf": "{{title}} v{{number}}",
-    "runAt": "Routine run, {{time}}",
+    "runAt": "Run of {{time}}",
     "openInOutput": "Open in Output",
     "show": "Show",
     "chat": "Chat",
     "output": "Output",
-    "runFailed": "This run could not be shown",
+    "runFailed": "Could not show this run",
     "showOnCanvas": "Show on canvas"
   },
   "node": {
     "noRoutines": "Update this machine to use routines.",
     "notHere": "This routine is not on this machine",
-    "notHereDetail": "It may be kept only on a teammate’s machine, or it was removed.",
+    "notHereDetail": "A teammate may keep it only on their own machine, or it was removed.",
     "pause": "Runs on schedule, turn off to pause",
     "resume": "Paused, turn on to resume",
     "openInRoutines": "Open in Routines",
