@@ -21,10 +21,22 @@ export interface DerivedCard {
  * The cards a node has drawn beside it from its own data (`DerivedCards`), and the lines from it or
  * from one card to another, which belong to the canvas as every line does. They route around the nodes and the other
  * cards, in the layer under the nodes, and only the cards are stacked with their node. A line here is
- * the neutral stroke with nothing at either end, by Bas's choice: it carries nothing and points at
- * nothing, so it wears none of the looks in `edge-look.ts`.
+ * a plain stroke with nothing at either end, by Bas's choice: it carries nothing and points at
+ * nothing, so it wears none of the looks in `edge-look.ts`. Neutral, unless the owner gives a `stroke`.
  */
-export function DerivedSet({ owner, z, cards, lineDown }: { owner: string; z: number; cards: readonly DerivedCard[]; lineDown?: number }) {
+export function DerivedSet({
+    owner,
+    z,
+    cards,
+    lineDown,
+    stroke = 'var(--edge-line)'
+}: {
+    owner: string;
+    z: number;
+    cards: readonly DerivedCard[];
+    lineDown?: number;
+    stroke?: string;
+}) {
     const node = useCanvas((s) => s.nodes[owner]);
     const nodes = useCanvas((s) => s.nodes);
     const hidden = useCanvas((s) => s.hidden);
@@ -62,7 +74,7 @@ export function DerivedSet({ owner, z, cards, lineDown }: { owner: string; z: nu
         <>
             <svg className="pointer-events-none absolute left-0 top-0 overflow-visible" width="1" height="1" aria-hidden>
                 {routes.map(({ key, route }) => (
-                    <path key={key} d={route.d} fill="none" stroke="var(--edge-line)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    <path key={key} d={route.d} fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 ))}
             </svg>
             {cards.map((card) => (

@@ -139,7 +139,7 @@ export function RoutineBeside({ id, z }: { id: string; z: number }) {
         return { key: card.key, rect: card.rect, linkedFrom, label: content.label, content: content.body, lineDown: HEADER_MIDDLE, resize };
     });
 
-    return <DerivedSet owner={id} z={z} cards={cards} lineDown={HEADER_MIDDLE} />;
+    return <DerivedSet owner={id} z={z} cards={cards} lineDown={HEADER_MIDDLE} {...(accent === undefined ? {} : { stroke: accentShades(accent).line })} />;
 }
 
 function runDay(run: RoutineRun, timeZone: string): string {
