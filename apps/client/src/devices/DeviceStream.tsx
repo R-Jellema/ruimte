@@ -11,9 +11,9 @@ import clsx from 'clsx';
 import i18next from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { CircleAlert, LoaderCircle } from 'lucide-react';
-import { deviceTools, LiveStreamDecoder, liveStreamFormatOf, type DeviceInfo, type DeviceInput } from '@ruimte/contracts';
+import { deviceTools, liveStreamFormatOf, type DeviceInfo, type DeviceInput } from '@ruimte/contracts';
 import { isApplePlatform } from '@/desktop/bridge';
-import { credentialFor } from '@/endpoint/credentials';
+import { followLiveStream } from '@/endpoint/live-stream-fetch';
 import {
     approachGestureTotal,
     boundedGestureDelta,
@@ -30,10 +30,9 @@ import { videoFrameDecoder } from '@/devices/video-decoder';
 import { useEndpoints } from '@/state/endpoints';
 import { useEndpointId } from '@/state/keys';
 import { deviceClientFor } from '@/transport/connections';
-import { FramePainter, wait } from '@/transport/live-stream';
+import { FramePainter } from '@/transport/live-stream';
 import { EmptyState, Icon } from '@adecore/ui';
 
-const RETRY_MS = 1_000;
 const BOTTOM_EDGE_START = 0.92;
 const TRACKPAD_DRAG_GAIN = 0.42;
 const TRACKPAD_DRAG_LIMIT = 0.3;
@@ -132,43 +131,17 @@ export function DeviceStream({ device }: { device: DeviceInfo }) {
             return;
         }
         const controller = new AbortController();
-        const consume = async (): Promise<void> => {
-            while (!controller.signal.aborted) {
-                try {
-                    const credential = credentialFor(endpoint);
-                    const headers = credential ? { Authorization: `Bearer ${credential}` } : undefined;
-                    const response = await fetch(`${endpoint.httpBaseUrl}/live-stream/${encodeURIComponent(streamId)}`, { headers, signal: controller.signal });
-                    if (!response.ok || !response.body) {
-                        throw new Error(
-                            response.status === 404
-                                ? i18next.t('machines:device.stream.notReady')
-                                : i18next.t('machines:device.stream.httpStatus', { status: response.status })
-                        );
-                    }
-                    const format = liveStreamFormatOf(response.headers.get('content-type') ?? '');
-                    if (format === null) {
-                        throw new Error(i18next.t('machines:device.stream.unknownFormat'));
-                    }
-                    const decoder = new LiveStreamDecoder();
-                    const reader = response.body.getReader();
-                    while (!controller.signal.aborted) {
-                        const next = await reader.read();
-                        if (next.done) {
-                            break;
-                        }
-                        for (const frame of decoder.push(next.value)) {
-                            framePainter.push({ ...frame, format });
-                        }
-                    }
-                } catch (error) {
-                    if (!controller.signal.aborted) {
-                        setStreamError(error instanceof Error ? error.message : i18next.t('machines:device.stream.stopped'));
-                    }
-                }
-                await wait(RETRY_MS, controller.signal);
+        void followLiveStream(endpoint, streamId, controller.signal, {
+            formatOf: liveStreamFormatOf,
+            onFrame: (frame, format) => framePainter.push({ ...frame, format }),
+            onError: setStreamError,
+            words: {
+                notReady: () => i18next.t('machines:device.stream.notReady'),
+                status: (status) => i18next.t('machines:device.stream.httpStatus', { status }),
+                unknownFormat: () => i18next.t('machines:device.stream.unknownFormat'),
+                stopped: () => i18next.t('machines:device.stream.stopped')
             }
-        };
-        void consume();
+        });
         return () => controller.abort();
     }, [direct, endpoint, framePainter, streamId]);
 

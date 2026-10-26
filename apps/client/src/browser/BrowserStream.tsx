@@ -1,18 +1,16 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
-import { LiveStreamDecoder, LIVE_STREAM_CONTENT_TYPE, type BrowserInput } from '@ruimte/contracts';
+import { LIVE_STREAM_CONTENT_TYPE, type BrowserInput } from '@ruimte/contracts';
 import i18next from 'i18next';
 import { CircleAlert } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { browserClientFor } from '@/transport/connections';
-import { FramePainter, wait } from '@/transport/live-stream';
-import { credentialFor } from '@/endpoint/credentials';
+import { FramePainter } from '@/transport/live-stream';
+import { followLiveStream } from '@/endpoint/live-stream-fetch';
 import { useEndpointId } from '@/state/keys';
 import { useEndpoints } from '@/state/endpoints';
 import { EmptyState } from '@adecore/ui';
 import { initialStreamUrl, useBrowserRow } from './registry';
 import { browserStreamScaleLimit, clampBrowserStreamScale, useBrowserStreamQuality } from './stream-quality';
-
-const RETRY_MS = 1_000;
 
 function modifiersOf(event: { altKey: boolean; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }): number {
     return (event.altKey ? 1 : 0) | (event.ctrlKey ? 2 : 0) | (event.metaKey ? 4 : 0) | (event.shiftKey ? 8 : 0);
@@ -129,43 +127,17 @@ export function BrowserStream({ id, initialUrl: savedUrl, className }: { id: str
         }
         const controller = new AbortController();
 
-        const consume = async (): Promise<void> => {
-            while (!controller.signal.aborted) {
-                try {
-                    const credential = credentialFor(endpoint);
-                    const headers = credential ? { Authorization: `Bearer ${credential}` } : undefined;
-                    const response = await fetch(`${endpoint.httpBaseUrl}/live-stream/${encodeURIComponent(streamId)}`, {
-                        headers,
-                        signal: controller.signal
-                    });
-                    if (!response.ok || !response.body) {
-                        throw new Error(
-                            response.status === 404 ? i18next.t('browser:stream.notReady') : i18next.t('browser:stream.status', { status: response.status })
-                        );
-                    }
-                    if (!response.headers.get('content-type')?.startsWith(LIVE_STREAM_CONTENT_TYPE.split(';')[0]!)) {
-                        throw new Error(i18next.t('browser:stream.unknownFormat'));
-                    }
-                    const decoder = new LiveStreamDecoder();
-                    const reader = response.body.getReader();
-                    while (!controller.signal.aborted) {
-                        const next = await reader.read();
-                        if (next.done) {
-                            break;
-                        }
-                        for (const frame of decoder.push(next.value)) {
-                            framePainter.push(frame);
-                        }
-                    }
-                } catch (error) {
-                    if (!controller.signal.aborted) {
-                        setStreamError(error instanceof Error ? error.message : i18next.t('browser:stream.stopped'));
-                    }
-                }
-                await wait(RETRY_MS, controller.signal);
+        void followLiveStream(endpoint, streamId, controller.signal, {
+            formatOf: (contentType) => (contentType.startsWith(LIVE_STREAM_CONTENT_TYPE.split(';')[0]!) ? true : null),
+            onFrame: (frame) => framePainter.push(frame),
+            onError: setStreamError,
+            words: {
+                notReady: () => i18next.t('browser:stream.notReady'),
+                status: (status) => i18next.t('browser:stream.status', { status }),
+                unknownFormat: () => i18next.t('browser:stream.unknownFormat'),
+                stopped: () => i18next.t('browser:stream.stopped')
             }
-        };
-        void consume();
+        });
         return () => controller.abort();
     }, [direct, endpoint, framePainter, id, ready, streamId]);
 
