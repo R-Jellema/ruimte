@@ -22430,6 +22430,17 @@
         }
       }
     },
+    "Cron %@" : {
+      "comment" : "A routine on a crontab expression, such as 0 9 * * 1-5",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cron %@"
+          }
+        }
+      }
+    },
     "Daily" : {
       "comment" : "The days of a routine that repeats within a day",
       "localizations" : {

@@ -1,14 +1,16 @@
 import Foundation
 import RuimtePulsar
 
-/// When a routine starts, as `RoutineScheduleSchema` writes it: a day and a time, weekdays and a time, or
-/// weekdays and a repeat within a day, on the machine's clock.
+/// When a routine starts, as `RoutineScheduleSchema` writes it: a day and a time, weekdays and a time,
+/// weekdays and a repeat within a day, or a crontab expression, on the machine's clock.
 enum RoutineSchedule: Equatable {
     case once(date: String, time: String)
     /// ISO weekdays: 1 is Monday, 7 is Sunday.
     case weekly(days: [Int], time: String)
     /// On those days every `every` minutes from `from` up to and including `to`.
     case interval(days: [Int], every: Int, from: String, to: String)
+    /// Five crontab fields, such as `0 9 * * 1-5`.
+    case cron(expression: String)
     /// A kind a newer machine knows and this app does not.
     case unknown
 
@@ -21,6 +23,7 @@ enum RoutineSchedule: Equatable {
             self = .interval(
                 days: days, every: Int(json?.number("every", fallback: 60) ?? 60), from: json?.text("from") ?? "",
                 to: json?.text("to") ?? "")
+        case "cron": self = .cron(expression: json?.text("expression") ?? "")
         default: self = .unknown
         }
     }
@@ -56,6 +59,8 @@ enum RoutineSchedule: Equatable {
             return String(
                 localized: "\(Self.dayWords(days, in: locale)), \(Self.stepWords(every)) from \(start) to \(end)",
                 comment: "A routine that repeats within a day: its days, how often, then the first and last time")
+        case .cron(let expression):
+            return String(localized: "Cron \(expression)", comment: "A routine on a crontab expression, such as 0 9 * * 1-5")
         case .unknown:
             return String(localized: "On a schedule this app does not know")
         }

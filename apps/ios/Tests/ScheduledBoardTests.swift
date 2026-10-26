@@ -71,6 +71,14 @@ import Testing
             words(.object(["kind": .string("monthly")])) == String(localized: "On a schedule this app does not know"))
     }
 
+    @Test func aCronShowsItsExpression() {
+        let expression = "0 9 * * 1-5"
+        let schedule = RoutineSchedule(json: .object(["kind": .string("cron"), "expression": .string(expression)]))
+        #expect(schedule == .cron(expression: expression))
+        #expect(schedule.words(timeZone: nil, in: Self.english) == String(localized: "Cron \(expression)"))
+        #expect(schedule.words(timeZone: nil, in: Self.english) == "Cron 0 9 * * 1-5")
+    }
+
     @Test func anIntervalReadsItsDaysStepAndWindow() {
         func words(_ days: [Int], _ every: Int) -> String {
             RoutineSchedule(
