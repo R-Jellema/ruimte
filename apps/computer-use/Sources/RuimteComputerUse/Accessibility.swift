@@ -11,6 +11,19 @@ enum AX {
         return value
     }
 
+    /// Reads every attribute in one round trip, which keeps a large tree from costing thousands of IPC calls. An
+    /// attribute the element lacks reads nil, and the whole read is nil when the element does not answer.
+    static func values(_ element: AXUIElement, _ names: [String]) -> [CFTypeRef?]? {
+        var raw: CFArray?
+        guard AXUIElementCopyMultipleAttributeValues(element, names as CFArray, AXCopyMultipleAttributeOptions(rawValue: 0), &raw) == .success,
+              let values = raw as? [AnyObject], values.count == names.count else {
+            return nil
+        }
+        return values.map { value in
+            CFGetTypeID(value) == AXValueGetTypeID() && AXValueGetType(value as! AXValue) == .axError ? nil : value
+        }
+    }
+
     static func element(_ element: AXUIElement, _ name: String) -> AXUIElement? {
         guard let value = attribute(element, name), CFGetTypeID(value) == AXUIElementGetTypeID() else {
             return nil
@@ -209,19 +222,9 @@ struct ElementInfo {
     var selected = false
     var identifier: String?
 
-    /// Reads every attribute in one round trip, which keeps a large tree from costing thousands of IPC calls.
     static func read(_ element: AXUIElement) -> ElementInfo? {
-        var raw: CFArray?
-        let names = attributes as CFArray
-        guard AXUIElementCopyMultipleAttributeValues(element, names, AXCopyMultipleAttributeOptions(rawValue: 0), &raw) == .success,
-              let values = raw as? [AnyObject], values.count == attributes.count else {
+        guard let present = AX.values(element, attributes) else {
             return nil
-        }
-        let present: [CFTypeRef?] = values.map { value in
-            if CFGetTypeID(value) == AXValueGetTypeID() && AXValueGetType(value as! AXValue) == .axError {
-                return nil
-            }
-            return value
         }
         var info = ElementInfo()
         info.role = present[0] as? String ?? ""

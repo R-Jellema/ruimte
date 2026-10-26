@@ -26,16 +26,8 @@ enum Menus {
         var checked = false
 
         static func read(_ element: AXUIElement) -> ItemInfo? {
-            var raw: CFArray?
-            guard AXUIElementCopyMultipleAttributeValues(element, attributes as CFArray, AXCopyMultipleAttributeOptions(rawValue: 0), &raw) == .success,
-                  let values = raw as? [AnyObject], values.count == attributes.count else {
+            guard let present = AX.values(element, attributes) else {
                 return nil
-            }
-            let present: [CFTypeRef?] = values.map { value in
-                if CFGetTypeID(value) == AXValueGetTypeID() && AXValueGetType(value as! AXValue) == .axError {
-                    return nil
-                }
-                return value
             }
             var info = ItemInfo()
             info.role = present[0] as? String ?? ""

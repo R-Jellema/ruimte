@@ -31,23 +31,26 @@ enum SyntheticInput {
         CGEvent(source: nil)?.location ?? .zero
     }
 
+    private static func mouseEvent(_ type: CGEventType, at point: CGPoint, button: CGMouseButton = .left, clickState: Int64? = nil, source: CGEventSource?) -> CGEvent? {
+        let event = CGEvent(mouseEventSource: source, mouseType: type, mouseCursorPosition: point, mouseButton: button)
+        event?.flags = []
+        if let clickState {
+            event?.setIntegerValueField(.mouseEventClickState, value: clickState)
+        }
+        return event
+    }
+
     /// Moves the real pointer, clicks, and puts the pointer back where the person left it.
     static func click(at point: CGPoint, count: Int, button: CGMouseButton = .left) async throws {
         try Task.checkCancellation()
         let source = self.source
         let previous = currentPointer()
         let (downType, upType): (CGEventType, CGEventType) = button == .right ? (.rightMouseDown, .rightMouseUp) : (.leftMouseDown, .leftMouseUp)
-        let move = CGEvent(mouseEventSource: source, mouseType: .mouseMoved, mouseCursorPosition: point, mouseButton: button)
-        move?.flags = []
-        post(move)
+        post(mouseEvent(.mouseMoved, at: point, button: button, source: source))
         try? await Task.sleep(for: .milliseconds(40))
         for click in 1...count where !Task.isCancelled {
-            let down = CGEvent(mouseEventSource: source, mouseType: downType, mouseCursorPosition: point, mouseButton: button)
-            let up = CGEvent(mouseEventSource: source, mouseType: upType, mouseCursorPosition: point, mouseButton: button)
-            for event in [down, up] {
-                event?.flags = []
-                event?.setIntegerValueField(.mouseEventClickState, value: Int64(click))
-            }
+            let down = mouseEvent(downType, at: point, button: button, clickState: Int64(click), source: source)
+            let up = mouseEvent(upType, at: point, button: button, clickState: Int64(click), source: source)
             post(down)
             try? await Task.sleep(for: .milliseconds(30))
             post(up)
@@ -67,10 +70,7 @@ enum SyntheticInput {
         let source = self.source
         let previous = currentPointer()
         let event = { (type: CGEventType, point: CGPoint) in
-            let made = CGEvent(mouseEventSource: source, mouseType: type, mouseCursorPosition: point, mouseButton: .left)
-            made?.flags = []
-            made?.setIntegerValueField(.mouseEventClickState, value: 1)
-            return made
+            mouseEvent(type, at: point, clickState: 1, source: source)
         }
         post(event(.mouseMoved, start))
         try? await Task.sleep(for: .milliseconds(40))
@@ -95,9 +95,7 @@ enum SyntheticInput {
         try Task.checkCancellation()
         let source = self.source
         let previous = currentPointer()
-        let move = CGEvent(mouseEventSource: source, mouseType: .mouseMoved, mouseCursorPosition: point, mouseButton: .left)
-        move?.flags = []
-        post(move)
+        post(mouseEvent(.mouseMoved, at: point, source: source))
         try? await Task.sleep(for: .milliseconds(40))
         let steps = max(1, Int((max(abs(deltaX), abs(deltaY)) / 40).rounded(.up)))
         var sentX = 0
@@ -130,37 +128,53 @@ enum SyntheticInput {
         CGAssociateMouseAndMouseCursorPosition(1)
     }
 
-    static func press(_ combo: KeyCombo) async throws {
+    private static func keyEvents(_ combo: KeyCombo) -> [CGEvent?] {
         let source = self.source
-        let down = CGEvent(keyboardEventSource: source, virtualKey: combo.keyCode, keyDown: true)
-        let up = CGEvent(keyboardEventSource: source, virtualKey: combo.keyCode, keyDown: false)
-        down?.flags = combo.flags
-        up?.flags = combo.flags
-        post(down)
-        try? await Task.sleep(for: .milliseconds(25))
-        post(up)
+        return [true, false].map { down in
+            let event = CGEvent(keyboardEventSource: source, virtualKey: combo.keyCode, keyDown: down)
+            event?.flags = combo.flags
+            return event
+        }
     }
 
     /// One character per event: some apps read only the first character of a longer unicode string.
-    static func type(_ text: String) async throws {
+    private static func textEvents(_ character: Character) -> [CGEvent?] {
         let source = self.source
-        let normalized = text.replacingOccurrences(of: "\r\n", with: "\n")
-        for character in normalized {
+        let units = Array(String(character).utf16)
+        return [true, false].map { down in
+            let event = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: down)
+            event?.flags = []
+            event?.keyboardSetUnicodeString(stringLength: units.count, unicodeString: units)
+            return event
+        }
+    }
+
+    /// The key a character goes as, nil for one that goes as text.
+    private static func key(for character: Character) -> KeyCombo? {
+        switch character {
+        case "\n", "\r":
+            return KeyCombo(keyCode: 36, flags: [], name: "return")
+        case "\t":
+            return KeyCombo(keyCode: 48, flags: [], name: "tab")
+        default:
+            return nil
+        }
+    }
+
+    static func press(_ combo: KeyCombo) async throws {
+        let events = keyEvents(combo)
+        post(events[0])
+        try? await Task.sleep(for: .milliseconds(25))
+        post(events[1])
+    }
+
+    static func type(_ text: String) async throws {
+        for character in text.replacingOccurrences(of: "\r\n", with: "\n") {
             try Task.checkCancellation()
-            if character == "\n" || character == "\r" {
-                try await press(KeyCombo(keyCode: 36, flags: [], name: "return"))
-            } else if character == "\t" {
-                try await press(KeyCombo(keyCode: 48, flags: [], name: "tab"))
+            if let combo = key(for: character) {
+                try await press(combo)
             } else {
-                let units = Array(String(character).utf16)
-                let down = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true)
-                let up = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false)
-                for event in [down, up] {
-                    event?.flags = []
-                    event?.keyboardSetUnicodeString(stringLength: units.count, unicodeString: units)
-                }
-                post(down)
-                post(up)
+                textEvents(character).forEach(post)
             }
             try await Task.sleep(for: .milliseconds(12))
         }
@@ -182,33 +196,20 @@ enum SyntheticInput {
         }
 
         static func press(_ combo: KeyCombo, to pid: pid_t) async throws {
-            let down = CGEvent(keyboardEventSource: source, virtualKey: combo.keyCode, keyDown: true)
-            let up = CGEvent(keyboardEventSource: source, virtualKey: combo.keyCode, keyDown: false)
-            down?.flags = combo.flags
-            up?.flags = combo.flags
-            post(down, to: pid)
+            let events = keyEvents(combo)
+            post(events[0], to: pid)
             try? await Task.sleep(for: .milliseconds(25))
-            post(up, to: pid)
+            post(events[1], to: pid)
         }
 
         static func type(_ character: Character, to pid: pid_t) async throws {
-            if character == "\n" || character == "\r" {
-                try await press(KeyCombo(keyCode: 36, flags: [], name: "return"), to: pid)
-                return
+            if let combo = key(for: character) {
+                try await press(combo, to: pid)
+            } else {
+                for event in textEvents(character) {
+                    post(event, to: pid)
+                }
             }
-            if character == "\t" {
-                try await press(KeyCombo(keyCode: 48, flags: [], name: "tab"), to: pid)
-                return
-            }
-            let units = Array(String(character).utf16)
-            let down = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true)
-            let up = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false)
-            for event in [down, up] {
-                event?.flags = []
-                event?.keyboardSetUnicodeString(stringLength: units.count, unicodeString: units)
-            }
-            post(down, to: pid)
-            post(up, to: pid)
         }
     }
 }

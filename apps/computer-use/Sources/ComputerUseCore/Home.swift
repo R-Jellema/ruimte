@@ -2,7 +2,6 @@ import Foundation
 
 /// The `$RUIMTE_HOME` the helper serves, and where its files sit inside it.
 public struct Home: Sendable, Equatable {
-    public static let releaseBundleIdentifier = "app.ruimte.computer-use"
     public static let developmentBundleIdentifier = "app.ruimte.computer-use.dev"
 
     public let path: String

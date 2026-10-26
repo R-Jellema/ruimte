@@ -90,7 +90,7 @@ final class SessionBar {
             panel.setFrame(frame, display: true)
         }
         view.fitGlass()
-        view.bar.setContentsScale(panel.backingScaleFactor)
+        Layers.setScale(view.bar.layer, panel.backingScaleFactor)
     }
 }
 

@@ -31,8 +31,6 @@ public struct KeyCombo: Sendable {
     private static let navigationKeys: Set<String> = ["left", "right", "up", "down"]
     private static let functionKeys: Set<String> = ["home", "end", "pageup", "pagedown", "forwarddelete", "help"]
 
-    public static let escapeKeyCode: CGKeyCode = 53
-
     /// Select all, cut, copy, paste, undo and redo: AppKit sends them to the focused view of the key window, and an app
     /// behind the person's work has none, so there they do nothing, by key or by menu.
     public var editsFocusedText: Bool {

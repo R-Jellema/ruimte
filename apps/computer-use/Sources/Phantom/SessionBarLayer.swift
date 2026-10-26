@@ -168,8 +168,4 @@ public final class SessionBarLayer {
     public func button(at point: CGPoint) -> Button? {
         buttonFrames.first { $0.1.contains(point) }?.0
     }
-
-    public func setContentsScale(_ scale: CGFloat) {
-        Layers.setScale(layer, scale)
-    }
 }

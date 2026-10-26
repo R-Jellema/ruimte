@@ -34,17 +34,19 @@ final class SocketServer: @unchecked Sendable {
 
         let descriptor = socket(AF_UNIX, SOCK_STREAM, 0)
         guard descriptor >= 0 else {
-            throw UnixSocket.Failure("socket() failed: \(String(cString: strerror(errno)))")
+            throw UnixSocket.Failure.system("socket()")
         }
         let bound = try UnixSocket.withAddress(path) { bind(descriptor, $0, $1) }
         guard bound == 0 else {
+            let failure = UnixSocket.Failure.system("bind(\(path))")
             close(descriptor)
-            throw UnixSocket.Failure("bind(\(path)) failed: \(String(cString: strerror(errno)))")
+            throw failure
         }
         chmod(path, 0o600)
         guard listen(descriptor, 16) == 0 else {
+            let failure = UnixSocket.Failure.system("listen()")
             close(descriptor)
-            throw UnixSocket.Failure("listen() failed: \(String(cString: strerror(errno)))")
+            throw failure
         }
         listener = descriptor
 

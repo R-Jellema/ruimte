@@ -78,9 +78,7 @@ public final class PhantomCursor {
         defer {
             CATransaction.commit()
         }
-        let look = PhantomLook.of(state, working: scene.working)
-        let palette = OverlayStyle.palette(scene.theme)
-        let color = look.tone == .accent ? (scene.accent ?? palette.accent) : palette.color(look.tone)
+        let (look, palette, color) = Self.paint(state, scene: scene)
         let transition = animated && self.state != nil && motion.moves
 
         applyForm(look, transition: transition, scene: scene, motion: motion)
@@ -97,11 +95,17 @@ public final class PhantomCursor {
         guard let state, state == .click || state == .tap else {
             return
         }
+        let (look, palette, color) = Self.paint(state, scene: scene)
+        applyShapeMotion(look, scene: scene, transition: false, motion: motion)
+        applyEffects(look, color: color, palette: palette, scene: scene, motion: motion)
+    }
+
+    /// The look of a state and its color: the scene's accent replaces the theme's.
+    private static func paint(_ state: PhantomState, scene: PhantomScene) -> (PhantomLook, PhantomPalette, CGColor) {
         let look = PhantomLook.of(state, working: scene.working)
         let palette = OverlayStyle.palette(scene.theme)
         let color = look.tone == .accent ? (scene.accent ?? palette.accent) : palette.color(look.tone)
-        applyShapeMotion(look, scene: scene, transition: false, motion: motion)
-        applyEffects(look, color: color, palette: palette, scene: scene, motion: motion)
+        return (look, palette, color)
     }
 
     private func applyForm(_ look: PhantomLook, transition: Bool, scene: PhantomScene, motion: MotionHost) {
@@ -337,11 +341,6 @@ public final class PhantomCursor {
         let appear = OverlayStyle.Motion.label
         motion.play(.transition("opacity", from: 0, to: 1, duration: appear.duration, easing: appear.easing), on: pill)
         motion.play(.transition("transform.scale", from: OverlayStyle.Motion.labelScale, to: 1, duration: appear.duration, easing: appear.easing), on: pill)
-    }
-
-    /// The typed text shown so far is part of the label; a longer text builds a new one.
-    public var labelFrame: CGRect? {
-        label?.frame
     }
 
     private static func questionMark(color: CGColor) -> CALayer {

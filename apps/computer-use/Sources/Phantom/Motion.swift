@@ -8,7 +8,6 @@ public enum Easing: Equatable, Sendable {
     case steps(Int)
 
     public static let ease = Easing.cubic(0.25, 0.1, 0.25, 1)
-    public static let easeIn = Easing.cubic(0.42, 0, 1, 1)
     public static let easeOut = Easing.cubic(0, 0, 0.58, 1)
     public static let easeInOut = Easing.cubic(0.42, 0, 0.58, 1)
 

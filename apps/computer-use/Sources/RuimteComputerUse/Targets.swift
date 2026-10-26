@@ -18,14 +18,8 @@ enum Targets {
         let apps = regularApps()
             .sorted { name($0).localizedCaseInsensitiveCompare(name($1)) == .orderedAscending }
             .map { app -> [String: Any] in
-                var entry: [String: Any] = [
-                    "name": name(app),
-                    "pid": Int(app.processIdentifier),
-                    "frontmost": app.processIdentifier == frontmost,
-                ]
-                if let bundleIdentifier = app.bundleIdentifier {
-                    entry["bundleId"] = bundleIdentifier
-                }
+                var entry = descriptor(app)
+                entry["frontmost"] = app.processIdentifier == frontmost
                 if let bundleName = app.bundleURL?.deletingPathExtension().lastPathComponent {
                     entry["bundleName"] = bundleName
                 }

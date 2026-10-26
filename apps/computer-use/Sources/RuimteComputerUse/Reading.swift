@@ -13,9 +13,8 @@ extension Agent {
         guard let info = ElementInfo.read(element) else {
             throw AgentError("element \(index) is gone; run `cu state` again")
         }
-        let window = AX.keyWindow(of: AXUIElementCreateApplication(app.processIdentifier)).flatMap(AX.frame)
-        overlay.begin(near: info.frame.map { CGPoint(x: $0.midX, y: $0.midY) }, background: background(request, app))
-        overlay.operating(in: window, pid: app.processIdentifier)
+        let window = keyWindowFrame(app)
+        begin(app, request, near: info.frame?.center, window: window)
         defer {
             overlay.finishAction()
         }
@@ -47,9 +46,8 @@ extension Agent {
             watched = try snapshot(for: app).element(index)
         }
         let appElement = AXUIElementCreateApplication(app.processIdentifier)
-        let window = AX.keyWindow(of: appElement).flatMap(AX.frame)
-        overlay.begin(near: window.map { CGPoint(x: $0.midX, y: $0.midY) }, background: background(request, app))
-        overlay.operating(in: window, pid: app.processIdentifier)
+        let window = keyWindowFrame(app)
+        begin(app, request, near: window?.center, window: window)
         defer {
             overlay.finishAction()
         }
@@ -61,7 +59,8 @@ extension Agent {
         while true {
             try checkStopped()
             let value = watched.flatMap { AX.describe(AX.attribute($0, kAXValueAttribute)) }.flatMap(VisibleText.clean)
-            if condition.holds(watched == nil ? probe(appElement) : [], value: value) {
+            let elements = watched == nil ? walkKeyWindow(appElement, maxElements: Self.searchLimit)?.elements ?? [] : []
+            if condition.holds(elements, value: value) {
                 met = true
                 break
             }

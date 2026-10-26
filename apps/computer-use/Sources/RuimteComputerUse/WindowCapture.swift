@@ -46,8 +46,7 @@ enum WindowCapture {
     /// The windows as their display shows them, over the area of the first; menus and popovers may hang outside it.
     private static func captureComposed(_ windows: [SCWindow], content: SCShareableContent, maxWidth: CGFloat) async throws -> (CGImage, CGRect) {
         let rootFrame = windows[0].frame
-        let center = CGPoint(x: rootFrame.midX, y: rootFrame.midY)
-        guard let display = content.displays.first(where: { $0.frame.contains(center) }) ?? content.displays.first else {
+        guard let display = content.displays.first(where: { $0.frame.contains(rootFrame.center) }) ?? content.displays.first else {
             throw AgentError("no display to capture from")
         }
         var region = rootFrame

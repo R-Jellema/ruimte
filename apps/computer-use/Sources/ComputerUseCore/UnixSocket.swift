@@ -9,7 +9,8 @@ public enum UnixSocket {
             self.description = description
         }
 
-        static func system(_ call: String) -> Failure {
+        /// The failure of a call that set `errno`.
+        public static func system(_ call: String) -> Failure {
             Failure("\(call) failed: \(String(cString: strerror(errno)))")
         }
     }

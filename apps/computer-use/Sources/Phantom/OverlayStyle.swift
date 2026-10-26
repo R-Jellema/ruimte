@@ -151,7 +151,6 @@ public enum OverlayStyle {
         /// Calm motion stretches every loop by this much.
         public static let calmLoops: Double = 1.5
         public static let calmMorph = Timing(duration: 0.32, easing: .cubic(0.2, 0, 0, 1))
-        public static let calmMove = Timing(duration: 0.52, easing: .cubic(0.2, 0, 0, 1))
     }
 }
 

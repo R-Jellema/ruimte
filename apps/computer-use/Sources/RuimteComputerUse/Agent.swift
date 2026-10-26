@@ -124,9 +124,9 @@ final class Agent {
             }
         case "wait":
             // Outside the queue, since it only reads and may take two minutes; a pause or a stop still cancels it.
-            return await interruptible {
+            return await interruptible(Task {
                 await self.respond { try await self.perform(request) }
-            }
+            })
         default:
             return Response.failure("unknown command \"\(request.command)\"")
         }
@@ -161,23 +161,17 @@ final class Agent {
     /// Runs commands one at a time: two clients interleaving clicks and keys would race for the focus.
     private func enqueue(_ work: @escaping @MainActor () async -> Data) async -> Data {
         let previous = queueTail
-        let id = UUID()
         let task = Task { @MainActor in
             await previous?.value
             return await work()
         }
-        queued[id] = task
         queueTail = Task { _ = await task.value }
-        let result = await task.value
-        queued[id] = nil
-        return result
+        return await interruptible(task)
     }
 
-    private func interruptible(_ work: @escaping @MainActor () async -> Data) async -> Data {
+    /// Waits for the task while a pause, a take-over or a stop can cancel it.
+    private func interruptible(_ task: Task<Data, Never>) async -> Data {
         let id = UUID()
-        let task = Task { @MainActor in
-            await work()
-        }
         queued[id] = task
         let result = await task.value
         queued[id] = nil
@@ -389,7 +383,7 @@ final class Agent {
         var repeats = 0
         try? await Task.sleep(for: .milliseconds(120))
         while clock.now < deadline {
-            let lines = signature(appElement)
+            let lines = walkKeyWindow(appElement, maxElements: 400)?.lines ?? []
             if lines == last {
                 repeats += 1
                 if repeats >= 2 {
@@ -404,25 +398,14 @@ final class Agent {
         return false
     }
 
-    private func signature(_ appElement: AXUIElement) -> [String] {
+    /// The key window as it is now, with handles of its own: for a check that compares text and keeps nothing.
+    func walkKeyWindow(_ appElement: AXUIElement, maxElements: Int) -> TreeWalker? {
         guard let keyWindow = AX.keyWindow(of: appElement) else {
-            return []
+            return nil
         }
-        let root = AX.container(of: keyWindow).window ?? keyWindow
         var request = Request(command: "state")
-        request.maxElements = 400
-        return walkTree(appElement, root: root, keyWindow: keyWindow, request: request, previous: HandleTable()).lines
-    }
-
-    /// The text of every element a person could see in the app now, for a `wait` to test.
-    func probe(_ appElement: AXUIElement) -> [ElementText] {
-        guard let keyWindow = AX.keyWindow(of: appElement) else {
-            return []
-        }
-        let root = AX.container(of: keyWindow).window ?? keyWindow
-        var request = Request(command: "wait")
-        request.maxElements = Self.searchLimit
-        return walkTree(appElement, root: root, keyWindow: keyWindow, request: request, previous: HandleTable()).elements
+        request.maxElements = maxElements
+        return walkTree(appElement, root: AX.container(of: keyWindow).window ?? keyWindow, keyWindow: keyWindow, request: request, previous: HandleTable())
     }
 
     /// Chromium and Electron build their accessibility tree only once an assistive app asks for it.
@@ -466,20 +449,25 @@ final class Agent {
             throw refusal
         }
         if Task.isCancelled {
-            throw overlay.refusal ?? AgentError.stopped
+            throw AgentError.stopped
         }
     }
 
-    /// The app's name while a call works behind the person's work, which is unless it asked for the front.
-    func background(_ request: Request, _ app: NSRunningApplication) -> String? {
-        request.front == true ? nil : Targets.name(app)
+    func keyWindowFrame(_ app: NSRunningApplication) -> CGRect? {
+        AX.keyWindow(of: AXUIElementCreateApplication(app.processIdentifier)).flatMap(AX.frame)
+    }
+
+    /// Starts or keeps the session for a call on the app: `point` picks the screen, and the person's hand in
+    /// `window` takes over. Behind the person's work, which is unless the call asked for the front, the bar names the app.
+    func begin(_ app: NSRunningApplication, _ request: Request, near point: CGPoint?, window: CGRect?) {
+        overlay.begin(near: point, background: request.front == true ? nil : Targets.name(app))
+        overlay.operating(in: window, pid: app.processIdentifier)
     }
 
     /// A `state` shows as looking: in front the viewfinder goes around the window the agent captures.
     private func look(_ app: NSRunningApplication, _ request: Request) async throws -> [String: Any] {
-        let frame = AX.keyWindow(of: AXUIElementCreateApplication(app.processIdentifier)).flatMap(AX.frame)
-        overlay.begin(near: frame.map { CGPoint(x: $0.midX, y: $0.midY) }, background: background(request, app))
-        overlay.operating(in: frame, pid: app.processIdentifier)
+        let frame = keyWindowFrame(app)
+        begin(app, request, near: frame?.center, window: frame)
         defer {
             overlay.finishAction()
         }
@@ -490,8 +478,7 @@ final class Agent {
     /// Wraps one action in the overlay: in front the cursor glides to the target first and shows the action there.
     func act(_ app: NSRunningApplication, _ request: Request, at point: CGPoint?, as action: ActionLook, reportPoint: Bool = true, _ body: () async throws -> [String: Any]) async throws -> [String: Any] {
         try checkStopped()
-        overlay.begin(near: point, background: background(request, app))
-        overlay.operating(in: AX.keyWindow(of: AXUIElementCreateApplication(app.processIdentifier)).flatMap(AX.frame), pid: app.processIdentifier)
+        begin(app, request, near: point, window: keyWindowFrame(app))
         defer {
             overlay.finishAction()
         }

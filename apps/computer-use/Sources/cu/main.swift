@@ -65,23 +65,17 @@ struct Arguments {
     var flags: Set<String> = []
 }
 
-func printJSON(_ object: Any) {
-    let options: JSONSerialization.WritingOptions = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+/// Pretty JSON prints `{}` for what cannot be encoded, compact JSON nothing.
+func printJSON(_ object: Any, pretty: Bool = true) {
+    let options: JSONSerialization.WritingOptions = pretty ? [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes] : [.sortedKeys, .withoutEscapingSlashes]
     guard JSONSerialization.isValidJSONObject(object),
           let data = try? JSONSerialization.data(withJSONObject: object, options: options) else {
-        print("{}")
+        if pretty {
+            print("{}")
+        }
         return
     }
-    FileHandle.standardOutput.write(data)
-    FileHandle.standardOutput.write(Data("\n".utf8))
-}
-
-func printCompactJSON(_ object: Any) {
-    guard JSONSerialization.isValidJSONObject(object),
-          let data = try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys, .withoutEscapingSlashes]) else {
-        return
-    }
-    print(String(decoding: data, as: UTF8.self))
+    FileHandle.standardOutput.write(data + Data("\n".utf8))
 }
 
 func fail(_ message: String) -> Never {
@@ -489,7 +483,7 @@ if !arguments.flags.contains("text") {
 } else {
     var summary = result
     summary["state"] = nil
-    printCompactJSON(summary)
+    printJSON(summary, pretty: false)
     if let state = result["state"] as? [String: Any] {
         print("")
         if let error = state["error"] {

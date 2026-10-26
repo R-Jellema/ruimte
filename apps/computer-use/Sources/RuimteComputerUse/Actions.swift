@@ -37,7 +37,7 @@ extension Agent {
                 visible = clipped
             }
         }
-        return CGPoint(x: visible.midX, y: visible.midY)
+        return visible.center
     }
 
     func screenPoint(_ snapshot: Snapshot, _ request: Request) throws -> CGPoint {
@@ -58,7 +58,7 @@ extension Agent {
     }
 
     /// What the menu's step line names: the element's label, or the app.
-    func targetName(_ element: AXUIElement, _ app: NSRunningApplication) -> String {
+    func targetName(_ element: AXUIElement?, _ app: NSRunningApplication) -> String {
         (AX.summary(element)["label"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? Targets.name(app)
     }
 
@@ -178,7 +178,7 @@ extension Agent {
             point = try screenPoint(snapshot, request)
         }
         let index = request.element
-        let look = ActionLook(state: .scroll, target: expected.map { targetName($0, app) } ?? Targets.name(app), direction: ScrollDirection(rawValue: direction) ?? .down)
+        let look = ActionLook(state: .scroll, target: targetName(expected, app), direction: ScrollDirection(rawValue: direction) ?? .down)
         if request.front != true {
             guard let expected, let index else {
                 throw AgentError("scroll needs --element N")
@@ -239,7 +239,7 @@ extension Agent {
         } else {
             throw AgentError("drag needs where it ends")
         }
-        let name = grabbed.map { targetName($0, app) } ?? Targets.name(app)
+        let name = targetName(grabbed, app)
         let index = request.element
         return try await act(app, request, at: start, as: ActionLook(state: .drag, target: name, text: name)) {
             let hit = try await self.prepareMouse(app, at: start, window: snapshot.window, expecting: grabbed, index: index)
@@ -270,10 +270,7 @@ extension Agent {
 
     /// The virtual pointer shows where the keys go, the focused element; it is not reported as a point since nothing is clicked there.
     private func focusPoint(_ app: NSRunningApplication) -> CGPoint? {
-        guard let focused = focusedElement(app), let frame = AX.frame(focused) else {
-            return nil
-        }
-        return CGPoint(x: frame.midX, y: frame.midY)
+        focusedElement(app).flatMap(AX.frame)?.center
     }
 
     func type(_ app: NSRunningApplication, _ request: Request) async throws -> [String: Any] {
@@ -282,7 +279,7 @@ extension Agent {
         }
         try TypingLimit.check(text: text)
         let window = snapshots[app.processIdentifier]?.window
-        let look = ActionLook(state: .type, target: focusedElement(app).map { targetName($0, app) } ?? Targets.name(app), text: text)
+        let look = ActionLook(state: .type, target: targetName(focusedElement(app), app), text: text)
         if request.front != true {
             let keys = try keyTarget(app)
             return try await act(app, request, at: focusPoint(app), as: look, reportPoint: false) {
@@ -308,7 +305,7 @@ extension Agent {
             throw AgentError("key needs at least one combo")
         }
         let window = snapshots[app.processIdentifier]?.window
-        let look = ActionLook(state: .type, target: focusedElement(app).map { targetName($0, app) } ?? Targets.name(app), text: combos.map(\.name).joined(separator: " "))
+        let look = ActionLook(state: .type, target: targetName(focusedElement(app), app), text: combos.map(\.name).joined(separator: " "))
         if request.front != true {
             if let edit = combos.first(where: \.editsFocusedText) {
                 throw AgentError.needsFront("\(edit.name) edits the focused text through the key window, which an app behind the person's work does not have, so it does nothing there; set-value replaces a text in the background")
@@ -469,7 +466,7 @@ extension Agent {
         }
         // Apps refresh AXEnabled of menu items only when a menu opens, so a stale "disabled" is not a reason to refuse.
         let reportedDisabled = !(AX.attribute(item, kAXEnabledAttribute) as? Bool ?? true)
-        let point = (topItem.flatMap(AX.frame) ?? AX.frame(item)).map { CGPoint(x: $0.midX, y: $0.midY) }
+        let point = (topItem.flatMap(AX.frame) ?? AX.frame(item))?.center
         return try await act(app, request, at: point, as: ActionLook(state: .click, target: path), reportPoint: false) {
             if request.front == true {
                 try await Targets.activate(app, window: nil)

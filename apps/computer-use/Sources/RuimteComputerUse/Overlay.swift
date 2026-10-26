@@ -29,6 +29,12 @@ enum Geometry {
     }
 }
 
+extension CGRect {
+    var center: CGPoint {
+        CGPoint(x: midX, y: midY)
+    }
+}
+
 /// What an action shows at the cursor.
 struct ActionLook {
     var state: PhantomState
@@ -130,7 +136,6 @@ final class Overlay {
     private var accent: CGColor? {
         config.accentComponents.map { CGColor(srgbRed: $0.red, green: $0.green, blue: $0.blue, alpha: 1) }
     }
-
 
     /// Why an agent command may not run now; nil when it may.
     var refusal: AgentError? {
@@ -304,7 +309,6 @@ final class Overlay {
         return ["session": true, "shown": control.shownState.rawValue, "mode": control.mode.rawValue]
     }
 
-
     func togglePause() {
         guard control.isActive else {
             return
@@ -394,7 +398,6 @@ final class Overlay {
             takeOver()
         }
     }
-
 
     /// Bringing the app the agent works in to the front takes over, in the background; in front the agent brought it there.
     private func installActivationObserver() {

@@ -50,12 +50,23 @@ public enum PhantomSnapshot {
         }
     }
 
+    /// Where the cursor sits in a tile, so what it draws around itself fits.
+    static func hotspot(_ state: PhantomState) -> CGPoint {
+        switch state {
+        case .look:
+            return CGPoint(x: 40, y: 20)
+        case .permission:
+            return CGPoint(x: 16, y: 30)
+        default:
+            return CGPoint(x: 70, y: 60)
+        }
+    }
+
     public static func state(_ state: PhantomState, options: Options) -> CGImage? {
         let size = CGSize(width: 260, height: 190)
-        let hotspot = CGPoint(x: state == .look ? 40 : state == .permission ? 16 : 70, y: state == .look ? 20 : state == .permission ? 30 : 60)
         return render(size: size, scale: options.scale) { stage in
             canvas(stage, size: size, theme: options.theme)
-            stage.addSublayer(cursor(state, at: hotspot, options: options, room: CGRect(origin: .zero, size: size)))
+            stage.addSublayer(cursor(state, at: hotspot(state), options: options, room: CGRect(origin: .zero, size: size)))
         }
     }
 
@@ -128,8 +139,7 @@ public enum PhantomSnapshot {
                 ground.masksToBounds = true
                 ground.cornerRadius = 12
                 canvas(ground, size: tile, theme: options.theme)
-                let hotspot = CGPoint(x: state == .look ? 40 : state == .permission ? 16 : 70, y: state == .look ? 20 : state == .permission ? 30 : 60)
-                ground.addSublayer(cursor(state, at: hotspot, options: options, room: CGRect(origin: .zero, size: tile)))
+                ground.addSublayer(cursor(state, at: hotspot(state), options: options, room: CGRect(origin: .zero, size: tile)))
                 stage.addSublayer(ground)
                 let name = Layers.text(state.rawValue, font: Layers.font(size: 14, weight: .semibold), color: palette.text, origin: CGPoint(x: origin.x + 4, y: origin.y + tile.height + 5), lineHeight: 20)
                 stage.addSublayer(name)
