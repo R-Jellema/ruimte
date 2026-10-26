@@ -685,10 +685,11 @@ enum ChatToolPresentation {
 
     static func elapsed(_ milliseconds: Double) -> String { Format.elapsedShort(milliseconds: milliseconds) }
 
-    static func tail(_ tool: ChatToolItem) -> String {
-        let output = tool.progress?.output ?? ""
-        return String(output.suffix(4000)).split(separator: "\n", omittingEmptySubsequences: false).suffix(12).joined(
-            separator: "\n")
+    /// The last twelve lines of a running call's output, in the colors set before them. Only the last 32,000
+    /// characters are read, so a long run stays cheap to draw on every update.
+    static func tail(_ tool: ChatToolItem) -> [ChatAnsiToken] {
+        let output = String((tool.progress?.output ?? "").suffix(32_000))
+        return ChatAnsi.parse(output, tailLines: 12).tokens
     }
 
     /// What a folded turn did, a sentence per kind of call in the order it first came, as `summarizeTurn` in

@@ -74,7 +74,7 @@ enum ChatToolBody {
     }
 
     static func hasOutput(_ output: String) -> Bool {
-        !output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !ChatAnsi.strip(output).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private static func valueText(_ value: JSONValue) -> String {
@@ -165,16 +165,22 @@ private struct ChatToolPane<Content: View>: View {
 private struct ChatToolOutput: View {
     let text: String
     let failed: Bool
+    @Environment(\.colorScheme) private var colorScheme
     @State private var expanded = false
 
     var body: some View {
         let exit = failed ? ChatToolBody.exitCode(text) : (code: nil, rest: text)
         if ChatToolBody.hasOutput(exit.rest) {
+            let base = failed && exit.code == nil ? Color.red : MobileStyle.muted
+            let output = ChatAnsi.parse(exit.rest, limit: expanded ? nil : ChatToolBody.outputLimit)
             ChatToolPane {
-                Text(expanded ? exit.rest : String(exit.rest.prefix(ChatToolBody.outputLimit)))
-                    .foregroundStyle(failed && exit.code == nil ? Color.red : MobileStyle.muted)
+                Text(
+                    ChatAnsi.attributed(
+                        output.tokens, dark: colorScheme == .dark, base: base, ground: MobileStyle.panel)
+                )
+                .foregroundStyle(base)
             }
-            if !expanded && exit.rest.count > ChatToolBody.outputLimit {
+            if output.omitted > 0 {
                 ChatExpansionButton(expanding: true) {
                     expanded = true
                 } label: {

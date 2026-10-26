@@ -162,6 +162,7 @@ struct ChatToolRow: View {
     var detail: String?
     /// Whether the call waits on a person's answer to an approval of it, when its clock is not running yet.
     var awaitingApproval = false
+    @Environment(\.colorScheme) private var colorScheme
     @State private var expanded = false
     private var running: Bool { item.state == .running }
     private var failed: Bool { item.state == .error }
@@ -198,8 +199,12 @@ struct ChatToolRow: View {
                 let tail = ChatToolPresentation.tail(item)
                 if !tail.isEmpty {
                     ScrollView(.horizontal) {
-                        Text(tail).font(.system(.caption, design: .monospaced)).textSelection(.enabled)
-                            .padding(12)
+                        Text(
+                            ChatAnsi.attributed(
+                                tail, dark: colorScheme == .dark, base: MobileStyle.text, ground: MobileStyle.panel)
+                        )
+                        .font(.system(.caption, design: .monospaced)).textSelection(.enabled)
+                        .padding(12)
                     }
                     .frame(maxHeight: 180)
                     .background(MobileStyle.panel, in: RoundedRectangle(cornerRadius: 10))
