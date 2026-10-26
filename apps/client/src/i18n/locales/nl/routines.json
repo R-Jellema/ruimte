@@ -185,7 +185,6 @@
     "runAt": "Run van de routine, {{time}}",
     "openInOutput": "Openen in Output",
     "compare": "Vergelijken met vorige run",
-    "nothingToCompare": "Geen eerdere run liet een versie na om mee te vergelijken.",
     "runFailed": "Deze run kon niet getoond worden",
     "showOnCanvas": "Op canvas tonen"
   },

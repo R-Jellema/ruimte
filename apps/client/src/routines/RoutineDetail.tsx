@@ -15,7 +15,6 @@ import { leaveRoutines, showRoutine } from '@/routines/stage';
 import { runWords, scheduleWords, weekdayClock } from '@/routines/words';
 import { useEndpoints } from '@/state/endpoints';
 import { isThisMachine } from '@/state/local-machine';
-import { useToasts } from '@/state/toasts';
 import { machineTransport } from '@/transport';
 
 /* A routine opened inside Routines: its definition and runs on the left, the run picked on the right. */
@@ -195,8 +194,6 @@ function RunPane({ entry, run, timeZone }: { entry: RoutineEntry; run: RoutineRu
         if (artifactId !== undefined && run.versionId !== undefined && previous?.versionId !== undefined) {
             leaveRoutines();
             openArtifactCompared(artifactId, entry.routine.title, run.versionId, previous.versionId);
-        } else {
-            useToasts.getState().show({ kind: 'info', title: t('detail.nothingToCompare') });
         }
     };
     return (

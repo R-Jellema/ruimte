@@ -146,7 +146,7 @@ export function RoutineForm({
                 label={t('form.kind')}
                 size="sm"
                 value={kind}
-                onValueChange={setKind}
+                onValueChange={(id) => setKind(id as RoutineKind)}
                 options={[
                     { id: 'agent', label: t('kinds.agent') },
                     { id: 'command', label: t('kinds.command') },
@@ -180,7 +180,7 @@ export function RoutineForm({
                         <Select
                             label={t('form.mode')}
                             value={mode}
-                            onValueChange={setMode}
+                            onValueChange={(value) => setMode(value as RuntimeMode)}
                             items={RUNTIME_MODES.map((entry) => ({ value: entry, label: runtimeModeLabel(entry) }))}
                         />
                     </Field>
@@ -189,7 +189,7 @@ export function RoutineForm({
                             label={t('form.perRun')}
                             size="sm"
                             value={perRun}
-                            onValueChange={setPerRun}
+                            onValueChange={(id) => setPerRun(id as RoutinePerRun)}
                             options={[
                                 { id: 'new', label: t('perRun.new') },
                                 { id: 'continue', label: t('perRun.continue') }
@@ -229,7 +229,7 @@ export function RoutineForm({
                         label={t('form.repeat')}
                         size="sm"
                         value={repeat}
-                        onValueChange={setRepeat}
+                        onValueChange={(id) => setRepeat(id as RoutineSchedule['kind'])}
                         options={[
                             { id: 'once', label: t('form.once') },
                             { id: 'weekly', label: t('form.weekly') }

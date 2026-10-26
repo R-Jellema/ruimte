@@ -15,6 +15,11 @@ import { useTransportStatus } from '@/transport/status';
  * The chat of one run, drawn the way a chat view draws one. A run's chat is a hidden chat of the
  * project, so this only observes it: it never opens one, and a person still answers its questions here.
  */
+// A run keeps the agent its routine names, so the composer never offers another one to switch to.
+function keepProvider(): Promise<void> {
+    return Promise.resolve();
+}
+
 export function RoutineRunChat({ chatId }: { chatId: string }) {
     const { t } = useTranslation('canvas');
     const endpointId = useEndpointId();
@@ -46,7 +51,19 @@ export function RoutineRunChat({ chatId }: { chatId: string }) {
                 <LazyBoundary fallback={<div className="grow" />}>
                     <Timeline
                         chatId={chatId}
-                        composer={info && <Composer chatId={chatId} info={info} focused={false} disabled={status !== 'open'} providerFixed onSend={send} />}
+                        composer={
+                            info && (
+                                <Composer
+                                    chatId={chatId}
+                                    info={info}
+                                    focused={false}
+                                    disabled={status !== 'open'}
+                                    providerFixed
+                                    onSend={send}
+                                    onRetarget={keepProvider}
+                                />
+                            )
+                        }
                     />
                 </LazyBoundary>
             </OutputChatContext>
