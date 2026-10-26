@@ -1,4 +1,5 @@
 import type { DeviceInput, LiveStreamFrame } from '@ruimte/contracts';
+import { runCommand, type CommandResult } from './command.ts';
 import { DeviceError, type DeviceSource } from './manager.ts';
 import {
     controlMessages,
@@ -13,12 +14,6 @@ import {
     ScrcpyVideoReader,
     type ScreenSize
 } from './scrcpy-protocol.ts';
-
-export interface CommandResult {
-    exitCode: number;
-    stdout: string;
-    stderr: string;
-}
 
 interface ScrcpyServerProcess {
     readonly exited: Promise<number>;
@@ -372,11 +367,7 @@ export class ScrcpySource implements DeviceSource {
 /* The host of a real device: adb for one serial and a loopback socket. */
 export function adbScrcpyHost(adb: string, serial: string): ScrcpyHost {
     return {
-        adb: async (arguments_) => {
-            const child = Bun.spawn([adb, '-s', serial, ...arguments_], { stdin: 'ignore', stdout: 'pipe', stderr: 'pipe' });
-            const [exitCode, stdout, stderr] = await Promise.all([child.exited, new Response(child.stdout).text(), new Response(child.stderr).text()]);
-            return { exitCode, stdout, stderr };
-        },
+        adb: (arguments_) => runCommand([adb, '-s', serial, ...arguments_]),
         spawn: (arguments_) => {
             const child = Bun.spawn([adb, '-s', serial, ...arguments_], { stdin: 'ignore', stdout: 'pipe', stderr: 'pipe' });
             let output = '';

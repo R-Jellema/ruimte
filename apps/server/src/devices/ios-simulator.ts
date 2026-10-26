@@ -14,6 +14,7 @@ import {
     type DeviceToggleSetting,
     type DeviceTool
 } from '@ruimte/contracts';
+import { collect, type CommandResult } from './command.ts';
 import { simulatorTree, type DeviceTree } from './device-tree.ts';
 import { DeviceHelperSource, type DeviceHelperLauncher } from './helper-source.ts';
 import { DeviceError, KEY_LEFT_COMMAND, KEY_V, PASTE_SETTLE_MS, typeInRuns, type DeviceBackend, type DeviceKeyboard, type DeviceSource } from './manager.ts';
@@ -22,12 +23,6 @@ import { DeviceRecordings } from './recordings.ts';
 import type { SimulatorCamera } from './simulator-camera.ts';
 import { realPanelMonitor, SimulatorFold, type PanelMonitorFactory } from './simulator-fold.ts';
 import type { SimulatorTreeReader } from './simulator-tree.ts';
-
-interface CommandResult {
-    exitCode: number;
-    stdout: string;
-    stderr: string;
-}
 
 export type SimctlRunner = (arguments_: string[], stdin?: string) => Promise<CommandResult>;
 
@@ -67,8 +62,8 @@ async function defaultRunner(arguments_: string[], stdin?: string): Promise<Comm
         env: utf8 ? { ...Bun.env, LC_ALL: 'en_US.UTF-8' } : undefined
     });
     const fed = stdin !== undefined && process.stdin ? Promise.all([process.stdin.write(stdin), process.stdin.end()]) : null;
-    const [exitCode, stdout, stderr] = await Promise.all([process.exited, new Response(process.stdout).text(), new Response(process.stderr).text(), fed]);
-    return { exitCode, stdout, stderr };
+    const [result] = await Promise.all([collect(process), fed]);
+    return result;
 }
 
 // todo(Bas): announce volumeUp, volumeDown, power and playPause, which the helper presses already, once side-buttons.device.integration.test.ts passed on a simulator.

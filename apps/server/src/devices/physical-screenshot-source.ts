@@ -4,13 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { z } from 'zod';
 import type { DeviceInput, LiveStreamFrame } from '@ruimte/contracts';
+import { collect, type CommandResult } from './command.ts';
 import { DeviceError, type DeviceSource } from './manager.ts';
-
-interface CommandResult {
-    exitCode: number;
-    stdout: string;
-    stderr: string;
-}
 
 export type PhysicalFrameCapture = (deviceId: string, sequence: number, directory: string, signal: AbortSignal) => Promise<LiveStreamFrame>;
 
@@ -32,8 +27,7 @@ async function runCommand(command: string[], signal: AbortSignal): Promise<Comma
         abort();
     }
     try {
-        const [exitCode, stdout, stderr] = await Promise.all([process.exited, new Response(process.stdout).text(), new Response(process.stderr).text()]);
-        return { exitCode, stdout, stderr };
+        return await collect(process);
     } finally {
         signal.removeEventListener('abort', abort);
     }

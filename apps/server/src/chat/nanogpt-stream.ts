@@ -126,9 +126,8 @@ export async function readNanoStream(
         if (bytes > 8 * 1024 * 1024) {
             throw new Error('NanoGPT response exceeded the size limit.');
         }
-        buffer += decoder.decode(chunk, { stream: true }).replace(/\r\n/g, '\n');
-        // Also handles CRLF split across network chunks.
-        buffer = buffer.replace(/\r\n/g, '\n');
+        // On the whole buffer, since a CRLF can be split across two chunks.
+        buffer = (buffer + decoder.decode(chunk, { stream: true })).replace(/\r\n/g, '\n');
         let boundary: number;
         while ((boundary = buffer.indexOf('\n\n')) >= 0) {
             consume(buffer.slice(0, boundary));

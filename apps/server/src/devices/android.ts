@@ -20,7 +20,7 @@ import type { DeviceTree } from './device-tree.ts';
 import { DeviceError, PASTE_SETTLE_MS, typeInRuns, type DeviceBackend, type DeviceKeyboard, type DeviceSource } from './manager.ts';
 import { isVideo, requireExtension, requireMedia } from './device-paths.ts';
 import { DeviceRecordings } from './recordings.ts';
-import type { CommandResult } from './scrcpy-source.ts';
+import { runCommand, type CommandResult } from './command.ts';
 
 type AndroidRunner = (command: string, arguments_: string[]) => Promise<CommandResult>;
 
@@ -227,10 +227,8 @@ export async function readAvdFolder(avdHome: string): Promise<AvdInfo[]> {
     return avds.filter((avd): avd is AvdInfo => avd !== null);
 }
 
-async function defaultRunner(command: string, arguments_: string[]): Promise<CommandResult> {
-    const child = Bun.spawn([command, ...arguments_], { stdin: 'ignore', stdout: 'pipe', stderr: 'pipe' });
-    const [exitCode, stdout, stderr] = await Promise.all([child.exited, new Response(child.stdout).text(), new Response(child.stderr).text()]);
-    return { exitCode, stdout, stderr };
+function defaultRunner(command: string, arguments_: string[]): Promise<CommandResult> {
+    return runCommand([command, ...arguments_]);
 }
 
 async function defaultBytesRunner(command: string, arguments_: string[]): Promise<{ exitCode: number; stdout: Uint8Array; stderr: string }> {

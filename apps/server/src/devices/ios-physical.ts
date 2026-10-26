@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { z } from 'zod';
 import type { DeviceAction, DeviceInfo, DevicePower, DeviceSettings } from '@ruimte/contracts';
+import { collect, runCommand, type CommandResult } from './command.ts';
 import { requireExtension } from './device-paths.ts';
 import { DeviceError, type DeviceBackend, type DeviceSource } from './manager.ts';
 import {
@@ -11,12 +12,6 @@ import {
     type PhysicalScreenshot
 } from './physical-screenshot-source.ts';
 import type { PhysicalStreamSourceFactory } from './physical-stream-source.ts';
-
-interface CommandResult {
-    exitCode: number;
-    stdout: string;
-    stderr: string;
-}
 
 type DevicectlRunner = (arguments_: string[]) => Promise<CommandResult>;
 
@@ -73,7 +68,7 @@ export function createPhysicalBatteryReader(helper: string): PhysicalBatteryRead
             stderr: 'pipe',
             timeout: BATTERY_KILL_MS
         });
-        const [exitCode, stdout, stderr] = await Promise.all([process.exited, new Response(process.stdout).text(), new Response(process.stderr).text()]);
+        const { exitCode, stdout, stderr } = await collect(process);
         if (exitCode !== 0) {
             throw new Error(stderr.trim() || 'The phone did not say its battery');
         }
@@ -81,10 +76,8 @@ export function createPhysicalBatteryReader(helper: string): PhysicalBatteryRead
     };
 }
 
-async function defaultRunner(arguments_: string[]): Promise<CommandResult> {
-    const process = Bun.spawn(['xcrun', 'devicectl', ...arguments_], { stdout: 'pipe', stderr: 'pipe' });
-    const [exitCode, stdout, stderr] = await Promise.all([process.exited, new Response(process.stdout).text(), new Response(process.stderr).text()]);
-    return { exitCode, stdout, stderr };
+function defaultRunner(arguments_: string[]): Promise<CommandResult> {
+    return runCommand(['xcrun', 'devicectl', ...arguments_]);
 }
 
 export class IosPhysicalBackend implements DeviceBackend {
