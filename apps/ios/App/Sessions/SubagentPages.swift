@@ -111,11 +111,13 @@ struct SubagentListPage: View {
             Button(String(localized: "Stop task"), lucideIcon: "square", role: .destructive) {
                 askBeforeStoppingTask(item)
             }
+            .tint(MobileStyle.statusError)
         case .mark:
             // No CLI stops one sub-agent on its own, so it may keep working until the chat's process ends.
             Button(String(localized: "Mark as stopped"), lucideIcon: "square", role: .destructive) {
                 Task { await stop(item) }
             }
+            .tint(MobileStyle.statusError)
         case nil:
             EmptyView()
         }

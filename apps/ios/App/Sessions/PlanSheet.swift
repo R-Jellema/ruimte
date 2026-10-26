@@ -551,7 +551,7 @@ private struct PlanStepRow: View {
                 Button(String(localized: "Warning"), lucideIcon: "triangle-alert") { context.set(step, .warning) }
                     .tint(MobileStyle.statusNeedsYou)
                 Button(String(localized: "Skipped"), lucideIcon: "circle-minus") { context.set(step, .skipped) }.tint(
-                    .gray)
+                    MobileStyle.muted)
             }
         }
         .contextMenu { menu }

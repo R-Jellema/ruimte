@@ -184,8 +184,8 @@ struct LaunchesPage: View {
             Button(String(localized: "Delete…"), lucideIcon: "trash", role: .destructive) { deleting = launch }
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            Button("Delete", role: .destructive) { deleting = launch }
-            Button("Edit") { sheet = .edit(launch.id) }.tint(MobileStyle.accent)
+            Button("Delete", role: .destructive) { deleting = launch }.tint(MobileStyle.statusError)
+            Button("Edit") { sheet = .edit(launch.id) }.tint(MobileStyle.statusRunning)
         }
     }
 }

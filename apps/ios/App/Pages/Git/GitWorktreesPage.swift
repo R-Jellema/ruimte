@@ -129,8 +129,10 @@ struct GitWorktreeRow: View {
         .disabled(state.busy)
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button("Remove", role: .destructive) { Task { await state.ask(client: client, remove: worktree) } }
+                .tint(MobileStyle.statusError)
             if !worktree.missing {
-                Button("Merge") { Task { await state.ask(client: client, merge: worktree) } }.tint(MobileStyle.accent)
+                Button("Merge") { Task { await state.ask(client: client, merge: worktree) } }
+                    .tint(MobileStyle.statusRunning)
             }
         }
         .contextMenu {

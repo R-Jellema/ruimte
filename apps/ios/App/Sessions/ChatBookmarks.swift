@@ -246,8 +246,9 @@ struct ChatBookmarkList: View {
             Button(String(localized: "Remove"), lucideIcon: "bookmark-x", role: .destructive) {
                 remove(bookmark.itemID)
             }
+            .tint(MobileStyle.statusError)
             Button(String(localized: "Rename"), lucideIcon: "pencil") { rename(bookmark.itemID) }.tint(
-                MobileStyle.accent)
+                MobileStyle.statusRunning)
         }
     }
 }

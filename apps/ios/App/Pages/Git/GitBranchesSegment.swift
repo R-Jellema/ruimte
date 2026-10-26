@@ -147,7 +147,7 @@ struct GitBranchesSegment: View {
         .padding(.vertical, 4)
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button("Pop") { Task { await actions.pop(client: client, stash: ref) } }
-                .tint(MobileStyle.accent).disabled(repositories.busy)
+                .tint(MobileStyle.statusRunning).disabled(repositories.busy)
         }
         .contextMenu {
             Button(String(localized: "Pop this stash"), lucideIcon: "archive-restore") {
