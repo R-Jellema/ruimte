@@ -119,7 +119,68 @@ final class ChatModel {
         presentation.forkable = true
     }
 
+    /// The turn a person stopped that Continue would pick up; kept apart from `items` like `hasSubagentRows`.
+    private(set) var continuableTurn: String?
+    /// The stopped turn Continue went out for, since the chat takes a moment to answer and Continue must not stand
+    /// there meanwhile.
+    private(set) var continuedFor: String?
+    /// The turn and its end a compaction could be offered for, whatever the time; nil while none could be.
+    private(set) var compactionTurn: (id: String, endedAt: Double)?
+    /// The turn a person kept the full history for. In memory only: the offer comes at most once per silence, and
+    /// a refusal is not a setting.
+    private(set) var keptHistoryFor: String?
+
+    private func refreshResume() {
+        let continuable = info.flatMap { ChatResume.continuableTurn(info: $0, items: items) }
+        if continuable != continuableTurn { continuableTurn = continuable }
+        let turn = info.flatMap {
+            ChatResume.offerableTurn(
+                info: $0, compaction: capabilities["compaction"]?.stringValue, items: items, dismissed: keptHistoryFor)
+        }
+        if turn?.id != compactionTurn?.id || turn?.endedAt != compactionTurn?.endedAt { compactionTurn = turn }
+    }
+
+    func compactionOffer(now: Date) -> ChatCompactionOffer? {
+        guard let info, let turn = compactionTurn,
+            now.timeIntervalSince1970 * 1000 >= ChatResume.dueAt(info: info, endedAt: turn.endedAt)
+        else { return nil }
+        return ChatCompactionOffer(
+            turnID: turn.id, tokens: info.usage.contextTokens,
+            reason: info.usage.cacheExpiresAt == nil ? .idle : .cacheExpired)
+    }
+
+    func keepFullHistory(_ turnID: String) {
+        keptHistoryFor = turnID
+        refreshResume()
+    }
+
+    /// Continue stands where the send button would while a person stopped the last turn and the box is empty.
+    var offersContinue: Bool {
+        guard let continuableTurn, continuableTurn != continuedFor else { return false }
+        return connected && !loading && !sending && !composition.hasContent && pending.isEmpty
+    }
+
+    func continueTurn() async {
+        guard offersContinue else { return }
+        continuedFor = continuableTurn
+        sending = true
+        sendProblem = nil
+        defer { sending = false }
+        do {
+            _ = try await client.request(
+                "chat.send",
+                payload: target([
+                    "text": .string(ChatResume.continuePrompt), "mentions": .array([]), "skills": .array([]),
+                    "chats": .array([]), "attachments": .array([]),
+                ]))
+        } catch {
+            continuedFor = nil
+            sendProblem = error.localizedDescription
+        }
+    }
+
     private func refreshPending() {
+        refreshResume()
         messageCount = items.count
         let rows = items.compactMap(\.subagentItem).filter { !$0.toolUseId.isEmpty }
         let next = !rows.isEmpty
@@ -240,6 +301,7 @@ final class ChatModel {
                 let result = try await providerResult
                 guard !Task.isCancelled, generation == current else { return }
                 providers = result["providers"]?.arrayValue ?? []
+                refreshResume()
                 accounts = await accountResult.map(ProviderAccountList.init)
                 await refreshForks()
                 await readSnoozes()
@@ -320,6 +382,7 @@ final class ChatModel {
         case .info(let change):
             info = change.info
             presentation.setInfo(info)
+            refreshResume()
         case .item(let change):
             let item = change.item
             guard history.includes(item, index: change.historyIndex) else {

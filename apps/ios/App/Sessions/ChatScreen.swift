@@ -583,6 +583,7 @@ struct ChatScreen: View {
             VStack(spacing: 0) {
                 if prompts.active == nil {
                     ChatGoalDock(model: model)
+                    ChatCompactionDock(model: model)
                     ChatLimitBanner(
                         model: model, resumeAllowed: machineSession?.icons.resumeAtReset ?? false, openFork: openFork)
                     ChatActivityChips(

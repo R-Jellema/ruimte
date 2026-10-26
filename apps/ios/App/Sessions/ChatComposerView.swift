@@ -35,7 +35,11 @@ struct ChatComposerView: View {
                 editor(maximumHeight: maximumHeight, focus: $focused)
                     .padding(.vertical, 15)
                     .accessibilityFocused($editorAccessible)
-                sendButton.padding(.vertical, 6)
+                if model.offersContinue {
+                    continueButton.padding(.vertical, 6)
+                } else {
+                    sendButton.padding(.vertical, 6)
+                }
             }
             .padding(.leading, 20).padding(.trailing, 6)
         }
@@ -168,6 +172,17 @@ struct ChatComposerView: View {
         .disabled(!model.canSend)
         .accessibilityLabel(model.working ? "Add message to queue" : "Send message")
         .accessibilityHint(model.composition.importing ? "Wait for attachments to finish importing." : "")
+        .keyboardShortcut(.return, modifiers: .command)
+    }
+
+    private var continueButton: some View {
+        Button {
+            Task { await model.continueTurn() }
+        } label: {
+            Label(String(localized: "Continue"), lucideIcon: "play", iconSize: 14)
+        }
+        .buttonStyle(MobileCapsuleButtonStyle(prominent: true, size: .small))
+        .accessibilityHint("Continue the stopped turn")
         .keyboardShortcut(.return, modifiers: .command)
     }
 

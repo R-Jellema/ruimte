@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		00664FE5C6F8D60665554A03 /* ChatReferenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3624EE4FCD7DDACB13162418 /* ChatReferenceTests.swift */; };
 		008FD13D8AE76883BA6E4C0A /* WorkspacePage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9447D15E48181E5F166E22A6 /* WorkspacePage.swift */; };
+		018867BA4486AABC0B16A17E /* ChatResumeOfferTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAFAE60EC449D98A00A78F32 /* ChatResumeOfferTests.swift */; };
 		01A24DD7477F2A95C9EF42E0 /* document-renderer.js in Resources */ = {isa = PBXBuildFile; fileRef = A8C83388F2EE72EDED082639 /* document-renderer.js */; };
 		01D98A53201A53AD7A85935B /* ProjectWidgetRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 566C1E19358915198CF965D3 /* ProjectWidgetRecorder.swift */; };
 		06196DC3AE8B98374122DB81 /* LaunchEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 559A0134244BAC994E62AA74 /* LaunchEditorSheet.swift */; };
@@ -40,6 +41,7 @@
 		16A17CD1DBBDF0E14CDC8DA6 /* PadSidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CA7417B036FB31D8D8E4BD8 /* PadSidebar.swift */; };
 		16FD76D097600D1A2939FE58 /* DeviceToolsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80AED99AF32CD5E756460BB5 /* DeviceToolsSheet.swift */; };
 		16FF8F9A39B024B898EEB686 /* OutputTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2AA9E132B6808A8B68B1EFF /* OutputTests.swift */; };
+		18FD13F7EAB89D49A766474E /* ChatResume.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92A8BFBDA0D41AEB14C54798 /* ChatResume.swift */; };
 		1A7CB1C519E43C88D92D855B /* MachineDevices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4700CD436A6DF8FB71B2D73E /* MachineDevices.swift */; };
 		1AF6F6A85AF5D021863DCA66 /* TaskStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F0CACBC269A20D7663C70E5 /* TaskStore.swift */; };
 		1C0BD40EBEFD2C31F8448E29 /* NotificationPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E3C0289192C090FF4945D5A /* NotificationPreferences.swift */; };
@@ -708,6 +710,7 @@
 		91AE65432A65D98C4A7FE2CA /* AttentionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttentionStore.swift; sourceTree = "<group>"; };
 		92115E2E20A2788AC95AD41F /* LucideIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LucideIcon.swift; sourceTree = "<group>"; };
 		9274EA8FBA587B9F140CB886 /* AccountLoginTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountLoginTests.swift; sourceTree = "<group>"; };
+		92A8BFBDA0D41AEB14C54798 /* ChatResume.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatResume.swift; sourceTree = "<group>"; };
 		93217FEE09EFAED02A0593EA /* SubagentPages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubagentPages.swift; sourceTree = "<group>"; };
 		93D01ABC623CFE597F34A563 /* DrawingToolbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawingToolbar.swift; sourceTree = "<group>"; };
 		9447D15E48181E5F166E22A6 /* WorkspacePage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspacePage.swift; sourceTree = "<group>"; };
@@ -797,6 +800,7 @@
 		CA401CA82CE41046F457D507 /* MachineProjectsPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachineProjectsPage.swift; sourceTree = "<group>"; };
 		CABCC0E6AD0F3418B2AF9208 /* CommandPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPalette.swift; sourceTree = "<group>"; };
 		CACF6864F366FA067D344CAA /* CrashDedupe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrashDedupe.swift; sourceTree = "<group>"; };
+		CAFAE60EC449D98A00A78F32 /* ChatResumeOfferTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatResumeOfferTests.swift; sourceTree = "<group>"; };
 		CC44D00034858B44169CFA7C /* VoiceScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceScene.swift; sourceTree = "<group>"; };
 		CD1D0EE3D6E5269C753AE6B9 /* ChatVisualTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatVisualTheme.swift; sourceTree = "<group>"; };
 		CDEBDA8A3C104C2C7998E957 /* ChatQueueSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatQueueSheet.swift; sourceTree = "<group>"; };
@@ -1273,6 +1277,7 @@
 				29EB1C15C9B520845CD3BB82 /* ChatPresentationTests.swift */,
 				BF96EC87E6B24E01AC048549 /* ChatPromptStateTests.swift */,
 				3624EE4FCD7DDACB13162418 /* ChatReferenceTests.swift */,
+				CAFAE60EC449D98A00A78F32 /* ChatResumeOfferTests.swift */,
 				E8B857DADDF760B5989FC34A /* ChatResumeTests.swift */,
 				4CDF5772B5F82C25BC5C9B54 /* ChatScrollTests.swift */,
 				2BE20C3032455CE771452578 /* ChatSendTests.swift */,
@@ -1581,6 +1586,7 @@
 				07925406E3DF19A644D70108 /* ChatPromptState.swift */,
 				CDEBDA8A3C104C2C7998E957 /* ChatQueueSheet.swift */,
 				36AEFCFE1AA942F03736757A /* ChatReferables.swift */,
+				92A8BFBDA0D41AEB14C54798 /* ChatResume.swift */,
 				445B9BB2968F1A7C458F650A /* ChatRunSettings.swift */,
 				111FDB97EC13D539638EFBEC /* ChatScreen.swift */,
 				709C0C76E2D6B29B0DB0FA8E /* ChatShellPrepare.swift */,
@@ -1906,6 +1912,7 @@
 				397C943D1175F19383822284 /* ChatPresentationTests.swift in Sources */,
 				335A19076A65C7684FE67F22 /* ChatPromptStateTests.swift in Sources */,
 				00664FE5C6F8D60665554A03 /* ChatReferenceTests.swift in Sources */,
+				018867BA4486AABC0B16A17E /* ChatResumeOfferTests.swift in Sources */,
 				ED7E9FDFE5EB181359B74D95 /* ChatResumeTests.swift in Sources */,
 				F874D15FCB67EC40A7D42242 /* ChatScrollTests.swift in Sources */,
 				5FCF6A757B0B4A43BDF1B9F4 /* ChatSendTests.swift in Sources */,
@@ -2046,6 +2053,7 @@
 				0F2AF4A02D667182FE086D79 /* ChatPromptState.swift in Sources */,
 				832DDD2D985B451DDE2F7F8D /* ChatQueueSheet.swift in Sources */,
 				8803F1FD43F24C7D90C35325 /* ChatReferables.swift in Sources */,
+				18FD13F7EAB89D49A766474E /* ChatResume.swift in Sources */,
 				D89BCF8FB21499BBC87CF46E /* ChatRunSettings.swift in Sources */,
 				9DEFD88C67729CA71F4C0DD5 /* ChatScreen.swift in Sources */,
 				C31B9E76612855470B4B2636 /* ChatShellPrepare.swift in Sources */,

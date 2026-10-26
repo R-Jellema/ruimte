@@ -6060,6 +6060,86 @@
         }
       }
     },
+    "Continue the stopped turn" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ga verder met de gestopte beurt"
+          }
+        }
+      }
+    },
+    "Cache expired" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cache verlopen"
+          }
+        }
+      }
+    },
+    "Resume with less context" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hervatten met minder context"
+          }
+        }
+      }
+    },
+    "The next message costs %@ tokens at full price" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Het volgende bericht kost %@ tokens tegen de volle prijs"
+          }
+        }
+      }
+    },
+    "%@ tokens from earlier" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ tokens van eerder"
+          }
+        }
+      }
+    },
+    "Keep full history" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hele geschiedenis houden"
+          }
+        }
+      }
+    },
+    "Compact" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comprimeren"
+          }
+        }
+      }
+    },
+    "Could not compact" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kon niet comprimeren"
+          }
+        }
+      }
+    },
     "Workflow running" : {
       "localizations" : {
         "nl" : {
