@@ -12,6 +12,7 @@ struct PadHome: View {
     let showSettings: () -> Void
     let addMachine: () -> Void
     @State private var gitLines = ProjectGitLines()
+    @State private var scheduled = ScheduledModel()
     @State private var palette = false
     @State private var sidebarVisibility = NavigationSplitViewVisibility.automatic
     /// What the palette asked for that is a sheet of its own, put up once the palette is gone.
@@ -21,14 +22,14 @@ struct PadHome: View {
     var body: some View {
         NavigationSplitView(columnVisibility: $sidebarVisibility) {
             PadSidebar(
-                runtime: runtime, projects: projects, now: now, router: router, gitLines: gitLines,
-                settingsLink: settingsLink
+                runtime: runtime, projects: projects, now: now, scheduled: scheduled, router: router,
+                gitLines: gitLines, settingsLink: settingsLink
             )
             .anchorPreference(key: SidebarBounds.self, value: .bounds) { $0 }
             .navigationSplitViewColumnWidth(min: 280, ideal: 340, max: 420)
         } detail: {
             PadDetailColumn(
-                runtime: runtime, projects: projects, now: now, router: router,
+                runtime: runtime, projects: projects, now: now, scheduled: scheduled, router: router,
                 openPalette: { palette = true }, open: open, addMachine: addMachine)
         }
         .navigationSplitViewStyle(.balanced)
@@ -69,6 +70,7 @@ struct PadHome: View {
                 }
             }
         }
+        .modifier(ScheduledWatch(runtime: runtime, model: scheduled))
         .onChange(of: now.board) { _, board in
             if now.loaded { NeedsYouWidgetRecorder.record(board) }
         }

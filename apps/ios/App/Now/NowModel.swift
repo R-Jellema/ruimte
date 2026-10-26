@@ -56,7 +56,8 @@ final class NowModel {
                 attention: NowAttention(
                     statuses: attention.statuses, unseen: attention.unseen, requests: requests,
                     providers: attention.waits.mapValues(\.provider),
-                    delegating: attention.delegating.union(feed.session.tasks.parentsWithOpenTasks)),
+                    delegating: attention.delegating.union(feed.session.tasks.parentsWithOpenTasks),
+                    activity: attention.activity, finishedAt: attention.finishedAt),
                 snoozes: feed.session.snoozes.standing, denyReason: feed.denyReason)
         }
     }
@@ -88,6 +89,23 @@ final class NowModel {
         await self.answers.send(
             .chatAnswer, payload: request.answerPayload(chatID: entry.target.itemID, answers: answers),
             key: NowAnswers.key(machineID: entry.target.machineID, requestID: request.requestID), client: session.rpc)
+    }
+
+    /// A routine run that waits on a person as an entry a card answers, from what its machine's attention store holds
+    /// of the run's chat. The chat is on no canvas, so the entry names the routine's project and the chat alone.
+    func entry(for wait: ScheduledWait) -> ProjectViewEntry? {
+        guard let chatID = wait.run.chatID else { return nil }
+        let machineID = wait.item.machineID
+        let chat = feeds[machineID]?.session.attention.waits[chatID]
+        let requests = (chat?.requests ?? []).compactMap(NowRequest.init).filter {
+            !answers.answered.contains(NowAnswers.key(machineID: machineID, requestID: $0.requestID))
+        }
+        return ProjectViewEntry(
+            target: ProjectViewTarget(
+                machineID: machineID, projectID: wait.item.entry.projectID, viewID: chatID, itemID: chatID),
+            machineName: wait.item.machineName, projectName: wait.item.entry.projectName,
+            title: wait.item.entry.title, kind: "chat", iconName: "workflow", status: .needsYou, requests: requests,
+            repliesWithMessage: chat.map { feeds[machineID]?.denyReason.contains($0.provider) == true } ?? false)
     }
 
     func snoozes(for machineID: String) -> MachineSnoozes? { feeds[machineID]?.session.snoozes }

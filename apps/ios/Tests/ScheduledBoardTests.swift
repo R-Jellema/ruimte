@@ -31,11 +31,9 @@ import Testing
                 "waiting", next: Self.now.addingTimeInterval(19 * hour),
                 runs: [run("r2", state: "needs-you", chat: "chat-1"), run("r1", state: "done")]),
         ]
-        let board = ScheduledBoard.build(
-            [input(entries, questions: ["chat-1": "Include the major update?"])], now: Self.now,
-            calendar: Self.calendar)
+        let board = ScheduledBoard.build([input(entries)], now: Self.now, calendar: Self.calendar)
         #expect(board.needsYou.map(\.item.entry.id) == ["waiting"])
-        #expect(board.needsYou.first?.question == "Include the major update?")
+        #expect(board.needsYou.first?.run.chatID == "chat-1")
         #expect(board.today.map(\.entry.id) == ["evening", "tonight"])
         #expect(board.overnight.map(\.entry.id) == ["morning", "waiting"])
         #expect(board.later.map(\.entry.id) == ["friday"])
@@ -45,9 +43,9 @@ import Testing
 
     @Test func aMachineWithoutRoutinesIsNamedAndListsNothing() {
         let older = ScheduledMachineInput(
-            machineID: "old", machineName: "Studio", answers: false, entries: [], questions: [:])
+            machineID: "old", machineName: "Studio", answers: false, entries: [])
         let unreached = ScheduledMachineInput(
-            machineID: "far", machineName: "Laptop", answers: nil, entries: [], questions: [:])
+            machineID: "far", machineName: "Laptop", answers: nil, entries: [])
         let board = ScheduledBoard.build([older, unreached], now: Self.now, calendar: Self.calendar)
         #expect(board.outdated == ["Studio"])
         #expect(!board.answered)
@@ -131,9 +129,8 @@ import Testing
         ])
     }
 
-    private func input(_ entries: [RoutineEntry], questions: [String: String] = [:]) -> ScheduledMachineInput {
-        ScheduledMachineInput(
-            machineID: "mac", machineName: "Mac", answers: true, entries: entries, questions: questions)
+    private func input(_ entries: [RoutineEntry]) -> ScheduledMachineInput {
+        ScheduledMachineInput(machineID: "mac", machineName: "Mac", answers: true, entries: entries)
     }
 
     private func run(_ id: String, state: String, chat: String? = nil) -> JSONValue {

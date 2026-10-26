@@ -7,6 +7,7 @@ struct PadDetailColumn: View {
     let runtime: AppRuntime
     let projects: UnifiedProjects
     let now: NowModel
+    let scheduled: ScheduledModel
     @Bindable var router: PadRouter
     let openPalette: () -> Void
     let open: (ProjectViewTarget) -> Void
@@ -15,7 +16,6 @@ struct PadDetailColumn: View {
     @State private var newChat = false
     @State private var launches = false
     @State private var output = false
-    @State private var scheduled = ScheduledModel()
     @State private var scheduledPath: [ScheduledRoute] = []
     @Environment(\.voiceScene) private var voiceScene
 
@@ -35,14 +35,20 @@ struct PadDetailColumn: View {
         switch router.detail {
         case .now:
             NavigationStack {
-                PadNowPage(runtime: runtime, now: now, open: open, openProject: openProject, addMachine: addMachine)
+                PadNowPage(
+                    runtime: runtime, now: now, scheduled: scheduled, open: open, openProject: openProject,
+                    openRoutine: { route in
+                        router.detail = .scheduled
+                        scheduledPath = [route]
+                    },
+                    addMachine: addMachine)
                     .modifier(MobilePageSurface())
                     .toolbar { toolbar }
             }
         case .scheduled:
             NavigationStack(path: $scheduledPath) {
                 ScheduledPage(
-                    runtime: runtime, projects: projects, model: scheduled, open: { scheduledPath.append($0) },
+                    runtime: runtime, now: now, model: scheduled, open: { scheduledPath.append($0) },
                     addMachine: addMachine
                 )
                 .modifier(MobilePageSurface())

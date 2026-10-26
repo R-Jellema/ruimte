@@ -43,6 +43,22 @@ struct MobileRowDivider: View {
     }
 }
 
+/// The rows of one group in one card, with a line between two.
+struct MobileRowGroup<Item: Identifiable, Row: View>: View {
+    let items: [Item]
+    @ViewBuilder var row: (Item) -> Row
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                if index > 0 { MobileRowDivider() }
+                row(item)
+            }
+        }
+        .mobileCard(padding: 0)
+    }
+}
+
 /// A row of a card: the status tile, a title with a muted second line, and a trailing value or control. At least 52 pt
 /// high, and taller once Dynamic Type asks for it.
 struct MobileStatusRow<Trailing: View>: View {

@@ -1,5 +1,6 @@
 import BackgroundTasks
 import SwiftUI
+import UIKit
 
 @main
 struct RuimteApp: App {
@@ -8,6 +9,9 @@ struct RuimteApp: App {
 
     init() {
         CrashReports.start()
+        // A badge counts what waits on you, so it wears the waiting color rather than the system's red.
+        UITabBarItem.appearance().badgeColor = MobileStyle.statusNeedsYouColor
+        UITabBarItem.appearance().setBadgeTextAttributes([.foregroundColor: MobileStyle.surfaceColor], for: .normal)
     }
 
     var body: some Scene {

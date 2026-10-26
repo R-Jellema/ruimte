@@ -1,12 +1,14 @@
 import RuimtePulsar
 import SwiftUI
 
-/// A session waiting on a person, as a card of its own. A chat's oldest request is answered on the card; its header
-/// opens the chat, as does every card without a request it can answer here.
+/// A session waiting on a person, as a card of its own, on Now and for a routine run on Scheduled. A chat's oldest
+/// request is answered on the card; its header opens the chat, as does every card without a request it can answer here.
 struct NowCard: View {
     let now: NowModel
     let entry: ProjectViewEntry
-    let namesMachine: Bool
+    /// Where it stands and how long it waits, or for a routine run, when it was due.
+    let subtitle: String
+    let connected: Bool
     let task: JSONValue?
     let open: () -> Void
     @FocusState private var replyFocused: Bool
@@ -19,13 +21,20 @@ struct NowCard: View {
         Binding(get: { now.answers.drafts[key] ?? NowRequestDraft() }, set: { now.answers.drafts[key] = $0 })
     }
     private var sending: Bool { now.answers.sending.contains(key) }
-    private var connected: Bool { now.connected(entry.target.machineID) }
     private var enabled: Bool { connected && !sending }
+
+    /// Its place and, where the request says when it came, how long it waits, as in "score-engine · 2 min".
+    static func subtitle(_ entry: ProjectViewEntry, namesMachine: Bool, at date: Date) -> String {
+        let place = entry.place(namesMachine: namesMachine)
+        guard let since = entry.waitingSince else { return place }
+        let waited = Format.duration(milliseconds: date.timeIntervalSince1970 * 1000 - since)
+        return "\(place) · \(waited)"
+    }
 
     var body: some View {
         MobileRequestCard(
             symbol: request?.approval == nil && request != nil ? "message-circle-question-mark" : entry.iconName,
-            title: entry.title, subtitle: nowPlace(entry, namesMachine: namesMachine),
+            title: entry.title, subtitle: subtitle,
             openHint: entry.kind == "chat"
                 ? String(localized: "Opens the chat") : String(localized: "Opens the terminal"),
             open: open
@@ -60,10 +69,7 @@ struct NowCard: View {
 
     /// The approval itself, with Deny, Reply where the CLI passes a reason on, and Allow.
     @ViewBuilder private func approvalBody(_ request: NowRequest, _ approval: NowRequest.Approval) -> some View {
-        MobileRequestHeadline(text: request.headline)
-        if let description = approval.description, description != approval.subject {
-            Text(description).font(.caption).foregroundStyle(MobileStyle.muted).lineLimit(3)
-        }
+        MobileRequestHeadline(text: request.wants)
         if let diff = approval.diff {
             MobileRequestCode(text: diff, diff: true, truncated: approval.truncated)
         } else if let command = approval.command {
@@ -160,11 +166,6 @@ struct NowCard: View {
     private func send(_ action: @escaping @MainActor () async -> Void) {
         Task { await action() }
     }
-}
-
-/// Where a row stands: its project, and its machine once the work spans several.
-func nowPlace(_ entry: ProjectViewEntry, namesMachine: Bool) -> String {
-    namesMachine ? "\(entry.projectName) · \(entry.machineName)" : entry.projectName
 }
 
 /// The snooze choices with the moment each one ends, and a way to end a snooze that stands.

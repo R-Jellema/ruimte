@@ -112,6 +112,13 @@ struct NowRequest: Hashable, Identifiable {
         }
     }
 
+    /// What a card leads with: the agent's own words for an approval where it gave them, such as "Run the runtime
+    /// tests", otherwise the headline.
+    var wants: String {
+        if let description = approval?.description, !description.isEmpty { return description }
+        return headline
+    }
+
     /// What a row says of the request where only one line fits, such as a widget.
     var summary: String {
         switch kind {

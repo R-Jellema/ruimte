@@ -233,8 +233,6 @@ struct ScheduledMachineInput: Equatable {
     /// Nil while it was never reached on this link, false for a machine older than routines.
     let answers: Bool?
     let entries: [RoutineEntry]
-    /// The question or approval a waiting chat shows, by chat id.
-    let questions: [String: String]
 }
 
 struct ScheduledItem: Equatable, Identifiable {
@@ -245,11 +243,10 @@ struct ScheduledItem: Equatable, Identifiable {
     var id: String { "\(machineID):\(entry.projectID):\(entry.id)" }
 }
 
-/// A run waiting on a person, with what it asks.
+/// A run waiting on a person. What it asks is its chat's, which Now's attention reads.
 struct ScheduledWait: Equatable, Identifiable {
     let item: ScheduledItem
     let run: RoutineRun
-    let question: String?
     var id: String { "\(item.id):\(run.id)" }
 }
 
@@ -279,8 +276,7 @@ struct ScheduledBoard: Equatable {
             for entry in input.entries {
                 let item = ScheduledItem(machineID: input.machineID, machineName: input.machineName, entry: entry)
                 if let run = entry.waitingRun {
-                    board.needsYou.append(
-                        ScheduledWait(item: item, run: run, question: run.chatID.flatMap { input.questions[$0] }))
+                    board.needsYou.append(ScheduledWait(item: item, run: run))
                 }
                 if entry.held {
                     board.held.append(item)

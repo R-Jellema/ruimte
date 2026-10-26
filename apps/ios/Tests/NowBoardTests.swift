@@ -244,4 +244,101 @@ final class NowBoardTests: XCTestCase {
         XCTAssertEqual(snapshot.items[0].url?.absoluteString, "ruimte://node?machine=mac&node=a&target=chat")
         XCTAssertTrue(snapshot.says(NeedsYouWidgetRecorder.snapshot(board, at: Date(timeIntervalSince1970: 2))))
     }
+
+    func testAWorkingRowSaysOnlyWhatTheMachineToldAndTimesOnlyWorkWithAStart() {
+        let projects = [
+            project(
+                "app", name: "score-engine", opened: 1,
+                views: [
+                    view("tests", kind: "chat"), view("shells", kind: "chat"), view("delegates", kind: "chat"),
+                    view("turn", kind: "chat"),
+                ])
+        ]
+        let board = NowBoard.build([
+            NowMachineInput(
+                machineID: "mac", machineName: "MacBook Pro", projects: projects,
+                attention: NowAttention(
+                    statuses: ["tests": .idle, "shells": .running, "delegates": .idle, "turn": .running],
+                    delegating: ["tests", "delegates"],
+                    activity: [
+                        "tests": ChatActivity(background: [.init(description: "Running sync tests", startedAt: 1_000)]),
+                        "shells": ChatActivity(
+                            queued: 1,
+                            background: [
+                                .init(description: "bun dev", startedAt: 5_000),
+                                .init(description: "tail log", startedAt: 3_000),
+                            ]),
+                    ]))
+        ])
+        let lines = board.working.map { $0.workingLine(namesMachine: false) }
+        XCTAssertEqual(
+            lines,
+            [
+                "Running sync tests · score-engine", "2 in the background · 1 queued · score-engine",
+                "Waiting on delegated work · score-engine", "score-engine",
+            ])
+        XCTAssertEqual(board.working.map(\.workingSince), [1_000, 3_000, nil, nil])
+    }
+
+    func testACardSaysHowLongItsOldestRequestWaitsAndAFinishedRowWhenItEnded() throws {
+        func question(_ id: String, at createdAt: Double) throws -> NowRequest {
+            try XCTUnwrap(
+                NowRequest(
+                    .object([
+                        "requestId": .string(id), "kind": .string("question"), "createdAt": .number(createdAt),
+                        "question": .object([
+                            "questions": .array([
+                                .object(["id": .string("q"), "question": .string("Which?"), "choices": .array([])])
+                            ])
+                        ]),
+                    ])))
+        }
+        let projects = [
+            project("app", name: "score-engine", opened: 1, views: [view("a", kind: "chat"), view("b", kind: "chat")])
+        ]
+        let board = NowBoard.build([
+            NowMachineInput(
+                machineID: "mac", machineName: "MacBook Pro", projects: projects,
+                attention: NowAttention(
+                    statuses: ["a": .needsYou, "b": .idle], unseen: ["b"],
+                    requests: ["a": [try question("new", at: 300_000), try question("old", at: 120_000)]],
+                    finishedAt: ["b": 60_000]))
+        ])
+        let card = try XCTUnwrap(board.needsYou.first)
+        XCTAssertEqual(card.waitingSince, 120_000)
+        XCTAssertEqual(
+            NowCard.subtitle(card, namesMachine: false, at: Date(timeIntervalSince1970: 240)), "score-engine · 2 min")
+        var terminal = card
+        terminal.requests = []
+        XCTAssertEqual(NowCard.subtitle(terminal, namesMachine: true, at: .now), "score-engine · MacBook Pro")
+        XCTAssertEqual(board.finished.first?.finishedAt, 60_000)
+    }
+
+    func testComingUpMergesSnoozesWithTheNextRoutinesByTime() throws {
+        let start = Date(timeIntervalSince1970: 1_793_000_000)
+        let projects = [project("app", name: "App", opened: 1, views: [view("a", kind: "chat")])]
+        let board = NowBoard.build([
+            NowMachineInput(
+                machineID: "mac", machineName: "MacBook Pro", projects: projects,
+                attention: NowAttention(statuses: ["a": .needsYou]),
+                snoozes: ["a": start.addingTimeInterval(2 * 3_600)])
+        ])
+        func routine(_ id: String, in hours: Double) -> ScheduledItem {
+            let next = start.addingTimeInterval(hours * 3_600).timeIntervalSince1970 * 1000
+            return ScheduledItem(
+                machineID: "mac", machineName: "MacBook Pro",
+                entry: RoutineEntry(
+                    json: .object([
+                        "routine": .object(["id": .string(id), "title": .string(id)]), "projectId": .string("p"),
+                        "approved": .bool(true), "next": .number(next),
+                    ])))
+        }
+        var scheduled = ScheduledBoard()
+        scheduled.today = [routine("render", in: 1), routine("changelog", in: 3)]
+        scheduled.overnight = [routine("nightly", in: 14)]
+        scheduled.later = [routine("weekly", in: 60)]
+        let items = NowComingUp.build(snoozed: board.snoozed, scheduled: scheduled, routines: 2)
+        XCTAssertEqual(items.map(\.id), ["routine:mac:p:render", "snoozed:mac:app:a", "routine:mac:p:changelog"])
+        XCTAssertEqual(items.map(\.at), [1, 2, 3].map { start.addingTimeInterval($0 * 3_600) })
+    }
 }

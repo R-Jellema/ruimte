@@ -68,14 +68,18 @@ behind it, so it has the project's sessions, forks and plans.
 
 Now reads each machine's open projects with `project.sidebar`, again on `project.changed`, `project.summary` and
 `session.list-changed` and every 15 seconds while it shows, as the desktop's sidebar watch does. `NowBoard` is the
-pure grouping. A needs-you card answers the chat's oldest request in place from the summary on the chat's info,
-without attaching the chat. An answer that finds the request settled (`request-not-found`) counts as given.
+pure grouping: Needs you, Working, Finished and Coming up, which puts the snoozes beside the next routines due before
+tomorrow noon. A needs-you card answers the chat's oldest request in place from the summary on the chat's info,
+without attaching the chat, and says how long it waits from the request's own time. A working row says only what the
+chat's info holds (its background commands and queue) and times only background work, since the wire carries no
+step or start of a turn. An answer that finds the request settled (`request-not-found`) counts as given. The badge on
+Now counts the needs-you cards and the routine runs that wait.
 
-Scheduled lists the routines of every machine with `routine.list`, again on `routine.changed` while one of its pages
-shows (`routine.watch`, asked again after every reconnect), and only on a machine that names `routine.list`; with
-none, the page says the machine needs an update. `ScheduledBoard` is the pure grouping: Needs you (a run waiting on a
-person, with the question from the chat's info), Today, Overnight (before tomorrow noon), Later and Held (paused, or
-not approved). A run opens as its chat, which is on no canvas, so it opens on its machine alone. A routine opens with
+Scheduled lists the routines of every machine with `routine.list`, again on `routine.changed` while the home or one
+of its pages shows (`routine.watch`, asked again after every reconnect), and only on a machine that names
+`routine.list`; with none, the page says the machine needs an update. `ScheduledBoard` is the pure grouping: Needs you
+(a run waiting on a person, answered on the same card as Now's), Today, Tonight (before tomorrow noon), Later and
+Paused (paused, or not approved). A run opens as its chat, which is on no canvas, so it opens on its machine alone. A routine opens with
 its runs, Pause or Resume and Run now. Making, changing and approving a routine happen on the machine.
 
 A snooze set without a connection waits on the phone, across a restart too, and goes out once the link is back

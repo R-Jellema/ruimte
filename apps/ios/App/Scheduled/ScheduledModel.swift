@@ -62,13 +62,9 @@ final class ScheduledModel {
     func board(now: Date) -> ScheduledBoard {
         ScheduledBoard.build(
             feeds.values.map { feed in
-                let waits = feed.session.attention.waits
-                return ScheduledMachineInput(
+                ScheduledMachineInput(
                     machineID: feed.session.machine.id, machineName: feed.session.machine.name,
-                    answers: feed.answers, entries: feed.entries,
-                    questions: waits.compactMapValues { wait in
-                        wait.requests.first.flatMap(NowRequest.init)?.headline
-                    })
+                    answers: feed.answers, entries: feed.entries)
             }, now: now)
     }
 

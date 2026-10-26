@@ -30,6 +30,10 @@ struct NowAttention: Equatable {
     /// Nodes between turns that still have work out: sub-agents or a workflow of their CLI, or a task they gave
     /// another agent that is still open.
     var delegating: Set<String> = []
+    /// What chats have going beside their turn.
+    var activity: [String: ChatActivity] = [:]
+    /// When a session last stopped running, in epoch milliseconds.
+    var finishedAt: [String: Double] = [:]
 }
 
 /// One machine as Now reads it: the open projects `project.sidebar` lists, and what its sessions are doing.
@@ -62,7 +66,73 @@ struct ProjectViewEntry: Identifiable, Hashable {
     var snoozedUntil: Date?
     /// Whether a denial of this chat's approval can tell the agent why.
     var repliesWithMessage = false
+    var activity = ChatActivity()
+    /// When it last stopped running, in epoch milliseconds.
+    var finishedAt: Double?
     var id: String { target.id }
+
+    /// Where it stands: its project, and its machine once the work spans several.
+    func place(namesMachine: Bool) -> String {
+        namesMachine ? "\(projectName) · \(machineName)" : projectName
+    }
+
+    /// Since when its oldest request waits, in epoch milliseconds; nil without a request that says.
+    var waitingSince: Double? { requests.map(\.createdAt).filter { $0 > 0 }.min() }
+
+    /// The second line of a working row: what runs beside its turn where the machine says, then where it stands.
+    /// The machine names no step of a turn itself, so a turn with nothing beside it reads as its place alone.
+    func workingLine(namesMachine: Bool) -> String {
+        var parts: [String] = []
+        if activity.background.count == 1, let description = activity.background.first?.description,
+            !description.isEmpty
+        {
+            parts.append(description)
+        } else if !activity.background.isEmpty {
+            parts.append(String(localized: "\(activity.background.count) in the background"))
+        } else if delegating && status != .running {
+            parts.append(String(localized: "Waiting on delegated work"))
+        }
+        if activity.queued > 0 {
+            parts.append(
+                String(localized: "\(activity.queued) queued", comment: "Messages queued for a chat's next turn"))
+        }
+        parts.append(place(namesMachine: namesMachine))
+        return parts.joined(separator: " · ")
+    }
+
+    /// Since when the background work its working row names runs, in epoch milliseconds. Only that work carries its
+    /// start; a turn does not, so a row without it shows no duration.
+    var workingSince: Double? { activity.background.map(\.startedAt).filter { $0 > 0 }.min() }
+}
+
+/// One row of Coming up on Now: a snoozed node by when it wakes, or a routine by when it runs next.
+struct NowComingUp: Identifiable, Equatable {
+    enum Subject: Equatable {
+        case snoozed(ProjectViewEntry)
+        case routine(ScheduledItem)
+    }
+
+    let subject: Subject
+    let at: Date
+
+    var id: String {
+        switch subject {
+        case .snoozed(let entry): "snoozed:\(entry.id)"
+        case .routine(let item): "routine:\(item.id)"
+        }
+    }
+
+    /// Every snooze, and the first `routines` routines due before tomorrow noon, the soonest first. Later routines
+    /// stay on Scheduled, so Now does not grow with every routine there is.
+    static func build(snoozed: [ProjectViewEntry], scheduled: ScheduledBoard, routines: Int = 3) -> [NowComingUp] {
+        let wakes = snoozed.compactMap { entry in
+            entry.snoozedUntil.map { NowComingUp(subject: .snoozed(entry), at: $0) }
+        }
+        let runs = (scheduled.today + scheduled.overnight).prefix(routines).compactMap { item in
+            item.entry.next.map { NowComingUp(subject: .routine(item), at: $0) }
+        }
+        return (wakes + runs).sorted { $0.at < $1.at }
+    }
 }
 
 /// The sections of Now, in the order the design fixes: what waits on a person, what works, what ended unseen, and what
@@ -137,7 +207,9 @@ struct NowBoard: Equatable {
                             snoozedUntil: machine.snoozes[itemID],
                             repliesWithMessage: machine.attention.providers[itemID].map {
                                 machine.denyReason.contains($0)
-                            } ?? false))
+                            } ?? false,
+                            activity: machine.attention.activity[itemID] ?? ChatActivity(),
+                            finishedAt: machine.attention.finishedAt[itemID]))
                 }
             }
         }

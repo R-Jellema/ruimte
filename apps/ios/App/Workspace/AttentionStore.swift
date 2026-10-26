@@ -49,6 +49,33 @@ struct ChatWait: Equatable {
     let requests: [JSONValue]
 }
 
+/// What a chat has going beside its turn, as its info last said: the messages queued for its next turn and the
+/// commands its CLI runs in the background.
+struct ChatActivity: Hashable {
+    struct Background: Hashable {
+        let description: String
+        /// Epoch milliseconds.
+        let startedAt: Double
+    }
+
+    var queued = 0
+    var background: [Background] = []
+
+    init(queued: Int = 0, background: [Background] = []) {
+        self.queued = queued
+        self.background = background
+    }
+
+    init(info: JSONValue) {
+        queued = info.list("queue").count
+        background = info.list("background").map {
+            Background(description: $0.text("description"), startedAt: $0.number("startedAt"))
+        }
+    }
+
+    var isEmpty: Bool { queued == 0 && background.isEmpty }
+}
+
 @MainActor @Observable
 final class AttentionStore {
     private(set) var statuses: [String: AgentStatus] = [:]
@@ -59,6 +86,11 @@ final class AttentionStore {
     private(set) var delegating = Set<String>()
     /// What each chat runs, by chat id, so a task's row can name the agent working on it.
     private(set) var agents: [String: ChatAgentIdentity] = [:]
+    /// What each chat has going beside its turn, by chat id; absent while it has nothing.
+    private(set) var activity: [String: ChatActivity] = [:]
+    /// When a session last stopped running, in epoch milliseconds: the moment this client saw it stop, or when the
+    /// machine says its turn ended while nobody looked.
+    private(set) var finishedAt: [String: Double] = [:]
     private var pushEntries: [String: JSONValue] = [:]
     private var readings: [String: SessionReading] = [:]
     /// When the machine began keeping entries a client may mark nodes from; nil for a machine that never says, whose
@@ -138,7 +170,10 @@ final class AttentionStore {
         guard !id.isEmpty else { return }
         let previous = statuses[id]
         statuses[id] = status
-        if previous == .running, status != .running, focused[id, default: 0] == 0 { unseen.insert(id) }
+        if previous == .running, status != .running {
+            finishedAt[id] = Date.now.timeIntervalSince1970 * 1000
+            if focused[id, default: 0] == 0 { unseen.insert(id) }
+        }
     }
 
     /// A chat's info, from `chat.list`, `chat.status` or the chat's own events, which all carry what it waits on.
@@ -152,6 +187,9 @@ final class AttentionStore {
         if delegates != delegating.contains(id) {
             if delegates { delegating.insert(id) } else { delegating.remove(id) }
         }
+        let going = ChatActivity(info: info)
+        let kept = going.isEmpty ? nil : going
+        if activity[id] != kept { activity[id] = kept }
         let provider = info.text("provider")
         if !provider.isEmpty {
             let model = info.text("model")
@@ -194,7 +232,10 @@ final class AttentionStore {
             }
         }
         // A turn that ended, a task that failed or a wake the machine gave up on while nobody was connected.
-        if let marksFrom, issued >= marksFrom, read < issued, focused[id, default: 0] == 0 { unseen.insert(id) }
+        if let marksFrom, issued >= marksFrom, read < issued, focused[id, default: 0] == 0 {
+            unseen.insert(id)
+            finishedAt[id] = max(finishedAt[id] ?? 0, issued)
+        }
         if focused[id, default: 0] > 0 { markSeen(id) }
     }
 
@@ -237,6 +278,8 @@ final class AttentionStore {
             waits = waits.filter { ids.contains($0.key) }
             delegating.formIntersection(ids)
             agents = agents.filter { ids.contains($0.key) }
+            activity = activity.filter { ids.contains($0.key) }
+            finishedAt = finishedAt.filter { ids.contains($0.key) }
             readings = readings.filter { ids.contains($0.key) }
             unseen.formIntersection(ids.union(unreadPushIDs))
         } catch {}

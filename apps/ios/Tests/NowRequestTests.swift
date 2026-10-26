@@ -44,6 +44,16 @@ import XCTest
             NowRequest(approval(["toolName": .string("Bash"), "subject": .string("bun test"), "command": .string("bun test")])))
         XCTAssertEqual(command.headline, "Run a command")
         XCTAssertEqual(command.summary, "Run a command")
+        XCTAssertEqual(command.wants, "Run a command")
+
+        let described = try XCTUnwrap(
+            NowRequest(
+                approval([
+                    "toolName": .string("Bash"), "subject": .string("bun test"), "command": .string("bun test"),
+                    "description": .string("Run the runtime tests"),
+                ])))
+        XCTAssertEqual(described.wants, "Run the runtime tests")
+        XCTAssertEqual(described.headline, "Run a command")
 
         let fetch = try XCTUnwrap(
             NowRequest(

@@ -7,6 +7,7 @@ struct PadSidebar: View {
     let runtime: AppRuntime
     let projects: UnifiedProjects
     let now: NowModel
+    let scheduled: ScheduledModel
     let router: PadRouter
     let gitLines: ProjectGitLines
     let settingsLink: SettingsLink
@@ -19,7 +20,7 @@ struct PadSidebar: View {
             ) {
                 Section {
                     row(String(localized: "Now"), icon: "inbox", detail: .now, id: "sidebar.now") {
-                        let waiting = now.board.needsYou.count
+                        let waiting = now.board.needsYou.count + scheduled.board(now: .now).needsYou.count
                         if waiting > 0 {
                             Text("\(waiting)").font(.caption.weight(.semibold)).monospacedDigit()
                                 .foregroundStyle(MobileStyle.statusNeedsYou)

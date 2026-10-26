@@ -51,16 +51,6 @@
         }
       }
     },
-    "%@ is skipped while this waits" : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ wordt overgeslagen zolang dit wacht"
-          }
-        }
-      }
-    },
     "%lld images" : {
       "localizations" : {
         "en" : {
@@ -296,13 +286,13 @@
         }
       }
     },
-    "approve on %@ first" : {
-      "comment" : "%@ is the name of a machine",
+    "Approve on %@ first · %@" : {
+      "comment" : "A routine that waits for approval: the machine to approve it on, then its project",
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "eerst goedkeuren op %@"
+            "value" : "Eerst goedkeuren op %@ · %@"
           }
         }
       }
@@ -790,16 +780,6 @@
         }
       }
     },
-    "Held" : {
-      "localizations" : {
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Staat stil"
-          }
-        }
-      }
-    },
     "Hello from Ruimte" : {
       "localizations" : {
         "nl" : {
@@ -1222,13 +1202,13 @@
         }
       }
     },
-    "on %@" : {
-      "comment" : "%@ is the name of a machine",
+    "%@ run" : {
+      "comment" : "A routine's run by the time it was due, such as 07:00 run",
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "op %@"
+            "value" : "Run van %@"
           }
         }
       }
@@ -1331,7 +1311,8 @@
         }
       }
     },
-    "Overnight" : {
+    "Tonight" : {
+      "comment" : "Routines that run before tomorrow noon",
       "localizations" : {
         "nl" : {
           "stringUnit" : {
@@ -1351,12 +1332,13 @@
         }
       }
     },
-    "paused since %@" : {
+    "Snoozed · %@" : {
+      "comment" : "A node put aside until a moment, then where it stands",
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "gepauzeerd sinds %@"
+            "value" : "Gesnoozed · %@"
           }
         }
       }
@@ -2416,12 +2398,12 @@
         }
       }
     },
-    "Waits for approval" : {
+    "Waiting on delegated work" : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wacht op goedkeuring"
+            "value" : "Wacht op gedelegeerd werk"
           }
         }
       }
@@ -3406,86 +3388,6 @@
                 "stringUnit" : {
                   "state" : "translated",
                   "value" : "%lld agents"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "%lld agents are still working." : {
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "One agent is still working."
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld agents are still working."
-                }
-              }
-            }
-          }
-        },
-        "nl" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Er werkt nog één agent."
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Er werken nog %lld agents."
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "%lld agents are still working. You get a notification when one asks for you." : {
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "One agent is still working. You get a notification when it asks for you."
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld agents are still working. You get a notification when one asks for you."
-                }
-              }
-            }
-          }
-        },
-        "nl" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Er werkt nog één agent. Je krijgt een melding zodra hij je nodig heeft."
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Er werken nog %lld agents. Je krijgt een melding zodra er een je nodig heeft."
                 }
               }
             }
@@ -12365,12 +12267,12 @@
         }
       }
     },
-    "Hidden" : {
+    "Notifications off" : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Verborgen"
+            "value" : "Meldingen uit"
           }
         }
       }
@@ -13066,12 +12968,12 @@
         }
       }
     },
-    "Its sub-agents are working" : {
+    "Notifications on" : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "De sub-agents zijn bezig"
+            "value" : "Meldingen aan"
           }
         }
       }
@@ -14703,12 +14605,12 @@
         }
       }
     },
-    "No agent is working right now." : {
+    "Coming up" : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Er is nu geen agent bezig."
+            "value" : "Straks"
           }
         }
       }
@@ -18853,12 +18755,12 @@
         }
       }
     },
-    "Shown" : {
+    "%lld in the background" : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Getoond"
+            "value" : "%lld op de achtergrond"
           }
         }
       }
@@ -19222,12 +19124,13 @@
         }
       }
     },
-    "Snoozed, %lld" : {
+    "%lld queued" : {
+      "comment" : "Messages queued for a chat's next turn",
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Gesnoozed, %lld"
+            "value" : "%lld in de wachtrij"
           }
         }
       }

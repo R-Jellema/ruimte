@@ -1,112 +1,39 @@
 import RuimtePulsar
 import SwiftUI
 
-/// The iPhone's start: what waits on you, what works and what ended since you last looked, over every machine.
+/// The iPhone's start: what waits on you, what works, what ended since you last looked and what comes up, over every
+/// machine.
 struct NowPage: View {
     let runtime: AppRuntime
     let now: NowModel
+    let scheduled: ScheduledModel
     let open: (ProjectViewTarget) -> Void
     let openProject: (ProjectViewTarget) -> Void
+    let openRoutine: (ScheduledRoute) -> Void
     let addMachine: () -> Void
-    @State private var showingSnoozed = false
 
     var body: some View {
-        let board = now.board
-        MobileList {
-            if runtime.machines.isEmpty {
-                ContentUnavailableView {
-                    Label(String(localized: "No machines yet"), lucideIcon: "monitor", iconSize: 48)
-                } description: {
-                    Text("Connect your computer to see what your agents are doing.")
-                } actions: {
-                    Button("Add machine", action: addMachine)
-                }
-            } else if !now.loaded && board.isEmpty {
-                MobileLoadingRow(String(localized: "Connecting to your machines"))
-                    .frame(maxWidth: .infinity, minHeight: 120)
-            } else {
-                if board.needsYou.isEmpty {
-                    nothingWaits(board)
+        TimelineView(.periodic(from: .now, by: 60)) { timeline in
+            let board = now.board
+            MobileList {
+                if runtime.machines.isEmpty {
+                    ContentUnavailableView {
+                        Label(String(localized: "No machines yet"), lucideIcon: "monitor", iconSize: 48)
+                    } description: {
+                        Text("Connect your computer to see what your agents are doing.")
+                    } actions: {
+                        Button("Add machine", action: addMachine)
+                    }
+                } else if !now.loaded && board.isEmpty {
+                    MobileLoadingRow(String(localized: "Connecting to your machines"))
+                        .frame(maxWidth: .infinity, minHeight: 120)
                 } else {
-                    Section {
-                        ForEach(board.needsYou) { entry in
-                            NowCard(
-                                now: now, entry: entry, namesMachine: board.namesMachines,
-                                task: now.task(for: entry.target)
-                            ) { open(entry.target) }
-                            .contextMenu { menu(entry) }
-                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                Button {
-                                    snooze(entry, until: SnoozeChoice.hour.until(from: .now))
-                                } label: {
-                                    Label(String(localized: "1 hour"), lucideIcon: "alarm-clock")
-                                }
-                                .tint(MobileStyle.statusIdle)
-                            }
-                            .accessibilityIdentifier("now.\(entry.target.itemID)")
-                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-                        }
-                    } header: {
-                        NowHeader(
-                            title: String(localized: "Needs you"), count: board.needsYou.count,
-                            color: MobileStyle.statusNeedsYou, first: true)
-                    }
-                }
-                if !board.working.isEmpty {
-                    Section {
-                        ForEach(board.working) { entry in
-                            row(entry, board: board) {
-                                NowRow(entry: entry, namesMachine: board.namesMachines, task: now.task(for: entry.target))
-                            }
-                        }
-                    } header: {
-                        NowHeader(
-                            title: String(localized: "Working"), count: board.working.count,
-                            color: MobileStyle.statusRunning)
-                    }
-                }
-                if !board.finished.isEmpty {
-                    Section {
-                        ForEach(board.finished) { entry in
-                            row(entry, board: board) {
-                                NowRow(entry: entry, namesMachine: board.namesMachines, task: now.task(for: entry.target))
-                            }
-                        }
-                    } header: {
-                        NowHeader(
-                            title: String(localized: "Finished"), count: board.finished.count,
-                            color: MobileStyle.positive)
-                    }
-                }
-                if let first = board.snoozed.first?.snoozedUntil {
-                    Section {
-                        Button {
-                            withAnimation { showingSnoozed.toggle() }
-                        } label: {
-                            HStack(spacing: 7) {
-                                Image(lucide: "alarm-clock", size: 14)
-                                Text("Snoozed until \(SnoozeChoice.moment(first, from: .now))")
-                                Spacer()
-                                Text("\(board.snoozed.count)").monospacedDigit()
-                                Image(lucide: showingSnoozed ? "chevron-up" : "chevron-down", size: 12)
-                            }
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(MobileStyle.muted)
-                        }
-                        .accessibilityLabel("Snoozed, \(board.snoozed.count)")
-                        .accessibilityValue(showingSnoozed ? "Shown" : "Hidden")
-                        .accessibilityIdentifier("now.snoozed")
-                        .listRowInsets(EdgeInsets(top: 8 + NowHeader.spacing, leading: 28, bottom: 8, trailing: 28))
-                        if showingSnoozed {
-                            ForEach(board.snoozed) { entry in
-                                row(entry, board: board) {
-                                    NowRow(
-                                        entry: entry, namesMachine: board.namesMachines,
-                                        task: now.task(for: entry.target))
-                                }
-                            }
-                        }
-                    }
+                    NowSections(
+                        now: now, board: board,
+                        comingUp: NowComingUp.build(
+                            snoozed: board.snoozed, scheduled: scheduled.board(now: timeline.date)),
+                        notifies: runtime.notifications.enabled, date: timeline.date, connected: now.connected,
+                        open: open, openProject: openProject, openRoutine: openRoutine)
                 }
             }
         }
@@ -120,10 +47,102 @@ struct NowPage: View {
             }
         }
     }
+}
 
-    private func row<Label: View>(
-        _ entry: ProjectViewEntry, board: NowBoard, @ViewBuilder label: () -> Label
-    ) -> some View {
+/// The groups of Now as sections of a list: Needs you, Working, Finished and Coming up.
+struct NowSections: View {
+    let now: NowModel
+    let board: NowBoard
+    let comingUp: [NowComingUp]
+    let notifies: Bool
+    let date: Date
+    let connected: (String) -> Bool
+    let open: (ProjectViewTarget) -> Void
+    let openProject: (ProjectViewTarget) -> Void
+    let openRoutine: (ScheduledRoute) -> Void
+
+    /// Half the gap between two cards above and below each, so they stand the design's 12 apart.
+    static let cardInsets = EdgeInsets(
+        top: MobileSpacing.medium / 2, leading: MobileSpacing.margin, bottom: MobileSpacing.medium / 2,
+        trailing: MobileSpacing.margin)
+
+    var body: some View {
+        if board.needsYou.isEmpty {
+            NowNothingWaits(notifies: notifies).listRowInsets(Self.cardInsets)
+        } else {
+            Section {
+                ForEach(board.needsYou) { entry in
+                    NowCard(
+                        now: now, entry: entry,
+                        subtitle: NowCard.subtitle(entry, namesMachine: board.namesMachines, at: date),
+                        connected: connected(entry.target.machineID), task: now.task(for: entry.target)
+                    ) { open(entry.target) }
+                    .contextMenu { menu(entry) }
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        Button {
+                            now.snoozes(for: entry.target.machineID)?.snooze(
+                                entry.target.itemID, until: SnoozeChoice.hour.until(from: .now))
+                        } label: {
+                            Label(String(localized: "1 hour"), lucideIcon: "alarm-clock")
+                        }
+                        .tint(MobileStyle.statusIdle)
+                    }
+                    .accessibilityIdentifier("now.\(entry.target.itemID)")
+                    .listRowInsets(Self.cardInsets)
+                }
+            } header: {
+                header(String(localized: "Needs you"), count: board.needsYou.count, first: true)
+            }
+        }
+        if !board.working.isEmpty {
+            Section {
+                MobileRowGroup(items: board.working) { entry in
+                    row(entry) {
+                        NowWorkingRow(
+                            entry: entry, namesMachine: board.namesMachines, task: now.task(for: entry.target),
+                            date: date)
+                    }
+                }
+                .listRowInsets(Self.cardInsets)
+            } header: {
+                header(String(localized: "Working"), count: board.working.count)
+            }
+        }
+        if !board.finished.isEmpty {
+            Section {
+                MobileRowGroup(items: board.finished) { entry in
+                    row(entry) {
+                        NowFinishedRow(
+                            entry: entry, namesMachine: board.namesMachines, task: now.task(for: entry.target),
+                            date: date)
+                    }
+                }
+                .listRowInsets(Self.cardInsets)
+            } header: {
+                header(String(localized: "Finished"), count: board.finished.count)
+            }
+        }
+        if !comingUp.isEmpty {
+            Section {
+                MobileRowGroup(items: comingUp) { item in
+                    NowComingUpButton(
+                        item: item, namesMachine: board.namesMachines, date: date, open: open,
+                        openRoutine: openRoutine
+                    ) { menu($0) }
+                }
+                .listRowInsets(Self.cardInsets)
+            } header: {
+                header(String(localized: "Coming up"))
+            }
+        }
+    }
+
+    private func header(_ title: String, count: Int? = nil, first: Bool = false) -> some View {
+        MobileSectionHeader(title: title, count: count)
+            .padding(.top, first ? 0 : MobileSpacing.small)
+    }
+
+    private func row<Label: View>(_ entry: ProjectViewEntry, @ViewBuilder label: () -> Label) -> some View {
         Button {
             open(entry.target)
         } label: {
@@ -136,15 +155,6 @@ struct NowPage: View {
 
     private func menu(_ entry: ProjectViewEntry) -> some View {
         NowEntryMenu(now: now, entry: entry) { open(entry.target) } openProject: { openProject(entry.target) }
-    }
-
-    private func snooze(_ entry: ProjectViewEntry, until: Date) {
-        now.snoozes(for: entry.target.machineID)?.snooze(entry.target.itemID, until: until)
-    }
-
-    private func nothingWaits(_ board: NowBoard) -> some View {
-        NowNothingWaits(working: board.working.count, notifies: runtime.notifications.enabled)
-            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
     }
 }
 
@@ -185,92 +195,103 @@ struct NowEntryMenu: View {
     }
 }
 
-/// The card Now shows while nothing waits on you, saying what still works.
+/// The one row Now shows in place of the cards while nothing waits on you, with whether a request would reach you.
 struct NowNothingWaits: View {
-    let working: Int
     let notifies: Bool
 
     var body: some View {
-        VStack(spacing: 6) {
-            LucideIcon(name: "check", size: 22)
-                .foregroundStyle(MobileStyle.positive)
-                .frame(width: 44, height: 44)
-                .background(MobileStyle.positive.opacity(0.12), in: Circle())
-                .padding(.bottom, 6)
-            Text("Nothing needs you").font(.callout.weight(.semibold)).foregroundStyle(MobileStyle.text)
-            Text(still)
-                .font(.footnote).foregroundStyle(MobileStyle.muted).multilineTextAlignment(.center)
-        }
-        .padding(EdgeInsets(top: 26, leading: 20, bottom: 30, trailing: 20))
-        .frame(maxWidth: .infinity)
+        MobileStatusRow(
+            tone: .done, symbol: "check", title: String(localized: "Nothing needs you"),
+            value: notifies ? String(localized: "Notifications on") : String(localized: "Notifications off")
+        )
         .mobileCard(padding: 0)
-        .accessibilityElement(children: .combine)
-    }
-
-    private var still: String {
-        if working == 0 {
-            return String(localized: "No agent is working right now.")
-        }
-        if notifies {
-            return String(
-                localized: "\(working) agents are still working. You get a notification when one asks for you.")
-        }
-        return String(localized: "\(working) agents are still working.")
     }
 }
 
-struct NowHeader: View {
-    /// What the design puts above every group but the first.
-    static let spacing: CGFloat = 10
-
-    let title: String
-    let count: Int
-    let color: Color
-    var first = false
-
-    var body: some View {
-        HStack(spacing: 7) {
-            Circle().fill(color).frame(width: 6, height: 6)
-            Text(title)
-            Spacer()
-            Text("\(count)").monospacedDigit()
-        }
-        .font(.footnote.weight(.semibold))
-        .foregroundStyle(MobileStyle.muted)
-        .textCase(nil)
-        .padding(.top, first ? 0 : Self.spacing)
-        .accessibilityElement(children: .combine)
-    }
-}
-
-struct NowRow: View {
+/// A session that works: what runs beside its turn where the machine says, and for how long where that work says
+/// when it began.
+struct NowWorkingRow: View {
     let entry: ProjectViewEntry
     let namesMachine: Bool
     let task: JSONValue?
+    let date: Date
 
     var body: some View {
-        HStack(spacing: 10) {
-            LucideIcon(name: entry.iconName, size: 16).foregroundStyle(MobileStyle.muted)
-            Text(entry.title).foregroundStyle(MobileStyle.text).lineLimit(1).truncationMode(.tail)
+        MobileStatusRow(
+            tone: .working, symbol: entry.iconName, title: entry.title,
+            subtitle: entry.workingLine(namesMachine: namesMachine)
+        ) {
             if let task { TaskMark(task: task) }
-            Spacer(minLength: 8)
-            Text(nowPlace(entry, namesMachine: namesMachine)).font(.caption).foregroundStyle(MobileStyle.faint)
-                .lineLimit(1)
-            if let until = entry.snoozedUntil {
-                Text(SnoozeChoice.moment(until, from: .now)).font(.caption).foregroundStyle(MobileStyle.muted)
-                    .monospacedDigit().accessibilityLabel("Snoozed until \(SnoozeChoice.moment(until, from: .now))")
-            } else if entry.status == .running {
-                Spinner(size: 14, label: String(localized: "Working")).foregroundStyle(MobileStyle.statusRunning)
-            } else if entry.delegating {
-                Spinner(size: 14, label: String(localized: "Its sub-agents are working"))
-                    .foregroundStyle(MobileStyle.muted)
-            } else if entry.unseen {
-                Circle().fill(MobileStyle.accent).frame(width: 8, height: 8).accessibilityLabel("New activity")
+            if let since = entry.workingSince {
+                MobileRowValue(text: Format.duration(milliseconds: date.timeIntervalSince1970 * 1000 - since))
             }
         }
-        .frame(minHeight: 44)
-        .contentShape(Rectangle())
-        .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
+    }
+}
+
+/// A session that ended since you last looked, with when it ended where this phone knows it.
+struct NowFinishedRow: View {
+    let entry: ProjectViewEntry
+    let namesMachine: Bool
+    let task: JSONValue?
+    let date: Date
+
+    var body: some View {
+        MobileStatusRow(
+            tone: .done, symbol: entry.iconName, title: entry.title, subtitle: entry.place(namesMachine: namesMachine)
+        ) {
+            if let task { TaskMark(task: task) }
+            if let finishedAt = entry.finishedAt {
+                MobileRowValue(
+                    text: Format.moment(Date(timeIntervalSince1970: finishedAt / 1000), now: date))
+            }
+        }
+        .accessibilityAddTraits(.isButton)
+    }
+}
+
+/// A row of Coming up, which opens the snoozed node or the routine.
+struct NowComingUpButton<Actions: View>: View {
+    let item: NowComingUp
+    let namesMachine: Bool
+    let date: Date
+    let open: (ProjectViewTarget) -> Void
+    let openRoutine: (ScheduledRoute) -> Void
+    @ViewBuilder var menu: (ProjectViewEntry) -> Actions
+
+    var body: some View {
+        switch item.subject {
+        case .snoozed(let entry):
+            Button {
+                open(entry.target)
+            } label: {
+                MobileStatusRow(
+                    tone: .idle, symbol: entry.iconName, title: entry.title,
+                    subtitle: String(
+                        localized: "Snoozed · \(entry.place(namesMachine: namesMachine))",
+                        comment: "A node put aside until a moment, then where it stands"),
+                    value: SnoozeChoice.moment(item.at, from: date)
+                )
+                .accessibilityAddTraits(.isButton)
+            }
+            .buttonStyle(.plain)
+            .contextMenu { menu(entry) }
+            .accessibilityIdentifier("now.\(entry.target.itemID)")
+        case .routine(let scheduled):
+            Button {
+                openRoutine(.routine(scheduled.target))
+            } label: {
+                MobileStatusRow(
+                    tone: .idle, symbol: "calendar-clock", title: scheduled.entry.title,
+                    subtitle: namesMachine
+                        ? "\(scheduled.entry.projectName) · \(scheduled.machineName)" : scheduled.entry.projectName,
+                    value: Format.moment(item.at, now: date)
+                )
+                .accessibilityAddTraits(.isButton)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("now.routine.\(scheduled.entry.id)")
+        }
     }
 }

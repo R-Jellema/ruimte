@@ -1,72 +1,49 @@
 import RuimtePulsar
 import SwiftUI
 
-/// Now on an iPad, beside the sidebar: the cards that wait on you in two columns, and Working and Finished side by
-/// side under them. The same board as the iPhone's, answered in place the same way.
+/// Now on an iPad, beside the sidebar: the cards that wait on you in two columns, Working and Finished side by side
+/// under them, and Coming up below. The same board and rows as the iPhone's, answered in place the same way.
 struct PadNowPage: View {
     let runtime: AppRuntime
     let now: NowModel
+    let scheduled: ScheduledModel
     let open: (ProjectViewTarget) -> Void
     let openProject: (ProjectViewTarget) -> Void
+    let openRoutine: (ScheduledRoute) -> Void
     let addMachine: () -> Void
-    @State private var showingSnoozed = false
 
-    private let columns = [GridItem(.flexible(), spacing: 14, alignment: .top), GridItem(.flexible(), alignment: .top)]
+    private let columns = [
+        GridItem(.flexible(), spacing: MobileSpacing.medium, alignment: .top),
+        GridItem(.flexible(), alignment: .top),
+    ]
 
     var body: some View {
-        let board = now.board
-        ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
-                if runtime.machines.isEmpty {
-                    ContentUnavailableView {
-                        Label(String(localized: "No machines yet"), lucideIcon: "monitor", iconSize: 48)
-                    } description: {
-                        Text("Connect your computer to see what your agents are doing.")
-                    } actions: {
-                        Button("Add machine", action: addMachine)
-                    }
-                } else if !now.loaded && board.isEmpty {
-                    MobileLoadingRow(String(localized: "Connecting to your machines"))
-                        .frame(maxWidth: .infinity, minHeight: 160)
-                } else {
-                    if board.needsYou.isEmpty {
-                        NowNothingWaits(working: board.working.count, notifies: runtime.notifications.enabled)
+        TimelineView(.periodic(from: .now, by: 60)) { timeline in
+            let board = now.board
+            ScrollView {
+                VStack(alignment: .leading, spacing: MobileSpacing.xLarge) {
+                    if runtime.machines.isEmpty {
+                        ContentUnavailableView {
+                            Label(String(localized: "No machines yet"), lucideIcon: "monitor", iconSize: 48)
+                        } description: {
+                            Text("Connect your computer to see what your agents are doing.")
+                        } actions: {
+                            Button("Add machine", action: addMachine)
+                        }
+                    } else if !now.loaded && board.isEmpty {
+                        MobileLoadingRow(String(localized: "Connecting to your machines"))
+                            .frame(maxWidth: .infinity, minHeight: 160)
                     } else {
-                        VStack(alignment: .leading, spacing: 8) {
-                            NowHeader(
-                                title: String(localized: "Needs you"), count: board.needsYou.count,
-                                color: MobileStyle.statusNeedsYou, first: true)
-                            LazyVGrid(columns: columns, alignment: .leading, spacing: 14) {
-                                ForEach(board.needsYou) { entry in
-                                    NowCard(
-                                        now: now, entry: entry, namesMachine: board.namesMachines,
-                                        task: now.task(for: entry.target)
-                                    ) { open(entry.target) }
-                                    .contextMenu { menu(entry) }
-                                    .accessibilityIdentifier("now.\(entry.target.itemID)")
-                                }
-                            }
-                        }
-                    }
-                    if !board.working.isEmpty || !board.finished.isEmpty {
-                        HStack(alignment: .top, spacing: 14) {
-                            group(
-                                String(localized: "Working"), empty: String(localized: "Nothing is working."),
-                                entries: board.working, color: MobileStyle.statusRunning, board: board)
-                            group(
-                                String(localized: "Finished"),
-                                empty: String(localized: "Nothing finished while you were away."),
-                                entries: board.finished, color: MobileStyle.positive, board: board)
-                        }
-                    }
-                    if let first = board.snoozed.first?.snoozedUntil {
-                        snoozed(board, first: first)
+                        content(
+                            board, date: timeline.date,
+                            comingUp: NowComingUp.build(
+                                snoozed: board.snoozed, scheduled: scheduled.board(now: timeline.date)))
                     }
                 }
+                .frame(maxWidth: 980)
+                .padding(.horizontal, MobileSpacing.xLarge).padding(.vertical, MobileSpacing.large)
+                .frame(maxWidth: .infinity)
             }
-            .frame(maxWidth: 980)
-            .padding(.horizontal, 24).padding(.vertical, 16)
-            .frame(maxWidth: .infinity)
         }
         .navigationTitle("Now")
         .navigationBarTitleDisplayMode(.inline)
@@ -81,65 +58,81 @@ struct PadNowPage: View {
         }
     }
 
-    /// One of the two columns under the cards; an empty one keeps its place, so the other does not stretch across.
-    private func group(
-        _ title: String, empty: String, entries: [ProjectViewEntry], color: Color, board: NowBoard
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            NowHeader(title: title, count: entries.count, color: color, first: true)
-            VStack(spacing: 0) {
-                if entries.isEmpty {
-                    Text(empty)
-                        .font(.footnote).foregroundStyle(MobileStyle.faint)
-                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+    @ViewBuilder private func content(_ board: NowBoard, date: Date, comingUp: [NowComingUp]) -> some View {
+        if board.needsYou.isEmpty {
+            NowNothingWaits(notifies: runtime.notifications.enabled)
+        } else {
+            VStack(alignment: .leading, spacing: MobileSpacing.medium) {
+                MobileSectionHeader(title: String(localized: "Needs you"), count: board.needsYou.count)
+                LazyVGrid(columns: columns, alignment: .leading, spacing: MobileSpacing.medium) {
+                    ForEach(board.needsYou) { entry in
+                        NowCard(
+                            now: now, entry: entry,
+                            subtitle: NowCard.subtitle(entry, namesMachine: board.namesMachines, at: date),
+                            connected: now.connected(entry.target.machineID), task: now.task(for: entry.target)
+                        ) { open(entry.target) }
+                        .contextMenu { menu(entry) }
+                        .accessibilityIdentifier("now.\(entry.target.itemID)")
+                    }
                 }
-                ForEach(entries) { entry in row(entry, board: board) }
             }
-            .padding(.horizontal, 14).padding(.vertical, 4)
-            .mobileCard(padding: 0)
+        }
+        if !board.working.isEmpty || !board.finished.isEmpty {
+            HStack(alignment: .top, spacing: MobileSpacing.medium) {
+                group(String(localized: "Working"), empty: String(localized: "Nothing is working."), board.working) {
+                    entry in
+                    NowWorkingRow(
+                        entry: entry, namesMachine: board.namesMachines, task: now.task(for: entry.target), date: date)
+                }
+                group(
+                    String(localized: "Finished"), empty: String(localized: "Nothing finished while you were away."),
+                    board.finished
+                ) { entry in
+                    NowFinishedRow(
+                        entry: entry, namesMachine: board.namesMachines, task: now.task(for: entry.target), date: date)
+                }
+            }
+        }
+        if !comingUp.isEmpty {
+            VStack(alignment: .leading, spacing: MobileSpacing.medium) {
+                MobileSectionHeader(title: String(localized: "Coming up"))
+                MobileRowGroup(items: comingUp) { item in
+                    NowComingUpButton(
+                        item: item, namesMachine: board.namesMachines, date: date, open: open,
+                        openRoutine: openRoutine
+                    ) { menu($0) }
+                }
+            }
+        }
+    }
+
+    /// One of the two columns under the cards; an empty one keeps its place, so the other does not stretch across.
+    private func group<Row: View>(
+        _ title: String, empty: String, _ entries: [ProjectViewEntry],
+        @ViewBuilder row: @escaping (ProjectViewEntry) -> Row
+    ) -> some View {
+        VStack(alignment: .leading, spacing: MobileSpacing.medium) {
+            MobileSectionHeader(title: title, count: entries.count)
+            if entries.isEmpty {
+                Text(empty)
+                    .font(.footnote).foregroundStyle(MobileStyle.faint)
+                    .padding(.horizontal, MobileSpacing.cardPadding)
+                    .frame(maxWidth: .infinity, minHeight: MobileMetrics.rowHeight, alignment: .leading)
+                    .mobileCard(padding: 0)
+            } else {
+                MobileRowGroup(items: entries) { entry in
+                    Button {
+                        open(entry.target)
+                    } label: {
+                        row(entry)
+                    }
+                    .buttonStyle(.plain)
+                    .contextMenu { menu(entry) }
+                    .accessibilityIdentifier("now.\(entry.target.itemID)")
+                }
+            }
         }
         .frame(maxWidth: .infinity, alignment: .top)
-    }
-
-    private func snoozed(_ board: NowBoard, first: Date) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Button {
-                withAnimation { showingSnoozed.toggle() }
-            } label: {
-                HStack(spacing: 7) {
-                    Image(lucide: "alarm-clock", size: 14)
-                    Text("Snoozed until \(SnoozeChoice.moment(first, from: .now))")
-                    Spacer()
-                    Text("\(board.snoozed.count)").monospacedDigit()
-                    Image(lucide: showingSnoozed ? "chevron-up" : "chevron-down", size: 12)
-                }
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(MobileStyle.muted)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Snoozed, \(board.snoozed.count)")
-            .accessibilityValue(showingSnoozed ? "Shown" : "Hidden")
-            .accessibilityIdentifier("now.snoozed")
-            if showingSnoozed {
-                VStack(spacing: 0) {
-                    ForEach(board.snoozed) { entry in row(entry, board: board) }
-                }
-                .padding(.horizontal, 14).padding(.vertical, 4)
-                .mobileCard(padding: 0)
-            }
-        }
-    }
-
-    private func row(_ entry: ProjectViewEntry, board: NowBoard) -> some View {
-        Button {
-            open(entry.target)
-        } label: {
-            NowRow(entry: entry, namesMachine: board.namesMachines, task: now.task(for: entry.target))
-        }
-        .buttonStyle(.plain)
-        .contextMenu { menu(entry) }
-        .accessibilityIdentifier("now.\(entry.target.itemID)")
     }
 
     private func menu(_ entry: ProjectViewEntry) -> some View {

@@ -25,22 +25,23 @@ struct PhoneHome: View {
             TabView(selection: $router.tab) {
                 Tab(value: PhoneTab.now) {
                     NowPage(
-                        runtime: runtime, now: now,
+                        runtime: runtime, now: now, scheduled: scheduled,
                         open: { router.show($0, from: .now) },
                         openProject: { target in
                             guard let workspace = workspace(for: target) else { return }
                             router.openProject(workspace, view: target.viewID)
                         },
+                        openRoutine: { router.show($0) },
                         addMachine: addMachine
                     )
                 } label: {
                     Label(String(localized: "Now"), lucideIcon: "inbox")
                 }
-                .badge(now.board.needsYou.count)
+                .badge(waiting)
 
                 Tab(value: PhoneTab.scheduled) {
                     ScheduledPage(
-                        runtime: runtime, projects: projects, model: scheduled, open: { router.show($0) },
+                        runtime: runtime, now: now, model: scheduled, open: { router.show($0) },
                         addMachine: addMachine)
                 } label: {
                     Label(String(localized: "Scheduled"), lucideIcon: "calendar-clock")
@@ -82,6 +83,7 @@ struct PhoneHome: View {
             }
         }
         .containerBackground(MobileStyle.surface, for: .navigation)
+        .modifier(ScheduledWatch(runtime: runtime, model: scheduled))
         .onChange(of: now.board) { _, board in
             if now.loaded { NeedsYouWidgetRecorder.record(board) }
         }
@@ -92,6 +94,9 @@ struct PhoneHome: View {
             }
         }
     }
+
+    /// What waits on you across Now and Scheduled, which the badge on Now counts.
+    private var waiting: Int { now.board.needsYou.count + scheduled.board(now: .now).needsYou.count }
 
     private var settingsLink: SettingsLink {
         SettingsLink(
