@@ -41,7 +41,7 @@ struct PhoneProjectList: View {
                     }
                     ForEach(section.items, id: \.stableID) { item in
                         ProjectListCell(
-                            workspace: workspace, item: item, sources: sources,
+                            workspace: workspace, item: item, state: state, sources: sources,
                             highlightedID: highlightedID, open: open, act: act)
                     }
                     .onMove { indices, destination in move(section: section, from: indices, to: destination) }
@@ -91,10 +91,12 @@ struct PhoneProjectList: View {
     }
 }
 
-/// One view of the list. A canvas opens straight away; what its nodes do shows in its marks and its preview.
+/// One view of the list. A canvas opens straight away on a tap; its chevron unfolds the nodes on it that run, under
+/// it in the same row, so dragging a canvas takes its nodes along.
 private struct ProjectListCell: View {
     let workspace: MobileWorkspace
     let item: JSONValue
+    let state: ProjectListState
     let sources: ProjectMarkSources
     let highlightedID: String?
     let open: (String) -> Void
@@ -103,27 +105,76 @@ private struct ProjectListCell: View {
     var body: some View {
         let nodes = ProjectListLogic.nodes(of: item)
         let marks = ProjectListLogic.marks(view: item, sources: sources)
-        Button {
-            open(item.stableID)
+        let expanded = !nodes.isEmpty && state.isExpanded(item.stableID)
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                Button {
+                    open(item.stableID)
+                } label: {
+                    HStack(spacing: 10) {
+                        WorkspaceViewIcon(item: item, size: 15).foregroundStyle(MobileStyle.muted)
+                        Text(title(item)).foregroundStyle(MobileStyle.text).lineLimit(1).truncationMode(.tail)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        ProjectRowMarksView(marks: marks, task: workspace.session.tasks.childTask(item.stableID))
+                    }
+                    .modifier(MobileSidebarLabel())
+                    .accessibilityElement(children: .combine)
+                }
+                .buttonStyle(MobileSidebarButtonStyle(selected: highlightedID == item.stableID))
+                .accessibilityAddTraits(highlightedID == item.stableID ? .isSelected : [])
+                .accessibilityIdentifier("workspace.view.\(item.stableID)")
+                .contextMenu {
+                    ProjectRowMenu(item: item, isView: true, status: marks.status, workspace: workspace, act: act)
+                } preview: {
+                    ProjectRowPreview(workspace: workspace, item: item, marks: marks, nodes: nodes, sources: sources)
+                }
+                if !nodes.isEmpty {
+                    Button {
+                        // Without an animation: a row that grows inside a list moved its neighbors oddly.
+                        var transaction = Transaction(animation: nil)
+                        transaction.disablesAnimations = true
+                        withTransaction(transaction) { state.toggle(item.stableID) }
+                    } label: {
+                        Image(lucide: expanded ? "chevron-down" : "chevron-right", size: 15)
+                            .foregroundStyle(MobileStyle.muted)
+                            .frame(width: 44, height: 44).contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(expanded ? "Fold \(title(item))" : "Unfold \(title(item))")
+                }
+            }
+            if expanded {
+                ForEach(nodes, id: \.stableID) { node in
+                    nodeRow(node)
+                }
+            }
+        }
+        .modifier(MobileSidebarRow())
+    }
+
+    private func nodeRow(_ node: JSONValue) -> some View {
+        let marks = ProjectListLogic.marks(node: node, sources: sources)
+        return Button {
+            open(node.stableID)
         } label: {
             HStack(spacing: 10) {
-                WorkspaceViewIcon(item: item, size: 15).foregroundStyle(MobileStyle.muted)
-                Text(title(item)).foregroundStyle(MobileStyle.text).lineLimit(1).truncationMode(.tail)
+                WorkspaceViewIcon(item: node, size: 14).foregroundStyle(MobileStyle.muted)
+                Text(title(node)).foregroundStyle(MobileStyle.muted).lineLimit(1).truncationMode(.tail)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                ProjectRowMarksView(marks: marks, task: workspace.session.tasks.childTask(item.stableID))
+                ProjectRowMarksView(marks: marks, task: workspace.session.tasks.childTask(node.stableID))
             }
+            .padding(.leading, 25)
             .modifier(MobileSidebarLabel())
             .accessibilityElement(children: .combine)
         }
-        .buttonStyle(MobileSidebarButtonStyle(selected: highlightedID == item.stableID))
-        .accessibilityAddTraits(highlightedID == item.stableID ? .isSelected : [])
-        .accessibilityIdentifier("workspace.view.\(item.stableID)")
+        .buttonStyle(MobileSidebarButtonStyle(selected: highlightedID == node.stableID))
+        .accessibilityAddTraits(highlightedID == node.stableID ? .isSelected : [])
+        .accessibilityIdentifier("workspace.node.\(node.stableID)")
         .contextMenu {
-            ProjectRowMenu(item: item, isView: true, status: marks.status, workspace: workspace, act: act)
+            ProjectRowMenu(item: node, isView: false, status: marks.status, workspace: workspace, act: act)
         } preview: {
-            ProjectRowPreview(workspace: workspace, item: item, marks: marks, nodes: nodes, sources: sources)
+            ProjectRowPreview(workspace: workspace, item: node, marks: marks, nodes: [], sources: sources)
         }
-        .modifier(MobileSidebarRow())
     }
 
     private func title(_ row: JSONValue) -> String {

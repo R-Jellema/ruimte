@@ -102,16 +102,23 @@ enum ProjectListLogic {
     }
 }
 
-/// The part of a project's list that lives on this phone: which chats hold a draft, and which nodes the machine warns
-/// about.
+/// The part of a project's list that lives on this phone: which canvases are unfolded while the page shows, which
+/// chats hold a draft, and which nodes the machine warns about.
 @MainActor @Observable
 final class ProjectListState {
+    private(set) var expanded: Set<String> = []
     private(set) var drafts: Set<String> = []
     private(set) var warnings: Set<String> = []
     @ObservationIgnored private var stops: [() -> Void] = []
     @ObservationIgnored private var client: (any MachineRequesting)?
 
     init() {}
+
+    func isExpanded(_ id: String) -> Bool { expanded.contains(id) }
+
+    func toggle(_ id: String) {
+        if expanded.contains(id) { expanded.remove(id) } else { expanded.insert(id) }
+    }
 
     /// Reads which chats hold a draft on this phone; the composer writes one as it is typed.
     func readDrafts(machineID: String, chatIDs: [String]) {
