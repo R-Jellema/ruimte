@@ -1,14 +1,12 @@
-import { revealFile } from './reveal-file';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CornerUpRight, FileAudio, FileVideo } from 'lucide-react';
+import { FileAudio, FileVideo } from 'lucide-react';
 import type { FsReadBinary } from '@ruimte/contracts';
 import { FileContextMenu, FileToolbar } from '@/shell/panels/FileToolbar';
 import { machineResourceOf, revealablePath, useEndpointIdOf, type FileSource } from '@/shell/panels/file-source';
-import { fileManagerName, useServer } from '@/state/server';
-import { useTransport } from '@/transport/context';
+import { RevealButton } from '@/shell/panels/RevealButton';
 import { useMachineUrl } from '@/transport/machine-url';
-import { Button, EmptyState, Icon } from '@adecore/ui';
+import { EmptyState } from '@adecore/ui';
 import { formatBytes, formatClockDuration } from '@adecore/ui/format';
 
 interface MediaFileProps {
@@ -32,20 +30,12 @@ function canPlay(kind: MediaFileProps['kind'], mime: string): boolean {
 /* Sound or a video in ranges, so the scrubber works: from the daemon's own route, or over a direct connection through the bytes worker. */
 export function MediaFile({ kind, source, name, read }: MediaFileProps) {
     const { t } = useTranslation('panels');
-    const platform = useServer((s) => s.platform);
     const [loaded, setLoaded] = useState<Loaded | null>(null);
     const [failed, setFailed] = useState(!canPlay(kind, read.mime));
-    const transport = useTransport();
     const endpointId = useEndpointIdOf(source);
     const bytes = useMachineUrl(machineResourceOf(source, read, true), endpointId);
     const path = revealablePath(source);
     const Media = kind;
-
-    const reveal = (): void => {
-        if (path !== null) {
-            revealFile(transport, path);
-        }
-    };
 
     return (
         <div className="flex min-h-0 min-w-0 grow flex-col">
@@ -55,13 +45,7 @@ export function MediaFile({ kind, source, name, read }: MediaFileProps) {
                     <EmptyState
                         className="select-text"
                         icon={kind === 'audio' ? FileAudio : FileVideo}
-                        action={
-                            path === null ? undefined : (
-                                <Button variant="secondary" size="sm" onClick={reveal}>
-                                    <Icon icon={CornerUpRight} size={14} /> {t('file.revealIn', { app: fileManagerName(platform) })}
-                                </Button>
-                            )
-                        }
+                        action={path === null ? undefined : <RevealButton path={path} />}
                     >
                         {t(`file.${kind}.cannotPlay`, { name, mime: read.mime, size: formatBytes(read.size) })}
                         {bytes.failure !== null && ` ${bytes.failure}.`}

@@ -9,7 +9,16 @@ import type { KeepAwakeMode } from '@/state/settings';
 import type { PanelKind } from '@/state/ui';
 import { formatShortcut, type Shortcut } from '@adecore/ui';
 import { AFTER_SETTLE_PREFIX, CHAT_MOVE_PREFIX, GO_VIEW_PREFIX, LAUNCH_CHOOSE_PREFIX, PR_SHOW_IN_PREFIX } from '@/shell/menu/ids';
-import { COMMAND_IDS, COMMANDS, menuPlacesOf, type CommandId as TableCommandId, type MenuContainer, type MenuPlace } from '@/shell/command-table';
+import {
+    COMMAND_IDS,
+    COMMANDS,
+    desktop as isDesktop,
+    menuPlacesOf,
+    onCanvas,
+    type CommandId as TableCommandId,
+    type MenuContainer,
+    type MenuPlace
+} from '@/shell/command-table';
 
 export type MenuHost = 'desktop' | 'station';
 
@@ -217,14 +226,6 @@ interface MenuGroup {
 
 function inWorkspace(context: MenuContext): boolean {
     return context.workspace;
-}
-
-function isDesktop(context: MenuContext): boolean {
-    return context.host === 'desktop';
-}
-
-function onCanvas(context: MenuContext): boolean {
-    return context.view === 'canvas';
 }
 
 function quitRows(): MenuNode[] {

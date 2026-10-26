@@ -1,16 +1,14 @@
-import { revealFile } from './reveal-file';
 import clsx from 'clsx';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Box, CornerUpRight, Cuboid, Grid3x3, Pause, Play, RotateCcw, Spotlight } from 'lucide-react';
+import { Box, Cuboid, Grid3x3, Pause, Play, RotateCcw, Spotlight } from 'lucide-react';
 import { BYTES_READ_MAX_BYTES, type FsReadBinary } from '@ruimte/contracts';
 import { useTheme } from '@/state/theme';
-import { fileManagerName, useServer } from '@/state/server';
-import { useTransport } from '@/transport/context';
 import { FileContextMenu, FileToolbar, FileToolbarToggle } from '@/shell/panels/FileToolbar';
 import { readSourceBytes, revealablePath, useEndpointIdOf, type FileSource } from '@/shell/panels/file-source';
 import { canDrawWebgl, ModelViewer, type LoadedModel } from '@/shell/panels/model-viewer';
-import { Button, ButtonGroup, EmptyState, Icon, IconButton } from '@adecore/ui';
+import { RevealButton } from '@/shell/panels/RevealButton';
+import { ButtonGroup, EmptyState, IconButton } from '@adecore/ui';
 import { formatBytes, formatNumber } from '@adecore/ui/format';
 
 type Phase = { kind: 'loading' } | { kind: 'ready'; model: LoadedModel } | { kind: 'failed'; reason: string } | { kind: 'no-webgl' };
@@ -25,8 +23,6 @@ function messageOf(e: unknown): string {
 /* A binary glTF, a USDZ package or an STL, drawn in 3D on the same plain surface as an image. */
 export function ModelFile({ source, name, read }: { source: FileSource; name: string; read: FsReadBinary }) {
     const { t } = useTranslation('panels');
-    const platform = useServer((s) => s.platform);
-    const transport = useTransport();
     const endpointId = useEndpointIdOf(source);
     const hostRef = useRef<HTMLDivElement>(null);
     const viewerRef = useRef<ModelViewer | null>(null);
@@ -114,18 +110,7 @@ export function ModelFile({ source, name, read }: { source: FileSource; name: st
         }
     }, [ready, playing]);
 
-    const reveal = (): void => {
-        if (path !== null) {
-            revealFile(transport, path);
-        }
-    };
-
-    const revealAction =
-        path === null ? undefined : (
-            <Button variant="secondary" size="sm" onClick={reveal}>
-                <Icon icon={CornerUpRight} size={14} /> {t('file.revealIn', { app: fileManagerName(platform) })}
-            </Button>
-        );
+    const revealAction = path === null ? undefined : <RevealButton path={path} />;
 
     const overlay = (): React.ReactNode => {
         if (phase.kind === 'loading') {

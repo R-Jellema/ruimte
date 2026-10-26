@@ -1,12 +1,10 @@
-import { revealFile } from './reveal-file';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CornerUpRight, FileText, Maximize, Scan } from 'lucide-react';
+import { FileText, Maximize, Scan } from 'lucide-react';
 import { getDocument, GlobalWorkerOptions, TextLayer, version, type PDFDocumentProxy, type PDFPageProxy } from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import type { ByteResource, FsReadBinary } from '@ruimte/contracts';
 import { useEndpoints } from '@/state/endpoints';
-import { fileManagerName, useServer } from '@/state/server';
 import { machineTransport } from '@/transport';
 import { readResource } from '@/transport/byte-transfer';
 import { bytesWorkerReady } from '@/transport/bytes-worker-host';
@@ -16,7 +14,8 @@ import { readPiece } from '@/transport/piece';
 import { FileTextMenu, FileToolbar, FileToolbarToggle } from '@/shell/panels/FileToolbar';
 import { machineResourceOf, revealablePath, sourceKey, useEndpointIdOf, wireResourceOf, type FileSource } from '@/shell/panels/file-source';
 import { PDF_PAGE_GAP, pdfPageBox, pdfPageScale, pdfPageTops, pdfReadingPage, type PdfPageSize, type PdfZoom } from '@/shell/panels/pdf-layout';
-import { Button, ButtonGroup, EmptyState, Icon } from '@adecore/ui';
+import { RevealButton } from '@/shell/panels/RevealButton';
+import { ButtonGroup, EmptyState } from '@adecore/ui';
 import { formatBytes, formatNumber } from '@adecore/ui/format';
 
 // From this page's own origin, so the worker stays inside `worker-src 'self'`.
@@ -94,8 +93,6 @@ function usePdfSource(origin: FileSource, read: FsReadBinary): Source | null {
  */
 export function PdfFile({ source: origin, name, read }: { source: FileSource; name: string; read: FsReadBinary }) {
     const { t } = useTranslation('panels');
-    const platform = useServer((s) => s.platform);
-    const transport = useTransport();
     const source = usePdfSource(origin, read);
     const path = revealablePath(origin);
     const [zoom, setZoom] = useState<PdfZoom>('fit');
@@ -180,12 +177,6 @@ export function PdfFile({ source: origin, name, read }: { source: FileSource; na
         });
     };
 
-    const reveal = (): void => {
-        if (path !== null) {
-            revealFile(transport, path);
-        }
-    };
-
     // The page that was being read stays at the top when the zoom changes under it.
     const changeZoom = (next: PdfZoom): void => {
         if (next === zoom) {
@@ -206,17 +197,7 @@ export function PdfFile({ source: origin, name, read }: { source: FileSource; na
     const body = (): React.ReactNode => {
         if (failed !== null) {
             return (
-                <EmptyState
-                    className="m-auto select-text"
-                    icon={FileText}
-                    action={
-                        path === null ? undefined : (
-                            <Button variant="secondary" size="sm" onClick={reveal}>
-                                <Icon icon={CornerUpRight} size={14} /> {t('file.revealIn', { app: fileManagerName(platform) })}
-                            </Button>
-                        )
-                    }
-                >
+                <EmptyState className="m-auto select-text" icon={FileText} action={path === null ? undefined : <RevealButton path={path} />}>
                     {t('file.pdf.failed', { name, reason: failed })}
                 </EmptyState>
             );

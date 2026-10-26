@@ -1,15 +1,13 @@
-import { revealFile } from './reveal-file';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CornerUpRight, ImageOff, Maximize, Scan } from 'lucide-react';
+import { ImageOff, Maximize, Scan } from 'lucide-react';
 import type { FsReadBinary } from '@ruimte/contracts';
-import { fileManagerName, useServer } from '@/state/server';
-import { useTransport } from '@/transport/context';
 import { useMachineUrl } from '@/transport/machine-url';
 import { drawsImageMime, imageFormatName } from '@/shell/panels/file-kind';
 import { FileContextMenu, FileToolbar, FileToolbarToggle } from '@/shell/panels/FileToolbar';
 import { machineResourceOf, revealablePath, useEndpointIdOf, type FileSource } from '@/shell/panels/file-source';
-import { Button, ButtonGroup, EmptyState, Icon } from '@adecore/ui';
+import { RevealButton } from '@/shell/panels/RevealButton';
+import { ButtonGroup, EmptyState } from '@adecore/ui';
 import { formatBytes } from '@adecore/ui/format';
 
 type Zoom = 'fit' | 'full';
@@ -18,21 +16,13 @@ type Zoom = 'fit' | 'full';
    drawn for a light background. */
 export function ImageFile({ source, name, read }: { source: FileSource; name: string; read: FsReadBinary }) {
     const { t } = useTranslation('panels');
-    const platform = useServer((s) => s.platform);
     const [zoom, setZoom] = useState<Zoom>('fit');
     const [size, setSize] = useState<{ width: number; height: number } | null>(null);
     const [failed, setFailed] = useState(false);
-    const transport = useTransport();
     const endpointId = useEndpointIdOf(source);
     const drawable = drawsImageMime(read.mime);
     const bytes = useMachineUrl(drawable ? machineResourceOf(source, read) : null, endpointId);
     const path = revealablePath(source);
-
-    const reveal = (): void => {
-        if (path !== null) {
-            revealFile(transport, path);
-        }
-    };
 
     return (
         <div className="flex min-h-0 min-w-0 grow flex-col">
@@ -48,17 +38,7 @@ export function ImageFile({ source, name, read }: { source: FileSource; name: st
             )}
             <FileContextMenu className="grid min-h-0 grow place-items-center overflow-auto bg-surface-sunken p-4">
                 {!drawable ? (
-                    <EmptyState
-                        className="select-text"
-                        icon={ImageOff}
-                        action={
-                            path === null ? undefined : (
-                                <Button variant="secondary" size="sm" onClick={reveal}>
-                                    <Icon icon={CornerUpRight} size={14} /> {t('file.revealIn', { app: fileManagerName(platform) })}
-                                </Button>
-                            )
-                        }
-                    >
+                    <EmptyState className="select-text" icon={ImageOff} action={path === null ? undefined : <RevealButton path={path} />}>
                         {t('file.image.notShown', { name, format: imageFormatName(read.mime) })}
                     </EmptyState>
                 ) : failed || bytes.failure !== null ? (

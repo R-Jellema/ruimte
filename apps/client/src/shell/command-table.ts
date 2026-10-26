@@ -192,11 +192,11 @@ function chosenLaunchOf(context: MenuContext): MenuContext['launches'][number] |
     return context.launches.find((launch) => launch.id === context.chosenLaunch) ?? null;
 }
 
-function desktop(context: MenuContext): boolean {
+export function desktop(context: MenuContext): boolean {
     return context.host === 'desktop';
 }
 
-function onCanvas(context: MenuContext): boolean {
+export function onCanvas(context: MenuContext): boolean {
     return context.view === 'canvas';
 }
 
