@@ -410,6 +410,7 @@
     "routine.remove",
     "routine.watch",
     "routine.unwatch",
+    "routine.skills",
     "provenance.read",
     "provenance.review",
     "nanogpt.status",

@@ -318,6 +318,7 @@ public enum WireRequest: String, CaseIterable, Sendable {
     case `routineRemove` = "routine.remove"
     case `routineWatch` = "routine.watch"
     case `routineUnwatch` = "routine.unwatch"
+    case `routineSkills` = "routine.skills"
     case `provenanceRead` = "provenance.read"
     case `provenanceReview` = "provenance.review"
     case `nanogptStatus` = "nanogpt.status"
