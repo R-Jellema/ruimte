@@ -115,8 +115,7 @@ struct ScheduledPage: View {
                         .accessibilityIdentifier("scheduled.\(item.entry.id)")
                     }
                 }
-                .background(MobileStyle.panel, in: .rect(cornerRadius: 22))
-                .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(MobileStyle.border))
+                .mobileCard(padding: 0)
                 .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
             } header: {
                 NowHeader(title: title, count: items.count, color: color, first: first)
@@ -182,11 +181,7 @@ struct ScheduledWaitCard: View {
                         .font(.caption).foregroundStyle(MobileStyle.statusNeedsYou)
                 }
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(MobileStyle.panel, in: .rect(cornerRadius: 22))
-            .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(MobileStyle.border))
+            .mobileCard()
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

@@ -34,6 +34,15 @@ enum MobileStyle {
     static let statusError = Color(uiColor: statusErrorColor)
     static let statusNeedsYou = Color(uiColor: statusNeedsYouColor)
     static let statusIdle = Color(uiColor: statusIdleColor)
+    static let voiceColor = adaptive(RuimteColors.voice)
+    static let voice = Color(uiColor: voiceColor)
+    static let voiceText = Color(uiColor: adaptive(RuimteColors.voiceText))
+    /// The hairline a card is edged with and the ground of a quiet capsule. Alphas over whatever lies behind, so they
+    /// are not opaque tokens in `RuimteColors`.
+    static let hairline = Color(uiColor: translucent(dark: 0.06, light: 0.08))
+    static let fill = Color(uiColor: translucent(dark: 0.08, light: 0.05))
+    /// The ground of a code line inside a card.
+    static let subtleFill = Color(uiColor: translucent(dark: 0.05, light: 0.035))
     static let skill = Color(uiColor: adaptive(RuimteColors.skill))
     static let chartClaude = Color(uiColor: adaptive(RuimteColors.chartClaude))
     static let chartCodex = Color(uiColor: adaptive(RuimteColors.chartCodex))
@@ -63,6 +72,13 @@ enum MobileStyle {
                 red: CGFloat((hex >> 16) & 0xff) / 255,
                 green: CGFloat((hex >> 8) & 0xff) / 255,
                 blue: CGFloat(hex & 0xff) / 255, alpha: 1)
+        }
+    }
+
+    /// White over a dark ground and black over a light one, each at its own alpha.
+    private static func translucent(dark: CGFloat, light: CGFloat) -> UIColor {
+        UIColor { traits in
+            traits.userInterfaceStyle == .dark ? UIColor(white: 1, alpha: dark) : UIColor(white: 0, alpha: light)
         }
     }
 }

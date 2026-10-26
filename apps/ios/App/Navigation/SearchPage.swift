@@ -130,7 +130,6 @@ struct SearchPage: View {
                 summary: row.summary, machine: row.machine.name, connected: row.connected,
                 session: runtime.session(for: row.machine))
         }
-        .disabled(row.summary["available"] == .bool(false))
     }
 
     private func fileRow(_ file: PaletteFile, query: String) -> some View {

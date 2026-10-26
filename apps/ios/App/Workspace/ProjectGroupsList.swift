@@ -24,7 +24,6 @@ struct ProjectGroupsList: View {
                         )
                         .modifier(MobileSidebarLabel())
                     }
-                    .disabled(overview.unavailable)
                     .modifier(MobileSidebarRow())
                     .accessibilityIdentifier(
                         overview.isChats
@@ -89,11 +88,10 @@ struct ProjectOverviewLabel: View {
                         ? String(localized: "Chats")
                         : overview.row.summary.text("name", fallback: String(localized: "Untitled project"))
                 )
-                .foregroundStyle(overview.unavailable || offline ? MobileStyle.muted : MobileStyle.text)
+                .foregroundStyle(offline ? MobileStyle.muted : MobileStyle.text)
                 .lineLimit(1).truncationMode(.tail)
                 if let detail = overview.detail {
-                    Text(detail).font(.caption)
-                        .foregroundStyle(overview.unavailable ? MobileStyle.faint : MobileStyle.muted)
+                    Text(detail).font(.caption).foregroundStyle(MobileStyle.muted)
                         .lineLimit(1).truncationMode(.middle)
                 }
             }

@@ -65,9 +65,6 @@ final class ProjectOverviewTests: XCTestCase {
         XCTAssertEqual(
             ProjectOverviewRow(row: row(mac, "app"), git: ProjectGitLine(branch: "ios-redesign", changed: 0)).detail,
             "ios-redesign")
-        XCTAssertEqual(
-            ProjectOverviewRow(row: row(mac, "app", available: false), activity: ProjectActivity(views: 4)).detail,
-            "Folder unavailable")
         let chats = row(mac, "chats", scratch: true)
         XCTAssertEqual(ProjectOverviewRow(row: chats).detail, "Earlier chats")
         XCTAssertEqual(ProjectOverviewRow(row: chats, activity: ProjectActivity(views: 4, chats: 4)).detail, "4 chats")

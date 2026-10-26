@@ -5,7 +5,7 @@ import XCTest
 @testable import Ruimte
 
 final class UnifiedProjectsTests: XCTestCase {
-    @MainActor func testUnifiedSortingKeepsMachineIdentityAndUnavailableRows() throws {
+    @MainActor func testUnifiedSortingKeepsMachineIdentityAndLeavesOutUnavailableRows() throws {
         let fixture = try ProjectListFixture()
         defer { fixture.clean() }
         let first = fixture.machine("first")
@@ -25,10 +25,9 @@ final class UnifiedProjectsTests: XCTestCase {
                 fixture.summary(opened: 1, closed: 0),
             ])
         fixture.model.reconcile(machines: [second, first], connect: nil)
-        XCTAssertEqual(fixture.model.open.map(\.machine.id), ["first", "second"])
-        XCTAssertEqual(Set(fixture.model.open.map(\.id)).count, 2)
+        XCTAssertEqual(fixture.model.open.map(\.machine.id), ["first"])
+        XCTAssertEqual(fixture.model.open.map(\.id.projectID), [sharedID])
         XCTAssertEqual(fixture.model.recent.map { $0.summary.number("closedAt") }, [50, 5, 0])
-        XCTAssertEqual(fixture.model.unavailable.count, 1)
         XCTAssertTrue((fixture.model.open + fixture.model.recent).allSatisfy { !$0.connected })
     }
 

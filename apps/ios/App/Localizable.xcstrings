@@ -16718,6 +16718,17 @@
         }
       }
     },
+    "Idle" : {
+      "comment" : "The state of a session that is neither working nor waiting",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inactief"
+          }
+        }
+      }
+    },
     "Regular expression" : {
       "localizations" : {
         "nl" : {

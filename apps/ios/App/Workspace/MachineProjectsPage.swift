@@ -81,7 +81,10 @@ struct MachineProjectsPage: View {
             }
             Section("Projects") {
                 ForEach(
-                    list.listed.filter { search.isEmpty || $0.text("name").localizedCaseInsensitiveContains(search) },
+                    list.listed.filter {
+                        $0["available"] != .bool(false)
+                            && (search.isEmpty || $0.text("name").localizedCaseInsensitiveContains(search))
+                    },
                     id: \.stableID
                 ) { project in
                     Button {
@@ -94,7 +97,6 @@ struct MachineProjectsPage: View {
                         )
                         .modifier(MobileSidebarLabel())
                     }
-                    .disabled(project["available"] == .bool(false))
                     .modifier(MobileSidebarRow())
                 }
                 if list.work.loading {

@@ -65,11 +65,9 @@ struct ProjectOverviewRow: Identifiable {
     var git: ProjectGitLine?
     var id: UnifiedProjectRow.ID { row.id }
     var isChats: Bool { NewChat.isChats(row.summary) }
-    var unavailable: Bool { row.summary["available"] == .bool(false) }
 
     /// The second line: the branch and the number of views, or for Chats how many chats it holds.
     var detail: String? {
-        if unavailable { return String(localized: "Folder unavailable") }
         if isChats {
             guard let activity else { return String(localized: "Earlier chats") }
             return activity.chats == 0
@@ -134,9 +132,7 @@ final class ProjectGitLines {
     func line(_ id: UnifiedProjectRow.ID) -> ProjectGitLine? { lines[id] }
 
     func refresh(_ rows: [UnifiedProjectRow], session: (Machine) -> SharedMachineSession) async {
-        let asked = rows.filter {
-            $0.connected && $0.summary["available"] != .bool(false) && !NewChat.isChats($0.summary)
-        }
+        let asked = rows.filter { $0.connected && !NewChat.isChats($0.summary) }
         let tasks = asked.map { row in
             let client = session(row.machine).rpc
             let folder = row.summary.text("folder")

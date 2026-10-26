@@ -38,7 +38,6 @@ final class UnifiedProjects {
 
     var open: [UnifiedProjectRow] { ordered(projectRows.filter { !$0.recent }, by: "lastOpenedAt") }
     var recent: [UnifiedProjectRow] { ordered(projectRows.filter(\.recent), by: "closedAt") }
-    var unavailable: [UnifiedProjectRow] { projectRows.filter { $0.summary["available"] == .bool(false) } }
     /// The Chats project of every machine that has one, by machine name; it has a place of its own and never stands
     /// among the projects.
     var chats: [UnifiedProjectRow] {
@@ -156,7 +155,8 @@ final class UnifiedProjects {
     private var rows: [UnifiedProjectRow] {
         entries.values.flatMap { entry -> [UnifiedProjectRow] in
             guard entry.connection?.isCurrent() != false else { return [] }
-            return entry.summaries.map {
+            // A project whose folder its machine no longer finds cannot be opened, so it is left out, as on the desktop.
+            return entry.summaries.filter { $0["available"] != .bool(false) }.map {
                 UnifiedProjectRow(machine: entry.machine, summary: $0, connected: entry.connected)
             }
         }

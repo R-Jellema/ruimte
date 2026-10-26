@@ -104,7 +104,7 @@ enum PaletteCommands {
                     icon: "message-square-plus",
                     action: .newChat(machineID: machine.id)))
         }
-        for row in projects where !NewChat.isChats(row.summary) && row.summary["available"] != .bool(false) {
+        for row in projects where !NewChat.isChats(row.summary) {
             let name = row.summary.text("name", fallback: String(localized: "Untitled project"))
             let entries: [(String, String, PaletteCommand.ProjectAction)] = [
                 (String(localized: "New view in \(name)…"), "plus", .newView),
@@ -195,9 +195,7 @@ final class PaletteFiles {
         let current = generation
         let typed = self.query
         guard typed.count >= Self.shortest else { return }
-        let asked = projects.filter {
-            $0.connected && !NewChat.isChats($0.summary) && $0.summary["available"] != .bool(false)
-        }
+        let asked = projects.filter { $0.connected && !NewChat.isChats($0.summary) }
         let tasks = asked.map { row in
             let machineClient = client(row.machine)
             let folder = row.summary.text("folder")

@@ -203,8 +203,7 @@ struct NowNothingWaits: View {
         }
         .padding(EdgeInsets(top: 26, leading: 20, bottom: 30, trailing: 20))
         .frame(maxWidth: .infinity)
-        .background(MobileStyle.panel, in: .rect(cornerRadius: 22))
-        .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(MobileStyle.border))
+        .mobileCard(padding: 0)
         .accessibilityElement(children: .combine)
     }
 

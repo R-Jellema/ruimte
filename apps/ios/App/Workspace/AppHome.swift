@@ -206,7 +206,6 @@ struct ProjectLinks: View {
                 )
                 .modifier(MobileSidebarLabel())
             }
-            .disabled(row.summary["available"] == .bool(false))
             .modifier(MobileSidebarRow())
             .accessibilityIdentifier("projects.project.\(row.id.projectID)")
         }
@@ -233,9 +232,6 @@ struct ProjectHomeRow: View {
                     Text(machine).truncationMode(.tail)
                     if !connected { Text("· Offline").fixedSize() }
                 }.font(.caption).foregroundStyle(MobileStyle.muted).lineLimit(1)
-                if summary["available"] == .bool(false) {
-                    Text("Folder unavailable").font(.caption).foregroundStyle(MobileStyle.muted)
-                }
             }
         }.frame(minHeight: 44)
     }
