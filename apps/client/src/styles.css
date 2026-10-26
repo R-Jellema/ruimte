@@ -406,7 +406,7 @@
         }
     }
 
-    /* In the desktop app the top band drags the window. Electron 44 lets children inherit
+    /* In the desktop app the top band drags the window. Electron lets children inherit
        the region, so they go back to `initial` (an explicit `none` counts as no-drag and breaks the
        drag), and the controls inside opt out on purpose. */
     .app-drag {

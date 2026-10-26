@@ -436,13 +436,21 @@ const windows = createWindows({
 // Audio for the app's own pages only. Set once on the shared session: a handler per window would leave only the last one able to ask.
 function sealAppSession(): void {
     const own = session.defaultSession;
+    // Electron 45 reports a screen capture as display-capture instead of media; no page of ours captures the screen.
     own.setPermissionCheckHandler((requester, permission, _origin, details) => {
+        if (permission === 'display-capture') {
+            return false;
+        }
         if (permission !== 'media') {
             return true;
         }
         return requester !== null && windows.fromPage(requester) !== null && details.isMainFrame && details.mediaType === 'audio';
     });
     own.setPermissionRequestHandler((requester, permission, callback, details) => {
+        if (permission === 'display-capture') {
+            callback(false);
+            return;
+        }
         if (permission !== 'media') {
             callback(true);
             return;
