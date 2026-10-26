@@ -35955,7 +35955,8 @@
                                   "drawing",
                                   "diagram",
                                   "file",
-                                  "artifact"
+                                  "artifact",
+                                  "routine"
                                 ]
                               },
                               {
@@ -36160,6 +36161,11 @@
                             "required": [
                               "id"
                             ]
+                          },
+                          "routine": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 64
                           }
                         },
                         "required": [
@@ -36183,7 +36189,8 @@
                             "drawing",
                             "diagram",
                             "file",
-                            "artifact"
+                            "artifact",
+                            "routine"
                           ],
                           "template": {
                             "id": "future-id",
@@ -39958,7 +39965,8 @@
                                   "drawing",
                                   "diagram",
                                   "file",
-                                  "artifact"
+                                  "artifact",
+                                  "routine"
                                 ]
                               },
                               {
@@ -40163,6 +40171,11 @@
                             "required": [
                               "id"
                             ]
+                          },
+                          "routine": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 64
                           }
                         },
                         "required": [
@@ -40186,7 +40199,8 @@
                             "drawing",
                             "diagram",
                             "file",
-                            "artifact"
+                            "artifact",
+                            "routine"
                           ],
                           "template": {
                             "id": "future-id",
@@ -59972,7 +59986,8 @@
           "drawing",
           "diagram",
           "file",
-          "artifact"
+          "artifact",
+          "routine"
         ]
       },
       "size": {
@@ -74797,7 +74812,8 @@
                                   "drawing",
                                   "diagram",
                                   "file",
-                                  "artifact"
+                                  "artifact",
+                                  "routine"
                                 ]
                               },
                               {
@@ -75002,6 +75018,11 @@
                             "required": [
                               "id"
                             ]
+                          },
+                          "routine": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 64
                           }
                         },
                         "required": [
@@ -75025,7 +75046,8 @@
                             "drawing",
                             "diagram",
                             "file",
-                            "artifact"
+                            "artifact",
+                            "routine"
                           ],
                           "template": {
                             "id": "future-id",
