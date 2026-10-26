@@ -128,16 +128,14 @@ export type ActionDomain = (typeof ACTION_DOMAINS)[number];
 
 /* Every kind a project knows, plus the one a newer Ruimte made. An action may name a view this version cannot open. */
 export const ActionViewKindSchema = z.enum([...PROJECT_VIEW_KINDS, UNKNOWN_KIND]);
-export const VIEW_KINDS = ActionViewKindSchema.options;
 
 /* What an action may ask to be made. Shorter than what it can name, and this catalog's own decision. */
-export const CREATABLE_VIEW_KINDS = ['canvas', 'drawing', 'diagram', 'terminal', 'browser', 'chat', 'file', 'database', 'separator', 'subheader'] as const;
+const CREATABLE_VIEW_KINDS = ['canvas', 'drawing', 'diagram', 'terminal', 'browser', 'chat', 'file', 'database', 'separator', 'subheader'] as const;
 export const ActionCreatableViewKindSchema = z.enum(CREATABLE_VIEW_KINDS);
 
 export const ActionCanvasNodeKindSchema = z.enum([...NodeKindSchema.options, UNKNOWN_KIND]);
-export const CANVAS_NODE_KINDS = ActionCanvasNodeKindSchema.options;
 
-export const CREATABLE_CANVAS_NODE_KINDS = ['terminal', 'chat', 'browser', 'group', 'note', 'file'] as const;
+const CREATABLE_CANVAS_NODE_KINDS = ['terminal', 'chat', 'browser', 'group', 'note', 'file'] as const;
 export const ActionCreatableCanvasNodeKindSchema = z.enum(CREATABLE_CANVAS_NODE_KINDS);
 
 const viewId = z.string().min(1);
@@ -386,7 +384,7 @@ const diagramDocument = z.string().describe('The diagram as one JSON object: met
 const imageFormat = z.enum(['png', 'svg']);
 
 /* Where an operation stands: queued and running go on, the other three are how it ended. */
-export const OPERATION_STATUSES = ['queued', 'running', 'completed', 'failed', 'cancelled'] as const;
+const OPERATION_STATUSES = ['queued', 'running', 'completed', 'failed', 'cancelled'] as const;
 export const OperationStatusSchema = z.enum(OPERATION_STATUSES);
 export type OperationStatus = z.infer<typeof OperationStatusSchema>;
 
@@ -521,7 +519,7 @@ const chatReadUsage = z.object({
 
 const PaceSchema = z.enum(['ahead', 'behind', 'even']);
 
-export const TARGET_KINDS = ['view', 'node', 'chat', 'agent', 'project'] as const;
+const TARGET_KINDS = ['view', 'node', 'chat', 'agent', 'project'] as const;
 const resolvedTarget = z.object({
     id: z.string(),
     name: z.string(),
