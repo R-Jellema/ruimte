@@ -80,19 +80,19 @@ function StageFrame({ children }: { children: React.ReactNode }) {
     );
 }
 
-/* Close, then where in Routines this is. */
+/* Where in Routines this is, what can be done here, and Close at the far right. */
 function StageHeader({ title, crumbs, children }: { title: string; crumbs?: React.ReactNode; children?: React.ReactNode }) {
     const { t } = useTranslation('routines');
     return (
         <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-2 text-sm">
+            <Icon icon={Clock} size={14} className="ml-1 text-text-muted" />
+            {crumbs ?? <h2 className="font-medium text-text">{title}</h2>}
+            {children}
+            <Separator />
             <Button size="sm" onClick={leaveRoutines}>
                 <Icon icon={X} size={14} />
                 {t('stage.close')}
             </Button>
-            <Separator />
-            <Icon icon={Clock} size={14} className="text-text-muted" />
-            {crumbs ?? <h2 className="font-medium text-text">{title}</h2>}
-            {children}
         </header>
     );
 }
@@ -114,7 +114,7 @@ function WeekStage({ endpointId, result, projectId, projectName }: { endpointId:
         <StageFrame>
             <StageHeader title={t('stage.title')}>
                 <Separator />
-                <span className="truncate text-base font-medium text-text">{rangeWords(week, result.timeZone)}</span>
+                <span className="truncate font-medium text-text">{rangeWords(week, result.timeZone)}</span>
                 <span className="shrink-0 text-xs text-text-faint">{t('stage.week', { number: week.number })}</span>
                 <IconButton icon={Info} size="sm" label={t('side.legend')} tooltip={<AgendaLegend />} />
                 <span className="grow" />
