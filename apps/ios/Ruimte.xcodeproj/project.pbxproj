@@ -154,6 +154,7 @@
 		57F5769498648C0AA29CA200 /* GitMergeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 239F0E1B7C5B1C206BD8CD02 /* GitMergeTests.swift */; };
 		58B79741FE1C9246375FDB8F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 826308F387A7269E62AF6C7C /* Assets.xcassets */; };
 		58BF3F0A0775099E0F8F4F77 /* ChatMenuActionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 194877F799CF0BBA08C0BA8F /* ChatMenuActionTests.swift */; };
+		58D2803E089E210E8483DD30 /* ProjectAddButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AA06E3FD733C07E3345D94F /* ProjectAddButton.swift */; };
 		59959A4B0DD426A2CB3F1DCF /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 7152C947C98B90BAB9EC4D82 /* PrivacyInfo.xcprivacy */; };
 		5AAD42D63D48CA237DFF1ACF /* Spinner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 660C8936F38DDB959C02A00E /* Spinner.swift */; };
 		5AF66E29949C7CDE62057D6B /* FileGrep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 167C6DBAC07CC45025817B07 /* FileGrep.swift */; };
@@ -235,7 +236,6 @@
 		8803F1FD43F24C7D90C35325 /* ChatReferables.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36AEFCFE1AA942F03736757A /* ChatReferables.swift */; };
 		88496043F5CA8296C720D8EC /* ChatForking.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5DA820F5A230279EC2E2564 /* ChatForking.swift */; };
 		88C1D0B0A0BAC420A397836A /* TaskPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B552D197FAB780A005F5985B /* TaskPresentationTests.swift */; };
-		88D51B71534244555FFDE86F /* ProjectNewChatBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99458B6E060DD5784E9E6621 /* ProjectNewChatBar.swift */; };
 		893A5CF47B1492D565F72875 /* ChatMenuActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = C67F6B6A322AFD73FF85C3BE /* ChatMenuActions.swift */; };
 		8B2254D79E8EC2C6114D483C /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 7152C947C98B90BAB9EC4D82 /* PrivacyInfo.xcprivacy */; };
 		8B5080D947E792B899704B13 /* Galaxy.metal in Sources */ = {isa = PBXBuildFile; fileRef = A6792266DAEC1AC09BA00410 /* Galaxy.metal */; };
@@ -685,6 +685,7 @@
 		7972284E09464A057A24B05F /* document.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = document.pdf; sourceTree = "<group>"; };
 		7A2ED80E79C98BD6F9D140B4 /* DeviceTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceTools.swift; sourceTree = "<group>"; };
 		7A68E33F193F0F7BFBB5E97B /* IntelligentUIPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntelligentUIPresentationTests.swift; sourceTree = "<group>"; };
+		7AA06E3FD733C07E3345D94F /* ProjectAddButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectAddButton.swift; sourceTree = "<group>"; };
 		7ADB19BC0057C18E3665C69E /* NeedsYouWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeedsYouWidget.swift; sourceTree = "<group>"; };
 		7B02D669F665402B085C9E9C /* MachineIconTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachineIconTests.swift; sourceTree = "<group>"; };
 		7B1DE29305B2BAF4D255B60D /* Snoozes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Snoozes.swift; sourceTree = "<group>"; };
@@ -737,7 +738,6 @@
 		9740DA191CE68BB6C7CBAD73 /* archive.zip */ = {isa = PBXFileReference; lastKnownFileType = archive.zip; path = archive.zip; sourceTree = "<group>"; };
 		974733B9574512335A62B518 /* GitConflictTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitConflictTests.swift; sourceTree = "<group>"; };
 		98A346F51CD334D5B9DBA28F /* tone.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = tone.mp3; sourceTree = "<group>"; };
-		99458B6E060DD5784E9E6621 /* ProjectNewChatBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectNewChatBar.swift; sourceTree = "<group>"; };
 		99D8DF2FFC207D5E1CCBA09A /* RemotePageState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemotePageState.swift; sourceTree = "<group>"; };
 		9A5221AF91DEE568E2DF38A4 /* ProjectViewPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectViewPage.swift; sourceTree = "<group>"; };
 		9AB9B459492C2AF8E3631D88 /* ProjectSVGRasterizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectSVGRasterizer.swift; sourceTree = "<group>"; };
@@ -990,10 +990,10 @@
 				7B701C2009C551083B2BDB67 /* NewChat.swift */,
 				823E3BBF537D466FA9731396 /* NewViewSheet.swift */,
 				D7F137CE09D47800F7B2E9F3 /* PlanStore.swift */,
+				7AA06E3FD733C07E3345D94F /* ProjectAddButton.swift */,
 				62D07C5E01735816B53D3E59 /* ProjectArtwork.swift */,
 				944B9AE808B11D2BDF440B92 /* ProjectGroupsList.swift */,
 				79492C28E3D9BB4EB4060B9A /* ProjectListViews.swift */,
-				99458B6E060DD5784E9E6621 /* ProjectNewChatBar.swift */,
 				9C17B8085F7C45F68CEA43FF /* ProjectOverview.swift */,
 				D0DC19EF6BA44E7A277CAF1F /* ProjectSettingsPage.swift */,
 				2AB8990ABCF1414440995DE4 /* ProjectsPage.swift */,
@@ -2230,6 +2230,7 @@
 				B813CD6EB25AA3268C59EAAE /* PlanStore.swift in Sources */,
 				82DBD408B052301E4172F075 /* ProcessesModel.swift in Sources */,
 				D7FA9A3E252629C6B70568CA /* ProcessesPage.swift in Sources */,
+				58D2803E089E210E8483DD30 /* ProjectAddButton.swift in Sources */,
 				F4C315E3ABE645471F0C04C1 /* ProjectArtwork.swift in Sources */,
 				AC4D3E31DFD1FC3CCE3B208E /* ProjectFilePage.swift in Sources */,
 				2DE00EFDF345E0985A7EC699 /* ProjectFiles.swift in Sources */,
@@ -2237,7 +2238,6 @@
 				E08B3D1D792EA25FEBE16162 /* ProjectGroupsList.swift in Sources */,
 				F57AA854DB471B03DE066B63 /* ProjectLaunches.swift in Sources */,
 				42E049420542BC2919930382 /* ProjectListViews.swift in Sources */,
-				88D51B71534244555FFDE86F /* ProjectNewChatBar.swift in Sources */,
 				6729F03577E0CC5B78782A39 /* ProjectOutput.swift in Sources */,
 				C3F95FAA2A6A70480F88D00A /* ProjectOverview.swift in Sources */,
 				8B77DAF04DE9F9840327A5CC /* ProjectSVGRasterizer.swift in Sources */,

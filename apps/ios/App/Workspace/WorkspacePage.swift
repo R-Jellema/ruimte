@@ -70,12 +70,13 @@ struct WorkspacePage: View {
                 )
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     if workspace.ready && !machineLost {
-                        ProjectNewChatBar(
-                            workspace: workspace, add: workspace.isScratch ? nil : { navigation.adding = true },
-                            opened: { id in
-                                navigation.pendingViewID = id
-                                Task { await openPendingView() }
-                            })
+                        ProjectAddButton(workspace: workspace) {
+                            if workspace.isScratch {
+                                navigation.newChat = true
+                            } else {
+                                navigation.adding = true
+                            }
+                        }
                     }
                 }
                 .opacity(machineLost ? 0.3 : 1)
