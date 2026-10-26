@@ -82,21 +82,24 @@ struct ProjectOverviewLabel: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            ProjectBadge(
-                summary: overview.row.summary, session: session, chats: overview.isChats, size: 20, tile: false
-            )
-            .frame(width: 32)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(
-                    overview.isChats
-                        ? String(localized: "Chats")
-                        : overview.row.summary.text("name", fallback: String(localized: "Untitled project"))
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                ProjectBadge(
+                    summary: overview.row.summary, session: session, chats: overview.isChats, size: 20, tile: false
                 )
-                .foregroundStyle(offline ? MobileStyle.muted : MobileStyle.text)
-                .lineLimit(1).truncationMode(.tail)
-                if let detail = overview.detail {
-                    Text(detail).font(.caption).foregroundStyle(MobileStyle.muted)
-                        .lineLimit(1).truncationMode(.middle)
+                .frame(width: 32)
+                .centeredOnFirstLine(of: .body)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(
+                        overview.isChats
+                            ? String(localized: "Chats")
+                            : overview.row.summary.text("name", fallback: String(localized: "Untitled project"))
+                    )
+                    .foregroundStyle(offline ? MobileStyle.muted : MobileStyle.text)
+                    .lineLimit(1).truncationMode(.tail)
+                    if let detail = overview.detail {
+                        Text(detail).font(.caption).foregroundStyle(MobileStyle.muted)
+                            .lineLimit(1).truncationMode(.middle)
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

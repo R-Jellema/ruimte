@@ -261,21 +261,25 @@ struct ProcessesPage: View {
             model.toggle(group)
         } label: {
             HStack(spacing: 9) {
-                Image(lucide: Self.icon(group.kind), size: 14).foregroundStyle(MobileStyle.muted).frame(width: 18)
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text(named.title).lineLimit(1)
-                        if group.hidden > 0 {
-                            Text("+\(group.hidden)").font(.caption).foregroundStyle(MobileStyle.faint).monospacedDigit()
+                HStack(alignment: .firstTextBaseline, spacing: 9) {
+                    Image(lucide: Self.icon(group.kind), size: 14).foregroundStyle(MobileStyle.muted).frame(width: 18)
+                        .centeredOnFirstLine(of: .body)
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 6) {
+                            Text(named.title).lineLimit(1)
+                            if group.hidden > 0 {
+                                Text("+\(group.hidden)").font(.caption).foregroundStyle(MobileStyle.faint)
+                                    .monospacedDigit()
+                            }
+                            if alerting {
+                                Image(lucide: "triangle-alert", size: 12).foregroundStyle(MobileStyle.statusNeedsYou)
+                                    .accessibilityLabel("Warning")
+                            }
                         }
-                        if alerting {
-                            Image(lucide: "triangle-alert", size: 12).foregroundStyle(MobileStyle.statusNeedsYou)
-                                .accessibilityLabel("Warning")
+                        if !named.known {
+                            Text(group.projectID.flatMap { projectNames[$0] } ?? String(localized: "another project"))
+                                .font(.caption).foregroundStyle(MobileStyle.faint).lineLimit(1)
                         }
-                    }
-                    if !named.known {
-                        Text(group.projectID.flatMap { projectNames[$0] } ?? String(localized: "another project"))
-                            .font(.caption).foregroundStyle(MobileStyle.faint).lineLimit(1)
                     }
                 }
                 Spacer(minLength: 8)

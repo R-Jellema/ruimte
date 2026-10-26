@@ -28,7 +28,6 @@ struct RoutineDetailPage: View {
     @State private var confirmingRun = false
     @State private var working = false
     @State private var notice: RoutineNotice?
-    @ScaledMetric(relativeTo: .subheadline) private var tileSize = MobileMetrics.statusTile
     @ScaledMetric(relativeTo: .subheadline) private var rowHeight = MobileMetrics.rowHeight
 
     private var feed: ScheduledFeed? { model.feed(target.machineID) }
@@ -142,19 +141,15 @@ struct RoutineDetailPage: View {
 
     @ViewBuilder private func runRow(_ entry: RoutineEntry, _ run: RoutineRun) -> some View {
         let label = HStack(spacing: MobileSpacing.medium) {
-            if run.state == "running" || run.state == "starting" {
-                Spinner(size: MobileMetrics.statusGlyph, label: run.words())
-                    .foregroundStyle(MobileTone.working.color)
-                    .frame(width: tileSize, height: tileSize)
-                    .background(MobileTone.working.tint, in: .rect(cornerRadius: MobileMetrics.tileRadius))
-            } else {
-                MobileStatusTile(tone: tone(run), symbol: run.icon).accessibilityHidden(true)
-            }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(Format.moment(run.due)).monospacedDigit()
-                Text(run.words()).font(.caption).foregroundStyle(MobileStyle.muted)
-                if let error = run.error, run.state == "failed" {
-                    Text(verbatim: error).font(.caption).foregroundStyle(MobileStyle.statusError).lineLimit(3)
+            HStack(alignment: .firstTextBaseline, spacing: MobileSpacing.medium) {
+                MobileStatusGlyph(tone: tone(run), symbol: run.icon).centeredOnFirstLine(of: .body)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(Format.moment(run.due)).monospacedDigit()
+                    Text(run.words()).font(.caption).foregroundStyle(MobileStyle.muted)
+                    if let error = run.error, run.state == "failed" {
+                        Text(verbatim: error).font(.caption).foregroundStyle(MobileStyle.statusError).lineLimit(3)
+                    }
                 }
             }
             Spacer(minLength: 8)
@@ -184,6 +179,7 @@ struct RoutineDetailPage: View {
     private func tone(_ run: RoutineRun) -> MobileTone {
         switch run.state {
         case "needs-you", "limit": .waiting
+        case "starting", "running": .working
         case "done": .done
         case "failed": .error
         default: .idle

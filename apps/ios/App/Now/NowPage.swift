@@ -201,7 +201,7 @@ struct NowNothingWaits: View {
 
     var body: some View {
         MobileStatusRow(
-            tone: .done, symbol: "check", title: String(localized: "Nothing needs you"),
+            tone: .done, symbol: "circle-check", title: String(localized: "Nothing needs you"),
             value: notifies ? String(localized: "Notifications on") : String(localized: "Notifications off")
         )
         .mobileCard(padding: 0)

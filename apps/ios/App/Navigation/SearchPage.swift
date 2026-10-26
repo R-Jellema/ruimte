@@ -196,8 +196,8 @@ private struct PaletteRow: View {
     let icon: String
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image(lucide: icon, size: 15).foregroundStyle(MobileStyle.muted)
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Image(lucide: icon, size: 15).foregroundStyle(MobileStyle.muted).centeredOnFirstLine(of: .body)
             VStack(alignment: .leading, spacing: 1) {
                 Text(marked).foregroundStyle(MobileStyle.text).lineLimit(1).truncationMode(.tail)
                 if let detail, !detail.isEmpty {

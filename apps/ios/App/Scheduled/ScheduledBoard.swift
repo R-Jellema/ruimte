@@ -138,7 +138,7 @@ struct RoutineRun: Equatable, Identifiable {
         case "starting", "running": "circle-dot"
         case "needs-you": "hand"
         case "limit": "gauge"
-        case "done": "check"
+        case "done": "circle-check"
         case "failed": "circle-x"
         default: "circle"
         }

@@ -452,17 +452,20 @@ struct MachineUpdateBanner: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Image(lucide: update.status == "error" ? "triangle-alert" : "download", size: 16)
-                .foregroundStyle(update.status == "error" ? MobileStyle.statusNeedsYou : MobileStyle.statusRunning)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(
-                    install == .started
-                        ? String(localized: "Installing. The machine comes back on the new version in a moment.")
-                        : update.headline ?? ""
-                )
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Image(lucide: update.status == "error" ? "triangle-alert" : "download", size: 16)
+                    .foregroundStyle(update.status == "error" ? MobileStyle.statusNeedsYou : MobileStyle.statusRunning)
+                    .centeredOnFirstLine(of: .subheadline)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(
+                        install == .started
+                            ? String(localized: "Installing. The machine comes back on the new version in a moment.")
+                            : update.headline ?? ""
+                    )
                     .font(.subheadline)
-                if let note = update.note, install != .started {
-                    Text(note).font(.caption).foregroundStyle(MobileStyle.muted)
+                    if let note = update.note, install != .started {
+                        Text(note).font(.caption).foregroundStyle(MobileStyle.muted)
+                    }
                 }
             }
             Spacer(minLength: 8)

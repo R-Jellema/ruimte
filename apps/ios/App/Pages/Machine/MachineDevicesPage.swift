@@ -146,12 +146,18 @@ struct MachineDevicesPage: View {
 
     private func row(_ device: MachineDevice) -> some View {
         HStack(spacing: MobileSpacing.medium) {
-            MobileStatusTile(tone: .idle, symbol: "smartphone").accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(device.name).lineLimit(1)
-                Text(device.displayRuntime.isEmpty ? device.stateText : "\(device.displayRuntime) · \(device.stateText)")
+            HStack(alignment: .firstTextBaseline, spacing: MobileSpacing.medium) {
+                MobileStatusGlyph(tone: .idle, symbol: "smartphone").centeredOnFirstLine(of: .body)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(device.name).lineLimit(1)
+                    Text(
+                        device.displayRuntime.isEmpty
+                            ? device.stateText : "\(device.displayRuntime) · \(device.stateText)"
+                    )
                     .font(.caption).foregroundStyle(device.waitsOnPerson ? MobileStyle.statusNeedsYou : MobileStyle.muted)
                     .lineLimit(2)
+                }
             }
             Spacer(minLength: 8)
             if devices.changing[device.id] != nil || device.state == "transitioning" {

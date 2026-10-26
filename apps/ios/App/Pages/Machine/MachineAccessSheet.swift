@@ -137,15 +137,18 @@ struct MachineAccessSection: View {
             }
             ForEach(access.clients) { client in
                 HStack(spacing: 11) {
-                    Image(lucide: client.icon, size: 17).foregroundStyle(MobileStyle.muted).frame(width: 22)
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 4) {
-                            Text(client.label).lineLimit(1)
-                            if client.current {
-                                Text("· this device").font(.caption).foregroundStyle(MobileStyle.muted)
+                    HStack(alignment: .firstTextBaseline, spacing: 11) {
+                        Image(lucide: client.icon, size: 17).foregroundStyle(MobileStyle.muted).frame(width: 22)
+                            .centeredOnFirstLine(of: .body)
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                                Text(client.label).lineLimit(1)
+                                if client.current {
+                                    Text("· this device").font(.caption).foregroundStyle(MobileStyle.muted)
+                                }
                             }
+                            Text(client.detail()).font(.caption).foregroundStyle(MobileStyle.muted).lineLimit(2)
                         }
-                        Text(client.detail()).font(.caption).foregroundStyle(MobileStyle.muted).lineLimit(2)
                     }
                     Spacer(minLength: 8)
                     Button("Revoke", role: .destructive) { revoking = client }

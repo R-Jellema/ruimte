@@ -15,12 +15,13 @@ enum MobileSpacing {
 
 /// The fixed sizes of the design. A shape is a tile, a card or a capsule; nothing else takes a radius of its own.
 enum MobileMetrics {
-    /// A status tile, a code block or a field inside a card.
+    /// A code block or a field inside a card.
     static let tileRadius: CGFloat = 10
     static let cardRadius: CGFloat = 20
     static let rowHeight: CGFloat = 52
-    static let statusTile: CGFloat = 28
-    static let statusGlyph: CGFloat = 15
+    /// The width a row's leading glyph stands in, so the titles of a list line up.
+    static let statusColumn: CGFloat = 20
+    static let statusGlyph: CGFloat = 18
 }
 
 /// Puts the middle of a glyph or tile on the middle of the capitals of the first line beside it, for an `HStack`

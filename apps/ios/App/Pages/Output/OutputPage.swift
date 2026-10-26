@@ -105,15 +105,17 @@ struct OutputPage: View {
             opened = item.id
         } label: {
             HStack(spacing: 12) {
-                OutputKindTile(kind: item.kind)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(verbatim: item.title).fontWeight(.medium).lineLimit(1)
-                    HStack(spacing: 4) {
-                        OutputMakerIcon(provenance: item.latest.provenance, size: 12)
-                            .foregroundStyle(MobileStyle.faint)
-                        Text("\(item.versionCount) versions")
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    OutputKindGlyph(kind: item.kind).centeredOnFirstLine(of: .body)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(verbatim: item.title).fontWeight(.medium).lineLimit(1)
+                        HStack(spacing: 4) {
+                            OutputMakerIcon(provenance: item.latest.provenance, size: 12)
+                                .foregroundStyle(MobileStyle.faint)
+                            Text("\(item.versionCount) versions")
+                        }
+                        .font(.caption).foregroundStyle(MobileStyle.muted).lineLimit(1)
                     }
-                    .font(.caption).foregroundStyle(MobileStyle.muted).lineLimit(1)
                 }
                 Spacer(minLength: 8)
                 Text(Format.moment(item.latest.date, now: now))
@@ -127,12 +129,12 @@ struct OutputPage: View {
     }
 }
 
-/// The square mark of a kind at the start of a row.
-struct OutputKindTile: View {
+/// The mark of a kind at the start of a row.
+struct OutputKindGlyph: View {
     let kind: String
 
     var body: some View {
-        MobileStatusTile(tone: .idle, symbol: OutputKind.icon(kind)).accessibilityHidden(true)
+        MobileStatusGlyph(tone: .idle, symbol: OutputKind.icon(kind)).accessibilityHidden(true)
     }
 }
 

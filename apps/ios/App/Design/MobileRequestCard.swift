@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// A request an agent waits on, as Now, Scheduled and the chat draw it: who asks (the waiting tile, the title and
+/// A request an agent waits on, as Now, Scheduled and the chat draw it: who asks (the waiting glyph, the title and
 /// where it stands, with how long it waits), what it asks, and the content to answer it with. The header opens the
 /// asker when `open` is set. The accessory follows the title, for a mark such as a task's.
 struct MobileRequestCard<Accessory: View, Content: View>: View {
@@ -27,16 +27,18 @@ struct MobileRequestCard<Accessory: View, Content: View>: View {
     }
 
     private func header(disclosure: Bool) -> some View {
-        HStack(spacing: 10) {
-            MobileStatusTile(tone: .waiting, symbol: symbol)
-            VStack(alignment: .leading, spacing: 1) {
-                HStack(spacing: 6) {
-                    Text(verbatim: title).font(.subheadline.weight(.semibold)).foregroundStyle(MobileStyle.text)
-                        .lineLimit(1).truncationMode(.tail)
-                    accessory
-                }
-                if let subtitle, !subtitle.isEmpty {
-                    Text(verbatim: subtitle).font(.caption).foregroundStyle(MobileStyle.muted).lineLimit(1)
+        HStack(spacing: MobileSpacing.medium) {
+            HStack(alignment: .firstTextBaseline, spacing: MobileSpacing.medium) {
+                MobileStatusGlyph(tone: .waiting, symbol: symbol).centeredOnFirstLine(of: .subheadline)
+                VStack(alignment: .leading, spacing: 1) {
+                    HStack(spacing: 6) {
+                        Text(verbatim: title).font(.subheadline.weight(.semibold)).foregroundStyle(MobileStyle.text)
+                            .lineLimit(1).truncationMode(.tail)
+                        accessory
+                    }
+                    if let subtitle, !subtitle.isEmpty {
+                        Text(verbatim: subtitle).font(.caption).foregroundStyle(MobileStyle.muted).lineLimit(1)
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

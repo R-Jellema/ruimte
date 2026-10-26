@@ -57,14 +57,18 @@ private struct MachineCard: View {
         let limits = MachineLimits.card(session.usageWidget)
         Button(action: open) {
             VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 11) {
-                    MobileStatusTile(tone: .idle, symbol: session.icons.icon?.value ?? "server")
-                        .accessibilityHidden(true)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(session.endpoint.label ?? session.machine.name).font(.body.weight(.semibold))
-                            .foregroundStyle(session.connected ? MobileStyle.text : MobileStyle.muted)
-                            .lineLimit(1)
-                        MobileStatus(title: reach, color: session.connected ? MobileStyle.positive : MobileStyle.faint)
+                HStack(spacing: MobileSpacing.medium) {
+                    HStack(alignment: .firstTextBaseline, spacing: MobileSpacing.medium) {
+                        MobileStatusGlyph(tone: .idle, symbol: session.icons.icon?.value ?? "server")
+                            .centeredOnFirstLine(of: .body)
+                            .accessibilityHidden(true)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(session.endpoint.label ?? session.machine.name).font(.body.weight(.semibold))
+                                .foregroundStyle(session.connected ? MobileStyle.text : MobileStyle.muted)
+                                .lineLimit(1)
+                            MobileStatus(
+                                title: reach, color: session.connected ? MobileStyle.positive : MobileStyle.faint)
+                        }
                     }
                     Spacer(minLength: 8)
                     if session.endpoint.update?.installable == true {

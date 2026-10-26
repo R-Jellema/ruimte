@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The state a card or row stands in. The color lives in its tile and nowhere else on the row.
+/// The state a card or row stands in. The color lives in its glyph and nowhere else on the row.
 enum MobileTone: CaseIterable {
     case waiting
     case working
@@ -19,14 +19,7 @@ enum MobileTone: CaseIterable {
         }
     }
 
-    var tint: Color {
-        switch self {
-        case .idle: MobileStyle.subtleFill
-        default: color.opacity(0.14)
-        }
-    }
-
-    /// The glyph of a tile that has no subject of its own to show.
+    /// The glyph of a row that has no subject of its own to show. Working draws the spinner instead.
     var symbol: String {
         switch self {
         case .waiting: "hand"
@@ -50,20 +43,26 @@ enum MobileTone: CaseIterable {
     }
 }
 
-/// A 28 pt rounded tile: the subject's glyph in the color of its state, over a tint of that color. Its label is the
-/// state, for a row that reads it out beside its title.
-struct MobileStatusTile: View {
+/// The subject's glyph in the color of its state, bare, in a column of one width so the titles of a list line up.
+/// Working leaps as the spinner whatever the subject. Its label is the state, for a row that reads it out beside its
+/// title. In an `HStack` on `.firstTextBaseline`, add `centeredOnFirstLine(of:)` so it sits on the first line.
+struct MobileStatusGlyph: View {
     let tone: MobileTone
     var symbol: String?
-    @ScaledMetric(relativeTo: .subheadline) private var size = MobileMetrics.statusTile
+    @ScaledMetric(relativeTo: .subheadline) private var column = MobileMetrics.statusColumn
     @ScaledMetric(relativeTo: .subheadline) private var glyph = MobileMetrics.statusGlyph
 
     var body: some View {
-        LucideIcon(name: symbol ?? tone.symbol, size: glyph)
-            .foregroundStyle(tone.color)
-            .frame(width: size, height: size)
-            .background(tone.tint, in: RoundedRectangle(cornerRadius: MobileMetrics.tileRadius))
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(tone.label)
+        Group {
+            if tone == .working {
+                Spinner(size: glyph.rounded())
+            } else {
+                LucideIcon(name: symbol ?? tone.symbol, size: glyph)
+            }
+        }
+        .foregroundStyle(tone.color)
+        .frame(width: column)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(tone.label)
     }
 }

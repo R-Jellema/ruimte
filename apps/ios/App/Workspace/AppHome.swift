@@ -218,12 +218,15 @@ struct ProjectHomeRow: View {
     let connected: Bool
     var session: SharedMachineSession? = nil
     var body: some View {
-        HStack(spacing: 12) {
-            if summary["icon"]?.text("kind") == "image", let session {
-                ProjectArtwork(session: session, project: summary, size: 32)
-            } else {
-                ProjectHomeGlyph(summary: summary)
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Group {
+                if summary["icon"]?.text("kind") == "image", let session {
+                    ProjectArtwork(session: session, project: summary, size: 32)
+                } else {
+                    ProjectHomeGlyph(summary: summary)
+                }
             }
+            .centeredOnFirstLine(of: .callout)
             VStack(alignment: .leading, spacing: 2) {
                 Text(summary.text("name", fallback: String(localized: "Untitled project")))
                     .font(.callout).foregroundStyle(MobileStyle.text).lineLimit(1).truncationMode(.tail)

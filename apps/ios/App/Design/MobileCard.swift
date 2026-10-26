@@ -34,11 +34,11 @@ struct MobileCard<Content: View>: View {
 /// The line between two rows of a card, starting where the row's text does.
 struct MobileRowDivider: View {
     @Environment(\.displayScale) private var displayScale
-    @ScaledMetric(relativeTo: .subheadline) private var tile = MobileMetrics.statusTile
+    @ScaledMetric(relativeTo: .subheadline) private var column = MobileMetrics.statusColumn
 
     var body: some View {
         MobileStyle.hairline.frame(height: 1 / displayScale)
-            .padding(.leading, MobileSpacing.cardPadding + tile + MobileSpacing.medium)
+            .padding(.leading, MobileSpacing.cardPadding + column + MobileSpacing.medium)
             .accessibilityHidden(true)
     }
 }
@@ -59,8 +59,8 @@ struct MobileRowGroup<Item: Identifiable, Row: View>: View {
     }
 }
 
-/// A row of a card: the status tile, a title with a muted second line, and a trailing value or control. At least 52 pt
-/// high, and taller once Dynamic Type asks for it.
+/// A row of a card: the status glyph on the title's line, a title with a muted second line, and a trailing value or
+/// control. At least 52 pt high, and taller once Dynamic Type asks for it.
 struct MobileStatusRow<Trailing: View>: View {
     let tone: MobileTone
     var symbol: String?
@@ -71,13 +71,15 @@ struct MobileStatusRow<Trailing: View>: View {
 
     var body: some View {
         HStack(spacing: MobileSpacing.medium) {
-            MobileStatusTile(tone: tone, symbol: symbol)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(verbatim: title).font(.subheadline).foregroundStyle(MobileStyle.text)
-                    .lineLimit(1).truncationMode(.tail)
-                if let subtitle, !subtitle.isEmpty {
-                    Text(verbatim: subtitle).font(.caption).foregroundStyle(MobileStyle.muted)
+            HStack(alignment: .firstTextBaseline, spacing: MobileSpacing.medium) {
+                MobileStatusGlyph(tone: tone, symbol: symbol).centeredOnFirstLine(of: .subheadline)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(verbatim: title).font(.subheadline).foregroundStyle(MobileStyle.text)
                         .lineLimit(1).truncationMode(.tail)
+                    if let subtitle, !subtitle.isEmpty {
+                        Text(verbatim: subtitle).font(.caption).foregroundStyle(MobileStyle.muted)
+                            .lineLimit(1).truncationMode(.tail)
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -104,17 +106,18 @@ extension MobileStatusRow where Trailing == EmptyView {
     }
 }
 
-/// The tile, title and second line of a `MobileStatusRow` for a row in a list that pads and sizes its rows itself. The
-/// tile is the subject's and says no state, so it stays out of what VoiceOver reads.
-struct MobileTileLabel: View {
+/// The glyph, title and second line of a `MobileStatusRow` for a row in a list that pads and sizes its rows itself.
+/// The glyph is the subject's and says no state, so it stays out of what VoiceOver reads.
+struct MobileGlyphLabel: View {
     var tone = MobileTone.idle
     let title: String
     let subtitle: String
     let symbol: String
 
     var body: some View {
-        HStack(spacing: MobileSpacing.medium) {
-            MobileStatusTile(tone: tone, symbol: symbol).accessibilityHidden(true)
+        HStack(alignment: .firstTextBaseline, spacing: MobileSpacing.medium) {
+            MobileStatusGlyph(tone: tone, symbol: symbol).centeredOnFirstLine(of: .subheadline)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 1) {
                 Text(verbatim: title).font(.subheadline).foregroundStyle(MobileStyle.text)
                     .lineLimit(1).truncationMode(.tail)

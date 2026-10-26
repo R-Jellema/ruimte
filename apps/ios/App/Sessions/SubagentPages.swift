@@ -194,8 +194,8 @@ private struct SubagentEntryRow: View {
         let word = ChatSubagents.statusWord(item, task: task)
         let title = ChatSubagents.title(item)
         Button(action: open) {
-            HStack(spacing: 10) {
-                SubagentStatusIcon(word: word)
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                SubagentStatusIcon(word: word).centeredOnFirstLine(of: .body)
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(alignment: .firstTextBaseline, spacing: 12) {
                         Text(title).font(.body.weight(.medium)).foregroundStyle(MobileStyle.text).lineLimit(1)
@@ -248,7 +248,7 @@ struct SubagentStatusIcon: View {
     var body: some View {
         Group {
             switch word {
-            case .running: ProgressView().controlSize(.mini).tint(word.look.color)
+            case .running: Spinner(size: size)
             case .done: Image(lucide: "circle-check", size: size)
             case .failed: Image(lucide: "circle-x", size: size)
             case .cancelled: Image(lucide: "circle-slash", size: size)
