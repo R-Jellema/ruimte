@@ -495,8 +495,7 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                               ? ({
                                     borderColor: accentShades(noteAccent).headerBorder,
                                     '--surface-hover': 'color-mix(in srgb, var(--text) 10%, transparent)',
-                                    '--color-surface-hover': 'color-mix(in srgb, var(--text) 10%, transparent)',
-                                    '--color-border': accentShades(noteAccent).headerBorder
+                                    '--border': `color-mix(in srgb, ${noteAccent} 35%, var(--border-strong))`
                                 } as CSSProperties)
                               : undefined
                     }

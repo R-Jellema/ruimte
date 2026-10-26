@@ -68,8 +68,9 @@ export function accentShades(accent: string): { frameBorder: string; header: str
 }
 
 /*
- * A colored header, and what stands in it with it: an icon button reads `--surface-hover` itself and a
- * utility `--color-surface-hover`, a separator `--color-border`, so all three are set where the color is.
+ * A colored header, and what stands in it with it. The theme's utilities are inline, so a hover and a
+ * separator read `--surface-hover` and `--border` themselves; the header sets those two. `--border` is
+ * mixed from `--border-strong`, since a custom property that reads itself is no value at all.
  */
 export function accentHeaderStyle(accent: string): CSSProperties {
     const shades = accentShades(accent);
@@ -77,8 +78,7 @@ export function accentHeaderStyle(accent: string): CSSProperties {
         backgroundColor: shades.header,
         borderColor: shades.headerBorder,
         '--surface-hover': shades.hover,
-        '--color-surface-hover': shades.hover,
-        '--color-border': shades.headerBorder
+        '--border': `color-mix(in srgb, ${accent} 35%, var(--border-strong))`
     } as CSSProperties;
 }
 
