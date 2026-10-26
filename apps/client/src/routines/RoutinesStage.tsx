@@ -151,17 +151,8 @@ function WeekStage({ endpointId, result, projectId, projectName }: { endpointId:
                     <RoutineWeekList endpointId={endpointId} groups={groups} week={week} now={now} timeZone={result.timeZone} />
                 ) : shown.length === 0 && !grouped ? (
                     <div className="relative flex min-w-0 grow flex-col">
-                        <RoutineAgenda
-                            endpointId={endpointId}
-                            projectId={projectId}
-                            groups={[]}
-                            empty
-                            grouped={false}
-                            week={week}
-                            now={now}
-                            timeZone={result.timeZone}
-                        />
-                        {/* Over the empty week, which shows through, and never in the way of a drag across the days. */}
+                        <RoutineAgenda endpointId={endpointId} groups={[]} empty week={week} now={now} timeZone={result.timeZone} />
+                        {/* Over the empty week, which shows through. */}
                         <div className="pointer-events-none absolute inset-x-0 top-14 bottom-0 grid place-items-center bg-surface/50 p-6">
                             <EmptyState icon={Clock} title={t('stage.emptyTitle')}>
                                 {t('stage.empty')}
@@ -169,15 +160,7 @@ function WeekStage({ endpointId, result, projectId, projectName }: { endpointId:
                         </div>
                     </div>
                 ) : (
-                    <RoutineAgenda
-                        endpointId={endpointId}
-                        projectId={projectId}
-                        groups={groups}
-                        grouped={grouped}
-                        week={week}
-                        now={now}
-                        timeZone={result.timeZone}
-                    />
+                    <RoutineAgenda endpointId={endpointId} groups={groups} week={week} now={now} timeZone={result.timeZone} />
                 )}
                 {/* Every project's, whatever the filter: the clock's dot counts them all, so this is where it is explained. */}
                 <RoutineSide endpointId={endpointId} entries={result.routines} projectId={grouped ? null : projectId} timeZone={result.timeZone} />

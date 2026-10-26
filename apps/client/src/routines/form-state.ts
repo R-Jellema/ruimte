@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { AgentKind, ModelSelection, RoutineEntry, RoutineSchedule } from '@ruimte/contracts';
+import type { AgentKind, ModelSelection, RoutineEntry } from '@ruimte/contracts';
 
 /* What the routine form opens with: a project, and what the place it was opened from already knows. */
 export interface RoutineFormRequest {
@@ -8,8 +8,6 @@ export interface RoutineFormRequest {
     prompt?: string;
     /* The agent and model of the chat it came from; the mode still starts at Supervised. */
     agent?: { provider: AgentKind; selection: ModelSelection };
-    /* The days a drag across the week picked. */
-    schedule?: RoutineSchedule;
     /* The routine to edit; absent makes a new one. */
     editing?: RoutineEntry;
     /* Lets a person pick the project, as on Routines over all projects. */

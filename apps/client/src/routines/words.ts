@@ -1,10 +1,7 @@
 import i18next from 'i18next';
 import type { CronProblem, RoutineEntry, RoutineRun, RoutineSchedule } from '@ruimte/contracts';
 import { formatClock, formatDateTime, formatDay, formatDuration, formatElapsedShort } from '@adecore/ui/format';
-import type { AgendaBlock, AgendaWeek, CellItem } from '@/routines/agenda';
-
-// A day's noon, so a date written from its midnight never slips to the day before around a clock change.
-const NOON_MS = 12 * 60 * 60 * 1000;
+import type { AgendaBlock, CellItem } from '@/routines/agenda';
 
 /* A time of a schedule, `HH:MM` on the machine's clock, written the way the region writes a clock. */
 export function clockWords(time: string): string {
@@ -96,22 +93,6 @@ export function cronProblemWords(problem: CronProblem): string {
         case 'never':
             return i18next.t('routines:form.cronNever');
     }
-}
-
-/* What a drag across the days picked: `Mon to Fri · every weekday`, or `Wed 22 · once` for one day. */
-export function spanWords(week: AgendaWeek, from: number, to: number, timeZone: string): string {
-    const first = week.days[Math.min(from, to)]!;
-    const last = week.days[Math.max(from, to)]!;
-    if (first === last) {
-        return i18next.t('routines:span.once', { day: formatDateTime(first.start + NOON_MS, { weekday: 'short', day: 'numeric', timeZone }) });
-    }
-    const days = week.days.slice(first.weekday - 1, last.weekday).map((day) => day.weekday);
-    const repeat = days.length === 7 ? 'daily' : sameDays(days, WEEKDAYS) ? 'weekdays' : sameDays(days, WEEKEND) ? 'weekends' : 'weekly';
-    return i18next.t('routines:span.range', {
-        from: weekdayWords(first.weekday),
-        to: weekdayWords(last.weekday),
-        repeat: i18next.t(`routines:span.${repeat}`)
-    });
 }
 
 /* What a block in the week says in its chip: when a run started and how long it took, or what became of it. */

@@ -36,8 +36,6 @@
     "label": "Routines deze week",
     "routine": "Routine",
     "block": "{{title}}, {{time}}, {{state}}",
-    "drag": "Sleep over de dagen",
-    "dragDay": "Nieuwe routine op {{day}}",
     "folded": "{{title}}, {{runs}}",
     "foldedList": "Runs van {{title}}",
     "coming_one": "{{title}}, nog {{count}} keer vanaf {{from}}, {{times}}",
@@ -92,14 +90,6 @@
     "skipped_one": "Gepauzeerd sinds {{since}} · {{count}} run overgeslagen",
     "skipped_other": "Gepauzeerd sinds {{since}} · {{count}} runs overgeslagen"
   },
-  "span": {
-    "once": "{{day}} · eenmalig",
-    "range": "{{from}} t/m {{to}} · {{repeat}}",
-    "daily": "elke dag",
-    "weekdays": "elke werkdag",
-    "weekends": "elk weekend",
-    "weekly": "elke week"
-  },
   "popover": {
     "label": "Run van {{title}}",
     "title": "{{title}} · {{date}}",
@@ -107,11 +97,6 @@
     "done": "klaar {{time}}",
     "ended": "gestopt {{time}}",
     "openOnCanvas": "Openen op canvas"
-  },
-  "quick": {
-    "onMachine": "Op {{machine}}",
-    "missed": "Gemiste tijden draaien één keer als de machine wakker wordt",
-    "more": "Meer opties"
   },
   "side": {
     "label": "Goedkeuringen en runs",

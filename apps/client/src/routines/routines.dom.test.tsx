@@ -268,42 +268,6 @@ describe('Routines', () => {
         expect(machine.requests('routine.approve')[0]).toEqual({ projectId: 'project-atlas', routineId: 'changelog', digest: 'digest-changelog' });
     });
 
-    test('a drag across the days makes a routine on those days', async () => {
-        await openStage();
-        const day = (index: number): Element => page.host.querySelector(`[data-drag-day="${index}"]`)!;
-        await act(async () => {
-            day(1).dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 1 }));
-        });
-        await act(async () => {
-            day(3).dispatchEvent(new PointerEvent('pointerover', { bubbles: true, pointerId: 1 }));
-            day(3).dispatchEvent(new PointerEvent('pointerenter', { bubbles: false, pointerId: 1 }));
-        });
-        await act(async () => {
-            window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 }));
-        });
-        await until(() => document.querySelector('form[aria-label="New routine"]') !== null);
-        const form = document.querySelector('form[aria-label="New routine"]')!;
-        const prompt = form.querySelector('textarea')!;
-        await act(async () => {
-            Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(prompt, 'Write three bullets for standup.');
-            prompt.dispatchEvent(new Event('input', { bubbles: true }));
-        });
-        await clickOn(buttonWithText('Create routine', form));
-        await until(() => machine.requests('routine.save').length === 1);
-        const saved = machine.requests('routine.save')[0]!;
-        expect(saved.baseRev).toBe(4);
-        expect(saved.shared).toBe(false);
-        expect(saved.routine).toMatchObject({
-            id: 'write-three-bullets-for-standup',
-            kind: 'agent',
-            title: 'Write three bullets for standup',
-            prompt: 'Write three bullets for standup.',
-            mode: 'supervised',
-            perRun: 'new',
-            schedule: { kind: 'weekly', days: [2, 3, 4], time: '09:00' }
-        });
-    });
-
     test('a cron routine waits for an expression it reads, shows its next times and sends it', async () => {
         await openStage();
         await clickOn(buttonWithText('New routine', page.host));

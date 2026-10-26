@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
-import { Bot, Pause, Plus, Repeat, Rocket, SquareTerminal, type LucideIcon } from 'lucide-react';
+import { Bot, Pause, Rocket, SquareTerminal, type LucideIcon } from 'lucide-react';
 import type { RoutineEntry, RoutineKind } from '@ruimte/contracts';
 import { EmptyState, Icon, Popover, Switch } from '@adecore/ui';
 import { formatClock, formatDateTime } from '@adecore/ui/format';
@@ -11,10 +11,9 @@ import { LookIcon } from '@/routines/look';
 import { blockClass, HATCH } from '@/routines/look-class';
 import { setRoutinePaused } from '@/routines/routine-commands';
 import { useRoutineWhat } from '@/routines/routine-what';
-import { RoutineQuickForm } from '@/routines/RoutineQuickForm';
 import { RoutineRunPopover, type PickedRun } from '@/routines/RoutineRunPopover';
 import { showRoutine } from '@/routines/stage';
-import { blockWords, foldWords, rowStatus, scheduleWords, spanWords } from '@/routines/words';
+import { blockWords, foldWords, rowStatus, scheduleWords } from '@/routines/words';
 
 const NAME_COLUMN = 248;
 // A day never narrower than a block that says "09:00 · 3m"; a narrow stage scrolls sideways instead.
@@ -34,17 +33,9 @@ export interface AgendaGroup {
     entries: RoutineEntry[];
 }
 
-interface DragDays {
-    from: number;
-    to: number;
-    done: boolean;
-}
-
 interface AgendaProps {
     endpointId: string;
-    projectId: string;
     groups: AgendaGroup[];
-    grouped: boolean;
     week: AgendaWeek;
     now: number;
     timeZone: string;
@@ -58,9 +49,9 @@ function todayIndex(week: AgendaWeek, now: number): number {
 
 /*
  * The week: a row per routine under its project, with a block per run on the day it was due, the times
- * still to come outlined, and a line at now. Dragging across the days of the bottom row makes a routine on those days.
+ * still to come outlined, and a line at now.
  */
-export function RoutineAgenda({ endpointId, projectId, groups, grouped, week, now, timeZone, empty = false }: AgendaProps) {
+export function RoutineAgenda({ endpointId, groups, week, now, timeZone, empty = false }: AgendaProps) {
     const { t } = useTranslation('routines');
     const [picked, setPicked] = useState<PickedRun | null>(null);
     const today = todayIndex(week, now);
@@ -118,7 +109,6 @@ export function RoutineAgenda({ endpointId, projectId, groups, grouped, week, no
                         ))}
                     </div>
                 ))}
-                {!empty && <DragRow endpointId={endpointId} projectId={projectId} grouped={grouped} week={week} timeZone={timeZone} />}
                 {nowAt !== null && (
                     <div
                         aria-hidden="true"
@@ -454,104 +444,5 @@ function ComingChip({ item, entry, timeZone }: { item: Extract<CellItem, { kind:
             <LookIcon look={look} />
             <span className="truncate tabular-nums">{foldWords(item, timeZone)}</span>
         </span>
-    );
-}
-
-/* The bottom row: a press on a day and a drag to another picks those days for a new routine. */
-function DragRow({
-    endpointId,
-    projectId,
-    grouped,
-    week,
-    timeZone
-}: {
-    endpointId: string;
-    projectId: string;
-    grouped: boolean;
-    week: AgendaWeek;
-    timeZone: string;
-}) {
-    const { t } = useTranslation('routines');
-    const [drag, setDrag] = useState<DragDays | null>(null);
-    const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-    const dragging = drag !== null && !drag.done;
-
-    useEffect(() => {
-        if (!dragging) {
-            return;
-        }
-        const finish = (): void => setDrag((current) => (current === null ? null : { ...current, done: true }));
-        window.addEventListener('pointerup', finish);
-        return () => window.removeEventListener('pointerup', finish);
-    }, [dragging]);
-
-    const first = drag === null ? 0 : Math.min(drag.from, drag.to);
-    const last = drag === null ? 0 : Math.max(drag.from, drag.to);
-    const open = drag?.done === true;
-
-    return (
-        <div className={`${GRID} relative h-14 select-none`} role="row">
-            <span className="flex items-center gap-2.5 px-3" role="rowheader">
-                <span aria-hidden="true" className="grid size-7 shrink-0 place-items-center text-accent">
-                    <Icon icon={Plus} size={14} />
-                </span>
-                <span className="flex min-w-0 flex-col">
-                    <span className="truncate text-sm font-medium text-accent">{t('actions.new')}</span>
-                    <span className="truncate text-xs text-text-faint">{t('agenda.drag')}</span>
-                </span>
-            </span>
-            {week.days.map((day, index) => (
-                <div
-                    key={day.date}
-                    role="gridcell"
-                    aria-label={t('agenda.dragDay', {
-                        day: formatDateTime(day.start + NOON_MS, { weekday: 'long', day: 'numeric', month: 'short', timeZone })
-                    })}
-                    data-drag-day={index}
-                    className="cursor-cell hover:bg-surface-hover/50"
-                    onPointerDown={(event) => {
-                        if (event.button === 0) {
-                            setDrag({ from: index, to: index, done: false });
-                        }
-                    }}
-                    onPointerEnter={() => {
-                        if (dragging) {
-                            setDrag({ ...drag, to: index });
-                        }
-                    }}
-                />
-            ))}
-            {drag !== null && (
-                <div
-                    ref={setAnchor}
-                    aria-hidden="true"
-                    className="pointer-events-none absolute inset-y-3 flex items-center gap-2 rounded-md border border-dashed border-accent bg-accent/10 bg-clip-padding px-2 text-xs text-accent"
-                    style={{
-                        left: `calc(${NAME_COLUMN}px + (100% - ${NAME_COLUMN}px) * ${first / 7} + 4px)`,
-                        width: `calc((100% - ${NAME_COLUMN}px) * ${(last - first + 1) / 7} - 8px)`
-                    }}
-                >
-                    <Icon icon={Repeat} size={12} className="shrink-0" />
-                    <span className="truncate">{spanWords(week, first, last, timeZone)}</span>
-                </div>
-            )}
-            <Popover.Root open={open && anchor !== null} onOpenChange={(next) => !next && setDrag(null)}>
-                <Popover.Popup anchor={anchor} className="w-[480px] p-3" aria-label={t('form.newTitle')}>
-                    {open && (
-                        <RoutineQuickForm
-                            endpointId={endpointId}
-                            projectId={projectId}
-                            pickProject={grouped}
-                            week={week}
-                            from={first}
-                            to={last}
-                            timeZone={timeZone}
-                            onCancel={() => setDrag(null)}
-                            onDone={() => setDrag(null)}
-                        />
-                    )}
-                </Popover.Popup>
-            </Popover.Root>
-        </div>
     );
 }

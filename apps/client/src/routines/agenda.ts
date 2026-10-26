@@ -213,16 +213,6 @@ export function runsWaiting(entries: readonly RoutineEntry[]): Array<{ entry: Ro
         .sort((left, right) => right.run.at - left.run.at);
 }
 
-/* The schedule's days for a drag across the week: one day is that date once, more are those weekdays. */
-export function scheduleForDays(week: AgendaWeek, from: number, to: number, time: string): RoutineSchedule {
-    const first = Math.min(from, to);
-    const last = Math.max(from, to);
-    if (first === last) {
-        return { kind: 'once', date: week.days[first]!.date, time };
-    }
-    return { kind: 'weekly', days: week.days.slice(first, last + 1).map((day) => day.weekday), time };
-}
-
 /* A short id a routine is named by in its files, out of its title, that none of the project's others has. */
 export function freshRoutineId(title: string, taken: ReadonlySet<string>): string {
     const base =

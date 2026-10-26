@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { zonedTime, type RoutineEntry, type RoutineRun } from '@ruimte/contracts';
-import { awaitingApproval, blocksOf, cellItems, freshRoutineId, pausedBand, scheduleForDays, weekOf } from './agenda';
+import { awaitingApproval, blocksOf, cellItems, freshRoutineId, pausedBand, weekOf } from './agenda';
 
 const AMS = 'Europe/Amsterdam';
 // Sunday 25 October 2026, 14:20 in Amsterdam: the night the clocks went back.
@@ -92,14 +92,6 @@ describe('the week', () => {
     test('a routine said no to is no longer waiting for approval', () => {
         expect(awaitingApproval([entry({ approved: false, held: 'agent' })])).toHaveLength(1);
         expect(awaitingApproval([entry({ approved: false, held: 'agent', local: { declined: 'd1' } })])).toHaveLength(0);
-    });
-});
-
-describe('a drag across the days', () => {
-    test('one day is that date once, more are those weekdays', () => {
-        const week = weekOf(NOW, AMS, 0);
-        expect(scheduleForDays(week, 2, 2, '09:00')).toEqual({ kind: 'once', date: '2026-10-21', time: '09:00' });
-        expect(scheduleForDays(week, 4, 0, '09:00')).toEqual({ kind: 'weekly', days: [1, 2, 3, 4, 5], time: '09:00' });
     });
 });
 

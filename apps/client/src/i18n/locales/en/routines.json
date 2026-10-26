@@ -36,8 +36,6 @@
     "label": "Routines this week",
     "routine": "Routine",
     "block": "{{title}}, {{time}}, {{state}}",
-    "drag": "Drag across the days",
-    "dragDay": "New routine on {{day}}",
     "folded": "{{title}}, {{runs}}",
     "foldedList": "Runs of {{title}}",
     "coming_one": "{{title}}, {{count}} more time from {{from}}, {{times}}",
@@ -92,14 +90,6 @@
     "skipped_one": "Paused since {{since}} · {{count}} run skipped",
     "skipped_other": "Paused since {{since}} · {{count}} runs skipped"
   },
-  "span": {
-    "once": "{{day}} · once",
-    "range": "{{from}} to {{to}} · {{repeat}}",
-    "daily": "every day",
-    "weekdays": "every weekday",
-    "weekends": "every weekend",
-    "weekly": "every week"
-  },
   "popover": {
     "label": "Run of {{title}}",
     "title": "{{title}} · {{date}}",
@@ -107,11 +97,6 @@
     "done": "done {{time}}",
     "ended": "ended {{time}}",
     "openOnCanvas": "Open on canvas"
-  },
-  "quick": {
-    "onMachine": "On {{machine}}",
-    "missed": "Missed times run once when the machine wakes",
-    "more": "More options"
   },
   "side": {
     "label": "Approvals and runs",

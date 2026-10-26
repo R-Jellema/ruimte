@@ -51,8 +51,8 @@ function today(): string {
 }
 
 /*
- * The one form a routine is made and changed in, in its dialog; a drag across the week has a short form of
- * its own over the same save. Saving is a person's save on the machine, which approves what it writes.
+ * The one form a routine is made and changed in, in its dialog. Saving is a person's save on the machine,
+ * which approves what it writes.
  */
 export function RoutineForm({
     endpointId,
@@ -87,7 +87,7 @@ export function RoutineForm({
     const [command, setCommand] = useState(editing?.kind === 'command' ? editing.command : '');
     const [cwd, setCwd] = useState(editing?.kind === 'command' ? (editing.cwd ?? '') : '');
     const [launchId, setLaunchId] = useState<string | null>(editing?.kind === 'launch' ? editing.launchId : null);
-    const schedule: RoutineSchedule = editing?.schedule ?? request.schedule ?? { kind: 'weekly', days: [1, 2, 3, 4, 5], time: '09:00' };
+    const schedule: RoutineSchedule = editing?.schedule ?? { kind: 'weekly', days: [1, 2, 3, 4, 5], time: '09:00' };
     const [repeat, setRepeat] = useState<RoutineSchedule['kind']>(schedule.kind);
     const [date, setDate] = useState(schedule.kind === 'once' ? schedule.date : today());
     const [days, setDays] = useState<number[]>(schedule.kind === 'once' || schedule.kind === 'cron' ? [1, 2, 3, 4, 5] : schedule.days);
