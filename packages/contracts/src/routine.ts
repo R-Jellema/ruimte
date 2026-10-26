@@ -2,6 +2,7 @@ import { AgentKindSchema, ModelSelectionSchema, ProviderAccountIdSchema, Runtime
 import { z } from 'zod';
 import { ArtifactKeySchema } from './artifact.ts';
 import { ProjectIdSchema } from './project.ts';
+import { cronProblemText, parseCron } from './routine-cron.ts';
 
 /*
  * A routine: work for an agent that starts once at a set time or on repeat, in one project, whose
@@ -16,7 +17,8 @@ export const ROUTINE_LIMITS = {
     prompt: 20_000,
     perProject: 50,
     // The runs a list answers per routine; a routine keeps its older runs on disk.
-    runsListed: 60
+    runsListed: 60,
+    cron: 120
 } as const;
 
 // `HH:MM` on a 24-hour clock, in the machine's time zone.
@@ -43,7 +45,14 @@ export const RoutineScheduleSchema = z.discriminatedUnion('kind', [
             from: ClockTimeSchema,
             to: ClockTimeSchema
         })
-        .refine((schedule) => schedule.to > schedule.from, { message: 'to comes after from', path: ['to'] })
+        .refine((schedule) => schedule.to > schedule.from, { message: 'to comes after from', path: ['to'] }),
+    // Five crontab fields on the machine's clock, such as `0 9 * * 1-5` (`routine-cron.ts`).
+    z.looseObject({ kind: z.literal('cron'), expression: z.string().min(1).max(ROUTINE_LIMITS.cron) }).superRefine((schedule, context) => {
+        const parsed = parseCron(schedule.expression);
+        if (!parsed.ok) {
+            context.addIssue({ code: 'custom', message: cronProblemText(parsed.problem), path: ['expression'] });
+        }
+    })
 ]);
 export type RoutineSchedule = z.infer<typeof RoutineScheduleSchema>;
 

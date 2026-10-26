@@ -128,6 +128,71 @@ describe('an interval', () => {
     });
 });
 
+describe('a cron', () => {
+    const cron = (expression: string) => ({ kind: 'cron' as const, expression });
+
+    test('is due at its next matching minute on the machine clock', () => {
+        const friday = zonedTime(2026, 10, 23, 10, 0, AMS);
+        expect(wall(nextDue(cron('0 9 * * 1-5'), friday, AMS)!)).toBe('2026-10-26 09:00');
+        expect(wall(nextDue(cron('0 9 * * 1-5'), friday - 3_600_000 - 1, AMS)!)).toBe('2026-10-23 09:00');
+        expect(wall(nextDue(cron('15,45 */6 * * *'), friday, AMS)!)).toBe('2026-10-23 12:15');
+        expect(wall(nextDue(cron('0 9 1 * *'), friday, AMS)!)).toBe('2026-11-01 09:00');
+        expect(wall(nextDue(cron('@yearly'), friday, AMS)!)).toBe('2027-01-01 00:00');
+    });
+
+    test('finds a leap day years ahead', () => {
+        expect(wall(nextDue(cron('0 9 29 feb *'), zonedTime(2026, 10, 26, 0, 0, AMS), AMS)!)).toBe('2028-02-29 09:00');
+        // A weekday field that starts with a star narrows the date: 29 February on a Sunday, first in 2032.
+        expect(wall(nextDue(cron('0 9 29 2 */7'), zonedTime(2026, 10, 26, 0, 0, AMS), AMS)!)).toBe('2032-02-29 09:00');
+        // Without the star either matches, so the first Monday of February comes first.
+        expect(wall(nextDue(cron('0 9 29 2 mon'), zonedTime(2026, 10, 26, 0, 0, AMS), AMS)!)).toBe('2027-02-01 09:00');
+    });
+
+    test('lists its times in a window', () => {
+        const monday = zonedTime(2026, 10, 26, 0, 0, AMS);
+        const times = dueTimesBetween(cron('30 8,12 * * mon,wed'), monday, monday + 7 * 86_400_000, AMS);
+        expect(times.map(wall)).toEqual(['2026-10-26 08:30', '2026-10-26 12:30', '2026-10-28 08:30', '2026-10-28 12:30']);
+    });
+
+    test('the night the clock goes back runs the doubled hour once', () => {
+        const schedule = cron('*/30 1-3 * * sun');
+        const times = dueTimesBetween(schedule, zonedTime(2026, 10, 24, 12, 0, AMS), zonedTime(2026, 10, 25, 12, 0, AMS), AMS);
+        expect(times.map((at) => new Date(at).toISOString().slice(11, 16))).toEqual(['23:00', '23:30', '00:00', '00:30', '02:00', '02:30']);
+        expect(times.map(wall)).toEqual([
+            '2026-10-25 01:00',
+            '2026-10-25 01:30',
+            '2026-10-25 02:00',
+            '2026-10-25 02:30',
+            '2026-10-25 03:00',
+            '2026-10-25 03:30'
+        ]);
+        let cursor = zonedTime(2026, 10, 24, 12, 0, AMS);
+        const stepped: number[] = [];
+        for (let i = 0; i < times.length; i++) {
+            cursor = nextDue(schedule, cursor, AMS)!;
+            stepped.push(cursor);
+        }
+        expect(stepped).toEqual(times);
+    });
+
+    test('the night the clock goes forward runs a skipped time after the skip, once', () => {
+        const times = dueTimesBetween(cron('0,30 1-3 29 3 *'), zonedTime(2026, 3, 28, 12, 0, AMS), zonedTime(2026, 3, 29, 12, 0, AMS), AMS);
+        expect(times.map(wall)).toEqual(['2026-03-29 01:00', '2026-03-29 01:30', '2026-03-29 03:00', '2026-03-29 03:30']);
+        expect(wall(nextDue(cron('30 2 * * *'), zonedTime(2026, 3, 29, 1, 0, AMS), AMS)!)).toBe('2026-03-29 03:30');
+    });
+
+    test('caps what it hands back', () => {
+        const monday = zonedTime(2026, 10, 26, 0, 0, AMS);
+        expect(dueTimesBetween(cron('*/15 * * * *'), monday, monday + 7 * 86_400_000, AMS, 20)).toHaveLength(20);
+        expect(dueTimesBetween(cron('*/15 * * * *'), monday, monday + 7 * 86_400_000, AMS, 1000)).toHaveLength(7 * 96);
+    });
+
+    test('an expression it does not read is never due', () => {
+        expect(nextDue(cron('* * * * *'), 0, AMS)).toBeNull();
+        expect(dueTimesBetween(cron('nonsense'), 0, 86_400_000, AMS)).toEqual([]);
+    });
+});
+
 describe('RoutineScheduleSchema', () => {
     test('takes an interval in quarter hours with its end after its start', () => {
         const interval = { kind: 'interval', days: [1], every: 30, from: '09:00', to: '17:00' };

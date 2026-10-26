@@ -465,6 +465,7 @@ export * from './agent-registry.ts';
 export * from './artifact.ts';
 export * from './routine.ts';
 export * from './routine-schedule.ts';
+export * from './routine-cron.ts';
 export * from './agent-server.ts';
 export * from './archive.ts';
 export * from './auth.ts';

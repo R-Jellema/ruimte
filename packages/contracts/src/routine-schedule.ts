@@ -1,4 +1,5 @@
 import type { RoutineSchedule } from './routine.ts';
+import { cronClocks, cronMatchesDay, parseCron } from './routine-cron.ts';
 
 /* Shared by the daemon, which owes a routine its times, and a client, which draws them in a week. */
 
@@ -86,6 +87,11 @@ function clockOf(time: string): { hour: number; minute: number } {
     return { hour: hour ?? 0, minute: minute ?? 0 };
 }
 
+function minutesOf(time: string): number {
+    const { hour, minute } = clockOf(time);
+    return hour * 60 + minute;
+}
+
 type RepeatSchedule = Exclude<RoutineSchedule, { kind: 'once' }>;
 
 /* The wall times of an interval on one day, as minutes past midnight, `to` included. */
@@ -99,20 +105,48 @@ export function intervalClocks(schedule: Extract<RoutineSchedule, { kind: 'inter
     return clocks;
 }
 
+interface Repeat {
+    // The wall clocks of a calendar day, as minutes past midnight; none on a day it skips.
+    clocksOn(year: number, month: number, day: number): readonly number[];
+    // How many days ahead a next time may lie.
+    horizon: number;
+}
+
+// Eight days covers every weekday once past today, whatever today's time.
+const WEEK_HORIZON = 8;
+
+// A date falls on each weekday within 28 years, 29 February too, so a cron that runs at all runs within them.
+const CRON_HORIZON = 28 * 366;
+
+function repeatOf(schedule: RepeatSchedule): Repeat | null {
+    if (schedule.kind === 'cron') {
+        const parsed = parseCron(schedule.expression);
+        if (!parsed.ok) {
+            return null;
+        }
+        const clocks = cronClocks(parsed.cron);
+        return { horizon: CRON_HORIZON, clocksOn: (year, month, day) => (cronMatchesDay(parsed.cron, year, month, day) ? clocks : []) };
+    }
+    const clocks = schedule.kind === 'weekly' ? [minutesOf(schedule.time)] : intervalClocks(schedule);
+    return {
+        horizon: WEEK_HORIZON,
+        clocksOn: (year, month, day) => {
+            const weekday = ((new Date(Date.UTC(year, month - 1, day)).getUTCDay() + 6) % 7) + 1;
+            return schedule.days.includes(weekday) ? clocks : [];
+        }
+    };
+}
+
 /*
  * The moments a repeating schedule is due on one calendar day, oldest first and each once. Times in a
  * skip land after it and may meet a time that follows, and a doubled time is its first, so the set holds.
  */
-function dayTimes(schedule: RepeatSchedule, year: number, month: number, day: number, timeZone: string): number[] {
-    const weekday = ((new Date(Date.UTC(year, month - 1, day)).getUTCDay() + 6) % 7) + 1;
-    if (!schedule.days.includes(weekday)) {
+function dayTimes(repeat: Repeat, year: number, month: number, day: number, timeZone: string): number[] {
+    const clocks = repeat.clocksOn(year, month, day);
+    if (clocks.length === 0) {
         return [];
     }
-    if (schedule.kind === 'weekly') {
-        const { hour, minute } = clockOf(schedule.time);
-        return [zonedTime(year, month, day, hour, minute, timeZone)];
-    }
-    const times = new Set(intervalClocks(schedule).map((minutes) => zonedTime(year, month, day, Math.floor(minutes / 60), minutes % 60, timeZone)));
+    const times = new Set(clocks.map((minutes) => zonedTime(year, month, day, Math.floor(minutes / 60), minutes % 60, timeZone)));
     return [...times].sort((left, right) => left - right);
 }
 
@@ -133,11 +167,14 @@ export function nextDue(schedule: RoutineSchedule, after: number, timeZone: stri
         const at = onceTime(schedule, timeZone);
         return at > after ? at : null;
     }
-    // Eight days covers every weekday once past today, whatever today's time.
+    const repeat = repeatOf(schedule);
+    if (repeat === null) {
+        return null;
+    }
     const start = wallTimeOf(after, timeZone);
-    for (let offset = 0; offset <= 8; offset++) {
+    for (let offset = 0; offset <= repeat.horizon; offset++) {
         const { year, month, day } = dayAfter(start, offset);
-        const next = dayTimes(schedule, year, month, day, timeZone).find((at) => at > after);
+        const next = dayTimes(repeat, year, month, day, timeZone).find((at) => at > after);
         if (next !== undefined) {
             return next;
         }
@@ -151,6 +188,10 @@ export function dueTimesBetween(schedule: RoutineSchedule, from: number, to: num
         const at = onceTime(schedule, timeZone);
         return at > from && at <= to && limit > 0 ? [at] : [];
     }
+    const repeat = repeatOf(schedule);
+    if (repeat === null) {
+        return [];
+    }
     const times: number[] = [];
     const start = wallTimeOf(from, timeZone);
     for (let offset = 0; times.length < limit; offset++) {
@@ -159,7 +200,7 @@ export function dueTimesBetween(schedule: RoutineSchedule, from: number, to: num
         if (offset > 0 && zonedTime(year, month, day, 0, 0, timeZone) > to) {
             break;
         }
-        for (const at of dayTimes(schedule, year, month, day, timeZone)) {
+        for (const at of dayTimes(repeat, year, month, day, timeZone)) {
             if (at > from && at <= to && times.length < limit) {
                 times.push(at);
             }
