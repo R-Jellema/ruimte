@@ -6,8 +6,7 @@
   },
   "stage": {
     "title": "Routines",
-    "back": "Terug naar {{view}}",
-    "backView": "Weergave",
+    "close": "Sluiten",
     "breadcrumb": "Waar je bent in Routines",
     "previousWeek": "Vorige week",
     "nextWeek": "Volgende week",

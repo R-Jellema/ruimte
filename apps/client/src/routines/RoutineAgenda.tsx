@@ -66,7 +66,14 @@ export function RoutineAgenda({ endpointId, projectId, groups, grouped, week, no
 
     return (
         <div className="flex min-h-0 min-w-0 grow flex-col overflow-auto">
-            <div className="relative min-w-[908px]" role="grid" aria-label={t('agenda.label')}>
+            <div className="relative isolate min-w-[908px] grow" role="grid" aria-label={t('agenda.label')}>
+                {/* The days run to the bottom of the stage, however few routines there are. */}
+                <div aria-hidden="true" className={`${GRID} pointer-events-none absolute inset-0 -z-10`}>
+                    <span />
+                    {week.days.map((day, index) => (
+                        <span key={day.date} className={clsx('border-l border-border-soft', index === today && 'bg-surface-hover/40')} />
+                    ))}
+                </div>
                 <div className={`${GRID} sticky top-0 z-[1] h-12 items-end border-b border-border bg-surface pb-2 text-xs`} role="row">
                     <span role="columnheader">
                         <span className="sr-only">{t('agenda.routine')}</span>
@@ -103,7 +110,6 @@ export function RoutineAgenda({ endpointId, projectId, groups, grouped, week, no
                                 week={week}
                                 now={now}
                                 timeZone={timeZone}
-                                today={today}
                                 pickedRunId={picked?.run.runId ?? null}
                                 onPick={setPicked}
                             />
@@ -123,7 +129,6 @@ export function RoutineAgenda({ endpointId, projectId, groups, grouped, week, no
                     </div>
                 )}
             </div>
-            <AgendaLegend />
             <RoutineRunPopover endpointId={endpointId} picked={picked} timeZone={timeZone} onClose={() => setPicked(null)} />
         </div>
     );
@@ -194,16 +199,16 @@ export function RoutineWeekList({ endpointId, groups, week, now, timeZone }: Omi
                     ))}
                 </div>
             )}
-            <AgendaLegend />
             <RoutineRunPopover endpointId={endpointId} picked={picked} timeZone={timeZone} onClose={() => setPicked(null)} />
         </div>
     );
 }
 
-function AgendaLegend() {
+/* What the blocks mean, in the tooltip of the stage's info button. */
+export function AgendaLegend() {
     const { t } = useTranslation('routines');
     return (
-        <ul className="flex flex-wrap items-center gap-1.5 px-3 py-3" aria-label={t('side.legend')}>
+        <ul className="grid gap-1.5 py-1" aria-label={t('side.legend')}>
             {LEGEND.map((look) => (
                 <li key={look} className={clsx('flex h-6 items-center gap-1 px-2 text-2xs', blockClass(look))}>
                     <LookIcon look={look} />
@@ -220,7 +225,6 @@ function AgendaRow({
     week,
     now,
     timeZone,
-    today,
     pickedRunId,
     onPick
 }: {
@@ -229,7 +233,6 @@ function AgendaRow({
     week: AgendaWeek;
     now: number;
     timeZone: string;
-    today: number;
     pickedRunId: string | null;
     onPick(picked: PickedRun): void;
 }) {
@@ -263,7 +266,7 @@ function AgendaRow({
                 />
             </div>
             {cells.map((day, index) => (
-                <div key={day.date} role="gridcell" className={clsx('flex min-w-0 flex-col gap-1 p-1', index === today && 'bg-surface-hover/40')}>
+                <div key={day.date} role="gridcell" className="flex min-w-0 flex-col gap-1 p-1">
                     {blocks
                         .filter((block) => block.day === index)
                         .map((block) => (

@@ -8,6 +8,7 @@ import { renameNodeAction, renameViewAction } from '@/actions/client-actions';
 import type { AgentWork } from '@/state/agent-work';
 import { askViewSettings, revealNode, showView } from '@/project/views';
 import { useCanvas } from '@/state/canvas';
+import { useRoutinesStage } from '@/routines/stage';
 import { CellViewContext } from '@/state/workspace-stores';
 import { ViewMenuItems } from '@/shell/ViewMenuItems';
 import { useUi } from '@/state/ui';
@@ -157,8 +158,9 @@ export function NodeRow({ row, tabbable, snoozable }: RowProps & { row: SidebarN
     // The selection belongs to the canvas store, so the row pairs on the view that store holds, not
     // on the active one, which flips a tick before the canvas follows.
     const onScreen = useCanvas((s) => s.viewId === row.viewId);
-    // Only the canvas that is up has a selection, so a row of another view is never the current one.
-    const selected = picked && onScreen;
+    // Only the canvas that is up has a selection, so a row of another view is never the current one; Routines covers it.
+    const routines = useRoutinesStage((s) => s.open);
+    const selected = picked && onScreen && !routines;
     const [renaming, setRenaming] = useState(false);
     // The menu's Rename swaps this row for the field, which then has the keyboard.
     const renamedFromMenu = useRef(false);
@@ -398,6 +400,9 @@ export function ViewRow({ row, tabbable, onToggle, onDrag }: ViewRowProps) {
     const endpointId = useEndpointId();
     const title = useBrowserDisplayTitle(view.id, view.name, view.titleSource);
     const unsaved = useUnsavedStoredPath(view.kind === 'file' ? view.path : null, row.target);
+    // Routines covers the view, so none reads as the one in front while it is open.
+    const routines = useRoutinesStage((s) => s.open);
+    const active = row.active && !routines;
     const [renaming, setRenaming] = useState(false);
     if (renaming) {
         return (
@@ -426,10 +431,10 @@ export function ViewRow({ row, tabbable, onToggle, onDrag }: ViewRowProps) {
                 draggable
                 data-sidebar-row={row.rowId}
                 data-view-index={row.index}
-                aria-current={row.active ? 'true' : undefined}
+                aria-current={active ? 'true' : undefined}
                 aria-expanded={row.expandable ? row.expanded : undefined}
                 tabIndex={tabbable ? 0 : -1}
-                className={clsx(ROW, 'group font-medium', row.active ? ROW_SELECTED : row.beside ? ROW_BESIDE : ROW_PLAIN)}
+                className={clsx(ROW, 'group font-medium', active ? ROW_SELECTED : row.beside ? ROW_BESIDE : ROW_PLAIN)}
                 onClick={(event) => (row.target ? void openSidebarTarget(row.target) : showView(view.id, { newTab: wantsNewTab(event, isApplePlatform()) }))}
                 onDoubleClick={() => setRenaming(true)}
                 onDragStart={(event) => onDrag(view.id, event.dataTransfer)}

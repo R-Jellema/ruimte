@@ -135,16 +135,19 @@ afterEach(async () => {
 });
 
 describe('Routines', () => {
-    test('opens over the view and its panel, and Main brings both back', async () => {
+    test('opens over the view and its panel, and Close brings both back', async () => {
         await act(async () => useUi.getState().setPanel({ open: true, kind: 'output' }));
         await until(() => sidePanelShown());
         await openStage();
         expect(sidePanelShown()).toBe(false);
         expect(machine.requests('routine.watch')).toHaveLength(1);
+        // Routines covers the view, so no view in the sidebar reads as the one in front.
+        expect(page.host.querySelector('aside [aria-current="true"]')).toBeNull();
 
-        await clickOn(page.host.querySelector('button[aria-label="Back to Main"]'));
+        await clickOn(buttonWithText('Close', page.host));
         await until(() => stage() === null);
         expect(sidePanelShown()).toBe(true);
+        expect(page.host.querySelector('aside [aria-current="true"]')).not.toBeNull();
         expect(useUi.getState().panel).toEqual({ open: true, kind: 'output' });
 
         // The key toggles it, with a modifier; a bare Escape leaves it where it is.
@@ -271,7 +274,7 @@ describe('Routines', () => {
         await pressKey(document.body, 'n', { altKey: true });
         expect(Object.keys(liveCanvas('main')?.nodes ?? {})).toEqual([]);
 
-        await clickOn(page.host.querySelector('button[aria-label="Back to Main"]'));
+        await clickOn(buttonWithText('Close', page.host));
         await until(() => stage() === null);
         await pressKey(document.body, 'n', { altKey: true });
         await until(() => Object.values(liveCanvas('main')?.nodes ?? {}).some((node) => node.kind === 'note'));

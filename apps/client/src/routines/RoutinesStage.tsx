@@ -1,19 +1,19 @@
 import i18next from 'i18next';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, ChevronLeft, ChevronRight, CircleAlert, Clock, LayoutGrid, MoreHorizontal, Pause, Pencil, Play, Plus, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CircleAlert, Clock, Info, LayoutGrid, MoreHorizontal, Pause, Pencil, Play, Plus, Trash2, X } from 'lucide-react';
 import { isCanvasView, type RoutineEntry, type RoutineListResult } from '@ruimte/contracts';
 import { Button, ButtonGroup, EmptyState, Icon, IconButton, Menu, PromptDialog, Segmented, Select, Separator, useNow } from '@adecore/ui';
 import { formatDateTime } from '@adecore/ui/format';
 import { weekOf, type AgendaWeek } from '@/routines/agenda';
 import { openRoutineForm } from '@/routines/form-state';
-import { RoutineAgenda, RoutineWeekList, type AgendaGroup } from '@/routines/RoutineAgenda';
+import { AgendaLegend, RoutineAgenda, RoutineWeekList, type AgendaGroup } from '@/routines/RoutineAgenda';
 import { RoutineDetail } from '@/routines/RoutineDetail';
 import { runRoutineNow, setRoutinePaused, showRoutineOnCanvas } from '@/routines/routine-commands';
 import { refreshRoutines, useRoutineList } from '@/routines/routine-list';
 import { RoutineSide } from '@/routines/RoutineSide';
 import { leaveRoutines, setRoutinesFilter, setRoutinesLayout, showRoutine, stepWeek, useRoutinesStage } from '@/routines/stage';
-import { activeViewOf, useDocument } from '@/state/document';
+import { useDocument } from '@/state/document';
 import { useEndpoints } from '@/state/endpoints';
 import { useEndpointId } from '@/state/keys';
 import { isThisMachine } from '@/state/local-machine';
@@ -80,18 +80,14 @@ function StageFrame({ children }: { children: React.ReactNode }) {
     );
 }
 
-/* Back to the view, then where in Routines this is. */
+/* Close, then where in Routines this is. */
 function StageHeader({ title, crumbs, children }: { title: string; crumbs?: React.ReactNode; children?: React.ReactNode }) {
     const { t } = useTranslation('routines');
-    const viewName = useDocument((s) => {
-        const view = activeViewOf(s);
-        return view === null || view === undefined ? null : (view.name ?? null);
-    });
     return (
         <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-2 text-sm">
-            <Button size="sm" onClick={leaveRoutines} aria-label={t('stage.back', { view: viewName ?? t('stage.backView') })}>
-                <Icon icon={ArrowLeft} size={14} />
-                {viewName ?? t('stage.backView')}
+            <Button size="sm" onClick={leaveRoutines}>
+                <Icon icon={X} size={14} />
+                {t('stage.close')}
             </Button>
             <Separator />
             <Icon icon={Clock} size={14} className="text-text-muted" />
@@ -120,6 +116,7 @@ function WeekStage({ endpointId, result, projectId, projectName }: { endpointId:
                 <Separator />
                 <span className="truncate text-base font-medium text-text">{rangeWords(week, result.timeZone)}</span>
                 <span className="shrink-0 text-xs text-text-faint">{t('stage.week', { number: week.number })}</span>
+                <IconButton icon={Info} size="sm" label={t('side.legend')} tooltip={<AgendaLegend />} />
                 <ButtonGroup>
                     <IconButton icon={ChevronLeft} size="sm" label={t('stage.previousWeek')} onClick={() => stepWeek(-1)} />
                     <IconButton icon={ChevronRight} size="sm" label={t('stage.nextWeek')} onClick={() => stepWeek(1)} />
@@ -157,7 +154,7 @@ function WeekStage({ endpointId, result, projectId, projectName }: { endpointId:
                 {layout === 'list' ? (
                     <RoutineWeekList endpointId={endpointId} groups={groups} week={week} now={now} timeZone={result.timeZone} />
                 ) : shown.length === 0 && !grouped ? (
-                    <div className="flex min-w-0 grow flex-col">
+                    <div className="relative flex min-w-0 grow flex-col">
                         <RoutineAgenda
                             endpointId={endpointId}
                             projectId={projectId}
@@ -167,7 +164,8 @@ function WeekStage({ endpointId, result, projectId, projectName }: { endpointId:
                             now={now}
                             timeZone={result.timeZone}
                         />
-                        <div className="grid grow place-items-center p-6">
+                        {/* Over the empty week, which shows through, and never in the way of a drag across the days. */}
+                        <div className="pointer-events-none absolute inset-x-0 top-12 bottom-0 grid place-items-center bg-surface/50 p-6">
                             <EmptyState icon={Clock} title={t('stage.emptyTitle')}>
                                 {t('stage.empty')}
                             </EmptyState>

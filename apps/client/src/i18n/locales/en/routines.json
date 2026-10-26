@@ -6,8 +6,7 @@
   },
   "stage": {
     "title": "Routines",
-    "back": "Back to {{view}}",
-    "backView": "View",
+    "close": "Close",
     "breadcrumb": "Where you are in Routines",
     "previousWeek": "Previous week",
     "nextWeek": "Next week",
