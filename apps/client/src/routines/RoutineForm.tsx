@@ -58,7 +58,7 @@ export function RoutineForm({
     const [kind, setKind] = useState<RoutineKind>(editing?.kind ?? 'agent');
     const [prompt, setPrompt] = useState(editing?.kind === 'agent' ? editing.prompt : (request.prompt ?? ''));
     const [pick, setPick] = useState<{ provider: AgentKind; selection: ModelSelection | undefined } | null>(
-        editing?.kind === 'agent' ? { provider: editing.provider, selection: editing.selection } : null
+        editing?.kind === 'agent' ? { provider: editing.provider, selection: editing.selection } : (request.agent ?? null)
     );
     const [mode, setMode] = useState<RuntimeMode>(editing?.kind === 'agent' ? editing.mode : 'supervised');
     const [perRun, setPerRun] = useState<RoutinePerRun>(editing?.kind === 'agent' ? editing.perRun : 'new');
