@@ -23456,6 +23456,16 @@
         }
       }
     },
+    "Your Apple ID" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Je Apple ID"
+          }
+        }
+      }
+    },
     "Your changes in %@ are in the stash \"%@\"." : {
       "comment" : "%1$@ is a folder, %2$@ the name of a git stash",
       "localizations" : {
@@ -23530,6 +23540,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "je machine"
+          }
+        }
+      }
+    },
+    "Your GitHub account" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Je GitHub-account"
           }
         }
       }

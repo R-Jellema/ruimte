@@ -117,7 +117,7 @@ private struct AccountCard: View {
         HStack(spacing: 12) {
             AccountPicture(account: runtime.account, size: 40)
             VStack(alignment: .leading, spacing: 2) {
-                Text(AccountAvatar.name(of: runtime.account) ?? String(localized: "Not signed in"))
+                Text(AccountAvatar.title(of: runtime.account))
                     .font(.body.weight(.semibold)).lineLimit(1)
                 Text(subtitle).font(.footnote).foregroundStyle(MobileStyle.muted).lineLimit(1)
             }

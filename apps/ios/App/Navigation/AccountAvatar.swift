@@ -19,6 +19,17 @@ enum AccountAvatar {
         return account.login
     }
 
+    /// The account's name as a title: Apple hands out no login and a name only when the person shares one, so an
+    /// account without either is named after its provider, the way the desktop does.
+    static func title(of account: Account?) -> String {
+        guard let account else { return String(localized: "Not signed in") }
+        if let name = name(of: account) { return name }
+        switch account.provider {
+        case .github: return String(localized: "Your GitHub account")
+        case .apple: return String(localized: "Your Apple ID")
+        }
+    }
+
     static func initial(of name: String?) -> String? {
         name?.trimmingCharacters(in: .whitespacesAndNewlines).first.map { String($0).uppercased() }
     }

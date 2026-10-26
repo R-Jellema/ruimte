@@ -20,6 +20,16 @@ final class AccountAvatarTests: XCTestCase {
         XCTAssertNil(AccountAvatar.name(of: nil))
     }
 
+    func testAnAccountWithoutANameIsTitledAfterItsProvider() {
+        let appleID = String(localized: "Your Apple ID")
+        XCTAssertEqual(
+            AccountAvatar.title(of: Account(id: "a", provider: .apple, login: nil, displayName: .null)), appleID)
+        XCTAssertEqual(AccountAvatar.title(of: Account(id: "a", provider: .apple, login: nil)), appleID)
+        XCTAssertEqual(
+            AccountAvatar.title(of: Account(id: "a", provider: .apple, login: nil, displayName: .value("Wim"))), "Wim")
+        XCTAssertEqual(AccountAvatar.title(of: nil), String(localized: "Not signed in"))
+    }
+
     func testOnlyAGitHubLoginHasAPicture() {
         XCTAssertEqual(
             AccountAvatar.pictureURL(for: Account(id: "a", provider: .github, login: "basmilius"))?.absoluteString,

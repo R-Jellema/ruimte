@@ -22,7 +22,7 @@ struct AccountSettingsPage: View {
             Section {
                 VStack(spacing: 8) {
                     AccountPicture(account: runtime.account, size: 64)
-                    Text(AccountAvatar.name(of: runtime.account) ?? String(localized: "Not signed in"))
+                    Text(AccountAvatar.title(of: runtime.account))
                         .font(.title3.weight(.semibold))
                     if let account = runtime.account {
                         Text("Signed in with \(Self.providerName(account.provider))")
