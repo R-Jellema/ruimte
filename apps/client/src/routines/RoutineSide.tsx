@@ -13,8 +13,21 @@ import { endpointKey } from '@/state/keys';
 import { machineTransport } from '@/transport';
 import { useChats } from '@adecore/agents-react/state';
 
-/* The right column of the week, only while something waits: routines for approval here, and runs waiting on a person. */
-export function RoutineSide({ endpointId, entries, grouped, timeZone }: { endpointId: string; entries: RoutineEntry[]; grouped: boolean; timeZone: string }) {
+/*
+ * The right column of the week, only while something waits on this machine, in any project: routines for
+ * approval here, and runs waiting on a person. One of another project than `projectId` carries its badge.
+ */
+export function RoutineSide({
+    endpointId,
+    entries,
+    projectId,
+    timeZone
+}: {
+    endpointId: string;
+    entries: RoutineEntry[];
+    projectId: string | null;
+    timeZone: string;
+}) {
     const { t } = useTranslation('routines');
     const held = awaitingApproval(entries);
     const waiting = runsWaiting(entries);
@@ -31,7 +44,12 @@ export function RoutineSide({ endpointId, entries, grouped, timeZone }: { endpoi
                         <span className="ml-auto tabular-nums">{held.length}</span>
                     </SectionLabel>
                     {held.map((entry) => (
-                        <ApprovalCard key={`${entry.projectId}:${entry.routine.id}`} endpointId={endpointId} entry={entry} grouped={grouped} />
+                        <ApprovalCard
+                            key={`${entry.projectId}:${entry.routine.id}`}
+                            endpointId={endpointId}
+                            entry={entry}
+                            grouped={entry.projectId !== projectId}
+                        />
                     ))}
                 </section>
             )}
@@ -49,7 +67,7 @@ export function RoutineSide({ endpointId, entries, grouped, timeZone }: { endpoi
                             className="flex items-start gap-2 rounded-md px-1 py-1 text-left hover:bg-surface-hover"
                             onClick={() => showRoutine({ projectId: entry.projectId, routineId: entry.routine.id }, run.runId)}
                         >
-                            {grouped && <OutputProjectGlyph endpointId={endpointId} projectId={entry.projectId} />}
+                            {entry.projectId !== projectId && <OutputProjectGlyph endpointId={endpointId} projectId={entry.projectId} />}
                             <span className="flex min-w-0 flex-col">
                                 <span className="truncate text-sm text-text">{entry.routine.title}</span>
                                 <WaitingFor endpointId={endpointId} chatId={run.chatId} since={weekdayClock(run.at, timeZone)} />

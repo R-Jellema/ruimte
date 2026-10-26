@@ -184,7 +184,8 @@ function WeekStage({ endpointId, result, projectId, projectName }: { endpointId:
                         timeZone={result.timeZone}
                     />
                 )}
-                <RoutineSide endpointId={endpointId} entries={shown} grouped={grouped} timeZone={result.timeZone} />
+                {/* Every project's, whatever the filter: the clock's dot counts them all, so this is where it is explained. */}
+                <RoutineSide endpointId={endpointId} entries={result.routines} projectId={grouped ? null : projectId} timeZone={result.timeZone} />
             </div>
         </StageFrame>
     );

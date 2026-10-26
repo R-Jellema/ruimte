@@ -233,6 +233,16 @@ describe('Routines', () => {
         expect(machine.requests('routine.approve')[0]).toEqual({ projectId: 'project-atlas', routineId: 'changelog', digest: 'digest-changelog' });
     });
 
+    test("what waits in another project shows beside this project's week, so the clock's dot is never unexplained", async () => {
+        routines = [MORNING, { ...HELD, projectId: 'project-other', projectName: 'Other' }];
+        await openStage();
+        await act(async () => machine.emit('routine.changed', { projectId: 'project-other' }));
+        await until(() => page.host.querySelector('article[aria-label="Weekly changelog draft"]') !== null);
+        // The week stays this project's; only the column reaches further.
+        expect(page.host.querySelector('[data-routine="changelog"]')).toBeNull();
+        expect(clock()?.getAttribute('aria-label')).toBe('Routines, 1 waits for you');
+    });
+
     test('a drag across the days makes a routine on those days', async () => {
         await openStage();
         const day = (index: number): Element => page.host.querySelector(`[data-drag-day="${index}"]`)!;
