@@ -217,7 +217,7 @@ struct MachineUsagePage: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
-                .background(MobileStyle.panel, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .mobileCard(padding: 0)
                 .accessibilityElement(children: .combine)
             }
         }
@@ -437,10 +437,7 @@ struct ShareBar: View {
 /// The opaque card the usage and machine pages put their groups on.
 struct UsageCard: ViewModifier {
     func body(content: Content) -> some View {
-        content
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(MobileStyle.panel, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        content.mobileCard()
     }
 }
 

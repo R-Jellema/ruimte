@@ -202,7 +202,7 @@ struct IconChoiceGrid: View {
                 .frame(maxWidth: .infinity, minHeight: 52)
                 .contentShape(Rectangle())
         }
-        .buttonStyle(MobileSidebarButtonStyle(selected: selected == name, cornerRadius: 14))
+        .buttonStyle(MobileSidebarButtonStyle(selected: selected == name, cornerRadius: MobileMetrics.tileRadius))
         .accessibilityLabel(name.replacingOccurrences(of: "-", with: " "))
     }
 

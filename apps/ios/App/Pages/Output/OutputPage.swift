@@ -132,11 +132,7 @@ struct OutputKindTile: View {
     let kind: String
 
     var body: some View {
-        Image(lucide: OutputKind.icon(kind), size: 16)
-            .foregroundStyle(MobileStyle.muted)
-            .frame(width: 36, height: 36)
-            .background(MobileStyle.surface, in: RoundedRectangle(cornerRadius: 9))
-            .accessibilityHidden(true)
+        MobileStatusTile(tone: .idle, symbol: OutputKind.icon(kind)).accessibilityHidden(true)
     }
 }
 

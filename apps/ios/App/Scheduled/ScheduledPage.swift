@@ -196,6 +196,7 @@ struct ScheduledRow: View {
     let item: ScheduledItem
     let badge: ScheduledBadge
     let timeZone: TimeZone?
+    @ScaledMetric(relativeTo: .subheadline) private var height = MobileMetrics.rowHeight
 
     private var entry: RoutineEntry { item.entry }
     private var waiting: Bool { entry.waitingRun != nil }
@@ -212,7 +213,7 @@ struct ScheduledRow: View {
             trailing
         }
         .padding(.horizontal, 12)
-        .frame(minHeight: 56)
+        .frame(minHeight: height)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)

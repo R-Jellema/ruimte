@@ -124,9 +124,7 @@ struct GitCommitPage: View {
                     TextField("Description (optional)", text: $model.body, axis: .vertical)
                         .font(.callout).foregroundStyle(MobileStyle.muted).lineLimit(3...10)
                 }
-                .padding(14)
-                .background(MobileStyle.panel, in: RoundedRectangle(cornerRadius: 14))
-                .overlay { RoundedRectangle(cornerRadius: 14).strokeBorder(MobileStyle.border) }
+                .mobileCard()
                 if model.provider != nil {
                     Button {
                         Task { await model.write(client: client) }

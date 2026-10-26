@@ -96,8 +96,7 @@ struct PadNowPage: View {
                 ForEach(entries) { entry in row(entry, board: board) }
             }
             .padding(.horizontal, 14).padding(.vertical, 4)
-            .background(MobileStyle.panel, in: .rect(cornerRadius: 18))
-            .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(MobileStyle.border))
+            .mobileCard(padding: 0)
         }
         .frame(maxWidth: .infinity, alignment: .top)
     }
@@ -127,7 +126,7 @@ struct PadNowPage: View {
                     ForEach(board.snoozed) { entry in row(entry, board: board) }
                 }
                 .padding(.horizontal, 14).padding(.vertical, 4)
-                .background(MobileStyle.panel, in: .rect(cornerRadius: 18))
+                .mobileCard(padding: 0)
             }
         }
     }

@@ -93,10 +93,10 @@ private struct VoiceActionRow: View {
             status
         }
         .padding(.horizontal, 14).padding(.vertical, 12)
-        .background(MobileStyle.panel, in: RoundedRectangle(cornerRadius: 14))
+        .background(MobileStyle.panel, in: RoundedRectangle(cornerRadius: MobileMetrics.cardRadius))
         .overlay {
             if running {
-                RoundedRectangle(cornerRadius: 14).strokeBorder(VoiceStyle.voice.opacity(0.7), lineWidth: 1)
+                RoundedRectangle(cornerRadius: MobileMetrics.cardRadius).strokeBorder(VoiceStyle.voice.opacity(0.7), lineWidth: 1)
             }
         }
         .accessibilityElement(children: .combine)
@@ -171,8 +171,8 @@ private struct VoiceQuestionCard: View {
             buttons.padding(.top, 2)
         }
         .padding(.horizontal, 14).padding(.vertical, 12)
-        .background(MobileStyle.panel, in: RoundedRectangle(cornerRadius: 14))
-        .overlay { RoundedRectangle(cornerRadius: 14).strokeBorder(VoiceStyle.voice.opacity(0.7), lineWidth: 1) }
+        .background(MobileStyle.panel, in: RoundedRectangle(cornerRadius: MobileMetrics.cardRadius))
+        .overlay { RoundedRectangle(cornerRadius: MobileMetrics.cardRadius).strokeBorder(VoiceStyle.voice.opacity(0.7), lineWidth: 1) }
         .accessibilityElement(children: .contain)
     }
 

@@ -422,8 +422,6 @@ private struct ProcessChart: View {
             .frame(height: 40)
             .accessibilityLabel("\(label), \(headline)")
         }
-        .padding(10)
-        .frame(maxWidth: .infinity)
-        .background(MobileStyle.panel, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .mobileCard(padding: 10)
     }
 }

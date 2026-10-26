@@ -58,10 +58,7 @@ private struct MachineCard: View {
         Button(action: open) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 11) {
-                    LucideIcon(name: session.icons.icon?.value ?? "server", size: 18)
-                        .foregroundStyle(session.connected ? MobileStyle.text : MobileStyle.faint)
-                        .frame(width: 36, height: 36)
-                        .background(MobileStyle.inset, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    MobileStatusTile(tone: .idle, symbol: session.icons.icon?.value ?? "server")
                         .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(session.endpoint.label ?? session.machine.name).font(.body.weight(.semibold))
