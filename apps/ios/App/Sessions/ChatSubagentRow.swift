@@ -129,22 +129,22 @@ private struct ChatTaskLine: View {
             } ?? false
         let state = ChatSubagents.taskRowState(item, task: task, childWaiting: waiting)
         let span = ChatSubagents.taskSpan(item, task: task)
-        HStack(spacing: 10) {
-            ZStack(alignment: .bottomTrailing) {
-                Group {
-                    if let provider = child?.provider {
-                        ChatProviderMark(provider: provider, size: 14)
-                    } else {
-                        Image(lucide: "bot", size: 14)
-                    }
+        HStack(alignment: .top, spacing: 8) {
+            // In the gutter of the tool lines, its state a dot on the mark.
+            Group {
+                if let provider = child?.provider {
+                    ChatProviderMark(provider: provider, size: 14)
+                } else {
+                    Image(lucide: "bot", size: 14)
                 }
-                .foregroundStyle(MobileStyle.text)
-                .frame(width: 28, height: 28)
-                .background(MobileStyle.hover, in: Circle())
-                Circle().fill(state.look.color).frame(width: 10, height: 10)
-                    .overlay { Circle().strokeBorder(MobileStyle.surface, lineWidth: 2).padding(-2) }
-                    .offset(x: 2, y: 2)
             }
+            .foregroundStyle(MobileStyle.text)
+            .overlay(alignment: .bottomTrailing) {
+                Circle().fill(state.look.color).frame(width: 8, height: 8)
+                    .background { Circle().fill(MobileStyle.surface).padding(-2) }
+                    .offset(x: 3, y: 1)
+            }
+            .padding(.top, 2)
             .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 1) {
                 Text(ChatSubagents.taskTitle(item, model: modelName(child)))

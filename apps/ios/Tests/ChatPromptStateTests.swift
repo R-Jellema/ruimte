@@ -16,6 +16,21 @@ final class ChatPromptStateTests: XCTestCase {
         return ChatWire.item(fields).chatItem
     }
 
+    func testAnApprovalLeavesOutADescriptionThatOnlyRepeatsItsCommand() {
+        let shown = { (description: JSONValue) -> String? in
+            let item = ChatWire.item([
+                "kind": .string("approval"), "description": description,
+                "input": .object(["command": .string("ruimte-context list")]),
+            ]).chatItem
+            guard case .approval(let approval) = item else { return "not an approval" }
+            return approval.shownDescription
+        }
+        XCTAssertNil(shown(.string("ruimte-context list ")))
+        XCTAssertNil(shown(.string("")))
+        XCTAssertNil(shown(.null))
+        XCTAssertEqual(shown(.string("List the linked context")), "List the linked context")
+    }
+
     @MainActor func testBlockingRequestWinsWithoutReplacingAnActiveRequest() {
         let state = ChatPromptState()
         let optional = request("optional", question: true, optional: true)

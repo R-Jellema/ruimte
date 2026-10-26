@@ -212,6 +212,10 @@ enum ChatForking {
             String(text[..<range.lowerBound]), text[range.upperBound...].trimmingCharacters(in: .whitespacesAndNewlines)
         )
     }
+
+    /// A note a child left while it waits on a question or an approval, whose way over leads to answering it; the
+    /// prefix is `WAITING_NOTE_PREFIX` in the agent contracts.
+    static func waitingNote(_ note: ChatNoteItem) -> Bool { note.id.hasPrefix("waiting-") }
 }
 
 /// Where the chats of a project stand and how to get there, for the rows of a timeline that lead to another chat.

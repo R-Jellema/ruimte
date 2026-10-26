@@ -54,10 +54,7 @@ struct ChatUserMessage: View {
             }
             if !item.text.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
-                    MarkdownMessage(text: item.text)
-                        .environment(\.chatMentions, item.mentions ?? [])
-                        .environment(\.chatSkills, item.skills ?? [])
-                        .environment(\.chatPickedReferences, tokens)
+                    text
                         .frame(maxHeight: long && !expanded ? 180 : nil, alignment: .top)
                         .clipped()
                         .mask {
@@ -90,6 +87,38 @@ struct ChatUserMessage: View {
         .frame(maxWidth: 620, alignment: .trailing)
         .frame(maxWidth: .infinity, alignment: .trailing)
         .accessibilityElement(children: .contain).accessibilityLabel("You")
+    }
+
+    /// A quote only leads somewhere while the message still opens with the blockquote it was sent with.
+    @ViewBuilder private var text: some View {
+        if let source = item.quoteSource?.itemId, let presentation, let quoted = ChatQuote.split(item.text) {
+            VStack(alignment: .leading, spacing: 8) {
+                Button {
+                    presentation.requestQuote(messageID: item.id, sourceID: source)
+                } label: {
+                    MarkdownMessage(text: quoted.quote)
+                        .foregroundStyle(MobileStyle.muted)
+                        .padding(.leading, 10)
+                        .overlay(alignment: .leading) { Rectangle().fill(MobileStyle.border).frame(width: 2) }
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Goes to the reply")
+                if presentation.goneQuotes.contains(item.id) {
+                    Text("Quoted reply no longer in this chat.").font(.caption).foregroundStyle(MobileStyle.faint)
+                }
+                if !quoted.rest.isEmpty { message(quoted.rest) }
+            }
+        } else {
+            message(item.text)
+        }
+    }
+
+    private func message(_ text: String) -> some View {
+        MarkdownMessage(text: text)
+            .environment(\.chatMentions, item.mentions ?? [])
+            .environment(\.chatSkills, item.skills ?? [])
+            .environment(\.chatPickedReferences, tokens)
     }
 }
 
@@ -320,8 +349,16 @@ struct ChatNoteRow: View {
                         Button {
                             presentation?.openRequest = from
                         } label: {
-                            Label(String(localized: "Open fork"), lucideIcon: "git-fork", iconSize: 12).frame(
-                                minHeight: 44)
+                            Group {
+                                if ChatForking.waitingNote(item) {
+                                    Label(
+                                        String(localized: "Open to answer"),
+                                        lucideIcon: "message-circle-question-mark", iconSize: 12)
+                                } else {
+                                    Label(String(localized: "Open fork"), lucideIcon: "git-fork", iconSize: 12)
+                                }
+                            }
+                            .frame(minHeight: 44)
                         }
                         .buttonStyle(.plain)
                         .accessibilityHint(forkTitle ?? "")

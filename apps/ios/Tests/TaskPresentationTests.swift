@@ -18,6 +18,24 @@ final class TaskPresentationTests: XCTestCase {
         XCTAssertEqual(ChatPresentation.agentTurnLabel(Self.turn(["kind": .string("turn")])), "Continued on its own")
     }
 
+    @MainActor func testAWakeTurnSaysHowManyMessagesWokeItAndFromWhom() {
+        let from = { (ids: [String], label: String) in
+            Self.turn([
+                "kind": .string("turn"), "label": .string(label), "messageFrom": .array(ids.map(JSONValue.string)),
+            ])
+        }
+        XCTAssertEqual(
+            ChatPresentation.agentTurnLabel(from(["chat-2"], "Message from Lexer")),
+            "Woken by a message: Message from Lexer")
+        XCTAssertEqual(
+            ChatPresentation.agentTurnLabel(from(["chat-2", "chat-3"], "Messages from Lexer, Docs")),
+            "Woken by 2 messages: Messages from Lexer, Docs")
+        XCTAssertEqual(
+            ChatPresentation.agentTurnLabel(
+                Self.turn(["kind": .string("turn"), "messageFrom": .array([.string("chat-2")])])),
+            "Woken by a message")
+    }
+
     @MainActor func testATurnTheMachineCouldNotResumeIsNotStoppedByYou() {
         let turn = Self.turn([
             "id": .string("t1"), "turnId": .string("t1"), "kind": .string("turn"), "state": .string("aborted"),

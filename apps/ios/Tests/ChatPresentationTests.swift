@@ -133,6 +133,7 @@ final class ChatPresentationTests: XCTestCase {
         let presentation = ChatPresentation()
         let first = item("first", "turn").setting("turnId", .string("first")).setting("state", .string("done"))
         let agent = item("agent", "subagent").setting("turnId", .string("first")).setting("toolUseId", .string("spawn"))
+            .setting("status", .string("done"))
         let second = item("second", "turn").setting("turnId", .string("second")).setting("state", .string("running"))
             .setting("origin", .string("agent"))
         presentation.replace([first, agent, second].map(\.chatItem), info: nil)
@@ -177,6 +178,179 @@ final class ChatPresentationTests: XCTestCase {
     }
 }
 
+/// The cases of `deriveTimelineRows` in the desktop's `chat/logic/timeline.test.ts`, so both threads stay pinned to the
+/// same rules.
+@MainActor final class ChatTimelineRulesTests: XCTestCase {
+    private func item(_ id: String, _ kind: String, turn: String = "t1") -> JSONValue {
+        ChatWire.item(["id": .string(id), "kind": .string(kind), "turnId": .string(turn)])
+    }
+
+    private func tool(
+        _ id: String, _ name: String = "Read", _ input: [String: JSONValue] = [:], state: String = "done",
+        turn: String = "t1"
+    ) -> JSONValue {
+        item(id, "tool", turn: turn).setting("name", .string(name)).setting("input", .object(input))
+            .setting("toolUseId", .string(id)).setting("state", .string(state))
+    }
+
+    private func reply(_ id: String, _ text: String = "Done.", turn: String = "t1") -> JSONValue {
+        item(id, "assistant", turn: turn).setting("text", .string(text))
+    }
+
+    private func entries(_ values: [JSONValue], active: String? = nil, expanded: String? = nil) -> [ChatTimelineEntry] {
+        let presentation = ChatPresentation()
+        presentation.replace(
+            values.map(\.chatItem), info: active.map { ChatWire.info(["activeTurnId": .string($0)]).chatInfo })
+        if let expanded { presentation.toggleTurn(expanded) }
+        return presentation.entries
+    }
+
+    private var settled: JSONValue { item("t1", "turn").setting("state", .string("done")) }
+    private var running: JSONValue { item("t1", "turn").setting("state", .string("running")) }
+
+    func testATurnThatEndsOnARefusedCallKeepsTheAnswerBeforeItInSightWithTheCallAndItsDenial() {
+        let refusal = { (decision: String) in
+            [
+                self.settled, self.item("u5", "user"), self.tool("r5"), self.reply("a5", "I will create probe.txt."),
+                self.tool("c5", "Change", state: "error"),
+                self.item("p5", "approval").setting("toolUseId", .string("c5")).setting("decision", .string(decision)),
+            ]
+        }
+        XCTAssertEqual(entries(refusal("deny")).map(\.id), ["u5", "fold-t1", "a5", "tools-c5", "p5"])
+        XCTAssertEqual(entries(refusal("allow")).map(\.id), ["u5", "fold-t1"])
+    }
+
+    func testAnImageThatSettlesAfterTheClosingAnswerKeepsBothVisible() {
+        let rows = entries([settled, item("u1", "user"), tool("r1"), reply("a1"), tool("image", "ImageGeneration")])
+        XCTAssertEqual(rows.map(\.id), ["u1", "fold-t1", "a1", "image"])
+    }
+
+    func testABackgroundSubagentStaysOutOfTheFoldOfItsSettledTurnUntilItEnds() {
+        let agent = { (status: String) in
+            self.item("sa1", "subagent").setting("background", .bool(true)).setting("status", .string(status))
+        }
+        let rows = { (status: String) in
+            self.entries([self.settled, self.item("u1", "user"), self.tool("r1"), agent(status), self.reply("a1")])
+        }
+        XCTAssertEqual(rows("running").map(\.id), ["u1", "fold-t1", "sa1", "a1"])
+        XCTAssertEqual(rows("done").map(\.id), ["u1", "fold-t1", "a1"])
+    }
+
+    func testAnUnfoldedTurnShowsItsWorkInPlaceThenTheChangedFilesThenTheAnswerAndWhatFollowsIt() {
+        let edit = tool(
+            "e1", "Edit", ["file_path": .string("a.ts"), "old_string": .string("x"), "new_string": .string("y")])
+        let early = item("n1", "note")
+        let late = item("n2", "note")
+        let values = [settled, item("u1", "user"), tool("r1"), early, edit, reply("a1"), late]
+        XCTAssertEqual(entries(values).map(\.id), ["u1", "fold-t1", "files-t1", "a1", "n2"])
+        XCTAssertEqual(
+            entries(values, expanded: "t1").map(\.id),
+            ["u1", "fold-t1", "tools-r1", "n1", "tools-e1", "files-t1", "a1", "n2"])
+    }
+
+    func testTheActiveTurnCollectsARunOfCallsWithTheRunningOnesAfterTheSettled() {
+        let values = [
+            running, item("u2", "user"), tool("b1", "Bash"), tool("b2", "Bash", state: "running"), tool("b3", "Bash"),
+            item("a2", "assistant").setting("streaming", .bool(true)),
+        ]
+        let rows = entries(values, active: "t1")
+        XCTAssertEqual(rows.map(\.id), ["u2", "tools-b1", "b2", "a2", "working-t1"])
+        XCTAssertEqual(rows[1].items.map(\.id), ["b1", "b3"])
+    }
+
+    func testAnEmptyReplyThatNoLongerStreamsHasNoRow() {
+        let rows = entries([item("u", "user"), reply("a", ""), reply("live", "").setting("streaming", .bool(true))])
+        XCTAssertEqual(rows.map(\.id), ["u", "live"])
+    }
+
+    func testTheLiveThoughtStandsOverTheRunningCallTheLatestThoughtLedTo() {
+        let thought = { (id: String) in
+            self.item(id, "thinking").setting("text", .string("The entry is written first."))
+        }
+        let call = { (id: String, state: String) in
+            self.tool(id, "Bash", ["command": .string("bun test")], state: state)
+        }
+        let ids = { (values: [JSONValue]) in
+            self.entries([self.running, self.item("u2", "user")] + values, active: "t1").map(\.id)
+        }
+        XCTAssertEqual(
+            ids([thought("k1"), call("r1", "done"), call("b1", "running")]),
+            ["u2", "k1", "tools-r1", "live-thought-k1", "b1", "working-t1"])
+        XCTAssertFalse(ids([thought("k1"), call("b1", "running")]).contains("live-thought-k1"))
+        // Only the answer between the thought and the call it waits to run, as while it waits on an approval.
+        XCTAssertFalse(ids([thought("k1"), reply("a1"), call("b1", "running")]).contains("live-thought-k1"))
+        XCTAssertTrue(
+            ids([thought("k1"), call("r1", "done"), thought("k2"), call("r2", "done"), call("b1", "running")])
+                .contains("live-thought-k2"))
+        XCTAssertFalse(
+            ids([call("r1", "done"), call("b1", "running"), thought("k1")]).contains { $0.hasPrefix("live") })
+        XCTAssertFalse(ids([thought("k1"), call("r1", "done"), call("r2", "done")]).contains { $0.hasPrefix("live") })
+    }
+
+    func testAnEditThatFailedOrWasRefusedCountsAsACallNeverAsAFileEdited() {
+        let write = { (path: String, state: String) in
+            self.tool(path, "Write", ["file_path": .string(path)], state: state).chatTool
+        }
+        let edit = { (path: String, state: String) in
+            self.tool(path, "Edit", ["file_path": .string(path)], state: state).chatTool
+        }
+        XCTAssertEqual(ChatToolPresentation.turnSummary([write("a", "error")]).map(\.text), ["1 tool call"])
+        XCTAssertEqual(
+            ChatToolPresentation.turnSummary([edit("a", "done"), write("b", "error")]).map(\.text),
+            ["Edited 1 file", "1 other tool call"])
+        XCTAssertEqual(
+            ChatToolPresentation.groupLabel([write("a", "done"), write("b", "error")]).text, "Edited 1 file")
+        XCTAssertEqual(
+            ChatToolPresentation.groupLabel([write("a", "error"), write("b", "error")]).text, "Write 2 calls")
+        XCTAssertEqual(ChatToolPresentation.groupLabel([edit("a", "error"), edit("b", "error")]).text, "Edit 2 calls")
+    }
+
+    func testACallThatWaitsOnAnApprovalIsKnownByItsToolUse() {
+        let presentation = ChatPresentation()
+        let approval = item("p", "approval").setting("toolUseId", .string("call"))
+        presentation.replace([running, tool("call", "Bash", state: "running"), approval].map(\.chatItem), info: nil)
+        XCTAssertEqual(presentation.awaitingApproval, ["call"])
+        presentation.upsert(approval.setting("decision", .string("allow")).chatItem)
+        XCTAssertEqual(presentation.awaitingApproval, [])
+    }
+
+    func testAJumpThatSearchedLightsUpTheRowItLandedOn() {
+        let presentation = ChatPresentation()
+        presentation.replace([item("u1", "user")].map(\.chatItem), info: nil)
+        XCTAssertTrue(presentation.revealItem("u1"))
+        XCTAssertNil(presentation.flash)
+        XCTAssertTrue(presentation.revealItem("u1", flashing: true))
+        let first = presentation.flash
+        XCTAssertEqual(first?.entryID, "u1")
+        XCTAssertEqual(first?.fresh, true)
+        presentation.reveal(entryID: "u1", flashing: true)
+        XCTAssertNotEqual(presentation.flash?.nonce, first?.nonce)
+    }
+
+    func testAQuoteWhoseReplyIsGoneSaysSoUntilItIsTappedAgain() throws {
+        let presentation = ChatPresentation()
+        presentation.requestQuote(messageID: "u2", sourceID: "a1")
+        let jump = try XCTUnwrap(presentation.quoteRequest)
+        XCTAssertEqual(jump.sourceID, "a1")
+        presentation.finishQuote(jump, gone: true)
+        XCTAssertNil(presentation.quoteRequest)
+        XCTAssertEqual(presentation.goneQuotes, ["u2"])
+        presentation.requestQuote(messageID: "u2", sourceID: "a1")
+        XCTAssertEqual(presentation.goneQuotes, [])
+    }
+
+    func testAMessageSplitsIntoItsQuoteAndTheRest() {
+        let split = { (text: String) in ChatQuote.split(text).map { [$0.quote, $0.rest] } }
+        XCTAssertEqual(
+            split("> One.\n>\n> Two.\n>     code\n\nWhy?\n\nAnd more."),
+            ["One.\n\nTwo.\n    code", "Why?\n\nAnd more."])
+        XCTAssertEqual(split("> One."), ["One.", ""])
+        XCTAssertNil(split("Why?"))
+        XCTAssertNil(split(">no space"))
+        XCTAssertNil(split("> One.\nno blank line"))
+    }
+}
+
 final class ChatToolPresentationTests: XCTestCase {
     func testANamedToolSaysWhatItWasCalledWith() {
         XCTAssertEqual(summary("Bash", ["command": .string("bun test")]), "bun test")
@@ -201,6 +375,26 @@ final class ChatToolPresentationTests: XCTestCase {
         ]).chatItem
         XCTAssertEqual(item.toolItem.map(ChatToolPresentation.summary), "")
         XCTAssertEqual(ChatSubagents.previewOfItem(item), .tool(name: "Unknown", detail: "Still going"))
+    }
+
+    func testALiveCallThatNamesNothingSaysWhatItsProgressReports() {
+        let progress: JSONValue = .object(["startedAt": .null, "description": .string("Still going"), "output": .null])
+        let call = { (state: String, input: [String: JSONValue]) in
+            ChatWire.item([
+                "kind": .string("tool"), "name": .string("Unknown"), "input": .object(input), "state": .string(state),
+                "progress": progress,
+            ]).chatTool
+        }
+        XCTAssertEqual(ChatToolPresentation.lineDetail(call("running", [:])), "Still going")
+        XCTAssertEqual(ChatToolPresentation.lineDetail(call("running", ["target": .string("a.ts")])), "a.ts")
+        XCTAssertEqual(ChatToolPresentation.lineDetail(call("done", [:])), "")
+    }
+
+    func testAnApprovalSaysWhatItsCallIsAbout() {
+        XCTAssertEqual(
+            ChatToolPresentation.summary(name: "Edit", input: .object(["file_path": .string("/a/b.ts")])), "/a/b.ts")
+        XCTAssertTrue(ChatToolPresentation.summaryIsPath(name: "Edit", input: .object(["file_path": .string("/a")])))
+        XCTAssertFalse(ChatToolPresentation.summaryIsPath(name: "Bash", input: .object(["command": .string("ls")])))
     }
 
     private func summary(_ name: String, _ input: [String: JSONValue]) -> String {

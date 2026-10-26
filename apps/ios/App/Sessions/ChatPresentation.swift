@@ -54,6 +54,37 @@ struct ChatTimelineEntry: Identifiable, Equatable {
     }
 }
 
+/// A row a jump landed on. A new one for every jump, so landing on the same row again lights it again.
+struct ChatRowFlash: Equatable {
+    /// A little longer than the light lasts, so a row that scrolls into view again later is not lit a second time.
+    static let lifetime: TimeInterval = 2
+
+    let entryID: String
+    let nonce = UUID()
+    let at = Date.now
+
+    var fresh: Bool { Date.now.timeIntervalSince(at) < Self.lifetime }
+}
+
+/// A tap on the quote in a message, which leads back to the reply it quotes.
+struct ChatQuoteJump: Equatable {
+    let messageID: String
+    let sourceID: String
+    /// New for every tap, so tapping the same quote again looks again.
+    let nonce = UUID()
+}
+
+/// A message that opens with the blockquote it was sent with, apart from what the person wrote under it.
+enum ChatQuote {
+    static func split(_ text: String) -> (quote: String, rest: String)? {
+        let lines = text.components(separatedBy: "\n")
+        let end = lines.firstIndex { $0 != ">" && !$0.hasPrefix("> ") } ?? lines.count
+        guard end > 0, end == lines.count || lines[end].isEmpty else { return nil }
+        let quote = lines[..<end].map { String($0.dropFirst(2)) }.joined(separator: "\n")
+        return (quote, lines.dropFirst(end + 1).joined(separator: "\n"))
+    }
+}
+
 extension ChatTimelineEntry {
     /// A line of work (a call, a thought, an agent) sits tight against the lines around it, as the desktop's list
     /// rhythm has them; prose and cards keep a block's gap, so a run of work lines stands apart where it meets them.
@@ -72,21 +103,39 @@ extension ChatTimelineEntry {
     }
 }
 
+extension ChatTimelineEntry {
+    @MainActor var rhythm: ChatRowRhythm {
+        if kind == .message, items.first?.item.userItem != nil { return .question }
+        return isWorkLine ? .work : .block
+    }
+}
+
+enum ChatRowRhythm: Equatable {
+    case work, block, question
+}
+
 /// The space above and below a row. Work lines sit tight against each other; where a run of them meets prose, either
-/// way, the seam gets the gap two blocks of prose have, the desktop's seam at the phone's larger text.
+/// way, the seam gets the gap two blocks of prose have, the desktop's seam at the phone's larger text. A question
+/// carries the gaps around it itself: the answer's under it and, after the first, the turn's over it.
 struct ChatRowPadding: Equatable {
     static let prose: CGFloat = 10
     static let work: CGFloat = 2
+    static let answer: CGFloat = 16
+    static let turn: CGFloat = 30
 
     let top: CGFloat
     let bottom: CGFloat
 
-    static func rows(work: [Bool]) -> [ChatRowPadding] {
-        work.indices.map { index in
-            guard work[index] else { return ChatRowPadding(top: prose, bottom: prose) }
-            let above = index > 0 && !work[index - 1]
-            let below = index + 1 < work.count && !work[index + 1]
-            return ChatRowPadding(top: above ? prose : Self.work, bottom: below ? prose : Self.work)
+    static func rows(_ rhythm: [ChatRowRhythm]) -> [ChatRowPadding] {
+        rhythm.indices.map { index in
+            switch rhythm[index] {
+            case .question: return ChatRowPadding(top: index == 0 ? prose : turn, bottom: answer)
+            case .block: return ChatRowPadding(top: prose, bottom: prose)
+            case .work:
+                let above = index > 0 && rhythm[index - 1] != .work
+                let below = index + 1 < rhythm.count && rhythm[index + 1] != .work
+                return ChatRowPadding(top: above ? prose : Self.work, bottom: below ? prose : Self.work)
+            }
         }
     }
 }
@@ -138,6 +187,15 @@ final class ChatPresentation {
     /// The timeline entries on screen, answered by the timeline while it is there.
     @ObservationIgnored var visibleEntryIDs: () -> [String] = { [] }
     private(set) var scrollRequest = 0
+    /// The row a jump landed on, which lights up once.
+    private(set) var flash: ChatRowFlash?
+    /// A quote asked to lead back to the reply it quotes; the screen carries it out, since that reply may be on a page
+    /// this thread has not read yet.
+    private(set) var quoteRequest: ChatQuoteJump?
+    /// The messages whose quoted reply is no longer in the thread.
+    private(set) var goneQuotes: Set<String> = []
+    /// The calls that wait on a person's answer to an approval of them, by tool use id.
+    private(set) var awaitingApproval: Set<String> = []
     @ObservationIgnored private var activeID: String?
     @ObservationIgnored private var historyBoundaries = Set<String>()
 
@@ -222,6 +280,12 @@ final class ChatPresentation {
             default: false
             }
         }
+        let awaiting = Set(
+            records.values.compactMap { record -> String? in
+                guard case .approval(let approval) = record.item, approval.decision == .pending else { return nil }
+                return approval.toolUseId
+            })
+        if awaiting != awaitingApproval { awaitingApproval = awaiting }
         activityLabel =
             !connected
             ? String(localized: "Connection lost")
@@ -254,21 +318,34 @@ final class ChatPresentation {
         ChatForking.refusal(info: info, turn: records[turnID]?.item)
     }
 
-    /// Scrolls the timeline to an entry, as the message index asks.
-    func reveal(entryID: String) {
+    /// Scrolls the timeline to an entry, as the message index asks; a jump that searched for it lights it up.
+    func reveal(entryID: String, flashing: Bool = false) {
         requestedItemID = entryID
         scrollRequest += 1
+        if flashing { flash = ChatRowFlash(entryID: entryID) }
     }
 
     /// Scrolls to a message, unfolding the turn that hides it. False while the message is not loaded.
-    func revealItem(_ id: String) -> Bool {
+    func revealItem(_ id: String, flashing: Bool = false) -> Bool {
         guard let record = records[id] else { return false }
         if !entries.contains(where: { $0.id == id }), let turnID = record.item.turnId {
             expandedTurns.insert(turnID)
             rebuild()
         }
-        reveal(entryID: id)
+        reveal(entryID: id, flashing: flashing)
         return true
+    }
+
+    /// Asks to lead a quote in a message back to the reply it quotes, which the screen then looks for.
+    func requestQuote(messageID: String, sourceID: String) {
+        goneQuotes.remove(messageID)
+        quoteRequest = ChatQuoteJump(messageID: messageID, sourceID: sourceID)
+    }
+
+    /// Settles a quote's jump; one whose reply is gone says so on its message.
+    func finishQuote(_ jump: ChatQuoteJump, gone: Bool) {
+        if gone { goneQuotes.insert(jump.messageID) }
+        if quoteRequest == jump { quoteRequest = nil }
     }
 
     func setVisuals(_ visuals: [ChatVisual]) {
@@ -355,29 +432,22 @@ final class ChatPresentation {
             let split = (conversation.lastIndex { if case .user = $0.item { true } else { false } } ?? -1) + 1
             rows += rowsFor(Array(conversation[..<split]), children: children)
             let work = Array(conversation[split...])
-            let final = work.last {
-                if case .assistant = $0.item { $0.item.parentToolUseID == nil } else { false }
-            }
-            let notices = work.filter { if case .note = $0.item { true } else { false } }
-            // Images stay a turn's visible result, and a workflow may still run after its turn ended.
-            let standing = work.filter {
-                guard let tool = $0.item.toolItem, $0.item.parentToolUseID == nil else { return false }
-                return UiGeneratedImage.isGeneration(tool) || tool.workflow != nil && tool.state == .running
-            }
-            let standingIDs = Set(standing.map(\.id))
-            let folded = work.filter {
-                if case .note = $0.item { return false }
-                return $0 !== final && !standingIDs.contains($0.id)
-            }
-            if !rowsFor(folded, children: children).isEmpty {
+            let workRows = rowsFor(work, children: children)
+            // The closing answer stays in sight; the work after the last input folds behind the label.
+            let answer = Self.closingAnswer(workRows)
+            let before = Array(workRows[..<(answer ?? workRows.count)])
+            let standing = before.filter(Self.stands)
+            if before.count > standing.count {
+                let notes = conversation.filter { $0.item.noteItem != nil }
                 let tools = work.filter {
-                    guard case .tool = $0.item else { return false }
+                    guard let tool = $0.item.toolItem else { return false }
                     return $0.item.parentToolUseID == nil && ChatSubagents.handbackReport($0.item) == nil
+                        && !UiGeneratedImage.isGeneration(tool)
                 }
-                rows.append(ChatTimelineEntry(id: "fold-\(turnID)", kind: .turnFold, items: [turn] + notices + tools))
-                if expandedTurns.contains(turnID) { rows += rowsFor(folded, children: children) }
+                rows.append(ChatTimelineEntry(id: "fold-\(turnID)", kind: .turnFold, items: [turn] + notes + tools))
             }
-            let edits = work.filter {
+            rows += expandedTurns.contains(turnID) ? before : standing
+            let edits = conversation.filter {
                 guard case .tool(let tool) = $0.item else { return false }
                 return tool.state == .done && ChatFileChanges.hasChanges(tool)
             }
@@ -386,9 +456,7 @@ final class ChatPresentation {
             if changed {
                 rows.append(ChatTimelineEntry(id: "files-\(turnID)", kind: .changedFiles, items: [turn] + edits))
             }
-            rows += rowsFor(standing, children: children)
-            if let final { rows.append(ChatTimelineEntry(id: final.id, kind: .message, items: [final])) }
-            rows += rowsFor(notices, children: children)
+            if let answer { rows += workRows[answer...] }
             if forks[turnID]?.isEmpty == false {
                 rows.append(ChatTimelineEntry(id: "forks-\(turnID)", kind: .forks, items: [turn]))
             }
@@ -401,8 +469,9 @@ final class ChatPresentation {
         revision += 1
     }
 
-    /// The rows of a running turn with its latest thought repeated over the call it led to. Nothing when that call
-    /// follows the thought directly, where the thought's own row shows it, or when a newer thought came after the call.
+    /// The rows of a running turn with its latest thought repeated over the call it led to. Nothing while no finished
+    /// call stands between the thought's own row and that call, since the thought still shows there, or when a newer
+    /// thought came after the call.
     static func withLiveThought(_ rows: [ChatTimelineEntry], items: [ChatItemState]) -> [ChatTimelineEntry] {
         guard
             let at = items.lastIndex(where: {
@@ -417,7 +486,12 @@ final class ChatPresentation {
             }
             return after.contains(record.id) && tool.state == .running && tool.workflow == nil
         }
-        guard let call, call == 0 || rows[call - 1].id != items[at].id else { return rows }
+        guard let call else { return rows }
+        if let shown = rows.firstIndex(where: { $0.id == items[at].id }), shown < call,
+            !rows[(shown + 1)..<call].contains(where: { $0.kind == .tools })
+        {
+            return rows
+        }
         var next = rows
         let entry = ChatTimelineEntry(
             id: "live-thought-\(items[at].id)", kind: .liveThought, items: [items[at]] + rows[call].items.prefix(1))
@@ -429,29 +503,77 @@ final class ChatPresentation {
         if case .turn(let turn) = record.item { turn } else { nil }
     }
 
+    /// The closing answer of a settled turn, by its place in the turn's rows. A turn may end on a call the person turned
+    /// down, as an agent that stops there does: the answer before it closes the turn, and the refused call and its
+    /// denial stay in sight with it. Anything else after the last answer folds the whole turn.
+    static func closingAnswer(_ rows: [ChatTimelineEntry]) -> Int? {
+        var refused = Set<String>()
+        for index in rows.indices.reversed() {
+            let row = rows[index]
+            switch row.items.first?.item {
+            case .assistant? where row.kind == .message:
+                return index
+            case .approval(let approval)? where row.kind == .message && approval.decision == .deny:
+                guard let toolUseID = approval.toolUseId else { return nil }
+                refused.insert(toolUseID)
+            case .tool(let tool)? where row.kind == .tools && row.items.count == 1 && refused.contains(tool.toolUseId):
+                continue
+            case .note? where row.kind == .message:
+                continue
+            case .tool(let tool)? where row.kind == .message && UiGeneratedImage.isGeneration(tool):
+                continue
+            default:
+                return nil
+            }
+        }
+        return nil
+    }
+
+    /// Images stay a turn's visible result, and a workflow or a background sub-agent may still run after its turn ended.
+    private static func stands(_ row: ChatTimelineEntry) -> Bool {
+        switch row.items.first?.item {
+        case .tool(let tool)? where row.kind == .message:
+            UiGeneratedImage.isGeneration(tool) || tool.workflow != nil && tool.state == .running
+        case .subagent(let agent)? where row.kind == .subagent: agent.status == .running
+        default: false
+        }
+    }
+
+    /// A run of calls in a row collects every one of them: the settled ones on one line, the ones still running after it.
     private func rowsFor(_ items: [ChatItemState], children: [String: [ChatItemState]]) -> [ChatTimelineEntry] {
         var rows: [ChatTimelineEntry] = []
-        for item in items where item.item.parentToolUseID == nil && !item.item.isPending {
+        var calls: [ChatItemState] = []
+        func flush() {
+            let settled = calls.filter { $0.item.toolItem?.state != .running }
+            if let first = settled.first {
+                rows.append(ChatTimelineEntry(id: "tools-\(first.id)", kind: .tools, items: settled))
+            }
+            for call in calls where call.item.toolItem?.state == .running {
+                rows.append(ChatTimelineEntry(id: call.id, kind: .message, items: [call]))
+            }
+            calls = []
+        }
+        for item in items where item.item.parentToolUseID == nil {
+            // A subagent's `SubagentHandback` call reads as the report it carries rather than as a tool call.
+            if case .tool(let tool) = item.item, tool.workflow == nil, ChatSubagents.handbackReport(item.item) == nil,
+                !UiGeneratedImage.isGeneration(tool)
+            {
+                if historyBoundaries.contains(item.id) { flush() }
+                calls.append(item)
+                continue
+            }
+            flush()
             switch item.item {
             case .turn: continue
-            case .tool(let tool) where tool.workflow != nil:
-                rows.append(ChatTimelineEntry(id: item.id, kind: .message, items: [item]))
-            // A subagent's `SubagentHandback` call reads as the report it carries rather than as a tool call.
-            case .tool(let tool)
-            where tool.state != .running && ChatSubagents.handbackReport(item.item) == nil
-                && !UiGeneratedImage.isGeneration(tool):
-                if rows.last?.kind == .tools && !historyBoundaries.contains(item.id) {
-                    rows[rows.count - 1].items.append(item)
-                } else {
-                    rows.append(ChatTimelineEntry(id: "tools-\(item.id)", kind: .tools, items: [item]))
-                }
             case .subagent(let agent):
                 rows.append(
                     ChatTimelineEntry(id: item.id, kind: .subagent, items: [item] + (children[agent.toolUseId] ?? [])))
+            case .assistant(let reply) where reply.text.isEmpty && !reply.streaming: continue
             default:
-                rows.append(ChatTimelineEntry(id: item.id, kind: .message, items: [item]))
+                if !item.item.isPending { rows.append(ChatTimelineEntry(id: item.id, kind: .message, items: [item])) }
             }
         }
+        flush()
         return rows
     }
 
@@ -488,6 +610,13 @@ final class ChatPresentation {
             return label.isEmpty
                 ? String(localized: "Woken by \(tasks) tasks") : String(localized: "Woken by \(tasks) tasks: \(label)")
         }
+        let messages = turn.messageFrom?.count ?? 0
+        if messages > 0 {
+            // A turn the machine opened over messages other nodes sent; the label names who sent them.
+            return label.isEmpty
+                ? String(localized: "Woken by \(messages) messages")
+                : String(localized: "Woken by \(messages) messages: \(label)")
+        }
         return label.isEmpty
             ? String(localized: "Continued on its own") : String(localized: "Sub-agent finished: \(label)")
     }
@@ -495,10 +624,12 @@ final class ChatPresentation {
 }
 
 enum ChatToolPresentation {
-    static func summary(_ tool: ChatToolItem) -> String {
-        let input = tool.input
+    static func summary(_ tool: ChatToolItem) -> String { summary(name: tool.name, input: tool.input) }
+
+    /// What a call is about, also for one that is only asked for, as an approval names it.
+    static func summary(name: String, input: JSONValue) -> String {
         let keys: [String]
-        switch tool.name {
+        switch name {
         case "Bash": keys = ["description", "command"]
         case "Read", "Edit", "Write", "MultiEdit", "NotebookEdit": keys = ["file_path", "notebook_path"]
         case "Grep", "Glob": keys = ["pattern"]
@@ -514,11 +645,20 @@ enum ChatToolPresentation {
     }
 
     /// Whether the summary of a call is the path of a file, which a row cuts in the middle so the name stays.
-    static func summaryIsPath(_ tool: ChatToolItem) -> Bool {
-        guard ["Read", "Edit", "Write", "MultiEdit", "NotebookEdit"].contains(tool.name) else { return false }
-        let summary = summary(tool)
+    static func summaryIsPath(_ tool: ChatToolItem) -> Bool { summaryIsPath(name: tool.name, input: tool.input) }
+
+    static func summaryIsPath(name: String, input: JSONValue) -> Bool {
+        guard ["Read", "Edit", "Write", "MultiEdit", "NotebookEdit"].contains(name) else { return false }
+        let summary = summary(name: name, input: input)
         return !summary.isEmpty
-            && [tool.input["file_path"]?.stringValue, tool.input["notebook_path"]?.stringValue].contains(summary)
+            && [input["file_path"]?.stringValue, input["notebook_path"]?.stringValue].contains(summary)
+    }
+
+    /// The detail on a call's line. A live call that names nothing in its input says what its progress reports.
+    static func lineDetail(_ tool: ChatToolItem) -> String {
+        let summary = summary(tool)
+        guard summary.isEmpty, tool.state == .running else { return summary }
+        return tool.progress?.description ?? ""
     }
 
     /// The mark of a call, as `toolIcon` in the desktop's chat draws it; a tool nobody named gets the wrench.
@@ -563,6 +703,9 @@ enum ChatToolPresentation {
             let key: String
             if let group = RuimteCommandLook.run(of: tool)?.groupKey {
                 key = "look:\(group)"
+            } else if failedFileChange(tool) {
+                other += 1
+                continue
             } else if fileChanges.contains(name) {
                 edited.insert(tool.input["file_path"]?.stringValue ?? tool.id)
                 key = "edited"
@@ -600,6 +743,11 @@ enum ChatToolPresentation {
 
     private static let fileChanges: Set<String> = ["Edit", "Write", "MultiEdit", "ApplyPatch"]
 
+    /// A file change that failed or was refused changed nothing: it counts as a call, never as an edit.
+    private static func failedFileChange(_ tool: ChatToolItem) -> Bool {
+        fileChanges.contains(tool.name) && tool.state == .error
+    }
+
     private static let sentenceNames: Set<String> = [
         "Read", "NotebookEdit", "Bash", "Grep", "Glob", "WebFetch", "WebSearch", "Task", "Agent", "Skill", "TodoWrite",
     ]
@@ -629,11 +777,12 @@ enum ChatToolPresentation {
         if let looked = lookLabel(tools) { return looked }
         let names = Set(tools.map(\.name))
         let only = names.count == 1 ? names.first : nil
-        if let only, sentenceNames.contains(only) || only == "Write" {
+        let failed = tools.filter(failedFileChange).count
+        if let only, sentenceNames.contains(only) || only == "Write", failed == 0 {
             return ChatToolSentence(text: sentence(only, count: count))
         }
-        if tools.allSatisfy({ fileChanges.contains($0.name) }) {
-            let paths = Set(tools.map { $0.input["file_path"]?.stringValue ?? $0.id })
+        if tools.allSatisfy({ fileChanges.contains($0.name) }), failed < count {
+            let paths = Set(tools.filter { !failedFileChange($0) }.map { $0.input["file_path"]?.stringValue ?? $0.id })
             return ChatToolSentence(text: String(localized: "Edited \(paths.count) files"))
         }
         if let only {

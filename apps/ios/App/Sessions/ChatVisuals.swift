@@ -19,10 +19,12 @@ struct ChatVisual: Equatable, Identifiable {
     let heights: [Measure]
     let size: Double
     let turnID: String?
+    /// Asked for by an agent for a mockup or a dashboard: the whole width of the thread rather than the reply column's.
+    let wide: Bool
 
     init(
         id: String, title: String, at: Double, maxHeight: Double = ChatVisualContract.maxHeight,
-        heights: [Measure] = [], size: Double = 0, turnID: String? = nil
+        heights: [Measure] = [], size: Double = 0, turnID: String? = nil, wide: Bool = false
     ) {
         self.id = id
         self.title = title
@@ -31,6 +33,7 @@ struct ChatVisual: Equatable, Identifiable {
         self.heights = heights
         self.size = size
         self.turnID = turnID
+        self.wide = wide
     }
 
     init?(_ value: JSONValue) {
@@ -44,7 +47,8 @@ struct ChatVisual: Equatable, Identifiable {
                 else { return nil }
                 return Measure(width: width, height: height)
             },
-            size: value.number("size"), turnID: value["turnId"]?.stringValue)
+            size: value.number("size"), turnID: value["turnId"]?.stringValue,
+            wide: value["layout"]?.stringValue == "wide")
     }
 }
 

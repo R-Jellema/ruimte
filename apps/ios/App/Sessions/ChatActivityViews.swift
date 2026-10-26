@@ -147,7 +147,7 @@ struct ChatLiveThoughtRow: View {
         if !line.isEmpty {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Image(lucide: "brain", size: 14)
-                Text(line).lineLimit(2).textSelection(.enabled)
+                Text(line).lineLimit(4).textSelection(.enabled)
             }
             .font(.footnote).foregroundStyle(MobileStyle.muted)
             .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
@@ -160,6 +160,8 @@ struct ChatToolRow: View {
     let item: ChatToolItem
     /// Said instead of what the call was called with, as a workflow's name.
     var detail: String?
+    /// Whether the call waits on a person's answer to an approval of it, when its clock is not running yet.
+    var awaitingApproval = false
     @State private var expanded = false
     private var running: Bool { item.state == .running }
     private var failed: Bool { item.state == .error }
@@ -171,13 +173,16 @@ struct ChatToolRow: View {
                 ChatExpansionButton(expanding: !expanded) {
                     expanded.toggle()
                 } label: {
-                    ChatToolLine(item: item, expanded: expanded, opens: true, detail: detail)
+                    ChatToolLine(
+                        item: item, expanded: expanded, opens: true, detail: detail, awaitingApproval: awaitingApproval)
                 }
                 .buttonStyle(.plain)
                 .accessibilityValue(expanded ? "Expanded" : running ? "Running, collapsed" : "Collapsed")
             } else {
-                ChatToolLine(item: item, expanded: false, opens: false, detail: detail)
-                    .accessibilityElement(children: .combine)
+                ChatToolLine(
+                    item: item, expanded: false, opens: false, detail: detail, awaitingApproval: awaitingApproval
+                )
+                .accessibilityElement(children: .combine)
             }
             if item.state == .done, ["Read", "NotebookRead"].contains(item.name),
                 let path = item.input["file_path"]?.stringValue,
@@ -211,6 +216,7 @@ private struct ChatToolLine: View {
     let expanded: Bool
     let opens: Bool
     var detail: String?
+    var awaitingApproval = false
     private var running: Bool { item.state == .running }
     private var failed: Bool { item.state == .error }
 
@@ -218,31 +224,41 @@ private struct ChatToolLine: View {
         let run = RuimteCommandLook.run(of: item)
         HStack(spacing: 8) {
             ChatToolMarkView(mark: failed ? .lucide("circle-alert") : ChatToolPresentation.mark(item))
-            ChatLiveLabel(attributed: run.map(RuimteCommandLook.title) ?? AttributedString(item.name), active: running)
+            // The label is the body face and the detail mono, so only a shared baseline puts them on one line.
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                ChatLiveLabel(
+                    attributed: run.map(RuimteCommandLook.title) ?? AttributedString(item.name), active: running
+                )
                 .lineLimit(1).layoutPriority(2)
-            Group {
-                if let run {
-                    if !run.detail.isEmpty {
-                        ChatCommandDetail(run: run).foregroundStyle(MobileStyle.faint)
-                    }
-                    ForEach(RuimteCommandLook.tags(run), id: \.self) { tag in
-                        Text(tag).font(.caption2).foregroundStyle(MobileStyle.faint)
-                            .padding(.horizontal, 6).padding(.vertical, 1)
-                            .background(MobileStyle.hover, in: RoundedRectangle(cornerRadius: 4))
-                            .layoutPriority(1)
-                    }
-                } else {
-                    let summary = detail ?? ChatToolPresentation.summary(item)
-                    if !summary.isEmpty {
-                        Text(summary).font(.system(.caption, design: .monospaced)).foregroundStyle(MobileStyle.faint)
-                            .truncationMode(detail == nil && ChatToolPresentation.summaryIsPath(item) ? .middle : .tail)
+                Group {
+                    if let run {
+                        if !run.detail.isEmpty {
+                            ChatCommandDetail(run: run).foregroundStyle(MobileStyle.faint)
+                        }
+                        ForEach(RuimteCommandLook.tags(run), id: \.self) { tag in
+                            Text(tag).font(.caption2).foregroundStyle(MobileStyle.faint)
+                                .padding(.horizontal, 6).padding(.vertical, 1)
+                                .background(MobileStyle.hover, in: RoundedRectangle(cornerRadius: 4))
+                                .layoutPriority(1)
+                        }
+                    } else {
+                        let summary = detail ?? ChatToolPresentation.lineDetail(item)
+                        if !summary.isEmpty {
+                            Text(summary).font(.system(.caption, design: .monospaced))
+                                .foregroundStyle(MobileStyle.faint)
+                                .truncationMode(
+                                    detail == nil && ChatToolPresentation.summaryIsPath(item) ? .middle : .tail)
+                        }
                     }
                 }
+                .lineLimit(1)
             }
-            .lineLimit(1)
             Spacer(minLength: 0)
             Group {
-                if running {
+                if running && awaitingApproval {
+                    Text("waiting for you", comment: "On a call that waits on a person's approval, lowercase")
+                        .foregroundStyle(MobileStyle.faint)
+                } else if running {
                     ChatElapsed(startedAt: item.progress?.startedAt ?? item.createdAt)
                 } else if failed {
                     Text("Failed").foregroundStyle(.red)

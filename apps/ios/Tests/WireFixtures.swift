@@ -9,7 +9,8 @@ enum ChatWire {
         let defaults: [String: JSONValue]
         switch fields["kind"]?.stringValue {
         case "user": defaults = ["text": .string("")]
-        case "assistant": defaults = ["text": .string(""), "streaming": .bool(false)]
+        // A settled reply without words has no row, so the default has some.
+        case "assistant": defaults = ["text": .string("Reply."), "streaming": .bool(false)]
         case "thinking": defaults = ["text": .string(""), "streaming": .bool(false), "endedAt": .null]
         case "tool":
             defaults = [

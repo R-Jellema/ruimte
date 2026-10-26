@@ -125,7 +125,7 @@ struct ChatPromptCard: View {
 
     private var approvalContent: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if let description = approval?.description, !description.isEmpty {
+            if let description = approval?.shownDescription {
                 Text(description).font(.subheadline).foregroundStyle(MobileStyle.muted)
             }
             if !changes.isEmpty {

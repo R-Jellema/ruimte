@@ -29,6 +29,14 @@ final class ChatForkingTests: XCTestCase {
             "Wait for the turn to end")
     }
 
+    func testANoteAChildLeftWhileItWaitsLeadsToAnswering() {
+        let note = { (id: String) in
+            ChatWire.item(["id": .string(id), "kind": .string("note"), "from": .string("chat-2")]).chatItem.noteItem!
+        }
+        XCTAssertTrue(ChatForking.waitingNote(note("waiting-request-1")))
+        XCTAssertFalse(ChatForking.waitingNote(note("fork-summary")))
+    }
+
     func testSummaryWaitsForTheOriginalAndAnIdleFork() {
         XCTAssertNil(ChatForking.summaryRefusal(info: chat(info), originalPresent: true))
         XCTAssertEqual(

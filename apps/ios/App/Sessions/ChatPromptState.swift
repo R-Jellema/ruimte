@@ -101,3 +101,13 @@ struct ChatDraftFocusHandoff {
         return nil
     }
 }
+
+extension ChatApprovalItem {
+    /// What the request says about itself, left out where an agent describes a command by the command itself, which
+    /// the card already shows.
+    var shownDescription: String? {
+        guard let description, !description.isEmpty else { return nil }
+        let command = input["command"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return description.trimmingCharacters(in: .whitespacesAndNewlines) == command ? nil : description
+    }
+}

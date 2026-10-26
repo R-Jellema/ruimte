@@ -104,10 +104,31 @@ final class ChatThoughtTests: XCTestCase {
     }
 
     func testAWorkLineGetsABlockGapOnlyWhereItMeetsProse() {
-        let rows = ChatRowPadding.rows(work: [false, true, true, false, true])
+        let rows = ChatRowPadding.rows([.block, .work, .work, .block, .work])
         XCTAssertEqual(rows.map(\.top), [10, 10, 2, 10, 10])
         XCTAssertEqual(rows.map(\.bottom), [10, 2, 10, 10, 2])
         XCTAssertEqual(zip(rows, rows.dropFirst()).map { $0.bottom + $1.top }, [20, 4, 20, 20])
+    }
+
+    func testAQuestionMakesRoomForItsAnswerAndOpensATurnWithTheTurnGap() {
+        let rows = ChatRowPadding.rows([.question, .work, .block, .question, .block])
+        let gaps = zip(rows, rows.dropFirst()).map { $0.bottom + $1.top }
+        // Under a question its answer gap, whatever answers; over one after the first the turn gap.
+        XCTAssertEqual(gaps, [26, 20, 40, 26])
+        XCTAssertEqual(rows[0].top, ChatRowPadding.prose)
+        XCTAssertGreaterThan(gaps[0], gaps[1])
+        XCTAssertGreaterThan(gaps[2], gaps[0])
+    }
+
+    @MainActor func testAQuestionIsTheRowAReplyAnswers() {
+        let presentation = ChatPresentation()
+        presentation.replace(
+            [
+                item("ask", "user"),
+                item("turn", "turn").setting("state", .string("done")),
+                item("answer", "assistant").setting("text", .string("Done.")),
+            ].map { $0.setting("turnId", .string("turn")).chatItem }, info: nil)
+        XCTAssertEqual(presentation.entries.map(\.rhythm), [.question, .block])
     }
 
     private func item(_ id: String, _ kind: String) -> JSONValue {

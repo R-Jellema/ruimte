@@ -127,7 +127,7 @@ struct ChatScreen: View {
                 marks: messageMarks, onScreen: indexOnScreen, olderCursor: model.history.cursor,
                 presentation: model.presentation,
                 loadOlder: { model.loadOlderIfIdle() },
-                jump: { model.presentation.reveal(entryID: $0) },
+                jump: { model.presentation.reveal(entryID: $0, flashing: true) },
                 fork: { turnID in
                     forkAfterIndex = turnID
                     showingIndex = false
@@ -163,6 +163,9 @@ struct ChatScreen: View {
             askBookmarkName(id)
         }
         .task(id: model.presentation.uiChoiceRequest) { await revealRequestedChoice() }
+        .task(id: model.presentation.quoteRequest) {
+            if let jump = model.presentation.quoteRequest { await model.revealQuote(jump) }
+        }
         .onChange(of: model.presentation.bookmarkRequest) { _, request in
             guard let request else { return }
             model.presentation.bookmarkRequest = nil

@@ -98,6 +98,22 @@ extension ChatModel {
         }
     }
 
+    /// Leads a quote back to the reply it quotes and lights it up, reading earlier pages of the thread until it is
+    /// there. One the thread no longer holds says so on its message.
+    func revealQuote(_ jump: ChatQuoteJump) async {
+        while !presentation.revealItem(jump.sourceID, flashing: true) {
+            guard !Task.isCancelled else { return }
+            if loadingHistory {
+                do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
+            } else if await !loadOlderNow() {
+                // Only a thread read to its start knows the reply is gone; one that could not read further does not.
+                presentation.finishQuote(jump, gone: history.cursor == nil)
+                return
+            }
+        }
+        presentation.finishQuote(jump, gone: false)
+    }
+
     func revealUiChoice(_ target: UiChoiceJump) async {
         while presentation.item(target.itemID) == nil {
             guard !Task.isCancelled else { return }

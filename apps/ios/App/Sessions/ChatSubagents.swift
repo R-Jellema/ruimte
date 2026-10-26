@@ -130,6 +130,17 @@ enum ChatSubagents {
         return active > 0 ? active : words.count
     }
 
+    /// What the chip says: while more than one works and some still run, how far they got and how many need the person,
+    /// as `progressOf` in the desktop's `subagent-list.ts` counts them; otherwise how many there are.
+    static func chipLabel(_ states: [TaskRowState], words: [SubagentStatusWord]) -> String {
+        let done = states.filter { $0 == .done }.count
+        let waiting = states.filter { $0 == .waiting }.count
+        let active = states.filter { $0 == .running || $0 == .paused || $0 == .waiting }.count
+        guard active > 0, states.count > 1 else { return ChatBackground.subagents(badgeCount(words)) }
+        let progress = String(localized: "\(done) of \(states.count) sub-agents done")
+        return waiting > 0 ? "\(progress), \(String(localized: "\(waiting) need you"))" : progress
+    }
+
     /// The task a row stands for, whose id the daemon wrote into the row's own.
     static func taskID(_ agent: ChatSubagentItem) -> String? {
         agent.origin == .ruimte && agent.id.hasPrefix("task-") ? String(agent.id.dropFirst(5)) : nil

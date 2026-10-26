@@ -58,6 +58,9 @@ import XCTest
         XCTAssertEqual(visual?.maxHeight, 600)
         XCTAssertEqual(visual?.heights, [ChatVisual.Measure(width: 320, height: 400)])
         XCTAssertEqual(visual?.turnID, "t1")
+        XCTAssertEqual(visual?.wide, false)
+        XCTAssertEqual(ChatVisual(value.setting("layout", .string("wide")))?.wide, true)
+        XCTAssertEqual(ChatVisual(value.setting("layout", .string("inline")))?.wide, false)
         XCTAssertNil(ChatVisual(.object(["id": .string("v1"), "title": .string("No moment")])))
         XCTAssertNil(ChatVisual(.object(["id": .string(""), "at": .number(1)])))
     }

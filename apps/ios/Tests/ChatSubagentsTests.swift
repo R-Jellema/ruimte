@@ -241,6 +241,17 @@ final class ChatSubagentsTests: XCTestCase {
         XCTAssertEqual(ChatSubagents.badgeCount([.done, .failed, .done]), 3)
     }
 
+    func testTheChipCountsProgressWhileMoreThanOneWorks() {
+        XCTAssertEqual(
+            ChatSubagents.chipLabel([.done, .running, .waiting, .paused], words: [.done, .running, .running, .running]),
+            "1 of 4 sub-agents done, 1 needs you")
+        XCTAssertEqual(
+            ChatSubagents.chipLabel([.done, .done, .running], words: [.done, .done, .running]),
+            "2 of 3 sub-agents done")
+        XCTAssertEqual(ChatSubagents.chipLabel([.running], words: [.running]), "1 sub-agent")
+        XCTAssertEqual(ChatSubagents.chipLabel([.done, .failed], words: [.done, .failed]), "2 sub-agents")
+    }
+
     func testTheBackgroundChipNamesOnlyTheKindsThatRun() {
         let task: (ChatInfoBackgroundItemKind) -> ChatInfoBackgroundItem = {
             ChatInfoBackgroundItem(id: UUID().uuidString, kind: $0, description: "", command: nil, startedAt: 0)

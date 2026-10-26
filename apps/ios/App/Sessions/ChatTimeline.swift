@@ -792,7 +792,7 @@ final class ChatTimelineController: UIViewController, UICollectionViewDelegate, 
         let entries = values
         items = Dictionary(entries.map { ($0.id, $0) }, uniquingKeysWith: { _, newest in newest })
         paddings = Dictionary(
-            zip(entries.map(\.id), ChatRowPadding.rows(work: entries.map(\.isWorkLine))),
+            zip(entries.map(\.id), ChatRowPadding.rows(entries.map(\.rhythm))),
             uniquingKeysWith: { _, newest in newest })
         let ids = entries.map(\.id)
         let existingIDs = source.snapshot().itemIdentifiers
@@ -1184,8 +1184,32 @@ struct ChatEntryView: View {
                     connected: presentation.connected, scopeID: uiModels?.scopeID,
                     referenced: presentation.referenced))
         )
-        .frame(maxWidth: 720, alignment: .leading)
+        .background { ChatRowFlashLight(presentation: presentation, entryID: entry.id) }
+        .frame(maxWidth: entry.visual?.wide == true ? .infinity : 720, alignment: .leading)
         .frame(maxWidth: .infinity)
+    }
+}
+
+/// The light over a row a jump landed on, which fades as the desktop's does. Its own view, so only the row it lights
+/// draws again when a jump lands.
+private struct ChatRowFlashLight: View {
+    let presentation: ChatPresentation
+    let entryID: String
+    @State private var lit = false
+
+    var body: some View {
+        let flash = presentation.flash?.entryID == entryID ? presentation.flash : nil
+        RoundedRectangle(cornerRadius: 10)
+            .fill(MobileStyle.accent.opacity(lit ? 0.18 : 0))
+            .padding(-4)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+            .task(id: flash?.nonce) {
+                guard let flash, flash.fresh else { return }
+                lit = true
+                try? await Task.sleep(for: .milliseconds(100))
+                withAnimation(.easeOut(duration: 1.6)) { lit = false }
+            }
     }
 }
 
@@ -1284,7 +1308,8 @@ private struct ChatTimelineRow: View {
                 } else if let workflow = tool.workflow {
                     ChatWorkflowRow(item: tool, workflow: workflow, presentation: presentation)
                 } else {
-                    ChatToolRow(item: tool)
+                    ChatToolRow(
+                        item: tool, awaitingApproval: presentation?.awaitingApproval.contains(tool.toolUseId) == true)
                 }
             case .subagent(let agent):
                 DisclosureGroup(agent.description) {
@@ -1292,11 +1317,7 @@ private struct ChatTimelineRow: View {
                     MarkdownMessage(text: agent.result ?? agent.summary ?? agent.prompt ?? "")
                 }
             case .approval(let approval):
-                Label(
-                    Self.decisionWord(approval.decision) + " · " + approval.toolName,
-                    lucideIcon: approval.decision == .deny ? "circle-x" : "circle-check", iconSize: 14
-                )
-                .font(.caption).foregroundStyle(approval.decision == .deny ? Color.red : MobileStyle.muted)
+                ChatApprovalHistoryLine(approval: approval)
             case .question(let asked):
                 ForEach(Array(asked.questions.enumerated()), id: \.offset) { _, question in
                     Label(question.question, lucideIcon: "message-circle-question-mark", iconSize: 14).font(
@@ -1330,6 +1351,38 @@ private struct ChatTimelineRow: View {
                 ChatCompactionRule(preTokens: compaction.preTokens.map(Double.init))
             }
         }.frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// The outcome of a permission request, one quiet line with what the call was about; the request itself lived on the
+/// composer.
+private struct ChatApprovalHistoryLine: View {
+    let approval: ChatApprovalItem
+
+    var body: some View {
+        let denied = approval.decision == .deny
+        let summary = ChatToolPresentation.summary(name: approval.toolName, input: approval.input)
+        HStack(spacing: 8) {
+            Image(lucide: denied ? "circle-x" : "circle-check", size: 14)
+                .foregroundStyle(denied ? MobileStyle.statusError : MobileStyle.faint)
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(Self.decisionWord(approval.decision))
+                    .foregroundStyle(denied ? MobileStyle.statusError : MobileStyle.faint)
+                Text(approval.toolName).foregroundStyle(MobileStyle.muted)
+                if !summary.isEmpty {
+                    Text(summary).font(.system(.caption, design: .monospaced)).foregroundStyle(MobileStyle.faint)
+                        .truncationMode(
+                            ChatToolPresentation.summaryIsPath(name: approval.toolName, input: approval.input)
+                                ? .middle : .tail
+                        )
+                        .layoutPriority(-1)
+                }
+            }
+            .lineLimit(1)
+        }
+        .font(.caption)
+        .frame(minHeight: 28)
+        .accessibilityElement(children: .combine)
     }
 
     private static func decisionWord(_ decision: ChatApprovalDecision) -> String {

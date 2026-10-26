@@ -4889,6 +4889,16 @@
         }
       }
     },
+    "%lld of %lld sub-agents done" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld van %2$lld sub-agents klaar"
+          }
+        }
+      }
+    },
     "%lld other devices still have it open, so nothing stops running. It moves to Recently closed on this phone only." : {
       "localizations" : {
         "en" : {
@@ -11851,6 +11861,16 @@
         }
       }
     },
+    "Goes to the reply" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gaat naar het antwoord"
+          }
+        }
+      }
+    },
     "Resumes at %@." : {
       "localizations" : {
         "nl" : {
@@ -15387,6 +15407,16 @@
         }
       }
     },
+    "Open to answer" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Openen om te antwoorden"
+          }
+        }
+      }
+    },
     "Open image" : {
       "localizations" : {
         "nl" : {
@@ -16410,6 +16440,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Quick Look"
+          }
+        }
+      }
+    },
+    "Quoted reply no longer in this chat." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Geciteerd antwoord staat niet meer in deze chat."
           }
         }
       }
@@ -22767,6 +22807,106 @@
         }
       }
     },
+    "Woken by %lld messages" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Woken by a message"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Woken by %lld messages"
+                }
+              }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Gewekt door een bericht"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Gewekt door %lld berichten"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Woken by %lld messages: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Woken by %#@messages@: %2$@"
+          },
+          "substitutions" : {
+            "messages" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "a message"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg messages"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gewekt door %#@messages@: %2$@"
+          },
+          "substitutions" : {
+            "messages" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "een bericht"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg berichten"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "Word by word" : {
       "localizations" : {
         "nl" : {
@@ -24415,6 +24555,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "wacht"
+          }
+        }
+      }
+    },
+    "waiting for you" : {
+      "comment" : "On a call that waits on a person's approval, lowercase",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "wacht op jou"
           }
         }
       }
