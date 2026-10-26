@@ -47,11 +47,18 @@ export function accentColor(id: string | null | undefined): string | undefined {
     return NODE_ACCENTS.find((entry) => entry.id === id)?.color;
 }
 
+/*
+ * A line to what a node draws beside itself (`DerivedSet.tsx`): about half the weight of a line a person
+ * drew. Solid, mixed into the canvas ground rather than made transparent, or the branches where the
+ * lines run over one another stack up into a brighter trunk.
+ */
+export const QUIET_EDGE_LINE = 'color-mix(in srgb, var(--edge-line) 55%, var(--canvas-bg))';
+
 /* How a colored node wears its accent (`NodeFrame.tsx`), and the cards drawn beside it with it. */
 export function accentShades(accent: string): { frameBorder: string; header: string; headerBorder: string; hover: string; line: string } {
     return {
-        // A line it draws to what it owns: its color, dimmed toward the neutral line so it stays quieter than the node.
-        line: `color-mix(in srgb, ${accent} 45%, var(--edge-line))`,
+        // A line it draws to what it owns: its color, dimmed toward the quiet neutral line so it stays quieter than the node.
+        line: `color-mix(in srgb, ${accent} 20%, ${QUIET_EDGE_LINE})`,
         frameBorder: `color-mix(in srgb, ${accent} 45%, var(--border))`,
         header: `color-mix(in srgb, ${accent} 20%, var(--surface-raised))`,
         headerBorder: `color-mix(in srgb, ${accent} 35%, var(--border))`,
