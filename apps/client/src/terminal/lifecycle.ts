@@ -6,26 +6,28 @@ import { watchNodes, type NodeExit } from '@/terminal/lifecycle-watch';
 import { forgetScreen } from '@/terminal/registry';
 import { browserClientFor, chatClientFor, sessionClientFor } from '@/transport/connections';
 
-function noop(): void {
-    return undefined;
-}
-
 /* The node names the machine it ran on, so a node that leaves is ended there and not on the machine that is active now. */
 function end(endpointId: string, id: string, kind: CanvasNodeKind, exit: NodeExit): void {
     const kills = exit === 'closed';
     if (kind === 'terminal') {
         forgetScreen(endpointId, id);
         if (kills) {
-            void sessionClientFor(endpointId)?.kill(id).catch(noop);
+            void sessionClientFor(endpointId)
+                ?.kill(id)
+                .catch(() => undefined);
         }
     } else if (kind === 'chat') {
         if (kills) {
-            void chatClientFor(endpointId)?.kill(id).catch(noop);
+            void chatClientFor(endpointId)
+                ?.kill(id)
+                .catch(() => undefined);
         }
     } else if (kind === 'browser') {
         browserRegistry.destroy(endpointKey(endpointId, id));
         if (kills) {
-            void browserClientFor(endpointId)?.kill(id).catch(noop);
+            void browserClientFor(endpointId)
+                ?.kill(id)
+                .catch(() => undefined);
         }
     }
 }

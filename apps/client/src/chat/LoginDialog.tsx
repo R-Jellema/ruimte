@@ -12,10 +12,6 @@ import { useUi, type LoginRequest } from '@/state/ui';
 /* Long enough to read that it worked, short enough not to wait on it. */
 const LANDED_MS = 1_200;
 
-function noop(): void {
-    return undefined;
-}
-
 function closeLogin(): void {
     useUi.getState().setLogin(null);
 }
@@ -42,7 +38,7 @@ function LoginTerminal({ request, onRetry }: { request: LoginRequest; onRetry():
         sessionPrefix: 'login',
         start: (link, size) => link.request('session.login', { ...size, kind, account: accountId }),
         // Watching is a courtesy: the status still arrives on the machine's own clock.
-        onStarted: (link) => void link.request('accounts.watchLogin', { id: accountId }).catch(noop)
+        onStarted: (link) => void link.request('accounts.watchLogin', { id: accountId }).catch(() => undefined)
     });
     const { phase, setPhase } = session;
     // The account as it read until this login started, which is what a landing has to differ from.

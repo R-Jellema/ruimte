@@ -34,10 +34,6 @@ export interface CliSession {
     started: RefObject<boolean>;
 }
 
-function noop(): void {
-    return undefined;
-}
-
 /* A CLI's own session in a dialog of its own, started once the machine is connected and ended with the dialog. */
 export function useCliSession({ endpointId, sessionPrefix, start, typed, onStarted }: CliSessionOptions): CliSession {
     const endpoint = useEndpoints((s) => s.endpoints.find((entry) => entry.id === endpointId) ?? null);
@@ -83,7 +79,7 @@ export function useCliSession({ endpointId, sessionPrefix, start, typed, onStart
             offs.forEach((off) => off());
             // The session is this dialog's alone; a retry starts another.
             if (started.current) {
-                void sessions.kill(sessionId).catch(noop);
+                void sessions.kill(sessionId).catch(() => undefined);
             }
         };
     }, [endpointId, sessionId, typed]);
