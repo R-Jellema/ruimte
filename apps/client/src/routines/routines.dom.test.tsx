@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, setSystemTime, test } from 'bun:test';
 import { act } from 'react';
+import { EditorView } from '@codemirror/view';
 import { REQUEST_SCHEMAS, zonedTime, type ProjectCanvasView, type ProviderInfo, type RequestType, type RoutineEntry, type RoutineRun } from '@ruimte/contracts';
 import { formatDateTime } from '@adecore/ui/format';
 import { isApplePlatform } from '@/desktop/bridge';
@@ -97,6 +98,18 @@ function clock(): HTMLElement | null {
 
 function buttonWithText(label: string, within: ParentNode = document): HTMLElement | null {
     return ([...within.querySelectorAll('button')] as HTMLElement[]).find((button) => button.textContent?.trim() === label) ?? null;
+}
+
+/* The prompt of the routine form, an editor rather than a text field. */
+function promptEditor(form: ParentNode): EditorView {
+    return EditorView.findFromDOM(form.querySelector<HTMLElement>('.cm-content')!)!;
+}
+
+async function typePrompt(form: ParentNode, words: string): Promise<void> {
+    await act(async () => {
+        const view = promptEditor(form);
+        view.dispatch(view.state.replaceSelection(words), { userEvent: 'input.type' });
+    });
 }
 
 function sidePanelShown(): boolean {
@@ -302,7 +315,7 @@ describe('Routines', () => {
                 field.dispatchEvent(new Event('input', { bubbles: true }));
             });
         };
-        await type(form.querySelector('textarea')!, 'Check the build.');
+        await typePrompt(form, 'Check the build.');
         await clickOn(buttonWithText('Cron', form));
         await until(() => [...form.querySelectorAll('label')].some((label) => label.textContent === 'Cron expression'));
         const label = [...form.querySelectorAll('label')].find((candidate) => candidate.textContent === 'Cron expression')!;
@@ -333,6 +346,38 @@ describe('Routines', () => {
         expect(machine.requests('routine.save')[0]!.routine.schedule).toEqual({ kind: 'cron', expression: '30 8 * * 1-5' });
     });
 
+    test("a $ in the prompt offers the agent's skills in this project, and the pick goes with the routine", async () => {
+        machine.answer('routine.skills', () => ({
+            skills: [
+                { name: 'html-report', description: 'Writes a report as a page.', source: 'user' as const },
+                { name: 'release-notes', description: 'Drafts release notes.', source: 'project' as const }
+            ]
+        }));
+        await openStage();
+        await clickOn(buttonWithText('New routine', page.host));
+        await until(() => document.querySelector('form[aria-label="New routine"]') !== null);
+        const form = document.querySelector('form[aria-label="New routine"]')!;
+        await until(() => machine.requests('routine.skills').length > 0);
+        expect(machine.requests('routine.skills')[0]).toEqual({ projectId: 'project-atlas', provider: 'claude' });
+
+        await typePrompt(form, 'Summarize the week with $ht');
+        const option = (name: string): Element | undefined => [...form.querySelectorAll('[role="option"]')].find((row) => row.textContent?.includes(name));
+        await until(() => option('$html-report') !== undefined);
+        expect(option('$release-notes')).toBeUndefined();
+        // Picked with the keyboard: happy-dom builds an event's path after the pick took the row away, which reads as a press outside the dialog.
+        await pressKey(promptEditor(form).contentDOM, 'Enter');
+        expect(promptEditor(form).state.doc.toString()).toBe('Summarize the week with $html-report ');
+        expect(form.querySelector('[role="option"]')).toBeNull();
+
+        await clickOn(buttonWithText('Create routine', form));
+        await until(() => machine.requests('routine.save').length === 1);
+        expect(machine.requests('routine.save')[0]!.routine).toMatchObject({
+            kind: 'agent',
+            prompt: 'Summarize the week with $html-report',
+            picked: { skills: ['html-report'] }
+        });
+    });
+
     test('a routine through the day sends its days, its step and its first and last time', async () => {
         await openStage();
         await clickOn(buttonWithText('New routine', page.host));
@@ -344,7 +389,7 @@ describe('Routines', () => {
                 field.dispatchEvent(new Event('input', { bubbles: true }));
             });
         };
-        await type(form.querySelector('textarea')!, 'Check the build.');
+        await typePrompt(form, 'Check the build.');
         await clickOn(buttonWithText('Through the day', form));
         await until(() => form.querySelector('[aria-label="How often"]') !== null);
         await clickOn(buttonWithText('Sat', form));

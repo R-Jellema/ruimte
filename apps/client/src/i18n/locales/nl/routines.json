@@ -204,6 +204,7 @@
     "titlePlaceholder": "Ochtendsamenvatting",
     "prompt": "Prompt",
     "promptPlaceholder": "Wat moet de agent elke keer doen?",
+    "promptHint": "Typ / voor een commando, $ voor een skill, @ voor een bestand en # voor een view.",
     "agent": "Agent",
     "noAgent": "Er is geen agent geïnstalleerd op deze machine.",
     "mode": "Modus",

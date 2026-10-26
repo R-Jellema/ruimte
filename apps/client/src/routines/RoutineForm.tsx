@@ -2,18 +2,22 @@ import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Package } from 'lucide-react';
 import { nextDue, parseCron, type Routine, type RoutineKind, type RoutinePerRun, type RoutineSchedule, type RuntimeMode } from '@ruimte/contracts';
-import { ModelPicker } from '@adecore/agents-react/chat/ui';
-import { RUNTIME_MODES, runtimeModeLabel } from '@adecore/agents-react/chat';
-import { Button, Checkbox, Field, FieldHint, FormError, Icon, Input, Segmented, Select, TextArea, messageOf } from '@adecore/ui';
+import { ModelPicker, PromptEditor } from '@adecore/agents-react/chat/ui';
+import { RUNTIME_MODES, runtimeModeLabel, type Referables } from '@adecore/agents-react/chat';
+import { Button, Checkbox, Field, FieldHint, FormError, Icon, Input, Segmented, Select, messageOf } from '@adecore/ui';
 import { formatDateTime, localTimeZone } from '@adecore/ui/format';
+import { useReferables } from '@/chat/referables';
 import { useLaunches } from '@/launches/state';
 import { firstLine, useAgentPick, type AgentPick } from '@/routines/agent-pick';
 import { freshRoutineId } from '@/routines/agenda';
 import type { RoutineFormRequest } from '@/routines/form-state';
+import { promptDraftOf, routinePicked } from '@/routines/prompt-picks';
+import { useRoutineSkills } from '@/routines/prompt-skills';
 import { useRoutineLists } from '@/routines/routine-list';
 import { routineIdsTaken, saveRoutine } from '@/routines/routine-save';
 import { cronProblemWords, everyWords, weekdayWords } from '@/routines/words';
 import { endpointKey } from '@/state/keys';
+import { useProject } from '@/state/project';
 import { useProjectList } from '@/state/project-list';
 
 const DAYS = [1, 2, 3, 4, 5, 6, 7];
@@ -24,6 +28,8 @@ const CLOCK = /^([01]\d|2[0-3]):[0-5]\d$/;
 const STEPS = [15, 30, 60, 120, 180, 240];
 
 const NEXT_SHOWN = 3;
+
+const NO_REFERABLES: Referables = { items: [], chatsOnly: false };
 
 /* The next few times an expression runs after `from`, so a person sees what the fields mean. */
 function nextTimes(expression: string, from: number, timeZone: string): number[] {
@@ -69,7 +75,10 @@ export function RoutineForm({
     const [projectId, setProjectId] = useState(request.projectId);
     const [title, setTitle] = useState(editing?.title ?? '');
     const [kind, setKind] = useState<RoutineKind>(editing?.kind ?? 'agent');
-    const [prompt, setPrompt] = useState(editing?.kind === 'agent' ? editing.prompt : (request.prompt ?? ''));
+    const [promptDraft, setPromptDraft] = useState(() =>
+        editing?.kind === 'agent' ? promptDraftOf(editing.prompt, editing.picked) : promptDraftOf(request.prompt ?? '', undefined)
+    );
+    const prompt = promptDraft.text;
     const [pick, setPick] = useState<AgentPick | null>(
         editing?.kind === 'agent' ? { provider: editing.provider, selection: editing.selection } : (request.agent ?? null)
     );
@@ -99,6 +108,13 @@ export function RoutineForm({
     });
     const launches = useLaunches((s) => s.documents[endpointKey(endpointId, projectId)]?.launches ?? null);
     const { pickable, provider, selection } = useAgentPick(pick);
+    const providerInfo = pickable.find((entry) => entry.kind === provider);
+    const skills = useRoutineSkills(endpointId, projectId, kind === 'agent' ? provider : null);
+    const openProjectId = useProject((s) => s.current?.projectId ?? null);
+    const openReferables = useReferables(endpointId, '');
+    // `#` reaches the views of the project open here; another project's views this window does not know.
+    const referables = openProjectId === projectId ? openReferables : null;
+    const folder = projects.find((row) => row.summary.projectId === projectId)?.summary.folder ?? null;
     const shownTitle = title.trim() !== '' ? title.trim() : kind === 'agent' ? firstLine(prompt) : kind === 'command' ? firstLine(command) : '';
     const cron = parseCron(expression);
     const timeZone = machineTimeZone ?? localTimeZone() ?? 'UTC';
@@ -136,7 +152,23 @@ export function RoutineForm({
         // What a newer release stored on the routine rides along unchanged.
         const kept = editing?.kind === kind ? editing : {};
         if (kind === 'agent') {
-            return { ...kept, ...base, kind, prompt: prompt.trim(), provider: provider!, ...(selection === undefined ? {} : { selection }), mode, perRun };
+            const picked = routinePicked(promptDraft, referables);
+            const routine: Routine = {
+                ...kept,
+                ...base,
+                kind,
+                prompt: prompt.trim(),
+                provider: provider!,
+                ...(selection === undefined ? {} : { selection }),
+                mode,
+                perRun,
+                picked
+            };
+            // Absent rather than empty, so a routine without picks keeps the approval it had.
+            if (picked === undefined) {
+                delete routine.picked;
+            }
+            return routine;
         }
         if (kind === 'command') {
             return { ...kept, ...base, kind, command: command.trim(), ...(cwd.trim() === '' ? {} : { cwd: cwd.trim() }) };
@@ -210,8 +242,19 @@ export function RoutineForm({
                             </Field>
                         )
                     )}
-                    <Field label={t('form.prompt')}>
-                        <TextArea rows={4} value={prompt} placeholder={t('form.promptPlaceholder')} onChange={(e) => setPrompt(e.target.value)} />
+                    <Field label={t('form.prompt')} group hint={t('form.promptHint')}>
+                        <PromptEditor
+                            value={promptDraft}
+                            onChange={setPromptDraft}
+                            label={t('form.prompt')}
+                            placeholder={t('form.promptPlaceholder')}
+                            skills={skills}
+                            slashCommands={skills.map((skill) => skill.name)}
+                            goals={providerInfo?.capabilities.goals !== undefined}
+                            cwd={providerInfo?.capabilities.mentions === false ? null : folder}
+                            referables={referables ?? NO_REFERABLES}
+                            providerName={providerInfo?.name}
+                        />
                     </Field>
                     <Field label={t('form.mode')} group>
                         <Select

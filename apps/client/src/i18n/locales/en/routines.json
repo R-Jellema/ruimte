@@ -204,6 +204,7 @@
     "titlePlaceholder": "Morning summary",
     "prompt": "Prompt",
     "promptPlaceholder": "What should the agent do each time?",
+    "promptHint": "Type / for a command, $ for a skill, @ for a file and # for a view.",
     "agent": "Agent",
     "noAgent": "No agent is installed on this machine.",
     "mode": "Mode",
