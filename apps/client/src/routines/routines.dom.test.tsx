@@ -3,7 +3,9 @@ import { act } from 'react';
 import { REQUEST_SCHEMAS, zonedTime, type ProjectCanvasView, type ProviderInfo, type RequestType, type RoutineEntry, type RoutineRun } from '@ruimte/contracts';
 import { isApplePlatform } from '@/desktop/bridge';
 import { useRoutinesStage } from '@/routines/stage';
+import { liveCanvas } from '@/state/canvas';
 import { useUi } from '@/state/ui';
+import { chatInfoOf } from '../../testing/chat-info';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { clickOn, mount, pressKey, until, type Mounted } from '../../testing/dom';
@@ -216,6 +218,33 @@ describe('Routines', () => {
             perRun: 'new',
             schedule: { kind: 'weekly', days: [2, 3, 4], time: '09:00' }
         });
+    });
+
+    test('the keys of the canvas under it do nothing while it is open', async () => {
+        await openStage();
+        await pressKey(document.body, 'n', { altKey: true });
+        expect(Object.keys(liveCanvas('main')?.nodes ?? {})).toEqual([]);
+
+        await clickOn(page.host.querySelector('button[aria-label="Back to Main"]'));
+        await until(() => stage() === null);
+        await pressKey(document.body, 'n', { altKey: true });
+        await until(() => Object.values(liveCanvas('main')?.nodes ?? {}).some((node) => node.kind === 'note'));
+    });
+
+    test('a run that waits says what its chat asks, once the machine said so', async () => {
+        const waiting = run('sun', 25, { state: 'needs-you', chatId: 'routine-chat-sun', at: zonedTime(2026, 10, 25, 9, 0, AMS) });
+        routines = [{ ...MORNING, runs: [waiting, ...MORNING.runs] }];
+        await openStage();
+        await act(async () => machine.emit('routine.changed', { projectId: 'project-atlas' }));
+        const needsYou = (): string => page.host.querySelector('section[aria-label="Needs you"]')?.textContent ?? '';
+        await until(() => needsYou().includes('Waits since'));
+        const question = { id: 'q1', header: 'Branch', question: 'Which branch should the summary cover?', choices: [], multiSelect: false };
+        const info = chatInfoOf('routine-chat-sun', {
+            status: 'needs-you',
+            requests: [{ requestId: 'r1', itemId: 'i1', kind: 'question', createdAt: waiting.at, question: { questions: [question] } }]
+        });
+        await act(async () => machine.emit('chat.status', { chatId: 'routine-chat-sun', info }));
+        await until(() => needsYou().includes('Which branch should the summary cover?'));
     });
 
     test('a machine without routines shows no clock', async () => {

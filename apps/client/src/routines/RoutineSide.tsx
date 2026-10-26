@@ -10,7 +10,9 @@ import { refreshRoutines } from '@/routines/routine-list';
 import { showRoutine } from '@/routines/stage';
 import { scheduleWords, weekdayClock } from '@/routines/words';
 import { useRoutineWhat } from '@/routines/routine-what';
+import { endpointKey } from '@/state/keys';
 import { machineTransport } from '@/transport';
+import { useChats } from '@adecore/agents-react/state';
 
 /* The right column of the week: what waits for approval here, the runs waiting on a person, and what the blocks mean. */
 export function RoutineSide({ endpointId, entries, grouped, timeZone }: { endpointId: string; entries: RoutineEntry[]; grouped: boolean; timeZone: string }) {
@@ -50,7 +52,7 @@ export function RoutineSide({ endpointId, entries, grouped, timeZone }: { endpoi
                             {grouped && <OutputProjectGlyph endpointId={endpointId} projectId={entry.projectId} />}
                             <span className="flex min-w-0 flex-col">
                                 <span className="truncate text-sm text-text">{entry.routine.title}</span>
-                                <span className="text-xs text-text-muted">{t('side.waitsSince', { time: weekdayClock(run.at, timeZone) })}</span>
+                                <WaitingFor endpointId={endpointId} chatId={run.chatId} since={weekdayClock(run.at, timeZone)} />
                             </span>
                         </button>
                     ))
@@ -66,6 +68,17 @@ export function RoutineSide({ endpointId, entries, grouped, timeZone }: { endpoi
             </section>
         </aside>
     );
+}
+
+/*
+ * What a waiting run asks, from the status of its chat that every client hears, since the routine's own
+ * wire carries no question. Until that status is here it says since when the run waits.
+ */
+function WaitingFor({ endpointId, chatId, since }: { endpointId: string; chatId: string | undefined; since: string }) {
+    const { t } = useTranslation('routines');
+    const request = useChats((s) => (chatId === undefined ? undefined : s.statusByKey[endpointKey(endpointId, chatId)]?.info.requests?.[0]));
+    const asked = request?.question?.questions[0]?.question ?? request?.approval?.subject;
+    return <span className="line-clamp-2 text-xs break-words text-text-muted">{asked || t('side.waitsSince', { time: since })}</span>;
 }
 
 function ApprovalCard({ endpointId, entry, grouped }: { endpointId: string; entry: RoutineEntry; grouped: boolean }) {
