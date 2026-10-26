@@ -470,7 +470,9 @@ const routineId = z.string().min(1).describe('The id of a routine, from ruimte-c
 /* What an agent may give a routine; the daemon fills the rest from the caller and from what the routine was. */
 const routineFields = {
     title: z.string().trim().min(1).max(ROUTINE_LIMITS.title).describe('What the person sees the routine and the artifact of its runs as'),
-    schedule: RoutineScheduleSchema.describe('When it runs, in the time zone of this machine: once on a day at a time, or every week on some days at a time'),
+    schedule: RoutineScheduleSchema.describe(
+        'When it runs, in the time zone of this machine: once on a day at a time, every week on some days at a time, or on some days every so many minutes from one time to another'
+    ),
     kind: z.enum(['agent', 'command', 'launch']).describe('What each run starts: an agent with a prompt, a command in a shell, or a launch of the project'),
     prompt: z.string().trim().min(1).max(ROUTINE_LIMITS.prompt).describe('What the agent of every run is asked'),
     provider: AgentKindSchema.describe('The CLI of the agent; your own when omitted'),

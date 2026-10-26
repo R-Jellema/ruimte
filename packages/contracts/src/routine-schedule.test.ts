@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { dueTimesBetween, nextDue, wallTimeOf, zonedTime } from './routine-schedule.ts';
+import { RoutineScheduleSchema } from './routine.ts';
 
 const AMS = 'Europe/Amsterdam';
 
@@ -51,5 +52,89 @@ describe('nextDue', () => {
         const times = dueTimesBetween(schedule, zonedTime(2026, 10, 24, 0, 0, AMS), zonedTime(2026, 10, 26, 23, 0, AMS), AMS);
         expect(times.map(wall)).toEqual(['2026-10-24 09:00', '2026-10-25 09:00', '2026-10-26 09:00']);
         expect(times[1]! - times[0]!).toBe(25 * 3_600_000);
+    });
+});
+
+describe('an interval', () => {
+    const hourly = { kind: 'interval' as const, days: [1, 2, 3, 4, 5], every: 60, from: '09:00', to: '17:00' };
+
+    test('runs from its start up to and including its end', () => {
+        const monday = zonedTime(2026, 10, 26, 0, 0, AMS);
+        const times = dueTimesBetween(hourly, monday, zonedTime(2026, 10, 26, 23, 59, AMS), AMS);
+        expect(times.map(wall)).toEqual([
+            '2026-10-26 09:00',
+            '2026-10-26 10:00',
+            '2026-10-26 11:00',
+            '2026-10-26 12:00',
+            '2026-10-26 13:00',
+            '2026-10-26 14:00',
+            '2026-10-26 15:00',
+            '2026-10-26 16:00',
+            '2026-10-26 17:00'
+        ]);
+    });
+
+    test('after its last time of a day it is due on its next day', () => {
+        const friday = zonedTime(2026, 10, 23, 17, 0, AMS);
+        expect(wall(nextDue(hourly, friday, AMS)!)).toBe('2026-10-26 09:00');
+        expect(wall(nextDue(hourly, friday - 1, AMS)!)).toBe('2026-10-23 17:00');
+        expect(wall(nextDue(hourly, zonedTime(2026, 10, 23, 12, 20, AMS), AMS)!)).toBe('2026-10-23 13:00');
+    });
+
+    test('keeps its steps when the end is not on one', () => {
+        const schedule = { kind: 'interval' as const, days: [1], every: 120, from: '08:30', to: '13:00' };
+        const times = dueTimesBetween(schedule, zonedTime(2026, 10, 26, 0, 0, AMS), zonedTime(2026, 10, 27, 0, 0, AMS), AMS);
+        expect(times.map(wall)).toEqual(['2026-10-26 08:30', '2026-10-26 10:30', '2026-10-26 12:30']);
+    });
+
+    test('the night the clock goes back runs the doubled hour once', () => {
+        // 25 Oct 2026: 03:00 CEST goes back to 02:00 CET, so 02:00 to 02:59 happens twice.
+        const schedule = { kind: 'interval' as const, days: [7], every: 30, from: '01:00', to: '04:00' };
+        const times = dueTimesBetween(schedule, zonedTime(2026, 10, 24, 12, 0, AMS), zonedTime(2026, 10, 25, 12, 0, AMS), AMS);
+        expect(times.map((at) => new Date(at).toISOString().slice(11, 16))).toEqual(['23:00', '23:30', '00:00', '00:30', '02:00', '02:30', '03:00']);
+        expect(times.map(wall)).toEqual([
+            '2026-10-25 01:00',
+            '2026-10-25 01:30',
+            '2026-10-25 02:00',
+            '2026-10-25 02:30',
+            '2026-10-25 03:00',
+            '2026-10-25 03:30',
+            '2026-10-25 04:00'
+        ]);
+        let cursor = zonedTime(2026, 10, 24, 12, 0, AMS);
+        const stepped: number[] = [];
+        for (let i = 0; i < times.length; i++) {
+            cursor = nextDue(schedule, cursor, AMS)!;
+            stepped.push(cursor);
+        }
+        expect(stepped).toEqual(times);
+    });
+
+    test('the night the clock goes forward runs a skipped time after the skip, once', () => {
+        // 29 Mar 2026: 02:00 CET jumps to 03:00 CEST, so 02:00 and 02:30 meet 03:00 and 03:30.
+        const schedule = { kind: 'interval' as const, days: [7], every: 30, from: '01:00', to: '04:00' };
+        const times = dueTimesBetween(schedule, zonedTime(2026, 3, 28, 12, 0, AMS), zonedTime(2026, 3, 29, 12, 0, AMS), AMS);
+        expect(times.map(wall)).toEqual(['2026-03-29 01:00', '2026-03-29 01:30', '2026-03-29 03:00', '2026-03-29 03:30', '2026-03-29 04:00']);
+        const lone = { kind: 'interval' as const, days: [7], every: 60, from: '02:30', to: '04:30' };
+        const after = dueTimesBetween(lone, zonedTime(2026, 3, 28, 12, 0, AMS), zonedTime(2026, 3, 29, 12, 0, AMS), AMS);
+        expect(after.map(wall)).toEqual(['2026-03-29 03:30', '2026-03-29 04:30']);
+    });
+
+    test('caps what it hands back', () => {
+        const quarterly = { kind: 'interval' as const, days: [1, 2, 3, 4, 5, 6, 7], every: 15, from: '00:00', to: '23:45' };
+        const monday = zonedTime(2026, 10, 26, 0, 0, AMS);
+        expect(dueTimesBetween(quarterly, monday, monday + 7 * 86_400_000, AMS, 20)).toHaveLength(20);
+        expect(dueTimesBetween(quarterly, monday, monday + 7 * 86_400_000, AMS, 1000)).toHaveLength(7 * 96);
+    });
+});
+
+describe('RoutineScheduleSchema', () => {
+    test('takes an interval in quarter hours with its end after its start', () => {
+        const interval = { kind: 'interval', days: [1], every: 30, from: '09:00', to: '17:00' };
+        expect(RoutineScheduleSchema.safeParse(interval).success).toBe(true);
+        expect(RoutineScheduleSchema.safeParse({ ...interval, every: 20 }).success).toBe(false);
+        expect(RoutineScheduleSchema.safeParse({ ...interval, every: 735 }).success).toBe(false);
+        expect(RoutineScheduleSchema.safeParse({ ...interval, to: '09:00' }).success).toBe(false);
+        expect(RoutineScheduleSchema.safeParse({ ...interval, days: [] }).success).toBe(false);
     });
 });

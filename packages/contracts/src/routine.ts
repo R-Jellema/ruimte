@@ -28,9 +28,22 @@ const DaySchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])
 // ISO weekdays: 1 is Monday, 7 is Sunday.
 export const WeekdaySchema = z.number().int().min(1).max(7);
 
+// Minutes between the runs of an interval: a quarter hour at the least, half a day at the most.
+export const ROUTINE_INTERVAL = { min: 15, max: 720, step: 15 } as const;
+
 export const RoutineScheduleSchema = z.discriminatedUnion('kind', [
     z.looseObject({ kind: z.literal('once'), date: DaySchema, time: ClockTimeSchema }),
-    z.looseObject({ kind: z.literal('weekly'), days: z.array(WeekdaySchema).min(1).max(7), time: ClockTimeSchema })
+    z.looseObject({ kind: z.literal('weekly'), days: z.array(WeekdaySchema).min(1).max(7), time: ClockTimeSchema }),
+    // From `from` on every `every` minutes, up to and including `to`: 09:00 to 17:00 every 60 runs nine times a day.
+    z
+        .looseObject({
+            kind: z.literal('interval'),
+            days: z.array(WeekdaySchema).min(1).max(7),
+            every: z.number().int().min(ROUTINE_INTERVAL.min).max(ROUTINE_INTERVAL.max).multipleOf(ROUTINE_INTERVAL.step),
+            from: ClockTimeSchema,
+            to: ClockTimeSchema
+        })
+        .refine((schedule) => schedule.to > schedule.from, { message: 'to comes after from', path: ['to'] })
 ]);
 export type RoutineSchedule = z.infer<typeof RoutineScheduleSchema>;
 
