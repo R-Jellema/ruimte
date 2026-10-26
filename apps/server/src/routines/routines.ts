@@ -172,8 +172,8 @@ function formatDue(at: number, timeZone: string): string {
 }
 
 /*
- * The instructions a run of an agent routine starts with: the person's prompt, then where its result
- * goes. A routine's result is a version of one artifact, never loose files in the project.
+ * The instructions a run of an agent routine starts with: the person's prompt, then where a result goes
+ * when it has one. A routine's result is a version of one artifact, never loose files in the project.
  */
 export function runBrief(
     routine: AgentRoutine,
@@ -186,7 +186,7 @@ export function runBrief(
         '',
         '---',
         `This is a run of the routine "${routine.title}", which Ruimte started ${kind === 'manual' ? 'by hand' : kind === 'caught-up' ? `late, after this machine woke (it was due ${when})` : `at ${when}`}.`,
-        `Deliver the result of this run to Output, never as files in the project: write it to a file outside the project folder, such as a Markdown report in a temporary folder, and publish it with \`ruimte-context artifact publish --key ${routine.outputKey} --title ${JSON.stringify(routine.title)} --file <path>\`. Every run adds one version of that artifact.`
+        `When this run has a result to keep, such as a report, deliver it to Output and never as files in the project: write it to a file outside the project folder, such as a Markdown report in a temporary folder, and publish it with \`ruimte-context artifact publish --key ${routine.outputKey} --title ${JSON.stringify(routine.title)} --file <path>\`. Every run that publishes adds one version of that artifact. A run with nothing to keep publishes nothing.`
     ];
     if (previous !== null) {
         lines.push(
