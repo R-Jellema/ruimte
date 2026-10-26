@@ -196,10 +196,10 @@ struct GitChangesList: View {
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button(group == "staged" ? "Unstage" : group == "conflicted" ? "Stage as resolved" : "Stage") {
                 Task { await stage(checkout, [file], group) }
-            }.tint(MobileStyle.statusRunning).disabled(repositories.busy)
+            }.tint(MobileStyle.swipeAction).disabled(repositories.busy)
             if group != "conflicted" {
                 Button("Discard", role: .destructive) { discard = (checkout.path, path) }
-                    .tint(MobileStyle.statusError).disabled(repositories.busy)
+                    .tint(MobileStyle.swipeDestructive).disabled(repositories.busy)
             }
         }
         .contextMenu {

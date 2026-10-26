@@ -541,17 +541,17 @@ private struct PlanStepRow: View {
                 Button(String(localized: "Passed"), lucideIcon: "circle-check") { context.set(step, .done) }.tint(
                     MobileStyle.positive)
                 Button(String(localized: "Info"), lucideIcon: "info") { context.set(step, .info) }.tint(
-                    MobileStyle.muted)
+                    MobileStyle.swipeQuiet)
             }
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             if plan.kind == .test && maySet {
                 Button(String(localized: "Failed"), lucideIcon: "circle-x") { context.set(step, .failed) }.tint(
-                    MobileStyle.statusError)
+                    MobileStyle.swipeDestructive)
                 Button(String(localized: "Warning"), lucideIcon: "triangle-alert") { context.set(step, .warning) }
                     .tint(MobileStyle.statusNeedsYou)
                 Button(String(localized: "Skipped"), lucideIcon: "circle-minus") { context.set(step, .skipped) }.tint(
-                    MobileStyle.muted)
+                    MobileStyle.swipeQuiet)
             }
         }
         .contextMenu { menu }

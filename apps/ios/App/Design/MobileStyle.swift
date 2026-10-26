@@ -41,6 +41,11 @@ enum MobileStyle {
     static let fill = Color(uiColor: translucent(dark: 0.08, light: 0.05))
     /// The ground of a code line inside a card.
     static let subtleFill = Color(uiColor: translucent(dark: 0.05, light: 0.035))
+    /// The grounds of a swipe action. The system draws a swipe's label white, so these keep the light value in both
+    /// appearances, where the lighter dark values would leave that label below 3 to 1.
+    static let swipeAction = RuimteColorToken.color(RuimteColors.statusRunning.light)
+    static let swipeQuiet = RuimteColorToken.color(RuimteColors.muted.light)
+    static let swipeDestructive = RuimteColorToken.color(RuimteColors.statusError.light)
     static let skill = Color(uiColor: adaptive(RuimteColors.skill))
     static let chartClaude = Color(uiColor: adaptive(RuimteColors.chartClaude))
     static let chartCodex = Color(uiColor: adaptive(RuimteColors.chartCodex))

@@ -119,7 +119,7 @@ struct ChatMessageIndex: View {
         .swipeActions(edge: .trailing) {
             if presentation.forkable, let turnID = mark.turnID, presentation.forkRefusal(turnID: turnID) == nil {
                 Button(String(localized: "Fork"), lucideIcon: "git-fork") { fork(turnID) }
-                    .tint(MobileStyle.statusRunning)
+                    .tint(MobileStyle.swipeAction)
             }
         }
     }
