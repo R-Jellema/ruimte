@@ -62,7 +62,8 @@ struct MachineProjectsPage: View {
     var body: some View {
         MobileList {
             if session.connected || list.chats != nil {
-                Section("Chats") {
+                Section {
+                    MachineProjectsHeading(title: String(localized: "Chats"))
                     if session.connected {
                         NewChatRow(machines: [session.machine]) { _ in newChat = true }
                     }
@@ -79,7 +80,8 @@ struct MachineProjectsPage: View {
                     }
                 }
             }
-            Section("Projects") {
+            Section {
+                MachineProjectsHeading(title: String(localized: "Projects"))
                 ForEach(
                     list.listed.filter {
                         $0["available"] != .bool(false)
@@ -135,6 +137,19 @@ struct MachineProjectsPage: View {
     }
 }
 
+/// The title of a group of the machine's projects. A row and not the section's header: a plain list pins its headers
+/// under the bar.
+private struct MachineProjectsHeading: View {
+    let title: String
+
+    var body: some View {
+        Text(verbatim: title).font(.caption.weight(.semibold)).foregroundStyle(MobileStyle.muted)
+            .padding(.top, MobileSpacing.large)
+            .listRowInsets(EdgeInsets(top: 0, leading: 28, bottom: MobileSpacing.xSmall, trailing: 28))
+            .accessibilityAddTraits(.isHeader)
+    }
+}
+
 /// Opens a folder on the machine as a project, and the project once it is there.
 struct OpenFolderSheet: View {
     let session: SharedMachineSession
@@ -156,9 +171,9 @@ struct OpenFolderSheet: View {
             }
             .navigationTitle("Open project")
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button(role: .close) { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Open") { Task { await open() } }
+                    Button(role: .confirm) { Task { await open() } }
                         .disabled(work.busy || folder.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }

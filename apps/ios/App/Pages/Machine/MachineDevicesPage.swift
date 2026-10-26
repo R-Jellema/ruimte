@@ -35,10 +35,10 @@ struct MachineDevicesPage: View {
             {
                 grid
             } else {
-                MobileForm {
+                MobileList {
                     content
                     if let problem = problem ?? devices.problem {
-                        Section { Label(problem, lucideIcon: "triangle-alert").foregroundStyle(MobileStyle.statusError).font(.callout) }
+                        MachineProblemRow(problem: problem).listRowInsets(NowSections.cardInsets)
                     }
                 }
             }
@@ -89,7 +89,7 @@ struct MachineDevicesPage: View {
                                         row(device)
                                     }
                                 }
-                                .mobileCard(padding: 12)
+                                .padding(.vertical, MobileSpacing.small)
                             }
                         }
                     }
@@ -98,9 +98,10 @@ struct MachineDevicesPage: View {
                     Text(devices.notes.joined(separator: "\n")).font(.footnote).foregroundStyle(MobileStyle.muted)
                 }
             }
-            .padding(20)
+            .padding(.horizontal, MobileSpacing.margin)
+            .padding(.vertical, 20)
         }
-        .background(MobileStyle.canvas)
+        .modifier(MobilePageSurface())
     }
 
     @ViewBuilder private var content: some View {
@@ -117,37 +118,43 @@ struct MachineDevicesPage: View {
                 String(localized: "No devices"), lucideIcon: "smartphone",
                 description: Text(([String(localized: "No devices on this machine.")] + devices.notes).joined(separator: "\n")))
         } else {
+            // Headings are rows and not the sections' headers: a plain list pins its headers under the bar.
             ForEach(devices.groups) { group in
                 Section {
-                    ForEach(group.devices) { device in
-                        if device.booted && device.canStream {
-                            RunningDeviceCard(
-                                client: session.rpc, device: device, busy: devices.changing[device.id] != nil,
-                                opening: opening == device.id, projects: projects.listed,
-                                open: { project in Task { await open(device, in: project) } },
-                                shutdown: { Task { await devices.shutdown(device) } })
-                        } else {
-                            row(device)
+                    MobileSectionHeader(title: group.title)
+                        .padding(.top, group.id == devices.groups.first?.id ? 0 : MobileSpacing.large)
+                    MobileRowGroup(items: group.devices) { device in
+                        Group {
+                            if device.booted && device.canStream {
+                                RunningDeviceCard(
+                                    client: session.rpc, device: device, busy: devices.changing[device.id] != nil,
+                                    opening: opening == device.id, projects: projects.listed,
+                                    open: { project in Task { await open(device, in: project) } },
+                                    shutdown: { Task { await devices.shutdown(device) } })
+                            } else {
+                                row(device)
+                            }
                         }
-                    }
-                } header: {
-                    Text(group.title)
-                } footer: {
-                    if group.id == devices.groups.last?.id && !devices.notes.isEmpty {
-                        Text(devices.notes.joined(separator: "\n"))
+                        .modifier(MachinePageRow())
                     }
                 }
+            }
+            if !devices.notes.isEmpty {
+                Text(devices.notes.joined(separator: "\n")).font(.footnote).foregroundStyle(MobileStyle.muted)
+                    .listRowInsets(MachinesPage.textInsets)
             }
         }
     }
 
     private func row(_ device: MachineDevice) -> some View {
-        HStack(spacing: MobileSpacing.medium) {
+        let changing = devices.changing[device.id] != nil || device.state == "transitioning"
+        return HStack(spacing: MobileSpacing.medium) {
             HStack(alignment: .firstTextBaseline, spacing: MobileSpacing.medium) {
-                MobileStatusGlyph(tone: .idle, symbol: "smartphone").centeredOnFirstLine(of: .body)
-                    .accessibilityHidden(true)
+                MobileStatusGlyph(tone: changing ? .working : .idle, symbol: "smartphone")
+                    .centeredOnFirstLine(of: .subheadline)
+                    .accessibilityHidden(!changing)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(device.name).lineLimit(1)
+                    Text(device.name).font(.subheadline).foregroundStyle(MobileStyle.text).lineLimit(1)
                     Text(
                         device.displayRuntime.isEmpty
                             ? device.stateText : "\(device.displayRuntime) · \(device.stateText)"
@@ -157,21 +164,18 @@ struct MachineDevicesPage: View {
                 }
             }
             Spacer(minLength: 8)
-            if devices.changing[device.id] != nil || device.state == "transitioning" {
-                ProgressView().accessibilityLabel("Changing state")
-            } else if device.state == "shutdown" && device.canBoot {
+            if !changing && device.state == "shutdown" && device.canBoot {
                 Button {
                     Task { await devices.boot(device) }
                 } label: {
                     Label(String(localized: "Start"), lucideIcon: "play")
                 }
                 .buttonStyle(.mobileCapsuleSmall)
-            } else if device.waitsOnPerson {
+            } else if !changing && device.waitsOnPerson {
                 Button("Retry") { Task { await devices.load() } }
                     .buttonStyle(.mobileCapsuleSmall)
             }
         }
-        .padding(.vertical, 2)
         .contextMenu { menu(device) }
     }
 

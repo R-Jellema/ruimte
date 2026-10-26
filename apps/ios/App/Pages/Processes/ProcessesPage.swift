@@ -47,22 +47,28 @@ struct ProcessesPage: View {
     private var wide: Bool { UIDevice.current.userInterfaceIdiom == .pad && sizeClass == .regular }
 
     private var form: some View {
-        MobileForm {
-            Section {
+        List {
+            Group {
                 Picker("Which processes", selection: $model.scope) {
                     Text("Ruimte").tag("ruimte")
                     Text("All processes").tag("all")
                 }
                 .pickerStyle(.segmented)
+                .padding(.bottom, MobileSpacing.small)
+                if let problem = model.problem {
+                    Label(problem, lucideIcon: "triangle-alert").font(.subheadline)
+                        .foregroundStyle(MobileStyle.statusError)
+                }
+                content
             }
             .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets())
-            if let problem = model.problem {
-                Section { Label(problem, lucideIcon: "triangle-alert").foregroundStyle(MobileStyle.statusError) }
-            }
-            content
+            .listRowSeparator(.hidden)
+            .listSectionSeparator(.hidden)
+            .listRowInsets(
+                EdgeInsets(top: 2, leading: MobileSpacing.margin, bottom: 2, trailing: MobileSpacing.margin))
         }
-        .listSectionSpacing(12)
+        .modifier(MobileSidebarList(minimumRowHeight: 0))
+        .foregroundStyle(MobileStyle.text)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
@@ -108,16 +114,14 @@ struct ProcessesPage: View {
                 .frame(maxHeight: 150)
                 ForEach(model.alerts) { alert in
                     alertRow(alert, now: sample.at)
-                        .padding(.horizontal, 12).padding(.vertical, 6)
-                        .background(MobileStyle.statusNeedsYou.opacity(0.1), in: .rect(cornerRadius: 14))
                 }
                 processTable(sample)
             } else {
                 content.frame(maxHeight: .infinity)
             }
         }
-        .padding(.horizontal, 20).padding(.top, 8)
-        .background(MobileStyle.canvas)
+        .padding(.horizontal, MobileSpacing.margin).padding(.top, 8)
+        .modifier(MobilePageSurface())
     }
 
     private func processTable(_ sample: ProcessSample) -> some View {
@@ -208,8 +212,6 @@ struct ProcessesPage: View {
             .accessibilityElement(children: .combine)
             Text(diskLine(machine)).font(.caption2).foregroundStyle(MobileStyle.muted).padding(.horizontal, 4)
         }
-        .listRowBackground(Color.clear)
-        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 4, trailing: 0))
     }
 
     /// Disk is the total for the processes Ruimte can read, so it is a line under the two charts and not one of them.
@@ -231,8 +233,10 @@ struct ProcessesPage: View {
                 ForEach(loose) { alert in alertRow(alert, now: sample.at) }
             }
         }
+        // Headings are rows and not the sections' headers: a plain list pins its headers under the bar.
         ForEach(sections) { section in
             Section {
+                sectionHeading(section, first: section.id == sections.first?.id)
                 ForEach(section.groups) { group in
                     groupRow(group, alerting: !(placed[group.id] ?? []).isEmpty)
                     ForEach(placed[group.id] ?? []) { alert in alertRow(alert, now: sample.at) }
@@ -240,18 +244,28 @@ struct ProcessesPage: View {
                         ForEach(group.processes) { process in processRow(process) }
                     }
                 }
-            } header: {
-                HStack {
-                    Label(section.title, lucideIcon: section.id.isEmpty ? "server" : "folder")
-                    Spacer()
-                    if section.id == sections.first?.id {
-                        Text("CPU").frame(width: 44, alignment: .trailing)
-                        Text("Memory").frame(width: 60, alignment: .trailing)
-                        Color.clear.frame(width: 11, height: 1)
-                    }
-                }
             }
         }
+    }
+
+    /// A project's name over its groups, with the names of the columns above the first.
+    private func sectionHeading(_ section: ProcessSection, first: Bool) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: MobileSpacing.small) {
+            Label(section.title, lucideIcon: section.id.isEmpty ? "server" : "folder")
+                .font(.subheadline.weight(.semibold)).foregroundStyle(MobileStyle.text)
+                .accessibilityAddTraits(.isHeader)
+            Spacer()
+            if first {
+                Group {
+                    Text("CPU").frame(width: 44, alignment: .trailing)
+                    Text("Memory").frame(width: 60, alignment: .trailing)
+                }
+                .font(.caption).foregroundStyle(MobileStyle.muted)
+                Color.clear.frame(width: 11, height: 1)
+            }
+        }
+        .padding(.top, MobileSpacing.large)
+        .padding(.bottom, MobileSpacing.xSmall)
     }
 
     private func groupRow(_ group: ProcessGroup, alerting: Bool) -> some View {
@@ -314,7 +328,7 @@ struct ProcessesPage: View {
         .font(.caption)
         .padding(.leading, 27 + CGFloat(process.depth) * 12)
         .padding(.vertical, 2)
-        .listRowBackground(highlighted ? MobileStyle.active : MobileStyle.panel)
+        .listRowBackground(highlighted ? MobileStyle.active : Color.clear)
         .contextMenu {
             if process.signalable { signalMenu(ProcessTarget(process)) }
         }
@@ -346,8 +360,7 @@ struct ProcessesPage: View {
             }
             .padding(.leading, 22)
         }
-        .padding(.vertical, 4)
-        .listRowBackground(MobileStyle.statusNeedsYou.opacity(0.1))
+        .padding(.vertical, MobileSpacing.small)
     }
 
     /// The two columns of a row; a process that keeps a core busy reads amber.
@@ -426,6 +439,6 @@ private struct ProcessChart: View {
             .frame(height: 40)
             .accessibilityLabel("\(label), \(headline)")
         }
-        .mobileCard(padding: 10)
+        .padding(.vertical, MobileSpacing.small)
     }
 }

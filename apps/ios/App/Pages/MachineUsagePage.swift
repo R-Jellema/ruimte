@@ -58,10 +58,10 @@ struct MachineUsagePage: View {
                 limitCards
                 provenance
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 24)
+            .padding(.horizontal, MobileSpacing.margin)
+            .padding(.bottom, MobileSpacing.xLarge)
         }
-        .background(MobileStyle.canvas)
+        .modifier(MobilePageSurface())
         .navigationTitle("Usage")
         .navigationSubtitle(machineName ?? "")
         .navigationBarTitleDisplayMode(.inline)
@@ -215,7 +215,6 @@ struct MachineUsagePage: View {
                         .minimumScaleFactor(0.7)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 12)
                 .padding(.vertical, 10)
                 .mobileCard(padding: 0)
                 .accessibilityElement(children: .combine)
@@ -228,7 +227,7 @@ struct MachineUsagePage: View {
         let top = rows.map { $0.value(metric) }.max() ?? 0
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("Breakdown").font(.headline)
+                Text("Breakdown").font(.subheadline.weight(.semibold))
                 Spacer()
                 Picker("Breakdown", selection: $breakdown) {
                     ForEach(UsageBreakdown.allCases) { Text($0.label).tag($0) }
@@ -274,7 +273,7 @@ struct MachineUsagePage: View {
     @ViewBuilder private var limitCards: some View {
         let sections = UsageLimitSection.sections(limits: limits, accounts: accounts)
         if !sections.isEmpty {
-            Text("Limits").font(.headline).padding(.top, 6)
+            Text("Limits").font(.subheadline.weight(.semibold)).padding(.top, MobileSpacing.small)
         }
         ForEach(sections) { section in
             VStack(alignment: .leading, spacing: 12) {
@@ -434,10 +433,10 @@ struct ShareBar: View {
     }
 }
 
-/// The opaque card the usage and machine pages put their groups on.
+/// A group of the usage page, straight on the page with its content on the page's margin.
 struct UsageCard: ViewModifier {
     func body(content: Content) -> some View {
-        content.mobileCard()
+        content.mobileCard(padding: 0).padding(.vertical, MobileSpacing.small)
     }
 }
 
