@@ -251,8 +251,8 @@ private struct UiMapRow: View {
     }
 
     private var content: some View {
-        HStack(alignment: .top, spacing: 10) {
-            UiMapChip(number: place.number, selected: selected, side: 20).padding(.top, 1)
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            UiMapChip(number: place.number, selected: selected, side: 20).centeredOnFirstLine(of: .subheadline)
             VStack(alignment: .leading, spacing: 2) {
                 Text(verbatim: place.name).font(.subheadline).foregroundStyle(MobileStyle.text)
                 if !place.detail.isEmpty {

@@ -63,9 +63,11 @@ struct ChatComposerAccessory: View {
             }
             if let issue = model.composition.validation ?? model.composition.storageProblem ?? model.composition.problem
             {
-                HStack(alignment: .top, spacing: 8) {
-                    Image(lucide: "circle-alert", size: 16)
-                    Text(issue).font(.footnote).frame(maxWidth: .infinity, alignment: .leading)
+                HStack(spacing: 8) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Image(lucide: "circle-alert", size: 16).centeredOnFirstLine(of: .footnote)
+                        Text(issue).font(.footnote).frame(maxWidth: .infinity, alignment: .leading)
+                    }
                     if model.composition.problem != nil && model.composition.validation == nil
                         && model.composition.storageProblem == nil
                     {

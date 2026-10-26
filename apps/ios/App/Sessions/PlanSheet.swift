@@ -348,10 +348,10 @@ private struct PlanHeader: View {
         let progress = plan.progress
         VStack(alignment: .leading, spacing: 6) {
             VStack(alignment: .leading, spacing: 6) {
-                HStack(alignment: .top, spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Image(lucide: "check-check", size: titleIcon)
                         .foregroundStyle(MobileStyle.muted)
-                        .padding(.top, 2)
+                        .centeredOnFirstLine(of: .body)
                     Text(plan.title).font(.body.weight(.medium)).foregroundStyle(MobileStyle.text)
                 }
                 if let summary = plan.summary {

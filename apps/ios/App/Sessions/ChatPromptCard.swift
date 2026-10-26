@@ -107,7 +107,7 @@ struct ChatPromptCard: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .top, spacing: 10) {
+            HStack(spacing: 10) {
                 Image(lucide: isApproval ? "hand" : "message-circle-question-mark")
                     .foregroundStyle(MobileStyle.statusNeedsYou).accessibilityHidden(true)
                 Text(title).font(.subheadline.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
@@ -266,7 +266,7 @@ struct ChatPromptCard: View {
     }
 
     private func option(_ label: String, description: String, selected: Bool) -> some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(spacing: 10) {
             Image(lucide: selected ? "circle-check" : multiSelect ? "square" : "circle")
                 .foregroundStyle(selected ? MobileStyle.accent : MobileStyle.muted).accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {

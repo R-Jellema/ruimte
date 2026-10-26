@@ -89,7 +89,7 @@ struct NotificationStepPage: View {
 
 private struct ExampleNotification: View {
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(spacing: 12) {
             AppIconImage(size: 38, lifted: false)
             VStack(alignment: .leading, spacing: 2) {
                 HStack {

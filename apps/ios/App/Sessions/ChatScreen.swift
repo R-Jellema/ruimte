@@ -712,10 +712,12 @@ struct SessionErrorBanner: View {
     var retryTitle = String(localized: "Retry")
     let retry: () -> Void
     var body: some View {
-        HStack(alignment: .top) {
-            Image(lucide: "circle-alert")
-            Text(message).font(.callout).frame(maxWidth: .infinity, alignment: .leading)
-            Button(retryTitle, action: retry)
+        HStack {
+            HStack(alignment: .firstTextBaseline) {
+                Image(lucide: "circle-alert").centeredOnFirstLine(of: .callout)
+                Text(message).font(.callout).frame(maxWidth: .infinity, alignment: .leading)
+            }
+            Button(retryTitle, action: retry).buttonStyle(.mobileCapsuleSmall)
         }.padding().background(.regularMaterial).accessibilityElement(children: .contain)
     }
 }

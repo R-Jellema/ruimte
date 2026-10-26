@@ -81,6 +81,7 @@ struct ChatMessageIndex: View {
                 Circle()
                     .fill(visible ? MobileStyle.accent : MobileStyle.border)
                     .frame(width: 8, height: 8)
+                    .centeredOnFirstLine(of: .body)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(mark.text.isEmpty ? String(localized: "Message") : mark.text)

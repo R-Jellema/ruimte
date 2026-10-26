@@ -77,7 +77,7 @@ struct ProjectOverviewLabel: View {
     var offline = false
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(spacing: 12) {
             ProjectBadge(
                 summary: overview.row.summary, session: session, chats: overview.isChats, size: 20, tile: false
             )

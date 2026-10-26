@@ -194,7 +194,7 @@ private struct SubagentEntryRow: View {
         let word = ChatSubagents.statusWord(item, task: task)
         let title = ChatSubagents.title(item)
         Button(action: open) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
+            HStack(spacing: 10) {
                 SubagentStatusIcon(word: word)
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(alignment: .firstTextBaseline, spacing: 12) {

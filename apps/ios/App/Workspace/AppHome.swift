@@ -218,7 +218,7 @@ struct ProjectHomeRow: View {
     let connected: Bool
     var session: SharedMachineSession? = nil
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(spacing: 12) {
             if summary["icon"]?.text("kind") == "image", let session {
                 ProjectArtwork(session: session, project: summary, size: 32)
             } else {

@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// The rhythm every page is spaced in: steps of 4, 8, 12, 16 and 24 points.
 enum MobileSpacing {
@@ -20,4 +21,24 @@ enum MobileMetrics {
     static let rowHeight: CGFloat = 52
     static let statusTile: CGFloat = 28
     static let statusGlyph: CGFloat = 15
+}
+
+/// Puts the middle of a glyph or tile on the middle of the capitals of the first line beside it, for an `HStack`
+/// aligned on `.firstTextBaseline` whose text runs to several lines and whose glyph belongs to the first.
+private struct FirstLineCenter: ViewModifier {
+    let style: UIFont.TextStyle
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    func body(content: Content) -> some View {
+        let traits = UITraitCollection(preferredContentSizeCategory: UIContentSizeCategory(typeSize))
+        let capHeight = UIFont.preferredFont(forTextStyle: style, compatibleWith: traits).capHeight
+        content.alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + capHeight / 2 }
+    }
+}
+
+extension View {
+    /// `style` is the text style of the line the view sits beside.
+    func centeredOnFirstLine(of style: UIFont.TextStyle) -> some View {
+        modifier(FirstLineCenter(style: style))
+    }
 }
