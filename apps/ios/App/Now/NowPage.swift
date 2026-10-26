@@ -72,6 +72,7 @@ struct NowSections: View {
             NowNothingWaits(notifies: notifies).listRowInsets(Self.cardInsets)
         } else {
             Section {
+                header(String(localized: "Needs you"), count: board.needsYou.count, first: true)
                 ForEach(board.needsYou) { entry in
                     NowCard(
                         now: now, entry: entry,
@@ -91,12 +92,11 @@ struct NowSections: View {
                     .accessibilityIdentifier("now.\(entry.target.itemID)")
                     .listRowInsets(Self.cardInsets)
                 }
-            } header: {
-                header(String(localized: "Needs you"), count: board.needsYou.count, first: true)
             }
         }
         if !board.working.isEmpty {
             Section {
+                header(String(localized: "Working"), count: board.working.count)
                 MobileRowGroup(items: board.working) { entry in
                     row(entry) {
                         NowWorkingRow(
@@ -105,12 +105,11 @@ struct NowSections: View {
                     }
                 }
                 .listRowInsets(Self.cardInsets)
-            } header: {
-                header(String(localized: "Working"), count: board.working.count)
             }
         }
         if !board.finished.isEmpty {
             Section {
+                header(String(localized: "Finished"), count: board.finished.count)
                 MobileRowGroup(items: board.finished) { entry in
                     row(entry) {
                         NowFinishedRow(
@@ -119,12 +118,11 @@ struct NowSections: View {
                     }
                 }
                 .listRowInsets(Self.cardInsets)
-            } header: {
-                header(String(localized: "Finished"), count: board.finished.count)
             }
         }
         if !comingUp.isEmpty {
             Section {
+                header(String(localized: "Coming up"))
                 MobileRowGroup(items: comingUp) { item in
                     NowComingUpButton(
                         item: item, namesMachine: board.namesMachines, date: date, open: open,
@@ -132,15 +130,14 @@ struct NowSections: View {
                     ) { menu($0) }
                 }
                 .listRowInsets(Self.cardInsets)
-            } header: {
-                header(String(localized: "Coming up"))
             }
         }
     }
 
+    /// A row and not the section's header: a plain list pins its headers, and they stood under the bar.
     private func header(_ title: String, count: Int? = nil, first: Bool = false) -> some View {
         MobileSectionHeader(title: title, count: count)
-            .padding(.top, first ? 0 : MobileSpacing.small)
+            .padding(.top, first ? 0 : MobileSpacing.large)
     }
 
     private func row<Label: View>(_ entry: ProjectViewEntry, @ViewBuilder label: () -> Label) -> some View {

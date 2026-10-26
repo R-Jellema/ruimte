@@ -123,14 +123,14 @@ struct ScheduledSections: View {
 
     var body: some View {
         if !board.needsYou.isEmpty {
+            // Headings are rows and not the sections' headers: a plain list pins its headers under the bar.
             Section {
+                MobileSectionHeader(title: String(localized: "Needs you"), count: board.needsYou.count)
                 ForEach(board.needsYou) { wait in
                     card(wait)
                         .accessibilityIdentifier("scheduled.wait.\(wait.item.entry.id)")
                         .listRowInsets(NowSections.cardInsets)
                 }
-            } header: {
-                MobileSectionHeader(title: String(localized: "Needs you"), count: board.needsYou.count)
             }
         }
         group(String(localized: "Today"), board.today, first: board.needsYou.isEmpty)
@@ -177,12 +177,11 @@ struct ScheduledSections: View {
     @ViewBuilder private func group(_ title: String, _ items: [ScheduledItem], first: Bool) -> some View {
         if !items.isEmpty {
             Section {
+                MobileSectionHeader(title: title).padding(.top, first ? 0 : MobileSpacing.large)
                 MobileRowGroup(items: items) { item in
                     row(item)
                 }
                 .listRowInsets(NowSections.cardInsets)
-            } header: {
-                MobileSectionHeader(title: title).padding(.top, first ? 0 : MobileSpacing.small)
             }
         }
     }
