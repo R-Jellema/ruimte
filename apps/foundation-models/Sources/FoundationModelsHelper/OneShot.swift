@@ -12,19 +12,8 @@ actor OneShot {
     }
 
     func serve() async {
-        switch SystemLanguageModel.default.availability {
-        case .available: await output.send(Frame(type: "availability", available: true))
-        case .unavailable(let reason):
-            await output.send(Frame(type: "availability", available: false, reason: String(describing: reason)))
-            return
-        }
-        do {
-            for try await line in FileHandle.standardInput.bytes.lines {
-                guard line.utf8.count <= 65_536,
-                      let request = try? JSONDecoder().decode(Request.self, from: Data(line.utf8)) else { continue }
-                handle(request)
-            }
-        } catch { }
+        guard await output.availability() else { return }
+        await readRequests { handle($0) }
         for task in active.values { task.cancel() }
     }
 

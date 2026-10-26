@@ -8,17 +8,24 @@ enum ContextBudgetError: Error, CustomStringConvertible {
     }
 }
 
+extension Transcript.Entry {
+    var isInstructions: Bool {
+        if case .instructions = self { return true }
+        return false
+    }
+
+    var isPrompt: Bool {
+        if case .prompt = self { return true }
+        return false
+    }
+}
+
 enum ContextHistory {
     static func refreshInstructions(_ entries: [Transcript.Entry], from current: [Transcript.Entry]) -> [Transcript.Entry] {
-        current.filter { if case .instructions = $0 { return true }; return false }
-            + entries.filter { if case .instructions = $0 { return false }; return true }
+        current.filter(\.isInstructions) + entries.filter { !$0.isInstructions }
     }
 
     static func turnCount(_ entries: [Transcript.Entry]) -> Int {
-        entries.reduce(0) { count, entry in
-            if case .prompt = entry { return count + 1 }
-            return count
-        }
+        entries.count(where: \.isPrompt)
     }
-
 }

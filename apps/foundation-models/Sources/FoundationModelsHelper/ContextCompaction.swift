@@ -7,12 +7,12 @@ struct ContextCompaction {
     let retained: [Transcript.Entry]
 
     init?(_ entries: [Transcript.Entry], keepingTurns: Int = 2) throws {
-        let history = entries.filter { if case .instructions = $0 { return false }; return true }
+        let history = entries.filter { !$0.isInstructions }
         try Self.validate(history)
-        let starts = history.indices.filter { if case .prompt = history[$0] { return true }; return false }
+        let starts = history.indices.filter { history[$0].isPrompt }
         guard keepingTurns >= 1, starts.count > keepingTurns else { return nil }
         let cut = starts[starts.count - keepingTurns]
-        instructions = entries.filter { if case .instructions = $0 { return true }; return false }
+        instructions = entries.filter(\.isInstructions)
         removed = Array(history[..<cut])
         retained = Array(history[cut...])
     }

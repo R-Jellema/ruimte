@@ -33,7 +33,6 @@ struct ReadFile: Tool {
     }
 }
 
-
 struct SearchFiles: Tool {
     let name = "Grep"
     let description = "Literal text search inside project files."

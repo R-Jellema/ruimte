@@ -60,6 +60,29 @@ actor Output {
     func send(_ frame: Frame) {
         receive(frame)
     }
+
+    /// Says whether the system model can answer, and returns the same.
+    @discardableResult func availability() -> Bool {
+        switch SystemLanguageModel.default.availability {
+        case .available:
+            receive(Frame(type: "availability", available: true))
+            return true
+        case .unavailable(let reason):
+            receive(Frame(type: "availability", available: false, reason: String(describing: reason)))
+            return false
+        }
+    }
+}
+
+/// Hands every request line on stdin to `handle` until stdin closes, skipping lines too long or malformed.
+func readRequests(isolation: isolated (any Actor)? = #isolation, _ handle: (Request) async -> Void) async {
+    do {
+        for try await line in FileHandle.standardInput.bytes.lines {
+            guard line.utf8.count <= 65_536,
+                  let request = try? JSONDecoder().decode(Request.self, from: Data(line.utf8)) else { continue }
+            await handle(request)
+        }
+    } catch { }
 }
 
 actor Runner {
@@ -125,18 +148,9 @@ actor Runner {
         return LanguageModelSession(model: .default, tools: tools, transcript: Transcript(entries: entries))
     }
 
-    func availability() async {
-        switch SystemLanguageModel.default.availability {
-        case .available:
-            await output.send(Frame(type: "availability", available: true))
-        case .unavailable(let reason):
-            await output.send(Frame(type: "availability", available: false, reason: String(describing: reason)))
-        }
-    }
-
     func handle(_ request: Request) async {
         switch request.type {
-        case "probe": await availability()
+        case "probe": await output.availability()
         case "turn":
             guard let id = request.id, let prompt = request.prompt else { return }
             guard active == nil else {
@@ -336,11 +350,7 @@ struct Helper {
             return
         }
         if arguments.contains("--probe") {
-            let output = Output()
-            switch SystemLanguageModel.default.availability {
-            case .available: await output.send(Frame(type: "availability", available: true))
-            case .unavailable(let reason): await output.send(Frame(type: "availability", available: false, reason: String(describing: reason)))
-            }
+            await Output().availability()
             return
         }
         if arguments.contains("--oneshot") {
@@ -351,19 +361,13 @@ struct Helper {
         do {
             let store = try SessionStore(arguments: arguments)
             runner = Runner(store: store)
-            await runner.availability()
+            await runner.output.availability()
             try await runner.restore(required: arguments.contains("--resume"))
         } catch {
             await Output().send(Frame(type: "startup.error", text: "Could not open local Apple conversation: \(error)"))
             return
         }
-        do {
-            for try await line in FileHandle.standardInput.bytes.lines {
-                guard line.utf8.count <= 65_536,
-                      let request = try? JSONDecoder().decode(Request.self, from: Data(line.utf8)) else { continue }
-                await runner.handle(request)
-            }
-        } catch { }
+        await readRequests { await runner.handle($0) }
         await runner.cancel()
     }
 }
