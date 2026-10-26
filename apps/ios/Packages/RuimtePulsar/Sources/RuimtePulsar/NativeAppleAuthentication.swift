@@ -11,9 +11,9 @@ enum NativeAppleLoginError: Error, LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .unavailable: String(localized: "Apple sign-in is not available right now. Try again later or sign in with GitHub.", bundle: .module)
-        case .expired: String(localized: "This Apple sign-in expired. Please try again.", bundle: .module)
-        case .invalidCredential: String(localized: "Apple returned an incomplete sign-in response. Please try again.", bundle: .module)
-        case .wrongState: String(localized: "Apple's response does not belong to this sign-in. Please try again.", bundle: .module)
+        case .expired: String(localized: "This Apple sign-in expired. Try again.", bundle: .module)
+        case .invalidCredential: String(localized: "Apple did not finish the sign-in. Try again.", bundle: .module)
+        case .wrongState: String(localized: "Apple's response does not belong to this sign-in. Try again.", bundle: .module)
         }
     }
 }

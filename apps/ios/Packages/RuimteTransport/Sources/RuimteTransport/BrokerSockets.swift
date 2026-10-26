@@ -33,7 +33,7 @@ import RuimtePulsar
                     case .string(let text): received?(text)
                     case .data(let data):
                         guard let text = String(data: data, encoding: .utf8) else {
-                            throw TransportFailure.invalid(String(localized: "The connection sent invalid UTF-8.", bundle: .module))
+                            throw TransportFailure.invalid(String(localized: "The machine sent a reply this app cannot read.", bundle: .module))
                         }
                         received?(text)
                     @unknown default: throw TransportFailure.invalid("Unknown WebSocket message")
@@ -190,7 +190,7 @@ import RuimtePulsar
         case .ice(let frame):
             guard frame["id"]?.stringValue == shared.iceID else { return }
             if let expiry = frame["expiresAt"]?.numberValue, expiry <= now() {
-                throw TransportFailure.invalid(String(localized: "The broker returned expired ICE credentials.", bundle: .module))
+                throw TransportFailure.invalid(String(localized: "Could not set up the direct connection. Try again.", bundle: .module))
             }
             settleIce(shared, frame: frame)
         case .relayed(let frame):
@@ -202,7 +202,7 @@ import RuimtePulsar
             } else if frameID != nil {
                 for member in Array(shared.members.values) { member.refused(frame) }
             } else {
-                throw TransportFailure.invalid(frame["message"]?.stringValue ?? String(localized: "The broker is limiting this device. Try again later.", bundle: .module))
+                throw TransportFailure.invalid(frame["message"]?.stringValue ?? String(localized: "The connection service is limiting this device. Try again later.", bundle: .module))
             }
         case .delivered: break
         }

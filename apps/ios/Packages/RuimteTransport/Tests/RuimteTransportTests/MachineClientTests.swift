@@ -448,9 +448,9 @@ import Testing
     }
     @Test func rejectsOversizedEmptyAndOvershootingPieces() async throws {
         for (reply, message) in [
-            (piece("ab", size: 100, offset: 0), "This resource exceeds the direct connection size limit."),
+            (piece("ab", size: 100, offset: 0), "This file is too large to load over this connection."),
             (piece("", size: 4, offset: 0), "The file stopped loading before the end. Try again."),
-            (piece("ab", size: 1, offset: 0), "The machine sent an invalid resource piece."),
+            (piece("ab", size: 1, offset: 0), "The machine sent part of the file this app cannot read."),
         ] {
             let machine = ResourceMachine([reply])
             await #expect(throws: MachineClientError.invalid(message)) {

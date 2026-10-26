@@ -176,7 +176,7 @@ public struct MachineMediaInfo: Sendable, Equatable {
             return BytesPiece(mime: info.mime, size: info.size, version: info.version, offset: offset, data: data)
         }
         guard !cancelled else { throw CancellationError() }
-        guard let task = fetch(index) else { throw MachineClientError.invalid(String(localized: "The spool lost a piece of the file.", bundle: .module)) }
+        guard let task = fetch(index) else { throw MachineClientError.invalid(String(localized: "Part of the file went missing. Try again.", bundle: .module)) }
         return try await task.value
     }
 

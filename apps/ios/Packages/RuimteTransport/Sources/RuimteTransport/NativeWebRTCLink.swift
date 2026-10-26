@@ -83,7 +83,7 @@ import RuimtePulsar
     }
 
     public func send(_ text: String) throws {
-        guard authenticated, !ended else { throw TransportFailure.invalid(String(localized: "The machine connection is not authenticated.", bundle: .module)) }
+        guard authenticated, !ended else { throw TransportFailure.invalid(String(localized: "This device is not signed in to the machine.", bundle: .module)) }
         do { try sendFrame(text) }
         catch { end(error); throw error }
     }
@@ -113,13 +113,13 @@ import RuimtePulsar
             }
             let constraints = RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil)
             guard let created = Self.factory.peerConnection(with: configuration, constraints: constraints, delegate: self) else {
-                throw TransportFailure.invalid(String(localized: "WebRTC could not create a connection.", bundle: .module))
+                throw TransportFailure.invalid(String(localized: "Could not set up the direct connection. Try again.", bundle: .module))
             }
             peer = created
             let channelConfiguration = RTCDataChannelConfiguration()
             channelConfiguration.isOrdered = true
             guard let channel = created.dataChannel(forLabel: WireConstants.directChannelLabel, configuration: channelConfiguration) else {
-                throw TransportFailure.invalid(String(localized: "WebRTC could not create a data channel.", bundle: .module))
+                throw TransportFailure.invalid(String(localized: "Could not set up the direct connection. Try again.", bundle: .module))
             }
             self.channel = channel
             channel.delegate = self
@@ -259,7 +259,7 @@ import RuimtePulsar
             if case .tooLarge = assembler.failure {
                 message = String(localized: "The machine response is too large to load on this device.", bundle: .module)
             } else {
-                message = String(localized: "The machine sent an invalid message fragment.", bundle: .module)
+                message = String(localized: "The machine sent a reply this app cannot read.", bundle: .module)
             }
             trace(message)
             end(TransportFailure.invalid(message))
@@ -276,14 +276,14 @@ import RuimtePulsar
         guard !ended else { return }
         liveness?.heard(now: now)
         guard authenticated else {
-            end(TransportFailure.invalid(String(localized: "The machine sent a binary message before the handshake.", bundle: .module)))
+            end(TransportFailure.invalid(String(localized: "The machine gave an unexpected answer to the direct connection.", bundle: .module)))
             return
         }
         events.progress()
         switch binaryAssembler.push(piece, maxBytes: WireConstants.bytesReplyMaxBytes) {
         case .invalid:
             trace("invalid binary piece")
-            end(TransportFailure.invalid(String(localized: "The machine sent an invalid message fragment.", bundle: .module)))
+            end(TransportFailure.invalid(String(localized: "The machine sent a reply this app cannot read.", bundle: .module)))
         case .partial: break
         case .frame(let frame): events.binary(frame)
         }
@@ -294,7 +294,7 @@ import RuimtePulsar
         guard !ended else { return }
         liveness?.heard(now: now)
         guard authenticated, deflating else {
-            end(TransportFailure.invalid(String(localized: "The machine sent an invalid message fragment.", bundle: .module)))
+            end(TransportFailure.invalid(String(localized: "The machine sent a reply this app cannot read.", bundle: .module)))
             return
         }
         events.progress()
@@ -303,7 +303,7 @@ import RuimtePulsar
         switch deflatedAssembler.push(piece, maxBytes: maxBytes) {
         case .invalid:
             trace("invalid deflated piece")
-            end(TransportFailure.invalid(String(localized: "The machine sent an invalid message fragment.", bundle: .module)))
+            end(TransportFailure.invalid(String(localized: "The machine sent a reply this app cannot read.", bundle: .module)))
         case .partial: break
         case .frame(let deflated):
             do {
@@ -313,7 +313,7 @@ import RuimtePulsar
             } catch .tooLarge {
                 end(TransportFailure.invalid(String(localized: "The machine response is too large to load on this device.", bundle: .module)))
             } catch {
-                end(TransportFailure.invalid(String(localized: "The machine sent an invalid message fragment.", bundle: .module)))
+                end(TransportFailure.invalid(String(localized: "The machine sent a reply this app cannot read.", bundle: .module)))
             }
         }
     }
@@ -432,10 +432,10 @@ import RuimtePulsar
     }
 
     private func sendFrame(_ frame: String) throws {
-        guard let channel, channel.readyState == .open else { throw TransportFailure.invalid(String(localized: "The data channel is not open.", bundle: .module)) }
+        guard let channel, channel.readyState == .open else { throw TransportFailure.invalid(String(localized: "The direct connection is not open.", bundle: .module)) }
         for piece in DirectFraming.split(frame) {
             guard channel.sendData(RTCDataBuffer(data: Data(piece.utf8), isBinary: false)) else {
-                throw TransportFailure.invalid(String(localized: "The data channel refused a frame.", bundle: .module))
+                throw TransportFailure.invalid(String(localized: "The direct connection refused data.", bundle: .module))
             }
         }
     }
@@ -493,7 +493,7 @@ extension NativeWebRTCLink: RTCPeerConnectionDelegate, RTCDataChannelDelegate {
                 return
             }
             guard let text = String(data: buffer.data, encoding: .utf8) else {
-                self?.end(TransportFailure.invalid(String(localized: "The data channel sent invalid UTF-8.", bundle: .module))); return
+                self?.end(TransportFailure.invalid(String(localized: "The machine sent a reply this app cannot read.", bundle: .module))); return
             }
             self?.receivePiece(text)
         }

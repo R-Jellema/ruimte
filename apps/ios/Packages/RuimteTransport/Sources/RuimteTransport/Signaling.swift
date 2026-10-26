@@ -165,7 +165,7 @@ public enum SignalingRoute: Equatable, Sendable {
         } else if paths[.broker] == nil {
             close()
             // The broker's word reaches the person; a door that failed beside it stays silent.
-            events.failed(brokerError ?? doorError ?? TransportFailure.invalid("No way to signal the machine"))
+            events.failed(brokerError ?? doorError ?? TransportFailure.invalid(String(localized: "Could not reach the machine.", bundle: .module)))
         }
     }
 }
@@ -204,7 +204,7 @@ public enum SignalingRoute: Equatable, Sendable {
                     self.fail(
                         TransportFailure.invalid(
                             frame["message"]?.stringValue
-                                ?? String(localized: "The broker refused this connection attempt.", bundle: .module)))
+                                ?? String(localized: "The connection service refused the connection.", bundle: .module)))
                 }, lost: { [weak self] error in self?.fail(error) }))
     }
 

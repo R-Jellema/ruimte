@@ -7,7 +7,7 @@ public enum PushCryptoError: Error, LocalizedError, Sendable {
         switch self {
         case .invalid: String(localized: "Could not verify the notification.", bundle: .module)
         case .expired: String(localized: "This notification has expired. Open the session to see its current state.", bundle: .module)
-        case .unknownMachine: String(localized: "This notification is from a machine that is no longer trusted.", bundle: .module)
+        case .unknownMachine: String(localized: "This notification is from a machine that no longer has access.", bundle: .module)
         case .wrongDevice: String(localized: "This notification belongs to another device.", bundle: .module)
         case .replay: String(localized: "This notification was already delivered.", bundle: .module)
         }

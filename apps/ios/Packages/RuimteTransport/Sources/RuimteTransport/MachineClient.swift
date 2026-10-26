@@ -265,7 +265,7 @@ public enum MachineClientError: Error, LocalizedError, Sendable, Equatable {
         let result = try await routedRequest(
             WireRequest.bytesRead.rawValue, payload: .object(fields), onResult: nil, id: id, binary: true)
         guard let data = binaryBodies.removeValue(forKey: id) else {
-            throw MachineClientError.invalid(String(localized: "The machine sent an invalid resource piece.", bundle: .module))
+            throw MachineClientError.invalid(String(localized: "The machine sent part of the file this app cannot read.", bundle: .module))
         }
         return try BytesPiece(header: result, data: data)
     }
@@ -493,7 +493,8 @@ public enum MachineClientError: Error, LocalizedError, Sendable, Equatable {
                 {
                     finish(id, result: .failure(MachineClientError.server(code: code, message: message)))
                 } else {
-                    throw MachineClientError.invalid("Invalid machine response")
+                    throw MachineClientError.invalid(
+                        String(localized: "The machine sent a reply this app cannot read.", bundle: .module))
                 }
             } catch {
                 let type = request.type.rawValue
@@ -557,7 +558,7 @@ public struct MachineResource: Sendable, Equatable {
                         "resource": resource, "offset": .number(Double(data.count)), "length": .number(Double(length)),
                     ]))
                 guard piece.size <= limit else {
-                    throw MachineClientError.invalid(String(localized: "This resource exceeds the direct connection size limit.", bundle: .module))
+                    throw MachineClientError.invalid(String(localized: "This file is too large to load over this connection.", bundle: .module))
                 }
                 if first == nil { first = piece }
                 if piece.version != first?.version || piece.size != first?.size || piece.mime != first?.mime
@@ -568,7 +569,7 @@ public struct MachineResource: Sendable, Equatable {
                 }
                 let bytes = piece.data
                 guard bytes.count <= length, data.count + bytes.count <= piece.size else {
-                    throw MachineClientError.invalid(String(localized: "The machine sent an invalid resource piece.", bundle: .module))
+                    throw MachineClientError.invalid(String(localized: "The machine sent part of the file this app cannot read.", bundle: .module))
                 }
                 data.append(bytes)
                 if data.count == piece.size {
@@ -579,7 +580,7 @@ public struct MachineResource: Sendable, Equatable {
                 }
             } while true
             if changed && attempt < min(restarts, 3) { continue }
-            throw MachineClientError.invalid(String(localized: "The resource changed while it was loading.", bundle: .module))
+            throw MachineClientError.invalid(String(localized: "The file changed while it was loading.", bundle: .module))
         }
         throw MachineClientError.invalid(String(localized: "Could not load the file.", bundle: .module))
     }

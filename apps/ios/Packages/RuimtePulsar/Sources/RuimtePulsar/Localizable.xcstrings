@@ -1,12 +1,12 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "Apple returned an incomplete sign-in response. Please try again." : {
+    "Apple did not finish the sign-in. Try again." : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Apple gaf een onvolledig inlogantwoord terug. Probeer het opnieuw."
+            "value" : "Apple rondde het inloggen niet af. Probeer het opnieuw."
           }
         }
       }
@@ -21,7 +21,7 @@
         }
       }
     },
-    "Apple's response does not belong to this sign-in. Please try again." : {
+    "Apple's response does not belong to this sign-in. Try again." : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
@@ -41,12 +41,12 @@
         }
       }
     },
-    "Could not register notifications." : {
+    "Could not turn on notifications." : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kon meldingen niet registreren."
+            "value" : "Kon meldingen niet aanzetten."
           }
         }
       }
@@ -81,32 +81,32 @@
         }
       }
     },
-    "The address book answered %lld." : {
+    "Your account answered with error %lld." : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Het adresboek antwoordde %lld."
+            "value" : "Je account antwoordde met fout %lld."
           }
         }
       }
     },
-    "The address book answered with something this app cannot read." : {
+    "Your account sent an answer this app cannot read." : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Het adresboek antwoordde met iets wat deze app niet kan lezen."
+            "value" : "Je account stuurde een antwoord dat deze app niet kan lezen."
           }
         }
       }
     },
-    "Could not reach the address book." : {
+    "Could not reach your account." : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kon het adresboek niet bereiken."
+            "value" : "Kon je account niet bereiken."
           }
         }
       }
@@ -121,12 +121,12 @@
         }
       }
     },
-    "The address book returned no HTTP response." : {
+    "Your account did not answer. Try again." : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Het adresboek gaf geen HTTP-antwoord terug."
+            "value" : "Je account antwoordde niet. Probeer het opnieuw."
           }
         }
       }
@@ -181,7 +181,7 @@
         }
       }
     },
-    "This Apple sign-in expired. Please try again." : {
+    "This Apple sign-in expired. Try again." : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
@@ -191,12 +191,12 @@
         }
       }
     },
-    "This device has no key to bind a session to." : {
+    "This device cannot sign in yet. Try again." : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dit apparaat heeft geen sleutel om een sessie aan te koppelen."
+            "value" : "Dit apparaat kan nog niet inloggen. Probeer het opnieuw."
           }
         }
       }
@@ -221,12 +221,12 @@
         }
       }
     },
-    "This notification is from a machine that is no longer trusted." : {
+    "This notification is from a machine that no longer has access." : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Deze melding komt van een machine die niet meer vertrouwd wordt."
+            "value" : "Deze melding komt van een machine die geen toegang meer heeft."
           }
         }
       }

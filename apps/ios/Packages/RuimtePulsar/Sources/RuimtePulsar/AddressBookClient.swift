@@ -46,7 +46,7 @@ public struct AddressBookClient: SessionAPI, NativeAppleAPI, AccountAPI, Sendabl
                 let (data, response) = try await Self.networkSession.data(for: request)
                 guard let response = response as? HTTPURLResponse else {
                     throw AddressBookRequestError(
-                        code: "bad-answer", status: 0, message: String(localized: "The address book returned no HTTP response.", bundle: .module))
+                        code: "bad-answer", status: 0, message: String(localized: "Your account did not answer. Try again.", bundle: .module))
                 }
                 return (data, response)
             }
@@ -132,7 +132,7 @@ public struct AddressBookClient: SessionAPI, NativeAppleAPI, AccountAPI, Sendabl
         } catch {
             throw AddressBookRequestError(
                 code: "bad-answer", status: response.statusCode,
-                message: String(localized: "The address book answered with something this app cannot read.", bundle: .module))
+                message: String(localized: "Your account sent an answer this app cannot read.", bundle: .module))
         }
     }
 
@@ -168,7 +168,7 @@ public struct AddressBookClient: SessionAPI, NativeAppleAPI, AccountAPI, Sendabl
         } catch let error as AddressBookRequestError {
             throw error
         } catch {
-            throw AddressBookRequestError(code: "network", status: 0, message: String(localized: "Could not reach the address book.", bundle: .module))
+            throw AddressBookRequestError(code: "network", status: 0, message: String(localized: "Could not reach your account.", bundle: .module))
         }
         guard (200..<300).contains(response.statusCode) else {
             if let failure = try? JSONDecoder().decode(AddressBookError.self, from: data) {
@@ -177,7 +177,7 @@ public struct AddressBookClient: SessionAPI, NativeAppleAPI, AccountAPI, Sendabl
             }
             throw AddressBookRequestError(
                 code: "bad-answer", status: response.statusCode,
-                message: String(localized: "The address book answered \(response.statusCode).", bundle: .module))
+                message: String(localized: "Your account answered with error \(response.statusCode).", bundle: .module))
         }
         return (data, response)
     }

@@ -70,7 +70,7 @@ public enum LinkRoute: Equatable, Sendable {
         releaseAction = release
     }
     public func send(_ text: String) throws {
-        guard releaseAction != nil else { throw TransportFailure.invalid(String(localized: "This machine connection was released.", bundle: .module)) }
+        guard releaseAction != nil else { throw TransportFailure.invalid(String(localized: "This connection to the machine closed.", bundle: .module)) }
         try sendAction(text)
     }
     public func release() {

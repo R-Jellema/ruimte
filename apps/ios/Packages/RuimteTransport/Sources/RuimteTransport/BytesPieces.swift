@@ -24,7 +24,7 @@ public struct BytesPiece: Sendable, Equatable {
             let version = header["version"]?.stringValue, let offset = Self.count(header["offset"]),
             data.count <= Int(WireConstants.bytesChunkMax), offset <= size, data.count <= size - offset
         else {
-            throw MachineClientError.invalid(String(localized: "The machine sent an invalid resource piece.", bundle: .module))
+            throw MachineClientError.invalid(String(localized: "The machine sent part of the file this app cannot read.", bundle: .module))
         }
         self.init(mime: mime, size: size, version: version, offset: offset, data: data)
     }
@@ -41,7 +41,7 @@ public struct BytesPiece: Sendable, Equatable {
             encoded.utf8.count <= ((Int(WireConstants.bytesChunkMax) + 2) / 3) * 4,
             let data = Data(base64Encoded: encoded)
         else {
-            throw MachineClientError.invalid(String(localized: "The machine sent an invalid resource piece.", bundle: .module))
+            throw MachineClientError.invalid(String(localized: "The machine sent part of the file this app cannot read.", bundle: .module))
         }
         try self.init(header: result, data: data)
     }

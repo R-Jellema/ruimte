@@ -64,7 +64,7 @@ public enum VoiceMediaFailure: Error, LocalizedError, Sendable, Equatable {
         let constraints = LKRTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil)
         guard let peer = Self.factory.peerConnection(with: configuration, constraints: constraints, delegate: self)
         else {
-            throw Self.failure(String(localized: "WebRTC could not create the Voice connection.", bundle: .module))
+            throw Self.failure(String(localized: "Could not connect Voice. Try again.", bundle: .module))
         }
         self.peer = peer
         let source = Self.factory.audioSource(with: constraints)
@@ -72,7 +72,7 @@ public enum VoiceMediaFailure: Error, LocalizedError, Sendable, Equatable {
         microphone.isEnabled = !muted
         self.microphone = microphone
         guard let sender = peer.add(microphone, streamIds: ["voice"]) else {
-            throw Self.failure(String(localized: "WebRTC could not add the microphone.", bundle: .module))
+            throw Self.failure(String(localized: "Voice could not use the microphone.", bundle: .module))
         }
         Self.microphoneSamples.clear()
         // The microphone's transceiver also receives, and its track is the reply.
@@ -83,7 +83,7 @@ public enum VoiceMediaFailure: Error, LocalizedError, Sendable, Equatable {
         let channelConfiguration = LKRTCDataChannelConfiguration()
         channelConfiguration.isOrdered = true
         guard let channel = peer.dataChannel(forLabel: "oai-events", configuration: channelConfiguration) else {
-            throw Self.failure(String(localized: "WebRTC could not open the captions channel.", bundle: .module))
+            throw Self.failure(String(localized: "Could not connect Voice. Try again.", bundle: .module))
         }
         channel.delegate = self
         self.channel = channel
@@ -94,7 +94,7 @@ public enum VoiceMediaFailure: Error, LocalizedError, Sendable, Equatable {
         await gatherCandidates()
         try checkOpen()
         guard let sdp = peer.localDescription?.sdp else {
-            throw Self.failure(String(localized: "WebRTC made no offer for Voice.", bundle: .module))
+            throw Self.failure(String(localized: "Could not connect Voice. Try again.", bundle: .module))
         }
         return sdp
     }
