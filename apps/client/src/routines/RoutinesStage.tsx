@@ -257,6 +257,10 @@ function DetailHeader({ endpointId, entry, rev }: { endpointId: string; entry: R
             <Menu.Root>
                 <IconButton icon={MoreHorizontal} size="sm" label={t('actions.more')} render={<Menu.Trigger />} />
                 <Menu.Popup align="end">
+                    <Menu.Item onClick={() => openRoutineForm({ projectId: entry.projectId, editing: entry })}>
+                        <Icon icon={Pencil} size={14} /> {t('actions.edit')}
+                    </Menu.Item>
+                    <Menu.Separator />
                     <Menu.Item disabled={!entry.approved} onClick={() => setRoutinePaused(endpointId, entry, !paused)}>
                         <Icon icon={paused ? Play : Pause} size={14} /> {paused ? t('actions.resume') : t('actions.pause')}
                     </Menu.Item>
@@ -265,9 +269,6 @@ function DetailHeader({ endpointId, entry, rev }: { endpointId: string; entry: R
                             <Icon icon={LayoutGrid} size={14} /> {t('detail.showOnCanvas')}
                         </Menu.Item>
                     )}
-                    <Menu.Item onClick={() => openRoutineForm({ projectId: entry.projectId, editing: entry })}>
-                        <Icon icon={Pencil} size={14} /> {t('actions.edit')}
-                    </Menu.Item>
                     <Menu.Separator />
                     <Menu.Item className="text-status-error" onClick={() => setRemoving(true)}>
                         <Icon icon={Trash2} size={14} /> {t('actions.remove')}
