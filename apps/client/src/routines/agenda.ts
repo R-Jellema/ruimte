@@ -137,7 +137,9 @@ const STANDS_OUT: ReadonlySet<BlockLook> = new Set(['running', 'waiting', 'limit
 export type CellItem =
     | { kind: 'block'; key: string; at: number; block: AgendaBlock }
     | { kind: 'runs'; key: string; at: number; blocks: AgendaBlock[]; failed: number }
-    | { kind: 'coming'; key: string; at: number; blocks: AgendaBlock[]; every: number; to: string };
+    | { kind: 'coming'; key: string; at: number; blocks: AgendaBlock[]; every: number; to: string }
+    // A cron's times have no one step, so its chip counts them.
+    | { kind: 'coming'; key: string; at: number; blocks: AgendaBlock[]; every: null };
 
 function single(block: AgendaBlock): CellItem {
     return { kind: 'block', key: block.key, at: block.at, block };
@@ -145,7 +147,7 @@ function single(block: AgendaBlock): CellItem {
 
 /*
  * What one routine's cell of a day shows. Up to two runs are blocks; past that the quiet ones fold into one
- * chip that lists them. The times still to come of a repeat within a day are one chip with its step and end.
+ * chip that lists them. The times still to come of a repeat within a day or a cron are one chip.
  */
 export function cellItems(blocks: readonly AgendaBlock[], schedule: RoutineSchedule): CellItem[] {
     const runs = blocks.filter((block) => block.run !== null);
@@ -164,8 +166,11 @@ export function cellItems(blocks: readonly AgendaBlock[], schedule: RoutineSched
     } else {
         items.push(...runs.map(single));
     }
+    const comingKey = `coming-${coming[0]?.key}`;
     if (schedule.kind === 'interval' && coming.length > 1) {
-        items.push({ kind: 'coming', key: `coming-${coming[0]!.key}`, at: coming[0]!.at, blocks: coming, every: schedule.every, to: schedule.to });
+        items.push({ kind: 'coming', key: comingKey, at: coming[0]!.at, blocks: coming, every: schedule.every, to: schedule.to });
+    } else if (schedule.kind === 'cron' && coming.length > 1) {
+        items.push({ kind: 'coming', key: comingKey, at: coming[0]!.at, blocks: coming, every: null });
     } else {
         items.push(...coming.map(single));
     }

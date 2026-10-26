@@ -130,7 +130,19 @@ describe('a day of a repeat within a day', () => {
         expect(items.map((item) => item.kind)).toEqual(['runs', 'coming']);
         const [folded, coming] = items;
         expect(folded!.kind === 'runs' && [folded.blocks.length, folded.failed]).toEqual([6, 1]);
-        expect(coming!.kind === 'coming' && [coming.blocks.map((block) => block.at), coming.every, coming.to]).toEqual([[15, 16, 17].map(sunday), 60, '17:00']);
+        expect(coming!.kind === 'coming' && coming.every !== null && [coming.blocks.map((block) => block.at), coming.every, coming.to]).toEqual([
+            [15, 16, 17].map(sunday),
+            60,
+            '17:00'
+        ]);
+    });
+
+    test('a cron folds its coming times the same way, without a step', () => {
+        const base = entry();
+        const subject = { ...base, routine: { ...base.routine, schedule: { kind: 'cron' as const, expression: '0 9,15,16,17 * * *' } } };
+        const items = itemsOfToday(subject);
+        expect(items.map((item) => item.kind)).toEqual(['coming']);
+        expect(items[0]!.kind === 'coming' && [items[0]!.blocks.map((block) => block.at), items[0]!.every]).toEqual([[15, 16, 17].map(sunday), null]);
     });
 
     test('keeps a run that needs a person or still goes on as a block of its own', () => {

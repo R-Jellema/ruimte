@@ -1,16 +1,18 @@
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Package } from 'lucide-react';
-import type { Routine, RoutineKind, RoutinePerRun, RoutineSchedule, RuntimeMode } from '@ruimte/contracts';
+import { nextDue, parseCron, type Routine, type RoutineKind, type RoutinePerRun, type RoutineSchedule, type RuntimeMode } from '@ruimte/contracts';
 import { ModelPicker } from '@adecore/agents-react/chat/ui';
 import { RUNTIME_MODES, runtimeModeLabel } from '@adecore/agents-react/chat';
 import { Button, Checkbox, Field, FieldHint, FormError, Icon, Input, Segmented, Select, TextArea, messageOf } from '@adecore/ui';
+import { formatDateTime, localTimeZone } from '@adecore/ui/format';
 import { useLaunches } from '@/launches/state';
 import { firstLine, useAgentPick, type AgentPick } from '@/routines/agent-pick';
 import { freshRoutineId } from '@/routines/agenda';
 import type { RoutineFormRequest } from '@/routines/form-state';
+import { useRoutineLists } from '@/routines/routine-list';
 import { routineIdsTaken, saveRoutine } from '@/routines/routine-save';
-import { everyWords, weekdayWords } from '@/routines/words';
+import { cronProblemWords, everyWords, weekdayWords } from '@/routines/words';
 import { endpointKey } from '@/state/keys';
 import { useProjectList } from '@/state/project-list';
 
@@ -20,6 +22,22 @@ const CLOCK = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 // The steps the form offers; a routine an agent set to another step keeps it as an extra choice.
 const STEPS = [15, 30, 60, 120, 180, 240];
+
+const NEXT_SHOWN = 3;
+
+/* The next few times an expression runs after `from`, so a person sees what the fields mean. */
+function nextTimes(expression: string, from: number, timeZone: string): number[] {
+    const times: number[] = [];
+    let cursor: number | null = from;
+    while (times.length < NEXT_SHOWN) {
+        cursor = nextDue({ kind: 'cron', expression }, cursor, timeZone);
+        if (cursor === null) {
+            break;
+        }
+        times.push(cursor);
+    }
+    return times;
+}
 
 function today(): string {
     const now = new Date();
@@ -63,8 +81,11 @@ export function RoutineForm({
     const schedule: RoutineSchedule = editing?.schedule ?? request.schedule ?? { kind: 'weekly', days: [1, 2, 3, 4, 5], time: '09:00' };
     const [repeat, setRepeat] = useState<RoutineSchedule['kind']>(schedule.kind);
     const [date, setDate] = useState(schedule.kind === 'once' ? schedule.date : today());
-    const [days, setDays] = useState<number[]>(schedule.kind === 'once' ? [1, 2, 3, 4, 5] : schedule.days);
-    const [time, setTime] = useState(schedule.kind === 'interval' ? schedule.from : schedule.time);
+    const [days, setDays] = useState<number[]>(schedule.kind === 'once' || schedule.kind === 'cron' ? [1, 2, 3, 4, 5] : schedule.days);
+    const [time, setTime] = useState(schedule.kind === 'interval' ? schedule.from : schedule.kind === 'cron' ? '09:00' : schedule.time);
+    const [expression, setExpression] = useState(schedule.kind === 'cron' ? schedule.expression : '0 9 * * 1-5');
+    // The moment the next runs of a cron are counted from; the form is open for minutes at most.
+    const [openedAt] = useState(() => Date.now());
     const [every, setEvery] = useState(schedule.kind === 'interval' ? schedule.every : 60);
     const [until, setUntil] = useState(schedule.kind === 'interval' ? schedule.to : '17:00');
     const [shared, setShared] = useState(request.editing?.shared ?? false);
@@ -72,21 +93,34 @@ export function RoutineForm({
     const [failure, setFailure] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
 
+    const machineTimeZone = useRoutineLists((s) => {
+        const list = s.lists[endpointId];
+        return list?.status === 'ready' ? list.result.timeZone : null;
+    });
     const launches = useLaunches((s) => s.documents[endpointKey(endpointId, projectId)]?.launches ?? null);
     const { pickable, provider, selection } = useAgentPick(pick);
     const shownTitle = title.trim() !== '' ? title.trim() : kind === 'agent' ? firstLine(prompt) : kind === 'command' ? firstLine(command) : '';
+    const cron = parseCron(expression);
+    const timeZone = machineTimeZone ?? localTimeZone() ?? 'UTC';
 
+    const scheduleReady =
+        repeat === 'cron'
+            ? cron.ok
+            : CLOCK.test(time) &&
+              (repeat === 'once' ? /^\d{4}-\d{2}-\d{2}$/.test(date) : days.length > 0) &&
+              (repeat !== 'interval' || (CLOCK.test(until) && until > time));
     const ready =
         shownTitle !== '' &&
-        CLOCK.test(time) &&
-        (repeat === 'once' ? /^\d{4}-\d{2}-\d{2}$/.test(date) : days.length > 0) &&
-        (repeat !== 'interval' || (CLOCK.test(until) && until > time)) &&
+        scheduleReady &&
         (kind === 'agent' ? prompt.trim() !== '' && provider !== null : kind === 'command' ? command.trim() !== '' : launchId !== null);
 
     const scheduleOf = (): RoutineSchedule => {
         const sorted = [...days].sort();
         if (repeat === 'once') {
             return { kind: 'once', date, time };
+        }
+        if (repeat === 'cron') {
+            return { kind: 'cron', expression: expression.trim().split(/\s+/).join(' ') };
         }
         return repeat === 'interval' ? { kind: 'interval', days: sorted, every, from: time, to: until } : { kind: 'weekly', days: sorted, time };
     };
@@ -233,10 +267,26 @@ export function RoutineForm({
                         options={[
                             { id: 'once', label: t('form.once') },
                             { id: 'weekly', label: t('form.weekly') },
-                            { id: 'interval', label: t('form.interval') }
+                            { id: 'interval', label: t('form.interval') },
+                            { id: 'cron', label: t('form.cron') }
                         ]}
                     />
-                    {repeat === 'once' ? (
+                    {repeat === 'cron' ? (
+                        <Field
+                            label={t('form.cronExpression')}
+                            hint={cron.ok ? t('form.cronHint') : undefined}
+                            error={cron.ok ? undefined : cronProblemWords(cron.problem)}
+                        >
+                            <Input
+                                mono
+                                size="sm"
+                                value={expression}
+                                spellCheck={false}
+                                placeholder="0 9 * * 1-5"
+                                onChange={(e) => setExpression(e.target.value)}
+                            />
+                        </Field>
+                    ) : repeat === 'once' ? (
                         <Input type="date" size="sm" aria-label={t('form.date')} value={date} onChange={(e) => setDate(e.target.value)} />
                     ) : (
                         <div className="flex flex-wrap gap-1" role="group" aria-label={t('form.days')}>
@@ -256,7 +306,26 @@ export function RoutineForm({
                             })}
                         </div>
                     )}
-                    {repeat === 'interval' ? (
+                    {repeat === 'cron' ? (
+                        cron.ok && (
+                            <p className="text-xs text-text-muted tabular-nums" data-cron-next>
+                                {t('form.cronNext', {
+                                    times: nextTimes(expression, openedAt, timeZone)
+                                        .map((at) =>
+                                            formatDateTime(at, {
+                                                weekday: 'short',
+                                                day: 'numeric',
+                                                month: 'short',
+                                                hour: '2-digit',
+                                                minute: '2-digit',
+                                                timeZone
+                                            })
+                                        )
+                                        .join(', ')
+                                })}
+                            </p>
+                        )
+                    ) : repeat === 'interval' ? (
                         <div className="flex flex-wrap items-center gap-2">
                             <Select
                                 label={t('form.every')}

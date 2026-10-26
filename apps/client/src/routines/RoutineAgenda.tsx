@@ -397,7 +397,7 @@ function FoldedRuns({
     const [open, setOpen] = useState(false);
     const [chip, setChip] = useState<HTMLButtonElement | null>(null);
     const look = item.failed > 0 ? 'failed' : 'done';
-    const words = foldWords(item);
+    const words = foldWords(item, timeZone);
     return (
         <Popover.Root open={open} onOpenChange={setOpen}>
             <button
@@ -447,13 +447,13 @@ function ComingChip({ item, entry, timeZone }: { item: Extract<CellItem, { kind:
                 title: entry.routine.title,
                 count: item.blocks.length,
                 from: formatClock(item.at, timeZone),
-                times: foldWords(item)
+                times: foldWords(item, timeZone)
             })}
             data-look={look}
             data-fold="coming"
         >
             <LookIcon look={look} />
-            <span className="truncate tabular-nums">{foldWords(item)}</span>
+            <span className="truncate tabular-nums">{foldWords(item, timeZone)}</span>
         </span>
     );
 }

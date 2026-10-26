@@ -448,3 +448,7 @@ approval".
   way, with the chat that made it on the card; `routine run` refuses until a person approved.
 - [ ] Remove a routine: its run chats and its artifact in Output stay.
 - [ ] The night the clock goes back (last Sunday of October) with a daily 02:30 routine: it runs once.
+- [ ] A cron routine: pick Cron under Repeat and type `*/5 * * * *`. The form says it runs more often than every 15
+  minutes and Create stays off. Type `*/15 9-11 * * 1-5`: the next three times show on the machine's clock, the
+  routine reads "Cron */15 9-11 * * 1-5" in the list and on the iPhone, a weekday in the week folds its coming
+  times into one chip, and it runs at 09:00, 09:15 and onward to 11:45.

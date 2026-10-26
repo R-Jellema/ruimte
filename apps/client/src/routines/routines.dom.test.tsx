@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, setSystemTime, test } from 'bun:test';
 import { act } from 'react';
 import { REQUEST_SCHEMAS, zonedTime, type ProjectCanvasView, type ProviderInfo, type RequestType, type RoutineEntry, type RoutineRun } from '@ruimte/contracts';
+import { formatDateTime } from '@adecore/ui/format';
 import { isApplePlatform } from '@/desktop/bridge';
 import { showRoutine, useRoutinesStage } from '@/routines/stage';
 import { liveCanvas } from '@/state/canvas';
@@ -288,6 +289,48 @@ describe('Routines', () => {
             perRun: 'new',
             schedule: { kind: 'weekly', days: [2, 3, 4], time: '09:00' }
         });
+    });
+
+    test('a cron routine waits for an expression it reads, shows its next times and sends it', async () => {
+        await openStage();
+        await clickOn(buttonWithText('New routine', page.host));
+        await until(() => document.querySelector('form[aria-label="New routine"]') !== null);
+        const form = document.querySelector('form[aria-label="New routine"]')!;
+        const type = async (field: HTMLInputElement | HTMLTextAreaElement, value: string): Promise<void> => {
+            await act(async () => {
+                Object.getOwnPropertyDescriptor(Object.getPrototypeOf(field), 'value')!.set!.call(field, value);
+                field.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+        };
+        await type(form.querySelector('textarea')!, 'Check the build.');
+        await clickOn(buttonWithText('Cron', form));
+        await until(() => [...form.querySelectorAll('label')].some((label) => label.textContent === 'Cron expression'));
+        const label = [...form.querySelectorAll('label')].find((candidate) => candidate.textContent === 'Cron expression')!;
+        const field = document.getElementById(label.htmlFor) as HTMLInputElement;
+        const create = buttonWithText('Create routine', form) as HTMLButtonElement;
+
+        await type(field, '*/5 * * * *');
+        expect(form.querySelector('[role="alert"]')?.textContent).toStartWith('This runs more often than every 15 minutes.');
+        expect(create.disabled).toBe(true);
+        await type(field, '0 25 * * *');
+        expect(form.querySelector('[role="alert"]')?.textContent).toBe('The hour (0-23) field does not take “25”.');
+
+        await type(field, ' 30 8  * * 1-5');
+        expect(form.querySelector('[role="alert"]')).toBeNull();
+        const shown = (day: number): string =>
+            formatDateTime(zonedTime(2026, 10, day, 8, 30, AMS), {
+                weekday: 'short',
+                day: 'numeric',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit',
+                timeZone: AMS
+            });
+        expect(form.querySelector('[data-cron-next]')?.textContent).toBe(`Next: ${[26, 27, 28].map(shown).join(', ')}`);
+        expect(create.disabled).toBe(false);
+        await clickOn(create);
+        await until(() => machine.requests('routine.save').length === 1);
+        expect(machine.requests('routine.save')[0]!.routine.schedule).toEqual({ kind: 'cron', expression: '30 8 * * 1-5' });
     });
 
     test('a routine through the day sends its days, its step and its first and last time', async () => {

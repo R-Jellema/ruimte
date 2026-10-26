@@ -85,7 +85,9 @@
     "runs_other": "{{count}} runs",
     "runsFailed_one": "{{runs}} · {{count}} mislukt",
     "runsFailed_other": "{{runs}} · {{count}} mislukt",
-    "coming": "{{every}} tot {{to}}"
+    "coming": "{{every}} tot {{to}}",
+    "comingCount_one": "nog {{count}} tot {{to}}",
+    "comingCount_other": "nog {{count}} tot {{to}}"
   },
   "band": {
     "since": "Gepauzeerd sinds {{since}}",
@@ -136,7 +138,8 @@
     "weekends": "In het weekend om {{time}}",
     "every": "Elke {{day}} om {{time}}",
     "some": "{{days}} om {{time}}",
-    "interval": "{{days}}, {{every}} van {{from}} tot {{to}}"
+    "interval": "{{days}}, {{every}} van {{from}} tot {{to}}",
+    "cron": "Cron {{expression}}"
   },
   "repeatDays": {
     "daily": "Dagelijks",
@@ -222,6 +225,21 @@
     "to": "tot",
     "fromTime": "Eerste keer",
     "toTime": "Laatste keer",
+    "cron": "Cron",
+    "cronExpression": "Cron-expressie",
+    "cronHint": "Minuut, uur, dag van de maand, maand en dag van de week, op de klok van de machine. 0 9 * * 1-5 draait doordeweeks om 09:00.",
+    "cronNext": "Volgende: {{times}}",
+    "cronShape": "Geef vijf velden: minuut, uur, dag van de maand, maand en dag van de week.",
+    "cronField": "Het veld {{field}} neemt geen “{{part}}”.",
+    "cronOften": "Dit draait vaker dan elke 15 minuten. Houd de tijden minstens 15 minuten uit elkaar.",
+    "cronNever": "Deze datum komt nooit, zoals 31 februari.",
+    "cronFields": {
+      "minute": "minuut (0-59)",
+      "hour": "uur (0-23)",
+      "dayOfMonth": "dag van de maand (1-31)",
+      "month": "maand (1-12 of jan-dec)",
+      "dayOfWeek": "dag van de week (0-7 of sun-sat)"
+    },
     "date": "Datum",
     "days": "Dagen",
     "time": "Tijd",

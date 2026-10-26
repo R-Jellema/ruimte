@@ -85,7 +85,9 @@
     "runs_other": "{{count}} runs",
     "runsFailed_one": "{{runs}} · {{count}} failed",
     "runsFailed_other": "{{runs}} · {{count}} failed",
-    "coming": "{{every}} until {{to}}"
+    "coming": "{{every}} until {{to}}",
+    "comingCount_one": "{{count}} more until {{to}}",
+    "comingCount_other": "{{count}} more until {{to}}"
   },
   "band": {
     "since": "Paused since {{since}}",
@@ -136,7 +138,8 @@
     "weekends": "Weekends at {{time}}",
     "every": "Every {{day}} at {{time}}",
     "some": "{{days}} at {{time}}",
-    "interval": "{{days}}, {{every}} from {{from}} to {{to}}"
+    "interval": "{{days}}, {{every}} from {{from}} to {{to}}",
+    "cron": "Cron {{expression}}"
   },
   "repeatDays": {
     "daily": "Daily",
@@ -222,6 +225,21 @@
     "to": "to",
     "fromTime": "First time",
     "toTime": "Last time",
+    "cron": "Cron",
+    "cronExpression": "Cron expression",
+    "cronHint": "Minute, hour, day of month, month and day of week, on the machine’s clock. 0 9 * * 1-5 runs on weekdays at 09:00.",
+    "cronNext": "Next: {{times}}",
+    "cronShape": "Give five fields: minute, hour, day of month, month and day of week.",
+    "cronField": "The {{field}} field does not take “{{part}}”.",
+    "cronOften": "This runs more often than every 15 minutes. Keep the times at least 15 minutes apart.",
+    "cronNever": "This date never comes, such as 31 February.",
+    "cronFields": {
+      "minute": "minute (0-59)",
+      "hour": "hour (0-23)",
+      "dayOfMonth": "day of month (1-31)",
+      "month": "month (1-12 or jan-dec)",
+      "dayOfWeek": "day of week (0-7 or sun-sat)"
+    },
     "date": "Date",
     "days": "Days",
     "time": "Time",

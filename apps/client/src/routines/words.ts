@@ -1,5 +1,5 @@
 import i18next from 'i18next';
-import type { RoutineEntry, RoutineRun, RoutineSchedule } from '@ruimte/contracts';
+import type { CronProblem, RoutineEntry, RoutineRun, RoutineSchedule } from '@ruimte/contracts';
 import { formatClock, formatDateTime, formatDay, formatDuration, formatElapsedShort } from '@adecore/ui/format';
 import type { AgendaBlock, AgendaWeek, CellItem } from '@/routines/agenda';
 
@@ -52,6 +52,9 @@ function intervalDayWords(days: readonly number[]): string {
 
 /* `Weekdays at 09:00`, `Every Friday at 16:00`, `Once, 26 Oct at 09:00`, `Weekdays, every hour from 09:00 to 17:00`. */
 export function scheduleWords(schedule: RoutineSchedule): string {
+    if (schedule.kind === 'cron') {
+        return i18next.t('routines:repeat.cron', { expression: schedule.expression });
+    }
     if (schedule.kind === 'interval') {
         return i18next.t('routines:repeat.interval', {
             days: intervalDayWords([...new Set(schedule.days)].sort((left, right) => left - right)),
@@ -79,6 +82,20 @@ export function scheduleWords(schedule: RoutineSchedule): string {
         return i18next.t('routines:repeat.every', { day: weekdayWords(days[0]!, 'long'), time });
     }
     return i18next.t('routines:repeat.some', { days: days.map((day) => weekdayWords(day)).join(', '), time });
+}
+
+/* Why the form does not take a cron expression yet. */
+export function cronProblemWords(problem: CronProblem): string {
+    switch (problem.kind) {
+        case 'shape':
+            return i18next.t('routines:form.cronShape');
+        case 'field':
+            return i18next.t('routines:form.cronField', { field: i18next.t(`routines:form.cronFields.${problem.field}`), part: problem.part });
+        case 'often':
+            return i18next.t('routines:form.cronOften');
+        case 'never':
+            return i18next.t('routines:form.cronNever');
+    }
 }
 
 /* What a drag across the days picked: `Mon to Fri · every weekday`, or `Wed 22 · once` for one day. */
@@ -124,9 +141,12 @@ export function blockWords(block: AgendaBlock, timeZone: string): string {
     }
 }
 
-/* What a folded chip of a day says: `9 runs · 1 failed`, or `every hour until 17:00` for the times still to come. */
-export function foldWords(item: Exclude<CellItem, { kind: 'block' }>): string {
+/* What a folded chip of a day says: `9 runs · 1 failed`, or `every hour until 17:00` or `5 more until 17:00` for the times still to come. */
+export function foldWords(item: Exclude<CellItem, { kind: 'block' }>, timeZone: string): string {
     if (item.kind === 'coming') {
+        if (item.every === null) {
+            return i18next.t('routines:chip.comingCount', { count: item.blocks.length, to: formatClock(item.blocks[item.blocks.length - 1]!.at, timeZone) });
+        }
         return i18next.t('routines:chip.coming', { every: everyWords(item.every), to: clockWords(item.to) });
     }
     const runs = i18next.t('routines:chip.runs', { count: item.blocks.length });
