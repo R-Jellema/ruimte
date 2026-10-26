@@ -145,6 +145,16 @@ describe('the schedule --at takes', () => {
         expect(scheduleText(parseSchedule('Tue every 60m 8:00-9:00')!)).toBe('tue every 1h 08:00-09:00');
     });
 
+    test('reads a cron expression and writes it back the same way', () => {
+        for (const text of ['cron 0 9 * * 1-5', 'cron */30 8-18 * * mon-fri', 'cron 0 0 1 jan *', 'cron @daily']) {
+            expect(scheduleText(parseSchedule(text)!)).toBe(text);
+        }
+        expect(parseSchedule('Cron  0 9  * * MON')).toEqual({ kind: 'cron', expression: '0 9 * * mon' });
+        for (const text of ['cron', 'cron 0 9 * *', 'cron */5 * * * *', 'cron 0 25 * * *', 'cron 0 9 31 2 *']) {
+            expect(parseSchedule(text)).toBeNull();
+        }
+    });
+
     test('refuses a repeat off the quarter hours, past half a day or with its end before its start', () => {
         for (const text of [
             'daily every 20m 09:00-17:00',
@@ -223,6 +233,9 @@ describe('ruimte-context routine', () => {
     test('an agent routine without a prompt and a schedule it cannot read are refused before anything is saved', async () => {
         expect((await run(['new', '--title', 'Empty', '--at', 'daily 08:30']))[0]).toStartWith('refused\tprompt-required\t');
         expect((await run(['new', '--title', 'Never', '--at', 'sometimes', '--prompt', 'Hi']))[0]).toContain('--at takes');
+        expect((await run(['new', '--title', 'Busy', '--at', 'cron */5 * * * *', '--prompt', 'Hi']))[0]).toContain(
+            '--at cron: it would run more often than every 15 minutes'
+        );
         expect(saves).toEqual([]);
     });
 
@@ -230,6 +243,8 @@ describe('ruimte-context routine', () => {
         const lines = await run(['edit', 'cleanup', '--at', 'weekends 03:00']);
         expect(lines[0]).toBe('saved\tcleanup\tCleanup\tcommand\t-\tshared');
         expect(saves[0]!.routine).toEqual({ ...cleanup, schedule: { kind: 'weekly', days: [6, 7], time: '03:00' } });
+        await run(['edit', 'cleanup', '--at', 'cron 0 9 * * 1-5']);
+        expect(saves[1]!.routine.schedule).toEqual({ kind: 'cron', expression: '0 9 * * 1-5' });
         expect((await run(['edit', 'gone', '--title', 'X']))[0]).toBe('refused\troutine-not-found\tThis project has no routine gone');
     });
 

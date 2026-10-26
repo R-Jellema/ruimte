@@ -1,6 +1,14 @@
 import { modeFlag } from '@adecore/agents/providers';
 import type { ActionInput } from '@ruimte/actions';
-import { RoutinePerRunSchema, RoutineScheduleSchema, type RoutineEntry, type RoutineRun, type RoutineSchedule } from '@ruimte/contracts';
+import {
+    cronProblemText,
+    parseCron,
+    RoutinePerRunSchema,
+    RoutineScheduleSchema,
+    type RoutineEntry,
+    type RoutineRun,
+    type RoutineSchedule
+} from '@ruimte/contracts';
 import { z } from 'zod';
 import { defineActionVerb, runAction } from './action-verb.ts';
 import { modelFlag } from './model.ts';
@@ -15,7 +23,7 @@ const DAY_SETS: Record<string, readonly number[]> = {
 };
 
 const SCHEDULE_SYNTAX =
-    '"daily 23:00", "weekdays 09:00", "weekends 10:30", "mon,thu 17:00", "once 2026-10-27 22:00", or a repeat within a day such as "weekdays every 1h 09:00-17:00" or "daily every 30m 08:00-18:00" (steps of 15m up to 12h, both ends included)';
+    '"daily 23:00", "weekdays 09:00", "weekends 10:30", "mon,thu 17:00", "once 2026-10-27 22:00", a repeat within a day such as "weekdays every 1h 09:00-17:00" or "daily every 30m 08:00-18:00" (steps of 15m up to 12h, both ends included), or "cron" and five crontab fields such as "cron 0 9 * * 1-5" or "cron */30 8-18 * * mon-fri" (at most every 15m)';
 
 const APPROVAL_LINE =
     'approval\tA routine runs only once a person approved it on this machine as it stands; whatever you add or change waits for them in Routines, and you never approve one';
@@ -44,6 +52,10 @@ function daysOf(text: string): number[] | null {
 /* `--at` as an agent writes it: a set of days and a time, or once on a day at a time, in the machine's time zone. */
 export function parseSchedule(text: string): RoutineSchedule | null {
     const words = text.trim().toLowerCase().split(/\s+/);
+    if (words[0] === 'cron') {
+        const schedule = RoutineScheduleSchema.safeParse({ kind: 'cron', expression: words.slice(1).join(' ') });
+        return schedule.success ? schedule.data : null;
+    }
     if (words[0] === 'once' && words.length === 3) {
         const time = clockOf(words[2]!);
         const date = words[1]!;
@@ -88,6 +100,9 @@ export function scheduleText(schedule: RoutineSchedule): string {
     if (schedule.kind === 'once') {
         return `once ${schedule.date} ${schedule.time}`;
     }
+    if (schedule.kind === 'cron') {
+        return `cron ${schedule.expression}`;
+    }
     const days = [...schedule.days].sort((a, b) => a - b).join(',');
     const named = Object.entries(DAY_SETS).find(([, set]) => set.join(',') === days)?.[0] ?? schedule.days.map((day) => DAY_NAMES[day - 1]).join(',');
     if (schedule.kind === 'interval') {
@@ -99,7 +114,10 @@ export function scheduleText(schedule: RoutineSchedule): string {
 const scheduleFlag = z.string().transform((text, context) => {
     const schedule = parseSchedule(text);
     if (schedule === null) {
-        context.addIssue({ code: 'custom', message: `--at takes ${SCHEDULE_SYNTAX}` });
+        const cron = /^\s*cron\b(.*)$/i.exec(text);
+        const parsed = cron === null ? null : parseCron(cron[1]!);
+        const message = parsed !== null && !parsed.ok ? `--at cron: ${cronProblemText(parsed.problem)}` : `--at takes ${SCHEDULE_SYNTAX}`;
+        context.addIssue({ code: 'custom', message });
         return z.NEVER;
     }
     return schedule;
