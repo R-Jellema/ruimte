@@ -16,7 +16,7 @@ enum Permissions {
         Bundle.main.bundleURL.deletingPathExtension().lastPathComponent
     }
 
-    /* macOS shows its own dialog for a grant once per app, so after that a request for it opens the pane instead. */
+    // macOS shows its own dialog for a grant once per app, so after that a request for it opens the pane instead.
     private static func askedBefore(_ grant: String) -> Bool {
         UserDefaults.standard.bool(forKey: "askedGrant.\(grant)")
     }

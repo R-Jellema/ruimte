@@ -6,7 +6,6 @@ public enum Clipping {
     /// One element of a subtree read in tree order; `depth` counts from the root of that read.
     public struct Laid: Equatable, Sendable {
         public let depth: Int
-        /// `nil` when the element reports no frame.
         public let frame: CGRect?
 
         public init(depth: Int, frame: CGRect?) {

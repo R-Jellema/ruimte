@@ -69,7 +69,7 @@ public struct SessionControl: Sendable {
         }
     }
 
-    /// How the session stands, for the `session` of a `doctor` reply.
+    /// How the session stands, for the `session` of a reply.
     public var summary: [String: Any] {
         ["active": isActive, "mode": mode.rawValue, "stopped": stopped]
     }

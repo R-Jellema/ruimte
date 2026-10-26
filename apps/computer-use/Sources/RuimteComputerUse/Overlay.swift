@@ -137,7 +137,6 @@ final class Overlay {
         config.accentComponents.map { CGColor(srgbRed: $0.red, green: $0.green, blue: $0.blue, alpha: 1) }
     }
 
-    /// Why an agent command may not run now; nil when it may.
     var refusal: AgentError? {
         control.refusal
     }
@@ -223,7 +222,6 @@ final class Overlay {
         }
     }
 
-    /// Shows an action at the cursor.
     func show(_ action: ActionLook) {
         holdTask?.cancel()
         look = action
