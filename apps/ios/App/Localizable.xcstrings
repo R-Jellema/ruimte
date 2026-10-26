@@ -6140,6 +6140,17 @@
         }
       }
     },
+    "From %@" : {
+      "comment" : "A request of a chat this chat opened: the agent it comes from",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Van %@"
+          }
+        }
+      }
+    },
     "Workflow running" : {
       "localizations" : {
         "nl" : {

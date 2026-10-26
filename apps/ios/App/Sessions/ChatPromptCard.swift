@@ -8,6 +8,8 @@ struct ChatPromptCard: View {
     let hasDraft: Bool
     let denyReason: Bool
     let availableHeight: CGFloat
+    /// The agent a request of a chat this one opened comes from; nil for the chat's own.
+    var source: ChatPromptSource?
     let perform: @MainActor (String, [String: JSONValue]) async throws -> Void
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @FocusState private var answerFocused: Bool
@@ -113,6 +115,24 @@ struct ChatPromptCard: View {
                 Spacer(minLength: 0)
             }
             HStack(spacing: 8) {
+                if let source {
+                    HStack(spacing: 4) {
+                        if let provider = source.provider {
+                            ChatProviderMark(provider: provider, size: 12)
+                        } else {
+                            Image(lucide: "bot", size: 12)
+                        }
+                        Text(source.label).lineLimit(1)
+                    }
+                    .foregroundStyle(MobileStyle.text)
+                    .padding(.horizontal, 8).padding(.vertical, 3)
+                    .background(MobileStyle.fill, in: .capsule)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel(
+                        Text(
+                            "From \(source.label)",
+                            comment: "A request of a chat this chat opened: the agent it comes from"))
+                }
                 if prompts.pending.count > 1 { Text("\(prompts.pending.count) requests waiting").monospacedDigit() }
                 if questions.count > 1 {
                     Text("Question \(prompts.draft.index + 1) of \(questions.count)").monospacedDigit()
@@ -360,13 +380,17 @@ struct ChatPromptCard: View {
 
 extension ChatPromptCard {
     /// A card that answers through the chat's own model, the same under the chat and under one of its sub-agents.
-    init(prompts: ChatPromptState, item: ChatItem, model: ChatModel, hasDraft: Bool, availableHeight: CGFloat) {
+    /// `model` is the chat that asked, which a request of a chat this one opened is answered in.
+    init(
+        prompts: ChatPromptState, item: ChatItem, model: ChatModel, hasDraft: Bool, availableHeight: CGFloat,
+        source: ChatPromptSource? = nil
+    ) {
         self.init(
             prompts: prompts, item: item, connected: model.connected && !model.loading, hasDraft: hasDraft,
             denyReason: model.providers.first(where: {
                 $0["kind"]?.stringValue == model.info?.provider
             })?["capabilities"]?["denyReason"]?.boolValue == true,
-            availableHeight: availableHeight
+            availableHeight: availableHeight, source: source
         ) { action, values in
             _ = try await model.client.request(action, payload: model.target(values))
         }

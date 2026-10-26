@@ -20,40 +20,63 @@ struct ChatPromptDraft {
     var expanded = false
 }
 
+/// The agent a request of a child or delegated chat comes from, which its card names.
+struct ChatPromptSource: Equatable {
+    let label: String
+    let provider: String?
+}
+
+/// A request that waits on a person: the chat's own, or one of a chat it opened, which is answered in that chat.
+struct ChatPromptSubject: Equatable {
+    /// Nil for the chat's own request.
+    let chatID: String?
+    let item: ChatItem
+    var source: ChatPromptSource?
+
+    /// The request id alone for the chat's own, since the request ids of two chats can be the same.
+    var key: String {
+        let request = item.requestId ?? ""
+        return chatID.map { "\($0)/\(request)" } ?? request
+    }
+}
+
 @MainActor @Observable
 final class ChatPromptState {
-    private var live: [ChatItem] = []
+    private var live: [ChatPromptSubject] = []
     private var completed: Set<String> = []
     private var drafts: [String: ChatPromptDraft] = [:]
     var activeID: String?
     var sendingID: String?
     var error: String?
-    var pending: [ChatItem] {
-        live.filter { !completed.contains($0.requestId ?? "") }
+    var subjects: [ChatPromptSubject] {
+        live.filter { !completed.contains($0.key) }
     }
-    var active: ChatItem? { pending.first { $0.requestId == activeID } }
+    var pending: [ChatItem] { subjects.map(\.item) }
+    var activeSubject: ChatPromptSubject? { subjects.first { $0.key == activeID } }
+    var active: ChatItem? { activeSubject?.item }
     var draft: ChatPromptDraft {
         get { activeID.flatMap { drafts[$0] } ?? ChatPromptDraft() }
         set { if let activeID { drafts[activeID] = newValue } }
     }
 
-    func update(_ requests: [ChatItem]) {
-        live = requests
-        let ids = Set(requests.map { $0.requestId ?? "" })
-        completed.formIntersection(ids)
-        drafts = drafts.filter { ids.contains($0.key) }
+    /// The chat's own requests first, then those of the chats it opened that still wait.
+    func update(_ requests: [ChatItem], others: [ChatPromptSubject] = []) {
+        live = requests.map { ChatPromptSubject(chatID: nil, item: $0) } + others
+        let keys = Set(live.map(\.key))
+        completed.formIntersection(keys)
+        drafts = drafts.filter { keys.contains($0.key) }
         reconcile()
     }
 
     private func reconcile() {
         guard active == nil else { return }
-        let candidates = pending.sorted {
-            let first = Self.waitsLater($0)
-            let second = Self.waitsLater($1)
+        let candidates = subjects.sorted {
+            let first = Self.waitsLater($0.item)
+            let second = Self.waitsLater($1.item)
             if first != second { return !first }
-            return $0.createdAt < $1.createdAt
+            return $0.item.createdAt < $1.item.createdAt
         }
-        activeID = candidates.first?.requestId
+        activeID = candidates.first?.key
         error = nil
     }
 
@@ -65,8 +88,8 @@ final class ChatPromptState {
     func submit(
         _ item: ChatItem, connected: Bool, perform: @MainActor () async throws -> Void
     ) async {
-        let id = item.requestId ?? ""
-        guard sendingID == nil, activeID == id, pending.contains(where: { $0.requestId == id }), connected
+        guard let id = activeSubject?.key, activeSubject?.item.requestId == item.requestId, sendingID == nil,
+            connected
         else { return }
         sendingID = id
         error = nil

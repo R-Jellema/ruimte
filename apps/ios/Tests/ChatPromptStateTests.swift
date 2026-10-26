@@ -127,5 +127,43 @@ final class ChatPromptStateTests: XCTestCase {
         XCTAssertNil(handoff.focus(from: "b", to: nil, focused: false, visible: false))
     }
 
+    @MainActor func testARequestOfAChildChatKeepsItsRecipientApartFromTheChatsOwnOfTheSameID() async {
+        let state = ChatPromptState()
+        let own = request("acp-1-3")
+        let source = ChatPromptSource(label: "Fix the outbox", provider: "grok")
+        let child = ChatPromptSubject(chatID: "child", item: request("acp-1-3"), source: source)
+        state.update([own], others: [child])
+        XCTAssertEqual(state.subjects.map(\.key), ["acp-1-3", "child/acp-1-3"])
+        XCTAssertEqual(state.activeID, "acp-1-3")
+        await state.submit(own, connected: true) {}
+        XCTAssertEqual(state.activeSubject?.chatID, "child")
+        XCTAssertEqual(state.activeSubject?.source?.label, "Fix the outbox")
+        state.update([], others: [])
+        XCTAssertNil(state.active)
+    }
+
+    @MainActor func testARequestOfAnotherChatStandsOnlyWhileThatChatStillWaitsOnIt() {
+        let item = request("r1")
+        func info(_ status: String, requests: [String]?) -> ChatInfo {
+            var fields: [String: JSONValue] = ["status": .string(status)]
+            if let requests {
+                fields["requests"] = .array(
+                    requests.map {
+                        .object([
+                            "requestId": .string($0), "itemId": .string($0), "kind": .string("approval"),
+                            "createdAt": .number(0),
+                        ])
+                    })
+            }
+            return ChatWire.info(fields).chatInfo
+        }
+        XCTAssertTrue(ChatPromptFeed.stillWaiting(item, info: info("needs-you", requests: nil)))
+        XCTAssertTrue(ChatPromptFeed.stillWaiting(item, info: info("needs-you", requests: ["r1"])))
+        XCTAssertFalse(ChatPromptFeed.stillWaiting(item, info: info("needs-you", requests: ["r2"])))
+        XCTAssertTrue(
+            ChatPromptFeed.stillWaiting(item, info: info("needs-you", requests: (0..<8).map { "other-\($0)" })))
+        XCTAssertFalse(ChatPromptFeed.stillWaiting(item, info: info("running", requests: ["r1"])))
+    }
+
     private enum Failure: Error { case expected }
 }

@@ -248,6 +248,7 @@
 		93687A4E25E26ACA4330A642 /* ChatDraftSyntax.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50F5AB9F07A9DA47A43714BB /* ChatDraftSyntax.swift */; };
 		93ABEC838D61F2A4F84A9AEF /* intelligent-ui-presentation.json in Resources */ = {isa = PBXBuildFile; fileRef = A9867AAE3875BFA2A608B522 /* intelligent-ui-presentation.json */; };
 		93B147F9D1DC4B6DFF986E91 /* RuimteNotificationService.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 3DED45634E156A5B8CE75374 /* RuimteNotificationService.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		9556D3E2663644A03231E7CA /* ChatPromptFeed.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA47C5156D96FA80DF6383D2 /* ChatPromptFeed.swift */; };
 		958923BFED0F4C7EFBB7231A /* UiModelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A65D1E7C296DCCB744F751A /* UiModelView.swift */; };
 		994370BF753F1907C78FE8EE /* DrawingEditorModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 492DA55F2EB18352FC26B750 /* DrawingEditorModel.swift */; };
 		99A0D3D88CC159C1EEAB2DF5 /* NowRequestTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27E68DFC13E24C17BCE2204B /* NowRequestTests.swift */; };
@@ -869,6 +870,7 @@
 		F88143232F57172C105B62F4 /* tone.m4a */ = {isa = PBXFileReference; path = tone.m4a; sourceTree = "<group>"; };
 		F99B601820CBFE2046FC337E /* ProjectOverviewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectOverviewTests.swift; sourceTree = "<group>"; };
 		FA3AB193736D4225923AF7F5 /* NowBoardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowBoardTests.swift; sourceTree = "<group>"; };
+		FA47C5156D96FA80DF6383D2 /* ChatPromptFeed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatPromptFeed.swift; sourceTree = "<group>"; };
 		FAF32399AA9411213B7BFB06 /* ChatForkingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatForkingTests.swift; sourceTree = "<group>"; };
 		FC93B189294B4D798A653EDC /* ChatAttachmentButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatAttachmentButton.swift; sourceTree = "<group>"; };
 		FDD0B866219FA2F1AA2DEED9 /* GitRepositories.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitRepositories.swift; sourceTree = "<group>"; };
@@ -1583,6 +1585,7 @@
 				D938536D0453E8C833E785E7 /* ChatPreferences.swift */,
 				20F594D31BFE518F6FD7ABB0 /* ChatPresentation.swift */,
 				59965D01855765D4A850A9AD /* ChatPromptCard.swift */,
+				FA47C5156D96FA80DF6383D2 /* ChatPromptFeed.swift */,
 				07925406E3DF19A644D70108 /* ChatPromptState.swift */,
 				CDEBDA8A3C104C2C7998E957 /* ChatQueueSheet.swift */,
 				36AEFCFE1AA942F03736757A /* ChatReferables.swift */,
@@ -2050,6 +2053,7 @@
 				646DFBD4CF754EC090A4239D /* ChatPreferences.swift in Sources */,
 				27E066D39B716ECACB477F86 /* ChatPresentation.swift in Sources */,
 				F738896288E2FA173ED71E91 /* ChatPromptCard.swift in Sources */,
+				9556D3E2663644A03231E7CA /* ChatPromptFeed.swift in Sources */,
 				0F2AF4A02D667182FE086D79 /* ChatPromptState.swift in Sources */,
 				832DDD2D985B451DDE2F7F8D /* ChatQueueSheet.swift in Sources */,
 				8803F1FD43F24C7D90C35325 /* ChatReferables.swift in Sources */,

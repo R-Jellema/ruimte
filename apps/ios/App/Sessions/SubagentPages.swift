@@ -342,6 +342,12 @@ struct SubagentConversationPage: View {
     private var chatID: String { model.chatID }
     private var parent: ChatPresentation { model.presentation }
 
+    /// The requests of the delegated chat this conversation is, answered in that chat and not the parent.
+    private var delegatedPrompts: [ChatPromptSubject] {
+        guard let delegated = conversation.delegatedChat else { return [] }
+        return conversation.pending.map { ChatPromptSubject(chatID: delegated.chatID, item: $0) }
+    }
+
     init(model: ChatModel, crumb: SubagentCrumb, session: SharedMachineSession?) {
         self.model = model
         self.crumb = crumb
@@ -363,7 +369,9 @@ struct SubagentConversationPage: View {
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            SubagentComposerDock(model: model, prompts: prompts, availableHeight: viewportHeight)
+            SubagentComposerDock(
+                model: model, prompts: prompts, delegatedProvider: conversation.delegatedChat?.provider,
+                availableHeight: viewportHeight)
         }
         .onGeometryChange(for: CGFloat.self) {
             $0.size.height
@@ -371,7 +379,10 @@ struct SubagentConversationPage: View {
             viewportHeight = $0
         }
         .onChange(of: model.pending, initial: true) { _, requests in
-            prompts.update(requests)
+            prompts.update(requests, others: delegatedPrompts)
+        }
+        .onChange(of: conversation.pending) { _, _ in
+            prompts.update(model.pending, others: delegatedPrompts)
         }
         .overlay {
             switch conversation.status {
@@ -452,6 +463,7 @@ private struct HoldsChat: ViewModifier {
 private struct SubagentComposerDock: View {
     let model: ChatModel
     let prompts: ChatPromptState
+    let delegatedProvider: String?
     let availableHeight: CGFloat
 
     var body: some View {
@@ -469,8 +481,22 @@ private struct SubagentComposerDock: View {
             }
             .padding(.leading, 20).padding(.trailing, 6)
         } prompt: { pending in
-            ChatPromptCard(
-                prompts: prompts, item: pending, model: model, hasDraft: false, availableHeight: availableHeight)
+            if let chatID = prompts.subjects.first(where: { $0.item == pending })?.chatID {
+                ChatPromptCard(
+                    prompts: prompts, item: pending, connected: model.connected, hasDraft: false,
+                    denyReason: model.providers.first(where: {
+                        $0["kind"]?.stringValue == delegatedProvider
+                    })?["capabilities"]?["denyReason"]?.boolValue == true,
+                    availableHeight: availableHeight
+                ) { action, values in
+                    var payload = values
+                    payload["chatId"] = .string(chatID)
+                    _ = try await model.client.request(action, payload: .object(payload))
+                }
+            } else {
+                ChatPromptCard(
+                    prompts: prompts, item: pending, model: model, hasDraft: false, availableHeight: availableHeight)
+            }
         }
         .frame(maxWidth: 760)
         .padding(.horizontal, 14).padding(.vertical, 12)

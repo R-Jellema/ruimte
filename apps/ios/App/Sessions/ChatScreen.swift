@@ -16,6 +16,7 @@ struct ChatScreen: View {
     @State private var endingAgents: EndingAgents?
     @State private var activityFailure: ChatActivityFailure?
     @State private var prompts = ChatPromptState()
+    @State private var promptFeed: ChatPromptFeed
     @State private var viewportHeight: CGFloat = 700
     @State private var composerFocused = false
     @State private var composerFade = ChatComposerFadeLink()
@@ -59,6 +60,7 @@ struct ChatScreen: View {
         self.isPrepared = isPrepared
         self.workspace = workspace
         machineSession = session ?? workspace?.session
+        _promptFeed = State(initialValue: ChatPromptFeed(session: session ?? workspace?.session))
         self.subtitle = subtitle
     }
 
@@ -94,9 +96,11 @@ struct ChatScreen: View {
         } action: {
             viewportWidth = $0.width
         }
-        .onChange(of: model.pending, initial: true) { _, requests in
-            prompts.update(requests)
-        }
+        .modifier(
+            ChatPromptFeedTracking(
+                feed: promptFeed, prompts: prompts, model: model, attention: machineSession?.attention,
+                visible: visible)
+        )
         .onChange(of: prompts.activeID) { previous, next in
             if let focus = draftFocus.focus(from: previous, to: next, focused: composerFocused, visible: visible) {
                 composerFocused = focus
@@ -255,6 +259,9 @@ struct ChatScreen: View {
             chatPresentationLog.notice("chat appeared \(model.chatID, privacy: .public)")
             visible = true
             if isPrepared { start() }
+            promptFeed.follow(
+                promptFeed.wanted(under: model, attention: machineSession?.attention), client: model.client,
+                machineID: model.machineID)
         }
         .onChange(of: isPrepared) { _, prepared in
             if prepared && visible { start() }
@@ -262,6 +269,7 @@ struct ChatScreen: View {
         .onDisappear {
             chatPresentationLog.notice("chat disappeared \(model.chatID, privacy: .public)")
             visible = false
+            promptFeed.stop()
             model.uiModels.imageSave.close()
             if holdingChat {
                 holdingChat = false
@@ -632,8 +640,11 @@ struct ChatScreen: View {
                 model: model, sheets: composerSheets, focused: $composerFocused, availableHeight: viewportHeight,
                 send: send)
         } prompt: { pending in
+            let subject = prompts.subjects.first { $0.item == pending }
             ChatPromptCard(
-                prompts: prompts, item: pending, model: model, hasDraft: hasDraft, availableHeight: viewportHeight)
+                prompts: prompts, item: pending,
+                model: subject?.chatID.flatMap(promptFeed.model(for:)) ?? model, hasDraft: hasDraft,
+                availableHeight: viewportHeight, source: subject?.source)
         }
     }
 

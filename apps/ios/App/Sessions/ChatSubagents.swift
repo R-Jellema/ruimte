@@ -488,6 +488,9 @@ final class SubagentConversation {
     private(set) var live = false
     private(set) var loadingEarlier = false
     private(set) var error: String?
+    /// The requests of a delegated chat that still wait, answered in that chat, which `delegatedChat` names.
+    private(set) var pending: [ChatItem] = []
+    private(set) var delegatedChat: (chatID: String, provider: String)?
     @ObservationIgnored var onChange: (Change) -> Void = { _ in }
     @ObservationIgnored private let client: any MachineRequesting
     @ObservationIgnored private let chatID: String
@@ -564,6 +567,7 @@ final class SubagentConversation {
                 guard !Task.isCancelled else { return }
                 let older = Self.items(of: page)
                 self.items = older + self.items
+                self.readPending(page)
                 self.cursor = page["history"]?["cursor"]?.stringValue
                 self.live = page["live"]?.boolValue == true
                 self.onChange(.prepended(older))
@@ -590,6 +594,7 @@ final class SubagentConversation {
                 current: items, cursor: cursor, page: incoming, pageCursor: page["history"]?["cursor"]?.stringValue)
             items = merged.items
             cursor = merged.cursor
+            readPending(page)
             live = page["live"]?.boolValue == true
             status = .ready
             error = nil
@@ -614,6 +619,17 @@ final class SubagentConversation {
         if let cursor { payload["cursor"] = .string(cursor) }
         if let watch { payload["watch"] = .bool(watch) }
         return try await client.request("chat.subagent", payload: .object(payload))
+    }
+
+    /// Only a delegated chat answers its own requests; a request still waiting stays answerable after it left the
+    /// newest page, which is why the machine names them apart.
+    private func readPending(_ page: JSONValue) {
+        let chatID = page["context"]?["chatId"]?.stringValue
+        let next = chatID.map { (chatID: $0, provider: page["context"]?.text("provider") ?? "") }
+        if next?.chatID != delegatedChat?.chatID || next?.provider != delegatedChat?.provider { delegatedChat = next }
+        let listed = page["pending"]?.arrayValue.map { $0.compactMap { try? $0.decoded(as: ChatItem.self) } }
+        let waiting = chatID == nil ? [] : listed ?? items.filter(\.isPending)
+        if waiting != pending { pending = waiting }
     }
 
     /// The page's items are chat items like the thread's, which the machine validated with the rest of its answer.
