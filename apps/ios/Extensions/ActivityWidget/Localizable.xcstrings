@@ -76,13 +76,13 @@
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "1 agent bezig"
+                  "value" : "1 agent actief"
                 }
               },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%lld agents bezig"
+                  "value" : "%lld agents actief"
                 }
               }
             }
@@ -564,7 +564,7 @@
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "De agents die op jou wachten. Tik op een agent om die te openen."
+            "value" : "De agents die op jou wachten. Tik er een aan om hem te openen."
           }
         }
       }
@@ -719,12 +719,12 @@
         }
       }
     },
-    "Waiting for your input" : {
+    "Waiting for your answer" : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wacht op je input"
+            "value" : "Wacht op je antwoord"
           }
         }
       }

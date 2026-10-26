@@ -113,7 +113,7 @@ private struct ActivityAgentRow: View {
                 Text(agent.title).font(.system(size: 15, weight: .medium)).foregroundStyle(.white)
                     .lineLimit(1).truncationMode(.tail)
                 HStack(spacing: 5) {
-                    Text(needsYou ? "Waiting for your input" : (agent.target == .chat ? "AI chat" : "Terminal agent"))
+                    Text(needsYou ? "Waiting for your answer" : (agent.target == .chat ? "AI chat" : "Terminal agent"))
                         .lineLimit(1)
                     if let startedAt = agent.startedAt {
                         Text("·")
