@@ -61,7 +61,7 @@ const MORNING = entry('morning', 'Morning summary', {
 });
 
 const HELD: RoutineEntry = {
-    ...entry('changelog', 'Weekly changelog draft', { approved: false, held: 'outside', next: null }),
+    ...entry('changelog', 'Weekly changelog draft', { approved: false, held: 'outside', shared: true, next: null }),
     routine: {
         ...MORNING.routine,
         id: 'changelog',

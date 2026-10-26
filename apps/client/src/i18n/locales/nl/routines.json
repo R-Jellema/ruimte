@@ -118,7 +118,8 @@
     "anAgent": "een chat",
     "deny": "Weigeren",
     "approve": "Goedkeuren",
-    "failed": "Het antwoord kwam niet aan bij de machine."
+    "failed": "Het antwoord kwam niet aan bij de machine.",
+    "fromOutsidePrivate": "Buiten Ruimte veranderd"
   },
   "repeat": {
     "once": "Eenmalig, {{date}} om {{time}}",
@@ -200,13 +201,13 @@
     "days": "Dagen",
     "time": "Tijd",
     "machineClock": "op de klok van de machine",
-    "shared": "Delen met het project",
-    "sharedHint": "Komt in het projectbestand dat een team commit. Iedereen keurt hem op de eigen machine goed.",
-    "output": "Bewaard in Output als {{title}}, één versie per run.",
-    "outputSoon": "Bewaard in Output onder zijn naam, één versie per run.",
+    "shared": "Delen met team",
+    "sharedHint": "Gedeelde routines worden met het project gecommit. Iedereen keurt er een op de eigen machine goed.",
     "create": "Routine maken",
     "save": "Opslaan",
-    "failed": "De routine kon niet opgeslagen worden."
+    "failed": "De routine kon niet opgeslagen worden.",
+    "outputAgent": "Een resultaat dat de agent bewaart gaat naar Output, niet in het project.",
+    "outputPrinted": "Wat hij print gaat naar Output."
   },
   "detail": {
     "definition": "Wat deze routine doet",
@@ -221,9 +222,8 @@
     "runsOn": "Draait op",
     "thisMachine": "Deze machine",
     "kept": "Bewaard",
-    "shared": "In het projectbestand, gedeeld",
+    "shared": "Gedeeld met team",
     "private": "Alleen op deze machine",
-    "result": "Bewaard in Output als {{title}}, één versie per run.",
     "deliverNote": "Ruimte vraagt de agent zijn resultaat in Output te zetten, nooit als rapportbestanden in het project.",
     "runs": "Runs",
     "nextRun": "Volgende run",

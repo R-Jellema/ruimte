@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Dialog } from '@adecore/ui';
 import { closeRoutineForm, useRoutineForm } from '@/routines/form-state';
@@ -14,15 +15,20 @@ export function RoutineFormDialog() {
     const round = useRoutineForm((s) => s.round);
     // Held here as well, so a form opened outside the stage still knows the revs a save names.
     useRoutineList(endpointId);
+    // What it last showed, so the form stays in the popup while it fades out instead of emptying it at once.
+    const [shown, setShown] = useState(request);
+    if (request !== null && request !== shown) {
+        setShown(request);
+    }
     return (
         <Dialog.Root open={request !== null} onOpenChange={(open) => !open && closeRoutineForm()}>
             <Dialog.Popup className="flex max-h-[85vh] w-[480px] flex-col gap-4 overflow-y-auto p-5">
-                <Dialog.Title>{request?.editing ? t('form.editTitle') : t('form.newTitle')}</Dialog.Title>
-                {request !== null && (
+                <Dialog.Title>{shown?.editing ? t('form.editTitle') : t('form.newTitle')}</Dialog.Title>
+                {shown !== null && (
                     <RoutineForm
                         key={round}
                         endpointId={endpointId}
-                        request={request}
+                        request={shown}
                         onCancel={closeRoutineForm}
                         onDone={(projectId, routineId) => {
                             closeRoutineForm();

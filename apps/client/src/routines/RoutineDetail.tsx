@@ -123,9 +123,8 @@ function Definition({ endpointId, entry, rev }: { endpointId: string; entry: Rou
             {failure !== null && <p className="text-xs text-status-error">{failure}</p>}
             <p className="flex items-start gap-2 text-xs text-text-muted">
                 <Icon icon={Package} size={14} className="mt-0.5 shrink-0" />
-                <span>{t('detail.result', { title: routine.title })}</span>
+                <span>{t(routine.kind === 'agent' ? 'form.outputAgent' : 'form.outputPrinted')}</span>
             </p>
-            {routine.kind === 'agent' && <p className="text-xs text-text-faint">{t('detail.deliverNote')}</p>}
         </section>
     );
 }

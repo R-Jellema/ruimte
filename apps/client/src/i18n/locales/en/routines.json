@@ -118,7 +118,8 @@
     "anAgent": "a chat",
     "deny": "Deny",
     "approve": "Approve",
-    "failed": "The answer did not reach the machine."
+    "failed": "The answer did not reach the machine.",
+    "fromOutsidePrivate": "Changed outside Ruimte"
   },
   "repeat": {
     "once": "Once, {{date}} at {{time}}",
@@ -200,13 +201,13 @@
     "days": "Days",
     "time": "Time",
     "machineClock": "on the machine’s clock",
-    "shared": "Share with the project",
-    "sharedHint": "Written to the project file a team commits. Each person approves it on their own machine.",
-    "output": "Saved to Output as {{title}}, one version per run.",
-    "outputSoon": "Saved to Output under its name, one version per run.",
+    "shared": "Share with team",
+    "sharedHint": "Shared routines are committed with the project. Each person approves one on their own machine.",
     "create": "Create routine",
     "save": "Save",
-    "failed": "The routine could not be saved."
+    "failed": "The routine could not be saved.",
+    "outputAgent": "A result the agent keeps goes to Output, not into the project.",
+    "outputPrinted": "What it prints goes to Output."
   },
   "detail": {
     "definition": "What this routine does",
@@ -221,9 +222,8 @@
     "runsOn": "Runs on",
     "thisMachine": "This machine",
     "kept": "Kept",
-    "shared": "In the project file, shared",
+    "shared": "Shared with team",
     "private": "Only on this machine",
-    "result": "Saved to Output as {{title}}, one version per run.",
     "deliverNote": "Ruimte tells the agent to deliver its result to Output, never to write report files into the project.",
     "runs": "Runs",
     "nextRun": "Next run",

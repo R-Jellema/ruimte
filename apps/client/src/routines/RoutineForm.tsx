@@ -108,6 +108,9 @@ export function RoutineForm({
 
     return (
         <form className="flex flex-col gap-3" onSubmit={(event) => void submit(event)} aria-label={editing ? t('form.editTitle') : t('form.newTitle')}>
+            <Field label={t('form.title')}>
+                <Input value={title} placeholder={shownTitle === '' ? t('form.titlePlaceholder') : shownTitle} onChange={(e) => setTitle(e.target.value)} />
+            </Field>
             {request.pickProject === true && projects.length > 1 && (
                 <Field label={t('form.project')} group>
                     <Select
@@ -131,27 +134,31 @@ export function RoutineForm({
             />
             {kind === 'agent' && (
                 <>
-                    <Field label={t('form.prompt')}>
-                        <TextArea rows={4} value={prompt} placeholder={t('form.promptPlaceholder')} onChange={(e) => setPrompt(e.target.value)} />
-                    </Field>
                     {pickable.length === 0 ? (
                         <FieldHint>{t('form.noAgent')}</FieldHint>
                     ) : (
                         provider !== null &&
                         selection !== undefined && (
-                            <div className="flex items-center justify-between gap-3">
-                                <span className="text-sm text-text-muted">{t('form.agent')}</span>
-                                <ModelPicker
-                                    providers={pickable}
-                                    provider={provider}
-                                    selection={selection}
-                                    open={pickerOpen}
-                                    onOpenChange={setPickerOpen}
-                                    onChange={(next, model) => setPick({ provider: next, selection: { model, options: {} } })}
-                                />
-                            </div>
+                            <Field label={t('form.agent')} group>
+                                <div>
+                                    <ModelPicker
+                                        providers={pickable}
+                                        provider={provider}
+                                        selection={selection}
+                                        open={pickerOpen}
+                                        onOpenChange={setPickerOpen}
+                                        onChange={(next, model) => setPick({ provider: next, selection: { model, options: {} } })}
+                                        kbd={null}
+                                        side="bottom"
+                                        trigger="chip"
+                                    />
+                                </div>
+                            </Field>
                         )
                     )}
+                    <Field label={t('form.prompt')}>
+                        <TextArea rows={4} value={prompt} placeholder={t('form.promptPlaceholder')} onChange={(e) => setPrompt(e.target.value)} />
+                    </Field>
                     <Field label={t('form.mode')} group>
                         <Select
                             label={t('form.mode')}
@@ -196,9 +203,6 @@ export function RoutineForm({
                     />
                 </Field>
             )}
-            <Field label={t('form.title')}>
-                <Input value={title} placeholder={shownTitle === '' ? t('form.titlePlaceholder') : shownTitle} onChange={(e) => setTitle(e.target.value)} />
-            </Field>
             <Field label={t('form.repeat')} group>
                 <div className="flex flex-col gap-2">
                     <Segmented
@@ -246,7 +250,7 @@ export function RoutineForm({
             </label>
             <p className="flex items-start gap-2 text-xs text-text-muted">
                 <Icon icon={Package} size={14} className="mt-0.5 shrink-0" />
-                <span>{shownTitle === '' ? t('form.outputSoon') : t('form.output', { title: shownTitle })}</span>
+                <span>{t(kind === 'agent' ? 'form.outputAgent' : 'form.outputPrinted')}</span>
             </p>
             {failure !== null && <FormError className="break-words">{failure}</FormError>}
             <div className="flex items-center justify-end gap-2">
