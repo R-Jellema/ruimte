@@ -399,6 +399,27 @@ describe('beside a routine node', () => {
         expect(card('Morning summary · Fri, Oct 23')!.querySelector('button')!.getAttribute('style')).toContain('--run-tint: color-mix(in srgb, #009689 20%');
     });
 
+    test('switching the open run closes one and opens the other in the same commit, never two open at once', async () => {
+        await open([routineNode('node-1', 'morning')]);
+        await until(() => card('Morning summary · Wed, Oct 21')?.querySelector('button[aria-expanded="false"]') != null);
+        const runCards = (): HTMLElement[] => cards().filter((candidate) => candidate.getAttribute('aria-label')?.startsWith('Morning summary'));
+        const tall = (): string[] =>
+            runCards()
+                .filter((candidate) => candidate.style.height !== '40px')
+                .map((candidate) => candidate.getAttribute('aria-label')!);
+        // What every batch of changes to the cards left on screen, read when the batch is delivered.
+        const seen: string[][] = [];
+        const watcher = new MutationObserver(() => seen.push(tall()));
+        watcher.observe(page.host, { subtree: true, attributes: true, attributeFilter: ['style'] });
+        await act(async () => {
+            card('Morning summary · Wed, Oct 21')!.querySelector<HTMLElement>('button[aria-expanded="false"]')!.click();
+        });
+        watcher.disconnect();
+        expect(tall()).toEqual(['Morning summary · Wed, Oct 21']);
+        expect(card('Morning summary · Thu, Oct 22')!.style.height).toBe('40px');
+        expect(seen.every((open) => open.length <= 1)).toBe(true);
+    });
+
     test('a press in a card gives the routine node the keyboard and selects nothing', async () => {
         await open([routineNode('node-1', 'morning')]);
         await until(() => card('Morning summary · Fri, Oct 23') !== undefined);
@@ -406,6 +427,62 @@ describe('beside a routine node', () => {
             card('Morning summary · Fri, Oct 23')!.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, pointerId: 1 }));
         });
         expect(liveCanvas('main')).toMatchObject({ bodyFocusId: 'node-1', selection: [] });
+    });
+
+    test('a card that holds the focus wears the ring a selected node does, until the focus leaves it', async () => {
+        await open([routineNode('node-1', 'morning')]);
+        await until(() => card('Output') !== undefined);
+        await act(async () => {
+            card('Output')!.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, pointerId: 1 }));
+        });
+        expect(card('Output')!.classList.contains('node-selected')).toBe(true);
+        expect(card('Morning summary · Thu, Oct 22')!.classList.contains('node-selected')).toBe(false);
+        await act(async () => {
+            card('Morning summary · Thu, Oct 22')!.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, pointerId: 1 }));
+        });
+        expect(card('Output')!.classList.contains('node-selected')).toBe(false);
+        expect(card('Morning summary · Thu, Oct 22')!.classList.contains('node-selected')).toBe(true);
+        // A press in the node itself takes the focus away from the cards.
+        await act(async () => {
+            frameOf('node-1')!
+                .querySelector('[data-node-body]')!
+                .dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, pointerId: 1 }));
+        });
+        expect(cards().some((candidate) => candidate.classList.contains('node-selected'))).toBe(false);
+    });
+
+    test('the keys step from the routine node onto its cards, Enter goes into one and Escape comes out', async () => {
+        await open([routineNode('node-1', 'morning')]);
+        await until(() => card('Output') !== undefined);
+        await act(async () => liveCanvas('main')!.select(['node-1']));
+        const key = (init: KeyboardEventInit): KeyboardEvent => new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init });
+        await act(async () => {
+            document.body.dispatchEvent(key({ key: 'ArrowRight', code: 'ArrowRight', altKey: true }));
+        });
+        // On a card the keys stand without selecting it: nothing moves or removes a card.
+        const onRun = liveCanvas('main')!;
+        expect(onRun.selection).toEqual([]);
+        expect(onRun.navigationId).toStartWith('derived:node-1:run:');
+        expect(cards().filter((candidate) => candidate.classList.contains('node-selected'))).toHaveLength(1);
+        await act(async () => {
+            document.body.dispatchEvent(key({ key: 'ArrowRight', code: 'ArrowRight', altKey: true }));
+        });
+        expect(liveCanvas('main')!.navigationId).toBe('derived:node-1:output');
+        expect(card('Output')!.classList.contains('node-selected')).toBe(true);
+        await act(async () => {
+            document.body.dispatchEvent(key({ key: 'Enter', code: 'Enter' }));
+        });
+        expect(liveCanvas('main')).toMatchObject({ bodyFocusId: 'node-1', navigationId: 'derived:node-1:output', selection: [] });
+        expect(card('Output')!.contains(document.activeElement)).toBe(true);
+        await act(async () => {
+            document.activeElement!.dispatchEvent(key({ key: 'Escape', code: 'Escape' }));
+        });
+        expect(liveCanvas('main')).toMatchObject({ bodyFocusId: null, navigationId: 'derived:node-1:output' });
+        await act(async () => {
+            document.body.dispatchEvent(key({ key: 'ArrowLeft', code: 'ArrowLeft', altKey: true }));
+        });
+        expect(liveCanvas('main')!.navigationId).toStartWith('derived:node-1:run:');
+        expect(Object.keys(liveCanvas('main')!.nodes)).toEqual(['node-1']);
     });
 
     test('the cards are drawn, never stored', async () => {

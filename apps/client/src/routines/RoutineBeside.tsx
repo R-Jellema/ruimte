@@ -248,7 +248,12 @@ function OpenRun({
         if (frame === null) {
             return;
         }
-        const measure = (): void => measured.current(contentHeight(frame));
+        const measure = (): void => {
+            const height = contentHeight(frame);
+            if (height !== null) {
+                measured.current(height);
+            }
+        };
         // A row the thread measures sets its own height in a style, and a thread that loads adds rows.
         const resizes = new ResizeObserver(measure);
         resizes.observe(frame);
@@ -287,16 +292,24 @@ function OpenRun({
 /*
  * What the open run's card would measure with its whole thread in view: the frame without the thread's
  * viewport, plus what the thread holds. The thread fills whatever height it gets, so its own content is
- * read: the rows under `.chat-thread`, which the virtualized timeline gives their full height.
+ * read: the rows under `.chat-thread`, which the virtualized timeline gives their full height. Null while
+ * there is nothing settled to read: the thread still loading, or laying its rows out at their estimated
+ * height (hidden until then), which would open the card tall for a frame and shrink it again.
  */
-function contentHeight(frame: HTMLElement): number {
+function contentHeight(frame: HTMLElement): number | null {
     const scroll = frame.querySelector<HTMLElement>('.chat-scroll');
     const thread = frame.querySelector<HTMLElement>('.chat-thread');
+    if (
+        thread !== null &&
+        [...thread.children].some((child) => child.getAttribute('role') === 'status' || (child as HTMLElement).style.visibility === 'hidden')
+    ) {
+        return null;
+    }
     const inner = scroll !== null && thread !== null ? { viewport: scroll.clientHeight, box: thread } : null;
     const words = frame.querySelector<HTMLElement>('[data-run-words]');
     const measured = inner ?? (words === null ? null : { viewport: words.clientHeight, box: words });
     if (measured === null) {
-        return frame.offsetHeight;
+        return null;
     }
     const style = getComputedStyle(measured.box);
     const children = [...measured.box.children].reduce((sum, child) => sum + (child as HTMLElement).offsetHeight, 0);

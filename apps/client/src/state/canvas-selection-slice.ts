@@ -8,7 +8,7 @@ import { maximizedNodeOf, type CanvasGet, type CanvasSet } from '@/state/canvas-
 export function createCanvasSelectionSlice(
     set: CanvasSet,
     get: CanvasGet
-): Pick<CanvasState, 'select' | 'clearSelection' | 'selectInRect' | 'activateNode' | 'setBodyFocus' | 'toggleMaximizedNode'> {
+): Pick<CanvasState, 'select' | 'clearSelection' | 'selectInRect' | 'activateNode' | 'setBodyFocus' | 'focusCard' | 'toggleMaximizedNode'> {
     return {
         select(ids, additive = false) {
             set((state) => {
@@ -45,6 +45,12 @@ export function createCanvasSelectionSlice(
         },
         setBodyFocus(id) {
             set({ bodyFocusId: id, ...(id === null ? {} : { navigationId: id }) });
+        },
+        focusCard(id) {
+            const card = get().derivedCards[id];
+            if (card !== undefined) {
+                set({ bodyFocusId: card.owner, navigationId: id, editingTextId: null });
+            }
         },
         toggleMaximizedNode(id) {
             if (maximizedNodeOf(get()) === id) {

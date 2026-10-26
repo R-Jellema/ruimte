@@ -55,7 +55,10 @@ export function withCameraHistory(base: Omit<CanvasState, 'stepCamera'>, set: Ca
         zoomToSelection: jumping(base.zoomToSelection, () => null),
         goToNode: jumping(base.goToNode, (_state, [id]) => id),
         zoomToNode: jumping(base.zoomToNode, (state, [id]) => id ?? zoomNodeTargetOf(state)),
-        selectNeighbor: jumping(base.selectNeighbor, (state) => state.navigationId),
+        // A card beside a node is no place the history can go back to, its node is.
+        selectNeighbor: jumping(base.selectNeighbor, (state) =>
+            state.navigationId === null ? null : (state.derivedCards[state.navigationId]?.owner ?? state.navigationId)
+        ),
         panBy: moving(base.panBy),
         zoomAt: moving(base.zoomAt),
         zoomTo: moving(base.zoomTo),

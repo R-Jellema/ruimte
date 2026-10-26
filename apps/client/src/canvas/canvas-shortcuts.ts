@@ -443,7 +443,14 @@ function answerCanvasKey(e: KeyboardEvent, s: CanvasState, is: Matches, command:
         s.selectNeighbor(nodeDirection);
         return;
     }
-    if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey && s.selection.length === 1) {
+    const plainEnter = e.key === 'Enter' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey;
+    // A card beside a node the keys stand on, which is never selected: Enter goes into it as a press does.
+    if (plainEnter && s.selection.length === 0 && s.navigationId !== null && s.derivedCards[s.navigationId] !== undefined) {
+        e.preventDefault();
+        s.focusCard(s.navigationId);
+        return;
+    }
+    if (plainEnter && s.selection.length === 1) {
         const node = s.nodes[s.selection[0]!];
         if (node !== undefined && node.kind !== 'group' && !s.hidden.has(node.id)) {
             e.preventDefault();

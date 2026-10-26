@@ -36,14 +36,14 @@ const CURSOR: Record<ResizeEdge, string> = {
 /*
  * The resize handle a node offers the pointer that comes near it, outside its frame so the content
  * keeps every pixel. Like a port it belongs to the canvas: one handle at a time, on the nearest node.
- * A card beside a node that registered itself (`resizableCards`) is offered the same way.
+ * A card beside a node (`derivedCards`) is offered the same way, on the edges it names.
  */
 export function ResizeHandles({ rootRef }: { rootRef: RefObject<HTMLDivElement | null> }) {
     const nodes = useCanvas((s) => s.nodes);
     const hidden = useCanvas((s) => s.hidden);
     const zoom = useCanvas((s) => s.camera.zoom);
     const locked = useCanvas((s) => s.locks.resize);
-    const cards = useCanvas((s) => s.resizableCards);
+    const cards = useCanvas((s) => s.derivedCards);
     const resizing = useCanvas((s) => s.resizing);
     const quiet = useCanvas((s) => (s.gesturing && s.resizing === null) || s.linkDraft !== null);
     const point = useWorldPointer(rootRef);
@@ -55,7 +55,7 @@ export function ResizeHandles({ rootRef }: { rootRef: RefObject<HTMLDivElement |
             ...Object.values(nodes)
                 .filter((node) => !hidden.has(node.id) && !(node.kind === 'group' && node.collapsed === true))
                 .map(({ id, x, y, w, h, kind }) => ({ id, x, y, w, h, group: kind === 'group' })),
-            ...Object.entries(cards).map(([id, card]) => ({ id, ...card.rect, group: false, edges: card.edges }))
+            ...Object.entries(cards).map(([id, card]) => ({ id, ...card.rect, group: false, edges: card.resize?.edges ?? [] }))
         ],
         [cards, hidden, nodes]
     );

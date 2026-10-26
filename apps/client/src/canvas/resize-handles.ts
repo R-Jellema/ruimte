@@ -37,12 +37,11 @@ export interface ResizeCandidate extends Rect {
 }
 
 /*
- * A card drawn beside a node (`canvas/DerivedSet.tsx`) that the handles offer as they offer a node.
- * Its rect comes from the card's layout and a resize goes to `apply`, never to the canvas's nodes,
- * so it is never stored in the project and leaves no undo step.
+ * How a card drawn beside a node (`canvas/DerivedSet.tsx`) resizes from the handles a node has. A
+ * resize goes to `apply`, never to the canvas's nodes, so it is never stored in the project and
+ * leaves no undo step.
  */
-export interface ResizableCard {
-    rect: Rect;
+export interface CardResize {
     /* The edges its layout leaves free: a card placed by its top-left corner offers only e, s and se. */
     edges: readonly ResizeEdge[];
     minimum: { w: number; h: number };

@@ -1,10 +1,11 @@
 import clsx from 'clsx';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { QUIET_EDGE_LINE } from '@/canvas/accents';
 import { routeEdge, type Obstacle } from '@/canvas/edge-route';
 import { intersects, isMeasured, visibleRect, type Rect } from '@/canvas/math';
-import type { ResizableCard } from '@/canvas/resize-handles';
-import { isNodeActive, useCanvas, type CanvasState } from '@/state/canvas';
+import type { CardResize } from '@/canvas/resize-handles';
+import { cardHolds, derivedCardId } from '@/canvas/node-body';
+import { useCanvas, type CanvasState } from '@/state/canvas';
 
 export interface DerivedCard {
     key: string;
@@ -16,7 +17,7 @@ export interface DerivedCard {
     /* How far down its side its lines meet it, in world units from its top; the middle when absent. */
     lineDown?: number;
     /* Offered to the canvas's resize handles; a card without one keeps the size its layout gives it. */
-    resize?: Omit<ResizableCard, 'rect'>;
+    resize?: CardResize;
 }
 
 /*
@@ -94,29 +95,44 @@ function nearView(s: CanvasState, rect: Rect): boolean {
 function Card({ owner, z, card }: { owner: string; z: number; card: DerivedCard }) {
     const { x, y, w, h } = card.rect;
     const near = useCanvas((s) => nearView(s, { x, y, w, h }));
-    const setResizableCard = useCanvas((s) => s.setResizableCard);
-    const active = useCanvas((s) => isNodeActive(s.bodyFocusId, owner));
+    const setDerivedCard = useCanvas((s) => s.setDerivedCard);
     const { resize } = card;
-    // An id no node has, so a press on its handle can never be read as one on a node.
-    const resizeId = `derived:${owner}:${card.key}`;
+    // An id no node has, so a press on its handle or a step of the keys can never be read as one on a node.
+    const cardId = derivedCardId(owner, card.key);
+    // Its content has the keyboard and the wheel, after a press in it or Enter on it.
+    const holds = useCanvas((s) => cardHolds(s, cardId));
+    // Where the keys stand, or have the content: drawn the way a selected node is.
+    const marked = useCanvas((s) => s.navigationId === cardId && (s.bodyFocusId === null || s.bodyFocusId === owner));
+    const sectionRef = useRef<HTMLElement>(null);
     useEffect(() => {
-        if (resize === undefined) {
-            return;
+        setDerivedCard(cardId, { owner, rect: { x, y, w, h }, resize: resize ?? null });
+        return () => setDerivedCard(cardId, null);
+    }, [cardId, h, owner, resize, setDerivedCard, w, x, y]);
+    useEffect(() => {
+        const section = sectionRef.current;
+        // Enter on a card hands it the keyboard as a press would; a press already put it inside.
+        if (holds && section !== null && !section.contains(document.activeElement)) {
+            section.focus({ preventScroll: true });
         }
-        setResizableCard(resizeId, { ...resize, rect: { x, y, w, h } });
-        return () => setResizableCard(resizeId, null);
-    }, [h, resize, resizeId, setResizableCard, w, x, y]);
+    }, [holds]);
     if (!near) {
         return null;
     }
     return (
         <section
+            ref={sectionRef}
             data-derived-of={owner}
+            data-derived-card={cardId}
             data-node-body
             aria-label={card.label}
-            // The canvas hands the wheel over a card to the card only once its node has the focus
+            tabIndex={-1}
+            // The canvas hands the wheel over a card to the card only while it holds the focus
             // (`useWheelCamera`), and a frame's page would take it before the canvas ever sees it.
-            className={clsx('absolute flex flex-col', !active && '[&_iframe]:pointer-events-none')}
+            className={clsx(
+                'absolute flex flex-col rounded-xl',
+                marked ? 'node-selected' : 'focus-visible:outline-none',
+                !holds && '[&_iframe]:pointer-events-none'
+            )}
             style={{ left: x, top: y, width: w, height: h, zIndex: z }}
             // A card has no menu of its own, and the canvas's would offer to add a node under it.
             onContextMenu={(e) => e.stopPropagation()}

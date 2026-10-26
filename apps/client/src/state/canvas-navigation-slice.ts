@@ -39,22 +39,28 @@ export function createCanvasNavigationSlice(set: CanvasSet, get: CanvasGet): Pic
             if (maximizedNodeOf(state) !== null || state.gesturing) {
                 return;
             }
+            const onCard = state.navigationId !== null && state.derivedCards[state.navigationId] !== undefined;
             const from =
-                state.navigationId !== null && state.selection.includes(state.navigationId)
+                state.navigationId !== null && (onCard || state.selection.includes(state.navigationId))
                     ? state.navigationId
                     : (state.selection.find((id) => state.nodes[id] !== undefined) ?? null);
+            // The cards beside a node are stops too, where they stand, and never selected: nothing moves or removes one.
+            const cards = Object.entries(state.derivedCards)
+                .filter(([, card]) => state.nodes[card.owner] !== undefined && !state.hidden.has(card.owner))
+                .map(([id, card]) => ({ id, ...card.rect }));
             const target = neighboringNode(
-                Object.values(state.nodes).filter((node) => !state.hidden.has(node.id)),
+                [...Object.values(state.nodes).filter((node) => !state.hidden.has(node.id)), ...cards],
                 from,
                 direction,
                 toWorld(state.camera, { x: state.viewport.w / 2, y: state.viewport.h / 2 })
             );
-            const node = target === null ? undefined : state.nodes[target];
-            if (!node) {
+            const rect = target === null ? undefined : (state.nodes[target] ?? state.derivedCards[target]?.rect);
+            if (target === null || rect === undefined) {
                 return;
             }
-            const camera = state.viewport.w > 0 && state.viewport.h > 0 ? cameraToReveal(node, state.camera, state.viewport) : state.camera;
-            set({ selection: [node.id], navigationId: node.id, bodyFocusId: null, camera });
+            const camera = state.viewport.w > 0 && state.viewport.h > 0 ? cameraToReveal(rect, state.camera, state.viewport) : state.camera;
+            const selection = state.nodes[target] === undefined ? [] : [target];
+            set({ selection, navigationId: target, bodyFocusId: null, camera });
         }
     };
 }

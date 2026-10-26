@@ -45,7 +45,7 @@ import { PortHints } from '@/canvas/PortHints';
 import { ResizeHandles } from '@/canvas/ResizeHandles';
 import { NodeFrame } from '@/canvas/NodeFrame';
 import { DerivedCards } from '@/canvas/DerivedCards';
-import { derivedOwnerOf } from '@/canvas/node-body';
+import { cardHolds, derivedCardOf, derivedOwnerOf } from '@/canvas/node-body';
 import { TextElementView } from '@/canvas/TextElementView';
 import { TextToolbar } from '@/canvas/TextToolbar';
 import { CanvasLineLayer, CanvasLineTool, CanvasLineToolbar } from '@/canvas/CanvasLines';
@@ -67,7 +67,7 @@ type Gesture =
           start: Point;
           rect: Rect;
       }
-    /* A card beside a node (`resizableCards`): its size goes back to the card, never into the nodes. */
+    /* A card beside a node (`derivedCards`): its size goes back to the card, never into the nodes. */
     | { kind: 'card-resize'; cardId: string; edge: string; start: Point; rect: Rect };
 
 /* World units between two files dropped at once: a node's own width and a gutter, so the second one
@@ -359,6 +359,11 @@ export function Canvas() {
            scale only in the top-most widget, never in a `<webview>` guest, and the canvas never sees
            the event. Two fingers over a node nobody is working in pan the canvas. */
         defer: (e, zooming) => {
+            // A card beside a node takes the wheel only while it is the one holding its node's focus.
+            const cardId = derivedCardOf(e.target);
+            if (cardId !== null) {
+                return !zooming && cardHolds(canvasStore.getState(), cardId);
+            }
             const ownerId =
                 derivedOwnerOf(e.target) ?? (e.target as HTMLElement).closest('[data-node-body]')?.closest('[data-node-id]')?.getAttribute('data-node-id');
             const s = canvasStore.getState();
@@ -514,8 +519,8 @@ export function Canvas() {
             );
             return;
         }
-        const resizeCard = resizeNode ? s.resizableCards[resizeNode] : undefined;
-        if (resizeEdge && resizeNode && resizeCard && !s.locks.resize) {
+        const resizeCard = resizeNode ? s.derivedCards[resizeNode] : undefined;
+        if (resizeEdge && resizeNode && resizeCard?.resize && !s.locks.resize) {
             e.preventDefault();
             s.setResizing(resizeNode);
             startGesture({ kind: 'card-resize', cardId: resizeNode, edge: resizeEdge, start: point, rect: { ...resizeCard.rect } }, e);
@@ -524,7 +529,12 @@ export function Canvas() {
 
         const derivedOf = derivedOwnerOf(target);
         if (derivedOf !== null) {
-            if (!isNodeActive(s.bodyFocusId, derivedOf)) {
+            const cardId = derivedCardOf(target);
+            if (cardId !== null && s.derivedCards[cardId] !== undefined) {
+                if (s.navigationId !== cardId || !isNodeActive(s.bodyFocusId, derivedOf)) {
+                    s.focusCard(cardId);
+                }
+            } else if (!isNodeActive(s.bodyFocusId, derivedOf)) {
                 s.setBodyFocus(derivedOf);
             }
             return;
@@ -533,8 +543,9 @@ export function Canvas() {
         if (nodeId) {
             if (target.closest('[data-node-body]')) {
                 /* The press goes on into the body untouched: a click in a terminal, a thread or a page
-                   is the person's. The canvas only notes that the keyboard is in this node now. */
-                if (!isNodeActive(s.bodyFocusId, nodeId)) {
+                   is the person's. The canvas only notes that the keyboard is in this node now, and no
+                   longer in a card beside it. */
+                if (!isNodeActive(s.bodyFocusId, nodeId) || s.navigationId !== nodeId) {
                     s.activateNode(nodeId);
                 }
                 return;
@@ -664,14 +675,14 @@ export function Canvas() {
                 );
                 break;
             case 'card-resize': {
-                const card = s.resizableCards[g.cardId];
-                if (card === undefined || s.locks.resize) {
+                const card = s.derivedCards[g.cardId];
+                if (card === undefined || card.resize === null || s.locks.resize) {
                     break;
                 }
                 // Its corner is placed by its layout, so a resize from the middle or to a ratio would move it.
-                const rect = resizedRect(g.rect, g.edge, (point.x - g.start.x) / s.camera.zoom, (point.y - g.start.y) / s.camera.zoom, {}, card.minimum);
+                const rect = resizedRect(g.rect, g.edge, (point.x - g.start.x) / s.camera.zoom, (point.y - g.start.y) / s.camera.zoom, {}, card.resize.minimum);
                 if (rect.w !== card.rect.w || rect.h !== card.rect.h) {
-                    card.apply(rect);
+                    card.resize.apply(rect);
                 }
                 break;
             }
