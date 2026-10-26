@@ -12,6 +12,7 @@ import { useArtifact } from '@/output/use-artifact';
 import { lookOfRun, type BlockLook } from '@/routines/agenda';
 import { besideLayout, type BesideCard } from '@/routines/beside-layout';
 import { LookIcon } from '@/routines/look';
+import { OutputShownBesideContext } from '@/output/chat-scope';
 import { RoutineRunChat } from '@/routines/RoutineRunChat';
 import { useRoutineList } from '@/routines/routine-list';
 import { showRoutine } from '@/routines/stage';
@@ -109,6 +110,7 @@ export function RoutineBeside({ id, z }: { id: string; z: number }) {
                     title={label}
                     run={card.run}
                     timeZone={timeZone}
+                    artifactId={entry.artifactId}
                     onShow={() => showRoutine(target, card.run.runId)}
                     onCollapse={() => setPicked(null)}
                 />
@@ -170,12 +172,15 @@ function OpenRun({
     title,
     run,
     timeZone,
+    artifactId,
     onShow,
     onCollapse
 }: {
     title: string;
     run: RoutineRun;
     timeZone: string;
+    // The routine's Output, which its own card beside the run already shows, so the thread leaves it out.
+    artifactId: string | undefined;
     onShow: () => void;
     onCollapse: () => void;
 }) {
@@ -193,7 +198,9 @@ function OpenRun({
                 </ButtonGroup>
             </header>
             {run.chatId !== undefined ? (
-                <RoutineRunChat chatId={run.chatId} />
+                <OutputShownBesideContext value={artifactId ?? null}>
+                    <RoutineRunChat chatId={run.chatId} />
+                </OutputShownBesideContext>
             ) : (
                 <div className="grid grow place-items-center px-4">
                     <EmptyState>{runWords(run, timeZone)}</EmptyState>

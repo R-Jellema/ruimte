@@ -64,11 +64,12 @@ export function ArtifactFileBody(props: ArtifactFileProps) {
  * origin, whatever kind the artifact says it is: the preview the files panel gives a project's HTML
  * runs no script, and a page an agent made for a person is meant to.
  */
-export function ArtifactPage({ endpointId, reference, file, title, maxHeight }: ArtifactFileProps & { maxHeight?: number }) {
+/* `auto` grows the frame with its page the way a visual in a chat does; without it the page fills its box. */
+export function ArtifactPage({ endpointId, reference, file, title, auto = false }: ArtifactFileProps & { auto?: boolean }) {
     const page = (): Promise<string> => readArtifactFile(endpointId, reference, file).then((blob) => blob.text());
     const key = `${reference.versionId}:${reference.file}`;
-    if (maxHeight !== undefined) {
-        return <VisualPageFrame key={key} page={page} title={title} maxHeight={maxHeight} />;
+    if (auto) {
+        return <VisualPageFrame key={key} page={page} title={title} />;
     }
     return (
         <div className="relative min-h-0 grow">

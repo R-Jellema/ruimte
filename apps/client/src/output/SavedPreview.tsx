@@ -17,7 +17,6 @@ import { PdfPreview } from '@/shell/panels/PdfPreview';
 import { useMachineUrl } from '@/transport/machine-url';
 
 const MAX_IMAGES = 4;
-const PAGE_MAX_HEIGHT = 480;
 
 // A renderer in a thread draws its own bar, never into a bar of the view the chat sits in.
 const OWN_BAR = fixedSlot(null);
@@ -44,7 +43,7 @@ export function SavedPreview({ endpointId, entry, preview }: { endpointId: strin
                             file={file}
                             title={entry.artifact.title}
                             createdAt={entry.version.createdAt}
-                            maxHeight={PAGE_MAX_HEIGHT}
+                            auto
                         />
                     )}
                     {preview.view === 'pdf' && <PdfPreviewInline endpointId={endpointId} entry={entry} reference={reference} file={file} />}

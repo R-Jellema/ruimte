@@ -75,7 +75,8 @@ export function besideLayout(
         versionId: source?.versionId ?? null,
         fallback: openRun !== undefined && openRun.versionId === undefined ? { run: latest } : null,
         from: from?.key ?? null,
-        rect: { x: x + COLUMN_W + GUTTER, y: from?.rect.y ?? node.y, w: outputSize?.w ?? COLUMN_W, h: outputSize?.h ?? OPEN_H }
+        // Top aligned with the node whichever run is open, so the version stays put while a person moves through the runs.
+        rect: { x: x + COLUMN_W + GUTTER, y: node.y, w: outputSize?.w ?? COLUMN_W, h: outputSize?.h ?? OPEN_H }
     });
     return cards;
 }
