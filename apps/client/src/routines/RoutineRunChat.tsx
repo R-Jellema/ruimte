@@ -23,7 +23,18 @@ function keepProvider(): Promise<void> {
     return Promise.resolve();
 }
 
-export function RoutineRunChat({ chatId, revision = '', composer = true }: { chatId: string; revision?: string; composer?: boolean }) {
+export function RoutineRunChat({
+    chatId,
+    revision = '',
+    composer = true,
+    onContentHeight
+}: {
+    chatId: string;
+    revision?: string;
+    composer?: boolean;
+    /* The thread's rows and padding once laid out, for a card that sizes itself to them. */
+    onContentHeight?: (height: number) => void;
+}) {
     const { t } = useTranslation('canvas');
     const endpointId = useEndpointId();
     const info = useChatRow(chatId, (row) => row?.info);
@@ -75,6 +86,7 @@ export function RoutineRunChat({ chatId, revision = '', composer = true }: { cha
                 <LazyBoundary fallback={<div className="grow" />}>
                     <Timeline
                         chatId={chatId}
+                        onContentHeight={onContentHeight}
                         composer={
                             composer &&
                             info && (

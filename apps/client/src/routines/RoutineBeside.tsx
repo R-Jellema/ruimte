@@ -11,7 +11,7 @@ import { KindIcon } from '@/canvas/KindIcon';
 import { ArtifactOnCanvas } from '@/output/ArtifactNode';
 import { FileToolbarSlotProvider, fixedSlot } from '@/shell/panels/file-toolbar-slot';
 import { lookOfRun, type BlockLook } from '@/routines/agenda';
-import { besideLayout, type BesideCard } from '@/routines/beside-layout';
+import { besideLayout, OPEN_H, type BesideCard } from '@/routines/beside-layout';
 import { LookIcon } from '@/routines/look';
 import { OutputShownBesideContext } from '@/output/chat-scope';
 import { RoutineRunChat } from '@/routines/RoutineRunChat';
@@ -31,6 +31,8 @@ const HEADER = 'flex h-[39px] shrink-0 items-center gap-2 border-b border-border
 
 /* Where a line meets a card, and the node: the middle of a 39px header, which a collapsed run of 40 is all of. */
 const HEADER_MIDDLE = 20;
+/* An open run's 39px header and the 1px border above and below it. */
+const CHROME_H = 41;
 
 /* The card is placed by its top-left corner beside the node, so only its right and bottom edges move. */
 const OUTPUT_EDGES: readonly ResizeEdge[] = ['e', 's', 'se'];
@@ -256,36 +258,26 @@ function OpenRun({
 }) {
     const { t } = useTranslation('routines');
     const look = lookOfRun(run);
-    const frameRef = useRef<HTMLDivElement>(null);
+    const wordsRef = useRef<HTMLDivElement>(null);
     const measured = useRef(onMeasure);
     useLayoutEffect(() => {
         measured.current = onMeasure;
     });
+    const report = (content: number): void => measured.current(CHROME_H + content);
     // Before paint, so a run that opens is drawn at its height and what stands under it moves once.
     useLayoutEffect(() => {
-        const frame = frameRef.current;
-        if (frame === null) {
+        const words = wordsRef.current;
+        if (words === null) {
             return;
         }
-        const measure = (): void => {
-            const height = contentHeight(frame);
-            if (height !== null) {
-                measured.current(height);
-            }
-        };
-        // A row the thread measures sets its own height in a style, and a thread that loads adds rows.
+        const measure = (): void => measured.current(CHROME_H + words.offsetHeight);
         const resizes = new ResizeObserver(measure);
-        resizes.observe(frame);
-        const rows = new MutationObserver(measure);
-        rows.observe(frame, { subtree: true, childList: true, attributes: true, attributeFilter: ['style'] });
+        resizes.observe(words);
         measure();
-        return () => {
-            resizes.disconnect();
-            rows.disconnect();
-        };
+        return () => resizes.disconnect();
     }, []);
     return (
-        <div ref={frameRef} className={clsx(FRAME, 'bg-surface')} style={frameStyle(accent)}>
+        <div className={clsx(FRAME, 'bg-surface')} style={frameStyle(accent)}>
             <header className={clsx(HEADER, 'group/header')} style={accent === undefined ? undefined : accentHeaderStyle(accent)}>
                 <KindIcon toggle={{ folded: false, label: t('beside.collapse'), onToggle: onCollapse }}>
                     <Icon icon={History} size={14} />
@@ -297,46 +289,22 @@ function OpenRun({
             </header>
             {run.chatId !== undefined ? (
                 <OutputShownBesideContext value={artifactId ?? null}>
-                    {/* The thread keeps 16px at its sides and top; without a composer under it the bottom gets the same. */}
-                    <div className="flex min-h-0 grow flex-col [&_.chat-thread]:pb-4">
-                        <RoutineRunChat chatId={run.chatId} revision={`${run.state}:${run.endedAt ?? ''}`} composer={false} />
+                    {/*
+                     * The thread is laid out at the tallest card's height whatever the card shows, and the frame
+                     * clips it, so the rows in view cover all the card can show and its height is never an estimate.
+                     * It keeps 16px at its sides and top; without a composer under it the bottom gets the same.
+                     */}
+                    <div className="flex shrink-0 flex-col [&_.chat-thread]:pb-4" style={{ height: OPEN_H - CHROME_H }}>
+                        <RoutineRunChat chatId={run.chatId} revision={`${run.state}:${run.endedAt ?? ''}`} composer={false} onContentHeight={report} />
                     </div>
                 </OutputShownBesideContext>
             ) : (
-                <div data-run-words className="grid grow place-items-center p-4">
+                <div ref={wordsRef} className="grid grow place-items-center p-4">
                     <EmptyState>{runWords(run, timeZone)}</EmptyState>
                 </div>
             )}
         </div>
     );
-}
-
-/*
- * What the open run's card would measure with its whole thread in view: the frame without the thread's
- * viewport, plus what the thread holds. The thread fills whatever height it gets, so its own content is
- * read: the rows under `.chat-thread`, which the virtualized timeline gives their full height. Null while
- * there is nothing settled to read: the thread still loading, or laying its rows out at their estimated
- * height (hidden until then), which would open the card tall for a frame and shrink it again.
- */
-function contentHeight(frame: HTMLElement): number | null {
-    const scroll = frame.querySelector<HTMLElement>('.chat-scroll');
-    const thread = frame.querySelector<HTMLElement>('.chat-thread');
-    if (
-        thread !== null &&
-        [...thread.children].some((child) => child.getAttribute('role') === 'status' || (child as HTMLElement).style.visibility === 'hidden')
-    ) {
-        return null;
-    }
-    const inner = scroll !== null && thread !== null ? { viewport: scroll.clientHeight, box: thread } : null;
-    const words = frame.querySelector<HTMLElement>('[data-run-words]');
-    const measured = inner ?? (words === null ? null : { viewport: words.clientHeight, box: words });
-    if (measured === null) {
-        return null;
-    }
-    const style = getComputedStyle(measured.box);
-    const children = [...measured.box.children].reduce((sum, child) => sum + (child as HTMLElement).offsetHeight, 0);
-    const padding = (Number.parseFloat(style.paddingTop) || 0) + (Number.parseFloat(style.paddingBottom) || 0);
-    return frame.offsetHeight - measured.viewport + children + padding;
 }
 
 /*

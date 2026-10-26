@@ -285,6 +285,40 @@ describe('beside a routine node', () => {
         expect(card('Morning summary · Wed, Oct 21')!.style.top).toBe(`${40 + 8 + 120 + 8}px`);
     });
 
+    test('the open run takes the height of its laid out thread in one step, and opens at it again at once', async () => {
+        Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+            configurable: true,
+            get(this: HTMLElement) {
+                if (this.hasAttribute('data-index')) {
+                    return 100;
+                }
+                // The thread's own frame, which it waits for before it shows its rows.
+                const frame = this.parentElement?.classList.contains('chat-column') === true;
+                return this.classList.contains('chat-scroll') || frame ? 800 : (offsetHeight?.get?.call(this) ?? 0);
+            }
+        });
+        const heights: string[] = [];
+        const watch = new MutationObserver(() => {
+            const height = document.querySelector<HTMLElement>('[aria-label="Morning summary · Thu, Oct 22"]')?.style.height;
+            if (height !== undefined && heights.at(-1) !== height) {
+                heights.push(height);
+            }
+        });
+        watch.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['style'] });
+        await open([routineNode('node-1', 'morning')]);
+        // Its header and borders, and two rows of 100; happy-dom has no stylesheet, so the thread's padding is nothing.
+        await until(() => card('Morning summary · Thu, Oct 22')?.style.height === '248px');
+        expect(heights.filter((height) => height !== '0px')).toEqual(['120px', '248px']);
+
+        await clickOn(card('Morning summary · Wed, Oct 21')!.querySelector('button[aria-expanded="false"]'));
+        await until(() => card('Morning summary · Thu, Oct 22')?.querySelector('button[aria-expanded="false"]') != null);
+        heights.length = 0;
+        await clickOn(card('Morning summary · Thu, Oct 22')!.querySelector('button[aria-expanded="false"]'));
+        await until(() => card('Morning summary · Thu, Oct 22')?.querySelector('button[aria-expanded="false"]') == null);
+        watch.disconnect();
+        expect(heights).toEqual(['248px']);
+    });
+
     test("a wheel over a card moves the canvas until a press gives the card's node the focus", async () => {
         await open([routineNode('node-1', 'morning')]);
         await until(() => card('Output') !== undefined);
