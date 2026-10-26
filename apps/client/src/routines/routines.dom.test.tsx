@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, setSystemTime, test } from 'bu
 import { act } from 'react';
 import { REQUEST_SCHEMAS, zonedTime, type ProjectCanvasView, type ProviderInfo, type RequestType, type RoutineEntry, type RoutineRun } from '@ruimte/contracts';
 import { isApplePlatform } from '@/desktop/bridge';
-import { useRoutinesStage } from '@/routines/stage';
+import { showRoutine, useRoutinesStage } from '@/routines/stage';
 import { liveCanvas } from '@/state/canvas';
 import { useUi } from '@/state/ui';
 import { chatInfoOf } from '../../testing/chat-info';
@@ -241,6 +241,17 @@ describe('Routines', () => {
         // The week stays this project's; only the column reaches further.
         expect(page.host.querySelector('[data-routine="changelog"]')).toBeNull();
         expect(clock()?.getAttribute('aria-label')).toBe('Routines, 1 waits for you');
+    });
+
+    test('a routine that waits for approval says so over its definition, and approves from there', async () => {
+        routines = [MORNING, HELD];
+        await act(async () => machine.emit('routine.changed', { projectId: 'project-atlas' }));
+        await act(async () => showRoutine({ projectId: 'project-atlas', routineId: 'changelog' }));
+        await until(() => text().includes('Waits for your approval'));
+        expect(text()).toContain('From git, in the project file');
+        await clickOn(buttonWithText('Approve', page.host));
+        await until(() => machine.requests('routine.approve').length === 1);
+        expect(machine.requests('routine.approve')[0]).toEqual({ projectId: 'project-atlas', routineId: 'changelog', digest: 'digest-changelog' });
     });
 
     test('a drag across the days makes a routine on those days', async () => {

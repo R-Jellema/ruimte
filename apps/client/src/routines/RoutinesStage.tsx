@@ -108,7 +108,8 @@ function WeekStage({ endpointId, result, projectId, projectName }: { endpointId:
     const shown = grouped ? result.routines : result.routines.filter((entry) => entry.projectId === projectId);
     const groups = groupsOf(shown, projectId, projectName);
     const machine = useEndpoints((s) => s.endpoints.find((candidate) => candidate.id === endpointId)?.label ?? '');
-    const where = isThisMachine(endpointId) ? t('filter.thisMachine') : machine;
+    // As the project switcher does: only another machine is named.
+    const filterLabel = (projects: string): string => (isThisMachine(endpointId) ? projects : t('filter.on', { projects, machine }));
 
     return (
         <StageFrame>
@@ -142,8 +143,8 @@ function WeekStage({ endpointId, result, projectId, projectName }: { endpointId:
                     value={filter}
                     onValueChange={setRoutinesFilter}
                     items={[
-                        { value: 'project', label: t('filter.on', { projects: projectName, machine: where }) },
-                        { value: 'all', label: t('filter.on', { projects: t('filter.all'), machine: where }) }
+                        { value: 'project', label: filterLabel(t('filter.thisProject')) },
+                        { value: 'all', label: filterLabel(t('filter.all')) }
                     ]}
                 />
                 <Button size="sm" variant="primary" onClick={() => openRoutineForm({ projectId, pickProject: grouped })}>

@@ -20,9 +20,9 @@
   },
   "filter": {
     "label": "Which projects",
+    "thisProject": "This project",
     "all": "All projects",
-    "on": "{{projects}} · {{machine}}",
-    "thisMachine": "This machine"
+    "on": "{{projects}} · {{machine}}"
   },
   "layout": {
     "label": "Show the week as",
@@ -100,7 +100,6 @@
     "openOnCanvas": "Open on canvas"
   },
   "quick": {
-    "thisMachine": "On this machine",
     "onMachine": "On {{machine}}",
     "missed": "Missed: once on wake",
     "more": "More options"

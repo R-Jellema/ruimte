@@ -146,7 +146,7 @@ export function RoutineQuickForm({
                 </Labeled>
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
-                <Pill icon={<Icon icon={Monitor} size={12} />}>{isThisMachine(endpointId) ? t('quick.thisMachine') : t('quick.onMachine', { machine })}</Pill>
+                {!isThisMachine(endpointId) && <Pill icon={<Icon icon={Monitor} size={12} />}>{t('quick.onMachine', { machine })}</Pill>}
                 <Pill icon={<Icon icon={ShieldCheck} size={12} />}>{runtimeModeLabel(MODE)}</Pill>
                 <Pill icon={<Icon icon={Moon} size={12} />}>{t('quick.missed')}</Pill>
             </div>

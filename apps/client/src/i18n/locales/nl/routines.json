@@ -20,9 +20,9 @@
   },
   "filter": {
     "label": "Welke projecten",
+    "thisProject": "Dit project",
     "all": "Alle projecten",
-    "on": "{{projects}} · {{machine}}",
-    "thisMachine": "Deze machine"
+    "on": "{{projects}} · {{machine}}"
   },
   "layout": {
     "label": "Toon de week als",
@@ -100,7 +100,6 @@
     "openOnCanvas": "Openen op canvas"
   },
   "quick": {
-    "thisMachine": "Op deze machine",
     "onMachine": "Op {{machine}}",
     "missed": "Gemist: één keer bij ontwaken",
     "more": "Meer opties"

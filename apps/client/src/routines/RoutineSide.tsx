@@ -1,16 +1,14 @@
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CircleCheck } from 'lucide-react';
 import type { RoutineEntry } from '@ruimte/contracts';
-import { Button, FormError, Icon, SectionLabel, messageOf } from '@adecore/ui';
+import { Button, FormError, Icon, SectionLabel } from '@adecore/ui';
 import { OutputProjectGlyph } from '@/output/look';
 import { awaitingApproval, runsWaiting } from '@/routines/agenda';
-import { refreshRoutines } from '@/routines/routine-list';
 import { showRoutine } from '@/routines/stage';
 import { scheduleWords, weekdayClock } from '@/routines/words';
+import { useRoutineApproval } from '@/routines/routine-approval';
 import { useRoutineWhat } from '@/routines/routine-what';
 import { endpointKey } from '@/state/keys';
-import { machineTransport } from '@/transport';
 import { useChats } from '@adecore/agents-react/state';
 
 /*
@@ -94,21 +92,7 @@ function WaitingFor({ endpointId, chatId, since }: { endpointId: string; chatId:
 function ApprovalCard({ endpointId, entry, grouped }: { endpointId: string; entry: RoutineEntry; grouped: boolean }) {
     const { t } = useTranslation('routines');
     const what = useRoutineWhat(entry);
-    const [busy, setBusy] = useState(false);
-    const [failure, setFailure] = useState<string | null>(null);
-    const origin =
-        entry.held === 'agent'
-            ? t('approval.byAgent', { title: entry.madeBy?.title ?? t('approval.anAgent') })
-            : t(entry.shared ? 'approval.fromOutside' : 'approval.fromOutsidePrivate');
-    const answer = (type: 'routine.approve' | 'routine.decline'): void => {
-        setBusy(true);
-        setFailure(null);
-        machineTransport(endpointId)
-            .request(type, { projectId: entry.projectId, routineId: entry.routine.id, digest: entry.digest })
-            .then(() => refreshRoutines(endpointId))
-            .catch((e: unknown) => setFailure(messageOf(e, t('approval.failed'))))
-            .finally(() => setBusy(false));
-    };
+    const { origin, busy, failure, approve, decline } = useRoutineApproval(endpointId, entry);
     return (
         <article className="flex flex-col gap-1 rounded-lg border border-border bg-surface-raised bg-clip-padding p-3" aria-label={entry.routine.title}>
             <span className="flex min-w-0 items-center gap-2">
@@ -120,10 +104,10 @@ function ApprovalCard({ endpointId, entry, grouped }: { endpointId: string; entr
             <span className={`truncate text-xs text-text-muted ${entry.routine.kind === 'command' ? 'font-mono' : ''}`}>{what}</span>
             {failure !== null && <FormError className="break-words">{failure}</FormError>}
             <span className="mt-1 flex items-center justify-end gap-1.5">
-                <Button size="sm" disabled={busy} onClick={() => answer('routine.decline')}>
+                <Button size="sm" disabled={busy} onClick={decline}>
                     {t('approval.deny')}
                 </Button>
-                <Button size="sm" variant="secondary" disabled={busy} onClick={() => answer('routine.approve')}>
+                <Button size="sm" variant="secondary" disabled={busy} onClick={approve}>
                     <Icon icon={CircleCheck} size={14} />
                     {t('approval.approve')}
                 </Button>

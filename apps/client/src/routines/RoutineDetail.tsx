@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { GitCompare, Package, SquareArrowOutUpRight } from 'lucide-react';
+import { CircleCheck, GitCompare, Hand, Package, SquareArrowOutUpRight } from 'lucide-react';
 import type { RoutineEntry, RoutinePerRun, RoutineRun } from '@ruimte/contracts';
-import { Button, EmptyState, ErrorBoundary, Icon, KeyValueList, Pill, SectionLabel, Segmented, messageOf } from '@adecore/ui';
+import { Banner, Button, EmptyState, ErrorBoundary, FormError, Icon, KeyValueList, Pill, SectionLabel, Segmented, messageOf } from '@adecore/ui';
 import { formatDateTime } from '@adecore/ui/format';
 import { ArtifactView } from '@/output/ArtifactView';
 import { openArtifact, openArtifactCompared } from '@/output/open';
@@ -10,6 +10,7 @@ import { lookOfRun } from '@/routines/agenda';
 import { LookIcon } from '@/routines/look';
 import { refreshRoutines } from '@/routines/routine-list';
 import { RoutineRunChat } from '@/routines/RoutineRunChat';
+import { useRoutineApproval } from '@/routines/routine-approval';
 import { useRoutineWhat } from '@/routines/routine-what';
 import { leaveRoutines, showRoutine } from '@/routines/stage';
 import { runWords, scheduleWords, weekdayClock } from '@/routines/words';
@@ -77,6 +78,7 @@ function Definition({ endpointId, entry, rev }: { endpointId: string; entry: Rou
     };
     return (
         <section className="flex flex-col gap-3 border-b border-border p-4" aria-label={t('detail.definition')}>
+            {entry.held !== undefined && <ApprovalBanner endpointId={endpointId} entry={entry} />}
             {routine.kind === 'agent' && <p className="rounded-lg bg-surface-sunken p-3 text-sm whitespace-pre-wrap text-text select-text">{routine.prompt}</p>}
             {routine.kind === 'command' && (
                 <p className="rounded-lg bg-surface-sunken p-3 font-mono text-code whitespace-pre-wrap text-text select-text">{routine.command}</p>
@@ -229,6 +231,36 @@ function RunPane({ entry, run, timeZone }: { entry: RoutineEntry; run: RoutineRu
                     <EmptyState>{runWords(run, timeZone)}</EmptyState>
                 </div>
             )}
+        </div>
+    );
+}
+
+/* Over a routine that waits for this person's yes: it runs here only once approved as it stands. */
+function ApprovalBanner({ endpointId, entry }: { endpointId: string; entry: RoutineEntry }) {
+    const { t } = useTranslation('routines');
+    const { origin, busy, failure, approve, decline } = useRoutineApproval(endpointId, entry);
+    return (
+        <div className="flex flex-col gap-1.5">
+            <Banner
+                placement="inline"
+                icon={Hand}
+                tone="attention"
+                message={
+                    <span className="flex flex-col">
+                        <span>{t('row.held')}</span>
+                        <span className="text-xs text-text-muted">{origin}</span>
+                    </span>
+                }
+            >
+                <Button size="sm" disabled={busy} onClick={decline}>
+                    {t('approval.deny')}
+                </Button>
+                <Button size="sm" variant="secondary" disabled={busy} onClick={approve}>
+                    <Icon icon={CircleCheck} size={14} />
+                    {t('approval.approve')}
+                </Button>
+            </Banner>
+            {failure !== null && <FormError className="break-words">{failure}</FormError>}
         </div>
     );
 }
