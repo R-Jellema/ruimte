@@ -1,4 +1,4 @@
-import { AgentKindSchema, ModelSelectionSchema, ProviderAccountIdSchema, RuntimeModeSchema } from '@adecore/agent-contracts';
+import { AgentKindSchema, ChatSkillSchema, ModelSelectionSchema, ProviderAccountIdSchema, RuntimeModeSchema } from '@adecore/agent-contracts';
 import { z } from 'zod';
 import { ArtifactKeySchema } from './artifact.ts';
 import { ProjectIdSchema } from './project.ts';
@@ -72,6 +72,18 @@ const RoutineBaseShape = {
  * Loose, so a field a newer release adds survives a save by this one; a new field goes at the end, and
  * an entry of a kind this release does not know is kept as it stands.
  */
+/*
+ * What a person picked in an agent routine's prompt, as `chat.send` takes it: `@` files, `$` skills, and chats and
+ * views of the project with `#`. The paths and names also sit in the prompt; these make them chips and context of a run.
+ */
+export const RoutinePickedSchema = z.looseObject({
+    mentions: z.array(z.string().min(1)).max(64).optional(),
+    skills: z.array(z.string().min(1)).max(16).optional(),
+    chats: z.array(z.string().min(1)).max(16).optional(),
+    references: z.array(z.string().min(1)).max(16).optional()
+});
+export type RoutinePicked = z.infer<typeof RoutinePickedSchema>;
+
 export const AgentRoutineSchema = z.looseObject({
     ...RoutineBaseShape,
     kind: z.literal('agent'),
@@ -79,7 +91,8 @@ export const AgentRoutineSchema = z.looseObject({
     provider: AgentKindSchema,
     selection: ModelSelectionSchema.optional(),
     mode: RuntimeModeSchema,
-    perRun: RoutinePerRunSchema
+    perRun: RoutinePerRunSchema,
+    picked: RoutinePickedSchema.optional()
 });
 export type AgentRoutine = z.infer<typeof AgentRoutineSchema>;
 
@@ -263,6 +276,13 @@ export const RoutineRunNowResultSchema = z.object({
     runId: z.string().min(1).optional()
 });
 export type RoutineRunNowResult = z.infer<typeof RoutineRunNowResultSchema>;
+
+/* The skills an agent would run in a project, for a routine's prompt before any chat of it exists. */
+export const RoutineSkillsPayloadSchema = z.object({ projectId: ProjectIdSchema, provider: AgentKindSchema });
+export type RoutineSkillsPayload = z.infer<typeof RoutineSkillsPayloadSchema>;
+
+export const RoutineSkillsResultSchema = z.object({ skills: z.array(ChatSkillSchema) });
+export type RoutineSkillsResult = z.infer<typeof RoutineSkillsResultSchema>;
 
 // Only to the clients that asked with `routine.watch`; they read the project's routines again.
 export const RoutineChangedEventSchema = z.object({ projectId: ProjectIdSchema });

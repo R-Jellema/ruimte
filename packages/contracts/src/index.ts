@@ -34,6 +34,8 @@ import {
     RoutineRunNowResultSchema,
     RoutineSavePayloadSchema,
     RoutineSaveResultSchema,
+    RoutineSkillsPayloadSchema,
+    RoutineSkillsResultSchema,
     RoutineTargetPayloadSchema
 } from './routine.ts';
 import {
@@ -885,6 +887,7 @@ export const REQUEST_SCHEMAS = {
     'routine.remove': { payload: RoutineRemovePayloadSchema, result: EmptySchema },
     'routine.watch': { payload: EmptySchema, result: EmptySchema },
     'routine.unwatch': { payload: EmptySchema, result: EmptySchema },
+    'routine.skills': { payload: RoutineSkillsPayloadSchema, result: RoutineSkillsResultSchema },
     'provenance.read': { payload: ProvenanceReadPayloadSchema, result: ProvenanceReadResultSchema },
     'provenance.review': { payload: ProvenanceReviewPayloadSchema, result: ProvenanceReviewResultSchema },
     'nanogpt.status': { payload: EmptySchema, result: NanoGptStatusSchema },
