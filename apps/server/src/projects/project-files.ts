@@ -25,7 +25,8 @@ import {
     type ProjectView,
     type SharedFileRead
 } from '@ruimte/contracts';
-import { fileExists, isNotFound, writeAtomic, type DirectoryWatcher, type WatchSeams } from '@adecore/agents';
+import { fileExists, isNotFound, settled, writeAtomic, type DirectoryWatcher, type Serializer, type Settled, type WatchSeams } from '@adecore/agents';
+import { errorText } from '../error-text.ts';
 import { retryingRename } from '../fs/busy-retry.ts';
 import { climbsOut } from '../fs/path-segment.ts';
 import { isRecord } from '../is-record.ts';
@@ -35,6 +36,7 @@ export const PROJECT_FILE = 'project.json';
 /* The mirror of `.ruimte` that holds what belongs to one person. The `.gitignore` beside it names this one line. */
 export const PRIVATE_DIR = 'private';
 const GITIGNORE_FILE = '.gitignore';
+const OUTSIDE_EDIT_SETTLE_MS = 150;
 // One file per drawing view, in a directory of their own: `.ruimte` is read by people and by git,
 // and its top level stays the two files the daemon documents.
 const DRAWINGS_DIR = 'drawings';
@@ -221,6 +223,82 @@ export function watchDirectories(seams: WatchSeams, dirs: readonly string[], hea
             }
         })
         .filter((watcher) => watcher !== null);
+}
+
+/* A store of a shared and a private file in `.ruimte` that takes in an edit it did not write itself. */
+export interface OutsideEdits {
+    seams: WatchSeams;
+    writes: Serializer;
+    folder: string;
+    file: string;
+    /* What the files hold, as the warning names it. */
+    what: string;
+    /* Whether the state the watch began on is still the one the store holds. */
+    current(): boolean;
+    take(): Promise<unknown>;
+}
+
+/* Watches both folders for the file and takes an edit in once its burst settled, in turn with the store's own writes. */
+export function watchOutsideEdits(edits: OutsideEdits): { settle: Settled; watchers: DirectoryWatcher[] } {
+    const settle = settled(edits.seams, OUTSIDE_EDIT_SETTLE_MS, () =>
+        edits.writes
+            .run(async () => {
+                if (edits.current()) {
+                    await edits.take();
+                }
+            })
+            .catch((e: unknown) => {
+                console.warn(`An outside edit to the ${edits.what} of ${edits.folder} could not be taken in:`, errorText(e));
+            })
+    );
+    const watchers = watchDirectories(edits.seams, [join(edits.folder, PROJECT_DIR), join(edits.folder, PROJECT_DIR, PRIVATE_DIR)], (filename) => {
+        if (filename === null || filename.endsWith(edits.file)) {
+            settle.nudge();
+        }
+    });
+    return { settle, watchers };
+}
+
+/* Takes in each file whose text moved since the store last read or wrote it; true when one did. */
+export function takeMovedFiles<State extends { rev: number; sharedText: string; privateText: string }, Shared, Private>(
+    state: State,
+    shared: JsonDocumentRead<Shared>,
+    own: JsonDocumentRead<Private>,
+    takeShared: (state: State, read: JsonDocumentRead<Shared>) => void,
+    takePrivate: (state: State, read: JsonDocumentRead<Private>) => void
+): boolean {
+    const sharedMoved = readTextOf(shared) !== null && readTextOf(shared) !== state.sharedText;
+    const privateMoved = readTextOf(own) !== null && readTextOf(own) !== state.privateText;
+    if (!sharedMoved && !privateMoved) {
+        return false;
+    }
+    const rev = state.rev;
+    if (sharedMoved) {
+        takeShared(state, shared);
+    }
+    if (privateMoved) {
+        takePrivate(state, own);
+    }
+    // A pull changes only the shared file, and a save against the rev from before it would write over it.
+    state.rev = Math.max(state.rev, rev + 1);
+    return true;
+}
+
+/* The entries of both files in the order a person keeps; one the order does not name goes after, shared first. The first of an id wins. */
+export function inPersonalOrder<T extends { id: string }>(entries: readonly T[], order: readonly string[]): T[] {
+    const seen = new Set<string>();
+    const unique = entries.filter((entry) => {
+        if (seen.has(entry.id)) {
+            return false;
+        }
+        seen.add(entry.id);
+        return true;
+    });
+    const rank = new Map(order.map((id, index) => [id, index]));
+    return unique
+        .map((entry, index) => ({ entry, index }))
+        .sort((a, b) => (rank.get(a.entry.id) ?? order.length + a.index) - (rank.get(b.entry.id) ?? order.length + b.index))
+        .map(({ entry }) => entry);
 }
 
 /* Reads `.ruimte/project.json` on any version there has been. */

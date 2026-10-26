@@ -15,9 +15,8 @@ import {
     type DatabasesPrivateFile,
     type DatabasesSharedFile
 } from '@ruimte/contracts';
-import { CodedError, Serializer, settled, SYSTEM_WATCH, type DirectoryWatcher, type Settled, type WatchSeams } from '@adecore/agents';
+import { CodedError, Serializer, SYSTEM_WATCH, type DirectoryWatcher, type Settled, type WatchSeams } from '@adecore/agents';
 import { ClientSinks } from '../client-sinks.ts';
-import { errorText } from '../error-text.ts';
 import { climbsOut } from '../fs/path-segment.ts';
 import {
     PRIVATE_DIR,
@@ -27,7 +26,7 @@ import {
     readJsonDocument,
     restOf,
     tooNewMessage,
-    watchDirectories,
+    watchOutsideEdits,
     writeGitignoreIfMissing,
     type JsonDocumentParse,
     type JsonDocumentRead
@@ -41,7 +40,6 @@ const DATABASES_FILE = 'databases.json';
 const PENDING_FILE = 'pending-databases.json';
 
 // The burst rule of the other project files: git and editors write more than once per save.
-const WATCH_SETTLE_MS = 150;
 
 type DatabaseConnectionErrorCode = 'project-not-found' | 'connections-invalid' | 'rev-conflict' | 'path-outside-project';
 
@@ -354,23 +352,17 @@ export class DatabaseConnectionStore {
     }
 
     private watch(projectId: string, state: LoadedConnections): void {
-        const settle = settled(this.seams, WATCH_SETTLE_MS, () =>
-            this.writes
-                .run(async () => {
-                    if (this.loaded.get(projectId) === state) {
-                        await this.takeOutsideEdits(projectId, state);
-                    }
-                })
-                .catch((e: unknown) => {
-                    console.warn(`An outside edit to the database connections of ${state.folder} could not be taken in:`, errorText(e));
-                })
-        );
-        state.settle = settle;
-        state.watchers = watchDirectories(this.seams, [join(state.folder, PROJECT_DIR), join(state.folder, PROJECT_DIR, PRIVATE_DIR)], (filename) => {
-            if (filename === null || filename.endsWith(DATABASES_FILE)) {
-                settle.nudge();
-            }
+        const { settle, watchers } = watchOutsideEdits({
+            seams: this.seams,
+            writes: this.writes,
+            folder: state.folder,
+            file: DATABASES_FILE,
+            what: 'database connections',
+            current: () => this.loaded.get(projectId) === state,
+            take: () => this.takeOutsideEdits(projectId, state)
         });
+        state.settle = settle;
+        state.watchers = watchers;
     }
 }
 

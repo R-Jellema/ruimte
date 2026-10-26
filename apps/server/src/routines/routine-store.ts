@@ -11,19 +11,19 @@ import {
     type RoutinesPrivateFile,
     type RoutinesSharedFile
 } from '@ruimte/contracts';
-import { CodedError, Serializer, settled, SYSTEM_WATCH, type DirectoryWatcher, type Settled, type WatchSeams } from '@adecore/agents';
-import { errorText } from '../error-text.ts';
+import { CodedError, Serializer, SYSTEM_WATCH, type DirectoryWatcher, type Settled, type WatchSeams } from '@adecore/agents';
 import {
     PRIVATE_DIR,
     PROJECT_DIR,
     PROJECT_FILE,
     readJsonDocument,
-    readTextOf,
+    inPersonalOrder,
     restOf,
     serializeJson as serialize,
     tooNewMessage,
     versionedParser,
-    watchDirectories,
+    takeMovedFiles,
+    watchOutsideEdits,
     writeGitignoreIfMissing,
     writeJsonDocument,
     type JsonDocumentParse,
@@ -33,7 +33,6 @@ import {
 const ROUTINES_FILE = 'routines.json';
 
 // The burst rule of the other project files: git and editors write more than once per save.
-const WATCH_SETTLE_MS = 150;
 
 type RoutineErrorCode =
     | 'project-not-found'
@@ -290,42 +289,25 @@ export class RoutineStore {
             readRoutineFile(sharedPathIn(state.folder), parseShared, false),
             readRoutineFile(privatePathIn(state.folder), parsePrivate, false)
         ]);
-        const sharedMoved = readTextOf(shared) !== null && readTextOf(shared) !== state.sharedText;
-        const privateMoved = readTextOf(own) !== null && readTextOf(own) !== state.privateText;
-        if (!sharedMoved && !privateMoved) {
+        if (!takeMovedFiles(state, shared, own, takeShared, takePrivate)) {
             return false;
         }
-        const rev = state.rev;
-        if (sharedMoved) {
-            takeShared(state, shared);
-        }
-        if (privateMoved) {
-            takePrivate(state, own);
-        }
-        // A pull changes only the shared file, and a save against the rev from before it would write over it.
-        state.rev = Math.max(state.rev, rev + 1);
         this.onOutsideChange?.(projectId);
         return true;
     }
 
     private watch(projectId: string, state: LoadedRoutines): void {
-        state.settle = settled(this.seams, WATCH_SETTLE_MS, () =>
-            this.writes
-                .run(async () => {
-                    if (this.loaded.get(projectId) === state) {
-                        await this.takeOutsideEdits(projectId, state);
-                    }
-                })
-                .catch((e: unknown) => {
-                    console.warn(`An outside edit to the routines of ${state.folder} could not be taken in:`, errorText(e));
-                })
-        );
-        const settle = state.settle;
-        state.watchers = watchDirectories(this.seams, [join(state.folder, PROJECT_DIR), join(state.folder, PROJECT_DIR, PRIVATE_DIR)], (filename) => {
-            if (filename === null || filename.endsWith(ROUTINES_FILE)) {
-                settle.nudge();
-            }
+        const { settle, watchers } = watchOutsideEdits({
+            seams: this.seams,
+            writes: this.writes,
+            folder: state.folder,
+            file: ROUTINES_FILE,
+            what: 'routines',
+            current: () => this.loaded.get(projectId) === state,
+            take: () => this.takeOutsideEdits(projectId, state)
         });
+        state.settle = settle;
+        state.watchers = watchers;
     }
 }
 
@@ -381,19 +363,7 @@ function takePrivate(state: LoadedRoutines, read: JsonDocumentRead<RoutinesPriva
     state.privateRest = restOf(read.document, PRIVATE_KEYS);
 }
 
-/* The routines of both files in the order a person keeps; one the order does not name goes after, shared first. A shared one wins an id both files hold. */
+/* A shared routine wins an id both files hold. */
 function ordered(state: LoadedRoutines): Routine[] {
-    const seen = new Set<string>();
-    const unique = [...routinesOf(state.shared), ...routinesOf(state.own)].filter((routine) => {
-        if (seen.has(routine.id)) {
-            return false;
-        }
-        seen.add(routine.id);
-        return true;
-    });
-    const rank = new Map(state.order.map((id, index) => [id, index]));
-    return unique
-        .map((routine, index) => ({ routine, index }))
-        .sort((a, b) => (rank.get(a.routine.id) ?? state.order.length + a.index) - (rank.get(b.routine.id) ?? state.order.length + b.index))
-        .map(({ routine }) => routine);
+    return inPersonalOrder([...routinesOf(state.shared), ...routinesOf(state.own)], state.order);
 }
