@@ -11,7 +11,6 @@ struct NowPage: View {
     let openProject: (ProjectViewTarget) -> Void
     let openRoutine: (ScheduledRoute) -> Void
     let addMachine: () -> Void
-    @State private var showsNativePreview = false
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 60)) { timeline in
@@ -36,19 +35,8 @@ struct NowPage: View {
                         notifies: runtime.notifications.enabled, date: timeline.date, connected: now.connected,
                         open: open, openProject: openProject, openRoutine: openRoutine)
                 }
-                #if DEBUG
-                    Button("Native list preview") { showsNativePreview = true }
-                        .buttonStyle(.mobileCapsuleSmall)
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, MobileSpacing.large)
-                #endif
             }
         }
-        #if DEBUG
-            .sheet(isPresented: $showsNativePreview) {
-                NowNativePreview(now: now, scheduled: scheduled, open: open, openRoutine: openRoutine)
-            }
-        #endif
         .onChange(of: now.liveRequests) { _, live in now.answers.keep(live) }
         .refreshable { await now.refresh() }
         .task {

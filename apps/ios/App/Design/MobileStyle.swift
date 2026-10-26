@@ -34,8 +34,11 @@ enum MobileStyle {
     static let statusError = Color(uiColor: statusErrorColor)
     static let statusNeedsYou = Color(uiColor: statusNeedsYouColor)
     static let statusIdle = Color(uiColor: statusIdleColor)
-    /// The hairline a card is edged with. An alpha over whatever lies behind, so not an opaque token in `RuimteColors`.
+    /// A hairline, an alpha over whatever lies behind, so not an opaque token in `RuimteColors`.
     static let hairline = Color(uiColor: translucent(dark: 0.06, light: 0.08))
+    /// The ground of a card, which stands out by its ground alone and has no edge. Translucent, so it reads on the page
+    /// and on a sheet's canvas alike.
+    static let card = Color(uiColor: translucent(dark: 0.06, light: 0.045))
     /// The one quiet ground: a quiet capsule, an icon button, a chip. Translucent, so it reads the same on a surface, a
     /// panel or a card, where the opaque `hover` would vanish on a panel of the same gray.
     static let fill = Color(uiColor: translucent(dark: 0.08, light: 0.05))

@@ -89,10 +89,7 @@ struct MachineDevicesPage: View {
                                         row(device)
                                     }
                                 }
-                                .padding(12)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(MobileStyle.panel, in: .rect(cornerRadius: 18))
-                                .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(MobileStyle.border))
+                                .mobileCard(padding: 12)
                             }
                         }
                     }

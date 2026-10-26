@@ -1,8 +1,8 @@
 import RuimtePulsar
 import SwiftUI
 
-/// The one card of the app: a panel with a radius of 20 and a hairline. Rows inside one pass `padding: 0` and pad
-/// themselves, so their dividers run to the card's edge.
+/// The one card of the app: the card ground with a radius of 20, without an edge. Rows inside one pass `padding: 0`
+/// and pad themselves.
 struct MobileCardSurface: ViewModifier {
     var padding: CGFloat = MobileSpacing.cardPadding
 
@@ -10,8 +10,7 @@ struct MobileCardSurface: ViewModifier {
         content
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(MobileStyle.panel, in: .rect(cornerRadius: MobileMetrics.cardRadius))
-            .overlay(RoundedRectangle(cornerRadius: MobileMetrics.cardRadius).strokeBorder(MobileStyle.hairline))
+            .background(MobileStyle.card, in: .rect(cornerRadius: MobileMetrics.cardRadius))
     }
 }
 
@@ -31,27 +30,14 @@ struct MobileCard<Content: View>: View {
     }
 }
 
-/// The line between two rows of a card, starting where the row's text does.
-struct MobileRowDivider: View {
-    @Environment(\.displayScale) private var displayScale
-    @ScaledMetric(relativeTo: .subheadline) private var column = MobileMetrics.statusColumn
-
-    var body: some View {
-        MobileStyle.hairline.frame(height: 1 / displayScale)
-            .padding(.leading, MobileSpacing.cardPadding + column + MobileSpacing.medium)
-            .accessibilityHidden(true)
-    }
-}
-
-/// The rows of one group in one card, with a line between two.
+/// The rows of one group in one card. The row height keeps them apart, so no line runs between two.
 struct MobileRowGroup<Item: Identifiable, Row: View>: View {
     let items: [Item]
     @ViewBuilder var row: (Item) -> Row
 
     var body: some View {
         VStack(spacing: 0) {
-            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                if index > 0 { MobileRowDivider() }
+            ForEach(items) { item in
                 row(item)
             }
         }

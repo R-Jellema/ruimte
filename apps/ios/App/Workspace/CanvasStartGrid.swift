@@ -103,9 +103,7 @@ struct CanvasStartGrid: View {
                 Text("Install an agent CLI, then set it up under Agents in Ruimte's settings on your computer.")
                     .font(.caption).foregroundStyle(MobileStyle.muted)
             }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(MobileStyle.panel, in: .rect(cornerRadius: 16))
+            .mobileCard(padding: 14)
             .accessibilityElement(children: .combine)
         } else {
             section(String(localized: "Agents")) {
