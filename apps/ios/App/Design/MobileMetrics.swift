@@ -9,7 +9,7 @@ enum MobileSpacing {
     static let large: CGFloat = 16
     static let xLarge: CGFloat = 24
     /// The edge of a page to its cards and rows, the same on every page.
-    static let margin: CGFloat = 20
+    static let margin: CGFloat = 24
     static let cardPadding: CGFloat = 18
 }
 
@@ -18,7 +18,7 @@ enum MobileMetrics {
     /// A code block or a field inside a card.
     static let tileRadius: CGFloat = 10
     static let cardRadius: CGFloat = 20
-    static let rowHeight: CGFloat = 52
+    static let rowHeight: CGFloat = 56
     /// The width a row's leading glyph stands in, so the titles of a list line up.
     static let statusColumn: CGFloat = 20
     static let statusGlyph: CGFloat = 18

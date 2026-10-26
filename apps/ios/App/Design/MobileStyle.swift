@@ -104,7 +104,7 @@ struct MobileList<Content: View>: View {
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
                 .listSectionSeparator(.hidden)
-                .listRowInsets(EdgeInsets(top: 8, leading: 28, bottom: 8, trailing: 28))
+                .listRowInsets(EdgeInsets(top: 8, leading: 32, bottom: 8, trailing: 32))
         }
         .modifier(MobileSidebarList())
         .buttonStyle(MobileListActionStyle())

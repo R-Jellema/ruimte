@@ -66,12 +66,16 @@ struct MobileRowGroup<Item: Identifiable, Row: View>: View {
                 row(item)
             }
             .mobileCard(padding: 0)
+            .listRowInsets(
+                EdgeInsets(
+                    top: 0, leading: MobileSpacing.margin - MobileSpacing.cardPadding, bottom: 0,
+                    trailing: MobileSpacing.margin - MobileSpacing.cardPadding))
         }
     }
 }
 
 /// A row of a card: the status glyph on the title's line, a title with a muted second line, and a trailing value or
-/// control. At least 52 pt high, and taller once Dynamic Type asks for it.
+/// control. At least `MobileMetrics.rowHeight` high, and taller once Dynamic Type asks for it.
 struct MobileStatusRow<Trailing: View>: View {
     let tone: MobileTone
     var symbol: String?

@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct MobileSidebarList: ViewModifier {
-    var minimumRowHeight: CGFloat = 44
+    var minimumRowHeight: CGFloat = 48
 
     func body(content: Content) -> some View {
         content
@@ -19,7 +19,7 @@ struct MobileSidebarRow: ViewModifier {
     func body(content: Content) -> some View {
         content
             .buttonStyle(MobileSidebarButtonStyle(selected: selected))
-            .listRowInsets(EdgeInsets(top: 1, leading: 18, bottom: 1, trailing: 18))
+            .listRowInsets(EdgeInsets(top: 1, leading: 22, bottom: 1, trailing: 22))
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
             .accessibilityAddTraits(selected ? .isSelected : [])
@@ -39,8 +39,8 @@ struct MobileSidebarLabel: ViewModifier {
         }
         .font(.callout)
         .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
         .contentShape(RoundedRectangle(cornerRadius: 8))
     }
 }
