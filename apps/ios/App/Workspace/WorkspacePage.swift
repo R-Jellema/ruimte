@@ -38,9 +38,7 @@ struct WorkspacePage: View {
         self.settingsLink = settingsLink
         self.gitLines = gitLines
         self.runtime = runtime
-        _listState = State(
-            initialValue: ProjectListState(
-                machineID: navigation.workspace.session.machine.id, projectID: navigation.workspace.projectID))
+        _listState = State(initialValue: ProjectListState())
     }
 
     private var isSidebar: Bool { sidebar != nil }

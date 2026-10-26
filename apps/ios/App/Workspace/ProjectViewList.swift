@@ -102,30 +102,16 @@ enum ProjectListLogic {
     }
 }
 
-/// The part of a project's list that lives on this phone: which canvases are folded, which chats hold a draft, and
-/// which nodes the machine warns about.
+/// The part of a project's list that lives on this phone: which chats hold a draft, and which nodes the machine warns
+/// about.
 @MainActor @Observable
 final class ProjectListState {
-    private(set) var collapsed: Set<String>
     private(set) var drafts: Set<String> = []
     private(set) var warnings: Set<String> = []
-    @ObservationIgnored private let defaults: UserDefaults
-    @ObservationIgnored private let key: String
     @ObservationIgnored private var stops: [() -> Void] = []
     @ObservationIgnored private var client: (any MachineRequesting)?
 
-    init(machineID: String, projectID: String, defaults: UserDefaults = .standard) {
-        self.defaults = defaults
-        key = "ruimte.ios.collapsed.\(machineID).\(projectID)"
-        collapsed = Set(defaults.stringArray(forKey: key) ?? [])
-    }
-
-    func isExpanded(_ id: String) -> Bool { !collapsed.contains(id) }
-
-    func toggle(_ id: String) {
-        if collapsed.contains(id) { collapsed.remove(id) } else { collapsed.insert(id) }
-        defaults.set(collapsed.sorted(), forKey: key)
-    }
+    init() {}
 
     /// Reads which chats hold a draft on this phone; the composer writes one as it is typed.
     func readDrafts(machineID: String, chatIDs: [String]) {

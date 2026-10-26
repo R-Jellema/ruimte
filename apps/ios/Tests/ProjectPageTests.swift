@@ -70,14 +70,6 @@ final class ProjectListLogicTests: XCTestCase {
             [.delete])
     }
 
-    @MainActor func testFoldedCanvasesAreRememberedPerProject() throws {
-        let defaults = try XCTUnwrap(UserDefaults(suiteName: "ProjectListLogicTests.\(UUID().uuidString)"))
-        let state = ProjectListState(machineID: "mac", projectID: "app", defaults: defaults)
-        XCTAssertTrue(state.isExpanded("canvas"))
-        state.toggle("canvas")
-        XCTAssertFalse(ProjectListState(machineID: "mac", projectID: "app", defaults: defaults).isExpanded("canvas"))
-        XCTAssertTrue(ProjectListState(machineID: "mac", projectID: "other", defaults: defaults).isExpanded("canvas"))
-    }
 }
 
 final class NewViewTests: XCTestCase {
