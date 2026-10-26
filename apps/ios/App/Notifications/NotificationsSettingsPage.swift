@@ -29,7 +29,7 @@ struct NotificationsSettingsPage: View {
                         Label(String(localized: "Approval requests"), lucideIcon: "shield-check")
                     }
                     .disabled(!coordinator.preferences.notify.contains(.needsYou))
-                    kind(.turn, String(localized: "A turn finishes"), icon: "check")
+                    kind(.turn, String(localized: "A turn finishes"), icon: "circle-check")
                     kind(.process, String(localized: "A process misbehaves"), icon: "triangle-alert")
                 }
             }

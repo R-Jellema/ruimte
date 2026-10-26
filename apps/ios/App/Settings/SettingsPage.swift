@@ -58,8 +58,10 @@ struct MobileSettings: View {
                     }
                 }
                 .accessibilityIdentifier("settings.mapTiles")
-                NavigationLink("Notifications and Live Activities") {
+                NavigationLink {
                     NotificationsSettingsPage(coordinator: runtime.notifications, projects: projects)
+                } label: {
+                    Label(String(localized: "Notifications and Live Activities"), lucideIcon: "bell")
                 }
                 if runtime.voice.declaresMicrophone {
                     NavigationLink {

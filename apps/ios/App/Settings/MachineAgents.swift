@@ -161,8 +161,11 @@ struct MachineAgentsPage: View {
 
     private func agentRow(_ agent: MachineAgentsModel.Agent) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 10) {
-                Image(lucide: "bot", size: 18).foregroundStyle(MobileStyle.muted)
+            HStack(spacing: MobileSpacing.medium) {
+                ChatProviderMark(provider: agent.kind, size: MobileMetrics.statusGlyph)
+                    .foregroundStyle(MobileStyle.muted)
+                    .frame(width: MobileMetrics.statusColumn)
+                    .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(agent.name)
                     Text(agentSubtitle(agent)).font(.caption).foregroundStyle(MobileStyle.muted).lineLimit(1)
@@ -182,7 +185,7 @@ struct MachineAgentsPage: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         loginButton(agent, account)
                     }
-                    .padding(.leading, 28)
+                    .padding(.leading, MobileMetrics.statusColumn + MobileSpacing.medium)
                 }
             }
         }

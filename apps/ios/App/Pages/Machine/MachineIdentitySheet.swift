@@ -72,9 +72,9 @@ struct MachineIdentitySheet: View {
             .navigationSubtitle(fallbackName)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button(role: .close) { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { Task { await save() } }.disabled(saving)
+                    Button(role: .confirm) { Task { await save() } }.disabled(saving)
                 }
             }
             .task {

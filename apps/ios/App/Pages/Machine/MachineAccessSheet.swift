@@ -136,10 +136,10 @@ struct MachineAccessSection: View {
                 MobileLoadingRow(String(localized: "Loading devices")).frame(maxWidth: .infinity)
             }
             ForEach(access.clients) { client in
-                HStack(spacing: 11) {
-                    HStack(alignment: .firstTextBaseline, spacing: 11) {
-                        Image(lucide: client.icon, size: 17).foregroundStyle(MobileStyle.muted).frame(width: 22)
-                            .centeredOnFirstLine(of: .body)
+                HStack(spacing: MobileSpacing.medium) {
+                    HStack(alignment: .firstTextBaseline, spacing: MobileSpacing.medium) {
+                        MobileStatusGlyph(tone: .idle, symbol: client.icon).centeredOnFirstLine(of: .body)
+                            .accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 2) {
                             HStack(alignment: .firstTextBaseline, spacing: 4) {
                                 Text(client.label).lineLimit(1)
