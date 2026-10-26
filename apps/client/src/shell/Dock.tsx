@@ -8,6 +8,7 @@ import { isCanvasView } from '@ruimte/contracts';
 import { applyLayoutAction, createNodeAction, createTextAction, deleteLayoutAction, fitAction, setLocksAction } from '@/actions/client-actions';
 import { AgentSubmenus } from '@/agents/AgentMenus';
 import { LOCK_KEYS, lockHint, lockLabel } from '@/canvas/locks';
+import { RoutineAddItems } from '@/routines/RoutineAddItems';
 import { maximizedNodeOf, useCanvas, useCanvasStore } from '@/state/canvas';
 import { activeViewOf, useDocument } from '@/state/document';
 import { useUi } from '@/state/ui';
@@ -77,6 +78,7 @@ export function Dock({ onHiddenChange }: { onHiddenChange?: (hidden: boolean) =>
                     <Menu.Item onClick={() => void createNodeAction('browser')}>
                         <Icon icon={Globe} size={14} /> {t('nodeKinds.browser')} <Kbd shortcut={ADD_NODE_SHORTCUTS.browser} />
                     </Menu.Item>
+                    <RoutineAddItems />
                     <Menu.Item onClick={() => void createNodeAction('group')}>
                         <Icon icon={LayoutGrid} size={14} /> {t('nodeKinds.group')} <Kbd shortcut={ADD_NODE_SHORTCUTS.group} />
                     </Menu.Item>

@@ -160,6 +160,17 @@ describe('a routine node', () => {
         expect(view?.kind === 'canvas' ? view.nodes[0] : null).toMatchObject({ kind: 'routine', routine: 'morning', title: 'Morning summary' });
     });
 
+    test("the dock's plus places one of the project's routines on the canvas", async () => {
+        await open([]);
+        await until(() => liveCanvas('main') !== null);
+        await act(async () => liveCanvas('main')!.setViewport({ w: 1280, h: 800 }));
+        await clickOn(page.host.querySelector<HTMLElement>('[aria-label="Add"]'));
+        await until(() => document.querySelector('[role="menu"]') !== null);
+        await openSubmenu('Routine');
+        await clickOn([...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find((item) => item.textContent?.trim() === 'Morning summary') ?? null);
+        await until(() => Object.values(liveCanvas('main')!.nodes).some((node) => node.kind === 'routine' && node.routine === 'morning'));
+    });
+
     test("a right-click on the canvas places one of the project's routines there", async () => {
         await open([]);
         await until(() => liveCanvas('main') !== null);
