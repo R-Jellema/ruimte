@@ -6,7 +6,7 @@ import { CodedError } from '@adecore/agents';
 import { git } from '../git/run.ts';
 import type { ProjectStore } from './project-store.ts';
 
-export class ScratchError extends CodedError<'scratch-unavailable'> {}
+class ScratchError extends CodedError<'scratch-unavailable'> {}
 
 const SCRATCH_NAME = 'Chats';
 

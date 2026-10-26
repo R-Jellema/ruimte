@@ -4,7 +4,7 @@ import type { ChatToolItem } from '@ruimte/contracts';
 import type { WriteSignature } from './runs.ts';
 
 /* A file a finished tool call wrote, and what the call says about the lines. */
-export interface ToolWrite {
+interface ToolWrite {
     path: string;
     signature: WriteSignature;
 }

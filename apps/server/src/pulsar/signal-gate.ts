@@ -6,9 +6,9 @@ import type { StatementVerdict } from './statement.ts';
 const OWNER_TTL_MS = 60_000;
 
 // What became of one signal: passed on, answered with a refusal, or dropped for a signature that does not hold.
-export type GateOutcome = 'passed' | 'refused' | 'dropped';
+type GateOutcome = 'passed' | 'refused' | 'dropped';
 
-export interface SignalGateOptions {
+interface SignalGateOptions {
     /* The daemon's own key from `endpoint.json`, which every signal for this machine is signed to. */
     publicKey: string;
     /* Whether a client key is one this machine already let in. */

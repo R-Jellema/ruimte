@@ -40,7 +40,6 @@ const STDERR_LINES = 5;
 const STOP_SIGNALS: ReadonlySet<string> = new Set(['SIGTERM', 'SIGINT', 'SIGHUP']);
 
 let sentry: Sentry | null = null;
-let settings: TelemetrySettings | null = null;
 let projects: ProjectSource | null = null;
 let projectRedactions: readonly string[] = [];
 let stopping = false;
@@ -156,7 +155,6 @@ export function daemonClientOptions(
 /* Starts reporting for the serving daemon (`daemonClientOptions`). */
 export async function startTelemetry(current: TelemetrySettings): Promise<void> {
     const loaded = await import('@sentry/bun');
-    settings = current;
     loaded.initWithoutDefaultIntegrations(
         daemonClientOptions(
             loaded,
@@ -165,11 +163,6 @@ export async function startTelemetry(current: TelemetrySettings): Promise<void> 
         )
     );
     sentry = loaded;
-}
-
-/* What the watchdog worker needs to report on its own while this thread is stuck. */
-export function activeTelemetrySettings(): TelemetrySettings | null {
-    return settings;
 }
 
 /* A value no report may carry, such as the local secret. */
@@ -242,7 +235,7 @@ export async function reportFatal(error: unknown): Promise<void> {
     }
 }
 
-export interface HelperExit {
+interface HelperExit {
     /* Which helper: `database`, `apple-foundation`, `on-device` or `language-server`. */
     readonly helper: string;
     /* The kind of language server; only for a kind Ruimte ships. */

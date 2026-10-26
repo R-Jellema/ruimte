@@ -128,7 +128,7 @@ export function readArchive(bytes: Uint8Array, format: ArchiveFormat): ArchiveEn
     return format === 'zip' ? readZip(bytes) : readTar(gunzipSync(bytes));
 }
 
-export interface ExtractOptions {
+interface ExtractOptions {
     /* Leading folders to drop from every path, such as the one GitHub wraps a commit in. */
     strip?: number;
     /* Whether a file, by its path after the strip, is written. */

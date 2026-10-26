@@ -1,5 +1,5 @@
 /* What `ps -o tpgid=` printed for `pid`, or null when it could not run or failed. */
-export type TpgidReader = (pid: number) => Promise<string | null>;
+type TpgidReader = (pid: number) => Promise<string | null>;
 
 /* Null on Windows without asking: a console has no process groups, so there is no foreground to read. */
 export async function readTpgid(pid: number, platform: string = process.platform): Promise<string | null> {

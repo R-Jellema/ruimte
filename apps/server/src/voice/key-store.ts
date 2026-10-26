@@ -14,7 +14,7 @@ interface KeyFile {
 }
 
 /* What a person may hand in as a key: no line breaks or spaces inside, which a paste of something else carries. */
-export function voiceKeyProblem(key: string): string | null {
+function voiceKeyProblem(key: string): string | null {
     if (key === '') {
         return 'The key is empty';
     }

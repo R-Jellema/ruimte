@@ -14,7 +14,7 @@ import type { LaunchesBundle } from './launches.ts';
 import type { ProjectsBundle } from './projects.ts';
 
 /* The clients that asked with `routine.watch`, who hear a project's routines change. */
-export class RoutineWatchers {
+class RoutineWatchers {
     private readonly sinks = new ClientSinks();
     private readonly watching = new Set<string>();
 
@@ -61,7 +61,7 @@ export function continuedBrief(brief: string | undefined, picked: RoutinePicked 
     return note === null ? brief : `${brief}\n\n${note}`;
 }
 
-export interface RoutinesInput {
+interface RoutinesInput {
     home: string;
     machineId: string;
     stores: AgentStores;

@@ -66,7 +66,7 @@ export interface VoiceSessionDeps {
     emit(event: 'voice.activity', payload: VoiceActivityEvent): void;
 }
 
-export interface VoiceSessionStart {
+interface VoiceSessionStart {
     sessionId: string;
     payload: VoiceStartPayload;
     owner: { clientId: string; sceneId: string };

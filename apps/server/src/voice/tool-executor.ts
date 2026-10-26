@@ -2,7 +2,7 @@ import { ACTION_DEFINITIONS, VOICE_CONTROL_TOOL, type ActionCall, type ActionNam
 import { voiceReplyOf, type VoiceReplyWords } from '@ruimte/voice';
 import type { VoicePolicy } from './action-policy.ts';
 
-export type VoiceToolOutput = Record<string, unknown>;
+type VoiceToolOutput = Record<string, unknown>;
 
 /* The registry as the executor reaches it: the daemon's `serverActions`, or a fake in a test. */
 export interface VoiceActionRunner<Context> {
@@ -23,13 +23,13 @@ export interface VoiceToolQuestion {
  * Sees each call start and end, for the timeline the phone draws; never the arguments or the output. A call
  * that asks first ends only once its question is answered, from the phone or through the model.
  */
-export interface VoiceToolObserver {
+interface VoiceToolObserver {
     started(callId: string, name: ActionName): void;
     asked?(callId: string, name: ActionName, question: VoiceToolQuestion): void;
     finished(callId: string, name: ActionName, ok: boolean, declined?: boolean): void;
 }
 
-export interface VoiceToolExecutorOptions<Context> {
+interface VoiceToolExecutorOptions<Context> {
     sessionId: string;
     runner: VoiceActionRunner<Context>;
     policy: VoicePolicy;

@@ -8,7 +8,7 @@ import { nodeOf, sameCanvas, stripHidden } from '../peering/peer-canvas.ts';
 import type { ProjectStore } from '../projects/project-store.ts';
 
 /* What the requests of another machine's links reach of this one. */
-export interface PeerHost {
+interface PeerHost {
     links: PeerLinks;
     /* The tasks of a machine that its link ends with: they are told to it when the link goes. */
     tasks?: {

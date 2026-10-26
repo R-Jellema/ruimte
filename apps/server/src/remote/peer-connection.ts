@@ -34,7 +34,7 @@ export interface PeerLink {
 /* How long a broker may take to sign in, and a machine to answer the offer and finish the handshake. */
 export const PEER_ATTEMPT_TIMEOUT_MS = 30_000;
 
-export interface BrokerLineOptions {
+interface BrokerLineOptions {
     url: string;
     signer: PeerSigner;
     /* The machine whose signals are believed. */
@@ -129,7 +129,7 @@ export async function openBrokerLine(options: BrokerLineOptions): Promise<Signal
     }
 }
 
-export interface PeerLinkOptions {
+interface PeerLinkOptions {
     line: SignalLine;
     signer: PeerSigner;
     machine: Pick<PeerMachine, 'machineId' | 'publicKey'>;

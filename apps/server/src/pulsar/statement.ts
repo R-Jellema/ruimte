@@ -23,9 +23,9 @@ export const STATEMENT_CLOCK_SKEW_MS = 30_000;
  */
 export const TEST_STATEMENT_KEY_VARIABLE = 'RUIMTE_PULSAR_TEST_STATEMENT_KEY';
 
-export type StatementRefusal = 'wrong-machine' | 'wrong-machine-key' | 'wrong-key' | 'not-yet-valid' | 'expired' | 'bad-signature' | 'wrong-peer';
+type StatementRefusal = 'wrong-machine' | 'wrong-machine-key' | 'wrong-key' | 'not-yet-valid' | 'expired' | 'bad-signature' | 'wrong-peer';
 
-export interface StatementExpectation {
+interface StatementExpectation {
     machineId: string;
     // This machine's own key, which a statement v2 has to name.
     machinePublicKey: string;
@@ -136,7 +136,7 @@ export function trustedStatementKeys(env: Record<string, string | undefined>, co
     return [testKey];
 }
 
-export interface StatementGateOptions {
+interface StatementGateOptions {
     machineId: string;
     machinePublicKey: string;
     trustedKeys: readonly string[];

@@ -67,7 +67,7 @@ const MAX_VERB_BODY_BYTES = 72 * 1024 * 1024;
 
 export type SocketData = ClientAccess & { protocolRefused: boolean; ticket: string | null };
 
-export interface HttpInput {
+interface HttpInput {
     runtime: DaemonRuntime;
     machine: MachineBundle;
     stores: AgentStores;

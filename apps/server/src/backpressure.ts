@@ -39,7 +39,7 @@ interface SessionQueue {
     outputChars: number;
 }
 
-export interface OutputGateOptions {
+interface OutputGateOptions {
     socket: BackpressuredSocket;
     /*
      * Hands `deliver` the screen of a session this client watches, from inside the step that makes

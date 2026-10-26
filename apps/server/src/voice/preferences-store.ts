@@ -7,7 +7,7 @@ import { VOICE_DIR } from './key-store.ts';
 
 const PREFERENCES_FILE = 'preferences.json';
 
-export const DEFAULT_VOICE_PREFERENCES: VoicePreferences = { language: 'en', voice: 'marin' };
+const DEFAULT_VOICE_PREFERENCES: VoicePreferences = { language: 'en', voice: 'marin' };
 
 /*
  * How Voice on this machine talks, in `$RUIMTE_HOME/voice/preferences.json` beside the key. No secret: any

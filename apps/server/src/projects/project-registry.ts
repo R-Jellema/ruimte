@@ -30,7 +30,7 @@ const RegistrySchema = z.object({
     )
 });
 
-export function entryIn(entries: readonly RegistryEntry[], projectId: string): RegistryEntry {
+function entryIn(entries: readonly RegistryEntry[], projectId: string): RegistryEntry {
     const entry = entries.find((candidate) => candidate.projectId === projectId);
     if (!entry) {
         throw new ProjectError('project-not-found', `No project ${projectId}`);

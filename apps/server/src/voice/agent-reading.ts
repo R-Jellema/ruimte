@@ -2,9 +2,9 @@ import type { AgentStatus } from '@ruimte/contracts';
 import type { CanvasHost } from '../canvas/verb.ts';
 import type { VoiceAgentPlace } from './project-reading.ts';
 
-export type VoiceAgentStatus = AgentStatus | 'unknown';
+type VoiceAgentStatus = AgentStatus | 'unknown';
 
-export interface VoiceAgentReading {
+interface VoiceAgentReading {
     status: VoiceAgentStatus;
     working: boolean | null;
     updatedAt: number | null;

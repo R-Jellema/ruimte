@@ -6,7 +6,7 @@ import { runProcess, type ProcessResult } from '@adecore/agents';
 import { errorText } from '../error-text.ts';
 
 /* How a CLI's executable came to the machine, read from where it really is. */
-export interface CliInstall {
+interface CliInstall {
     method: CliInstallMethod;
     // The formula, cask or npm package the route knows it by.
     package: string | null;
@@ -122,7 +122,7 @@ interface Latest {
 export type VersionRun = (command: string[], env: Record<string, string>) => Promise<ProcessResult>;
 
 /* Reads the newest version of an npm package; the default asks the npm registry. */
-export type NpmLatest = (name: string) => Promise<string>;
+type NpmLatest = (name: string) => Promise<string>;
 
 const LOOKUP_TIMEOUT_MS = 30_000;
 const UPDATE_TIMEOUT_MS = 10 * 60_000;
@@ -154,7 +154,7 @@ export interface OwnInstall {
     update(): Promise<void>;
 }
 
-export interface CliVersionsOptions {
+interface CliVersionsOptions {
     // The CLIs Ruimte drives through an executable on the PATH, by kind.
     executables: Partial<Record<AgentKind, string>>;
     own: (kind: AgentKind) => OwnInstall | null;

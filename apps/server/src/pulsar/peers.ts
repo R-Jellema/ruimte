@@ -6,7 +6,7 @@ import { directChannel, fromWerift, type DirectChannel } from './data-channel.ts
 import { errorText } from '../error-text.ts';
 
 // Offer to open channel, handshake included; a peer that has not got that far by then is not coming.
-export const ATTEMPT_TIMEOUT_MS = 30_000;
+const ATTEMPT_TIMEOUT_MS = 30_000;
 
 // ICE is gathered whole before the answer goes out; a STUN server that does not answer costs this much, not the attempt.
 const GATHER_TIMEOUT_MS = 5_000;
@@ -14,7 +14,7 @@ const GATHER_TIMEOUT_MS = 5_000;
 // Attempts that have not opened their channel yet, over every caller together.
 const MAX_OPEN_ATTEMPTS = 32;
 
-export interface DirectPeersOptions {
+interface DirectPeersOptions {
     /* The STUN and TURN servers for one attempt, asked per offer because TURN credentials expire; empty gathers host candidates only. */
     iceServers(): IceServer[];
     // The UDP ports ICE binds, for a daemon behind a firewall or a container that publishes a range.

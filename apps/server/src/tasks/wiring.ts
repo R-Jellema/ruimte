@@ -7,7 +7,7 @@ import { parkedNote } from './parked-note.ts';
 import { terminalTasks, type TerminalTasks } from './terminal-tasks.ts';
 import { TASK_WORDS } from './words.ts';
 
-export interface TaskWiringDeps {
+interface TaskWiringDeps {
     tasks: TaskStore;
     chats: ChatManager;
     placed(nodeId: string): boolean;

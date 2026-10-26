@@ -29,7 +29,7 @@ import type { RoutineAuthorStore, RoutineRunStore } from './routine-runs.ts';
 import { RoutineError, type RoutinesDocument, type RoutineStore, type StoredRoutine } from './routine-store.ts';
 
 /* A run that comes this much after its time made up for a time the machine slept or was off through. */
-export const CATCH_UP_AFTER_MS = 5 * 60_000;
+const CATCH_UP_AFTER_MS = 5 * 60_000;
 
 // How far back a list reads runs: the week a person looks at and the one before it.
 const LISTED_RUNS_MS = 15 * 24 * 60 * 60_000;
@@ -53,7 +53,7 @@ export interface CommandResult {
     output: Uint8Array;
 }
 
-export interface RoutineDeps {
+interface RoutineDeps {
     store: Pick<RoutineStore, 'read' | 'fresh' | 'put' | 'setLocal' | 'remove'>;
     runs: RoutineRunStore;
     authors: RoutineAuthorStore;
@@ -93,17 +93,13 @@ export interface RoutineDeps {
     log?: (line: string) => void;
 }
 
-export function routineTarget(projectId: string, routineId: string): string {
+function routineTarget(projectId: string, routineId: string): string {
     return `routine:${projectId}:${routineId}`;
 }
 
 /* The id a run's chat is opened by, which keeps it in the project without a canvas and outlives the routine. */
 export function routineOpener(routineId: string): string {
     return `routine:${routineId}`;
-}
-
-export function isRoutineOpener(openedBy: string): boolean {
-    return openedBy.startsWith('routine:');
 }
 
 /* Everything an approval covers, so a change to any of it asks again. Title and output key only label the run. */
@@ -193,7 +189,7 @@ export interface RunMessage {
  * Ruimte's instructions to a run of an agent routine: where a result goes when it has one. A routine's
  * result is a version of one artifact, never loose files in the project.
  */
-export function runBrief(
+function runBrief(
     routine: AgentRoutine,
     when: string,
     previous: { artifactId: string; versionId: string; number: number } | null,

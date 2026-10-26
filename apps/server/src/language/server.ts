@@ -60,7 +60,7 @@ export const STOP_GRACE_MS = 3_000;
 export const MERGE_DEADLINE_MS = 1_000;
 
 /* What a server has to say about files that are about to move: longer than a merged call, since it may search a whole project, and no longer than a person waits at a rename. */
-export const WILL_RENAME_DEADLINE_MS = 5_000;
+const WILL_RENAME_DEADLINE_MS = 5_000;
 
 // How long the first code action request waits for a sidecar that has to start, which loads the project before it answers.
 export const SIDECAR_START_DEADLINE_MS = 10_000;
@@ -72,7 +72,7 @@ export const INITIALIZE_TIMEOUT_MS = 30_000;
 export const STABLE_AFTER_MS = 60_000;
 
 // How long typing pauses before a server that is asked for its diagnostics is asked again.
-export const PULL_DELAY_MS = 200;
+const PULL_DELAY_MS = 200;
 
 export interface LanguageClock {
     set(run: () => void, ms: number): () => void;
@@ -153,7 +153,7 @@ interface Component {
 }
 
 /* A merged answer: items of several processes, each with the one that made it. */
-export interface ServerReply {
+interface ServerReply {
     result: unknown;
     server: string;
     version: number;

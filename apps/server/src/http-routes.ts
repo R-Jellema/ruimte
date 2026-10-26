@@ -1,6 +1,6 @@
 import type { Server } from 'bun';
 
-export interface RouteRequest<Data> {
+interface RouteRequest<Data> {
     request: Request;
     url: URL;
     /* The address the request came from; empty when the server cannot tell. */
@@ -9,7 +9,7 @@ export interface RouteRequest<Data> {
 }
 
 /* Undefined once the request became a socket, which has no response of its own. */
-export type RouteHandler<Data> = (route: RouteRequest<Data>) => Promise<Response | undefined> | Response | undefined;
+type RouteHandler<Data> = (route: RouteRequest<Data>) => Promise<Response | undefined> | Response | undefined;
 
 export interface Route<Data> {
     /* The paths answered as they are. */

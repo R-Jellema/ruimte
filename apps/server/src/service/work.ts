@@ -1,6 +1,6 @@
 import type { AgentInfo, AgentStatus, MachineWork } from '@ruimte/contracts';
 
-export interface WorkFacts {
+interface WorkFacts {
     /* `launch` is a session a launch runs in, whose shell execs the command and so has no child to count. */
     sessions: readonly { pid: number; exited: boolean; agent?: AgentInfo | null; launch?: boolean }[];
     chats: readonly { activeTurnId: string | null }[];

@@ -21,7 +21,7 @@ const TaskRecordSchema = z.object({
 });
 
 /* Where this machine started a task of another machine, which only this machine writes down. */
-export type PeerTaskRecord = z.infer<typeof TaskRecordSchema>;
+type PeerTaskRecord = z.infer<typeof TaskRecordSchema>;
 
 const PeerFileSchema = z.looseObject({
     machineId: z.string().min(1),
@@ -43,7 +43,7 @@ function folderKey(cwd: string): string {
 }
 
 /* What a link is until a person says otherwise: an agent from the other machine asks before it acts. */
-export const DEFAULT_CEILING: RuntimeMode = 'supervised';
+const DEFAULT_CEILING: RuntimeMode = 'supervised';
 
 /* The canvas this machine keeps for the nodes of one other machine in a project. */
 export function peerCanvasId(machineId: string): string {

@@ -23,7 +23,7 @@ import type { ProviderRegistry } from '../providers/registry.ts';
 import { registerAgentHandlers } from './agent.ts';
 import type { BeforeKill } from './session.ts';
 
-export interface ChatForkHandlers {
+interface ChatForkHandlers {
     fork(payload: ChatForkPayload): Promise<ChatForkResult>;
     info(payload: ChatForkInfoPayload): Promise<ChatForkInfoResult>;
     handoff(payload: ChatHandoffPayload): Promise<ChatHandoffResult>;

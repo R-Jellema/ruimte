@@ -31,18 +31,18 @@ import { errorText } from '../error-text.ts';
 import { CodedError } from '@adecore/agents';
 import { ClientSinks } from '../client-sinks.ts';
 
-export const FINE_INTERVAL_MS = 2000;
+const FINE_INTERVAL_MS = 2000;
 export const COARSE_INTERVAL_MS = 5 * 60_000;
 /* Rows of the rest of the machine per sample in "All"; the other 1,500 stay on the daemon. */
-export const OTHER_LIMIT = 50;
+const OTHER_LIMIT = 50;
 /* A moment for a killed tree to reparent or exit before the reading that is meant to see it. */
 const NUDGE_DELAY_MS = 300;
 
 type ProcessErrorCode = 'processes-unsupported' | 'process-gone' | 'process-foreign' | 'process-refused';
 
-export class ProcessError extends CodedError<ProcessErrorCode> {}
+class ProcessError extends CodedError<ProcessErrorCode> {}
 
-export interface ProcessMonitorOptions {
+interface ProcessMonitorOptions {
     sampler: ProcessSampler | null;
     sessions(): { id: string; pid: number; exited: boolean; agent: AgentInfo | null; label?: string }[];
     chats(): { id: string; pid: number; provider: AgentKind; status: AgentStatus; updatedAt: number }[];

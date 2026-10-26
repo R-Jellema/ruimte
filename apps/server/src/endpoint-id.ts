@@ -108,7 +108,7 @@ export interface KeepAwakeSetting {
 const KEEP_AWAKE_OFF: KeepAwakeSetting = { mode: 'off', onBattery: false, display: false, lidClosed: false };
 
 /* What the daemon's broker switch lends the identity: a way to follow a new setting and to say where it ended up. */
-export interface IdentityBroker {
+interface IdentityBroker {
     apply(): Promise<void>;
     describe(): { brokerUrl: string | null; brokerFixed: boolean };
 }
@@ -120,12 +120,12 @@ export interface IdentityLanDoor {
 }
 
 /* What the closed lid lends the identity: whether its rule is installed, which every event carries. */
-export interface IdentityClosedLid {
+interface IdentityClosedLid {
     describe(): { keepAwakeLidRule: boolean };
 }
 
 /* What the consent for the CLIs' global settings lends the identity: where it stands, which every event carries. */
-export interface IdentityAgentIntegrations {
+interface IdentityAgentIntegrations {
     describe(): { agentIntegrations: AgentIntegrationsSummary };
 }
 

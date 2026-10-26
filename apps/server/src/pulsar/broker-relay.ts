@@ -38,7 +38,7 @@ export function weriftIceServers(servers: IceServer[]): IceServer[] {
     return chosen ? [...stun, chosen] : stun;
 }
 
-export interface BrokerRelayOptions {
+interface BrokerRelayOptions {
     url: string;
     /* The daemon's own key from `endpoint.json`, and a signer that never hands out the private half. */
     publicKey: string;

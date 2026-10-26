@@ -6,7 +6,7 @@ import { appleSiliconMac, helperCommand, probeAppleHelper } from '../providers/a
 import { reportHelperExit } from '../telemetry/reporter.ts';
 import { PURPOSES } from './instructions.ts';
 
-export interface OnDeviceModelOptions {
+interface OnDeviceModelOptions {
     command?: () => string;
     supported?: () => boolean;
     probe?: typeof probeAppleHelper;

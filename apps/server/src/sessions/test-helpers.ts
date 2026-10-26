@@ -7,7 +7,7 @@ import { FakePtyAdapter } from '../pty/fake-pty.ts';
 import { SessionManager, type SessionEvent, type SessionManagerOptions, type SessionSink } from './manager.ts';
 import { SnapshotStore } from './snapshot-store.ts';
 
-export const DEFAULT_TIMEOUT_MS = 5000;
+const DEFAULT_TIMEOUT_MS = 5000;
 
 // Polls instead of sleeping: a shell answers in milliseconds on a quiet machine and in
 // hundreds under CI load, and a fixed sleep is wrong on one of them.
@@ -70,7 +70,7 @@ export class Recorder {
  * The manager writes an agent record without awaiting it (an exit, a title found later), so a test
  * that reads the record back awaits `settled` instead of guessing how long the write takes.
  */
-export class TrackedAgentStore extends AgentStore {
+class TrackedAgentStore extends AgentStore {
     private readonly pending = new Set<Promise<void>>();
 
     override write(sessionId: string, info: AgentInfo, account?: string): Promise<void> {

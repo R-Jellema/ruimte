@@ -21,14 +21,14 @@ export function isPlanFileName(name: string): boolean {
     return name.endsWith(SUFFIX);
 }
 
-export interface PlanStoreOptions {
+interface PlanStoreOptions {
     /* The clock `at` and `createdAt` are read from; a test hands in its own. */
     now?: () => number;
     /* Mints the ids of plans and of items that come without one. */
     mintId?: () => string;
 }
 
-export interface PlanCreateInput {
+interface PlanCreateInput {
     draft: PlanDraft;
     meta?: Partial<Pick<PlanMeta, 'title' | 'kind' | 'checks'>>;
     dryRun?: boolean;

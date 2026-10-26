@@ -8,7 +8,7 @@ export type LiveFetch = (input: string, init: RequestInit) => Promise<Response>;
 /* Why a session could not start at OpenAI; the message is for a person and never holds the key or a response body. */
 export class LiveError extends CodedError {}
 
-export const OPENAI_API = 'https://api.openai.com';
+const OPENAI_API = 'https://api.openai.com';
 
 // An id OpenAI gives a session goes into a path, so only the characters an id is made of.
 const SESSION_ID = /^[A-Za-z0-9_-]{1,200}$/;
@@ -23,7 +23,7 @@ export interface OpenAiLive {
     close(key: string, sessionId: string): Promise<void>;
 }
 
-export interface OpenAiLiveOptions {
+interface OpenAiLiveOptions {
     fetch?: LiveFetch;
     socket?: LiveSocketOpener;
     clock?: VoiceClock;

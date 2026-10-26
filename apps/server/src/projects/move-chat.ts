@@ -34,7 +34,7 @@ const REFUSAL_SENTENCES: Record<ChatMoveRefusal['reason'], string> = {
 };
 
 /* The English sentence a refused move carries on its reply; the client writes its own words from the reason. */
-export function moveRefusalSentence(refusal: ChatMoveRefusal): string {
+function moveRefusalSentence(refusal: ChatMoveRefusal): string {
     return REFUSAL_SENTENCES[refusal.reason];
 }
 

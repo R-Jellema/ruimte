@@ -19,7 +19,7 @@ export const PREVIEW_WIDTH = { min: 240, max: 1600, default: 768 } as const;
 
 export const PREVIEW_LIMIT_MS = 20_000;
 /* Measuring is part of publishing, which must not keep the agent waiting long. */
-export const MEASURE_LIMIT_MS = 6_000;
+const MEASURE_LIMIT_MS = 6_000;
 const SLOTS = 2;
 // The child answers this long before its limit, so what it has arrives before it is killed.
 const ANSWER_MARGIN_MS = 1_000;
@@ -34,12 +34,12 @@ export interface RenderProcess {
     gone: Promise<void>;
 }
 
-export type RenderLauncher = (job: RenderJob, budgetMs: number) => RenderProcess;
+type RenderLauncher = (job: RenderJob, budgetMs: number) => RenderProcess;
 
 /* Calls `run` after `ms`, unless the function it answers is called first. */
 export type Schedule = (ms: number, run: () => void) => () => void;
 
-export type VisualRenderErrorCode = 'preview-unavailable' | 'preview-timeout' | 'preview-failed';
+type VisualRenderErrorCode = 'preview-unavailable' | 'preview-timeout' | 'preview-failed';
 
 export class VisualRenderError extends CodedError<VisualRenderErrorCode> {}
 

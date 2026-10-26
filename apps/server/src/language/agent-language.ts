@@ -9,12 +9,12 @@ import type { AgentDocument, LanguageHost } from './host.ts';
 import { KIND_PROFILES, lspLanguageId } from './profiles.ts';
 
 /* A place in a file as an agent writes it: lines and columns from 1, a column counting characters. */
-export interface AgentPosition {
+interface AgentPosition {
     line: number;
     column: number;
 }
 
-export interface AgentSpan {
+interface AgentSpan {
     path: string;
     line: number;
     column: number;
@@ -22,20 +22,20 @@ export interface AgentSpan {
     endColumn: number;
 }
 
-export interface AgentServer {
+interface AgentServer {
     kind: string;
     state: string;
     message?: string;
 }
 
 /* What every answer says besides itself: which file, whether its text is an editor's, and the servers that answered. */
-export interface AgentAnswerHead {
+interface AgentAnswerHead {
     path: string;
     unsaved: boolean;
     servers: AgentServer[];
 }
 
-export interface AgentDiagnostic extends AgentSpan {
+interface AgentDiagnostic extends AgentSpan {
     severity: 'error' | 'warning' | 'information' | 'hint';
     server: string;
     source: string | null;
@@ -43,7 +43,7 @@ export interface AgentDiagnostic extends AgentSpan {
     message: string;
 }
 
-export interface AgentSymbol {
+interface AgentSymbol {
     name: string;
     kind: string;
     detail: string | null;
@@ -54,7 +54,7 @@ export interface AgentSymbol {
     endColumn: number;
 }
 
-export interface AgentSqlFile {
+interface AgentSqlFile {
     path: string;
     /* Why the file reads this connection: its own choice, the folder of a console, the project's default; none or unbound when it reads none. */
     source: SqlChoice['source'];
@@ -71,7 +71,7 @@ export interface AgentSqlFile {
 }
 
 /* Where an agent's call stands: the project and its folder. */
-export interface AgentLanguagePlace {
+interface AgentLanguagePlace {
     projectId: string;
     folder: string;
 }
@@ -229,7 +229,7 @@ function severityOf(diagnostic: Diagnostic): AgentDiagnostic['severity'] {
     return SEVERITIES[(diagnostic.severity ?? 1) - 1] ?? 'error';
 }
 
-export interface AgentLanguageOptions {
+interface AgentLanguageOptions {
     host: Pick<LanguageHost, 'forAgent' | 'programOf'>;
     sql: Pick<SqlAnalysis, 'fileContext'>;
     /* The text of a file on disk, or null when it cannot be read. */

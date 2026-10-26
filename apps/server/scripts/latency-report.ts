@@ -6,7 +6,7 @@
 
 export type Channel = 'socket' | 'direct';
 
-export interface Percentiles {
+interface Percentiles {
     n: number;
     p50: number;
     p95: number;
@@ -124,11 +124,22 @@ function fixtureLines(fixture: Fixture): string[] {
 }
 
 export function renderReport(run: Run, env: Environment): string {
-    const lines: string[] = ['# Latency under load', '', '## Environment', '', ...environmentLines(env), '', '## Fixture', '', ...fixtureLines(run.fixture), ''];
+    const lines: string[] = [
+        '# Latency under load',
+        '',
+        '## Environment',
+        '',
+        ...environmentLines(env),
+        '',
+        '## Fixture',
+        '',
+        ...fixtureLines(run.fixture),
+        ''
+    ];
     lines.push(
         '## What this measures',
         '',
-        'The daemon side of the channel: the output gate, framing and the socket or SCTP buffers. The client here is Bun (and werift for the direct channel, a JavaScript SCTP stack that can be the bottleneck itself), so it says nothing about Chromium\'s WebRTC stack or a real network path.',
+        "The daemon side of the channel: the output gate, framing and the socket or SCTP buffers. The client here is Bun (and werift for the direct channel, a JavaScript SCTP stack that can be the bottleneck itself), so it says nothing about Chromium's WebRTC stack or a real network path.",
         '',
         '## Results',
         '',
@@ -148,8 +159,18 @@ export function renderReport(run: Run, env: Environment): string {
     for (const channel of run.channels) {
         const { busy } = channel;
         const seconds = Math.max(busy.seconds, 1e-9);
-        lines.push(`| ${channel.channel} | ${(busy.busyBytes / 1024 / 1024 / seconds).toFixed(2)} | ${(busy.busyFrames / seconds).toFixed(0)} | ${busy.resyncs} | ${busy.pauses} |`);
+        lines.push(
+            `| ${channel.channel} | ${(busy.busyBytes / 1024 / 1024 / seconds).toFixed(2)} | ${(busy.busyFrames / seconds).toFixed(0)} | ${busy.resyncs} | ${busy.pauses} |`
+        );
     }
-    lines.push('', '## Conclusion', '', 'Per-session output quota: yes or no, and at what threshold?', '', '_To be filled in by the person who reads the numbers._', '');
+    lines.push(
+        '',
+        '## Conclusion',
+        '',
+        'Per-session output quota: yes or no, and at what threshold?',
+        '',
+        '_To be filled in by the person who reads the numbers._',
+        ''
+    );
     return lines.join('\n');
 }

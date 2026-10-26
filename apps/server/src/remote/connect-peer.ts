@@ -27,7 +27,7 @@ export function machineOwed(entry: { kind: string; payload?: unknown }): string 
     return typeof machineId === 'string' ? machineId : null;
 }
 
-export interface ConnectPeerDeps {
+interface ConnectPeerDeps {
     outbox: { list(): readonly OutboxEntry[] };
     /* The targets of the work owed to a machine: a task given to it, its result, a stop. */
     owedTargets(machineId: string): string[];

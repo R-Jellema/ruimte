@@ -20,7 +20,7 @@ interface StartRecord {
     answer: Promise<VoiceStartResult> | null;
 }
 
-export interface VoiceSessionsDeps extends Omit<VoiceSessionDeps, 'emit' | 'places'> {
+interface VoiceSessionsDeps extends Omit<VoiceSessionDeps, 'emit' | 'places'> {
     index: Pick<ProjectIndex, 'folderOf' | 'viewsOf'>;
     projects: Pick<ProjectStore, 'list'>;
     /* A fresh session id; the daemon's, never a client's. */

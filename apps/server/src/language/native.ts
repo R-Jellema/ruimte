@@ -11,7 +11,7 @@ import { extractEntries, readArchive, type ArchiveFormat } from './archive.ts';
 /* A kind whose server is a program of its own, downloaded or built once, and not an npm package. */
 export type NativeKind = 'php-native' | 'sql-native';
 
-export const NATIVE_KINDS: readonly NativeKind[] = ['php-native', 'sql-native'];
+const NATIVE_KINDS: readonly NativeKind[] = ['php-native', 'sql-native'];
 
 export function isNativeKind(kind: LanguageServerKind): kind is NativeKind {
     return (NATIVE_KINDS as readonly string[]).includes(kind);
@@ -68,7 +68,7 @@ export const NATIVE_RELEASES: Partial<Record<NativeKind, NativeRelease>> = Objec
 );
 
 /* The native sources selected by the daemon host. */
-export interface NativeCheckout {
+interface NativeCheckout {
     folder: string;
     version: string;
     /* Only a kind that reads standard library stubs pins a commit of them. */
@@ -186,7 +186,7 @@ function mainCheckoutRoot(root: string): string | null {
  * The checkout a development daemon builds a native kind from: the one its variable names, else the
  * sibling of Ruimte's sources, else the sibling of the primary checkout of a Ruimte worktree. A compiled daemon has none.
  */
-export function nativeCheckout(
+function nativeCheckout(
     kind: NativeKind,
     compiled: boolean,
     sourcePath: string | null = process.env[NATIVE_SPECS[kind].sourceVariable] ?? null,
@@ -245,7 +245,7 @@ export interface NativePlan {
     checkout?: string;
 }
 
-export interface NativePolicyOptions {
+interface NativePolicyOptions {
     /* The checkout each kind builds from; a kind without one installs its pinned release. */
     checkouts: Partial<Record<NativeKind, NativeCheckout | null>>;
     platform?: NodeJS.Platform;

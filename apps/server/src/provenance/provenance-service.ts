@@ -22,7 +22,7 @@ import { ProvenanceStore } from './provenance-store.ts';
 import { boundedBefore, dropCommitted, lineCount, locatedHunks, mapRuns, uncoveredRanges, writtenHunks, type FileRecord, type WriteSignature } from './runs.ts';
 import { toolWrites } from './tool-writes.ts';
 
-export class ProvenanceError extends CodedError<'forbidden' | 'not-found'> {}
+class ProvenanceError extends CodedError<'forbidden' | 'not-found'> {}
 
 /* Runs older than this are dropped; whoever wrote the lines is in the history of the checkout by then. */
 const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
@@ -47,7 +47,7 @@ export interface ProvenanceChat {
     promptOf(turnId: string): string | null;
 }
 
-export interface ProvenanceOptions {
+interface ProvenanceOptions {
     home: string;
     /* The project a chat belongs to and the folder it is in; null for a chat no project places. */
     locate(chatId: string): { projectId: string; folder: string } | null;

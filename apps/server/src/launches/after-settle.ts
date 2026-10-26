@@ -73,12 +73,6 @@ export class AfterSettleStore implements AfterSettleChoices {
     }
 }
 
-/* A worktree a chat runs in, and the project folder as it stands in that worktree. */
-export interface ChatWorktree {
-    path: string;
-    projectFolder: string;
-}
-
 export interface AfterSettleDeps {
     store: AfterSettleStore;
     chats: Pick<ChatManager, 'get' | 'isLoading' | 'deliverNote'>;

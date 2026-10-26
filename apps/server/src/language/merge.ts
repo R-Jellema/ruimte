@@ -8,14 +8,14 @@ import { applyCompletionDefaults, type CompletionItem, type CompletionList } fro
 
 export const MERGED_METHODS: ReadonlySet<string> = new Set(['textDocument/completion', 'textDocument/codeAction', 'textDocument/hover']);
 
-export interface ServerAnswer {
+interface ServerAnswer {
     server: string;
     result: unknown;
     /* When the answer is a list that already merges several processes: the one that made each item. */
     itemServers?: readonly string[];
 }
 
-export interface MergedAnswer {
+interface MergedAnswer {
     result: unknown;
     /* For a list that was merged: which process each item came from, so an item resolves against the process that made it. */
     itemServers?: string[];

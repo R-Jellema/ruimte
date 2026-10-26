@@ -102,7 +102,7 @@ export async function loadAgentStores(home: string): Promise<AgentStores> {
 }
 
 /* What the agents reach that is wired after them, asked only once a session or a chat runs. */
-export interface AgentsLater {
+interface AgentsLater {
     projects(): ProjectsBundle;
     git(): GitBundle;
     devices(): DevicesBundle;
@@ -114,7 +114,7 @@ export interface AgentsLater {
     routines(): RoutinesBundle;
 }
 
-export interface AgentsInput {
+interface AgentsInput {
     runtime: DaemonRuntime;
     identity: EndpointIdentity;
     stores: AgentStores;

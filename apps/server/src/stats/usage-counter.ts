@@ -104,7 +104,7 @@ export function fileUsageStore(path: string): UsageStateStore {
     };
 }
 
-export interface UsageCounterOptions {
+interface UsageCounterOptions {
     store: UsageStateStore;
     // What the day is tagged with when it starts: a day that spans an update keeps the version it began on.
     describe(): { version: string; launcher: Launcher };

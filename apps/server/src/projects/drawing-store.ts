@@ -168,7 +168,7 @@ export class DrawingStore extends ProjectViewFileStore<DrawingDocument, DrawingC
 }
 
 /* What an edit left: the rev the drawing is at, the ids of the elements it added, and how many it holds. */
-export interface DrawingEdited {
+interface DrawingEdited {
     rev: number;
     added: string[];
     elements: number;

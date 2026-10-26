@@ -69,7 +69,7 @@ async function branchOf(folder: string): Promise<string | null> {
     return branch === undefined || branch === '' || branch === 'HEAD' ? null : branch;
 }
 
-export function chatMoveRefusalDeps(wiring: ChatMoveWiring): MoveRefusalDeps {
+function chatMoveRefusalDeps(wiring: ChatMoveWiring): MoveRefusalDeps {
     const { chats, store, lineage, tasks, outbox, notices, prWatches } = wiring;
     return {
         inChats: (chatId) => chatIsInChats(store, chatId),

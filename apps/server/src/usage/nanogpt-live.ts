@@ -4,7 +4,7 @@ import type { ProbeResult } from '@adecore/agents/usage';
 /* Between two questions to the API, so a chat that calls it every few seconds is not a poll of its own. */
 const MIN_GAP_MS = 2000;
 
-export interface LiveWindows {
+interface LiveWindows {
     /* Puts what the API says onto the bar the monitor already draws, the way a turn of a CLI does. */
     apply(update: { plan: string | null; windows: UsageWindow[] }): void;
 }

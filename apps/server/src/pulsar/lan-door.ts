@@ -15,7 +15,7 @@ import type { SignalGate } from './signal-gate.ts';
 const MAX_FRAME_BYTES = 64 * 1024;
 
 // A client says hello the moment its socket opens; one that has not by then is no client.
-export const HELLO_TIMEOUT_MS = 5_000;
+const HELLO_TIMEOUT_MS = 5_000;
 
 // A socket carries one attempt, which is signaled in seconds; Bun closes one that sat silent this long.
 const IDLE_TIMEOUT_S = 60;
@@ -26,13 +26,13 @@ export const OPEN_PER_ADDRESS = 8;
 
 const MINUTE_MS = 60_000;
 
-export interface DoorIdentity {
+interface DoorIdentity {
     machineId: string;
     publicKey: string;
     sign(message: string): string;
 }
 
-export interface DoorSocket {
+interface DoorSocket {
     send(frame: LanDoorMachineFrame): void;
     close(code: number, reason: string): void;
     readonly open: boolean;
@@ -153,7 +153,7 @@ export class AddressLimiter {
     }
 }
 
-export interface LanDoorOptions {
+interface LanDoorOptions {
     // The port to listen on; 0 lets the system pick one, which `port` then names.
     port: number;
     identity: DoorIdentity;

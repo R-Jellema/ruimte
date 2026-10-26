@@ -10,7 +10,7 @@ import { narrowerMode } from '@adecore/agents/providers';
 import { DEFAULT_RUNTIME_MODE, launchedMode } from '../providers/launch.ts';
 import type { OutboxStore, OutboxWork, StartAgentEntry } from './outbox.ts';
 
-export interface NodeModeDeps {
+interface NodeModeDeps {
     chatMode(nodeId: string): RuntimeMode | undefined;
     /* The launch a terminal session was started with. Null for a plain shell, undefined for no session at all. */
     launch(nodeId: string): AgentLaunch | null | undefined;
@@ -32,13 +32,13 @@ export function nodeMode(deps: NodeModeDeps) {
     };
 }
 
-export interface NodeAccountDeps {
+interface NodeAccountDeps {
     chat(nodeId: string): Pick<ChatInfo, 'provider' | 'account'> | undefined;
     session(nodeId: string): { launch: AgentLaunch | null; agent: AgentInfo | null } | undefined;
 }
 
 /* The CLI and account the agent of a node runs under; a CLI a person started by hand runs under its default account. */
-export function nodeAccount(deps: NodeAccountDeps) {
+function nodeAccount(deps: NodeAccountDeps) {
     return (nodeId: string): NodeAccount | null => {
         const chat = deps.chat(nodeId);
         if (chat !== undefined) {
@@ -75,7 +75,7 @@ export function startAgentWork(start: AgentStart, deps: NodeModeDeps): OutboxWor
     };
 }
 
-export interface AgentStartHostDeps {
+interface AgentStartHostDeps {
     /* The agent CLIs installed on this machine. */
     installed(): Promise<AgentKind[]>;
     prompts: Pick<PendingPromptStore, 'put'>;

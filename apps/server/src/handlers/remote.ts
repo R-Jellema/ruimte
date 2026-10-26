@@ -9,7 +9,7 @@ import type { RemoteStore } from '../remote/remote-store.ts';
 import type { ProjectStore } from '../projects/project-store.ts';
 
 /* What the link to other machines needs from this one. */
-export interface PeerLinkHost {
+interface PeerLinkHost {
     machineId: string;
     machinePublicKey: string;
     peerPublicKey(): Promise<string>;
@@ -29,7 +29,7 @@ export interface PeerLinkHost {
  * carries signals each side signed, but a plain socket would hand them to anyone on the way. The page
  * passes the broker the address book lists for that machine; this machine cannot ask the address book itself.
  */
-export function acceptableBrokerUrl(value: string): boolean {
+function acceptableBrokerUrl(value: string): boolean {
     let url: URL;
     try {
         url = new URL(value);

@@ -15,7 +15,7 @@ export interface RemoteBundle {
     onLeave(listener: () => Promise<void> | void): void;
 }
 
-export interface RemoteInput {
+interface RemoteInput {
     home: string;
     identity: EndpointIdentity;
     machine: MachineBundle;

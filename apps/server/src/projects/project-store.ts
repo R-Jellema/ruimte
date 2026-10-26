@@ -132,17 +132,17 @@ export interface ProjectLanguage {
 }
 
 /* What the store needs of the database connections: they let go of a project when it does. */
-export interface ProjectDatabases {
+interface ProjectDatabases {
     closeProject(projectId: string): void;
 }
 
 /* What the store needs of the provenance records: they go with the project. */
-export interface ProjectProvenance {
+interface ProjectProvenance {
     forget(projectId: string): Promise<void>;
 }
 
 /* What judging a binding takes of this machine: who it is, and whether a node already started anything here. */
-export interface ProjectBindings {
+interface ProjectBindings {
     machineId: string;
     /* A live session or chat, a chat record or a lineage record of this node on this machine. */
     started(nodeId: string): Promise<boolean>;
@@ -168,7 +168,7 @@ export interface ProjectMutation<T> {
 }
 
 /* What a change reads of the document besides its content. */
-export interface MutationContext {
+interface MutationContext {
     overlayFields: readonly string[];
 }
 
@@ -203,10 +203,10 @@ interface CurrentDocument {
 }
 
 /* Ends the session behind one node, handed over by the daemon so the store stays out of the managers. */
-export type SessionEnder = (kind: 'terminal' | 'chat', nodeId: string) => Promise<void>;
+type SessionEnder = (kind: 'terminal' | 'chat', nodeId: string) => Promise<void>;
 
 /* Told what a person's save changed, with the views as they were before it and as it wrote them. */
-export type SaveListener = (folder: string, before: readonly ProjectView[], after: readonly ProjectView[]) => Promise<void>;
+type SaveListener = (folder: string, before: readonly ProjectView[], after: readonly ProjectView[]) => Promise<void>;
 
 /* What the store tells or asks of the services beside it, every one handed over when the store is made. */
 export interface ProjectLinks {

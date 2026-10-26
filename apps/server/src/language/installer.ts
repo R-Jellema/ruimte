@@ -48,9 +48,9 @@ const LEGACY_ENTRIES = [MARKER, 'package.json', 'bun.lock', 'bun.lockb', 'node_m
 const DEV = 'dev';
 
 /* What an install of a native kind says when this build has neither a checkout nor a pinned release of it. */
-export const NO_RELEASE = 'No release of this server is available yet';
+const NO_RELEASE = 'No release of this server is available yet';
 
-export type InstallState = 'installed' | 'installing' | 'missing';
+type InstallState = 'installed' | 'installing' | 'missing';
 
 /* A checkout's commit and a hash of what was changed in it, or null when it cannot be read. */
 export type CheckoutRevision = (folder: string) => Promise<string | null>;
@@ -114,14 +114,14 @@ interface Installs {
 }
 
 /* What a newer pin or a changed checkout offers over the install a kind runs. */
-export interface InstallUpdate {
+interface InstallUpdate {
     version: string;
     /* A checkout that changed since its build, which a build brings in. */
     rebuild?: true;
 }
 
 /* The commit of a checkout, and a hash of `git status` when something in it was changed, read with git and never changing it. */
-export const gitRevision: CheckoutRevision = async (folder) => {
+const gitRevision: CheckoutRevision = async (folder) => {
     const output = async (args: string[]): Promise<string | null> => {
         try {
             const child = Bun.spawn(['git', '-C', folder, ...args], { stdout: 'pipe', stderr: 'ignore' });

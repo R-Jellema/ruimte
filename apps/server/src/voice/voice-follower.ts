@@ -35,7 +35,7 @@ export interface VoiceFollowActivity {
     status: 'running' | 'completed' | 'failed';
 }
 
-export interface VoiceFollowerDeps {
+interface VoiceFollowerDeps {
     chats: VoiceFollowChats;
     delivery: Pick<VoiceCompletionDelivery, 'enqueue' | 'report' | 'cancelChat'>;
     clock: VoiceClock;
@@ -43,19 +43,19 @@ export interface VoiceFollowerDeps {
 }
 
 /* Where a chat stands in the eyes of Voice, by name, to say which one it means. */
-export interface VoiceFollowedChat {
+interface VoiceFollowedChat {
     chat: string;
     project: string;
 }
 
 /* Taken before a prompt goes out, so no turn it opens can end unheard; bound to the turn once the chat names it. */
-export interface VoicePromptTicket {
+interface VoicePromptTicket {
     bind(turnId: string): void;
     drop(): void;
 }
 
 /* Taken before a start, bound to the node the start made. */
-export interface VoiceStartTicket {
+interface VoiceStartTicket {
     bind(chatId: string, chat: VoiceFollowedChat): void;
     drop(): void;
 }

@@ -25,7 +25,7 @@ export interface SecretAsk extends SecretSlot {
 }
 
 /* What a person's Save does besides closing the card: the store and the launch, which the daemon wires. */
-export interface SecretSink {
+interface SecretSink {
     has(projectId: string, slot: SecretSlot): Promise<boolean>;
     /* Keeps the value and binds the variable on the launch; throws when it could not, and the card stays. */
     save(projectId: string, slot: SecretSlot, value: string): Promise<void>;
@@ -37,7 +37,7 @@ export interface SecretChats {
     release(nodeId: string, key: string): void;
 }
 
-export interface SecretRequestsOptions {
+interface SecretRequestsOptions {
     sink: SecretSink;
     chats: SecretChats;
     publish: (requests: SecretRequest[]) => void;

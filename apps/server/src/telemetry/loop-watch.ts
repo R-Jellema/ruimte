@@ -1,7 +1,7 @@
-export const HANG_THRESHOLD_MS = 5000;
+const HANG_THRESHOLD_MS = 5000;
 export const HEARTBEAT_MS = 1000;
 
-export type LoopVerdict = { state: 'blocked'; sinceMs: number } | { state: 'recovered'; blockedMs: number } | null;
+type LoopVerdict = { state: 'blocked'; sinceMs: number } | { state: 'recovered'; blockedMs: number } | null;
 
 /*
  * Tells from the heartbeats of the main thread whether its event loop is stuck. Runs in the watchdog

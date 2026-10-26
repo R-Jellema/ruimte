@@ -22,7 +22,7 @@ async function statPath(path: string): Promise<'file' | 'directory' | null> {
     }
 }
 
-export interface ProjectFileWatcherOptions {
+interface ProjectFileWatcherOptions {
     folder: string;
     /* Whether a path is worth reporting; a build writing into a folder no server asked about never reaches the batch. */
     wants(path: string): boolean;

@@ -78,7 +78,7 @@ export function familyFromAppleIdentifier(raw: string): string | null {
     return null;
 }
 
-export interface DmiFields {
+interface DmiFields {
     vendor?: string | null;
     productName?: string | null;
     version?: string | null;

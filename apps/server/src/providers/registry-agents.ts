@@ -28,7 +28,7 @@ const InstalledSchema = z.object({
 });
 
 /* An agent a person installed from the registry, as `installed.json` keeps it. */
-export type InstalledAgent = z.infer<typeof InstalledSchema>;
+type InstalledAgent = z.infer<typeof InstalledSchema>;
 
 /* Runs a package manager; the default spawns it, a test answers from memory. */
 export type InstallRun = (command: string[], options: { cwd: string; env: Record<string, string | undefined> }) => Promise<ProcessResult>;
@@ -39,13 +39,13 @@ const runInstall: InstallRun = (command, options) =>
     runProcess(command, { ...options, timeoutMs: INSTALL_TIMEOUT_MS, timeoutMessage: `${basename(command[0] ?? '')} did not finish in time` });
 
 /* What a registry agent's provider is told to the registry that offers it. */
-export interface OfferedProviders {
+interface OfferedProviders {
     add(provider: ChatProvider): void;
     remove(kind: AgentKind): void;
     invalidate(kind: AgentKind): void;
 }
 
-export interface RegistryAgentsOptions {
+interface RegistryAgentsOptions {
     // `$RUIMTE_HOME`; each agent lives in `agent-registry/agents/<id>`, which no client request reaches.
     home: string;
     registry: AcpRegistry;

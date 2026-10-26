@@ -1,6 +1,6 @@
 import type { ReachCause, ReachFacts, ReachProbe, ReachSeverity } from '@ruimte/contracts';
 
-export interface ReachVerdict {
+interface ReachVerdict {
     cause: ReachCause;
     severity: ReachSeverity;
 }

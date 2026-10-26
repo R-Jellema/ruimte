@@ -12,7 +12,7 @@ import { isInside } from '../canvas/project-paths.ts';
 import type { ProjectStore } from './project-store.ts';
 import { newChatId } from './scratch-project.ts';
 
-export class InlineChatError extends CodedError<'project-not-found' | 'inline-path-outside' | 'inline-chat-not-found'> {}
+class InlineChatError extends CodedError<'project-not-found' | 'inline-path-outside' | 'inline-chat-not-found'> {}
 
 /* What the daemon's chats and git give a hidden chat, so a test can stand in for both. */
 export interface InlineChatHost {

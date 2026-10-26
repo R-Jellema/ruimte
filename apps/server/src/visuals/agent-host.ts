@@ -4,7 +4,7 @@ import type { ChatManager } from '../chat/chat-manager.ts';
 import { countUsage } from '../stats/usage-stats.ts';
 import { previewVisual, type VisualRenderer } from './renderer.ts';
 
-export interface AgentVisualDeps {
+interface AgentVisualDeps {
     /* The machine's switch that lets an agent show a new visual. */
     enabled(): boolean;
     visuals: Pick<VisualStore, 'writeSource' | 'writePreview'>;

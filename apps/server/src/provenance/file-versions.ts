@@ -6,7 +6,7 @@ import { git, runGit } from '../git/run.ts';
 export const MAX_TEXT_BYTES = 2 * 1024 * 1024;
 
 /* The lines of a file as a version held it; a file that was not there has none, and null is a version this could not read. */
-export type VersionLines = string[] | null;
+type VersionLines = string[] | null;
 
 /* The repository a file is in, by the path git reports; null for a file in none. */
 export async function repositoryOf(directory: string): Promise<string | null> {

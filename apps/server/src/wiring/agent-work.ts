@@ -42,7 +42,7 @@ export interface AgentWorkBundle {
     peerTasks: PeerTasks;
 }
 
-export interface AgentWorkInput {
+interface AgentWorkInput {
     home: string;
     identity: EndpointIdentity;
     stores: AgentStores;

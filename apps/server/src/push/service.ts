@@ -79,7 +79,7 @@ const HOLD_MS = 60_000;
 const APPROVAL_HOLD_MS = 10_000;
 
 /* What a subscription hears of for a node: the list its project has, else its own, else what every device heard before it could choose. */
-export function notifyKinds(subscription: PushSubscribePayload, projectId: string | null): readonly PushNotifyKind[] {
+function notifyKinds(subscription: PushSubscribePayload, projectId: string | null): readonly PushNotifyKind[] {
     return (
         (projectId === null ? undefined : subscription.projects?.find((entry) => entry.projectId === projectId)?.notify) ??
         subscription.notify ??

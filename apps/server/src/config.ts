@@ -70,7 +70,7 @@ export function portFlag(port: number): string {
 const LAN_PORT_OFFSET = 10;
 
 /* The door's port when no flag names one; a daemon on a port the system picked gets a door on one too. */
-export function defaultLanPort(port: number): number {
+function defaultLanPort(port: number): number {
     return port === 0 || port + LAN_PORT_OFFSET > 65535 ? 0 : port + LAN_PORT_OFFSET;
 }
 
@@ -85,7 +85,7 @@ export function parsePortRange(value: string): [number, number] {
 }
 
 /* A broker URL, or null for nothing at all; an empty value is nothing, so compose can pass an unset variable through. */
-export function parseBrokerUrl(value: string | undefined, flag: string): string | null {
+function parseBrokerUrl(value: string | undefined, flag: string): string | null {
     const trimmed = value?.trim() ?? '';
     if (trimmed === '') {
         return null;
@@ -98,7 +98,7 @@ export function parseBrokerUrl(value: string | undefined, flag: string): string 
 }
 
 /* `--no-broker` and the word `off` turn the broker off whatever the machine's setting says; a URL picks one. */
-export function parseBrokerOverride(noBroker: boolean, value: string | undefined): BrokerOverride {
+function parseBrokerOverride(noBroker: boolean, value: string | undefined): BrokerOverride {
     if (noBroker || value?.trim().toLowerCase() === 'off') {
         return { mode: 'off' };
     }

@@ -31,7 +31,7 @@ export type DirectCredential =
     // No proof at all: answers the challenge with a request, which is what a client that skips the handshake does.
     | { kind: 'none' };
 
-export interface DirectClientOptions {
+interface DirectClientOptions {
     stunServers: string[];
     /* ICE servers with their credentials, such as the broker's TURN; used in place of `stunServers` when given. */
     iceServers?: IceServer[];

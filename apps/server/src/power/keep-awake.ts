@@ -53,9 +53,9 @@ export interface HeldProcess {
 }
 
 /* Starts a process that holds the block; a test hands in a fake, so no test runs a real one. */
-export type KeepAwakeSpawn = (command: string[]) => HeldProcess;
+type KeepAwakeSpawn = (command: string[]) => HeldProcess;
 
-export interface KeepAwakeOptions {
+interface KeepAwakeOptions {
     platform: NodeJS.Platform;
     pid: number;
     setting(): KeepAwakeSetting;

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { isSecretReference } from '@ruimte/contracts';
 import { isNotFound, writeAtomic, Serializer } from '@adecore/agents';
 
-export const SECRETS_DIR = 'secrets';
+const SECRETS_DIR = 'secrets';
 
 const SECRETS_VERSION = 1;
 

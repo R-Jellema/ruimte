@@ -15,7 +15,7 @@ export interface ArtifactsBundle {
     artifacts: Artifacts;
 }
 
-export interface ArtifactsInput {
+interface ArtifactsInput {
     home: string;
     machineId: string;
     machineHome: MachineHome;

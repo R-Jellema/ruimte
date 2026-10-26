@@ -3,7 +3,7 @@ import type { Handshake } from '../auth/handshake.ts';
 import { connectionOpener, type ClientChannel, type ConnectionServices, type OpenConnection, type SocketChannel } from '../connection.ts';
 import { sendEvent, type ClientAccess } from '../dispatcher.ts';
 
-export interface SocketConnection {
+interface SocketConnection {
     channel: SocketChannel;
     connection: OpenConnection;
 }

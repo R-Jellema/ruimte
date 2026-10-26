@@ -25,7 +25,7 @@ export interface LaunchesBundle {
     afterSettle: AfterSettleLaunches;
 }
 
-export interface LaunchesInput {
+interface LaunchesInput {
     home: string;
     stores: AgentStores;
     agents: AgentsBundle;

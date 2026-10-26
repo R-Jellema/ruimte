@@ -30,7 +30,7 @@ export const LANGUAGE_PACKAGE_VERSIONS = {
     'dockerfile-language-server-nodejs': '0.15.0'
 } as const;
 
-export type LanguagePackage = keyof typeof LANGUAGE_PACKAGE_VERSIONS;
+type LanguagePackage = keyof typeof LANGUAGE_PACKAGE_VERSIONS;
 
 /* The npm package behind a pin, where it is not the pin's own name. */
 const NPM_NAMES: Partial<Record<LanguagePackage, string>> = { 'typescript-native': 'typescript', 'typescript-sdk-6': 'typescript-6' };
@@ -56,7 +56,7 @@ export const LANGUAGE_KIND_PACKAGES: Record<NpmKind, readonly LanguagePackage[]>
 };
 
 /* The package a kind is named after, whose version a client reads. */
-export const LANGUAGE_KIND_MAIN_PACKAGE: Record<NpmKind, LanguagePackage> = {
+const LANGUAGE_KIND_MAIN_PACKAGE: Record<NpmKind, LanguagePackage> = {
     typescript: 'typescript-native',
     vue: '@vue/language-server',
     php: 'intelephense',

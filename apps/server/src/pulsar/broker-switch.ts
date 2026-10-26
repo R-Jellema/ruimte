@@ -2,7 +2,7 @@ import { effectiveBrokerUrl, type BrokerOverride, type BrokerSetting, type IceSe
 import type { Relay } from '../auth/relay.ts';
 import { Serializer } from '@adecore/agents';
 
-export interface BrokerSwitchOptions {
+interface BrokerSwitchOptions {
     /* What `--broker`, `--no-broker` or `RUIMTE_BROKER_URL` forced; null leaves it to the setting. */
     override: BrokerOverride;
     /* `--broker-advertise`: what clients are told while a broker is on, when they reach it under another name. */

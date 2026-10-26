@@ -16,7 +16,7 @@ import {
 export const ANTHROPIC_URL = 'https://api.anthropic.com';
 export const ANTHROPIC_VERSION = '2023-06-01';
 
-export const ANTHROPIC_CLAUDE_API_DIR = 'anthropic-claude-api';
+const ANTHROPIC_CLAUDE_API_DIR = 'anthropic-claude-api';
 const CREDENTIAL_FILE = 'credential';
 const MODELS_FILE = 'models.json';
 const SETTINGS_FILE = 'settings.json';
@@ -48,7 +48,7 @@ const PageSchema = z.object({
 export type AnthropicFetch = (url: string, init?: RequestInit) => Promise<Response>;
 
 /* One call a chat made, with the counts as Anthropic reports them: the input apart from both cache kinds. */
-export interface ClaudeApiCall {
+interface ClaudeApiCall {
     model: string;
     session: string;
     cwd: string;

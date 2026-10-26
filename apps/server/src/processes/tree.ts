@@ -2,7 +2,7 @@ import type { ProcessGroup, ProcessGroupKind, ProcessRow, ProcessScope, ProcessS
 import { identityOf, type ProcessRate, type RawProcess, type RawSample } from './sampler.ts';
 
 /* The AI CLIs and apps recognized by name or path, so a `claude` started from iTerm stands out in "All". */
-export const AI_FAMILIES = ['claude', 'codex', 'antigravity', 'copilot', 'grok', 'opencode', 'ollama', 'cursor', 'aider'] as const;
+const AI_FAMILIES = ['claude', 'codex', 'antigravity', 'copilot', 'grok', 'opencode', 'ollama', 'cursor', 'aider'] as const;
 
 // The words a family goes by besides its own name: Antigravity's CLI installs as `agy`.
 const FAMILY_WORDS: Partial<Record<(typeof AI_FAMILIES)[number], string>> = { antigravity: 'antigravity|agy' };
@@ -22,7 +22,7 @@ export function ownFamilyOf(name: string, path: string | null, args: readonly st
     return null;
 }
 
-export interface TreeRoots {
+interface TreeRoots {
     daemonPid: number;
     // A label for a session no node stands for, such as a launch.
     sessions: readonly { id: string; pid: number; label?: string }[];
@@ -35,7 +35,7 @@ export interface TreeEntry {
     depth: number;
 }
 
-export interface IndexedGroup {
+interface IndexedGroup {
     id: string;
     kind: ProcessGroupKind;
     nodeId: string | null;

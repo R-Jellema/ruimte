@@ -9,7 +9,7 @@ import type { LanguageServerKind } from '@ruimte/contracts';
  */
 export type ToolchainKind = 'rust';
 
-export const TOOLCHAIN_KINDS: readonly ToolchainKind[] = ['rust'];
+const TOOLCHAIN_KINDS: readonly ToolchainKind[] = ['rust'];
 
 export function isToolchainKind(kind: LanguageServerKind): kind is ToolchainKind {
     return (TOOLCHAIN_KINDS as readonly string[]).includes(kind);
@@ -37,7 +37,7 @@ export function toolchainMissingOf(kind: ToolchainKind): string {
 }
 
 /* rustup's own folder, which a daemon started by the desktop app or a service may not have on its PATH. */
-export function cargoBin(): string {
+function cargoBin(): string {
     return join(homedir(), '.cargo', 'bin');
 }
 

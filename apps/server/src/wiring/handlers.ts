@@ -78,7 +78,7 @@ import type { DaemonRuntime } from './runtime.ts';
 import type { ProcessesBundle } from './processes.ts';
 import type { UsageBundle } from './usage.ts';
 
-export interface HandlersInput {
+interface HandlersInput {
     machineModel: Promise<string | null>;
     runtime: DaemonRuntime;
     machine: MachineBundle;
@@ -369,7 +369,7 @@ export async function registerHandlers(dispatcher: Dispatcher, input: HandlersIn
     });
 }
 
-export interface EditorHandlersInput {
+interface EditorHandlersInput {
     machine: MachineBundle;
     providers: ProvidersBundle;
     projects: ProjectsBundle;

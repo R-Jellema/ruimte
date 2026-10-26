@@ -15,11 +15,11 @@ const FileRecordSchema = z.object({
 });
 
 /* The name a file's record has in its project's folder. */
-export function recordNameOf(path: string): string {
+function recordNameOf(path: string): string {
     return `${createHash('sha1').update(path).digest('hex').slice(0, 20)}.json`;
 }
 
-export interface StoredFile {
+interface StoredFile {
     name: string;
     record: FileRecord;
     /* When the record was last written, which is how the oldest is told when a project holds too many. */

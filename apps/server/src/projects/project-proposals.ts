@@ -7,7 +7,7 @@ import type { SessionEvent, SessionSink } from '../sessions/manager.ts';
 /* A card is a suggestion to think over, so it outlasts the turn that raised it; a day without a new ask takes it down. */
 export const PROPOSAL_CARD_MS = 24 * 60 * 60_000;
 
-export type ProposalOutcome = 'declined' | 'waiting';
+type ProposalOutcome = 'declined' | 'waiting';
 
 export interface ProposalAsk {
     chatId: string;
@@ -22,12 +22,12 @@ export interface ProposalAnswer {
 }
 
 /* Holds the suggesting chat at `needs-you` while its card stands, the way a question of its CLI does. */
-export interface ProposalChats {
+interface ProposalChats {
     hold(chatId: string, key: string): void;
     release(chatId: string, key: string): void;
 }
 
-export interface ProjectProposalsOptions {
+interface ProjectProposalsOptions {
     chats: ProposalChats;
     now?: () => number;
     timers?: Timers;

@@ -13,7 +13,7 @@ export class RemoteLinkError extends CodedError<'unknown-machine' | 'no-broker' 
  * out or revoked) or refuses the statement. Trying again changes neither. Another protocol is no refusal:
  * an update of either machine ends it, so the reconnect keeps trying.
  */
-export function refusedByMachine(error: unknown): boolean {
+function refusedByMachine(error: unknown): boolean {
     const message = error instanceof Error ? error.message : '';
     return /closed the attempt: (not-paired|statements-refused)|does not know this device/.test(message);
 }
@@ -34,7 +34,7 @@ export interface PeerDialer {
     dial(machine: PeerMachine, statement: PeerStatement | null): Promise<PeerLink>;
 }
 
-export interface BrokerDialerOptions {
+interface BrokerDialerOptions {
     signer: PeerSigner;
     /* The broker this machine uses itself, for a machine whose own broker is not known. */
     defaultBroker(): string | null;
@@ -63,7 +63,7 @@ export function brokerDialer(options: BrokerDialerOptions): PeerDialer {
     };
 }
 
-export interface RemoteConnectionsOptions {
+interface RemoteConnectionsOptions {
     machines: Pick<PeerMachines, 'get'>;
     pending: Pick<PendingAdmissions, 'peek' | 'release'>;
     dialer: PeerDialer;

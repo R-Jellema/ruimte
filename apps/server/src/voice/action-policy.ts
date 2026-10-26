@@ -27,7 +27,7 @@ export const VOICE_FIELD_RULES: Readonly<Record<string, FieldRule>> = {
     'agent.start': { fields: ['provider', 'prompt', 'viewId', 'beside', 'title', 'model', 'effort', 'mode', 'requestId'], off: ['terminal'] }
 };
 
-export interface VoiceRefusal {
+interface VoiceRefusal {
     code: string;
     message: string;
 }

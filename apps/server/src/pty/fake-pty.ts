@@ -7,7 +7,7 @@ const encoder = new TextEncoder();
  * exit only when a test says so. There is deliberately no shell behind it, so a test asserts the
  * line the daemon typed rather than what some shell made of that line.
  */
-export class FakePty implements PtyProcess {
+class FakePty implements PtyProcess {
     readonly pid: number;
     readonly options: PtySpawnOptions;
     readonly input: string[] = [];

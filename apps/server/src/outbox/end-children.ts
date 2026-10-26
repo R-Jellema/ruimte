@@ -12,7 +12,7 @@ export const ENDED_REASON = 'the agent that opened this chat was stopped';
 /* Ruimte's work that would start or wake an agent again, beside what tasks owe. */
 const REVIVING: readonly OutboxEntry['kind'][] = ['start-agent', 'resume-run', 'deliver-message'];
 
-export interface EndChildrenWiringDeps {
+interface EndChildrenWiringDeps {
     lineage: AgentLineageStore;
     outbox: OutboxStore;
     tasks: TaskStore;

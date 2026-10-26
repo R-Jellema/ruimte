@@ -15,7 +15,7 @@ export function isTunnelInterface(name: string): boolean {
     return TUNNEL_INTERFACE.test(name);
 }
 
-export function routeCommand(platform: NodeJS.Platform): string[] | null {
+function routeCommand(platform: NodeJS.Platform): string[] | null {
     switch (platform) {
         case 'darwin':
             return ['/sbin/route', '-n', 'get', 'default'];

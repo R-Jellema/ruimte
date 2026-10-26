@@ -25,12 +25,12 @@ export interface LaunchSessions {
     observeExit(listener: (sessionId: string, exitCode: number) => void): () => void;
 }
 
-export interface LaunchClock {
+interface LaunchClock {
     now(): number;
     set(run: () => void, ms: number): () => void;
 }
 
-export const realClock: LaunchClock = {
+const realClock: LaunchClock = {
     now: () => Date.now(),
     set: (run, ms) => {
         const timer = setTimeout(run, ms);
@@ -39,7 +39,7 @@ export const realClock: LaunchClock = {
 };
 
 /* Whether something takes a connection on this port. */
-export type LaunchProbe = (host: string, port: number) => Promise<boolean>;
+type LaunchProbe = (host: string, port: number) => Promise<boolean>;
 
 // A server that binds 0.0.0.0 or only one of the two loopbacks answers on one of these.
 const LOOPBACKS = ['127.0.0.1', '::1'];
@@ -57,7 +57,7 @@ function connects(host: string, port: number): Promise<boolean> {
     });
 }
 
-export async function tcpProbe(host: string, port: number): Promise<boolean> {
+async function tcpProbe(host: string, port: number): Promise<boolean> {
     const hosts = ['localhost', '0.0.0.0', '127.0.0.1', '::1', '[::1]'].includes(host) ? LOOPBACKS : [host];
     const answers = await Promise.all(hosts.map((candidate) => connects(candidate, port)));
     return answers.includes(true);
@@ -67,10 +67,10 @@ export async function tcpProbe(host: string, port: number): Promise<boolean> {
  * The environment a process starts with, from the one a launch is approved with: a secret's reference
  * becomes its value here and only here, so neither the files, the approval nor a client sees it.
  */
-export type LaunchEnvResolver = (projectId: string, launchId: string, env: Readonly<Record<string, string>>) => Promise<Record<string, string>>;
+type LaunchEnvResolver = (projectId: string, launchId: string, env: Readonly<Record<string, string>>) => Promise<Record<string, string>>;
 
 /* Who asked, which decides what a start may approve and what a stop may do. */
-export type LaunchActor = 'person' | 'agent';
+type LaunchActor = 'person' | 'agent';
 
 /* A run in a worktree either started, with how it ends, or found the launch already running and started nothing. */
 export type WorktreeRun = { outcome: 'started'; ended: Promise<LaunchStatus> } | { outcome: 'running' };

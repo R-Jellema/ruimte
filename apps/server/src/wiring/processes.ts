@@ -23,7 +23,7 @@ export interface ProcessesBundle {
     machineWork(): MachineWork;
 }
 
-export interface ProcessesInput {
+interface ProcessesInput {
     config: ServerConfig;
     machineId: string;
     agents: AgentsBundle;

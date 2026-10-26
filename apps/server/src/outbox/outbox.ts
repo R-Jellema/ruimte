@@ -83,7 +83,7 @@ const StartRemoteAgentSchema = z.object({
         // With a worktree there: the checkout here that is sent over, and the branch it becomes. Both or neither.
         source: z.string().min(1).optional(),
         branch: z.string().min(1).optional(),
-        // Set before `peer.taskStart` goes out and cleared once the machine refused it, so dropping the entry knows whether an agent may run there.
+        // Set before `peer.taskStart` goes out and cleared on a refusal, so dropping the entry knows whether an agent may run there.
         sent: z.boolean().optional()
     })
 });
@@ -140,15 +140,9 @@ export type OutboxWork = z.infer<typeof OutboxWorkSchema>;
 export type OutboxEntry = OutboxEntryOf<OutboxWork>;
 export type StartAgentEntry = Extract<OutboxEntry, { kind: 'start-agent' }>;
 export type ResumeRunEntry = Extract<OutboxEntry, { kind: 'resume-run' }>;
-export type ResumeLimitEntry = Extract<OutboxEntry, { kind: 'resume-limit' }>;
-export type BackgroundLimitEntry = Extract<OutboxEntry, { kind: 'background-limit' }>;
 export type WakeParentEntry = Extract<OutboxEntry, { kind: 'wake-parent' }>;
-export type GiveTaskEntry = Extract<OutboxEntry, { kind: 'give-task' }>;
-export type DeliverMessageEntry = Extract<OutboxEntry, { kind: 'deliver-message' }>;
 export type EndChildrenEntry = Extract<OutboxEntry, { kind: 'end-children' }>;
 export type DeliverSummaryEntry = Extract<OutboxEntry, { kind: 'deliver-summary' }>;
-export type DeliverWaitingEntry = Extract<OutboxEntry, { kind: 'deliver-waiting' }>;
-export type DeliverPrWatchEntry = Extract<OutboxEntry, { kind: 'deliver-pr-watch' }>;
 export type RunAfterSettleEntry = Extract<OutboxEntry, { kind: 'run-after-settle' }>;
 export type ConnectPeerEntry = Extract<OutboxEntry, { kind: 'connect-peer' }>;
 export type StartRemoteAgentEntry = Extract<OutboxEntry, { kind: 'start-remote-agent' }>;
@@ -158,14 +152,7 @@ export type StartRemoteAgentPayload = StartRemoteAgentEntry['payload'];
 export type DeliverRemoteResultEntry = Extract<OutboxEntry, { kind: 'deliver-remote-result' }>;
 export type RoutineRunEntry = Extract<OutboxEntry, { kind: 'routine-run' }>;
 
-/*
- * Work the daemon still owes, under `$RUIMTE_HOME/outbox`. Only a verb or a restart puts something
- * here, never a clock; the exceptions are a `resume-limit`, only where a person turned it on, a
- * `background-limit`, the grace of a `deliver-waiting` and a `connect-peer`, each due at a time. A `deliver-remote-result`, a `start-remote-agent`, a `take-remote-result` and a `stop-remote-agent` are due at once and wait for the link to a machine, never for a clock of their own. A `deliver-pr-watch`
- * is due at once: the poll that wrote it is the PR-watch's own clock, not the outbox's. A
- * `run-after-settle` is due at once too, owed when a chat in a worktree settles. A `routine-run` is due at
- * the time a person's approved routine set, one entry per routine at most.
- */
+/* Work the daemon still owes, under `$RUIMTE_HOME/outbox`. Which kinds are due later, and why, is in this folder's CLAUDE.md. */
 export class OutboxStore extends BaseOutboxStore<OutboxWork> {
     constructor(home: string) {
         super({

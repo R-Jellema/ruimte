@@ -4,7 +4,7 @@
  * that did not load. A page that logs in a loop would fill an agent's window, so it is capped.
  */
 
-export type ConsoleLevel = 'log' | 'info' | 'warning' | 'error' | 'exception';
+type ConsoleLevel = 'log' | 'info' | 'warning' | 'error' | 'exception';
 
 export interface ConsoleEntry {
     level: ConsoleLevel;

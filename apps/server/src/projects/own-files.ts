@@ -6,7 +6,7 @@ import { errorText } from '../error-text.ts';
 import { renameNoReplace } from '../fs/no-replace-rename.ts';
 import { isPathSegment } from '../fs/path-segment.ts';
 
-export interface MovedOwnFiles {
+interface MovedOwnFiles {
     /* The top-level names that arrived in the target. */
     moved: string[];
     /* Puts every name back, last first; a second call does nothing. */

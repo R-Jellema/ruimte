@@ -27,7 +27,7 @@ export const STUN_ATTRIBUTE = {
 // The protocol number of UDP, the one transport a TURN allocation is asked for here.
 const UDP_PROTOCOL = 17;
 
-export interface StunAttribute {
+interface StunAttribute {
     type: number;
     value: Uint8Array;
 }

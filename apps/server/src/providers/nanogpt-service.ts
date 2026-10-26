@@ -11,7 +11,7 @@ import { nanoGptVendorOf } from './nanogpt-vendor.ts';
 // Deliberately not configurable: neither a setting nor a redirect may route a chat to pay as you go.
 export const NANOGPT_URL = 'https://nano-gpt.com/api/subscription/v1';
 
-export const NANOGPT_DIR = 'nanogpt';
+const NANOGPT_DIR = 'nanogpt';
 const CREDENTIAL_FILE = 'credential';
 const MODELS_FILE = 'models.json';
 const SETTINGS_FILE = 'settings.json';
@@ -31,7 +31,7 @@ type NanoModel = z.infer<typeof ModelsSchema>['data'][number];
 export type NanoFetch = (url: string, init?: RequestInit) => Promise<Response>;
 
 /* One call a chat made, with the counts as NanoGPT reports them. */
-export interface NanoGptCall {
+interface NanoGptCall {
     model: string;
     session: string;
     cwd: string;
@@ -59,7 +59,7 @@ export function nanoHttpError(status: number): Error {
  * A suffix on a slug (`model:online`, `model:thinking`) can pick a route the subscription does not
  * include and bill it, so only the plain slugs the subscription lists are offered.
  */
-export function subscriptionModels(models: NanoModel[]): NanoModel[] {
+function subscriptionModels(models: NanoModel[]): NanoModel[] {
     return models.filter((model) => !model.id.includes(':'));
 }
 

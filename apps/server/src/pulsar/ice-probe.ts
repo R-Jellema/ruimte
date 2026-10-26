@@ -193,8 +193,7 @@ function exchangeOver(socket: Socket, timeoutMs: number): StunExchange {
     };
 }
 
-export const openExchange: OpenExchange = (target, timeoutMs) =>
-    target.transport === 'udp' ? udpExchange(target, timeoutMs) : streamExchange(target, timeoutMs);
+const openExchange: OpenExchange = (target, timeoutMs) => (target.transport === 'udp' ? udpExchange(target, timeoutMs) : streamExchange(target, timeoutMs));
 
 async function ask(exchange: StunExchange, method: number, attributes: Parameters<typeof encodeRequest>[2], key?: Uint8Array): Promise<StunMessage> {
     const transactionId = newTransactionId();

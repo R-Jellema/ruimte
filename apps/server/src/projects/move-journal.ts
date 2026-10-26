@@ -9,7 +9,7 @@ const MoveIntentSchema = z.object({
     folder: z.string().min(1)
 });
 
-export type MoveIntent = z.infer<typeof MoveIntentSchema>;
+type MoveIntent = z.infer<typeof MoveIntentSchema>;
 
 /*
  * The chat moves that are under way, under `$RUIMTE_HOME` so a stop in the middle leaves a trace. The

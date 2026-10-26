@@ -1,12 +1,12 @@
 import type { ChatItem } from '@ruimte/contracts';
 
-export interface ChatExcerptMessage {
+interface ChatExcerptMessage {
     role: 'user' | 'assistant';
     text: string;
     createdAt: number;
 }
 
-export interface ChatExcerpt {
+interface ChatExcerpt {
     messages: ChatExcerptMessage[];
     truncated: boolean;
 }

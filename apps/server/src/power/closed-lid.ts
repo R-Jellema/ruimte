@@ -14,7 +14,7 @@ import { keepAwakeAvailable, keepAwakeWanted, type KeepAwakeSetting } from './ke
 export const PMSET = '/usr/bin/pmset';
 export const SUDO = '/usr/bin/sudo';
 
-export type ClosedLidErrorCode = 'closed-lid-unavailable' | 'closed-lid-cancelled' | 'closed-lid-failed';
+type ClosedLidErrorCode = 'closed-lid-unavailable' | 'closed-lid-cancelled' | 'closed-lid-failed';
 
 export class ClosedLidError extends CodedError<ClosedLidErrorCode> {}
 
@@ -30,9 +30,9 @@ export interface PowerState {
 }
 
 /* Only a Mac turns sleep off this way. */
-export const closedLidAvailable = keepAwakeAvailable;
+const closedLidAvailable = keepAwakeAvailable;
 
-export function sleepCommand(disabled: boolean): string[] {
+function sleepCommand(disabled: boolean): string[] {
     return [PMSET, '-a', 'disablesleep', disabled ? '1' : '0'];
 }
 
@@ -228,7 +228,7 @@ export interface ClosedLidSystem {
     };
 }
 
-export interface ClosedLidOptions {
+interface ClosedLidOptions {
     platform: NodeJS.Platform;
     uid: number;
     user: string;

@@ -26,12 +26,12 @@ import {
     type JsonDocumentRead
 } from '../projects/project-files.ts';
 
-export const ROUTINES_FILE = 'routines.json';
+const ROUTINES_FILE = 'routines.json';
 
 // The burst rule of the other project files: git and editors write more than once per save.
 const WATCH_SETTLE_MS = 150;
 
-export type RoutineErrorCode =
+type RoutineErrorCode =
     | 'project-not-found'
     | 'routine-not-found'
     | 'routines-invalid'

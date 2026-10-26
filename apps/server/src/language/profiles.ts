@@ -31,7 +31,7 @@ export interface ProjectSqlSettings {
 }
 
 /* What a file a person set to no connection is read as: no dialect and no schema, whatever the project's default says. */
-export const UNBOUND_SQL = { dialect: 'generic' };
+const UNBOUND_SQL = { dialect: 'generic' };
 
 /* One process of a kind. Vue runs two: the Vue server and the TypeScript server it leans on. */
 export interface ComponentProfile {
@@ -688,7 +688,7 @@ export function pinnedTypescriptLib(installDirectory: string, sdkPackage = 'type
 }
 
 /* What the lookup of a project's own TypeScript reads from the file system. */
-export interface NativeLookupFiles {
+interface NativeLookupFiles {
     exists(path: string): Promise<boolean>;
     readText(path: string): Promise<string | null>;
     realPath(path: string): Promise<string>;

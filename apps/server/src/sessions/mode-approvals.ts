@@ -49,7 +49,7 @@ export class ModeApprovals {
     }
 }
 
-export interface NodeMode {
+interface NodeMode {
     nodeId: string;
     mode: RuntimeMode;
 }

@@ -7,7 +7,7 @@ import { SecretRequests, type SecretAsk, type SecretChats, type SecretOutcome } 
 import type { SecretSlot, SecretStore } from './secret-store.ts';
 
 /* What a Save changes on the launch: the variable becomes a reference to the stored secret. */
-export interface SecretLaunches {
+interface SecretLaunches {
     bindSecret(projectId: string, launchId: string, variable: string): Promise<void>;
 }
 

@@ -27,7 +27,7 @@ import { oweResume, resumeRunHandler, resumeRunParked } from './resume-run.ts';
 import { startAgentHandler } from './start-agent.ts';
 import { placesOf } from '../projects/project-index.ts';
 
-export interface OutboxLinkOptions {
+interface OutboxLinkOptions {
     outbox: OutboxStore;
     /* The project a chat lives in, read when a run is owed a resume and not before. */
     projectOf(chatId: string): string | null;
@@ -102,7 +102,7 @@ export class OutboxLink {
     }
 }
 
-export interface OutboxWiringDeps {
+interface OutboxWiringDeps {
     link: OutboxLink;
     outbox: OutboxStore;
     projects: ProjectStore;
@@ -155,7 +155,7 @@ export interface OutboxWiringDeps {
     };
 }
 
-export interface OutboxWiring {
+interface OutboxWiring {
     worker: OutboxWorker<OutboxWork>;
     tasks: TaskWiring;
     endChildren: EndChildrenWiring;

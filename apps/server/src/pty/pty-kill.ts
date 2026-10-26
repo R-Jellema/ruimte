@@ -15,7 +15,7 @@ export interface PtyKill {
     settled(): Promise<void>;
 }
 
-export interface PtyKillOptions {
+interface PtyKillOptions {
     platform?: string;
     spawn?: KillSpawner;
 }

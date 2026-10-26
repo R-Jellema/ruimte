@@ -22,7 +22,7 @@ export interface RawProcess {
     diskWrite: number | null;
 }
 
-export interface MachineCounters {
+interface MachineCounters {
     cores: number;
     /* Cumulative ticks over all cores; a share needs two readings. */
     cpuBusy: number | null;
@@ -68,13 +68,13 @@ export interface ProcessRate {
     spawned: boolean;
 }
 
-export interface MachineRate {
+interface MachineRate {
     /* Percent of all cores. */
     cpu: number | null;
 }
 
 /* More sleep than this between two readings and the history starts over; less is clock jitter. */
-export const SLEEP_TOLERANCE_MS = 2000;
+const SLEEP_TOLERANCE_MS = 2000;
 
 export function identityOf(pid: number, startTime: number): string {
     return `${pid}:${startTime}`;

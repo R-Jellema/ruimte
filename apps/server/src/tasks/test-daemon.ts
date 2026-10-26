@@ -91,7 +91,7 @@ export interface TestDaemon {
     stop(): Promise<void>;
 }
 
-export interface TestDaemonOptions {
+interface TestDaemonOptions {
     home: string;
     store: ProjectStore;
     clock: ManualClock;

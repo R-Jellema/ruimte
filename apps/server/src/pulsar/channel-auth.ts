@@ -15,12 +15,12 @@ import { AUTHENTICATED_FRAME_CHARS, UNAUTHENTICATED_FRAME_CHARS, type DirectChan
 import { errorText } from '../error-text.ts';
 
 // Two round trips over a slow link fit easily; a peer that says nothing for this long is closed.
-export const CHANNEL_AUTH_TIMEOUT_MS = 15_000;
+const CHANNEL_AUTH_TIMEOUT_MS = 15_000;
 
 // Long enough for the refusal to leave before the channel does, which a close straight after the send does not wait for.
 const REFUSAL_LINGER_MS = 250;
 
-export interface ChannelAuthOptions {
+interface ChannelAuthOptions {
     channel: DirectChannel;
     // What `channelBinding` makes of the offer and the answer this channel was opened with.
     binding: string;

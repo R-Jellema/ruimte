@@ -36,12 +36,12 @@ import {
 import type { SessionSink } from '../sessions/manager.ts';
 import { detectLaunches } from './detect.ts';
 
-export const LAUNCHES_FILE = 'launches.json';
+const LAUNCHES_FILE = 'launches.json';
 
 // The burst rule of the other project files: git and editors write more than once per save.
 const WATCH_SETTLE_MS = 150;
 
-export type LaunchErrorCode =
+type LaunchErrorCode =
     | 'project-not-found'
     | 'launch-not-found'
     | 'launches-invalid'
@@ -56,7 +56,7 @@ export type LaunchErrorCode =
 export class LaunchError extends CodedError<LaunchErrorCode> {}
 
 /* What the store needs of the projects: where a project lives on this machine. */
-export interface LaunchProjects {
+interface LaunchProjects {
     /* The folder of a project this machine knows, open or not; null for one it does not. */
     folderOf(projectId: string): string | null;
     /* The worktrees of the repository the folder is in, which a launch may run in as an agent's --cwd may. */
@@ -64,13 +64,13 @@ export interface LaunchProjects {
 }
 
 /* What the store needs of the approvals: `CommandApprovals`, keyed on a launch instead of a node. */
-export interface LaunchApprovals {
+interface LaunchApprovals {
     has(folder: string, nodeId: string, command: string): boolean;
     approve(folder: string, nodeId: string, command: string): Promise<void>;
 }
 
 /* What the store tells the secrets: which of them the launches still refer to, after a person's save. */
-export interface LaunchSecrets {
+interface LaunchSecrets {
     retain(projectId: string, referenced: readonly { launchId: string; variable: string }[]): Promise<void>;
 }
 

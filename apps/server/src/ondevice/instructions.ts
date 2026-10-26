@@ -1,6 +1,6 @@
 import type { OnDevicePurpose } from '@ruimte/contracts';
 
-export interface PurposeSpec {
+interface PurposeSpec {
     readonly instructions: string;
     readonly maxTokens: number;
     readonly temperature: number;

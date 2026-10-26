@@ -1,7 +1,7 @@
 import { errorText } from '../error-text.ts';
 import type { OutboxEntry } from '../outbox/outbox.ts';
 
-export interface ParkedNoteDeps {
+interface ParkedNoteDeps {
     /* The chat that opened a node, or null for a node a person opened. */
     madeBy(nodeId: string): string | null;
     titleFor(nodeId: string): string | null;

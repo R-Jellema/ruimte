@@ -5,7 +5,7 @@ import { diskSpace, parseEnvironment, type CommandLine, type ProcessSampler, typ
 /* USER_HZ: the unit of every tick in `/proc`, fixed at 100 for userspace whatever the kernel runs at. */
 const CLOCK_TICKS = 100;
 
-export interface ProcStat {
+interface ProcStat {
     name: string;
     ppid: number;
     /* utime plus stime, in ticks. */

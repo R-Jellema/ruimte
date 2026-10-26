@@ -5,7 +5,7 @@ import type { AgentKind } from '@ruimte/contracts';
 import { isInside } from '../canvas/project-paths.ts';
 import { providerFor } from '../providers/registry.ts';
 
-export interface UntrustedFoldersDeps {
+interface UntrustedFoldersDeps {
     lineage: Pick<AgentLineageStore, 'peerOf' | 'startedBy' | 'forkedFrom'>;
     /* The folders made from work another machine sent. */
     folders(): readonly string[];

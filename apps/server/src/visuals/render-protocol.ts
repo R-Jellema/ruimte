@@ -25,12 +25,12 @@ export const RenderRequestSchema = z.object({
 });
 export type RenderRequest = z.infer<typeof RenderRequestSchema>;
 
-export const ConsoleEntrySchema = z.object({
+const ConsoleEntrySchema = z.object({
     level: z.enum(['log', 'info', 'warning', 'error', 'exception']),
     text: z.string()
 });
 
-export const RenderedPageSchema = z.object({
+const RenderedPageSchema = z.object({
     width: z.number(),
     height: z.number(),
     // Base64 png, `shotHeight` pixels tall; only with `capture`.

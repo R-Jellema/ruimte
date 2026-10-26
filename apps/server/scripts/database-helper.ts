@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { helperPath } from '@adecore/database/host';
 
-export interface PinnedPackage {
+interface PinnedPackage {
     version: string;
     integrity: string;
 }

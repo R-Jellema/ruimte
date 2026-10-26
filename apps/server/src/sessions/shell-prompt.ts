@@ -3,12 +3,12 @@ export interface ShellEditorState {
     empty: boolean;
 }
 
-export interface EmptyShellPrompt {
+interface EmptyShellPrompt {
     revision: number;
     cwd: string;
 }
 
-export type ShellWorkingDirectory = { state: 'known'; cwd: string; revision: number } | { state: 'unknown' };
+type ShellWorkingDirectory = { state: 'known'; cwd: string; revision: number } | { state: 'unknown' };
 
 export type ShellPrepareOutcome = 'inserted' | 'refused' | 'unconfirmed';
 

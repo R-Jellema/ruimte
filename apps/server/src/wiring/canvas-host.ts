@@ -26,7 +26,7 @@ import type { RemoteBundle } from './remote.ts';
 import type { RoutinesBundle } from './routines.ts';
 import type { UsageBundle } from './usage.ts';
 
-export interface CanvasHostInput {
+interface CanvasHostInput {
     identity: EndpointIdentity;
     stores: AgentStores;
     providers: ProvidersBundle;

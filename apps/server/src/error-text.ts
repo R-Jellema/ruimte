@@ -2,7 +2,7 @@ import { describeError, errorText, setErrorStacks } from '@adecore/agents';
 
 export { describeError, errorText };
 
-export const DEBUG_VARIABLE = 'RUIMTE_DEBUG';
+const DEBUG_VARIABLE = 'RUIMTE_DEBUG';
 
 export function debugFrom(env: Record<string, string | undefined>): boolean {
     return env[DEBUG_VARIABLE] === '1';

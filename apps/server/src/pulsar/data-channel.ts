@@ -92,7 +92,7 @@ export const TEXT_LANE_BYTES = 256 * 1024;
  * waits in the output gate per session and a quiet terminal's echo waits behind one slice of a busy one,
  * not behind its backlog. The budget is above the threshold the drain rides on, so the drain still comes.
  */
-export const DIRECT_OUTPUT_SHARE: OutputShare = {
+const DIRECT_OUTPUT_SHARE: OutputShare = {
     budget: 2 * BINARY_LANE_BYTES,
     backlogChars: 4 * 1_048_576,
     sliceChars: DIRECT_PIECE_CHARS

@@ -4,7 +4,7 @@ import type { Dispatcher } from '../dispatcher.ts';
 // However many clients come back at once, the CLIs are probed again at most this often.
 export const PROVIDER_DETECT_INTERVAL_MS = 10_000;
 
-export interface DetectableProviders {
+interface DetectableProviders {
     kinds(): AgentKind[];
     invalidate(kind: AgentKind): void;
     list(): Promise<ProviderInfo[]>;

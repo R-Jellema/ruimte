@@ -70,7 +70,7 @@ export interface DerivedIcon {
     darkMime: string | null;
 }
 
-export interface DerivedIdentity {
+interface DerivedIdentity {
     icon: DerivedIcon | null;
     // The folder itself could not be read (unmounted, no permission); nothing was ruled out.
     unresolved: boolean;

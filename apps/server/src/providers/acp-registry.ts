@@ -7,7 +7,7 @@ import { errorText } from '../error-text.ts';
 import { BUILT_IN_KINDS } from './kinds.ts';
 
 /* The public ACP registry, the same list the Antigravity server's pin is taken from. */
-export const ACP_REGISTRY_URL = 'https://cdn.agentclientprotocol.com/registry/v1/latest/registry.json';
+const ACP_REGISTRY_URL = 'https://cdn.agentclientprotocol.com/registry/v1/latest/registry.json';
 
 // The registry's agents this daemon drives with quirks of its own, under a kind of their own; the catalog leaves them out.
 const BUILT_IN_REGISTRY_IDS: ReadonlySet<string> = new Set(['antigravity-acp', 'claude-acp', 'codex-acp', 'github-copilot-cli', 'grok-build']);
@@ -160,7 +160,7 @@ const fetchRegistry: RegistryFetch = async (url) => {
 };
 
 /* The catalog as one read gave it: from the registry, from the last good copy on disk, or none. */
-export interface RegistryRead {
+interface RegistryRead {
     source: 'live' | 'cached' | 'unavailable';
     fetchedAt: number | null;
     error?: string;
@@ -170,7 +170,7 @@ export interface RegistryRead {
 
 const CachedSchema = z.object({ fetchedAt: z.number(), document: z.unknown() });
 
-export interface AcpRegistryOptions {
+interface AcpRegistryOptions {
     // `$RUIMTE_HOME`; the last good document is kept in `agent-registry/registry.json`.
     home: string;
     fetch?: RegistryFetch;

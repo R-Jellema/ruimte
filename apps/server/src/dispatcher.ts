@@ -54,7 +54,7 @@ type Handler<T extends RequestType> = (
 // Thrown by a handler to answer with a specific error code instead of a generic failure.
 export class RequestError extends CodedError {}
 
-export interface HandlerOptions {
+interface HandlerOptions {
     /* Only a client that presented the local secret may ask; any other is refused as `forbidden` before the handler runs. */
     owner?: boolean;
     /*

@@ -47,7 +47,7 @@ export class CommandApprovals {
     }
 }
 
-export interface NodeCommand {
+interface NodeCommand {
     nodeId: string;
     command: string;
 }

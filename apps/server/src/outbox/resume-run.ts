@@ -3,12 +3,12 @@ import { notResumedNote } from '@ruimte/contracts';
 import { errorText } from '../error-text.ts';
 import type { OutboxEntry, OutboxWork, ResumeRunEntry } from './outbox.ts';
 
-export interface ResumeRunDeps {
+interface ResumeRunDeps {
     resumeRun(chatId: string, turnId: string, attempt: number): Promise<void>;
     abandonRun(chatId: string, turnId: string, reason: string): void;
 }
 
-export interface OweResumeDeps {
+interface OweResumeDeps {
     // The project that places the chat, as a node on a canvas or as a view of its own; null for a chat no project holds, which nothing would resume for.
     projectOf(chatId: string): string | null;
     entries(): OutboxEntry[];

@@ -28,7 +28,7 @@ const CONNECT_TIMEOUT_MS = 10_000;
 const MAX_HANDSHAKE_BYTES = 1024;
 
 /* `more` until enough bytes arrived; `bad` with the reply to send before closing, or null to close without one. */
-export type SocksParse<T> = { status: 'more' } | { status: 'bad'; reply: number | null } | { status: 'done'; value: T; length: number };
+type SocksParse<T> = { status: 'more' } | { status: 'bad'; reply: number | null } | { status: 'done'; value: T; length: number };
 
 export interface SocksRequest {
     type: 'ipv4' | 'ipv6' | 'domain';
@@ -172,7 +172,7 @@ async function connectFirst(addresses: readonly string[], port: number): Promise
     return null;
 }
 
-export interface SocksProxy {
+interface SocksProxy {
     port: number;
     close(): void;
 }

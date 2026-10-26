@@ -17,7 +17,7 @@ export interface LanguageBundle {
     provenance: ProvenanceService;
 }
 
-export interface LanguageInput {
+interface LanguageInput {
     home: string;
     compiled: boolean;
     machineHome: MachineHome;

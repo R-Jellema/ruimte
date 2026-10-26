@@ -15,13 +15,13 @@ import { CodedError, isNotFound, writeAtomic } from '@adecore/agents';
 import { z } from 'zod';
 import type { KindProfile } from './profiles.ts';
 
-export class CustomServerError extends CodedError<LanguageErrorCode> {}
+class CustomServerError extends CodedError<LanguageErrorCode> {}
 
 const StoredServerSchema = CustomLanguageServerSchema.omit({ held: true }).extend({ approval: z.string().min(1) });
 type StoredServer = z.infer<typeof StoredServerSchema>;
 
 /* The path of an executable on this machine: the command itself when it is one, else where PATH has it. */
-export type ResolveCommand = (command: string) => string | null;
+type ResolveCommand = (command: string) => string | null;
 
 export const resolveCommandOnPath: ResolveCommand = (command) => {
     // A relative path would mean the folder of whichever project starts the server.

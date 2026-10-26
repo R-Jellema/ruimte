@@ -78,13 +78,13 @@ import {
 import { bunRuntime, runCommand, spawnLanguageProcess, type LanguageRuntime, type RunCommand, type SpawnLanguageProcess } from './runtime.ts';
 import { LanguageServer, MERGE_DEADLINE_MS, realLanguageClock, type LanguageClock, type LanguageServerHooks, type SharedDocument } from './server.ts';
 
-export class LanguageError extends CodedError<LanguageErrorCode> {}
+class LanguageError extends CodedError<LanguageErrorCode> {}
 
 /* How long an agent's call waits for a server of its file to come up, which a project that loads for a while can take. */
-export const AGENT_READY_MS = 30_000;
+const AGENT_READY_MS = 30_000;
 
 /* How long an agent's call waits for the first report of a server that pushes its diagnostics rather than being asked. */
-export const AGENT_PUSH_MS = 3_000;
+const AGENT_PUSH_MS = 3_000;
 
 /* One file as an agent's call holds it (`LanguageHost.forAgent`). */
 export interface AgentDocument {
@@ -113,7 +113,7 @@ function runsFor(server: CustomLanguageServer, folder: string): boolean {
     return server.projects === undefined || server.projects.includes(folder);
 }
 
-export interface LanguageHostOptions {
+interface LanguageHostOptions {
     /* `$RUIMTE_HOME/language-servers`. */
     root: string;
     folderOf(projectId: string): string | null;

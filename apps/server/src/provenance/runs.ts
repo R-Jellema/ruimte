@@ -126,7 +126,7 @@ export function dropCommitted(runs: readonly ProvenanceRun[], current: readonly 
 }
 
 /* A hunk of the new text a write changed: its lines and the lines of the old text they replaced. */
-export interface Hunk {
+interface Hunk {
     /* Zero-based, `end` exclusive; both equal for a hunk that only removed lines. */
     start: number;
     end: number;

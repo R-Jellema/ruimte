@@ -32,12 +32,12 @@ export const PROJECT_DIR = '.ruimte';
 export const PROJECT_FILE = 'project.json';
 /* The mirror of `.ruimte` that holds what belongs to one person. The `.gitignore` beside it names this one line. */
 export const PRIVATE_DIR = 'private';
-export const GITIGNORE_FILE = '.gitignore';
+const GITIGNORE_FILE = '.gitignore';
 // One file per drawing view, in a directory of their own: `.ruimte` is read by people and by git,
 // and its top level stays the two files the daemon documents.
-export const DRAWINGS_DIR = 'drawings';
+const DRAWINGS_DIR = 'drawings';
 // The same rule for diagrams, in a directory beside it, so a file name never says which kind it is.
-export const DIAGRAMS_DIR = 'diagrams';
+const DIAGRAMS_DIR = 'diagrams';
 // A person's database consoles, plain `.sql` files under `private`, so git never sees them.
 export const CONSOLES_DIR = 'consoles';
 
@@ -418,7 +418,7 @@ export function serializeDrawing(document: DrawingDocument): string {
     return ['{', `  "version": ${document.version},`, `  "rev": ${document.rev},`, `  "elements": ${oneItemPerLine(document.elements)}`, '}', ''].join('\n');
 }
 
-export function parseDrawing(text: string): JsonDocumentParse<DrawingDocument> {
+function parseDrawing(text: string): JsonDocumentParse<DrawingDocument> {
     const versioned = parseVersioned(text, DRAWING_VERSION);
     if (versioned.kind !== 'value') {
         return versioned;
@@ -458,7 +458,7 @@ export function serializeDiagram(document: DiagramDocument): string {
     ].join('\n');
 }
 
-export function parseDiagram(text: string): JsonDocumentParse<DiagramDocument> {
+function parseDiagram(text: string): JsonDocumentParse<DiagramDocument> {
     const versioned = parseVersioned(text, DIAGRAM_VERSION);
     if (versioned.kind !== 'value') {
         return versioned;
@@ -495,7 +495,7 @@ export const ICON_EXTENSION_BY_MIME: Record<string, string> = {
 
 const ICON_EXTENSIONS = Object.values(ICON_EXTENSION_BY_MIME).concat('jpeg');
 
-export function iconPathInFolder(folder: string, extension: string): string {
+function iconPathInFolder(folder: string, extension: string): string {
     return join(folder, PROJECT_DIR, `icon.${extension}`);
 }
 

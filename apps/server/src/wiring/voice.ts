@@ -15,7 +15,7 @@ export interface VoiceBundle {
     sessions: VoiceSessions;
 }
 
-export interface VoiceInput {
+interface VoiceInput {
     config: Pick<ServerConfig, 'home'>;
     projects: Pick<ProjectStore, 'hold' | 'letGo' | 'index' | 'subscribe' | 'list'>;
     /* This machine, the only one whose projects Voice works in. */

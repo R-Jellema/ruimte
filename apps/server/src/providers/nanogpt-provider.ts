@@ -6,7 +6,7 @@ import { NanoGptService } from './nanogpt-service.ts';
  * NanoGPT's subscription API as a chat. There is no CLI: the daemon talks to the API itself, so the
  * provider is there once a person saved a key in Settings and NanoGPT listed the models it includes.
  */
-export function createNanoGptProvider(service: NanoGptService): ChatProvider {
+function createNanoGptProvider(service: NanoGptService): ChatProvider {
     return {
         kind: 'nanogpt',
         name: 'NanoGPT',

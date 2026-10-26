@@ -22,7 +22,7 @@ const ReleaseSchema = z.object({
     assets: z.record(z.string(), AssetSchema)
 });
 
-export type AcpServerAsset = z.infer<typeof AssetSchema>;
+type AcpServerAsset = z.infer<typeof AssetSchema>;
 export type AcpServerRelease = z.infer<typeof ReleaseSchema>;
 
 /* A release file as the daemon pins it; one that does not hold together is refused at load, never at Install. */
@@ -55,7 +55,7 @@ export interface AcpServerLaunch {
     launch(): string[] | null;
 }
 
-export interface AcpServerInstallOptions {
+interface AcpServerInstallOptions {
     provider: AgentKind;
     // `$RUIMTE_HOME`; the server lives in `agent-servers/<provider>`, which no client request reaches.
     home: string;

@@ -30,7 +30,7 @@ import type { OneShotPlace } from '../peering/one-shot-place.ts';
 import type { ProviderRegistry } from '../providers/registry.ts';
 
 /* What writing and taking in a bundle needs from the rest of the daemon. */
-export interface BundleHost {
+interface BundleHost {
     bundles: BundleStore;
     checkpoints: Pick<CheckpointService, 'take' | 'head'>;
     folderOf(projectId: string): Promise<string | null>;

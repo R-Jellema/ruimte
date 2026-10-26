@@ -28,7 +28,7 @@ export interface ProjectsBundle {
     endSession(kind: 'terminal' | 'chat', nodeId: string): Promise<void>;
 }
 
-export interface ProjectsInput {
+interface ProjectsInput {
     home: string;
     machineId: string;
     stores: AgentStores;

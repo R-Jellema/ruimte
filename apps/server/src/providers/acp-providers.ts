@@ -117,7 +117,7 @@ const GROK_SPEC: AcpProviderSpec = {
 };
 
 /* What `grok models` printed: who is signed in, and the models the account may use. */
-export interface GrokModels {
+interface GrokModels {
     signedIn: boolean;
     defaultModel: string | null;
     models: string[];
@@ -165,7 +165,7 @@ export function readGrokModels(output: string): GrokModels {
 const GROK_ASK_TIMEOUT_MS = 20_000;
 
 /* Asks `grok models` in the account's environment (`GROK_HOME`), which opens no session. */
-export async function askGrokModels(command: readonly string[], env: Record<string, string | undefined>): Promise<GrokModels> {
+async function askGrokModels(command: readonly string[], env: Record<string, string | undefined>): Promise<GrokModels> {
     const { exitCode, stdout, stderr } = await runProcess([command[0] ?? 'grok', '--no-auto-update', 'models'], {
         env,
         timeoutMs: GROK_ASK_TIMEOUT_MS,

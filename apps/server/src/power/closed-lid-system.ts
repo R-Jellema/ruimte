@@ -19,11 +19,11 @@ import {
 } from './closed-lid.ts';
 
 /* Where a home notes that it turned sleep off, kept beside nothing a client can read. */
-export function closedLidMarkerPath(home: string): string {
+function closedLidMarkerPath(home: string): string {
     return join(home, 'power', 'closed-lid-held');
 }
 
-export interface Watchdog extends Dismissable {
+interface Watchdog extends Dismissable {
     readonly pid: number;
     readonly exited: Promise<number>;
 }

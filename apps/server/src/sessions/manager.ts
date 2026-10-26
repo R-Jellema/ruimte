@@ -87,7 +87,7 @@ interface CreateSessionOptions {
     forClient?: ClientSession;
 }
 
-export interface ClientSession {
+interface ClientSession {
     clientId: string;
     label: string;
 }
@@ -143,7 +143,7 @@ export interface SessionManagerOptions {
     findGitBash?: () => string | null;
 }
 
-export interface CommandGate {
+interface CommandGate {
     approved(sessionId: string, command: string): boolean;
     /* Writes down that a person let this node type this command. */
     approve(sessionId: string, command: string): Promise<void>;
@@ -159,7 +159,7 @@ const TITLE_RETRIES = 6;
 export type HookResult = 'applied' | 'ignored' | 'unknown-token';
 
 /* `before-kill` comes while the tree is still whole, so a watcher can see what was in it; `changed` after it moved. */
-export type ProcessChangePhase = 'before-kill' | 'changed';
+type ProcessChangePhase = 'before-kill' | 'changed';
 
 export class SessionManager {
     private readonly adapter: PtyAdapter;

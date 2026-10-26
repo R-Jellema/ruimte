@@ -132,7 +132,7 @@ export function kindOfScript(name: string): LaunchConfigKind {
 }
 
 /* Where the paths of one launch are read from and what they point at. */
-export class PathScope {
+class PathScope {
     /* A path in the launch points outside the project, so it cannot travel with it. */
     outside = false;
 
@@ -299,7 +299,7 @@ const RUN_TYPES: Record<string, (configuration: XmlElement, context: RunFileCont
 };
 
 /* Every configuration in one file; a type the import cannot read comes back with the reason. */
-export function readRunFile(text: string, context: RunFileContext): Built[] {
+function readRunFile(text: string, context: RunFileContext): Built[] {
     return descendantsOf(parseXml(text), 'configuration')
         .filter((configuration) => configuration.attributes.default !== 'true' && configuration.attributes.type !== undefined)
         .map((configuration) => {

@@ -26,7 +26,7 @@ export interface ReachCheckerOptions {
 }
 
 /* The interfaces and their addresses, which change when the machine joins another network or a VPN comes up. */
-export function networkFingerprint(): string {
+function networkFingerprint(): string {
     return Object.entries(networkInterfaces())
         .flatMap(([name, entries]) => (entries ?? []).filter((entry) => !entry.internal).map((entry) => `${name}=${entry.address}`))
         .sort()
