@@ -489,13 +489,18 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                               : 'border-b border-border bg-surface-raised'
                     )}
                     style={
+                        // A button's hover in a colored header is a deeper shade of that color, not the gray of a plain surface.
                         frameAccent
-                            ? {
+                            ? ({
                                   backgroundColor: `color-mix(in srgb, ${frameAccent} 20%, var(--surface-raised))`,
-                                  borderColor: `color-mix(in srgb, ${frameAccent} 35%, var(--border))`
-                              }
+                                  borderColor: `color-mix(in srgb, ${frameAccent} 35%, var(--border))`,
+                                  '--color-surface-hover': `color-mix(in srgb, ${frameAccent} 34%, var(--surface-raised))`
+                              } as CSSProperties)
                             : noteAccent
-                              ? { borderColor: `color-mix(in srgb, ${noteAccent} 35%, var(--border))` }
+                              ? ({
+                                    borderColor: `color-mix(in srgb, ${noteAccent} 35%, var(--border))`,
+                                    '--color-surface-hover': 'color-mix(in srgb, var(--text) 10%, transparent)'
+                                } as CSSProperties)
                               : undefined
                     }
                 >
