@@ -125,8 +125,7 @@ export function RoutineAgenda({ endpointId, projectId, groups, grouped, week, no
                         className="pointer-events-none absolute top-0 bottom-0 z-[2] w-px"
                         style={{ left: `calc(${NAME_COLUMN}px + (100% - ${NAME_COLUMN}px) * ${nowAt})` }}
                     >
-                        {/* Under the day headers only, so it never runs through a day's name. */}
-                        <span className={clsx('absolute top-14 bottom-0 w-px', empty ? 'bg-text-faint' : 'bg-accent')} />
+                        <span className={clsx('absolute top-1 bottom-0 w-px', empty ? 'bg-text-faint' : 'bg-accent')} />
                         <span
                             className={clsx(
                                 'absolute top-1 left-1/2 -translate-x-1/2 rounded-sm px-1 text-2xs font-medium tabular-nums',
