@@ -1,8 +1,8 @@
 import RuimtePulsar
 import SwiftUI
 
-/// The iPad's sidebar: Now and Machines, then the open projects per machine as the iPhone's Projects tab lists them.
-/// A project opened from here or anywhere else is pushed in it with its views, and going back closes it.
+/// The iPad's sidebar: Now, Scheduled and Machines, then the open projects per machine as the iPhone's Projects tab
+/// lists them. A project opened from here or anywhere else is pushed in it with its views, and going back closes it.
 struct PadSidebar: View {
     let runtime: AppRuntime
     let projects: UnifiedProjects
@@ -25,6 +25,12 @@ struct PadSidebar: View {
                                 .foregroundStyle(MobileStyle.statusNeedsYou)
                                 .accessibilityLabel("\(waiting) need you")
                         }
+                    }
+                    row(
+                        String(localized: "Scheduled"), icon: "calendar-clock", detail: .scheduled,
+                        id: "sidebar.scheduled"
+                    ) {
+                        EmptyView()
                     }
                     row(String(localized: "Machines"), icon: "monitor", detail: .machines, id: "sidebar.machines") {
                         EmptyView()

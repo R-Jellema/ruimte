@@ -37,6 +37,21 @@ final class PhoneRouterTests: XCTestCase {
         XCTAssertEqual(router.path, [])
     }
 
+    @MainActor func testARunOpensOverItsRoutineAndARoutineReplacesWhatWasPushed() {
+        let router = PhoneRouter()
+        let routine = ScheduledRoute.routine(RoutineTarget(machineID: "mac", projectID: "app", routineID: "deps"))
+        let run = ScheduledRoute.run(
+            RoutineRunTarget(
+                machineID: "mac", chatID: "chat", title: "Dependency check", due: Date(timeIntervalSince1970: 0)))
+        router.show(routine)
+        router.show(run)
+        XCTAssertEqual(router.tab, .scheduled)
+        XCTAssertEqual(router.path, [.scheduled(routine), .scheduled(run)])
+
+        router.show(routine)
+        XCTAssertEqual(router.path, [.scheduled(routine)])
+    }
+
     @MainActor func testEveryRouteReplacesWhatWasPushedSoNothingGoesDeeperThanTwoLevels() {
         let router = PhoneRouter()
         router.tab = .machines

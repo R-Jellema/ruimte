@@ -4,6 +4,7 @@ import Observation
 /// What the iPad's content column shows beside the sidebar.
 enum PadDetail: Hashable {
     case now
+    case scheduled
     /// The view of the project pushed in the sidebar.
     case project
     case machines

@@ -17,6 +17,7 @@ struct PhoneHome: View {
     let addMachine: () -> Void
     @State private var newChat = false
     @State private var gitLines = ProjectGitLines()
+    @State private var scheduled = ScheduledModel()
     @Environment(\.voiceScene) private var voiceScene
 
     var body: some View {
@@ -36,6 +37,14 @@ struct PhoneHome: View {
                     Label(String(localized: "Now"), lucideIcon: "inbox")
                 }
                 .badge(now.board.needsYou.count)
+
+                Tab(value: PhoneTab.scheduled) {
+                    ScheduledPage(
+                        runtime: runtime, projects: projects, model: scheduled, open: { router.show($0) },
+                        addMachine: addMachine)
+                } label: {
+                    Label(String(localized: "Scheduled"), lucideIcon: "calendar-clock")
+                }
 
                 Tab(value: PhoneTab.projects) {
                     ProjectsPage(
@@ -133,6 +142,8 @@ struct PhoneHome: View {
             MachineRoutePage(runtime: runtime, machineID: id, settingsLink: settingsLink)
         case .file(let target):
             ProjectFilePage(runtime: runtime, target: target) { router.openProject($0, view: $1) }.id(target)
+        case .scheduled(let route):
+            ScheduledDestination(runtime: runtime, model: scheduled, route: route, open: { router.show($0) })
         }
     }
 

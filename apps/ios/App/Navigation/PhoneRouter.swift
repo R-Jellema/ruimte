@@ -2,11 +2,12 @@ import Foundation
 import Observation
 
 enum PhoneTab: Hashable {
-    case now, projects, machines, search
+    case now, scheduled, projects, machines, search
 
     var title: String {
         switch self {
         case .now: String(localized: "Now")
+        case .scheduled: String(localized: "Scheduled")
         case .projects: String(localized: "Projects")
         case .machines: String(localized: "Machines")
         case .search: String(localized: "Search")
@@ -24,6 +25,8 @@ enum PhoneRoute: Hashable {
     /// A machine, by its id.
     case machine(String)
     case file(ProjectFileTarget)
+    /// A routine or one of its runs, over Scheduled.
+    case scheduled(ScheduledRoute)
 }
 
 /// A file of a project, by where it is on its machine.
@@ -83,6 +86,16 @@ final class PhoneRouter {
 
     func showMachine(_ id: String) {
         path = [.machine(id)]
+    }
+
+    /// A run opened from a routine goes on top of it, the one place Scheduled goes two levels deep.
+    func show(_ route: ScheduledRoute) {
+        tab = .scheduled
+        if case .run = route, case .scheduled(.routine) = path.first {
+            path = [path[0], .scheduled(route)]
+        } else {
+            path = [.scheduled(route)]
+        }
     }
 }
 

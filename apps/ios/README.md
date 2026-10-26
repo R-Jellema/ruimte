@@ -54,7 +54,7 @@ The app follows the desktop wherever a phone can. These are the places where it 
 
 ## Navigation on an iPhone
 
-Four tabs, each at most two levels deep: Now, Projects, Machines and Search. They are the root of one navigation
+Five tabs, each at most two levels deep: Now, Scheduled, Projects, Machines and Search. They are the root of one navigation
 stack (`PhoneHome`), and every page opens on that stack over the whole tab view, so the tab bar leaves with a push
 and follows the finger on a swipe back. A push only morphs the bar into the items a page has when it starts, so a
 pushed page takes its title and items from its route and the push runs without an animation of ours around it.
@@ -71,13 +71,20 @@ Now reads each machine's open projects with `project.sidebar`, again on `project
 pure grouping. A needs-you card answers the chat's oldest request in place from the summary on the chat's info,
 without attaching the chat. An answer that finds the request settled (`request-not-found`) counts as given.
 
+Scheduled lists the routines of every machine with `routine.list`, again on `routine.changed` while one of its pages
+shows (`routine.watch`, asked again after every reconnect), and only on a machine that names `routine.list`; with
+none, the page says the machine needs an update. `ScheduledBoard` is the pure grouping: Needs you (a run waiting on a
+person, with the question from the chat's info), Today, Overnight (before tomorrow noon), Later and Held (paused, or
+not approved). A run opens as its chat, which is on no canvas, so it opens on its machine alone. A routine opens with
+its runs, Pause or Resume and Run now. Making, changing and approving a routine happen on the machine.
+
 A snooze set without a connection waits on the phone, across a restart too, and goes out once the link is back
 unless it ran out.
 
 ## The iPad
 
-The iPad keeps the iPhone's pages and none of its tabs (`PadHome`, `PadRouter`). The sidebar lists Now, Machines and
-the open projects per machine; Search (⌘K, bound once on the window) opens the palette as a sheet. Each content page
+The iPad keeps the iPhone's pages and none of its tabs (`PadHome`, `PadRouter`). The sidebar lists Now, Scheduled, Machines
+and the open projects per machine; Search (⌘K, bound once on the window) opens the palette as a sheet. Each content page
 has a stack of its own, so a page pushed in one never outlives a switch.
 
 Files and Git open as an inspector on the split view, not in the content column, whose navigation it would

@@ -1,6 +1,23 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ at %@" : {
+      "comment" : "Weekdays a routine runs on, such as Mon, Thu, then a time",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ at %2$@"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ om %2$@"
+          }
+        }
+      }
+    },
     "%@ is not reachable" : {
       "comment" : "%@ is the name of a machine",
       "localizations" : {
@@ -30,6 +47,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ bestaat al"
+          }
+        }
+      }
+    },
+    "%@ is skipped while this waits" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ wordt overgeslagen zolang dit wacht"
           }
         }
       }
@@ -207,6 +234,16 @@
         }
       }
     },
+    "A run waits for you, so the next one is skipped until you answer." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Een run wacht op jou, dus de volgende wordt overgeslagen tot je antwoordt."
+          }
+        }
+      }
+    },
     "Account status unavailable" : {
       "comment" : "Under a machine's limits when it could not list its accounts",
       "localizations" : {
@@ -244,6 +281,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Een andere chat"
+          }
+        }
+      }
+    },
+    "Approve it on %@ before it runs." : {
+      "comment" : "%@ is the name of a machine",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keur hem goed op %@ voordat hij draait."
+          }
+        }
+      }
+    },
+    "approve on %@ first" : {
+      "comment" : "%@ is the name of a machine",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "eerst goedkeuren op %@"
+          }
+        }
+      }
+    },
+    "Approve this routine on %@ first." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keur deze routine eerst goed op %@."
           }
         }
       }
@@ -420,6 +489,16 @@
         }
       }
     },
+    "Connect your computer to see what is scheduled on it." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verbind je computer om te zien wat erop gepland staat."
+          }
+        }
+      }
+    },
     "Contacts" : {
       "localizations" : {
         "nl" : {
@@ -446,6 +525,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Klembord van het apparaat kopiëren"
+          }
+        }
+      }
+    },
+    "Could not do that" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dat lukte niet"
           }
         }
       }
@@ -486,6 +575,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cyaan"
+          }
+        }
+      }
+    },
+    "Daily at %@" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dagelijks om %@"
           }
         }
       }
@@ -536,6 +635,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Scherm"
+          }
+        }
+      }
+    },
+    "Done, v%lld" : {
+      "comment" : "A run that delivered a version to Output",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Klaar, v%lld"
           }
         }
       }
@@ -680,6 +790,16 @@
         }
       }
     },
+    "Held" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Staat stil"
+          }
+        }
+      }
+    },
     "Hello from Ruimte" : {
       "localizations" : {
         "nl" : {
@@ -710,12 +830,62 @@
         }
       }
     },
+    "It has not run yet." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hij heeft nog niet gedraaid."
+          }
+        }
+      }
+    },
+    "It is no longer on %@." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hij staat niet meer op %@."
+          }
+        }
+      }
+    },
+    "It starts on %@ right away, and what it delivers lands in Output." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hij start meteen op %@, en wat hij oplevert komt in Output."
+          }
+        }
+      }
+    },
+    "Its previous run is still going or waits for you." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De vorige run loopt nog of wacht op jou."
+          }
+        }
+      }
+    },
     "Large" : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Groot"
+          }
+        }
+      }
+    },
+    "Later" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Later"
           }
         }
       }
@@ -1012,6 +1182,36 @@
         }
       }
     },
+    "Not started" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Niet gestart"
+          }
+        }
+      }
+    },
+    "Nothing more is scheduled." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Er staat niets meer gepland."
+          }
+        }
+      }
+    },
+    "Nothing scheduled" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Niets gepland"
+          }
+        }
+      }
+    },
     "Notification text" : {
       "localizations" : {
         "nl" : {
@@ -1022,12 +1222,50 @@
         }
       }
     },
+    "on %@" : {
+      "comment" : "%@ is the name of a machine",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "op %@"
+          }
+        }
+      }
+    },
+    "On a schedule this app does not know" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volgens een planning die deze app niet kent"
+          }
+        }
+      }
+    },
     "On this canvas" : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Op dit canvas"
+          }
+        }
+      }
+    },
+    "Once, %@ %@" : {
+      "comment" : "A routine that runs one time: its day, then its time",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Once, %1$@ %2$@"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eenmalig, %1$@ %2$@"
           }
         }
       }
@@ -1048,6 +1286,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Link openen"
+          }
+        }
+      }
+    },
+    "Opens the run" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opent de run"
           }
         }
       }
@@ -1083,12 +1331,42 @@
         }
       }
     },
+    "Overnight" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vannacht"
+          }
+        }
+      }
+    },
     "Package name" : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Pakketnaam"
+          }
+        }
+      }
+    },
+    "paused since %@" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "gepauzeerd sinds %@"
+          }
+        }
+      }
+    },
+    "Paused since %@" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gepauzeerd sinds %@"
           }
         }
       }
@@ -1223,12 +1501,74 @@
         }
       }
     },
+    "Routine run · %@" : {
+      "comment" : "%@ is when the run was due",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Routine-run · %@"
+          }
+        }
+      }
+    },
+    "Routines you set up on your Mac show up here." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Routines die je op je Mac instelt, verschijnen hier."
+          }
+        }
+      }
+    },
     "Ruimte may not use the microphone" : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ruimte mag de microfoon niet gebruiken"
+          }
+        }
+      }
+    },
+    "Run now" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nu draaien"
+          }
+        }
+      }
+    },
+    "Run this routine now?" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deze routine nu draaien?"
+          }
+        }
+      }
+    },
+    "Runs" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Runs"
+          }
+        }
+      }
+    },
+    "Runs next at %@" : {
+      "comment" : "%@ is a moment, such as 08:30",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Draait weer om %@"
           }
         }
       }
@@ -1243,12 +1583,82 @@
         }
       }
     },
+    "Scheduled" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gepland"
+          }
+        }
+      }
+    },
+    "Scheduled shows routines once %@ runs a newer Ruimte." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gepland toont routines zodra %@ een nieuwere Ruimte draait."
+          }
+        }
+      }
+    },
     "Show the latest" : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Toon de nieuwste"
+          }
+        }
+      }
+    },
+    "Skipped while paused" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overgeslagen tijdens de pauze"
+          }
+        }
+      }
+    },
+    "Skipped while the run before it went on" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overgeslagen omdat de run ervoor nog liep"
+          }
+        }
+      }
+    },
+    "Skipped, it was not approved" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overgeslagen, hij was niet goedgekeurd"
+          }
+        }
+      }
+    },
+    "skips while waiting" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "slaat over zolang hij wacht"
+          }
+        }
+      }
+    },
+    "Starting" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start"
           }
         }
       }
@@ -1763,6 +2173,16 @@
         }
       }
     },
+    "This routine was removed" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deze routine is verwijderd"
+          }
+        }
+      }
+    },
     "This version was removed." : {
       "localizations" : {
         "nl" : {
@@ -1841,6 +2261,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Dempen opheffen"
+          }
+        }
+      }
+    },
+    "Update Ruimte on %@ to see its routines here." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Werk Ruimte bij op %@ om de routines ervan hier te zien."
           }
         }
       }
@@ -1982,6 +2412,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Voice gestopt"
+          }
+        }
+      }
+    },
+    "Waits for approval" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wacht op goedkeuring"
+          }
+        }
+      }
+    },
+    "Waits on a usage limit" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wacht op een verbruikslimiet"
+          }
+        }
+      }
+    },
+    "Waits on a usage limit until %@" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wacht tot %@ op een verbruikslimiet"
           }
         }
       }
@@ -21933,6 +22393,26 @@
         }
       }
     },
+    "Weekdays at %@" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Op werkdagen om %@"
+          }
+        }
+      }
+    },
+    "Weekends at %@" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In het weekend om %@"
+          }
+        }
+      }
+    },
     "What changes and how it was tested" : {
       "localizations" : {
         "nl" : {
@@ -22593,6 +23073,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "je machine"
+          }
+        }
+      }
+    },
+    "Your machine needs an update" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Je machine heeft een update nodig"
           }
         }
       }

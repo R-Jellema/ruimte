@@ -45,10 +45,12 @@ struct ChatScreen: View {
     /// Passed in rather than read from the environment: a pushed navigation destination does not inherit the
     /// environment of the view that declared it, so a chat opened from a project lost its plans and sub-agents.
     let machineSession: SharedMachineSession?
+    /// Under the title, such as the run of a routine this chat is.
+    let subtitle: String?
 
     init(
         client: any MachineRequesting, chatID: String, title: String, isPrepared: Bool = true,
-        workspace: MobileWorkspace? = nil, session: SharedMachineSession? = nil
+        workspace: MobileWorkspace? = nil, session: SharedMachineSession? = nil, subtitle: String? = nil
     ) {
         _model = State(
             initialValue: ChatModel(
@@ -57,6 +59,7 @@ struct ChatScreen: View {
         self.isPrepared = isPrepared
         self.workspace = workspace
         machineSession = session ?? workspace?.session
+        self.subtitle = subtitle
     }
 
     var body: some View {
@@ -103,7 +106,8 @@ struct ChatScreen: View {
         .background(MobileStyle.surface.ignoresSafeArea())
         .tint(MobileStyle.accent)
         .navigationTitle(title)
-        .modifier(ChatForkTitle(subtitle: forkSubtitle) { Section(forkLine ?? "") { forkBackItems } })
+        .modifier(
+            ChatForkTitle(subtitle: forkSubtitle, plain: subtitle) { Section(forkLine ?? "") { forkBackItems } })
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityAction(.escape) { composerFocused = false }
         .toolbar {
@@ -723,6 +727,8 @@ private struct ChatComposerRow<Composer: View, Stop: View>: View {
 /// "Fork of <original>" under a fork's title, and the title opens the ways back to the original.
 private struct ChatForkTitle<Items: View>: ViewModifier {
     let subtitle: String?
+    /// The line under the title of a chat that is no fork.
+    let plain: String?
     @ViewBuilder let items: () -> Items
 
     func body(content: Content) -> some View {
@@ -730,6 +736,8 @@ private struct ChatForkTitle<Items: View>: ViewModifier {
             content
                 .navigationSubtitle(subtitle)
                 .toolbarTitleMenu { items() }
+        } else if let plain {
+            content.navigationSubtitle(plain)
         } else {
             content
         }
