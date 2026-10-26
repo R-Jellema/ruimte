@@ -33,9 +33,8 @@ import { isComposerShortcut } from '@/terminal/keymap';
 /*
  * What the chat takes from Ruimte that only a workspace draws: the find over a thread, dictation, the
  * cards the machine raises beside a chat's own prompts, a card in the thread for what it saved to
- * Output, the ways to a file or another chat of the
- * project, the 3D view of a Model block, and the new chat a send opens beside its own. The workspace
- * hands it to the chat views under it, over `CHAT_HOST`.
+ * Output, the ways to a file or another chat of the project, the 3D view of a Model block, and the new
+ * chat a send opens beside its own. The workspace hands it to the chat views under it, over `CHAT_HOST`.
  */
 const intelligentUi = CHAT_HOST.intelligentUi;
 // `CHAT_HOST` always sets both; it is typed as a part of a host since the library fills in the rest.

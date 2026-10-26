@@ -84,7 +84,6 @@ export function DatabaseBody({
     );
 }
 
-/* One database tab of a tab host. */
 export function DatabaseTabBody({ tab }: { tab: DatabaseTab }) {
     const { t } = useTranslation('databases');
     const onTableKind = (kind: TableKind) => useFiles.getState().setTableKind(tab.key, kind);

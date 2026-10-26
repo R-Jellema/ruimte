@@ -37,7 +37,6 @@ interface ConflictState {
 interface ConflictSource {
     /* The draft as it stands: the version the text started from, and the one that moved under it; null once there is no draft or nothing incoming. */
     versions(): { disk: string; incoming: DiskText } | null;
-    /* Calls back whenever the draft changes. */
     onDraft(listener: () => void): () => void;
     /* Every block is answered: the text is what stays, and saves as usual. */
     resolve(merged: string): Promise<boolean>;

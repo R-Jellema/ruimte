@@ -11,7 +11,6 @@ import { REACT_COMPILER_OPTIONS } from './react-compiler.ts';
 export interface Compiled {
     /* Null when Babel had nothing to say about the module. */
     code: string | null;
-    /* A Babel source map. */
     map: object | null;
 }
 
