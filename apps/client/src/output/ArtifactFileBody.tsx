@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CircleAlert } from 'lucide-react';
 import { VisualPageFrame } from '@adecore/agents-react/chat/ui';
@@ -62,18 +62,22 @@ export function ArtifactFileBody(props: ArtifactFileProps) {
 /*
  * An agent's page, in the same sandboxed frame a chat draws a visual in and never on the app's own
  * origin, whatever kind the artifact says it is: the preview the files panel gives a project's HTML
- * runs no script, and a page an agent made for a person is meant to.
+ * runs no script, and a page an agent made for a person is meant to. `auto` grows the frame with its page
+ * the way a visual in a chat does; without it the page fills its box.
  */
-/* `auto` grows the frame with its page the way a visual in a chat does; without it the page fills its box. */
-export function ArtifactPage({ endpointId, reference, file, title, auto = false }: ArtifactFileProps & { auto?: boolean }) {
-    const page = (): Promise<string> => readArtifactFile(endpointId, reference, file).then((blob) => blob.text());
-    const key = `${reference.versionId}:${reference.file}`;
+export function ArtifactPage(props: ArtifactFileProps & { auto?: boolean }) {
+    return <PageOfFile key={`${props.endpointId}:${props.reference.versionId}:${props.reference.file}`} {...props} />;
+}
+
+function PageOfFile({ endpointId, reference, file, title, auto = false }: ArtifactFileProps & { auto?: boolean }) {
+    // One read per file: the frame opens its bridge again for every new `page`, so a fresh one each render never finishes loading.
+    const [page] = useState(() => (): Promise<string> => readArtifactFile(endpointId, reference, file).then((blob) => blob.text()));
     if (auto) {
-        return <VisualPageFrame key={key} page={page} title={title} />;
+        return <VisualPageFrame page={page} title={title} />;
     }
     return (
         <div className="relative min-h-0 grow">
-            <VisualPageFrame key={key} page={page} title={title} fill />
+            <VisualPageFrame page={page} title={title} fill />
         </div>
     );
 }
