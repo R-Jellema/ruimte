@@ -268,11 +268,12 @@ describe('beside a routine node', () => {
             new PointerEvent(type, { bubbles: true, button: 0, pointerId: 1, clientX: x, clientY: y });
         await act(async () => {
             grip.dispatchEvent(at('pointerdown', 100, 100));
-            grip.dispatchEvent(at('pointermove', 160, 140));
-            grip.dispatchEvent(at('pointerup', 160, 140));
+            grip.dispatchEvent(at('pointermove', 161, 140));
+            grip.dispatchEvent(at('pointerup', 161, 140));
         });
-        expect(card('Output')!.style.width).toBe('500px');
-        expect(JSON.parse(localStorage.getItem('ruimte.routineOutput.main.node-1') ?? 'null')).toEqual({ w: 500, h: 520 });
+        // 501 wide by the pointer, 504 on the grid.
+        expect(card('Output')!.style.width).toBe('504px');
+        expect(JSON.parse(localStorage.getItem('ruimte.routineOutput.main.node-1') ?? 'null')).toEqual({ w: 504, h: 520 });
         expect(Object.keys(liveCanvas('main')!.nodes)).toEqual(['node-1']);
     });
 

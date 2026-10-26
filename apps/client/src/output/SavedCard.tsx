@@ -1,8 +1,9 @@
-import { Fragment } from 'react';
+import { Fragment, useContext } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ArtifactSummary, ArtifactVersion } from '@ruimte/contracts';
 import { KindTile } from '@/output/look';
 import { useOpenArtifact } from '@/output/artifact-opener';
+import { OutputShownBesideContext } from '@/output/chat-scope';
 import { savedPreviewOf } from '@/output/saved-preview';
 import { SavedPreview } from '@/output/SavedPreview';
 
@@ -17,12 +18,15 @@ export interface Saved {
  * An artifact's last version in the block shows what it holds under its row when one of its files draws inline.
  */
 export function SavedCard({ endpointId, saved }: { endpointId: string; saved: readonly Saved[] }) {
+    const shownBeside = useContext(OutputShownBesideContext);
     return (
         <div className="flex flex-col">
             {saved.map((entry, index) => {
-                const preview = saved.slice(index + 1).some((later) => later.artifact.artifactId === entry.artifact.artifactId)
-                    ? null
-                    : savedPreviewOf(entry.version);
+                const preview =
+                    entry.artifact.artifactId === shownBeside ||
+                    saved.slice(index + 1).some((later) => later.artifact.artifactId === entry.artifact.artifactId)
+                        ? null
+                        : savedPreviewOf(entry.version);
                 return (
                     <Fragment key={entry.version.versionId}>
                         <SavedRow {...entry} />

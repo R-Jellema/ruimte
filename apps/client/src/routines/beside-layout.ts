@@ -1,5 +1,5 @@
 import type { RoutineRun } from '@ruimte/contracts';
-import type { Rect } from '@/canvas/math';
+import { snapToGrid, type Rect } from '@/canvas/math';
 
 /* The run cards beside a routine node, the open one included; the rest wait behind the line under them. */
 export const BESIDE_RUNS = 4;
@@ -76,7 +76,7 @@ export function besideLayout(
         fallback: openRun !== undefined && openRun.versionId === undefined ? { run: latest } : null,
         from: from?.key ?? null,
         // Top aligned with the node whichever run is open, so the version stays put while a person moves through the runs.
-        rect: { x: x + COLUMN_W + GUTTER, y: node.y, w: outputSize?.w ?? COLUMN_W, h: outputSize?.h ?? OPEN_H }
+        rect: { x: x + COLUMN_W + GUTTER, y: node.y, w: snapToGrid(outputSize?.w ?? COLUMN_W), h: snapToGrid(outputSize?.h ?? OPEN_H) }
     });
     return cards;
 }

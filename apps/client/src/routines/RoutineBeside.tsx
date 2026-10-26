@@ -19,6 +19,7 @@ import { showRoutine } from '@/routines/stage';
 import { runWords } from '@/routines/words';
 import { OUTPUT_MIN, storedOutputSize, type CardSize } from '@/routines/output-size';
 import { useCanvas, useCanvasStore } from '@/state/canvas';
+import { snapToGrid } from '@/canvas/math';
 import { useEndpointId } from '@/state/keys';
 import { useProject } from '@/state/project';
 import { useMachineAnswers } from '@/transport/features';
@@ -179,7 +180,7 @@ function OpenRun({
     title: string;
     run: RoutineRun;
     timeZone: string;
-    // The routine's Output, which its own card beside the run already shows, so the thread leaves it out.
+    // The routine's Output, which its own card beside the run already shows, so the thread keeps only its rows.
     artifactId: string | undefined;
     onShow: () => void;
     onCollapse: () => void;
@@ -280,9 +281,10 @@ function ResizeGrip({ size, onResize, onDone }: { size: CardSize; onResize: (siz
                 if (held === null) {
                     return;
                 }
+                // On the canvas grid, as a node's size is.
                 held.size = {
-                    w: Math.round(Math.max(OUTPUT_MIN.w, held.start.w + (e.clientX - held.x) / held.zoom)),
-                    h: Math.round(Math.max(OUTPUT_MIN.h, held.start.h + (e.clientY - held.y) / held.zoom))
+                    w: snapToGrid(Math.max(OUTPUT_MIN.w, held.start.w + (e.clientX - held.x) / held.zoom)),
+                    h: snapToGrid(Math.max(OUTPUT_MIN.h, held.start.h + (e.clientY - held.y) / held.zoom))
                 };
                 onResize(held.size);
             }}

@@ -1,6 +1,5 @@
-import { useContext, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ThreadCard } from '@adecore/agents-react';
-import { OutputShownBesideContext } from '@/output/chat-scope';
 import { useChatRow } from '@adecore/agents-react/state';
 import type { ArtifactSummary } from '@ruimte/contracts';
 import { useArtifactList, useArtifacts } from '@/output/artifacts';
@@ -24,10 +23,9 @@ export function useOutputThreadCards(scopeId: string, chatId: string): readonly 
     const artifacts = list?.status === 'ready' ? list.artifacts : NO_ARTIFACTS;
     const read = useReadVersions(scopeId, artifacts);
     const structure = useChatRow(chatId, (row) => row?.structure);
-    const shownBeside = useContext(OutputShownBesideContext);
     const saved = artifacts
         .flatMap((summary) => read[summary.artifactId] ?? [{ artifact: summary, version: summary.latest, latest: true }])
-        .filter((entry) => entry.version.provenance.chatId === chatId && entry.artifact.artifactId !== shownBeside);
+        .filter((entry) => entry.version.provenance.chatId === chatId);
     const groups = groupsBetweenItems(saved, structure === undefined ? [] : Object.values(structure).map((item) => item.createdAt));
     const shape = `${scopeId}\n\n${groups
         .map((group) => group.map((entry) => `${entry.version.versionId}:${entry.latest}:${entry.artifact.title}:${entry.artifact.kind}`).join('\n'))
