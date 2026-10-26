@@ -278,7 +278,10 @@ function OpenRun({
             </header>
             {run.chatId !== undefined ? (
                 <OutputShownBesideContext value={artifactId ?? null}>
-                    <RoutineRunChat chatId={run.chatId} revision={`${run.state}:${run.endedAt ?? ''}`} composer={false} />
+                    {/* The thread keeps 16px at its sides and top; without a composer under it the bottom gets the same. */}
+                    <div className="flex min-h-0 grow flex-col [&_.chat-thread]:pb-4">
+                        <RoutineRunChat chatId={run.chatId} revision={`${run.state}:${run.endedAt ?? ''}`} composer={false} />
+                    </div>
                 </OutputShownBesideContext>
             ) : (
                 <div data-run-words className="grid grow place-items-center p-4">
