@@ -34,7 +34,7 @@ function signingKeyOf(secret: string): Promise<CryptoKey> {
 }
 
 // Apple has no static client secret: every token request carries a JWT signed with the key from the portal.
-export async function appleClientSecret(env: Env, now = Date.now(), clientId = env.APPLE_CLIENT_ID): Promise<string> {
+async function appleClientSecret(env: Env, now = Date.now(), clientId = env.APPLE_CLIENT_ID): Promise<string> {
     const issuedAt = Math.floor(now / 1000);
     return signEs256Jwt(
         await signingKeyOf(env.APPLE_PRIVATE_KEY ?? ''),
@@ -70,7 +70,7 @@ async function appleKey(kid: string): Promise<JsonWebKey | undefined> {
  * login sent. The token came straight from Apple over TLS, but checking it anyway costs one cached fetch.
  * A null nonce is for a code the app authorized without one, which no login of this address book started.
  */
-export async function verifyAppleIdToken(idToken: string, input: { audiences: readonly string[]; nonce: string | null; now?: number }): Promise<string> {
+async function verifyAppleIdToken(idToken: string, input: { audiences: readonly string[]; nonce: string | null; now?: number }): Promise<string> {
     const jwt = decodeJwt(idToken);
     if (!jwt || jwt.header.alg !== 'RS256' || typeof jwt.header.kid !== 'string') {
         throw new Error('Apple answered with an id_token this address book cannot read');

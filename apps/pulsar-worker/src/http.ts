@@ -34,6 +34,11 @@ export function failure(code: AddressBookErrorCode, message: string, headers: He
     return json({ error: { code, message } }, STATUS_OF[code], headers);
 }
 
+/* A session token that is missing, expired or revoked. */
+export function signInAgain(): Response {
+    return failure('unauthorized', 'Sign in again');
+}
+
 export function noContent(): Response {
     return new Response(null, { status: 204, headers: { 'cache-control': 'no-store' } });
 }

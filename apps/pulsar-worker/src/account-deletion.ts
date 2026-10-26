@@ -1,7 +1,7 @@
 import { AccountDeletePayloadSchema, accountConfirmationName, confirmsAccountDeletion } from '@ruimte/pulsar';
 import { nativeAppleConfigured, revokeNativeApple } from './apple.ts';
 import type { Env } from './env.ts';
-import { clientIp, failure, noContent, readBody } from './http.ts';
+import { clientIp, failure, noContent, readBody, signInAgain } from './http.ts';
 import { LIMITS, overAnyLimit } from './rate-limit.ts';
 import { authenticate } from './sessions.ts';
 
@@ -63,7 +63,7 @@ async function revokeApple(env: Env, accountId: string, authorizationCode: strin
 export async function deleteAccount(request: Request, env: Env): Promise<Response> {
     const session = await authenticate(request, env.DB);
     if (!session) {
-        return failure('unauthorized', 'Sign in again');
+        return signInAgain();
     }
     const limited = await overAnyLimit(env.DB, [
         [`account:${session.account.id}:delete`, LIMITS.deleteAccount],

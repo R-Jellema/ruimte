@@ -25,7 +25,7 @@ import {
 } from '@ruimte/pulsar';
 import { verifySignature } from '@ruimte/pulsar/verify-web';
 import type { Env } from './env.ts';
-import { clientIp, failure, json, noContent, readBody } from './http.ts';
+import { clientIp, failure, json, noContent, readBody, signInAgain } from './http.ts';
 import { storeMachine } from './machines.ts';
 import { LIMITS, overAnyLimit } from './rate-limit.ts';
 import { accountDisplayNameSql, accountLoginSql, accountProviderSql, authenticate, type SessionContext } from './sessions.ts';
@@ -136,7 +136,7 @@ export async function startDeviceLink(request: Request, env: Env): Promise<Respo
 async function personAndCode(request: Request, env: Env): Promise<{ session: SessionContext; userCode: string } | { response: Response }> {
     const session = await authenticate(request, env.DB);
     if (!session) {
-        return { response: failure('unauthorized', 'Sign in again') };
+        return { response: signInAgain() };
     }
     // Counted before the code is read, so every guess costs, a malformed one included.
     const limited = await overAnyLimit(env.DB, [

@@ -1,6 +1,6 @@
 import { MAPS_TICKET_LIFETIME_MS, mapsSecretBytes, mapsTicketSubject, signMapsTicket } from '@ruimte/pulsar';
 import type { Env } from './env.ts';
-import { clientIp, failure, json } from './http.ts';
+import { clientIp, failure, json, signInAgain } from './http.ts';
 import { LIMITS, overAnyLimit } from './rate-limit.ts';
 import { authenticate } from './sessions.ts';
 
@@ -23,7 +23,7 @@ export async function issueMapsTicket(request: Request, env: Env): Promise<Respo
     }
     const session = await authenticate(request, env.DB);
     if (!session) {
-        return failure('unauthorized', 'Sign in again');
+        return signInAgain();
     }
     const accountId = session.account.id;
     const perAccount = await overAnyLimit(env.DB, [[`account:${accountId}:maps`, LIMITS.mapsTicketAccount]]);

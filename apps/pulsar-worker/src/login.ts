@@ -11,7 +11,7 @@ import {
 import { verifySignature } from '@ruimte/pulsar/verify-web';
 import type { Env } from './env.ts';
 import { countLogin } from './metrics.ts';
-import { clientIp, failure, json, noContent, readBody } from './http.ts';
+import { clientIp, failure, json, noContent, readBody, signInAgain } from './http.ts';
 import { resolveAccount, spendLinkToken, storeLinkCode } from './identities.ts';
 import type { OAuthProvider } from './providers.ts';
 import { LIMITS, overAnyLimit } from './rate-limit.ts';
@@ -281,11 +281,11 @@ export async function refreshSession(request: Request, env: Env): Promise<Respon
     if (result === 'clock-skew') {
         return failure('clock-skew', clockSkewMessage(Date.now() - body.value.issuedAt));
     }
-    return result ? json(result) : failure('unauthorized', 'Sign in again');
+    return result ? json(result) : signInAgain();
 }
 
 /* What a person reads when the clock of their device is off: by how much, and which way. */
-export function clockSkewMessage(offMs: number): string {
+function clockSkewMessage(offMs: number): string {
     const minutes = Math.round(Math.abs(offMs) / 60_000);
     return `The clock of this device is ${minutes} minutes ${offMs > 0 ? 'behind' : 'ahead'}. Set it right and try again.`;
 }
@@ -294,7 +294,7 @@ export function clockSkewMessage(offMs: number): string {
 export async function endSession(request: Request, env: Env): Promise<Response> {
     const session = await authenticate(request, env.DB);
     if (!session) {
-        return failure('unauthorized', 'Sign in again');
+        return signInAgain();
     }
     await revokeSession(env.DB, session.id);
     return noContent();

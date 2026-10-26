@@ -12,7 +12,7 @@ const MAX_USAGE_BODY_BYTES = 32 * 1024;
 export const USAGE_BATCHES_PER_IP_PER_DAY = 20;
 
 const DAY_MS = 86_400_000;
-export const USAGE_BUCKET_PREFIX = 'usage:';
+const USAGE_BUCKET_PREFIX = 'usage:';
 
 export interface UsageDeps {
     db: D1Database;

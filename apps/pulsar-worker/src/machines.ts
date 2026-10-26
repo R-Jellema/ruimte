@@ -9,7 +9,7 @@ import {
 } from '@ruimte/pulsar';
 import { verifySignature } from '@ruimte/pulsar/verify-web';
 import type { Env } from './env.ts';
-import { clientIp, failure, json, noContent, readBody } from './http.ts';
+import { clientIp, failure, json, noContent, readBody, signInAgain } from './http.ts';
 import { LIMITS, overAnyLimit } from './rate-limit.ts';
 import { authenticate } from './sessions.ts';
 
@@ -38,10 +38,6 @@ function machineOf(row: MachineRow): Machine {
         brokerUrl: row.broker_url,
         lastSeenAt: row.last_seen_at
     };
-}
-
-function signInAgain(): Response {
-    return failure('unauthorized', 'Sign in again');
 }
 
 // `GET /v1/machines`

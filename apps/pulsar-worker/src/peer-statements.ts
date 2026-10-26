@@ -9,7 +9,7 @@ import {
 import { verifySignature } from '@ruimte/pulsar/verify-web';
 import { signEd25519, statementKeyOf } from './crypto.ts';
 import type { Env } from './env.ts';
-import { clientIp, failure, json, readBody } from './http.ts';
+import { clientIp, failure, json, readBody, signInAgain } from './http.ts';
 import { LIMITS, overAnyLimit } from './rate-limit.ts';
 import { authenticate } from './sessions.ts';
 
@@ -17,7 +17,7 @@ import { authenticate } from './sessions.ts';
 export async function issuePeerStatement(request: Request, env: Env): Promise<Response> {
     const session = await authenticate(request, env.DB);
     if (!session) {
-        return failure('unauthorized', 'Sign in again');
+        return signInAgain();
     }
     const ip = clientIp(request);
     const limited = await overAnyLimit(env.DB, [

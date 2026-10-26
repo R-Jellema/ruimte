@@ -15,14 +15,14 @@ import {
 import { apnsConfigured, invalidApnsToken, deliverApns, type ApnsResult } from './apns.ts';
 import { verifySignature } from '@ruimte/pulsar/verify-web';
 import type { Env } from './env.ts';
-import { clientIp, failure, json, noContent, readBody } from './http.ts';
+import { clientIp, failure, json, noContent, readBody, signInAgain } from './http.ts';
 import { overLimit } from './rate-limit.ts';
 import { authenticate } from './sessions.ts';
 
 export async function registerPushDevice(request: Request, env: Env): Promise<Response> {
     const session = await authenticate(request, env.DB);
     if (!session) {
-        return failure('unauthorized', 'Sign in again');
+        return signInAgain();
     }
     const limited = await overLimit(env.DB, `push-register:${session.id}`, 20);
     if (limited) {
@@ -85,7 +85,7 @@ export async function changePushDevice(
     const now = seams.now();
     const session = await authenticate(request, env.DB);
     if (!session) {
-        return failure('unauthorized', 'Sign in again');
+        return signInAgain();
     }
     if (!PushHandleSchema.safeParse(handle).success) {
         return failure('bad-request', 'Invalid push handle');

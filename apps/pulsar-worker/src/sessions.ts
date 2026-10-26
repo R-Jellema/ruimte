@@ -13,7 +13,7 @@ import { verifySignature } from '@ruimte/pulsar/verify-web';
 // Short enough that a leaked access token is worth little; the refresh token is what a device keeps.
 export const ACCESS_LIFETIME_MS = 15 * 60_000;
 // Counted from sign-in, never extended, so a lost device falls out on its own.
-export const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60_000;
+const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60_000;
 
 /*
  * The identity an account is shown as, as SQL over the account id `ref` names: the oldest with a login,
