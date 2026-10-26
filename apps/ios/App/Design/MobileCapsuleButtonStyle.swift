@@ -23,6 +23,7 @@ struct MobileCapsuleButtonStyle: ButtonStyle {
         let destructive = configuration.role == .destructive
         let label = label(destructive: destructive)
         configuration.label
+            .labelStyle(MobileButtonLabelStyle())
             .font(font)
             .lineLimit(1)
             .foregroundStyle(label)
@@ -127,12 +128,24 @@ struct MobileGlassButtonStyle<GlassShape: Shape>: ButtonStyle {
         let glass: Glass =
             prominent ? .regular.tint(destructive ? MobileStyle.statusError : MobileStyle.text) : .regular
         configuration.label
+            .labelStyle(MobileButtonLabelStyle())
             .modifier(MobileGlassPadding(active: padded, height: height))
             .foregroundStyle(label)
             .tint(label)
             .contentShape(shape)
             .glassEffect(glass.interactive(), in: shape)
             .opacity(!enabled ? 0.5 : configuration.isPressed ? 0.8 : 1)
+    }
+}
+
+/// The icon close to its text, where the system's label leaves a gap meant for a list row. An icon-only label stays
+/// as the caller styled it.
+private struct MobileButtonLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 6) {
+            configuration.icon
+            configuration.title
+        }
     }
 }
 
