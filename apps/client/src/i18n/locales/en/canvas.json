@@ -120,6 +120,8 @@
         "addHere": "Add here",
         "file": "File…",
         "routine": "Routine…",
+        "routines": "Routine",
+        "newRoutine": "New routine…",
         "groupSelection": "Group selection",
         "zoomToFit": "Zoom to fit"
     },

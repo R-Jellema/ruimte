@@ -4,7 +4,7 @@ import { zonedTime, type ArtifactGetResult, type ProjectCanvasView, type Project
 import { showRoutine, useRoutinesStage } from '@/routines/stage';
 import { liveCanvas } from '@/state/canvas';
 import { windowWorkspace } from '@/state/window';
-import { clickOn, mount, until, type Mounted } from '../../testing/dom';
+import { clickOn, mount, openSubmenu, until, type Mounted } from '../../testing/dom';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 
@@ -150,6 +150,29 @@ describe('a routine node', () => {
         await until(() => !useRoutinesStage.getState().open && liveCanvas('main') !== null);
         // The page has no layout to measure, so the canvas gets the size a window would give it.
         await act(async () => liveCanvas('main')!.setViewport({ w: 1280, h: 800 }));
+        await until(() => Object.values(liveCanvas('main')!.nodes).some((node) => node.kind === 'routine'));
+        await act(async () => windowWorkspace()!.connection.projects.flush());
+        await until(() => machine.requests('project.save').length > 0);
+        const view = machine
+            .requests('project.save')
+            .at(-1)
+            ?.content.views.find((candidate) => candidate.id === 'main');
+        expect(view?.kind === 'canvas' ? view.nodes[0] : null).toMatchObject({ kind: 'routine', routine: 'morning', title: 'Morning summary' });
+    });
+
+    test("a right-click on the canvas places one of the project's routines there", async () => {
+        await open([]);
+        await until(() => liveCanvas('main') !== null);
+        await act(async () => liveCanvas('main')!.setViewport({ w: 1280, h: 800 }));
+        const surface = page.host.querySelector('[data-canvas-surface]')!;
+        await act(async () => {
+            surface.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 400, clientY: 300, button: 2 }));
+        });
+        await until(() => document.querySelector('[role="menu"]') !== null);
+        await openSubmenu('Routine');
+        const items = (): HTMLElement[] => [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')];
+        expect(items().some((item) => item.textContent?.trim() === 'New routine…')).toBe(true);
+        await clickOn(items().find((item) => item.textContent?.trim() === 'Morning summary') ?? null);
         await until(() => Object.values(liveCanvas('main')!.nodes).some((node) => node.kind === 'routine'));
         await act(async () => windowWorkspace()!.connection.projects.flush());
         await until(() => machine.requests('project.save').length > 0);
