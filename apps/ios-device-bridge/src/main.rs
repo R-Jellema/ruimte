@@ -217,11 +217,6 @@ struct DeviceInputClients {
     orientation: OrientationServiceClient<Box<dyn ReadWrite>>,
 }
 
-struct DeviceServices {
-    display: DisplayServiceClient<Box<dyn ReadWrite>>,
-    input: Option<DeviceInputClients>,
-}
-
 struct ProtocolWriter {
     output: tokio::fs::File,
 }
@@ -247,16 +242,9 @@ impl ProtocolWriter {
         if data.len() > MAX_FRAME_BYTES {
             bail!("encoded frame exceeds the stream limit");
         }
-        let payload_len = 12 + data.len();
-        self.output.write_u8(2).await?;
-        self.output.write_u32(payload_len as u32).await?;
-        self.output.write_u32(data.len() as u32).await?;
-        self.output.write_u32(sequence).await?;
-        self.output.write_u16(1).await?;
-        self.output.write_u16(1).await?;
-        self.output.write_all(data).await?;
-        self.output.flush().await?;
-        Ok(())
+
+        self.write(&frame_header(sequence, data.len() as u32), data)
+            .await
     }
 
     async fn error(&mut self, message: &str) -> Result<()> {
@@ -268,12 +256,29 @@ impl ProtocolWriter {
     }
 
     async fn control(&mut self, kind: u8, payload: &[u8]) -> Result<()> {
-        self.output.write_u8(kind).await?;
-        self.output.write_u32(payload.len() as u32).await?;
+        let mut header = [kind, 0, 0, 0, 0];
+        header[1..].copy_from_slice(&(payload.len() as u32).to_be_bytes());
+        self.write(&header, payload).await
+    }
+
+    // Each write on a tokio file is a trip to the blocking pool, so a header goes out in one.
+    async fn write(&mut self, header: &[u8], payload: &[u8]) -> Result<()> {
+        self.output.write_all(header).await?;
         self.output.write_all(payload).await?;
         self.output.flush().await?;
         Ok(())
     }
+}
+
+/// Kind 2, the payload length, the frame length, the sequence and a 1x1 size, big-endian.
+fn frame_header(sequence: u32, length: u32) -> [u8; 17] {
+    let mut header = [0_u8; 17];
+    header[0] = 2;
+    header[1..5].copy_from_slice(&(12 + length).to_be_bytes());
+    header[5..9].copy_from_slice(&length.to_be_bytes());
+    header[9..13].copy_from_slice(&sequence.to_be_bytes());
+    header[13..17].copy_from_slice(&[0, 1, 0, 1]);
+    header
 }
 
 fn main() {
@@ -463,7 +468,11 @@ async fn stream_physical_ios(
                     Ok(result) => result.context("the display stream closed")?,
                     Err(_) => continue,
                 };
-                publish_rtp(datagram.as_ref(), &mut assembler, &mut sequence, protocol).await?;
+
+                for frame in assembler.push(datagram.as_ref()) {
+                    protocol.frame(sequence, &frame).await?;
+                    sequence = sequence.wrapping_add(1);
+                }
             }
         }
     }
@@ -520,11 +529,8 @@ async fn open_direct_stream(udid: Option<&str>, connect_input: bool) -> Result<S
             .await
             .context("could not bind the video receiver")?,
     );
-    let mut stream = negotiate_screen_media(
-        DeviceServices {
-            display: client,
-            input: None,
-        },
+    let stream = negotiate_screen_media(
+        client,
         audio_udp,
         video_udp,
         adapter.host_ip().to_string(),
@@ -533,15 +539,11 @@ async fn open_direct_stream(udid: Option<&str>, connect_input: bool) -> Result<S
         "usbmuxd-coredevice-proxy",
     )
     .await?;
+
     if connect_input {
-        match connect_input_services(&mut adapter, &mut handshake).await {
-            Ok(input) => stream.input = Some(input),
-            Err(error) => {
-                let _ = stream.client.stop_media_stream().await;
-                return Err(error);
-            }
-        }
+        return stream.with_input(&mut adapter, &mut handshake).await;
     }
+
     Ok(stream)
 }
 
@@ -569,11 +571,8 @@ async fn open_wireless_stream(
             .context("could not bind the wireless video receiver")?,
         session.device_ip,
     );
-    let mut stream = negotiate_screen_media(
-        DeviceServices {
-            display: client,
-            input: None,
-        },
+    let stream = negotiate_screen_media(
+        client,
         audio_udp,
         video_udp,
         session.host_ip.to_string(),
@@ -582,29 +581,32 @@ async fn open_wireless_stream(
         "remotepairingd",
     )
     .await?;
+
     if connect_input {
-        match connect_input_services(&mut provider, &mut handshake).await {
-            Ok(input) => stream.input = Some(input),
-            Err(error) => {
-                let _ = stream.client.stop_media_stream().await;
-                return Err(error);
-            }
-        }
+        return stream.with_input(&mut provider, &mut handshake).await;
     }
+
     Ok(stream)
 }
 
-async fn publish_rtp(
-    data: &[u8],
-    assembler: &mut AccessUnitAssembler,
-    sequence: &mut u32,
-    protocol: &mut ProtocolWriter,
-) -> Result<()> {
-    for frame in assembler.push(data) {
-        protocol.frame(*sequence, &frame).await?;
-        *sequence = sequence.wrapping_add(1);
+impl ScreenMediaStream {
+    /// Stops the screen session again when the input services cannot be reached.
+    async fn with_input(
+        mut self,
+        provider: &mut impl idevice::provider::RsdProvider,
+        handshake: &mut RsdHandshake,
+    ) -> Result<Self> {
+        match connect_input_services(provider, handshake).await {
+            Ok(input) => {
+                self.input = Some(input);
+                Ok(self)
+            }
+            Err(error) => {
+                let _ = self.client.stop_media_stream().await;
+                Err(error)
+            }
+        }
     }
-    Ok(())
 }
 
 /// Cuts the depacketized Annex-B stream into access units no larger than `MAX_FRAME_BYTES`.
@@ -840,7 +842,7 @@ async fn system_gesture(
 }
 
 async fn negotiate_screen_media(
-    mut services: DeviceServices,
+    mut display: DisplayServiceClient<Box<dyn ReadWrite>>,
     audio_udp: MediaUdp,
     video_udp: MediaUdp,
     receiver_ip: String,
@@ -870,8 +872,7 @@ async fn negotiate_screen_media(
         CLIENT_SUPPORTED_FEATURES,
         client_session_id,
     );
-    services
-        .display
+    display
         .start_media_stream(audio_parameters)
         .await
         .context("the device refused the screen session")?;
@@ -890,14 +891,13 @@ async fn negotiate_screen_media(
         1,
         client_session_id,
     );
-    services
-        .display
+    display
         .start_media_stream(video_parameters)
         .await
         .context("the device refused the video stream")?;
     Ok(ScreenMediaStream {
-        client: services.display,
-        input: services.input,
+        client: display,
+        input: None,
         _audio_udp: audio_udp,
         video_udp,
         _native_tunnel: native_tunnel,
@@ -909,10 +909,12 @@ async fn negotiate_screen_media(
 mod tests {
     use super::{
         ACCESS_UNIT_DELIMITER, AccessUnitAssembler, Arguments, Command, DeviceButton, DeviceInput,
-        MAX_FRAME_BYTES, MediaUdp, PointerPhase, battery_json, normalized_touch_coordinate,
-        touch_state,
+        MAX_FRAME_BYTES, MediaUdp, PointerPhase, battery_json, frame_header,
+        normalized_touch_coordinate, touch_state,
     };
     use clap::Parser;
+    use std::net::{IpAddr, Ipv6Addr};
+    use tokio::net::UdpSocket;
 
     fn battery(entries: &[(&str, plist::Value)]) -> plist::Value {
         plist::Value::Dictionary(
@@ -947,6 +949,14 @@ mod tests {
     }
 
     #[test]
+    fn a_frame_header_keeps_the_daemon_layout() {
+        assert_eq!(
+            frame_header(0x0102_0304, 5),
+            [2, 0, 0, 0, 17, 0, 0, 0, 5, 1, 2, 3, 4, 0, 1, 0, 1]
+        );
+    }
+
+    #[test]
     fn battery_command_takes_a_udid_and_a_timeout() {
         assert!(matches!(
             Arguments::try_parse_from(["bridge", "battery", "--udid", "0000", "--timeout", "5"])
@@ -955,8 +965,6 @@ mod tests {
             Command::Battery { timeout: 5, .. }
         ));
     }
-    use std::net::{IpAddr, Ipv6Addr};
-    use tokio::net::UdpSocket;
 
     const TRAILING_SLICE_HEADER: [u8; 2] = [0x02, 0x01];
 

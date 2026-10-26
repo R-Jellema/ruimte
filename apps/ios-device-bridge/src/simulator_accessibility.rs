@@ -630,7 +630,7 @@ impl Reader {
         }
         let children: Option<Retained<AnyObject>> =
             unsafe { msg_send![element, accessibilityChildren] };
-        let Some(children) = children.filter(|children| self.is_kind(children, self.classes.array))
+        let Some(children) = children.filter(|children| is_kind(children, self.classes.array))
         else {
             return node;
         };
@@ -665,35 +665,44 @@ impl Reader {
         }
     }
 
-    fn is_kind(&self, object: &AnyObject, class: &AnyClass) -> bool {
-        let kind: Bool = unsafe { msg_send![object, isKindOfClass: class] };
-        kind.as_bool()
-    }
-
     fn text(&self, object: Option<Retained<AnyObject>>) -> Option<String> {
         let object = object?;
-        let object = &*object;
+
+        if is_kind(&object, self.classes.string) {
+            return utf8(&object);
+        }
+
         let string: Option<Retained<AnyObject>> =
-            if self.is_kind(object, self.classes.attributed_string) {
-                unsafe { msg_send![object, string] }
-            } else if self.is_kind(object, self.classes.number) {
-                unsafe { msg_send![object, stringValue] }
-            } else if self.is_kind(object, self.classes.string) {
-                unsafe { Retained::retain(object as *const AnyObject as *mut AnyObject) }
+            if is_kind(&object, self.classes.attributed_string) {
+                unsafe { msg_send![&*object, string] }
+            } else if is_kind(&object, self.classes.number) {
+                unsafe { msg_send![&*object, stringValue] }
             } else {
                 None
             };
-        let string = string?;
-        let utf8: *const c_char = unsafe { msg_send![&*string, UTF8String] };
-        if utf8.is_null() {
-            return None;
-        }
-        Some(
-            unsafe { CStr::from_ptr(utf8) }
-                .to_string_lossy()
-                .into_owned(),
-        )
+
+        utf8(&*string?)
     }
+}
+
+fn is_kind(object: &AnyObject, class: &AnyClass) -> bool {
+    let kind: Bool = unsafe { msg_send![object, isKindOfClass: class] };
+    kind.as_bool()
+}
+
+/// The text of an `NSString`.
+fn utf8(string: &AnyObject) -> Option<String> {
+    let utf8: *const c_char = unsafe { msg_send![string, UTF8String] };
+
+    if utf8.is_null() {
+        return None;
+    }
+
+    Some(
+        unsafe { CStr::from_ptr(utf8) }
+            .to_string_lossy()
+            .into_owned(),
+    )
 }
 
 fn find_device(
@@ -717,8 +726,8 @@ fn find_device(
     let devices: Option<Retained<AnyObject>> = unsafe { msg_send![&*set, devices] };
     let devices =
         devices.ok_or_else(|| TreeError::unavailable("CoreSimulator lists no devices"))?;
-    let is_array: Bool = unsafe { msg_send![&*devices, isKindOfClass: classes.array] };
-    if !is_array.as_bool() {
+
+    if !is_kind(&devices, classes.array) {
         return Err(TreeError::unavailable(
             "CoreSimulator lists its devices in an unknown shape",
         ));
@@ -738,12 +747,8 @@ fn find_device(
         let Some(string) = string else {
             continue;
         };
-        let utf8: *const c_char = unsafe { msg_send![&*string, UTF8String] };
-        if !utf8.is_null()
-            && unsafe { CStr::from_ptr(utf8) }
-                .to_string_lossy()
-                .eq_ignore_ascii_case(udid)
-        {
+
+        if utf8(&string).is_some_and(|string| string.eq_ignore_ascii_case(udid)) {
             return Ok(device);
         }
     }

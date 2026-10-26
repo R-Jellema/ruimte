@@ -147,7 +147,7 @@ pub struct NativeRsdSession {
 
 pub async fn connect_rsd(udid: Option<&str>) -> Result<NativeRsdSession> {
     let tunnel = NativeRemotedTunnel::open(udid)?;
-    let device_ip = tunnel.tunnel_ip();
+    let device_ip = tunnel.tunnel_ip;
     let handshake_uuid = host_remoted_uuid().await?;
     let mut last_error: Option<anyhow::Error> = None;
 
@@ -188,15 +188,8 @@ pub async fn connect_rsd(udid: Option<&str>) -> Result<NativeRsdSession> {
 }
 
 impl NativeRemotedTunnel {
-    pub fn open(udid: Option<&str>) -> Result<Self> {
-        Self::open_with_queue(OwnedQueue::new()?, udid)
-    }
-
-    pub fn tunnel_ip(&self) -> IpAddr {
-        self.tunnel_ip
-    }
-
-    fn open_with_queue(queue: OwnedQueue, udid: Option<&str>) -> Result<Self> {
+    fn open(udid: Option<&str>) -> Result<Self> {
+        let queue = OwnedQueue::new()?;
         let browse_connection = unsafe {
             OwnedXpc::from_owned(xpc_connection_create_mach_service(
                 REMOTE_PAIRING_SERVICE.as_ptr(),
@@ -239,14 +232,12 @@ impl Drop for NativeRemotedTunnel {
                     self.assertion_identifier.as_ptr(),
                 );
             }
-            if let Ok(message) = request_message("RemotePairing.ReleaseAssertionRequest", &body) {
-                let _ = send_message_with_reply(
-                    self.device_connection.as_ptr(),
-                    self._queue.as_ptr(),
-                    &message,
-                    "RemotePairing.ReleaseAssertionRequest",
-                );
-            }
+            let _ = send_request(
+                self.device_connection.as_ptr(),
+                self._queue.as_ptr(),
+                "RemotePairing.ReleaseAssertionRequest",
+                &body,
+            );
         }
         unsafe {
             xpc_connection_cancel(self.device_connection.as_ptr());
@@ -362,15 +353,6 @@ fn send_request(
     body: &OwnedXpc,
 ) -> Result<OwnedXpc> {
     let message = request_message(request_type, body)?;
-    send_message_with_reply(connection, queue, &message, request_type)
-}
-
-fn send_message_with_reply(
-    connection: XpcObject,
-    queue: DispatchQueue,
-    message: &OwnedXpc,
-    request_type: &str,
-) -> Result<OwnedXpc> {
     let (sender, receiver) = mpsc::sync_channel(1);
     let reply_handler = RcBlock::new(move |reply: XpcObject| {
         // Anything but a dictionary is an XPC error, such as the connection going away.
