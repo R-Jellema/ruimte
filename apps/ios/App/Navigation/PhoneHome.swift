@@ -34,6 +34,7 @@ struct PhoneHome: View {
                         openRoutine: { router.show($0) },
                         addMachine: addMachine
                     )
+                    .background(StackBarTracking())
                 } label: {
                     Label(String(localized: "Now"), lucideIcon: "inbox")
                 }
@@ -46,6 +47,7 @@ struct PhoneHome: View {
                     ) {
                         EmptyView()
                     }
+                    .background(StackBarTracking())
                 } label: {
                     Label(String(localized: "Projects"), lucideIcon: "folders")
                 }
@@ -53,13 +55,16 @@ struct PhoneHome: View {
                 Tab(value: PhoneTab.scheduled) {
                     ScheduledPage(
                         runtime: runtime, now: now, model: scheduled, open: { router.show($0) },
-                        addMachine: addMachine)
+                        addMachine: addMachine
+                    )
+                    .background(StackBarTracking())
                 } label: {
                     Label(String(localized: "Routines"), lucideIcon: "clock")
                 }
 
                 Tab(value: PhoneTab.machines) {
                     MachinesPage(runtime: runtime, addMachine: addMachine, open: router.showMachine)
+                        .background(StackBarTracking())
                 } label: {
                     Label(String(localized: "Machines"), lucideIcon: "server")
                 }
@@ -158,6 +163,31 @@ struct PhoneHome: View {
         let row = (projects.open + projects.chats).first { $0.id == id }
         return MobileWorkspace(
             session: runtime.session(for: machine), projectID: target.projectID, summary: row?.summary ?? .object([:]))
+    }
+}
+
+/// Hands the stack's bar the list of the tab that appears. The tab bar controller between them reports no content
+/// scroll view, so the bar kept following the first tab's list and a later tab scrolled under a title that never folds.
+private struct StackBarTracking: UIViewControllerRepresentable {
+    func makeUIViewController(context: Context) -> Controller { Controller() }
+
+    func updateUIViewController(_ controller: Controller, context: Context) {}
+
+    final class Controller: UIViewController {
+        override func viewDidAppear(_ animated: Bool) {
+            super.viewDidAppear(animated)
+            var tab: UIViewController? = self
+            while let current = tab, !(current.parent is UITabBarController) {
+                tab = current.parent
+            }
+            guard let tab, var stackRoot = tab.parent, let navigation = stackRoot.navigationController else {
+                return
+            }
+            while let parent = stackRoot.parent, parent !== navigation {
+                stackRoot = parent
+            }
+            stackRoot.setContentScrollView(tab.contentScrollView(for: .top), for: .top)
+        }
     }
 }
 

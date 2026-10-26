@@ -88,6 +88,7 @@
 		346C76C7C0A6590725E3537E /* DeviceTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A2ED80E79C98BD6F9D140B4 /* DeviceTools.swift */; };
 		3475B2B46C734E84F6DA50FA /* TerminalKeyBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37EC21940BBBF9F8B0E17C7F /* TerminalKeyBar.swift */; };
 		35030B959D3435803D9C75C9 /* pele-license.txt in Resources */ = {isa = PBXBuildFile; fileRef = CADFCF4744534EDD2DCDCADD /* pele-license.txt */; };
+		354097A7C8FA7F1646161E46 /* PhoneHomeScrollTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8E7595D929A5B4FA8DFD12C /* PhoneHomeScrollTests.swift */; };
 		3639F175F66DF03DB6DBC5B0 /* tone.opus in Resources */ = {isa = PBXBuildFile; fileRef = 4105DA5DA1335746AF2CD167 /* tone.opus */; };
 		36A4A516661FA6C70FDC4CB1 /* MobileRequestCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = E688FC7AE96912982A94F8D6 /* MobileRequestCard.swift */; };
 		36D1666B1B05F4CDA6B39051 /* GitActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFDC26F03A26E31BA4D2AE6C /* GitActions.swift */; };
@@ -814,6 +815,7 @@
 		C6D89A46407EFAE5ECD7CE9B /* NowScheduledSnapshots.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowScheduledSnapshots.swift; sourceTree = "<group>"; };
 		C74A1CFB609179C74C4E0F1D /* UiReplyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UiReplyView.swift; sourceTree = "<group>"; };
 		C79EE3745DD51F5657919C72 /* MachineIdentitySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachineIdentitySheet.swift; sourceTree = "<group>"; };
+		C8E7595D929A5B4FA8DFD12C /* PhoneHomeScrollTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneHomeScrollTests.swift; sourceTree = "<group>"; };
 		C93464A87752188B15F2F555 /* UsageTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageTheme.swift; sourceTree = "<group>"; };
 		CA401CA82CE41046F457D507 /* MachineProjectsPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachineProjectsPage.swift; sourceTree = "<group>"; };
 		CABCC0E6AD0F3418B2AF9208 /* CommandPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPalette.swift; sourceTree = "<group>"; };
@@ -1351,6 +1353,7 @@
 				F2AA9E132B6808A8B68B1EFF /* OutputTests.swift */,
 				C1836988D371F441523F1DAB /* PadRouterTests.swift */,
 				28AB5F59239AB27AD0434DE3 /* PhaseZeroTests.swift */,
+				C8E7595D929A5B4FA8DFD12C /* PhoneHomeScrollTests.swift */,
 				5DAC3BBE10240D8F0B9E349A /* PhoneRouterTests.swift */,
 				710B2DB25A631005B674A223 /* PlanOutlineTests.swift */,
 				5C7EB90664392C5D8194C594 /* ProcessesTests.swift */,
@@ -1996,6 +1999,7 @@
 				16FF8F9A39B024B898EEB686 /* OutputTests.swift in Sources */,
 				62F374513A3A88F4B1584832 /* PadRouterTests.swift in Sources */,
 				CBEDB2E1BC1FB79D8CF7BC7D /* PhaseZeroTests.swift in Sources */,
+				354097A7C8FA7F1646161E46 /* PhoneHomeScrollTests.swift in Sources */,
 				F38A8826258A06EF947C6676 /* PhoneRouterTests.swift in Sources */,
 				C0EAB79CF03B546D88E005CC /* PlanOutlineTests.swift in Sources */,
 				B834A0A08E4903FFB42E0C4A /* ProcessesTests.swift in Sources */,
