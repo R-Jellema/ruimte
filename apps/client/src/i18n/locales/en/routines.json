@@ -174,9 +174,7 @@
   },
   "perRun": {
     "new": "New chat",
-    "continue": "Continue one",
-    "newLong": "New chat each run",
-    "continueLong": "Continue one chat"
+    "continue": "Continue one"
   },
   "actions": {
     "new": "New routine",
@@ -244,6 +242,7 @@
       "command": "Folder",
       "launch": "Launch"
     },
+    "mode": "Mode",
     "account": "Account",
     "defaultAccount": "Default",
     "runsOn": "Runs on",

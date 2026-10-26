@@ -57,13 +57,7 @@ export function RoutinesStage() {
             return (
                 <StageFrame>
                     <DetailHeader endpointId={endpointId} entry={entry} rev={result.revs[entry.projectId] ?? 0} />
-                    <RoutineDetail
-                        endpointId={endpointId}
-                        entry={entry}
-                        runId={stage.runId}
-                        rev={result.revs[entry.projectId] ?? 0}
-                        timeZone={result.timeZone}
-                    />
+                    <RoutineDetail endpointId={endpointId} entry={entry} runId={stage.runId} timeZone={result.timeZone} />
                 </StageFrame>
             );
         }

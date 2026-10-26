@@ -174,9 +174,7 @@
   },
   "perRun": {
     "new": "Nieuwe chat",
-    "continue": "Eén doorlopende",
-    "newLong": "Elke run een nieuwe chat",
-    "continueLong": "Eén doorlopende chat"
+    "continue": "Eén doorlopende"
   },
   "actions": {
     "new": "Nieuwe routine",
@@ -244,6 +242,7 @@
       "command": "Map",
       "launch": "Launch"
     },
+    "mode": "Modus",
     "account": "Account",
     "defaultAccount": "Standaard",
     "runsOn": "Draait op",

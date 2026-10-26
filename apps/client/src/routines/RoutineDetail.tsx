@@ -1,14 +1,17 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CircleCheck, GitCompare, Hand, Package, SquareArrowOutUpRight } from 'lucide-react';
-import type { RoutineEntry, RoutinePerRun, RoutineRun } from '@ruimte/contracts';
-import { Button, EmptyState, ErrorBoundary, FormError, Icon, KeyValueList, Pill, SectionLabel, Segmented, messageOf } from '@adecore/ui';
+import type { AgentKind, RoutineEntry, RoutineRun } from '@ruimte/contracts';
+import { Button, EmptyState, ErrorBoundary, FormError, Icon, KeyValueList, Pill, SectionLabel } from '@adecore/ui';
 import { formatDateTime } from '@adecore/ui/format';
+import { runtimeModeLabel } from '@adecore/agents-react/chat';
+import { AgentIcon, modelName, ProviderLogo } from '@adecore/agents-react/providers';
+import { useProvidersStore } from '@adecore/agents-react/state';
+import { hasProviderLogo } from '@/agents/provider-logo';
 import { ArtifactView } from '@/output/ArtifactView';
 import { openArtifact, openArtifactCompared } from '@/output/open';
 import { lookOfRun } from '@/routines/agenda';
 import { LookIcon } from '@/routines/look';
-import { refreshRoutines } from '@/routines/routine-list';
 import { RoutineRunChat } from '@/routines/RoutineRunChat';
 import { useRoutineApproval } from '@/routines/routine-approval';
 import { useRoutineWhat } from '@/routines/routine-what';
@@ -16,28 +19,15 @@ import { leaveRoutines, showRoutine } from '@/routines/stage';
 import { runWords, scheduleWords, weekdayClock } from '@/routines/words';
 import { useEndpoints } from '@/state/endpoints';
 import { isThisMachine } from '@/state/local-machine';
-import { machineTransport } from '@/transport';
 
 /* A routine opened inside Routines: its definition and runs on the left, the run picked on the right. */
-export function RoutineDetail({
-    endpointId,
-    entry,
-    runId,
-    rev,
-    timeZone
-}: {
-    endpointId: string;
-    entry: RoutineEntry;
-    runId: string | null;
-    rev: number;
-    timeZone: string;
-}) {
+export function RoutineDetail({ endpointId, entry, runId, timeZone }: { endpointId: string; entry: RoutineEntry; runId: string | null; timeZone: string }) {
     const { t } = useTranslation('routines');
     const run = entry.runs.find((candidate) => candidate.runId === runId) ?? entry.runs.find((candidate) => candidate.state !== 'skipped') ?? null;
     return (
         <div className="flex min-h-0 grow">
             <div className="flex w-[440px] shrink-0 flex-col overflow-y-auto border-r border-border">
-                <Definition endpointId={endpointId} entry={entry} rev={rev} />
+                <Definition endpointId={endpointId} entry={entry} />
                 <RunTimeline entry={entry} picked={run?.runId ?? null} timeZone={timeZone} />
             </div>
             <div className="flex min-w-0 grow flex-col">
@@ -60,22 +50,11 @@ function NoRunYet({ entry, timeZone }: { entry: RoutineEntry; timeZone: string }
     return <EmptyState>{entry.next === null ? t('detail.noRuns') : t('detail.firstRun', { time: weekdayClock(entry.next, timeZone) })}</EmptyState>;
 }
 
-function Definition({ endpointId, entry, rev }: { endpointId: string; entry: RoutineEntry; rev: number }) {
+function Definition({ endpointId, entry }: { endpointId: string; entry: RoutineEntry }) {
     const { t } = useTranslation('routines');
     const routine = entry.routine;
     const what = useRoutineWhat(entry);
     const machine = useEndpoints((s) => s.endpoints.find((candidate) => candidate.id === endpointId)?.label ?? '');
-    const [failure, setFailure] = useState<string | null>(null);
-    const setPerRun = (perRun: RoutinePerRun): void => {
-        if (routine.kind !== 'agent' || routine.perRun === perRun) {
-            return;
-        }
-        setFailure(null);
-        machineTransport(endpointId)
-            .request('routine.save', { projectId: entry.projectId, baseRev: rev, routine: { ...routine, perRun }, shared: entry.shared })
-            .then(() => refreshRoutines(endpointId))
-            .catch((e: unknown) => setFailure(messageOf(e, t('form.failed'))));
-    };
     return (
         <section className="flex flex-col gap-3 border-b border-border p-4" aria-label={t('detail.definition')}>
             {entry.held !== undefined && <ApprovalBanner endpointId={endpointId} entry={entry} />}
@@ -90,13 +69,27 @@ function Definition({ endpointId, entry, rev }: { endpointId: string; entry: Rou
                 </KeyValueList.Item>
                 <KeyValueList.Item>
                     <KeyValueList.Name>{t(`detail.what.${routine.kind}`)}</KeyValueList.Name>
-                    <KeyValueList.Value mono={routine.kind !== 'agent'}>{routine.kind === 'command' ? (routine.cwd ?? '.') : what}</KeyValueList.Value>
+                    <KeyValueList.Value mono={routine.kind !== 'agent'}>
+                        {routine.kind === 'agent' ? (
+                            <RoutineAgent endpointId={endpointId} provider={routine.provider} model={routine.selection?.model} />
+                        ) : routine.kind === 'command' ? (
+                            (routine.cwd ?? '.')
+                        ) : (
+                            what
+                        )}
+                    </KeyValueList.Value>
                 </KeyValueList.Item>
                 {routine.kind === 'agent' && (
-                    <KeyValueList.Item>
-                        <KeyValueList.Name>{t('detail.account')}</KeyValueList.Name>
-                        <KeyValueList.Value>{entry.local.account ?? t('detail.defaultAccount')}</KeyValueList.Value>
-                    </KeyValueList.Item>
+                    <>
+                        <KeyValueList.Item>
+                            <KeyValueList.Name>{t('detail.mode')}</KeyValueList.Name>
+                            <KeyValueList.Value>{runtimeModeLabel(routine.mode)}</KeyValueList.Value>
+                        </KeyValueList.Item>
+                        <KeyValueList.Item>
+                            <KeyValueList.Name>{t('detail.account')}</KeyValueList.Name>
+                            <KeyValueList.Value>{entry.local.account ?? t('detail.defaultAccount')}</KeyValueList.Value>
+                        </KeyValueList.Item>
+                    </>
                 )}
                 <KeyValueList.Item>
                     <KeyValueList.Name>{t('detail.runsOn')}</KeyValueList.Name>
@@ -107,27 +100,19 @@ function Definition({ endpointId, entry, rev }: { endpointId: string; entry: Rou
                     <KeyValueList.Value>{entry.shared ? t('detail.shared') : t('detail.private')}</KeyValueList.Value>
                 </KeyValueList.Item>
             </KeyValueList.Root>
-            {routine.kind === 'agent' && (
-                <div className="flex items-center justify-between gap-3">
-                    <span className="text-xs text-text-faint">{t('form.perRun')}</span>
-                    <Segmented
-                        label={t('form.perRun')}
-                        size="sm"
-                        value={routine.perRun}
-                        onValueChange={setPerRun}
-                        options={[
-                            { id: 'new', label: t('perRun.newLong') },
-                            { id: 'continue', label: t('perRun.continueLong') }
-                        ]}
-                    />
-                </div>
-            )}
-            {failure !== null && <p className="text-xs text-status-error">{failure}</p>}
-            <p className="flex items-start gap-2 text-xs text-text-muted">
-                <Icon icon={Package} size={14} className="mt-0.5 shrink-0" />
-                <span>{t(routine.kind === 'agent' ? 'form.outputAgent' : 'form.outputPrinted')}</span>
-            </p>
         </section>
+    );
+}
+
+/* The agent a routine starts, by its CLI's mark and the model it picked, as Output names who made a version. */
+function RoutineAgent({ endpointId, provider, model }: { endpointId: string; provider: AgentKind; model: string | undefined }) {
+    const catalog = useProvidersStore((s) => s.byScope[endpointId]?.providers.find((entry) => entry.kind === provider));
+    const name = model === undefined ? (catalog?.name ?? provider) : modelName(model, catalog?.models);
+    return (
+        <span className="flex min-w-0 items-center gap-1.5">
+            {hasProviderLogo(provider) ? <ProviderLogo provider={provider} size={14} /> : <AgentIcon kind={provider} size={14} className="shrink-0" />}
+            <span className="truncate">{name}</span>
+        </span>
     );
 }
 
