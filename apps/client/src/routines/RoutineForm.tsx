@@ -44,7 +44,10 @@ export function RoutineForm({
     const { t } = useTranslation('routines');
     const editing = request.editing?.routine;
     const allProjects = useProjectList((s) => s.projects);
-    const projects = allProjects.filter((row) => row.endpointId === endpointId);
+    // The project the form was opened from leads, the rest keep their order.
+    const projects = allProjects
+        .filter((row) => row.endpointId === endpointId)
+        .sort((left, right) => Number(right.summary.projectId === request.projectId) - Number(left.summary.projectId === request.projectId));
     const [projectId, setProjectId] = useState(request.projectId);
     const [title, setTitle] = useState(editing?.title ?? '');
     const [kind, setKind] = useState<RoutineKind>(editing?.kind ?? 'agent');

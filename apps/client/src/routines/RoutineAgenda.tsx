@@ -16,9 +16,9 @@ import { RoutineRunPopover, type PickedRun } from '@/routines/RoutineRunPopover'
 import { showRoutine } from '@/routines/stage';
 import { blockWords, foldWords, rowStatus, scheduleWords, spanWords } from '@/routines/words';
 
-const NAME_COLUMN = 208;
+const NAME_COLUMN = 248;
 // A day never narrower than a block that says "09:00 · 3m"; a narrow stage scrolls sideways instead.
-const GRID = 'grid grid-cols-[208px_repeat(7,minmax(100px,1fr))]';
+const GRID = 'grid grid-cols-[248px_repeat(7,minmax(100px,1fr))]';
 // A day's noon, so a date written from its midnight never slips to the day before around a clock change.
 const NOON_MS = 12 * 60 * 60 * 1000;
 
@@ -68,7 +68,7 @@ export function RoutineAgenda({ endpointId, projectId, groups, grouped, week, no
 
     return (
         <div className="flex min-h-0 min-w-0 grow flex-col overflow-auto">
-            <div className="relative isolate min-w-[908px] grow" role="grid" aria-label={t('agenda.label')}>
+            <div className="relative isolate min-w-[948px] grow" role="grid" aria-label={t('agenda.label')}>
                 {/* The days run to the bottom of the stage, however few routines there are. */}
                 <div aria-hidden="true" className={`${GRID} pointer-events-none absolute inset-0 -z-10`}>
                     <span />
@@ -251,24 +251,24 @@ function AgendaRow({
     const band = pausedBand(entry, blocks, week, now);
     const status = rowStatus(entry, timeZone);
     const paused = entry.local.pausedAt !== undefined;
+    const declined = entry.local.declined === entry.digest;
     const target = { projectId: entry.projectId, routineId: entry.routine.id };
     const subtitle =
-        status.tone === 'needs'
+        status.tone === 'needs' || declined
             ? status.text
             : [scheduleWords(entry.routine.schedule), what, paused ? t('row.paused') : null].filter((part) => part !== null).join(' · ');
     const cells = band === null ? week.days : week.days.slice(0, band.from);
     return (
         <div className={`${GRID} min-h-12 border-b border-border-soft`} role="row" data-routine={entry.routine.id}>
             <div className="flex min-w-0 items-center gap-2.5 px-3 py-1.5" role="rowheader">
-                <span aria-hidden="true" className="grid size-7 shrink-0 place-items-center rounded-md bg-surface-sunken text-text-muted">
-                    <Icon icon={KIND_ICONS[entry.routine.kind]} size={14} />
-                </span>
                 <button type="button" className="flex min-w-0 grow flex-col items-start text-left" onClick={() => showRoutine(target)}>
-                    <span className="w-full truncate text-sm font-medium text-text hover:underline">{entry.routine.title}</span>
+                    <span className={clsx('w-full truncate text-sm font-medium hover:underline', declined ? 'text-text-muted' : 'text-text')}>
+                        {entry.routine.title}
+                    </span>
                     <span className={clsx('w-full truncate text-xs', status.tone === 'needs' ? 'text-status-needs-you' : 'text-text-muted')}>{subtitle}</span>
                 </button>
                 <Switch
-                    checked={!paused}
+                    checked={!paused && !declined}
                     label={t(paused ? 'actions.resume' : 'actions.pause')}
                     disabled={!entry.approved}
                     onCheckedChange={(on) => setRoutinePaused(endpointId, entry, !on)}

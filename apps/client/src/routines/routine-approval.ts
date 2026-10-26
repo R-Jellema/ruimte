@@ -11,7 +11,7 @@ export function useRoutineApproval(endpointId: string, entry: RoutineEntry) {
     const [busy, setBusy] = useState(false);
     const [failure, setFailure] = useState<string | null>(null);
     const origin =
-        entry.held === 'agent'
+        entry.madeBy !== undefined
             ? t('approval.byAgent', { title: entry.madeBy?.title ?? t('approval.anAgent') })
             : t(entry.shared ? 'approval.fromOutside' : 'approval.fromOutsidePrivate');
     const answer = (type: 'routine.approve' | 'routine.decline'): void => {
