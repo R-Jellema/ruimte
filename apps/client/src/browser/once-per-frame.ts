@@ -1,6 +1,6 @@
 import { windowFrames, type FrameClock } from '@/canvas/pan-batch';
 
-export interface FrameRun {
+interface FrameRun {
     request(): void;
     dispose(): void;
 }

@@ -9,7 +9,7 @@ import { useProviders } from '@adecore/agents-react/state';
 import { Button, Icon, Menu } from '@adecore/ui';
 import { availableAgents } from '@/agents/creation';
 
-export interface InlineAgent {
+interface InlineAgent {
     readonly provider: AgentKind;
     /* Null is the CLI's own default model. */
     readonly model: string | null;

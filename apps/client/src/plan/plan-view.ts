@@ -112,7 +112,7 @@ export function hasFailedStep(plan: Pick<Plan, 'items'>): boolean {
     return leafSteps(plan.items).some((step) => step.state === 'failed');
 }
 
-export interface ActiveStep {
+interface ActiveStep {
     id: string;
     title: string;
 }

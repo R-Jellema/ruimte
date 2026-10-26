@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { storedJson, type KeyValueStorage, type StoredValue } from '@/state/stored-json';
 
 /* How long an inline edit that nobody opened as a chat stays findable, and then its hidden chat goes with its record. */
-export const INLINE_EDIT_KEEP_MS = 7 * 24 * 60 * 60 * 1000;
+const INLINE_EDIT_KEEP_MS = 7 * 24 * 60 * 60 * 1000;
 
 /*
  * What this client keeps of an inline edit so the card can be shown again after a reload: the chat,

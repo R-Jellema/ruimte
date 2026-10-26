@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { SwipeSide } from '@/browser/swipe';
 
 /* The arrow over one page. `shown` false keeps the side and the progress it had, so it fades out from there. */
-export interface SwipeArrowState {
+interface SwipeArrowState {
     side: SwipeSide;
     progress: number;
     shown: boolean;

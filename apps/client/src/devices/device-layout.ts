@@ -10,7 +10,7 @@ interface DeviceBounds {
     height: number;
 }
 
-export type GestureAxis = 'x' | 'y';
+type GestureAxis = 'x' | 'y';
 
 function clamp(value: number, minimum: number, maximum: number): number {
     return Math.max(minimum, Math.min(maximum, value));

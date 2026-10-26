@@ -41,9 +41,9 @@ export type SwipeOutcome = { kind: 'none' } | { kind: 'progress'; side: SwipeSid
  * Net horizontal travel that navigates, in the page's CSS pixels. Whether Chromium scales a guest's
  * wheel deltas with the canvas zoom has not been measured; if it does, divide this by the zoom.
  */
-export const SWIPE_THRESHOLD_PX = 150;
+const SWIPE_THRESHOLD_PX = 150;
 /* Horizontal has to outweigh vertical this many times over the gesture. */
-export const SWIPE_DOMINANCE = 3;
+const SWIPE_DOMINANCE = 3;
 /* macOS delivers scroll events at 60 Hz, so a longer silence is fingers that stopped or lifted. */
 export const SWIPE_GESTURE_GAP_MS = 70;
 /* After navigating, so the tail of the same gesture does not run into the next page. */

@@ -14,14 +14,14 @@ export interface ChooserChat {
 }
 
 /* The three lists of the chooser, each left out of the menu when empty. */
-export interface ChooserSections {
+interface ChooserSections {
     readonly linked: readonly ChooserChat[];
     readonly here: readonly ChooserChat[];
     readonly others: readonly ChooserChat[];
 }
 
 /* What the chooser reads of a node. */
-export type ChooserNode = Pick<ProjectNode, 'id' | 'kind' | 'title' | 'provider'>;
+type ChooserNode = Pick<ProjectNode, 'id' | 'kind' | 'title' | 'provider'>;
 
 /* Every chat of the project with the CLI it runs, node or view, in sidebar order. */
 export function chooserChats(views: readonly ProjectView[], nodesOf: NodesOfView<ChooserNode>): ChooserChat[] {

@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 
-export type MountedKind = 'terminal' | 'terminal-plate' | 'chat' | 'file';
+type MountedKind = 'terminal' | 'terminal-plate' | 'chat' | 'file';
 
-export interface MountCount {
+interface MountCount {
     /* Mounted right now. */
     mounted: number;
     /* Every mount since the page loaded, so a body that keeps remounting shows as a climbing number. */

@@ -1,15 +1,15 @@
 import { create } from 'zustand';
 
 /* A routine on the stage, by the project it lives in. */
-export interface RoutineRef {
+interface RoutineRef {
     projectId: string;
     routineId: string;
 }
 
-export type RoutinesFilter = 'project' | 'all';
+type RoutinesFilter = 'project' | 'all';
 
 /* The week as a grid of days, or as a list of its runs and coming times day by day. */
-export type RoutinesLayout = 'week' | 'list';
+type RoutinesLayout = 'week' | 'list';
 
 interface RoutinesStage {
     open: boolean;
@@ -30,7 +30,7 @@ interface RoutinesStage {
 export const useRoutinesStage = create<RoutinesStage>(() => ({ open: false, week: 0, filter: 'project', layout: 'week', routine: null, runId: null }));
 
 /* Always the start: this week's overview, never the routine or week left open last time. Filter and layout stay. */
-export function openRoutines(): void {
+function openRoutines(): void {
     useRoutinesStage.setState({ open: true, week: 0, routine: null, runId: null });
 }
 

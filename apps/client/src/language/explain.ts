@@ -15,7 +15,7 @@ import { isPathBelow, relativeTo } from '@/shell/panels/files-tree';
 const TOAST_ID = 'language-explain';
 
 /* What the card of a symbol or selection says about its explanation. */
-export interface ExplainView {
+interface ExplainView {
     /* The card offers an Explain link: the setting is on, the symbol is a function and the machine has the model. */
     readonly offered: boolean;
     readonly phase: 'idle' | 'running' | 'done' | 'error';
@@ -28,7 +28,7 @@ const IDLE: ExplainView = { offered: false, phase: 'idle', text: '', error: null
 const ANSWER_LANGUAGES: Readonly<Record<string, string>> = { en: 'English', nl: 'Dutch' };
 
 /* The name of the interface language as the model is asked in it, since it follows a language named in words and not a code. */
-export function answerLanguage(code: string): string {
+function answerLanguage(code: string): string {
     return ANSWER_LANGUAGES[code.split('-')[0]!] ?? 'English';
 }
 

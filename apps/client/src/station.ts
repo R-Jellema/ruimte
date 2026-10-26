@@ -9,7 +9,7 @@ import type { AccountStatus } from '@/pulsar/account';
  */
 export const IS_STATION = import.meta.env?.MODE === 'station';
 
-export type StationBoot = 'loading' | 'sign-in' | 'signing-in' | 'machines';
+type StationBoot = 'loading' | 'sign-in' | 'signing-in' | 'machines';
 
 export interface StationBootInput {
     /* This app has no machine of its own: the web client, or the desktop app told to run none. */

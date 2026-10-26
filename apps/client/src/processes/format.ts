@@ -3,7 +3,7 @@ import type { ProcessAlert, ProcessGroup, ProcessPoint } from '@ruimte/contracts
 import { formatDuration, formatBytes as bytesOf, formatPercent as percentOf } from '@adecore/ui/format';
 
 /* A number that could not be read is shown as a dash, never as zero. */
-export const UNREADABLE = '-';
+const UNREADABLE = '-';
 
 export function formatPercent(value: number | null): string {
     return value === null ? UNREADABLE : percentOf(value);

@@ -7,14 +7,14 @@ import type { SignalRoute } from '@/transport/transport';
  * of these, with `other` where the set can grow, so a series never becomes one per machine, request or reason text.
  */
 
-export type LinkPath = 'local' | 'lan' | 'direct' | 'turn';
+type LinkPath = 'local' | 'lan' | 'direct' | 'turn';
 export type LinkOutcome = 'ok' | 'failed';
 
 /*
  * Why the transport opens a new link: the open one dropped, an attempt failed, the machine refused it at the protocol
  * check or did not answer it, its address would not resolve, or something asked for a new one (a switch of route).
  */
-export const RECONNECT_REASONS = ['dropped', 'failed', 'refused', 'timeout', 'address', 'switch', 'other'] as const;
+const RECONNECT_REASONS = ['dropped', 'failed', 'refused', 'timeout', 'address', 'switch', 'other'] as const;
 export type ReconnectReason = (typeof RECONNECT_REASONS)[number];
 
 // The part of a request type before its dot. A test holds this against `REQUEST_SCHEMAS`, so a new area is a choice.
@@ -62,7 +62,7 @@ export const REQUEST_AREAS = [
     'usage',
     'voice'
 ] as const;
-export type RequestArea = (typeof REQUEST_AREAS)[number] | 'other';
+type RequestArea = (typeof REQUEST_AREAS)[number] | 'other';
 
 const AREAS: ReadonlySet<string> = new Set(REQUEST_AREAS);
 

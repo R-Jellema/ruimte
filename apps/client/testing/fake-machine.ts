@@ -63,7 +63,7 @@ function emptyOf(def: SchemaDef): unknown {
 
 type Answer<T extends RequestType> = (payload: RequestMap[T]['payload']) => RequestMap[T]['result'] | Promise<RequestMap[T]['result']>;
 
-export interface SentRequest {
+interface SentRequest {
     type: RequestType;
     payload: unknown;
 }

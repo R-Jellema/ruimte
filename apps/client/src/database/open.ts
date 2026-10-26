@@ -8,7 +8,7 @@ import { useFiles } from '@/state/files';
 import { useSettings } from '@/state/settings';
 import { canSplit, type CellAt, type SplitZone } from '@/shell/split';
 
-export interface ActOptions {
+interface ActOptions {
     /* The tab whose view asked, so a designer that saved a table can become the designer of that table. */
     source?: string | null;
     /* False leaves the keyboard where it is, such as in the explorer a row was opened from. */
@@ -19,7 +19,7 @@ export interface ActOptions {
  * A database tab opened the way a file opens: a loose view in a tab host, under the same limit. A table
  * the project already keeps as a view of its own is shown instead, so it is never in the grid twice.
  */
-export function openDatabaseTab(action: DatabaseTabAction, options: ActOptions = {}): void {
+function openDatabaseTab(action: DatabaseTabAction, options: ActOptions = {}): void {
     const kept = databaseViewFor(useDocument.getState().views, action);
     if (kept !== undefined) {
         showView(kept.id);

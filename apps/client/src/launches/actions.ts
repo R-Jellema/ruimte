@@ -47,7 +47,7 @@ function nameOf(at: Target, launchId: string): string {
     return useLaunches.getState().documents[at.key]?.launches.find((launch) => launch.id === launchId)?.name ?? launchId;
 }
 
-export interface StartOptions {
+interface StartOptions {
     restart?: boolean;
     /* A person said yes to what it runs, in the approval that asked. */
     approve?: boolean;

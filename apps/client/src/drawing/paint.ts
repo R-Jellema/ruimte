@@ -3,7 +3,7 @@ import { LINE_HEIGHT, pathsOfElement, writingFrameOf, type ElementPath, type Wri
 import { fontOfElement, linesOn } from '@/drawing/measure';
 import { readEdge, readFontStacks, readPalette, readPaper, type DrawingPalette } from '@/drawing/palette';
 
-export interface PaintOptions {
+interface PaintOptions {
     palette: DrawingPalette;
     /* The sheets a note may be written on; without them a note is painted on its stroke color. */
     paper?: DrawingPalette;
@@ -77,7 +77,7 @@ function paintText(ctx: CanvasRenderingContext2D, element: WrittenElement, optio
     }
 }
 
-export function paintElement(ctx: CanvasRenderingContext2D, element: DrawingElement, options: PaintOptions): void {
+function paintElement(ctx: CanvasRenderingContext2D, element: DrawingElement, options: PaintOptions): void {
     ctx.save();
     ctx.globalAlpha = options.fading?.has(element.id) ? FADED : 1;
     ctx.translate(element.x, element.y);

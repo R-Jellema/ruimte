@@ -1,9 +1,9 @@
-export interface HostRect {
+interface HostRect {
     left: number;
     top: number;
 }
 
-export interface MenuPoint {
+interface MenuPoint {
     window: { x: number; y: number };
     guest: { x: number; y: number };
 }

@@ -1,7 +1,7 @@
 import { hidUsageOf } from '@/devices/hid-usages';
 
 /* What a key a person presses on a device's screen does. */
-export type DeviceKeyRoute =
+type DeviceKeyRoute =
     /* A key of the device. */
     | { kind: 'key'; usage: number }
     /* The paste chord, which pastes the person's own clipboard so accents and emoji arrive too. */

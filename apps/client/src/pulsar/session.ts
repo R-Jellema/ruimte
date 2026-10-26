@@ -6,7 +6,7 @@ export const SessionViewSchema = SessionResultSchema.omit({ refreshToken: true }
 export type SessionView = z.infer<typeof SessionViewSchema>;
 
 export const RestoredSessionSchema = z.object({ account: AccountSchema, expiresAt: z.number() });
-export type RestoredSession = z.infer<typeof RestoredSessionSchema>;
+type RestoredSession = z.infer<typeof RestoredSessionSchema>;
 
 /*
  * Whatever holds the refresh token for this client: the desktop shell today, a phone's keychain later.
@@ -23,7 +23,7 @@ export interface SessionKeeper {
 // A token this close to its end is refreshed first, so a request never leaves with one that dies on the way.
 export const ACCESS_TOKEN_MARGIN_MS = 60_000;
 
-export interface AccessTokensOptions {
+interface AccessTokensOptions {
     now?: () => number;
     /* The keeper had no session left to refresh. */
     onSignedOut?(): void;

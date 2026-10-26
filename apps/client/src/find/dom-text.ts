@@ -5,7 +5,7 @@ import { matchesIn, type TextMatch } from '@adecore/editor-react/models';
  * to the text node it came from. A match may run over several nodes (`<strong>side</strong>bar`),
  * which is why the matcher reads the joined string and not node by node.
  */
-export interface DomText {
+interface DomText {
     text: string;
     nodes: Text[];
     /* Where each node's text starts in `text`; only grows. */
@@ -46,7 +46,7 @@ const BLOCK_TAGS = new Set([
 // What never shows as text, and a screen reader's heading the eye never sees.
 const SKIPPED = 'script, style, template, .sr-only';
 
-export function readDomText(root: Element): DomText {
+function readDomText(root: Element): DomText {
     const nodes: Text[] = [];
     const starts: number[] = [];
     let text = '';
@@ -84,7 +84,7 @@ export function locateOffset(starts: readonly number[], offset: number): { index
     return { index: found, offset: offset - (starts[found] ?? 0) };
 }
 
-export function rangesOf(dom: DomText, matches: readonly TextMatch[]): Range[] {
+function rangesOf(dom: DomText, matches: readonly TextMatch[]): Range[] {
     if (dom.nodes.length === 0) {
         return [];
     }

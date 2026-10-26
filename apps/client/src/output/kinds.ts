@@ -19,7 +19,7 @@ export function kindIcon(kind: string): LucideIcon {
 }
 
 /* What the window's project calls a chat: a view of its own or a node on one of its canvases. */
-export function chatNameIn(views: readonly ProjectView[], chatId: string): string | null {
+function chatNameIn(views: readonly ProjectView[], chatId: string): string | null {
     for (const view of views) {
         if (view.id === chatId) {
             return view.name ?? '';

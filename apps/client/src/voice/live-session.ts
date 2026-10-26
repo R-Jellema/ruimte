@@ -24,13 +24,13 @@ function gatheringComplete(peer: RTCPeerConnection): Promise<void> {
     });
 }
 
-export interface LiveSessionParts {
+interface LiveSessionParts {
     peer: RTCPeerConnection;
     audio: HTMLAudioElement;
 }
 
 /* Who mints the session for the offer of this window, and whether the window runs its tools itself. */
-export interface LiveSessionRoute {
+interface LiveSessionRoute {
     /* Answers the SDP of the session minted for the offer. */
     start(offer: string, preferences: OpenAiLivePreferences): Promise<string>;
     /*
@@ -43,7 +43,7 @@ export interface LiveSessionRoute {
 }
 
 /* The desktop app mints with the key in its keychain, and the window runs the tools. */
-export function desktopRoute(): LiveSessionRoute {
+function desktopRoute(): LiveSessionRoute {
     return {
         windowEvents: true,
         async start(offer, preferences) {
@@ -106,7 +106,7 @@ export async function machineVoiceCredential(): Promise<{ configured: boolean; p
     return { configured: status.present, persistent: true };
 }
 
-export function liveSessionRoute(): LiveSessionRoute {
+function liveSessionRoute(): LiveSessionRoute {
     return voiceOnMachine() ? machineRoute() : desktopRoute();
 }
 

@@ -53,7 +53,7 @@ export interface InlinePrompt {
     readonly instruction: string;
 }
 
-export interface InlineEditView {
+interface InlineEditView {
     readonly prompt: InlinePrompt | null;
     /* The row above the selected lines the editor draws the question in; null until it has made one. */
     readonly promptContainer: HTMLElement | null;

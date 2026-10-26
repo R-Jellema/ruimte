@@ -22,7 +22,7 @@ export interface KeyStore {
  * IndexedDB, because a `CryptoKey` survives a structured clone and `localStorage` only holds
  * strings. The pair is non-extractable, so no script can ever read the private half.
  */
-export function indexedDbKeyStore(): KeyStore {
+function indexedDbKeyStore(): KeyStore {
     const run = objectStoreRunner(DB_NAME, STORE_NAME);
     return {
         read: () => run<CryptoKeyPair | undefined>('readonly', (store) => store.get(RECORD_ID)).then((value) => value ?? null),

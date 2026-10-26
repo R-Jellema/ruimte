@@ -11,7 +11,7 @@ function extensionOf(path: string): string {
 }
 
 /* The app bundles a device installs: a simulator an .app, an iPhone an .app or an .ipa, Android an .apk. */
-export function appExtensions(device: Pick<DeviceInfo, 'platform' | 'kind'>): readonly string[] {
+function appExtensions(device: Pick<DeviceInfo, 'platform' | 'kind'>): readonly string[] {
     if (device.platform === 'android') {
         return ['.apk'];
     }
@@ -38,4 +38,4 @@ export function dropAction(device: Device, paths: readonly string[]): DropAction
     return null;
 }
 
-export type DropAction = { action: 'installApp'; path: string } | { action: 'addMedia'; paths: string[] };
+type DropAction = { action: 'installApp'; path: string } | { action: 'addMedia'; paths: string[] };

@@ -215,7 +215,7 @@ export interface ConflictCache {
     drafts: Map<string, ConflictDraft>;
 }
 
-export interface ConflictWriter {
+interface ConflictWriter {
     resolve(path: string, content: string, hash: string): Promise<unknown>;
     read(path: string): Promise<GitConflictResult>;
 }

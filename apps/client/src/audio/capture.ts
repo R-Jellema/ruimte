@@ -6,7 +6,7 @@
 
 import { SPEECH_SPECTRUM_BAND_COUNT, spectrumBands, easeBands } from '@/audio/waveform';
 
-export const SPEECH_SAMPLE_RATE = 16_000;
+const SPEECH_SAMPLE_RATE = 16_000;
 
 /*
  * The worklet is a file of its own and loaded by URL. A blob would be simpler but the policy in

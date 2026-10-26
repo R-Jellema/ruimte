@@ -13,7 +13,7 @@ import type { Transport } from '@/transport/transport';
  * an open artifact view reads again on.
  */
 
-export interface ArtifactListRow {
+interface ArtifactListRow {
     status: 'loading' | 'ready' | 'failed';
     artifacts: ArtifactSummary[];
 }

@@ -15,7 +15,7 @@ import { machineAnswers, useMachineAnswers } from '@/transport/features';
  * speak alike. A machine that keeps none falls back to this app's own settings: the language Speech to Text
  * listens for and the voice picked here, as Voice used before the machine kept them.
  */
-export function localVoicePreferences(): VoicePreferences {
+function localVoicePreferences(): VoicePreferences {
     const { voiceLanguage, liveVoice } = useSettings.getState();
     return { language: voiceLanguage, voice: liveVoice };
 }
@@ -41,7 +41,7 @@ export function useWindowEndpointId(): string {
     return workspace?.connection.endpointId ?? activeId;
 }
 
-export interface MachineVoicePreferences {
+interface MachineVoicePreferences {
     /* False for a machine that keeps none of its own; this app's settings then stand in. */
     kept: boolean;
     /* What the machine stores, or null while it stores none or has not answered yet. */

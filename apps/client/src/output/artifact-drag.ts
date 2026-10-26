@@ -10,9 +10,9 @@ import { useSettings } from '@/state/settings';
  * its loose tab has, so the grid draws where it would land, and carries what the tab or a view of the
  * project needs. Another machine's artifact is never dragged: it cannot become a view here.
  */
-export const ARTIFACT_DRAG_TYPE = 'application/x-ruimte-artifact';
+const ARTIFACT_DRAG_TYPE = 'application/x-ruimte-artifact';
 
-export interface DraggedArtifact {
+interface DraggedArtifact {
     artifactId: string;
     title: string;
 }

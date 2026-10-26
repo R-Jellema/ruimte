@@ -89,7 +89,7 @@ async function saveInPieces(stream: SaveFileStreamBridge, endpointId: string, re
     }
 }
 
-export type TextState = { status: 'loading' } | { status: 'ready'; text: string } | { status: 'failed' };
+type TextState = { status: 'loading' } | { status: 'ready'; text: string } | { status: 'failed' };
 
 /* The text of a file of a version. A version never changes, so what was read once stays right. */
 export function useArtifactText(endpointId: string, ref: ArtifactFileRef | null, file: ArtifactFile | null): TextState {

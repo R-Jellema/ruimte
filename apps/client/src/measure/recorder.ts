@@ -209,7 +209,7 @@ export function take(): Record<string, unknown> {
 }
 
 /* Takes the context of the newest live ones away, as a lost GPU would; the budget is meant to hand them out again. */
-export function loseWebglContexts(count: number): number {
+function loseWebglContexts(count: number): number {
     const live = liveContexts().reverse().slice(0, count);
     for (const context of live) {
         context.getExtension('WEBGL_lose_context')?.loseContext();

@@ -11,12 +11,12 @@ import type { LoginStorage } from './web';
  * written down until the dialog closes or the code could not work any more.
  */
 
-export const LINK_PATH = '/link';
+const LINK_PATH = '/link';
 
 const PENDING_LINK_KEY = 'ruimte.pulsar.pendingLink';
 
 const PendingLinkSchema = z.object({ code: z.string().max(32).nullable(), openedAt: z.number() });
-export type PendingLink = z.infer<typeof PendingLinkSchema>;
+type PendingLink = z.infer<typeof PendingLinkSchema>;
 
 const storedPendingLink = storedJson(PENDING_LINK_KEY, PendingLinkSchema);
 
@@ -63,9 +63,9 @@ export function typedCode(input: string): string {
     return letters.length > 4 ? `${letters.slice(0, 4)}-${letters.slice(4)}` : letters;
 }
 
-export type LinkStep = 'unavailable' | 'sign-in' | 'signing-in' | 'enter-code' | 'confirm' | 'added' | 'denied';
+type LinkStep = 'unavailable' | 'sign-in' | 'signing-in' | 'enter-code' | 'confirm' | 'added' | 'denied';
 
-export interface LinkStepInput {
+interface LinkStepInput {
     accountStatus: AccountStatus;
     // A machine the code was looked up for, waiting for a yes or a no.
     lookedUp: boolean;

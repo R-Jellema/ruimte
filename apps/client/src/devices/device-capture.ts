@@ -26,7 +26,7 @@ function pad(value: number): string {
  * The name a capture is saved under, the way a Mac names a screenshot. It is a file name and not text
  * on screen, so it keeps one order that sorts and no character a file system refuses.
  */
-export function captureFileName(deviceName: string, at: Date, extension: 'png' | 'mp4'): string {
+function captureFileName(deviceName: string, at: Date, extension: 'png' | 'mp4'): string {
     const day = `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
     const time = `${pad(at.getHours())}.${pad(at.getMinutes())}.${pad(at.getSeconds())}`;
     return `${deviceName.replace(/[/\\:]/g, '-')} ${day} at ${time}.${extension}`;

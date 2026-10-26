@@ -8,7 +8,7 @@ import type { ConnectionState } from '@/transport/transport';
  */
 const ENSURE_TIMEOUT_MS = 45_000;
 
-export interface MachineLinkDeps {
+interface MachineLinkDeps {
     /* The row this client keeps for a machine, under its own id or the daemon id it answered with. */
     rowFor(id: string): Endpoint | null;
     /* Makes the row for a machine only the account knows, or throws why it cannot be reached. */

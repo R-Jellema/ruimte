@@ -24,28 +24,11 @@ export function openArtifact(artifactId: string, title: string, versionId: strin
     files.show(openArtifactTab(files, artifactId, title, machineId), useSettings.getState().filesTabLimit);
 }
 
-/* The base version an opening asked a view to compare with, by tab key; the view takes it as it draws. */
-export const useArtifactCompareRequest = create<{ bases: Readonly<Record<string, string>> }>(() => ({ bases: {} }));
-
-export function takeCompareRequest(key: string): void {
-    useArtifactCompareRequest.setState((state) => {
-        const { [key]: _taken, ...rest } = state.bases;
-        return { bases: rest };
-    });
-}
-
-/* An artifact opened on one version with Compare on against another, as a run compares with the run before it. */
-export function openArtifactCompared(artifactId: string, title: string, versionId: string, baseVersionId: string): void {
-    const key = artifactTabKey(artifactId);
-    useArtifactCompareRequest.setState((state) => ({ bases: { ...state.bases, [key]: baseVersionId } }));
-    openArtifact(artifactId, title, versionId);
-}
-
 /* A project the panel is asked to show, taken by the panel when it draws; null once taken. */
 export const useOutputRequest = create<{ project: { projectId: string } | null }>(() => ({ project: null }));
 
 /* Output in the panel of the window, from a chat or anywhere else that points at it. */
-export function showOutputPanel(): void {
+function showOutputPanel(): void {
     useUi.getState().setPanel({ open: true, kind: 'output' });
 }
 

@@ -9,7 +9,7 @@ import type { SecretAnswers } from '@/secrets/answer';
  * an agent's ask for a launch's secret and an agent's suggestion to make its chat a project, which
  * the machine asks and not the CLI, and a terminal whose TUI waits, which only the TUI answers.
  */
-export type RuimtePromptData =
+type RuimtePromptData =
     | { kind: 'computer-approval'; request: ComputerApproval }
     | { kind: 'secret-request'; endpointId: string; request: SecretRequest }
     | { kind: 'project-proposal'; endpointId: string; proposal: ProjectProposal }

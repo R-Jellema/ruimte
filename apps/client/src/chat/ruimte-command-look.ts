@@ -69,7 +69,7 @@ function lookOf(verb: string | undefined): VerbLook | null {
 }
 
 /* What one `ruimte-context` call reads as; a verb this client does not know reads as Ruimte alone, from the verb on. */
-export function describeContextCall(args: readonly string[]): CommandLookMatch {
+function describeContextCall(args: readonly string[]): CommandLookMatch {
     const look = lookOf(args[0]);
     if (look === null) {
         return { label: '', detailFrom: 0, fold: FOLDED, languages: LANGUAGES };
@@ -116,7 +116,7 @@ export function useContextNames(endpointId: string, chatId: string): (word: stri
 }
 
 /* `ruimte-context` as a tool of Ruimte's own in a chat, with the mark, the name of the part it works on and titles for ids. */
-export const RUIMTE_COMMAND_LOOK: CommandLook = {
+const RUIMTE_COMMAND_LOOK: CommandLook = {
     program: 'ruimte-context',
     brand: 'Ruimte',
     Mark: RuimteMark,

@@ -14,9 +14,9 @@ const DEFAULT_LIFETIME_MS = 3_600_000;
 const RETRY_AFTER_FAILURE_MS = 60_000;
 const MAX_RETRY_MS = 10 * 60_000;
 
-export type MapTicketState = { state: 'none' } | { state: 'ready'; ticket: MapsTicket } | { state: 'failed'; since: number };
+type MapTicketState = { state: 'none' } | { state: 'ready'; ticket: MapsTicket } | { state: 'failed'; since: number };
 
-export interface MapTicketsOptions {
+interface MapTicketsOptions {
     /* One ask of the address book for a ticket, with the session of the person signed in. */
     fetchTicket(): Promise<MapsTicket>;
     now(): number;
@@ -193,7 +193,7 @@ export class MapTickets {
     }
 }
 
-export interface MapSourceInput {
+interface MapSourceInput {
     /* The "Map tiles" setting. */
     enabled: boolean;
     signedIn: boolean;

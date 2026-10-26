@@ -61,19 +61,17 @@ export function ProblemsPanel() {
     const [hidden, setHidden] = useState<ReadonlySet<Severity>>(new Set());
     const counts = countsOf(files);
 
-    const shown = useMemo(() => {
-        const needle = filter.trim().toLowerCase();
-        return files
-            .map((file) => ({
-                ...file,
-                rows: file.rows.filter(
-                    (row) =>
-                        !hidden.has(severityOf(row.diagnostic) as Severity) &&
-                        (needle === '' || row.diagnostic.message.toLowerCase().includes(needle) || file.path.toLowerCase().includes(needle))
-                )
-            }))
-            .filter((file) => file.rows.length > 0);
-    }, [files, filter, hidden]);
+    const needle = filter.trim().toLowerCase();
+    const shown = files
+        .map((file) => ({
+            ...file,
+            rows: file.rows.filter(
+                (row) =>
+                    !hidden.has(severityOf(row.diagnostic) as Severity) &&
+                    (needle === '' || row.diagnostic.message.toLowerCase().includes(needle) || file.path.toLowerCase().includes(needle))
+            )
+        }))
+        .filter((file) => file.rows.length > 0);
 
     function toggle(severity: Severity): void {
         const next = new Set(hidden);

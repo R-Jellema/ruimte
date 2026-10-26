@@ -1,7 +1,7 @@
 import type { ISearchOptions } from '@xterm/addon-search';
 import type { FindQuery } from '@adecore/editor-react/models';
 
-export type TerminalFindColors = NonNullable<ISearchOptions['decorations']>;
+type TerminalFindColors = NonNullable<ISearchOptions['decorations']>;
 
 interface Rgba {
     red: number;

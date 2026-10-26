@@ -1,7 +1,7 @@
 import type { AgentKind } from '@ruimte/contracts';
 import type { ProvidersRow } from '@adecore/agents-react/state';
 
-export interface MissingProvider {
+interface MissingProvider {
     name: string;
     /* False for a kind the machine does not offer at all, which nothing installs. */
     installable: boolean;

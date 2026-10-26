@@ -15,7 +15,7 @@ export interface LoginRedirect {
     cancel(): Promise<void>;
 }
 
-export interface SignInOptions {
+interface SignInOptions {
     redirect: LoginRedirect;
     keeper: SessionKeeper;
     addressBookUrl: string;
@@ -63,7 +63,7 @@ export async function signIn(options: SignInOptions): Promise<SessionView> {
     return options.keeper.exchange({ ...login, label: clipText(options.label, 80) });
 }
 
-export interface LinkIdentityOptions<T> {
+interface LinkIdentityOptions<T> {
     redirect: LoginRedirect;
     addressBookUrl: string;
     provider: ProviderId;

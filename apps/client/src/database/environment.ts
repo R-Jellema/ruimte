@@ -3,7 +3,7 @@ import type { DesktopBridge } from '@/desktop/bridge';
 import { LOCAL_ENDPOINT_ID } from '@/state/endpoints';
 import { endpointKey } from '@/state/keys';
 
-export type DatabaseStorageArea = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+type DatabaseStorageArea = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 
 /* A connection id is only unique within its project, so what the views remember is kept per project. */
 export function databaseStorageKey(endpointId: string, projectId: string, key: string): string {

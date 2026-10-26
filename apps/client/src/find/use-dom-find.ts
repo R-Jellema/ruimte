@@ -4,7 +4,7 @@ import { clearFindHighlights, setFindHighlights } from '@/find/highlights';
 import { compileFind, stepIndex } from '@adecore/editor-react/models';
 import type { FindState } from '@/find/use-find';
 
-export interface DomFind {
+interface DomFind {
     total: number;
     current: number | null;
     invalid: boolean;

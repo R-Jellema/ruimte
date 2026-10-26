@@ -4,8 +4,8 @@
  * request of what to do with it on top. The model's window is small, so every part is bounded.
  */
 
-export const EXPLAIN_SOURCE_MAX = 4000;
-export const EXPLAIN_DOCUMENTATION_MAX = 800;
+const EXPLAIN_SOURCE_MAX = 4000;
+const EXPLAIN_DOCUMENTATION_MAX = 800;
 const NAMES_SAMPLE_LINES = 8;
 const NAMES_LINE_MAX = 160;
 const NAMES_CONTEXT_MAX = 700;
@@ -53,7 +53,7 @@ function boundHead(text: string, maxLines: number, maxChars: number): string {
     return result;
 }
 
-export interface ExplainInput {
+interface ExplainInput {
     /* The editor's own words for the language, such as `typescript`. */
     readonly language: string;
     readonly file: string;
@@ -81,7 +81,7 @@ export function explainPrompt(input: ExplainInput, answerIn: string): string {
     return parts.join('\n');
 }
 
-export interface NamesInput {
+interface NamesInput {
     readonly language: string;
     readonly name: string;
     /* What the name belongs to (`function`, `class`), when the editor knows it. */
@@ -110,7 +110,7 @@ export function namesPrompt(input: NamesInput): string {
     ].join('\n');
 }
 
-export interface GhostInput {
+interface GhostInput {
     readonly language: string;
     readonly file: string;
     readonly before: string;

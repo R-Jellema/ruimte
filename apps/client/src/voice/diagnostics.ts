@@ -6,10 +6,10 @@ import { objectArguments } from '@/voice/tool-arguments';
  * counts, sizes and durations only: no transcript, no prompt, no argument a person spoke.
  */
 
-export type VoiceResponseStatus = 'completed' | 'failed' | 'incomplete' | 'cancelled';
-export type VoiceRequestStatus = 'running' | 'answered' | 'failed' | 'unfinished';
+type VoiceResponseStatus = 'completed' | 'failed' | 'incomplete' | 'cancelled';
+type VoiceRequestStatus = 'running' | 'answered' | 'failed' | 'unfinished';
 
-export interface VoiceTargetCounts {
+interface VoiceTargetCounts {
     found: number;
     ambiguous: number;
     missing: number;
@@ -28,7 +28,7 @@ export interface VoiceCallRecord {
     target?: VoiceTargetCounts;
 }
 
-export interface VoiceResponseRecord {
+interface VoiceResponseRecord {
     durationMs: number;
     status: VoiceResponseStatus;
     calls: number;
@@ -50,7 +50,7 @@ export interface VoiceSessionRecord {
     requests: VoiceRequestRecord[];
 }
 
-export const MAX_REQUESTS_PER_SESSION = 100;
+const MAX_REQUESTS_PER_SESSION = 100;
 
 const END_STATUSES: Readonly<Record<string, VoiceResponseStatus>> = {
     'response.completed': 'completed',
@@ -88,7 +88,7 @@ function lengthOf(value: unknown): number {
     return Array.isArray(value) ? value.length : 0;
 }
 
-export function voiceTargetOf(output: Record<string, unknown>): VoiceTargetCounts {
+function voiceTargetOf(output: Record<string, unknown>): VoiceTargetCounts {
     return {
         found: lengthOf(output.found),
         ambiguous: lengthOf(output.ambiguous),
@@ -96,7 +96,7 @@ export function voiceTargetOf(output: Record<string, unknown>): VoiceTargetCount
     };
 }
 
-export function voiceToolBytes(domains: readonly ActionDomain[]): { count: number; bytes: number } {
+function voiceToolBytes(domains: readonly ActionDomain[]): { count: number; bytes: number } {
     const tools = voiceToolsFor(domains);
     return { count: tools.length, bytes: new TextEncoder().encode(JSON.stringify(tools)).length };
 }

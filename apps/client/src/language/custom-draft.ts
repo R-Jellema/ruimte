@@ -26,7 +26,7 @@ export function emptyDraft(): CustomDraft {
     return { name: '', command: '', args: '', env: '', languages: '', patterns: '', options: '', scope: 'all', projects: [] };
 }
 
-export function formatEnv(env: Readonly<Record<string, string>>): string {
+function formatEnv(env: Readonly<Record<string, string>>): string {
     return Object.entries(env)
         .map(([name, value]) => `${name}=${value}`)
         .join('\n');
@@ -65,7 +65,7 @@ export function parseLanguages(text: string): string[] {
         .filter((language) => language !== '');
 }
 
-export function parsePatterns(text: string): string[] {
+function parsePatterns(text: string): string[] {
     return lines(text);
 }
 
@@ -83,7 +83,7 @@ export function parseEnv(text: string): Record<string, string> | null {
 }
 
 /* `undefined` for nothing, and a failure for text that is not JSON. */
-export function parseOptions(text: string): { value: unknown } | null {
+function parseOptions(text: string): { value: unknown } | null {
     if (text.trim() === '') {
         return { value: undefined };
     }

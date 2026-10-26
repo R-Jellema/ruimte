@@ -35,7 +35,7 @@ const RUNNERS: Record<LanguageCommandId, (language: EditorLanguage) => void> = {
     'suggest-inline': (language) => void language.ghost.request()
 };
 
-export interface LanguageCommandRow {
+interface LanguageCommandRow {
     id: string;
     label: string;
     shortcut?: Shortcut;

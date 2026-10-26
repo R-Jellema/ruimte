@@ -8,7 +8,7 @@ export const clientDirectory = join(import.meta.dir, '..');
 // What Vite puts in `import.meta.env` for the client; Bun.build leaves it undefined.
 const viteEnv = { 'import.meta.env': JSON.stringify({ DEV: false, PROD: true, MODE: 'test', BASE_URL: '/' }) };
 
-export interface BrowserFixtureOptions {
+interface BrowserFixtureOptions {
     /* A script that runs before the bundle, for what has to be in place before React loads (a devtools hook). */
     head?: string;
     /* React's production build, the one a packaged app runs; a measurement of time means nothing on the development build. */

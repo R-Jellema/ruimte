@@ -13,7 +13,7 @@ import { currentEndpointId, endpointKey, endpointOfNode, splitKey } from '@/stat
 export type NodeExit = 'closed' | 'gone';
 
 /* What ending a node means, injected so the watching itself never touches the transport. */
-export type NodeEnder = (endpointId: string, id: string, kind: CanvasNodeKind, exit: NodeExit) => void;
+type NodeEnder = (endpointId: string, id: string, kind: CanvasNodeKind, exit: NodeExit) => void;
 
 /*
  * Every node of the project on any view, keyed on its machine. A session ends when its id leaves the

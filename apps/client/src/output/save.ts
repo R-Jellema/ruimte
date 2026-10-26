@@ -33,7 +33,7 @@ export async function saveToOutput(endpointId: string, projectId: string, source
 }
 
 /* The project a chat on screen belongs to: the window's, and only on the machine the window shows it from. */
-export function outputProjectFor(endpointId: string): string | null {
+function outputProjectFor(endpointId: string): string | null {
     const { current, currentEndpointId } = useProject.getState();
     if (current === null || currentEndpointId !== endpointId || !machineAnswers(pool.statusOf(endpointId), 'artifact.save')) {
         return null;

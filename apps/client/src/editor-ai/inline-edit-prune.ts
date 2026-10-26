@@ -2,7 +2,7 @@ import { isConnectionError } from '@/transport/transport';
 import { expiredInlineEdits, forgetInlineEdit } from './inline-edit-record';
 import type { LastProjectStorage } from '@/project/last-project';
 
-export interface PruneDeps {
+interface PruneDeps {
     now(): number;
     /* Takes the hidden chat view away on the machine, ending its chat. */
     remove(projectId: string, viewId: string): Promise<void>;

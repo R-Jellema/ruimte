@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import clsx from 'clsx';
 import { Globe } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -44,7 +44,7 @@ export function BrowserSplash({ id, className }: { id: string; className?: strin
         };
     }, [transport]);
 
-    const tiles = useMemo(() => devServerTiles(running), [running]);
+    const tiles = devServerTiles(running);
     const live = tiles.filter((tile) => tile.running);
     const rest = tiles.filter((tile) => !tile.running);
 

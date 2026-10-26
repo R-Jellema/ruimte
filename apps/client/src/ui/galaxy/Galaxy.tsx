@@ -3,9 +3,9 @@
 
 import { useEffect, useRef, type HTMLAttributes } from 'react';
 
-export type GalaxyDirection = 'forward' | 'backward';
+type GalaxyDirection = 'forward' | 'backward';
 
-export interface GalaxyProps extends HTMLAttributes<HTMLDivElement> {
+interface GalaxyProps extends HTMLAttributes<HTMLDivElement> {
     onUnavailable?: () => void;
     maxFps?: number;
     focal?: [number, number];

@@ -30,7 +30,7 @@ interface ToolAction {
     undo?: () => void;
 }
 
-export interface VoiceToolExecution {
+interface VoiceToolExecution {
     output: Record<string, unknown>;
     action?: ToolAction;
     followUp?: VoiceChatFollowUp;

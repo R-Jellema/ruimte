@@ -1,6 +1,6 @@
 import i18next from 'i18next';
 
-export type ObjectStoreRunner = <T>(mode: IDBTransactionMode, act: (store: IDBObjectStore) => IDBRequest<T>) => Promise<T>;
+type ObjectStoreRunner = <T>(mode: IDBTransactionMode, act: (store: IDBObjectStore) => IDBRequest<T>) => Promise<T>;
 
 /*
  * Runs one request against a single object store, opening (and on first use creating) its database

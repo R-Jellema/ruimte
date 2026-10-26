@@ -10,7 +10,7 @@ import { machineAnswers, useMachineAnswers } from '@/transport/features';
  * since a list of all projects is what both show.
  */
 
-export type RoutineListRow = { status: 'loading' } | { status: 'failed' } | { status: 'ready'; result: RoutineListResult };
+type RoutineListRow = { status: 'loading' } | { status: 'failed' } | { status: 'ready'; result: RoutineListResult };
 
 export const useRoutineLists = create<{ lists: Readonly<Record<string, RoutineListRow>> }>(() => ({ lists: {} }));
 
@@ -77,7 +77,7 @@ function startHold(endpointId: string): MachineHold {
     };
 }
 
-export function holdRoutines(endpointId: string): () => void {
+function holdRoutines(endpointId: string): () => void {
     let hold = holds.get(endpointId);
     if (hold === undefined) {
         hold = startHold(endpointId);

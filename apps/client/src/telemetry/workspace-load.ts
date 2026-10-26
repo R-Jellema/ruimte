@@ -6,7 +6,7 @@ import { recordPageMetric } from './report';
  * the first frame the workspace drew. A workspace that shows without an open of its own, such as a rename, measures
  * nothing, and of two opens in a row only the last one counts, since it is the one that drew.
  */
-export interface WorkspaceLoadClock {
+interface WorkspaceLoadClock {
     now(): number;
     nextFrame(run: () => void): void;
 }

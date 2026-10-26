@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { SessionPort, SessionPortsResult } from '@ruimte/contracts';
 import { endpointKey, useEndpointId } from '@/state/keys';
 
-export interface SessionPortControls {
+interface SessionPortControls {
     result: SessionPortsResult;
     opening: boolean;
     localRoute: boolean;
@@ -10,7 +10,7 @@ export interface SessionPortControls {
 }
 
 // The body owns polling; headers only display its controls, including when a view's toolbar folds.
-export const useSessionPortControls = create<{ byKey: Record<string, SessionPortControls> }>(() => ({ byKey: {} }));
+const useSessionPortControls = create<{ byKey: Record<string, SessionPortControls> }>(() => ({ byKey: {} }));
 
 export function useSessionPortControl(id: string): SessionPortControls | null {
     const endpointId = useEndpointId();

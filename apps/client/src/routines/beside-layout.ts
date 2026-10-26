@@ -3,7 +3,7 @@ import { GRID, snapToGrid, type Rect } from '@/canvas/math';
 import type { CardSize } from '@/routines/output-size';
 
 /* What a person or the open run's thread set beside the layout's own sizes; null keeps the layout's. */
-export interface BesideSizes {
+interface BesideSizes {
     output?: CardSize | null;
     runsWidth?: number | null;
     /* Each run's header and thread as last measured open, kept between the minimum and maximum; one not measured yet starts at the minimum. */
@@ -13,7 +13,7 @@ export interface BesideSizes {
 }
 
 /* The run cards beside a routine node, the open one included; the rest wait behind the line under them. */
-export const BESIDE_RUNS = 4;
+const BESIDE_RUNS = 4;
 
 const GUTTER = 72;
 const COLUMN_W = 440;
@@ -42,7 +42,7 @@ export type BesideCard =
       };
 
 /* The run a routine node opens beside it by itself: the newest one that ran, or the newest at all. */
-export function defaultOpenRun(runs: readonly RoutineRun[]): string | null {
+function defaultOpenRun(runs: readonly RoutineRun[]): string | null {
     return (runs.find((run) => run.state !== 'skipped') ?? runs[0])?.runId ?? null;
 }
 

@@ -3,7 +3,7 @@
  * Chromium data and call anything uncertain "Browser" rather than guessing the wrong brand.
  */
 
-export interface ClientEnvironment {
+interface ClientEnvironment {
     /* `window.ruimteDesktop?.platform`: this is the app rather than a page, and the value is Node's. */
     desktopPlatform?: string | null;
     /* `navigator.userAgentData.brands`, in the order Chromium gives them. */

@@ -11,7 +11,7 @@ export const LANGUAGE_LABELS: Record<AppLanguage, string> = { en: 'English', nl:
 
 export const FALLBACK_LANGUAGE: AppLanguage = 'en';
 
-export function isAppLanguage(value: unknown): value is AppLanguage {
+function isAppLanguage(value: unknown): value is AppLanguage {
     return APP_LANGUAGES.some((language) => language === value);
 }
 

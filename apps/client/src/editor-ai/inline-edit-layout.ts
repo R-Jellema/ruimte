@@ -7,7 +7,7 @@ export const PROBLEM_CHIP_CHARS = 48;
 
 const SEVERITY_RANK = { error: 0, warning: 1, info: 2, hint: 3 } as const;
 
-export interface ProblemChips {
+interface ProblemChips {
     readonly shown: readonly InlineProblem[];
     readonly hidden: readonly InlineProblem[];
 }

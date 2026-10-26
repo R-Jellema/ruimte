@@ -8,21 +8,21 @@ import { endpointKey } from '@/state/keys';
 import { useToasts } from '@/state/toasts';
 import type { Transport } from '@/transport/transport';
 
-export interface SqlBindingsState {
+interface SqlBindingsState {
     /* The machine and the project these are of (`endpointKey`); null while nothing asked for any. */
     key: string | null;
     sql: ProjectSql;
     snapshots: SqlSnapshotInfo[];
 }
 
-export interface SqlBindingsTarget {
+interface SqlBindingsTarget {
     endpointId: string;
     projectId: string;
     folder: string | null;
     transport: Pick<Transport, 'request' | 'on' | 'subscribeStatus'>;
 }
 
-export interface SqlBindingsDeps {
+interface SqlBindingsDeps {
     notify(title: string, description: string): void;
 }
 
@@ -79,7 +79,7 @@ export function snapshotOf(snapshots: readonly SqlSnapshotInfo[], connectionId: 
 
 const INITIAL: SqlBindingsState = { key: null, sql: {}, snapshots: [] };
 
-export interface SqlBindingsModel {
+interface SqlBindingsModel {
     store: UseBoundStore<StoreApi<SqlBindingsState>>;
     attach(target: SqlBindingsTarget | null): void;
     /* A person's choice for one file by its stored path, or for the project without one; null takes it away. */

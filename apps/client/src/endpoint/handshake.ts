@@ -8,7 +8,7 @@ import { rememberLocalSecret, rememberTicket } from './credentials';
  * Trades the local secret for a ticket over the Authorization header, so the secret never sits in a
  * URL. A refusal, an answer that is no ticket or a daemon that does not answer leaves the last ticket.
  */
-export async function tradeLocalSecret(endpoint: Endpoint, secret: string): Promise<void> {
+async function tradeLocalSecret(endpoint: Endpoint, secret: string): Promise<void> {
     const response = await fetch(`${endpoint.httpBaseUrl}/auth/local-ticket`, {
         method: 'POST',
         headers: { authorization: `Bearer ${secret}` }

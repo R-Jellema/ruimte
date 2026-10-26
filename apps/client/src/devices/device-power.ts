@@ -5,7 +5,7 @@ import type { DeviceInfo, DevicePower } from '@ruimte/contracts';
 import { formatNumber } from '@adecore/ui/format';
 
 /* Below this, off power, a phone is about to stop a test run. */
-export const LOW_BATTERY_PERCENT = 20;
+const LOW_BATTERY_PERCENT = 20;
 
 /* The last battery each phone said, by `powerKey`; null where it could not say. */
 export const useDevicePowers = create<Record<string, DevicePower | null>>(() => ({}));
@@ -14,7 +14,7 @@ export function powerKey(endpointId: string, device: Pick<DeviceInfo, 'backendId
     return `${endpointId}:${device.backendId}:${device.deviceId}`;
 }
 
-export interface PowerLook {
+interface PowerLook {
     icon: LucideIcon;
     tone: 'muted' | 'needsYou';
     level: string;

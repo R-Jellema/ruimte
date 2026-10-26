@@ -39,7 +39,7 @@ export function ArtifactNodeBody({ id }: { id: string }) {
     return <ArtifactOnCanvas artifactId={reference.id} version={reference.version} onPin={pin} />;
 }
 
-export interface ArtifactOnCanvasProps {
+interface ArtifactOnCanvasProps {
     artifactId: string;
     /* The version it shows; the latest when undefined. */
     version: string | undefined;

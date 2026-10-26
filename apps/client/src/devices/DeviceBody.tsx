@@ -218,7 +218,7 @@ function DeviceButtons({ device }: { device: DeviceInfo }) {
     );
 }
 
-export function DeviceToolsFlyout({ device }: { device: DeviceInfo }) {
+function DeviceToolsFlyout({ device }: { device: DeviceInfo }) {
     const { t } = useTranslation('panels');
     const [open, setOpen] = useState(false);
     return (

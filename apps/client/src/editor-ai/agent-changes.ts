@@ -47,7 +47,7 @@ export interface AgentChangesSettings {
     attribution: boolean;
 }
 
-export interface AgentChangesSource {
+interface AgentChangesSource {
     read(): Promise<ProvenanceReadResult>;
     /* What is on disk as far as this client knows, or what moved under an unsaved draft, which is the text the daemon's runs are mapped onto when the mtimes agree. */
     disk(): { text: string; mtime: number } | null;

@@ -8,7 +8,7 @@ export interface DeviceControl {
 }
 
 /* What erasing asks of a machine beside starting and stopping. */
-export interface DeviceEraser extends DeviceControl {
+interface DeviceEraser extends DeviceControl {
     action(action: DeviceAction): Promise<unknown>;
 }
 

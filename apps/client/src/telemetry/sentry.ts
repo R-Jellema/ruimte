@@ -13,7 +13,7 @@ import { useProjectList } from '@/state/project-list';
 import { CLIENT_TAGS, connectionEvent, storageDedupeStore, type ConnectionProblem } from './events';
 import type { PageMetric } from './metrics';
 
-export interface ReporterOptions {
+interface ReporterOptions {
     readonly surface: 'desktop' | 'station';
     /* The version a release build was stamped with. */
     readonly version: string;

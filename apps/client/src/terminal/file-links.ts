@@ -22,7 +22,7 @@ function logicalLineStart(term: Terminal, row: number): number {
     return first;
 }
 
-export function terminalFileLinks(term: Terminal, row: number, cwd: string | null, endpointId: string): Array<TerminalFileLink & Pick<ILink, 'range'>> {
+function terminalFileLinks(term: Terminal, row: number, cwd: string | null, endpointId: string): Array<TerminalFileLink & Pick<ILink, 'range'>> {
     const buffer = term.buffer.active;
     const first = logicalLineStart(term, row);
     let last = row - 1;

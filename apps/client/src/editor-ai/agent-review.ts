@@ -49,7 +49,7 @@ export interface ReviewItem {
     replaced: Array<Array<[number, number]>>;
 }
 
-export interface ReviewState {
+interface ReviewState {
     items: readonly ReviewItem[];
     /* The change a step landed on last, as an index into `items`. */
     current: number | null;

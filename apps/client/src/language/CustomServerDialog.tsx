@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { LanguageCustomCheckResult } from '@ruimte/contracts';
 import { Button, Checkbox, Dialog, Field, FormError, Input, Segmented, TextArea } from '@adecore/ui';
@@ -50,21 +50,14 @@ function Form({ start, endpointId, tracker, onClose }: { start: CustomDraft; end
     const [failure, setFailure] = useState<string | null>(null);
     const found = useCommandCheck(tracker, draft.command);
     const known = useProjectList((state) => state.projects);
-    const choices = useMemo(
-        () =>
-            known
-                .filter((row) => row.endpointId === endpointId && row.summary.scratch !== true)
-                .map((row) => ({ folder: row.summary.folder, name: row.summary.name })),
-        [known, endpointId]
-    );
+    const choices = known
+        .filter((row) => row.endpointId === endpointId && row.summary.scratch !== true)
+        .map((row) => ({ folder: row.summary.folder, name: row.summary.name }));
     // A folder the server was saved for that the list no longer has still reads as itself.
-    const listed = useMemo(
-        () => [
-            ...choices,
-            ...draft.projects.filter((folder) => !choices.some((choice) => choice.folder === folder)).map((folder) => ({ folder, name: folder }))
-        ],
-        [choices, draft.projects]
-    );
+    const listed = [
+        ...choices,
+        ...draft.projects.filter((folder) => !choices.some((choice) => choice.folder === folder)).map((folder) => ({ folder, name: folder }))
+    ];
     const problem = tried ? problemOf(draft) : null;
     const set = (fields: Partial<CustomDraft>): void => setDraft((current) => ({ ...current, ...fields }));
     const errorOf = (kind: DraftProblem): string | undefined => (problem === kind ? t(`editor.servers.own.dialog.problem.${kind}`) : undefined);

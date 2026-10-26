@@ -31,14 +31,14 @@ const OPTIONS: readonly { key: keyof FindOptions; icon: LucideIcon; label: strin
 ];
 
 /* What a surface that can replace hands the bar: what to do, and why it cannot while it cannot. */
-export interface FindReplacement {
+interface FindReplacement {
     onReplace(): void;
     onReplaceAll(): void;
     /* Why this surface cannot be written to right now, such as a file that is read only. */
     disabledReason?: string | null;
 }
 
-export interface FindBarProps {
+interface FindBarProps {
     find: FindState;
     total: number;
     /* Zero-based; null while nothing is picked. */

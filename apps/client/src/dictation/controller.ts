@@ -9,7 +9,7 @@ import { dictationFailureText } from './failure';
 import { helperEngine } from './helper';
 import type { DictationEngine, DictationSession } from './engine';
 
-export const SPEECH_LOCALES: Record<string, string> = {
+const SPEECH_LOCALES: Record<string, string> = {
     ar: 'ar-AR',
     zh: 'zh-CN',
     cs: 'cs-CZ',

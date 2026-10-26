@@ -19,7 +19,7 @@ export interface ChatHit {
     occurrence: number;
 }
 
-export interface ChatSearch {
+interface ChatSearch {
     hits: ChatHit[];
     invalid: boolean;
 }
@@ -32,7 +32,7 @@ function isChild(item: ChatItem): boolean {
 }
 
 /* The title a word of a `ruimte-context` call is drawn as, or null for one drawn as it was typed. */
-export type CallNames = (word: string, option: string | null) => CommandName | null;
+type CallNames = (word: string, option: string | null) => CommandName | null;
 
 /*
  * The line of a `ruimte-context` call as its row draws it: the detail, a named word as its title with
@@ -58,7 +58,7 @@ function contextCallLine(item: Extract<ChatItem, { kind: 'tool' }>, nameOf: Call
 }
 
 /* What a reader can find in an item, part by part, in the order its row draws them. */
-export function findableFields(item: ChatItem, nameOf?: CallNames): { field: ChatFindField; text: string }[] {
+function findableFields(item: ChatItem, nameOf?: CallNames): { field: ChatFindField; text: string }[] {
     if (isChild(item)) {
         return [];
     }
@@ -128,9 +128,9 @@ export function hitKey(hit: ChatHit): string {
 }
 
 /* What stands between a hit and the screen: its row, a run of tool calls to open, or a turn to unfold. */
-export type HitPlace = { kind: 'row'; index: number } | { kind: 'group'; id: string } | { kind: 'turn'; turnId: string } | null;
+type HitPlace = { kind: 'row'; index: number } | { kind: 'group'; id: string } | { kind: 'turn'; turnId: string } | null;
 
-export interface RowIndex {
+interface RowIndex {
     /* The row an item is drawn in, or the closed run of tool calls it is in. */
     rows: Map<string, number>;
     /* The fold of each settled turn. */

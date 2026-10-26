@@ -1,6 +1,6 @@
 /* The pure half of the recorder: samples in, the numbers a report quotes out. */
 
-export interface Distribution {
+interface Distribution {
     n: number;
     p50: number;
     p95: number;
@@ -25,7 +25,7 @@ export function round(value: number): number {
     return Math.round(value * 10) / 10;
 }
 
-export interface FrameSummary extends Distribution {
+interface FrameSummary extends Distribution {
     /* Frames longer than one, two and three 60 Hz frames, the steps a person notices. */
     over17: number;
     over33: number;
@@ -47,7 +47,7 @@ export interface HeapSample {
     limitBytes: number;
 }
 
-export interface HeapSummary {
+interface HeapSummary {
     /* Megabytes (2^20 bytes). */
     usedMb: { first: number; min: number; max: number; last: number };
     totalMb: number;

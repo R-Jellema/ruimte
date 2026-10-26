@@ -2,7 +2,7 @@ import { createStore } from 'zustand';
 import { absoluteOf, type ChatImageTargetResult } from '@ruimte/contracts';
 import type { Transport } from '@/transport';
 
-export interface ImageSaveState {
+interface ImageSaveState {
     directory: string;
     name: string;
     checkedPath: string | null;

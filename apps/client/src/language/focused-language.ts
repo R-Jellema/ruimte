@@ -28,7 +28,7 @@ export function registerFocusedLanguage(language: EditorLanguage, surface: HTMLE
 }
 
 /* The language side of the editor the keyboard is in, or null when it is anywhere else. */
-export function focusedLanguage(): EditorLanguage | null {
+function focusedLanguage(): EditorLanguage | null {
     const active = document.activeElement;
     if (active === null) {
         return null;
@@ -43,7 +43,7 @@ export function focusedLanguage(): EditorLanguage | null {
 }
 
 /* The editor that last had the keyboard, when it sits in `cell`; null for a cell that never held one. */
-export function recentLanguageIn(cell: Element | null): EditorLanguage | null {
+function recentLanguageIn(cell: Element | null): EditorLanguage | null {
     return cell !== null && recent !== null && entries.has(recent) && cell.contains(recent.surface) ? recent.language : null;
 }
 

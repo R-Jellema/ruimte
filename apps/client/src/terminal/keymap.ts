@@ -3,7 +3,7 @@ import { APP_SHORTCUTS } from '@/shell/shortcuts';
 import { shortcut, matchesShortcut, type Shortcut, type KeyLike } from '@adecore/ui';
 
 /* A shortcut that is a different key on macOS than everywhere else, on purpose. */
-export interface PlatformShortcut {
+interface PlatformShortcut {
     mac: Shortcut;
     other: Shortcut;
 }

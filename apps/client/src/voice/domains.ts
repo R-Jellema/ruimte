@@ -6,7 +6,7 @@ import { useProject } from '@/state/project';
 import { windowWorkspace } from '@/state/window';
 
 /* What a project holds, as far as the tools Voice gets are concerned. */
-export interface VoiceProjectFacts {
+interface VoiceProjectFacts {
     sessions: boolean;
     content: boolean;
     pages: boolean;

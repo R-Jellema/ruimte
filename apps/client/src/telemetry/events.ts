@@ -11,7 +11,7 @@ export type LinkProblem = { kind: 'dropped'; code: number | null } | { kind: 'ti
 
 export type ConnectionProblem = LinkProblem & { machine: MachineKind; link: LinkKind };
 
-export interface ConnectionEvent {
+interface ConnectionEvent {
     message: string;
     level: 'error';
     fingerprint: string[];

@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -39,7 +39,7 @@ import { canDownload, downloadArtifactFile, useArtifactText, type ArtifactFileRe
 import { ArtifactFileBody } from '@/output/ArtifactFileBody';
 import { fileViewOf, firstShownFile } from '@/output/file-view';
 import { showChat, useChatName } from '@/output/kinds';
-import { selectArtifactVersion, takeCompareRequest, useArtifactCompareRequest, useArtifactSelection } from '@/output/open';
+import { selectArtifactVersion, useArtifactSelection } from '@/output/open';
 import { useArtifact } from '@/output/use-artifact';
 import { showRoutine, useRoutinesStage } from '@/routines/stage';
 import { FileToolbarToggle } from '@/shell/panels/FileToolbar';
@@ -90,7 +90,7 @@ export function ArtifactView({ artifactId, machineId, pin }: { artifactId: strin
  * The version a view of the project stays on, stored with the view the way a node stores it: null
  * follows the latest. Without one the version picked is the window's, as for a loose tab.
  */
-export interface ArtifactPin {
+interface ArtifactPin {
     version: string | null;
     set(version: string | null): void;
 }
@@ -123,18 +123,6 @@ function ArtifactBody({
     const chosen = pin === undefined ? selected : pin.version;
     const [comparing, setComparing] = useState(false);
     const [baseId, setBaseId] = useState<string | null>(null);
-    const tabKey = artifactTabKey(artifact.artifactId, machineId);
-    const askedBase = useArtifactCompareRequest((s) => s.bases[tabKey]);
-    // An opening that asked for a compare sets it the way a person would, once.
-    if (askedBase !== undefined && (!comparing || baseId !== askedBase)) {
-        setComparing(true);
-        setBaseId(askedBase);
-    }
-    useEffect(() => {
-        if (askedBase !== undefined) {
-            takeCompareRequest(tabKey);
-        }
-    }, [askedBase, tabKey]);
     const [copy, setCopy] = useState<CopyToProjectRequest | null>(null);
     const [removing, setRemoving] = useState<RemoveArtifactRequest | null>(null);
     const canRemove = useCanRemove(endpointId, machineId);

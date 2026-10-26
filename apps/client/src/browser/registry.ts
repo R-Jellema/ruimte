@@ -19,7 +19,7 @@ import { endpointById, LOCAL_ENDPOINT_ID, useEndpoints } from '@/state/endpoints
 
 /* A main-frame load that did not arrive, in Chromium's own terms. What to say about it is
    `classifyLoadError`; the registry only reports what happened. */
-export interface LoadFailure {
+interface LoadFailure {
     url: string;
     code: number;
     description: string;

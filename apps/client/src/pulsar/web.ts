@@ -42,7 +42,7 @@ const PendingLoginSchema = z.object({
     /* What the confirmation names; a login written down before it was kept was GitHub's. */
     provider: ProviderIdSchema.optional()
 });
-export type PendingLogin = z.infer<typeof PendingLoginSchema>;
+type PendingLogin = z.infer<typeof PendingLoginSchema>;
 
 const storedPendingLogin = storedJson(PENDING_LOGIN_KEY, PendingLoginSchema);
 
@@ -120,7 +120,7 @@ const STORE_NAME = 'session';
 const RECORD_ID = 'current';
 
 /* The session in IndexedDB, beside the key it is bound to rather than in `localStorage` with everything else. */
-export function indexedDbSessionStore(): SessionStore {
+function indexedDbSessionStore(): SessionStore {
     const run = objectStoreRunner(DB_NAME, STORE_NAME);
     return {
         read: async () => {

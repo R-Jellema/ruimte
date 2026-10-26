@@ -2,7 +2,7 @@ import { defaultProjectStore } from '@/state/project';
 import { useWindow, windowWorkspace } from '@/state/window';
 import type { Transport } from '@/transport/transport';
 
-export interface WindowProject {
+interface WindowProject {
     endpointId: string;
     projectId: string;
     folder: string | null;

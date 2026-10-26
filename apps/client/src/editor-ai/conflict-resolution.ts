@@ -30,11 +30,11 @@ export interface ConflictBlockState {
     author: ConflictAuthor | null;
 }
 
-export interface ConflictState {
+interface ConflictState {
     blocks: readonly ConflictBlockState[];
 }
 
-export interface ConflictSource {
+interface ConflictSource {
     /* The draft as it stands: the version the text started from, and the one that moved under it; null once there is no draft or nothing incoming. */
     versions(): { disk: string; incoming: DiskText } | null;
     /* Calls back whenever the draft changes. */

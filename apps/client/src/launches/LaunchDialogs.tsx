@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { KeyRound, Lock, Plus, Rocket, Search, TriangleAlert, Users, X } from 'lucide-react';
@@ -255,10 +255,8 @@ function EditForm({ projectId, document, launchId }: { projectId: string; docume
 function DraftList({ drafts, selectedId, onSelect }: { drafts: readonly LaunchDraft[]; selectedId: string | null; onSelect(id: string): void }) {
     const { folder } = useProjectLaunches();
     const { repos } = useProjectRepos(folder);
-    const sections = useMemo(() => {
-        const entries = drafts.map((draft) => draft.entry);
-        return folder === null ? [{ label: null, launches: entries }] : launchSections(entries, folder, repos);
-    }, [drafts, folder, repos]);
+    const entries = drafts.map((draft) => draft.entry);
+    const sections = folder === null ? [{ label: null, launches: entries }] : launchSections(entries, folder, repos);
 
     return sections.map((section) => (
         <div key={section.label ?? ''} className="flex flex-col not-first:mt-2">
@@ -314,7 +312,7 @@ function LaunchForm({
     const { t } = useTranslation('launches');
     const { folder } = useProjectLaunches();
     const { repos } = useProjectRepos(folder);
-    const roots = useMemo(() => folderRoots(repos), [repos]);
+    const roots = folderRoots(repos);
     const [place, setPlace] = useState(() => splitFolder(draft.entry.cwd, roots));
     const { entry } = draft;
     const set = (fields: Partial<LaunchConfigEntry>): void => onChange((current) => ({ ...current, entry: { ...current.entry, ...fields } }));
@@ -556,10 +554,7 @@ interface ImportInto {
 function ImportForm({ projectId, document, into }: { projectId: string; document: LaunchesDocument; into?: ImportInto }) {
     const { t } = useTranslation('launches');
     const { suggestions, failed } = useLaunchSuggestions(projectId);
-    const offered = useMemo(
-        () => (suggestions === null ? null : newSuggestions(suggestions, into === undefined ? document : { launches: savedLaunches(into.drafts) })),
-        [suggestions, document, into]
-    );
+    const offered = suggestions === null ? null : newSuggestions(suggestions, into === undefined ? document : { launches: savedLaunches(into.drafts) });
     const [skipped, setSkipped] = useState<ReadonlySet<string>>(new Set());
     const [share, setShare] = useState(false);
     const [busy, setBusy] = useState(false);

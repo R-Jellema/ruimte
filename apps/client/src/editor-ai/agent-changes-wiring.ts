@@ -10,7 +10,7 @@ import { AgentReview, type ReviewSource } from './agent-review';
 import { providerNameOf } from './use-chat-identity';
 import { isPathBelow, relativeTo } from '@/shell/panels/files-tree';
 
-export interface AgentChangesFile {
+interface AgentChangesFile {
     endpointId: string;
     projectId: string;
     /* Absolute on the machine. */
@@ -18,13 +18,13 @@ export interface AgentChangesFile {
 }
 
 /* What a review needs of the app around it; the machine and the label of the file are the wiring's. */
-export type AgentReviewApp = Pick<ReviewSource, 'offer' | 'focusChat' | 'chatExists' | 'language'> & {
+type AgentReviewApp = Pick<ReviewSource, 'offer' | 'focusChat' | 'chatExists' | 'language'> & {
     /* The open project's folder, which a chat reads the file relative to. */
     folder(): string | null;
 };
 
 /* The path the way a chat reads it: inside the project folder it is relative to it. */
-export function projectRelative(path: string, folder: string | null): string {
+function projectRelative(path: string, folder: string | null): string {
     return folder !== null && isPathBelow(folder, path) ? relativeTo(folder, path) : path;
 }
 

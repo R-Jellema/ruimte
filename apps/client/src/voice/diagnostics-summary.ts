@@ -1,20 +1,20 @@
 import type { ActionDomain } from '@ruimte/actions';
 import type { VoiceSessionRecord } from '@/voice/diagnostics';
 
-export interface VoiceLatency {
+interface VoiceLatency {
     count: number;
     medianMs: number | null;
     slowestMs: number | null;
 }
 
-export interface VoiceCount {
+interface VoiceCount {
     name: string;
     count: number;
     /* A fraction from 0 to 1. */
     share: number;
 }
 
-export interface VoiceDiagnosticsSummary {
+interface VoiceDiagnosticsSummary {
     sessions: number;
     requests: number;
     answered: number;

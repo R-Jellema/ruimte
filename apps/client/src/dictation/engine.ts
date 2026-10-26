@@ -1,11 +1,11 @@
-export interface DictationChunk {
+interface DictationChunk {
     // A complete snapshot, including punctuation. Never append streaming token fragments.
     text: string;
     final: boolean;
 }
 
 /* Each code is a key under `voice:dictation.errors`, so a person never reads the code itself. */
-export type DictationErrorCode = 'noBridge' | 'overrun' | 'recognition' | 'targetChanged';
+type DictationErrorCode = 'noBridge' | 'overrun' | 'recognition' | 'targetChanged';
 
 export class DictationError extends Error {
     readonly code: DictationErrorCode;

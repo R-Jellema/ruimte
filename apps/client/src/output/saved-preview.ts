@@ -1,7 +1,7 @@
 import type { ArtifactVersion } from '@ruimte/contracts';
 import { fileViewOf } from '@/output/file-view';
 
-export type SavedPreviewView = 'page' | 'markdown' | 'code' | 'image' | 'pdf';
+type SavedPreviewView = 'page' | 'markdown' | 'code' | 'image' | 'pdf';
 
 export interface SavedPreviewOf {
     view: SavedPreviewView;

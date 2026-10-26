@@ -38,7 +38,7 @@ async function kept(path: string, code: string, result: Compiled): Promise<strin
     return result.code ?? code;
 }
 
-export function compiledOnce(path: string): Promise<string> {
+function compiledOnce(path: string): Promise<string> {
     let code = compiled.get(path);
     if (code === undefined) {
         code = compile(path);

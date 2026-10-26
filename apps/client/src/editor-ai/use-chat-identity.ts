@@ -5,7 +5,7 @@ import { chooserChats } from '@/chat/chat-chooser';
 import { useSidebarSource } from '@/shell/sidebar-source';
 
 /* The chat that wrote something, as the project shows it now. */
-export interface ChatIdentity {
+interface ChatIdentity {
     /* False once the chat is gone from the project, which leaves the card without a way to open it. */
     exists: boolean;
     title: string | null;

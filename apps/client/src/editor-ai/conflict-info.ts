@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { ConflictAuthor } from './conflict-resolution';
 
-export interface ConflictInfo {
+interface ConflictInfo {
     /* The blocks still waiting for an answer. */
     open: number;
     /* Who wrote the newest part of the incoming text, when the runs of the file say. */

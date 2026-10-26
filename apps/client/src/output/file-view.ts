@@ -17,7 +17,7 @@ import type { FileSource } from '@/shell/panels/file-source';
  * How a file of a version is drawn, decided by what the file is and never by the artifact's kind: an
  * agent names the kind, the machine sniffed the type. What the files panel can show, a version shows.
  */
-export type ArtifactFileView = 'page' | 'markdown' | 'code' | 'image' | 'video' | 'audio' | 'pdf' | 'model' | 'none';
+type ArtifactFileView = 'page' | 'markdown' | 'code' | 'image' | 'video' | 'audio' | 'pdf' | 'model' | 'none';
 
 // The text types the machine names from a file's extension once its bytes read as UTF-8 (`artifact-names.ts`).
 const TEXT_MIMES = new Set(['application/json', 'application/xml', 'application/yaml']);

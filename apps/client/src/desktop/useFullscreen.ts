@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { TRAFFIC_LIGHTS_INSET_PX, desktop, hasTrafficLights } from '@/desktop/bridge';
 
 /* Whether the desktop window is fullscreen; false in a browser tab. */
-export function useDesktopFullscreen(): boolean {
+function useDesktopFullscreen(): boolean {
     const [fullscreen, setFullscreen] = useState(false);
     useEffect(() => {
         const bridge = desktop();

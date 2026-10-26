@@ -1,4 +1,4 @@
-export type StarTone = 'white' | 'cool' | 'warm';
+type StarTone = 'white' | 'cool' | 'warm';
 
 export interface Star {
     /* Percent of the scene, from its left and its top edge. */

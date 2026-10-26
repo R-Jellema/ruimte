@@ -11,7 +11,7 @@ import { useChatRow } from '@adecore/agents-react/state';
 import { IconButton } from '@adecore/ui';
 
 // Long enough to bridge an agent closing one step before it opens the next, short enough that a stop still shows soon.
-export const ACTIVE_HOLD_MS = 1500;
+const ACTIVE_HOLD_MS = 1500;
 
 function sameFlag(left: true, right: true): boolean {
     return left === right;

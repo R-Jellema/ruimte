@@ -7,7 +7,7 @@ import { useDocument } from '@/state/document';
 import { useServers } from '@/state/server';
 
 /* A reader of a canvas view's texts, handed in so a test can pass its own. */
-export type TextsOfView = (view: ProjectView) => readonly ProjectText[];
+type TextsOfView = (view: ProjectView) => readonly ProjectText[];
 
 // A text's first line is its name, as the daemon names it to an agent.
 function textName(text: string): string {
@@ -74,7 +74,7 @@ export function projectReferables(views: readonly ProjectView[], nodesOf: NodesO
 }
 
 /* The texts of a canvas view: what its editor holds while it is on screen, else what the document has. */
-export function textsOfView(view: ProjectView): readonly ProjectText[] {
+function textsOfView(view: ProjectView): readonly ProjectText[] {
     if (!isCanvasView(view)) {
         return [];
     }

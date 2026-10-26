@@ -3,7 +3,7 @@ import { deviceMatches, type DeviceInfo, type DeviceReference, type DeviceUnavai
 import { z } from 'zod';
 import { storedJson } from '@/state/stored-json';
 
-export interface DeviceListState {
+interface DeviceListState {
     devices: DeviceInfo[];
     unavailable: DeviceUnavailable[];
     loaded: boolean;
@@ -26,7 +26,7 @@ function persistCollapsedGroups(keys: readonly string[]): void {
     storedCollapsedGroups.write(keys);
 }
 
-export interface EraseRequest {
+interface EraseRequest {
     endpointId: string;
     device: DeviceInfo;
 }
@@ -99,7 +99,7 @@ export const useDevices = create<DevicesState>((set, get) => ({
     }
 }));
 
-export function sameDevice(left: Pick<DeviceInfo, 'backendId' | 'deviceId'>, right: Pick<DeviceInfo, 'backendId' | 'deviceId'>): boolean {
+function sameDevice(left: Pick<DeviceInfo, 'backendId' | 'deviceId'>, right: Pick<DeviceInfo, 'backendId' | 'deviceId'>): boolean {
     return left.backendId === right.backendId && left.deviceId === right.deviceId;
 }
 

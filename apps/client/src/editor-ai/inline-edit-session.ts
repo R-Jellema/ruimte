@@ -9,7 +9,7 @@ import type { InlineEditRecord } from './inline-edit-record';
 import { inlineMessage } from './inline-message';
 import { basenameOf } from '@/shell/panels/files-tree';
 
-export type InlinePhase = 'running' | 'proposal' | 'answer' | 'failed' | 'stopped';
+type InlinePhase = 'running' | 'proposal' | 'answer' | 'failed' | 'stopped';
 
 export interface InlineEditState {
     phase: InlinePhase;
@@ -85,7 +85,7 @@ export interface InlineEditInit {
 }
 
 /* A turn as the chat shows it now. */
-export interface TurnOutcome {
+interface TurnOutcome {
     readonly state: 'running' | 'done' | 'aborted' | 'error';
     readonly text: string;
     readonly error: string | null;

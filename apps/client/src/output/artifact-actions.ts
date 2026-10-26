@@ -49,7 +49,7 @@ const COPY_FAILURES: Readonly<Record<string, string>> = {
     'too-large': 'copyHere.tooLarge'
 };
 
-export interface MachineCopy {
+interface MachineCopy {
     copying: boolean;
     /* What the copy does, for a tooltip. */
     tip: string;

@@ -12,7 +12,7 @@ const live = new Map<string, Terminal>();
 const lastScreens = new Map<string, string[]>();
 const nodeOf = new WeakMap<Terminal, string>();
 
-export function screenLines(term: Terminal): string[] {
+function screenLines(term: Terminal): string[] {
     const buffer = term.buffer.active;
     const lines: string[] = [];
     for (let i = 0; i < buffer.length; i++) {
@@ -55,7 +55,7 @@ export function forgetScreen(endpointId: string, nodeId: string): void {
     lastScreens.delete(endpointKey(endpointId, nodeId));
 }
 
-export interface TerminalTestHooks {
+interface TerminalTestHooks {
     /* The machine defaults to the active one, which is the only one a canvas shows today. */
     terminalText(nodeId: string, endpointId?: string): string | null;
     terminalSize(nodeId: string, endpointId?: string): { cols: number; rows: number } | null;

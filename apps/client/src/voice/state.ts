@@ -7,7 +7,7 @@ import { voiceOnMachine } from '@/voice/route';
 
 export type VoicePhase = 'idle' | 'connecting' | 'listening' | 'closing' | 'error';
 export type { VoiceActionKind };
-export type VoiceActionStatus = 'running' | 'completed' | 'undone' | 'failed';
+type VoiceActionStatus = 'running' | 'completed' | 'undone' | 'failed';
 
 export interface VoiceUtterance {
     id: string;

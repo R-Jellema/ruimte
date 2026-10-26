@@ -5,7 +5,7 @@ import { externalChange } from '@adecore/agents-react/chat/ui';
 import type { DictationInsertion } from './controller';
 import { DictationError } from './engine';
 
-export interface InsertionRange {
+interface InsertionRange {
     from: number;
     to: number;
 }

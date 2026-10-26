@@ -12,7 +12,7 @@ import { useToasts } from '@/state/toasts';
 import { useChatChooser } from '@/chat/chat-chooser';
 
 /* Where the text came from, which decides what a new chat gets a line from. */
-export type SelectionSource = { readonly nodeId: string } | { readonly path: string };
+type SelectionSource = { readonly nodeId: string } | { readonly path: string };
 
 /*
  * Text on its way to a chat's prompt. The block is what the draft receives, the label is what the

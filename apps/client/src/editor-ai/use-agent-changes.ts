@@ -19,7 +19,7 @@ import type { AgentReview } from './agent-review';
 const NOT_DRAWN: AgentChangesState = { live: null, hover: null };
 const noSubscription = (): (() => void) => () => undefined;
 
-export interface AgentChangesView extends AgentChangesState {
+interface AgentChangesView extends AgentChangesState {
     /* For the card, which stays open while the pointer is in it. */
     holdCard(inside: boolean): void;
     /* The rows and the steps of Review mode; they hold nothing in the other modes. */

@@ -2,7 +2,7 @@ import i18next from 'i18next';
 import { desktop } from '@/desktop/bridge';
 import { easeBands, silentBands, timeDomainBands } from '@/audio/waveform';
 
-export interface MicrophoneSnapshot {
+interface MicrophoneSnapshot {
     deviceName: string;
     bands: number[];
     trackStatus: 'live' | 'muted' | 'disabled' | 'ended';

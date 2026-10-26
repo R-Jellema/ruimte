@@ -2,7 +2,7 @@ import i18next from 'i18next';
 import type { ComputerControlAction, ComputerSessionMode, ComputerUseStatus } from '@ruimte/contracts';
 import { useComputer } from '@/state/computer';
 
-export interface IndicatorLook {
+interface IndicatorLook {
     // The accent while the agent acts, muted while the person holds the Mac: the phantom cursor's own two tones.
     tone: 'accent' | 'muted';
     label: string;

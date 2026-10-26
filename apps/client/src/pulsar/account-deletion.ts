@@ -14,7 +14,7 @@ export type LocalLeave = 'left' | 'not-on-it' | 'failed';
  * otherwise refuse the next sign-in here. Only a machine on that very account leaves: one on another
  * account is someone else's business.
  */
-export async function leaveThisComputer(accountId: string): Promise<LocalLeave> {
+async function leaveThisComputer(accountId: string): Promise<LocalLeave> {
     if (!hasLocalMachine() || serverInfoOf(LOCAL_ENDPOINT_ID).accountId !== accountId) {
         return 'not-on-it';
     }

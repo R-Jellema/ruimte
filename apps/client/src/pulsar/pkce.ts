@@ -7,7 +7,7 @@ import { randomToken, sha256, type ProviderId } from '@ruimte/pulsar';
  * app runs the same login as the desktop app does.
  */
 
-export interface Pkce {
+interface Pkce {
     verifier: string;
     challenge: string;
 }

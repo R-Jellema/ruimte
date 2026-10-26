@@ -15,7 +15,7 @@ import { ModelPreview } from '@/shell/panels/ModelPreview';
 import { PdfPreview } from '@/shell/panels/PdfPreview';
 import { VideoFile } from '@/shell/panels/VideoFile';
 
-export interface ArtifactFileProps {
+interface ArtifactFileProps {
     endpointId: string;
     reference: ArtifactFileRef;
     file: ArtifactFile;

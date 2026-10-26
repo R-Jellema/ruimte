@@ -14,7 +14,7 @@ export interface FixtureFile {
     text: string;
 }
 
-export interface MeasureScene {
+interface MeasureScene {
     variant: MeasureVariant;
     content: ProjectContent;
     /* How many of each kind the scene holds, counted where it is built. */
@@ -41,7 +41,7 @@ const NAMES: Record<MeasureVariant, string> = {
 };
 
 /* Five lines per block, with a comment, a signature and a body, so a highlighter has every kind of token to color. */
-export function fixtureText(name: string, blocks: number): string {
+function fixtureText(name: string, blocks: number): string {
     const lines: string[] = [];
     for (let block = 0; block < blocks; block++) {
         const label = String(block).padStart(5, '0');

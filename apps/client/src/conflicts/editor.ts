@@ -19,7 +19,7 @@ export interface ConflictDraft {
 }
 
 export const setSpans = StateEffect.define<LiveSpan[]>();
-export const settleBlock = StateEffect.define<number>();
+const settleBlock = StateEffect.define<number>();
 
 /* The first position of a line, counted from zero, clamped to the end of a shorter document. */
 function startOf(doc: Text, line: number): number {

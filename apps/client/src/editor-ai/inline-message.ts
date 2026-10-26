@@ -1,7 +1,7 @@
 import { fenceOf, lineRangeLabel } from '@/chat/selection-to-chat';
 import type { LineSpan, InlineProblem } from '@adecore/editor-react/models';
 
-export interface InlineRequest {
+interface InlineRequest {
     readonly instruction: string;
     /* The path as the project stores it: relative to the folder, absolute outside it. */
     readonly path: string;

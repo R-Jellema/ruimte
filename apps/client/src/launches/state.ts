@@ -16,12 +16,12 @@ export interface LaunchOwner {
 }
 
 /* A start that came back with a question for the person who asked. */
-export type LaunchAsk =
+type LaunchAsk =
     | { kind: 'held'; owner: LaunchOwner; launchId: string; restart: boolean; held: LaunchHeld[]; replace: boolean }
     | { kind: 'busy'; owner: LaunchOwner; launchId: string; restart: boolean; busy: LaunchBusy; approve: boolean };
 
 /* The dialog the chip or the menu asked for: the editor on a launch (null is a new one), or the import. */
-export type LaunchDialog = { kind: 'edit'; launchId: string | null } | { kind: 'import' };
+type LaunchDialog = { kind: 'edit'; launchId: string | null } | { kind: 'import' };
 
 type Statuses = Record<string, LaunchStatus>;
 
@@ -103,7 +103,7 @@ export function useAddressReachable(): boolean {
     return endpointId === LOCAL_ENDPOINT_ID && hasLocalMachine();
 }
 
-export interface LaunchSuggestions {
+interface LaunchSuggestions {
     /* Null while the machine looks. */
     suggestions: readonly LaunchSuggestion[] | null;
     failed: boolean;

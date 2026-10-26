@@ -8,7 +8,7 @@ export const REGISTER_RETRY_MAX_MS = 30 * 60_000;
 // What the address book stores of a name; a longer label is cut to this before it is signed.
 const MACHINE_NAME_MAX = 80;
 
-export interface AutoRegistrarDeps {
+interface AutoRegistrarDeps {
     /* The machine behind this row signs its agreement to join the account. */
     sign(endpointId: string, accountId: string): Promise<RegisterMachinePayload>;
     register(payload: RegisterMachinePayload): Promise<void>;
@@ -30,7 +30,7 @@ export interface AccountList {
 }
 
 /* What a machine said in its last `endpoint.info`, as far as its record goes. */
-export interface AnnouncedIdentity {
+interface AnnouncedIdentity {
     label: string | null;
     icon: unknown;
     publicKey: string | null;
@@ -50,7 +50,7 @@ export function announcedRecordOf(endpoint: Pick<Endpoint, 'brokerUrl' | 'daemon
     return { name: info.label, icon: info.icon, brokerUrl: endpoint.brokerUrl ?? null, publicKey };
 }
 
-export type RegisterOutcome = 'registered' | 'removed' | 'refused' | 'skipped' | 'failed';
+type RegisterOutcome = 'registered' | 'removed' | 'refused' | 'skipped' | 'failed';
 
 // The code a failure carries: a transport error of the machine, or an address book error.
 function codeOf(error: unknown): string | null {

@@ -32,7 +32,7 @@ import { isConnectionError, TransportError, type Transport } from '@/transport/t
 
 export type ConnectionsStatus = 'idle' | 'loading' | 'ready' | 'failed';
 
-export interface DatabaseConnectionsState {
+interface DatabaseConnectionsState {
     /* The machine and the project these are of (`endpointKey`); null while nothing asked for any. */
     key: string | null;
     status: ConnectionsStatus;
@@ -58,7 +58,7 @@ export interface ConnectionsTarget {
     transport: Pick<Transport, 'request' | 'on' | 'subscribeStatus'>;
 }
 
-export interface ConnectionsDeps {
+interface ConnectionsDeps {
     secrets: DatabaseSecretStore;
     /* Says what went wrong out of sight: an edit the list moved on from, or a secret store that failed. One with an `id` takes the place of the last with it. */
     notify(title: string, description: string, id?: string): void;
@@ -91,7 +91,7 @@ export function isOutsideProject(folder: string | null, connection: DatabaseConn
     return folder === null || isAbsolutePath(storedPathOf(folder, connection.config.path));
 }
 
-export interface DatabaseConnectionsModel {
+interface DatabaseConnectionsModel {
     store: UseBoundStore<StoreApi<DatabaseConnectionsState>>;
     /* Follows this project from now on, or nothing at all with null. */
     attach(target: ConnectionsTarget | null): void;

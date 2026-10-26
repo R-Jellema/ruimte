@@ -37,7 +37,7 @@ export function setRoutinePaused(endpointId: string, entry: RoutineEntry, paused
 }
 
 /* The canvas a routine goes on: the one in front when it is a canvas, else the project's first. Null for a project without one. */
-export function routineCanvasId(): string | null {
+function routineCanvasId(): string | null {
     const { views, activeViewId } = useDocument.getState();
     const canvases = views.filter((view) => isCanvasView(view) && view.hidden !== true);
     return (canvases.find((view) => view.id === activeViewId) ?? canvases[0])?.id ?? null;

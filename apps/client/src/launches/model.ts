@@ -141,7 +141,7 @@ export function othersOf(views: ReadonlyMap<string, LaunchView>, chosen: LaunchC
     return { count, failed };
 }
 
-export interface LaunchSection {
+interface LaunchSection {
     /* The checkout the launches run in, by the name it declares or else its folder; null for the ones in the project folder itself, which go first. */
     label: string | null;
     launches: LaunchConfigEntry[];

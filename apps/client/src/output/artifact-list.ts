@@ -1,9 +1,9 @@
 import { ARTIFACT_KINDS, isKnownArtifactKind, type Artifact, type ArtifactSummary, type ArtifactVersion, type KnownArtifactKind } from '@ruimte/contracts';
 
 export type ArtifactSource = 'agent' | 'person' | 'routine';
-export type DateFilter = 'all' | 'today' | 'week' | 'month' | 'older';
-export type SizeFilter = 'all' | '1mb' | '100mb' | '1gb';
-export type DateGroup = 'today' | 'week' | 'earlier';
+type DateFilter = 'all' | 'today' | 'week' | 'month' | 'older';
+type SizeFilter = 'all' | '1mb' | '100mb' | '1gb';
+type DateGroup = 'today' | 'week' | 'earlier';
 
 /* What the panel narrows its list to. `all` lets every value through; `project` is a project id otherwise. */
 export interface OutputFilters {

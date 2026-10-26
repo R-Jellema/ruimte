@@ -1,6 +1,6 @@
 /* What the model returns for a continuation, trimmed to what belongs at the caret. */
 
-export const GHOST_MAX_LINES = 8;
+const GHOST_MAX_LINES = 8;
 
 const FENCE_OPEN = /^```[\w+#.-]*[ \t]*\n/;
 const FENCE_CLOSE = /\n?```[ \t]*$/;

@@ -160,7 +160,7 @@ function schemaStorageKey(path: string): string | null {
 }
 
 /* The schema of a console is this client's, kept by its path, so a console opened again from the tree runs where it ran. */
-export function rememberConsoleSchema(path: string, schema: string | undefined): void {
+function rememberConsoleSchema(path: string, schema: string | undefined): void {
     const key = schemaStorageKey(path);
     if (key === null) {
         return;
@@ -223,7 +223,7 @@ export async function switchConsoleConnection(path: string, connectionId: string
 }
 
 /* A console is a `.sql` file that opens in a tab of its own, bound to its connection, with the caret in it. */
-export async function openConsole(connection: DatabaseConnection, binding: ConsoleBinding, sql = ''): Promise<void> {
+async function openConsole(connection: DatabaseConnection, binding: ConsoleBinding, sql = ''): Promise<void> {
     const folder = useProject.getState().current?.folder ?? null;
     const transport = windowWorkspace()?.connection.transport ?? null;
     if (folder === null || transport === null) {

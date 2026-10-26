@@ -15,7 +15,7 @@ const MAX_SEEK_STEPS = 4;
 // The virtualizer settles a jump over a few frames as it measures the rows it lands among, so the match is checked again after each.
 const MAX_SCROLL_TRIES = 5;
 
-export interface ChatFind {
+interface ChatFind {
     find: FindState;
     total: number;
     current: number | null;
@@ -33,7 +33,7 @@ export interface ChatFind {
  * the rows on screen, which the virtualizer swaps as the thread scrolls, so they are drawn again after
  * every change to the rows' DOM.
  */
-export function useChatFind(options: TimelineFindOptions): ChatFind {
+function useChatFind(options: TimelineFindOptions): ChatFind {
     const { chatId, rows, structure, order } = options;
     const find = useFind(options.frame, options.enabled);
     // The thread of a workspace is a chat of the machine this window works on.

@@ -9,7 +9,7 @@ import { DatabaseTabProvider, RuimteDatabaseProvider } from '@/database/RuimteDa
 import { useFiles, type DatabaseTab } from '@/state/files';
 
 /* What a database body draws: a table's rows, its structure or the designer, and the filter the rows open with. */
-export type DatabaseSurface =
+type DatabaseSurface =
     | { kind: 'table'; connectionId: string; schema: string; table: string; where?: string | undefined }
     | { kind: 'structure'; connectionId: string; schema: string; table: string }
     | { kind: 'designer'; connectionId: string; schema: string; table?: string | undefined };

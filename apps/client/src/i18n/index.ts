@@ -90,7 +90,7 @@ export async function initI18n(): Promise<void> {
 }
 
 /* Reads the setting back and puts the interface in that language, loading its words first. */
-export async function applyLanguage(): Promise<void> {
+async function applyLanguage(): Promise<void> {
     const language = activeLanguage();
     if (i18next.language === language) {
         return;
@@ -105,7 +105,7 @@ export async function applyLanguage(): Promise<void> {
  * and every number in them is not, and `useTranslation` is the one subscription every surface that
  * writes one already has.
  */
-export function redrawForRegion(): void {
+function redrawForRegion(): void {
     i18next.emit('languageChanged', i18next.language);
 }
 

@@ -5,7 +5,7 @@ import { machineTransport } from '@/transport';
 import { useEndpointConnection } from '@/transport/status';
 import { isConnectionError } from '@/transport/transport';
 
-export type ArtifactState =
+type ArtifactState =
     | { status: 'loading' }
     | { status: 'ready'; result: ArtifactGetResult }
     // The machine no longer has it: a person removed it, or a cleanup took every version.

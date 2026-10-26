@@ -1,7 +1,7 @@
 import type { LanguageServerKind, LanguageServerState, LanguageServerStatus } from '@ruimte/contracts';
 
 /* The names of the servers are names and stay as they are in every language. */
-export const SERVER_NAMES: Record<LanguageServerKind, { name: string; package: string }> = {
+const SERVER_NAMES: Record<LanguageServerKind, { name: string; package: string }> = {
     typescript: { name: 'TypeScript', package: 'typescript' },
     vue: { name: 'Vue', package: '@vue/language-server' },
     // Ruimte's own PHP server is the default and takes the plain name; Intelephense is the alternative.
@@ -52,14 +52,14 @@ export function packageOf(server: string, statuses: readonly LanguageServerStatu
 }
 
 /* Where the Language servers tab lists the servers of the catalog, by what they are for. Anything else lands in the last group. */
-export const SERVER_GROUPS = [
+const SERVER_GROUPS = [
     { id: 'scripts', kinds: ['typescript', 'vue', 'eslint'] },
     { id: 'web', kinds: ['html', 'css', 'tailwind'] },
     { id: 'data', kinds: ['json', 'yaml', 'sql-native'] },
     { id: 'other', kinds: ['php-native', 'php', 'python', 'rust', 'bash', 'docker'] }
 ] as const satisfies readonly { id: string; kinds: readonly LanguageServerKind[] }[];
 
-export type ServerGroupId = (typeof SERVER_GROUPS)[number]['id'];
+type ServerGroupId = (typeof SERVER_GROUPS)[number]['id'];
 
 /* The catalog statuses by group, in the order of the groups, and the servers no group knows with the last. */
 export function groupedStatuses(statuses: readonly LanguageServerStatus[]): { id: ServerGroupId; statuses: LanguageServerStatus[] }[] {

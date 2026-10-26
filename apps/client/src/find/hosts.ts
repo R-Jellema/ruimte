@@ -4,13 +4,13 @@ import { focusedCanvas } from '@/state/canvas';
 import { activeViewOf, useDocument } from '@/state/document';
 
 /* A surface that can be searched: the element it draws in, and what opens its bar. */
-export interface FindHost {
+interface FindHost {
     element: HTMLElement;
     /* `replace` asks for the bar with its replace row, which a surface that cannot replace draws without. */
     open(options?: FindOpenOptions): void;
 }
 
-export interface FindOpenOptions {
+interface FindOpenOptions {
     replace?: boolean;
 }
 
@@ -52,7 +52,7 @@ function hostAround(element: Element): FindHost | null {
  * no focus of its own, so after that it is the node whose body has the keyboard on a canvas, and the
  * one surface of any other cell.
  */
-export function focusedFindHost(): FindHost | null {
+function focusedFindHost(): FindHost | null {
     const active = document.activeElement;
     if (active !== null && active !== document.body) {
         const around = hostAround(active);

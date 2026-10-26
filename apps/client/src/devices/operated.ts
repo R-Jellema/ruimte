@@ -92,7 +92,7 @@ export function stepWords(step: DeviceAgentStep, platform: DevicePlatform): stri
     }
 }
 
-export interface StripLook {
+interface StripLook {
     /* What the agent is doing, or that the person holds the device. */
     words: string;
     // The accent while the agent acts, muted while the person holds the device, as the Mac's indicator.

@@ -138,7 +138,7 @@ export function updateHost(id: string, patch: Partial<Pick<NodeHost, 'url' | 'cw
 
 /* The name a node carries before anything names it: the CLI's own name for an agent, the name of
    its kind for anything else. */
-export function automaticTitleOf(host: NodeHost): string {
+function automaticTitleOf(host: NodeHost): string {
     const provider = host.provider ? providersOf(currentEndpointId()).providers.find((each) => each.kind === host.provider) : undefined;
     // A newer Ruimte's node has no name of its kind here, so it keeps the one it came with.
     return provider?.name ?? (host.kind === 'unknown' ? host.title : DEFAULT_TITLES[host.kind]);

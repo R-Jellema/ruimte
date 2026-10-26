@@ -4,7 +4,7 @@ import i18next from 'i18next';
    which says what happened without inventing a reason for it. */
 export type LoadErrorKind = 'offline' | 'dns' | 'refused' | 'certificate' | 'timeout' | 'blocked' | 'address' | 'other';
 
-export interface LoadError {
+interface LoadError {
     kind: LoadErrorKind;
     /* What happened, in the app's own words. */
     title: string;

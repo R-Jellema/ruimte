@@ -10,7 +10,7 @@ export type BlockLook = 'done' | 'waited' | 'caught-up' | 'limit' | 'skipped' | 
 
 export const LEGEND: readonly BlockLook[] = ['done', 'running', 'waiting', 'caught-up', 'failed', 'next'];
 
-export interface AgendaDay {
+interface AgendaDay {
     /* Epoch ms of midnight in the machine's time zone, and of the next one. */
     start: number;
     end: number;
