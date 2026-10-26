@@ -231,6 +231,25 @@ describe('the clock', () => {
         expect(runs.of(PROJECT, 'morning')[0]?.kind).toBe('caught-up');
     });
 
+    test('a restart settles an agent run from its chat, and fails one its chat never began, so the next run is not skipped', async () => {
+        const first = await build();
+        await first.routines.save(PROJECT, 0, morning, false);
+        await first.routines.approve(PROJECT, 'morning', (await first.routines.list(PROJECT)).routines[0]!.digest);
+        await first.routines.runNow(PROJECT, 'morning');
+        const chatId = started[0]!.chatId;
+        chats.set(chatId, { status: 'idle', usage: { turns: 1 } as ChatInfo['usage'] });
+        const done = await build();
+        await done.routines.start();
+        expect(done.runs.ofChat(chatId)?.state).toBe('done');
+
+        await done.routines.runNow(PROJECT, 'morning');
+        const second = started[1]!.chatId;
+        chats.delete(second);
+        const { routines, runs } = await build();
+        await routines.start();
+        expect(runs.ofChat(second)).toMatchObject({ state: 'failed', error: 'The machine restarted during the run' });
+    });
+
     test('a once runs at its time and owes nothing after', async () => {
         const { routines } = await build();
         const nightly: Routine = { ...morning, id: 'nightly', schedule: { kind: 'once', date: '2026-10-19', time: '22:00' } };

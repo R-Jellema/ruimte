@@ -137,6 +137,7 @@ function freshId(prefix: string): string {
 }
 
 const LIVE: ReadonlySet<RoutineRunState> = new Set(['starting', 'running', 'needs-you', 'limit']);
+const RESTARTED = 'The machine restarted during the run';
 
 /* The state of an agent run as its chat says it now; idle before the run's turn ended is still the start. */
 function chatState(info: ChatInfo, run: Pick<RoutineRun, 'state' | 'turnsBefore'>): { state: RoutineRunState; limitUntil?: number; error?: string } {
@@ -232,13 +233,35 @@ export class Routines {
      */
     async start(): Promise<void> {
         for (const run of this.deps.runs.all()) {
-            if (run.chatId === undefined && LIVE.has(run.state)) {
-                await this.deps.runs.put({ ...run, state: 'failed', endedAt: this.deps.now(), error: 'The machine restarted during the run' });
+            if (!LIVE.has(run.state)) {
+                continue;
+            }
+            if (run.chatId === undefined) {
+                await this.deps.runs.put({ ...run, state: 'failed', endedAt: this.deps.now(), error: RESTARTED });
+            } else {
+                await this.settleAfterRestart(run, run.chatId);
             }
         }
         for (const project of await this.deps.projects()) {
             await this.schedule(project.projectId).catch((e: unknown) => this.log(`Scheduling the routines of ${project.folder} failed: ${errorText(e)}`));
         }
+    }
+
+    /*
+     * An agent run the last daemon noted as live: its chat says how it ended, since no observer heard it
+     * after the restart. One its chat never began, with no start still owed, would stay busy forever.
+     */
+    private async settleAfterRestart(run: RoutineRun, chatId: string): Promise<void> {
+        if (this.deps.agents.starting(chatId)) {
+            return;
+        }
+        const info = (await this.deps.agents.exists(chatId).catch(() => false)) ? this.deps.agents.info(chatId) : undefined;
+        const now = info === undefined ? null : chatState(info, run);
+        if (now !== null && LIVE.has(now.state) && now.state !== 'starting') {
+            return;
+        }
+        const ended = now === null || now.state === 'starting' ? { state: 'failed' as const, error: RESTARTED } : now;
+        await this.deps.runs.put({ ...run, ...ended, endedAt: this.deps.now() });
     }
 
     async list(projectId?: string): Promise<RoutineListResult> {
@@ -515,7 +538,7 @@ export class Routines {
             return run;
         }
         if (run.chatId === undefined) {
-            return this.live.has(run.runId) ? run : { state: 'failed', error: 'The machine restarted during the run' };
+            return this.live.has(run.runId) ? run : { state: 'failed', error: RESTARTED };
         }
         const info = this.deps.agents.info(run.chatId);
         if (info === undefined) {
