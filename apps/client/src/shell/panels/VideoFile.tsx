@@ -3,9 +3,8 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CornerUpRight, FileVideo } from 'lucide-react';
 import type { FsReadBinary } from '@ruimte/contracts';
-import { useEndpointId } from '@/state/keys';
 import { FileContextMenu, FileToolbar } from '@/shell/panels/FileToolbar';
-import { machineResourceOf, revealablePath, type FileSource } from '@/shell/panels/file-source';
+import { machineResourceOf, revealablePath, useEndpointIdOf, type FileSource } from '@/shell/panels/file-source';
 import { fileManagerName, useServer } from '@/state/server';
 import { useTransport } from '@/transport/context';
 import { useMachineUrl } from '@/transport/machine-url';
@@ -24,7 +23,7 @@ export function VideoFile({ source, name, read }: { source: FileSource; name: st
     const [size, setSize] = useState<{ width: number; height: number } | null>(null);
     const [failed, setFailed] = useState(!canPlay(read.mime));
     const transport = useTransport();
-    const endpointId = useEndpointId();
+    const endpointId = useEndpointIdOf(source);
     const bytes = useMachineUrl(machineResourceOf(source, read, true), endpointId);
     const path = revealablePath(source);
 

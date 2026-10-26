@@ -3,13 +3,12 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CornerUpRight, ImageOff, Maximize, Scan } from 'lucide-react';
 import type { FsReadBinary } from '@ruimte/contracts';
-import { useEndpointId } from '@/state/keys';
 import { fileManagerName, useServer } from '@/state/server';
 import { useTransport } from '@/transport/context';
 import { useMachineUrl } from '@/transport/machine-url';
 import { drawsImageMime, imageFormatName } from '@/shell/panels/file-kind';
 import { FileContextMenu, FileToolbar, FileToolbarToggle } from '@/shell/panels/FileToolbar';
-import { machineResourceOf, revealablePath, type FileSource } from '@/shell/panels/file-source';
+import { machineResourceOf, revealablePath, useEndpointIdOf, type FileSource } from '@/shell/panels/file-source';
 import { Button, ButtonGroup, EmptyState, Icon } from '@adecore/ui';
 import { formatBytes } from '@adecore/ui/format';
 
@@ -24,7 +23,7 @@ export function ImageFile({ source, name, read }: { source: FileSource; name: st
     const [size, setSize] = useState<{ width: number; height: number } | null>(null);
     const [failed, setFailed] = useState(false);
     const transport = useTransport();
-    const endpointId = useEndpointId();
+    const endpointId = useEndpointIdOf(source);
     const drawable = drawsImageMime(read.mime);
     const bytes = useMachineUrl(drawable ? machineResourceOf(source, read) : null, endpointId);
     const path = revealablePath(source);

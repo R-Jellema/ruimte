@@ -6,15 +6,15 @@ import { getDocument, GlobalWorkerOptions, TextLayer, version, type PDFDocumentP
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import type { ByteResource, FsReadBinary } from '@ruimte/contracts';
 import { useEndpoints } from '@/state/endpoints';
-import { useEndpointId } from '@/state/keys';
 import { fileManagerName, useServer } from '@/state/server';
+import { machineTransport } from '@/transport';
 import { readResource } from '@/transport/byte-transfer';
 import { bytesWorkerReady } from '@/transport/bytes-worker-host';
 import { useTransport } from '@/transport/context';
 import { useMachineUrl } from '@/transport/machine-url';
 import { readPiece } from '@/transport/piece';
 import { FileTextMenu, FileToolbar, FileToolbarToggle } from '@/shell/panels/FileToolbar';
-import { machineResourceOf, revealablePath, sourceKey, type FileSource } from '@/shell/panels/file-source';
+import { machineResourceOf, revealablePath, sourceKey, useEndpointIdOf, wireResourceOf, type FileSource } from '@/shell/panels/file-source';
 import { PDF_PAGE_GAP, pdfPageBox, pdfPageScale, pdfPageTops, pdfReadingPage, type PdfPageSize, type PdfZoom } from '@/shell/panels/pdf-layout';
 import { Button, ButtonGroup, EmptyState, Icon } from '@adecore/ui';
 import { formatBytes, formatNumber } from '@adecore/ui/format';
@@ -39,30 +39,32 @@ function messageOf(e: unknown): string {
 /*
  * Where pdf.js reads the file. `connect-src` never lets it fetch a blob URL, so the ranges come from the
  * daemon's route over a socket, or from the bytes worker over a direct connection. A machine on another
- * origin (the route sends no CORS headers), a direct connection the worker does not serve yet and an
- * entry of an archive, which has no ranges, read the file whole instead.
+ * origin (the route sends no CORS headers), a direct connection the worker does not serve yet, an
+ * entry of an archive and a file of Output, which have no ranges, read the file whole instead.
  */
 function usePdfSource(origin: FileSource, read: FsReadBinary): Source | null {
-    const transport = useTransport();
-    const endpointId = useEndpointId();
+    const own = useTransport();
+    const endpointId = useEndpointIdOf(origin);
     const direct = useEndpoints((s) => s.endpoints.find((entry) => entry.id === endpointId)?.direct === true);
     // Once per mount, the way `useMachineUrl` decides it, so the two never disagree.
     const [streamed] = useState(bytesWorkerReady);
-    const blobOnly = (direct && !streamed) || origin.kind === 'archive-entry';
+    const blobOnly = (direct && !streamed) || origin.kind !== 'file';
     const machine = useMachineUrl(blobOnly ? null : machineResourceOf(origin, read, true), endpointId);
     const url = machine.url !== null && new URL(machine.url, location.href).origin === location.origin ? machine.url : null;
     const whole = blobOnly || (machine.url !== null && url === null);
     const [held, setHeld] = useState<{ key: string; source: Source } | null>(null);
     const key = `${endpointId}\n${sourceKey(origin, read)}`;
     // As a string, so the effect does not run again for every new object that says the same.
-    const wire = JSON.stringify(origin.kind === 'file' ? { kind: 'file', path: origin.path } : { kind: 'file', path: origin.path, entry: origin.entry });
+    const wire = JSON.stringify(wireResourceOf(origin));
 
     useEffect(() => {
         if (!whole) {
             return;
         }
         let cancelled = false;
-        readResource((piece) => readPiece(transport, piece), JSON.parse(wire) as ByteResource)
+        const resource = JSON.parse(wire) as ByteResource;
+        const transport = resource.kind === 'artifact' ? machineTransport(endpointId) : own;
+        readResource((piece) => readPiece(transport, piece), resource)
             .then((blob) => blob.arrayBuffer())
             .then(
                 (data) => !cancelled && setHeld({ key, source: { kind: 'data', data } }),
@@ -71,7 +73,7 @@ function usePdfSource(origin: FileSource, read: FsReadBinary): Source | null {
         return () => {
             cancelled = true;
         };
-    }, [whole, transport, wire, key]);
+    }, [whole, own, endpointId, wire, key]);
 
     // One object per source, since opening the document hangs on its identity.
     return useMemo((): Source | null => {

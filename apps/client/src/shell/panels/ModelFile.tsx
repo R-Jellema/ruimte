@@ -4,13 +4,11 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Box, CornerUpRight, Cuboid, Grid3x3, Pause, Play, RotateCcw, Spotlight } from 'lucide-react';
 import { BYTES_READ_MAX_BYTES, type FsReadBinary } from '@ruimte/contracts';
-import { useEndpointId } from '@/state/keys';
 import { useTheme } from '@/state/theme';
 import { fileManagerName, useServer } from '@/state/server';
 import { useTransport } from '@/transport/context';
-import { readMachineFile } from '@/transport/machine-url';
 import { FileContextMenu, FileToolbar, FileToolbarToggle } from '@/shell/panels/FileToolbar';
-import { revealablePath, type FileSource } from '@/shell/panels/file-source';
+import { readSourceBytes, revealablePath, useEndpointIdOf, type FileSource } from '@/shell/panels/file-source';
 import { canDrawWebgl, ModelViewer, type LoadedModel } from '@/shell/panels/model-viewer';
 import { Button, ButtonGroup, EmptyState, Icon, IconButton } from '@adecore/ui';
 import { formatBytes, formatNumber } from '@adecore/ui/format';
@@ -29,15 +27,11 @@ export function ModelFile({ source, name, read }: { source: FileSource; name: st
     const { t } = useTranslation('panels');
     const platform = useServer((s) => s.platform);
     const transport = useTransport();
-    const endpointId = useEndpointId();
+    const endpointId = useEndpointIdOf(source);
     const hostRef = useRef<HTMLDivElement>(null);
     const viewerRef = useRef<ModelViewer | null>(null);
     // As a string, so the read does not start again for every new object that says the same.
-    const locator = JSON.stringify(
-        source.kind === 'file'
-            ? { path: source.path, mtime: read.mtime, size: read.size }
-            : { path: source.path, mtime: source.archiveMtime, size: source.archiveSize, entry: source.entry }
-    );
+    const locator = JSON.stringify({ source, version: { mtime: read.mtime, size: read.size } });
     const key = JSON.stringify([endpointId, locator]);
     const path = revealablePath(source);
     const [held, setHeld] = useState<{ key: string; phase: Phase } | null>(null);
@@ -57,7 +51,8 @@ export function ModelFile({ source, name, read }: { source: FileSource; name: st
         let cancelled = false;
         // Made once the bytes are in, so a slow machine does not hold a context for a canvas nobody sees yet.
         let viewer: ModelViewer | null = null;
-        readMachineFile(endpointId, JSON.parse(locator) as Parameters<typeof readMachineFile>[1], BYTES_READ_MAX_BYTES)
+        const located = JSON.parse(locator) as { source: FileSource; version: { mtime: number; size: number } };
+        readSourceBytes(endpointId, located.source, located.version, BYTES_READ_MAX_BYTES)
             .then((bytes) => {
                 if (cancelled) {
                     return null;
