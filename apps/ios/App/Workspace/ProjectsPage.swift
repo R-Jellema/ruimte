@@ -12,6 +12,8 @@ struct ProjectsPage<Notice: View>: View {
     /// What groups the list per machine and counts what each project holds.
     var now: NowModel? = nil
     var gitLines: ProjectGitLines? = nil
+    /// A card per machine and New chat and Recently closed as two capsules, as the iPhone draws the tab.
+    var cards = false
     let showRecent: () -> Void
     @ViewBuilder let notice: () -> Notice
     @State private var search = ""
@@ -22,7 +24,7 @@ struct ProjectsPage<Notice: View>: View {
         MobileList {
             notice()
             if grouped {
-                ProjectGroupsList(runtime: runtime, groups: groups)
+                ProjectGroupsList(runtime: runtime, groups: groups, cards: cards)
             } else if !visibleProjects.isEmpty {
                 Section {
                     ProjectLinks(runtime: runtime, rows: visibleProjects)
@@ -49,42 +51,14 @@ struct ProjectsPage<Notice: View>: View {
                     }
                 }.listRowBackground(Color.clear).listRowSeparator(.hidden)
             }
-            Section {
-                MobileStyle.border.frame(height: 1).padding(.vertical, 10)
-                    .listRowInsets(EdgeInsets(top: 0, leading: 28, bottom: 0, trailing: 28))
-                    .accessibilityHidden(true)
-                NewChatRow(machines: runtime.machines) { newChat = NewChatTarget(machineID: $0.id) }
-                ForEach(grouped ? [] : projects.chats) { row in
-                    Button {
-                        openWorkspace(
-                            MobileWorkspace(
-                                session: runtime.session(for: row.machine), projectID: row.id.projectID,
-                                summary: row.summary))
-                    } label: {
-                        ChatsRowLabel(
-                            title: String(localized: "Chats"),
-                            detail: [
-                                projects.chats.count > 1 ? row.machine.name : String(localized: "Earlier chats"),
-                                row.connected ? nil : String(localized: "Offline"),
-                            ].compactMap { $0 }.joined(separator: " · "),
-                            icon: "messages-square")
-                    }
-                    .modifier(MobileSidebarRow())
-                    .accessibilityIdentifier("projects.chats.\(row.machine.id)")
-                }
-                Button(action: showRecent) {
-                    HStack(spacing: 12) {
-                        Image(lucide: "clock-arrow-left").frame(width: 20, height: 20).frame(width: 32)
-                        Text("Recently closed")
-                    }
-                    .modifier(MobileSidebarLabel(disclosure: true))
-                }
-                .modifier(MobileSidebarRow())
-                .accessibilityIdentifier("projects.recent")
+            if cards {
+                cardActions
+            } else {
+                sidebarActions
             }
-            if !projects.problems.isEmpty {
+            if !connectionProblems.isEmpty {
                 Section("Connections") {
-                    ForEach(runtime.machines.filter { projects.problems[$0.id] != nil }, id: \.id) { machine in
+                    ForEach(connectionProblems, id: \.id) { machine in
                         VStack(alignment: .leading, spacing: 5) {
                             Text(machine.name).font(.subheadline.weight(.medium))
                             Text(projects.problems[machine.id] ?? "").font(.caption).foregroundStyle(MobileStyle.muted)
@@ -122,6 +96,66 @@ struct ProjectsPage<Notice: View>: View {
         }
     }
 
+    /// The machines whose trouble no card of theirs already offers Reconnect for.
+    private var connectionProblems: [Machine] {
+        let carded = cards && grouped ? Set(groups.map(\.machine.id)) : []
+        return runtime.machines.filter { projects.problems[$0.id] != nil && !carded.contains($0.id) }
+    }
+
+    /// Chats in a card when no project groups them, then New chat and Recently closed as two equal capsules.
+    @ViewBuilder private var cardActions: some View {
+        if !grouped && !projects.chats.isEmpty {
+            ProjectCardRows(
+                rows: projects.chats.map { ProjectOverviewRow(row: $0, activity: now?.activity[$0.id]) },
+                session: runtime.session(for:)
+            ) { overview in
+                openWorkspace(
+                    MobileWorkspace(
+                        session: runtime.session(for: overview.row.machine), projectID: overview.id.projectID,
+                        summary: overview.row.summary))
+            }
+        }
+        ProjectsCapsuleActions(
+            machines: runtime.machines, newChat: { newChat = NewChatTarget(machineID: $0.id) },
+            showRecent: showRecent)
+    }
+
+    private var sidebarActions: some View {
+        Section {
+            MobileStyle.border.frame(height: 1).padding(.vertical, 10)
+                .listRowInsets(EdgeInsets(top: 0, leading: 28, bottom: 0, trailing: 28))
+                .accessibilityHidden(true)
+            NewChatRow(machines: runtime.machines) { newChat = NewChatTarget(machineID: $0.id) }
+            ForEach(grouped ? [] : projects.chats) { row in
+                Button {
+                    openWorkspace(
+                        MobileWorkspace(
+                            session: runtime.session(for: row.machine), projectID: row.id.projectID,
+                            summary: row.summary))
+                } label: {
+                    ChatsRowLabel(
+                        title: String(localized: "Chats"),
+                        detail: [
+                            projects.chats.count > 1 ? row.machine.name : String(localized: "Earlier chats"),
+                            row.connected ? nil : String(localized: "Offline"),
+                        ].compactMap { $0 }.joined(separator: " · "),
+                        icon: "messages-square")
+                }
+                .modifier(MobileSidebarRow())
+                .accessibilityIdentifier("projects.chats.\(row.machine.id)")
+            }
+            Button(action: showRecent) {
+                HStack(spacing: 12) {
+                    Image(lucide: "clock-arrow-left").frame(width: 20, height: 20).frame(width: 32)
+                    Text("Recently closed")
+                }
+                .modifier(MobileSidebarLabel(disclosure: true))
+            }
+            .modifier(MobileSidebarRow())
+            .accessibilityIdentifier("projects.recent")
+        }
+    }
+
     /// Only once a project is open, so the empty and loading states keep their place; Chats then stands in its group.
     private var grouped: Bool { !visibleProjects.isEmpty && !groups.isEmpty }
 
@@ -154,6 +188,28 @@ struct ProjectsPage<Notice: View>: View {
         runtime.loading || projects.loading
             || (projects.open.isEmpty && projects.recent.isEmpty && !runtime.machines.isEmpty
                 && !projects.hasConnectedMachine && runtime.problem == nil && projects.problems.isEmpty)
+    }
+}
+
+/// New chat and Recently closed as two equal capsules under the cards.
+struct ProjectsCapsuleActions: View {
+    let machines: [Machine]
+    let newChat: (Machine) -> Void
+    let showRecent: () -> Void
+
+    var body: some View {
+        HStack(spacing: MobileSpacing.small) {
+            NewChatRow(machines: machines, capsule: true, start: newChat)
+            Button(action: showRecent) {
+                ProjectsCapsuleLabel(title: String(localized: "Recently closed"), icon: "clock-arrow-left")
+            }
+            .buttonStyle(.mobileCapsule)
+            .accessibilityIdentifier("projects.recent")
+        }
+        .listRowInsets(
+            EdgeInsets(
+                top: MobileSpacing.large, leading: MobileSpacing.margin, bottom: MobileSpacing.large,
+                trailing: MobileSpacing.margin))
     }
 }
 

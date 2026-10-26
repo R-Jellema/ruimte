@@ -64,10 +64,20 @@ struct WorkspacePage: View {
             } else {
                 // The list stands from the first frame of the push. Swapping it in for the status once the project
                 // opened, as the push settles, made the bar drop its items for a moment and bring them back.
-                PhoneProjectList(
-                    workspace: workspace, state: listState, views: listedViews,
-                    selectedID: navigation.selectedViewID, open: openView, act: act
+                PhoneProjectCards(
+                    workspace: workspace, state: listState, views: listedViews, git: gitLine, open: openView,
+                    openGit: { present(.git) }, act: act
                 )
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    if workspace.ready && !machineLost {
+                        ProjectNewChatBar(
+                            workspace: workspace, add: workspace.isScratch ? nil : { navigation.adding = true },
+                            opened: { id in
+                                navigation.pendingViewID = id
+                                Task { await openPendingView() }
+                            })
+                    }
+                }
                 .opacity(machineLost ? 0.3 : 1)
                 .allowsHitTesting(!machineLost)
                 .overlay {
@@ -125,7 +135,7 @@ struct WorkspacePage: View {
         }
         .navigationTitle(isSidebar ? "" : workspace.title)
         .modifier(PhoneSubtitle(text: isSidebar ? nil : phoneSubtitle))
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayMode(isSidebar ? .inline : .large)
         .toolbar {
             if isSidebar { sidebarToolbar } else { phoneToolbar }
         }
@@ -422,10 +432,13 @@ struct WorkspacePage: View {
         }
     }
 
-    /// The machine and, once git answered, the branch with what changed on it.
+    /// Once git answered, the branch with the lines that changed on it, then the machine.
     private var phoneSubtitle: String {
-        let id = UnifiedProjectRow.ID(machineID: workspace.session.machine.id, projectID: workspace.projectID)
-        return [workspace.session.machine.name, gitLines?.line(id)?.text].compactMap { $0 }.joined(separator: " · ")
+        [gitLine?.branchName, gitLine?.diff, workspace.session.machine.name].compactMap { $0 }.joined(separator: " · ")
+    }
+
+    private var gitLine: ProjectGitLine? {
+        gitLines?.line(UnifiedProjectRow.ID(machineID: workspace.session.machine.id, projectID: workspace.projectID))
     }
 
     private var machineLost: Bool {

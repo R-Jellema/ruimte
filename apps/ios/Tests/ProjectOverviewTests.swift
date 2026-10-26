@@ -35,8 +35,11 @@ final class ProjectOverviewTests: XCTestCase {
             statuses: ["chat-a": .needsYou, "node-a": .needsYou, "node-b": .needsYou, "chat-b": .idle],
             delegating: ["chat-b"])
         let activity = ProjectOverview.activity(views: views, attention: attention, snoozed: ["node-b"])
-        XCTAssertEqual(activity, ProjectActivity(views: 3, chats: 2, needsYou: 2, working: true))
-        XCTAssertFalse(ProjectOverview.activity(views: views, attention: NowAttention(), snoozed: []).working)
+        XCTAssertEqual(activity, ProjectActivity(views: 3, chats: 2, needsYou: 2, working: 1))
+        XCTAssertEqual(activity.words, "2 waiting · 1 working")
+        let quiet = ProjectOverview.activity(views: views, attention: NowAttention(), snoozed: [])
+        XCTAssertEqual(quiet.working, 0)
+        XCTAssertNil(quiet.words)
     }
 
     func testGroupsFollowTheProjectOpenedLastAndPutChatsAfterTheProjects() {
@@ -54,7 +57,7 @@ final class ProjectOverviewTests: XCTestCase {
         XCTAssertEqual(groups[1].rows.map(\.id.projectID), ["recept", "mac-chats"])
         XCTAssertEqual(groups[0].reach, .connected(relayed: true))
         XCTAssertEqual(groups[1].rows.first?.activity?.needsYou, 1)
-        XCTAssertEqual(groups[1].rows.first?.detail, "main · 7 views")
+        XCTAssertEqual(groups[1].rows.first?.detail, "main · 1 waiting")
         XCTAssertTrue(groups[2].rows.first?.isChats == true)
     }
 
@@ -65,6 +68,15 @@ final class ProjectOverviewTests: XCTestCase {
         XCTAssertEqual(
             ProjectOverviewRow(row: row(mac, "app"), git: ProjectGitLine(branch: "ios-redesign", changed: 0)).detail,
             "ios-redesign")
+        let changed = ProjectGitLine(branch: "redesign-hero", changed: 2, added: 8, deleted: 2)
+        XCTAssertEqual(
+            ProjectOverviewRow(row: row(mac, "app"), activity: ProjectActivity(views: 3), git: changed).detail,
+            "redesign-hero · +8 \u{2212}2")
+        XCTAssertEqual(
+            ProjectOverviewRow(
+                row: row(mac, "app"), activity: ProjectActivity(views: 3, needsYou: 2, working: 1), git: changed
+            ).detail,
+            "redesign-hero · 2 waiting · 1 working")
         let chats = row(mac, "chats", scratch: true)
         XCTAssertEqual(ProjectOverviewRow(row: chats).detail, "Earlier chats")
         XCTAssertEqual(ProjectOverviewRow(row: chats, activity: ProjectActivity(views: 4, chats: 4)).detail, "4 chats")
@@ -94,8 +106,24 @@ final class ProjectOverviewTests: XCTestCase {
             ])
         }
         let line = ProjectGitLine(status: GitWire.status(["files": .array([file("a"), file("b")])]))
-        XCTAssertEqual(line, ProjectGitLine(branch: "main", changed: 2))
-        XCTAssertEqual(line?.text, "main · 2 changed")
-        XCTAssertEqual(ProjectGitLine(branch: nil, changed: 0).text, "Detached")
+        XCTAssertEqual(line, ProjectGitLine(branch: "main", changed: 2, added: 2, deleted: 0))
+        XCTAssertEqual(line?.changedText, "2 changed")
+        XCTAssertEqual(line?.diff, "+2 \u{2212}0")
+        XCTAssertEqual(ProjectGitLine(branch: nil, changed: 0).branchName, "Detached")
+        XCTAssertNil(ProjectGitLine(branch: nil, changed: 0).changedText)
+        XCTAssertNil(ProjectGitLine(branch: nil, changed: 0).diff)
+    }
+
+    func testTheMachineHeadingSaysTheRoundTripOrSinceWhenItIsGone() {
+        XCTAssertEqual(ProjectMachineHeading.state(reach: .connected(relayed: false), latency: 12, lastSeen: nil), "12 ms")
+        XCTAssertEqual(
+            ProjectMachineHeading.state(reach: .connected(relayed: true), latency: 40, lastSeen: nil), "via relay · 40 ms")
+        XCTAssertEqual(
+            ProjectMachineHeading.state(reach: .connected(relayed: false), latency: nil, lastSeen: nil), "Connected")
+        XCTAssertEqual(ProjectMachineHeading.state(reach: .offline, latency: nil, lastSeen: nil), "Offline")
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        XCTAssertEqual(
+            ProjectMachineHeading.state(reach: .offline, latency: nil, lastSeen: now, now: now),
+            "Offline since \(Format.moment(now, now: now))")
     }
 }

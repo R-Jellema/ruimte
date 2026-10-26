@@ -31,31 +31,55 @@ struct ProjectActivity: Equatable {
     var chats = 0
     /// Nodes waiting on a person that nobody snoozed.
     var needsYou = 0
-    var working = false
+    /// Nodes that run, or wait on work they started.
+    var working = 0
+
+    /// The state in words, as in "2 waiting · 1 working"; nil while nothing waits or works.
+    var words: String? {
+        let parts = [
+            needsYou > 0 ? String(localized: "\(needsYou) waiting", comment: "Views of a project that wait on you") : nil,
+            working > 0 ? String(localized: "\(working) working", comment: "Views of a project that work") : nil,
+        ]
+        let line = parts.compactMap { $0 }.joined(separator: " · ")
+        return line.isEmpty ? nil : line
+    }
 }
 
-/// The branch a project's folder is on and how many files changed in it, from `git.status`.
+/// The branch a project's folder is on and what changed in it, from `git.status`.
 struct ProjectGitLine: Equatable {
     /// Nil on a detached head.
     let branch: String?
     let changed: Int
+    var added = 0
+    var deleted = 0
 
     /// Nil for a folder outside any repository, which has nothing to say about a branch.
     init?(status: GitStatus) {
         guard status.repo else { return nil }
         branch = status.branch
         changed = status.files.count
+        added = Int(status.files.reduce(0) { $0 + $1.added })
+        deleted = Int(status.files.reduce(0) { $0 + $1.deleted })
     }
 
-    init(branch: String?, changed: Int) {
+    init(branch: String?, changed: Int, added: Int = 0, deleted: Int = 0) {
         self.branch = branch
         self.changed = changed
+        self.added = added
+        self.deleted = deleted
     }
 
-    var text: String {
-        let name = branch ?? String(localized: "Detached", comment: "Git, a checkout that is on no branch")
-        return changed == 0
-            ? name : String(localized: "\(name) · \(changed) changed", comment: "%1$@ is the git branch, %2$lld files")
+    var branchName: String { branch ?? String(localized: "Detached", comment: "Git, a checkout that is on no branch") }
+
+    /// The lines added and removed, as in "+126 −4"; nil while no line changed.
+    var diff: String? {
+        guard added + deleted > 0 else { return nil }
+        return "+\(Format.number(Double(added))) \u{2212}\(Format.number(Double(deleted)))"
+    }
+
+    /// Nil while nothing changed.
+    var changedText: String? {
+        changed == 0 ? nil : String(localized: "\(changed) changed", comment: "Files changed in a git checkout")
     }
 }
 
@@ -66,15 +90,19 @@ struct ProjectOverviewRow: Identifiable {
     var id: UnifiedProjectRow.ID { row.id }
     var isChats: Bool { NewChat.isChats(row.summary) }
 
-    /// The second line: the branch and the number of views, or for Chats how many chats it holds.
+    /// The second line: the branch, then what waits and works, or what changed while nothing does. Without either it
+    /// counts the views; for Chats it says how many chats it holds.
     var detail: String? {
         if isChats {
             guard let activity else { return String(localized: "Earlier chats") }
             return activity.chats == 0
                 ? String(localized: "No chats yet") : String(localized: "\(activity.chats) chats")
         }
-        let parts = [git?.branch, activity.map { String(localized: "\($0.views) views") }]
-        let line = parts.compactMap { $0 }.joined(separator: " · ")
+        let state = activity?.words ?? git?.diff
+        if git?.branch == nil && state == nil {
+            return activity.map { String(localized: "\($0.views) views") }
+        }
+        let line = [git?.branch, state].compactMap { $0 }.joined(separator: " · ")
         return line.isEmpty ? nil : line
     }
 }
@@ -96,7 +124,7 @@ enum ProjectOverview {
             for id in [view.text("id")] + view.list("nodes").map({ $0.text("id") }) where !id.isEmpty {
                 let status = attention.statuses[id]
                 if status == .needsYou && !snoozed.contains(id) { activity.needsYou += 1 }
-                if status == .running || attention.delegating.contains(id) { activity.working = true }
+                if status == .running || attention.delegating.contains(id) { activity.working += 1 }
             }
         }
         return activity

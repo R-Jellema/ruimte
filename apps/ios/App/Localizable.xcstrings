@@ -2492,23 +2492,6 @@
         }
       }
     },
-    "%@ · %lld changed" : {
-      "comment" : "%1$@ is the git branch, %2$lld files",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ · %2$lld changed"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ · %2$lld gewijzigd"
-          }
-        }
-      }
-    },
     "%@ · %lld ms" : {
       "comment" : "How the machine is connected, then the round trip in milliseconds",
       "localizations" : {
@@ -22602,6 +22585,141 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Versie"
+          }
+        }
+      }
+    },
+    "%lld waiting" : {
+      "comment" : "Views of a project that wait on you",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "1 waiting"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld waiting"
+                }
+              }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "1 wacht"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld wachten"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Chats without project" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chats zonder project"
+          }
+        }
+      }
+    },
+    "Could not start the chat." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kon de chat niet starten."
+          }
+        }
+      }
+    },
+    "Finished %@" : {
+      "comment" : "%@ is when a session stopped, such as 07:52",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Klaar om %@"
+          }
+        }
+      }
+    },
+    "New chat in %@" : {
+      "comment" : "%@ is the name of a project",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nieuwe chat in %@"
+          }
+        }
+      }
+    },
+    "Offline since %@" : {
+      "comment" : "%@ is when the machine was last connected, such as 06:12",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Offline sinds %@"
+          }
+        }
+      }
+    },
+    "Process ended" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Proces beëindigd"
+          }
+        }
+      }
+    },
+    "Stopped on an error" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gestopt door een fout"
+          }
+        }
+      }
+    },
+    "Terminals and views" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terminals en weergaven"
+          }
+        }
+      }
+    },
+    "via relay · %@" : {
+      "comment" : "%@ is a round trip, such as 12 ms",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "via relay · %@"
           }
         }
       }

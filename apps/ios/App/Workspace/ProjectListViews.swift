@@ -188,6 +188,8 @@ private struct ProjectListCell: View {
 struct ProjectRowMarksView: View {
     let marks: ProjectRowMarks
     var task: JSONValue?
+    /// Without the snooze, needs-you and working marks, for a row whose glyph already says them.
+    var showsStatus = true
 
     var body: some View {
         HStack(spacing: 8) {
@@ -203,7 +205,11 @@ struct ProjectRowMarksView: View {
             if marks.draft {
                 Circle().fill(MobileStyle.faint).frame(width: 6, height: 6).accessibilityLabel("Draft")
             }
-            if let until = marks.snoozedUntil {
+            if !showsStatus {
+                if marks.unseen && !marks.needsYou && !marks.working {
+                    Circle().fill(MobileStyle.accent).frame(width: 6, height: 6).accessibilityLabel("New activity")
+                }
+            } else if let until = marks.snoozedUntil {
                 Image(lucide: "alarm-clock", size: 12).foregroundStyle(MobileStyle.muted)
                     .accessibilityLabel("Snoozed until \(SnoozeChoice.moment(until, from: .now))")
             } else if marks.needsYou {
@@ -219,7 +225,7 @@ struct ProjectRowMarksView: View {
 }
 
 /// What a long press on a row offers: what the view is, how to get another one, its session, and the delete.
-private struct ProjectRowMenu: View {
+struct ProjectRowMenu: View {
     let item: JSONValue
     let isView: Bool
     let status: AgentStatus?
@@ -267,7 +273,7 @@ private struct ProjectRowMenu: View {
 
 /// The card over a long-pressed row's menu: the row with its status and what it waits on or holds, read live from
 /// the machine's attention without attaching the session.
-private struct ProjectRowPreview: View {
+struct ProjectRowPreview: View {
     let workspace: MobileWorkspace
     let item: JSONValue
     let marks: ProjectRowMarks

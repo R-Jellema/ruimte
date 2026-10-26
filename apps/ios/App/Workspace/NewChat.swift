@@ -184,6 +184,8 @@ extension JSONValue {
 /// "New chat" in a list of projects: one button for one machine, a menu of the machines for several.
 struct NewChatRow: View {
     let machines: [Machine]
+    /// A capsule beside Recently closed, as the iPhone's Projects tab draws it, instead of a row of the sidebar.
+    var capsule = false
     let start: (Machine) -> Void
 
     var body: some View {
@@ -193,7 +195,7 @@ struct NewChatRow: View {
             } label: {
                 label
             }
-            .modifier(MobileSidebarRow())
+            .modifier(NewChatRowStyle(capsule: capsule))
             .accessibilityIdentifier("projects.newChat")
         } else if !machines.isEmpty {
             Menu {
@@ -205,15 +207,45 @@ struct NewChatRow: View {
             } label: {
                 label
             }
-            .modifier(MobileSidebarRow())
+            .modifier(NewChatRowStyle(capsule: capsule))
             .accessibilityIdentifier("projects.newChat")
         }
     }
 
-    private var label: some View {
-        ChatsRowLabel(
-            title: String(localized: "New chat"), detail: String(localized: "A question or quick task"),
-            icon: "message-square-plus")
+    @ViewBuilder private var label: some View {
+        if capsule {
+            ProjectsCapsuleLabel(title: String(localized: "New chat"), icon: "message-square-plus")
+        } else {
+            ChatsRowLabel(
+                title: String(localized: "New chat"), detail: String(localized: "A question or quick task"),
+                icon: "message-square-plus")
+        }
+    }
+}
+
+private struct NewChatRowStyle: ViewModifier {
+    let capsule: Bool
+
+    func body(content: Content) -> some View {
+        if capsule {
+            content.menuStyle(.button).buttonStyle(.mobileCapsule)
+        } else {
+            content.modifier(MobileSidebarRow())
+        }
+    }
+}
+
+/// The label of one of the two equal capsules under the projects.
+struct ProjectsCapsuleLabel: View {
+    let title: String
+    let icon: String
+
+    var body: some View {
+        HStack(spacing: MobileSpacing.small) {
+            Image(lucide: icon, size: 16).accessibilityHidden(true)
+            Text(title)
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 

@@ -50,7 +50,7 @@ struct PhoneHome: View {
                 Tab(value: PhoneTab.projects) {
                     ProjectsPage(
                         runtime: runtime, projects: projects, embedded: true, now: now, gitLines: gitLines,
-                        showRecent: router.showRecentProjects
+                        cards: true, showRecent: router.showRecentProjects
                     ) {
                         EmptyView()
                     }
