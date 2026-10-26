@@ -5,7 +5,7 @@ import { ArrowUp, ChevronDown, ChevronLeft, ChevronRight, CircleCheck, Eye, Hand
 import { StatusDot, type AgentStatus, ClaudeMark } from './canvas.tsx';
 import { Button, IconButton, Typed } from './primitives.tsx';
 
-export const TOOL_ICON = { read: Eye, edit: SquarePen, bash: Terminal } as const satisfies Record<string, LucideIcon>;
+const TOOL_ICON = { read: Eye, edit: SquarePen, bash: Terminal } as const satisfies Record<string, LucideIcon>;
 
 /** `rows/MessageRows.tsx`: the person's message, right-aligned on the active surface. */
 export function UserBubble({ children }: { readonly children: ReactNode }) {

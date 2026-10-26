@@ -46,7 +46,7 @@ export function StatusDot({ status, className = '' }: { readonly status: AgentSt
     );
 }
 
-export function StatusPill({ status }: { readonly status: AgentStatus }) {
+function StatusPill({ status }: { readonly status: AgentStatus }) {
     return (
         <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-surface-sunken px-2 py-0.5 text-[13px] leading-[19px] text-text-muted">
             <StatusDot status={status} />
