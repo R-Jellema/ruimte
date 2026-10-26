@@ -64985,6 +64985,25 @@
                             "to"
                           ],
                           "additionalProperties": {}
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "cron"
+                            },
+                            "expression": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 120
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "expression"
+                          ],
+                          "additionalProperties": {}
                         }
                       ]
                     },
@@ -65175,6 +65194,25 @@
                             "to"
                           ],
                           "additionalProperties": {}
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "cron"
+                            },
+                            "expression": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 120
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "expression"
+                          ],
+                          "additionalProperties": {}
                         }
                       ]
                     },
@@ -65309,6 +65347,25 @@
                             "every",
                             "from",
                             "to"
+                          ],
+                          "additionalProperties": {}
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "cron"
+                            },
+                            "expression": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 120
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "expression"
                           ],
                           "additionalProperties": {}
                         }
@@ -65706,6 +65763,25 @@
                           "to"
                         ],
                         "additionalProperties": {}
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "cron"
+                          },
+                          "expression": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 120
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "expression"
+                        ],
+                        "additionalProperties": {}
                       }
                     ]
                   },
@@ -65896,6 +65972,25 @@
                           "to"
                         ],
                         "additionalProperties": {}
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "cron"
+                          },
+                          "expression": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 120
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "expression"
+                        ],
+                        "additionalProperties": {}
                       }
                     ]
                   },
@@ -66030,6 +66125,25 @@
                           "every",
                           "from",
                           "to"
+                        ],
+                        "additionalProperties": {}
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "cron"
+                          },
+                          "expression": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 120
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "expression"
                         ],
                         "additionalProperties": {}
                       }
@@ -66408,6 +66522,25 @@
                       "to"
                     ],
                     "additionalProperties": {}
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "cron"
+                      },
+                      "expression": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 120
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "expression"
+                    ],
+                    "additionalProperties": {}
                   }
                 ]
               },
@@ -66598,6 +66731,25 @@
                       "to"
                     ],
                     "additionalProperties": {}
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "cron"
+                      },
+                      "expression": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 120
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "expression"
+                    ],
+                    "additionalProperties": {}
                   }
                 ]
               },
@@ -66732,6 +66884,25 @@
                       "every",
                       "from",
                       "to"
+                    ],
+                    "additionalProperties": {}
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "cron"
+                      },
+                      "expression": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 120
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "expression"
                     ],
                     "additionalProperties": {}
                   }
