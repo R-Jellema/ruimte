@@ -12,7 +12,7 @@ export function positionAfterLifting(ids: readonly string[], gap: number, dragge
 export const DEFAULT_TAB_WIDTH = 128;
 
 /* Where the tab may stand: the strip, or the bar for a cell that has none. */
-export interface TabBounds {
+interface TabBounds {
     left: number;
     right: number;
 }

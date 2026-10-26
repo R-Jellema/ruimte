@@ -70,7 +70,7 @@ function RowIcon({ id, kind, provider, className }: { id: string; kind: CanvasNo
 }
 
 /* The whole text of a row that truncates it, on hover; a row with nothing more to say has no tooltip. */
-export function MaybeTooltip({ label, children }: { label: string | null | undefined; children: ReactElement<Record<string, unknown>> }) {
+function MaybeTooltip({ label, children }: { label: string | null | undefined; children: ReactElement<Record<string, unknown>> }) {
     if (!label) {
         return children;
     }

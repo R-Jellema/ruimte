@@ -8,7 +8,7 @@ import { useToasts } from '@/state/toasts';
 import { transportFor } from '@/transport';
 import { useEndpointConnection } from '@/transport/status';
 
-export interface AppleFoundation {
+interface AppleFoundation {
     enabled: boolean;
     /* Whether the switch can act: a Mac that answers and knows the setting, and nothing on the way. */
     switchable: boolean;

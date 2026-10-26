@@ -15,7 +15,7 @@ export interface GrepOptions {
 
 export const DEFAULT_GREP_OPTIONS: GrepOptions = { caseSensitive: false, wholeWord: false, regex: false };
 
-export interface GrepState {
+interface GrepState {
     matches: readonly FsGrepMatch[];
     /* How many files those matches come from, which the header says next to their count. */
     files: number;
@@ -57,7 +57,7 @@ export function grepState(answer: GrepAnswer, folder: string | null, query: stri
 }
 
 /* One file's hits under the name they share, in the order the search walked them. */
-export interface GrepGroup {
+interface GrepGroup {
     path: string;
     matches: FsGrepMatch[];
 }

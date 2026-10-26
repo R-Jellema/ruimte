@@ -20,7 +20,7 @@ import { useMachineHold, useOpenEndpoints } from '@/transport/status';
 import { ProjectActions, ProjectPlaceActions } from '@/shell/ProjectActions';
 import { PromptDialog, type ProjectSwitcherItem } from '@adecore/ui';
 
-export interface SwitcherItem extends ProjectSwitcherItem {
+interface SwitcherItem extends ProjectSwitcherItem {
     row: ProjectMenuRow;
 }
 

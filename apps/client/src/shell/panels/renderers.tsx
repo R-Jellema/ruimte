@@ -14,14 +14,14 @@ import { PdfPreview } from '@/shell/panels/PdfPreview';
 import { TableFile } from '@/shell/panels/TableFile';
 import { VideoFile } from '@/shell/panels/VideoFile';
 
-export interface FileRendererProps {
+interface FileRendererProps {
     /* Absolute on the daemon's machine. */
     path: string;
     name: string;
     read: FsReadResult;
 }
 
-export interface TextFileRenderer {
+interface TextFileRenderer {
     id: string;
     /* Whether this renderer takes the file, decided on its name alone. */
     match(name: string): boolean;
@@ -32,7 +32,7 @@ export interface TextFileRenderer {
  * What draws a text file, tried in order; anything no entry claims falls to the code view, which
  * takes every language shiki knows and plain text for the rest.
  */
-export const TEXT_RENDERERS: readonly TextFileRenderer[] = [
+const TEXT_RENDERERS: readonly TextFileRenderer[] = [
     {
         id: 'markdown',
         match: (name) => isMarkdownName(name),

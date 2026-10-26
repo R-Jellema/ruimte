@@ -15,10 +15,10 @@ export interface GitTreeRow {
 /* The groups of the list, top to bottom: what stops a commit, what git tracks, what it has never seen. */
 export type GitGroup = 'conflicts' | 'changes' | 'unversioned';
 
-export const GIT_GROUPS: readonly GitGroup[] = ['conflicts', 'changes', 'unversioned'];
+const GIT_GROUPS: readonly GitGroup[] = ['conflicts', 'changes', 'unversioned'];
 
 /* Whether a row is in the index: all of it, none of it, or part of it. */
-export type CheckState = 'checked' | 'unchecked' | 'mixed';
+type CheckState = 'checked' | 'unchecked' | 'mixed';
 
 /* One changed path of one checkout, with the side git reports for the index and the one for the working tree. */
 export interface GitEntry {
@@ -204,7 +204,7 @@ export function repoKey(checkout: string, group: GitGroup): string {
     return JSON.stringify(['repo', checkout, group]);
 }
 
-export function collapseKey(scope: string, dir: string): string {
+function collapseKey(scope: string, dir: string): string {
     return scope === '' ? dir : `${scope}/${dir}`;
 }
 
@@ -220,7 +220,7 @@ export const FOLDER_JOIN = ' ∕ ';
 export const SYNTHETIC_PREFIX = '⁠';
 
 /* One folder or file of a checkout's changes, with a chain of folders nothing branches in folded into one. */
-export interface FlatNode {
+interface FlatNode {
     kind: 'folder' | 'file';
     /* The path in the checkout: for a folder the deepest of its chain, for a file the entry's own. */
     path: string;
@@ -314,7 +314,7 @@ export interface GitTreeLayout {
 }
 
 /* The changes of one checkout. */
-export interface GitTreeSource {
+interface GitTreeSource {
     path: string;
     label: string;
     entries: readonly GitEntry[];

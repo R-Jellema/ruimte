@@ -2,7 +2,7 @@ import i18next from 'i18next';
 import { CHANGE_KINDS, type ChangeKind, type ChangeSplit } from '@ruimte/contracts';
 import { formatNumber } from '@adecore/ui/format';
 
-export interface SplitRow {
+interface SplitRow {
     kind: ChangeKind;
     label: string;
     added: number;

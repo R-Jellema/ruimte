@@ -141,7 +141,7 @@ export function effortSegments<T extends ChartPoint>(points: readonly T[], origi
     return segments;
 }
 
-export interface ComparisonSelection {
+interface ComparisonSelection {
     hiddenModels: ReadonlySet<string>;
     hiddenEfforts: ReadonlySet<string>;
     legacy: boolean;
@@ -150,7 +150,7 @@ export interface ComparisonSelection {
     notice: 'referenceHidden' | 'candidateHidden' | 'cleared' | null;
 }
 
-export type ComparisonAction =
+type ComparisonAction =
     | { type: 'model' | 'effort'; id: string }
     | { type: 'legacy'; value: boolean }
     | { type: 'activate'; key: string }

@@ -2,7 +2,7 @@ import type { AgentKind } from '@ruimte/contracts';
 import { createNodeAction, createViewAction } from '@/actions/client-actions';
 import { hasActiveCanvas, useDocument } from '@/state/document';
 
-export interface WorktreeChat {
+interface WorktreeChat {
     cwd: string;
     provider: AgentKind;
     title?: string;

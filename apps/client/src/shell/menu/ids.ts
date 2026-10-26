@@ -4,7 +4,7 @@ import { COMMANDS, isCommandId } from '@/shell/command-table';
 export const PR_SHOW_IN_PREFIX = 'pr-show-in-';
 
 /* The palette rows that exist once per agent CLI, layout or target view, and the menu's own row per view. */
-export const PALETTE_PREFIXES = [
+const PALETTE_PREFIXES = [
     PR_SHOW_IN_PREFIX,
     'agent-chat-',
     'agent-terminal-',

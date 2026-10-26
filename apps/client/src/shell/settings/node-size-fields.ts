@@ -2,9 +2,9 @@ import { NODE_SIZE, NODE_SIZE_MAX, NODE_SIZE_MIN, type NodeKind, type NodeSize }
 
 export type NodeSide = keyof NodeSize;
 
-export type SideProblem = 'notWhole' | 'tooSmall' | 'tooLarge';
+type SideProblem = 'notWhole' | 'tooSmall' | 'tooLarge';
 
-export type SideReading = { ok: true; value: number } | { ok: false; problem: SideProblem };
+type SideReading = { ok: true; value: number } | { ok: false; problem: SideProblem };
 
 /* What a person typed for one side of a default size, held to the bounds the machine accepts. */
 export function readNodeSide(text: string, side: NodeSide): SideReading {

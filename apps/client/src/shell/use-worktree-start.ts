@@ -7,7 +7,7 @@ import { availableAgents } from '@/agents/creation';
 import { proposedBranch } from '@/shell/new-worktree-chat';
 import { useTransport } from '@/transport/context';
 
-export type BaseCommit = { ref: string; commit: string; subject: string } | 'missing' | null;
+type BaseCommit = { ref: string; commit: string; subject: string } | 'missing' | null;
 
 /* The branches a linked worktree has out, which a start reuses; the first entry is the main checkout, and a worktree gone from disk is no place to start. */
 export function reusableBranches(worktrees: readonly Pick<Worktree, 'branch' | 'missing'>[]): Set<string> {

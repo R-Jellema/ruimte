@@ -1,5 +1,5 @@
 /* How many tabs keep their editor while another is up, the most recently shown first. */
-export const KEPT_TABS = 8;
+const KEPT_TABS = 8;
 
 /* The tabs shown last, the one shown now first, after `active` came up. */
 export function shownAfter(previous: readonly string[], active: string, limit = KEPT_TABS): string[] {

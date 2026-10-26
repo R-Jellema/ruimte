@@ -8,19 +8,19 @@ export const DEFAULT_INDENTATION: EditorIndentation = { tabSize: 4, insertSpaces
 const MIN_TAB_SIZE = 1;
 const MAX_TAB_SIZE = 16;
 
-export interface EditorConfigSection {
+interface EditorConfigSection {
     glob: string;
     properties: Readonly<Record<string, string>>;
 }
 
-export interface EditorConfig {
+interface EditorConfig {
     /* Stops the search for more files further up. */
     root: boolean;
     sections: readonly EditorConfigSection[];
 }
 
 /* One `.editorconfig` and the folder it sits in. */
-export interface EditorConfigFile {
+interface EditorConfigFile {
     dir: string;
     config: EditorConfig;
 }
@@ -218,7 +218,7 @@ export function editorConfigDirs(path: string, roots: readonly string[]): string
     return dirs;
 }
 
-export type ReadText = (path: string) => Promise<FsReadResult>;
+type ReadText = (path: string) => Promise<FsReadResult>;
 
 /* Reads the files nearest first and stops at one that is a root. A folder with none, or one that cannot be read, has none. */
 export async function loadEditorConfigs(path: string, roots: readonly string[], read: ReadText): Promise<EditorConfigFile[]> {

@@ -35,7 +35,7 @@ export function hasWork(work: WorktreeWork | undefined): boolean {
     return work !== undefined && (work.changed + work.untracked + work.ahead > 0 || work.operation !== undefined);
 }
 
-export interface RemoveQuestion {
+interface RemoveQuestion {
     title: string;
     description: string;
     confirmLabel: string;
@@ -142,9 +142,9 @@ export function removedToast(
 }
 
 /* What a badge on a row counts; the row draws its own mark per kind. */
-export type WorkBadgeKind = 'operation' | 'changed' | 'untracked' | 'ahead' | 'behind';
+type WorkBadgeKind = 'operation' | 'changed' | 'untracked' | 'ahead' | 'behind';
 
-export interface WorkBadge {
+interface WorkBadge {
     kind: WorkBadgeKind;
     /* What stands beside the mark: the count, or git's own word for an operation that stopped halfway. */
     text: string;

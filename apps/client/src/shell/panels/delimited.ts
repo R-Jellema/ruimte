@@ -6,15 +6,15 @@ export type Delimiter = ',' | ';' | '\t';
 
 export const DELIMITERS: readonly Delimiter[] = [',', ';', '\t'];
 
-export interface DelimitedRecords {
+interface DelimitedRecords {
     records: string[][];
     /* A quote that never closed, or text right after a closing quote; what follows is read as well as it goes. */
     malformed: boolean;
 }
 
-export type ColumnKind = 'text' | 'integer' | 'decimal';
+type ColumnKind = 'text' | 'integer' | 'decimal';
 
-export interface DelimitedTable {
+interface DelimitedTable {
     columns: GridColumn[];
     rows: GridRow[];
 }

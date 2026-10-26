@@ -7,7 +7,7 @@ import { APP_SHORTCUTS } from '@/shell/shortcuts';
 import { CLEAR_SHORTCUT, LEAVE_NODE_SHORTCUT, platformShortcut, TERMINAL_FIND_SHORTCUT } from '@/terminal/keymap';
 import { KEY_SHORTCUTS, shortcut, shortcutParts, type Shortcut } from '@adecore/ui';
 
-export interface ShortcutRow {
+interface ShortcutRow {
     keys: Shortcut;
     /* The pointer gesture the keys go with, printed as a cap after them: "drag", "scroll", "click". */
     then?: string;

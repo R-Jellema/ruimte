@@ -36,7 +36,7 @@ import { terminalHasFind, terminalHasKeyboard } from '@/terminal/xterm';
 import { useUi } from '@/state/ui';
 import { windowWorkspace } from '@/state/window';
 
-export interface ActiveViewFacts {
+interface ActiveViewFacts {
     view: ProjectView;
     offers: ViewOffers;
     shared: boolean;

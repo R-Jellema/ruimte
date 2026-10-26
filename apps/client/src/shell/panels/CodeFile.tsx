@@ -216,7 +216,7 @@ const BLOCK_LABELS: Record<EditBlock, string> = {
     touch: 'file.edit.touch'
 };
 
-export interface CodeFileProps {
+interface CodeFileProps {
     /* Absolute on the daemon's machine. */
     path: string;
     read: FsReadText;

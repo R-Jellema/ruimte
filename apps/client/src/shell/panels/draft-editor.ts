@@ -38,7 +38,7 @@ export function bindDraftEditor(editor: Editor, drafts: TextDrafts, endpointId: 
     };
 }
 
-export interface DraftEditorMount {
+interface DraftEditorMount {
     editor: Editor;
     /* Disposes the editor and saves; the draft stays until nothing is left unsaved. */
     unmount(): void;

@@ -89,7 +89,7 @@ export function viewNameOf(row: SidebarNodeRow): string | null {
 export type SidebarRow = SidebarViewRow | SidebarNodeRow;
 
 /* One project's share of "Needs you", under a heading with its name. */
-export interface SidebarWaitingGroup {
+interface SidebarWaitingGroup {
     key: string;
     /* Null while the project on screen is the only one waiting. */
     label: string | null;
@@ -118,7 +118,7 @@ export interface SidebarProject {
     openViewIds: readonly string[];
 }
 
-export interface SidebarInput {
+interface SidebarInput {
     project: SidebarProject;
     expandedIds: ReadonlySet<string>;
 }

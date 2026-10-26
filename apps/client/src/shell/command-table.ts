@@ -133,7 +133,7 @@ export type MenuContainer =
     | 'keep-awake'
     | 'layouts';
 
-export interface MenuWords {
+interface MenuWords {
     key: string;
     values?: Record<string, string>;
 }
@@ -163,7 +163,7 @@ export interface MenuPlace {
  * `shell:menu.<key>` and `shell:palette.commands.<key>`; what it does is in `shell/commands.ts` for a
  * palette row and in `menu/actions.ts` for a menu row of its own.
  */
-export interface CommandSpec {
+interface CommandSpec {
     readonly key: string;
     readonly icon: LucideIcon;
     readonly shortcut?: Shortcut;

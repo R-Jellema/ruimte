@@ -12,7 +12,7 @@ export interface MachineEntry {
     onAccount: boolean;
 }
 
-export interface MergeInput {
+interface MergeInput {
     endpoints: readonly Endpoint[];
     /* The account list, or null while signed out or not loaded yet, which leaves only this client's rows. */
     accountMachines: readonly Machine[] | null;

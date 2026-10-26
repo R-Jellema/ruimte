@@ -10,7 +10,7 @@ export const LOADING_NAME = '.ruimte-loading';
 /* What the daemon answered per directory, keyed by the directory's absolute path. */
 export type EntryCache = ReadonlyMap<string, readonly FsEntry[]>;
 
-export interface TreeInput {
+interface TreeInput {
     /* Every row the tree shows, POSIX and relative to the folder. */
     paths: string[];
     /* The paths of the entries git ignores, in the shape the tree's git lane matches on. */
@@ -150,7 +150,7 @@ export function gitStatusEntries(folder: string, root: string | null, files: rea
 }
 
 /* A checkout as the files panel reads it: where it is, and what git said there once it said anything. */
-export interface TreeCheckout {
+interface TreeCheckout {
     path: string;
     status: { root: string | null; files: readonly GitFile[] } | null;
 }

@@ -23,7 +23,7 @@ export interface CheckoutRefs {
 }
 
 /* What the picker offers past choosing a place: the branches one level in, and what acts on one checkout. */
-export interface BranchActions {
+interface BranchActions {
     refsOf(cwd: string): CheckoutRefs;
     /* What one checkout can be told to do, drawn into its own level. The panel owns these, because
        half of them open a dialog it holds. */

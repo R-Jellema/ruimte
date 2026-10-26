@@ -5,7 +5,7 @@ export interface SidebarTarget {
     nodeId?: string;
 }
 
-export interface SidebarNavigation {
+interface SidebarNavigation {
     open(endpointId: string, projectId: string): Promise<string>;
     current(): { endpointId: string | null; projectId: string | null };
     reveal(target: SidebarTarget): void;

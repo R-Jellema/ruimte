@@ -24,7 +24,7 @@ export interface SettingsSectionMeta {
     split?: boolean;
 }
 
-export interface SettingsNavGroup {
+interface SettingsNavGroup {
     /* The words under `nav.groups.<label>`; the first group goes without a label. */
     label: 'workspace' | 'ai' | null;
     sections: readonly SettingsSectionMeta[];

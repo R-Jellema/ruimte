@@ -26,7 +26,7 @@ export function stepFocusedEditorFind(direction: 1 | -1): boolean {
 /* A selection longer than this is not a thing someone looks for. */
 const SEED_LIMIT = 10_000;
 
-export interface EditorFind {
+interface EditorFind {
     total: number;
     current: number | null;
     invalid: boolean;

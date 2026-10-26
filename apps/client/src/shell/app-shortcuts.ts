@@ -8,9 +8,9 @@ import { useUi } from '@/state/ui';
 import type { KeyLike } from '@adecore/ui';
 
 // Window shortcuts also work on the start screen; project shortcuts are bound by the workspace.
-export type AppShortcut = WindowCommandId;
+type AppShortcut = WindowCommandId;
 
-export interface ShortcutContext {
+interface ShortcutContext {
     /* The keyboard is inside a node's content, which is what keeps Ctrl+B out of readline's way off macOS. */
     inNode: boolean;
     apple: boolean;

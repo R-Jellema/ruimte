@@ -51,7 +51,7 @@ export interface BrowseAnswer {
 }
 
 /* `unknown` is what a daemon older than the `exists` field leaves behind, not a third state on disk. */
-export type FolderPresence = 'there' | 'missing' | 'unknown';
+type FolderPresence = 'there' | 'missing' | 'unknown';
 
 /*
  * A path ending in a separator was listed itself, so its `exists` decides; otherwise its parent was
@@ -88,7 +88,7 @@ export function isFullPath(path: string, platform: string | null): boolean {
 }
 
 /* What Enter does with the typed path; a relative one is refused at once rather than after the machine said no. */
-export type TypedPathOffer = 'open' | 'create' | 'relative';
+type TypedPathOffer = 'open' | 'create' | 'relative';
 
 export function typedPathOffer(path: string, platform: string | null, presence: FolderPresence): TypedPathOffer {
     if (!isFullPath(path, platform)) {
@@ -97,7 +97,7 @@ export function typedPathOffer(path: string, platform: string | null, presence: 
     return presence === 'missing' ? 'create' : 'open';
 }
 
-export interface BrowseStart {
+interface BrowseStart {
     /* Where the first listing is asked for, ready to be listed whole. */
     start: string;
     /* Where a start that is not on this machine falls back to; a machine always has a home. */
@@ -115,7 +115,7 @@ export function browseStart(configured: string, sep: string): BrowseStart {
 }
 
 /* What a machine's link is doing, in the terms a row of machines draws it. */
-export type MachineLink =
+type MachineLink =
     | { kind: 'open' }
     | { kind: 'connecting' }
     | { kind: 'failed'; reason: string }
@@ -127,7 +127,7 @@ export type MachineLink =
     | { kind: 'network-only' };
 
 /* A wait for one machine that a person started by picking it: under way, or ended with a reason. */
-export type LinkWait = { state: 'connecting' } | { state: 'failed'; reason: string };
+type LinkWait = { state: 'connecting' } | { state: 'failed'; reason: string };
 
 /*
  * The state of one machine in a list. An open link is the whole story; otherwise the wait a person
@@ -257,7 +257,7 @@ export function machinesStep(step: BrowseStep, query: string): BrowseStep {
 }
 
 /* `folders` carries the path to go back to, which has to be listed before it is shown. */
-export type BrowseBack = { to: 'palette' } | { to: 'machines' } | { to: 'folders'; path: string };
+type BrowseBack = { to: 'palette' } | { to: 'machines' } | { to: 'folders'; path: string };
 
 /*
  * The machines step returns to the folders it was opened from, or leaves browsing when there are

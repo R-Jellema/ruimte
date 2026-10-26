@@ -1,12 +1,12 @@
 import type { GitPrCheck, GitPrThread, GitPullRequest } from '@ruimte/contracts';
 import { selectionBlock } from '@/chat/selection-to-chat';
 
-export interface ThreadFilter {
+interface ThreadFilter {
     showBots: boolean;
     showResolved: boolean;
 }
 
-export interface VisibleThreads {
+interface VisibleThreads {
     shown: GitPrThread[];
     hiddenBots: number;
     hiddenResolved: number;
@@ -34,7 +34,7 @@ export function visibleThreads(threads: readonly GitPrThread[], filter: ThreadFi
     return { shown, hiddenBots, hiddenResolved };
 }
 
-export interface CheckGroups {
+interface CheckGroups {
     failed: GitPrCheck[];
     pending: GitPrCheck[];
     passed: GitPrCheck[];

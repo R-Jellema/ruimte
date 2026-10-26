@@ -13,7 +13,7 @@ import { useUi } from '@/state/ui';
 
 const ITEM = 'inline-flex h-5 shrink-0 items-center gap-1.5 rounded-md px-1.5';
 
-export interface EditorStatusBarProps {
+interface EditorStatusBarProps {
     editor: Editor;
     /* Null where no language server serves the file. */
     language: EditorLanguage | null;

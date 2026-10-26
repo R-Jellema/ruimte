@@ -2,7 +2,7 @@ import { isUnderFolder } from '@/state/fs-watch';
 
 const MAX_FOLDERS = 3;
 
-export interface PathCrumbs {
+interface PathCrumbs {
     /* The folders on the way to the file, nearest last, with `…` first when the path is longer than it shows. */
     folders: string[];
     name: string;

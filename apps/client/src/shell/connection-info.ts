@@ -14,7 +14,7 @@ export function reachabilityLabel(reach: Reachability): string {
     return i18next.t(`shell:connection.reachability.${reach}`);
 }
 
-export interface MachineInfo {
+interface MachineInfo {
     /* What this client calls the daemon it points at (`endpoints.ts`). */
     endpointLabel: string;
     /* What the daemon calls itself, its hostname unless it was given a label. */

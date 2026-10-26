@@ -1,6 +1,6 @@
 import type { MachineEntry } from './machine-list';
 
-export interface MachineContext {
+interface MachineContext {
     connected: boolean;
     signedIn: boolean;
     removedMachineIds: readonly string[];

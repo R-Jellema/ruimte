@@ -5,7 +5,7 @@ import { sameDropPreview, type DropPreviewShape } from '@adecore/ui';
  * pointer is and the preview, drawn once above the parked pages (`shell/DropPreview.tsx`), moves to it.
  * There is one pointer, so there is one drag and one preview: module state, like `dragging()`.
  */
-export interface DropPreviewState {
+interface DropPreviewState {
     /* The shape the preview has, or last had: it stays while the preview fades out. */
     shape: DropPreviewShape | null;
     shown: boolean;

@@ -8,7 +8,7 @@ import { useEndpointId } from '@/state/keys';
 import { TransportError } from '@/transport';
 import { useTransport } from '@/transport/context';
 
-export type FileRead = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; read: FsReadResult };
+type FileRead = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; read: FsReadResult };
 
 /*
  * One file's contents for as long as anything draws it. A change the daemon reports under the

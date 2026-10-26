@@ -116,7 +116,7 @@ export interface Box {
 }
 
 /* Where in a cell the pointer is, in pixels from its top left corner. */
-export interface Spot {
+interface Spot {
     x: number;
     y: number;
 }
@@ -155,7 +155,7 @@ export function pathZoneAt(box: Box, spot: Spot, taken: string | null = null): S
  * The rectangle the view would take, as shares of the cell it is dropped on. A side drop makes a whole
  * new column, so `column` says the shape reaches past the cell and is drawn that way before the drop.
  */
-export interface DropShape {
+interface DropShape {
     x: number;
     y: number;
     width: number;

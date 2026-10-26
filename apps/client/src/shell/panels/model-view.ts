@@ -1,6 +1,6 @@
 import type { InstancedMesh, Mesh, Object3D } from 'three';
 
-export type Vec3 = readonly [number, number, number];
+type Vec3 = readonly [number, number, number];
 
 export interface ModelBounds {
     min: Vec3;

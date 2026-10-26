@@ -1,12 +1,12 @@
 import type { CodeFolding } from '@/state/code-folding';
 
 /* One switch of the code folding tab: the setting it writes, and the words under `editor.folding.<group>.<words>`. */
-export interface FoldingRow {
+interface FoldingRow {
     readonly field: keyof CodeFolding;
     readonly words: string;
 }
 
-export interface FoldingGroup {
+interface FoldingGroup {
     readonly id: string;
     readonly rows: readonly FoldingRow[];
 }

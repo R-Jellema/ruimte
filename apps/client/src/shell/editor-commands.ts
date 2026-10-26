@@ -164,7 +164,7 @@ export const EDITOR_COMMANDS: Record<EditorCommandId, EditorCommandSpec> = TABLE
 
 export const EDITOR_COMMAND_IDS = Object.keys(EDITOR_COMMANDS) as EditorCommandId[];
 
-export interface EditorCommandRow {
+interface EditorCommandRow {
     id: string;
     label: string;
     shortcut?: Shortcut;

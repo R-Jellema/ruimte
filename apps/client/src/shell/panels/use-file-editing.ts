@@ -10,7 +10,7 @@ import { textDrafts } from '@/state/text-drafts';
 import { useWorktrees } from '@/state/worktrees';
 import { useOptionalConnection } from '@/transport/context';
 
-export interface FileEditing {
+interface FileEditing {
     endpointId: string;
     /* Why the file is read only here, null when it can be edited. */
     block: EditBlock | null;

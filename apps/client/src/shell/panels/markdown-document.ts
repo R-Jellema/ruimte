@@ -2,7 +2,7 @@ import { parseDocument } from 'yaml';
 import type { CSSProperties } from 'react';
 import { absoluteOf, isAbsolutePath } from '@ruimte/contracts';
 
-export interface MarkdownDocument {
+interface MarkdownDocument {
     body: string;
     rows: [string, string][] | null;
     invalid: boolean;

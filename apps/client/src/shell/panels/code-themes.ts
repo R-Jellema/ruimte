@@ -6,7 +6,7 @@ const THEME_NAME = 'Ruimte';
 type CodeThemeMode = 'light' | 'dark';
 
 /* A Shiki theme with what a picker needs to list it filled in. */
-export type CodeTheme = ThemeRegistration & { readonly name: string; readonly displayName: string; readonly type: CodeThemeMode };
+type CodeTheme = ThemeRegistration & { readonly name: string; readonly displayName: string; readonly type: CodeThemeMode };
 
 /* What a piece of code is, whatever the language; every scope below is drawn as one of these. */
 export type CodeRole =
@@ -56,7 +56,7 @@ export type CodeRole =
     | 'changed'
     | 'diffHeader';
 
-export interface CodePalette {
+interface CodePalette {
     /* The ground a chat draws code on (`--term-bg` of `@adecore/terminal/terminal.css`). A panel draws code on its own `--surface`, and `code-themes.test.ts` holds every role readable on both. */
     readonly background: string;
     readonly colors: Readonly<Record<CodeRole, string>>;

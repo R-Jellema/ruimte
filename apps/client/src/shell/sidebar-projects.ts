@@ -12,7 +12,7 @@ export function sidebarProjectKey(endpointId: string, projectId: string): string
     return JSON.stringify([endpointId, projectId]);
 }
 
-export const SIDEBAR_PROJECTS_STORAGE_KEY = 'ruimte.sidebar.projects';
+const SIDEBAR_PROJECTS_STORAGE_KEY = 'ruimte.sidebar.projects';
 const storedCollapsed = storedJson(
     SIDEBAR_PROJECTS_STORAGE_KEY,
     z.array(z.unknown()).transform((items) => items.filter((item): item is string => typeof item === 'string'))

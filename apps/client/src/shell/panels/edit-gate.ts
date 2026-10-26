@@ -49,7 +49,7 @@ export function isCoarsePointer(): boolean {
     return typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 }
 
-export interface FileNodeGate {
+interface FileNodeGate {
     /* The node holds the canvas's `bodyFocusId` in the focused cell, so its editor may have the keyboard. */
     focused: boolean;
 }

@@ -1,7 +1,7 @@
 import i18next from 'i18next';
 import type { BackgroundServiceBridge, BackgroundServiceState } from '@/desktop/bridge';
 
-export interface MachineUpdatePrompt {
+interface MachineUpdatePrompt {
     title: string;
     description: string;
 }

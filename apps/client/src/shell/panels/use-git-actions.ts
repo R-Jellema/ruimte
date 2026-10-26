@@ -104,19 +104,19 @@ export interface ManyJob {
     extra?: Partial<Omit<GitActionPayload, 'cwd' | 'kind' | 'actionId'>>;
 }
 
-export interface RunOptions {
+interface RunOptions {
     /* A button on the toast that says it went well: what the action leads to next. */
     done?(result: GitActionResult): ToastAction | undefined;
 }
 
 /* How a run over several repositories ended. A branch that moved on both sides is a question and not a failure. */
-export interface ManyOutcome {
+interface ManyOutcome {
     done: number;
     failed: number;
     diverged: ManyJob[];
 }
 
-export interface ManyOptions {
+interface ManyOptions {
     /* Asks how the branch of one repository that moved on both sides comes together, from the summary. */
     choose?(job: ManyJob): void;
 }

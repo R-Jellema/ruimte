@@ -1,8 +1,8 @@
 import { isOpenableView, type ProjectLocal, type ProjectView, type SplitCell, type SplitColumn, type SplitLayout } from '@ruimte/contracts';
 
 /* Columns of cells instead of a free tree, so "at most three by three" is these two numbers and every layout the model can express is allowed. */
-export const MAX_COLUMNS = 3;
-export const MAX_CELLS = 3;
+const MAX_COLUMNS = 3;
+const MAX_CELLS = 3;
 
 /* A cell has five drop points: the four edges split, the middle takes over the view standing there. */
 export type SplitZone = 'left' | 'right' | 'up' | 'down' | 'center';
@@ -396,7 +396,7 @@ export interface ShownView {
     };
 }
 
-export interface ShowOptions {
+interface ShowOptions {
     /* A view without a row in the sidebar: it goes to a tab host rather than over a view. */
     loose?: boolean;
     /* The view whose host a loose view prefers, when that view stands in one. */

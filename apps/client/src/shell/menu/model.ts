@@ -20,7 +20,7 @@ export interface MenuLaunch {
     live: boolean;
 }
 
-export interface MenuAgent {
+interface MenuAgent {
     kind: string;
     name: string;
     chat: boolean;

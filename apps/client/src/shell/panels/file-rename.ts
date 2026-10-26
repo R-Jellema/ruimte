@@ -1,7 +1,7 @@
 import { absoluteOf, basenameOf, dirnameOf, isPathBelow } from '@/shell/panels/files-tree';
 
 /* A file or folder on its way to another place, by absolute path. */
-export interface PlannedMove {
+interface PlannedMove {
     readonly from: string;
     readonly to: string;
 }

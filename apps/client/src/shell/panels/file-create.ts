@@ -4,14 +4,14 @@ import type { FsEntry } from '@ruimte/contracts';
 export type NewEntryKind = 'file' | 'directory';
 
 /* The name of the row the tree holds open while a name is typed; `FILES_TREE_CSS` hides it, since the typed row is drawn over it. */
-export const NEW_ENTRY_NAME = '.ruimte-new';
+const NEW_ENTRY_NAME = '.ruimte-new';
 
 /* A name longer than this in bytes is one no common file system keeps. */
 const MAX_SEGMENT_BYTES = 255;
 
 const WINDOWS_CHARACTERS = new Set(['<', '>', ':', '"', '|', '?', '*']);
 
-export type NameProblem = 'empty' | 'segment' | 'dots' | 'characters' | 'long' | 'reserved' | 'exists' | 'in-file';
+type NameProblem = 'empty' | 'segment' | 'dots' | 'characters' | 'long' | 'reserved' | 'exists' | 'in-file';
 
 export interface NameFault {
     problem: NameProblem;

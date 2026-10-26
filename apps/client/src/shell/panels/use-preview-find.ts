@@ -13,7 +13,7 @@ export interface FoundInPage {
     matches: number;
 }
 
-export interface PreviewFind {
+interface PreviewFind {
     total: number;
     current: number | null;
     step(direction: 1 | -1): void;

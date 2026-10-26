@@ -60,7 +60,7 @@ export function isFolderName(name: string): boolean {
     return name !== '' && name !== '.' && name !== '..' && !/[/\\\0]/.test(name);
 }
 
-export interface ArchiveTotals {
+interface ArchiveTotals {
     files: number;
     size: number;
     /* Null where the format does not say it per entry. */

@@ -16,7 +16,7 @@ const KIND_ICONS: Record<string, LucideIcon> = {
     property: Hash
 };
 
-export interface FileBreadcrumbProps {
+interface FileBreadcrumbProps {
     path: string;
     /* The open project's folder, which the path is shown below. */
     folder: string | null;

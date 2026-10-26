@@ -25,7 +25,7 @@ export interface LoadedLog {
     cursor: string | null;
 }
 
-export interface LogSection {
+interface LogSection {
     label: string;
     commits: LogRow[];
 }
@@ -91,7 +91,7 @@ export function groupCommits(commits: readonly LogRow[], now: number): LogSectio
 }
 
 /* A name on a commit row. */
-export interface ShownRef {
+interface ShownRef {
     name: string;
     /* The remote-tracking twin on the same commit, such as `origin/main`, or null. */
     tracked: string | null;

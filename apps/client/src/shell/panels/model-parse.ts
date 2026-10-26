@@ -10,7 +10,7 @@ const REFUSED_URL = 'about:invalid';
 // STL carries no material, so every part gets the same matte gray.
 const STL_COLOR = 0xb4b8bf;
 
-export interface ParsedModel {
+interface ParsedModel {
     root: Object3D;
     animations: AnimationClip[];
 }

@@ -13,7 +13,7 @@ import { machineFor } from '@/transport/connections';
 // The same pause the search in files takes: a typed word is one search.
 const CHAT_SEARCH_DEBOUNCE_MS = 140;
 
-export interface ChatSearchState {
+interface ChatSearchState {
     hits: readonly ChatSearchHit[];
     /* The title of every chat with a hit, in the order the hits come. */
     chats: ChatSearchResult['chats'];
@@ -58,7 +58,7 @@ export function chatSearchState(answer: ChatSearchAnswer, projectId: string | nu
 }
 
 /* One chat's hits under its title, in the order the search found them. */
-export interface ChatHitGroup {
+interface ChatHitGroup {
     chatId: string;
     title: string;
     hits: ChatSearchHit[];
@@ -132,7 +132,7 @@ export function openChatHit(endpointId: string, hit: ChatSearchHit): void {
     });
 }
 
-export interface ExternalSessionsState {
+interface ExternalSessionsState {
     sessions: readonly ChatExternalSession[];
     failed: ChatExternalResult['failed'];
     failure: string | null;
