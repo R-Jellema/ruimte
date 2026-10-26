@@ -66,8 +66,6 @@ struct UiBlockFooter: View {
             }
             .font(.caption).foregroundStyle(MobileStyle.faint)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 16).padding(.vertical, 6)
-            .overlay(alignment: .top) { Rectangle().fill(MobileStyle.border).frame(height: 1) }
         }
     }
 

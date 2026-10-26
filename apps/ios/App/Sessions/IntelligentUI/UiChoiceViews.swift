@@ -2,7 +2,8 @@ import RuimtePulsar
 import SwiftUI
 import UIKit
 
-/// The primary choice stands first, with its arrow in the accent; chosen, nothing else sets it apart.
+/// Buttons side by side, wrapping where the row runs out, the primary one first and in the accent. In a block of 420
+/// points or more a choice takes at most half the row, so two long ones end on one edge.
 struct UiChoicesView: View {
     let node: UiNode
     let context: UiRenderContext
@@ -10,9 +11,10 @@ struct UiChoicesView: View {
     var body: some View {
         let choices = node.children.filter { !$0.isText }
         let ordered = choices.filter { $0.bool("primary") == true } + choices.filter { $0.bool("primary") != true }
-        VStack(alignment: .leading, spacing: 8) {
+        UiFlowLayout(spacing: 8, halvesFrom: 420) {
             ForEach(ordered) { choice in UiNodeView(node: choice, parent: node.type, context: context) }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(String(localized: "Choices"))
     }
@@ -25,6 +27,7 @@ struct UiChoiceView: View {
     let node: UiNode
     let context: UiRenderContext
     @State private var slow = false
+    @Environment(\.uiInSection) private var inSection
 
     var body: some View {
         // A choice the host would refuse draws as its text and offers nothing to press; while the reply streams it
@@ -84,8 +87,8 @@ struct UiChoiceView: View {
                 .background(MobileStyle.panel)
             }
             if failed {
-                Text("Could not send. Try again.").font(.footnote).foregroundStyle(MobileStyle.statusError)
-                    .padding(.horizontal, 8)
+                Text("Could not send. Try again.").font(.caption).foregroundStyle(MobileStyle.statusError)
+                    .padding(.horizontal, 4)
             }
         }
         .animation(.easeOut(duration: 0.15), value: waiting)
@@ -108,17 +111,16 @@ struct UiChoiceView: View {
     }
 
     private func row(label: String, detail: String?, chosen: Bool, failed: Bool, reading: Bool) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Image(lucide: "arrow-right", size: 14)
-                .foregroundStyle(node.bool("primary") == true ? MobileStyle.accent : MobileStyle.faint)
-                .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 2 }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(label).font(.subheadline.weight(.semibold)).foregroundStyle(MobileStyle.text)
+        let strong = node.bool("primary") == true
+        let ink = strong ? MobileStyle.onAccent : MobileStyle.text
+        return HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(label).font(.subheadline.weight(strong ? .semibold : .medium)).foregroundStyle(ink)
                 if let detail {
-                    Text(detail).font(.footnote).foregroundStyle(MobileStyle.muted).lineLimit(3)
+                    Text(detail).font(.caption).lineLimit(2)
+                        .foregroundStyle(strong ? MobileStyle.onAccent.opacity(0.8) : MobileStyle.muted)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
             if chosen {
                 HStack(spacing: 4) {
                     if slow && context.model.sending {
@@ -128,20 +130,27 @@ struct UiChoiceView: View {
                     }
                     Text(stateWord)
                 }
-                .font(.caption.weight(.medium)).foregroundStyle(MobileStyle.accent)
+                .font(.caption).foregroundStyle(strong ? MobileStyle.onAccent : MobileStyle.accent)
                 .accessibilityHidden(true)
             } else if reading {
-                Spinner(size: 12).accessibilityHidden(true)
+                Spinner(size: 12).foregroundStyle(ink).accessibilityHidden(true)
             }
         }
-        .padding(.horizontal, 12).padding(.vertical, 10)
+        .padding(.horizontal, 16).padding(.vertical, 8)
         .frame(minHeight: 44)
-        .background(chosen ? MobileStyle.active : MobileStyle.hover, in: RoundedRectangle(cornerRadius: 12))
+        .background(
+            strong ? MobileStyle.accent : inSection ? UiTileStyle.inset : UiTileStyle.tile,
+            in: RoundedRectangle(cornerRadius: UiTileStyle.radius)
+        )
         .overlay {
-            RoundedRectangle(cornerRadius: 12).strokeBorder(
-                chosen ? MobileStyle.accent : failed ? MobileStyle.statusError : MobileStyle.border)
+            if chosen {
+                RoundedRectangle(cornerRadius: UiTileStyle.radius + 4).strokeBorder(MobileStyle.accent, lineWidth: 2)
+                    .padding(-4)
+            } else if failed {
+                RoundedRectangle(cornerRadius: UiTileStyle.radius).strokeBorder(MobileStyle.statusError, lineWidth: 2)
+            }
         }
-        .contentShape(RoundedRectangle(cornerRadius: 12))
+        .contentShape(RoundedRectangle(cornerRadius: UiTileStyle.radius))
     }
 
     private func choose() {

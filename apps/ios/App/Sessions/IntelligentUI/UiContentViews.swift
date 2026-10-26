@@ -10,6 +10,7 @@ struct UiCodeBlockView: View {
     var body: some View {
         let code = node.nodeText.replacingOccurrences(of: #"^\n|\n$"#, with: "", options: .regularExpression)
         CodeMessage(text: code, language: node.complete ? node.string("language") ?? "" : "")
+            .uiTile(flat: true, horizontal: 6, vertical: 6)
     }
 }
 
@@ -33,10 +34,9 @@ struct UiImageView: View {
                 UiMissingImage(reason: String(localized: "The image is not available"), side: 120)
             }
             if !caption.isEmpty {
-                Text(caption).font(.footnote).foregroundStyle(MobileStyle.muted).padding(.horizontal, 8)
+                Text(caption).font(.caption).foregroundStyle(MobileStyle.muted).padding(.horizontal, 2)
             }
         }
-        .padding(.horizontal, 8)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(name)
     }
@@ -54,8 +54,7 @@ struct UiMissingImage: View {
         } label: {
             Image(lucide: "image-off", size: 20).foregroundStyle(MobileStyle.faint)
                 .frame(width: side, height: side)
-                .background(MobileStyle.hover, in: RoundedRectangle(cornerRadius: 12))
-                .overlay { RoundedRectangle(cornerRadius: 12).strokeBorder(MobileStyle.border) }
+                .background(UiTileStyle.tile, in: RoundedRectangle(cornerRadius: UiTileStyle.radius))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(reason)
@@ -84,8 +83,7 @@ struct UiQuietSquare: View {
                     }
                 }
             }
-            .background(MobileStyle.hover, in: RoundedRectangle(cornerRadius: 10))
-            .overlay { RoundedRectangle(cornerRadius: 10).strokeBorder(MobileStyle.border) }
+            .background(UiTileStyle.tile, in: RoundedRectangle(cornerRadius: UiTileStyle.radius))
     }
 }
 
@@ -108,7 +106,6 @@ struct UiGalleryView: View {
                 }
             }
         }
-        .padding(.horizontal, 8)
         .onGeometryChange(for: Bool.self, of: { $0.size.width >= Self.wideFrom }) { wide = $0 }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(String(localized: "\(node.children(of: "Image").count) images"))
@@ -170,14 +167,13 @@ struct UiCompareView: View {
             default:
                 Color.clear.aspectRatio(Self.loadingShape, contentMode: .fit).frame(maxWidth: 320)
                     .overlay { Spinner(size: 14).foregroundStyle(MobileStyle.faint) }
-                    .background(MobileStyle.hover, in: RoundedRectangle(cornerRadius: 12))
+                    .background(UiTileStyle.tile, in: RoundedRectangle(cornerRadius: UiTileStyle.radius))
                     .accessibilityLabel(String(localized: "Loading image"))
             }
             if !caption.isEmpty {
-                Text(caption).font(.footnote).foregroundStyle(MobileStyle.muted)
+                Text(caption).font(.caption).foregroundStyle(MobileStyle.muted).padding(.horizontal, 2)
             }
         }
-        .padding(.horizontal, 8)
         .task(id: node.string("before")) {
             before = .loading
             let loaded = await load(node.string("before"))
@@ -222,9 +218,8 @@ struct UiCompareView: View {
                 }
                 .padding(8).allowsHitTesting(false).accessibilityHidden(true)
             }
-            .background(MobileStyle.hover)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .overlay { RoundedRectangle(cornerRadius: 12).strokeBorder(MobileStyle.border) }
+            .background(UiTileStyle.tile)
+            .clipShape(RoundedRectangle(cornerRadius: UiTileStyle.radius))
             .accessibilityRepresentation {
                 Slider(value: $split, in: 0...1, step: 0.05)
                     .accessibilityLabel(String(localized: "Compare \(beforeLabel) and \(afterLabel)"))
@@ -247,8 +242,8 @@ struct UiCompareView: View {
     /// A chip on the picture gets a ground of its own, since a translucent one would vanish over the image.
     private func chip(_ text: String) -> some View {
         Text(text).font(.caption.weight(.medium)).foregroundStyle(MobileStyle.muted).lineLimit(1)
-            .padding(.horizontal, 8).padding(.vertical, 3)
-            .background(MobileStyle.panel, in: Capsule())
+            .padding(.horizontal, 6).padding(.vertical, 2)
+            .background(MobileStyle.panel, in: RoundedRectangle(cornerRadius: 6))
     }
 
     private func load(_ attachment: String?) async -> UiPicture {
@@ -284,12 +279,13 @@ enum UiPicture {
 struct UiSourcesView: View {
     let node: UiNode
     let context: UiRenderContext
+    @Environment(\.uiInSection) private var inSection
 
     var body: some View {
         let sources = node.children(of: "Source")
         VStack(alignment: .leading, spacing: 0) {
-            Text("Sources").font(.footnote.weight(.medium)).foregroundStyle(MobileStyle.muted)
-                .padding(.horizontal, 8).padding(.bottom, 2)
+            Text("Sources").font(.caption.weight(.medium)).foregroundStyle(MobileStyle.muted)
+                .padding(.horizontal, inSection ? 0 : 6).padding(.top, 2).padding(.bottom, 4)
                 .accessibilityAddTraits(.isHeader)
             ForEach(node.children.filter { !$0.isText }) { child in
                 if child.type == "Source" && child.error == nil {
@@ -300,6 +296,8 @@ struct UiSourcesView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .uiTile(flat: true, horizontal: 6, vertical: 6)
     }
 }
 
@@ -309,6 +307,7 @@ struct UiSourceView: View {
     let number: Int?
     let context: UiRenderContext
     @State private var browsing: URL?
+    @Environment(\.uiInSection) private var inSection
 
     var body: some View {
         let address = node.string("url") ?? ""
@@ -317,18 +316,22 @@ struct UiSourceView: View {
             guard let url else { return }
             if let open = context.host.openURL { open(url) } else { browsing = url }
         } label: {
-            HStack(spacing: 8) {
+            HStack(alignment: .top, spacing: 10) {
                 if let number {
-                    Text(verbatim: "\(number)").foregroundStyle(MobileStyle.faint).monospacedDigit()
-                        .frame(minWidth: 18, alignment: .trailing)
+                    Text(verbatim: "\(number)").font(.caption.weight(.semibold)).foregroundStyle(MobileStyle.text)
+                        .monospacedDigit()
+                        .frame(width: 20, height: 20)
+                        .background(UiTileStyle.inset, in: RoundedRectangle(cornerRadius: 6))
                 }
-                Text(node.string("title") ?? address).foregroundStyle(MobileStyle.text).lineLimit(1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Text(UiFormat.domain(address)).foregroundStyle(MobileStyle.faint).lineLimit(1)
-                if url != nil { Image(lucide: "arrow-up-right", size: 12).foregroundStyle(MobileStyle.faint) }
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(node.string("title") ?? address).fontWeight(.medium).foregroundStyle(MobileStyle.text)
+                    Text(UiFormat.domain(address)).foregroundStyle(MobileStyle.muted).lineLimit(1)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .font(.footnote)
-            .padding(.horizontal, 8).frame(minHeight: 44).contentShape(Rectangle())
+            .padding(.horizontal, inSection ? 0 : 6).padding(.vertical, 6).frame(minHeight: 44)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .disabled(url == nil)

@@ -10,58 +10,93 @@ enum UiToneStyle {
         case .danger: MobileStyle.statusError
         }
     }
+
+    /// The tone mixed over the ground, for a surface such as a callout.
+    static func surface(_ tone: UiTone) -> Color {
+        switch tone {
+        case .neutral: MobileStyle.text.opacity(0.07)
+        case .info: MobileStyle.statusRunning.opacity(0.1)
+        case .success: MobileStyle.positive.opacity(0.1)
+        case .warning: MobileStyle.statusNeedsYou.opacity(0.12)
+        case .danger: MobileStyle.statusError.opacity(0.1)
+        }
+    }
 }
 
-/// The head of the block when it is the first node, with the icon of its tone; further down a subheading.
+/// The square a Summary and a Callout carry their icon in, 34 points on a side.
+private struct UiIconSquare: View {
+    static let side: CGFloat = 34
+
+    let icon: String
+    let ink: Color
+    let ground: Color
+
+    var body: some View {
+        Image(lucide: icon, size: 16).foregroundStyle(ink)
+            .frame(width: Self.side, height: Self.side)
+            .background(ground, in: RoundedRectangle(cornerRadius: 8))
+            .accessibilityHidden(true)
+    }
+}
+
+/// A tile in its tone, the badge under the title in the tone's color. The head of the block carries its icon in a
+/// square of its own, a Summary further down is a subheading without one. The icon is the ground's ink, which is
+/// white on a light ground and keeps the dark theme's lighter tones readable.
 struct UiSummaryView: View {
     let node: UiNode
     let context: UiRenderContext
 
     var body: some View {
         let head = context.headID == node.id
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            if head, let tone = node.tone {
-                Image(lucide: tone.icon, size: 16).foregroundStyle(UiToneStyle.color(tone))
-                    .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 3 }
-                    .accessibilityHidden(true)
+        let tone = node.tone
+        let row = HStack(alignment: .top, spacing: 12) {
+            if head {
+                UiIconSquare(
+                    icon: (tone ?? .neutral).icon, ink: MobileStyle.surface,
+                    ground: UiToneStyle.color(tone ?? .neutral))
             }
-            UiNodesView(nodes: node.children, parent: node.type, context: context)
-                .font(.subheadline.weight(.semibold)).foregroundStyle(MobileStyle.text)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            if let badge = node.string("badge"), !badge.isEmpty {
-                UiPill(text: badge, tone: node.tone ?? .neutral)
+            VStack(alignment: .leading, spacing: 2) {
+                UiNodesView(nodes: node.children, parent: node.type, context: context)
+                    .font(.callout.weight(.semibold)).foregroundStyle(MobileStyle.text)
+                if let badge = node.string("badge"), !badge.isEmpty {
+                    Text(badge).font(.caption.weight(.medium))
+                        .foregroundStyle(tone.map(UiToneStyle.color) ?? MobileStyle.muted)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: UiIconSquare.side, alignment: .leading)
+        }
+        Group {
+            if let tone {
+                row.padding(UiTileStyle.padding)
+                    .background(UiToneStyle.surface(tone), in: RoundedRectangle(cornerRadius: UiTileStyle.radius))
+            } else {
+                row.uiTile()
             }
         }
-        .padding(.horizontal, 8)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
     }
 }
 
-/// A note on the tone mixed over the ground, never with a colored edge on one side.
+/// A quiet tile whatever its tone: only the square of its icon wears the tone, never a colored edge on one side.
 struct UiCalloutView: View {
     let node: UiNode
     let context: UiRenderContext
 
     var body: some View {
         let tone = node.tone ?? .neutral
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Image(lucide: tone.icon, size: 16).foregroundStyle(UiToneStyle.color(tone))
-                .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 3 }
-                .accessibilityHidden(true)
+        HStack(alignment: .top, spacing: 12) {
+            UiIconSquare(icon: tone.icon, ink: UiToneStyle.color(tone), ground: UiToneStyle.surface(tone))
             VStack(alignment: .leading, spacing: 2) {
                 if let title = node.string("title"), !title.isEmpty {
-                    Text(title).font(.subheadline.weight(.medium)).foregroundStyle(MobileStyle.text)
+                    Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(MobileStyle.text)
                 }
                 UiNodesView(nodes: node.children, parent: node.type, context: context, spacing: 6)
                     .font(.subheadline).foregroundStyle(MobileStyle.muted)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: UiIconSquare.side, alignment: .leading)
         }
-        .padding(10)
-        .background(
-            UiToneStyle.color(tone).opacity(tone == .neutral ? 0.08 : 0.1), in: RoundedRectangle(cornerRadius: 12)
-        )
+        .uiTile(flat: true)
         .accessibilityElement(children: .combine)
     }
 }
@@ -72,15 +107,26 @@ struct UiTagView: View {
     var body: some View { UiPill(text: node.label, tone: node.tone ?? .neutral) }
 }
 
+/// The small label at the end of a line, as the desktop's tag: tighter than a pill and heavier.
 struct UiPill: View {
     let text: String
-    let tone: UiTone
+    let tone: UiPillTone
+
+    init(text: String, tone: UiTone) {
+        self.text = text
+        self.tone = UiPillTone(tone)
+    }
+
+    init(text: String, pill: UiPillTone) {
+        self.text = text
+        tone = pill
+    }
 
     var body: some View {
         Text(text).font(.caption.weight(.medium)).lineLimit(1)
-            .foregroundStyle(UiToneStyle.color(tone))
-            .padding(.horizontal, 8).padding(.vertical, 3)
-            .background(UiToneStyle.color(tone).opacity(0.12), in: Capsule())
+            .foregroundStyle(tone.text)
+            .padding(.horizontal, 5).padding(.vertical, 2)
+            .background(tone.ground, in: RoundedRectangle(cornerRadius: 6))
     }
 }
 
@@ -98,13 +144,13 @@ struct UiProgressView: View {
                 : String(localized: "\(UiFormat.number(value)) of \(UiFormat.number(limit))")
         }
         let label = node.label
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 UiNodesView(nodes: node.children, parent: node.type, context: context)
-                    .font(.footnote).foregroundStyle(MobileStyle.text)
+                    .font(.subheadline).foregroundStyle(MobileStyle.text)
                 Spacer(minLength: 0)
                 if let reading {
-                    Text(reading).font(.footnote).foregroundStyle(MobileStyle.muted).monospacedDigit()
+                    Text(reading).font(.subheadline).foregroundStyle(MobileStyle.muted).monospacedDigit()
                 } else if context.live {
                     Spinner(size: 12).foregroundStyle(MobileStyle.faint)
                 }
@@ -120,7 +166,7 @@ struct UiProgressView: View {
             .accessibilityLabel(label.isEmpty ? String(localized: "Progress") : label)
             .accessibilityValue(reading ?? "")
         }
-        .padding(.horizontal, 8)
+        .uiTile(flat: true)
     }
 }
 
@@ -129,11 +175,12 @@ struct UiStepsView: View {
     let context: UiRenderContext
 
     var body: some View {
-        UiNodesView(nodes: node.children, parent: node.type, context: context, spacing: 0).padding(.horizontal, 8)
+        UiNodesView(nodes: node.children, parent: node.type, context: context, spacing: 6)
     }
 }
 
-/// A running step spins only while the block is live; in a still block it is a dot.
+/// A tile per step with its state in words at the end. A running step spins only while the block is live; in a
+/// still block it is a dot.
 struct UiStepView: View {
     let node: UiNode
     let context: UiRenderContext
@@ -160,6 +207,15 @@ struct UiStepView: View {
             }
         }
 
+        var pill: UiPillTone {
+            switch self {
+            case .done: .idle
+            case .running: .accent
+            case .pending, .skipped: .muted
+            case .failed: .error
+            }
+        }
+
         var word: String {
             switch self {
             case .done: String(localized: "Done")
@@ -173,7 +229,8 @@ struct UiStepView: View {
 
     var body: some View {
         let state = node.string("state").flatMap(State.init(rawValue:)) ?? .pending
-        HStack(spacing: 8) {
+        let quiet = state == .pending || state == .skipped
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
             Group {
                 if state == .running && context.live {
                     Spinner(size: 14)
@@ -182,73 +239,84 @@ struct UiStepView: View {
                 }
             }
             .foregroundStyle(state.color).frame(width: 16, height: 16)
-            UiNodesView(nodes: node.children, parent: node.type, context: context)
-                .font(.subheadline)
-                .foregroundStyle(state == .pending || state == .skipped ? MobileStyle.faint : MobileStyle.text)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            if let detail = node.string("detail"), !detail.isEmpty {
-                Text(detail).font(.caption).foregroundStyle(MobileStyle.faint).monospacedDigit()
+            .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 3 }
+            // A short detail stays beside the title; one that does not fit beside it takes the line under it.
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    title(quiet: quiet).fixedSize()
+                    detail
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    title(quiet: quiet)
+                    detail
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            UiPill(text: state.word, pill: state.pill).accessibilityHidden(true)
         }
-        .frame(minHeight: 32)
+        .frame(minHeight: 20)
+        .uiTile(vertical: 10)
         .accessibilityElement(children: .combine)
         .accessibilityValue(state.word)
     }
+
+    private func title(quiet: Bool) -> some View {
+        UiNodesView(nodes: node.children, parent: node.type, context: context)
+            .font(.subheadline.weight(.medium))
+            .foregroundStyle(quiet ? MobileStyle.muted : MobileStyle.text)
+    }
+
+    @ViewBuilder private var detail: some View {
+        if let detail = node.string("detail"), !detail.isEmpty {
+            Text(detail).font(.caption).foregroundStyle(MobileStyle.muted).monospacedDigit()
+        }
+    }
 }
 
-extension EnvironmentValues {
-    /// The Event that closes the Timeline around it, whose row draws no rule below its dot.
-    @Entry fileprivate var uiLastEventID: String?
-}
-
-/// Events in time order on a rule; each row draws its own stretch of it, so one that failed leaves the rest whole.
+/// Events in time order on one tile, a row each.
 struct UiTimelineView: View {
     let node: UiNode
     let context: UiRenderContext
 
     var body: some View {
         UiNodesView(nodes: node.children, parent: node.type, context: context, spacing: 0)
-            .padding(.horizontal, 8)
-            .environment(\.uiLastEventID, node.children(of: "Event").last?.id)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .uiTile(flat: true, vertical: 6)
             .accessibilityElement(children: .contain)
     }
 }
 
-/// A dot in the tone, the time, the title and an optional detail. A time nobody could read stays as written.
+/// The time, a dot in the tone, the title, and a short detail as a tag at the end or a longer one under the title. A
+/// time nobody could read stays as written.
 struct UiEventView: View {
     let node: UiNode
     let context: UiRenderContext
-    @Environment(\.uiLastEventID) private var lastID
 
-    private static let dot: CGFloat = 8
+    /// A detail longer than this reads as a sentence, which a tag cannot wrap.
+    private static let detailAsTag = 24
 
     var body: some View {
         let tone = node.tone ?? .neutral
         let time = UiEventTime.text(node.string("at") ?? "")
         let detail = node.string("detail") ?? ""
-        let last = lastID == node.id
-        HStack(alignment: .top, spacing: 12) {
-            Circle().fill(UiToneStyle.color(tone)).frame(width: Self.dot, height: Self.dot)
-                .padding(.top, 5)
-                .accessibilityHidden(true)
+        let tagged = !detail.isEmpty && detail.count <= Self.detailAsTag
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text(time).font(.caption.monospacedDigit()).foregroundStyle(MobileStyle.muted)
+                .frame(width: 96, alignment: .leading)
+            Circle().fill(tone == .neutral ? MobileStyle.faint : UiToneStyle.color(tone)).frame(width: 8, height: 8)
+                .alignmentGuide(.firstTextBaseline) { $0[.bottom] }
             VStack(alignment: .leading, spacing: 2) {
-                Text(time).font(.caption.monospacedDigit()).foregroundStyle(MobileStyle.faint)
                 UiNodesView(nodes: node.children, parent: node.type, context: context)
                     .font(.subheadline).foregroundStyle(MobileStyle.text)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                if !detail.isEmpty {
-                    Text(detail).font(.caption).foregroundStyle(MobileStyle.faint)
+                if !detail.isEmpty && !tagged {
+                    Text(detail).font(.caption).foregroundStyle(MobileStyle.muted)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if tagged { UiPill(text: detail, tone: tone) }
         }
-        .padding(.bottom, last ? 0 : 12)
-        .frame(minHeight: 28, alignment: .top)
-        .background(alignment: .topLeading) {
-            if !last {
-                Rectangle().fill(MobileStyle.border).frame(width: 1)
-                    .padding(.leading, 3).padding(.top, 5 + Self.dot + 2)
-            }
-        }
+        .padding(.vertical, 8)
+        .frame(minHeight: 36)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
             [time, node.label, tone == .neutral ? "" : Self.word(tone), detail].filter { !$0.isEmpty }

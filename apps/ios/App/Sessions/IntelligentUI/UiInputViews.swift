@@ -18,7 +18,7 @@ struct UiChecklistView: View {
     var body: some View {
         let values = (node.boundValue ?? node.props["value"])?.arrayValue ?? []
         let enabled = context.editable(node)
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 6) {
             ForEach(node.children.filter { !$0.isText }) { child in
                 if child.type == "Item" && child.error == nil {
                     let value = child.props["value"] ?? .null
@@ -35,7 +35,8 @@ struct UiChecklistView: View {
     }
 }
 
-/// The whole row is the label; a link inside it keeps its own tap and checks nothing.
+/// A tile per item, ringed in the accent while it is checked. The whole tile is the label; a link inside it keeps its
+/// own tap and checks nothing.
 struct UiItemView: View {
     let node: UiNode
     let selected: Bool
@@ -44,7 +45,7 @@ struct UiItemView: View {
     let context: UiRenderContext
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
             Button(action: toggle) {
                 Image(lucide: selected ? "square-check" : "square", size: 18)
                     .foregroundStyle(selected ? MobileStyle.accent : MobileStyle.muted)
@@ -62,9 +63,15 @@ struct UiItemView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityHidden(node.children.allSatisfy(\.isText))
         }
-        .padding(.horizontal, 8).padding(.vertical, 6)
+        .padding(.horizontal, UiTileStyle.padding).padding(.vertical, 8)
         .frame(minHeight: 44)
-        .contentShape(Rectangle())
+        .uiTile(horizontal: 0, vertical: 0)
+        .overlay {
+            if selected {
+                RoundedRectangle(cornerRadius: UiTileStyle.radius).strokeBorder(MobileStyle.accent, lineWidth: 2)
+            }
+        }
+        .contentShape(RoundedRectangle(cornerRadius: UiTileStyle.radius))
         .onTapGesture { if enabled { toggle() } }
     }
 }
@@ -77,11 +84,12 @@ struct UiSwitchView: View {
         let value = (node.boundValue ?? node.props["value"])?.boolValue ?? false
         Toggle(isOn: Binding(get: { value }, set: { context.change(node, to: .bool($0)) })) {
             UiNodesView(nodes: node.children, parent: node.type, context: context)
-                .font(.subheadline).foregroundStyle(MobileStyle.text)
+                .font(.subheadline.weight(.medium)).foregroundStyle(MobileStyle.text)
         }
         .disabled(!context.editable(node))
         .accessibilityLabel(node.label)
-        .padding(.horizontal, 8).frame(minHeight: 44)
+        .frame(minHeight: 44)
+        .uiTile(flat: true, vertical: 0)
         .modifier(UiPending(complete: node.complete))
         .sensoryFeedback(.selection, trigger: value)
     }
@@ -125,7 +133,8 @@ struct UiSliderView: View {
             .accessibilityLabel(node.label)
             .accessibilityValue(reading)
         }
-        .padding(.horizontal, 8).frame(minHeight: 44)
+        .frame(minHeight: 44)
+        .uiTile(flat: true)
         .modifier(UiPending(complete: node.complete))
         .sensoryFeedback(.selection, trigger: value)
     }
@@ -191,7 +200,6 @@ struct UiSegmentedView: View {
         }
         .disabled(!context.editable(node))
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 8)
         .modifier(UiPending(complete: node.complete))
         .sensoryFeedback(.selection, trigger: picked)
     }
@@ -214,9 +222,9 @@ struct UiTextFieldView: View {
         let bound = (node.boundValue ?? node.props["value"])?.stringValue ?? ""
         let text = draft ?? bound
         let used = text.utf16.count
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 6) {
             UiNodesView(nodes: node.children, parent: node.type, context: context)
-                .font(.subheadline).foregroundStyle(MobileStyle.muted)
+                .font(.caption).foregroundStyle(MobileStyle.muted).padding(.horizontal, 2)
                 .accessibilityHidden(true)
             TextField(
                 node.label, text: Binding(get: { text }, set: { draft = $0 }),
@@ -226,16 +234,14 @@ struct UiTextFieldView: View {
             .focused($focused).submitLabel(.done).onSubmit { focused = false }
             .disabled(!context.editable(node))
             .padding(.horizontal, 10).frame(minHeight: 36)
-            .background(MobileStyle.hover, in: RoundedRectangle(cornerRadius: 10))
-            .overlay { RoundedRectangle(cornerRadius: 10).strokeBorder(MobileStyle.border) }
+            .uiTile(horizontal: 0, vertical: 0)
             .frame(maxWidth: 384, alignment: .leading)
             .accessibilityLabel(node.label)
             if Double(used) >= Double(limit) * Self.countFrom {
                 Text("\(UiFormat.number(Double(used))) of \(UiFormat.number(Double(limit))) characters")
-                    .font(.caption).foregroundStyle(MobileStyle.faint).monospacedDigit()
+                    .font(.caption).foregroundStyle(MobileStyle.muted).monospacedDigit()
             }
         }
-        .padding(.horizontal, 8)
         .modifier(UiPending(complete: node.complete))
         .onChange(of: draft) { _, typed in
             guard let typed else { return }
@@ -268,9 +274,10 @@ struct UiSelectView: View {
             set: { index in
                 if options.indices.contains(index) { context.change(node, to: options[index].props["value"] ?? .null) }
             })
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 6) {
             if !label.isEmpty {
-                Text(label).font(.subheadline).foregroundStyle(MobileStyle.muted).accessibilityHidden(true)
+                Text(label).font(.caption).foregroundStyle(MobileStyle.muted).padding(.horizontal, 2)
+                    .accessibilityHidden(true)
             }
             Picker(label.isEmpty ? String(localized: "Options") : label, selection: selection) {
                 ForEach(Array(options.enumerated()), id: \.element.id) { index, option in
@@ -282,7 +289,6 @@ struct UiSelectView: View {
             .accessibilityLabel(label.isEmpty ? String(localized: "Options") : label)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 8)
         .modifier(UiPending(complete: node.complete))
         .sensoryFeedback(.selection, trigger: picked)
     }
@@ -302,7 +308,7 @@ struct UiButtonView: View {
             UiNodesView(nodes: node.children, parent: node.type, context: context)
                 .font(.subheadline.weight(.medium)).foregroundStyle(MobileStyle.text)
                 .padding(.horizontal, 14).frame(minHeight: 36)
-                .background(MobileStyle.hover, in: Capsule())
+                .background(UiTileStyle.tile, in: Capsule())
                 .overlay { Capsule().strokeBorder(MobileStyle.border) }
                 .frame(minHeight: 44).contentShape(Rectangle())
         }
@@ -312,7 +318,6 @@ struct UiButtonView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(node.label)
         .accessibilityAddTraits(.isButton)
-        .padding(.horizontal, 8)
         .modifier(UiPending(complete: node.complete))
     }
 }

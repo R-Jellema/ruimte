@@ -278,14 +278,13 @@ struct UiLinkRow: View {
 
     var body: some View {
         if node.children.isEmpty {
-            UiLinkChip(node: node, context: context).padding(.horizontal, 8)
+            UiLinkChip(node: node, context: context)
         } else {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 UiLinkChip(node: node, context: context).fixedSize()
                 UiNodesView(nodes: node.children, parent: node.type, context: context)
                     .font(.subheadline).foregroundStyle(MobileStyle.muted)
             }
-            .padding(.horizontal, 8)
         }
     }
 }

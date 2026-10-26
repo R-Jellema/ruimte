@@ -271,9 +271,8 @@ struct UiModelView: View {
             case .ready(let model):
                 UiSceneView(model: model, label: label, dark: colorScheme == .dark, resets: resets)
                     .frame(maxWidth: .infinity).frame(height: Self.height)
-                    .background(MobileStyle.hover)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .overlay { RoundedRectangle(cornerRadius: 12).strokeBorder(MobileStyle.border) }
+                    .background(UiTileStyle.tile)
+                    .clipShape(RoundedRectangle(cornerRadius: UiTileStyle.radius))
                     .overlay(alignment: .topTrailing) {
                         Button {
                             resets += 1
@@ -290,10 +289,9 @@ struct UiModelView: View {
                 UiModelRow(name: alt ?? attachment ?? label, loading: false, problem: problem)
             }
             if !caption.isEmpty {
-                Text(caption).font(.footnote).foregroundStyle(MobileStyle.muted).padding(.horizontal, 8)
+                Text(caption).font(.caption).foregroundStyle(MobileStyle.muted).padding(.horizontal, 2)
             }
         }
-        .padding(.horizontal, 8)
         .task(id: attachment) {
             if case .row = phase { return }
             guard let attachment, let chat else {
@@ -329,7 +327,7 @@ private struct UiModelRow: View {
             }
             .font(.footnote)
             .padding(.horizontal, 12).frame(minHeight: 44)
-            .overlay { RoundedRectangle(cornerRadius: 10).strokeBorder(MobileStyle.border) }
+            .background(UiTileStyle.tile, in: RoundedRectangle(cornerRadius: UiTileStyle.radius))
             if let problem {
                 Text(problem).font(.caption).foregroundStyle(MobileStyle.faint)
             }

@@ -22,7 +22,7 @@ struct UiStatView: View {
         if let value = node.number("value") {
             let unit = node.string("unit")
             let previous = node.number("previous")
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(node.string("label") ?? "").font(.caption).foregroundStyle(MobileStyle.muted).lineLimit(1)
                 Text(UiFormat.withUnit(UiFormat.number(value), unit))
                     .font(.title3.weight(.semibold)).foregroundStyle(MobileStyle.text).monospacedDigit()
@@ -32,8 +32,7 @@ struct UiStatView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 10).padding(.vertical, 8)
-            .background(MobileStyle.hover, in: RoundedRectangle(cornerRadius: 12))
+            .uiTile()
             .accessibilityElement(children: .combine)
         } else {
             UiFallbackPart(fallback: node.fallback, problem: .failed)
@@ -58,38 +57,70 @@ struct UiStatView: View {
     }
 }
 
-/// Names in the faint color and values a person can select, with a hairline between rows from seven on.
+extension EnvironmentValues {
+    /// Set by an EntityList of up to four entries, whose entries stand as tiles of their own.
+    @Entry fileprivate var uiEntityTiles = false
+}
+
+/// Up to four entries as tiles side by side; more as names and values on one tile a person can select, with a
+/// hairline between rows from seven on.
 struct UiEntityListView: View {
     let node: UiNode
     let context: UiRenderContext
 
+    private static let tiledUpTo = 4
+    private static let dividedFrom = 7
+
     var body: some View {
         let entries = node.children.filter { !$0.isText }
-        let divided = node.children(of: "Entry").count >= 7
-        VStack(alignment: .leading, spacing: divided ? 0 : 6) {
-            ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
-                if divided && index > 0 { Divider().overlay(MobileStyle.border) }
-                UiNodeView(node: entry, parent: node.type, context: context)
-                    .padding(.vertical, divided ? 6 : 0)
+        let count = node.children(of: "Entry").count
+        if count <= Self.tiledUpTo {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 8)], alignment: .leading, spacing: 8) {
+                ForEach(entries) { entry in UiNodeView(node: entry, parent: node.type, context: context) }
             }
+            .environment(\.uiEntityTiles, true)
+        } else {
+            let divided = count >= Self.dividedFrom
+            VStack(alignment: .leading, spacing: divided ? 0 : 6) {
+                ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
+                    if divided && index > 0 { Divider().overlay(MobileStyle.border) }
+                    UiNodeView(node: entry, parent: node.type, context: context)
+                        .padding(.vertical, divided ? 6 : 0)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .uiTile(flat: true, vertical: 8)
         }
-        .padding(.horizontal, 8)
     }
 }
 
 struct UiEntryView: View {
     let node: UiNode
     let context: UiRenderContext
+    @Environment(\.uiEntityTiles) private var tiled
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Text(node.string("label") ?? "").font(.footnote).foregroundStyle(MobileStyle.faint)
-                .frame(minWidth: 72, alignment: .leading)
-            UiNodesView(nodes: node.children, parent: node.type, context: context)
-                .font(.subheadline).foregroundStyle(MobileStyle.text).textSelection(.enabled)
+        Group {
+            if tiled {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(node.string("label") ?? "").font(.caption).foregroundStyle(MobileStyle.muted).lineLimit(1)
+                    UiNodesView(nodes: node.children, parent: node.type, context: context)
+                        .font(.footnote.weight(.semibold)).foregroundStyle(MobileStyle.text)
+                        .textSelection(.enabled)
+                }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .uiTile(vertical: 8)
+            } else {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Text(node.string("label") ?? "").font(.footnote).foregroundStyle(MobileStyle.muted)
+                        .frame(minWidth: 72, alignment: .leading)
+                    UiNodesView(nodes: node.children, parent: node.type, context: context)
+                        .font(.subheadline).foregroundStyle(MobileStyle.text).textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(minHeight: 28)
+            }
         }
-        .frame(minHeight: 28)
         .accessibilityElement(children: .combine)
     }
 }
@@ -101,6 +132,7 @@ struct UiTableView: View {
     let context: UiRenderContext
     @State private var widths: [String: CGFloat] = [:]
     @State private var contentHeight: CGFloat = 0
+    @Environment(\.uiInSection) private var inSection
 
     var body: some View {
         let columns = UiTableColumn.of(node)
@@ -115,7 +147,7 @@ struct UiTableView: View {
                     LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
                         Section {
                             ForEach(shown.indices, id: \.self) { index in
-                                row(shown[index], columns: columns)
+                                row(shown[index], columns: columns, first: index == 0)
                             }
                         } header: {
                             header(columns)
@@ -125,8 +157,10 @@ struct UiTableView: View {
                 }
                 .scrollBounceBehavior(.basedOnSize, axes: [.horizontal, .vertical])
                 .frame(height: min(320, max(36, contentHeight)))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .overlay { RoundedRectangle(cornerRadius: 12).strokeBorder(MobileStyle.border) }
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .padding([.horizontal, .bottom], inSection ? 0 : 6)
+                .background(
+                    inSection ? Color.clear : UiTileStyle.tile, in: RoundedRectangle(cornerRadius: UiTileStyle.radius))
                 if !all && rows.count > UiTableColumn.rowsShown {
                     Button(String(localized: "Show all \(UiFormat.number(Double(rows.count))) rows")) {
                         context.local.setFlag("table:\(node.id)", true)
@@ -145,22 +179,26 @@ struct UiTableView: View {
                     .foregroundStyle(MobileStyle.muted)
             }
         }
-        .frame(minHeight: 36)
-        .background(MobileStyle.hover)
+        .frame(minHeight: 32)
+        .background(UiTileStyle.tile)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
     }
 
-    private func row(_ row: [String: JSONValue], columns: [UiTableColumn]) -> some View {
+    private func row(_ row: [String: JSONValue], columns: [UiTableColumn], first: Bool) -> some View {
         let cells = columns.map { UiTableCell.of(row[$0.key], column: $0) }
         return HStack(alignment: .firstTextBaseline, spacing: 0) {
             ForEach(Array(columns.enumerated()), id: \.element.key) { index, column in
                 cell(content(cells[index], column: column), column: column).font(.footnote)
+                    .fontWeight(index == 0 ? .medium : .regular)
                     .foregroundStyle(MobileStyle.text)
             }
         }
         .frame(minHeight: 36)
-        .overlay(alignment: .top) { Rectangle().fill(MobileStyle.border).frame(height: 1) }
+        .background(UiTileStyle.inset)
+        .overlay(alignment: .top) {
+            if !first { Rectangle().fill(MobileStyle.border).frame(height: 1) }
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
             zip(columns, cells).map { "\($0.title): \(Self.spoken($1, column: $0))" }.joined(separator: ", "))

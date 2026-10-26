@@ -1,4 +1,6 @@
 import Foundation
+import RuimteIntelligentUI
+import RuimtePulsar
 import SwiftUI
 import Testing
 import UIKit
@@ -26,6 +28,110 @@ import UIKit
                 ScrollView { MarkdownMessage(text: reply).padding(16) }, name: "mermaid-\(dark ? "dark" : "light")",
                 dark: dark
             ) { keys.allSatisfy { MermaidLayout.shared.cached($0) != nil } }
+        }
+    }
+
+    private static func compiled(
+        _ id: String, _ type: String, _ props: [String: JSONValue] = [:], _ children: [JSONValue] = []
+    ) -> JSONValue {
+        .object([
+            "id": .string(id), "type": .string(type), "props": .object(props), "expressions": .object([:]),
+            "bindings": .object([:]), "children": .array(children), "complete": .bool(true),
+            "start": .number(0), "end": .number(1), "fallback": .string(""),
+        ])
+    }
+
+    private static func text(_ id: String, _ words: String) -> JSONValue {
+        compiled(id, "$text", ["text": .string(words)])
+    }
+
+    private static func block(_ id: String, _ nodes: [JSONValue]) -> JSONValue {
+        .object([
+            "id": .string(id), "catalogVersion": .number(1), "start": .number(0), "end": .number(1),
+            "complete": .bool(true), "defaults": .object([:]), "queries": .object([:]), "revision": .string("r"),
+            "diagnostics": .array([]), "fallback": .string(""), "nodes": .array(nodes),
+        ])
+    }
+
+    private static let blocks: [JSONValue] = [
+        block(
+            "release",
+            [
+                compiled(
+                    "s", "Summary", ["tone": .string("success"), "badge": .string("3 of 4 checks passed")],
+                    [text("s1", "Release 0.24 is ready to tag")]),
+                compiled(
+                    "c", "Callout", ["tone": .string("warning"), "title": .string("One check is flaky")],
+                    [text("c1", "The Linux shard timed out once on the packaged daemon.")]),
+                compiled(
+                    "steps", "Steps", [:],
+                    [
+                        compiled("st1", "Step", ["state": .string("done"), "detail": .string("2m 10s")], [text("t1", "Typecheck")]),
+                        compiled("st2", "Step", ["state": .string("running")], [text("t2", "Unit tests on two shards")]),
+                        compiled("st3", "Step", ["state": .string("pending")], [text("t3", "Packaged daemon")]),
+                    ]),
+                compiled(
+                    "choices", "Choices", [:],
+                    [
+                        compiled("ch1", "Choice", ["primary": .bool(true), "context": .string("Tag v0.24.0 now")], [text("l1", "Tag the release")]),
+                        compiled("ch2", "Choice", ["context": .string("Run the shard again first")], [text("l2", "Wait")]),
+                    ]),
+            ]),
+        block(
+            "numbers",
+            [
+                compiled(
+                    "stats", "Stats", [:],
+                    [
+                        compiled("a", "Stat", ["label": .string("Tests"), "value": .number(4812), "previous": .number(4700)]),
+                        compiled("b", "Stat", ["label": .string("Duration"), "value": .number(312), "unit": .string("s")]),
+                    ]),
+                compiled(
+                    "timeline", "Timeline", [:],
+                    [
+                        compiled("e1", "Event", ["at": .string("2026-10-26T09:12:00Z"), "tone": .string("info"), "detail": .string("main")], [text("e1t", "Pushed")]),
+                        compiled("e2", "Event", ["at": .string("2026-10-26T09:30:00Z"), "tone": .string("success")], [text("e2t", "CI green")]),
+                    ]),
+                compiled(
+                    "sections", "Sections", [:],
+                    [
+                        compiled(
+                            "sec", "Section", ["title": .string("What changed")],
+                            [
+                                text("sx", "Two fixes and one feature."),
+                                compiled(
+                                    "list", "EntityList", [:],
+                                    [
+                                        compiled("en1", "Entry", ["label": .string("Commits")], [text("en1t", "14")]),
+                                        compiled("en2", "Entry", ["label": .string("Authors")], [text("en2t", "2")]),
+                                    ]),
+                            ]),
+                    ]),
+            ]),
+    ]
+
+    @Test(.enabled(if: folder != nil)) func intelligentUIBlocks() async throws {
+        var models: [UiBlockModel] = []
+        for block in Self.blocks {
+            let model = UiBlockModel(chatID: "snapshot", itemID: "item", block: block) { _, _ in
+                throw CancellationError()
+            }
+            await model.update(block: block)
+            models.append(model)
+        }
+        defer { models.forEach { $0.stop() } }
+        for dark in [false, true] {
+            let view = ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("Here is where the release stands.")
+                    ForEach(Array(models.enumerated()), id: \.offset) { index, model in
+                        UiBlockView(model: model, localKey: "snapshot-\(index)")
+                    }
+                }
+                .padding(.horizontal, 20)
+                .environment(\.uiBandBleed, 20)
+            }
+            try await Self.render(view, name: "ui-blocks-\(dark ? "dark" : "light")", dark: dark, size: CGSize(width: 402, height: 1400))
         }
     }
 

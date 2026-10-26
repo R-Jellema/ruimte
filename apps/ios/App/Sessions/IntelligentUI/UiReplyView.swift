@@ -2,7 +2,7 @@ import RuimteIntelligentUI
 import RuimtePulsar
 import SwiftUI
 
-/// A reply whose text holds blocks: the prose around the cards stays prose, and each compiled block is a card in
+/// A reply whose text holds blocks: the prose around the bands stays prose, and each compiled block is a band in
 /// its place, split on the daemon's UTF-16 offsets. A block that is supplied never falls back to its raw fence;
 /// what it cannot draw, the card itself shows as text.
 struct UiReplyView: View {
@@ -12,6 +12,7 @@ struct UiReplyView: View {
     /// The model of a block, kept by the caller across rows (`UiBlockModelCache`), created with the block it draws.
     let model: @MainActor (JSONValue) -> UiBlockModel
     @Environment(\.chatContent) private var chat
+    @Environment(\.markdownTableBleed) private var bleed
 
     var body: some View {
         let streaming = item.streaming
@@ -33,6 +34,7 @@ struct UiReplyView: View {
                         source: UiReplyParts.source(text: text, block: block),
                         localKey: "\(chat?.scopeID ?? "")\n\(chat?.chatID ?? "")\n\(item.id)\n\(id)"
                     )
+                    .environment(\.uiBandBleed, bleed)
                     .environment(\.markdownTableBleed, 0)
                 }
             }

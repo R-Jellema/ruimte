@@ -3,7 +3,7 @@ import RuimtePulsar
 import SwiftUI
 import UIKit
 
-/// One block of a reply as a card in the thread. The model is the block's: the view only draws what it evaluated,
+/// One block of a reply in a hatched band across the thread, its parts as tiles at the reading width. The model is the block's: the view only draws what it evaluated,
 /// changes inputs and sends a choice through it, and tells it when the card is on screen.
 struct UiBlockView: View {
     let model: UiBlockModel
@@ -15,6 +15,7 @@ struct UiBlockView: View {
     @Environment(\.uiHost) private var host
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.uiBandBleed) private var bleed
     @State private var floor: CGFloat = 0
     @State private var streamed: Bool
 
@@ -34,28 +35,33 @@ struct UiBlockView: View {
             model: model, local: UiBlockLocal.shared(localKey), host: host,
             written: UiCatalog.writtenTexts(model.block["nodes"]?.arrayValue ?? []), headID: head?.id,
             catalogVersion: model.block["catalogVersion"]?.numberValue.map { Int($0) })
-        VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
+            Group {
                 if shownAsText != nil {
-                    MarkdownMessage(text: model.block["fallback"]?.stringValue ?? "").padding(.horizontal, 8)
+                    MarkdownMessage(text: model.block["fallback"]?.stringValue ?? "")
                 } else if nodes.isEmpty && context.streaming {
-                    UiSkeleton().padding(.horizontal, 8).padding(.vertical, 4)
+                    UiSkeleton().padding(.vertical, 4)
                 } else {
-                    UiNodesView(nodes: nodes, parent: UiNodesView.block, context: context)
+                    UiNodesView(nodes: nodes, parent: UiNodesView.block, context: context, spacing: 14)
                 }
             }
-            .padding(8)
             .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: nodes.map(\.id))
             UiBlockFooter(context: context, nodes: nodes, shownAsText: shownAsText)
         }
+        .padding(.vertical, 20 + UiBandEdge.height)
         .frame(maxWidth: .infinity, minHeight: max(44, context.streaming ? floor : 0), alignment: .topLeading)
         .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { height in
             if !model.complete { floor = max(floor, height) }
         }
-        .background(MobileStyle.panel, in: RoundedRectangle(cornerRadius: 20))
-        .overlay { RoundedRectangle(cornerRadius: 20).strokeBorder(MobileStyle.border) }
-        .overlay {
-            if highlighted { RoundedRectangle(cornerRadius: 20).strokeBorder(MobileStyle.accent, lineWidth: 2) }
+        .background {
+            VStack(spacing: 0) {
+                UiBandEdge()
+                Spacer(minLength: 0)
+                UiBandEdge()
+            }
+            .background(MobileStyle.accent.opacity(highlighted ? 0.18 : 0))
+            .padding(.horizontal, -bleed)
+            .animation(.easeOut(duration: highlighted ? 0 : 1.6), value: highlighted)
         }
         .background(UiBlockRevealMarker(flash: flash))
         .accessibilityFocused($focused)
@@ -144,7 +150,6 @@ struct UiNodesView: View {
                         UiInlineRun(nodes: run, parent: parent, context: context)
                             .font(.subheadline)
                             .foregroundStyle(parent == "Section" ? MobileStyle.muted : MobileStyle.text)
-                            .padding(.horizontal, parent == "Section" ? 0 : 8)
                             .transition(UiMotion.arrival)
                     } else {
                         UiInlineRun(nodes: run, parent: parent, context: context)
@@ -252,29 +257,47 @@ struct UiNodeView: View {
     }
 }
 
-/// One part of a block as the Markdown it stands for, with a line that says why. A person reads it as a repair,
-/// never as an error, so nothing here is red.
+/// One part of a block as the Markdown it stands for, on a card in a quiet tile under a line that says why. A person
+/// reads it as a repair, never as an error, so nothing here is red.
 struct UiFallbackPart: View {
     let fallback: String
     let problem: UiFallbackProblem
+    @Environment(\.uiInSection) private var inSection
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Group {
+        VStack(alignment: .leading, spacing: 6) {
+            Label {
                 switch problem {
                 case .unknown(let component): Text("This version cannot draw \(component)")
                 case .failed: Text("Could not show this part")
                 }
+            } icon: {
+                Image(lucide: "info", size: 12)
             }
-            .font(.caption).foregroundStyle(MobileStyle.faint)
+            .labelStyle(UiSmallIconLabel())
+            .font(.caption).foregroundStyle(MobileStyle.muted)
+            .padding(.horizontal, inSection ? 0 : 6).padding(.top, 2)
             if !fallback.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 MarkdownMessage(text: fallback).font(.subheadline)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12).padding(.vertical, 10)
+                    .background(UiTileStyle.inset, in: RoundedRectangle(cornerRadius: 8))
+                    .overlay { RoundedRectangle(cornerRadius: 8).strokeBorder(MobileStyle.border) }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(10)
-        .background(MobileStyle.hover, in: RoundedRectangle(cornerRadius: 12))
+        .uiTile(flat: true, horizontal: 6, vertical: 6)
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// An icon of 12 points beside its words, six apart and centered on the line.
+struct UiSmallIconLabel: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 6) {
+            configuration.icon
+            configuration.title
+        }
     }
 }
 
@@ -282,7 +305,7 @@ struct UiFallbackPart: View {
 struct UiSkeleton: View {
     var body: some View {
         GeometryReader { geometry in
-            Capsule().fill(MobileStyle.hover).frame(width: geometry.size.width * 0.4, height: 12)
+            Capsule().fill(UiTileStyle.tile).frame(width: geometry.size.width * 0.4, height: 12)
         }
         .frame(height: 20)
         .accessibilityHidden(true)
@@ -292,6 +315,14 @@ struct UiSkeleton: View {
 /// Lays its children out left to right and wraps to a next line where the width runs out.
 struct UiFlowLayout: Layout {
     var spacing: CGFloat = 6
+    /// From this width on a child takes at most half the row less half the gap, so two long ones end on one edge.
+    var halvesFrom: CGFloat?
+
+    /// The widest a child may be in a row of `width`.
+    func itemWidth(_ width: CGFloat) -> CGFloat {
+        guard let halvesFrom, width >= halvesFrom else { return width }
+        return (width - spacing) / 2
+    }
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let rows = arrange(width: proposal.width ?? .infinity, subviews: subviews)
@@ -305,7 +336,7 @@ struct UiFlowLayout: Layout {
         for row in arrange(width: bounds.width, subviews: subviews) {
             var x = bounds.minX
             for index in row.indices {
-                let size = subviews[index].sizeThatFits(ProposedViewSize(width: bounds.width, height: nil))
+                let size = subviews[index].sizeThatFits(ProposedViewSize(width: itemWidth(bounds.width), height: nil))
                 subviews[index].place(
                     at: CGPoint(x: x, y: y + (row.height - size.height) / 2), proposal: ProposedViewSize(size))
                 x += size.width + spacing
@@ -324,7 +355,7 @@ struct UiFlowLayout: Layout {
         var rows: [Row] = []
         var row = Row()
         for index in subviews.indices {
-            let size = subviews[index].sizeThatFits(ProposedViewSize(width: width, height: nil))
+            let size = subviews[index].sizeThatFits(ProposedViewSize(width: itemWidth(width), height: nil))
             if !row.indices.isEmpty && row.width + spacing + size.width > width {
                 rows.append(row)
                 row = Row()

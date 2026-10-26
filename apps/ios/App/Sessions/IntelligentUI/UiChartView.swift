@@ -28,13 +28,13 @@ struct UiChartView: View {
 
     var body: some View {
         if !node.complete {
-            RoundedRectangle(cornerRadius: 12).fill(MobileStyle.hover)
+            RoundedRectangle(cornerRadius: UiTileStyle.radius).fill(UiTileStyle.tile)
                 .frame(height: height(node.string("kind") ?? "bar", rows: node.props["data"]?.arrayValue?.count ?? 1))
-                .padding(.horizontal, 8).accessibilityHidden(true)
+                .accessibilityHidden(true)
         } else if let chart = UiChartData(node) {
             let unit = node.string("unit")
             let summary = Self.summary(chart, unit: unit)
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 10) {
                 VStack(alignment: .leading, spacing: 8) {
                     plot(chart, kind: chart.kind, unit: unit).frame(
                         height: height(chart.kind, rows: chart.labels.count))
@@ -48,7 +48,7 @@ struct UiChartView: View {
                 .modifier(UiChartValues(values: chart.values, unit: unit))
                 notes(chart, unit: unit)
             }
-            .padding(.horizontal, 8)
+            .uiTile(flat: true, horizontal: 14, vertical: 14)
             .onAppear {
                 guard !grown else { return }
                 withAnimation(reduceMotion ? nil : .easeOut(duration: 0.4)) { grown = true }

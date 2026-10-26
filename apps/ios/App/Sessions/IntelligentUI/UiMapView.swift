@@ -136,7 +136,11 @@ struct UiMapView: View {
                     Text(note).font(.caption).foregroundStyle(MobileStyle.faint)
                 }
             }
-            VStack(alignment: .leading, spacing: 0) {
+            LazyVGrid(
+                columns: Array(
+                    repeating: GridItem(.flexible(), spacing: 6, alignment: .top), count: wide ? 2 : 1),
+                alignment: .leading, spacing: 6
+            ) {
                 ForEach(places) { place in
                     UiMapRow(place: place, selected: place.id == selected, pick: pick(place))
                 }
@@ -150,7 +154,6 @@ struct UiMapView: View {
                 UiNodeView(node: refused, parent: node.type, context: context)
             }
         }
-        .padding(.horizontal, 8)
         .modifier(UiPending(complete: node.complete))
         .onGeometryChange(for: Bool.self, of: { $0.size.width >= Self.wideFrom }) { wide = $0 }
         .onAppear { reachability.start() }
@@ -188,7 +191,7 @@ struct UiMapView: View {
             } else {
                 GeometryReader { geometry in
                     ZStack(alignment: .topLeading) {
-                        MobileStyle.hover
+                        UiTileStyle.tile
                         ForEach(markers) { place in
                             let point = frame.unit(lat: place.lat ?? 0, lon: place.lon ?? 0)
                             marker(place, selected: place.id == selected)
@@ -200,8 +203,7 @@ struct UiMapView: View {
             }
         }
         .frame(height: wide ? 240 : 200)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay { RoundedRectangle(cornerRadius: 12).strokeBorder(MobileStyle.border) }
+        .clipShape(RoundedRectangle(cornerRadius: UiTileStyle.radius))
         .accessibilityHidden(true)
     }
 
@@ -249,7 +251,7 @@ private struct UiMapRow: View {
     }
 
     private var content: some View {
-        HStack(alignment: .top, spacing: 8) {
+        HStack(alignment: .top, spacing: 10) {
             UiMapChip(number: place.number, selected: selected, side: 20).padding(.top, 1)
             VStack(alignment: .leading, spacing: 2) {
                 Text(verbatim: place.name).font(.subheadline).foregroundStyle(MobileStyle.text)
@@ -265,10 +267,16 @@ private struct UiMapRow: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.horizontal, 8).padding(.vertical, 6)
-        .frame(minHeight: 44, alignment: .top)
-        .background(selected ? MobileStyle.hover : .clear, in: RoundedRectangle(cornerRadius: 8))
-        .contentShape(Rectangle())
+        .padding(.horizontal, UiTileStyle.padding).padding(.vertical, 8)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .frame(minHeight: 48, alignment: .top)
+        .uiTile(horizontal: 0, vertical: 0)
+        .overlay {
+            if selected {
+                RoundedRectangle(cornerRadius: UiTileStyle.radius).strokeBorder(MobileStyle.accent, lineWidth: 2)
+            }
+        }
+        .contentShape(RoundedRectangle(cornerRadius: UiTileStyle.radius))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(spoken)
         .accessibilityAddTraits(selected ? [.isSelected] : [])
