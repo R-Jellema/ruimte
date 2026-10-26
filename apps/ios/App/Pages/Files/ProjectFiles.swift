@@ -48,7 +48,7 @@ import RuimteTransport
 struct FilesChat: Identifiable, Equatable {
     let id: String
     let title: String
-    /// The chat a person last opened in the project, which a mention goes to first.
+    /// Whether this is the chat a person last opened in the project, which a mention goes to first.
     let current: Bool
 }
 

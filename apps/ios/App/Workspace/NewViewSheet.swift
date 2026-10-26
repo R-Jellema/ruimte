@@ -3,7 +3,6 @@ import SwiftUI
 
 /// What New view made, for the project's page to take up once the sheet is gone.
 enum NewViewResult: Equatable {
-    /// A view to open.
     case view(String)
     /// A view that asks for what it shows, its address, before it opens.
     case ask(JSONValue)

@@ -325,8 +325,6 @@ enum ProcessesText {
         }?.id
     }
 
-    /// The fine series once it has a line to draw, the coarse day until then. The window is what the x axis spans,
-    /// so a fine series that only just started fills from the right.
     /// The groups per project in the order they come, then whatever belongs to no project under Machine tasks. A
     /// project this phone has no name for reads as Another project.
     static func sections(_ groups: [ProcessGroup], projectNames: [String: String]) -> [ProcessSection] {
@@ -343,6 +341,8 @@ enum ProcessesText {
         return sections.filter { !$0.id.isEmpty } + sections.filter { $0.id.isEmpty }
     }
 
+    /// The fine series once it has a line to draw, the coarse day until then. The window is what the x axis spans,
+    /// so a fine series that only just started fills from the right.
     static func series(fine: [ProcessPoint], coarse: [ProcessPoint], fineInterval: Double, coarseInterval: Double)
         -> (points: [ProcessPoint], window: Double, fine: Bool)
     {

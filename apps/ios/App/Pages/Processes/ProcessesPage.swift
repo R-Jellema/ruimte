@@ -5,8 +5,8 @@ import SwiftUI
 
 /// What runs on a machine: CPU and memory of the machine against the share of Ruimte, then per project a group per
 /// node with the processes under it, and what belongs to no project under Machine tasks. A warning sits under the
-/// group it is about, with the button that fits. Long-press a node's
-/// group or a process to signal it; Force quit asks first, as on the desktop.
+/// group it is about, with the button that fits. Long-press a node's group or a process to signal it; Force quit asks
+/// first, as on the desktop.
 struct ProcessesPage: View {
     /// Node titles by id, for the project this page was opened from; a machine's own page knows none.
     let titles: [String: String]

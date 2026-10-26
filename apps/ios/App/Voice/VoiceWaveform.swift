@@ -7,7 +7,6 @@ import SwiftUI
 /// Reduce Motion it stands still.
 struct VoiceWaveform: View {
     let listening: Bool
-    /// The bands while Voice listens.
     let live: VoiceWaveformBands
     /// Whether each side speaks now, by `VoiceWaveformBands.inputSpeaks` and `outputSpeaks`.
     var inputSpeaks = false

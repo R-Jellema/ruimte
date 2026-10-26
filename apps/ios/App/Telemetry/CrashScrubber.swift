@@ -1,7 +1,7 @@
 import Foundation
 
 /// What a crash report may carry of a string, the Swift twin of `createScrubber` in `packages/telemetry`: paths,
-/// secrets, addresses, people and SQL are taken out. `CrashScrubberTests` repeats the shared cases.
+/// secrets, addresses, people and SQL are taken out. `CrashReportsTests` repeats the shared cases.
 struct CrashScrubber: Sendable {
     static let maxMessage = 300
     static let maxTag = 200

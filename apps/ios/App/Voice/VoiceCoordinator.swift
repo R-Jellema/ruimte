@@ -106,11 +106,9 @@ final class VoiceCoordinator {
     private(set) var answering: Set<String> = []
     /// The last conversation of `lastScene` ended, and its timeline stays until the next start.
     private(set) var ended = false
-    /// The microphone is off while the session goes on.
     private(set) var muted = false
     /// The reply plays now, as its captions come in.
     private(set) var speaking = false
-    /// When the session went active.
     private(set) var startedAt: Date?
     /// The band while Voice listens, measured from both sides' samples as the desktop measures them.
     private(set) var bands = VoiceWaveformBands.silent

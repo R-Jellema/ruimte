@@ -55,7 +55,7 @@ enum FileKinds {
         }
     }
 
-    /// The bytes `bytes.read` hands over for a file: the daemon's `readMedia` serves images, video, sound and PDF only.
+    /// The bytes `bytes.read` hands over for a file: the daemon serves images, video, sound and PDF only.
     static func machineServes(mime: String) -> Bool {
         mime.hasPrefix("image/") || mime.hasPrefix("video/") || mime.hasPrefix("audio/") || mime == "application/pdf"
     }
