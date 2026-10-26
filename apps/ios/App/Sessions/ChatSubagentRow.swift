@@ -1,14 +1,36 @@
+import RuimteIntelligentUI
 import RuimtePulsar
-import RuimteTransport
 import SwiftUI
 
+/// A sub-agent's row with the agents it opened in turn under it. Those stay in sight whether its own work is folded or
+/// not, since opening the parent shows its conversation and not theirs.
 struct ChatSubagentRow: View {
+    let branch: ChatSubagentBranch
+    let presentation: ChatPresentation
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let item = branch.item {
+                ChatSubagentOwnRow(item: item, children: branch.children, presentation: presentation)
+            }
+            if !branch.nested.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(branch.nested, id: \.record.id) { nested in
+                        ChatSubagentRow(branch: nested, presentation: presentation)
+                    }
+                }
+                .padding(.leading, 24)
+            }
+        }
+    }
+}
+
+private struct ChatSubagentOwnRow: View {
     let item: ChatSubagentItem
     let children: [ChatItemState]
     let presentation: ChatPresentation
-    let client: any MachineRequesting
-    let chatID: String
     @State private var showingResult = false
+    @State private var stepsHeight: CGFloat = 0
     private var running: Bool { item.status == .running }
     private var expanded: Bool { !opens && presentation.expandedSubagents.contains(item.id) }
     private var opens: Bool { ChatSubagents.canOpen(item) }
@@ -42,14 +64,20 @@ struct ChatSubagentRow: View {
                     } else {
                         ScrollViewReader { reader in
                             ScrollView {
-                                LazyVStack(alignment: .leading, spacing: 8) {
+                                LazyVStack(alignment: .leading, spacing: 4) {
                                     ForEach(children) { child in
-                                        ChatObservedRow(record: child, client: client, chatID: chatID).id(child.id)
+                                        ChatSubagentStep(record: child).id(child.id)
                                     }
+                                }
+                                .onGeometryChange(for: CGFloat.self) {
+                                    $0.size.height
+                                } action: {
+                                    stepsHeight = $0
                                 }
                             }
                             .defaultScrollAnchor(.bottom)
-                            .frame(height: min(320, max(88, CGFloat(children.count) * 88)))
+                            // The work of a long-running agent scrolls inside its row instead of pushing the thread away.
+                            .frame(height: min(320, max(28, stepsHeight)))
                             .onChange(of: children.count) { _, _ in
                                 if running, let last = children.last { reader.scrollTo(last.id, anchor: .bottom) }
                             }
@@ -110,6 +138,29 @@ struct ChatSubagentRow: View {
         }
         .font(.footnote).foregroundStyle(failed ? MobileStyle.statusError : MobileStyle.muted)
         .frame(minHeight: 28).contentShape(Rectangle())
+    }
+}
+
+/// One step a sub-agent took, inside its row. Every step is a line, and the text it wrote is the small aside under
+/// it, not a message.
+private struct ChatSubagentStep: View {
+    let record: ChatItemState
+
+    var body: some View {
+        switch record.item {
+        case .tool(let tool):
+            if UiGeneratedImage.isGeneration(tool) {
+                GeneratedImageRow(item: tool)
+            } else {
+                ChatToolRow(item: tool)
+            }
+        case .assistant(let reply):
+            MarkdownMessage(text: reply.text, streaming: reply.streaming)
+                .font(.caption).foregroundStyle(MobileStyle.muted).textSelection(.enabled)
+                .padding(.bottom, 4)
+        default:
+            EmptyView()
+        }
     }
 }
 

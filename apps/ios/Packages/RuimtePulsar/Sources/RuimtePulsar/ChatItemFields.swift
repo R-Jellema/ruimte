@@ -47,13 +47,15 @@ extension ChatItem {
     public var turnItem: ChatTurnItem? { if case .turn(let item) = self { item } else { nil } }
     public var noteItem: ChatNoteItem? { if case .note(let item) = self { item } else { nil } }
 
-    /// The call of a subagent this item belongs to; only an assistant message and a tool call have one.
+    /// The call of a subagent this item belongs to; only an assistant message, a tool call and an agent another agent
+    /// opened have one.
     public var parentToolUseID: String? {
         switch self {
         case .assistant(let item):
             if case .value(let parent) = item.parentToolUseId { return parent }
             return nil
         case .tool(let item): return item.parentToolUseId
+        case .subagent(let item): return item.parentToolUseId
         default: return nil
         }
     }

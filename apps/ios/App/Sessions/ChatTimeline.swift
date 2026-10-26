@@ -1139,10 +1139,8 @@ struct ChatEntryView: View {
                         turn: turn, tools: Array(entry.items.dropFirst()), client: client, chatID: chatID)
                 }
             case .subagent:
-                if let agent = entry.items.first?.item.subagentItem {
-                    ChatSubagentRow(
-                        item: agent, children: Array(entry.items.dropFirst()), presentation: presentation,
-                        client: client, chatID: chatID)
+                if let branch = entry.branch {
+                    ChatSubagentRow(branch: branch, presentation: presentation)
                 }
 
             case .message:

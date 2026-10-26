@@ -47,10 +47,46 @@ struct ChatTimelineEntry: Identifiable, Equatable {
     let kind: Kind
     var items: [ChatItemState] = []
     var visual: ChatVisual?
+    var branch: ChatSubagentBranch?
 
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.id == rhs.id && lhs.kind == rhs.kind
             && lhs.items.map(ObjectIdentifier.init) == rhs.items.map(ObjectIdentifier.init) && lhs.visual == rhs.visual
+            && lhs.branch == rhs.branch
+    }
+}
+
+/// A sub-agent's row: the work the thread kept of it, and the agents it opened in turn, each a row of its own under
+/// it, as `SubagentBranch` in the desktop's `chat/logic/timeline.ts`.
+struct ChatSubagentBranch: Equatable {
+    // Deeper than the CLI forwards any call; it also ends a chain of rows that would name each other.
+    static let maxNesting = 8
+
+    let record: ChatItemState
+    let children: [ChatItemState]
+    let nested: [ChatSubagentBranch]
+
+    @MainActor var item: ChatSubagentItem? { record.item.subagentItem }
+
+    @MainActor init(_ record: ChatItemState, children: [String: [ChatItemState]], depth: Int = 0) {
+        self.record = record
+        let own = record.item.subagentItem.flatMap { children[$0.toolUseId] } ?? []
+        self.children = own.filter { $0.item.subagentItem == nil }
+        nested =
+            depth >= Self.maxNesting
+            ? [] : own.filter { $0.item.subagentItem != nil }.map { Self($0, children: children, depth: depth + 1) }
+    }
+
+    /// Every record of the branch, its own first.
+    var records: [ChatItemState] { [record] + children + nested.flatMap(\.records) }
+
+    @MainActor func contains(toolUseID: String) -> Bool {
+        item?.toolUseId == toolUseID || nested.contains { $0.contains(toolUseID: toolUseID) }
+    }
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.record === rhs.record && lhs.children.map(ObjectIdentifier.init) == rhs.children.map(ObjectIdentifier.init)
+            && lhs.nested == rhs.nested
     }
 }
 
@@ -383,10 +419,11 @@ final class ChatPresentation {
     func openSubagent(toolUseID: String) {
         guard let agent = subagent(toolUseID: toolUseID) else { return }
         expandedSubagents.insert(agent.id)
-        requestedItemID = agent.id
-        scrollRequest += 1
         if let turnID = agent.item.turnId { expandedTurns.insert(turnID) }
         rebuild()
+        // An agent another agent opened is drawn in the row of the one that opened it.
+        requestedItemID = entries.first { $0.branch?.contains(toolUseID: toolUseID) == true }?.id ?? agent.id
+        scrollRequest += 1
     }
 
     private func rebuild() {
@@ -565,9 +602,9 @@ final class ChatPresentation {
             flush()
             switch item.item {
             case .turn: continue
-            case .subagent(let agent):
-                rows.append(
-                    ChatTimelineEntry(id: item.id, kind: .subagent, items: [item] + (children[agent.toolUseId] ?? [])))
+            case .subagent:
+                let branch = ChatSubagentBranch(item, children: children)
+                rows.append(ChatTimelineEntry(id: item.id, kind: .subagent, items: branch.records, branch: branch))
             case .assistant(let reply) where reply.text.isEmpty && !reply.streaming: continue
             default:
                 if !item.item.isPending { rows.append(ChatTimelineEntry(id: item.id, kind: .message, items: [item])) }

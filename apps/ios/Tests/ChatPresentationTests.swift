@@ -129,6 +129,44 @@ final class ChatPresentationTests: XCTestCase {
         XCTAssertEqual(presentation.entries[0].items[1].item.assistantItem?.text, "Only the child changes")
     }
 
+    @MainActor func testAnAgentAnAgentOpenedIsARowOfItsOwnUnderTheOneThatOpenedIt() {
+        let presentation = ChatPresentation()
+        let parent = item("parent", "subagent").setting("toolUseId", .string("spawn-parent"))
+        let step = item("step", "tool").setting("parentToolUseId", .string("spawn-parent"))
+        let nested = item("nested", "subagent").setting("toolUseId", .string("spawn-nested"))
+            .setting("parentToolUseId", .string("spawn-parent"))
+        let deep = item("deep", "subagent").setting("toolUseId", .string("spawn-deep"))
+            .setting("parentToolUseId", .string("spawn-nested"))
+        let deepStep = item("deep-step", "assistant").setting("parentToolUseId", .string("spawn-deep"))
+        presentation.replace([parent, step, nested, deep, deepStep].map(\.chatItem), info: nil)
+        XCTAssertEqual(presentation.entries.map(\.id), ["parent"])
+        let branch = presentation.entries[0].branch
+        XCTAssertEqual(branch?.children.map(\.id), ["step"])
+        XCTAssertEqual(branch?.nested.map(\.record.id), ["nested"])
+        XCTAssertEqual(branch?.nested.first?.children.map(\.id), [])
+        XCTAssertEqual(branch?.nested.first?.nested.first?.record.id, "deep")
+        XCTAssertEqual(branch?.nested.first?.nested.first?.children.map(\.id), ["deep-step"])
+        presentation.openSubagent(toolUseID: "spawn-deep")
+        XCTAssertTrue(presentation.expandedSubagents.contains("deep"))
+        XCTAssertEqual(presentation.requestedItemID, "parent")
+    }
+
+    @MainActor func testAChainOfAgentsThatNameEachOtherEndsAtTheNestingLimit() {
+        let records = (0...10).map { depth in
+            ChatItemState(
+                item("agent-\(depth)", "subagent").setting("toolUseId", .string("spawn-\(depth)"))
+                    .setting("parentToolUseId", depth == 0 ? .null : .string("spawn-\(depth - 1)")).chatItem)
+        }
+        let children = Dictionary(grouping: records.dropFirst()) { $0.item.parentToolUseID! }
+        var branch: ChatSubagentBranch? = ChatSubagentBranch(records[0], children: children)
+        var depth = 0
+        while let next = branch?.nested.first {
+            branch = next
+            depth += 1
+        }
+        XCTAssertEqual(depth, ChatSubagentBranch.maxNesting)
+    }
+
     @MainActor func testAgentTurnCanOpenTheSourceAgentInAnEarlierFold() {
         let presentation = ChatPresentation()
         let first = item("first", "turn").setting("turnId", .string("first")).setting("state", .string("done"))
