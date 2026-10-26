@@ -58,7 +58,7 @@ struct ChatComposerAccessory: View {
                             Button("Try sending again") { Task { await model.send() } }.disabled(!model.canSend)
                             Button("Dismiss") { model.sendProblem = nil }
                         }
-                    }.font(.footnote).buttonStyle(.borderless).frame(minHeight: 44)
+                    }.buttonStyle(.mobileCapsuleSmall).frame(minHeight: 44)
                 }.padding(12).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
             }
             if let issue = model.composition.validation ?? model.composition.storageProblem ?? model.composition.problem
@@ -72,8 +72,9 @@ struct ChatComposerAccessory: View {
                         Button {
                             model.composition.problem = nil
                         } label: {
-                            Image(lucide: "x", size: 14).frame(width: 44, height: 44)
+                            Image(lucide: "x", size: 14)
                         }
+                        .buttonStyle(.mobileIcon)
                         .accessibilityLabel("Dismiss attachment message")
                     }
                 }.foregroundStyle(MobileStyle.statusError).padding(12).background(

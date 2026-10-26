@@ -89,10 +89,9 @@ struct VoiceSheet: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
             Button(action: close) {
-                Image(lucide: "x", size: 18).frame(width: 32, height: 32)
+                Image(lucide: "x", size: 18)
             }
-            .buttonStyle(.glass)
-            .buttonBorderShape(.circle)
+            .buttonStyle(.mobileIcon)
             .accessibilityLabel("Close")
             .accessibilityIdentifier("voice.panel.close")
         }
@@ -172,7 +171,7 @@ struct VoiceSheet: View {
                 Button(action: start) {
                     Label(String(localized: "Start Voice"), lucideIcon: "mic")
                 }
-                .buttonStyle(SolidCapsuleButtonStyle())
+                .buttonStyle(.mobileCapsuleLarge)
                 .accessibilityIdentifier("voice.panel.start")
                 if namesMachine, let machine = place.machineName, !machine.isEmpty {
                     Text("Voice starts on \(machine)")
@@ -200,7 +199,7 @@ struct VoiceSheet: View {
     }
 
     private var stopButton: some View {
-        Button {
+        Button(role: .destructive) {
             voice.stop(scene: scene)
         } label: {
             Label {
@@ -208,13 +207,8 @@ struct VoiceSheet: View {
             } icon: {
                 LucideSwift.LucideIcon(.square, style: .filled, size: 14)
             }
-            .font(.body.weight(.semibold))
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity, minHeight: 56)
-            .background(MobileStyle.statusError, in: .capsule)
-            .contentShape(.capsule)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.mobileCapsuleLarge)
         .disabled(voice.phase == .stopping)
         .accessibilityIdentifier("voice.panel.stop")
     }

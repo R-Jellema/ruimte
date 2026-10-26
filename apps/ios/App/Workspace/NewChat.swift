@@ -162,7 +162,7 @@ struct NewChatSheet: View {
             }
         } label: {
             HStack(spacing: 10) {
-                MobileRow(
+                MobileTileLabel(
                     title: name,
                     subtitle: account.map { String(localized: "Account \($0)", comment: "%@ is the account name") }
                         ?? "",

@@ -55,16 +55,15 @@ struct MachineLostCard: View {
             HStack(spacing: 8) {
                 if let diagnostics {
                     Button(action: diagnostics) {
-                        Text("Diagnostics").frame(maxWidth: .infinity, minHeight: 48)
+                        Text("Diagnostics").frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.glass)
+                    .buttonStyle(.mobileGlass)
                 }
                 Button(action: otherProject) {
-                    Text("Other project").frame(maxWidth: .infinity, minHeight: 48)
+                    Text("Other project").frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.glassProminent)
+                .buttonStyle(.mobileGlassProminent)
             }
-            .font(.subheadline.weight(.semibold))
             .padding(.top, 8)
         }
         .padding(.horizontal, 18).padding(.top, 20).padding(.bottom, 16)

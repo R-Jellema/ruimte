@@ -549,7 +549,7 @@ struct DeviceViewPage: View {
                     } label: {
                         if model.booting { ProgressView() } else { Text("Start device") }
                     }
-                    .buttonStyle(.glassProminent).tint(MobileStyle.accent)
+                    .buttonStyle(.mobileCapsuleProminent)
                     .disabled(model.booting)
                 }
             }

@@ -29,12 +29,12 @@ struct FileFallbackView: View {
             if let file {
                 HStack(spacing: 12) {
                     Button(String(localized: "Quick Look"), lucideIcon: "eye") { preview = file }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.mobileCapsuleProminent)
                     ShareLink(item: file) { Label(String(localized: "Share"), lucideIcon: "share") }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.mobileCapsule)
                 }
             } else if let problem {
-                Label(problem, lucideIcon: "triangle-alert").foregroundStyle(.red)
+                Label(problem, lucideIcon: "triangle-alert").foregroundStyle(MobileStyle.statusError)
             } else if available {
                 MobileLoadingRow(String(localized: "Loading"))
             }

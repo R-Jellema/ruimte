@@ -186,14 +186,14 @@ private struct GeneratedImageReady: View {
                 } label: {
                     Image(lucide: "maximize-2", size: 14).frame(width: 44, height: 44)
                 }
-                .glassEffect(.regular.interactive(), in: .circle)
+                .buttonStyle(MobileGlassButtonStyle(shape: .circle))
                 .accessibilityLabel(String(localized: "Open large"))
                 Menu {
                     actions
                 } label: {
                     Image(lucide: "ellipsis", size: 14).frame(width: 44, height: 44)
                 }
-                .glassEffect(.regular.interactive(), in: .circle)
+                .buttonStyle(MobileGlassButtonStyle(shape: .circle))
                 .accessibilityLabel(String(localized: "Image actions"))
             }
         }

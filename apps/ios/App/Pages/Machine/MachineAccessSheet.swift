@@ -149,8 +149,7 @@ struct MachineAccessSection: View {
                     }
                     Spacer(minLength: 8)
                     Button("Revoke", role: .destructive) { revoking = client }
-                        .font(.subheadline)
-                        .buttonStyle(.borderless)
+                        .buttonStyle(.mobileCapsuleSmall)
                         .disabled(access.state.busy)
                 }
                 .padding(.vertical, 4)

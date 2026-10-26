@@ -267,7 +267,6 @@
 		9FEF1C5D72210474DA0C05B4 /* GitWorktreeBinding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46D14E4E7F156C6C8419491C /* GitWorktreeBinding.swift */; };
 		A051C71D8A0699874C866281 /* ChatVisualTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD1D0EE3D6E5269C753AE6B9 /* ChatVisualTheme.swift */; };
 		A0DBF00425A7018625CCB128 /* LucideIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92115E2E20A2788AC95AD41F /* LucideIcon.swift */; };
-		A11664395184F2E9E393B0E6 /* SolidCapsuleButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6096724DEC397B67DFF847E7 /* SolidCapsuleButtonStyle.swift */; };
 		A11951888F286F8452A731D0 /* MachineFilesPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49F9EC9D98983F163B9AE62C /* MachineFilesPage.swift */; };
 		A13E7F2E6DA2090C37CBF61C /* MobileByteCountTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 304CEEF36115BF171DA6E1FC /* MobileByteCountTests.swift */; };
 		A29BA09E98A9386B690A002A /* RuimteApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09CCDDD483546BE641151534 /* RuimteApp.swift */; };
@@ -637,7 +636,6 @@
 		5E3C0289192C090FF4945D5A /* NotificationPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPreferences.swift; sourceTree = "<group>"; };
 		5EEF2A1565431D8E3D196AC0 /* image.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = image.gif; sourceTree = "<group>"; };
 		5FD5329FE5CB0A0C4B9AD3E6 /* MobileCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileCard.swift; sourceTree = "<group>"; };
-		6096724DEC397B67DFF847E7 /* SolidCapsuleButtonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolidCapsuleButtonStyle.swift; sourceTree = "<group>"; };
 		609AB2F1E7F3D0A6B1809A4A /* MobileStatusTile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileStatusTile.swift; sourceTree = "<group>"; };
 		60EEB414617E97AC9D64F858 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		6121F187F1A5B808F82EE616 /* NotificationService.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = NotificationService.entitlements; sourceTree = "<group>"; };
@@ -1070,7 +1068,6 @@
 				609AB2F1E7F3D0A6B1809A4A /* MobileStatusTile.swift */,
 				A8954363C79663F275CDF04A /* MobileStyle.swift */,
 				99D8DF2FFC207D5E1CCBA09A /* RemotePageState.swift */,
-				6096724DEC397B67DFF847E7 /* SolidCapsuleButtonStyle.swift */,
 				660C8936F38DDB959C02A00E /* Spinner.swift */,
 			);
 			path = Design;
@@ -2250,7 +2247,6 @@
 				5ED4323D6A3ECFA5769E1524 /* SettingsPage.swift in Sources */,
 				AEFABCFC364116F1A99CC8A8 /* SharedMachineSession.swift in Sources */,
 				422E1EFAEE2305134610E429 /* Snoozes.swift in Sources */,
-				A11664395184F2E9E393B0E6 /* SolidCapsuleButtonStyle.swift in Sources */,
 				5AAD42D63D48CA237DFF1ACF /* Spinner.swift in Sources */,
 				F9423B6A7EA1879C4A9987D4 /* SubagentPages.swift in Sources */,
 				1AF6F6A85AF5D021863DCA66 /* TaskStore.swift in Sources */,

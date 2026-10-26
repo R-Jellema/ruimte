@@ -342,7 +342,7 @@ struct GitHaltedRows: View {
                     .disabled(session.busy)
                 Spacer(minLength: 0)
             }
-            .font(.caption).buttonStyle(.bordered)
+            .buttonStyle(.mobileCapsuleSmall)
             .modifier(GitAbortConfirmation(operation: operation, isPresented: $confirmAbort) { Task { await finish("abort") } })
         }
         if session.busy {

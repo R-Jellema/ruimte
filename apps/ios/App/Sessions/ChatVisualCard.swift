@@ -42,7 +42,7 @@ struct ChatVisualCard: View {
                     Image(lucide: "maximize-2", size: 14).frame(width: 36, height: 36)
                 }
                 .disabled(failed)
-                .glassEffect(.regular.interactive(), in: .circle)
+                .buttonStyle(MobileGlassButtonStyle(shape: .circle))
                 .accessibilityLabel("Open large")
                 Menu {
                     Button(String(localized: "Remove visual"), lucideIcon: "trash", role: .destructive) {
@@ -51,7 +51,7 @@ struct ChatVisualCard: View {
                 } label: {
                     Image(lucide: "ellipsis", size: 14).frame(width: 36, height: 36)
                 }
-                .glassEffect(.regular.interactive(), in: .circle)
+                .buttonStyle(MobileGlassButtonStyle(shape: .circle))
                 .accessibilityLabel("More actions")
             }
         }

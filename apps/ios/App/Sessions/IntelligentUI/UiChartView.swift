@@ -96,7 +96,7 @@ struct UiChartView: View {
             Button(shown ? String(localized: "Hide values") : String(localized: "Show all values")) {
                 context.local.setFlag("chart:\(node.id)", !shown)
             }
-            .font(.footnote.weight(.medium)).buttonStyle(.bordered).tint(MobileStyle.text)
+            .buttonStyle(.mobileCapsuleSmall)
             .frame(minHeight: 44)
             if shown { UiChartValuesTable(values: chart.values, unit: unit) }
         }

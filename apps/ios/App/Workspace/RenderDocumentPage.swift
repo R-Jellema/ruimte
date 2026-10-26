@@ -114,11 +114,8 @@ struct RenderDocumentPage: View {
                             asking = true
                         } label: {
                             Label(String(localized: "Change with an agent"), lucideIcon: "sparkles")
-                                .font(.body.weight(.medium))
-                                .padding(.horizontal, 18).frame(minHeight: 48)
-                                .contentShape(.capsule)
                         }
-                        .glassEffect(.regular.interactive(), in: .capsule)
+                        .buttonStyle(.mobileGlass)
                         Spacer(minLength: 0)
                     }
                     Button {
@@ -126,7 +123,7 @@ struct RenderDocumentPage: View {
                     } label: {
                         Image(lucide: "copy", size: 18).frame(width: 48, height: 48)
                     }
-                    .glassEffect(.regular.interactive(), in: .circle)
+                    .buttonStyle(MobileGlassButtonStyle(shape: .circle))
                     .accessibilityLabel("Copy as image")
                 }
             }

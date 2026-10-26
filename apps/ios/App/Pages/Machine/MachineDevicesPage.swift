@@ -145,11 +145,8 @@ struct MachineDevicesPage: View {
     }
 
     private func row(_ device: MachineDevice) -> some View {
-        HStack(spacing: 10) {
-            Image(lucide: "smartphone", size: 15)
-                .frame(width: 30, height: 30)
-                .background(MobileStyle.inset, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .accessibilityHidden(true)
+        HStack(spacing: MobileSpacing.medium) {
+            MobileStatusTile(tone: .idle, symbol: "smartphone").accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 1) {
                 Text(device.name).lineLimit(1)
                 Text(device.displayRuntime.isEmpty ? device.stateText : "\(device.displayRuntime) · \(device.stateText)")
@@ -163,15 +160,12 @@ struct MachineDevicesPage: View {
                 Button {
                     Task { await devices.boot(device) }
                 } label: {
-                    Label(String(localized: "Start"), lucideIcon: "play").font(.footnote.weight(.semibold))
+                    Label(String(localized: "Start"), lucideIcon: "play")
                 }
-                .buttonStyle(.bordered)
-                .buttonBorderShape(.capsule)
+                .buttonStyle(.mobileCapsuleSmall)
             } else if device.waitsOnPerson {
                 Button("Retry") { Task { await devices.load() } }
-                    .font(.footnote.weight(.semibold))
-                    .buttonStyle(.bordered)
-                    .buttonBorderShape(.capsule)
+                    .buttonStyle(.mobileCapsuleSmall)
             }
         }
         .padding(.vertical, 2)
@@ -266,13 +260,10 @@ private struct RunningDeviceCard: View {
                         if opening {
                             ProgressView()
                         } else {
-                            Text("Open as view").font(.footnote.weight(.semibold))
+                            Text("Open as view")
                         }
                     }
-                    .buttonStyle(.borderedProminent)
-                    .buttonBorderShape(.capsule)
-                    .tint(MobileStyle.text)
-                    .foregroundStyle(MobileStyle.canvas)
+                    .buttonStyle(.mobileCapsuleSmallProminent)
                     .disabled(projects.isEmpty || opening)
                     if device.canShutdown {
                         Button(action: shutdown) {
@@ -282,8 +273,7 @@ private struct RunningDeviceCard: View {
                                 Image(lucide: "square", size: 11).accessibilityLabel("Shut down")
                             }
                         }
-                        .buttonStyle(.bordered)
-                        .buttonBorderShape(.circle)
+                        .buttonStyle(.mobileIcon)
                         .disabled(busy)
                     }
                 }

@@ -28,6 +28,8 @@ struct RoutineDetailPage: View {
     @State private var confirmingRun = false
     @State private var working = false
     @State private var notice: RoutineNotice?
+    @ScaledMetric(relativeTo: .subheadline) private var tileSize = MobileMetrics.statusTile
+    @ScaledMetric(relativeTo: .subheadline) private var rowHeight = MobileMetrics.rowHeight
 
     private var feed: ScheduledFeed? { model.feed(target.machineID) }
     private var entry: RoutineEntry? { model.entry(target) }
@@ -129,27 +131,25 @@ struct RoutineDetailPage: View {
                 confirmingRun = true
             } label: {
                 Label(String(localized: "Run now"), lucideIcon: "play")
-                    .fontWeight(.semibold)
             }
-            .buttonStyle(.borderedProminent).tint(MobileStyle.accent)
+            .buttonStyle(.mobileCapsuleProminent)
             .disabled(!entry.approved || entry.runs.first?.active == true)
             .accessibilityIdentifier("routine.runNow")
         }
-        .buttonStyle(.bordered)
-        .font(.subheadline)
+        .buttonStyle(.mobileCapsule)
         .disabled(!connected || working)
     }
 
     @ViewBuilder private func runRow(_ entry: RoutineEntry, _ run: RoutineRun) -> some View {
-        let label = HStack(spacing: 12) {
-            Group {
-                if run.state == "running" || run.state == "starting" {
-                    Spinner(size: 16, label: run.words()).foregroundStyle(MobileStyle.statusRunning)
-                } else {
-                    Image(lucide: run.icon, size: 16).foregroundStyle(color(run))
-                }
+        let label = HStack(spacing: MobileSpacing.medium) {
+            if run.state == "running" || run.state == "starting" {
+                Spinner(size: MobileMetrics.statusGlyph, label: run.words())
+                    .foregroundStyle(MobileTone.working.color)
+                    .frame(width: tileSize, height: tileSize)
+                    .background(MobileTone.working.tint, in: .rect(cornerRadius: MobileMetrics.tileRadius))
+            } else {
+                MobileStatusTile(tone: tone(run), symbol: run.icon).accessibilityHidden(true)
             }
-            .frame(width: 20)
             VStack(alignment: .leading, spacing: 2) {
                 Text(Format.moment(run.due)).monospacedDigit()
                 Text(run.words()).font(.caption).foregroundStyle(MobileStyle.muted)
@@ -162,7 +162,7 @@ struct RoutineDetailPage: View {
                 Image(lucide: "chevron-right", size: 14).foregroundStyle(MobileStyle.faint)
             }
         }
-        .frame(minHeight: 44)
+        .frame(minHeight: rowHeight)
         .contentShape(Rectangle())
         if let chatID = run.chatID {
             Button {
@@ -181,12 +181,12 @@ struct RoutineDetailPage: View {
         }
     }
 
-    private func color(_ run: RoutineRun) -> Color {
+    private func tone(_ run: RoutineRun) -> MobileTone {
         switch run.state {
-        case "needs-you", "limit": MobileStyle.statusNeedsYou
-        case "done": MobileStyle.positive
-        case "failed": MobileStyle.statusError
-        default: MobileStyle.muted
+        case "needs-you", "limit": .waiting
+        case "done": .done
+        case "failed": .error
+        default: .idle
         }
     }
 

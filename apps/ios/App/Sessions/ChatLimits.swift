@@ -224,14 +224,9 @@ struct ChatLimitBanner: View {
                 }
             } label: {
                 Text("Continue on")
-                    .font(.subheadline.weight(.semibold)).foregroundStyle(MobileStyle.onAccent)
-                    .padding(.horizontal, 16).frame(minHeight: 34)
-                    .background(MobileStyle.accent, in: Capsule())
-                    .frame(minHeight: 44).contentShape(Capsule())
             }
-            .buttonStyle(ChatComposerButtonStyle())
+            .buttonStyle(.mobileCapsuleSmallProminent)
             .disabled(model.continuing || !model.connected)
-            .opacity(model.continuing || !model.connected ? 0.5 : 1)
             .accessibilityLabel("Continue on \(name)")
             .accessibilityHint(
                 "Switches to \(name), which has the most room left, and resends the turn.")

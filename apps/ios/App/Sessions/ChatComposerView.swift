@@ -5,12 +5,6 @@ import RuimtePulsar
 import SwiftUI
 import UniformTypeIdentifiers
 
-struct ChatComposerButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label.opacity(configuration.isPressed ? 0.55 : 1)
-    }
-}
-
 struct ChatComposerView: View {
     @Bindable var model: ChatModel
     @Bindable var sheets: ChatComposerSheets
@@ -168,7 +162,7 @@ struct ChatComposerView: View {
                 )
                 .contentShape(Circle())
         }
-        .buttonStyle(ChatComposerButtonStyle())
+        .buttonStyle(.plain)
         .disabled(!model.canSend)
         .accessibilityLabel(model.working ? "Add message to queue" : "Send message")
         .accessibilityHint(model.composition.importing ? "Wait for attachments to finish importing." : "")
@@ -363,7 +357,7 @@ private struct ChatDraftAttachment: View {
             Button(action: remove) { Image(lucide: "x", size: 14).frame(width: 44, height: 44) }
                 .accessibilityLabel("Remove \(upload.name)")
         }
-        .buttonStyle(ChatComposerButtonStyle())
+        .buttonStyle(.plain)
         .background(MobileStyle.inset.opacity(0.65), in: RoundedRectangle(cornerRadius: 16))
         .task(id: upload.id) {
             guard upload.mime.hasPrefix("image/") else { return }
@@ -449,7 +443,7 @@ struct ChatSuggestionRows: View {
                         }
                         Spacer(minLength: 0)
                     }.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).contentShape(Rectangle())
-                }.buttonStyle(ChatComposerButtonStyle())
+                }.buttonStyle(.plain)
             }
         }
     }

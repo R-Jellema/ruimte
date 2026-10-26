@@ -382,9 +382,9 @@ struct FileContentPage: View {
             }
             GitBottomBar {
                 FileMentionMenu(project: project, path: path, onMentioned: { note = $0 }) {
-                    Text("Mention").font(.body.weight(.semibold)).frame(maxWidth: .infinity, minHeight: 36)
+                    Text("Mention").frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.glass)
+                .buttonStyle(.mobileGlass)
                 GitBarButton(title: String(localized: "Diff"), prominent: false) { diff = changes.diff }
                     .disabled(changes.diff == nil)
                 GitBarButton(title: String(localized: "Copy"), prominent: false) {

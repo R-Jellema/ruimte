@@ -255,11 +255,9 @@ struct DiagramEmptyState: View {
                             ProgressView().frame(minWidth: 60)
                         } else {
                             Label(String(localized: "Draw"), lucideIcon: "sparkles")
-                                .font(.subheadline.weight(.semibold))
                         }
                     }
-                    .buttonStyle(.glassProminent)
-                    .tint(MobileStyle.accent)
+                    .buttonStyle(.mobileGlassProminent)
                     .disabled(!model.canSend)
                 }
                 if let problem = model.problem {

@@ -196,13 +196,11 @@ struct NewViewSheet: View {
         Button(action: action) {
             HStack(spacing: 8) {
                 LucideIcon(name: icon, size: 15)
-                Text(title).font(.subheadline)
+                Text(title)
             }
-            .frame(maxWidth: .infinity, minHeight: 44)
-            .background(MobileStyle.hover, in: .capsule)
-            .contentShape(.capsule)
+            .frame(maxWidth: .infinity)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.mobileCapsule)
     }
 
     private func create(_ kind: String, agent: (kind: String, name: String)? = nil) {

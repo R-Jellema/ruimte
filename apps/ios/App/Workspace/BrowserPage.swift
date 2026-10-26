@@ -58,7 +58,7 @@ struct BrowserPage: View {
                                 Image(lucide: "chevron-left", size: 18).frame(width: 48, height: 48)
                             }
                             .disabled(!state.back)
-                            .glassEffect(.regular.interactive(), in: .circle)
+                            .buttonStyle(MobileGlassButtonStyle(shape: .circle))
                             .accessibilityLabel("Back")
                         }
                         address
@@ -133,7 +133,7 @@ struct BrowserPage: View {
         } label: {
             Image(lucide: "ellipsis", size: 18).frame(width: 48, height: 48)
         }
-        .glassEffect(.regular.interactive(), in: .circle)
+        .buttonStyle(MobileGlassButtonStyle(shape: .circle))
         .accessibilityLabel("Page actions")
     }
 }

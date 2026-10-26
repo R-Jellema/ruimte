@@ -301,7 +301,7 @@ struct MachineUsagePage: View {
                 Button(String(localized: "Log in"), lucideIcon: "log-in") {
                     login = UsageLogin(kind: section.kind, accountID: section.id, name: section.name)
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.mobileCapsule)
             } else {
                 Text("Not logged in. Log in on the machine to see limits.").font(.callout)
                     .foregroundStyle(MobileStyle.muted)

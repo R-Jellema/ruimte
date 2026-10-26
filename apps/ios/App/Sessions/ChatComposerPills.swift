@@ -78,7 +78,7 @@ struct ChatComposerPills: View {
             Image(lucide: "plus", size: 18).foregroundStyle(MobileStyle.text)
                 .frame(width: 38, height: 38)
         }
-        .buttonStyle(ChatComposerGlassStyle(shape: .circle))
+        .buttonStyle(MobileGlassButtonStyle(shape: .circle))
         .accessibilityLabel("Add context or expand editor")
     }
 
@@ -95,7 +95,7 @@ struct ChatComposerPills: View {
             }
             .modifier(ChatComposerPill())
         }
-        .buttonStyle(ChatComposerGlassStyle(shape: .capsule))
+        .buttonStyle(MobileGlassButtonStyle(shape: .capsule))
         .accessibilityLabel("\(model.queue.count) messages in queue")
     }
 
@@ -134,7 +134,7 @@ struct ChatComposerPills: View {
             }
             .modifier(ChatComposerPill())
         }
-        .buttonStyle(ChatComposerGlassStyle(shape: .capsule))
+        .buttonStyle(MobileGlassButtonStyle(shape: .capsule))
         .accessibilityLabel("Model, \(name)")
         .accessibilityValue(account?.name(provider: usageProviderName(model.provider)) ?? "")
         .accessibilityAction(named: "Run settings") { open { sheets.settings = true } }
@@ -175,7 +175,7 @@ struct ChatComposerPills: View {
             }
             .modifier(ChatComposerPill())
         }
-        .buttonStyle(ChatComposerGlassStyle(shape: .capsule))
+        .buttonStyle(MobileGlassButtonStyle(shape: .capsule))
         .accessibilityLabel(option.text("label", fallback: String(localized: "Effort")))
         .accessibilityValue(label)
     }
@@ -207,7 +207,7 @@ struct ChatComposerPills: View {
             }
             .modifier(ChatComposerPill())
         }
-        .buttonStyle(ChatComposerGlassStyle(shape: .capsule))
+        .buttonStyle(MobileGlassButtonStyle(shape: .capsule))
         .accessibilityLabel("Permissions")
         .accessibilityValue(ChatRuntimeMode.label(mode))
     }
@@ -216,18 +216,6 @@ struct ChatComposerPills: View {
     private func open(_ presentation: () -> Void) {
         focused = false
         presentation()
-    }
-}
-
-/// The composer's glass on a menu's or button's label. Set through the button style and not on the label inside the
-/// `Menu`, so the system takes the glass as the menu's source and grows the menu out of it.
-struct ChatComposerGlassStyle<GlassShape: Shape>: ButtonStyle {
-    let shape: GlassShape
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .contentShape(shape)
-            .glassEffect(.regular.interactive(), in: shape)
     }
 }
 

@@ -254,7 +254,7 @@ struct LaunchEditorSheet: View {
                     TextField("Name", text: $row.key).frame(maxWidth: 140)
                     TextField("Value", text: $row.value)
                     Button(String(localized: "Remove \(row.key)"), lucideIcon: "x") { model.removeVariable(row.id) }
-                        .labelStyle(.iconOnly).buttonStyle(.borderless)
+                        .labelStyle(.iconOnly).buttonStyle(.mobileIcon)
                 }
                 .font(.callout.monospaced()).textInputAutocapitalization(.never).autocorrectionDisabled()
             }

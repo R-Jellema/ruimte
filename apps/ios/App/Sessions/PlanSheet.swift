@@ -223,11 +223,12 @@ struct PlanSheet: View {
     /// Back to the chat, or back with the steps that did not pass in its draft, which the person sends.
     private func actionBar(_ plan: PlanDocument) -> some View {
         HStack(spacing: 8) {
-            PlanBarButton(title: String(localized: "Show chat")) { dismiss() }
-            PlanBarButton(title: String(localized: "Send results")) { sendResults(plan) }
+            Button(String(localized: "Show chat")) { dismiss() }
+            Button(String(localized: "Send results")) { sendResults(plan) }
                 .disabled(plan.resultsText == nil)
                 .accessibilityHint("Puts the failed, blocked, warning and info steps in the chat's message")
         }
+        .buttonStyle(MobileCapsuleButtonStyle(size: .large))
         .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 12)
     }
 
@@ -788,23 +789,5 @@ enum PlanMarkdown {
         if let date = formatter.date(from: text) { return date }
         formatter.formatOptions = [.withInternetDateTime]
         return formatter.date(from: text)
-    }
-}
-
-private struct PlanBarButton: View {
-    let title: String
-    let action: () -> Void
-    @Environment(\.isEnabled) private var isEnabled
-
-    var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(isEnabled ? MobileStyle.text : MobileStyle.faint)
-                .frame(maxWidth: .infinity, minHeight: 48)
-                .background(MobileStyle.active, in: Capsule())
-                .contentShape(Capsule())
-        }
-        .buttonStyle(ChatComposerButtonStyle())
     }
 }

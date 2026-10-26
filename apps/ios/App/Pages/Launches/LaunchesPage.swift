@@ -253,11 +253,9 @@ struct LaunchButtons: View {
             } else if view.live {
                 if let showOutput {
                     Button(action: showOutput) {
-                        Image(lucide: "terminal", size: 13).frame(width: 32, height: 32)
-                            .background(MobileStyle.hover, in: .circle)
-                            .frame(width: 44, height: 44).contentShape(.rect)
+                        Image(lucide: "terminal", size: 13)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.mobileIcon)
                     .accessibilityLabel("Output of \(name)")
                 }
                 button("square", label: String(localized: "Stop \(name)")) { await store.stop(view.launch.id) }
@@ -265,11 +263,9 @@ struct LaunchButtons: View {
                 Button {
                     Task { await store.press(view.launch) }
                 } label: {
-                    Text("Approve").font(.footnote.weight(.semibold)).padding(.horizontal, 12).frame(height: 30)
-                        .background(MobileStyle.text, in: .capsule).foregroundStyle(MobileStyle.surface)
-                        .frame(minHeight: 44).contentShape(.rect)
+                    Text("Approve")
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.mobileCapsuleSmallProminent)
                 .accessibilityLabel("Approve and launch \(name)")
             } else {
                 button("play", label: String(localized: "Launch \(name)")) { await store.press(view.launch) }
@@ -283,11 +279,9 @@ struct LaunchButtons: View {
         Button {
             Task { await action() }
         } label: {
-            Image(lucide: icon, size: 13).frame(width: 32, height: 32)
-                .background(MobileStyle.hover, in: .circle)
-                .frame(width: 44, height: 44).contentShape(.rect)
+            Image(lucide: icon, size: 13)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.mobileIcon)
         .accessibilityLabel(label)
     }
 }

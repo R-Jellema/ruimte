@@ -103,12 +103,8 @@ struct OutputItemPage: View {
             }
         } label: {
             Label("\(model.versions.count) versions", lucideIcon: "history", iconSize: 16)
-                .font(.subheadline.weight(.semibold))
-                .padding(.horizontal, 16).frame(minHeight: 44)
         }
-        .buttonStyle(.plain)
-        .foregroundStyle(MobileStyle.text)
-        .glassEffect(.regular.interactive(), in: .capsule)
+        .buttonStyle(.mobileGlass)
         .padding(.bottom, 12)
         .accessibilityIdentifier("output.versions")
     }

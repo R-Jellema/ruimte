@@ -79,7 +79,7 @@ private struct MobileSidebarButtonSurface<Label: View>: View {
 
     var body: some View {
         label
-            .foregroundStyle(destructive ? .red : selected || hovered || pressed ? MobileStyle.text : MobileStyle.muted)
+            .foregroundStyle(destructive ? MobileStyle.statusError : selected || hovered || pressed ? MobileStyle.text : MobileStyle.muted)
             .background(
                 pressed ? MobileStyle.pressed : selected ? MobileStyle.active : hovered ? MobileStyle.hover : .clear,
                 in: RoundedRectangle(cornerRadius: cornerRadius)

@@ -79,8 +79,7 @@ private struct MachineCard: View {
                     }
                     if retries {
                         Button("Retry") { session.reconnect() }
-                            .font(.subheadline)
-                            .buttonStyle(.borderless)
+                            .buttonStyle(.mobileCapsuleSmall)
                     } else {
                         Image(lucide: "chevron-right", size: 13).foregroundStyle(MobileStyle.faint)
                             .accessibilityHidden(true)

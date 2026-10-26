@@ -88,6 +88,31 @@ extension MobileStatusRow where Trailing == EmptyView {
     }
 }
 
+/// The tile, title and second line of a `MobileStatusRow` for a row in a list that pads and sizes its rows itself. The
+/// tile is the subject's and says no state, so it stays out of what VoiceOver reads.
+struct MobileTileLabel: View {
+    var tone = MobileTone.idle
+    let title: String
+    let subtitle: String
+    let symbol: String
+
+    var body: some View {
+        HStack(spacing: MobileSpacing.medium) {
+            MobileStatusTile(tone: tone, symbol: symbol).accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(verbatim: title).font(.subheadline).foregroundStyle(MobileStyle.text)
+                    .lineLimit(1).truncationMode(.tail)
+                if !subtitle.isEmpty {
+                    Text(verbatim: subtitle).font(.caption).foregroundStyle(MobileStyle.muted)
+                        .lineLimit(1).truncationMode(.middle)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
 /// The trailing value of a row: muted, small, and in digits that keep their width while they count.
 struct MobileRowValue: View {
     let text: String

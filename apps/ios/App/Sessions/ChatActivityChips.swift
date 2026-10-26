@@ -64,7 +64,7 @@ struct ChatActivityChips: View {
                             }
                         }
                     }
-                    .buttonStyle(ChatComposerGlassStyle(shape: .capsule))
+                    .buttonStyle(MobileGlassButtonStyle(shape: .capsule))
                 }
                 if !background.isEmpty {
                     let shells = ChatBackground.counts(background).shells
@@ -75,7 +75,7 @@ struct ChatActivityChips: View {
                             Image(lucide: shells > 0 ? "square-terminal" : "activity", size: 13)
                         }
                     }
-                    .buttonStyle(ChatComposerGlassStyle(shape: .capsule))
+                    .buttonStyle(MobileGlassButtonStyle(shape: .capsule))
                 }
                 Spacer(minLength: 0)
             }

@@ -33,7 +33,7 @@ struct AddMachineSheet: View {
                         Text("Check again")
                     }
                 }
-                .buttonStyle(SolidCapsuleButtonStyle())
+                .buttonStyle(.mobileCapsuleLarge)
                 .disabled(checking)
                 .frame(maxWidth: 480)
                 .padding(.horizontal, 20)

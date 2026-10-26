@@ -237,10 +237,9 @@ struct GitConflictFilePage: View {
                             editing = GitBlockEdit(block: nil, text: draft.lines(in: file).joined(separator: "\n"))
                         }
                     } label: {
-                        Text("Resolve with an agent").font(.body.weight(.semibold)).lineLimit(1)
-                            .frame(maxWidth: .infinity, minHeight: 36)
+                        Text("Resolve with an agent").frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.glass)
+                    .buttonStyle(.mobileGlass)
                     .disabled(session.busy)
                     GitBarButton(title: String(localized: "Mark resolved")) {
                         Task {
@@ -382,9 +381,9 @@ private struct GitConflictBlockView: View {
                     Label(String(localized: "More answers"), lucideIcon: "ellipsis")
                         .labelStyle(.iconOnly)
                 }
+                .buttonStyle(.mobileIcon)
             }
-            .font(.caption)
-            .buttonStyle(.bordered)
+            .buttonStyle(.mobileCapsuleSmall)
             .lineLimit(1)
             .disabled(busy)
         }

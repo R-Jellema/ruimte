@@ -471,12 +471,10 @@ struct MachineUpdateBanner: View {
                     if install == .asking || install == .installing {
                         ProgressView()
                     } else {
-                        Text(action).font(.footnote.weight(.semibold))
+                        Text(action)
                     }
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(MobileStyle.text)
-                .foregroundStyle(MobileStyle.canvas)
+                .buttonStyle(.mobileCapsuleSmallProminent)
                 .disabled(install == .asking || install == .installing)
             }
         }

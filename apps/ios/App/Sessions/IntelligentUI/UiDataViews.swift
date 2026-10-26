@@ -165,7 +165,7 @@ struct UiTableView: View {
                     Button(String(localized: "Show all \(UiFormat.number(Double(rows.count))) rows")) {
                         context.local.setFlag("table:\(node.id)", true)
                     }
-                    .font(.footnote.weight(.medium)).buttonStyle(.bordered).tint(MobileStyle.text)
+                    .buttonStyle(.mobileCapsuleSmall)
                     .frame(minHeight: 44)
                 }
             }

@@ -78,7 +78,7 @@ struct DrawingToolbar: View {
                             .overlay { Circle().strokeBorder(.white.opacity(0.35), lineWidth: 1) }
                             .frame(width: 52, height: 52)
                     }
-                    .glassEffect(.regular.interactive(), in: .circle)
+                    .buttonStyle(MobileGlassButtonStyle(shape: .circle))
                     .accessibilityLabel("Color and width")
                 }
             }

@@ -34,9 +34,10 @@ enum MobileStyle {
     static let statusError = Color(uiColor: statusErrorColor)
     static let statusNeedsYou = Color(uiColor: statusNeedsYouColor)
     static let statusIdle = Color(uiColor: statusIdleColor)
-    /// The hairline a card is edged with and the ground of a quiet capsule. Alphas over whatever lies behind, so they
-    /// are not opaque tokens in `RuimteColors`.
+    /// The hairline a card is edged with. An alpha over whatever lies behind, so not an opaque token in `RuimteColors`.
     static let hairline = Color(uiColor: translucent(dark: 0.06, light: 0.08))
+    /// The one quiet ground: a quiet capsule, an icon button, a chip. Translucent, so it reads the same on a surface, a
+    /// panel or a card, where the opaque `hover` would vanish on a panel of the same gray.
     static let fill = Color(uiColor: translucent(dark: 0.08, light: 0.05))
     /// The ground of a code line inside a card.
     static let subtleFill = Color(uiColor: translucent(dark: 0.05, light: 0.035))
@@ -120,43 +121,9 @@ struct MobileForm<Content: View>: View {
     }
 }
 
-struct MobileIcon: View {
-    let symbol: String
-    var color: Color = MobileStyle.accent
-    var body: some View {
-        Image(lucide: symbol, size: 19)
-            .foregroundStyle(color)
-            .frame(width: 42, height: 42)
-            .background(color.opacity(0.09), in: RoundedRectangle(cornerRadius: 12))
-            .accessibilityHidden(true)
-    }
-}
-
-struct MobileRow: View {
-    let title: String
-    let subtitle: String
-    let symbol: String
-    var color: Color = MobileStyle.accent
-    var body: some View {
-        HStack(spacing: 10) {
-            Image(lucide: symbol, size: 20).foregroundStyle(MobileStyle.muted)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title).font(.callout).foregroundStyle(MobileStyle.text).lineLimit(1).truncationMode(.tail)
-                if !subtitle.isEmpty {
-                    Text(subtitle).font(.caption).foregroundStyle(MobileStyle.muted).lineLimit(1).truncationMode(
-                        .middle)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .frame(minHeight: 44)
-        .accessibilityElement(children: .combine)
-    }
-}
-
 struct MobileStatus: View {
     let title: String
-    var color: Color = .secondary
+    var color: Color = MobileStyle.muted
     var body: some View {
         HStack(spacing: 6) {
             Circle().fill(color).frame(width: 6, height: 6)

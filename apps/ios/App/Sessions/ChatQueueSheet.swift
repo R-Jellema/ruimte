@@ -63,11 +63,10 @@ struct ChatQueueSheet: View {
                 } label: {
                     Image(lucide: "trash", size: 16)
                 }
-                .tint(MobileStyle.statusError)
+                .buttonStyle(.mobileIcon)
                 .accessibilityLabel("Remove from queue")
             }
-            .font(.subheadline.weight(.medium))
-            .buttonStyle(.bordered).buttonBorderShape(.capsule).tint(MobileStyle.text)
+            .buttonStyle(.mobileCapsule)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)

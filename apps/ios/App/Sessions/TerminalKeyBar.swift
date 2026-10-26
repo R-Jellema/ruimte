@@ -50,10 +50,9 @@ struct TerminalHeldPrompt: View {
             Button {
                 held.run()
             } label: {
-                Label(String(localized: "Run"), lucideIcon: "play").font(.subheadline.weight(.semibold))
+                Label(String(localized: "Run"), lucideIcon: "play")
             }
-            .buttonStyle(.glassProminent)
-            .tint(MobileStyle.accent)
+            .buttonStyle(.mobileGlassProminent)
             .disabled(!held.enabled)
         }
         .padding(.leading, 16).padding(.trailing, 8).padding(.vertical, 8)

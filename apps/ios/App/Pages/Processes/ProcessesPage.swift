@@ -331,16 +331,13 @@ struct ProcessesPage: View {
                 Text(ProcessesText.alert(alert, now: now)).font(.footnote)
                 Spacer(minLength: 4)
                 Button(String(localized: "Dismiss"), lucideIcon: "x") { Task { await model.dismiss(alert) } }
-                    .labelStyle(.iconOnly).frame(minWidth: 28, minHeight: 28)
-                    .buttonStyle(.borderless)
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.mobileIcon)
             }
             HStack(spacing: 6) {
                 ForEach(ProcessesText.actions(alert), id: \.rawValue) { action in
                     Button(action.label) { Task { await model.act(alert, action) } }
-                        .font(.caption.weight(.semibold))
-                        .buttonStyle(.bordered)
-                        .buttonBorderShape(.capsule)
-                        .controlSize(.small)
+                        .buttonStyle(.mobileCapsuleSmall)
                 }
             }
             .padding(.leading, 22)

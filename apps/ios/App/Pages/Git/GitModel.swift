@@ -178,7 +178,7 @@ struct GitBusyRow: View {
             Text(text).font(.caption).foregroundStyle(MobileStyle.muted).lineLimit(1)
             if let cancel {
                 Spacer(minLength: 8)
-                Button("Cancel", action: cancel).font(.caption)
+                Button("Cancel", action: cancel).buttonStyle(.mobileCapsuleSmall)
             }
         }
     }
@@ -192,17 +192,10 @@ struct GitBarButton: View {
     let action: () -> Void
 
     var body: some View {
-        if prominent {
-            label.buttonStyle(.glassProminent).tint(role == .destructive ? .red : MobileStyle.accent)
-        } else {
-            label.buttonStyle(.glass)
-        }
-    }
-
-    private var label: some View {
         Button(role: role, action: action) {
-            Text(title).font(.body.weight(.semibold)).lineLimit(1).frame(maxWidth: .infinity, minHeight: 36)
+            Text(title).frame(maxWidth: .infinity)
         }
+        .buttonStyle(prominent ? .mobileGlassProminent : .mobileGlass)
     }
 }
 

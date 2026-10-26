@@ -126,7 +126,7 @@ struct DeviceToolsSheet: View {
                     Spacer()
                     Button("Reset") { Task { await model.act("resetBattery") } }
                 }
-                .buttonStyle(.borderless)
+                .buttonStyle(.mobileCapsuleSmall)
             }
         }
         .onChange(of: model.setting("battery")) { _, value in
@@ -153,7 +153,7 @@ struct DeviceToolsSheet: View {
                         Task { await model.act("biometric", ["sensor": .string(sensor), "event": .string("nomatch")]) }
                     }
                 }
-                .buttonStyle(.borderless)
+                .buttonStyle(.mobileCapsuleSmall)
             }
         }
     }
@@ -191,7 +191,7 @@ struct DeviceToolsSheet: View {
                         Button("Terminate") { Task { await model.act("terminateApp", ["appId": .string(app)]) } }
                     }
                 }
-                .buttonStyle(.borderless).disabled(app.isEmpty || !idle)
+                .buttonStyle(.mobileCapsuleSmall).disabled(app.isEmpty || !idle)
             }
             if model.has("permissions") {
                 Picker("Permission", selection: $permission) {
@@ -212,7 +212,7 @@ struct DeviceToolsSheet: View {
                         if decision != "reset" { Spacer() }
                     }
                 }
-                .buttonStyle(.borderless).disabled(app.isEmpty || !idle)
+                .buttonStyle(.mobileCapsuleSmall).disabled(app.isEmpty || !idle)
             }
             if model.has("push") {
                 TextField("Notification text", text: $push)

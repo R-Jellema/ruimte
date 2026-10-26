@@ -39,7 +39,7 @@ struct AccountSettingsPage: View {
             }
             Section("Machines") {
                 ForEach(runtime.machines, id: \.id) { machine in
-                    MobileRow(
+                    MobileTileLabel(
                         title: machine.name, subtitle: reach(runtime.session(for: machine)),
                         symbol: machine.icon?.value ?? "monitor")
                 }

@@ -658,7 +658,7 @@ struct ChatScreen: View {
             RoundedRectangle(cornerRadius: 4).fill(MobileStyle.text).frame(width: 16, height: 16)
                 .frame(width: 52, height: 52)
         }
-        .buttonStyle(ChatComposerGlassStyle(shape: .circle))
+        .buttonStyle(MobileGlassButtonStyle(shape: .circle))
         .disabled(!model.connected)
         .accessibilityLabel("Stop")
         .accessibilityIdentifier("chat.stop")

@@ -203,8 +203,7 @@ struct MachineAgentsPage: View {
             Button("Sign in again") {
                 login = AgentLogin(kind: agent.kind, accountID: account.id, name: account.name)
             }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
+            .buttonStyle(.mobileCapsuleSmall)
         }
     }
 

@@ -64,7 +64,7 @@ struct NotificationStepPage: View {
                     Text("Turn on notifications")
                 }
             }
-            .buttonStyle(SolidCapsuleButtonStyle())
+            .buttonStyle(.mobileCapsuleLarge)
             .disabled(coordinator.busy)
             .accessibilityIdentifier("onboarding.notifications.enable")
             Button("Not now") { onboarding.finish() }

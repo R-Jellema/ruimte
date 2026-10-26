@@ -254,7 +254,7 @@ private struct ModelComparisonLegend: View {
             .padding(.horizontal, 12).frame(minHeight: 40)
             .contentShape(Rectangle())
         }
-        .buttonStyle(ChatComposerButtonStyle())
+        .buttonStyle(.plain)
         .disabled(!measured)
         .accessibilityAddTraits(shown ? .isSelected : [])
         .accessibilityHint(shown ? "Hides this model in the chart" : "Shows this model in the chart")

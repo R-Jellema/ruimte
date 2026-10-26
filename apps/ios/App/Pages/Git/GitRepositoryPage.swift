@@ -160,7 +160,7 @@ struct GitDivergedRow: View {
                 Button("Merge") { pull("merge") }
                 Button("Rebase") { pull("rebase") }
             }
-            .buttonStyle(.bordered).font(.callout).disabled(repositories.busy)
+            .buttonStyle(.mobileCapsule).disabled(repositories.busy)
         }
         .padding(.vertical, 6)
     }
