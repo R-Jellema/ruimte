@@ -9,8 +9,8 @@ enum MobileSpacing {
     static let large: CGFloat = 16
     static let xLarge: CGFloat = 24
     /// The edge of a page to its cards and rows, the same on every page.
-    static let margin: CGFloat = 16
-    static let cardPadding: CGFloat = 16
+    static let margin: CGFloat = 20
+    static let cardPadding: CGFloat = 18
 }
 
 /// The fixed sizes of the design. A shape is a tile, a card or a capsule; nothing else takes a radius of its own.
