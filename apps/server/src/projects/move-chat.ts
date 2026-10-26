@@ -1,4 +1,4 @@
-import { lstat, realpath } from 'node:fs/promises';
+import { realpath } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 import { ChatError as AgentChatError } from '@adecore/agents/chat';
 import type { AgentLineageStore } from '@adecore/agents/coordination';
@@ -20,7 +20,7 @@ import { ownFileConflicts, ownFileNames } from './move-info.ts';
 import type { SnoozeStore } from '../push/snoozes.ts';
 import { movedNote } from './move-note.ts';
 import type { MoveJournal } from './move-journal.ts';
-import { moveOwnFiles } from './own-files.ts';
+import { entryExists, moveOwnFiles } from './own-files.ts';
 import { DEFAULT_COLOR, type MutationApply } from './project-store.ts';
 
 const REFUSAL_SENTENCES: Record<ChatMoveRefusal['reason'], string> = {
@@ -78,10 +78,6 @@ export interface MoveChatDeps {
     moveOwnFiles?: typeof moveOwnFiles;
 }
 
-async function exists(path: string): Promise<boolean> {
-    return (await lstat(path).catch(() => null)) !== null;
-}
-
 function refuse(deps: MoveChatDeps, chatId: string, recheck = false): void {
     const refusal = deps.refusal(chatId, recheck);
     if (refusal !== null) {
@@ -117,7 +113,7 @@ async function makeProject(payload: ChatMovePayload, folder: string, deps: MoveC
         throw new ChatError('move-failed', 'No folder to make a project in');
     }
     const made = await deps.projects.make({ folder, name: payload.to.name, createFolder: payload.to.createFolder });
-    if (payload.to.initGit && !(await exists(join(folder, '.git')))) {
+    if (payload.to.initGit && !(await entryExists(join(folder, '.git')))) {
         await deps.initGit(folder).catch((e: unknown) => {
             throw new ChatError('move-failed', `A git repository could not be started in ${folder}: ${errorText(e)}`);
         });

@@ -1,8 +1,8 @@
-import { lstat, readdir } from 'node:fs/promises';
+import { readdir } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { isInside } from '../canvas/project-paths.ts';
 import type { ChatItem, ChatMoveInfoPayload, ChatMoveInfoResult, ChatMoveRefusal, ChatMoveTarget } from '@ruimte/contracts';
-import { IGNORED_OWN_NAMES } from './own-files.ts';
+import { entryExists, IGNORED_OWN_NAMES } from './own-files.ts';
 import { workedFolders } from '../chat/worked-folders.ts';
 import { referencedIds } from '../context/references.ts';
 
@@ -24,15 +24,6 @@ export interface MoveInfoDeps {
     gitRoot(directory: string): Promise<string | null>;
     /* Throws for a folder that holds the machine's own state (`MachineHome.refuse`). */
     refuseFolder(folder: string): Promise<void>;
-}
-
-async function exists(path: string): Promise<boolean> {
-    try {
-        await lstat(path);
-        return true;
-    } catch {
-        return false;
-    }
 }
 
 /* The top-level names in a folder, hidden ones included; a folder that is not there holds nothing. */
@@ -59,7 +50,7 @@ export async function ownFileConflicts(names: readonly string[], folder: string 
         if (taken.length >= limit) {
             break;
         }
-        if (await exists(join(folder, name))) {
+        if (await entryExists(join(folder, name))) {
             taken.push(name);
         }
     }

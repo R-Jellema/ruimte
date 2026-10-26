@@ -63,7 +63,8 @@ function isTaken(error: unknown): boolean {
     return code === 'EEXIST' || code === 'ERR_FS_CP_EEXIST';
 }
 
-async function exists(path: string): Promise<boolean> {
+/* Whether anything is at the path, a link that leads nowhere included. */
+export async function entryExists(path: string): Promise<boolean> {
     return (await lstat(path).catch(() => null)) !== null;
 }
 
@@ -96,7 +97,7 @@ export async function moveOwnFiles(from: string, to: string, io: OwnFilesIO = SY
     });
     const names = listed.filter((name) => !IGNORED_OWN_NAMES.includes(name)).sort();
     for (const name of names) {
-        if (await exists(join(to, name))) {
+        if (await entryExists(join(to, name))) {
             throw new ChatError('files-conflict', `${name} is already in ${to}`);
         }
     }
