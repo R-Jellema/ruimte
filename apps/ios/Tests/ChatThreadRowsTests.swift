@@ -139,11 +139,13 @@ final class ChatThoughtTests: XCTestCase {
 final class ChatWorkflowLayoutTests: XCTestCase {
     private func agent(
         _ index: Int64, phase: Int64? = 1, status: ChatSubagentStatus = .running,
-        startedAt: Double? = 1000, duration: Int64? = nil
+        startedAt: Double? = 1000, duration: Int64? = nil, lastTool: String? = nil, lastToolSummary: String? = nil,
+        promptPreview: String? = nil, resultPreview: String? = nil, error: String? = nil
     ) -> ChatToolItemWorkflowAgentsItem {
         ChatToolItemWorkflowAgentsItem(
             index: index, label: "agent-\(index)", phaseIndex: phase, agentId: "a\(index)", status: status,
-            startedAt: startedAt, durationMs: duration, lastTool: nil)
+            startedAt: startedAt, durationMs: duration, lastTool: lastTool, lastToolSummary: lastToolSummary,
+            promptPreview: promptPreview, resultPreview: resultPreview, error: error)
     }
 
     private func workflow(_ agents: [ChatToolItemWorkflowAgentsItem]) -> ChatToolItemWorkflow {
@@ -171,18 +173,57 @@ final class ChatWorkflowLayoutTests: XCTestCase {
         func time(_ agent: ChatToolItemWorkflowAgentsItem, _ state: WorkflowAgentState) -> String? {
             ChatWorkflowLayout.time(WorkflowAgentView(agent: agent, state: state))
         }
-        XCTAssertEqual(time(agent(1, status: .done, duration: 5421), .done), "done in 5s")
-        let elapsed: [(Int64, String)] = [
-            (-5, "done in 0s"), (12_400, "done in 12s"), (120_000, "done in 2m"), (125_000, "done in 2m 5s"),
-        ]
+        XCTAssertEqual(time(agent(1, status: .done, duration: 5421), .done), "5s")
+        let elapsed: [(Int64, String)] = [(-5, "0s"), (12_400, "12s"), (120_000, "2m"), (125_000, "2m 5s")]
         for (duration, expected) in elapsed {
             XCTAssertEqual(time(agent(1, status: .done, duration: duration), .done), expected)
         }
-        XCTAssertEqual(time(agent(1, status: .failed, duration: 2000), .failed), "failed in 2s")
-        XCTAssertEqual(time(agent(1, status: .failed), .failed), "Failed")
+        XCTAssertEqual(time(agent(1, status: .failed, duration: 2000), .failed), "2s")
+        XCTAssertNil(time(agent(1, status: .failed), .failed))
         XCTAssertEqual(time(agent(1, startedAt: nil), .waiting), "waiting")
         XCTAssertEqual(time(agent(1), .stopped), "stopped")
         XCTAssertNil(time(agent(1), .running))
+    }
+
+    func testAnAgentAtWorkShowsItsLastToolASettledOneItsAnswerAndAFailedOneItsError() {
+        func preview(_ agent: ChatToolItemWorkflowAgentsItem, _ state: WorkflowAgentState) -> WorkflowAgentPreview {
+            ChatWorkflowLayout.preview(WorkflowAgentView(agent: agent, state: state))
+        }
+        XCTAssertEqual(
+            preview(agent(1, lastTool: "Bash", lastToolSummary: "bun test"), .running),
+            WorkflowAgentPreview(tool: "Bash", text: "bun test"))
+        XCTAssertEqual(
+            preview(agent(1, promptPreview: "Map the device"), .running), WorkflowAgentPreview(text: "Map the device"))
+        XCTAssertEqual(
+            preview(agent(1, promptPreview: "Map", resultPreview: "\n# Catalog\nmore"), .done),
+            WorkflowAgentPreview(text: "Catalog"))
+        XCTAssertEqual(preview(agent(1, promptPreview: "Map"), .done), WorkflowAgentPreview(text: "Map"))
+        XCTAssertEqual(preview(agent(1, error: "blocked"), .failed), WorkflowAgentPreview(text: "blocked"))
+        XCTAssertEqual(preview(agent(1), .waiting), WorkflowAgentPreview())
+    }
+
+    func testTheCountsHoldEveryAgentOnceByItsState() {
+        let phases = ChatWorkflowLayout.phases(
+            workflow([agent(1), agent(2, status: .done), agent(3, startedAt: nil), agent(4, status: .done)]),
+            running: true)
+        XCTAssertEqual(
+            ChatWorkflowLayout.counts(phases), WorkflowCounts(total: 4, running: 1, waiting: 1, done: 2))
+        XCTAssertEqual(phases[0].settled, 2)
+        XCTAssertEqual(
+            String(ChatWorkflowRow.countsText(ChatWorkflowLayout.counts(phases)).characters),
+            "4 agents · 1 working · 2 done")
+    }
+
+    func testTheDescriptionReadsOutOfTheMetaLiteralQuotesAndEscapesIncluded() {
+        let script =
+            "export const meta = {\n    name: 'build',\n    description: 'Build the \\'home\\' layer',\n"
+            + "    phases: [{ title: 'Map' }]\n}\nconst description = 'not this'"
+        XCTAssertEqual(ChatWorkflowLayout.description(.object(["script": .string(script)])), "Build the 'home' layer")
+        let outside =
+            "export const meta = { name: \"x\", phases: [{ title: \"}\" }] }\nagent(\"a\", { description: \"not this\" })"
+        XCTAssertNil(ChatWorkflowLayout.description(.object(["script": .string(outside)])))
+        XCTAssertNil(ChatWorkflowLayout.description(.object(["name": .string("review")])))
+        XCTAssertNil(ChatWorkflowLayout.description(.null))
     }
 
     func testAWorkflowAgentIsOpenedByItsAgentIDUnderThePrefix() {

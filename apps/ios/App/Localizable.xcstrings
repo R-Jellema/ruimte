@@ -5790,6 +5790,46 @@
         }
       }
     },
+    "%lld done" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld klaar"
+          }
+        }
+      }
+    },
+    "Workflow running" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Workflow loopt"
+          }
+        }
+      }
+    },
+    "Workflow done" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Workflow klaar"
+          }
+        }
+      }
+    },
+    "Workflow failed" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Workflow mislukt"
+          }
+        }
+      }
+    },
     "%lld%%" : {
       "shouldTranslate" : false
     },
