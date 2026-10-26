@@ -1,6 +1,7 @@
 import i18next from 'i18next';
 import { compareVersions, isVersion } from '@ruimte/desktop-bridge';
 import { create } from 'zustand';
+import { messageOf } from '@adecore/ui';
 import { desktop, type Release, type ReleaseNotesState, type UpdateState } from '@/desktop/bridge';
 import { hasUpdate } from '@/state/updates';
 
@@ -52,7 +53,7 @@ function loadReleaseNotes(refresh: boolean): Promise<void> {
                 notes: {
                     releases: previous?.releases ?? [],
                     fetchedAt: previous?.fetchedAt ?? null,
-                    error: e instanceof Error ? e.message : i18next.t('state:update.noAnswer')
+                    error: messageOf(e, i18next.t('state:update.noAnswer'))
                 }
             });
         } finally {

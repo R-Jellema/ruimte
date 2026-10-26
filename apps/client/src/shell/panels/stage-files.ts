@@ -1,4 +1,5 @@
 import i18next from 'i18next';
+import { messageOf } from '@adecore/ui';
 import { perform } from '@/actions/client-actions';
 import { useToasts } from '@/state/toasts';
 
@@ -14,7 +15,7 @@ export async function stageFiles(cwd: string, paths: readonly string[], staged: 
         await perform(staged ? 'git.stage' : 'git.unstage', { repository: cwd, paths: [...paths] });
         return true;
     } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : i18next.t('panels:error.generic');
+        const message = messageOf(error, i18next.t('panels:error.generic'));
         useToasts.getState().show({
             title: staged ? i18next.t('panels:git.stage.failed') : i18next.t('panels:git.stage.unstageFailed'),
             description: message,

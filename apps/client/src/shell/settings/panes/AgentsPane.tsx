@@ -32,7 +32,7 @@ import { isApplePlatform } from '@/desktop/bridge';
 import { hasLocalMachine } from '@/state/local-machine';
 import { MachineSwitchSections } from '@/shell/settings/MachineSwitchSection';
 import { SettingsRow } from '@adecore/ui/settings';
-import { Button, FormError, Switch, Select, type SelectItem } from '@adecore/ui';
+import { Button, FormError, Switch, Select, type SelectItem, messageOf } from '@adecore/ui';
 import { formatPercent } from '@adecore/ui/format';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
 import { useSettings } from '@/state/settings';
@@ -324,7 +324,7 @@ function IntegrationsSection() {
             const report = await setAgentIntegration(provider, on);
             setReports((current) => ({ ...current, [provider]: report }));
         } catch (e) {
-            setError({ provider, message: e instanceof Error ? e.message : String(e) });
+            setError({ provider, message: messageOf(e) });
         } finally {
             setBusy(null);
         }
@@ -372,7 +372,7 @@ function ClosedLidRows({ shown }: { shown: boolean }) {
         setBusy(true);
         setError(null);
         void setClosedLidRule(install)
-            .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)))
+            .catch((e: unknown) => setError(messageOf(e)))
             .finally(() => setBusy(false));
     };
 

@@ -5,7 +5,7 @@ import { CliMark } from '@adecore/agents-react/providers';
 import { useLocalTilde } from '@/format/home-path';
 import { INTEGRATION_NAMES, pendingReview, providersToKeep, setAgentIntegration, useAgentIntegrations } from '@/state/agent-integrations';
 import { useUi } from '@/state/ui';
-import { Button, Dialog, FormError, Skeleton } from '@adecore/ui';
+import { Button, Dialog, FormError, Skeleton, messageOf } from '@adecore/ui';
 
 const OUTCOME_KEYS = {
     written: 'written',
@@ -112,7 +112,7 @@ export function AgentIntegrationsDialog() {
             const report = await setAgentIntegration(provider, on);
             setReports((current) => ({ ...current, [provider]: report }));
         } catch (e) {
-            setError(e instanceof Error ? e.message : String(e));
+            setError(messageOf(e));
         } finally {
             setBusy(null);
         }

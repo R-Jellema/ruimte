@@ -1,3 +1,4 @@
+import { messageOf } from '@adecore/ui';
 export type FileSearchResult = { kind: 'ready'; files: readonly string[] } | { kind: 'error'; message: string };
 
 export class FileSearch {
@@ -9,7 +10,7 @@ export class FileSearch {
         try {
             result = { kind: 'ready', files: (await run()).files };
         } catch (error) {
-            result = { kind: 'error', message: error instanceof Error ? error.message : String(error) };
+            result = { kind: 'error', message: messageOf(error) };
         }
         return generation === this.generation ? result : null;
     }

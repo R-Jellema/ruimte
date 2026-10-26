@@ -1,6 +1,7 @@
 import i18next from 'i18next';
 import { ActionRefusal } from '@ruimte/actions';
 import type { Worktree, WorktreeMergePayload, WorktreeMergeResult, WorktreeMergeStrategy } from '@ruimte/contracts';
+import { messageOf } from '@adecore/ui';
 
 /* The three ways a worktree lands, in the order the dialog offers them. */
 export const MERGE_STRATEGIES: readonly WorktreeMergeStrategy[] = ['squash', 'merge', 'rebase'];
@@ -92,7 +93,7 @@ export async function runMerges(
                 kind: 'refused',
                 worktree: run.worktree,
                 code: error instanceof ActionRefusal ? error.code : 'failed',
-                message: error instanceof Error ? error.message : i18next.t('panels:error.generic')
+                message: messageOf(error, i18next.t('panels:error.generic'))
             };
         }
         outcomes.push(outcome);

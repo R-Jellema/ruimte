@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { perform } from '@/actions/client-actions';
 import { endingTitle, endsAgentsWarning, stopsSubagentsWarning, stopsTaskWarning, useEndingAgents, type PendingEnd } from '@/agents/end-children';
 import { hasWork, leftBehindLine, removedToast } from '@/shell/panels/worktree-rows';
-import { Switch, Button, Icon, Dialog } from '@adecore/ui';
+import { Switch, Button, Icon, Dialog, messageOf } from '@adecore/ui';
 import { useEndpointId } from '@/state/keys';
 import { useToasts } from '@/state/toasts';
 import { worktreeLists } from '@/state/worktrees';
@@ -99,7 +99,7 @@ async function removeClean(worktrees: readonly PendingEndWorktree[]): Promise<vo
                 kind: 'success'
             });
         } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : i18next.t('agents:dialog.worktreeFailed');
+            const message = messageOf(error, i18next.t('agents:dialog.worktreeFailed'));
             useToasts
                 .getState()
                 .show({ title: i18next.t('agents:dialog.worktreeStays', { branch: worktree.branch }), description: message, kind: 'error', output: message });

@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, 
 import { useTranslation } from 'react-i18next';
 import type { FileTreeDropResult, FileTreeVisibleRow } from '@pierre/trees';
 import type { Worktree } from '@ruimte/contracts';
-import { FileTree, useFileTree } from '@adecore/ui';
+import { FileTree, useFileTree, messageOf } from '@adecore/ui';
 import { formatNumber } from '@adecore/ui/format';
 import {
     ArrowLeft,
@@ -715,7 +715,7 @@ export function FilesPanel() {
         perform('file.delete', { paths: deleting.absolutes })
             .then(() => setDeleting(null))
             .catch((error: unknown) => {
-                const message = error instanceof Error ? error.message : t('error.generic');
+                const message = messageOf(error, t('error.generic'));
                 useToasts.getState().show({ title: t('files.deleteFailed'), description: message, kind: 'error', output: message });
             })
             .finally(() => setDeleteBusy(false));

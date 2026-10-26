@@ -29,7 +29,7 @@ import { readResource } from '@/transport/byte-transfer';
 import { useTransport } from '@/transport/context';
 import { readPiece } from '@/transport/piece';
 import { TransportError } from '@/transport/transport';
-import { Button, EmptyState, Icon, Menu } from '@adecore/ui';
+import { Button, EmptyState, Icon, Menu, messageOf } from '@adecore/ui';
 import { formatBytes } from '@adecore/ui/format';
 
 export interface ArchiveVersion {
@@ -51,10 +51,6 @@ const READING: Probe = { status: 'reading' };
 
 // The bar the preview draws stays in the preview, under the archive's own, and acts on the entry alone.
 const OWN_BAR = fixedSlot(null);
-
-function messageOf(e: unknown): string {
-    return e instanceof Error ? e.message : String(e);
-}
 
 /* What can be told from the listing alone, before a byte of the entry is asked for. */
 function knownBefore(entry: ArchiveEntry): Probe | null {

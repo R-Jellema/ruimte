@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SettingsRow } from '@adecore/ui/settings';
-import { Switch } from '@adecore/ui';
+import { Switch, messageOf } from '@adecore/ui';
 import { perform } from '@/actions/client-actions';
 import { MACHINE_SWITCHES, type MachineSwitch } from '@/shell/settings/machine-switches';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
@@ -35,7 +35,7 @@ function MachineSwitchRow({ endpoint, setting, searchId }: { endpoint: Endpoint;
                 id: `endpoint-${setting}-${endpoint.id}`,
                 kind: 'error',
                 title: t('machine.toast.saveFailed', { machine: endpoint.label }),
-                description: e instanceof Error ? e.message : t('machine.toast.unchanged')
+                description: messageOf(e, t('machine.toast.unchanged'))
             });
         } finally {
             setBusy(false);

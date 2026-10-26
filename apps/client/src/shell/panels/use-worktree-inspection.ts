@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Worktree } from '@ruimte/contracts';
+import { messageOf } from '@adecore/ui';
 import { removeVerdict, type RemoveVerdict } from '@/shell/panels/worktree-rows';
 import { useEndpointId } from '@/state/keys';
 import { worktreeLists } from '@/state/worktrees';
@@ -42,7 +43,7 @@ export function useWorktreeInspection(folder: string | null) {
             })
             .catch((error: unknown) => {
                 if (attempt === inspection.current) {
-                    setInspected({ worktree, verdict: { removable: false, reason: error instanceof Error ? error.message : t('worktree.verdict.failed') } });
+                    setInspected({ worktree, verdict: { removable: false, reason: messageOf(error, t('worktree.verdict.failed')) } });
                 }
             });
     };

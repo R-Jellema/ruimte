@@ -8,7 +8,7 @@ import { FramePainter } from '@/transport/live-stream';
 import { followLiveStream } from '@/endpoint/live-stream-fetch';
 import { useEndpointId } from '@/state/keys';
 import { useEndpoints } from '@/state/endpoints';
-import { EmptyState } from '@adecore/ui';
+import { EmptyState, messageOf } from '@adecore/ui';
 import { initialStreamUrl, useBrowserRow } from './registry';
 import { browserStreamScaleLimit, clampBrowserStreamScale, useBrowserStreamQuality } from './stream-quality';
 
@@ -85,7 +85,7 @@ export function BrowserStream({ id, initialUrl: savedUrl, className }: { id: str
             () => mounted && setReady(true),
             /* Uses i18next.t, not the hook's `t`, which changes identity when the language does and
                would reopen the page on every run of this effect. */
-            (error) => mounted && setStreamError(error instanceof Error ? error.message : i18next.t('browser:stream.startFailed'))
+            (error) => mounted && setStreamError(messageOf(error, i18next.t('browser:stream.startFailed')))
         );
         const observer = new ResizeObserver(([entry]) => {
             if (!entry) {

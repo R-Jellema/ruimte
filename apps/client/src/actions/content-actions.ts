@@ -14,6 +14,7 @@ import {
 } from '@ruimte/contracts';
 import type { StoreApi } from 'zustand';
 import { z } from 'zod';
+import { messageOf } from '@adecore/ui';
 import { clipboardOrRefuse, copyTextOrRefuse } from '@/actions/clipboard';
 import { asksFirst } from '@/actions/developer-actions';
 import { lineElement, noteElement, shapeElement, textElement } from '@/drawing/gestures';
@@ -177,7 +178,7 @@ function parsedDocument<Schema extends z.ZodType>(document: string, schema: Sche
     try {
         json = JSON.parse(document);
     } catch (error: unknown) {
-        throw new ActionRefusal('bad-json', `The ${what} is not JSON: ${error instanceof Error ? error.message : 'it does not parse'}.`);
+        throw new ActionRefusal('bad-json', `The ${what} is not JSON: ${messageOf(error, 'it does not parse')}.`);
     }
     const parsed = schema.safeParse(json);
     if (!parsed.success) {

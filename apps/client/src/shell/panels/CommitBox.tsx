@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { ArrowUp, FolderGit2, LoaderCircle, Sparkles } from 'lucide-react';
 import type { GitCapabilitiesResult } from '@ruimte/contracts';
-import { Button, Checkbox, Icon, IconButton, Menu, SplitButton, TextArea, Tooltip, KEY_SHORTCUTS, matchesShortcut } from '@adecore/ui';
+import { Button, Checkbox, Icon, IconButton, Menu, SplitButton, TextArea, Tooltip, KEY_SHORTCUTS, matchesShortcut, messageOf } from '@adecore/ui';
 import { cancelGitRunAction, perform } from '@/actions/client-actions';
 import { amendTarget, commitTargets, nextActionId, splitMessage, type CommitCandidate } from '@/shell/panels/git-actions';
 import { CommitSuggestion } from './commit-suggestion';
@@ -137,7 +137,7 @@ export function CommitBox({ messageKey, checkouts, named, capabilities, busy, on
                 if (writingId.current !== actionId) {
                     return;
                 }
-                const text = error instanceof Error ? error.message : t('git.commit.writeFailedBody');
+                const text = messageOf(error, t('git.commit.writeFailedBody'));
                 useToasts.getState().show({ title: t('git.commit.writeFailedTitle'), description: text.split('\n')[0], kind: 'error', output: text });
             })
             .finally(() => {

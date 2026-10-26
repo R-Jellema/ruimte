@@ -3,7 +3,22 @@ import { useTranslation } from 'react-i18next';
 import { AtSign, Folder, FolderInput, FolderOpen, FolderPlus, TriangleAlert, type LucideIcon } from 'lucide-react';
 import type { ChatMoveInfoResult, ChatMoveRefusal, ProjectSummary } from '@ruimte/contracts';
 import { ActionRefusal } from '@ruimte/actions';
-import { Button, ChoiceCards, Dialog, ErrorBoundary, FieldHint, FormError, Icon, Input, Segmented, Select, Skeleton, Switch, type Choice } from '@adecore/ui';
+import {
+    Button,
+    ChoiceCards,
+    Dialog,
+    ErrorBoundary,
+    FieldHint,
+    FormError,
+    Icon,
+    Input,
+    Segmented,
+    Select,
+    Skeleton,
+    Switch,
+    type Choice,
+    messageOf
+} from '@adecore/ui';
 import { formatMoment } from '@adecore/ui/format';
 import { perform } from '@/actions/client-actions';
 import { desktop } from '@/desktop/bridge';
@@ -123,7 +138,7 @@ function MoveChatForm({ request, onDone }: { request: MoveChatRequest; onDone():
             })
             .catch((e: unknown) => {
                 if (current) {
-                    setInfoFailure(e instanceof Error ? e.message : t('moveChat.infoFailed'));
+                    setInfoFailure(messageOf(e, t('moveChat.infoFailed')));
                 }
             });
         return () => {
@@ -181,7 +196,7 @@ function MoveChatForm({ request, onDone }: { request: MoveChatRequest; onDone():
             if (STALE_CODES.includes(code)) {
                 setRecheck((n) => n + 1);
             }
-            setFailure(e instanceof Error ? e.message : t('moveChat.failed'));
+            setFailure(messageOf(e, t('moveChat.failed')));
         } finally {
             setBusy(false);
         }

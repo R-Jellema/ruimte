@@ -33,7 +33,7 @@ import { endpointById } from '@/state/endpoints';
 import { useProject } from '@/state/project';
 import { ModelPicker } from '@adecore/agents-react/chat/ui';
 import { useProviders, useChatRow, knownAccounts, providerAccountsOf } from '@adecore/agents-react/state';
-import { Switch, Button, ErrorBoundary, FieldHint, FormError, Icon, Input, Select, Dialog } from '@adecore/ui';
+import { Switch, Button, ErrorBoundary, FieldHint, FormError, Icon, Input, Select, Dialog, messageOf } from '@adecore/ui';
 import { useViewNodes } from '@/project/view-nodes';
 import { useEndpointId } from '@/state/keys';
 import { useUi } from '@/state/ui';
@@ -196,7 +196,7 @@ function ForkForm({ chatId, turnId, source, onDone }: { chatId: string; turnId: 
             });
             onDone();
         } catch (e) {
-            setFailure(e instanceof Error ? e.message : t('fork.failed'));
+            setFailure(messageOf(e, t('fork.failed')));
         } finally {
             setBusy(false);
         }
@@ -228,7 +228,7 @@ function ForkForm({ chatId, turnId, source, onDone }: { chatId: string; turnId: 
             }
             onDone();
         } catch (e) {
-            setFailure(e instanceof Error ? e.message : t('fork.failed'));
+            setFailure(messageOf(e, t('fork.failed')));
         } finally {
             setBusy(false);
         }

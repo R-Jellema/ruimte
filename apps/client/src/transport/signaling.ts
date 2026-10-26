@@ -26,8 +26,8 @@ export interface Signaling {
  */
 export type SignalingOpener = (connectionId: string, events: SignalingEvents) => Signaling;
 
-export function messageOf(e: unknown): string {
-    return e instanceof Error ? e.message : String(e);
+export function messageOf(e: unknown, fallback?: string): string {
+    return e instanceof Error ? e.message : (fallback ?? String(e));
 }
 
 /*

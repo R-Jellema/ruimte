@@ -1,5 +1,6 @@
 import type { BrowserInfo, BrowserInput, LiveFrameHeader, LiveStreamFrame } from '@ruimte/contracts';
 import i18next from 'i18next';
+import { messageOf } from '@adecore/ui';
 import { endpointKey } from '@/state/keys';
 import { useBrowser } from './registry';
 import { HandlerTable } from '@/transport/handler-table';
@@ -185,7 +186,7 @@ export class BrowserClient {
     private fail(browserId: string, error: unknown): void {
         useBrowser.getState().patch(endpointKey(this.endpointId, browserId), {
             loading: false,
-            streamError: error instanceof Error ? error.message : i18next.t('browser:stream.failed')
+            streamError: messageOf(error, i18next.t('browser:stream.failed'))
         });
     }
 

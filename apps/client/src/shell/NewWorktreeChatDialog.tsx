@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { GitBranch } from 'lucide-react';
 import { perform } from '@/actions/client-actions';
 import { rememberChatSelection } from '@adecore/agents-react/chat';
-import { Button, Dialog, ErrorBoundary, FormError, Icon } from '@adecore/ui';
+import { Button, Dialog, ErrorBoundary, FormError, Icon, messageOf } from '@adecore/ui';
 import { createWorktreeChat } from '@/shell/worktree-chat';
 import { useWorktreeStart } from '@/shell/use-worktree-start';
 import { WorktreeStartFields } from '@/shell/WorktreeStartFields';
@@ -67,7 +67,7 @@ function NewWorktreeChatForm({ onDone }: { onDone(): void }) {
             }
             onDone();
         } catch (e) {
-            setFailure(e instanceof Error ? e.message : t('newWorktreeChat.failed'));
+            setFailure(messageOf(e, t('newWorktreeChat.failed')));
         } finally {
             setBusy(false);
         }

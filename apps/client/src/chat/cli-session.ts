@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import type { TerminalViewHandle } from '@adecore/terminal';
-import { copyText } from '@adecore/ui';
+import { copyText, messageOf } from '@adecore/ui';
 import { typeWhenReady } from '@/chat/provider-command';
 import { useEndpoints } from '@/state/endpoints';
 import { bindTerminalKeys } from '@/terminal/xterm';
@@ -111,7 +111,7 @@ export function useCliSession({ endpointId, sessionPrefix, start, typed, onStart
                 view.focus();
                 onStarted?.(link);
             } catch (e) {
-                setPhase({ kind: 'failed', reason: e instanceof Error ? e.message : String(e) });
+                setPhase({ kind: 'failed', reason: messageOf(e) });
             }
         };
         void run();

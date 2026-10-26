@@ -1,5 +1,6 @@
 import i18next from 'i18next';
 import { annexBNalHeaders, H264_SPS, h264KeyFrame, hevcKeyFrame, type LiveStreamFormat, type LiveStreamFrame } from '@ruimte/contracts';
+import { messageOf } from '@adecore/ui';
 import type { FrameDecoder, PaintTarget } from '@/transport/live-stream';
 
 type VideoFormat = Exclude<LiveStreamFormat, 'jpeg'>;
@@ -121,7 +122,7 @@ class VideoFrameDecoder implements FrameDecoder {
         } catch (error) {
             this.drop();
             this.gate.reset();
-            this.target.failed(error instanceof Error ? error.message : i18next.t('machines:device.stream.undecodable'));
+            this.target.failed(messageOf(error, i18next.t('machines:device.stream.undecodable')));
         }
     }
 

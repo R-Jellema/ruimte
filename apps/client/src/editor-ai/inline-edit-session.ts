@@ -4,6 +4,7 @@ import type { AgentKind, ProjectNewInlineChatPayload, ProjectNewInlineChatResult
 import type { Editor, EditorRange, EditorTrackedRange } from '@adecore/editor';
 import { waitingRequestsOf, type ChatState } from '@adecore/agents-react/state';
 import { endOfInsertion, fitReplacement, locateSelection, parseAnswer, replaceRange, type InlineProblem, type LineSpan } from '@adecore/editor-react/models';
+import { messageOf } from '@adecore/ui';
 import type { DiskText } from '@/state/text-drafts';
 import type { InlineEditRecord } from './inline-edit-record';
 import { inlineMessage } from './inline-message';
@@ -124,7 +125,7 @@ export function lastTurnId(chat: ChatState): string | null {
 }
 
 function errorText(error: unknown): string {
-    return error instanceof Error ? error.message : String(error);
+    return messageOf(error);
 }
 
 const sessions = new Map<string, InlineEditSession>();

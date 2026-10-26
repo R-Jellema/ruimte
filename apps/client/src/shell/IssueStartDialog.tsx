@@ -5,7 +5,7 @@ import type { GitIssue } from '@ruimte/contracts';
 import { perform } from '@/actions/client-actions';
 import { rememberChatSelection, offerDraft } from '@adecore/agents-react/chat';
 import { useChats } from '@adecore/agents-react/state';
-import { Button, Dialog, ErrorBoundary, Field, FormError, Icon, Input, Pill, TextArea } from '@adecore/ui';
+import { Button, Dialog, ErrorBoundary, Field, FormError, Icon, Input, Pill, TextArea, messageOf } from '@adecore/ui';
 import { focusChat } from '@/plan/plan-actions';
 import { nodesOfView, useViewNodes } from '@/project/view-nodes';
 import { findIssueNode, issueBranch, issuePrompt } from '@/shell/issue-start';
@@ -150,7 +150,7 @@ function IssueStartForm({ onDone }: { onDone(): void }) {
             }
             onDone();
         } catch (e) {
-            setFailure(e instanceof Error ? e.message : t('issueStart.failed'));
+            setFailure(messageOf(e, t('issueStart.failed')));
         } finally {
             setBusy(false);
         }
@@ -249,6 +249,6 @@ function issueFailure(error: unknown, t: (key: string) => string): string {
         case 'issue-not-found':
             return t('issueStart.notFound');
         default:
-            return error instanceof Error ? error.message : t('issueStart.failed');
+            return messageOf(error, t('issueStart.failed'));
     }
 }

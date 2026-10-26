@@ -20,6 +20,7 @@ import {
     type Worktree
 } from '@ruimte/contracts';
 import type { StoreApi } from 'zustand';
+import { messageOf } from '@adecore/ui';
 import { basenameOf, isPathBelow, relativeTo } from '@/shell/panels/files-tree';
 import { commitTargets, nextActionId } from '@/shell/panels/git-actions';
 import { nodesInWorktree } from '@/shell/panels/worktree-rows';
@@ -241,7 +242,7 @@ export function developerActions(document: StoreApi<DocumentState>, overrides: P
                 if (single) {
                     throw error;
                 }
-                const message = error instanceof Error ? error.message : 'The action failed.';
+                const message = messageOf(error, 'The action failed.');
                 const code = error instanceof ActionRefusal ? error.code : 'action-failed';
                 runs.push({
                     repository: checkout.label,
@@ -296,7 +297,7 @@ export function developerActions(document: StoreApi<DocumentState>, overrides: P
                             path: checkout.path,
                             kind,
                             status: null,
-                            error: error instanceof Error ? error.message : 'Unreadable'
+                            error: messageOf(error, 'Unreadable')
                         };
                     }
                 })

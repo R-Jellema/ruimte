@@ -1,4 +1,5 @@
 import { LiveStreamDecoder, type LiveStreamFrame } from '@ruimte/contracts';
+import { messageOf } from '@adecore/ui';
 import { credentialFor } from '@/endpoint/credentials';
 import { wait } from '@/transport/live-stream';
 
@@ -44,7 +45,7 @@ export async function followLiveStream<F>(
             }
         } catch (error) {
             if (!signal.aborted) {
-                onError(error instanceof Error ? error.message : words.stopped());
+                onError(messageOf(error, words.stopped()));
             }
         }
         await wait(RETRY_MS, signal);

@@ -1,5 +1,6 @@
 import type { RefObject } from 'react';
 import type { LiveStreamFrame } from '@ruimte/contracts';
+import { messageOf } from './signaling';
 
 /* Waits out `ms`, or gives up at once when whoever is waiting was called off. */
 export function wait(ms: number, signal: AbortSignal): Promise<void> {
@@ -80,7 +81,7 @@ export class FramePainter {
                 bitmap.close();
             }
         } catch (error) {
-            this.target.failed(error instanceof Error ? error.message : this.target.undrawable());
+            this.target.failed(messageOf(error, this.target.undrawable()));
         } finally {
             this.drawing = false;
             if (this.pending) {

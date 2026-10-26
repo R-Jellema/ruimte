@@ -26,13 +26,9 @@ import { OutputChatContext } from '@/output/chat-scope';
 import { NodeNotice } from '@/nodes/NodeNotice';
 import { useMountCount } from '@/measure/mounts';
 import { readNodeHost, renameHost, useNodeHost, useSuggestedTitle } from '@/nodes/node-host';
-import { ErrorBoundary, LazyBoundary } from '@adecore/ui';
+import { ErrorBoundary, LazyBoundary, messageOf } from '@adecore/ui';
 import { bringPromptToFront } from '@/canvas/prompt-stack';
 import { PROMPTS_IN_NODES } from '@/prompts/placement';
-
-function messageOf(error: unknown, fallback: string): string {
-    return error instanceof Error ? error.message : fallback;
-}
 
 /* The body of a chat, the same on a canvas inside a frame and filling a view of its own. */
 export function ChatBody({ id, focused, onCanvas = false }: { id: string; focused: boolean; onCanvas?: boolean }) {

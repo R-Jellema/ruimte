@@ -1,7 +1,7 @@
 import type { ShellCodeBlockContext } from '@adecore/agents-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ErrorBoundary, IconButton, lazyNamed } from '@adecore/ui';
+import { ErrorBoundary, IconButton, lazyNamed, messageOf } from '@adecore/ui';
 import { SquareTerminal } from 'lucide-react';
 import type { TerminalPreparePreview } from '@ruimte/contracts';
 import { preparableShell } from '@/chat/preparable-shell';
@@ -57,7 +57,7 @@ export function PrepareCodeBlockAction({ context }: { context: ShellCodeBlockCon
             setPreview({ endpointId, result, destination: scope });
         } catch (error) {
             destination.current?.dispose();
-            useToasts.getState().show({ kind: 'error', title: t('prepare.failed'), description: error instanceof Error ? error.message : t('prepare.failed') });
+            useToasts.getState().show({ kind: 'error', title: t('prepare.failed'), description: messageOf(error, t('prepare.failed')) });
         } finally {
             working.current = false;
             setBusy(false);

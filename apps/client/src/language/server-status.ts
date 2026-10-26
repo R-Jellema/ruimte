@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react';
 import type { TFunction } from 'i18next';
 import type { LanguageServerStatus } from '@ruimte/contracts';
 import { formatNumber } from '@adecore/ui/format';
+import { messageOf } from '@adecore/ui';
 import { useToasts } from '@/state/toasts';
 import type { LanguageStatusTracker } from './status';
 import { nameOf } from './status-view';
@@ -16,7 +17,7 @@ export function report(error: unknown, t: (key: string, options: { message: stri
     useToasts.getState().show({
         id: 'language-request-failed',
         kind: 'error',
-        title: t('language.failed', { message: error instanceof Error ? error.message : String(error) })
+        title: t('language.failed', { message: messageOf(error) })
     });
 }
 

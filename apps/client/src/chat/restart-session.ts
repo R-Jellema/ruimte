@@ -1,4 +1,5 @@
 import i18next from 'i18next';
+import { messageOf } from '@adecore/ui';
 import { perform } from '@/actions/client-actions';
 import { useToasts } from '@/state/toasts';
 
@@ -8,6 +9,6 @@ export async function restartChatSession(chatId: string): Promise<void> {
         await perform('chat.restart', { chatId });
         useToasts.getState().show({ kind: 'success', title: i18next.t('chat:restart.done'), description: i18next.t('chat:restart.doneDescription') });
     } catch (e) {
-        useToasts.getState().show({ kind: 'error', title: i18next.t('chat:restart.failed'), description: e instanceof Error ? e.message : String(e) });
+        useToasts.getState().show({ kind: 'error', title: i18next.t('chat:restart.failed'), description: messageOf(e) });
     }
 }

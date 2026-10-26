@@ -1,4 +1,5 @@
 import i18next from 'i18next';
+import { messageOf } from '@adecore/ui';
 import { perform } from '@/actions/client-actions';
 import { canKeepAwake, desktop, type DesktopBridge, type KeepAwakeRequest } from '@/desktop/bridge';
 import { agentsWorking } from '@/state/agent-work';
@@ -76,7 +77,7 @@ function showSaveFailed(e: unknown): void {
         id: 'keep-awake-save',
         kind: 'error',
         title: i18next.t('settings:agents.keepAwake.saveFailed'),
-        description: e instanceof Error ? e.message : i18next.t('settings:machine.toast.unchanged')
+        description: messageOf(e, i18next.t('settings:machine.toast.unchanged'))
     });
 }
 

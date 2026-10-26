@@ -17,7 +17,19 @@ import { useGit } from '@/state/git';
 import { useGitSignal } from '@/state/git-watch';
 import { useSettings } from '@/state/settings';
 import { useTransport } from '@/transport/context';
-import { ButtonGroup, ColumnResizeHandle, EmptyState, ErrorBoundary, Menu, Separator, lazyNamed, useColumnResize, useNow, LazyBoundary } from '@adecore/ui';
+import {
+    ButtonGroup,
+    ColumnResizeHandle,
+    EmptyState,
+    ErrorBoundary,
+    Menu,
+    Separator,
+    lazyNamed,
+    useColumnResize,
+    useNow,
+    LazyBoundary,
+    messageOf
+} from '@adecore/ui';
 import { formatAge } from '@adecore/ui/format';
 
 const UnifiedDiff = lazyNamed(() => import('@adecore/agents-react/chat/ui'), 'UnifiedDiff');
@@ -91,7 +103,7 @@ function FileDiffView({ tabKey, path, name, view }: { tabKey: string; path: stri
             })
             .catch((error: unknown) => {
                 if (alive) {
-                    setHeld({ asked, state: { status: 'error', message: error instanceof Error ? error.message : i18next.t('panels:diff.readFailed') } });
+                    setHeld({ asked, state: { status: 'error', message: messageOf(error, i18next.t('panels:diff.readFailed')) } });
                 }
             });
         return () => {
@@ -233,7 +245,7 @@ function CommitDiff({ tabKey, cwd, commit, base }: { tabKey: string; cwd: string
             })
             .catch((error: unknown) => {
                 if (alive) {
-                    setHeld({ asked, state: { status: 'error', message: error instanceof Error ? error.message : i18next.t('panels:diff.commitFailed') } });
+                    setHeld({ asked, state: { status: 'error', message: messageOf(error, i18next.t('panels:diff.commitFailed')) } });
                 }
             });
         return () => {

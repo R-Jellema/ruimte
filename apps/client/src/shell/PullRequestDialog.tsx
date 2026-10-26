@@ -3,7 +3,22 @@ import { useTranslation } from 'react-i18next';
 import type { LucideIcon } from 'lucide-react';
 import { CircleCheck, CircleDashed, CircleX, ExternalLink, Eye, EyeOff, GitPullRequest, MessagesSquare, RefreshCw } from 'lucide-react';
 import type { ChangeSplit, GitPrCheck, GitPrThread, GitPullRequest as PullRequest } from '@ruimte/contracts';
-import { Button, ButtonGroup, Dialog, EmptyState, ErrorBoundary, FormError, Icon, IconButton, Menu, Pill, SectionLabel, Switch, Tooltip } from '@adecore/ui';
+import {
+    Button,
+    ButtonGroup,
+    Dialog,
+    EmptyState,
+    ErrorBoundary,
+    FormError,
+    Icon,
+    IconButton,
+    Menu,
+    Pill,
+    SectionLabel,
+    Switch,
+    Tooltip,
+    messageOf
+} from '@adecore/ui';
 import { useChooserSections } from '@/chat/chat-chooser';
 import { sendToChat } from '@/chat/selection-to-chat';
 import { desktop } from '@/desktop/bridge';
@@ -75,7 +90,7 @@ function PullRequestView({ cwd, onDone }: { cwd: string; onDone(): void }) {
             .request('git.pr', { cwd })
             // A refetch replaces the whole answer, so the checks of an older head never carry over.
             .then((answer) => current && setReading({ pr: answer.pr, attempt }))
-            .catch((e: unknown) => current && setReading({ error: e instanceof Error ? e.message : t('git.pr.failed'), attempt }));
+            .catch((e: unknown) => current && setReading({ error: messageOf(e, t('git.pr.failed')), attempt }));
         return () => {
             current = false;
         };
@@ -138,7 +153,7 @@ function watchFailure(error: unknown, t: (key: string) => string): string {
     if (code === 'pr-watch-limit') {
         return t('git.pr.watch.limit');
     }
-    return error instanceof Error ? error.message : t('git.pr.watch.failed');
+    return messageOf(error, t('git.pr.watch.failed'));
 }
 
 /* Which chat the machine wakes when this pull request's checks finish or a review comes in. */

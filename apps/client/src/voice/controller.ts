@@ -1,3 +1,4 @@
+import { messageOf } from '@adecore/ui';
 import { endpointById } from '@/state/endpoints';
 import { splitKey } from '@/state/keys';
 import { pool, transportFor } from '@/transport';
@@ -62,7 +63,7 @@ const undo = new Map<string, () => void>();
 const chatFollowUps = new Map<string, VoiceChatFollowUp>();
 
 function failureText(error: unknown): string {
-    return error instanceof Error ? error.message : i18next.t('voice:error.start');
+    return messageOf(error, i18next.t('voice:error.start'));
 }
 
 /*

@@ -27,7 +27,7 @@ import { useGitStatus } from '@/state/git-watch';
 import { useToasts } from '@/state/toasts';
 import { useUi } from '@/state/ui';
 import { useTransport } from '@/transport/context';
-import { Button, ButtonGroup, CloseButton, ContextMenu, Dialog, EmptyState, FormError, Icon, IconButton } from '@adecore/ui';
+import { Button, ButtonGroup, CloseButton, ContextMenu, Dialog, EmptyState, FormError, Icon, IconButton, messageOf } from '@adecore/ui';
 
 type Reading = { cwd: string; answer: GitConflictsResult } | { cwd: string; failure: string };
 
@@ -79,7 +79,7 @@ export function ConflictOverlay() {
         return [status.operation ?? '', ...conflicted].join('\u0000');
     }, [status]);
 
-    const errorText = useCallback((error: unknown): string => (error instanceof Error ? error.message : t('failed')), [t]);
+    const errorText = useCallback((error: unknown): string => messageOf(error, t('failed')), [t]);
 
     const read = useCallback((): void => {
         if (cwd === null) {

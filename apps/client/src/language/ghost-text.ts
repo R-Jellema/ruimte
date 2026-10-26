@@ -3,6 +3,7 @@ import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import type { EditorPosition } from '@adecore/editor';
 import { endOfInsertion } from '@adecore/editor-react/models';
+import { messageOf } from '@adecore/ui';
 import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
 import { cleanGhost, firstWord } from '@/ondevice/ghost-model';
 import { onDeviceClientFor, type OnDeviceClient } from '@/ondevice/ondevice-client';
@@ -166,7 +167,7 @@ export class GhostTextFeature {
             if (this.controller === controller) {
                 this.finishProgress();
                 this.controller = null;
-                this.tell(error instanceof Error ? error.message : String(error));
+                this.tell(messageOf(error));
             }
         }
     }

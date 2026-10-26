@@ -5,7 +5,7 @@ import { canCopyFilesOn, copiedText, copyableFiles, type CopyTarget, type CopyTe
 import { useEndpointId } from '@/state/keys';
 import { useProject } from '@/state/project';
 import { useToasts } from '@/state/toasts';
-import { copyText, Icon, Menu } from '@adecore/ui';
+import { copyText, Icon, Menu, messageOf } from '@adecore/ui';
 
 /*
  * Copy in every menu of a file, a folder or a selection of them. The row copies them as mentions; its
@@ -22,7 +22,7 @@ export function FileCopyRow({ targets }: { targets: readonly CopyTarget[] }) {
 
     const copyFiles = (): void => {
         perform('file.copy', { paths: files }).catch((e: unknown) => {
-            useToasts.getState().show({ title: t('file.menu.copyFailed'), description: e instanceof Error ? e.message : String(e), kind: 'error' });
+            useToasts.getState().show({ title: t('file.menu.copyFailed'), description: messageOf(e), kind: 'error' });
         });
     };
 

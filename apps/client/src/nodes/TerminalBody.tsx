@@ -36,7 +36,7 @@ import { MissingProviderNote } from '@/nodes/MissingProviderNote';
 import { NodeNotice } from '@/nodes/NodeNotice';
 import { useMountCount } from '@/measure/mounts';
 import { closeHost, readNodeHost, useNodeHost, useSuggestedTitle } from '@/nodes/node-host';
-import { Button, copyText, readClipboardText, Icon, ContextMenu, ErrorBoundary, Kbd, prefetcher, EDIT_SHORTCUTS } from '@adecore/ui';
+import { Button, copyText, readClipboardText, Icon, ContextMenu, ErrorBoundary, Kbd, prefetcher, EDIT_SHORTCUTS, messageOf } from '@adecore/ui';
 
 // A terminal loads the WebGL addon on its first context; prefetched, it is there by then.
 prefetcher.register(() => import('@xterm/addon-webgl'));
@@ -375,7 +375,7 @@ function TerminalSession({ id, endpointId, viewRef, onFileLinkHover, onFailure }
             .catch((e: unknown) => {
                 if (!cancelled) {
                     // Not the hook's `t`: the effect would then depend on it and rebuild the terminal on a language change.
-                    onFailure(e instanceof Error ? e.message : i18next.t('canvas:terminal.startFailed'));
+                    onFailure(messageOf(e, i18next.t('canvas:terminal.startFailed')));
                 }
             });
 

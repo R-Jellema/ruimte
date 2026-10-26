@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FileTree, useFileTree } from '@adecore/ui';
+import { FileTree, useFileTree, messageOf } from '@adecore/ui';
 import { absoluteOf, basenameOf, buildTreeInput, LOADING_NAME, type EntryCache } from '@/shell/panels/files-tree';
 import type { Transport } from '@/transport';
 
@@ -67,7 +67,7 @@ export function ProjectFolderPicker({
                 }
             } catch (error) {
                 if (active.current) {
-                    onError(error instanceof Error ? error.message : String(error));
+                    onError(messageOf(error));
                 }
             } finally {
                 loading.current.delete(directory);

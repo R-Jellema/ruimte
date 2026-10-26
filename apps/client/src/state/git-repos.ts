@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import i18next from 'i18next';
 import type { GitFile, GitRepo, GitRepoKind, GitStatus } from '@ruimte/contracts';
+import { messageOf } from '@adecore/ui';
 import { basenameOf, isPathBelow, relativeTo } from '@/shell/panels/files-tree';
 import { GIT_PANEL_PACE_MS, paced, type Pace } from '@/shell/panels/pace';
 import { watchGit } from '@/state/git-watch';
@@ -278,7 +279,7 @@ export function useGitCheckouts(refs: readonly GitCheckoutRef[]): GitCheckouts {
                 show(cwd, await transport.request('git.status', { cwd }));
                 pacesRef.current.get(cwd)?.mark();
             } catch (error: unknown) {
-                const message = error instanceof Error ? error.message : i18next.t('panels:git.panel.statusFailed');
+                const message = messageOf(error, i18next.t('panels:git.panel.statusFailed'));
                 setHeld((previous) => {
                     const entries = previous.endpointId === endpointId ? previous.entries : {};
                     return {

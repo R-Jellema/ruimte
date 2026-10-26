@@ -10,6 +10,7 @@ import type {
     LiveFrameHeader,
     LiveStreamFrame
 } from '@ruimte/contracts';
+import { messageOf } from '@adecore/ui';
 import { powerKey, useDevicePowers } from '@/devices/device-power';
 import { useDevices } from '@/devices/state';
 import { machineAnswers } from '@/transport/features';
@@ -324,8 +325,4 @@ export class DeviceClient {
         this.latestFrames.set(key, decoded);
         this.frameHandlers.fanOut(key, decoded);
     }
-}
-
-function messageOf(error: unknown, fallback: string): string {
-    return error instanceof Error ? error.message : fallback;
 }

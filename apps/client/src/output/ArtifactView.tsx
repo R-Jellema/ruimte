@@ -29,7 +29,21 @@ import {
     type ArtifactProvenance,
     type ArtifactVersion
 } from '@ruimte/contracts';
-import { Button, EmptyState, ErrorBoundary, Icon, IconButton, LazyBoundary, Menu, Pill, Popover, SectionLabel, Tooltip, lazyNamed } from '@adecore/ui';
+import {
+    Button,
+    EmptyState,
+    ErrorBoundary,
+    Icon,
+    IconButton,
+    LazyBoundary,
+    Menu,
+    Pill,
+    Popover,
+    SectionLabel,
+    Tooltip,
+    lazyNamed,
+    messageOf
+} from '@adecore/ui';
 import type { CopyToProjectRequest } from '@/output/CopyToProjectDialog';
 import { pinArtifact, useCanRemove, useCopyToThisMachine, usePinCanvases } from '@/output/artifact-actions';
 import { RemoveArtifactDialog, type RemoveArtifactRequest } from '@/output/RemoveArtifactDialog';
@@ -565,7 +579,7 @@ function FileRows({ endpointId, artifact, version }: { endpointId: string; artif
     const { t } = useTranslation('output');
     const download = (index: number): void => {
         downloadArtifactFile(endpointId, refOf(artifact, version, index), version.files[index]!).catch((error: unknown) =>
-            useToasts.getState().show({ kind: 'error', title: t('view.downloadFailed'), description: error instanceof Error ? error.message : String(error) })
+            useToasts.getState().show({ kind: 'error', title: t('view.downloadFailed'), description: messageOf(error) })
         );
     };
     return (

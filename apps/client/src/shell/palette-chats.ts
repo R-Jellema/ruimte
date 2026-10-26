@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import i18next from 'i18next';
 import type { ChatExternalResult, ChatExternalSession, ChatSearchHit, ChatSearchResult } from '@ruimte/contracts';
+import { messageOf } from '@adecore/ui';
 import { perform } from '@/actions/client-actions';
 import { focusChat } from '@/plan/plan-actions';
 import { matches } from '@/shell/palette-entries';
@@ -106,7 +107,7 @@ export function useChatSearch(projectId: string | null, query: string): ChatSear
                 })
                 .catch((e: unknown) => {
                     if (mine === generation.current) {
-                        setAnswer({ ...NOTHING, projectId, query: trimmed, failure: e instanceof Error ? e.message : i18next.t('shell:palette.noChatMatch') });
+                        setAnswer({ ...NOTHING, projectId, query: trimmed, failure: messageOf(e, i18next.t('shell:palette.noChatMatch')) });
                     }
                 });
         }, CHAT_SEARCH_DEBOUNCE_MS);
@@ -151,7 +152,7 @@ export function useExternalSessions(projectId: string | null): ExternalSessionsS
         let current = true;
         perform('chat.external', {})
             .then((result) => current && setState({ projectId, value: { sessions: result.sessions, failed: result.failed, failure: null } }))
-            .catch((e: unknown) => current && setState({ projectId, value: { ...NO_EXTERNAL, failure: e instanceof Error ? e.message : '' } }));
+            .catch((e: unknown) => current && setState({ projectId, value: { ...NO_EXTERNAL, failure: messageOf(e, '') } }));
         return () => {
             current = false;
         };

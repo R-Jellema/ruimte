@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { ComputerAppGrants, ComputerGrant, ComputerRevokePayload, ComputerUseStatus } from '@ruimte/contracts';
+import { messageOf } from '@adecore/ui';
 import { computerSetupOf, opensSystemSettings, recheckOf, SYSTEM_SETTINGS_PANES, type ComputerSetup } from '@/computer/setup';
 import { desktop } from '@/desktop/bridge';
 import { activeLanguage } from '@/i18n/active';
@@ -83,7 +84,7 @@ export function useComputerMachine(endpointId: string): ComputerMachine {
         try {
             await work(link);
         } catch (failure) {
-            setError(failure instanceof Error ? failure.message : String(failure));
+            setError(messageOf(failure));
         } finally {
             setBusy(false);
         }

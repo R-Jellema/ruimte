@@ -10,6 +10,7 @@ import {
     type ProjectView
 } from '@ruimte/contracts';
 import type { StoreApi } from 'zustand';
+import { messageOf } from '@adecore/ui';
 import type { LooseStrip } from '@/shell/legacy-files-cell';
 import { LOCAL_ENDPOINT_ID } from '@/state/endpoints';
 import { stripOf } from '@/state/panel-state';
@@ -705,7 +706,7 @@ export class ProjectClient {
                 if (isConnectionError(e)) {
                     return 'offline' as const;
                 }
-                this.sink.setError(e instanceof Error ? e.message : i18next.t('project:error.projectNotSaved'));
+                this.sink.setError(messageOf(e, i18next.t('project:error.projectNotSaved')));
                 return 'failed' as const;
             })
             .finally(() => {
@@ -859,7 +860,7 @@ export class ProjectClient {
             await this.refreshList();
         } catch (e) {
             if (!isConnectionError(e)) {
-                this.sink.setError(e instanceof Error ? e.message : i18next.t('project:error.reopenFailed'));
+                this.sink.setError(messageOf(e, i18next.t('project:error.reopenFailed')));
             }
         }
     }

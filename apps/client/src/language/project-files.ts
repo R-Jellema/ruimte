@@ -1,4 +1,5 @@
 import i18next from 'i18next';
+import { messageOf } from '@adecore/ui';
 import { draftPathsUnder, forgetDeleted, moveFile } from '@/state/file-moves';
 import { endpointKey, isOfEndpoint, splitKey } from '@/state/keys';
 import { isUnsavedDraft, textDrafts, useTextDrafts, type TextDrafts } from '@/state/text-drafts';
@@ -111,7 +112,7 @@ export function draftFiles(endpointId: string, transport: Transport, projectId: 
                 );
                 return null;
             } catch (error) {
-                return error instanceof Error ? error.message : String(error);
+                return messageOf(error);
             }
         },
         create: async (path, text, options) => {
@@ -129,7 +130,7 @@ export function draftFiles(endpointId: string, transport: Transport, projectId: 
                 }
                 return null;
             } catch (error) {
-                return error instanceof Error ? error.message : String(error);
+                return messageOf(error);
             }
         },
         delete: async (path) => {
@@ -138,7 +139,7 @@ export function draftFiles(endpointId: string, transport: Transport, projectId: 
                 forgetDeleted(endpointId, path);
                 return null;
             } catch (error) {
-                return error instanceof Error ? error.message : String(error);
+                return messageOf(error);
             }
         },
         isUnsaved: (path) => draftPathsUnder(endpointId, path, true).length > 0,

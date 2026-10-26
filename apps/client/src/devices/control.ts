@@ -1,5 +1,6 @@
 import i18next from 'i18next';
 import type { DeviceAction, DeviceInfo } from '@ruimte/contracts';
+import { messageOf } from '@adecore/ui';
 import { useToasts } from '@/state/toasts';
 
 export interface DeviceControl {
@@ -24,7 +25,7 @@ export async function controlDevice(client: DeviceControl | null | undefined, de
         useToasts.getState().show({
             kind: 'error',
             title: i18next.t(action === 'boot' ? 'panels:devices.startFailed' : 'panels:devices.shutdownFailed', { name: device.name }),
-            description: error instanceof Error ? error.message : String(error)
+            description: messageOf(error)
         });
         return false;
     }

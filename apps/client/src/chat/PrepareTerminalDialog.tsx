@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { ActionRefusal } from '@ruimte/actions';
-import { Button, Dialog } from '@adecore/ui';
+import { Button, Dialog, messageOf } from '@adecore/ui';
 import type { TerminalPreparePreview } from '@ruimte/contracts';
 import { perform } from '@/actions/client-actions';
 import { useToasts } from '@/state/toasts';
@@ -15,7 +15,7 @@ function prepareFailure(error: unknown, t: TFunction<'chat'>): string {
     if (error instanceof ActionRefusal && error.code === 'terminal-editor-refused') {
         return t('prepare.refused');
     }
-    return error instanceof Error ? error.message : t('prepare.failed');
+    return messageOf(error, t('prepare.failed'));
 }
 
 export function PrepareTerminalDialog({

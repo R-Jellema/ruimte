@@ -44,6 +44,7 @@ import {
     type WorkspaceEdit,
     type WorkspaceSymbolResult
 } from '@adecore/lsp';
+import { messageOf } from '@adecore/ui';
 import { TransportError, type Transport } from '@/transport/transport';
 
 export interface WireLanguageServiceOptions {
@@ -588,7 +589,7 @@ export class WireLanguageService implements LanguageService {
                 ? await this.options.applyEdit(params)
                 : { applied: false, failureReason: 'This client makes no edits for a server' };
         } catch (error) {
-            answer = { applied: false, failureReason: error instanceof Error ? error.message : String(error) };
+            answer = { applied: false, failureReason: messageOf(error) };
         }
         await this.options.transport
             .request('language.edit.answer', {

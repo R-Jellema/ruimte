@@ -3,6 +3,7 @@ import i18next from 'i18next';
 import { ActionRefusal, type ActionOutput } from '@ruimte/actions';
 import type { GitActionKind, GitActionPayload, GitActionResult } from '@ruimte/contracts';
 import type { ToastAction } from '@adecore/ui';
+import { messageOf } from '@adecore/ui';
 import { cancelGitRunAction, perform } from '@/actions/client-actions';
 import { actionTitle, manySummary, manyTitle, nextActionId, phaseLabel } from '@/shell/panels/git-actions';
 import { useToasts } from '@/state/toasts';
@@ -179,7 +180,7 @@ export async function runManyJobs(
             if (error instanceof ActionRefusal && error.code === 'diverged') {
                 diverged.push(job);
             } else {
-                const message = error instanceof Error ? error.message : i18next.t('panels:error.generic');
+                const message = messageOf(error, i18next.t('panels:error.generic'));
                 failed.push(job.label);
                 outputs.push(`${job.label}: ${message}`);
             }
@@ -249,7 +250,7 @@ export function useGitActions(): GitActions {
             });
             return { ok: true, result };
         } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : i18next.t('panels:error.generic');
+            const message = messageOf(error, i18next.t('panels:error.generic'));
             const code = error instanceof ActionRefusal ? error.code : null;
             // A branch that moved on both sides is a question the panel asks, not a failure to read.
             if (code === 'diverged') {

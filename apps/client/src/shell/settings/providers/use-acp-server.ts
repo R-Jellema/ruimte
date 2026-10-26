@@ -1,13 +1,10 @@
 import { useEffect, useState } from 'react';
 import type { AgentKind, AgentServerStatus } from '@ruimte/contracts';
 import { useProvidersStore } from '@adecore/agents-react/state';
+import { messageOf } from '@adecore/ui';
 import { LOCAL_ENDPOINT_ID } from '@/state/endpoints';
 import { transportFor } from '@/transport';
 import { useMachineAnswers } from '@/transport/features';
-
-function messageOf(error: unknown): string {
-    return error instanceof Error ? error.message : String(error);
-}
 
 export interface AcpServer {
     /* Null while the machine has not answered, or answers no `provider.server`. */

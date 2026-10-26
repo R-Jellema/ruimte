@@ -9,7 +9,7 @@ import { localEndpointLabel, useEndpoints } from '@/state/endpoints';
 import { useEndpointId } from '@/state/keys';
 import { useToasts } from '@/state/toasts';
 import { transportFor } from '@/transport';
-import { Icon, IconButton, Menu } from '@adecore/ui';
+import { Icon, IconButton, Menu, messageOf } from '@adecore/ui';
 
 const ACTION_ICONS: Record<ComputerControlAction, LucideIcon> = {
     pause: Pause,
@@ -37,7 +37,7 @@ function press(endpointId: string, action: ComputerControlAction): void {
         useToasts.getState().show({
             kind: 'error',
             title: i18next.t('computer:indicator.failed'),
-            description: error instanceof Error ? error.message : String(error)
+            description: messageOf(error)
         });
     });
 }

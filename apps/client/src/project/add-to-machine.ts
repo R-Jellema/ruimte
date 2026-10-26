@@ -1,4 +1,5 @@
 import { IGNORED_COPY_MAX_BYTES, type FsReadResult, type GitIgnoredFilesResult } from '@ruimte/contracts';
+import { messageOf } from '@adecore/ui';
 
 export type RemoteProtocol = 'ssh' | 'https';
 
@@ -148,6 +149,6 @@ async function copyOne(file: CopyCandidate, from: string, to: string, io: CopyIo
         await io.write(joined(to, file.path), read.text, file.mode);
         return { path: file.path, copied: true };
     } catch (e) {
-        return { path: file.path, copied: false, reason: 'failed', message: e instanceof Error ? e.message : String(e) };
+        return { path: file.path, copied: false, reason: 'failed', message: messageOf(e) };
     }
 }

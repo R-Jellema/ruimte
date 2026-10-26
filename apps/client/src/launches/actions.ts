@@ -1,5 +1,6 @@
 import i18next from 'i18next';
 import { deviceMatches, type DeviceInfo, type LaunchConfigEntry, type LaunchesDocument } from '@ruimte/contracts';
+import { messageOf } from '@adecore/ui';
 import { createNodeAction, createViewAction } from '@/actions/client-actions';
 import { chosenLaunch } from '@/launches/model';
 import { useLaunches, type LaunchOwner } from '@/launches/state';
@@ -40,7 +41,7 @@ function target(owner?: LaunchOwner): Target | null {
 }
 
 function failed(title: string, e: unknown): void {
-    useToasts.getState().show({ kind: 'error', title, description: e instanceof Error ? e.message : String(e) });
+    useToasts.getState().show({ kind: 'error', title, description: messageOf(e) });
 }
 
 function nameOf(at: Target, launchId: string): string {

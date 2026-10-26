@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ClaudeApiConfigurePayload, ClaudeApiSettings, ClaudeApiStatus } from '@ruimte/contracts';
-import { Button, Input, Switch } from '@adecore/ui';
+import { Button, Input, Switch, messageOf } from '@adecore/ui';
 import { SettingsRow } from '@adecore/ui/settings';
 import { useProvidersStore } from '@adecore/agents-react/state';
 import { CountField } from '@/shell/settings/providers/CountField';
@@ -56,7 +56,7 @@ export function ClaudeApiSection({ endpointId }: { endpointId: string }) {
             const { providers } = await link.request('provider.list', {});
             useProvidersStore.getState().setProviders(endpointId, providers);
         } catch (cause) {
-            setError(cause instanceof Error ? cause.message : t('providers.claudeApi.failed'));
+            setError(messageOf(cause, t('providers.claudeApi.failed')));
         } finally {
             setBusy(false);
         }
@@ -72,7 +72,7 @@ export function ClaudeApiSection({ endpointId }: { endpointId: string }) {
         try {
             setStatus(await link.request('anthropic.configure', { settings }));
         } catch (cause) {
-            setError(cause instanceof Error ? cause.message : t('providers.claudeApi.failed'));
+            setError(messageOf(cause, t('providers.claudeApi.failed')));
         }
     };
 

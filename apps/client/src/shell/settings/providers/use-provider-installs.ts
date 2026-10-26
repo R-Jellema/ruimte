@@ -1,13 +1,10 @@
 import { useEffect, useState } from 'react';
 import type { AgentKind, CliVersion, RegistryAgent, RegistryCatalog } from '@ruimte/contracts';
 import { useProvidersStore } from '@adecore/agents-react/state';
+import { messageOf } from '@adecore/ui';
 import { LOCAL_ENDPOINT_ID } from '@/state/endpoints';
 import { transportFor } from '@/transport';
 import { useMachineAnswers } from '@/transport/features';
-
-function messageOf(error: unknown): string {
-    return error instanceof Error ? error.message : String(error);
-}
 
 /* The provider list again, so a provider a person just installed, updated or removed shows at once. */
 async function listProvidersAgain(endpointId: string): Promise<void> {

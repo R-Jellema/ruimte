@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ProviderInfo } from '@ruimte/contracts';
 import { useProvidersStore } from '@adecore/agents-react/state';
+import { messageOf } from '@adecore/ui';
 import { perform } from '@/actions/client-actions';
 import { useServers } from '@/state/server';
 import { useToasts } from '@/state/toasts';
@@ -45,7 +46,7 @@ export function useAppleFoundation(endpointId: string, provider: ProviderInfo | 
                 id: `apple-foundation-${endpointId}`,
                 kind: 'error',
                 title: t('providers.apple.saveFailed'),
-                description: error instanceof Error ? error.message : t('machine.toast.unchanged')
+                description: messageOf(error, t('machine.toast.unchanged'))
             });
         } finally {
             setBusy(false);

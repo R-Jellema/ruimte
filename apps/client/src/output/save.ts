@@ -2,6 +2,7 @@ import i18next from 'i18next';
 import { PackagePlus } from 'lucide-react';
 import type { HostMenuAction } from '@adecore/agents-react';
 import type { ArtifactSaveSource } from '@ruimte/contracts';
+import { messageOf } from '@adecore/ui';
 import { newRequestId } from '@/output/artifacts';
 import { useProject } from '@/state/project';
 import { useToasts } from '@/state/toasts';
@@ -26,7 +27,7 @@ export async function saveToOutput(endpointId: string, projectId: string, source
         useToasts.getState().show({
             kind: 'error',
             title: i18next.t('output:chat.saveFailed'),
-            description: error instanceof Error ? error.message : String(error)
+            description: messageOf(error)
         });
         return false;
     }

@@ -36,7 +36,8 @@ import {
     SectionLabel,
     Select,
     Slider,
-    useNow
+    useNow,
+    messageOf
 } from '@adecore/ui';
 
 type ActionBody = DeviceAction extends infer Action ? (Action extends DeviceAction ? Omit<Action, 'backendId' | 'platform' | 'deviceId'> : never) : never;
@@ -82,7 +83,7 @@ export function DeviceToolsPanel({ device, onClose }: { device: DeviceInfo; onCl
             })
             .catch((cause: unknown) => {
                 if (active) {
-                    setError(cause instanceof Error ? cause.message : t('device.tools.readFailed'));
+                    setError(messageOf(cause, t('device.tools.readFailed')));
                 }
             });
         return () => {
@@ -103,7 +104,7 @@ export function DeviceToolsPanel({ device, onClose }: { device: DeviceInfo; onCl
             setSettings(detail.settings);
             return true;
         } catch (cause) {
-            setError(cause instanceof Error ? cause.message : t('device.tools.changeFailed'));
+            setError(messageOf(cause, t('device.tools.changeFailed')));
             return false;
         } finally {
             setPending(false);
@@ -303,7 +304,7 @@ function CaptureTools({
         setBusy(step);
         onError(null);
         void work()
-            .catch((cause: unknown) => onError(cause instanceof Error ? cause.message : failure))
+            .catch((cause: unknown) => onError(messageOf(cause, failure)))
             .finally(() => setBusy(null));
     };
     const place = async (): Promise<void> => {
@@ -395,7 +396,7 @@ function ClipboardTools({ device, onError }: { device: DeviceInfo; onError: (mes
         setBusy(step);
         onError(null);
         void work()
-            .catch((cause: unknown) => onError(cause instanceof Error ? cause.message : t('device.tools.clipboard.failed')))
+            .catch((cause: unknown) => onError(messageOf(cause, t('device.tools.clipboard.failed'))))
             .finally(() => setBusy(null));
     };
     const send = async (): Promise<void> => {

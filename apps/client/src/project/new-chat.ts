@@ -1,6 +1,7 @@
 import i18next from 'i18next';
 import { create } from 'zustand';
 import type { ProjectNewChatPayload, RuntimeMode } from '@ruimte/contracts';
+import { messageOf } from '@adecore/ui';
 import { openChatInMode } from '@/chat/opening-mode';
 import { desktop } from '@/desktop/bridge';
 import { ensureMachine } from '@/endpoint/reach';
@@ -100,7 +101,7 @@ export async function newChatOn(endpointId: string, payload: ProjectNewChatPaylo
             refuse(endpointId, id);
             return false;
         }
-        useToasts.getState().show({ kind: 'error', title: i18next.t('common:state.error'), description: e instanceof Error ? e.message : String(e) });
+        useToasts.getState().show({ kind: 'error', title: i18next.t('common:state.error'), description: messageOf(e) });
         return false;
     }
 }

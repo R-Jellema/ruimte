@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import type { TerminalViewHandle } from '@adecore/terminal';
 import { MachineTerminal } from '@/terminal/MachineTerminal';
 import { ChevronDown, ExternalLink, Play, Plus, Rocket, Smartphone } from 'lucide-react';
-import { Button, ButtonGroup, Icon, Menu, PanelEmpty, useNow } from '@adecore/ui';
+import { Button, ButtonGroup, Icon, Menu, PanelEmpty, useNow, messageOf } from '@adecore/ui';
 import { formatAgo, formatDuration } from '@adecore/ui/format';
 import { isApplePlatform } from '@/desktop/bridge';
 import { openLaunchAddress, showLaunchDevice, startLaunch } from '@/launches/actions';
@@ -274,7 +274,7 @@ function LaunchTerminal({ sessionId }: { sessionId: string }) {
             })
             .catch((e: unknown) => {
                 if (!cancelled) {
-                    setFailure(e instanceof Error ? e.message : i18next.t('launches:panel.attachFailed'));
+                    setFailure(messageOf(e, i18next.t('launches:panel.attachFailed')));
                 }
             });
 

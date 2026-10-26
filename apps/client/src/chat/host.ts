@@ -34,7 +34,7 @@ import { transportFor, type Transport } from '@/transport';
 import { readResource } from '@/transport/byte-transfer';
 import { readPiece } from '@/transport/piece';
 import { useMachineUrl } from '@/transport/machine-url';
-import { prefetcher } from '@adecore/ui';
+import { prefetcher, messageOf } from '@adecore/ui';
 import { type AgentKind, CHAT_MODEL_MAX_BYTES } from '@ruimte/contracts';
 
 /* Every action goes through the registry as the person who clicked, the same door Voice uses. */
@@ -184,7 +184,7 @@ export const CHAT_HOST: Partial<ChatHost> = {
                 useToasts.getState().show({
                     kind: 'error',
                     title: i18next.t('chat:generatedImage.openFailed'),
-                    description: error instanceof Error ? error.message : String(error)
+                    description: messageOf(error)
                 })
             );
         },
@@ -198,7 +198,7 @@ export const CHAT_HOST: Partial<ChatHost> = {
                 useToasts.getState().show({
                     kind: 'error',
                     title: i18next.t('chat:generatedImage.saveFailed'),
-                    description: error instanceof Error ? error.message : String(error)
+                    description: messageOf(error)
                 });
                 return null;
             }

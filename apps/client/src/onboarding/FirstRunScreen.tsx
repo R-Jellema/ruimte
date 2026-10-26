@@ -8,7 +8,7 @@ import { WELCOME_ORBITS } from '@/onboarding/welcome-orbits';
 import { useSettings } from '@/state/settings';
 import { BrandSymbol } from '@/ui/Brand';
 import { Eclipse } from '@/ui/Eclipse';
-import { Button, ChoiceCards, FormError, Spinner, type Choice } from '@adecore/ui';
+import { Button, ChoiceCards, FormError, Spinner, type Choice, messageOf } from '@adecore/ui';
 
 type FirstChoice = 'local' | 'none';
 
@@ -43,7 +43,7 @@ export function FirstRunScreen() {
         useSettings.getState().update({ onboardingSkipWelcome: value === 'local' });
         machine.choose(value).catch((e: unknown) => {
             useSettings.getState().update({ onboardingSkipWelcome: false });
-            setFailure(isShellFailure(e) ? t('firstRun.failedGeneric') : t('firstRun.failed', { reason: e instanceof Error ? e.message : String(e) }));
+            setFailure(isShellFailure(e) ? t('firstRun.failedGeneric') : t('firstRun.failed', { reason: messageOf(e) }));
             setBusy(false);
         });
     };

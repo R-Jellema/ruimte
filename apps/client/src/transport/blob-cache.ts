@@ -1,3 +1,4 @@
+import { messageOf } from './signaling';
 export interface BlobState {
     url: string | null;
     failure: string | null;
@@ -132,7 +133,7 @@ export class BlobCache {
                     return;
                 }
                 entry.loading = false;
-                entry.failure = e instanceof Error ? e.message : String(e);
+                entry.failure = messageOf(e);
                 if (entry.users === 0) {
                     this.entries.delete(entry.key);
                 }

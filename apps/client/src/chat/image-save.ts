@@ -1,5 +1,6 @@
 import { createStore } from 'zustand';
 import { absoluteOf, type ChatImageTargetResult } from '@ruimte/contracts';
+import { messageOf } from '@adecore/ui';
 import type { Transport } from '@/transport';
 
 interface ImageSaveState {
@@ -82,7 +83,7 @@ export class ImageSaveSession {
             }
         } catch (error) {
             if (id === this.checkId && !this.state.getState().closed) {
-                this.state.setState({ error: error instanceof Error ? error.message : String(error) });
+                this.state.setState({ error: messageOf(error) });
             }
         }
     }
@@ -110,7 +111,7 @@ export class ImageSaveSession {
             this.state.setState({ pending: false, checkedPath: null, target: null });
             await this.check();
             if (!this.state.getState().closed) {
-                this.state.setState({ error: error instanceof Error ? error.message : String(error) });
+                this.state.setState({ error: messageOf(error) });
             }
         }
     }

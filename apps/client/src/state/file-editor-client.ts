@@ -1,6 +1,7 @@
 import type { ProjectLocal, ProjectSummary, ProjectView, ProjectViewLocal, SplitLayout } from '@ruimte/contracts';
 import i18next from 'i18next';
 import type { StoreApi } from 'zustand';
+import { messageOf } from '@adecore/ui';
 import { viewIdsIn } from '@/shell/split';
 import type { EditorRegistry } from '@/state/editors';
 import { isConnectionError, TransportError, type Transport, type TransportStatus } from '@/transport/transport';
@@ -672,6 +673,6 @@ export class FileEditorClient<TState extends FileEditorState<TDocument, TContent
             return;
         }
         const store = file?.store ?? this.focused?.store ?? this.editors.blank;
-        store.getState().setError(e instanceof Error ? e.message : i18next.t(fallbackKey));
+        store.getState().setError(messageOf(e, i18next.t(fallbackKey)));
     }
 }

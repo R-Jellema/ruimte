@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Pencil, SquareTerminal, Trash2 } from 'lucide-react';
 import { ActionRefusal } from '@ruimte/actions';
 import type { ExplorerFolder } from '@adecore/database';
-import { ContextMenu, Icon, PromptDialog } from '@adecore/ui';
+import { ContextMenu, Icon, PromptDialog, messageOf } from '@adecore/ui';
 import { perform } from '@/actions/client-actions';
 import { openConsoleFile } from '@/database/console-file';
 import { useConsoleFiles } from '@/database/use-console-files';
@@ -108,7 +108,7 @@ export function useConsoleFolders(): { folders: Record<string, readonly Explorer
         perform('file.delete', { paths: [path] })
             .then(() => setQuestion(null))
             .catch((error: unknown) => {
-                const message = error instanceof Error ? error.message : t('panels:error.generic');
+                const message = messageOf(error, t('panels:error.generic'));
                 useToasts.getState().show({ title: t('panels:files.deleteFailed'), description: message, kind: 'error', output: message });
             })
             .finally(() => setBusy(false));

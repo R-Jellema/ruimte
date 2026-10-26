@@ -1,4 +1,5 @@
 import i18next from 'i18next';
+import { messageOf } from '@adecore/ui';
 
 /* Why a microphone would not open, in words a person can act on; null for a failure that is not about opening it. */
 export function knownMicrophoneFailure(error: unknown): string | null {
@@ -12,5 +13,5 @@ export function knownMicrophoneFailure(error: unknown): string | null {
 }
 
 export function microphoneFailureText(error: unknown): string {
-    return knownMicrophoneFailure(error) ?? (error instanceof Error ? error.message : i18next.t('common:microphone.error.failed'));
+    return knownMicrophoneFailure(error) ?? messageOf(error, i18next.t('common:microphone.error.failed'));
 }

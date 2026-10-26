@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import i18next from 'i18next';
 import type { FsGrepMatch } from '@ruimte/contracts';
+import { messageOf } from '@adecore/ui';
 import { perform } from '@/actions/client-actions';
 
 // Long enough that a typed word is one search, short enough that the list feels like it follows.
@@ -105,7 +106,7 @@ export function useGrepSearch(folder: string | null, query: string, options: Gre
                 })
                 .catch((e: unknown) => {
                     if (mine === generation.current) {
-                        setAnswer({ ...NOTHING, ...asked, failure: e instanceof Error ? e.message : i18next.t('shell:findInFiles.badSearch') });
+                        setAnswer({ ...NOTHING, ...asked, failure: messageOf(e, i18next.t('shell:findInFiles.badSearch')) });
                     }
                 });
         }, GREP_DEBOUNCE_MS);

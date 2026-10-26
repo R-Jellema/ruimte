@@ -71,7 +71,7 @@ async function requestBrowse(endpointId: string, partialPath: string, cwd: strin
         const socket = transportFor(await ensureMachine(endpointId)) ?? fallback;
         return { result: await socket.request('fs.browse', { partialPath, cwd: cwd ?? undefined }), failure: null };
     } catch (e) {
-        return { result: null, failure: e instanceof Error ? e.message : i18next.t('shell:palette.unreadablePath') };
+        return { result: null, failure: messageOf(e, i18next.t('shell:palette.unreadablePath')) };
     }
 }
 

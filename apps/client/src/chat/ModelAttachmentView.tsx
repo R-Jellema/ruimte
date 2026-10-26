@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Box, RotateCcw } from 'lucide-react';
 import type { UiModelViewProps } from '@adecore/agents-react';
-import { EmptyState, IconButton } from '@adecore/ui';
+import { EmptyState, IconButton, messageOf } from '@adecore/ui';
 import { modelMimeOf } from '@/chat/model-attachment';
 import { canDrawWebgl, ModelViewer } from '@/shell/panels/model-viewer';
 import { useTheme } from '@/state/theme';
@@ -16,10 +16,6 @@ const NO_WEBGL: Phase = { kind: 'no-webgl' };
 
 // A frame this far below the thread's edge starts loading, so a model scrolled into view is mostly there.
 const LOAD_AHEAD = '300px';
-
-function messageOf(e: unknown): string {
-    return e instanceof Error ? e.message : String(e);
-}
 
 /* Whether the element came near the screen once; a page without an observer counts it as there at once. */
 function useSeenOnce(ref: React.RefObject<HTMLElement | null>): boolean {

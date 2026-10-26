@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { desktop } from '@/desktop/bridge';
 import { cancelDictation, observeSpeech, useDictation } from '@/dictation/controller';
 import { SettingsRow } from '@adecore/ui/settings';
-import { Switch, Button, ErrorBoundary, FormError } from '@adecore/ui';
+import { Switch, Button, ErrorBoundary, FormError, messageOf } from '@adecore/ui';
 import { formatBytes, formatNumber } from '@adecore/ui/format';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
 
@@ -29,7 +29,7 @@ function Section() {
         try {
             await action();
         } catch (error) {
-            setError(error instanceof Error ? error.message : String(error));
+            setError(messageOf(error));
         }
     };
     return (

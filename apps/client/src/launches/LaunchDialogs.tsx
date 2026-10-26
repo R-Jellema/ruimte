@@ -21,7 +21,8 @@ import {
     Segmented,
     Select,
     TextArea,
-    Tooltip
+    Tooltip,
+    messageOf
 } from '@adecore/ui';
 import {
     draftOf,
@@ -105,7 +106,7 @@ function failureOf(e: unknown, fallback: string): Failure {
     if (e instanceof ActionRefusal && e.code === REVISION_CONFLICT) {
         return { conflict: true };
     }
-    return { conflict: false, message: e instanceof Error ? e.message : fallback };
+    return { conflict: false, message: messageOf(e, fallback) };
 }
 
 /*

@@ -15,7 +15,7 @@ import { FileTextMenu, FileToolbar, FileToolbarToggle } from '@/shell/panels/Fil
 import { machineResourceOf, revealablePath, sourceKey, useEndpointIdOf, wireResourceOf, type FileSource } from '@/shell/panels/file-source';
 import { PDF_PAGE_GAP, pdfPageBox, pdfPageScale, pdfPageTops, pdfReadingPage, type PdfPageSize, type PdfZoom } from '@/shell/panels/pdf-layout';
 import { RevealButton } from '@/shell/panels/RevealButton';
-import { ButtonGroup, EmptyState } from '@adecore/ui';
+import { ButtonGroup, EmptyState, messageOf } from '@adecore/ui';
 import { formatBytes, formatNumber } from '@adecore/ui/format';
 
 // From this page's own origin, so the worker stays inside `worker-src 'self'`.
@@ -30,10 +30,6 @@ function assetFolder(folder: string): string {
 const DRAW_AHEAD = '50% 0px';
 
 type Source = { kind: 'url'; url: string } | { kind: 'data'; data: ArrayBuffer } | { kind: 'failed'; reason: string };
-
-function messageOf(e: unknown): string {
-    return e instanceof Error ? e.message : String(e);
-}
 
 /*
  * Where pdf.js reads the file. `connect-src` never lets it fetch a blob URL, so the ranges come from the

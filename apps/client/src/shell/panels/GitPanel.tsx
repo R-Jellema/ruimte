@@ -11,7 +11,7 @@ import { CommitBox } from '@/shell/panels/CommitBox';
 import { CommitLog, type LogSource } from '@/shell/panels/CommitLog';
 import { absoluteOf, basenameOf } from '@/shell/panels/files-tree';
 import { GitChoice, GitDiverged, type Choice } from '@/shell/panels/GitDialogs';
-import { PromptDialog, useColumnResize, Banner, Button, FormError, Icon, IconButton, PanelEmpty, Menu } from '@adecore/ui';
+import { PromptDialog, useColumnResize, Banner, Button, FormError, Icon, IconButton, PanelEmpty, Menu, messageOf } from '@adecore/ui';
 import { GitFileList, type GitWork } from '@/shell/panels/GitFileList';
 import { isUnmergedRefusal, popStashStep, pushButton, pushable, pushEntries, type CommitCandidate } from '@/shell/panels/git-actions';
 import { PushMenu } from '@/shell/panels/PushMenu';
@@ -171,7 +171,7 @@ export function GitPanel() {
                                 refs: previous[key]?.refs ?? [],
                                 stashes: previous[key]?.stashes ?? [],
                                 loading: false,
-                                error: error instanceof Error ? error.message : String(error)
+                                error: messageOf(error)
                             }
                         }));
                     }
@@ -291,7 +291,7 @@ export function GitPanel() {
                 });
             })
             .catch((error: unknown) => {
-                const message = error instanceof Error ? error.message : t('error.generic');
+                const message = messageOf(error, t('error.generic'));
                 useToasts.getState().show({ title: t('git.panel.discardFailed'), description: message, kind: 'error', output: message });
             })
             .finally(() => {
@@ -309,7 +309,7 @@ export function GitPanel() {
                 useToasts.getState().show({ title: t('git.panel.deleteDone', { path: nameOf(files) }), kind: 'success' });
             })
             .catch((error: unknown) => {
-                const message = error instanceof Error ? error.message : t('error.generic');
+                const message = messageOf(error, t('error.generic'));
                 useToasts.getState().show({ title: t('git.panel.deleteFailed'), description: message, kind: 'error', output: message });
             })
             .finally(() => {

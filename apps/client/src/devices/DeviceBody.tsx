@@ -51,7 +51,7 @@ import { useProject } from '@/state/project';
 import { useToasts } from '@/state/toasts';
 import { deviceClientFor } from '@/transport/connections';
 import { formatClockDuration } from '@adecore/ui/format';
-import { Button, ButtonGroup, ErrorBoundary, Icon, IconButton, LazyBoundary, lazyNamed, PanelEmpty, Menu, Popover, useNow } from '@adecore/ui';
+import { Button, ButtonGroup, ErrorBoundary, Icon, IconButton, LazyBoundary, lazyNamed, PanelEmpty, Menu, Popover, useNow, messageOf } from '@adecore/ui';
 
 const DeviceToolsPanel = lazyNamed(() => import('@/devices/DeviceToolsPanel'), 'DeviceToolsPanel');
 
@@ -101,7 +101,7 @@ function DeviceFoldMenu({ device }: { device: DeviceInfo }) {
                 useToasts.getState().show({
                     kind: 'error',
                     title: t('device.fold.failed'),
-                    description: error instanceof Error ? error.message : String(error)
+                    description: messageOf(error)
                 })
             );
     };
@@ -143,7 +143,7 @@ function DeviceMoreMenu({ device }: { device: DeviceInfo }) {
                 useToasts.getState().show({
                     kind: 'error',
                     title: t('device.tools.changeFailed'),
-                    description: error instanceof Error ? error.message : String(error)
+                    description: messageOf(error)
                 })
             );
     };
@@ -258,7 +258,7 @@ function DeviceRecordingBadge({ device }: { device: DeviceInfo }) {
                 useToasts.getState().show({
                     kind: 'error',
                     title: t('device.tools.capture.recordFailed'),
-                    description: error instanceof Error ? error.message : String(error)
+                    description: messageOf(error)
                 })
             )
             .finally(() => setStopping(false));
@@ -378,7 +378,7 @@ function DeviceDropZone({ device, children }: { device: DeviceInfo; children: Re
         }
         void deviceClientFor(endpointId)
             ?.action({ backendId: device.backendId, platform: device.platform, deviceId: device.deviceId, ...action })
-            .catch((error: unknown) => fail(error instanceof Error ? error.message : String(error)));
+            .catch((error: unknown) => fail(messageOf(error)));
     };
     return (
         <div

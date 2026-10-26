@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { ActionRefusal } from '@ruimte/actions';
 import type { Worktree } from '@ruimte/contracts';
 import { perform } from '@/actions/client-actions';
-import { PromptDialog } from '@adecore/ui';
+import { PromptDialog, messageOf } from '@adecore/ui';
 import { useChats } from '@adecore/agents-react/state';
 import { nodeWorking } from '@/state/agent-work';
 import { useSessions } from '@/state/sessions';
@@ -114,7 +114,7 @@ export function RemoveWorktreeDialog() {
                 return;
             }
             close();
-            const message = error instanceof Error ? error.message : t('removeWorktree.didNotWork');
+            const message = messageOf(error, t('removeWorktree.didNotWork'));
             useToasts.getState().show({ title: t('removeWorktree.failed'), description: message, kind: 'error', output: message });
         } finally {
             setBusy(false);

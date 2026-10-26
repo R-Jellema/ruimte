@@ -1,6 +1,7 @@
 import i18next from 'i18next';
 import { createStore, type StoreApi } from 'zustand';
 import type { ProjectSummary } from '@ruimte/contracts';
+import { messageOf } from '@adecore/ui';
 import { TransportError } from '@/transport/transport';
 
 /* Long enough that a switch on a machine that is already connected never flashes a screen, short enough that a wait is never silent. */
@@ -11,7 +12,7 @@ function failureOf(e: unknown): string {
     if (e instanceof TransportError && e.code === 'project-ids-taken') {
         return i18next.t('project:error.idsTaken');
     }
-    return e instanceof Error ? e.message : i18next.t('project:error.couldNotOpen');
+    return messageOf(e, i18next.t('project:error.couldNotOpen'));
 }
 
 /* What a switch is on its way to, with whatever the cached list knew about it to name it on screen. */

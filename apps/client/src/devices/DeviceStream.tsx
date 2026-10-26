@@ -31,7 +31,7 @@ import { useEndpoints } from '@/state/endpoints';
 import { useEndpointId } from '@/state/keys';
 import { deviceClientFor } from '@/transport/connections';
 import { FramePainter } from '@/transport/live-stream';
-import { EmptyState, Icon } from '@adecore/ui';
+import { EmptyState, Icon, messageOf } from '@adecore/ui';
 
 const BOTTOM_EDGE_START = 0.92;
 const TRACKPAD_DRAG_GAIN = 0.42;
@@ -110,7 +110,7 @@ export function DeviceStream({ device }: { device: DeviceInfo }) {
         });
         void client.open(target, direct ? 'events' : 'http').then(
             (id) => mounted && setStreamId(id),
-            (error) => mounted && setStreamError(error instanceof Error ? error.message : i18next.t('machines:device.stream.startFailed'))
+            (error) => mounted && setStreamError(messageOf(error, i18next.t('machines:device.stream.startFailed')))
         );
         return () => {
             mounted = false;
@@ -213,7 +213,7 @@ export function DeviceStream({ device }: { device: DeviceInfo }) {
                 await deviceClientFor(endpointId)?.clipboard(target, text, true);
             }
         } catch (error) {
-            setStreamError(error instanceof Error ? error.message : i18next.t('machines:device.tools.clipboard.failed'));
+            setStreamError(messageOf(error, i18next.t('machines:device.tools.clipboard.failed')));
         }
     };
     const releaseTrackpadGesture = (flush = false): void => {

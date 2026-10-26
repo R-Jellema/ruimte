@@ -4,6 +4,7 @@ import { fileUriToPath } from '@adecore/lsp';
 import type { EditorRange } from '@adecore/editor';
 import { shikiLanguageOf, type HoverView } from '@adecore/editor-react';
 import { isEmptyRange } from '@adecore/editor-react/models';
+import { messageOf } from '@adecore/ui';
 import { useSettings } from '@/state/settings';
 import { useToasts } from '@/state/toasts';
 import { functionSourceAt, isFunctionSignature } from '@/ondevice/explain-model';
@@ -174,7 +175,7 @@ export class ExplainFeature {
             }
         } catch (error) {
             if (current()) {
-                this.store.setState({ phase: 'error', error: error instanceof Error ? error.message : String(error) });
+                this.store.setState({ phase: 'error', error: messageOf(error) });
             }
         }
     }

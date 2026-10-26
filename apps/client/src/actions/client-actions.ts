@@ -1,3 +1,4 @@
+import { messageOf } from '@adecore/ui';
 import { terminalPrepareActions } from '@/actions/terminal-prepare-actions';
 import i18next from 'i18next';
 import { useToasts } from '@/state/toasts';
@@ -552,9 +553,7 @@ export function arrangeGroupAction(viewId: string | null, groupId: string): void
         return;
     }
     perform('group.arrange', { viewId, groupId }).catch((error: unknown) => {
-        useToasts
-            .getState()
-            .show({ kind: 'error', title: i18next.t('canvas:group.arrange'), description: error instanceof Error ? error.message : String(error) });
+        useToasts.getState().show({ kind: 'error', title: i18next.t('canvas:group.arrange'), description: messageOf(error) });
     });
 }
 

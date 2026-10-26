@@ -3,6 +3,7 @@ import { endpointById } from '@/state/endpoints';
 import { transportFor } from '@/transport';
 import { BYTES_WORKER_SCRIPT } from './bytes-stream';
 import { readPiece, type BytesPiece } from './piece';
+import { messageOf } from './signaling';
 
 type PieceAnswer = { ok: true; result: BytesPiece } | { ok: false; message: string };
 
@@ -29,7 +30,7 @@ function answer(event: MessageEvent<unknown>): void {
     }
     readPiece(transport, payload.data).then(
         (result) => reply({ ok: true, result }),
-        (e: unknown) => reply({ ok: false, message: e instanceof Error ? e.message : String(e) })
+        (e: unknown) => reply({ ok: false, message: messageOf(e) })
     );
 }
 

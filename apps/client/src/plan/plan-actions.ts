@@ -11,7 +11,7 @@ import { liveCanvas } from '@/state/canvas';
 import { useDocument } from '@/state/document';
 import { endpointKey } from '@/state/keys';
 import { useToasts } from '@/state/toasts';
-import { copyText } from '@adecore/ui';
+import { copyText, messageOf } from '@adecore/ui';
 
 interface PlanViewPrefs {
     filter: PlanFilter;
@@ -132,9 +132,7 @@ export function sendResultsToChat(chatId: string, plan: Plan): void {
 
 /* The tick already showed; a refusal put the plan back, and this says why. */
 function notChanged(error: unknown): void {
-    useToasts
-        .getState()
-        .show({ kind: 'error', title: i18next.t('plan:toast.notChanged'), description: error instanceof Error ? error.message : String(error) });
+    useToasts.getState().show({ kind: 'error', title: i18next.t('plan:toast.notChanged'), description: messageOf(error) });
 }
 
 export function setPlanStepsAction(chatId: string, planId: string, stepIds: string[], state: PlanStepState): void {

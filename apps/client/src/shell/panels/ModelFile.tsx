@@ -8,17 +8,13 @@ import { FileContextMenu, FileToolbar, FileToolbarToggle } from '@/shell/panels/
 import { readSourceBytes, revealablePath, useEndpointIdOf, type FileSource } from '@/shell/panels/file-source';
 import { canDrawWebgl, ModelViewer, type LoadedModel } from '@/shell/panels/model-viewer';
 import { RevealButton } from '@/shell/panels/RevealButton';
-import { ButtonGroup, EmptyState, IconButton } from '@adecore/ui';
+import { ButtonGroup, EmptyState, IconButton, messageOf } from '@adecore/ui';
 import { formatBytes, formatNumber } from '@adecore/ui/format';
 
 type Phase = { kind: 'loading' } | { kind: 'ready'; model: LoadedModel } | { kind: 'failed'; reason: string } | { kind: 'no-webgl' };
 
 const LOADING: Phase = { kind: 'loading' };
 const NO_WEBGL: Phase = { kind: 'no-webgl' };
-
-function messageOf(e: unknown): string {
-    return e instanceof Error ? e.message : String(e);
-}
 
 /* A binary glTF, a USDZ package or an STL, drawn in 3D on the same plain surface as an image. */
 export function ModelFile({ source, name, read }: { source: FileSource; name: string; read: FsReadBinary }) {

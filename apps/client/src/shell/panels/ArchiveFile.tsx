@@ -28,7 +28,8 @@ import {
     Menu,
     PromptDialog,
     useColumnResize,
-    useFileTree
+    useFileTree,
+    messageOf
 } from '@adecore/ui';
 import { formatBytes, formatNumber } from '@adecore/ui/format';
 
@@ -52,10 +53,6 @@ const OPEN_TREE_ENTRIES = 200;
 interface ExtractTarget {
     entries?: string[];
     label: string;
-}
-
-function messageOf(e: unknown): string {
-    return e instanceof Error ? e.message : String(e);
 }
 
 /* The entries as the files panel draws files, with each file's size after its name. */

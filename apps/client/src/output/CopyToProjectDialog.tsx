@@ -2,7 +2,7 @@ import { useRef, useState, type FormEvent, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { TriangleAlert } from 'lucide-react';
 import type { Artifact, ArtifactVersion } from '@ruimte/contracts';
-import { Button, Dialog, Field, FormError, Icon, Input } from '@adecore/ui';
+import { Button, Dialog, Field, FormError, Icon, Input, messageOf } from '@adecore/ui';
 import { validImageFileName } from '@/chat/image-save';
 import { suggestedCopyName } from '@/output/artifact-list';
 import { ProjectFolderPicker } from '@/shell/panels/ProjectFolderPicker';
@@ -115,7 +115,7 @@ function CopyForm({
                     setExists(path);
                     return;
                 }
-                setError(failure instanceof Error ? failure.message : String(failure));
+                setError(messageOf(failure));
             });
     };
 
