@@ -177,6 +177,8 @@ struct SettingsToolbarItem: ToolbarContent {
     let link: SettingsLink
 
     var body: some ToolbarContent {
+        // Gives the avatar a glass of its own instead of sharing one with the page's items before it.
+        ToolbarSpacer(.fixed, placement: .topBarTrailing)
         ToolbarItem(id: "settings", placement: .topBarTrailing) {
             Button(action: link.show) {
                 AccountAvatar.image(for: link.account, picture: link.picture)
