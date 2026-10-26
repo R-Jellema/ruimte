@@ -20,7 +20,7 @@ export function chatScopeOf(endpointId: string): ChatScope {
             get transport() {
                 return machineTransport(endpointId);
             },
-            // A machine this client no longer knows has no clients; the active machine's stand in, as they always did here.
+            // A machine this client no longer knows has no clients; the active machine's stand in.
             get chats() {
                 return chatClientFor(endpointId) ?? chatClient;
             }

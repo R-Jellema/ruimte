@@ -16,7 +16,6 @@ const usePing = create<PingStore>((set, get) => ({
     }
 }));
 
-/* What the round trip to one machine is, as a component reads it. */
 export function useLatency(endpointId: string): number | null {
     return usePing((s) => s.byEndpoint[endpointId] ?? null);
 }

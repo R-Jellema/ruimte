@@ -182,7 +182,7 @@ export interface ProjectRepos {
 /*
  * Which repositories a project folder holds: the one the folder itself is in, its submodules, and the
  * ones sitting beside it. A folder of loose checkouts has one per checkout and an ordinary project has
- * exactly one, which is the panel as it always was.
+ * exactly one.
  */
 export function useProjectRepos(folder: string | null): ProjectRepos {
     const transport = useTransport();

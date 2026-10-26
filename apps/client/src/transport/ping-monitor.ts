@@ -16,8 +16,7 @@ export interface PingMonitorOptions {
     timeoutMs?: number;
 }
 
-/* Times `server.ping` on a timer while the caller keeps it running. It knows nothing about the
-   socket. The transport is one injected call, which is what makes the bookkeeping testable. */
+/* Times `server.ping` on a timer while the caller keeps it running; the round trip is one injected call, so a test needs no socket. */
 export class PingMonitor {
     private readonly options: PingMonitorOptions;
     private timer: ReturnType<typeof setInterval> | null = null;

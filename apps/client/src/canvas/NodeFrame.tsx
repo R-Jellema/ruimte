@@ -199,7 +199,7 @@ const MACHINE_PILL_MIN_WIDTH = 380;
 
 /*
  * Which machine a node runs on, for a node that is not on the workspace's own. A canvas of one
- * machine draws none, so it looks as it always did.
+ * machine draws none.
  */
 function MachinePill({ machineId, endpointId, narrow }: { machineId: string; endpointId: string; narrow: boolean }) {
     const { t } = useTranslation('canvas');

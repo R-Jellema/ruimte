@@ -300,7 +300,6 @@ function commit(tabs: WindowTabs, tell = true): void {
     }
 }
 
-/* Pins a tab of this window, or lets it go. */
 export function pinWindowTab(key: string, pin: boolean): void {
     commit(pinTab(useWindowTabs.getState().tabs, key, pin));
 }
@@ -333,7 +332,6 @@ export function restoreWindowTabs(tabs: WindowTabs): void {
     commit(tabs);
 }
 
-/* Puts a tab at another place in the strip. */
 export function reorderWindowTab(key: string, index: number): void {
     commit(moveTab(useWindowTabs.getState().tabs, key, index));
 }
@@ -351,7 +349,6 @@ export function dragsWindow(shown: readonly string[], active: string | null, key
     return shown.length === 1 && shown[0] === key && active === key;
 }
 
-/* Whether `key` is the one tab this window has. */
 export function isOnlyTab(key: string): boolean {
     const { keys } = useWindowTabs.getState().tabs;
     return keys.length === 1 && keys[0] === key;
@@ -359,7 +356,7 @@ export function isOnlyTab(key: string): boolean {
 
 /*
  * The project this window shows next when the person closes `key`: the tab beside it, when it is the
- * tab in front. Null when there is none, and closing goes to the start screen as it always did.
+ * tab in front. Null when there is none, and closing goes to the start screen.
  */
 export function tabAfterClosing(key: string): string | null {
     const { tabs } = useWindowTabs.getState();

@@ -74,7 +74,6 @@ export function protocolGate(events: ProtocolGateEvents, client: number = PROTOC
     };
 }
 
-/* The socket URL with this client's version on it. */
 export function withProtocol(url: string, client: number = PROTOCOL_VERSION): string {
     return `${url}${url.includes('?') ? '&' : '?'}protocol=${client}`;
 }

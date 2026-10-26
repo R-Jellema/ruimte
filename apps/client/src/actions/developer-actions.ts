@@ -761,7 +761,7 @@ export function developerActions(document: StoreApi<DocumentState>, overrides: P
     };
 
     /*
-     * Every git run goes out under an id, so it can be cancelled while it goes. Whoever gave none gets
+     * Every git run goes out under an id, so it can be canceled while it goes. Whoever gave none gets
      * one here, and the run is remembered under its caller until it answers.
      */
     const tracked =

@@ -33,7 +33,7 @@ const GATE_TIMEOUT_MS = 20_000;
 // A request with no answer by then fails, so a handler that hangs is an error and not a spinner forever.
 const REQUEST_TIMEOUT_MS = 60_000;
 
-// Requests whose answer waits on a network, a model, a person's database, a whole history bundled or fetched, a program installed, or a disk writing as much as an archive holds, and that a caller ends itself when it has to.
+// Requests whose answer waits on a network, a model, a database or a large transfer, and that a caller ends itself.
 const UNBOUNDED_REQUESTS: ReadonlySet<RequestType> = new Set<RequestType>([
     'archive.extract',
     'artifact.importFrom',
@@ -250,7 +250,6 @@ export class LinkTransport implements PooledTransport {
         return this.ask('bytes.read', { ...payload, binary: true }, true);
     }
 
-    // Stops reconnecting for good; used when the module that owns the transport is torn down.
     dispose(): void {
         this.disposed = true;
         this.generation += 1;

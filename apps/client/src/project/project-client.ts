@@ -406,7 +406,6 @@ export class ProjectClient {
         await this.flush();
     }
 
-    /* Writes pending edits now; used before closing or switching. */
     async flush(): Promise<void> {
         if (this.saveTimer) {
             clearTimeout(this.saveTimer);

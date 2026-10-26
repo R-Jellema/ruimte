@@ -13,7 +13,6 @@ export interface ActiveSource {
 export interface ActiveTransportOptions {
     source: ActiveSource;
     activeId(): string;
-    /* Word that another machine became the active one. */
     subscribeActive(handler: () => void): () => void;
 }
 

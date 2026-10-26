@@ -43,7 +43,7 @@ interface Candidate {
  * The signals of one attempt over whichever route answers first. Every door on the local network is
  * tried at once and the broker joins after the head start, or as soon as every door has failed. The
  * first that is ready carries the attempt and the others close, so there is one peer connection per
- * attempt whatever the route. Without a door to try it is the broker alone, as it always was.
+ * attempt whatever the route. Without a door to try it is the broker alone.
  */
 export function raceSignaling(options: RaceOptions): SignalingOpener {
     return (connectionId, events) => {

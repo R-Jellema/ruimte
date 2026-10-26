@@ -113,7 +113,6 @@ function pickableMachines(): string[] {
     );
 }
 
-/* New chat from the tile, the palette, the menu and the shortcut alike. */
 export function newChat(): void {
     const machine = newChatMachine();
     if (machine !== null) {

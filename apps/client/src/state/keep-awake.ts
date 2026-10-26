@@ -120,7 +120,7 @@ export function setKeepAwakeLidClosed(on: boolean): void {
 
 /*
  * Installs or removes the rule on this computer's machine, after macOS asks for an administrator in its
- * own dialog. Resolves false when the person cancelled that dialog, which is nothing to report.
+ * own dialog. Resolves false when the person canceled that dialog, which is nothing to report.
  */
 export async function setClosedLidRule(install: boolean): Promise<boolean> {
     const link = transportFor(LOCAL_ENDPOINT_ID);

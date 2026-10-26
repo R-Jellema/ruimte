@@ -61,7 +61,6 @@ export function linkUsage(
     };
 }
 
-/* Two meters on one transport. */
 export function bothMeters(one: LinkMeter, other: LinkMeter): LinkMeter {
     return {
         connected: (link, outcome, ms) => {

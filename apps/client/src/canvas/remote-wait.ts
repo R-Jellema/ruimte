@@ -41,7 +41,6 @@ export function waitingMachinesOf(
     return [...counts].map(([machine, count]) => ({ machine, count }));
 }
 
-/* The machines a node waits for. */
 export function useWaitingMachines(parentId: string): WaitedFor[] {
     const workspaceId = useWorkspace()?.connection.endpointId ?? '';
     const tasks = useTasks((state) => state.byEndpoint[workspaceId]);
