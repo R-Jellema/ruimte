@@ -4,8 +4,7 @@ import { CircleCheck } from 'lucide-react';
 import type { RoutineEntry } from '@ruimte/contracts';
 import { Button, FormError, Icon, SectionLabel, messageOf } from '@adecore/ui';
 import { OutputProjectGlyph } from '@/output/look';
-import { awaitingApproval, LEGEND, runsWaiting } from '@/routines/agenda';
-import { LookSwatch } from '@/routines/look';
+import { awaitingApproval, runsWaiting } from '@/routines/agenda';
 import { refreshRoutines } from '@/routines/routine-list';
 import { showRoutine } from '@/routines/stage';
 import { scheduleWords, weekdayClock } from '@/routines/words';
@@ -14,11 +13,14 @@ import { endpointKey } from '@/state/keys';
 import { machineTransport } from '@/transport';
 import { useChats } from '@adecore/agents-react/state';
 
-/* The right column of the week: what waits for approval here, the runs waiting on a person, and what the blocks mean. */
+/* The right column of the week, only while something waits: routines for approval here, and runs waiting on a person. */
 export function RoutineSide({ endpointId, entries, grouped, timeZone }: { endpointId: string; entries: RoutineEntry[]; grouped: boolean; timeZone: string }) {
     const { t } = useTranslation('routines');
     const held = awaitingApproval(entries);
     const waiting = runsWaiting(entries);
+    if (held.length === 0 && waiting.length === 0) {
+        return null;
+    }
     return (
         <aside className="flex w-[288px] shrink-0 flex-col overflow-y-auto border-l border-border" aria-label={t('side.label')}>
             {held.length > 0 && (
@@ -33,16 +35,14 @@ export function RoutineSide({ endpointId, entries, grouped, timeZone }: { endpoi
                     ))}
                 </section>
             )}
-            <section className="flex flex-col gap-2 border-b border-border p-3" aria-label={t('side.needsYou')}>
-                <SectionLabel render={<h3 />} className="flex items-center gap-2">
-                    {waiting.length > 0 && <span aria-hidden="true" className="size-1.5 rounded-full bg-status-needs-you" />}
-                    {t('side.needsYou')}
-                    <span className="ml-auto tabular-nums">{waiting.length}</span>
-                </SectionLabel>
-                {waiting.length === 0 ? (
-                    <p className="text-xs text-text-muted">{t('side.nothingWaits')}</p>
-                ) : (
-                    waiting.map(({ entry, run }) => (
+            {waiting.length > 0 && (
+                <section className="flex flex-col gap-2 border-b border-border p-3" aria-label={t('side.needsYou')}>
+                    <SectionLabel render={<h3 />} className="flex items-center gap-2">
+                        <span aria-hidden="true" className="size-1.5 rounded-full bg-status-needs-you" />
+                        {t('side.needsYou')}
+                        <span className="ml-auto tabular-nums">{waiting.length}</span>
+                    </SectionLabel>
+                    {waiting.map(({ entry, run }) => (
                         <button
                             key={run.runId}
                             type="button"
@@ -55,17 +55,9 @@ export function RoutineSide({ endpointId, entries, grouped, timeZone }: { endpoi
                                 <WaitingFor endpointId={endpointId} chatId={run.chatId} since={weekdayClock(run.at, timeZone)} />
                             </span>
                         </button>
-                    ))
-                )}
-            </section>
-            <section className="mt-auto grid grid-cols-2 gap-x-3 gap-y-1.5 p-3" aria-label={t('side.legend')}>
-                {LEGEND.map((look) => (
-                    <span key={look} className="flex items-center gap-2 text-xs text-text-muted">
-                        <LookSwatch look={look} />
-                        {t(`looks.${look}`)}
-                    </span>
-                ))}
-            </section>
+                    ))}
+                </section>
+            )}
         </aside>
     );
 }

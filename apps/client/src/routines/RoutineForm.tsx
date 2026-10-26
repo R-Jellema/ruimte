@@ -1,26 +1,20 @@
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Package } from 'lucide-react';
-import type { AgentKind, ModelSelection, Routine, RoutineKind, RoutinePerRun, RoutineSchedule, RuntimeMode } from '@ruimte/contracts';
+import type { Routine, RoutineKind, RoutinePerRun, RoutineSchedule, RuntimeMode } from '@ruimte/contracts';
 import { ModelPicker } from '@adecore/agents-react/chat/ui';
-import { RUNTIME_MODES, defaultProvider, readChatPreferences, runtimeModeLabel, startingSelection } from '@adecore/agents-react/chat';
-import { useProviders } from '@adecore/agents-react/state';
+import { RUNTIME_MODES, runtimeModeLabel } from '@adecore/agents-react/chat';
 import { Button, Checkbox, Field, FieldHint, FormError, Icon, Input, Segmented, Select, TextArea, messageOf } from '@adecore/ui';
-import { availableAgents } from '@/agents/creation';
 import { useLaunches } from '@/launches/state';
+import { firstLine, useAgentPick, type AgentPick } from '@/routines/agent-pick';
 import { freshRoutineId } from '@/routines/agenda';
 import type { RoutineFormRequest } from '@/routines/form-state';
-import { refreshRoutines, useRoutineLists } from '@/routines/routine-list';
+import { routineIdsTaken, saveRoutine } from '@/routines/routine-save';
 import { weekdayWords } from '@/routines/words';
 import { endpointKey } from '@/state/keys';
 import { useProjectList } from '@/state/project-list';
-import { machineTransport } from '@/transport';
 
 const DAYS = [1, 2, 3, 4, 5, 6, 7];
-
-function firstLine(text: string): string {
-    return (text.trim().split(/[.\n]/)[0] ?? '').trim().slice(0, 60);
-}
 
 function today(): string {
     const now = new Date();
@@ -28,19 +22,17 @@ function today(): string {
 }
 
 /*
- * The one form a routine is made and changed in, in the dialog and in the popover of a drag across the
- * week. Saving is a person's save on the machine, which approves what it writes.
+ * The one form a routine is made and changed in, in its dialog; a drag across the week has a short form of
+ * its own over the same save. Saving is a person's save on the machine, which approves what it writes.
  */
 export function RoutineForm({
     endpointId,
     request,
-    compact = false,
     onDone,
     onCancel
 }: {
     endpointId: string;
     request: RoutineFormRequest;
-    compact?: boolean;
     onDone(projectId: string, routineId: string): void;
     onCancel(): void;
 }) {
@@ -48,16 +40,11 @@ export function RoutineForm({
     const editing = request.editing?.routine;
     const allProjects = useProjectList((s) => s.projects);
     const projects = allProjects.filter((row) => row.endpointId === endpointId);
-    const list = useRoutineLists((s) => s.lists[endpointId]);
-    const providers = useProviders((s) => s.providers);
-    const pickable = availableAgents(providers, 'chat');
-    const preferences = readChatPreferences();
-
     const [projectId, setProjectId] = useState(request.projectId);
     const [title, setTitle] = useState(editing?.title ?? '');
     const [kind, setKind] = useState<RoutineKind>(editing?.kind ?? 'agent');
     const [prompt, setPrompt] = useState(editing?.kind === 'agent' ? editing.prompt : (request.prompt ?? ''));
-    const [pick, setPick] = useState<{ provider: AgentKind; selection: ModelSelection | undefined } | null>(
+    const [pick, setPick] = useState<AgentPick | null>(
         editing?.kind === 'agent' ? { provider: editing.provider, selection: editing.selection } : (request.agent ?? null)
     );
     const [mode, setMode] = useState<RuntimeMode>(editing?.kind === 'agent' ? editing.mode : 'supervised');
@@ -76,9 +63,7 @@ export function RoutineForm({
     const [busy, setBusy] = useState(false);
 
     const launches = useLaunches((s) => s.documents[endpointKey(endpointId, projectId)]?.launches ?? null);
-    const provider = pick?.provider ?? pickable.find((entry) => entry.kind === defaultProvider(preferences))?.kind ?? pickable[0]?.kind ?? null;
-    const providerInfo = pickable.find((entry) => entry.kind === provider);
-    const selection = pick?.selection ?? (providerInfo ? (startingSelection(preferences, providerInfo) ?? undefined) : undefined);
+    const { pickable, provider, selection } = useAgentPick(pick);
     const shownTitle = title.trim() !== '' ? title.trim() : kind === 'agent' ? firstLine(prompt) : kind === 'command' ? firstLine(command) : '';
 
     const ready =
@@ -88,12 +73,7 @@ export function RoutineForm({
         (kind === 'agent' ? prompt.trim() !== '' && provider !== null : kind === 'command' ? command.trim() !== '' : launchId !== null);
 
     const build = (): Routine => {
-        const taken = new Set(
-            list?.status === 'ready'
-                ? list.result.routines.filter((entry) => entry.projectId === projectId).flatMap((entry) => [entry.routine.id, entry.routine.outputKey])
-                : []
-        );
-        const id = editing?.id ?? freshRoutineId(shownTitle, taken);
+        const id = editing?.id ?? freshRoutineId(shownTitle, routineIdsTaken(endpointId, projectId));
         const base = {
             id,
             title: shownTitle,
@@ -118,20 +98,16 @@ export function RoutineForm({
         }
         setBusy(true);
         setFailure(null);
-        const baseRev = list?.status === 'ready' ? (list.result.revs[projectId] ?? 0) : 0;
         try {
-            const result = await machineTransport(endpointId).request('routine.save', { projectId, baseRev, routine: build(), shared });
-            refreshRoutines(endpointId);
-            onDone(projectId, result.routineId);
+            onDone(projectId, await saveRoutine(endpointId, projectId, build(), shared));
         } catch (e) {
             setFailure(messageOf(e, t('form.failed')));
             setBusy(false);
         }
     };
 
-    const gap = compact ? 'gap-2.5' : 'gap-3';
     return (
-        <form className={`flex flex-col ${gap}`} onSubmit={(event) => void submit(event)} aria-label={editing ? t('form.editTitle') : t('form.newTitle')}>
+        <form className="flex flex-col gap-3" onSubmit={(event) => void submit(event)} aria-label={editing ? t('form.editTitle') : t('form.newTitle')}>
             {request.pickProject === true && projects.length > 1 && (
                 <Field label={t('form.project')} group>
                     <Select
@@ -156,7 +132,7 @@ export function RoutineForm({
             {kind === 'agent' && (
                 <>
                     <Field label={t('form.prompt')}>
-                        <TextArea rows={compact ? 3 : 4} value={prompt} placeholder={t('form.promptPlaceholder')} onChange={(e) => setPrompt(e.target.value)} />
+                        <TextArea rows={4} value={prompt} placeholder={t('form.promptPlaceholder')} onChange={(e) => setPrompt(e.target.value)} />
                     </Field>
                     {pickable.length === 0 ? (
                         <FieldHint>{t('form.noAgent')}</FieldHint>

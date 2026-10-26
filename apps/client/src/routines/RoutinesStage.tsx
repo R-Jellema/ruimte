@@ -1,23 +1,28 @@
+import i18next from 'i18next';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, ChevronLeft, ChevronRight, CircleAlert, Clock, LayoutGrid, MoreHorizontal, Pause, Pencil, Play, Plus, Trash2 } from 'lucide-react';
 import { isCanvasView, type RoutineEntry, type RoutineListResult } from '@ruimte/contracts';
-import { Button, ButtonGroup, EmptyState, Icon, IconButton, Menu, PromptDialog, Select, Separator, useNow } from '@adecore/ui';
-import { formatDay, formatDayWithYear } from '@adecore/ui/format';
-import { weekOf } from '@/routines/agenda';
+import { Button, ButtonGroup, EmptyState, Icon, IconButton, Menu, PromptDialog, Segmented, Select, Separator, useNow } from '@adecore/ui';
+import { formatDateTime } from '@adecore/ui/format';
+import { weekOf, type AgendaWeek } from '@/routines/agenda';
 import { openRoutineForm } from '@/routines/form-state';
-import { RoutineAgenda, type AgendaGroup } from '@/routines/RoutineAgenda';
+import { RoutineAgenda, RoutineWeekList, type AgendaGroup } from '@/routines/RoutineAgenda';
 import { RoutineDetail } from '@/routines/RoutineDetail';
 import { runRoutineNow, setRoutinePaused, showRoutineOnCanvas } from '@/routines/routine-commands';
 import { refreshRoutines, useRoutineList } from '@/routines/routine-list';
 import { RoutineSide } from '@/routines/RoutineSide';
-import { leaveRoutines, setRoutinesFilter, showRoutine, stepWeek, useRoutinesStage } from '@/routines/stage';
+import { leaveRoutines, setRoutinesFilter, setRoutinesLayout, showRoutine, stepWeek, useRoutinesStage } from '@/routines/stage';
 import { activeViewOf, useDocument } from '@/state/document';
+import { useEndpoints } from '@/state/endpoints';
 import { useEndpointId } from '@/state/keys';
+import { isThisMachine } from '@/state/local-machine';
 import { useProject } from '@/state/project';
 import { machineTransport } from '@/transport';
 
 const MINUTE_MS = 60_000;
+// A day's noon, so a date written from its midnight never slips to the day before around a clock change.
+const NOON_MS = 12 * 60 * 60 * 1000;
 
 /* Routines over the whole view stage: the week of the project's routines, or one routine opened inside it. */
 export function RoutinesStage() {
@@ -100,16 +105,21 @@ function WeekStage({ endpointId, result, projectId, projectName }: { endpointId:
     const { t } = useTranslation('routines');
     const offset = useRoutinesStage((s) => s.week);
     const filter = useRoutinesStage((s) => s.filter);
+    const layout = useRoutinesStage((s) => s.layout);
     const now = useNow(MINUTE_MS);
     const week = weekOf(now, result.timeZone, offset);
     const grouped = filter === 'all';
     const shown = grouped ? result.routines : result.routines.filter((entry) => entry.projectId === projectId);
     const groups = groupsOf(shown, projectId, projectName);
-    const last = week.days[6]!;
+    const machine = useEndpoints((s) => s.endpoints.find((candidate) => candidate.id === endpointId)?.label ?? '');
+    const where = isThisMachine(endpointId) ? t('filter.thisMachine') : machine;
 
     return (
         <StageFrame>
             <StageHeader title={t('stage.title')}>
+                <Separator />
+                <span className="truncate text-base font-medium text-text">{rangeWords(week, result.timeZone)}</span>
+                <span className="shrink-0 text-xs text-text-faint">{t('stage.week', { number: week.number })}</span>
                 <ButtonGroup>
                     <IconButton icon={ChevronLeft} size="sm" label={t('stage.previousWeek')} onClick={() => stepWeek(-1)} />
                     <IconButton icon={ChevronRight} size="sm" label={t('stage.nextWeek')} onClick={() => stepWeek(1)} />
@@ -117,31 +127,36 @@ function WeekStage({ endpointId, result, projectId, projectName }: { endpointId:
                 <Button size="sm" variant="secondary" disabled={offset === 0} onClick={() => stepWeek(0)}>
                     {t('stage.today')}
                 </Button>
-                <span className="truncate text-text">
-                    {t('stage.range', {
-                        from: formatDay(week.days[0]!.start + 12 * 3_600_000, result.timeZone),
-                        to: formatDayWithYear(last.start + 12 * 3_600_000, result.timeZone)
-                    })}
-                </span>
-                <span className="shrink-0 text-xs text-text-faint">{t('stage.week', { number: week.number })}</span>
                 <span className="grow" />
+                <Segmented
+                    label={t('layout.label')}
+                    size="sm"
+                    value={layout}
+                    onValueChange={setRoutinesLayout}
+                    options={[
+                        { id: 'week', label: t('layout.week') },
+                        { id: 'list', label: t('layout.list') }
+                    ]}
+                />
                 <Select
                     size="sm"
                     label={t('filter.label')}
                     value={filter}
                     onValueChange={setRoutinesFilter}
                     items={[
-                        { value: 'project', label: projectName },
-                        { value: 'all', label: t('filter.all') }
+                        { value: 'project', label: t('filter.on', { projects: projectName, machine: where }) },
+                        { value: 'all', label: t('filter.on', { projects: t('filter.all'), machine: where }) }
                     ]}
                 />
-                <Button size="sm" variant="secondary" onClick={() => openRoutineForm({ projectId, pickProject: grouped })}>
+                <Button size="sm" variant="primary" onClick={() => openRoutineForm({ projectId, pickProject: grouped })}>
                     <Icon icon={Plus} size={14} />
                     {t('actions.new')}
                 </Button>
             </StageHeader>
             <div className="flex min-h-0 grow">
-                {shown.length === 0 && !grouped ? (
+                {layout === 'list' ? (
+                    <RoutineWeekList endpointId={endpointId} groups={groups} week={week} now={now} timeZone={result.timeZone} />
+                ) : shown.length === 0 && !grouped ? (
                     <div className="flex min-w-0 grow flex-col">
                         <RoutineAgenda
                             endpointId={endpointId}
@@ -173,6 +188,25 @@ function WeekStage({ endpointId, result, projectId, projectName }: { endpointId:
             </div>
         </StageFrame>
     );
+}
+
+/* `20 to 26 October`: the month once when both ends share it, the year only when the week crosses into another. */
+function rangeWords(week: AgendaWeek, timeZone: string): string {
+    const from = week.days[0]!.start + NOON_MS;
+    const to = week.days[6]!.start + NOON_MS;
+    const part = (at: number, options: Intl.DateTimeFormatOptions): string => formatDateTime(at, { ...options, timeZone });
+    const sameYear = part(from, { year: 'numeric' }) === part(to, { year: 'numeric' });
+    const fromDay = part(from, { day: 'numeric', month: 'long' });
+    const toDay = part(to, sameYear ? { day: 'numeric', month: 'long' } : { day: 'numeric', month: 'long', year: 'numeric' });
+    if (part(from, { month: 'numeric' }) !== part(to, { month: 'numeric' })) {
+        return i18next.t('routines:stage.range', { from: fromDay, to: toDay });
+    }
+    // The shared month is written once, on the side the region writes it: `20 to 26 October`, `October 20 to 26`.
+    const dayFirst = toDay.startsWith(part(to, { day: 'numeric' }));
+    return i18next.t('routines:stage.range', {
+        from: dayFirst ? part(from, { day: 'numeric' }) : fromDay,
+        to: dayFirst ? toDay : part(to, { day: 'numeric' })
+    });
 }
 
 /* The open project first, then the others by name, each with its routines in the order the machine keeps them. */

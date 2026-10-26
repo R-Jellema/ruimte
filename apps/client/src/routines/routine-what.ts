@@ -2,8 +2,8 @@ import type { RoutineEntry } from '@ruimte/contracts';
 import { runtimeModeLabel } from '@adecore/agents-react/chat';
 import { useProviders } from '@adecore/agents-react/state';
 
-/* What a routine runs, in one line: the agent, its model and mode, the command, or the launch. */
-export function useRoutineWhat(entry: RoutineEntry): string {
+/* What a routine runs, in one line: the agent, its model and mode, the command, or the launch. A row of the week leaves the mode out. */
+export function useRoutineWhat(entry: RoutineEntry, withMode = true): string {
     const providers = useProviders((s) => s.providers);
     const routine = entry.routine;
     if (routine.kind === 'command') {
@@ -17,5 +17,5 @@ export function useRoutineWhat(entry: RoutineEntry): string {
         routine.selection === undefined
             ? null
             : (provider?.models.find((candidate) => candidate.slug === routine.selection?.model)?.name ?? routine.selection.model);
-    return [provider?.name ?? routine.provider, model, runtimeModeLabel(routine.mode)].filter((part) => part !== null).join(' · ');
+    return [provider?.name ?? routine.provider, model, withMode ? runtimeModeLabel(routine.mode) : null].filter((part) => part !== null).join(' · ');
 }

@@ -8,11 +8,15 @@ export interface RoutineRef {
 
 export type RoutinesFilter = 'project' | 'all';
 
+/* The week as a grid of days, or as a list of its runs and coming times day by day. */
+export type RoutinesLayout = 'week' | 'list';
+
 interface RoutinesStage {
     open: boolean;
     /* Weeks away from the one we are in; 0 is this week. */
     week: number;
     filter: RoutinesFilter;
+    layout: RoutinesLayout;
     /* The routine opened inside the stage, or null for the week. */
     routine: RoutineRef | null;
     /* The run picked in that routine's timeline; null picks its newest run. */
@@ -23,7 +27,7 @@ interface RoutinesStage {
  * Routines over the whole view stage, one per window: what this client shows, never written to a project
  * file. The view and panel underneath stay as they were, so leaving brings them back by themselves.
  */
-export const useRoutinesStage = create<RoutinesStage>(() => ({ open: false, week: 0, filter: 'project', routine: null, runId: null }));
+export const useRoutinesStage = create<RoutinesStage>(() => ({ open: false, week: 0, filter: 'project', layout: 'week', routine: null, runId: null }));
 
 export function openRoutines(): void {
     useRoutinesStage.setState({ open: true });
@@ -53,4 +57,8 @@ export function stepWeek(delta: number): void {
 
 export function setRoutinesFilter(filter: RoutinesFilter): void {
     useRoutinesStage.setState({ filter });
+}
+
+export function setRoutinesLayout(layout: RoutinesLayout): void {
+    useRoutinesStage.setState({ layout });
 }

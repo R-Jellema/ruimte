@@ -21,10 +21,21 @@
   },
   "filter": {
     "label": "Which projects",
-    "all": "All projects"
+    "all": "All projects",
+    "on": "{{projects}} · {{machine}}",
+    "thisMachine": "This machine"
+  },
+  "layout": {
+    "label": "Show the week as",
+    "week": "Week",
+    "list": "List"
+  },
+  "list": {
+    "empty": "Nothing ran or is planned this week."
   },
   "agenda": {
     "label": "Routines this week",
+    "routine": "Routine",
     "projectTitle": "Routines of {{name}}",
     "allTitle": "All routines on this machine",
     "block": "{{title}}, {{time}}, {{state}}",
@@ -51,11 +62,54 @@
     "running": "Running",
     "failed": "Failed"
   },
+  "legend": {
+    "done": "Done",
+    "running": "Running",
+    "waiting": "Needs you",
+    "caught-up": "Missed, caught up",
+    "failed": "Failed",
+    "next": "Upcoming"
+  },
+  "chip": {
+    "took": "{{time}} · {{duration}}",
+    "needsYou": "Needs you",
+    "woke": "Woke {{time}}",
+    "limit": "Usage limit",
+    "failed": "Failed",
+    "skipped": "Skipped",
+    "paused": "Paused"
+  },
+  "band": {
+    "since": "Paused since {{since}}",
+    "skipped_one": "Paused since {{since}} · {{count}} run skipped",
+    "skipped_other": "Paused since {{since}} · {{count}} runs skipped"
+  },
+  "span": {
+    "once": "{{day}} · once",
+    "range": "{{from}} to {{to}} · {{repeat}}",
+    "daily": "every day",
+    "weekdays": "every weekday",
+    "weekends": "every weekend",
+    "weekly": "every week"
+  },
+  "popover": {
+    "label": "Run of {{title}}",
+    "title": "{{title}} · {{date}}",
+    "started": "Started {{time}}",
+    "done": "done {{time}}",
+    "ended": "ended {{time}}",
+    "openOnCanvas": "Open on canvas"
+  },
+  "quick": {
+    "thisMachine": "On this machine",
+    "onMachine": "On {{machine}}",
+    "missed": "Missed: once on wake",
+    "more": "More options"
+  },
   "side": {
     "label": "Approvals and runs that wait",
     "approvals": "Waiting for approval",
     "needsYou": "Needs you",
-    "nothingWaits": "No run waits for you. Pick a block to see its run.",
     "waitsSince": "Waits since {{time}}",
     "legend": "What the blocks mean"
   },

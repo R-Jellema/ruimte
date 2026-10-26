@@ -5,7 +5,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /* What a block in the week says about its run. `next` and a `paused` without a run are times the client works out from the schedule. */
 export type BlockLook = 'done' | 'waited' | 'caught-up' | 'limit' | 'skipped' | 'paused' | 'next' | 'running' | 'waiting' | 'failed';
 
-export const LEGEND: readonly BlockLook[] = ['done', 'waiting', 'caught-up', 'limit', 'skipped', 'paused', 'next', 'running', 'failed'];
+export const LEGEND: readonly BlockLook[] = ['done', 'running', 'waiting', 'caught-up', 'failed', 'next'];
 
 export interface AgendaDay {
     /* Epoch ms of midnight in the machine's time zone, and of the next one. */
@@ -123,6 +123,30 @@ export function blocksOf(entry: RoutineEntry, week: AgendaWeek, now: number, tim
         }
     }
     return blocks.sort((left, right) => left.at - right.at);
+}
+
+/*
+ * The days of the week a paused routine draws as one band: from today, or the week's first day ahead of
+ * now, to its end, past the days that still hold a run. Null when it is not paused or the week is past.
+ */
+export function pausedBand(entry: RoutineEntry, blocks: readonly AgendaBlock[], week: AgendaWeek, now: number): { from: number; to: number } | null {
+    if (entry.local.pausedAt === undefined || !scheduled(entry) || week.end <= now) {
+        return null;
+    }
+    let from = week.start > now ? 0 : Math.max(0, dayIndexOf(week, now));
+    while (from < 7 && blocks.some((block) => block.day === from && block.run !== null)) {
+        from++;
+    }
+    return from > 6 ? null : { from, to: 6 };
+}
+
+/* The runs a pause skipped since it began. */
+export function skippedWhilePaused(entry: RoutineEntry): number {
+    const since = entry.local.pausedAt;
+    if (since === undefined) {
+        return 0;
+    }
+    return entry.runs.filter((run) => run.state === 'skipped' && run.skipped === 'paused' && run.due >= since).length;
 }
 
 /* The routines waiting on a person's approval here: held, and not already said no to as they stand. */

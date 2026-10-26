@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { zonedTime, type RoutineEntry, type RoutineRun } from '@ruimte/contracts';
-import { awaitingApproval, blocksOf, freshRoutineId, scheduleForDays, weekOf } from './agenda';
+import { awaitingApproval, blocksOf, freshRoutineId, pausedBand, scheduleForDays, weekOf } from './agenda';
 
 const AMS = 'Europe/Amsterdam';
 // Sunday 25 October 2026, 14:20 in Amsterdam: the night the clocks went back.
@@ -76,6 +76,17 @@ describe('the week', () => {
         const week = weekOf(NOW, AMS, 1);
         expect(blocksOf(entry({ local: { pausedAt: NOW } }), week, NOW, AMS).map((block) => block.look)).toEqual(Array(6).fill('paused'));
         expect(blocksOf(entry({ approved: false, held: 'outside' }), week, NOW, AMS)).toEqual([]);
+    });
+
+    test('a paused routine bands the rest of the week from today, past the days that hold a run', () => {
+        const paused = entry({ local: { pausedAt: zonedTime(2026, 10, 13, 10, 0, AMS) } });
+        const thisWeek = weekOf(NOW, AMS, 0);
+        expect(pausedBand(paused, blocksOf(paused, thisWeek, NOW, AMS), thisWeek, NOW)).toEqual({ from: 6, to: 6 });
+        const ranToday = entry({ ...paused, runs: [run({ runId: 'sun', due: zonedTime(2026, 10, 25, 9, 0, AMS), state: 'done' })] });
+        expect(pausedBand(ranToday, blocksOf(ranToday, thisWeek, NOW, AMS), thisWeek, NOW)).toBeNull();
+        const nextWeek = weekOf(NOW, AMS, 1);
+        expect(pausedBand(paused, blocksOf(paused, nextWeek, NOW, AMS), nextWeek, NOW)).toEqual({ from: 0, to: 6 });
+        expect(pausedBand(entry(), [], nextWeek, NOW)).toBeNull();
     });
 
     test('a routine said no to is no longer waiting for approval', () => {

@@ -1,6 +1,10 @@
 import i18next from 'i18next';
 import type { RoutineEntry, RoutineRun, RoutineSchedule } from '@ruimte/contracts';
-import { formatClock, formatDateTime, formatDay, formatDuration } from '@adecore/ui/format';
+import { formatClock, formatDateTime, formatDay, formatDuration, formatElapsedShort } from '@adecore/ui/format';
+import type { AgendaBlock, AgendaWeek } from '@/routines/agenda';
+
+// A day's noon, so a date written from its midnight never slips to the day before around a clock change.
+const NOON_MS = 12 * 60 * 60 * 1000;
 
 /* A time of a schedule, `HH:MM` on the machine's clock, written the way the region writes a clock. */
 export function clockWords(time: string): string {
@@ -45,6 +49,49 @@ export function scheduleWords(schedule: RoutineSchedule): string {
         return i18next.t('routines:repeat.every', { day: weekdayWords(days[0]!, 'long'), time });
     }
     return i18next.t('routines:repeat.some', { days: days.map((day) => weekdayWords(day)).join(', '), time });
+}
+
+/* What a drag across the days picked: `Mon to Fri · every weekday`, or `Wed 22 · once` for one day. */
+export function spanWords(week: AgendaWeek, from: number, to: number, timeZone: string): string {
+    const first = week.days[Math.min(from, to)]!;
+    const last = week.days[Math.max(from, to)]!;
+    if (first === last) {
+        return i18next.t('routines:span.once', { day: formatDateTime(first.start + NOON_MS, { weekday: 'short', day: 'numeric', timeZone }) });
+    }
+    const days = week.days.slice(first.weekday - 1, last.weekday).map((day) => day.weekday);
+    const repeat = days.length === 7 ? 'daily' : sameDays(days, WEEKDAYS) ? 'weekdays' : sameDays(days, WEEKEND) ? 'weekends' : 'weekly';
+    return i18next.t('routines:span.range', {
+        from: weekdayWords(first.weekday),
+        to: weekdayWords(last.weekday),
+        repeat: i18next.t(`routines:span.${repeat}`)
+    });
+}
+
+/* What a block in the week says in its chip: when a run started and how long it took, or what became of it. */
+export function blockWords(block: AgendaBlock, timeZone: string): string {
+    const t = (key: string, values?: Record<string, string>): string => i18next.t(`routines:chip.${key}`, values);
+    const run = block.run;
+    const time = formatClock(run?.at ?? block.at, timeZone);
+    switch (block.look) {
+        case 'done':
+        case 'waited':
+            return run?.endedAt === undefined ? time : t('took', { time, duration: formatElapsedShort(run.endedAt - run.at) });
+        case 'waiting':
+            return t('needsYou');
+        case 'caught-up':
+            return t('woke', { time });
+        case 'limit':
+            return t('limit');
+        case 'failed':
+            return t('failed');
+        case 'skipped':
+            return t('skipped');
+        case 'paused':
+            return t('paused');
+        case 'running':
+        case 'next':
+            return time;
+    }
 }
 
 /* A moment on the machine's clock with its weekday: `Mon 09:00`. */

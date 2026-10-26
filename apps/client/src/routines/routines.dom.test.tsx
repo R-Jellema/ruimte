@@ -165,10 +165,56 @@ describe('Routines', () => {
     test('draws a block per run by its state, and the times still to come', async () => {
         await openStage();
         expect(looksOf('morning')).toEqual(['done', 'limit', 'caught-up', 'waited', 'skipped']);
-        expect(text()).toContain('Next Mon 09:00');
+        expect(text()).toContain('October 19 to 25');
+        const row = page.host.querySelector('[data-routine="morning"] [role="rowheader"]')?.textContent ?? '';
+        expect(row).toContain('Weekdays at');
+        expect(row).toContain('Claude Code');
         await clickOn(page.host.querySelector('button[aria-label="Next week"]'));
         await until(() => text().includes('Week 44'));
         expect(looksOf('morning')).toEqual(['next', 'next', 'next', 'next', 'next']);
+    });
+
+    test('a block opens a card of its run, and its actions go where the stage goes', async () => {
+        machine.answer('routine.runNow', () => ({ outcome: 'started' as const, runId: 'now' }));
+        await openStage();
+        const card = (): Element | null => document.querySelector('[aria-label="Run of Morning summary"]');
+        await clickOn(page.host.querySelector('[data-routine="morning"] button[data-look="done"]'));
+        await until(() => card()?.textContent?.includes('Started') === true);
+        expect(card()?.textContent).toContain('Atlas');
+        expect(card()?.textContent).toContain('Done in 3 min');
+        // Only a routine with a node on a canvas offers the way there.
+        expect(buttonWithText('Open on canvas', card()!)).toBeNull();
+
+        await clickOn(buttonWithText('Run now', card()!));
+        await until(() => machine.requests('routine.runNow').length === 1);
+        expect(machine.requests('routine.runNow')[0]).toEqual({ projectId: 'project-atlas', routineId: 'morning' });
+        await until(() => card() === null);
+
+        await clickOn(page.host.querySelector('[data-routine="morning"] button[data-look="done"]'));
+        await until(() => card() !== null);
+        await clickOn(buttonWithText('Open in Routines', card()!));
+        expect(useRoutinesStage.getState()).toMatchObject({ routine: { projectId: 'project-atlas', routineId: 'morning' }, runId: 'mon' });
+    });
+
+    test('a paused routine draws the rest of the week as one band, and Resume picks it up again', async () => {
+        const pausedRun = (day: number): RoutineRun => ({ ...run(`bundle-${day}`, day, { state: 'skipped', skipped: 'paused' }), routineId: 'bundle' });
+        routines = [
+            MORNING,
+            entry('bundle', 'Bundle size report', {
+                local: { pausedAt: zonedTime(2026, 10, 13, 10, 0, AMS) },
+                next: null,
+                runs: [pausedRun(23), pausedRun(22), pausedRun(21)]
+            })
+        ];
+        await openStage();
+        await act(async () => machine.emit('routine.changed', { projectId: 'project-atlas' }));
+        const band = (): Element | null => page.host.querySelector('[data-routine="bundle"] [data-band="paused"]');
+        await until(() => band() !== null);
+        expect(band()?.textContent).toContain('Paused since');
+        expect(band()?.textContent).toContain('3 runs skipped');
+        await clickOn(buttonWithText('Resume', band()!));
+        await until(() => machine.requests('routine.resume').length === 1);
+        expect(machine.requests('routine.resume')[0]).toEqual({ projectId: 'project-atlas', routineId: 'bundle' });
     });
 
     test('approving a routine from git sends the digest that was shown', async () => {

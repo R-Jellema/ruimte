@@ -21,10 +21,21 @@
   },
   "filter": {
     "label": "Welke projecten",
-    "all": "Alle projecten"
+    "all": "Alle projecten",
+    "on": "{{projects}} · {{machine}}",
+    "thisMachine": "Deze machine"
+  },
+  "layout": {
+    "label": "Toon de week als",
+    "week": "Week",
+    "list": "Lijst"
+  },
+  "list": {
+    "empty": "Deze week liep er niets en staat er niets gepland."
   },
   "agenda": {
     "label": "Routines deze week",
+    "routine": "Routine",
     "projectTitle": "Routines van {{name}}",
     "allTitle": "Alle routines op deze machine",
     "block": "{{title}}, {{time}}, {{state}}",
@@ -51,11 +62,54 @@
     "running": "Bezig",
     "failed": "Mislukt"
   },
+  "legend": {
+    "done": "Klaar",
+    "running": "Bezig",
+    "waiting": "Wacht op jou",
+    "caught-up": "Gemist, ingehaald",
+    "failed": "Mislukt",
+    "next": "Gepland"
+  },
+  "chip": {
+    "took": "{{time}} · {{duration}}",
+    "needsYou": "Wacht op jou",
+    "woke": "Gewekt {{time}}",
+    "limit": "Limiet bereikt",
+    "failed": "Mislukt",
+    "skipped": "Overgeslagen",
+    "paused": "Gepauzeerd"
+  },
+  "band": {
+    "since": "Gepauzeerd sinds {{since}}",
+    "skipped_one": "Gepauzeerd sinds {{since}} · {{count}} run overgeslagen",
+    "skipped_other": "Gepauzeerd sinds {{since}} · {{count}} runs overgeslagen"
+  },
+  "span": {
+    "once": "{{day}} · eenmalig",
+    "range": "{{from}} t/m {{to}} · {{repeat}}",
+    "daily": "elke dag",
+    "weekdays": "elke werkdag",
+    "weekends": "elk weekend",
+    "weekly": "elke week"
+  },
+  "popover": {
+    "label": "Run van {{title}}",
+    "title": "{{title}} · {{date}}",
+    "started": "Gestart {{time}}",
+    "done": "klaar {{time}}",
+    "ended": "gestopt {{time}}",
+    "openOnCanvas": "Openen op canvas"
+  },
+  "quick": {
+    "thisMachine": "Op deze machine",
+    "onMachine": "Op {{machine}}",
+    "missed": "Gemist: één keer bij ontwaken",
+    "more": "Meer opties"
+  },
   "side": {
     "label": "Goedkeuringen en runs die wachten",
     "approvals": "Wacht op goedkeuring",
     "needsYou": "Wacht op jou",
-    "nothingWaits": "Geen run wacht op je. Kies een blok om zijn run te zien.",
     "waitsSince": "Wacht sinds {{time}}",
     "legend": "Wat de blokken betekenen"
   },
