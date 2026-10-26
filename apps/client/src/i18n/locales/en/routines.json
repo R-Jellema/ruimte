@@ -312,7 +312,6 @@
     "collapse": "Collapse",
     "output": "Output",
     "noVersion": "This run saved no version.",
-    "noVersionShowing": "This run saved no version. Showing the one from {{date}}.",
-    "resize": "Resize"
+    "noVersionShowing": "This run saved no version. Showing the one from {{date}}."
   }
 }

@@ -118,8 +118,14 @@ export function portPoint(rect: Rect, side: Side): Point {
  * would draw. Only when something is in the way do the other sides of the two nodes get a turn: a
  * line that has to go around a node reads better leaving over the top than squeezing past its side.
  */
-export function routeEdge(a: Rect, b: Rect, obstacles: readonly Obstacle[] = [], fixed: FixedSides = {}): EdgeRoute {
-    return route({ rect: a, gap: NODE_GAP }, { rect: b, gap: NODE_GAP }, obstacles, fixed);
+export function routeEdge(a: Rect, b: Rect, obstacles: readonly Obstacle[] = [], fixed: FixedSides & HeldHeights = {}): EdgeRoute {
+    return route({ rect: a, gap: NODE_GAP, down: fixed.fromDown }, { rect: b, gap: NODE_GAP, down: fixed.toDown }, obstacles, fixed);
+}
+
+/* How far down a left or right side a line meets the box, in world units from its top; the middle when absent. */
+export interface HeldHeights {
+    fromDown?: number;
+    toDown?: number;
 }
 
 /*
@@ -157,10 +163,13 @@ function outsideOf(box: Bounds, point: Point): Point {
 interface End {
     rect: Rect;
     gap: number;
+    down?: number;
 }
 
 function endPoint(end: End, side: Side): Point {
-    return push(sidePoint(end.rect, side), side, end.gap);
+    const point = sidePoint(end.rect, side);
+    const held = end.down === undefined || isVertical(side) ? point : { x: point.x, y: end.rect.y + end.down };
+    return push(held, side, end.gap);
 }
 
 function route(a: End, b: End, obstacles: readonly Obstacle[], fixed: FixedSides): EdgeRoute {

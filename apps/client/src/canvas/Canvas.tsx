@@ -66,7 +66,9 @@ type Gesture =
           edge: string;
           start: Point;
           rect: Rect;
-      };
+      }
+    /* A card beside a node (`resizableCards`): its size goes back to the card, never into the nodes. */
+    | { kind: 'card-resize'; cardId: string; edge: string; start: Point; rect: Rect };
 
 /* World units between two files dropped at once: a node's own width and a gutter, so the second one
    stands beside the first instead of over it. */
@@ -289,7 +291,7 @@ export function Canvas() {
                 canvasStore.getState().endGapMove(true);
             } else if (gesture?.kind === 'move' && gesture.moved) {
                 canvasStore.getState().settleMove();
-            } else if (gesture?.kind === 'resize') {
+            } else if (gesture?.kind === 'resize' || gesture?.kind === 'card-resize') {
                 canvasStore.getState().setResizing(null);
             } else if (gesture?.kind === 'link') {
                 canvasStore.getState().setLinkDraft(null);
@@ -512,6 +514,13 @@ export function Canvas() {
             );
             return;
         }
+        const resizeCard = resizeNode ? s.resizableCards[resizeNode] : undefined;
+        if (resizeEdge && resizeNode && resizeCard && !s.locks.resize) {
+            e.preventDefault();
+            s.setResizing(resizeNode);
+            startGesture({ kind: 'card-resize', cardId: resizeNode, edge: resizeEdge, start: point, rect: { ...resizeCard.rect } }, e);
+            return;
+        }
 
         const derivedOf = derivedOwnerOf(target);
         if (derivedOf !== null) {
@@ -654,6 +663,18 @@ export function Canvas() {
                     })
                 );
                 break;
+            case 'card-resize': {
+                const card = s.resizableCards[g.cardId];
+                if (card === undefined || s.locks.resize) {
+                    break;
+                }
+                // Its corner is placed by its layout, so a resize from the middle or to a ratio would move it.
+                const rect = resizedRect(g.rect, g.edge, (point.x - g.start.x) / s.camera.zoom, (point.y - g.start.y) / s.camera.zoom, {}, card.minimum);
+                if (rect.w !== card.rect.w || rect.h !== card.rect.h) {
+                    card.apply(rect);
+                }
+                break;
+            }
             case 'link':
                 s.setLinkDraft({
                     from: g.from,
@@ -697,7 +718,7 @@ export function Canvas() {
             }
             s.endGapMove(e.type === 'pointercancel');
             setGapEdit(null);
-        } else if (g.kind === 'resize') {
+        } else if (g.kind === 'resize' || g.kind === 'card-resize') {
             s.setResizing(null);
         } else if (g.kind === 'link') {
             s.setLinkDraft(null);

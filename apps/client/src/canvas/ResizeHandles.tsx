@@ -36,12 +36,14 @@ const CURSOR: Record<ResizeEdge, string> = {
 /*
  * The resize handle a node offers the pointer that comes near it, outside its frame so the content
  * keeps every pixel. Like a port it belongs to the canvas: one handle at a time, on the nearest node.
+ * A card beside a node that registered itself (`resizableCards`) is offered the same way.
  */
 export function ResizeHandles({ rootRef }: { rootRef: RefObject<HTMLDivElement | null> }) {
     const nodes = useCanvas((s) => s.nodes);
     const hidden = useCanvas((s) => s.hidden);
     const zoom = useCanvas((s) => s.camera.zoom);
     const locked = useCanvas((s) => s.locks.resize);
+    const cards = useCanvas((s) => s.resizableCards);
     const resizing = useCanvas((s) => s.resizing);
     const quiet = useCanvas((s) => (s.gesturing && s.resizing === null) || s.linkDraft !== null);
     const point = useWorldPointer(rootRef);
@@ -49,11 +51,13 @@ export function ResizeHandles({ rootRef }: { rootRef: RefObject<HTMLDivElement |
     const [grabbed, setGrabbed] = useState<{ nodeId: string; edge: ResizeEdge } | null>(null);
 
     const candidates = useMemo<ResizeCandidate[]>(
-        () =>
-            Object.values(nodes)
+        () => [
+            ...Object.values(nodes)
                 .filter((node) => !hidden.has(node.id) && !(node.kind === 'group' && node.collapsed === true))
                 .map(({ id, x, y, w, h, kind }) => ({ id, x, y, w, h, group: kind === 'group' })),
-        [hidden, nodes]
+            ...Object.entries(cards).map(([id, card]) => ({ id, ...card.rect, group: false, edges: card.edges }))
+        ],
+        [cards, hidden, nodes]
     );
 
     const handle = useMemo(() => {
@@ -61,11 +65,11 @@ export function ResizeHandles({ rootRef }: { rootRef: RefObject<HTMLDivElement |
             return null;
         }
         if (resizing !== null) {
-            const node = nodes[resizing];
-            return grabbed?.nodeId === resizing && node !== undefined ? heldHandle(node, grabbed.edge, point, zoom) : null;
+            const frame = nodes[resizing] ?? cards[resizing]?.rect;
+            return grabbed?.nodeId === resizing && frame !== undefined ? heldHandle({ ...frame, id: resizing }, grabbed.edge, point, zoom) : null;
         }
         return quiet ? null : resizeHandle(candidates, point, zoom);
-    }, [candidates, grabbed, locked, nodes, point, quiet, resizing, zoom]);
+    }, [candidates, cards, grabbed, locked, nodes, point, quiet, resizing, zoom]);
 
     /* Only a change of shape glides: a pill following the pointer along an edge would trail behind it. */
     const shape = handle === null ? null : `${handle.nodeId}:${handle.edge}`;
@@ -83,7 +87,10 @@ export function ResizeHandles({ rootRef }: { rootRef: RefObject<HTMLDivElement |
         return () => window.clearTimeout(timer);
     }, [morphing, lastShape]);
 
-    const current = useMemo(() => (handle === null ? null : { handle, rail: handleRail(nodes[handle.nodeId]!, handle, zoom) }), [handle, nodes, zoom]);
+    const current = useMemo(
+        () => (handle === null ? null : { handle, rail: handleRail((nodes[handle.nodeId] ?? cards[handle.nodeId]?.rect)!, handle, zoom) }),
+        [cards, handle, nodes, zoom]
+    );
 
     /* A handle that jumps to the node beside it fades out where it was while the new one fades in. */
     const previous = useRef<Shown | null>(null);

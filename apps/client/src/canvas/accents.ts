@@ -1,4 +1,5 @@
 import i18next from 'i18next';
+import type { CSSProperties } from 'react';
 import { NODE_ACCENT_NAMES, type NodeAccent, type NotePaper } from '@ruimte/contracts';
 
 export type AccentId = NodeAccent;
@@ -44,6 +45,32 @@ export const FEATURED_ACCENTS: readonly AccentId[] = ['blue', 'orange', 'lime', 
 
 export function accentColor(id: string | null | undefined): string | undefined {
     return NODE_ACCENTS.find((entry) => entry.id === id)?.color;
+}
+
+/* How a colored node wears its accent (`NodeFrame.tsx`), and the cards drawn beside it with it. */
+export function accentShades(accent: string): { frameBorder: string; header: string; headerBorder: string; hover: string } {
+    return {
+        frameBorder: `color-mix(in srgb, ${accent} 45%, var(--border))`,
+        header: `color-mix(in srgb, ${accent} 20%, var(--surface-raised))`,
+        headerBorder: `color-mix(in srgb, ${accent} 35%, var(--border))`,
+        // A button's hover in a colored header is a deeper shade of that color, not the gray of a plain surface.
+        hover: `color-mix(in srgb, ${accent} 34%, var(--surface-raised))`
+    };
+}
+
+/*
+ * A colored header, and what stands in it with it: an icon button reads `--surface-hover` itself and a
+ * utility `--color-surface-hover`, a separator `--color-border`, so all three are set where the color is.
+ */
+export function accentHeaderStyle(accent: string): CSSProperties {
+    const shades = accentShades(accent);
+    return {
+        backgroundColor: shades.header,
+        borderColor: shades.headerBorder,
+        '--surface-hover': shades.hover,
+        '--color-surface-hover': shades.hover,
+        '--color-border': shades.headerBorder
+    } as CSSProperties;
 }
 
 /* Spelled out whole so Tailwind sees every class; each is a token in styles.css with a light and a dark value. */

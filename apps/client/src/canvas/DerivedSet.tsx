@@ -1,6 +1,7 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { routeEdge, type Obstacle } from '@/canvas/edge-route';
 import { intersects, isMeasured, visibleRect, type Rect } from '@/canvas/math';
+import type { ResizableCard } from '@/canvas/resize-handles';
 import { useCanvas, type CanvasState } from '@/state/canvas';
 
 export interface DerivedCard {
@@ -10,6 +11,10 @@ export interface DerivedCard {
     linkedFrom: 'node' | string | null;
     label: string;
     content: ReactNode;
+    /* How far down its side its lines meet it, in world units from its top; the middle when absent. */
+    lineDown?: number;
+    /* Offered to the canvas's resize handles; a card without one keeps the size its layout gives it. */
+    resize?: Omit<ResizableCard, 'rect'>;
 }
 
 /*
@@ -19,7 +24,7 @@ export interface DerivedCard {
  * the neutral stroke with nothing at either end, by Bas's choice: it carries nothing and points at
  * nothing, so it wears none of the looks in `edge-look.ts`.
  */
-export function DerivedSet({ owner, z, cards }: { owner: string; z: number; cards: readonly DerivedCard[] }) {
+export function DerivedSet({ owner, z, cards, lineDown }: { owner: string; z: number; cards: readonly DerivedCard[]; lineDown?: number }) {
     const node = useCanvas((s) => s.nodes[owner]);
     const nodes = useCanvas((s) => s.nodes);
     const hidden = useCanvas((s) => s.hidden);
@@ -32,18 +37,24 @@ export function DerivedSet({ owner, z, cards }: { owner: string; z: number; card
             .map(({ id, x, y, w, h }) => ({ id, x, y, w, h })),
         ...cards.map((card) => ({ id: card.key, ...card.rect }))
     ];
-    const rectOf = (from: string | null): Rect | null => (from === 'node' ? node : (cards.find((card) => card.key === from)?.rect ?? null));
+    const endOf = (from: string | null): { rect: Rect; down: number | undefined } | null => {
+        if (from === 'node') {
+            return { rect: node, down: lineDown };
+        }
+        const card = cards.find((candidate) => candidate.key === from);
+        return card === undefined ? null : { rect: card.rect, down: card.lineDown };
+    };
     const routes = cards.flatMap((card) => {
-        const from = rectOf(card.linkedFrom);
+        const from = endOf(card.linkedFrom);
         if (from === null) {
             return [];
         }
         // Held to the right side, so the lines leave as one and fan out to the column beside.
         const route = routeEdge(
-            from,
+            from.rect,
             card.rect,
             blocking.filter((obstacle) => obstacle.id !== card.key && obstacle.id !== card.linkedFrom),
-            { fromSide: 'right', toSide: 'left' }
+            { fromSide: 'right', toSide: 'left', fromDown: from.down, toDown: card.lineDown }
         );
         return [{ key: card.key, route }];
     });
@@ -69,6 +80,17 @@ function nearView(s: CanvasState, rect: Rect): boolean {
 function Card({ owner, z, card }: { owner: string; z: number; card: DerivedCard }) {
     const { x, y, w, h } = card.rect;
     const near = useCanvas((s) => nearView(s, { x, y, w, h }));
+    const setResizableCard = useCanvas((s) => s.setResizableCard);
+    const { resize } = card;
+    // An id no node has, so a press on its handle can never be read as one on a node.
+    const resizeId = `derived:${owner}:${card.key}`;
+    useEffect(() => {
+        if (resize === undefined) {
+            return;
+        }
+        setResizableCard(resizeId, { ...resize, rect: { x, y, w, h } });
+        return () => setResizableCard(resizeId, null);
+    }, [h, resize, resizeId, setResizableCard, w, x, y]);
     if (!near) {
         return null;
     }

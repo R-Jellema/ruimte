@@ -1,10 +1,11 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useState, type CSSProperties, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 import { Archive, ChevronsDownUp, CircleAlert, Package, SquareArrowOutUpRight, WifiOff } from 'lucide-react';
-import type { RoutineRun } from '@ruimte/contracts';
+import { nodeColorOf, type RoutineRun } from '@ruimte/contracts';
 import { ButtonGroup, EmptyState, ErrorBoundary, Icon, IconButton, Pill } from '@adecore/ui';
 import { formatClock, formatDateTime, formatElapsedShort } from '@adecore/ui/format';
+import { accentColor, accentHeaderStyle, accentShades } from '@/canvas/accents';
 import { DerivedSet, type DerivedCard } from '@/canvas/DerivedSet';
 import { VersionBody } from '@/output/ArtifactView';
 import { openArtifact } from '@/output/open';
@@ -18,14 +19,21 @@ import { useRoutineList } from '@/routines/routine-list';
 import { showRoutine } from '@/routines/stage';
 import { runWords } from '@/routines/words';
 import { OUTPUT_MIN, storedOutputSize, type CardSize } from '@/routines/output-size';
-import { useCanvas, useCanvasStore } from '@/state/canvas';
-import { snapToGrid } from '@/canvas/math';
+import { useCanvas } from '@/state/canvas';
+import type { Rect } from '@/canvas/math';
+import type { ResizeEdge } from '@/canvas/resize-handles';
 import { useEndpointId } from '@/state/keys';
 import { useProject } from '@/state/project';
 import { useMachineAnswers } from '@/transport/features';
 
-const FRAME = 'flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-surface bg-clip-padding shadow-node';
+const FRAME = 'flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-clip-padding shadow-node';
 const HEADER = 'flex h-[39px] shrink-0 items-center gap-2 border-b border-border bg-surface-raised pr-1 pl-3 text-sm text-text';
+
+/* Where a line meets a card, and the node: the middle of a 39px header, which a collapsed run of 40 is all of. */
+const HEADER_MIDDLE = 20;
+
+/* The card is placed by its top-left corner beside the node, so only its right and bottom edges move. */
+const OUTPUT_EDGES: readonly ResizeEdge[] = ['e', 's', 'se'];
 
 const DOT: Record<BlockLook, string> = {
     done: 'bg-positive',
@@ -64,6 +72,14 @@ export function RoutineBeside({ id, z }: { id: string; z: number }) {
     }
     const timeZone = list.result.timeZone;
     const target = { projectId: entry.projectId, routineId: entry.routine.id };
+    // The color a person gave the node, which every card beside it wears as the node's own frame does.
+    const accent = accentColor(nodeColorOf(node));
+    const resizeOutput = ({ w, h }: Rect): void => {
+        setOutputSize({ w, h });
+        if (viewId !== null) {
+            storedOutputSize(viewId, id).write({ w, h });
+        }
+    };
     const cardContent = (card: BesideCard): { label: string; body: ReactNode } => {
         if (card.kind === 'older') {
             const label = t('beside.olderRuns', { count: card.count });
@@ -72,7 +88,11 @@ export function RoutineBeside({ id, z }: { id: string; z: number }) {
                 body: (
                     <button
                         type="button"
-                        className="flex h-full items-center gap-2 rounded-md px-3 text-xs text-text-muted hover:text-text"
+                        className={clsx(
+                            'flex h-full items-center gap-2 rounded-md px-3 text-xs text-text-muted hover:text-text',
+                            accent !== undefined && 'hover:bg-(--run-hover)'
+                        )}
+                        style={accent === undefined ? undefined : ({ '--run-hover': accentShades(accent).hover } as CSSProperties)}
                         onClick={() => showRoutine(target)}
                     >
                         <Icon icon={Archive} size={12} />
@@ -91,16 +111,7 @@ export function RoutineBeside({ id, z }: { id: string; z: number }) {
                       : t('beside.noVersionShowing', { date: runDay(fallback.run, timeZone) });
             return {
                 label: t('beside.output'),
-                body: (
-                    <div className="group/output relative h-full">
-                        <OutputCard endpointId={endpointId} artifactId={card.artifactId} versionId={card.versionId} note={note} />
-                        <ResizeGrip
-                            size={{ w: card.rect.w, h: card.rect.h }}
-                            onResize={setOutputSize}
-                            onDone={(size) => viewId !== null && storedOutputSize(viewId, id).write(size)}
-                        />
-                    </div>
-                )
+                body: <OutputCard endpointId={endpointId} artifactId={card.artifactId} versionId={card.versionId} note={note} accent={accent} />
             };
         }
         const label = t('beside.runTitle', { title: entry.routine.title, date: runDay(card.run, timeZone) });
@@ -112,21 +123,23 @@ export function RoutineBeside({ id, z }: { id: string; z: number }) {
                     run={card.run}
                     timeZone={timeZone}
                     artifactId={entry.artifactId}
+                    accent={accent}
                     onShow={() => showRoutine(target, card.run.runId)}
                     onCollapse={() => setPicked(null)}
                 />
             ) : (
-                <RunLine run={card.run} timeZone={timeZone} onOpen={() => setPicked(card.run.runId)} />
+                <RunLine run={card.run} timeZone={timeZone} accent={accent} onOpen={() => setPicked(card.run.runId)} />
             )
         };
     };
     const cards = besideLayout(node, entry.runs, picked, entry.artifactId, outputSize).map((card): DerivedCard => {
         const content = cardContent(card);
         const linkedFrom = card.kind === 'older' ? null : card.kind === 'output' ? (card.from ?? 'node') : 'node';
-        return { key: card.key, rect: card.rect, linkedFrom, label: content.label, content: content.body };
+        const resize = card.kind === 'output' ? { edges: OUTPUT_EDGES, minimum: OUTPUT_MIN, apply: resizeOutput } : undefined;
+        return { key: card.key, rect: card.rect, linkedFrom, label: content.label, content: content.body, lineDown: HEADER_MIDDLE, resize };
     });
 
-    return <DerivedSet owner={id} z={z} cards={cards} />;
+    return <DerivedSet owner={id} z={z} cards={cards} lineDown={HEADER_MIDDLE} />;
 }
 
 function runDay(run: RoutineRun, timeZone: string): string {
@@ -152,12 +165,26 @@ function StateDot({ run }: { run: RoutineRun }) {
     return <span role="img" aria-label={t(`looks.${look}`)} className={clsx('size-2 shrink-0 rounded-full', DOT[look])} />;
 }
 
-function RunLine({ run, timeZone, onOpen }: { run: RoutineRun; timeZone: string; onOpen: () => void }) {
+/* The style of a card's frame beside a colored node, the way that node's own frame wears it. */
+function frameStyle(accent: string | undefined): CSSProperties | undefined {
+    return accent === undefined ? undefined : { borderColor: accentShades(accent).frameBorder };
+}
+
+function RunLine({ run, timeZone, accent, onOpen }: { run: RoutineRun; timeZone: string; accent: string | undefined; onOpen: () => void }) {
+    // A collapsed run is all header, so a colored one is tinted as a colored node's header is.
+    const shades = accent === undefined ? null : accentShades(accent);
     return (
         <button
             type="button"
             aria-expanded={false}
-            className={clsx(FRAME, 'flex-row items-center gap-2 px-3 text-left text-sm text-text hover:bg-surface-raised')}
+            className={clsx(
+                FRAME,
+                'flex-row items-center gap-2 px-3 text-left text-sm text-text',
+                shades === null ? 'bg-surface hover:bg-surface-raised' : 'bg-(--run-tint) hover:bg-(--run-hover)'
+            )}
+            style={
+                shades === null ? undefined : ({ borderColor: shades.frameBorder, '--run-tint': shades.header, '--run-hover': shades.hover } as CSSProperties)
+            }
             onClick={onOpen}
         >
             <span className="min-w-0 grow truncate">
@@ -174,6 +201,7 @@ function OpenRun({
     run,
     timeZone,
     artifactId,
+    accent,
     onShow,
     onCollapse
 }: {
@@ -182,14 +210,15 @@ function OpenRun({
     timeZone: string;
     // The routine's Output, which its own card beside the run already shows, so the thread keeps only its rows.
     artifactId: string | undefined;
+    accent: string | undefined;
     onShow: () => void;
     onCollapse: () => void;
 }) {
     const { t } = useTranslation('routines');
     const look = lookOfRun(run);
     return (
-        <div className={FRAME}>
-            <header className={HEADER}>
+        <div className={clsx(FRAME, 'bg-surface')} style={frameStyle(accent)}>
+            <header className={HEADER} style={accent === undefined ? undefined : accentHeaderStyle(accent)}>
                 <span className="min-w-0 grow truncate font-medium">{title}</span>
                 {look !== 'done' && <RunMark run={run} />}
                 <StateDot run={run} />
@@ -212,7 +241,19 @@ function OpenRun({
 }
 
 /* A version of the routine's Output artifact, drawn as the artifact node draws one; the newest when the one asked for is not there. */
-function OutputCard({ endpointId, artifactId, versionId, note }: { endpointId: string; artifactId: string; versionId: string | null; note: string | null }) {
+function OutputCard({
+    endpointId,
+    artifactId,
+    versionId,
+    note,
+    accent
+}: {
+    endpointId: string;
+    artifactId: string;
+    versionId: string | null;
+    note: string | null;
+    accent: string | undefined;
+}) {
     const { t } = useTranslation('output');
     const { t: words } = useTranslation('routines');
     const answers = useMachineAnswers(endpointId, 'artifact.get');
@@ -226,7 +267,7 @@ function OutputCard({ endpointId, artifactId, versionId, note }: { endpointId: s
                 ? [Package, t('node.removed')]
                 : [undefined, t('view.loading')];
         return (
-            <div className={clsx(FRAME, 'place-items-center justify-center')}>
+            <div className={clsx(FRAME, 'place-items-center justify-center bg-surface')} style={frameStyle(accent)}>
                 <EmptyState icon={icon} busy={state.status === 'loading'}>
                     {text}
                 </EmptyState>
@@ -236,8 +277,8 @@ function OutputCard({ endpointId, artifactId, versionId, note }: { endpointId: s
     const { artifact, versions } = state.result;
     const version = versions.find((candidate) => candidate.versionId === versionId) ?? versions[0]!;
     return (
-        <div className={FRAME}>
-            <header className={HEADER}>
+        <div className={clsx(FRAME, 'bg-surface')} style={frameStyle(accent)}>
+            <header className={HEADER} style={accent === undefined ? undefined : accentHeaderStyle(accent)}>
                 <Icon icon={Package} size={14} className="shrink-0 text-text-muted" />
                 <span className="min-w-0 truncate font-medium">{artifact.title}</span>
                 <Pill className="tabular-nums">{`v${version.number}`}</Pill>
@@ -254,49 +295,5 @@ function OutputCard({ endpointId, artifactId, versionId, note }: { endpointId: s
                 <VersionBody endpointId={endpointId} artifact={artifact} version={version} />
             </ErrorBoundary>
         </div>
-    );
-}
-
-/*
- * The corner a person drags to size the Output card, outside its frame as a node's resize handle is,
- * so the version keeps every pixel. A press here is the grip's alone, never the canvas's.
- */
-function ResizeGrip({ size, onResize, onDone }: { size: CardSize; onResize: (size: CardSize) => void; onDone: (size: CardSize) => void }) {
-    const { t } = useTranslation('routines');
-    const canvasStore = useCanvasStore();
-    const drag = useRef<{ x: number; y: number; start: CardSize; zoom: number; size: CardSize } | null>(null);
-    return (
-        <span
-            role="separator"
-            aria-label={t('beside.resize')}
-            className="absolute -right-3 -bottom-3 size-4 cursor-nwse-resize rounded-br-md border-r-2 border-b-2 border-border-strong opacity-0 transition-opacity group-hover/output:opacity-100"
-            onPointerDown={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                e.currentTarget.setPointerCapture(e.pointerId);
-                drag.current = { x: e.clientX, y: e.clientY, start: size, zoom: canvasStore.getState().camera.zoom, size };
-            }}
-            onPointerMove={(e) => {
-                const held = drag.current;
-                if (held === null) {
-                    return;
-                }
-                // On the canvas grid, as a node's size is.
-                held.size = {
-                    w: snapToGrid(Math.max(OUTPUT_MIN.w, held.start.w + (e.clientX - held.x) / held.zoom)),
-                    h: snapToGrid(Math.max(OUTPUT_MIN.h, held.start.h + (e.clientY - held.y) / held.zoom))
-                };
-                onResize(held.size);
-            }}
-            onPointerUp={() => {
-                if (drag.current !== null) {
-                    onDone(drag.current.size);
-                    drag.current = null;
-                }
-            }}
-            onPointerCancel={() => {
-                drag.current = null;
-            }}
-        />
     );
 }

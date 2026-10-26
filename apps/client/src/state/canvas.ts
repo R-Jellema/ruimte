@@ -4,6 +4,7 @@ import { DEFAULT_TITLES, NODE_SIZE, isAgentKind } from '@ruimte/contracts';
 import { textRect } from '@/canvas/edge-lines';
 import { isMeasured, unionOf, type Point, type Rect } from '@/canvas/math';
 import type { NodeDirection } from '@/canvas/node-navigation';
+import type { ResizableCard } from '@/canvas/resize-handles';
 import { createCameraSlice, type CameraSlice } from '@/canvas/camera-slice';
 import type { ArrangeRefusal } from '@/canvas/arrange-group';
 import type { CanvasPatch } from '@/project/merge';
@@ -86,8 +87,10 @@ export interface CanvasState extends CameraSlice {
     maximizedId: string | null;
     editingTextId: string | null;
     locks: Locks;
-    /* Node currently under a resize handle, so it can show its size. Transient. */
+    /* Node currently under a resize handle, so it can show its size, or the id of a resizable card. Transient. */
     resizing: string | null;
+    /* The cards beside a node a person may resize, by an id no node has. Transient. */
+    resizableCards: Record<string, ResizableCard>;
     /* A pointer gesture is running, so nothing else may take the pointer. */
     gesturing: boolean;
     panning: boolean;
@@ -128,6 +131,7 @@ export interface CanvasState extends CameraSlice {
     settleMove(): void;
     resizeNode(id: string, rect: Rect): void;
     setResizing(id: string | null): void;
+    setResizableCard(id: string, card: ResizableCard | null): void;
     setGesturing(gesturing: boolean): void;
     setPanning(panning: boolean): void;
     bringToFront(id: string): void;
@@ -240,6 +244,7 @@ export function createCanvasStore(): StoreApi<CanvasState> {
             editingTextId: null,
             locks: { pan: false, zoom: false, move: false, resize: false },
             resizing: null,
+            resizableCards: {},
             gesturing: false,
             panning: false,
             gapMove: null,

@@ -262,19 +262,39 @@ describe('beside a routine node', () => {
 
     test("a person sizes the Output card, and the size stays this client's", async () => {
         await open([routineNode('node-1', 'morning')]);
-        await until(() => card('Output')?.querySelector('[role="separator"]') != null);
-        const grip = card('Output')!.querySelector('[role="separator"]')!;
+        await until(() => card('Output') !== undefined);
+        await act(async () => liveCanvas('main')!.setCamera({ x: 0, y: 0, zoom: 1 }));
+        const surface = page.host.querySelector('[data-canvas-surface]')!;
         const at = (type: string, x: number, y: number): PointerEvent =>
-            new PointerEvent(type, { bubbles: true, button: 0, pointerId: 1, clientX: x, clientY: y });
+            new PointerEvent(type, { bubbles: true, cancelable: true, button: 0, pointerId: 1, clientX: x, clientY: y });
+        // Just past the card's bottom-right corner (984 + 440, 480), where the canvas offers its corner handle.
         await act(async () => {
-            grip.dispatchEvent(at('pointerdown', 100, 100));
-            grip.dispatchEvent(at('pointermove', 161, 140));
-            grip.dispatchEvent(at('pointerup', 161, 140));
+            surface.dispatchEvent(at('pointermove', 1430, 486));
+        });
+        await until(() => page.host.querySelector('[data-resize-node="derived:node-1:output"]') !== null);
+        const handle = page.host.querySelector('[data-resize-node="derived:node-1:output"]')!;
+        expect(handle.getAttribute('data-resize')).toBe('se');
+        await act(async () => {
+            handle.dispatchEvent(at('pointerdown', 1430, 486));
+            surface.dispatchEvent(at('pointermove', 1491, 526));
+            surface.dispatchEvent(at('pointerup', 1491, 526));
         });
         // 501 wide by the pointer, 504 on the grid.
         expect(card('Output')!.style.width).toBe('504px');
         expect(JSON.parse(localStorage.getItem('ruimte.routineOutput.main.node-1') ?? 'null')).toEqual({ w: 504, h: 520 });
+        expect(liveCanvas('main')).toMatchObject({ resizing: null, past: [] });
         expect(Object.keys(liveCanvas('main')!.nodes)).toEqual(['node-1']);
+        await act(async () => windowWorkspace()!.connection.projects.flush());
+        expect(machine.requests('project.save')).toEqual([]);
+    });
+
+    test("the cards wear the routine node's color", async () => {
+        await open([{ ...routineNode('node-1', 'morning'), accent: 'teal' }]);
+        await until(() => card('Output')?.querySelector('header') != null && card('Morning summary · Thu, Oct 22')?.querySelector('header') != null);
+        // happy-dom keeps no color-mix in a plain property, only in a custom one: the shade a button in the header hovers to.
+        expect(card('Output')!.querySelector('header')!.getAttribute('style')).toContain('#009689 34%');
+        expect(card('Morning summary · Thu, Oct 22')!.querySelector('header')!.getAttribute('style')).toContain('#009689 34%');
+        expect(card('Morning summary · Fri, Oct 23')!.querySelector('button')!.getAttribute('style')).toContain('--run-tint: color-mix(in srgb, #009689 20%');
     });
 
     test('a press in a card gives the routine node the keyboard and selects nothing', async () => {

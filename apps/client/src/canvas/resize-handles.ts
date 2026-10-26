@@ -32,6 +32,22 @@ export interface ResizeCandidate extends Rect {
     id: string;
     /* A group is a frame under its nodes: a pointer inside one is still out on the canvas. */
     group: boolean;
+    /* The only edges it offers; every edge when absent. */
+    edges?: readonly ResizeEdge[];
+}
+
+/*
+ * A card drawn beside a node (`canvas/DerivedSet.tsx`) that the handles offer as they offer a node.
+ * Its rect comes from the card's layout and a resize goes to `apply`, never to the canvas's nodes,
+ * so it is never stored in the project and leaves no undo step.
+ */
+export interface ResizableCard {
+    rect: Rect;
+    /* The edges its layout leaves free: a card placed by its top-left corner offers only e, s and se. */
+    edges: readonly ResizeEdge[];
+    minimum: { w: number; h: number };
+    /* Each new rect of a resize, on the grid and at least `minimum`. */
+    apply(rect: Rect): void;
 }
 
 /*
@@ -56,7 +72,12 @@ export function resizeHandle(nodes: readonly ResizeCandidate[], point: Point, zo
     if (nearest === null) {
         return null;
     }
-    const { node, distance } = nearest;
+    const handle = handleOn(nearest.node, nearest.distance, point, zoom);
+    return handle === null || nearest.node.edges === undefined || nearest.node.edges.includes(handle.edge) ? handle : null;
+}
+
+function handleOn(node: ResizeCandidate, distance: number, point: Point, zoom: number): ResizeHandle | null {
+    const reach = HINT_REACH / zoom;
     const strength = Math.min(1, (reach - distance) / (reach / 2));
     const near = distance * zoom <= HINT_HOT;
     const outX = point.x < node.x ? -1 : point.x > node.x + node.w ? 1 : 0;

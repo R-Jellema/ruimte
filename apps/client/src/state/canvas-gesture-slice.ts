@@ -17,6 +17,7 @@ export function createCanvasGestureSlice(
     | 'settleMove'
     | 'resizeNode'
     | 'setResizing'
+    | 'setResizableCard'
     | 'setGesturing'
     | 'setPanning'
     | 'beginGapMove'
@@ -72,7 +73,18 @@ export function createCanvasGestureSlice(
         },
         setResizing(id) {
             // The handle goes down before the first resize, so this is where the old size is remembered.
-            set((s) => (id !== null && s.resizing === null ? { resizing: id, ...remember(s) } : { resizing: id }));
+            set((s) => (id !== null && s.resizing === null && s.nodes[id] !== undefined ? { resizing: id, ...remember(s) } : { resizing: id }));
+        },
+        setResizableCard(id, card) {
+            set((s) => {
+                const next = { ...s.resizableCards };
+                if (card === null) {
+                    delete next[id];
+                } else {
+                    next[id] = card;
+                }
+                return { resizableCards: next };
+            });
         },
         setGesturing(gesturing) {
             set({ gesturing });

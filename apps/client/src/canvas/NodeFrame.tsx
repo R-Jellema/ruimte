@@ -59,7 +59,7 @@ import { useNodeStatus, useNodeWork } from '@/state/chats';
 import { ProcessAlertMark } from '@/processes/ProcessAlertMark';
 import { useNodeAlerts } from '@/processes/use-node-alerts';
 import { useHasContextLinks } from '@/context/sources';
-import { accentColor, notePaperClass } from '@/canvas/accents';
+import { accentColor, accentHeaderStyle, accentShades, notePaperClass } from '@/canvas/accents';
 import { DeviceOperatedStrip } from '@/devices/DeviceOperatedStrip';
 import { ComputerIndicator } from '@/computer/ComputerIndicator';
 import { NodeMenuPopup } from '@/canvas/NodeMenu';
@@ -460,7 +460,7 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                     height: node.h,
                     ...maximizedPlace,
                     zIndex: z,
-                    ...(borderAccent ? { borderColor: `color-mix(in srgb, ${borderAccent} 45%, var(--border))` } : {}),
+                    ...(borderAccent ? { borderColor: accentShades(borderAccent).frameBorder } : {}),
                     ...(noteAccent ? { backgroundColor: `color-mix(in srgb, ${noteAccent} 20%, var(--surface-raised))` } : {}),
                     ...(isGroup && accent ? { '--group-accent': accent } : {})
                 }}
@@ -489,17 +489,14 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                               : 'border-b border-border bg-surface-raised'
                     )}
                     style={
-                        // A button's hover in a colored header is a deeper shade of that color, not the gray of a plain surface.
                         frameAccent
-                            ? ({
-                                  backgroundColor: `color-mix(in srgb, ${frameAccent} 20%, var(--surface-raised))`,
-                                  borderColor: `color-mix(in srgb, ${frameAccent} 35%, var(--border))`,
-                                  '--color-surface-hover': `color-mix(in srgb, ${frameAccent} 34%, var(--surface-raised))`
-                              } as CSSProperties)
+                            ? accentHeaderStyle(frameAccent)
                             : noteAccent
                               ? ({
-                                    borderColor: `color-mix(in srgb, ${noteAccent} 35%, var(--border))`,
-                                    '--color-surface-hover': 'color-mix(in srgb, var(--text) 10%, transparent)'
+                                    borderColor: accentShades(noteAccent).headerBorder,
+                                    '--surface-hover': 'color-mix(in srgb, var(--text) 10%, transparent)',
+                                    '--color-surface-hover': 'color-mix(in srgb, var(--text) 10%, transparent)',
+                                    '--color-border': accentShades(noteAccent).headerBorder
                                 } as CSSProperties)
                               : undefined
                     }

@@ -312,7 +312,6 @@
     "collapse": "Inklappen",
     "output": "Output",
     "noVersion": "Deze run heeft geen versie bewaard.",
-    "noVersionShowing": "Deze run heeft geen versie bewaard. Je ziet die van {{date}}.",
-    "resize": "Formaat wijzigen"
+    "noVersionShowing": "Deze run heeft geen versie bewaard. Je ziet die van {{date}}."
   }
 }

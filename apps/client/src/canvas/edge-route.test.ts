@@ -237,3 +237,16 @@ describe('a line leaving the bottom of a node', () => {
         expect(turns(route.d)).toEqual([]);
     });
 });
+
+describe('a line held to a height on its sides', () => {
+    test('meets each box that far down instead of in the middle', () => {
+        const route = routeEdge({ x: 0, y: 0, w: 100, h: 560 }, { x: 300, y: 48, w: 100, h: 480 }, [], {
+            fromSide: 'right',
+            toSide: 'left',
+            fromDown: 20,
+            toDown: 20
+        });
+        expect(route.from).toEqual({ x: 100 + NODE_GAP, y: 20 });
+        expect(route.to).toEqual({ x: 300 - NODE_GAP, y: 68 });
+    });
+});
