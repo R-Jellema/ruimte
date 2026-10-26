@@ -9,7 +9,7 @@ import { formatCountdown, formatDateTime } from '@adecore/ui/format';
 import { runtimeModeLabel } from '@adecore/agents-react/chat';
 import { lookOfRun, type BlockLook } from '@/routines/agenda';
 import { blockClass } from '@/routines/look-class';
-import { RoutineAgent } from '@/routines/RoutineAgent';
+import { AgentModelLabel } from '@adecore/agents-react/providers';
 import { runRoutineNow, setRoutinePaused } from '@/routines/routine-commands';
 import { useRoutineList } from '@/routines/routine-list';
 import { useRoutineWhat } from '@/routines/routine-what';
@@ -168,7 +168,7 @@ function RoutineChips({ endpointId, entry }: { endpointId: string; entry: Routin
             {routine.kind === 'agent' && (
                 <>
                     <Pill>
-                        <RoutineAgent endpointId={endpointId} provider={routine.provider} model={routine.selection?.model} size={12} />
+                        <AgentModelLabel scopeId={endpointId} provider={routine.provider} model={routine.selection?.model} size={12} />
                     </Pill>
                     <Pill>{runtimeModeLabel(routine.mode)}</Pill>
                 </>

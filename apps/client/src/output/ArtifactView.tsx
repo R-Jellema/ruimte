@@ -19,8 +19,8 @@ import {
     WifiOff
 } from 'lucide-react';
 import { patchOf } from '@adecore/merge';
-import { AgentIcon, modelName, ProviderLogo } from '@adecore/agents-react/providers';
-import { useChats, useProvidersStore } from '@adecore/agents-react/state';
+import { AgentModelLabel } from '@adecore/agents-react/providers';
+import { useChats } from '@adecore/agents-react/state';
 import {
     BYTES_READ_MAX_BYTES,
     type Artifact,
@@ -29,7 +29,6 @@ import {
     type ArtifactProvenance,
     type ArtifactVersion
 } from '@ruimte/contracts';
-import { hasProviderLogo } from '@/agents/provider-logo';
 import { Button, EmptyState, ErrorBoundary, Icon, IconButton, LazyBoundary, Menu, Pill, Popover, SectionLabel, Tooltip, lazyNamed } from '@adecore/ui';
 import type { CopyToProjectRequest } from '@/output/CopyToProjectDialog';
 import { pinArtifact, useCanRemove, useCopyToThisMachine, usePinCanvases } from '@/output/artifact-actions';
@@ -696,18 +695,11 @@ function OriginPopover({
 function Maker({ endpointId, provenance }: { endpointId: string; provenance: ArtifactProvenance }) {
     const { t } = useTranslation('output');
     const { agent, model } = provenance;
-    const catalog = useProvidersStore((s) => (agent === undefined ? undefined : s.byScope[endpointId]?.providers.find((entry) => entry.kind === agent)));
     if (provenance.maker !== 'agent' || (agent === undefined && model === undefined)) {
         return t(`info.makers.${provenance.maker}`);
     }
-    const name = model === undefined ? (catalog?.name ?? t('info.makers.agent')) : modelName(model, catalog?.models);
-    return (
-        <span className="flex min-w-0 items-center gap-1.5">
-            {agent !== undefined &&
-                (hasProviderLogo(agent) ? <ProviderLogo provider={agent} size={14} /> : <AgentIcon kind={agent} size={14} className="shrink-0" />)}
-            <span className="truncate">{name}</span>
-        </span>
-    );
+    // Without the CLI there is no catalog to name the model by, so its slug stands as it is.
+    return agent === undefined ? <span className="truncate">{model}</span> : <AgentModelLabel provider={agent} model={model} scopeId={endpointId} />;
 }
 
 function InfoRow({ label, children }: { label: string; children: ReactNode }) {

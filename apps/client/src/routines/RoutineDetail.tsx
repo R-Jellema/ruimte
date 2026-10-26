@@ -11,7 +11,7 @@ import { openArtifact } from '@/output/open';
 import { FileToolbarSlotProvider, fixedSlot } from '@/shell/panels/file-toolbar-slot';
 import { lookOfRun } from '@/routines/agenda';
 import { LookIcon } from '@/routines/look';
-import { RoutineAgent } from '@/routines/RoutineAgent';
+import { AgentModelLabel } from '@adecore/agents-react/providers';
 import { RoutineRunChat } from '@/routines/RoutineRunChat';
 import { useRoutineApproval } from '@/routines/routine-approval';
 import { useRoutineWhat } from '@/routines/routine-what';
@@ -79,7 +79,7 @@ function Definition({ endpointId, entry }: { endpointId: string; entry: RoutineE
                     <KeyValueList.Name>{t(`detail.what.${routine.kind}`)}</KeyValueList.Name>
                     <KeyValueList.Value mono={routine.kind !== 'agent'}>
                         {routine.kind === 'agent' ? (
-                            <RoutineAgent endpointId={endpointId} provider={routine.provider} model={routine.selection?.model} />
+                            <AgentModelLabel scopeId={endpointId} provider={routine.provider} model={routine.selection?.model} />
                         ) : routine.kind === 'command' ? (
                             (routine.cwd ?? '.')
                         ) : (

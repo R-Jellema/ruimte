@@ -71,7 +71,21 @@ import { useUi } from '@/state/ui';
 import { useCellHasFocus } from '@/state/document';
 import { useProject } from '@/state/project';
 import { useGroupWorktrees, useWorktreeOf } from '@/state/worktrees';
-import { ButtonGroup, ErrorBoundary, Pill, messageOf, Tooltip, FileIcon, Icon, IconButton, Input, ContextMenu, LazyBoundary, lazyNamed } from '@adecore/ui';
+import {
+    ButtonGroup,
+    ErrorBoundary,
+    Pill,
+    messageOf,
+    Tooltip,
+    FileIcon,
+    Icon,
+    IconButton,
+    Input,
+    ContextMenu,
+    LazyBoundary,
+    lazyNamed,
+    tintStyle
+} from '@adecore/ui';
 import { useHeldWhileVisible, useNodeInViewport, useReadableZoom } from '@/canvas/culling';
 import { TerminalBody, TerminalPlate } from '@/nodes/TerminalBody';
 import { SessionPorts } from '@/terminal/SessionPorts';
@@ -494,11 +508,8 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                         frameAccent
                             ? accentHeaderStyle(frameAccent)
                             : noteAccent
-                              ? ({
-                                    borderColor: accentShades(noteAccent).headerBorder,
-                                    '--surface-hover': 'color-mix(in srgb, var(--text) 10%, transparent)',
-                                    '--border': `color-mix(in srgb, ${noteAccent} 35%, var(--border-strong))`
-                                } as CSSProperties)
+                              ? // A note is its color all over, so a hover is a shade of it over the paper rather than over a surface.
+                                { borderColor: accentShades(noteAccent).headerBorder, ...tintStyle(noteAccent, 'transparent') }
                               : undefined
                     }
                 >

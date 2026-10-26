@@ -1,5 +1,6 @@
 import i18next from 'i18next';
 import type { CSSProperties } from 'react';
+import { tintStyle } from '@adecore/ui';
 import { NODE_ACCENT_NAMES, type NodeAccent, type NotePaper } from '@ruimte/contracts';
 
 export type AccentId = NodeAccent;
@@ -61,26 +62,18 @@ export function accentShades(accent: string): { frameBorder: string; header: str
         line: `color-mix(in srgb, ${accent} 20%, ${QUIET_EDGE_LINE})`,
         frameBorder: `color-mix(in srgb, ${accent} 45%, var(--border))`,
         header: `color-mix(in srgb, ${accent} 20%, var(--surface-raised))`,
-        // The plain border, an alpha over the tinted header: any of the color stacks on the tint and outshines the frame's edge.
-        headerBorder: 'var(--border)',
+        // The plain border's weight, an alpha over the tinted header: any of the color stacks on the tint and outshines the
+        // frame's edge. From `--border-strong`, since the header sets `--border` itself for what stands in it (`tintStyle`).
+        headerBorder: 'color-mix(in srgb, var(--border-strong) 50%, transparent)',
         // A button's hover in a colored header is a deeper shade of that color, not the gray of a plain surface.
         hover: `color-mix(in srgb, ${accent} 34%, var(--surface-raised))`
     };
 }
 
-/*
- * A colored header, and what stands in it with it. The theme's utilities are inline, so a hover and a
- * separator read `--surface-hover` and `--border` themselves; the header sets those two. `--border` is
- * mixed from `--border-strong`, since a custom property that reads itself is no value at all.
- */
+/* A colored header, with its buttons' hover and its separators in a shade of the same color. */
 export function accentHeaderStyle(accent: string): CSSProperties {
     const shades = accentShades(accent);
-    return {
-        backgroundColor: shades.header,
-        borderColor: shades.headerBorder,
-        '--surface-hover': shades.hover,
-        '--border': `color-mix(in srgb, ${accent} 35%, var(--border-strong))`
-    } as CSSProperties;
+    return { backgroundColor: shades.header, borderColor: shades.headerBorder, ...tintStyle(accent) };
 }
 
 /* Spelled out whole so Tailwind sees every class; each is a token in styles.css with a light and a dark value. */
