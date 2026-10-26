@@ -172,7 +172,7 @@ struct MachineAccessSection: View {
         .task { await access.load() }
         .alert(
             "Revoke \(revoking?.label ?? String(localized: "this device"))?",
-            isPresented: Binding(get: { revoking != nil }, set: { if !$0 { revoking = nil } }),
+            isPresented: $revoking.isPresent(),
             presenting: revoking
         ) { client in
             Button("Revoke", role: .destructive) { Task { await revoke(client) } }

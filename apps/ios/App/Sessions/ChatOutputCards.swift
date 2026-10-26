@@ -113,9 +113,7 @@ enum ChatOutputCards {
                         self.load()
                     }
                 } else {
-                    lease = client.acquireSubscription(
-                        start: WireRequest.artifactWatch.rawValue, stop: WireRequest.artifactUnwatch.rawValue,
-                        payload: .object([:]), stopPayload: .object([:]))
+                    lease = OutputMachine.watch(client)
                     load()
                 }
             })

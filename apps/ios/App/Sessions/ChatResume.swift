@@ -137,7 +137,7 @@ struct ChatCompactionDock: View {
             }
         }
         .alert(
-            "Could not compact", isPresented: Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })
+            "Could not compact", isPresented: $failure.isPresent()
         ) {
             Button("OK") { failure = nil }
         } message: {

@@ -256,7 +256,7 @@ struct ChatPrepareButton: View {
                 Text(flow?.failure ?? "")
             }
             .alert(
-                "Command prepared", isPresented: Binding(get: { ready != nil }, set: { if !$0 { ready = nil } })
+                "Command prepared", isPresented: $ready.isPresent()
             ) {
                 Button("OK") { ready = nil }
             } message: {

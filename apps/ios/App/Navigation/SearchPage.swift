@@ -92,17 +92,16 @@ struct SearchPage: View {
             await files.search(typed, projects: projects.open) { runtime.session(for: $0).rpc }
         }
         .mobileSheet(item: $newChat) { target in
-            if let machine = runtime.machines.first(where: { $0.id == target.machineID }) {
-                let session = runtime.session(for: machine)
+            if let session = runtime.session(machineID: target.machineID) {
                 NewChatSheet(session: session) { place in
                     openWorkspace(MobileWorkspace(session: session, projectID: place.projectID), view: place.viewID)
                 }
             }
         }
         .mobileSheet(item: $usage) { target in
-            if let machine = runtime.machines.first(where: { $0.id == target.machineID }) {
+            if let session = runtime.session(machineID: target.machineID) {
                 NavigationStack {
-                    MachineUsagePage(client: runtime.session(for: machine).rpc)
+                    MachineUsagePage(client: session.rpc)
                         .toolbar {
                             ToolbarItem(placement: .confirmationAction) { Button(role: .close) { usage = nil } }
                         }

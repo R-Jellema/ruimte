@@ -217,7 +217,7 @@ struct ChatWorkflowRow: View {
         }
         .alert(
             "Could not stop the task",
-            isPresented: Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })
+            isPresented: $failure.isPresent()
         ) {
             Button("OK") { failure = nil }
         } message: {

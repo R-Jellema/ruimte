@@ -122,7 +122,7 @@ struct NowNewChatSheet: View {
     }
 
     private var session: SharedMachineSession? {
-        runtime.machines.first { $0.id == model.machineID }.map(runtime.session(for:))
+        runtime.session(machineID: model.machineID)
     }
 
     var body: some View {

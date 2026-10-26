@@ -379,10 +379,11 @@ class SceneSurface: UIView {
 struct SVGPathFailure: Error {}
 
 enum SVGPathParser {
+    private static let regex = try! NSRegularExpression(
+        pattern: "[MmLlHhVvCcSsQqTtAaZz]|[-+]?(?:[0-9]*\\.[0-9]+|[0-9]+\\.?[0-9]*)(?:[eE][-+]?[0-9]+)?")
+
     static func parse(_ source: String) throws -> CGPath {
         guard source.utf8.count <= 4_194_304 else { throw SVGPathFailure() }
-        let pattern = "[MmLlHhVvCcSsQqTtAaZz]|[-+]?(?:[0-9]*\\.[0-9]+|[0-9]+\\.?[0-9]*)(?:[eE][-+]?[0-9]+)?"
-        let regex = try NSRegularExpression(pattern: pattern)
         let range = NSRange(source.startIndex..., in: source)
         let matches = regex.matches(in: source, range: range)
         var covered = 0

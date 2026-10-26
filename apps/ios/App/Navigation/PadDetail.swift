@@ -196,8 +196,8 @@ struct PadDetailColumn: View {
     }
 
     private func openProject(_ target: ProjectViewTarget) {
-        guard let machine = runtime.machines.first(where: { $0.id == target.machineID }) else { return }
-        router.openProject(MobileWorkspace(session: runtime.session(for: machine), projectID: target.projectID))
+        guard let session = runtime.session(machineID: target.machineID) else { return }
+        router.openProject(MobileWorkspace(session: session, projectID: target.projectID))
     }
 }
 
@@ -299,27 +299,10 @@ private struct PadProjectCell<Bar: ToolbarContent>: View {
         }
     }
 
-    @ViewBuilder private var opening: some View {
-        if let problem = workspace.problem
-            ?? (workspace.session.failedAttempts >= 3 ? String(localized: "Could not connect to your machine.") : nil)
-        {
-            ContentUnavailableView {
-                Label(String(localized: "Could not open project"), lucideIcon: "triangle-alert", iconSize: 48)
-            } description: {
-                Text(problem)
-            } actions: {
-                Button("Try again") {
-                    if workspace.session.connected {
-                        Task { await workspace.open() }
-                    } else {
-                        workspace.problem = nil
-                        workspace.session.reconnect()
-                    }
-                }
-            }
-        } else {
-            MobileLoadingRow(String(localized: "Opening project"))
-        }
+    private var opening: some View {
+        WorkspaceOpeningStatus(
+            workspace: workspace, failure: String(localized: "Could not open project"),
+            opening: String(localized: "Opening project"))
     }
 
     private var machineLost: Bool {

@@ -154,7 +154,7 @@ struct ChatLinkRouting: ViewModifier {
                     return .discarded
                 }
             )
-            .mobileSheet(isPresented: Binding(get: { target != nil }, set: { if !$0 { target = nil } })) {
+            .mobileSheet(isPresented: $target.isPresent()) {
                 if let target {
                     NavigationStack {
                         FileContentPage(client: context.client, path: target.path, initialLine: target.line)
@@ -166,7 +166,7 @@ struct ChatLinkRouting: ViewModifier {
                     }
                 }
             }
-            .mobileSheet(isPresented: Binding(get: { uiTarget != nil }, set: { if !$0 { uiTarget = nil } })) {
+            .mobileSheet(isPresented: $uiTarget.isPresent()) {
                 if let uiTarget {
                     NavigationStack {
                         destination(uiTarget)
@@ -473,7 +473,7 @@ struct ChatInlineImage: View {
         .quickLookPreview($preview)
         .alert(
             "Image preview unavailable",
-            isPresented: Binding(get: { previewError != nil }, set: { if !$0 { previewError = nil } })
+            isPresented: $previewError.isPresent()
         ) {
             Button("OK") { previewError = nil }
         } message: {

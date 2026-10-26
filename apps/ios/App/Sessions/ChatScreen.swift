@@ -178,7 +178,7 @@ struct ChatScreen: View {
         .alert(
             namingBookmark.flatMap { model.presentation.bookmarks[$0]?.name } == nil
                 ? "Name this bookmark" : "Rename bookmark",
-            isPresented: Binding(get: { namingBookmark != nil }, set: { if !$0 { namingBookmark = nil } })
+            isPresented: $namingBookmark.isPresent()
         ) {
             TextField("Name, optional", text: $bookmarkName)
             Button("Cancel", role: .cancel) { namingBookmark = nil }
@@ -279,7 +279,7 @@ struct ChatScreen: View {
         .endingAgentsConfirmation($endingAgents)
         .alert(
             activityFailure?.title ?? "",
-            isPresented: Binding(get: { activityFailure != nil }, set: { if !$0 { activityFailure = nil } }),
+            isPresented: $activityFailure.isPresent(),
             presenting: activityFailure
         ) { _ in
             Button("OK") {}

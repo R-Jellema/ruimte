@@ -152,6 +152,13 @@ enum OutputMachine {
         (client as? MachineFeatures)?.answers(.artifactList) == true
     }
 
+    /// The hold on `artifact.watch` that `artifact.changed` comes under.
+    @MainActor static func watch(_ client: any MachineRequesting) -> MachineSubscription {
+        client.acquireSubscription(
+            start: WireRequest.artifactWatch.rawValue, stop: WireRequest.artifactUnwatch.rawValue,
+            payload: .object([:]), stopPayload: .object([:]))
+    }
+
     /// A failure that says the link is gone rather than that the machine refused.
     static func unreachable(_ error: any Error) -> Bool {
         switch error as? MachineClientError {
@@ -182,9 +189,7 @@ enum OutputMachine {
 
     func start() {
         guard subscriptions.isEmpty else { return }
-        lease = client.acquireSubscription(
-            start: WireRequest.artifactWatch.rawValue, stop: WireRequest.artifactUnwatch.rawValue,
-            payload: .object([:]), stopPayload: .object([:]))
+        lease = OutputMachine.watch(client)
         subscriptions.append(
             client.subscribe(WireEvent.artifactChanged.rawValue) { [weak self] payload in
                 guard let self, payload.text("projectId") == projectID else { return }
@@ -265,9 +270,7 @@ enum OutputMachine {
 
     func start() {
         guard subscriptions.isEmpty else { return }
-        lease = client.acquireSubscription(
-            start: WireRequest.artifactWatch.rawValue, stop: WireRequest.artifactUnwatch.rawValue,
-            payload: .object([:]), stopPayload: .object([:]))
+        lease = OutputMachine.watch(client)
         subscriptions.append(
             client.subscribe(WireEvent.artifactChanged.rawValue) { [weak self] payload in
                 guard let self, payload.text("artifactId") == artifactID else { return }

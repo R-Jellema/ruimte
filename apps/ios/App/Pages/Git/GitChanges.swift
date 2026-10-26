@@ -55,7 +55,7 @@ struct GitChangesList: View {
         .safeAreaInset(edge: .bottom, spacing: 0) { bar }
         .alert(
             discard.map { String(localized: "Discard changes in \(($0.path as NSString).lastPathComponent)?") } ?? "",
-            isPresented: Binding(get: { discard != nil }, set: { if !$0 { discard = nil } })
+            isPresented: $discard.isPresent()
         ) {
             Button("Discard", role: .destructive) {
                 guard let pending = discard else { return }

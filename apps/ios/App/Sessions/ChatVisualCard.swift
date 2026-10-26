@@ -145,7 +145,7 @@ struct ChatVisualDialogs: ViewModifier {
             }
             .alert(
                 "Remove visual?",
-                isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }),
+                isPresented: $removing.isPresent(),
                 presenting: removing
             ) { visual in
                 Button("Cancel", role: .cancel) {}

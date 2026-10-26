@@ -158,11 +158,10 @@ struct PhoneHome: View {
     }
 
     private func workspace(for target: ProjectViewTarget) -> MobileWorkspace? {
-        guard let machine = runtime.machines.first(where: { $0.id == target.machineID }) else { return nil }
+        guard let session = runtime.session(machineID: target.machineID) else { return nil }
         let id = UnifiedProjectRow.ID(machineID: target.machineID, projectID: target.projectID)
         let row = (projects.open + projects.chats).first { $0.id == id }
-        return MobileWorkspace(
-            session: runtime.session(for: machine), projectID: target.projectID, summary: row?.summary ?? .object([:]))
+        return MobileWorkspace(session: session, projectID: target.projectID, summary: row?.summary ?? .object([:]))
     }
 }
 

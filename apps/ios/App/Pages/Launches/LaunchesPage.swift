@@ -78,7 +78,7 @@ struct LaunchesPage: View {
         .modifier(LaunchAskModifier(store: store))
         .alert(
             "Delete \(deleting?.name ?? String(localized: "this launch"))?",
-            isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }),
+            isPresented: $deleting.isPresent(),
             presenting: deleting
         ) { launch in
             Button("Delete launch", role: .destructive) { Task { await store.delete(launch.id) } }

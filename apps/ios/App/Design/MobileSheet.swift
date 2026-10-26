@@ -1,5 +1,12 @@
 import SwiftUI
 
+extension Binding {
+    /// Whether the optional holds a value, for a sheet or alert that shows while it does; dismissing clears it.
+    func isPresent<Wrapped>() -> Binding<Bool> where Value == Wrapped? {
+        Binding<Bool>(get: { wrappedValue != nil }, set: { if !$0 { wrappedValue = nil } })
+    }
+}
+
 struct MobileSheetSurface: ViewModifier {
     func body(content: Content) -> some View {
         content

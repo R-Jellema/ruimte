@@ -39,7 +39,7 @@ final class ScheduledModel {
         let restart = context != contextID
         contextID = context
         for (id, feed) in feeds {
-            let current = runtime.machines.first { $0.id == id }.map { runtime.session(for: $0) }
+            let current = runtime.session(machineID: id)
             if restart || current !== feed.session {
                 feed.stop()
                 feeds.removeValue(forKey: id)

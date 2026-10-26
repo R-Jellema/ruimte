@@ -13,10 +13,9 @@ struct ProjectViewPage: View {
     init(runtime: AppRuntime, target: ProjectViewTarget, preview: ProjectViewPreview?) {
         self.target = target
         self.preview = preview
-        let machine = runtime.machines.first { $0.id == target.machineID }
         _workspace = State(
-            initialValue: machine.map {
-                MobileWorkspace(session: runtime.session(for: $0), projectID: target.projectID)
+            initialValue: runtime.session(machineID: target.machineID).map {
+                MobileWorkspace(session: $0, projectID: target.projectID)
             })
     }
 
@@ -30,26 +29,10 @@ struct ProjectViewPage: View {
                     ContentUnavailableView(
                         String(localized: "This view was removed"), lucideIcon: "square-x",
                         description: Text("It is no longer in \(workspace.title)."))
-                } else if let problem = workspace.problem
-                    ?? (workspace.session.failedAttempts >= 3
-                        ? String(localized: "Could not connect to your machine.") : nil)
-                {
-                    ContentUnavailableView {
-                        Label(String(localized: "Could not open"), lucideIcon: "triangle-alert", iconSize: 48)
-                    } description: {
-                        Text(problem)
-                    } actions: {
-                        Button("Try again") {
-                            if workspace.session.connected {
-                                Task { await workspace.open() }
-                            } else {
-                                workspace.problem = nil
-                                workspace.session.reconnect()
-                            }
-                        }
-                    }
                 } else {
-                    MobileLoadingRow(String(localized: "Opening"))
+                    WorkspaceOpeningStatus(
+                        workspace: workspace, failure: String(localized: "Could not open"),
+                        opening: String(localized: "Opening"))
                 }
             } else {
                 ContentUnavailableView(

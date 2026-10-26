@@ -239,7 +239,7 @@ struct GitWorktreeDialogs: ViewModifier {
             }
             .alert(
                 state.removal?.title ?? "",
-                isPresented: Binding(get: { state.removal != nil }, set: { if !$0 { state.removal = nil } }),
+                isPresented: $state.removal.isPresent(),
                 presenting: state.removal
             ) { pending in
                 Button(pending.confirmLabel, role: .destructive) {
@@ -254,7 +254,7 @@ struct GitWorktreeDialogs: ViewModifier {
             }
             .alert(
                 "Abort the merge?",
-                isPresented: Binding(get: { state.confirmAbort != nil }, set: { if !$0 { state.confirmAbort = nil } }),
+                isPresented: $state.confirmAbort.isPresent(),
                 presenting: state.confirmAbort
             ) { cwd in
                 Button("Abort merge", role: .destructive) { Task { await state.abortMerge(client: client, cwd: cwd) } }

@@ -257,13 +257,26 @@ enum UiTableCell: Equatable {
     }
 
     private static func parseDate(_ string: String) -> Date? {
-        let full = ISO8601DateFormatter()
-        full.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = full.date(from: string) { return date }
-        full.formatOptions = [.withInternetDateTime]
-        if let date = full.date(from: string) { return date }
-        full.formatOptions = [.withFullDate]
-        return full.date(from: string)
+        ISO8601Parsing.date(string) ?? ISO8601Parsing.dateOnly.date(from: string)
+    }
+}
+
+/// The formatters are made once, since a timeline parses a date per row. Foundation documents them as thread-safe,
+/// which the SDK does not mark as `Sendable`.
+enum ISO8601Parsing {
+    nonisolated(unsafe) static let fractional = formatter([.withInternetDateTime, .withFractionalSeconds])
+    nonisolated(unsafe) static let whole = formatter([.withInternetDateTime])
+    nonisolated(unsafe) static let dateOnly = formatter([.withFullDate])
+
+    /// An internet date and time, with or without fractional seconds.
+    static func date(_ string: String) -> Date? {
+        fractional.date(from: string) ?? whole.date(from: string)
+    }
+
+    private static func formatter(_ options: ISO8601DateFormatter.Options) -> ISO8601DateFormatter {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = options
+        return formatter
     }
 }
 

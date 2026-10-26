@@ -73,8 +73,7 @@ struct ProjectsPage<Notice: View>: View {
         }
         .modifier(ProjectListWidth())
         .mobileSheet(item: $newChat) { target in
-            if let machine = runtime.machines.first(where: { $0.id == target.machineID }) {
-                let session = runtime.session(for: machine)
+            if let session = runtime.session(machineID: target.machineID) {
                 NewChatSheet(session: session) { place in
                     openWorkspace(MobileWorkspace(session: session, projectID: place.projectID), view: place.viewID)
                 }

@@ -158,7 +158,7 @@ struct FileDeleteConfirmation: ViewModifier {
         content
             .alert(
                 path.map { String(localized: "Delete \(($0 as NSString).lastPathComponent)?") } ?? "",
-                isPresented: Binding(get: { path != nil }, set: { if !$0 { path = nil } }),
+                isPresented: $path.isPresent(),
                 presenting: path
             ) { pending in
                 Button("Move to Trash", role: .destructive) {
@@ -176,7 +176,7 @@ struct FileDeleteConfirmation: ViewModifier {
                 Text("It goes to the Trash on the machine, where it can be put back.")
             }
             .alert(
-                "Could not delete", isPresented: Binding(get: { problem != nil }, set: { if !$0 { problem = nil } })
+                "Could not delete", isPresented: $problem.isPresent()
             ) {
                 Button("OK", role: .cancel) {}
             } message: {

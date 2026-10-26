@@ -23,13 +23,9 @@ struct PadNowPage: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: MobileSpacing.xLarge) {
                     if runtime.machines.isEmpty {
-                        ContentUnavailableView {
-                            Label(String(localized: "No machines yet"), lucideIcon: "server", iconSize: 48)
-                        } description: {
-                            Text("Connect a machine to see what your agents are doing.")
-                        } actions: {
-                            Button("Add machine", action: addMachine)
-                        }
+                        NoMachinesView(
+                            description: Text("Connect a machine to see what your agents are doing."),
+                            add: addMachine)
                     } else if !now.loaded && board.isEmpty {
                         MobileLoadingRow(String(localized: "Connecting to your machines"))
                             .frame(maxWidth: .infinity, minHeight: 160)

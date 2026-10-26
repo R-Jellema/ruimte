@@ -61,7 +61,7 @@ struct SubagentListPage: View {
         .endingAgentsConfirmation($ending)
         .alert(
             "Could not stop sub-agent",
-            isPresented: Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })
+            isPresented: $failure.isPresent()
         ) {
             Button("OK") { failure = nil }
         } message: {
@@ -542,7 +542,7 @@ struct SubagentInspector: View {
         .endingAgentsConfirmation($ending)
         .alert(
             "Could not stop sub-agent",
-            isPresented: Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })
+            isPresented: $failure.isPresent()
         ) {
             Button("OK", role: .cancel) { failure = nil }
         } message: {

@@ -150,7 +150,6 @@ struct PadPaletteNavigator: PaletteNavigator {
     }
 
     private func workspace(_ machineID: String, _ projectID: String) -> MobileWorkspace? {
-        guard let machine = runtime.machines.first(where: { $0.id == machineID }) else { return nil }
-        return MobileWorkspace(session: runtime.session(for: machine), projectID: projectID)
+        runtime.session(machineID: machineID).map { MobileWorkspace(session: $0, projectID: projectID) }
     }
 }

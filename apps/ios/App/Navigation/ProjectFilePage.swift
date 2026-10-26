@@ -11,10 +11,9 @@ struct ProjectFilePage: View {
     init(runtime: AppRuntime, target: ProjectFileTarget, openView: @escaping (MobileWorkspace, String) -> Void) {
         self.target = target
         self.openView = openView
-        let machine = runtime.machines.first { $0.id == target.machineID }
         _workspace = State(
-            initialValue: machine.map {
-                MobileWorkspace(session: runtime.session(for: $0), projectID: target.projectID)
+            initialValue: runtime.session(machineID: target.machineID).map {
+                MobileWorkspace(session: $0, projectID: target.projectID)
             })
     }
 

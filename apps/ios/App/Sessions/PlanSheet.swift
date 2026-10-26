@@ -73,7 +73,7 @@ struct PlanSheet: View {
             }
             .alert(
                 noteRequest?.state == nil ? "Note" : "What happened?",
-                isPresented: Binding(get: { noteRequest != nil }, set: { if !$0 { noteRequest = nil } }),
+                isPresented: $noteRequest.isPresent(),
                 presenting: noteRequest
             ) { request in
                 TextField("Note", text: $noteText, axis: .vertical)
@@ -91,7 +91,7 @@ struct PlanSheet: View {
             }
             .alert(
                 "The plan did not change",
-                isPresented: Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })
+                isPresented: $failure.isPresent()
             ) {
                 Button("OK") { failure = nil }
             } message: {
@@ -662,7 +662,7 @@ private struct PlanStepRow: View {
     }
 
     private var time: String? {
-        guard let at = step.at, let date = PlanMarkdown.date(at) else { return nil }
+        guard let at = step.at, let date = ISO8601Parsing.date(at) else { return nil }
         return Format.moment(date)
     }
 
@@ -781,13 +781,5 @@ enum PlanMarkdown {
         (try? AttributedString(
             markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)))
             ?? AttributedString(text)
-    }
-
-    static func date(_ text: String) -> Date? {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = formatter.date(from: text) { return date }
-        formatter.formatOptions = [.withInternetDateTime]
-        return formatter.date(from: text)
     }
 }

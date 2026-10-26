@@ -91,7 +91,7 @@ struct ChatComposerView: View {
             ChatCameraPicker(capture: importCapture).ignoresSafeArea()
         }
         .quickLookPreview($preview)
-        .mobileSheet(isPresented: Binding(get: { sheets.picker != nil }, set: { if !$0 { sheets.picker = nil } })) {
+        .mobileSheet(isPresented: $sheets.picker.isPresent()) {
             ChatContextPicker(model: model, kind: sheets.picker ?? "@") { suggestion in
                 model.chooseSuggestion(suggestion)
                 sheets.picker = nil
@@ -117,7 +117,7 @@ struct ChatComposerView: View {
         }
         .alert(
             "Paste this long text",
-            isPresented: Binding(get: { pastedText != nil }, set: { if !$0 { pastedText = nil } })
+            isPresented: $pastedText.isPresent()
         ) {
             if let text = pastedText {
                 Button("Attach as a text file") {

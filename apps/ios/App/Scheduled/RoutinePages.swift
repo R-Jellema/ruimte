@@ -81,7 +81,7 @@ struct RoutineDetailPage: View {
             Text("It starts on \(machineName) right away, and what it delivers lands in Output.")
         }
         .alert(
-            notice?.title ?? "", isPresented: Binding(get: { notice != nil }, set: { if !$0 { notice = nil } }),
+            notice?.title ?? "", isPresented: $notice.isPresent(),
             presenting: notice
         ) { _ in
             Button(String(localized: "OK")) {}
@@ -245,10 +245,7 @@ struct RoutineRunPage: View {
             }
         }
         .task {
-            guard lease == nil, let machine = runtime.machines.first(where: { $0.id == target.machineID }) else {
-                return
-            }
-            let shared = runtime.session(for: machine)
+            guard lease == nil, let shared = runtime.session(machineID: target.machineID) else { return }
             lease = MachineNavigationLease(shared)
             await shared.markSeen(target.chatID)
         }
@@ -258,6 +255,6 @@ struct RoutineRunPage: View {
         self.runtime = runtime
         self.target = target
         _session = State(
-            initialValue: runtime.machines.first { $0.id == target.machineID }.map { runtime.session(for: $0) })
+            initialValue: runtime.session(machineID: target.machineID))
     }
 }

@@ -1,6 +1,22 @@
 import RuimtePulsar
 import SwiftUI
 
+/// The page of a person without a machine yet, which offers to add one.
+struct NoMachinesView: View {
+    let description: Text
+    let add: () -> Void
+
+    var body: some View {
+        ContentUnavailableView {
+            Label(String(localized: "No machines yet"), lucideIcon: "server", iconSize: 48)
+        } description: {
+            description
+        } actions: {
+            Button("Add machine", action: add)
+        }
+    }
+}
+
 /// Every machine as a card: how it is reached and how fast, the limits of its CLIs and an update when one is there. A
 /// machine opens its page; one that is away offers Retry. Add machine stands under the rows, and on the iPhone's
 /// Machines tab the plus as well.
@@ -15,13 +31,8 @@ struct MachinesPage: View {
     var body: some View {
         MobileList {
             if runtime.machines.isEmpty {
-                ContentUnavailableView {
-                    Label(String(localized: "No machines yet"), lucideIcon: "server", iconSize: 48)
-                } description: {
-                    Text("Add a machine to see its projects, devices and processes.")
-                } actions: {
-                    Button("Add machine", action: addMachine)
-                }
+                NoMachinesView(
+                    description: Text("Add a machine to see its projects, devices and processes."), add: addMachine)
             } else {
                 if showsLegend {
                     MachineLimitLegend().listRowInsets(MachinesPage.textInsets)
@@ -167,8 +178,8 @@ struct MachineRoutePage: View {
     var settingsLink: SettingsLink?
 
     var body: some View {
-        if let machine = runtime.machines.first(where: { $0.id == machineID }) {
-            MachinePage(session: runtime.session(for: machine), runtime: runtime, settingsLink: settingsLink)
+        if let session = runtime.session(machineID: machineID) {
+            MachinePage(session: session, runtime: runtime, settingsLink: settingsLink)
         }
     }
 }

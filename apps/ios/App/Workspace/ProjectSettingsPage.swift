@@ -195,7 +195,7 @@ struct ProjectSettingsPage: View {
             }
             .alert(
                 "Close \(workspace.title)?",
-                isPresented: Binding(get: { closing != nil }, set: { if !$0 { closing = nil } }),
+                isPresented: $closing.isPresent(),
                 presenting: closing
             ) { _ in
                 Button("Close project", role: .destructive) { Task { await close() } }

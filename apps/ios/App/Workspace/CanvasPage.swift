@@ -129,12 +129,12 @@ struct CanvasPage: View {
         .mobileSheet(isPresented: $adding) { AddProjectItem(workspace: workspace, canvasID: viewID, kind: addingKind) }
         .confirmationDialog(
             nodes.first(where: { $0.stableID == menuID })?.text("title") ?? String(localized: "Node"),
-            isPresented: Binding(get: { menuID != nil }, set: { if !$0 { menuID = nil } }),
+            isPresented: $menuID.isPresent(),
             titleVisibility: .visible
         ) {
             if let node = nodes.first(where: { $0.stableID == menuID }) { nodeActions(node) }
         }
-        .alert("Rename node", isPresented: Binding(get: { renameID != nil }, set: { if !$0 { renameID = nil } })) {
+        .alert("Rename node", isPresented: $renameID.isPresent()) {
             TextField("Title", text: $name)
             Button("Save") {
                 let id = renameID
@@ -165,24 +165,24 @@ struct CanvasPage: View {
         } message: {
             Text("Where every node stands now. A layout with this name is replaced.")
         }
-        .mobileSheet(isPresented: Binding(get: { linkID != nil }, set: { if !$0 { linkID = nil } })) {
+        .mobileSheet(isPresented: $linkID.isPresent()) {
             if let linkID {
                 CanvasLinkSheet(workspace: workspace, viewID: viewID, sourceID: linkID) { self.linkID = nil }
             }
         }
-        .mobileSheet(isPresented: Binding(get: { colorID != nil }, set: { if !$0 { colorID = nil } })) {
+        .mobileSheet(isPresented: $colorID.isPresent()) {
             if let colorID {
                 CanvasColorSheet(workspace: workspace, viewID: viewID, nodeID: colorID) { self.colorID = nil }
             }
         }
-        .mobileSheet(isPresented: Binding(get: { groupingID != nil }, set: { if !$0 { groupingID = nil } })) {
+        .mobileSheet(isPresented: $groupingID.isPresent()) {
             if let groupingID {
                 CanvasGroupSheet(workspace: workspace, viewID: viewID, firstID: groupingID) { self.groupingID = nil }
             }
         }
         .alert(
             "Remove this node from the canvas?",
-            isPresented: Binding(get: { removal != nil }, set: { if !$0 { removal = nil } }),
+            isPresented: $removal.isPresent(),
             presenting: removal
         ) { pending in
             Button(pending.confirmLabel, role: .destructive) {
@@ -944,17 +944,4 @@ private final class CanvasDrawing: UIView {
 
 extension UIFont {
     fileprivate func withWeight(_ weight: UIFont.Weight) -> UIFont { .systemFont(ofSize: pointSize, weight: weight) }
-}
-
-extension UIColor {
-    /// This color with `share` of another mixed in, both resolved already.
-    fileprivate func blended(with other: UIColor, share: CGFloat) -> UIColor {
-        var (red, green, blue, alpha) = (CGFloat(0), CGFloat(0), CGFloat(0), CGFloat(0))
-        var (otherRed, otherGreen, otherBlue, otherAlpha) = (CGFloat(0), CGFloat(0), CGFloat(0), CGFloat(0))
-        getRed(&red, green: &green, blue: &blue, alpha: &alpha)
-        other.getRed(&otherRed, green: &otherGreen, blue: &otherBlue, alpha: &otherAlpha)
-        let mix = { (base: CGFloat, added: CGFloat) in base + (added - base) * share }
-        return UIColor(
-            red: mix(red, otherRed), green: mix(green, otherGreen), blue: mix(blue, otherBlue), alpha: alpha)
-    }
 }

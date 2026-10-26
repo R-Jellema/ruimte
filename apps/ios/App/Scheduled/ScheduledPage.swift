@@ -18,13 +18,7 @@ struct ScheduledPage: View {
             let board = model.board(now: timeline.date)
             MobileList {
                 if runtime.machines.isEmpty {
-                    ContentUnavailableView {
-                        Label(String(localized: "No machines yet"), lucideIcon: "server", iconSize: 48)
-                    } description: {
-                        Text("Connect a machine to see its routines.")
-                    } actions: {
-                        Button("Add machine", action: addMachine)
-                    }
+                    NoMachinesView(description: Text("Connect a machine to see its routines."), add: addMachine)
                 } else if !board.answered {
                     unanswered(board)
                 } else if board.isEmpty {
@@ -46,7 +40,7 @@ struct ScheduledPage: View {
         .refreshable { await model.refresh() }
         .modifier(ScheduledWatch(runtime: runtime, model: model))
         .alert(
-            notice?.title ?? "", isPresented: Binding(get: { notice != nil }, set: { if !$0 { notice = nil } }),
+            notice?.title ?? "", isPresented: $notice.isPresent(),
             presenting: notice
         ) { _ in
             Button(String(localized: "OK")) {}

@@ -112,7 +112,7 @@ struct MachinePage: View {
         }
         .alert(
             "Restart Ruimte on \(name)?",
-            isPresented: Binding(get: { confirming != nil }, set: { if !$0 { confirming = nil } }),
+            isPresented: $confirming.isPresent(),
             presenting: confirming
         ) { _ in
             Button("Restart", role: .destructive) { Task { await endpoint.confirmInstall() } }

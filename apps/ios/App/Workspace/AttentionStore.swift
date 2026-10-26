@@ -285,18 +285,3 @@ final class AttentionStore {
         } catch {}
     }
 }
-
-struct AttentionMark: View {
-    let store: AttentionStore
-    let id: String
-    var body: some View {
-        if store.needsYou(id) {
-            Image(lucide: "hand").foregroundStyle(MobileStyle.statusNeedsYou).accessibilityLabel("Needs you")
-        } else if store.statuses[id] == .running {
-            Spinner(size: 14, label: String(localized: "Running")).foregroundStyle(MobileStyle.statusRunning)
-        } else if store.unseen.contains(id) {
-            Circle().frame(width: 8, height: 8).foregroundStyle(MobileStyle.accent).accessibilityLabel(
-                "New activity")
-        }
-    }
-}

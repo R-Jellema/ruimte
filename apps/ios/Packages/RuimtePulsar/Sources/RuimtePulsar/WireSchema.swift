@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 public enum Presence<Value: Codable & Sendable & Equatable>: Sendable, Equatable {
     case missing
@@ -14,13 +15,6 @@ public enum WireValidationError: Error, LocalizedError, Sendable, Equatable {
         case .invalid(let reason): reason
         }
     }
-}
-
-public struct WireCodingKey: CodingKey {
-    public var stringValue: String
-    public var intValue: Int? { nil }
-    public init(stringValue: String) { self.stringValue = stringValue }
-    public init?(intValue: Int) { return nil }
 }
 
 public enum JSONValue: Codable, Sendable, Equatable {
@@ -168,6 +162,16 @@ public enum WireSchema {
         return try parse(value, schema: schema, path: name, definitions: schema["$defs"])
     }
 
+    /// Compiled once per pattern, since every frame is validated.
+    private static let expressions = Mutex<[String: NSRegularExpression]>([:])
+
+    private static func expression(_ pattern: String) throws -> NSRegularExpression {
+        if let cached = expressions.withLock({ $0[pattern] }) { return cached }
+        let compiled = try NSRegularExpression(pattern: pattern)
+        expressions.withLock { $0[pattern] = compiled }
+        return compiled
+    }
+
     private static func parse(_ input: JSONValue, schema: JSONValue, path: String, definitions: JSONValue?) throws
         -> JSONValue
     {
@@ -223,8 +227,7 @@ public enum WireSchema {
                 if let maximum = schema["maxLength"]?.numberValue, length > maximum { throw fail() }
             }
             if let pattern = schema["pattern"]?.stringValue {
-                let expression = try NSRegularExpression(pattern: pattern)
-                guard expression.firstMatch(in: string, range: NSRange(string.startIndex..., in: string)) != nil else {
+                guard try expression(pattern).firstMatch(in: string, range: NSRange(string.startIndex..., in: string)) != nil else {
                     throw fail()
                 }
             }

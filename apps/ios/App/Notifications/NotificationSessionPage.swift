@@ -54,12 +54,11 @@ struct NotificationSessionPage: View {
         }
         .task {
             guard lease == nil else { return }
-            guard let machine = runtime.machines.first(where: { $0.id == destination.machineID }) else {
+            guard let shared = runtime.session(machineID: destination.machineID) else {
                 work.problem = String(
                     localized: "This machine is no longer in your account. Refresh your machines and try again.")
                 return
             }
-            let shared = runtime.session(for: machine)
             session = shared
             lease = MachineNavigationLease(shared)
             // A view from the project widget that no open project holds can only still be a session, so it is looked up.

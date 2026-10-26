@@ -79,6 +79,11 @@ final class AppRuntime {
             })
     }
 
+    /// The session of a machine still on the account; nil once it left.
+    func session(machineID: String) -> SharedMachineSession? {
+        machines.first { $0.id == machineID }.map(session(for:))
+    }
+
     func session(for machine: Machine) -> SharedMachineSession {
         guard let current = machines.first(where: { $0.id == machine.id }) else {
             let removed = SharedMachineSession(machine: machine, runtime: self)

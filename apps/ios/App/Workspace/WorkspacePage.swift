@@ -154,7 +154,7 @@ struct WorkspacePage: View {
                 folder: workspace.folder, client: workspace.client)
         }
         .alert(
-            "Could not fork", isPresented: Binding(get: { forkProblem != nil }, set: { if !$0 { forkProblem = nil } }),
+            "Could not fork", isPresented: $forkProblem.isPresent(),
             presenting: forkProblem
         ) { _ in
             Button("OK", role: .cancel) { forkProblem = nil }
@@ -168,11 +168,11 @@ struct WorkspacePage: View {
                 Task { await openPendingView() }
             }
         }
-        .mobileSheet(isPresented: Binding(get: { iconView != nil }, set: { if !$0 { iconView = nil } })) {
+        .mobileSheet(isPresented: $iconView.isPresent()) {
             if let item = iconView { ViewIconPicker(workspace: workspace, item: item) }
         }
         .mobileSheet(
-            isPresented: Binding(get: { settingsView != nil }, set: { if !$0 { settingsView = nil } }),
+            isPresented: $settingsView.isPresent(),
             onDismiss: {
                 if let id = openAfterSettings { openView(id) }
                 openAfterSettings = nil
@@ -279,7 +279,7 @@ struct WorkspacePage: View {
         }
         .alert(
             renamed?.text("kind") == "subheader" ? "Name the heading" : "Rename view",
-            isPresented: Binding(get: { renamed != nil }, set: { if !$0 { renamed = nil } })
+            isPresented: $renamed.isPresent()
         ) {
             TextField("Name", text: $renameText)
             Button("Save") {
@@ -295,7 +295,7 @@ struct WorkspacePage: View {
         }
         .alert(
             deleteView?.item.text("kind") == "chat" ? "Delete this chat?" : "Delete this view?",
-            isPresented: Binding(get: { deleteView != nil }, set: { if !$0 { deleteView = nil } }),
+            isPresented: $deleteView.isPresent(),
             presenting: deleteView
         ) { pending in
             Button(pending.item.text("kind") == "chat" ? "Delete chat" : "Delete view", role: .destructive) {
@@ -391,27 +391,10 @@ struct WorkspacePage: View {
         voice.isOwner(scene.id) || voice.offers(machineID: workspace.session.machine.id, client: workspace.client)
     }
 
-    @ViewBuilder private var openingStatus: some View {
-        if let problem = workspace.problem
-            ?? (workspace.session.failedAttempts >= 3 ? String(localized: "Could not connect to your machine.") : nil)
-        {
-            ContentUnavailableView {
-                Label(String(localized: "Could not open project"), lucideIcon: "triangle-alert", iconSize: 48)
-            } description: {
-                Text(problem)
-            } actions: {
-                Button("Try again") {
-                    if workspace.session.connected {
-                        Task { await workspace.open() }
-                    } else {
-                        workspace.problem = nil
-                        workspace.session.reconnect()
-                    }
-                }
-            }
-        } else {
-            MobileLoadingRow(String(localized: "Opening project"))
-        }
+    private var openingStatus: some View {
+        WorkspaceOpeningStatus(
+            workspace: workspace, failure: String(localized: "Could not open project"),
+            opening: String(localized: "Opening project"))
     }
 
     /// A view, or on an iPhone a node its canvas lists, which opens on its own over the list.
@@ -676,6 +659,36 @@ func newCanvasNode(kind: String, title: String, after nodes: [JSONValue], extra:
     ]
     node.merge(extra) { _, new in new }
     return .object(node)
+}
+
+/// A project on its way open, or why it did not open with a way to try again.
+struct WorkspaceOpeningStatus: View {
+    let workspace: MobileWorkspace
+    let failure: String
+    let opening: String
+
+    var body: some View {
+        if let problem = workspace.problem
+            ?? (workspace.session.failedAttempts >= 3 ? String(localized: "Could not connect to your machine.") : nil)
+        {
+            ContentUnavailableView {
+                Label(failure, lucideIcon: "triangle-alert", iconSize: 48)
+            } description: {
+                Text(problem)
+            } actions: {
+                Button("Try again") {
+                    if workspace.session.connected {
+                        Task { await workspace.open() }
+                    } else {
+                        workspace.problem = nil
+                        workspace.session.reconnect()
+                    }
+                }
+            }
+        } else {
+            MobileLoadingRow(opening)
+        }
+    }
 }
 
 struct ProjectItemPage: View {

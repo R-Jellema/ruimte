@@ -118,7 +118,7 @@ struct UiInlineRun: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .environment(\.openURL, OpenURLAction(handler: handle))
-                .popover(isPresented: Binding(get: { reason != nil }, set: { if !$0 { reason = nil } })) {
+                .popover(isPresented: $reason.isPresent()) {
                     Text(reason ?? "").font(.footnote).padding(12).presentationCompactAdaptation(.popover)
                 }
                 .modifier(UiBrowserSheet(url: $browsing))
@@ -265,7 +265,7 @@ struct UiLinkChip: View {
                 }
             }
         }
-        .popover(isPresented: Binding(get: { reason != nil }, set: { if !$0 { reason = nil } })) {
+        .popover(isPresented: $reason.isPresent()) {
             Text(reason ?? "").font(.footnote).padding(12).presentationCompactAdaptation(.popover)
         }
     }
@@ -295,7 +295,7 @@ struct UiBrowserSheet: ViewModifier {
     @Binding var url: URL?
 
     func body(content: Content) -> some View {
-        content.sheet(isPresented: Binding(get: { url != nil }, set: { if !$0 { url = nil } })) {
+        content.sheet(isPresented: $url.isPresent()) {
             if let url { UiSafariView(url: url).ignoresSafeArea() }
         }
     }
