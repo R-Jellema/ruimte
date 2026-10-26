@@ -126,4 +126,56 @@ import XCTest
         XCTAssertEqual(shown.first?.latest, true)
         XCTAssertEqual(ChatOutputCardView.what(shown[0].version), "Version 2 saved to Output")
     }
+
+    private func version(_ maker: String, _ files: [(name: String, mime: String, size: Double)]) -> OutputVersion {
+        OutputVersion(
+            json: .object([
+                "versionId": .string("v1"), "number": .number(1), "createdAt": .number(1),
+                "files": .array(
+                    files.map {
+                        .object(["name": .string($0.name), "mime": .string($0.mime), "size": .number($0.size)])
+                    }),
+                "bytes": .number(10),
+                "provenance": .object(["maker": .string(maker), "machineId": .string("mac"), "chatId": .string("chat")]),
+            ]))
+    }
+
+    func testAPageADocumentTextAnImageAndAPdfAnAgentOrARoutinePublishedDrawInline() {
+        XCTAssertEqual(ChatSavedPreview.of(version("agent", [("summary.md", "text/markdown", 10)])), .markdown(file: 0))
+        XCTAssertEqual(ChatSavedPreview.of(version("routine", [("summary.txt", "text/plain", 10)])), .code(file: 0))
+        XCTAssertEqual(ChatSavedPreview.of(version("routine", [("rapport.html", "text/html", 10)])), .page(file: 0))
+        XCTAssertEqual(ChatSavedPreview.of(version("agent", [("report.pdf", "application/pdf", 10)])), .pdf(file: 0))
+        XCTAssertEqual(
+            ChatSavedPreview.of(version("agent", [("app.zip", "application/zip", 10), ("chart.png", "image/png", 10)])),
+            .image(file: 1))
+    }
+
+    func testWhatAPersonSavedFromTheThreadIsAlreadyInIt() {
+        XCTAssertNil(ChatSavedPreview.of(version("person", [("summary.md", "text/markdown", 10)])))
+        XCTAssertNil(ChatSavedPreview.of(version("person", [("shot.png", "image/png", 10)])))
+    }
+
+    func testAFileWithNothingToShowALongFileOrAModelStaysARow() {
+        let over = ChatSavedPreview.maxBytes + 1
+        XCTAssertNil(ChatSavedPreview.of(version("agent", [("app.zip", "application/zip", 10)])))
+        XCTAssertNil(ChatSavedPreview.of(version("agent", [("scene.glb", "model/gltf-binary", 10)])))
+        XCTAssertNil(ChatSavedPreview.of(version("agent", [("big.md", "text/markdown", over)])))
+        XCTAssertNil(ChatSavedPreview.of(version("agent", [("big.pdf", "application/pdf", over)])))
+    }
+
+    func testOnlyTheLastVersionOfAnItemInTheBlockDrawsWhatItHolds() {
+        let first = ChatSavedVersion(
+            artifactID: "a", title: "Report", kind: "report", version: version("agent", [("a.md", "text/markdown", 10)]),
+            latest: false)
+        let other = ChatSavedVersion(
+            artifactID: "b", title: "Notes", kind: "report", version: version("agent", [("b.md", "text/markdown", 10)]),
+            latest: true)
+        let last = ChatSavedVersion(
+            artifactID: "a", title: "Report", kind: "report", version: version("agent", [("a.md", "text/markdown", 10)]),
+            latest: true)
+        let saved = [first, other, last]
+        XCTAssertNil(ChatOutputCardView.preview(saved, at: 0))
+        XCTAssertEqual(ChatOutputCardView.preview(saved, at: 1), .markdown(file: 0))
+        XCTAssertEqual(ChatOutputCardView.preview(saved, at: 2), .markdown(file: 0))
+    }
 }

@@ -1158,7 +1158,7 @@ struct ChatEntryView: View {
                 }
             case .output:
                 if let card = entry.output {
-                    ChatOutputCardView(card: card, presentation: presentation)
+                    ChatOutputCardView(card: card, presentation: presentation, client: client)
                 }
             case .tools:
                 if entry.items.count == 1, let item = entry.items.first {

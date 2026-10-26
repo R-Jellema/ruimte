@@ -152,25 +152,41 @@ enum ChatOutputCards {
     }
 }
 
-/// The versions a turn of a chat saved, as one block of tight rows, each opening its item. Read only, as Output is
-/// on a phone.
+/// The versions a turn of a chat saved, as one block of tight rows, each opening its item. An item's last version
+/// in the block shows what it holds under its row when one of its files draws inline. Read only, as Output is on a
+/// phone.
 struct ChatOutputCardView: View {
     let card: ChatOutputCard
     let presentation: ChatPresentation
+    let client: any MachineRequesting
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ForEach(card.saved, id: \.version.id) { entry in
+            ForEach(Array(card.saved.enumerated()), id: \.element.version.id) { index, entry in
                 row(entry)
+                if let preview = Self.preview(card.saved, at: index) {
+                    ChatSavedPreviewView(entry: entry, preview: preview, client: client) { open(entry) }
+                }
             }
         }
+    }
+
+    /// Only the last version of an item in the block draws what it holds.
+    static func preview(_ saved: [ChatSavedVersion], at index: Int) -> ChatSavedPreview? {
+        let entry = saved[index]
+        guard !saved[(index + 1)...].contains(where: { $0.artifactID == entry.artifactID }) else { return nil }
+        return ChatSavedPreview.of(entry.version)
+    }
+
+    private func open(_ entry: ChatSavedVersion) {
+        presentation.outputRequest = ChatOutputOpen(
+            artifactID: entry.artifactID, title: entry.title, versionID: entry.latest ? nil : entry.version.id)
     }
 
     private func row(_ entry: ChatSavedVersion) -> some View {
         let what = Self.what(entry.version)
         return Button {
-            presentation.outputRequest = ChatOutputOpen(
-                artifactID: entry.artifactID, title: entry.title, versionID: entry.latest ? nil : entry.version.id)
+            open(entry)
         } label: {
             HStack(spacing: 8) {
                 Image(lucide: OutputKind.icon(entry.kind), size: 14)
