@@ -7,14 +7,16 @@ import { panelHidden, type PanelKind } from '@/state/ui';
    something to look at now and then rather than a place to work, so it opens from the Window menu
    and has no button. Launches has none either: the launch chip opens it and shows it pressed, and
    Voice Control's button sits beside the palette's, since it only shows while a key is set. The
-   buttons come in two groups: the project's own work (its files, its history, what was made for it),
-   then what lives outside it and is connected to it. */
-export const PANELS: { kind: PanelKind; icon: LucideIcon; minWidth: number; toolbar: boolean; group: 'project' | 'connected' }[] = [
+   buttons come in three groups: the project's own work (its files, its history), what lives outside it
+   and is connected to it, and what is made for it (Output, beside the Routines clock). */
+export type PanelGroup = 'project' | 'connected' | 'made';
+
+export const PANELS: { kind: PanelKind; icon: LucideIcon; minWidth: number; toolbar: boolean; group: PanelGroup }[] = [
     { kind: 'files', icon: Folder, minWidth: 240, toolbar: true, group: 'project' },
     { kind: 'git', icon: GitBranch, minWidth: 240, toolbar: true, group: 'project' },
-    { kind: 'output', icon: Package, minWidth: 300, toolbar: true, group: 'project' },
     { kind: 'databases', icon: Database, minWidth: 260, toolbar: true, group: 'connected' },
     { kind: 'devices', icon: TabletSmartphone, minWidth: 320, toolbar: true, group: 'connected' },
+    { kind: 'output', icon: Package, minWidth: 300, toolbar: true, group: 'made' },
     { kind: 'processes', icon: Activity, minWidth: 420, toolbar: false, group: 'project' },
     { kind: 'launches', icon: Rocket, minWidth: 480, toolbar: false, group: 'project' },
     { kind: 'problems', icon: CircleAlert, minWidth: 360, toolbar: false, group: 'project' },

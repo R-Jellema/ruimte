@@ -6,7 +6,6 @@ import { STRIP_PADDING_PX, useTrafficLightInset } from '@/desktop/useFullscreen'
 import { LaunchChip } from '@/launches/LaunchChip';
 import { PanelControls } from '@/shell/PanelControls';
 import { ProjectMenu } from '@/shell/ProjectMenu';
-import { RoutinesButton } from '@/routines/RoutinesButton';
 import { SIDEBAR_WIDTH_PX, SidebarGlow } from '@/shell/SidebarGlow';
 import { SidebarToggle } from '@/shell/SidebarToggle';
 import { StationMenu } from '@/shell/menu/StationMenu';
@@ -88,7 +87,6 @@ export function Toolbar() {
                 Linux, so the inset lands here; an open panel's header takes it over. */}
             <ButtonGroup className={clsx(!panel.open && hasOverlayControls() && 'toolbar-overlay-inset')}>
                 <UpdateButton />
-                <RoutinesButton />
                 <VoiceButton />
                 <IconButton icon={Search} label={t('toolbar.search')} kbd={APP_SHORTCUTS.palette} onClick={() => useUi.getState().setPaletteOpen(true)} />
             </ButtonGroup>

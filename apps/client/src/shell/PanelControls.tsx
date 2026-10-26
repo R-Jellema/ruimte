@@ -1,6 +1,8 @@
 import { useTranslation } from 'react-i18next';
+import { useRoutineList } from '@/routines/routine-list';
+import { RoutinesButton } from '@/routines/RoutinesButton';
 import { leaveRoutines, useRoutinesStage } from '@/routines/stage';
-import { toolbarPanels } from '@/shell/panels';
+import { toolbarPanels, type PanelGroup } from '@/shell/panels';
 import { useFolderInRepo } from '@/state/git-repos';
 import { useGitStatus } from '@/state/git-watch';
 import { useEndpointId } from '@/state/keys';
@@ -10,7 +12,9 @@ import { useShownPanel, useUi } from '@/state/ui';
 import { Fragment } from 'react';
 import { ButtonGroup, IconButton, Separator } from '@adecore/ui';
 
-/* The panel toggles. They stay in the toolbar whether a panel is open or not, so a toggle never
+const GROUPS: readonly PanelGroup[] = ['project', 'connected', 'made'];
+
+/* The panel toggles, and the Routines clock beside Output. They stay in the toolbar whether a panel is open or not, so a toggle never
    moves out from under the pointer; the panel's own header carries its title and its close button
    and nothing that belongs to the toolbar. */
 export function PanelControls() {
@@ -27,15 +31,18 @@ export function PanelControls() {
     /* The project folder's own checkout, which is what the panel shows first; it shares the watch the git and files panels hold. */
     const changes = useGitStatus(repo ? candidate : null)?.files.length ?? 0;
 
-    const groups = (['project', 'connected'] as const).map((group) => entries.filter((entry) => entry.group === group)).filter((group) => group.length > 0);
+    const routinesShown = useRoutineList(endpointId) !== null;
+    const groups = GROUPS.map((key) => ({ key, entries: entries.filter((entry) => entry.group === key) })).filter(
+        (group) => group.entries.length > 0 || (group.key === 'made' && routinesShown)
+    );
 
     return (
         <>
             {groups.map((group, index) => (
-                <Fragment key={group[0]!.group}>
+                <Fragment key={group.key}>
                     {index > 0 && <Separator />}
                     <ButtonGroup>
-                        {group.map((entry) => {
+                        {group.entries.map((entry) => {
                             const dirty = entry.kind === 'git' && changes > 0;
                             return (
                                 <IconButton
@@ -61,6 +68,7 @@ export function PanelControls() {
                                 </IconButton>
                             );
                         })}
+                        {group.key === 'made' && <RoutinesButton />}
                     </ButtonGroup>
                 </Fragment>
             ))}
