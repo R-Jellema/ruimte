@@ -1,10 +1,10 @@
 import { useTranslation } from 'react-i18next';
-import { Copy, Download, MoreHorizontal, Redo2, Undo2 } from 'lucide-react';
-import { fitAction, historyAction } from '@/actions/client-actions';
+import { fitAction } from '@/actions/client-actions';
 import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
 import { copyDiagram, exportDiagram } from '@/diagram/diagram-actions';
+import { DockExportHistory } from '@/drawing/DockExportHistory';
 import { useDiagram, useDiagramStore } from '@/state/diagram';
-import { ButtonGroup, Icon, IconButton, Separator, Menu, DockShell, ZoomControls } from '@adecore/ui';
+import { Separator, DockShell, ZoomControls } from '@adecore/ui';
 import { useSettings } from '@/state/settings';
 
 /*
@@ -38,39 +38,15 @@ export function DiagramDock() {
 
             <Separator />
 
-            <ButtonGroup>
-                <Menu.Root>
-                    <IconButton render={<Menu.Trigger />} icon={MoreHorizontal} label={t('export.label')} />
-                    <Menu.Popup side="top" sideOffset={10} align="end" className="min-w-52">
-                        <Menu.Item disabled={empty} onClick={() => copyDiagram(store, 'png')}>
-                            <Icon icon={Copy} size={14} /> {t('export.copyPng')}
-                        </Menu.Item>
-                        <Menu.Item disabled={empty} onClick={() => exportDiagram(store, 'png')}>
-                            <Icon icon={Download} size={14} /> {t('export.savePng')}
-                        </Menu.Item>
-                        <Menu.Item disabled={empty} onClick={() => copyDiagram(store, 'svg')}>
-                            <Icon icon={Copy} size={14} /> {t('export.copySvg')}
-                        </Menu.Item>
-                        <Menu.Item disabled={empty} onClick={() => exportDiagram(store, 'svg')}>
-                            <Icon icon={Download} size={14} /> {t('export.saveSvg')}
-                        </Menu.Item>
-                    </Menu.Popup>
-                </Menu.Root>
-                <IconButton
-                    icon={Undo2}
-                    label={t('common:action.undo')}
-                    kbd={CANVAS_SHORTCUTS.undo}
-                    disabled={!canUndo}
-                    onClick={() => historyAction('undo', viewId)}
-                />
-                <IconButton
-                    icon={Redo2}
-                    label={t('common:action.redo')}
-                    kbd={CANVAS_SHORTCUTS.redo}
-                    disabled={!canRedo}
-                    onClick={() => historyAction('redo', viewId)}
-                />
-            </ButtonGroup>
+            <DockExportHistory
+                viewId={viewId}
+                empty={empty}
+                canUndo={canUndo}
+                canRedo={canRedo}
+                shortcuts={CANVAS_SHORTCUTS}
+                onCopy={(format) => copyDiagram(store, format)}
+                onSave={(format) => exportDiagram(store, format)}
+            />
         </DockShell>
     );
 }

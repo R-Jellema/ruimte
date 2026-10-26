@@ -1,28 +1,9 @@
 import { useTranslation } from 'react-i18next';
-import {
-    Circle,
-    Diamond,
-    Eraser,
-    Hand,
-    Lock,
-    LockOpen,
-    Minus,
-    MousePointer2,
-    MoveUpRight,
-    Palette,
-    Pencil,
-    Square,
-    StickyNote,
-    Type,
-    Undo2,
-    Redo2,
-    Copy,
-    Download,
-    MoreHorizontal
-} from 'lucide-react';
+import { Circle, Diamond, Eraser, Hand, Lock, LockOpen, Minus, MousePointer2, MoveUpRight, Palette, Pencil, Square, StickyNote, Type } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { DRAWING_COLORS, type DrawingColor } from '@ruimte/contracts';
-import { fitAction, historyAction } from '@/actions/client-actions';
+import { fitAction } from '@/actions/client-actions';
+import { DockExportHistory } from '@/drawing/DockExportHistory';
 import { copyDrawing, exportDrawing, styleSelection, unlockEverything } from '@/drawing/drawing-actions';
 import { useDrawing, useDrawingStore, type DrawingStyle, type DrawingTool } from '@/state/drawing';
 import { ButtonGroup, ColorSwatch, Icon, IconButton, Menu, Separator, Tooltip, DockShell, ZoomControls } from '@adecore/ui';
@@ -235,23 +216,17 @@ export function DrawingDock() {
 
             <Separator />
 
-            <ButtonGroup>
-                <Menu.Root>
-                    <IconButton render={<Menu.Trigger />} icon={MoreHorizontal} label={t('export.label')} />
-                    <Menu.Popup side="top" sideOffset={10} align="end" className="min-w-52">
-                        <Menu.Label>{hasSelection ? t('export.selection') : t('export.drawing')}</Menu.Label>
-                        <Menu.Item disabled={empty} onClick={() => void copyDrawing(drawingStore, 'png')}>
-                            <Icon icon={Copy} size={14} /> {t('export.copyPng')}
-                        </Menu.Item>
-                        <Menu.Item disabled={empty} onClick={() => exportDrawing(drawingStore, 'png')}>
-                            <Icon icon={Download} size={14} /> {t('export.savePng')}
-                        </Menu.Item>
-                        <Menu.Item disabled={empty} onClick={() => void copyDrawing(drawingStore, 'svg')}>
-                            <Icon icon={Copy} size={14} /> {t('export.copySvg')}
-                        </Menu.Item>
-                        <Menu.Item disabled={empty} onClick={() => exportDrawing(drawingStore, 'svg')}>
-                            <Icon icon={Download} size={14} /> {t('export.saveSvg')}
-                        </Menu.Item>
+            <DockExportHistory
+                viewId={viewId}
+                empty={empty}
+                canUndo={canUndo}
+                canRedo={canRedo}
+                shortcuts={DRAWING_SHORTCUTS}
+                onCopy={(format) => void copyDrawing(drawingStore, format)}
+                onSave={(format) => exportDrawing(drawingStore, format)}
+                label={hasSelection ? t('export.selection') : t('export.drawing')}
+                extra={
+                    <>
                         <Menu.Separator />
                         <Menu.CheckboxItem
                             checked={exportBackground}
@@ -260,23 +235,9 @@ export function DrawingDock() {
                         >
                             {t('export.withBackground')}
                         </Menu.CheckboxItem>
-                    </Menu.Popup>
-                </Menu.Root>
-                <IconButton
-                    icon={Undo2}
-                    label={t('common:action.undo')}
-                    kbd={DRAWING_SHORTCUTS.undo}
-                    disabled={!canUndo}
-                    onClick={() => historyAction('undo', viewId)}
-                />
-                <IconButton
-                    icon={Redo2}
-                    label={t('common:action.redo')}
-                    kbd={DRAWING_SHORTCUTS.redo}
-                    disabled={!canRedo}
-                    onClick={() => historyAction('redo', viewId)}
-                />
-            </ButtonGroup>
+                    </>
+                }
+            />
         </DockShell>
     );
 }
