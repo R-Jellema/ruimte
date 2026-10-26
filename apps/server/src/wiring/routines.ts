@@ -178,9 +178,14 @@ export async function wireRoutines({ home, machineId, stores, agents, projects, 
             .then(() => watchers.changed(projectId))
             .catch((e: unknown) => console.error('Scheduling routines after an outside edit failed:', errorText(e)));
     };
+    // An observer hears a chat's thread and never `chat.status`, which goes to clients only; its info events carry the same.
     chats.observe((event) => {
-        if (event.event === 'chat.status') {
-            void routines.observe(event.payload.chatId, event.payload.info).catch((e: unknown) => console.error('Noting a routine run failed:', errorText(e)));
+        if (event.event !== 'chat.event') {
+            return;
+        }
+        const { chatId, event: chatEvent } = event.payload;
+        if (chatEvent.type === 'info' || chatEvent.type === 'reset') {
+            void routines.observe(chatId, chatEvent.info).catch((e: unknown) => console.error('Noting a routine run failed:', errorText(e)));
         }
     });
     return { routines, store, watchers };
