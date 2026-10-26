@@ -37,6 +37,10 @@ export function turnCredential(secret: string, peer: TurnPeer, expiresAtSeconds:
     return { username, credential: createHmac('sha1', secret).update(username).digest('base64') };
 }
 
+async function readSecretFile(path: string, read: ((path: string) => Promise<string>) | undefined): Promise<string> {
+    return (await (read ?? ((file) => readFile(file, 'utf8')))(path)).trim();
+}
+
 export interface SharedSecretTurnOptions {
     /* A file holding the secret coturn has as `static-auth-secret`; read on every request, so a rotation needs no restart. */
     secretFile: string;
@@ -50,7 +54,7 @@ export interface SharedSecretTurnOptions {
 export function sharedSecretTurn(options: SharedSecretTurnOptions): TurnProvider {
     return {
         iceServersFor: async (peer) => {
-            const secret = (await (options.read ?? ((path) => readFile(path, 'utf8')))(options.secretFile)).trim();
+            const secret = await readSecretFile(options.secretFile, options.read);
             if (secret === '') {
                 throw new Error(`The TURN secret in ${options.secretFile} is empty`);
             }
@@ -87,7 +91,7 @@ export function cloudflareTurn(options: CloudflareTurnOptions): TurnProvider {
     let pending: Promise<IceGrant> | null = null;
 
     const generate = async (): Promise<IceGrant> => {
-        const token = (await (options.read ?? ((path) => readFile(path, 'utf8')))(options.tokenFile)).trim();
+        const token = await readSecretFile(options.tokenFile, options.read);
         const issuedAt = now();
         const response = await (options.fetch ?? fetch)(
             `https://rtc.live.cloudflare.com/v1/turn/keys/${encodeURIComponent(options.keyId)}/credentials/generate-ice-servers`,

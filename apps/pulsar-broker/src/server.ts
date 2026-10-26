@@ -17,7 +17,7 @@ export interface RunningBroker {
     stop(): Promise<void>;
 }
 
-export function turnProviderFor(turn: TurnConfig): TurnProvider {
+function turnProviderFor(turn: TurnConfig): TurnProvider {
     switch (turn.kind) {
         case 'none':
             return noTurn;

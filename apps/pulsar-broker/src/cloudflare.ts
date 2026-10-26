@@ -5,7 +5,7 @@ import { isIPv4, isIPv6 } from 'node:net';
  * (checked 2026-09-15). They change rarely; a range missing here only means a client behind that edge
  * is counted against the edge's address, never that a header is believed from someone else.
  */
-export const CLOUDFLARE_RANGES = [
+const CLOUDFLARE_RANGES = [
     '173.245.48.0/20',
     '103.21.244.0/22',
     '103.22.200.0/22',
@@ -34,19 +34,29 @@ function ipv4Bits(address: string): bigint {
     return address.split('.').reduce((bits, part) => (bits << 8n) | BigInt(Number(part)), 0n);
 }
 
-function ipv6Bits(address: string): bigint {
-    let text = address;
-    // A trailing dotted quad (`::ffff:1.2.3.4`) is two groups written the IPv4 way.
-    const dotted = text.match(/(\d+\.\d+\.\d+\.\d+)$/);
-    if (dotted) {
-        const bits = ipv4Bits(dotted[1]!);
-        text = `${text.slice(0, -dotted[1]!.length)}${(bits >> 16n).toString(16)}:${(bits & 0xffffn).toString(16)}`;
+/* The eight groups of an IPv6 address, `::` and a trailing IPv4 part spelled out. */
+export function ipv6GroupsOf(address: string): number[] {
+    const groupsIn = (part: string): number[] =>
+        part === ''
+            ? []
+            : part.split(':').flatMap((group) => {
+                  if (!group.includes('.')) {
+                      return [Number.parseInt(group, 16)];
+                  }
+                  const [a = 0, b = 0, c = 0, d = 0] = group.split('.').map(Number);
+                  return [a * 256 + b, c * 256 + d];
+              });
+    const [head = '', tail] = address.split('::');
+    const front = groupsIn(head);
+    if (tail === undefined) {
+        return front;
     }
-    const [head = '', tail] = text.split('::');
-    const headGroups = head === '' ? [] : head.split(':');
-    const tailGroups = tail === undefined || tail === '' ? [] : tail.split(':');
-    const groups = tail === undefined ? headGroups : [...headGroups, ...new Array<string>(8 - headGroups.length - tailGroups.length).fill('0'), ...tailGroups];
-    return groups.reduce((bits, group) => (bits << 16n) | BigInt(parseInt(group, 16)), 0n);
+    const back = groupsIn(tail);
+    return [...front, ...Array<number>(8 - front.length - back.length).fill(0), ...back];
+}
+
+function ipv6Bits(address: string): bigint {
+    return ipv6GroupsOf(address).reduce((bits, group) => (bits << 16n) | BigInt(group), 0n);
 }
 
 interface Range {
@@ -70,13 +80,13 @@ const RANGES = CLOUDFLARE_RANGES.map(rangeOf);
 /* Whether an address belongs to Cloudflare's edge; an IPv4-mapped IPv6 address counts as its IPv4 half. */
 export function isCloudflareAddress(address: string): boolean {
     const plain = address.startsWith('::ffff:') && isIPv4(address.slice('::ffff:'.length)) ? address.slice('::ffff:'.length) : address;
-    if (isIPv4(plain)) {
-        const bits = ipv4Bits(plain);
-        return RANGES.some((range) => range.family === 4 && (bits & range.mask) === range.network);
+    const family = isIPv4(plain) ? 4 : isIPv6(plain) ? 6 : null;
+
+    if (family === null) {
+        return false;
     }
-    if (isIPv6(plain)) {
-        const bits = ipv6Bits(plain);
-        return RANGES.some((range) => range.family === 6 && (bits & range.mask) === range.network);
-    }
-    return false;
+
+    const bits = family === 4 ? ipv4Bits(plain) : ipv6Bits(plain);
+
+    return RANGES.some((range) => range.family === family && (bits & range.mask) === range.network);
 }

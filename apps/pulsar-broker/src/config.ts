@@ -1,6 +1,6 @@
 import { isIP } from 'node:net';
 import { parseArgs } from 'node:util';
-import { isCloudflareAddress } from './cloudflare.ts';
+import { ipv6GroupsOf, isCloudflareAddress } from './cloudflare.ts';
 
 export interface BrokerLimits {
     /* A frame larger than this closes the socket. An offer is a few KiB; the schema caps an SDP at 32 KiB. */
@@ -48,7 +48,7 @@ export type TurnConfig =
     | { kind: 'cloudflare'; keyId: string; tokenFile: string; ttlSeconds: number };
 
 // A daemon asks again at two thirds of a lifetime and a client before an attempt, so an hour costs nobody a connection.
-export const DEFAULT_TURN_TTL_SECONDS = 3_600;
+const DEFAULT_TURN_TTL_SECONDS = 3_600;
 
 export const DEFAULT_HOST = '127.0.0.1';
 export const DEFAULT_PORT = 4400;
@@ -201,27 +201,6 @@ export function nameFor(hostHeader: string | null, names: string[]): string | nu
         return host === '' ? null : host;
     }
     return names.includes(host) ? host : null;
-}
-
-/* The eight groups of an IPv6 address, `::` and a trailing IPv4 part spelled out. */
-function ipv6GroupsOf(address: string): number[] {
-    const groupsIn = (part: string): number[] =>
-        part === ''
-            ? []
-            : part.split(':').flatMap((group) => {
-                  if (!group.includes('.')) {
-                      return [Number.parseInt(group, 16)];
-                  }
-                  const [a = 0, b = 0, c = 0, d = 0] = group.split('.').map(Number);
-                  return [a * 256 + b, c * 256 + d];
-              });
-    const [head = '', tail] = address.split('::');
-    const front = groupsIn(head);
-    if (tail === undefined) {
-        return front;
-    }
-    const back = groupsIn(tail);
-    return [...front, ...Array<number>(8 - front.length - back.length).fill(0), ...back];
 }
 
 function stripMappedPrefix(address: string): string {

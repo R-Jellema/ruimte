@@ -36,7 +36,7 @@ export function brokerTelemetryOptions(release: string | null): Sentry.BunOption
 }
 
 /* The checkout the unit runs from names the release, `broker@<12 hex>`; null outside a git checkout. */
-export function brokerRelease(): string | null {
+function brokerRelease(): string | null {
     const result = Bun.spawnSync(['git', 'rev-parse', 'HEAD'], { cwd: import.meta.dir, stderr: 'ignore' });
     const commit = result.success ? result.stdout.toString().trim() : '';
     return /^[0-9a-f]{40}$/.test(commit) ? `broker@${commit.slice(0, 12)}` : null;
