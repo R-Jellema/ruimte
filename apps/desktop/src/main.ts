@@ -37,8 +37,6 @@ import { appSubframeNavigation, BROWSER_PARTITION, createGestureGate, isExternal
 
 const { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, net, powerMonitor, powerSaveBlocker, protocol, screen, session, shell, webContents } = electron;
 
-// Nothing crosses IPC that the WebSocket already carries.
-
 // A checkout keeps its own port, name and profile, so it runs beside an installed Ruimte instead of
 // quitting on that app's single instance lock or talking to its daemon.
 const DEFAULT_PORT = app.isPackaged ? 4210 : 4211;
@@ -120,8 +118,16 @@ const theme = createTheme({
 
 let browserRoutes: ReturnType<typeof installBrowserRoutes>;
 
+function isGuestOf(contents: Electron.WebContents, partition: string): boolean {
+    return contents.getType() === 'webview' && contents.session === session.fromPartition(partition);
+}
+
 function isBrowserGuest(contents: Electron.WebContents): boolean {
-    return contents.getType() === 'webview' && contents.session === session.fromPartition(BROWSER_PARTITION);
+    return isGuestOf(contents, BROWSER_PARTITION);
+}
+
+function isPreviewGuest(contents: Electron.WebContents): boolean {
+    return isGuestOf(contents, PREVIEW_PARTITION);
 }
 
 const LOCAL_SCHEMES = ['file:', 'data:', 'blob:', 'about:'];
@@ -131,10 +137,6 @@ function sealPreviewSession(): void {
     const preview = session.fromPartition(PREVIEW_PARTITION);
     preview.webRequest.onBeforeRequest((details, callback) => callback({ cancel: !LOCAL_SCHEMES.some((scheme) => details.url.startsWith(scheme)) }));
     preview.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
-}
-
-function isPreviewGuest(contents: Electron.WebContents): boolean {
-    return contents.getType() === 'webview' && contents.session === session.fromPartition(PREVIEW_PARTITION);
 }
 
 /* Network links a person clicks leave the sealed preview instead of failing silently inside it. */
@@ -184,6 +186,14 @@ function guardAppNavigation(contents: Electron.WebContents): void {
     });
 }
 
+function setOrDelete<Value>(map: Map<number, Value>, key: number, value: Value | null): void {
+    if (value === null) {
+        map.delete(key);
+    } else {
+        map.set(key, value);
+    }
+}
+
 // By window id. Kept rather than applied once, since the power source changes while a request stands.
 const keepAwakeRequests = new Map<number, KeepAwakeRequest>();
 
@@ -197,11 +207,7 @@ function applyKeepAwake(): void {
 }
 
 function setKeepAwake(windowId: number, request: KeepAwakeRequest | null): void {
-    if (request === null) {
-        keepAwakeRequests.delete(windowId);
-    } else {
-        keepAwakeRequests.set(windowId, request);
-    }
+    setOrDelete(keepAwakeRequests, windowId, request);
     applyKeepAwake();
 }
 
@@ -227,11 +233,7 @@ const agentActivities = new Map<number, AgentActivity>();
 let agentActivity: AgentActivity = { working: 0, attention: 0 };
 
 function setAgentActivity(windowId: number, activity: AgentActivity | null): void {
-    if (activity === null) {
-        agentActivities.delete(windowId);
-    } else {
-        agentActivities.set(windowId, activity);
-    }
+    setOrDelete(agentActivities, windowId, activity);
     agentActivity = totalActivity(agentActivities.values());
     // A dock badge is macOS and Linux; Windows has none and Electron's call does nothing there.
     if (process.platform !== 'win32') {
@@ -576,11 +578,8 @@ ipc.on('devtools:guest', (_event, id: number) => guestDevTools(id));
 // For an agent that asked what the page it drives looks like. A guest's own preload has none of this.
 ipc.handle('browser:capture', async (_event, id: number) => {
     const guest = webContents.fromId(id);
-    if (!guest) {
-        return null;
-    }
-    const image = await guest.capturePage();
-    return image.toPNG();
+
+    return guest ? (await guest.capturePage()).toPNG() : null;
 });
 
 const secrets = installSecrets(ipc, localMachine ? (key) => handVoiceKey(machine.daemonPort, key) : null);
@@ -820,10 +819,9 @@ if (!app.requestSingleInstanceLock()) {
             contents.on('context-menu', (_e, params) => guestContextMenu(contents, params, 'preview'));
             return;
         }
-        if (!isBrowserGuest(contents)) {
-            return;
+        if (isBrowserGuest(contents)) {
+            contents.on('context-menu', (_e, params) => guestContextMenu(contents, params, 'browser'));
         }
-        contents.on('context-menu', (_e, params) => guestContextMenu(contents, params, 'browser'));
     });
 
     windows.attach(app, {

@@ -4,11 +4,10 @@ import { VISUAL_HOST_PATH } from '@ruimte/csp';
 /*
  * What the shell lets a page do, as pure decisions, so `main.ts` only wires them to Electron's events.
  * The app's page carries the whole bridge (the local secret included) and a browser node carries any
- * site on the web, so each rule here is a security boundary. The rules every app shares are
- * `@adecore/shell`'s and pass through here, so `main.ts` has one place to ask.
+ * site on the web, so each rule here is a security boundary.
  */
 
-export { appWindowNavigation, isAppSender, isAppUrl, isExternalLink, isWebLink, originOf, type NavigationVerdict, type SenderFrame } from '@adecore/shell';
+export { isExternalLink, isWebLink } from '@adecore/shell';
 
 // The partitions a `<webview>` may name: a browser node's (`apps/client/src/browser/registry.ts`) and a sealed preview's.
 export const BROWSER_PARTITION = 'persist:ruimte';
@@ -77,7 +76,7 @@ export function allowGuestPermission(permission: string): boolean {
 const DELIBERATE_INPUT: ReadonlySet<string> = new Set(['mouseDown', 'mouseUp', 'rawKeyDown', 'keyDown', 'gestureTap', 'touchEnd']);
 
 /* How long after a press a link may still leave, which is longer than any click takes to navigate. */
-export const GESTURE_MS = 1000;
+const GESTURE_MS = 1000;
 
 /*
  * Whether a link a sealed preview wants to open in the system browser follows a press of the person.

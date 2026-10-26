@@ -72,7 +72,7 @@ function foreignService(path: string): string {
     return `The background service in ${path} was set up by another Ruimte or by hand, so Ruimte leaves it alone. Remove that file to let Ruimte keep this machine running when it quits.`;
 }
 
-export const UNPROVEN =
+const UNPROVEN =
     'Something else answers where this machine should be, and it could not prove that it belongs to you, so Ruimte does not connect to it. If it is an earlier Ruimte started from a terminal, stop or update it and open Ruimte again.';
 
 /* A daemon that ends this often in a row, each time within a minute of its start, is not started again. */
@@ -84,13 +84,7 @@ type StartDecision = 'attach' | 'attach-external' | 'restart-service' | 'start-s
 
 /* Build ids distinguish compiles of the same version; an unstamped daemon cannot match a stamped bundle. */
 function sameBuild(running: BuildIdentity, expected: BuildIdentity): boolean {
-    if (running.build !== null && expected.build !== null) {
-        return running.build === expected.build;
-    }
-    if (expected.build !== null) {
-        return false;
-    }
-    return running.version === expected.version;
+    return expected.build !== null ? running.build === expected.build : running.version === expected.version;
 }
 
 /* Unknown work must wait too: a silent restart could end a terminal or agent. */
@@ -182,8 +176,7 @@ export function createServiceController(deps: ServiceControllerDeps): ServiceCon
         deps.publish(state());
         if (!restarting) {
             deps.report?.({ kind: 'daemon-gave-up', ends: endsInARow });
-        }
-        if (restarting) {
+        } else {
             deps.after(FIRST_PAUSE_MS * 2 ** (endsInARow - 1), () => {
                 if (!quitting) {
                     spawn().catch(() => undefined);

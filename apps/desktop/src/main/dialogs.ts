@@ -12,6 +12,17 @@ import type { AppIpc } from './ipc';
 
 const { app, clipboard, ClipboardItem, dialog, shell } = electron;
 
+/* The save dialog for a file the page names, filtered to its extension; null when the person cancels. */
+async function askSavePath(window: Electron.BrowserWindow, suggestedName: string, mime: string): Promise<string | null> {
+    const extension = suggestedName.split('.').pop() ?? '';
+    const result = await dialog.showSaveDialog(window, {
+        defaultPath: suggestedName,
+        ...(extension ? { filters: [{ name: mime, extensions: [extension] }] } : {})
+    });
+
+    return result.canceled || !result.filePath ? null : result.filePath;
+}
+
 /* The native dialogs, the system's own apps and the clipboard, for files a page names. */
 export function installDialogs(ipc: AppIpc, language: () => string | undefined): void {
     ipc.handle('dialog:pick-folder', async (event, initialPath?: string) => {
@@ -28,19 +39,12 @@ export function installDialogs(ipc: AppIpc, language: () => string | undefined):
 
     ipc.handle('dialog:save-file', async (event, suggestedName: string, bytes: Uint8Array, mime: string) => {
         const window = ipc.senderWindow(event);
-        if (!window) {
+        const path = window ? await askSavePath(window, suggestedName, mime) : null;
+        if (path === null) {
             return null;
         }
-        const extension = suggestedName.split('.').pop() ?? '';
-        const result = await dialog.showSaveDialog(window, {
-            defaultPath: suggestedName,
-            ...(extension ? { filters: [{ name: mime, extensions: [extension] }] } : {})
-        });
-        if (result.canceled || !result.filePath) {
-            return null;
-        }
-        await writeFile(result.filePath, Buffer.from(bytes));
-        return result.filePath;
+        await writeFile(path, Buffer.from(bytes));
+        return path;
     });
 
     installSaveStreams(ipc);
@@ -115,15 +119,8 @@ function installSaveStreams(ipc: AppIpc): void {
 
     ipc.handle('save-stream:begin', async (event, suggestedName: string, mime: string) => {
         const window = ipc.senderWindow(event);
-        if (!window) {
-            return null;
-        }
-        const extension = suggestedName.split('.').pop() ?? '';
-        const result = await dialog.showSaveDialog(window, {
-            defaultPath: suggestedName,
-            ...(extension ? { filters: [{ name: mime, extensions: [extension] }] } : {})
-        });
-        if (result.canceled || !result.filePath) {
+        const path = window ? await askSavePath(window, suggestedName, mime) : null;
+        if (path === null) {
             return null;
         }
         const contents = event.sender;
@@ -137,7 +134,7 @@ function installSaveStreams(ipc: AppIpc): void {
                 void streams.abortOwner(owner);
             });
         }
-        return streams.begin(contents.id, result.filePath);
+        return streams.begin(contents.id, path);
     });
     ipc.handle('save-stream:write', (event, id: string, bytes: Uint8Array) => streams.write(event.sender.id, id, bytes));
     ipc.handle('save-stream:end', (event, id: string) => streams.end(event.sender.id, id));

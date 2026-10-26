@@ -55,9 +55,16 @@ function onWheel(event: MomentumWheelEvent): void {
     });
 }
 
+const APPLE = process.platform === 'darwin';
+
 let listening = false;
 let canvasInput = { enabled: false, pan: false };
 let panPointer: number | null = null;
+
+function swallow(event: Event): void {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+}
 
 function endCanvasPan(): void {
     const pointer = panPointer;
@@ -87,8 +94,7 @@ window.addEventListener(
         if (!canvasInput.pan || event.button !== 1 || panPointer !== null) {
             return;
         }
-        event.preventDefault();
-        event.stopImmediatePropagation();
+        swallow(event);
         panPointer = event.pointerId;
         document.documentElement.setPointerCapture(event.pointerId);
         ipcRenderer.sendToHost('ruimte:canvas-pan', { phase: 'start', x: event.screenX, y: event.screenY });
@@ -100,8 +106,7 @@ window.addEventListener(
     'pointermove',
     (event) => {
         if (event.pointerId === panPointer) {
-            event.preventDefault();
-            event.stopImmediatePropagation();
+            swallow(event);
             // Screen coordinates stay fixed while the host moves the page under the captured pointer.
             ipcRenderer.sendToHost('ruimte:canvas-pan', { phase: 'move', x: event.screenX, y: event.screenY });
         }
@@ -114,8 +119,7 @@ for (const name of ['pointerup', 'pointercancel', 'lostpointercapture'] as const
         name,
         (event) => {
             if (event.pointerId === panPointer) {
-                event.preventDefault();
-                event.stopImmediatePropagation();
+                swallow(event);
                 endCanvasPan();
             }
         },
@@ -127,8 +131,7 @@ window.addEventListener(
     'wheel',
     (event) => {
         if (panPointer !== null) {
-            event.preventDefault();
-            event.stopImmediatePropagation();
+            swallow(event);
         }
     },
     { capture: true, passive: false }
@@ -143,10 +146,8 @@ window.addEventListener(
         if (event.key === 'Alt') {
             ipcRenderer.sendToHost('ruimte:canvas-alt', true);
         }
-        const apple = process.platform === 'darwin';
-        if (event.code === 'Digit2' && event.shiftKey && !event.altKey && event.metaKey === apple && event.ctrlKey !== apple) {
-            event.preventDefault();
-            event.stopImmediatePropagation();
+        if (event.code === 'Digit2' && event.shiftKey && !event.altKey && event.metaKey === APPLE && event.ctrlKey !== APPLE) {
+            swallow(event);
             ipcRenderer.sendToHost('ruimte:canvas-zoom');
         }
     },
@@ -218,8 +219,7 @@ window.addEventListener('mouseup', (event) => {
  * stays the page's. Mirrors `CANVAS_SHORTCUTS.browserBack` in `apps/client/src/canvas/shortcuts.ts`.
  */
 window.addEventListener('keydown', (event) => {
-    const apple = process.platform === 'darwin';
-    if (event.defaultPrevented || event.shiftKey || event.altKey || event.metaKey !== apple || event.ctrlKey === apple) {
+    if (event.defaultPrevented || event.shiftKey || event.altKey || event.metaKey !== APPLE || event.ctrlKey === APPLE) {
         return;
     }
     if (event.code === 'BracketLeft' || event.code === 'BracketRight') {

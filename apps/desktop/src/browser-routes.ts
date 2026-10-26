@@ -1,8 +1,9 @@
 import type { BrowserRouteBinding, BrowserRouteBlocked } from '@ruimte/desktop-bridge';
 import { browserDestinationAllowed, parseBrowserRoute } from './browser-route-policy';
+import { electron } from './main/electron';
 import { allowGuestPermission, BROWSER_PARTITION, hardenGuestPreferences } from './web-guards';
 
-const { app, ipcMain, session, webContents } = require('electron') as typeof import('electron');
+const { app, ipcMain, session, webContents } = electron;
 
 /* One policy per actual guest, even though cookies and permissions share a session. The app binds
    an attached blank guest; neither its page nor a different app window can claim that guest. */
@@ -42,22 +43,17 @@ export function installBrowserRoutes(
         if (guest.getType() !== 'webview' || guest.session !== browser) {
             return;
         }
-        guest.on('will-frame-navigate', (event) => {
+        const guardDestination = (event: { url: string; isMainFrame: boolean; preventDefault(): void }): void => {
             if (!browserDestinationAllowed(routes.get(guest), event.url)) {
                 event.preventDefault();
                 if (event.isMainFrame) {
                     blocked(guest, event.url);
                 }
             }
-        });
-        guest.on('will-redirect', (event) => {
-            if (!browserDestinationAllowed(routes.get(guest), event.url)) {
-                event.preventDefault();
-                if (event.isMainFrame) {
-                    blocked(guest, event.url);
-                }
-            }
-        });
+        };
+
+        guest.on('will-frame-navigate', guardDestination);
+        guest.on('will-redirect', guardDestination);
         const finishBootstrap = (): void => {
             if (guest.getURL() === 'about:blank' || !bootstraps.delete(guest)) {
                 return;

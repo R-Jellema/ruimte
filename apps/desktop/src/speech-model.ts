@@ -4,14 +4,14 @@ import { mkdir, open, readFile, rename, rm, stat, writeFile } from 'node:fs/prom
 import { join } from 'node:path';
 import type { SpeechState } from '@ruimte/desktop-bridge';
 
-export const SPEECH_REVISION = 'a61d2818df4659c956b9661a9447f46e98c15126';
+const SPEECH_REVISION = 'a61d2818df4659c956b9661a9447f46e98c15126';
 export const SPEECH_FILES = [
     { name: 'encoder.onnx', size: 42164972, sha256: 'd569fbe78b48fbb04e169d324f5d25463838ceed7b5fc3bfe209872441979bd9' },
     { name: 'encoder.onnx.data', size: 2454405120, sha256: '7584f85df76bc9ae6fbdfa53aa8d97b07a842525d1c501d536d77fd9e4f57ac7' },
     { name: 'decoder_joint.onnx', size: 97590054, sha256: '634dfadf24cb4f73c2fae170b36611d68db48186426882cbc8f7e02ed9f2bb29' },
     { name: 'tokenizer.model', size: 406554, sha256: 'ce3895e40806f02a26c3a225161b96ef682d6c0054bae32a245dec4258d7d291' }
 ] as const;
-export const SPEECH_BYTES = SPEECH_FILES.reduce((total, file) => total + file.size, 0);
+const SPEECH_BYTES = SPEECH_FILES.reduce((total, file) => total + file.size, 0);
 
 export async function validModelFile(path: string, file: { size: number; sha256: string }, signal?: AbortSignal): Promise<boolean> {
     try {

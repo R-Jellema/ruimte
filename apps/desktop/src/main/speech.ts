@@ -41,21 +41,19 @@ export function installSpeech(ipc: AppIpc, options: SpeechOptions): void {
         speechModel.dispose();
     });
     app.on('web-contents-created', (_event, contents) => {
-        contents.on('render-process-gone', () => {
+        const endOwnRun = (): void => {
             if (contents === speechService.owner) {
                 speechService.dispose();
             }
-        });
+        };
+
+        contents.on('render-process-gone', endOwnRun);
         contents.on('did-start-navigation', (_event, _url, _inPlace, isMainFrame) => {
-            if (isMainFrame && contents === speechService.owner) {
-                speechService.dispose();
+            if (isMainFrame) {
+                endOwnRun();
             }
         });
-        contents.on('destroyed', () => {
-            if (contents === speechService.owner) {
-                speechService.dispose();
-            }
-        });
+        contents.on('destroyed', endOwnRun);
     });
 
     ipc.handle('speech:state', async () => {

@@ -102,14 +102,14 @@ export function createMachine(options: MachineOptions): Machine {
         return startupLog === null ? undefined : { exitCode: null, signal: null, output: startupLog.output() };
     };
 
-    const daemonCommand = (): { command: string; args: string[] } | null => {
+    const daemonCommand = (): { command: string; args: string[] } => {
         if (app.isPackaged) {
             const bin = join(process.resourcesPath, 'bin');
             return { command: join(bin, process.platform === 'win32' ? 'ruimte.exe' : 'ruimte'), args: ['--port', String(port)] };
         }
         const entry = join(options.repoRoot, 'apps', 'server', 'src', 'main.ts');
         if (!existsSync(entry)) {
-            return null;
+            throw new Error(MISSING_DAEMON);
         }
         return { command: 'bun', args: [entry, '--port', String(port)] };
     };
@@ -117,9 +117,6 @@ export function createMachine(options: MachineOptions): Machine {
     /* A child that ends with the app, used in development or when the service fails to start. */
     const spawnDaemon = (onExit: () => void): void => {
         const target = daemonCommand();
-        if (!target) {
-            throw new Error(MISSING_DAEMON);
-        }
         const env = { ...process.env };
         if (app.isPackaged && loginPath) {
             env.PATH = loginPath;
@@ -203,9 +200,6 @@ export function createMachine(options: MachineOptions): Machine {
 
     const serviceDefinition = (): string => {
         const target = daemonCommand();
-        if (!target) {
-            throw new Error(MISSING_DAEMON);
-        }
         const spec = daemonServiceSpec({
             platform: process.platform,
             program: target.command,

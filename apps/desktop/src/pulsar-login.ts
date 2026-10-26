@@ -3,7 +3,7 @@ import type { AddressInfo } from 'node:net';
 import { APP_REDIRECT_LOOPBACK_PATH } from '@ruimte/pulsar';
 
 // Long enough to type a password and a second factor at the provider; a login left open past it is given up.
-export const LOGIN_WAIT_MS = 10 * 60_000;
+const LOGIN_WAIT_MS = 10 * 60_000;
 
 /* What the address book sent the browser back with. The client checks the state; this only carries it. */
 export interface LoginCallback {
