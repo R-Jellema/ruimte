@@ -1,6 +1,7 @@
 import { REQUEST_SCHEMAS } from '@ruimte/contracts';
 import { CodedError } from '@adecore/agents';
 import { z } from 'zod';
+import { isRecord } from '../is-record.ts';
 
 interface ResultSchemas {
     [type: string]: { result: z.ZodType } | undefined;
@@ -17,10 +18,6 @@ interface Def {
     valueType?: z.core.$ZodType;
     items?: z.core.$ZodType[];
     getter?: () => z.core.$ZodType;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /*

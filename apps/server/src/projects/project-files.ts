@@ -25,8 +25,9 @@ import {
     type ProjectView,
     type SharedFileRead
 } from '@ruimte/contracts';
-import { fileExists, isNotFound, writeAtomic } from '@adecore/agents';
+import { fileExists, isNotFound, writeAtomic, type DirectoryWatcher, type WatchSeams } from '@adecore/agents';
 import { retryingRename } from '../fs/busy-retry.ts';
+import { isRecord } from '../is-record.ts';
 
 export const PROJECT_DIR = '.ruimte';
 export const PROJECT_FILE = 'project.json';
@@ -177,6 +178,50 @@ export function parseVersioned(text: string, known: number): { kind: 'value'; va
     return newer === null ? { kind: 'value', value } : { kind: 'too-new', version: newer };
 }
 
+/* The parse of a file whose whole shape is one schema, such as `launches.json` and `routines.json`. */
+export function versionedParser<T>(
+    schema: { safeParse(value: unknown): { success: true; data: T } | { success: false } },
+    known: number
+): (text: string) => JsonDocumentParse<T> {
+    return (text) => {
+        const versioned = parseVersioned(text, known);
+        if (versioned.kind !== 'value') {
+            return versioned;
+        }
+        const parsed = schema.safeParse(versioned.value);
+        return parsed.success ? { kind: 'ok', document: parsed.data } : { kind: 'unreadable' };
+    };
+}
+
+export function serializeJson(file: unknown): string {
+    return `${JSON.stringify(file, null, 4)}\n`;
+}
+
+/* The keys of a file this release does not know, which a write puts back as they were. */
+export function restOf(file: Record<string, unknown>, known: readonly string[]): Record<string, unknown> {
+    return Object.fromEntries(Object.entries(file).filter(([key]) => !known.includes(key)));
+}
+
+/* The text a read found, empty for a missing file and null for one that did not read. */
+export function readTextOf<T>(read: JsonDocumentRead<T>): string | null {
+    return read.kind === 'ok' ? read.text : read.kind === 'missing' ? '' : null;
+}
+
+/* A watcher per directory that is there; a missing one has nothing to watch, and a save still works. */
+export function watchDirectories(seams: WatchSeams, dirs: readonly string[], heard: (filename: string | null) => void): DirectoryWatcher[] {
+    return dirs
+        .map((dir) => {
+            try {
+                const watcher = seams.watch(dir, { recursive: false }, (_event, filename) => heard(filename));
+                watcher.on('error', () => undefined);
+                return watcher;
+            } catch {
+                return null;
+            }
+        })
+        .filter((watcher) => watcher !== null);
+}
+
 /* Reads `.ruimte/project.json` on any version there has been. */
 export function readSharedFile(path: string): Promise<JsonDocumentRead<SharedFileRead>> {
     return readJsonDocument(path, parseSharedFile);
@@ -221,10 +266,6 @@ export function readPrivateFile(path: string): Promise<JsonDocumentRead<ProjectP
 const INDENT = '  ';
 
 const LINE_PER_ITEM = new Set(['nodes', 'texts', 'edges', 'layouts']);
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 function itemsOnLines(items: readonly unknown[], indent: string): string {
     return items.length === 0 ? '[]' : `[\n${items.map((item) => `${indent}${INDENT}${JSON.stringify(item)}`).join(',\n')}\n${indent}]`;

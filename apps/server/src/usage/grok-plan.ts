@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import type { UsageWindow } from '@ruimte/contracts';
 import { isNotFound } from '@adecore/agents';
 import { fraction, type ProbeEnv, type ProbeResult } from '@adecore/agents/usage';
+import { isRecord } from '../is-record.ts';
 
 /* The billing view Grok's own `/usage` reads, on the proxy its CLI talks to. Undocumented, so any other shape is a failed read. */
 const GROK_BILLING_URL = 'https://cli-chat-proxy.grok.com/v1/billing?format=credits';
@@ -15,10 +16,6 @@ const PERIODS: Record<string, { kind: UsageWindow['kind']; label: string }> = {
     USAGE_PERIOD_TYPE_WEEKLY: { kind: 'weekly', label: 'Weekly' },
     USAGE_PERIOD_TYPE_MONTHLY: { kind: 'monthly', label: 'Monthly' }
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 function timeOf(value: unknown): number | null {
     const time = typeof value === 'string' ? Date.parse(value) : Number.NaN;

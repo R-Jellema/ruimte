@@ -911,13 +911,7 @@ export class ProjectStore {
             }
             throw e;
         }
-        const parsed = parseSharedFile(text);
-        if (parsed.kind === 'invalid') {
-            throw new ProjectError('project-invalid', parsed.message);
-        }
-        if (parsed.kind === 'too-new') {
-            throw new ProjectError('project-too-new', tooNewMessage('project', parsed.version, PROJECT_VERSION));
-        }
+        const parsed = parseSharedOrRefuse(text);
         if (parsed.kind !== 'ok') {
             throw new ProjectError('project-invalid', `${path} does not parse as a canvas`);
         }
@@ -1236,13 +1230,7 @@ export class ProjectStore {
         if (text === state.lastText) {
             return;
         }
-        const parsed = parseSharedFile(text);
-        if (parsed.kind === 'invalid') {
-            throw new ProjectError('project-invalid', parsed.message);
-        }
-        if (parsed.kind === 'too-new') {
-            throw new ProjectError('project-too-new', tooNewMessage('project', parsed.version, PROJECT_VERSION));
-        }
+        const parsed = parseSharedOrRefuse(text);
         if (parsed.kind === 'ok') {
             await this.takeOutsideEdit(state, path, text, parsed.document);
         }
@@ -1424,4 +1412,16 @@ async function isDirectory(path: string): Promise<boolean> {
     } catch {
         return false;
     }
+}
+
+/* The shared file as read, refused when it breaks a rule of the project or comes from a newer Ruimte. */
+function parseSharedOrRefuse(text: string): ReturnType<typeof parseSharedFile> {
+    const parsed = parseSharedFile(text);
+    if (parsed.kind === 'invalid') {
+        throw new ProjectError('project-invalid', parsed.message);
+    }
+    if (parsed.kind === 'too-new') {
+        throw new ProjectError('project-too-new', tooNewMessage('project', parsed.version, PROJECT_VERSION));
+    }
+    return parsed;
 }

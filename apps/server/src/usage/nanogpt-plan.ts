@@ -1,5 +1,6 @@
 import type { UsageWindow } from '@ruimte/contracts';
 import { fraction, type ProbeResult } from '@adecore/agents/usage';
+import { isRecord } from '../is-record.ts';
 
 const DAY_MS = 24 * 60 * 60_000;
 const WEEK_MS = 7 * DAY_MS;
@@ -14,10 +15,6 @@ const NANOGPT_WINDOWS: { key: string; id: string; label: string; kind: UsageWind
     { key: 'weeklyInputTokens', id: 'weekly_input', label: 'Weekly', kind: 'weekly', durationMs: WEEK_MS },
     { key: 'dailyImages', id: 'daily_images', label: 'Daily images', kind: 'session', durationMs: DAY_MS }
 ];
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 function num(value: unknown): number | null {
     return typeof value === 'number' && Number.isFinite(value) ? value : null;

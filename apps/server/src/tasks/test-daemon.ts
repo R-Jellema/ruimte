@@ -31,6 +31,7 @@ import type { TaskWiring } from './wiring.ts';
 import { isPlanFileName, PlanStore } from '../plans/plan-store.ts';
 import { agentChatOpening, agentStartHost } from '../outbox/start-agent.ts';
 import { OutboxLink, wireOutbox } from '../outbox/wiring.ts';
+import { chatAccess } from '../wiring/canvas-host.ts';
 import type { ProjectStore } from '../projects/project-store.ts';
 import { openedAgentCount } from '../agents/hidden-agents.ts';
 import type { AccountLaunches } from '@adecore/agents/providers';
@@ -399,22 +400,7 @@ export async function bootTestDaemon({
         plans,
         agents: agentStates({ outbox, lineage, chats, sessions }),
         requests: chatRequests(chats),
-        // As `wireCanvasHost` has them, so Voice's reads and prompts run against the same chats here.
-        chatThreads: {
-            items: async (chatId) => chats.get(chatId)?.thread.list() ?? (await chats.readChat(chatId))?.items ?? null,
-            info: async (chatId) => chats.get(chatId)?.info ?? (await chats.readChat(chatId))?.info ?? null
-        },
-        chatPrompts: {
-            running: (chatId) => chats.get(chatId) !== undefined,
-            send: (chatId, text, delivery) => chats.send(chatId, text, delivery === undefined ? {} : { delivery }),
-            clear: (chatId) => chats.clear(chatId, true)
-        },
-        terminals: {
-            agentOf: (sessionId) => {
-                const session = sessions.get(sessionId);
-                return session === undefined ? undefined : (session.agent ?? null);
-            }
-        },
+        ...chatAccess(chats, sessions),
         agentImages: { attach: (chatId, upload) => chats.attachAgentImage(chatId, upload) },
         visuals: { ...agentVisuals({ enabled: () => machine.visualReplies !== false, visuals, chats }), ...visualRender }
     };

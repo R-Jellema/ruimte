@@ -2,6 +2,7 @@ import { chatRequests } from '@adecore/agents/coordination';
 import { agentStates } from '../agents/agent-state.ts';
 import { openedAgentCount } from '../agents/hidden-agents.ts';
 import type { CanvasHost } from '../canvas/verb.ts';
+import type { ChatManager } from '../chat/chat-manager.ts';
 import { chatForkDeps, forkForAgent } from '../chat/fork.ts';
 import { agentMessages } from '../context/agent-messages.ts';
 import type { EndpointIdentity } from '../endpoint-id.ts';
@@ -11,6 +12,7 @@ import type { LanguageHost } from '../language/host.ts';
 import { agentStartHost } from '../outbox/start-agent.ts';
 import type { PushService } from '../push/service.ts';
 import { agentRoutines } from '../routines/agent-host.ts';
+import type { SessionManager } from '../sessions/manager.ts';
 import { agentVisuals } from '../visuals/agent-host.ts';
 import type { AgentStores, AgentsBundle } from './agents.ts';
 import type { ArtifactsBundle } from './artifacts.ts';
@@ -44,6 +46,28 @@ interface CanvasHostInput {
     later: {
         language(): LanguageHost;
         push(): PushService;
+    };
+}
+
+/* How a verb reads and prompts chats and asks which agent a terminal runs. */
+export function chatAccess(chats: ChatManager, sessions: SessionManager): Pick<CanvasHost, 'chatThreads' | 'chatPrompts' | 'terminals'> {
+    return {
+        // A chat nobody opened since a restart is read from its record, which starts no CLI.
+        chatThreads: {
+            items: async (chatId) => chats.get(chatId)?.thread.list() ?? (await chats.readChat(chatId))?.items ?? null,
+            info: async (chatId) => chats.get(chatId)?.info ?? (await chats.readChat(chatId))?.info ?? null
+        },
+        chatPrompts: {
+            running: (chatId) => chats.get(chatId) !== undefined,
+            send: (chatId, text, delivery) => chats.send(chatId, text, delivery === undefined ? {} : { delivery }),
+            clear: (chatId) => chats.clear(chatId, true)
+        },
+        terminals: {
+            agentOf: (sessionId) => {
+                const session = sessions.get(sessionId);
+                return session === undefined ? undefined : (session.agent ?? null);
+            }
+        }
     };
 }
 
@@ -91,22 +115,7 @@ export function wireCanvasHost(input: CanvasHostInput): CanvasHost {
         browsers: devices.browserDriver,
         agents: agentStates({ outbox, lineage, chats, sessions }),
         requests: chatRequests(chats),
-        // A chat nobody opened since a restart is read from its record, which starts no CLI.
-        chatThreads: {
-            items: async (chatId) => chats.get(chatId)?.thread.list() ?? (await chats.readChat(chatId))?.items ?? null,
-            info: async (chatId) => chats.get(chatId)?.info ?? (await chats.readChat(chatId))?.info ?? null
-        },
-        chatPrompts: {
-            running: (chatId) => chats.get(chatId) !== undefined,
-            send: (chatId, text, delivery) => chats.send(chatId, text, delivery === undefined ? {} : { delivery }),
-            clear: (chatId) => chats.clear(chatId, true)
-        },
-        terminals: {
-            agentOf: (sessionId) => {
-                const session = sessions.get(sessionId);
-                return session === undefined ? undefined : (session.agent ?? null);
-            }
-        },
+        ...chatAccess(chats, sessions),
         computer: devices.computer,
         devices: devices.deviceDriver,
         context: agents.context,

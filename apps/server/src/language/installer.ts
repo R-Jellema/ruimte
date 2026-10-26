@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
-import { access, mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
-import type { LanguageServerKind } from '@ruimte/contracts';
-import { LanguageServerKindSchema } from '@ruimte/contracts';
+import { LanguageServerKindSchema, type LanguageServerKind } from '@ruimte/contracts';
+import { fileExists } from '@adecore/agents';
 import { errorText } from '../error-text.ts';
 import { LanguageLog } from './log.ts';
 import {
@@ -71,13 +71,6 @@ export interface LanguageInstallerOptions {
     checkoutRevision?: CheckoutRevision;
     /* Where a toolchain's program may be; the PATH and rustup's own folder by default. */
     findProgram?: (program: string) => string[];
-}
-
-async function exists(path: string): Promise<boolean> {
-    return access(path).then(
-        () => true,
-        () => false
-    );
 }
 
 interface Marker {
@@ -448,7 +441,7 @@ export class LanguageInstaller {
     private async isWhole(kind: LanguageServerKind, install: Install): Promise<boolean> {
         if (isNativeKind(kind)) {
             const executable = this.executableOf(kind, install);
-            if (executable === null || !(await exists(executable))) {
+            if (executable === null || !(await fileExists(executable))) {
                 return false;
             }
             if (!nativeHasStubs(kind)) {
@@ -458,7 +451,7 @@ export class LanguageInstaller {
             return stubs !== undefined && (await stubsComplete(nativeStubsOf(this.directoryOf(kind), stubs)));
         }
         const entries = KIND_PROFILES[kind].components.map((component) => join(install.directory, 'node_modules', component.entry));
-        return (await Promise.all(entries.map(exists))).every(Boolean);
+        return (await Promise.all(entries.map(fileExists))).every(Boolean);
     }
 
     /*
@@ -492,7 +485,7 @@ export class LanguageInstaller {
         const candidates = (this.options.findProgram ?? toolchainCandidates)(program);
         let found: { executable: string; version: string } | null = null;
         for (const executable of candidates) {
-            if (!(await exists(executable))) {
+            if (!(await fileExists(executable))) {
                 continue;
             }
             const lines: string[] = [];
@@ -578,7 +571,7 @@ export class LanguageInstaller {
         }
         for (const component of KIND_PROFILES[kind].components) {
             const entry = join(target, 'node_modules', component.entry);
-            if (!(await exists(entry))) {
+            if (!(await fileExists(entry))) {
                 throw new Error(`The install did not leave ${entry}`);
             }
         }
@@ -601,7 +594,7 @@ export class LanguageInstaller {
             }
             await installRelease(plan.asset, target, this.downloader, push);
         }
-        if (!(await exists(plan.executable))) {
+        if (!(await fileExists(plan.executable))) {
             throw new Error(`The install did not leave ${plan.executable}`);
         }
         await this.verifyNative(plan, push);

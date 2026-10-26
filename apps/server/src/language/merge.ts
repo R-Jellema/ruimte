@@ -1,4 +1,5 @@
 import { applyCompletionDefaults, type CompletionItem, type CompletionList } from '@adecore/lsp';
+import { isRecord } from '../is-record.ts';
 
 /*
  * Several servers can serve one document, such as the TypeScript server and ESLint. A feature that
@@ -19,10 +20,6 @@ interface MergedAnswer {
     result: unknown;
     /* For a list that was merged: which process each item came from, so an item resolves against the process that made it. */
     itemServers?: string[];
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /* A completion answer is a list of items or a list with a flag that says it is incomplete. */

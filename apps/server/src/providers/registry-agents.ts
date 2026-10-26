@@ -9,6 +9,7 @@ import { createAcpProvider, type ChatProvider } from '@adecore/agents/providers'
 import { errorText } from '../error-text.ts';
 import { extractEntries, extractZipFile, readArchive } from '../language/archive.ts';
 import { acpCatalogStore } from './acp-catalog-store.ts';
+import { throwOnFailure } from './cli-versions.ts';
 import { RUIMTE_ACP_CLIENT, agentDefaultCatalog, agentModel, allowsContextCommand } from './acp-providers.ts';
 import type { AcpRegistry, RegistryDistribution, RegistryEntry } from './acp-registry.ts';
 import { downloadFile, sha256OfFile, type ServerDownload } from './acp-server.ts';
@@ -328,11 +329,7 @@ export class RegistryAgents {
     }
 
     private async runOrThrow(command: string[], cwd: string, env: Record<string, string> = {}): Promise<void> {
-        const result = await this.run(command, { cwd, env: { ...process.env, ...env } });
-        if (result.exitCode !== 0) {
-            const said = (result.stderr.trim() || result.stdout.trim()).split('\n').slice(-6).join('\n');
-            throw new Error(`${basename(command[0]!)} ${command[1]} failed (${result.exitCode})${said === '' ? '' : `: ${said}`}`);
-        }
+        throwOnFailure(command, await this.run(command, { cwd, env: { ...process.env, ...env } }));
     }
 
     private async dropOtherVersions(folder: string, keep: string): Promise<void> {

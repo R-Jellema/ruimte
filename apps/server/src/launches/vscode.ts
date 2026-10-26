@@ -2,6 +2,7 @@ import { homedir } from 'node:os';
 import { isAbsolute, relative, resolve } from 'node:path';
 import type { LaunchConfigEnv } from '@ruimte/contracts';
 import { isInside } from '../canvas/project-paths.ts';
+import { isRecord } from '../is-record.ts';
 import { kindOfScript, portable, shellQuote, type Built } from './detect.ts';
 import { parseJsonc } from './jsonc.ts';
 
@@ -19,10 +20,6 @@ const SCRIPT_RUNNERS = new Set(['run', 'run-script']);
 class Unsupported extends Error {}
 
 type Record_ = Record<string, unknown>;
-
-function isRecord(value: unknown): value is Record_ {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 /* Resolves the variables a launch may use; any other one makes the whole configuration unsupported. */
 class Variables {

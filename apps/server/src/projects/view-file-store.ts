@@ -2,7 +2,15 @@ import { mkdir, readdir, rm } from 'node:fs/promises';
 import { basename } from 'node:path';
 import { settled, SYSTEM_WATCH, type DirectoryWatcher, type Settled, type WatchSeams, Serializer } from '@adecore/agents';
 import type { SessionEvent, SessionSink } from '../sessions/manager.ts';
-import { tooNewMessage, viewFilePathIn, viewFilePathOf, viewIdOfFile, type JsonDocumentRead, type JsonDocumentReadOptions } from './project-files.ts';
+import {
+    tooNewMessage,
+    viewFilePathIn,
+    viewFilePathOf,
+    viewIdOfFile,
+    watchDirectories,
+    type JsonDocumentRead,
+    type JsonDocumentReadOptions
+} from './project-files.ts';
 import type { ProjectPlace, ProjectStore, ProjectViewFiles } from './project-store.ts';
 import { ClientSinks } from '../client-sinks.ts';
 import { errorText } from '../error-text.ts';
@@ -285,27 +293,15 @@ export abstract class ProjectViewFileStore<TDocument extends TContent & { rev: n
 
     /* One watcher per directory: a pull lands in the shared one, a person's own editor in either. */
     private startWatching(projectId: string, state: OpenProjectFiles): void {
-        state.watchers = [state.dir, state.privateDir]
-            .map((dir) => {
-                try {
-                    const watcher = this.seams.watch(dir, { recursive: false }, (_event, filename) => {
-                        // A platform that reports no name could have touched any file of this project.
-                        const touched = filename ? [viewIdOfFile(basename(filename))] : [...state.open.keys()];
-                        for (const viewId of touched) {
-                            if (!viewId || !state.open.has(viewId)) {
-                                continue;
-                            }
-                            this.settleFor(state, projectId, viewId).nudge();
-                        }
-                    });
-                    watcher.on('error', () => undefined);
-                    return watcher;
-                } catch {
-                    // No watcher means no outside-edit detection; saving still works.
-                    return null;
+        state.watchers = watchDirectories(this.seams, [state.dir, state.privateDir], (filename) => {
+            // A platform that reports no name could have touched any file of this project.
+            const touched = filename ? [viewIdOfFile(basename(filename))] : [...state.open.keys()];
+            for (const viewId of touched) {
+                if (viewId && state.open.has(viewId)) {
+                    this.settleFor(state, projectId, viewId).nudge();
                 }
-            })
-            .filter((watcher) => watcher !== null);
+            }
+        });
     }
 
     private async reload(projectId: string, state: OpenProjectFiles, viewId: string): Promise<void> {

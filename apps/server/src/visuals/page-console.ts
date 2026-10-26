@@ -1,3 +1,5 @@
+import { isRecord } from '../is-record.ts';
+
 /*
  * What a page wrote to its console during a preview, as lines an agent reads: the console API, an
  * uncaught exception with its stack, and the browser's own errors and warnings, such as a script
@@ -60,10 +62,6 @@ interface RemoteValue {
     value?: unknown;
     unserializableValue?: string;
     preview?: ObjectPreview;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function previewText(preview: ObjectPreview): string {

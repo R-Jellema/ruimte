@@ -1,7 +1,8 @@
-import { readdir, readFile, stat } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import type { LaunchConfig, LaunchConfigEnv, LaunchConfigKind, LaunchSuggestion } from '@ruimte/contracts';
+import { fileExists } from '@adecore/agents';
 import { isInside } from '../canvas/project-paths.ts';
 import { readVscodeLaunch } from './vscode.ts';
 
@@ -323,22 +324,16 @@ export function portable(path: string): string {
     return path.split(sep).join('/');
 }
 
-async function exists(path: string): Promise<boolean> {
-    return stat(path)
-        .then(() => true)
-        .catch(() => false);
-}
-
 /* The package manager of a folder by its lockfile, looked for up to the project folder for a workspace. */
 async function packageRunner(folder: string, cwd: string): Promise<string> {
     for (let at = cwd; ; at = dirname(at)) {
-        if ((await exists(join(at, 'bun.lock'))) || (await exists(join(at, 'bun.lockb')))) {
+        if ((await fileExists(join(at, 'bun.lock'))) || (await fileExists(join(at, 'bun.lockb')))) {
             return 'bun run';
         }
-        if (await exists(join(at, 'pnpm-lock.yaml'))) {
+        if (await fileExists(join(at, 'pnpm-lock.yaml'))) {
             return 'pnpm run';
         }
-        if (await exists(join(at, 'yarn.lock'))) {
+        if (await fileExists(join(at, 'yarn.lock'))) {
             return 'yarn';
         }
         if (at === folder || !isInside(folder, at) || dirname(at) === at) {
@@ -415,7 +410,7 @@ async function packageScripts(folder: string, directory: string): Promise<Built[
  * which would break the approval that command has.
  */
 async function flutterRuns(directory: string): Promise<Built[]> {
-    if (!(await exists(join(directory, 'pubspec.yaml')))) {
+    if (!(await fileExists(join(directory, 'pubspec.yaml')))) {
         return [];
     }
     return [
@@ -479,7 +474,7 @@ async function runFilesUnder(root: string, roots: ReadonlySet<string>, budget: {
 /* What `$PROJECT_DIR$` stands for: the folder that holds the settings the file belongs to, else its checkout. */
 async function projectDirOf(file: string, root: string): Promise<string> {
     for (let at = dirname(file); isInside(root, at); at = dirname(at)) {
-        if (await exists(join(at, '.idea'))) {
+        if (await fileExists(join(at, '.idea'))) {
             return at;
         }
         if (at === root) {

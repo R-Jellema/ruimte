@@ -121,6 +121,14 @@ interface Latest {
 /* Runs a package manager; the default spawns it, a test answers from memory. */
 export type VersionRun = (command: string[], env: Record<string, string>) => Promise<ProcessResult>;
 
+/* Throws the last lines a failed install or update printed. */
+export function throwOnFailure(command: string[], result: ProcessResult): void {
+    if (result.exitCode !== 0) {
+        const said = (result.stderr.trim() || result.stdout.trim()).split('\n').slice(-6).join('\n');
+        throw new Error(`${basename(command[0]!)} ${command[1]} failed (${result.exitCode})${said === '' ? '' : `: ${said}`}`);
+    }
+}
+
 /* Reads the newest version of an npm package; the default asks the npm registry. */
 type NpmLatest = (name: string) => Promise<string>;
 
@@ -295,11 +303,7 @@ export class CliVersions {
                     throw new Error(`Ruimte cannot update ${kind}. Update it the way you installed it.`);
             }
         })();
-        const result = await this.run(command, {});
-        if (result.exitCode !== 0) {
-            const said = (result.stderr.trim() || result.stdout.trim()).split('\n').slice(-6).join('\n');
-            throw new Error(`${basename(command[0]!)} ${command[1]} failed (${result.exitCode})${said === '' ? '' : `: ${said}`}`);
-        }
+        throwOnFailure(command, await this.run(command, {}));
     }
 
     private async versionOf(kind: AgentKind, providers: ProviderInfo[], refresh: boolean): Promise<CliVersion> {

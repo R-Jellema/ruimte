@@ -1,6 +1,5 @@
 import { join } from 'node:path';
 import {
-    newerVersionIn,
     readRoutineEntries,
     ROUTINE_LIMITS,
     ROUTINES_VERSION,
@@ -19,7 +18,12 @@ import {
     PROJECT_DIR,
     PROJECT_FILE,
     readJsonDocument,
+    readTextOf,
+    restOf,
+    serializeJson as serialize,
     tooNewMessage,
+    versionedParser,
+    watchDirectories,
     writeGitignoreIfMissing,
     writeJsonDocument,
     type JsonDocumentParse,
@@ -85,34 +89,8 @@ function privatePathIn(folder: string): string {
     return join(folder, PROJECT_DIR, PRIVATE_DIR, ROUTINES_FILE);
 }
 
-function parseWith<T>(schema: { safeParse(value: unknown): { success: true; data: T } | { success: false } }) {
-    return (text: string): JsonDocumentParse<T> => {
-        let value: unknown;
-        try {
-            value = JSON.parse(text);
-        } catch {
-            return { kind: 'unreadable' };
-        }
-        const newer = newerVersionIn(value, ROUTINES_VERSION);
-        if (newer !== null) {
-            return { kind: 'too-new', version: newer };
-        }
-        const parsed = schema.safeParse(value);
-        return parsed.success ? { kind: 'ok', document: parsed.data } : { kind: 'unreadable' };
-    };
-}
-
-const parseShared = parseWith<RoutinesSharedFile>(RoutinesSharedFileSchema);
-
-const parsePrivate = parseWith<RoutinesPrivateFile>(RoutinesPrivateFileSchema);
-
-function serialize(file: unknown): string {
-    return `${JSON.stringify(file, null, 4)}\n`;
-}
-
-function restOf(file: Record<string, unknown>, known: readonly string[]): Record<string, unknown> {
-    return Object.fromEntries(Object.entries(file).filter(([key]) => !known.includes(key)));
-}
+const parseShared = versionedParser<RoutinesSharedFile>(RoutinesSharedFileSchema, ROUTINES_VERSION);
+const parsePrivate = versionedParser<RoutinesPrivateFile>(RoutinesPrivateFileSchema, ROUTINES_VERSION);
 
 function routinesOf(entries: readonly RoutineFileEntry[]): Routine[] {
     return entries.flatMap((entry) => ('routine' in entry ? [entry.routine] : []));
@@ -312,8 +290,8 @@ export class RoutineStore {
             readRoutineFile(sharedPathIn(state.folder), parseShared, false),
             readRoutineFile(privatePathIn(state.folder), parsePrivate, false)
         ]);
-        const sharedMoved = textOf(shared) !== null && textOf(shared) !== state.sharedText;
-        const privateMoved = textOf(own) !== null && textOf(own) !== state.privateText;
+        const sharedMoved = readTextOf(shared) !== null && readTextOf(shared) !== state.sharedText;
+        const privateMoved = readTextOf(own) !== null && readTextOf(own) !== state.privateText;
         if (!sharedMoved && !privateMoved) {
             return false;
         }
@@ -343,22 +321,11 @@ export class RoutineStore {
                 })
         );
         const settle = state.settle;
-        state.watchers = [join(state.folder, PROJECT_DIR), join(state.folder, PROJECT_DIR, PRIVATE_DIR)]
-            .map((dir) => {
-                try {
-                    const watcher = this.seams.watch(dir, { recursive: false }, (_event, filename) => {
-                        if (filename === null || filename.endsWith(ROUTINES_FILE)) {
-                            settle.nudge();
-                        }
-                    });
-                    watcher.on('error', () => undefined);
-                    return watcher;
-                } catch {
-                    // A folder that is not there yet has nothing to watch; a save still works.
-                    return null;
-                }
-            })
-            .filter((watcher) => watcher !== null);
+        state.watchers = watchDirectories(this.seams, [join(state.folder, PROJECT_DIR), join(state.folder, PROJECT_DIR, PRIVATE_DIR)], (filename) => {
+            if (filename === null || filename.endsWith(ROUTINES_FILE)) {
+                settle.nudge();
+            }
+        });
     }
 }
 
@@ -381,10 +348,6 @@ async function readRoutineFile<T>(path: string, parse: (text: string) => JsonDoc
         console.warn(`Set aside a routine file that would not parse: ${read.setAside}`);
     }
     return read;
-}
-
-function textOf<T>(read: JsonDocumentRead<T>): string | null {
-    return read.kind === 'ok' ? read.text : read.kind === 'missing' ? '' : null;
 }
 
 function takeShared(state: LoadedRoutines, read: JsonDocumentRead<RoutinesSharedFile>): void {

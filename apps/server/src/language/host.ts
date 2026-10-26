@@ -1,4 +1,4 @@
-import { access, readFile, stat } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import {
     LANGUAGE_ERROR_CODES,
@@ -29,7 +29,7 @@ import type {
     LanguageEditAnswerPayload,
     LanguageRequestPayload
 } from '@ruimte/contracts';
-import { CodedError } from '@adecore/agents';
+import { CodedError, fileExists } from '@adecore/agents';
 import {
     ErrorCodes,
     LspError,
@@ -196,13 +196,6 @@ function withoutItemData(params: object): object {
 
 async function isDirectory(path: string): Promise<boolean> {
     return (await stat(path).catch(() => null))?.isDirectory() === true;
-}
-
-async function fileExists(path: string): Promise<boolean> {
-    return access(path).then(
-        () => true,
-        () => false
-    );
 }
 
 /* What a file operation leaves to the host: the operation itself (`move`: the move, the create or the delete) and the writing of a file no client holds open. */
