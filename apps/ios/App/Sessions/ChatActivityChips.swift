@@ -32,14 +32,13 @@ struct ChatActivityFailure: Identifiable {
 }
 
 /// What the chat keeps working on beside the thread, in one small row over the composer: its sub-agents and what runs
-/// in the background. Each chip is a menu that grows out of it, with what it counts and a stop for each.
+/// in the background. Each chip is a menu that grows out of it, with what it counts; a background command has a stop.
 struct ChatActivityChips: View {
     let model: ChatModel
     let tasks: TaskStore?
     /// The full list of the chat's sub-agents, the done ones included.
     let openList: () -> Void
     /// Asked by the screen, like the queue: the chips sit in the composer's own hosting controller.
-    @Binding var ending: EndingAgents?
     @Binding var failure: ChatActivityFailure?
 
     var body: some View {
@@ -123,35 +122,10 @@ struct ChatActivityChips: View {
                 .disabled(!ChatSubagents.canOpen(item))
             }
         }
-        Section {
-            ForEach(items, id: \.id) { item in stopRow(item) }
-        }
+        // No stop here: a chip's menu is opened in passing and a stop was too easy to hit. The list and a sub-agent's
+        // own page still stop one.
         Section {
             Button(String(localized: "All sub-agents"), lucideIcon: "bot", action: openList)
-        }
-    }
-
-    @ViewBuilder private func stopRow(_ item: ChatSubagentItem) -> some View {
-        let title = ChatSubagents.title(item)
-        switch ChatSubagents.stop(item, turnRunning: model.working) {
-        case .task:
-            Button(String(localized: "Stop \(title)"), lucideIcon: "square") {
-                Task { ending = await model.stopTaskQuestion(item) { await stop(item) } }
-            }
-        case .mark:
-            // No CLI stops one sub-agent on its own, so it may keep working until the chat's process ends.
-            Button(String(localized: "Mark \(title) as stopped"), lucideIcon: "square") { Task { await stop(item) } }
-        case nil:
-            EmptyView()
-        }
-    }
-
-    private func stop(_ item: ChatSubagentItem) async {
-        do {
-            try await model.stopSubagent(item)
-        } catch {
-            failure = ChatActivityFailure(
-                title: String(localized: "Could not stop sub-agent"), message: error.localizedDescription)
         }
     }
 

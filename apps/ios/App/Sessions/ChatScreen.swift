@@ -597,7 +597,7 @@ struct ChatScreen: View {
                     ChatActivityChips(
                         model: model, tasks: machineSession?.tasks,
                         openList: { subagentList = SubagentListRoute(chatID: model.chatID) },
-                        ending: $endingAgents, failure: $activityFailure
+                        failure: $activityFailure
                     )
                     ChatComposerAccessory(model: model, focused: $composerFocused, availableHeight: viewportHeight)
                 }
