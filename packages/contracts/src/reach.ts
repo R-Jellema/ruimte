@@ -7,7 +7,7 @@ import { z } from 'zod';
  */
 
 // A cause a later release adds reads as `unknown` on an older client, so the field is a string on the wire.
-export const REACH_CAUSES = [
+const REACH_CAUSES = [
     'ok',
     'broker-off',
     'broker-unreachable',

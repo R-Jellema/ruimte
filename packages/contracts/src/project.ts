@@ -174,7 +174,7 @@ export function isUnknownNode(node: Pick<ProjectNode, 'kind'>): boolean {
 }
 
 // An unknown node is written as it was read, with whatever a person moved on top.
-export function storedNodeOf(node: ProjectNode): unknown {
+function storedNodeOf(node: ProjectNode): unknown {
     if (node.kind !== UNKNOWN_KIND || !node.raw) {
         return node;
     }
@@ -255,7 +255,7 @@ const ProjectCanvasLineObjectSchema = keepingUnknown(
  * A line is written as it was read: a style this version does not know goes back unchanged unless a
  * person picked another one over the default it read as.
  */
-export function storedLineOf(line: ProjectCanvasLine): unknown {
+function storedLineOf(line: ProjectCanvasLine): unknown {
     const { raw, ...read } = line;
     if (!raw) {
         return line;
@@ -735,11 +735,11 @@ export function isCanvasView(view: ProjectView): view is ProjectCanvasView {
     return view.kind === 'canvas';
 }
 
-export function isSeparatorView(view: ProjectView): view is ProjectSeparatorView {
+function isSeparatorView(view: ProjectView): view is ProjectSeparatorView {
     return view.kind === 'separator';
 }
 
-export function isSubheaderView(view: ProjectView): view is ProjectSubheaderView {
+function isSubheaderView(view: ProjectView): view is ProjectSubheaderView {
     return view.kind === 'subheader';
 }
 
@@ -789,7 +789,7 @@ export function isHiddenChatView(view: ProjectView): view is ProjectChatView {
     return view.kind === 'chat' && view.hidden === true;
 }
 
-export function isHiddenView(view: ProjectView): view is ProjectChatView | ProjectCanvasView {
+function isHiddenView(view: ProjectView): view is ProjectChatView | ProjectCanvasView {
     return (view.kind === 'chat' || view.kind === 'canvas') && view.hidden === true;
 }
 
@@ -806,7 +806,7 @@ export function isOpenableView(view: ProjectView): boolean {
     return !isDividerView(view) && view.kind !== UNKNOWN_KIND && !isHiddenView(view);
 }
 
-export function storedViewOf(view: ProjectView): unknown {
+function storedViewOf(view: ProjectView): unknown {
     if (view.kind === UNKNOWN_KIND) {
         return view.raw;
     }

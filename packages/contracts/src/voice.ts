@@ -11,7 +11,7 @@ import { LIVE_VOICES, VOICE_LANGUAGES, type VoiceLanguage } from './voice-langua
 /* An OpenAI API key is a few hundred bytes; more is a paste of something else. */
 export const VOICE_KEY_MAX_BYTES = 1024;
 /* What a desktop offer with every candidate gathered stays under. */
-export const VOICE_SDP_MAX_CHARS = 128_000;
+const VOICE_SDP_MAX_CHARS = 128_000;
 
 const id = z.string().regex(/^[A-Za-z0-9._:-]{1,128}$/);
 

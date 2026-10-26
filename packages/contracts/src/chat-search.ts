@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { AgentKindSchema, ProviderAccountIdSchema } from '@adecore/agent-contracts';
 
-export const CHAT_SEARCH_MAX_HITS = 500;
+const CHAT_SEARCH_MAX_HITS = 500;
 
 export const ChatSearchPayloadSchema = z.object({
     projectId: z.string().min(1),

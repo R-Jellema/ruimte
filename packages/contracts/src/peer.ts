@@ -74,7 +74,7 @@ export type PeerPlaceNodesPayload = z.infer<typeof PeerPlaceNodesPayloadSchema>;
 export const PEER_MAX_OPEN_TASKS = 4;
 
 // What a task prompt may hold: the line a terminal agent is started with cannot carry more.
-export const PEER_PROMPT_MAX_LENGTH = 2000;
+const PEER_PROMPT_MAX_LENGTH = 2000;
 
 /*
  * A task another machine gives an agent here, in the project its link names. The work arrives as a

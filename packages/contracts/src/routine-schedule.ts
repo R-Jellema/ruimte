@@ -95,7 +95,7 @@ function minutesOf(time: string): number {
 type RepeatSchedule = Exclude<RoutineSchedule, { kind: 'once' }>;
 
 /* The wall times of an interval on one day, as minutes past midnight, `to` included. */
-export function intervalClocks(schedule: Extract<RoutineSchedule, { kind: 'interval' }>): number[] {
+function intervalClocks(schedule: Extract<RoutineSchedule, { kind: 'interval' }>): number[] {
     const from = clockOf(schedule.from);
     const to = clockOf(schedule.to);
     const clocks: number[] = [];

@@ -21,7 +21,7 @@ export interface Cron {
 export type CronParse = { ok: true; cron: Cron } | { ok: false; problem: CronProblem };
 
 // The same floor as an interval's step, so no kind of routine runs more often.
-export const CRON_MIN_GAP = 15;
+const CRON_MIN_GAP = 15;
 
 const MACROS: Record<string, string> = {
     '@hourly': '0 * * * *',

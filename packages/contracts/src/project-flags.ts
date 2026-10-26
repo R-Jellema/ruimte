@@ -32,7 +32,7 @@ export function withFlags(flags: ProjectFlags | undefined, ids: readonly string[
 }
 
 /* Every id a flag can hang on: each view, and each node of a canvas. */
-export function flaggableIds(views: readonly ProjectView[]): Set<string> {
+function flaggableIds(views: readonly ProjectView[]): Set<string> {
     const ids = new Set<string>();
     for (const view of views) {
         ids.add(view.id);

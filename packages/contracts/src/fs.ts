@@ -120,7 +120,7 @@ export type FsGrepResult = z.infer<typeof FsGrepResultSchema>;
 // A directory longer than this is one nobody scrolls; the rest is a "more" row in the tree.
 export const FS_LIST_MAX_ENTRIES = 2000;
 // Past three levels a prefill costs more than the expand it saves.
-export const FS_LIST_MAX_DEPTH = 3;
+const FS_LIST_MAX_DEPTH = 3;
 
 export const FsEntryKindSchema = z.enum(['file', 'directory', 'symlink', 'other']);
 export type FsEntryKind = z.infer<typeof FsEntryKindSchema>;
@@ -290,7 +290,7 @@ export type FsRenameResult = z.infer<typeof FsRenameResultSchema>;
 
 // What `GET /fs/file` serves; a read result names one of these before the client asks for the bytes.
 // Not every client draws every one: HEIC and TIFF are left to the platform's own decoder.
-export const FS_IMAGE_MIMES = [
+const IMAGE_MIMES: ReadonlySet<string> = new Set([
     'image/png',
     'image/jpeg',
     'image/gif',
@@ -302,29 +302,27 @@ export const FS_IMAGE_MIMES = [
     'image/x-icon',
     'image/tiff',
     'image/svg+xml'
-] as const;
+]);
 
 export function isImageMime(mime: string): boolean {
-    return (FS_IMAGE_MIMES as readonly string[]).includes(mime);
+    return IMAGE_MIMES.has(mime);
 }
 
 // Container recognition does not imply codec support, so the viewer still checks `canPlayType`.
-export const FS_VIDEO_MIMES = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-matroska', 'video/ogg'] as const;
+const VIDEO_MIMES: ReadonlySet<string> = new Set(['video/mp4', 'video/webm', 'video/quicktime', 'video/x-matroska', 'video/ogg']);
 
 export function isVideoMime(mime: string): boolean {
-    return (FS_VIDEO_MIMES as readonly string[]).includes(mime);
+    return VIDEO_MIMES.has(mime);
 }
 
-export const FS_AUDIO_MIMES = ['audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/wav', 'audio/flac', 'audio/ogg'] as const;
+const AUDIO_MIMES: ReadonlySet<string> = new Set(['audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/wav', 'audio/flac', 'audio/ogg']);
 
 export function isAudioMime(mime: string): boolean {
-    return (FS_AUDIO_MIMES as readonly string[]).includes(mime);
+    return AUDIO_MIMES.has(mime);
 }
 
-export const FS_PDF_MIME = 'application/pdf';
-
 export function isPdfMime(mime: string): boolean {
-    return mime === FS_PDF_MIME;
+    return mime === 'application/pdf';
 }
 
 // Models that hold themselves whole: a `.gltf` is JSON whose buffers and textures may sit beside it, so it reads as text.
@@ -335,8 +333,8 @@ export function isModelMime(mime: string): boolean {
 }
 
 // Containers `archive.list` opens. A gzip holds a tar or a single file, which only its contents tell apart.
-export const FS_ARCHIVE_MIMES = ['application/zip', 'application/x-tar', 'application/gzip'] as const;
+const ARCHIVE_MIMES: ReadonlySet<string> = new Set(['application/zip', 'application/x-tar', 'application/gzip']);
 
 export function isArchiveMime(mime: string): boolean {
-    return (FS_ARCHIVE_MIMES as readonly string[]).includes(mime);
+    return ARCHIVE_MIMES.has(mime);
 }

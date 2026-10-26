@@ -8,7 +8,7 @@ export const OnDevicePurposeSchema = z.enum(['explain', 'names', 'ghost']);
 export type OnDevicePurpose = z.infer<typeof OnDevicePurposeSchema>;
 
 /* The most text a prompt may carry, which is also what fits the model's context beside its instructions and answer. */
-export const ONDEVICE_PROMPT_MAX = 12_000;
+const ONDEVICE_PROMPT_MAX = 12_000;
 
 export const OnDeviceStatusResultSchema = z.object({
     available: z.boolean(),
@@ -39,5 +39,3 @@ export const OnDeviceCancelPayloadSchema = z.object({ id: z.string().min(1).max(
 /* To the client that asked, the whole text so far each time. */
 export const OnDeviceTextEventSchema = z.object({ id: z.string(), text: z.string() });
 export type OnDeviceTextEvent = z.infer<typeof OnDeviceTextEventSchema>;
-
-export const ONDEVICE_ERROR_CODES = ['unavailable', 'failed', 'busy'] as const;

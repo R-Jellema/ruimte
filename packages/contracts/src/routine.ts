@@ -31,7 +31,7 @@ const DaySchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])
 export const WeekdaySchema = z.number().int().min(1).max(7);
 
 // Minutes between the runs of an interval: a quarter hour at the least, half a day at the most.
-export const ROUTINE_INTERVAL = { min: 15, max: 720, step: 15 } as const;
+const ROUTINE_INTERVAL = { min: 15, max: 720, step: 15 } as const;
 
 export const RoutineScheduleSchema = z.discriminatedUnion('kind', [
     z.looseObject({ kind: z.literal('once'), date: DaySchema, time: ClockTimeSchema }),

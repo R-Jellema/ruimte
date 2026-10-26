@@ -59,7 +59,7 @@ export function idsInViews(views: readonly ProjectView[]): Set<string> {
     return ids;
 }
 
-export function viewIndexOf(views: readonly ProjectView[], id: string): number {
+function viewIndexOf(views: readonly ProjectView[], id: string): number {
     return views.findIndex((view) => view.id === id);
 }
 
