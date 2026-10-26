@@ -7,7 +7,7 @@ import { useFiles } from '@/state/files';
 import { useProject } from '@/state/project';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
-import { clickOn, mount, until, type Mounted } from '../../testing/dom';
+import { clickOn, layOutChat, mount, until, type Mounted } from '../../testing/dom';
 
 const CLAUDE = {
     kind: 'claude',
@@ -29,7 +29,7 @@ let saved: ArtifactSummary[];
 let machine: FakeMachine;
 let workspace: FakeWorkspace;
 let page: Mounted;
-const offsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
+let restoreLayout: () => void;
 
 function infoOf(id: string): ChatInfo {
     return {
@@ -108,12 +108,7 @@ function buttonWithText(label: string): HTMLElement | null {
 }
 
 beforeEach(async () => {
-    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
-        configurable: true,
-        get(this: HTMLElement) {
-            return this.classList.contains('chat-scroll') ? 800 : (offsetHeight?.get?.call(this) ?? 0);
-        }
-    });
+    restoreLayout = layOutChat();
     views += 1;
     chatId = `chat-output${views}`;
     useArtifactSelection.setState({ versions: {} });
@@ -138,9 +133,7 @@ afterEach(async () => {
     await page.unmount();
     workspace.close();
     useFiles.setState({ tabs: [] });
-    if (offsetHeight !== undefined) {
-        Object.defineProperty(HTMLElement.prototype, 'offsetHeight', offsetHeight);
-    }
+    restoreLayout();
 });
 
 describe('what a chat saved to Output', () => {

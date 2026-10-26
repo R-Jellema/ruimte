@@ -7,7 +7,7 @@ import { liveCanvas } from '@/state/canvas';
 import { useSettings } from '@/state/settings';
 import { windowWorkspace } from '@/state/window';
 import { chatInfoOf } from '../../testing/chat-info';
-import { clickOn, mount, openSubmenu, until, type Mounted } from '../../testing/dom';
+import { clickOn, layOut, layOutChat, mount, openSubmenu, until, type Mounted } from '../../testing/dom';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 
@@ -215,23 +215,15 @@ describe('beside a routine node', () => {
         { id: 'a1', kind: 'assistant', turnId: 'turn-1', createdAt: 1, text: 'Three commits on main, all checks green.', streaming: false }
     ];
 
-    const offsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
+    let restoreLayout: () => void;
 
     beforeEach(() => {
-        // The thread is virtualized and happy-dom lays nothing out: a viewport gives it room to draw its rows.
-        Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
-            configurable: true,
-            get(this: HTMLElement) {
-                return this.classList.contains('chat-scroll') ? 800 : (offsetHeight?.get?.call(this) ?? 0);
-            }
-        });
+        restoreLayout = layOutChat();
         machine.answer('chat.attach', ({ chatId }) => ({ info: chatInfoOf(chatId), items: THREAD, seq: THREAD.length }) as never);
     });
 
     afterEach(() => {
-        if (offsetHeight !== undefined) {
-            Object.defineProperty(HTMLElement.prototype, 'offsetHeight', offsetHeight);
-        }
+        restoreLayout();
         // The switch is held for the window as well as in storage, so one test's never reaches the next.
         setRunsHidden('main', 'node-1', false);
     });
@@ -286,16 +278,14 @@ describe('beside a routine node', () => {
     });
 
     test('the open run takes the height of its laid out thread in one step, and opens at it again at once', async () => {
-        Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
-            configurable: true,
-            get(this: HTMLElement) {
-                if (this.hasAttribute('data-index')) {
-                    return 100;
-                }
-                // The thread's own frame, which it waits for before it shows its rows.
-                const frame = this.parentElement?.classList.contains('chat-column') === true;
-                return this.classList.contains('chat-scroll') || frame ? 800 : (offsetHeight?.get?.call(this) ?? 0);
+        // The afterEach puts back what was there before the beforeEach, so this needs no restore of its own.
+        layOut((element) => {
+            if (element.hasAttribute('data-index')) {
+                return 100;
             }
+            // The thread's own frame, which it waits for before it shows its rows.
+            const frame = element.parentElement?.classList.contains('chat-column') === true;
+            return element.classList.contains('chat-scroll') || frame ? 800 : null;
         });
         const heights: string[] = [];
         const watch = new MutationObserver(() => {

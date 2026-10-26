@@ -107,3 +107,37 @@ export async function openSubmenu(label: string): Promise<void> {
     await clickOn(trigger);
     await until(() => document.querySelectorAll('[role="menu"]').length > before);
 }
+
+/*
+ * Gives the elements `height` names the height happy-dom never lays out, and returns what puts it back.
+ * A virtualized thread reads its viewport from `clientHeight` and its rows from `offsetHeight`, so both answer.
+ */
+export function layOut(height: (element: HTMLElement) => number | null): () => void {
+    const restores = (['offsetHeight', 'clientHeight'] as const).map((property) => {
+        const own = Object.getOwnPropertyDescriptor(HTMLElement.prototype, property);
+        const inherited = own ?? Object.getOwnPropertyDescriptor(Element.prototype, property);
+        Object.defineProperty(HTMLElement.prototype, property, {
+            configurable: true,
+            get(this: HTMLElement) {
+                return height(this) ?? inherited?.get?.call(this) ?? 0;
+            }
+        });
+        return () => {
+            if (own === undefined) {
+                delete (HTMLElement.prototype as Partial<Record<typeof property, number>>)[property];
+            } else {
+                Object.defineProperty(HTMLElement.prototype, property, own);
+            }
+        };
+    });
+    return () => {
+        for (const restore of restores) {
+            restore();
+        }
+    };
+}
+
+/* A chat's scroller 800 high; without a height of its own the virtualized thread shows no row at all. */
+export function layOutChat(): () => void {
+    return layOut((element) => (element.classList.contains('chat-scroll') ? 800 : null));
+}

@@ -7,7 +7,7 @@ import { startServerInfo } from '@/transport/server-info';
 import { chatInfoOf } from '../../testing/chat-info';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
-import { clickOn, mount, pressKey, until, type Mounted } from '../../testing/dom';
+import { clickOn, layOutChat, mount, pressKey, until, type Mounted } from '../../testing/dom';
 
 const MACHINE = 'fake-machine';
 
@@ -129,22 +129,14 @@ function clipboardOf() {
 }
 
 describe('a # after the message went out', () => {
-    const offsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
+    let restoreLayout: () => void;
 
     beforeEach(() => {
-        // happy-dom lays nothing out; without a height of its own the thread's scroller shows no row at all.
-        Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
-            configurable: true,
-            get(this: HTMLElement) {
-                return this.classList.contains('chat-scroll') ? 800 : (offsetHeight?.get?.call(this) ?? 0);
-            }
-        });
+        restoreLayout = layOutChat();
     });
 
     afterEach(() => {
-        if (offsetHeight !== undefined) {
-            Object.defineProperty(HTMLElement.prototype, 'offsetHeight', offsetHeight);
-        }
+        restoreLayout();
     });
 
     test('a reply that names the drawing draws it as a chip, and a copied message pastes back with its chips', async () => {

@@ -6,7 +6,7 @@ import { useFiles } from '@/state/files';
 import { chatInfoOf } from '../../../testing/chat-info';
 import { FakeMachine } from '../../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../../testing/fake-workspace';
-import { clickOn, mount, until, type Mounted } from '../../../testing/dom';
+import { clickOn, layOutChat, mount, until, type Mounted } from '../../../testing/dom';
 
 const CLAUDE = {
     kind: 'claude',
@@ -21,7 +21,7 @@ const CLAUDE = {
 
 const REPLY = { id: 'reply', kind: 'assistant', createdAt: 0, turnId: null, text: 'It starts in `index.ts:12:3-14`.', streaming: false };
 
-const offsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
+let restoreLayout: () => void;
 
 // A view of its own per test, so the thread of one test is never the next one's.
 let views = 0;
@@ -39,13 +39,7 @@ function onScreen(text: string): boolean {
 }
 
 beforeEach(async () => {
-    // happy-dom lays nothing out; without a height of its own the thread's scroller shows no row at all.
-    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
-        configurable: true,
-        get(this: HTMLElement) {
-            return this.classList.contains('chat-scroll') ? 800 : (offsetHeight?.get?.call(this) ?? 0);
-        }
-    });
+    restoreLayout = layOutChat();
     views += 1;
     chatId = `chat-link-${views}`;
     machine = new FakeMachine();
@@ -64,9 +58,7 @@ afterEach(async () => {
     await act(async () => useFileChoice.setState({ choice: null }));
     await page.unmount();
     workspace.close();
-    if (offsetHeight !== undefined) {
-        Object.defineProperty(HTMLElement.prototype, 'offsetHeight', offsetHeight);
-    }
+    restoreLayout();
 });
 
 describe('a file link that names only the file', () => {

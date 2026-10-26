@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { ChatInfo, ChatItem, ProjectCanvasView, ProviderInfo } from '@ruimte/contracts';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
-import { mount, until, type Mounted } from '../../testing/dom';
+import { layOutChat, mount, until, type Mounted } from '../../testing/dom';
 
 const CLAUDE = {
     kind: 'claude',
@@ -31,7 +31,7 @@ let chatId: string;
 let machine: FakeMachine;
 let workspace: FakeWorkspace;
 let page: Mounted;
-const offsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
+let restoreLayout: () => void;
 
 function infoOf(id: string): ChatInfo {
     return {
@@ -82,13 +82,7 @@ function lineOf(itemId: string): string | null {
 }
 
 beforeEach(async () => {
-    // happy-dom lays nothing out; without a height of its own the thread's scroller shows no row at all.
-    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
-        configurable: true,
-        get(this: HTMLElement) {
-            return this.classList.contains('chat-scroll') ? 800 : (offsetHeight?.get?.call(this) ?? 0);
-        }
-    });
+    restoreLayout = layOutChat();
     views += 1;
     chatId = `chat-look${views}`;
     machine = new FakeMachine();
@@ -118,9 +112,7 @@ beforeEach(async () => {
 afterEach(async () => {
     await page.unmount();
     workspace.close();
-    if (offsetHeight !== undefined) {
-        Object.defineProperty(HTMLElement.prototype, 'offsetHeight', offsetHeight);
-    }
+    restoreLayout();
 });
 
 describe('a ruimte-context call in a chat', () => {

@@ -10,7 +10,7 @@ import { useUi } from '@/state/ui';
 import { chatInfoOf } from '../../testing/chat-info';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
-import { clickOn, mount, pressKey, until, type Mounted } from '../../testing/dom';
+import { clickOn, layOutChat, mount, pressKey, until, type Mounted } from '../../testing/dom';
 
 const AMS = 'Europe/Amsterdam';
 const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [], texts: [], edges: [], layouts: [] };
@@ -433,14 +433,7 @@ describe('Routines', () => {
             { id: 'u1', kind: 'user', turnId: 'turn-1', createdAt: 0, text: 'Summarize what changed on main.' },
             { id: 'a1', kind: 'assistant', turnId: 'turn-1', createdAt: 1, text: 'Three commits on main, all checks green.', streaming: false }
         ];
-        const offsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
-        // The thread is virtualized and happy-dom lays nothing out: a viewport gives it room to draw its rows.
-        Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
-            configurable: true,
-            get(this: HTMLElement) {
-                return this.classList.contains('chat-scroll') ? 800 : (offsetHeight?.get?.call(this) ?? 0);
-            }
-        });
+        const restoreLayout = layOutChat();
         try {
             machine.answer('chat.attach', ({ chatId }) => ({ info: chatInfoOf(chatId), items: thread, seq: thread.length }) as never);
             routines = [{ ...MORNING, runs: MORNING.runs.map((candidate) => (candidate.runId === 'thu' ? { ...candidate, chatId: 'chat-thu' } : candidate)) }];
@@ -451,9 +444,7 @@ describe('Routines', () => {
             expect(stage()!.textContent).toContain('Summarize what changed on main.');
             expect(machine.requests('chat.attach').map((request) => request.chatId)).toEqual(['chat-thu']);
         } finally {
-            if (offsetHeight !== undefined) {
-                Object.defineProperty(HTMLElement.prototype, 'offsetHeight', offsetHeight);
-            }
+            restoreLayout();
         }
     });
 
