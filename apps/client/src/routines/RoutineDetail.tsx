@@ -15,6 +15,7 @@ import { AgentModelLabel } from '@adecore/agents-react/providers';
 import { RoutineRunChat } from '@/routines/RoutineRunChat';
 import { useRoutineApproval } from '@/routines/routine-approval';
 import { useRoutineWhat } from '@/routines/routine-what';
+import { RoutinePrompt } from '@/routines/RoutinePrompt';
 import { leaveRoutines, showRoutine } from '@/routines/stage';
 import { runWords, scheduleWords, weekdayClock } from '@/routines/words';
 import { useEndpoints } from '@/state/endpoints';
@@ -61,7 +62,9 @@ function Definition({ endpointId, entry }: { endpointId: string; entry: RoutineE
             {routine.kind === 'agent' && (
                 <div className="flex flex-col gap-1.5">
                     <SectionLabel render={<h3 />}>{t('detail.instructions')}</SectionLabel>
-                    <p className="text-sm whitespace-pre-wrap text-text select-text">{routine.prompt}</p>
+                    <div className="text-text select-text">
+                        <RoutinePrompt endpointId={endpointId} entry={entry} />
+                    </div>
                 </div>
             )}
             {routine.kind === 'command' && (

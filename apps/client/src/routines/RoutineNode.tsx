@@ -10,6 +10,7 @@ import { runtimeModeLabel } from '@adecore/agents-react/chat';
 import { lookOfRun, type BlockLook } from '@/routines/agenda';
 import { blockClass } from '@/routines/look-class';
 import { AgentModelLabel } from '@adecore/agents-react/providers';
+import { RoutinePrompt } from '@/routines/RoutinePrompt';
 import { runRoutineNow, setRoutinePaused } from '@/routines/routine-commands';
 import { useRoutineList } from '@/routines/routine-list';
 import { useRoutineWhat } from '@/routines/routine-what';
@@ -103,9 +104,9 @@ function RoutineOnCanvas({ endpointId, entry, timeZone }: { endpointId: string; 
             </HeaderControls>
             <p className="text-lg font-semibold text-text">{scheduleWords(routine.schedule)}</p>
             {routine.kind === 'agent' && (
-                <p className="line-clamp-4 rounded-lg border border-border bg-surface-sunken bg-clip-padding px-3 py-2 text-sm whitespace-pre-wrap text-text">
-                    {routine.prompt}
-                </p>
+                <div className="line-clamp-4 rounded-lg border border-border bg-surface-sunken bg-clip-padding px-3 py-2 text-text">
+                    <RoutinePrompt endpointId={endpointId} entry={entry} />
+                </div>
             )}
             {routine.kind === 'command' && (
                 <p className="line-clamp-4 rounded-lg border border-border bg-surface-sunken bg-clip-padding px-3 py-2 font-mono text-code whitespace-pre-wrap text-text">
