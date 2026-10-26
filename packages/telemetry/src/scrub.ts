@@ -100,25 +100,33 @@ export function createScrubber(context: ScrubContext = {}): Scrubber {
         return values.sort((first, second) => second.length - first.length);
     };
 
+    const { home, hostname, username } = context;
+    const homePattern = home ? new RegExp(`${escapeRegExp(home)}(?![\\w.-])`, 'g') : null;
+    const hostPattern =
+        hostname && hostname.length >= MIN_USERNAME ? new RegExp(`\\b${escapeRegExp(hostname.replace(/\.local$/i, ''))}(?:\\.local)?\\b`, 'gi') : null;
+    const userPattern = username && username.length >= MIN_USERNAME ? new RegExp(`\\b${escapeRegExp(username)}\\b`, 'gi') : null;
+
     const removePerson = (text: string, withLiterals = true): string => {
         let result = text;
+
         for (const literal of withLiterals ? literals() : []) {
             result = result.split(literal).join('<redacted>');
         }
-        const home = context.home;
-        if (home) {
-            result = result.replace(new RegExp(`${escapeRegExp(home)}(?![\\w.-])`, 'g'), '~');
+
+        if (homePattern) {
+            result = result.replace(homePattern, '~');
         }
+
         result = result.replace(GENERIC_HOME, '~');
-        const hostname = context.hostname;
-        if (hostname && hostname.length >= MIN_USERNAME) {
-            const short = hostname.replace(/\.local$/i, '');
-            result = result.replace(new RegExp(`\\b${escapeRegExp(short)}(?:\\.local)?\\b`, 'gi'), '<host>');
+
+        if (hostPattern) {
+            result = result.replace(hostPattern, '<host>');
         }
-        const username = context.username;
-        if (username && username.length >= MIN_USERNAME) {
-            result = result.replace(new RegExp(`\\b${escapeRegExp(username)}\\b`, 'gi'), '<user>');
+
+        if (userPattern) {
+            result = result.replace(userPattern, '<user>');
         }
+
         return result;
     };
 
@@ -130,14 +138,7 @@ export function createScrubber(context: ScrubContext = {}): Scrubber {
         const portMatch = /:(\d+)$/.exec(hostPort);
         const host = portMatch ? hostPort.slice(0, portMatch.index) : hostPort;
         const port = portMatch ? portMatch[0] : '';
-        let shownHost = '<host>';
-        if (host === '') {
-            shownHost = '';
-        } else if (isLoopback(host)) {
-            shownHost = host;
-        } else if (hosts.some((allowed) => host === allowed || host.endsWith(`.${allowed}`))) {
-            shownHost = host;
-        }
+        const shownHost = host === '' || isLoopback(host) || hosts.some((allowed) => host === allowed || host.endsWith(`.${allowed}`)) ? host : '<host>';
         const path = remainder === '' || remainder === '/' ? remainder : '/<path>';
         return `${scheme.toLowerCase()}://${shownHost}${port}${path}`;
     };
