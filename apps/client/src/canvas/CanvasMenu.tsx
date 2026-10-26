@@ -1,17 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import {
-    FileText,
-    Globe,
-    LayoutGrid,
-    Maximize,
-    MessageSquare,
-    Minus,
-    Scan,
-    SquareDashedMousePointer,
-    StickyNote,
-    Terminal,
-    Type
-} from 'lucide-react';
+import { FileText, Globe, LayoutGrid, Maximize, MessageSquare, Minus, Scan, SquareDashedMousePointer, StickyNote, Terminal, Type } from 'lucide-react';
 import { createNodeAction, createTextAction, fitAction, groupSelectionAction, selectAllAction } from '@/actions/client-actions';
 import { AgentSubmenus } from '@/agents/AgentMenus';
 import type { Point } from '@/canvas/math';

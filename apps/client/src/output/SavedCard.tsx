@@ -23,8 +23,7 @@ export function SavedCard({ endpointId, saved }: { endpointId: string; saved: re
         <div className="flex flex-col">
             {saved.map((entry, index) => {
                 const preview =
-                    entry.artifact.artifactId === shownBeside ||
-                    saved.slice(index + 1).some((later) => later.artifact.artifactId === entry.artifact.artifactId)
+                    entry.artifact.artifactId === shownBeside || saved.slice(index + 1).some((later) => later.artifact.artifactId === entry.artifact.artifactId)
                         ? null
                         : savedPreviewOf(entry.version);
                 return (
