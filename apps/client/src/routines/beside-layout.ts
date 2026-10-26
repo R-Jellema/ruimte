@@ -8,6 +8,8 @@ export interface BesideSizes {
     runsWidth?: number | null;
     /* Each run's header and thread as last measured open, kept between the minimum and maximum; one not measured yet starts at the minimum. */
     openHeights?: Readonly<Record<string, number>>;
+    /* Only the Output, in the first column at the newest version, with its line from the node. */
+    runsHidden?: boolean;
 }
 
 /* The run cards beside a routine node, the open one included; the rest wait behind the line under them. */
@@ -59,10 +61,10 @@ export function besideLayout(
     artifactId: string | undefined,
     sizes: BesideSizes = {}
 ): BesideCard[] {
-    const { output: outputSize = null, runsWidth = null, openHeights = {} } = sizes;
+    const { output: outputSize = null, runsWidth = null, openHeights = {}, runsHidden = false } = sizes;
     const x = node.x + node.w + GUTTER;
     const columnW = snapToGrid(runsWidth ?? COLUMN_W);
-    const shown = runs.slice(0, BESIDE_RUNS);
+    const shown = runsHidden ? [] : runs.slice(0, BESIDE_RUNS);
     const open = openRunId === null ? null : shown.some((run) => run.runId === openRunId) ? openRunId : defaultOpenRun(shown);
     const measured = open === null || open === undefined ? undefined : openHeights[open];
     const openH = measured === undefined ? OPEN_MIN_H : Math.min(OPEN_H, Math.max(OPEN_MIN_H, Math.ceil(measured / GRID) * GRID));
@@ -74,7 +76,7 @@ export function besideLayout(
         cards.push({ kind: 'run', key: `run:${run.runId}`, run, open: isOpen, rect: { x, y, w: columnW, h } });
         y += h + STACK_GAP;
     }
-    if (runs.length > shown.length) {
+    if (!runsHidden && runs.length > shown.length) {
         cards.push({ kind: 'older', key: 'older', count: runs.length - shown.length, rect: { x, y, w: columnW, h: OLDER_H } });
     }
     if (artifactId === undefined) {
@@ -93,7 +95,7 @@ export function besideLayout(
         fallback: openRun !== undefined && openRun.versionId === undefined ? { run: latest } : null,
         from: from?.key ?? null,
         // Top aligned with the node whichever run is open, so the version stays put while a person moves through the runs.
-        rect: { x: x + columnW + GUTTER, y: node.y, w: snapToGrid(outputSize?.w ?? COLUMN_W), h: snapToGrid(outputSize?.h ?? OPEN_H) }
+        rect: { x: runsHidden ? x : x + columnW + GUTTER, y: node.y, w: snapToGrid(outputSize?.w ?? COLUMN_W), h: snapToGrid(outputSize?.h ?? OPEN_H) }
     });
     return cards;
 }

@@ -6,8 +6,9 @@ const RoutineBeside = lazyNamed(() => import('@/routines/RoutineBeside'), 'Routi
 
 /*
  * What the canvas draws beside a node from that node's data, never stored and never a node in the
- * store: a routine's runs and its Output. They follow the node, so selection, lines a person draws,
- * layouts and the minimap never see them (`DerivedSet`, `derivedOwnerOf`).
+ * store: a routine's runs and its Output. They follow the node, so selection, lines a person draws
+ * and layouts never see them (`DerivedSet`, `derivedOwnerOf`); the minimap, the resize handles and
+ * the keys know them only through `derivedCards`.
  */
 export function DerivedCards({ stacking }: { stacking: Readonly<Record<string, number>> }) {
     const { t } = useTranslation('canvas');

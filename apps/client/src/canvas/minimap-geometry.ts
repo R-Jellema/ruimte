@@ -1,5 +1,6 @@
 import { unionOf, type Camera, type Point, type Rect } from '@/canvas/math';
 import type { Viewport } from '@/canvas/camera-slice';
+import type { DerivedFrame } from '@/canvas/node-body';
 import type { CanvasNode } from '@/state/canvas-model';
 
 /* The map itself, in screen pixels inside its card. */
@@ -36,6 +37,18 @@ export function minimapFits(viewport: Viewport): boolean {
 export function mappedNodes(nodes: Readonly<Record<string, CanvasNode>>, hidden: ReadonlySet<string>): CanvasNode[] {
     const shown = Object.values(nodes).filter((node) => !hidden.has(node.id));
     return [...shown.filter((node) => node.kind === 'group'), ...shown.filter((node) => node.kind !== 'group')];
+}
+
+/* The cards drawn beside the nodes the map draws (`derivedCards`): where each stands and the node it belongs to. */
+export function mappedCards(
+    cards: Readonly<Record<string, DerivedFrame>>,
+    nodes: Readonly<Record<string, CanvasNode>>,
+    hidden: ReadonlySet<string>
+): Array<Rect & { id: string; owner: CanvasNode }> {
+    return Object.entries(cards).flatMap(([id, card]) => {
+        const owner = nodes[card.owner];
+        return owner === undefined || hidden.has(owner.id) ? [] : [{ id, owner, ...card.rect }];
+    });
 }
 
 /* The nodes that carry a dot for what waits: a node the map draws carries its own, a member of a collapsed group the group it is shown as. */

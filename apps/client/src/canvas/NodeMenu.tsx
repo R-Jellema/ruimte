@@ -57,6 +57,7 @@ import { FileActionItems } from '@/shell/panels/FileActionItems';
 import { resolveStoredPath } from '@/shell/panels/files-tree';
 import { worktreeDiffTab } from '@/shell/panels/worktree-rows';
 import { deleteSelectionAsking } from '@/canvas/delete-selection';
+import { setRunsHidden, useRunsHidden } from '@/routines/runs-hidden';
 import { canvasOfNode, maximizedNodeOf, useCanvas, useCanvasStore, type CanvasNode } from '@/state/canvas';
 import { useViewNodes } from '@/project/view-nodes';
 import { useChatRow, useProviders } from '@adecore/agents-react/state';
@@ -126,12 +127,13 @@ function NodeMenuContent({ id, viewId: targetViewId, node, onRename, snooze, fin
     const workspaceTransport = useWorkspace()?.connection.transport ?? transport;
     const nodeWorktree = useWorktreeOf(node?.kind === 'terminal' || node?.kind === 'chat' ? node.cwd : undefined);
     const groupWorktrees = useGroupWorktrees(node?.kind === 'group' ? id : null);
+    const viewId = targetViewId ?? canvasViewId;
+    const runsHidden = useRunsHidden(viewId, id);
 
     if (!node) {
         return snooze ? <ContextMenu.Popup>{snooze}</ContextMenu.Popup> : null;
     }
 
-    const viewId = targetViewId ?? canvasViewId;
     const canvas = () => {
         if (viewId !== null) {
             showView(viewId);
@@ -378,6 +380,11 @@ function NodeMenuContent({ id, viewId: targetViewId, node, onRename, snooze, fin
                     icon={<Icon icon={Sparkles} size={14} />}
                     onPick={(provider, account) => void startAgentFromNote(provider, account)}
                 />
+            )}
+            {node.kind === 'routine' && viewId !== null && (
+                <ContextMenu.Item onClick={() => setRunsHidden(viewId, id, !runsHidden)}>
+                    <ContextMenu.Check kind="checkbox" checked={!runsHidden} /> {t('menu.showRuns')}
+                </ContextMenu.Item>
             )}
             <ContextMenu.Separator />
             <AccentSubmenu picked={nodeColorOf(node) ?? undefined} onPick={(accent) => colorNodeAction(canvas().getState().viewId, id, accent)} />

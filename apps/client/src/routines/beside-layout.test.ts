@@ -30,6 +30,13 @@ describe('the cards beside a routine node', () => {
         expect(rectOf(besideLayout(NODE, RUNS, 'a', 'art', { openHeights: { b: 300 } }), 'run:a').h).toBe(OPEN_MIN_H);
     });
 
+    test('with the runs hidden, hold only the Output, in the first column at the newest version with its line from the node', () => {
+        const kept = { ...run('a'), versionId: 'v1' };
+        const cards = besideLayout(NODE, [run('b'), kept], undefined, 'art', { runsHidden: true, runsWidth: 536 });
+        expect(cards).toHaveLength(1);
+        expect(cards[0]).toMatchObject({ kind: 'output', versionId: 'v1', from: null, fallback: null, rect: { x: 400 + 72, y: 0 } });
+    });
+
     test('set the width of every run with the column, and move the Output with it', () => {
         const cards = besideLayout(NODE, RUNS, undefined, 'art', { runsWidth: 536 });
         expect(rectOf(cards, 'run:b').w).toBe(536);

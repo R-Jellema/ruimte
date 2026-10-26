@@ -3,6 +3,7 @@ import { act } from 'react';
 import { zonedTime, type ArtifactGetResult, type ProjectCanvasView, type ProjectNode, type RoutineEntry, type RoutineRun } from '@ruimte/contracts';
 import { showRoutine, useRoutinesStage } from '@/routines/stage';
 import { liveCanvas } from '@/state/canvas';
+import { useSettings } from '@/state/settings';
 import { windowWorkspace } from '@/state/window';
 import { chatInfoOf } from '../../testing/chat-info';
 import { clickOn, mount, openSubmenu, until, type Mounted } from '../../testing/dom';
@@ -418,6 +419,72 @@ describe('beside a routine node', () => {
         expect(tall()).toEqual(['Morning summary · Wed, Oct 21']);
         expect(card('Morning summary · Thu, Oct 22')!.style.height).toBe('40px');
         expect(seen.every((open) => open.length <= 1)).toBe(true);
+    });
+
+    test("the map draws the cards in their node's color, takes them into what it shows, and only pans", async () => {
+        useSettings.getState().update({ canvasMinimap: true });
+        try {
+            await open([{ ...routineNode('node-1', 'morning'), accent: 'teal' }]);
+            await until(() => card('Output') !== undefined);
+            await act(async () => {
+                liveCanvas('main')!.setViewport({ w: 1280, h: 800 });
+                liveCanvas('main')!.setCamera({ x: 0, y: 0, zoom: 1 });
+            });
+            const map = (): SVGSVGElement | null => document.querySelector('svg[role="img"][aria-label="Canvas map"]');
+            await until(() => map()?.querySelector('[data-minimap-card="derived:node-1:output"]') != null);
+            const rects = [...map()!.querySelectorAll<SVGRectElement>('[data-minimap-card]')];
+            expect(rects.map((rect) => rect.getAttribute('data-minimap-card'))).toContain('derived:node-1:run:thu');
+            // The node and its cards read as one, in the node's color.
+            expect(map()!.querySelector('[data-minimap-node="node-1"]')!.getAttribute('fill')).toBe('#009689');
+            expect(rects.every((rect) => rect.getAttribute('fill') === '#009689')).toBe(true);
+            // The Output reaches 984 + 440 to the right, past the view: the map still holds all of it.
+            const [, tx, ty, scale] = /translate\(([-\d.e]+) ([-\d.e]+)\) scale\(([-\d.e]+)\)/
+                .exec(map()!.querySelector('g')!.getAttribute('transform')!)!
+                .map(Number);
+            for (const rect of rects) {
+                const right = (Number(rect.getAttribute('x')) + Number(rect.getAttribute('width'))) * scale! + tx!;
+                const bottom = (Number(rect.getAttribute('y')) + Number(rect.getAttribute('height'))) * scale! + ty!;
+                expect(right).toBeLessThanOrEqual(192);
+                expect(bottom).toBeLessThanOrEqual(128);
+            }
+            await act(async () => {
+                rects[0]!.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, pointerId: 1 }));
+                rects[0]!.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, button: 0, pointerId: 1 }));
+            });
+            expect(liveCanvas('main')).toMatchObject({ selection: [], navigationId: null, bodyFocusId: null });
+        } finally {
+            useSettings.getState().update({ canvasMinimap: false });
+        }
+    });
+
+    test("the node's menu hides its runs, which leaves the Output in their place, this client's and saved nowhere", async () => {
+        await open([routineNode('node-1', 'morning')]);
+        await until(() => card('Output') !== undefined && card('Morning summary · Thu, Oct 22') !== undefined);
+        const showRuns = async (): Promise<HTMLElement> => {
+            await act(async () => {
+                frameOf('node-1')!
+                    .querySelector('header')!
+                    .dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 100, clientY: 20, button: 2 }));
+            });
+            await until(() => [...document.querySelectorAll('[role="menuitem"]')].some((item) => item.textContent?.trim() === 'Show runs'));
+            return [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find((item) => item.textContent?.trim() === 'Show runs')!;
+        };
+        await clickOn(await showRuns());
+        await until(() => card('Morning summary · Thu, Oct 22') === undefined);
+        expect(cards().map((candidate) => candidate.getAttribute('aria-label'))).toEqual(['Output']);
+        // In the first column, top aligned with the node, at its own size.
+        expect(card('Output')!.style.left).toBe('472px');
+        expect(card('Output')!.style.top).toBe('0px');
+        expect(card('Output')!.style.width).toBe('440px');
+        await until(() => (card('Output')?.textContent ?? '').includes('v14'));
+        expect(localStorage.getItem('ruimte.routineRunsHidden.main.node-1')).toBe('true');
+        await act(async () => windowWorkspace()!.connection.projects.flush());
+        expect(machine.requests('project.save')).toEqual([]);
+
+        await clickOn(await showRuns());
+        await until(() => card('Morning summary · Thu, Oct 22') !== undefined);
+        expect(card('Output')!.style.left).toBe(`${472 + 440 + 72}px`);
+        expect(localStorage.getItem('ruimte.routineRunsHidden.main.node-1')).toBeNull();
     });
 
     test('a press in a card gives the routine node the keyboard and selects nothing', async () => {

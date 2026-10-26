@@ -3,9 +3,12 @@ import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 import { Surface } from '@adecore/ui';
 import { useChats } from '@adecore/agents-react/state';
+import { nodeColorOf } from '@ruimte/contracts';
+import { accentColor } from '@/canvas/accents';
 import { unionOf, visibleRect, type Point } from '@/canvas/math';
 import {
     cameraLookingAt,
+    mappedCards,
     mappedNodes,
     MINIMAP_SIZE,
     minimapFits,
@@ -32,6 +35,11 @@ interface MapDrag {
     grab: Point;
     // The map holds still under a drag, or the frame would run away from the pointer as the world grows.
     scale: MinimapScale;
+}
+
+/* A node in the color a person gave it (a note in its paper's), and its cards with it; the faint neutral without one. */
+function mapColor(node: CanvasNode): string {
+    return accentColor(nodeColorOf(node)) ?? 'var(--text-faint)';
 }
 
 /* A dot on every node that waits on a person, in its own render so a status change leaves the rects alone. */
@@ -76,8 +84,10 @@ export function Minimap() {
     const scaleRef = useRef<MinimapScale | null>(null);
     const dragRef = useRef<MapDrag | null>(null);
 
+    const derivedCards = useCanvas((s) => s.derivedCards);
     const mapped = mappedNodes(nodes, hidden);
-    const bounds = unionOf(mapped);
+    const cards = mappedCards(derivedCards, nodes, hidden);
+    const bounds = unionOf([...mapped, ...cards]);
     const shown = on && fits && !maximized && bounds !== null;
 
     const paint = (state: CanvasState): void => {
@@ -211,7 +221,7 @@ export function Minimap() {
                                 height={node.h}
                                 rx={16}
                                 fill="none"
-                                stroke="var(--text-faint)"
+                                stroke={mapColor(node)}
                                 strokeWidth={1}
                                 vectorEffect="non-scaling-stroke"
                             />
@@ -224,11 +234,25 @@ export function Minimap() {
                                 width={node.w}
                                 height={node.h}
                                 rx={16}
-                                fill="var(--text-faint)"
+                                fill={mapColor(node)}
                                 fillOpacity={0.5}
                             />
                         )
                     )}
+                    {/* A card beside a node is drawn as its node is, and the map only pans. */}
+                    {cards.map((card) => (
+                        <rect
+                            key={card.id}
+                            data-minimap-card={card.id}
+                            x={card.x}
+                            y={card.y}
+                            width={card.w}
+                            height={card.h}
+                            rx={16}
+                            fill={mapColor(card.owner)}
+                            fillOpacity={0.5}
+                        />
+                    ))}
                     <NeedsYouDots nodes={nodes} hidden={hidden} />
                 </g>
                 <rect ref={frameRef} data-minimap-frame rx={2} fill="var(--text)" fillOpacity={0.06} stroke="var(--text-muted)" strokeWidth={1} />

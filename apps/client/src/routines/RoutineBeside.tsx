@@ -19,6 +19,7 @@ import { useRoutineList } from '@/routines/routine-list';
 import { showRoutine } from '@/routines/stage';
 import { runWords } from '@/routines/words';
 import { OUTPUT_MIN, RUNS_MIN_W, storedOutputSize, storedRunsWidth, type CardSize } from '@/routines/output-size';
+import { useRunsHidden } from '@/routines/runs-hidden';
 import { useCanvas } from '@/state/canvas';
 import type { Rect } from '@/canvas/math';
 import type { ResizeEdge } from '@/canvas/resize-handles';
@@ -68,6 +69,7 @@ export function RoutineBeside({ id, z }: { id: string; z: number }) {
     const [runsWidth, setRunsWidth] = useState<number | null>(() => (viewId === null ? null : (storedRunsWidth(viewId, id).read()?.w ?? null)));
     // What each run's header and thread measured while open, in memory, so a run opens again at its own height at once.
     const [openHeights, setOpenHeights] = useState<Readonly<Record<string, number>>>({});
+    const runsHidden = useRunsHidden(viewId, id);
     if (node === undefined || list === null || list.status !== 'ready') {
         return null;
     }
@@ -144,7 +146,7 @@ export function RoutineBeside({ id, z }: { id: string; z: number }) {
             )
         };
     };
-    const sizes = { output: outputSize, runsWidth, openHeights };
+    const sizes = { output: outputSize, runsWidth, openHeights, runsHidden };
     const cards = besideLayout(node, entry.runs, picked, entry.artifactId, sizes).map((card): DerivedCard => {
         const content = cardContent(card);
         const linkedFrom = card.kind === 'older' ? null : card.kind === 'output' ? (card.from ?? 'node') : 'node';
