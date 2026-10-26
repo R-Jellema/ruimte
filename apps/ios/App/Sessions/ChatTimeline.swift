@@ -572,7 +572,8 @@ final class ChatTimelineController: UIViewController, UICollectionViewDelegate, 
                 latestButtonHost = host
                 NSLayoutConstraint.activate([
                     host.view.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-                    host.view.bottomAnchor.constraint(equalTo: composerHost.view.topAnchor, constant: -20),
+                    // The dock carries 12 pt of padding above its first row, so this leaves 16 pt to what shows.
+                    host.view.bottomAnchor.constraint(equalTo: composerHost.view.topAnchor, constant: -4),
                     host.view.widthAnchor.constraint(equalToConstant: 44),
                     host.view.heightAnchor.constraint(equalToConstant: 44),
                 ])
