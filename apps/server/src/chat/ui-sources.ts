@@ -40,7 +40,7 @@ const UiGitStatusSchema = z.object({
 });
 
 /* The status a UI block reads: the branch, the counts per state and the first files, with `truncated` once any are left out. */
-export function uiGitStatus(status: GitStatus): z.infer<typeof UiGitStatusSchema> {
+function uiGitStatus(status: GitStatus): z.infer<typeof UiGitStatusSchema> {
     const count = (state: GitFileState) => status.files.filter((file) => file.state === state).length;
     return {
         repo: status.repo,

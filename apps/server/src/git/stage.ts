@@ -7,7 +7,7 @@ function literal(paths: readonly string[]): string[] {
 }
 
 /* A stash that says where it came from, so `git stash list` reads as a list of undos. */
-export function discardStashName(at: Date = new Date()): string {
+function discardStashName(at: Date = new Date()): string {
     return `ruimte-discard-${at.toISOString().replace(/[:.]/g, '-').replace(/Z$/, '')}`;
 }
 

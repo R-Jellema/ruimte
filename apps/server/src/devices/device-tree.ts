@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export interface ElementFrame {
+interface ElementFrame {
     x: number;
     y: number;
     width: number;

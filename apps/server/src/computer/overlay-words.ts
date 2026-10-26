@@ -3,7 +3,7 @@
  * written to `overlay.json` (`OverlayConfig.swift` holds the keys and the English it falls back to).
  * `presence` holds the labels the daemon sends itself, since only it knows the app a card is about.
  */
-export interface OverlayWords {
+interface OverlayWords {
     title: string;
     menuTitle: string;
     pause: string;

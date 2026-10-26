@@ -23,7 +23,7 @@ type RenameErrorCode =
     | 'other-volume'
     | 'unsupported';
 
-export class RenameError extends CodedError<RenameErrorCode> {}
+class RenameError extends CodedError<RenameErrorCode> {}
 
 async function realSource(path: string): Promise<string> {
     const real = await realEntryPath(path);
@@ -138,7 +138,7 @@ function trashReplaced(path: string, original: string): Promise<void> {
 }
 
 /* A move that passed every check; `run` makes it. */
-export interface RenamePlan {
+interface RenamePlan {
     run(): Promise<void>;
 }
 

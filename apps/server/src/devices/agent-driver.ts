@@ -30,14 +30,14 @@ export interface Pixel {
     y: number;
 }
 
-export interface DeviceShot {
+interface DeviceShot {
     path: string;
     width: number;
     height: number;
 }
 
 /* What an agent can do on a device, read off what it announces; a device that is not booted can do none of it. */
-export interface DeviceAbilities {
+interface DeviceAbilities {
     shot: boolean;
     input: boolean;
     type: boolean;
@@ -46,7 +46,7 @@ export interface DeviceAbilities {
 }
 
 /* A state's tree as an agent reads it; `elements` is every element, or with a text only the ones that hold it and what they sit in. */
-export interface DeviceTreeRead {
+interface DeviceTreeRead {
     screen: { width: number; height: number };
     truncated: boolean;
     count: number;
@@ -65,7 +65,7 @@ export type AgentStep =
     | { kind: ToolStepKind };
 
 /* The steps of the tools beside shots and taps, each named after its verb. */
-export type ToolStepKind = 'set' | 'open' | 'permission' | 'push' | 'biometric' | 'clipboard' | 'record' | 'install' | 'media' | 'terminate';
+type ToolStepKind = 'set' | 'open' | 'permission' | 'push' | 'biometric' | 'clipboard' | 'record' | 'install' | 'media' | 'terminate';
 
 /* An action of a device without the device it acts on, which the driver adds. */
 export type DeviceActionBody = DeviceAction extends infer Action
@@ -94,7 +94,7 @@ const ACTION_TOOLS: Partial<Record<DeviceAction['action'], DeviceTool>> = {
 };
 
 /* What a recording an agent asks for may last, so a forgotten one cannot hold the device for long. */
-export const AGENT_RECORDING_MAX_SECONDS = 60;
+const AGENT_RECORDING_MAX_SECONDS = 60;
 
 /*
  * Whether a person lets an agent take a step on a device right now. The one place a pause or a
@@ -107,7 +107,7 @@ export interface DeviceGate {
     recheck(device: DeviceInfo): { code: string; message: string } | null;
 }
 
-export const OPEN_GATE: DeviceGate = { admit: () => null, recheck: () => null };
+const OPEN_GATE: DeviceGate = { admit: () => null, recheck: () => null };
 
 type Manager = Pick<
     DeviceManager,
@@ -131,7 +131,7 @@ type Manager = Pick<
     | 'power'
 >;
 
-export interface DeviceDriverOptions {
+interface DeviceDriverOptions {
     home: string;
     manager: Manager;
     timers?: Timers;

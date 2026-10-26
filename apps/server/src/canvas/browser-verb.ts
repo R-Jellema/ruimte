@@ -1,7 +1,7 @@
 import type { ActionOutput } from '@ruimte/actions';
 import { z } from 'zod';
 import { defineActionVerb, runAction } from './action-verb.ts';
-import { field, SCOPE_LINE } from './verb.ts';
+import { field, SCOPE_LINE, yesNo } from './verb.ts';
 
 /* What every action of this noun prints under its first line, so an agent reads one shape whatever it asked. */
 const PRINTS_LINES: readonly string[] = [
@@ -23,10 +23,6 @@ const COMMON_DETAIL: readonly string[] = [
     'see\truimte-context read <id>\tthe address and the text of the page, which is how you read what you navigated to',
     SCOPE_LINE
 ];
-
-function yesNo(value: boolean): string {
-    return value ? 'yes' : 'no';
-}
 
 /* What an action answers with: where the page stands, or the one line saying nobody has it open. */
 function pageLines({ nodeId, open, page, error }: ActionOutput<'browser.inspect'>): string[] {

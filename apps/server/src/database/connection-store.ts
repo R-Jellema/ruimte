@@ -34,18 +34,18 @@ import { PairedWriteRaced, PairedWriteStuck, recoverPaired, writePaired, type Pa
 import type { ProjectWriteIO } from '../projects/project-write.ts';
 import type { SessionEvent, SessionSink } from '../sessions/manager.ts';
 
-export const DATABASES_FILE = 'databases.json';
+const DATABASES_FILE = 'databases.json';
 
 const PENDING_FILE = 'pending-databases.json';
 
 // The burst rule of the other project files: git and editors write more than once per save.
 const WATCH_SETTLE_MS = 150;
 
-export type DatabaseConnectionErrorCode = 'project-not-found' | 'connections-invalid' | 'rev-conflict' | 'path-outside-project';
+type DatabaseConnectionErrorCode = 'project-not-found' | 'connections-invalid' | 'rev-conflict' | 'path-outside-project';
 
-export class DatabaseConnectionError extends CodedError<DatabaseConnectionErrorCode> {}
+class DatabaseConnectionError extends CodedError<DatabaseConnectionErrorCode> {}
 
-export interface DatabaseProjects {
+interface DatabaseProjects {
     folderOf(projectId: string): string | null;
     /* The clients that have the project open, which is who may read its connections and who hears a change. */
     holdersOf(projectId: string): string[];

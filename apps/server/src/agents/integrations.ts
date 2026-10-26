@@ -19,7 +19,7 @@ import {
 } from './install.ts';
 import { revokeAntigravityRules, revokeCodexRules, revokeHooks, type LedgerEntry } from './revoke.ts';
 
-export const AGENT_INTEGRATIONS_FILE = 'agent-integrations.json';
+const AGENT_INTEGRATIONS_FILE = 'agent-integrations.json';
 
 /* The CLIs whose global settings the daemon can wire. */
 export const INTEGRATION_KINDS = ['claude', 'codex', 'antigravity', 'copilot', 'grok'] as const satisfies readonly AgentKind[];
@@ -46,7 +46,7 @@ type ProviderState = z.infer<typeof ProviderStateSchema>;
 /* Asked to change what `--no-hooks` decides. */
 export class IntegrationsFixed extends Error {}
 
-export interface AgentIntegrationsOptions {
+interface AgentIntegrationsOptions {
     home: string;
     // `--no-hooks`: nothing is written or removed, whatever the choice says.
     fixed: boolean;

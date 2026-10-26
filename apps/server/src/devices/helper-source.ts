@@ -49,7 +49,7 @@ export function createDeviceHelperLauncher(command: string[]): DeviceHelperLaunc
 }
 
 /* Runs `run` after `ms` and answers how to call it off, so a test decides when a call gives up. */
-export type HelperCallTimer = (ms: number, run: () => void) => () => void;
+type HelperCallTimer = (ms: number, run: () => void) => () => void;
 
 const realCallTimer: HelperCallTimer = (ms, run) => {
     const timer = setTimeout(run, ms);

@@ -27,7 +27,7 @@ export interface CallerInfo {
     projectName: string | null;
 }
 
-export interface ApprovalAsk {
+interface ApprovalAsk {
     callerId: string;
     /* Which run of that chat or terminal asks; a card stands only while it is the one running. */
     run: string;
@@ -36,9 +36,9 @@ export interface ApprovalAsk {
     caller: CallerInfo;
 }
 
-export type ApprovalOutcome = 'granted' | 'declined' | 'waiting';
+type ApprovalOutcome = 'granted' | 'declined' | 'waiting';
 
-export interface GrantBook {
+interface GrantBook {
     alwaysAllowed(bundleId: string): boolean;
     allowAlways(bundleId: string, name: string): Promise<void>;
 }
@@ -61,7 +61,7 @@ interface Pending {
     cancelExpiry: () => void;
 }
 
-export interface ComputerApprovalsOptions {
+interface ComputerApprovalsOptions {
     grants: GrantBook;
     /* The run a chat or terminal is on now, or null when it runs no more. */
     runOf: (callerId: string) => string | null;

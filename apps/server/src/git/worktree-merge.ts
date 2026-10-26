@@ -45,7 +45,7 @@ function settingsFor(into: string): string[] {
 }
 
 /* What the agent verb holds a merge to on top of what a person's merge is held to. */
-export interface MergeLimits {
+interface MergeLimits {
     /* Refuses a target checkout with uncommitted changes to tracked files. */
     cleanTarget?: boolean;
     /* Takes a conflicting merge back and refuses, instead of leaving it for a person. */

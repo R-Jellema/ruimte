@@ -250,7 +250,7 @@ export class FakeHelper implements HelperTransport {
 }
 
 /* A shell under the app with pid 777, on a pty of its own: what a terminal looks like in the process table. */
-export const PROCESSES: ProcessRow[] = [
+const PROCESSES: ProcessRow[] = [
     { pid: 501, ppid: 1, tty: null },
     { pid: 777, ppid: 1, tty: null },
     { pid: 778, ppid: 777, tty: 'ttys004' }

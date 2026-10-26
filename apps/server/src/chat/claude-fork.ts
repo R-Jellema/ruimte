@@ -5,7 +5,7 @@ import { claudeProjectSlug, findClaudeSession } from '@adecore/agents/chat';
 import { ChatError } from './errors.ts';
 
 /* The Claude Code whose transcript this cut was checked against; the file is undocumented, so a change there is a refusal here. */
-export const CLAUDE_TRANSCRIPT_CHECKED = '2.1.273';
+const CLAUDE_TRANSCRIPT_CHECKED = '2.1.273';
 
 /*
  * Where a fork is cut: after the line of the turn's last answer when the CLI named it, after the
@@ -95,7 +95,7 @@ export function cutTranscript(text: string, at: TranscriptCutPoint, sessionId: s
         .join('');
 }
 
-export interface ClaudeForkInput {
+interface ClaudeForkInput {
     projectsDir: string;
     cwd: string;
     sessionId: string;

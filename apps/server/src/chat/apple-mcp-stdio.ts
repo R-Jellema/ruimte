@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { ReadBuffer, serializeMessage, type JSONRPCMessage, type Transport } from '@modelcontextprotocol/client';
 
-export interface AppleStdioOptions {
+interface AppleStdioOptions {
     command: string;
     args: string[];
     env: Record<string, string>;

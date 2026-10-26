@@ -5,7 +5,7 @@ import { insideCheckout } from './diff.ts';
 import { GitError, runGit, toplevel } from './run.ts';
 
 /* Past this the daemon does not blame: the walk grows with the file and the history behind each line. */
-export const MAX_BLAME_LINES = 20_000;
+const MAX_BLAME_LINES = 20_000;
 const MAX_BLAME_BYTES = 2 * 1024 * 1024;
 
 const UNCOMMITTED = /^0+$/;

@@ -7,7 +7,7 @@ const CACHE_CONTROL = 'private, max-age=31536000, immutable';
 // that page inert as well: no script, no network, no subresource, only the styles it carries.
 const SVG_CSP = "default-src 'none'; style-src 'unsafe-inline'";
 
-export interface ByteRange {
+interface ByteRange {
     start: number;
     end: number;
 }
@@ -54,14 +54,14 @@ export async function guardBytesRequest(request: Request, remoteAddress: string,
     return decision.ok ? null : new Response(decision.reason, { status: decision.status });
 }
 
-export interface ServedFile {
+interface ServedFile {
     mime: string;
     size: number;
     /* The whole of it; a range is cut from this. */
     body: Blob;
 }
 
-export interface ServedFileOptions {
+interface ServedFileOptions {
     /* The name a client saves it under; without one it is only ever shown. */
     name?: string;
     /* Whether a browser may paint it itself, rather than hand it over as a download. */

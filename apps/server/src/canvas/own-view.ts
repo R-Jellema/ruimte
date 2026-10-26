@@ -9,7 +9,7 @@ import {
 import { VerbRefusal } from './verb.ts';
 
 /* A chat, terminal, browser or device the project keeps as a view of its own, its session inside it. */
-export type OwnView = ProjectBrowserView | ProjectChatView | ProjectDeviceView | ProjectTerminalView;
+type OwnView = ProjectBrowserView | ProjectChatView | ProjectDeviceView | ProjectTerminalView;
 
 /* The view an id names when it stands in the sidebar rather than on a canvas; null for every other id. */
 export function ownViewOf(content: Pick<ProjectContent, 'views'>, id: string): OwnView | null {

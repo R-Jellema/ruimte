@@ -38,7 +38,7 @@ const CARRIAGE_RETURN = 0x0d;
 
 const HELP_LINE = 'detail\truimte-context help visual';
 
-export interface ImageReference {
+interface ImageReference {
     /* Where the path stands in the page, without its quotes or `url(`. */
     readonly start: number;
     readonly end: number;
@@ -46,13 +46,13 @@ export interface ImageReference {
     readonly path: string;
 }
 
-export interface ImageProblem {
+interface ImageProblem {
     readonly path: string;
     readonly kind: 'missing' | 'too-large';
     readonly reason: string;
 }
 
-export interface EmbeddedPage {
+interface EmbeddedPage {
     /* The page with every image that could be embedded in place, and the rest as written. */
     readonly html: string;
     /* One per path that is not embedded, in the order the page first names them. */
@@ -68,7 +68,7 @@ export interface ImageFiles {
     read(path: string, into: Buffer): Promise<number>;
 }
 
-export interface EmbedOptions {
+interface EmbedOptions {
     /* Embed what fits and leave the rest as written, rather than stop as soon as the page cannot hold them all. */
     readonly partial: boolean;
     readonly imageBytes?: number;
@@ -76,7 +76,7 @@ export interface EmbedOptions {
     readonly files?: ImageFiles;
 }
 
-export type PreparedPage =
+type PreparedPage =
     | { readonly argv: string[]; readonly lines: string[] }
     | { readonly refusal: { readonly code: string; readonly message: string; readonly lines: string[] } };
 

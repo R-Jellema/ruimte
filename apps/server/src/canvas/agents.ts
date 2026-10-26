@@ -30,7 +30,7 @@ export function nameOf(kind: AgentKind): string {
     return providerFor(kind).name;
 }
 
-export interface AgentNodeSpec {
+interface AgentNodeSpec {
     id: string;
     chat: boolean;
     kind: AgentKind;

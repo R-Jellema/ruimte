@@ -116,7 +116,7 @@ function kindOf(type: string, name: string): TarKind {
     return type === '3' || type === '4' || type === '6' ? 'other' : 'file';
 }
 
-export interface TarEntry {
+interface TarEntry {
     header: TarHeader;
     /* The entry's bytes; whatever is not taken before the next entry is asked for is skipped. */
     body(): AsyncGenerator<Uint8Array>;

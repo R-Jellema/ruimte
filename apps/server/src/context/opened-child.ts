@@ -1,6 +1,6 @@
 import type { ContextSource } from '@ruimte/contracts';
 
-export interface OpenedChildReaders {
+interface OpenedChildReaders {
     /* The node that opened this one as an agent, as the lineage under `$RUIMTE_HOME` wrote it down; null for any other node. */
     startedBy(nodeId: string): string | null;
     agentSource(id: string): ContextSource | null;

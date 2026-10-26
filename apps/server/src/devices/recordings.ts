@@ -7,12 +7,12 @@ export interface RecordingProcess {
     kill(): void;
 }
 
-export type RecordingLauncher = (command: readonly string[]) => RecordingProcess;
+type RecordingLauncher = (command: readonly string[]) => RecordingProcess;
 
 /* Runs `run` after `ms` and answers how to call it off, so a test decides when a limit passes. */
-export type RecordingTimer = (ms: number, run: () => void) => () => void;
+type RecordingTimer = (ms: number, run: () => void) => () => void;
 
-export function spawnRecording(command: readonly string[]): RecordingProcess {
+function spawnRecording(command: readonly string[]): RecordingProcess {
     const child = Bun.spawn([...command], { stdin: 'ignore', stdout: 'ignore', stderr: 'ignore' });
     return {
         exited: child.exited,

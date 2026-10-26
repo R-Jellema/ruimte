@@ -2,14 +2,14 @@ import { constants } from 'node:fs';
 import { lstat, open, realpath, type FileHandle } from 'node:fs/promises';
 import { basename, dirname, join, relative, sep } from 'node:path';
 import { FS_READ_MAX_TEXT_BYTES, type FsWriteResult } from '@ruimte/contracts';
-import { isInside } from '../canvas/project-paths.ts';
+import { isInside, realOrNull } from '../canvas/project-paths.ts';
 import { isRuimteState } from '../projects/project-files.ts';
 import { CodedError, KeyedSerializer } from '@adecore/agents';
 import { ReadError, UTF8_BOM, inspect } from './read.ts';
 
 type WriteErrorCode = 'stale' | 'too-large' | 'not-text' | 'outside-project' | 'ruimte-state' | 'not-writable';
 
-export class WriteError extends CodedError<WriteErrorCode> {}
+class WriteError extends CodedError<WriteErrorCode> {}
 
 /* Keyed on dev and inode, so a hard link to a file shares the queue of the file itself. */
 const saves = new KeyedSerializer();
@@ -24,10 +24,6 @@ export interface WriteBoundary {
     worktreesRoot: string;
     // The worktrees the daemon made for the repository a folder is in, which count wherever they were made: the worktree folder can change.
     registeredWorktrees?: (folder: string) => Promise<string[]>;
-}
-
-function realOrNull(path: string): Promise<string | null> {
-    return realpath(path).catch(() => null);
 }
 
 /* The boundary as real paths, so neither `..` nor a symlinked folder decides what is inside. */

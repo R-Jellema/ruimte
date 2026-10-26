@@ -26,7 +26,7 @@ export interface TreeChildEvents {
     exit(code: number, stderr: string): void;
 }
 
-export type TreeLauncher = (udid: string, events: TreeChildEvents) => TreeChild;
+type TreeLauncher = (udid: string, events: TreeChildEvents) => TreeChild;
 
 /* Runs the bridge's accessibility mode for one simulator and hands its output over line by line; null without a bridge. */
 export function createTreeLauncher(bridge: string): TreeLauncher | null {
@@ -73,7 +73,7 @@ interface Waiter {
 const READY = 'ready';
 
 /* A failure the bridge names, in the words and codes a device failure reaches an agent with. */
-export function treeErrorOf(code: string, message: string): DeviceError {
+function treeErrorOf(code: string, message: string): DeviceError {
     switch (code) {
         case 'unavailable':
             return new DeviceError('device-tree-unavailable', `The simulator's accessibility cannot be read on this machine: ${message}`);

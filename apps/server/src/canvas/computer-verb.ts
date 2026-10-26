@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { APPROVAL_WAIT_MS } from '../computer/approvals.ts';
 import { READ_MAX_CHARS } from '../actions/computer-actions.ts';
 import { defineActionVerb, runAction, type ActionParam } from './action-verb.ts';
-import { VerbRefusal, field } from './verb.ts';
+import { VerbRefusal, field, yesNo } from './verb.ts';
 
 type ComputerState = ActionOutput<'computer.state'>;
 type ComputerOutcome = ActionOutput<'computer.click'>;
@@ -97,10 +97,6 @@ function thenState(input: CutInput & { flags: { state?: 'full' } }) {
     };
 }
 
-function yesNo(value: boolean): string {
-    return value ? 'yes' : 'no';
-}
-
 function round(value: number): string {
     return String(Math.round(value * 100) / 100);
 }
@@ -131,7 +127,7 @@ function changeCounts({ added, gone, changed }: { added: number; gone: number; c
  * A window, its picture and its tree: one row each, the tree a row per element with its indent kept.
  * After an action that is only what changed, since the rest is what the agent read before.
  */
-export function stateLines(state: ComputerState): string[] {
+function stateLines(state: ComputerState): string[] {
     const tree = state.tree.map((line) => `tree\t${field(line)}`);
     if (state.diff !== null && state.diff !== undefined) {
         return [...windowLines(state), ...remarkLines(state), `changes\t${changeCounts(state.diff)}`, ...tree];
@@ -149,7 +145,7 @@ export function stateLines(state: ComputerState): string[] {
 }
 
 /* What an action did, and the state after it when it was asked for. */
-export function outcomeLines(word: string, outcome: ComputerOutcome): string[] {
+function outcomeLines(word: string, outcome: ComputerOutcome): string[] {
     const { target } = outcome;
     return [
         `done\t${word}\t${field(outcome.app?.name ?? '-')}`,

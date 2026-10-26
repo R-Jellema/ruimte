@@ -6,7 +6,7 @@ import { z } from 'zod';
  * The reply schemas keep only what the daemon reads; a field the helper adds later passes unseen.
  */
 
-export const HELPER_COMMANDS = [
+const HELPER_COMMANDS = [
     'doctor',
     'apps',
     'quit',
@@ -27,14 +27,14 @@ export const HELPER_COMMANDS = [
     'read',
     'wait'
 ] as const;
-export type HelperCommand = (typeof HELPER_COMMANDS)[number];
+type HelperCommand = (typeof HELPER_COMMANDS)[number];
 
 /* The commands that read or operate one app, which is what a person has to let an agent into. */
-export const APP_COMMANDS = ['state', 'click', 'scroll', 'type', 'key', 'set-value', 'open', 'menu', 'drag', 'read', 'wait'] as const;
+const APP_COMMANDS = ['state', 'click', 'scroll', 'type', 'key', 'set-value', 'open', 'menu', 'drag', 'read', 'wait'] as const;
 export type AppCommand = (typeof APP_COMMANDS)[number];
 
 /* How the tree and the picture of a `state` are cut, for `state` itself and every action with `withState`. */
-export interface StateOptions {
+interface StateOptions {
     maxDepth?: number;
     maxElements?: number;
     maxText?: number;
@@ -42,7 +42,7 @@ export interface StateOptions {
 }
 
 /* What the daemon shows at the cursor between actions, which the helper cannot see for itself; `end` ends the session at once. */
-export const PRESENCE_STATES = ['think', 'waiting', 'permission', 'error', 'done', 'end'] as const;
+const PRESENCE_STATES = ['think', 'waiting', 'permission', 'error', 'done', 'end'] as const;
 export type PresenceState = (typeof PRESENCE_STATES)[number];
 
 export interface HelperRequest extends StateOptions {
@@ -94,7 +94,7 @@ export const HelperReplySchema = z.union([
 
 const SessionModeSchema = z.enum(['running', 'paused', 'takenOver']);
 
-export const HelperSessionSchema = z.object({ active: z.boolean(), mode: SessionModeSchema, stopped: z.boolean() });
+const HelperSessionSchema = z.object({ active: z.boolean(), mode: SessionModeSchema, stopped: z.boolean() });
 export type HelperSession = z.infer<typeof HelperSessionSchema>;
 
 /* What `pause`, `resume` and `stop` answer: the session after the press, which may have changed nothing. */
@@ -116,7 +116,7 @@ export const DoctorResultSchema = z.object({
 });
 export type DoctorResult = z.infer<typeof DoctorResultSchema>;
 
-export const RunningAppSchema = z.object({
+const RunningAppSchema = z.object({
     name: z.string(),
     pid: z.number().int(),
     bundleId: z.string().optional(),
@@ -158,7 +158,7 @@ export const StateResultSchema = z.object({
 });
 export type StateResult = z.infer<typeof StateResultSchema>;
 
-export const TargetSchema = z.object({
+const TargetSchema = z.object({
     role: z.string().optional(),
     label: z.string().optional(),
     identifier: z.string().optional(),

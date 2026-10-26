@@ -116,7 +116,7 @@ export interface StatementEntry {
     peer?: { machineId: string; machinePublicKey: string };
 }
 
-export type StatementAccountRefusal = 'wrong-account' | 'account-required' | 'no-account';
+type StatementAccountRefusal = 'wrong-account' | 'account-required' | 'no-account';
 
 export type StatementAdmission =
     | { sessionId: string; created: boolean }

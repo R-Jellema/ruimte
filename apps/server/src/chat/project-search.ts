@@ -4,7 +4,7 @@ import { searchThreadItems } from '@adecore/agents/chat';
 
 export class ChatSearchError extends CodedError<'not-open'> {}
 
-export interface SearchableChat {
+interface SearchableChat {
     chatId: string;
     title: string;
 }

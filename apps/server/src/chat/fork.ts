@@ -45,7 +45,7 @@ import { handoffBudget, handoffText } from './handoff.ts';
 import { errorText } from '../error-text.ts';
 
 /* Where a Codex fork goes on after (the turn Codex named, the n-th turn when it named none, or all of it). */
-export type ThreadCutPoint = { turnId: string } | { turns: number } | null;
+type ThreadCutPoint = { turnId: string } | { turns: number } | null;
 
 export interface ChatForkDeps {
     /* The chat as it stands, loaded or on disk; null when this machine has no such chat. */

@@ -1,7 +1,7 @@
 import { DEFAULT_TITLES } from '@ruimte/contracts';
 
 export const NODE_VERB_KINDS = ['note', 'browser', 'drawing', 'diagram', 'file', 'device', 'terminal', 'chat', 'artifact', 'routine'] as const;
-export type NodeVerbKind = (typeof NODE_VERB_KINDS)[number];
+type NodeVerbKind = (typeof NODE_VERB_KINDS)[number];
 
 type FlaggedKind = 'artifact' | 'routine';
 

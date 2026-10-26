@@ -8,7 +8,7 @@ import { inflated } from './streams.ts';
 const FLAG_EXTRA = 0x04;
 const FLAG_NAME = 0x08;
 
-export interface GzipHeader {
+interface GzipHeader {
     /* The name of the file it was made from, when the header keeps one. */
     name: string | null;
     mtime: number | null;

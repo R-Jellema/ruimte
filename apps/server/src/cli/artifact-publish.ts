@@ -12,11 +12,7 @@ const RETRIES = 3;
 
 const REQUEST_ID = /^[A-Za-z0-9_-]{1,64}$/;
 
-export type PreparedPublish =
-    | { argv: string[] }
-    | { refusal: { code: string; message: string; lines: string[] } }
-    | { failure: string }
-    | { unreachable: unknown };
+type PreparedPublish = { argv: string[] } | { refusal: { code: string; message: string; lines: string[] } } | { failure: string } | { unreachable: unknown };
 
 interface UploadState {
     sizes: number[];

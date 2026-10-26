@@ -20,13 +20,13 @@ export interface CommandResult {
     stderr: string;
 }
 
-export interface ScrcpyServerProcess {
+interface ScrcpyServerProcess {
     readonly exited: Promise<number>;
     output(): string;
     kill(): void;
 }
 
-export interface ScrcpyConnection {
+interface ScrcpyConnection {
     write(bytes: Uint8Array): void;
     close(): void;
 }

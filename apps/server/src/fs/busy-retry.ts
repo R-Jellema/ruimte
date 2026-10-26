@@ -4,7 +4,7 @@ const BUSY_CODES = new Set(['EPERM', 'EBUSY', 'EACCES']);
 // Waits between attempts; together about a second before the move fails as it would have.
 const WAITS_MS = [20, 50, 100, 200, 400];
 
-export interface BusyRetrySeams {
+interface BusyRetrySeams {
     platform: NodeJS.Platform;
     wait(ms: number): Promise<void>;
 }

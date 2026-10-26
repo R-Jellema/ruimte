@@ -1,7 +1,7 @@
 import type { ContextSource } from '@ruimte/contracts';
 import type { IndexedPlace } from '../projects/project-index.ts';
 
-export interface ForkOriginReaders {
+interface ForkOriginReaders {
     /* The chat this one was forked from, or null when it is no fork. */
     forkedFrom(id: string): string | null;
     forksOf(id: string): string[];

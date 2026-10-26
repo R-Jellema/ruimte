@@ -50,7 +50,7 @@ export function isKnownTerminal(bundleId: string): boolean {
 }
 
 /* How far below an app a shell may sit: a terminal that starts its shells under a pty host of its own puts them two or three levels down. */
-export const SHELL_DEPTH = 3;
+const SHELL_DEPTH = 3;
 
 /*
  * Whether an app runs shells, read off what its own process does and never off its name. A terminal

@@ -6,7 +6,7 @@ import { resolveBase } from './status.ts';
 // A branch menu nobody scrolls past this; the field on top of it is what finds the rest.
 const MAX_REFS = 200;
 
-export const REF_FORMAT = `%(refname:short)${FIELD}%(committerdate:unix)${FIELD}%(HEAD)${FIELD}%(objectname)`;
+const REF_FORMAT = `%(refname:short)${FIELD}%(committerdate:unix)${FIELD}%(HEAD)${FIELD}%(objectname)`;
 
 /* `worktree list --porcelain` writes a paragraph per checkout: `worktree <path>` and `branch <ref>`. */
 export function parseWorktreeBranches(output: string): Map<string, string> {
@@ -49,7 +49,7 @@ export function parseRefs(output: string, kind: GitRef['kind'], worktrees: Map<s
 }
 
 /* `stash list` writes the ref and the message it was saved under, one stash per line. */
-export function parseStashes(output: string): GitStash[] {
+function parseStashes(output: string): GitStash[] {
     const stashes: GitStash[] = [];
     for (const line of output.split('\n')) {
         if (line === '') {

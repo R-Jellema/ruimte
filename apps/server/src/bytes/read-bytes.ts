@@ -45,7 +45,7 @@ async function locate(sources: ByteSources, resource: ByteResource): Promise<{ p
     return served ? { path: resource.path, mime: served.mime } : null;
 }
 
-export interface BytesPieceRead extends BytesReadHeader {
+interface BytesPieceRead extends BytesReadHeader {
     bytes: Uint8Array;
 }
 

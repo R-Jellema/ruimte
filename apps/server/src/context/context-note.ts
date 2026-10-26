@@ -76,10 +76,10 @@ const COMPUTER_NOTE =
     'With `ruimte-context computer` you read and operate the apps of this Mac, each only once the person lets you into it; use it only when they ask you to work in an app. You work in the background by default, so the person can go on with their own work; ask them before you use `--front`, which brings the app forward and interrupts them. The person can pause you, take over or stop you at any moment: then wait for them, or ask them, instead of calling again in a loop. A call holds 6 s for their answer or their pause; `--wait 60` holds longer and goes on as soon as they are done, so give that shell command a timeout above the wait.';
 
 /* Said only to an AI chat while visual replies are on for this machine; a terminal has no thread to show a page in. */
-export const VISUAL_FILES_NOTE =
+const VISUAL_FILES_NOTE =
     "Keep visual source files outside the project: save HTML directly with `ruimte-context visual write --name chart.html` and the page on stdin, using a distinct name per visual. It returns an absolute path in this chat's private storage under RUIMTE_HOME; use that path for preview and show, and visual write with the same name to update it. Create a project file only when the person explicitly asks for an export.";
 
-export const VISUAL_LAYOUT_NOTE =
+const VISUAL_LAYOUT_NOTE =
     'Visuals follow the reply column by default. For an application mockup or dashboard that benefits from more width, opt in with `visual show --layout wide`. The host chooses the width within the chat pane; keep the page responsive and preview it at both 360px and 1200px with `visual preview --width`.';
 
 const UI_DETAIL_HINT = '`ruimte-context help ui <group>` gives props and rules';

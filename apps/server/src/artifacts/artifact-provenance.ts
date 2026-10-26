@@ -1,7 +1,7 @@
 import type { ArtifactProvenance } from '@ruimte/contracts';
 
 /* What the daemon knows of the caller of an agent verb, from its own records only. */
-export interface CallerRecord {
+interface CallerRecord {
     machineId: string;
     caller: string;
     /* The caller's chat as the daemon runs it; absent for a terminal, or a chat that is not running. */

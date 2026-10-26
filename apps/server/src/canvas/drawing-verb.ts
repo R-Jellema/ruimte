@@ -6,7 +6,7 @@ import { typeOf } from './diagram-verb.ts';
 import { DRY_RUN_PREVIEW, VerbRefusal } from './verb.ts';
 
 /* An edit that passes, so an agent has one shape to start from; a test holds it to the schema. */
-export const DRAWING_EDIT_EXAMPLE = JSON.stringify({
+const DRAWING_EDIT_EXAMPLE = JSON.stringify({
     add: [
         { kind: 'ellipse', x: 620, y: 40, w: 90, h: 90, stroke: 'orange', strokeWidth: 2, fill: 'solid', fillColor: 'yellow' },
         {

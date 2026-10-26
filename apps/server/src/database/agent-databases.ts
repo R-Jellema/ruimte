@@ -20,7 +20,7 @@ export const AGENT_CELL_LIMIT = 256;
 /* How many rows `execute` prints of a statement that reads. */
 export const EXECUTE_ROW_LIMIT = 100;
 
-export class DatabaseAgentError extends CodedError {}
+class DatabaseAgentError extends CodedError {}
 
 export interface DatabasePlace {
     projectId: string;
@@ -28,7 +28,7 @@ export interface DatabasePlace {
 }
 
 /* What the agent that wrote a reply could read of one connection; `target` is a fingerprint, since UI access is kept with the chat. */
-export interface UiDatabaseGrant {
+interface UiDatabaseGrant {
     id: string;
     target: string;
     access: DatabaseAgentAccess;
@@ -46,7 +46,7 @@ export interface AgentConnection {
     outsideProject: boolean;
 }
 
-export interface AgentTables {
+interface AgentTables {
     connection: string;
     schemas: string[];
     tables: { schema: string; name: string; kind: TableInfo['kind']; rowEstimate: number | null }[];
@@ -58,7 +58,7 @@ export interface AgentQuery {
     result: RowsResult;
 }
 
-export interface AgentExecution {
+interface AgentExecution {
     connection: string;
     results: StatementResult[];
     inTransaction: boolean;
@@ -67,7 +67,7 @@ export interface AgentExecution {
 /* What the agents reach a project's databases through, the verbs' side of `AgentDatabases`. */
 export type DatabaseAgentHost = Pick<AgentDatabases, 'list' | 'tables' | 'describe' | 'query' | 'execute' | 'tableOf'>;
 
-export interface AgentDatabasesOptions {
+interface AgentDatabasesOptions {
     service: { handle(request: unknown, owner: string): Promise<DatabaseResponse>; release(owner: string): Promise<void> };
     connections: { connectionsOf(projectId: string): Promise<DatabaseConnection[]> };
     projects: { holdersOf(projectId: string): string[] };

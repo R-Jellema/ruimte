@@ -32,13 +32,13 @@ const OPERATIONS: ReadonlyArray<{ path: string; name: string }> = [
     { path: 'REVERT_HEAD', name: 'revert' }
 ];
 
-export interface WorktreeOrigin {
+interface WorktreeOrigin {
     projectId?: string;
     nodeId?: string;
     madeBy: 'verb' | 'client' | 'fork';
 }
 
-export interface RemoveOptions {
+interface RemoveOptions {
     force?: boolean;
     keepBranch?: boolean;
     /* Stops the agents working in the worktree first instead of refusing while one is in a turn. */
@@ -47,7 +47,7 @@ export interface RemoveOptions {
     squashedInto?: string;
 }
 
-export interface WorktreeState {
+interface WorktreeState {
     entry: Listed | null;
     /* The register key, which is the path git reported when the worktree was made. */
     key: string | null;
@@ -58,7 +58,7 @@ export interface WorktreeState {
     label: string;
 }
 
-export interface RemoveResult {
+interface RemoveResult {
     branchDeleted: boolean;
     branchCommit?: string;
 }
@@ -143,7 +143,7 @@ export function hasWork(work: WorktreeWork): boolean {
 }
 
 /* What the worktrees need to know of work that came from another machine, which a folder cut from it carries along. */
-export interface ForeignWork {
+interface ForeignWork {
     /* The local branches whose work another machine sent. */
     branches(): readonly string[];
     /* Writes down a folder, and the branch it is on, as one this machine never vouched for. */
@@ -631,7 +631,7 @@ export class Worktrees {
 }
 
 /* Where a new branch starts: a branch, a tag or a commit. */
-export interface MakeOptions {
+interface MakeOptions {
     base?: string;
     /* Runs no hook of the repository while the checkout is made, for a tree that came from elsewhere. */
     hooksOff?: boolean;

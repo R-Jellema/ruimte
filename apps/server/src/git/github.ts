@@ -21,7 +21,7 @@ export const runGh: GhRunner = (args, cwd) => {
     return streamWithTimeout('gh', args, cwd, GH_TIMEOUT_MS, { env: GH_ENV });
 };
 
-export interface IssueRef {
+interface IssueRef {
     /* `owner/repo`; null when the reference leaves it to the folder's own repository. */
     repo: string | null;
     number: number;
@@ -67,7 +67,7 @@ export async function ghOutput(run: GhRunner, args: string[], cwd: string, notFo
 }
 
 /* `owner/repo` of the repository a folder is in, as gh sees its remotes. */
-export async function repoOf(run: GhRunner, cwd: string): Promise<string> {
+async function repoOf(run: GhRunner, cwd: string): Promise<string> {
     const output = await ghOutput(run, ['repo', 'view', '--json', 'nameWithOwner'], cwd);
     const name = (JSON.parse(output) as { nameWithOwner?: unknown }).nameWithOwner;
     if (typeof name !== 'string' || name === '') {
@@ -214,7 +214,7 @@ export function pagesOf<Node>(output: string): Node[] {
         .filter((node): node is Node => node !== null && node !== undefined);
 }
 
-export function isBot(author: { login?: string; __typename?: string } | null | undefined): boolean {
+function isBot(author: { login?: string; __typename?: string } | null | undefined): boolean {
     return author?.__typename === 'Bot' || (author?.login ?? '').endsWith('[bot]');
 }
 
@@ -274,7 +274,7 @@ export async function readPullRequest(run: GhRunner, cwd: string, number?: numbe
 }
 
 /* Pages of the summary query become one pull request: the fields of the first, the checks of all. */
-export function pullRequestOf(
+function pullRequestOf(
     repo: string,
     pages: readonly PullRequestJson[],
     threadPages: ReadonlyArray<{ reviewThreads?: { nodes?: ThreadJson[] } }>

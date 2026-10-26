@@ -2,17 +2,9 @@ import { PROJECT_PROPOSAL_LIMITS } from '@ruimte/contracts';
 import { z } from 'zod';
 import { PROPOSAL_CARD_MS } from '../projects/project-proposals.ts';
 import { defineActionVerb, runAction } from './action-verb.ts';
-import { SCOPE_LINE, field, orNote } from './verb.ts';
+import { SCOPE_LINE, field, orNote, textFlag } from './verb.ts';
 
 const PROJECT_CARD_HOURS = PROPOSAL_CARD_MS / 3_600_000;
-
-function textFlag(flag: string, max: number, what: string) {
-    return z
-        .string({ error: `project propose needs --${flag}, ${what}` })
-        .trim()
-        .min(1, `project propose needs --${flag}, ${what}`)
-        .max(max, `--${flag} is at most ${max} characters`);
-}
 
 const proposeAction = defineActionVerb('project', {
     name: 'propose',
@@ -35,8 +27,8 @@ const proposeAction = defineActionVerb('project', {
     ],
     positionals: z.tuple([], { error: 'project propose takes no arguments; everything goes in its flags' }),
     flags: z.object({
-        name: textFlag('name', PROJECT_PROPOSAL_LIMITS.name, 'the name of the project'),
-        reason: textFlag('reason', PROJECT_PROPOSAL_LIMITS.reason, 'why this is a project now'),
+        name: textFlag('project propose', 'name', PROJECT_PROPOSAL_LIMITS.name, 'the name of the project'),
+        reason: textFlag('project propose', 'reason', PROJECT_PROPOSAL_LIMITS.reason, 'why this is a project now'),
         folder: z.string().trim().min(1).max(PROJECT_PROPOSAL_LIMITS.folder, `--folder is at most ${PROJECT_PROPOSAL_LIMITS.folder} characters`).optional()
     }),
     async run({ flags }, call) {

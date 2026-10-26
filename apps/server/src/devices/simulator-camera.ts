@@ -6,7 +6,7 @@ import { isVideo, MEDIA_IMAGES, MEDIA_VIDEOS, requireExtension } from './device-
 import { DeviceError } from './manager.ts';
 
 /* A running camera helper, as far as this daemon needs it. */
-export interface CameraHelperProcess {
+interface CameraHelperProcess {
     kill(): void;
 }
 
@@ -21,12 +21,12 @@ export interface CameraHost {
     send(socket: string, command: Record<string, string>): Promise<boolean>;
 }
 
-export type SimctlEnvRunner = (arguments_: string[], env: Record<string, string>) => Promise<{ exitCode: number; stderr: string }>;
+type SimctlEnvRunner = (arguments_: string[], env: Record<string, string>) => Promise<{ exitCode: number; stderr: string }>;
 
-export type CameraSource = 'placeholder' | 'file' | 'off';
+type CameraSource = 'placeholder' | 'file' | 'off';
 
 /* Runs `run` after `ms` and answers how to call it off, so a test decides when a helper took too long. */
-export type CameraTimer = (ms: number, run: () => void) => () => void;
+type CameraTimer = (ms: number, run: () => void) => () => void;
 
 const realCameraTimer: CameraTimer = (ms, run) => {
     const timer = setTimeout(run, ms);
@@ -34,7 +34,7 @@ const realCameraTimer: CameraTimer = (ms, run) => {
 };
 
 /* A helper answers a command at once; one that has not by now is taken for gone and started again. */
-export const CAMERA_SEND_TIMEOUT_MS = 5_000;
+const CAMERA_SEND_TIMEOUT_MS = 5_000;
 
 interface Feed {
     process: CameraHelperProcess;
@@ -44,7 +44,7 @@ interface Feed {
 }
 
 /* Where the helper and the library are: beside the compiled daemon, else in the serve-sim package. */
-export function cameraFiles(): CameraHost['files'] {
+function cameraFiles(): CameraHost['files'] {
     const native = join(dirname(process.execPath), 'native');
     const compiled = { helper: join(native, 'serve-sim-camera-helper'), injector: join(native, 'libSimCameraInjector.dylib') };
     if (existsSync(compiled.helper) && existsSync(compiled.injector)) {

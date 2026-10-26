@@ -24,9 +24,9 @@ import { CONSOLES_DIR, PRIVATE_DIR, PROJECT_DIR } from '../projects/project-file
 import { startDatabaseOf } from './agent-databases.ts';
 import type { SchemaSnapshots, SnapshotFacts, SnapshotTarget } from './schema-snapshots.ts';
 
-export type SqlAnalysisErrorCode = 'project-not-found' | 'unknown-connection' | 'bad-path' | 'snapshot-failed';
+type SqlAnalysisErrorCode = 'project-not-found' | 'unknown-connection' | 'bad-path' | 'snapshot-failed';
 
-export class SqlAnalysisError extends CodedError<SqlAnalysisErrorCode> {}
+class SqlAnalysisError extends CodedError<SqlAnalysisErrorCode> {}
 
 function consolesFolderOf(folder: string): string {
     return absoluteOf(folder, `${PROJECT_DIR}/${PRIVATE_DIR}/${CONSOLES_DIR}`);
@@ -121,7 +121,7 @@ function choiceSettings(connection: DatabaseConnection, snapshot: SnapshotFacts 
     };
 }
 
-export interface SqlSettingsInput {
+interface SqlSettingsInput {
     folder: string;
     sql: ProjectSql | undefined;
     connections: readonly DatabaseConnection[];
@@ -175,7 +175,7 @@ export interface SqlFileContext {
     access: DatabaseAgentAccess;
 }
 
-export interface SqlAnalysisOptions {
+interface SqlAnalysisOptions {
     projects: {
         folderOf(projectId: string): string | null;
         holdersOf(projectId: string): string[];
@@ -192,7 +192,7 @@ export interface SqlAnalysisOptions {
 }
 
 /* What the language servers have to hear of the project's SQL. */
-export interface SqlListeners {
+interface SqlListeners {
     /* The settings of the project changed. */
     sqlChanged(projectId: string): Promise<void>;
     /* A snapshot file was written; a server that watches it reads it again. */

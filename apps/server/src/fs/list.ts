@@ -9,7 +9,7 @@ type ListErrorCode = 'not-found' | 'not-a-directory';
 
 export class ListError extends CodedError<ListErrorCode> {}
 
-export interface ListOptions {
+interface ListOptions {
     depth?: number;
     hidden?: boolean;
 }

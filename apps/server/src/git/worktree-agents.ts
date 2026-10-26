@@ -2,7 +2,7 @@ import type { ChatInfo, SessionInfo } from '@ruimte/contracts';
 import { isInside } from '../canvas/project-paths.ts';
 import type { WorktreeAgent, WorktreeAgents } from './worktree-merge.ts';
 
-export interface WorktreeAgentSources {
+interface WorktreeAgentSources {
     chats(): readonly ChatInfo[];
     sessions(): readonly SessionInfo[];
     /* Stops a node the way a person stopping it does, ending the agents it opened as well. */

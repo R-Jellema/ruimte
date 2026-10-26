@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { AppleStdioTransport } from './apple-mcp-stdio.ts';
 
 const common = { enabled: z.boolean().optional(), allowedTools: z.array(z.string().min(1).max(200)).max(100).optional() };
-export const AppleMcpConfigSchema = z.object({
+const AppleMcpConfigSchema = z.object({
     mcpServers: z
         .record(
             z.string().regex(/^[a-zA-Z0-9_-]{1,120}$/),

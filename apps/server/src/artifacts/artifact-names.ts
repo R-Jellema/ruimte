@@ -2,7 +2,7 @@ import { ARTIFACT_KEY_PATTERN, ARTIFACT_LIMITS, type ArtifactKind } from '@ruimt
 import { CodedError } from '@adecore/agents';
 import { sniffMime } from '../fs/sniff.ts';
 
-export type ArtifactErrorCode =
+type ArtifactErrorCode =
     | 'not-found'
     | 'bad-name'
     | 'bad-key'

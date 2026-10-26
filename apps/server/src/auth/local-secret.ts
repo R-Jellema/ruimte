@@ -3,7 +3,7 @@ import { mkdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { isNotFound, writeAtomic } from '@adecore/agents';
 
-export const LOCAL_SECRET_FILE = 'local.key';
+const LOCAL_SECRET_FILE = 'local.key';
 
 export function localSecretPath(home: string): string {
     return join(home, LOCAL_SECRET_FILE);

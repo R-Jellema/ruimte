@@ -1,6 +1,7 @@
-import { dirname, join, relative, resolve, sep } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import { settled, supportsRecursive, SYSTEM_WATCH, type DirectoryWatcher, type Settled, type WatchSeams } from '@adecore/agents';
 import { forgetRepos } from '../git/repo-cache.ts';
+import { isUnder } from './path-segment.ts';
 import { forgetSearchCache } from './search.ts';
 
 // Long enough to take an install or a checkout as one burst, short enough that a list read after it is fresh.
@@ -26,11 +27,7 @@ function forgetCaches(paths: readonly string[]): void {
     forgetRepos(paths);
 }
 
-function isUnder(path: string, ancestor: string): boolean {
-    return path === ancestor || path.startsWith(ancestor.endsWith(sep) ? ancestor : `${ancestor}${sep}`);
-}
-
-export interface SharedWatchOptions {
+interface SharedWatchOptions {
     platform?: NodeJS.Platform;
     seams?: WatchSeams;
     /* Told the directories every burst touched, whoever watched them. */

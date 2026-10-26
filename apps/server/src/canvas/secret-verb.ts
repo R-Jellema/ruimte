@@ -2,15 +2,7 @@ import { SECRET_LIMITS } from '@ruimte/contracts';
 import { z } from 'zod';
 import { SECRET_CARD_MS } from '../secrets/secret-requests.ts';
 import { defineActionVerb, runAction } from './action-verb.ts';
-import { SCOPE_LINE, field } from './verb.ts';
-
-function textFlag(flag: string, max: number, what: string) {
-    return z
-        .string({ error: `secret request needs --${flag}, ${what}` })
-        .trim()
-        .min(1, `secret request needs --${flag}, ${what}`)
-        .max(max, `--${flag} is at most ${max} characters`);
-}
+import { SCOPE_LINE, field, textFlag } from './verb.ts';
 
 const requestAction = defineActionVerb('secret', {
     name: 'request',
@@ -39,10 +31,10 @@ const requestAction = defineActionVerb('secret', {
     ],
     positionals: z.tuple([], { error: 'secret request takes no arguments; everything goes in its flags' }),
     flags: z.object({
-        launch: textFlag('launch', 256, 'the id or the name of a launch'),
+        launch: textFlag('secret request', 'launch', 256, 'the id or the name of a launch'),
         variable: z.string({ error: 'secret request needs --variable, the name of the environment variable' }),
-        label: textFlag('label', SECRET_LIMITS.label, 'what the person is asked for'),
-        reason: textFlag('reason', SECRET_LIMITS.reason, 'why the launch needs it'),
+        label: textFlag('secret request', 'label', SECRET_LIMITS.label, 'what the person is asked for'),
+        reason: textFlag('secret request', 'reason', SECRET_LIMITS.reason, 'why the launch needs it'),
         placeholder: z.string().trim().max(SECRET_LIMITS.placeholder, `--placeholder is at most ${SECRET_LIMITS.placeholder} characters`).optional(),
         wait: z
             .string()

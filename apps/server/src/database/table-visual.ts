@@ -17,7 +17,7 @@ const STYLE = [
     'p{margin:8px 0 0;color:var(--muted-foreground);font-size:12px}'
 ].join('\n');
 
-export function escapeHtml(text: string): string {
+function escapeHtml(text: string): string {
     return text.replace(/[&<>"']/g, (char) => `&#${char.charCodeAt(0)};`);
 }
 
@@ -50,7 +50,7 @@ function headerHtml(column: ResultColumn): string {
 }
 
 /* Where the rows came from, so a person who asked about two databases knows which this is. */
-export interface TableSource {
+interface TableSource {
     connection: string;
     schema: string | null;
 }

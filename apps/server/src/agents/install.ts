@@ -37,7 +37,7 @@ type HookEntry = Record<string, string | number>;
  * How a CLI lays out a hooks file. `groups` is Claude Code's (`hooks.<Event>[].hooks[]`), which Codex and Grok read too;
  * `entries` is Copilot's (`hooks.<Event>[]`, under `version: 1`); `named` is Antigravity's, whose top level names each hook.
  */
-export type HookShape = 'groups' | 'entries' | 'named';
+type HookShape = 'groups' | 'entries' | 'named';
 
 export function shapeOf(kind: AgentKind): HookShape {
     if (kind === 'copilot') {
@@ -231,7 +231,7 @@ export function holdsOurHook(config: unknown, kind: AgentKind): boolean {
 
 type InstallResult = 'unchanged' | 'written';
 
-export interface HooksInstall {
+interface HooksInstall {
     result: InstallResult;
     // What the file lacked before, so turning the hooks off can leave it as it was found.
     createdFile: boolean;
@@ -384,7 +384,7 @@ function antigravityAllow(config: unknown): { permissions: Record<string, unknow
 }
 
 /* Adds Ruimte's rules to `permissions.allow` and leaves every other entry and key where it was. */
-export function mergeAntigravityRules(config: unknown): SettingsMerge {
+function mergeAntigravityRules(config: unknown): SettingsMerge {
     const found = antigravityAllow(config);
     if (found === null) {
         return { config: {}, changed: false, refused: true };
@@ -426,7 +426,7 @@ export function hasAntigravityRules(config: unknown): boolean {
     return found !== null && found.allow.some((rule) => typeof rule === 'string' && ANTIGRAVITY_RULES.includes(rule));
 }
 
-export function installAntigravityRules(link: string): Promise<HooksInstall> {
+function installAntigravityRules(link: string): Promise<HooksInstall> {
     return mergeIntoSettings(link, 'permissions', mergeAntigravityRules, 'is not a settings object with permissions in the shape agy reads');
 }
 

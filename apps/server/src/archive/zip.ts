@@ -29,7 +29,7 @@ const FLAG_ENCRYPTED = 0x0001;
 const FLAG_UTF8 = 0x0800;
 
 export const STORED = 0;
-export const DEFLATED = 8;
+const DEFLATED = 8;
 
 // The hosts in "version made by" whose external attributes carry a Unix mode: Unix and OS X.
 const UNIX_HOSTS = new Set([3, 19]);

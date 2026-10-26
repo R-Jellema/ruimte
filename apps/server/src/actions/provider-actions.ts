@@ -1,17 +1,14 @@
 import { evenPace, registryAgentMatches, type UsageLimitsProvider, type UsageLimitsSnapshot } from '@ruimte/contracts';
 import type { ActionHandlers, ActionOutput } from '@ruimte/actions';
 import { VerbRefusal, type NodeAccount, type ProviderInstallHost } from '../canvas/verb.ts';
-import type { ServerActionContext } from './context.ts';
+import { hostService, type ServerActionContext } from './context.ts';
 
 function installsOf(context: ServerActionContext): ProviderInstallHost {
-    if (!context.host.providerInstalls) {
-        throw new VerbRefusal('no-providers', 'This machine keeps no agent CLIs');
-    }
-    return context.host.providerInstalls;
+    return hostService(context, 'providerInstalls', 'no-providers', 'This machine keeps no agent CLIs');
 }
 
 /* The entry of an account; the default account of a CLI is under the CLI's kind, and so is an entry from before accounts. */
-export function limitsOfAccount(snapshot: UsageLimitsSnapshot, account: NodeAccount): UsageLimitsProvider | null {
+function limitsOfAccount(snapshot: UsageLimitsSnapshot, account: NodeAccount): UsageLimitsProvider | null {
     const id = account.account ?? account.kind;
     return snapshot.providers.find((entry) => entry.kind === account.kind && (entry.account?.id ?? entry.kind) === id) ?? null;
 }
@@ -20,7 +17,7 @@ function iso(at: number | null): string | null {
     return at === null || at <= 0 ? null : new Date(at).toISOString();
 }
 
-export function planLimitsOf(entry: UsageLimitsProvider, now: number): ActionOutput<'provider.limits'> {
+function planLimitsOf(entry: UsageLimitsProvider, now: number): ActionOutput<'provider.limits'> {
     return {
         provider: entry.kind,
         account: entry.account?.label ?? null,

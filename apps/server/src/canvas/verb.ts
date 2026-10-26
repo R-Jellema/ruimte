@@ -104,7 +104,7 @@ export interface ProviderInstallHost {
 }
 
 /* The plan windows the CLIs of this machine reported, as last read; a verb only reports them and never asks again. */
-export interface PlanLimitsHost {
+interface PlanLimitsHost {
     snapshot(): UsageLimitsSnapshot;
     now(): number;
 }
@@ -195,13 +195,13 @@ export interface RoutineAgentHost {
 }
 
 /* A chat's items and info as they stand, whether its CLI runs or the chat is only a record; null for no chat of that id. */
-export interface ChatThreadHost {
+interface ChatThreadHost {
     items(chatId: string): Promise<ChatItem[] | null>;
     info?(chatId: string): Promise<ChatInfo | null>;
 }
 
 /* A prompt into a chat the machine runs, the way a person's composer sends one; Voice prompts no chat that is only a record. */
-export interface ChatPromptHost {
+interface ChatPromptHost {
     running(chatId: string): boolean;
     send(chatId: string, text: string, delivery: ChatDelivery | undefined): Promise<{ queued: boolean; turnId: string }>;
     /* The daemon's own `chat.clear`, stopping a turn in the way: whoever calls it asked the person first. */
@@ -209,7 +209,7 @@ export interface ChatPromptHost {
 }
 
 /* The agent a terminal runs as its hooks last told it; null for a plain shell, undefined for no session of that id. */
-export interface TerminalAgentHost {
+interface TerminalAgentHost {
     agentOf(sessionId: string): AgentInfo | null | undefined;
 }
 
@@ -220,7 +220,7 @@ export type ProjectHost = Pick<ProjectStore, 'locate' | 'read' | 'revision' | 's
 };
 
 /* Who made a node and how deep it sits, kept under `$RUIMTE_HOME` and across a restart, never in the project an agent can rewrite. */
-export type LineageHost = Pick<AgentLineageStore, 'depthOf' | 'madeBy' | 'put'>;
+type LineageHost = Pick<AgentLineageStore, 'depthOf' | 'madeBy' | 'put'>;
 
 /* The machine's switches a verb is held to; `agentsDeleteAnyView` lets an agent remove a view it did not make,
    and `nodeSize` is the size a person on the machine gave new nodes of a kind. */
@@ -247,7 +247,7 @@ export interface AgentStartHost {
 }
 
 /* The other machines an agent may give work to, and the owing of that work. */
-export interface RemoteAgentHost {
+interface RemoteAgentHost {
     /* The machines a project is linked to; `ready` is whether this machine holds the link that lets it work in them. */
     machines(projectId: string): Array<{ machineId: string; label: string; remoteProjectId: string; ready: boolean }>;
     /* Owes the start of a task on another machine for the node that stands for it here. */
@@ -285,7 +285,7 @@ export interface SecretHost {
 }
 
 /* A suggestion makes nothing: it only raises the card, and what became of it comes back. */
-export interface ProposalHost {
+interface ProposalHost {
     /* Whether the chat is a chat view of the Chats project, the only place a project is suggested from. */
     inChats(chatId: string): boolean;
     propose(ask: ProposalAsk): Promise<ProposalAnswer>;
@@ -308,7 +308,7 @@ export interface VisualHost {
 }
 
 /* Puts an image or a model the caller's agent has of its own in the thread of its chat; the bytes arrive checked. */
-export interface AgentImageHost {
+interface AgentImageHost {
     attach(chatId: string, upload: { name: string; mime: string; bytes: Uint8Array }): Promise<ChatAttachment>;
 }
 
@@ -377,7 +377,7 @@ export interface AgentStateHost {
 
 export type ChatRequestHost = ChatRequests;
 
-export interface AgentForkHost {
+interface AgentForkHost {
     fork(input: AgentForkInput, opener: ForkOpener): Promise<ChatForkResult & { title: string }>;
 }
 
@@ -424,7 +424,7 @@ export interface WorktreeHost {
     merge(payload: Omit<WorktreeMergePayload, 'actionId' | 'stopAgent' | 'commitFirst' | 'into' | 'remove'>): Promise<WorktreeMergeResult>;
 }
 
-export type TaskHost = TaskVerbs;
+type TaskHost = TaskVerbs;
 
 export interface NodeAccount {
     kind: AgentKind;
@@ -517,6 +517,16 @@ export function titleField(name: string, needs: string): z.ZodString {
         .max(MAX_TITLE_LENGTH, {
             error: (issue) => `${name} is ${lengthOf(issue.input)} characters and at most ${MAX_TITLE_LENGTH} fit in a name on the canvas`
         });
+}
+
+/* A required text flag of `command`, trimmed and capped at `max` characters. */
+export function textFlag(command: string, flag: string, max: number, what: string): z.ZodString {
+    const needs = `${command} needs --${flag}, ${what}`;
+    return z.string({ error: needs }).trim().min(1, needs).max(max, `--${flag} is at most ${max} characters`);
+}
+
+export function yesNo(value: boolean): string {
+    return value ? 'yes' : 'no';
 }
 
 export function canvasLines(content: ProjectContent): string[] {

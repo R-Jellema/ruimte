@@ -9,7 +9,7 @@ import { DeviceError } from './manager.ts';
  * `scrcpy-protocol.ts` was written for; the server refuses any client that names another version.
  * Apache-2.0, so its license travels beside it.
  */
-export const SCRCPY_SERVER = {
+const SCRCPY_SERVER = {
     version: SCRCPY_PROTOCOL_VERSION,
     url: `https://github.com/Genymobile/scrcpy/releases/download/v${SCRCPY_PROTOCOL_VERSION}/scrcpy-server-v${SCRCPY_PROTOCOL_VERSION}`,
     sha256: 'deacb991ed2509715160ffdc7907e47b4160eb30d1566217e9047fd5b8850cae',
@@ -17,8 +17,8 @@ export const SCRCPY_SERVER = {
     licenseSha256: '01c12035bf35af37241298dc7ad538eb2a07e5c940437bc6876feeaa9d1951d0'
 } as const;
 
-export const SCRCPY_SERVER_FILE = 'scrcpy-server';
-export const SCRCPY_LICENSE_FILE = 'scrcpy-server.LICENSE';
+const SCRCPY_SERVER_FILE = 'scrcpy-server';
+const SCRCPY_LICENSE_FILE = 'scrcpy-server.LICENSE';
 
 /* Beside the binary in a build; a development checkout fetches it into a folder git ignores. */
 export function scrcpyServerDirectory(compiled: boolean, executable: string, serverRoot: string): string {

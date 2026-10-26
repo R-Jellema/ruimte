@@ -16,7 +16,7 @@ interface GitOptions {
     timeoutMs?: number;
 }
 
-export type GitErrorCode =
+type GitErrorCode =
     | 'not-a-repo'
     // A clone whose URL is not one git may fetch from a remote, or whose folder is taken.
     | 'clone-refused'

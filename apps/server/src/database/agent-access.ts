@@ -12,7 +12,7 @@ const AccessRecordSchema = z.object({
 
 type AccessRecord = z.infer<typeof AccessRecordSchema>;
 
-export type DatabaseAccessGrant = { access: 'off' | 'read' } | { access: 'write'; destination: string };
+type DatabaseAccessGrant = { access: 'off' | 'read' } | { access: 'write'; destination: string };
 
 /*
  * What the agents of a project may do with each of its database connections, as a person on one of

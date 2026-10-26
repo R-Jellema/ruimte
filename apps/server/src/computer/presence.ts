@@ -10,7 +10,7 @@ export interface PresenceShow {
     ends?: true;
 }
 
-export interface ComputerPresenceOptions {
+interface ComputerPresenceOptions {
     /* One presence request; it may fail, which is logged and changes nothing. */
     send: (show: PresenceShow) => Promise<void>;
     words: () => PresenceWords;

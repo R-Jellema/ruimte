@@ -41,7 +41,7 @@ export const MAX_OPEN_UPLOADS = 8;
 // What `artifact read` prints of a text file; past it the agent reads the rest from its own copy.
 export const MAX_READ_BYTES = 256 * 1024;
 
-export interface ArtifactReading {
+interface ArtifactReading {
     artifact: Artifact;
     version: ArtifactVersion;
     file: ArtifactFile;
@@ -51,18 +51,18 @@ export interface ArtifactReading {
 }
 
 /* What the service needs to know of a project: its name and its folder; null for a project this machine does not know. */
-export interface ArtifactProjects {
+interface ArtifactProjects {
     known(): Promise<Array<{ projectId: string; name: string; folder: string }>>;
     /* The project a node, view or chat is in. */
     projectOf(id: string): string | null;
 }
 
-export interface ArtifactChats {
+interface ArtifactChats {
     findAttachment(chatId: string, attachmentId: string): Promise<ChatAttachment | null>;
     hasStored(chatId: string): Promise<boolean>;
 }
 
-export interface ArtifactsDeps {
+interface ArtifactsDeps {
     store: ArtifactStore;
     home: string;
     machineId: string;
@@ -74,7 +74,7 @@ export interface ArtifactsDeps {
     pinned?: PinnedVersions;
 }
 
-export interface PublishInput {
+interface PublishInput {
     upload: string;
     files: ReadonlyArray<{ name: string; size: number }>;
     title?: string;
@@ -83,7 +83,7 @@ export interface PublishInput {
     requestId: string;
 }
 
-export interface DeliverInput {
+interface DeliverInput {
     projectId: string;
     key: string;
     title: string;

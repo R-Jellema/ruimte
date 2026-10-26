@@ -17,13 +17,13 @@ import { errorText } from '../error-text.ts';
 import { connectionTarget } from './agent-databases.ts';
 
 /* The snapshot format of the SQL language server this daemon writes (`docs/snapshot-format.md` there). */
-export const SNAPSHOT_FORMAT_VERSION = 1;
+const SNAPSHOT_FORMAT_VERSION = 1;
 
 /* The file of a snapshot of every database a connection that starts in none can see, which no database name can take. */
 const ALL_DATABASES = '@all';
 
 /* How long one snapshot may keep its session; past it the snapshot is given up and its session closed. */
-export const SNAPSHOT_LIMIT_MS = 120_000;
+const SNAPSHOT_LIMIT_MS = 120_000;
 
 /* What a connection is read for: a database by name, or null for every database a connection that starts in none can see. */
 export interface SnapshotTarget {
@@ -36,7 +36,7 @@ export interface SnapshotFacts extends SqlSnapshotInfo {
     path: string;
 }
 
-export interface SchemaSnapshotsOptions {
+interface SchemaSnapshotsOptions {
     /* `$RUIMTE_HOME/database-snapshots`. */
     root: string;
     service: { handle(request: unknown, owner: string): Promise<DatabaseResponse>; release(owner: string): Promise<void> };
@@ -47,7 +47,7 @@ export interface SchemaSnapshotsOptions {
 }
 
 /* Why a snapshot could not be taken, in words a person or an agent reads. */
-export class SnapshotError extends Error {}
+class SnapshotError extends Error {}
 
 type Call = <R>(method: string, params: Record<string, unknown>) => Promise<R>;
 

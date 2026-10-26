@@ -43,7 +43,7 @@ import { isKnownTerminal, readProcessTable, runsShells, type ProcessRow, type Pr
 import { diffTree, rememberTree, type RememberedTree, type TreeView } from './tree-diff.ts';
 
 /* A no to an agent: the code a script branches on, the sentence the model reads, what it may pick instead. */
-export class ComputerRefusal extends CodedError {}
+class ComputerRefusal extends CodedError {}
 
 /* How often a call held by the person's pause asks the helper whether they resumed. */
 const HOLD_POLL_MS = 500;
@@ -114,7 +114,7 @@ function fileNameOf(bundle: string): string {
     return basename(bundle).replace(/\.app$/i, '');
 }
 
-export interface InstalledAppSources {
+interface InstalledAppSources {
     folders?: string[];
     read?: (plist: string, key: string) => Promise<string | null>;
 }
@@ -150,14 +150,14 @@ export async function findInstalledApp(name: string, sources: InstalledAppSource
     return null;
 }
 
-export type AppAccess = 'always' | 'this-time' | 'ask' | 'terminal' | 'no-bundle-id';
+type AppAccess = 'always' | 'this-time' | 'ask' | 'terminal' | 'no-bundle-id';
 
-export interface ListedApp {
+interface ListedApp {
     app: RunningApp;
     access: AppAccess;
 }
 
-export interface AppsOutcome {
+interface AppsOutcome {
     apps: ListedApp[];
     doctor: DoctorResult;
 }

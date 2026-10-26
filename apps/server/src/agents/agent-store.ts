@@ -8,7 +8,7 @@ function fileName(sessionId: string): string {
     return `${encodeURIComponent(sessionId)}.agent.json`;
 }
 
-export interface AgentRecord {
+interface AgentRecord {
     agent: AgentInfo;
     // The account the node launched this CLI under, so a resume after a restart finds its transcript.
     account?: string;

@@ -1,6 +1,6 @@
 import { CodedError } from '@adecore/agents';
 
-export type ArchiveErrorCode =
+type ArchiveErrorCode =
     | 'not-an-archive'
     | 'corrupt'
     | 'entry-not-found'

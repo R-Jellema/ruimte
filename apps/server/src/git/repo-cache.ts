@@ -1,5 +1,6 @@
-import { join, resolve, sep } from 'node:path';
+import { join, resolve } from 'node:path';
 import type { GitReposResult } from '@ruimte/contracts';
+import { isUnder } from '../fs/path-segment.ts';
 import { PROJECT_DIR } from '../projects/project-files.ts';
 import { listRepos } from './repos.ts';
 
@@ -11,10 +12,6 @@ interface Remembered {
     result: Promise<GitReposResult>;
     // What the list came to, once it did, so a change can be held against the checkouts in it.
     settled: GitReposResult | null;
-}
-
-function isUnder(path: string, ancestor: string): boolean {
-    return path === ancestor || path.startsWith(ancestor.endsWith(sep) ? ancestor : `${ancestor}${sep}`);
 }
 
 /* The directories of a checkout where a change can alter the list: its own folder, where `.git` and `.gitmodules` sit, and what names it. */

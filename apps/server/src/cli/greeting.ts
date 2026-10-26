@@ -1,6 +1,6 @@
 import { portFlag } from '../config.ts';
 
-export interface GreetingFacts {
+interface GreetingFacts {
     version: string;
     host: string;
     port: number;

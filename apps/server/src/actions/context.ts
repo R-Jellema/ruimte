@@ -19,7 +19,7 @@ export interface VoiceOpenProject {
 }
 
 /* The projects of this machine a Voice session moves between; the session keeps which one is current. */
-export interface VoiceProjectFocus {
+interface VoiceProjectFocus {
     machine: { id: string; label: string };
     /* The machine's projects in use, the most recently opened first. */
     open(): Promise<VoiceOpenProject[]>;
@@ -49,6 +49,15 @@ export interface VoiceCaller {
 export type VoiceActionContext = ServerActionContext & { voice: VoiceCaller };
 
 export type ServerActionCall = ActionCall<ServerActionContext>;
+
+/* A service of the host that a machine may not have, refused with `code` where it has none. */
+export function hostService<Key extends keyof CanvasHost>(context: ServerActionContext, key: Key, code: string, message: string): NonNullable<CanvasHost[Key]> {
+    const service = context.host[key];
+    if (!service) {
+        throw new VerbRefusal(code, message);
+    }
+    return service;
+}
 
 /*
  * The host an action writes through when the caller named a revision. Only the first write is held to
@@ -98,7 +107,7 @@ export function serverActionCall(host: CanvasHost, place: IndexedPlace | null, c
 const VOICE_ACTOR_PREFIX = 'voice:';
 
 /* The actor id of a Voice session, apart from every node id, which is what a lineage or a claim is kept under. */
-export function voiceActorId(sessionId: string): string {
+function voiceActorId(sessionId: string): string {
     return `${VOICE_ACTOR_PREFIX}${sessionId}`;
 }
 

@@ -22,17 +22,17 @@ import { isVideo, requireExtension, requireMedia } from './device-paths.ts';
 import { DeviceRecordings } from './recordings.ts';
 import type { CommandResult } from './scrcpy-source.ts';
 
-export type AndroidRunner = (command: string, arguments_: string[]) => Promise<CommandResult>;
+type AndroidRunner = (command: string, arguments_: string[]) => Promise<CommandResult>;
 
 /* The same for a command whose output is bytes, such as a png from `exec-out`, which a text decoder would mangle. */
-export type AndroidBytesRunner = (command: string, arguments_: string[]) => Promise<{ exitCode: number; stdout: Uint8Array; stderr: string }>;
+type AndroidBytesRunner = (command: string, arguments_: string[]) => Promise<{ exitCode: number; stdout: Uint8Array; stderr: string }>;
 
 export interface EmulatorProcess {
     readonly exited: Promise<number>;
     output(): string;
 }
 
-export type EmulatorLauncher = (emulator: string, arguments_: string[], avd: string) => EmulatorProcess;
+type EmulatorLauncher = (emulator: string, arguments_: string[], avd: string) => EmulatorProcess;
 
 export interface AvdInfo {
     name: string;

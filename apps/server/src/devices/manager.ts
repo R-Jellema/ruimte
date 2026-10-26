@@ -42,8 +42,8 @@ export interface DeviceKeyboard {
 }
 
 /* USB HID keyboard usages (page 7) of the keys typing presses itself. */
-export const KEY_RETURN = 0x28;
-export const KEY_TAB = 0x2b;
+const KEY_RETURN = 0x28;
+const KEY_TAB = 0x2b;
 export const KEY_V = 0x19;
 export const KEY_LEFT_COMMAND = 0xe3;
 
@@ -155,7 +155,7 @@ const DEVICE_ERROR_CODES = [
     'device-must-be-shut-down'
 ] as const;
 
-export type DeviceErrorCode = (typeof DEVICE_ERROR_CODES)[number];
+type DeviceErrorCode = (typeof DEVICE_ERROR_CODES)[number];
 
 function isDeviceErrorCode(code: string): code is DeviceErrorCode {
     return (DEVICE_ERROR_CODES as readonly string[]).includes(code);

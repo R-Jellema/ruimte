@@ -1,7 +1,7 @@
 import { clipText } from '@ruimte/contracts';
 import type { AppleToolResult } from './apple-tools.ts';
 
-export interface AppleCommandProcess {
+interface AppleCommandProcess {
     stdout: ReadableStream<Uint8Array>;
     stderr: ReadableStream<Uint8Array>;
     exited: Promise<number>;

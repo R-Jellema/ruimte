@@ -2,7 +2,7 @@ import type { ChatContinueOnPayload, ChatContinueOnResult, ChatForkPayload, Chat
 import type { ChatManager } from './chat-manager.ts';
 import { ChatError } from './errors.ts';
 
-export interface ContinueOnDeps {
+interface ContinueOnDeps {
     chats: Pick<ChatManager, 'isRelocating' | 'limitedTurnFor' | 'continueInPlace' | 'continueInFork' | 'continuedInFork'>;
     fork(payload: ChatForkPayload): Promise<ChatForkResult>;
 }

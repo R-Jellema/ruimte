@@ -18,7 +18,7 @@ interface CommandResult {
     stderr: string;
 }
 
-export type DevicectlRunner = (arguments_: string[]) => Promise<CommandResult>;
+type DevicectlRunner = (arguments_: string[]) => Promise<CommandResult>;
 
 const PhysicalDeviceSchema = z.object({
     identifier: z.string().min(1),
@@ -57,7 +57,7 @@ const PhysicalDeviceListSchema = z.object({ result: z.object({ devices: z.array(
 const BridgeBatterySchema = z.object({ level: z.number().int().min(0).max(100), charging: z.boolean(), plugged: z.boolean() });
 
 /* Asks the phone with this hardware udid for its battery and answers the bridge's JSON line; throws when it could not. */
-export type PhysicalBatteryReader = (udid: string) => Promise<string>;
+type PhysicalBatteryReader = (udid: string) => Promise<string>;
 
 // The bridge gives up after its own timeout; this only ends a bridge that hangs past it.
 const BATTERY_BRIDGE_TIMEOUT_SECONDS = 10;

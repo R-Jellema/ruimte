@@ -4,7 +4,7 @@ import type { GitIgnoredFilesResult } from '@ruimte/contracts';
 import { GitError, runGit } from './run.ts';
 
 // More than a checkout keeps beside its code; a list past it is cut and says so.
-export const MAX_IGNORED_FILES = 2_000;
+const MAX_IGNORED_FILES = 2_000;
 
 // The project's own state, which the daemon keeps out of git and never hands to another machine.
 const RUIMTE_STATE = /(^|\/)\.ruimte\//;

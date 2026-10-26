@@ -6,13 +6,10 @@ import { VerbRefusal, snoozedAt, type ContextHost } from '../canvas/verb.ts';
 import { refuseOtherMachine } from '../canvas/remote-node.ts';
 import { ContextRefusal } from '../context/context-store.ts';
 import { readInForm, readReference } from '../context/read-forms.ts';
-import type { ServerActionContext } from './context.ts';
+import { hostService, type ServerActionContext } from './context.ts';
 
 function contextOf(context: ServerActionContext): ContextHost {
-    if (!context.host.context) {
-        throw new VerbRefusal('no-context', 'This machine keeps no linked context');
-    }
-    return context.host.context;
+    return hostService(context, 'context', 'no-context', 'This machine keeps no linked context');
 }
 
 /*

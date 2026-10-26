@@ -17,7 +17,7 @@ export function startFirst(port: number): string {
     return `Start it with \`ruimte service install${flag}\`, or with \`ruimte${flag}\` in another terminal.`;
 }
 
-export type StatusAnswer = { status: MachineStatus } | { problem: 'not-running' | 'other-home' | 'too-old' };
+type StatusAnswer = { status: MachineStatus } | { problem: 'not-running' | 'other-home' | 'too-old' };
 
 /* Asks the daemon on `port` how clients reach it, on the local secret of the home this command runs with; `check` has it check again first. */
 export async function readMachineStatus(port: number, secret: string, fetcher: Fetch, check = false): Promise<StatusAnswer> {
@@ -135,7 +135,7 @@ function probeLine(probe: ReachCheck['facts']['probes'][number]): string {
 }
 
 /* The check as `ruimte status` prints it: the verdict, each server that was asked, and what is wrong with a fix. */
-export function reachLines(reach: ReachCheck): string[] {
+function reachLines(reach: ReachCheck): string[] {
     const { problem, fix } = reachAdvice(reach.cause, reach.facts);
     const lines = [`Reach     ${SEVERITY_WORD[reach.severity]}, checked ${new Date(reach.checkedAt).toISOString()}`];
     if (reach.facts.tunnel !== null) {

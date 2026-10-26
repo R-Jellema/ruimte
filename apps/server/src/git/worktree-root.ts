@@ -1,16 +1,13 @@
 import { constants } from 'node:fs';
 import { access, realpath, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { dirname, isAbsolute, join, resolve, sep } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { isUnder } from '../fs/path-segment.ts';
 
-export type WorktreeRootCheck = { root: string } | { refusal: 'root-refused' | 'not-a-folder'; message: string };
+type WorktreeRootCheck = { root: string } | { refusal: 'root-refused' | 'not-a-folder'; message: string };
 
 async function realOrSelf(path: string): Promise<string> {
     return await realpath(path).catch(() => path);
-}
-
-function isWithin(parent: string, path: string): boolean {
-    return path === parent || path.startsWith(parent.endsWith(sep) ? parent : `${parent}${sep}`);
 }
 
 /* The nearest folder that exists on the way up from a path, with whether it is a folder this process may create in. */
@@ -61,7 +58,7 @@ export async function checkWorktreeRoot(path: string, home: string, userHome: st
         return { refusal: 'root-refused', message: 'The worktree folder cannot be your home folder' };
     }
     const realHome = await realOrSelf(home);
-    if (isWithin(realHome, real) && !isWithin(join(realHome, 'worktrees'), real)) {
+    if (isUnder(real, realHome) && !isUnder(real, join(realHome, 'worktrees'))) {
         return { refusal: 'root-refused', message: "The worktree folder cannot be inside Ruimte's own data folder" };
     }
     if (!nearest.writable) {

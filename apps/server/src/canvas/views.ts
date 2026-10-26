@@ -27,7 +27,7 @@ export const VIEW_KINDS = PROJECT_VIEW_KINDS.filter(
     (kind): kind is Exclude<(typeof PROJECT_VIEW_KINDS)[number], 'device' | 'artifact'> => kind !== 'device' && kind !== 'artifact'
 );
 
-export type ViewFlag = 'path' | 'url';
+type ViewFlag = 'path' | 'url';
 
 // The flags that only mean something on one kind; every kind takes --after.
 export const VIEW_KIND_FLAGS: Partial<Record<ProjectViewKind, ViewFlag>> = { file: 'path', browser: 'url' };
@@ -75,12 +75,12 @@ export function deleteReason(view: ProjectView, call: { caller: string; place: I
     return { may: false, why: view.createdBy === undefined ? 'a person made it' : `${view.createdBy} made it` };
 }
 
-export function deletableView(view: ProjectView, call: { caller: string; place: IndexedPlace; anyView: boolean }): boolean {
+function deletableView(view: ProjectView, call: { caller: string; place: IndexedPlace; anyView: boolean }): boolean {
     return deleteReason(view, call).may;
 }
 
 /* The icon names in rows of ten: one per line they would bury the refusal they belong to. */
-export const ICON_NAME_LINES = Array.from({ length: Math.ceil(PROJECT_ICON_NAMES.length / 10) }, (_, row) =>
+const ICON_NAME_LINES = Array.from({ length: Math.ceil(PROJECT_ICON_NAMES.length / 10) }, (_, row) =>
     ['icons', ...PROJECT_ICON_NAMES.slice(row * 10, row * 10 + 10)].join('\t')
 );
 

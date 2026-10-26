@@ -18,7 +18,7 @@ export const UI_SOURCE_ARGS = {
         .strict()
 };
 
-export type UiSourceName = keyof typeof UI_SOURCE_ARGS;
+type UiSourceName = keyof typeof UI_SOURCE_ARGS;
 
 /* A source's arguments as a block writes them: each default as it is, and a placeholder where the agent fills one in. */
 function exampleArgs(schema: z.ZodObject): string {

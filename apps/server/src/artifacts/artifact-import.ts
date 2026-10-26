@@ -14,7 +14,7 @@ import type { PeerLink } from '../remote/peer-connection.ts';
 import { ArtifactError } from './artifact-names.ts';
 import type { ArtifactStore } from './artifact-store.ts';
 
-export interface ArtifactImportDeps {
+interface ArtifactImportDeps {
     store: ArtifactStore;
     machineId: string;
     known(): Promise<Array<{ projectId: string; name: string }>>;

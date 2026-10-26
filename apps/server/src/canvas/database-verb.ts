@@ -20,7 +20,7 @@ function escapedText(text: string): string {
     return text.replace(/[\\\t\n\r]/g, (char) => ESCAPES[char]!);
 }
 
-export function cellText(cell: Cell): string {
+function cellText(cell: Cell): string {
     if (cell === null) {
         return 'NULL';
     }

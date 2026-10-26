@@ -4,14 +4,11 @@ import { CodedError } from '@adecore/agents';
 import { VerbRefusal } from '../canvas/verb.ts';
 import type { AgentQuery, DatabaseAgentHost } from '../database/agent-databases.ts';
 import { tableVisual } from '../database/table-visual.ts';
-import type { ServerActionContext } from './context.ts';
+import { hostService, type ServerActionContext } from './context.ts';
 import { showVisual } from './visual-actions.ts';
 
 export function databasesOf(context: ServerActionContext): DatabaseAgentHost {
-    if (!context.host.databases) {
-        throw new VerbRefusal('no-databases', 'This machine reaches no databases');
-    }
-    return context.host.databases;
+    return hostService(context, 'databases', 'no-databases', 'This machine reaches no databases');
 }
 
 /* The table above the reply, or why it is not there: the rows were read either way, so not showing them is no refusal. */

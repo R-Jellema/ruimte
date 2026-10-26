@@ -16,7 +16,7 @@ function block(label: string, lines: readonly string[]): string {
     return `${label}:\n${lines.length === 0 ? '(nothing)' : lines.join('\n')}`;
 }
 
-export interface ResolvePrompt {
+interface ResolvePrompt {
     prompt: string;
     /* The blocks the prompt asks about, by index. */
     asked: number[];
@@ -124,7 +124,7 @@ export function parseResolution(output: string): { index: number; lines: string[
     return answers;
 }
 
-export interface ResolveOptions {
+interface ResolveOptions {
     provider?: AgentKind;
     /* The process, so `git.cancel` can end a CLI that is taking its time. */
     onSpawn?(kill: () => void): void;

@@ -6,12 +6,12 @@ import { isPathSegment } from '../fs/path-segment.ts';
 import { errorText } from '../error-text.ts';
 import { ChatError } from './errors.ts';
 
-export interface MovedTranscript {
+interface MovedTranscript {
     /* Puts back what moved, last first; a second call does nothing. */
     undo(): Promise<void>;
 }
 
-export interface MoveTranscriptOptions {
+interface MoveTranscriptOptions {
     projectsDir: string;
     sessionId: string;
     fromCwd: string;

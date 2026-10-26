@@ -4,7 +4,7 @@ import { CodedError } from '@adecore/agents';
 
 type RevealErrorCode = 'path-not-found' | 'reveal-failed';
 
-export class RevealError extends CodedError<RevealErrorCode> {}
+class RevealError extends CodedError<RevealErrorCode> {}
 
 /* The file manager's command line per platform: a folder opens, a file is selected inside its folder. */
 export function revealCommand(path: string, isDirectory: boolean, platform: NodeJS.Platform = process.platform): string[] {

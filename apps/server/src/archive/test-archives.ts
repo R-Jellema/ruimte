@@ -2,7 +2,7 @@ import { crc32, deflateRawSync } from 'node:zlib';
 
 /* Archives built byte by byte for the tests, so each one holds exactly the oddity a test is about. */
 
-export interface ZipFixtureEntry {
+interface ZipFixtureEntry {
     name: string;
     data?: string | Uint8Array;
     method?: number;
@@ -105,7 +105,7 @@ export function buildZip(entries: readonly ZipFixtureEntry[], options: { zip64?:
     return Buffer.concat([...locals, directory, ...tail, end]);
 }
 
-export interface TarFixtureEntry {
+interface TarFixtureEntry {
     name: string;
     /* `0` a file, `2` a link, `5` a folder, `1` a hard link, `L` a GNU long name, `x` a pax header. */
     type?: string;

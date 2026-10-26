@@ -815,7 +815,7 @@ export class ChatManager extends ChatCore {
 }
 
 /* A fork with no turn after the one it was cut at: nobody wrote in it, so its CLI never touched the copy. */
-export function unspokenFork(items: readonly ChatItem[], info: ChatInfo): boolean {
+function unspokenFork(items: readonly ChatItem[], info: ChatInfo): boolean {
     const forkOf = info.forkOf;
     if (forkOf === undefined) {
         return false;

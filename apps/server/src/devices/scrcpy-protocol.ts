@@ -111,7 +111,7 @@ export class ScrcpyProtocolError extends Error {
     readonly code = 'scrcpy-protocol';
 }
 
-export interface ScrcpyVideoFrame {
+interface ScrcpyVideoFrame {
     width: number;
     height: number;
     keyFrame: boolean;
@@ -202,7 +202,7 @@ export class ScrcpyVideoReader {
 }
 
 /* The acknowledgement of a clipboard write, or the text of the device clipboard the server was asked for. */
-export type ScrcpyDeviceMessage = { kind: 'ack'; sequence: bigint } | { kind: 'clipboard'; text: string };
+type ScrcpyDeviceMessage = { kind: 'ack'; sequence: bigint } | { kind: 'clipboard'; text: string };
 
 /* Reads what the server sends back on the control socket; a keyboard's output is read past. */
 export class ScrcpyDeviceMessageReader {
@@ -256,7 +256,7 @@ export interface ScreenSize {
     height: number;
 }
 
-export function encodeKeycode(action: typeof ACTION_DOWN | typeof ACTION_UP, keycode: number, metaState = 0): Uint8Array {
+function encodeKeycode(action: typeof ACTION_DOWN | typeof ACTION_UP, keycode: number, metaState = 0): Uint8Array {
     const message = new DataView(new ArrayBuffer(14));
     message.setUint8(0, TYPE_INJECT_KEYCODE);
     message.setUint8(1, action);
@@ -338,7 +338,7 @@ export function encodeGetClipboard(): Uint8Array {
     return new Uint8Array([TYPE_GET_CLIPBOARD, 0]);
 }
 
-export function encodeRotate(): Uint8Array {
+function encodeRotate(): Uint8Array {
     return new Uint8Array([TYPE_ROTATE_DEVICE]);
 }
 

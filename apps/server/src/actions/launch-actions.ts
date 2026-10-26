@@ -2,14 +2,11 @@ import type { ActionHandlers, ActionInput } from '@ruimte/actions';
 import { isSecretReference, type LaunchConfig, type LaunchConfigKind, type LaunchConfigOverlay } from '@ruimte/contracts';
 import { MAX_SCREEN_LINES } from '../context/context-store.ts';
 import { VerbRefusal, field, orNote, type LaunchHost, type LaunchReading } from '../canvas/verb.ts';
-import type { ServerActionContext } from './context.ts';
+import { hostService, type ServerActionContext } from './context.ts';
 import { freeSlug } from './slug.ts';
 
 export function launchHostOf(context: ServerActionContext): LaunchHost {
-    if (!context.host.launches) {
-        throw new VerbRefusal('no-launches', 'This machine runs no launches');
-    }
-    return context.host.launches;
+    return hostService(context, 'launches', 'no-launches', 'This machine runs no launches');
 }
 
 export function launchLines(launches: readonly LaunchReading[]): string[] {

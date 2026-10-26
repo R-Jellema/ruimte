@@ -4,7 +4,7 @@
  * A dot is no longer a reason on its own: `.github` and `.editorconfig` are as much of the project
  * as `package.json` is, and what is really noise is what the repository already ignores.
  */
-export type FsVisibility = 'always' | 'shy' | 'never';
+type FsVisibility = 'always' | 'shy' | 'never';
 
 /* Compared in lowercase, the way the file systems these come from compare a name themselves. */
 const OS_NOISE = new Set([
@@ -79,7 +79,7 @@ export function isBuildOutput(name: string): boolean {
     return BUILD_OUTPUT.has(name);
 }
 
-export interface ClassifyOptions {
+interface ClassifyOptions {
     /* What `git check-ignore` said about this entry. */
     ignored?: boolean;
     /* Whether the directory it sits in is inside a checkout at all. */

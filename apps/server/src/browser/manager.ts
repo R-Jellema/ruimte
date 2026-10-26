@@ -51,11 +51,11 @@ export interface BrowserPage {
     close(): void;
 }
 
-export type BrowserPageFactory = (width: number, height: number) => BrowserPage;
+type BrowserPageFactory = (width: number, height: number) => BrowserPage;
 
 type BrowserErrorCode = 'bad-address' | 'browser-not-found' | 'browser-unavailable';
 
-export class BrowserError extends CodedError<BrowserErrorCode> {}
+class BrowserError extends CodedError<BrowserErrorCode> {}
 
 function normalizeUrl(input: string): string {
     const trimmed = input.trim();

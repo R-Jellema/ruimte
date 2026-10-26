@@ -29,7 +29,7 @@ const EMPTY: GitStatus = {
     live: true
 };
 
-export interface PorcelainEntry {
+interface PorcelainEntry {
     path: string;
     oldPath?: string;
     /* The porcelain letter for the index side, `.` when the index holds what HEAD holds. */
@@ -40,7 +40,7 @@ export interface PorcelainEntry {
     untracked: boolean;
 }
 
-export interface PorcelainStatus {
+interface PorcelainStatus {
     branch: string | null;
     detached: boolean;
     upstream: string | null;

@@ -13,7 +13,7 @@ import { git } from './run.ts';
  * checkouts, which is what this is for; a second costs a readdir per folder on this one and only pays
  * off for a `packages/*` layout. Submodules never go through the scan, so their depth is git's.
  */
-export const REPO_SCAN_DEPTH = 1;
+const REPO_SCAN_DEPTH = 1;
 
 // Past this the panel draws more sections than anybody reads, and every one of them costs a status run.
 export const MAX_REPOS = 24;

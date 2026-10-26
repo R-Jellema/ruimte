@@ -31,9 +31,9 @@ export const AGENT_MODEL_BYTES = CHAT_MODEL_MAX_BYTES;
 // Every signature the model sniff reads sits in the head; only a binary STL needs the whole size beside it.
 const SNIFF_HEAD_BYTES = 4096;
 
-export type AgentAttachmentKind = 'image' | 'model';
+type AgentAttachmentKind = 'image' | 'model';
 
-export interface AgentAttachmentType {
+interface AgentAttachmentType {
     readonly kind: AgentAttachmentKind;
     readonly mime: string;
 }

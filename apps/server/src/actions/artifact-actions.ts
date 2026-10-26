@@ -1,13 +1,8 @@
 import type { ActionHandlers } from '@ruimte/actions';
-import { VerbRefusal } from '../canvas/verb.ts';
-import type { ServerActionContext } from './context.ts';
+import { hostService, type ServerActionContext } from './context.ts';
 
 function artifactsOf(context: ServerActionContext) {
-    const artifacts = context.host.artifacts;
-    if (!artifacts) {
-        throw new VerbRefusal('unavailable', 'This machine keeps no Output; say what you made in text');
-    }
-    return artifacts;
+    return hostService(context, 'artifacts', 'unavailable', 'This machine keeps no Output; say what you made in text');
 }
 
 /* Every call is held to the caller's own project, which the daemon reads off the caller and never off an argument. */

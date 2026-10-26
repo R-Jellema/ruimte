@@ -8,7 +8,7 @@ import { fileExists, CodedError } from '@adecore/agents';
 
 type BrowseErrorCode = 'cwd-required' | 'windows-path';
 
-export class BrowseError extends CodedError<BrowseErrorCode> {}
+class BrowseError extends CodedError<BrowseErrorCode> {}
 
 interface BrowseOptions {
     home?: string;

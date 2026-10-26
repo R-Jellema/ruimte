@@ -39,7 +39,7 @@ const EVENT_STATUS: Record<string, AgentStatus | 'unchanged' | 'gone'> = {
 };
 
 // Tools that stop and wait for the person, even though they arrive as a plain tool call.
-export const ASKING_TOOLS: ReadonlySet<string> = new Set(['AskUserQuestion', 'request_user_input']);
+const ASKING_TOOLS: ReadonlySet<string> = new Set(['AskUserQuestion', 'request_user_input']);
 
 function optionLabel(option: unknown): string | null {
     if (typeof option === 'string') {
@@ -100,7 +100,7 @@ const NOTIFICATION_STATUS: Record<string, AgentStatus> = {
 };
 
 /* A field a CLI wrote in its hook payload; an empty one says as little as a missing one. */
-export function asString(value: unknown): string | null {
+function asString(value: unknown): string | null {
     return typeof value === 'string' && value !== '' ? value : null;
 }
 

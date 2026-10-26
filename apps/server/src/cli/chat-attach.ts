@@ -6,7 +6,7 @@ const HELP_LINE = 'detail\truimte-context help chat attach';
 
 const MIB = 1024 * 1024;
 
-export type PreparedAttachment = { argv: string[] } | { refusal: { code: string; message: string; lines: string[] } };
+type PreparedAttachment = { argv: string[] } | { refusal: { code: string; message: string; lines: string[] } };
 
 function refusal(code: string, message: string): PreparedAttachment {
     return { refusal: { code, message, lines: [HELP_LINE] } };

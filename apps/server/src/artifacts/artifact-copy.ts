@@ -6,7 +6,7 @@ import { isNotFound } from '@adecore/agents';
 import { isDiskFull } from './artifact-fs.ts';
 import { ArtifactError, relativeSegments } from './artifact-names.ts';
 
-export interface CopySource {
+interface CopySource {
     file: ArtifactFile;
     /* Where the store keeps its bytes. */
     path: string;

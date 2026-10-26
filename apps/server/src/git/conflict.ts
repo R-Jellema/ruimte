@@ -213,7 +213,7 @@ function digest(bytes: Uint8Array): string {
 }
 
 /* The digest of what stands on disk right now, and the empty string for a file that is not there. */
-export async function workingDigest(root: string, path: string): Promise<string> {
+async function workingDigest(root: string, path: string): Promise<string> {
     const bytes = await readFile(join(root, path)).catch(() => null);
     return bytes === null ? '' : digest(bytes);
 }

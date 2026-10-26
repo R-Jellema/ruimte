@@ -20,7 +20,7 @@ interface CloneJob {
     readonly canceled: boolean;
 }
 
-export interface CloneOptions {
+interface CloneOptions {
     url: string;
     path: string;
     job: CloneJob;

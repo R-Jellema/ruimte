@@ -26,7 +26,7 @@ export interface LedgerEntry {
     createdHooksKey: boolean;
 }
 
-export interface HooksRemoval {
+interface HooksRemoval {
     config: Record<string, unknown>;
     // Ruimte hooks taken out.
     removed: number;

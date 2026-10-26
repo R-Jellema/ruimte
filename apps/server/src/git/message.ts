@@ -70,7 +70,7 @@ async function stagedInput(top: string): Promise<{ nameStatus: string; patch: st
     return null;
 }
 
-export interface SuggestOptions {
+interface SuggestOptions {
     provider?: AgentKind;
     /* The process, so `git.cancel` can end a CLI that is taking its time. */
     onSpawn?(kill: () => void): void;

@@ -6,7 +6,7 @@ import { readLocalSecret } from '../auth/local-secret.ts';
 import { CodedError } from '@adecore/agents';
 import { HelperReplySchema, type HelperRequest } from './helper-protocol.ts';
 
-export type HelperFailureCode = 'unavailable' | 'helper-unreachable' | 'helper-busy' | 'helper-error' | 'helper-invalid';
+type HelperFailureCode = 'unavailable' | 'helper-unreachable' | 'helper-busy' | 'helper-error' | 'helper-invalid';
 
 export class HelperFailure extends CodedError<HelperFailureCode> {
     /* The helper's own code for a refusal, when it gave one. */
@@ -47,7 +47,7 @@ export function helperDirectory(home: string): string {
     return join(home, 'computer-use');
 }
 
-export function helperSocketPath(home: string): string {
+function helperSocketPath(home: string): string {
     return join(helperDirectory(home), 'agent.sock');
 }
 
@@ -78,7 +78,7 @@ export function answerWithinMs(request: HelperRequest, baseMs: number = REQUEST_
 }
 
 /* One request per connection: write the JSON, half-close, read until the helper closes. */
-export function socketTransport(socketPath: string, timeoutMs: number = REQUEST_TIMEOUT_MS): HelperTransport {
+function socketTransport(socketPath: string, timeoutMs: number = REQUEST_TIMEOUT_MS): HelperTransport {
     return {
         send: (request) =>
             new Promise<unknown>((settle, fail) => {
@@ -130,7 +130,7 @@ async function openApp(appPath: string, home: string): Promise<void> {
     }
 }
 
-export interface ComputerHelperOptions {
+interface ComputerHelperOptions {
     home: string;
     /* The helper app; null on a machine that has none. */
     appPath: string | null;

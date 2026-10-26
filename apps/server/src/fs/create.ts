@@ -8,7 +8,7 @@ import { realRoots, stateRefusal, type WriteBoundary } from './write.ts';
 
 type CreateErrorCode = 'bad-path' | 'exists' | 'not-a-directory' | 'outside-project' | 'git-state' | 'ruimte-state' | 'too-large' | 'not-writable';
 
-export class CreateError extends CodedError<CreateErrorCode> {}
+class CreateError extends CodedError<CreateErrorCode> {}
 
 /*
  * The real path of the deepest folder that exists along `path`, and the names below it that do not.

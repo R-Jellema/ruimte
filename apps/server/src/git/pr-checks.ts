@@ -13,7 +13,7 @@ export interface RawCheck {
     targetUrl?: string | null;
 }
 
-export type CheckSummary = 'pending' | 'success' | 'failure' | 'none';
+type CheckSummary = 'pending' | 'success' | 'failure' | 'none';
 
 /* The push run and the pull request run of one workflow carry the same name, so the name alone is no identity. */
 export function checkKey(kind: string, app: string, workflow: string, event: string, name: string): string {

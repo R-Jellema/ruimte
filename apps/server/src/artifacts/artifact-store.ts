@@ -66,7 +66,7 @@ export interface CommitResult {
     existing: boolean;
 }
 
-export interface ArtifactStoreDeps {
+interface ArtifactStoreDeps {
     /* `$RUIMTE_HOME/artifacts`. */
     root: string;
     fs?: ArtifactFs;
@@ -75,7 +75,7 @@ export interface ArtifactStoreDeps {
     newId?: () => string;
 }
 
-export interface ArtifactFilter {
+interface ArtifactFilter {
     projectId?: string;
     chatId?: string;
 }

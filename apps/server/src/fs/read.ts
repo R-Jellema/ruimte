@@ -133,7 +133,7 @@ function baseName(path: string): string {
 }
 
 // The device and inode say which file was looked at, so a write can tell that file from one swapped in under its name.
-export interface FileStat {
+interface FileStat {
     path: string;
     size: number;
     mtime: number;

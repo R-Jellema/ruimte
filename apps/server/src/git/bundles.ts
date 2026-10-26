@@ -33,7 +33,7 @@ export const PEER_MAX_BUNDLE_BYTES = 512 * 1024 * 1024;
 export const PEER_MAX_RESULT_BUNDLES = PEER_MAX_OPEN_TASKS * 2;
 
 /* How much of this disk the bundles of one machine may hold. */
-export interface BundleLimits {
+interface BundleLimits {
     /* Transfers it sent. */
     bundles: number;
     bytes: number;

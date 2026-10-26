@@ -4,7 +4,7 @@ import type { DeviceHelperCall } from './helper-protocol.ts';
 import { DeviceError } from './manager.ts';
 
 /* The part of the native helper a fold goes through. */
-export interface FoldHelper {
+interface FoldHelper {
     call(call: DeviceHelperCall): Promise<boolean | undefined>;
 }
 

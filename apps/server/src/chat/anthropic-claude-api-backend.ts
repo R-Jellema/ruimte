@@ -51,7 +51,7 @@ const realIdleTimer: IdleTimer = (ms, run) => {
     return () => clearTimeout(handle);
 };
 
-export interface AnthropicClaudeApiBackendOptions {
+interface AnthropicClaudeApiBackendOptions {
     executeTool?: typeof executeNanoTool;
     limits?: ClaudeApiLimits;
     idleTimer?: IdleTimer;

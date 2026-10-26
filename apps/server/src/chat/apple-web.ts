@@ -3,7 +3,7 @@ import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 import { BlockList, isIP } from 'node:net';
 
-export interface AppleWebResponse {
+interface AppleWebResponse {
     url: string;
     status: number;
     contentType: string;

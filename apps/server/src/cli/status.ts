@@ -3,7 +3,7 @@ import { readMachineStatus, startFirst, statusLines } from './machine-status.ts'
 
 type Fetch = (input: string, init: RequestInit) => Promise<Response>;
 
-export interface StatusOptions {
+interface StatusOptions {
     port: number;
     home: string;
     fetch?: Fetch;

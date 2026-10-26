@@ -6,7 +6,7 @@ import { selectionForOpening } from '../canvas/model.ts';
 import { isInside } from '../canvas/project-paths.ts';
 import { VerbRefusal, field, orNote, type RoutineAgentHost } from '../canvas/verb.ts';
 import { providerFor } from '../providers/registry.ts';
-import type { ServerActionContext } from './context.ts';
+import { hostService, type ServerActionContext } from './context.ts';
 import { launchHostOf, named } from './launch-actions.ts';
 import { freeSlug, slugOf } from './slug.ts';
 
@@ -26,10 +26,7 @@ function flagOf(name: keyof RoutineFields): string {
 }
 
 export function routinesOf(context: ServerActionContext): RoutineAgentHost {
-    if (!context.host.routines) {
-        throw new VerbRefusal('unavailable', 'This machine keeps no routines');
-    }
-    return context.host.routines;
+    return hostService(context, 'routines', 'unavailable', 'This machine keeps no routines');
 }
 
 function routineLines(entries: readonly RoutineEntry[]): string[] {

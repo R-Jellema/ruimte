@@ -62,7 +62,7 @@ export function summaryPrompt(original: { id: string; kind: 'node' | 'view' }, a
 
 const FORK_BUSY = 'The fork is working on a turn; ask for the summary once it ends';
 
-export interface SummarizeDeps {
+interface SummarizeDeps {
     source(chatId: string): Promise<{ info: ChatInfo; items: ChatItem[] } | null>;
     locate(id: string): IndexedPlace | null;
     titleFor(id: string): string | null;
@@ -76,7 +76,7 @@ export interface SummarizeDeps {
  * Asks a fork's own CLI to write down what it learned, in a turn of the fork a person sees and can
  * stop. The turn carries the chat it is for; the coordinator takes its last answer from there.
  */
-export async function summarizeFork(deps: SummarizeDeps, chatId: string): Promise<ChatSummarizeResult> {
+async function summarizeFork(deps: SummarizeDeps, chatId: string): Promise<ChatSummarizeResult> {
     if (deps.relocating?.(chatId) === true) {
         throw new ChatError('chat-busy', 'The fork is being moved to a project; ask for the summary once that is done');
     }
@@ -108,7 +108,7 @@ export async function summarizeFork(deps: SummarizeDeps, chatId: string): Promis
     return { turnId };
 }
 
-export interface SummaryCoordinatorDeps {
+interface SummaryCoordinatorDeps {
     chatItems(chatId: string): readonly ChatItem[] | null;
     projectOf(chatId: string): string | null;
     enqueue(projectId: string, target: string, work: OutboxWork): Promise<void>;
@@ -188,7 +188,7 @@ export function summaryTexts(
     };
 }
 
-export interface DeliverSummaryDeps {
+interface DeliverSummaryDeps {
     source(chatId: string): Promise<{ info: ChatInfo; items: ChatItem[] } | null>;
     locate(id: string): IndexedPlace | null;
     titleFor(id: string): string | null;
@@ -227,7 +227,7 @@ function withLineBack(content: ProjectContent, canvasId: string, forkId: string,
  * The line goes first because it is looked for before it is drawn: a restart after the note would
  * otherwise never draw it. An original that is gone says so in the fork instead.
  */
-export function deliverSummaryHandler(deps: DeliverSummaryDeps) {
+function deliverSummaryHandler(deps: DeliverSummaryDeps) {
     return async (entry: DeliverSummaryEntry): Promise<OutboxOutcome> => {
         const originalId = entry.target;
         const { forkId, turnId, text } = entry.payload;
@@ -250,7 +250,7 @@ export function deliverSummaryHandler(deps: DeliverSummaryDeps) {
 }
 
 /* A delivery the outbox gave up on is said in the fork that wrote the summary. */
-export function deliverSummaryParked(deps: Pick<DeliverSummaryDeps, 'note' | 'titleFor'>) {
+function deliverSummaryParked(deps: Pick<DeliverSummaryDeps, 'note' | 'titleFor'>) {
     return (entry: OutboxEntry, error: unknown): void => {
         if (entry.kind !== 'deliver-summary') {
             return;

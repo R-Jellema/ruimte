@@ -15,9 +15,9 @@ import { CodedError } from '@adecore/agents';
 import { isInside } from '../canvas/project-paths.ts';
 import { isRuimteState } from '../projects/project-files.ts';
 
-export class ImageFileError extends CodedError {}
+class ImageFileError extends CodedError {}
 
-export interface ImageFileSources {
+interface ImageFileSources {
     project(chatId: string, clientId: string): Promise<{ folder: string; name: string } | null>;
     attachment(chatId: string, attachmentId: string): Promise<ChatAttachment | null>;
     refusePath(path: string): Promise<void>;

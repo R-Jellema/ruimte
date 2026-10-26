@@ -35,9 +35,9 @@ export interface LogProcess {
     kill(): void;
 }
 
-export type LogSpawn = (command: readonly string[]) => LogProcess;
+type LogSpawn = (command: readonly string[]) => LogProcess;
 
-export function spawnLog(command: readonly string[]): LogProcess {
+function spawnLog(command: readonly string[]): LogProcess {
     const child = Bun.spawn([...command], { stdin: 'ignore', stdout: 'pipe', stderr: 'ignore' });
     async function* lines(): AsyncIterable<string> {
         const decoder = new TextDecoder();
@@ -54,7 +54,7 @@ export function spawnLog(command: readonly string[]): LogProcess {
     return { lines: lines(), exited: child.exited, kill: () => child.kill('SIGTERM') };
 }
 
-export interface FoldPanelMonitorOptions {
+interface FoldPanelMonitorOptions {
     udid: string;
     onPanel: (panel: FoldPanel) => void;
     spawn?: LogSpawn;

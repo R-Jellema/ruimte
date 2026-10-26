@@ -3,7 +3,7 @@ import { Readable, type Transform } from 'node:stream';
 import { ArchiveError, type InflateMeter } from './limits.ts';
 
 // A slice of the file per read: large enough to keep a disk busy, small enough to never matter in memory.
-export const READ_SLICE = 256 * 1024;
+const READ_SLICE = 256 * 1024;
 
 /* A file read at offsets. `read` answers fewer bytes only at the end of the file. */
 export interface RandomAccess {

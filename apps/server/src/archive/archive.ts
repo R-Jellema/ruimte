@@ -48,7 +48,7 @@ export async function openArchive(path: string): Promise<ArchiveFile> {
     throw new ArchiveError('not-an-archive', `${basename(file.path)} is not a zip, a tar or a gzip`);
 }
 
-export type WalkedKind = TarKind;
+type WalkedKind = TarKind;
 
 export interface WalkedEntry {
     /* Null when the name could land outside the folder it is extracted into. */
@@ -64,7 +64,7 @@ export interface WalkedEntry {
     chunks(): AsyncGenerator<Uint8Array>;
 }
 
-export interface WalkLimits {
+interface WalkLimits {
     /* What one inflater may put out; a zip counts per entry, a compressed tar over the whole stream. */
     maxBytes: number;
     tooLarge(): Error;
@@ -233,7 +233,7 @@ export async function listArchive(path: string): Promise<ArchiveListResult> {
     return { format: archive.format, entries, truncated, unsafe };
 }
 
-export interface ArchiveEntryBytes {
+interface ArchiveEntryBytes {
     bytes: Uint8Array;
     mime: string;
     language?: string;
@@ -251,7 +251,7 @@ function isUtf8(bytes: Uint8Array): boolean {
 }
 
 /* What an entry's own bytes claim, the way `inspect` reads a file: a known format, text, or a binary nothing draws. */
-export function entryMime(bytes: Uint8Array): string {
+function entryMime(bytes: Uint8Array): string {
     const head = bytes.subarray(0, SNIFF_BYTES);
     const magic = sniffMime(head, bytes.length);
     if (magic !== null) {

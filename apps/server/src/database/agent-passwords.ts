@@ -1,5 +1,5 @@
 /* A password with the connection it is for and where that connection pointed when it was handed over. */
-export interface HandedPassword {
+interface HandedPassword {
     connectionId: string;
     target: string;
     password: string;

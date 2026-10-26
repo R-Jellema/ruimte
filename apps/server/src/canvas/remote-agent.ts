@@ -2,7 +2,7 @@ import { isCanvasView } from '@ruimte/contracts';
 import { checkCwd } from './project-paths.ts';
 import { field, VerbRefusal, type CanvasHost } from './verb.ts';
 
-export interface RemoteTarget {
+interface RemoteTarget {
     machineId: string;
     label: string;
     remoteProjectId: string;
@@ -40,7 +40,7 @@ export function resolveMachine(host: Pick<CanvasHost, 'remote'>, projectId: stri
     return { machineId: found.machineId, label: found.label, remoteProjectId: found.remoteProjectId };
 }
 
-export interface RemoteStartInput {
+interface RemoteStartInput {
     cwd: string | null;
     task: boolean;
     model: boolean;

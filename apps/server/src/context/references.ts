@@ -10,7 +10,7 @@ import {
     type ProjectView
 } from '@ruimte/contracts';
 
-export type ReferenceKind =
+type ReferenceKind =
     | 'canvas'
     | 'chat'
     | 'terminal'

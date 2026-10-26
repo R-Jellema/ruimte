@@ -50,7 +50,7 @@ export const SIMULATOR: DeviceInfo = {
 };
 
 /* A source that only counts: how often it ran and what reached it. */
-export class RecordingSource implements DeviceSource {
+class RecordingSource implements DeviceSource {
     starts = 0;
     stops = 0;
     readonly inputs: DeviceInput[] = [];

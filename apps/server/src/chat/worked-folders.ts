@@ -1,8 +1,9 @@
-import { dirname, isAbsolute, join, parse, relative, resolve, sep } from 'node:path';
+import { dirname, join, parse, relative, resolve, sep } from 'node:path';
 import type { ChatItem } from '@ruimte/contracts';
+import { isInside } from '../canvas/project-paths.ts';
 import { toolWrites } from '../provenance/tool-writes.ts';
 
-export interface WorkedFolder {
+interface WorkedFolder {
     path: string;
     /* Distinct paths the chat wrote or read in it. */
     files: number;
@@ -31,11 +32,6 @@ interface Touched {
     path: string;
     /* The path is a folder a tool looked into, not a file. */
     folder: boolean;
-}
-
-function isUnder(parent: string, path: string): boolean {
-    const between = relative(parent, path);
-    return between === '' || (!between.startsWith('..') && !isAbsolute(between));
 }
 
 /* A path as the CLI wrote it: `~` is the person's home, anything relative is the chat's folder. */
@@ -99,15 +95,15 @@ export async function workedFolders(items: readonly ChatItem[], options: WorkedF
     const checkouts: string[] = [];
     for (const touched of touchedPaths(items, cwd, home)) {
         const { path } = touched;
-        if (isUnder(cwd, path) || isUnder(ruimteHome, path)) {
+        if (isInside(cwd, path) || isInside(ruimteHome, path)) {
             continue;
         }
         const directory = touched.folder ? path : dirname(path);
-        let root = checkouts.find((checkout) => isUnder(checkout, directory)) ?? null;
+        let root = checkouts.find((checkout) => isInside(checkout, directory)) ?? null;
         if (root === null) {
             const found = await rootOf(directory);
             // A checkout that is home or holds it (a dotfiles repository) says nothing about the folder.
-            root = found !== null && !isUnder(found, home) ? found : null;
+            root = found !== null && !isInside(found, home) ? found : null;
             if (root !== null) {
                 checkouts.push(root);
             }
@@ -115,12 +111,12 @@ export async function workedFolders(items: readonly ChatItem[], options: WorkedF
         let folder: string | null;
         if (root !== null) {
             folder = root;
-        } else if (isUnder(home, path)) {
+        } else if (isInside(home, path)) {
             folder = topUnderHome(home, touched);
         } else {
             folder = directory;
         }
-        if (folder === null || folder === home || folder === parse(folder).root || isUnder(ruimteHome, folder)) {
+        if (folder === null || folder === home || folder === parse(folder).root || isInside(ruimteHome, folder)) {
             continue;
         }
         counts.set(folder, (counts.get(folder) ?? 0) + 1);

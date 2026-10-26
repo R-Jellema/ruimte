@@ -50,7 +50,7 @@ function startHelper(): HelperProcess {
     };
 }
 
-export interface DatabaseServiceOptions {
+interface DatabaseServiceOptions {
     machineHome: Pick<MachineHome, 'refuse'>;
     /* Starts the helper; the real one when left out. */
     start?: () => HelperProcess;

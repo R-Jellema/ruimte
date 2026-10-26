@@ -5,7 +5,7 @@ import { sameSecret } from './local-secret.ts';
 const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1', 'localhost']);
 
 // A dotted quad only: an origin's host can be a name like `127.example.com`.
-export function isLoopbackAddress(address: string): boolean {
+function isLoopbackAddress(address: string): boolean {
     return LOOPBACK.has(address) || /^127(\.\d{1,3}){3}$/.test(address);
 }
 
@@ -106,7 +106,7 @@ export interface AccessOptions {
  * What a request is for, which decides the credentials it takes. `local` takes the local secret
  * itself and never a ticket, since a ticket sits in URLs that get copied.
  */
-export type AccessUse = TicketUse | 'local';
+type AccessUse = TicketUse | 'local';
 
 function bearerOf(request: Request): string {
     const header = request.headers.get('authorization') ?? '';

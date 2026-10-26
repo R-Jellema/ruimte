@@ -1,13 +1,10 @@
 import type { ActionHandlers } from '@ruimte/actions';
 import { checkInsideFile } from '../canvas/project-paths.ts';
-import { VerbRefusal, type LanguageAgentHost } from '../canvas/verb.ts';
-import type { ServerActionContext } from './context.ts';
+import type { LanguageAgentHost } from '../canvas/verb.ts';
+import { hostService, type ServerActionContext } from './context.ts';
 
 function languageOf(context: ServerActionContext): LanguageAgentHost {
-    if (!context.host.language) {
-        throw new VerbRefusal('no-language-servers', 'This machine runs no language servers');
-    }
-    return context.host.language;
+    return hostService(context, 'language', 'no-language-servers', 'This machine runs no language servers');
 }
 
 /* The file the call names, held to the project folder and its worktrees the way every verb's path is. */

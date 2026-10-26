@@ -13,7 +13,7 @@ import type { SessionSink } from '../sessions/manager.ts';
 
 /* A timer asleep with the machine runs late by as long as it slept, so the wall clock is read again at least this often. */
 export const MAX_WAIT_MS = 60_000;
-export const START_INTERVAL_MS = 60_000;
+const START_INTERVAL_MS = 60_000;
 export const MAX_INTERVAL_MS = 600_000;
 export const MAX_ERROR_INTERVAL_MS = 1_800_000;
 export const MAX_WATCHES = 50;
@@ -35,7 +35,7 @@ type WatchRecord = z.infer<typeof RecordSchema>;
 
 const FileSchema = z.object({ watches: z.array(RecordSchema) });
 
-export interface PrWatchOptions {
+interface PrWatchOptions {
     path?: string;
     clock?: OutboxClock;
     gh: GhRunner;
@@ -105,7 +105,7 @@ function dataBlock(lines: readonly string[]): string {
 }
 
 /* `+12 -3 over 4 files`, with the lines per kind of file when the split is known; empty when GitHub gave no totals. */
-export function sizeWords(pr: GitPullRequest, split: ChangeSplit | null): string {
+function sizeWords(pr: GitPullRequest, split: ChangeSplit | null): string {
     if (pr.added === undefined || pr.deleted === undefined) {
         return '';
     }

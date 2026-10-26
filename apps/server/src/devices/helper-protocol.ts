@@ -3,8 +3,8 @@ import type { DeviceInput, LiveStreamFrame } from '@ruimte/contracts';
 import { z } from 'zod';
 
 export const DEVICE_HELPER_MAGIC = new Uint8Array([0x52, 0x44, 0x45, 0x56, 0x01, 0x00, 0x00, 0x00]);
-export const DEVICE_HELPER_HEADER_BYTES = 5;
-export const DEVICE_HELPER_MAX_CONTROL_BYTES = 64 * 1024;
+const DEVICE_HELPER_HEADER_BYTES = 5;
+const DEVICE_HELPER_MAX_CONTROL_BYTES = 64 * 1024;
 
 const ReadySchema = z.object({ width: z.number().int().min(1).max(0xffff), height: z.number().int().min(1).max(0xffff) });
 const ErrorSchema = z.object({ code: z.string().min(1).max(128), message: z.string().min(1).max(4096) });
@@ -12,7 +12,7 @@ const ErrorSchema = z.object({ code: z.string().min(1).max(128), message: z.stri
 const KeysSchema = z.object({ usages: z.array(z.number().int().min(0).max(0xffff)).min(1).max(8) });
 
 /* What the daemon asks the native simulator helper to do beside input, each answered by a reply with its id. */
-export const DeviceHelperCallSchema = z.discriminatedUnion('method', [
+const DeviceHelperCallSchema = z.discriminatedUnion('method', [
     z.object({ method: z.literal('memoryWarning') }),
     z.object({
         method: z.literal('buttonHid'),

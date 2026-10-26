@@ -7,7 +7,7 @@ export function isInside(root: string, path: string): boolean {
     return !climbsOut(relative(root, path));
 }
 
-function realOrNull(path: string): Promise<string | null> {
+export function realOrNull(path: string): Promise<string | null> {
     return realpath(path).catch(() => null);
 }
 
@@ -65,7 +65,7 @@ export async function checkCwd(folder: string, cwd: string, worktreePaths: (fold
     return resolved;
 }
 
-export interface StartCwdDeps {
+interface StartCwdDeps {
     /* Whether an agent made this node, which is what put its cwd through `checkCwd` in the first place. */
     madeByAgent(nodeId: string): boolean;
     /* The folder of the project that places the node; null when no project this machine knows does. */

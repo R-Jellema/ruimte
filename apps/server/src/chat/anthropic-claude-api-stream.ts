@@ -62,14 +62,14 @@ export interface AnthropicToolUse {
 }
 
 /* A block of an assistant turn as it is sent back: a thinking block keeps its signature, or the API refuses the next request. */
-export type AnthropicBlock =
+type AnthropicBlock =
     | { type: 'thinking'; thinking: string; signature: string }
     | { type: 'redacted_thinking'; data: string }
     | { type: 'text'; text: string }
     | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> };
 
 /* A block of text or thinking as the thread shows it; `index` is its place in the message, so each block is an item of its own. */
-export interface AnthropicPart {
+interface AnthropicPart {
     index: number;
     type: 'text' | 'thinking';
     text: string;
@@ -83,7 +83,7 @@ export interface AnthropicTurn {
     stopReason: string;
 }
 
-export interface AnthropicStreamSink {
+interface AnthropicStreamSink {
     text(index: number, text: string): void;
     thinking(index: number, text: string): void;
     usage(usage: AnthropicUsage): void;

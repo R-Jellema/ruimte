@@ -11,7 +11,7 @@ export interface RememberedTree {
     order: readonly number[];
 }
 
-export interface TreeChanges {
+interface TreeChanges {
     added: number;
     gone: number;
     changed: number;

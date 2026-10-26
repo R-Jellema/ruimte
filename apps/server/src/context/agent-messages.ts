@@ -8,7 +8,7 @@ import type { PushService } from '../push/service.ts';
 import type { SessionManager } from '../sessions/manager.ts';
 import { deliverNotice, MESSAGE_WORDS } from './notices.ts';
 
-export interface AgentMessageDeps {
+interface AgentMessageDeps {
     notices: NoticeStore;
     sessions: Pick<SessionManager, 'get'>;
     chats: ChatManager;

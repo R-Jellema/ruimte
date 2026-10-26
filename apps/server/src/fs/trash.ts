@@ -7,7 +7,7 @@ import { RECYCLE_BIN_SOURCE, RecycleBinExit, recycleBinCommand } from './recycle
 
 type TrashErrorCode = 'trash-unsupported' | 'trash-failed';
 
-export class TrashError extends CodedError<TrashErrorCode> {}
+class TrashError extends CodedError<TrashErrorCode> {}
 
 function exists(path: string): Promise<boolean> {
     return lstat(path).then(
@@ -46,7 +46,7 @@ function localIso(at: Date): string {
 }
 
 /* A started process, as far as the trash needs one; a test hands in its own, so the Windows branch runs on every platform. */
-export interface TrashProcess {
+interface TrashProcess {
     exited: Promise<number>;
     errors: Promise<string>;
     kill(): void;
@@ -54,7 +54,7 @@ export interface TrashProcess {
 
 export type SpawnTrash = (command: string[], env: NodeJS.ProcessEnv) => TrashProcess;
 
-export function spawnTrash(command: string[], env: NodeJS.ProcessEnv): TrashProcess {
+function spawnTrash(command: string[], env: NodeJS.ProcessEnv): TrashProcess {
     const child = Bun.spawn(command, { env, stdin: 'ignore', stdout: 'ignore', stderr: 'pipe', windowsHide: true });
     return {
         exited: child.exited,

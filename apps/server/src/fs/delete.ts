@@ -6,7 +6,7 @@ import { realEntryPath, realRoots, stateRefusal, type WriteBoundary } from './wr
 
 type DeleteErrorCode = 'not-found' | 'outside-project' | 'project-root' | 'git-state' | 'ruimte-state';
 
-export class DeleteError extends CodedError<DeleteErrorCode> {}
+class DeleteError extends CodedError<DeleteErrorCode> {}
 
 /*
  * Moves a file or folder of an open project to the trash, inside the same boundary a save keeps.

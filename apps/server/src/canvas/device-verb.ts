@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { AGENT_HOLD_IDLE_MS, SWIPE_DEFAULT_MS } from '../devices/agent-driver.ts';
 import { defineActionVerb, runAction } from './action-verb.ts';
 import { machineDeviceLine } from '../actions/device-actions.ts';
-import { field, orNote, SCOPE_LINE, VerbRefusal } from './verb.ts';
+import { field, orNote, SCOPE_LINE, VerbRefusal, yesNo } from './verb.ts';
 
 function powerLine(state: ActionOutput<'device.inspect'>): string {
     const { power } = state;
@@ -14,10 +14,6 @@ function powerLine(state: ActionOutput<'device.inspect'>): string {
         return 'power\tunknown';
     }
     return `power\t${power.level}%\t${power.plugged ? 'plugged' : 'battery'}\t${power.charging ? 'charging' : 'not-charging'}${power.simulated ? '\tsimulated' : ''}`;
-}
-
-function yesNo(value: boolean): string {
-    return value ? 'yes' : 'no';
 }
 
 const NODE_PARAM = {
@@ -80,7 +76,7 @@ function quote(text: string): string {
 type TreeElement = NonNullable<ActionOutput<'device.inspect'>['tree']>['elements'][number];
 
 /* One element on one line, as a state of an app on this Mac writes it, indented by its depth. */
-export function elementLine(element: TreeElement): string {
+function elementLine(element: TreeElement): string {
     const parts = [`[${element.handle}]`, element.subrole === null ? element.role : `${element.role}:${element.subrole}`];
     if (element.label !== null) {
         parts.push(quote(element.label));

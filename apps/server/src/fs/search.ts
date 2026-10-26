@@ -3,6 +3,7 @@ import { join, relative, resolve, sep } from 'node:path';
 import { FS_SEARCH_MAX_RESULTS, type FsSearchResult } from '@ruimte/contracts';
 import { cachedRepos } from '../git/repo-cache.ts';
 import { NO_MACHINE_HOME, type MachineHomePolicy } from './machine-home.ts';
+import { isUnder } from './path-segment.ts';
 import { isOpenName, isOpenPath, searchRoot } from './searchable.ts';
 import { classifyEntry } from './visibility.ts';
 
@@ -252,10 +253,6 @@ function remembered(cache: Map<string, Remembered>, cwd: string, load: () => Pro
         cache.delete(oldest);
     }
     return entry.listing;
-}
-
-function isUnder(path: string, ancestor: string): boolean {
-    return path === ancestor || path.startsWith(ancestor.endsWith(sep) ? ancestor : `${ancestor}${sep}`);
 }
 
 const TRACKED_ARGS = ['--cached', '--others', '--exclude-standard'];

@@ -16,7 +16,7 @@ import { replaceSync, tempNameFor } from '@adecore/agents';
  */
 
 /* What travels with the daemon: `ruimte-context` goes on every session's PATH, `ruimte.build` is how an update is seen. */
-export function binaryFiles(platform: NodeJS.Platform): string[] {
+function binaryFiles(platform: NodeJS.Platform): string[] {
     if (platform === 'win32') {
         return ['ruimte.exe', 'ruimte-context', 'ruimte-context.exe', 'ruimte.build'];
     }
@@ -48,7 +48,7 @@ export interface ServiceFacts {
     env: HostEnvironment;
 }
 
-export interface ServicePlan {
+interface ServicePlan {
     kind: 'launchd' | 'systemd' | 'task-scheduler';
     binDir: string;
     program: string;
@@ -73,9 +73,9 @@ export function servicePath(path: string | undefined, platform: NodeJS.Platform 
     return windows ? 'C:\\Windows\\System32;C:\\Windows' : '/usr/local/bin:/usr/bin:/bin';
 }
 
-export const UNSUPPORTED_PLATFORM = 'The background service runs on macOS, Linux and Windows only.';
+const UNSUPPORTED_PLATFORM = 'The background service runs on macOS, Linux and Windows only.';
 
-export function serviceKindOf(platform: NodeJS.Platform): ServicePlan['kind'] | null {
+function serviceKindOf(platform: NodeJS.Platform): ServicePlan['kind'] | null {
     if (platform === 'darwin') {
         return 'launchd';
     }

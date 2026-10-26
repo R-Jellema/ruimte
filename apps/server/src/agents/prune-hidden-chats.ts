@@ -20,7 +20,7 @@ export interface HiddenChatPruning {
  * less the keep, no view of any project holds it, and no agent it opened lives on. A chat of a
  * project the daemon could not read stays, since one of that project's views may hold it.
  */
-export function prunableHiddenChats(deps: Omit<HiddenChatPruning, 'chats' | 'now'>, now: number): Set<string> {
+function prunableHiddenChats(deps: Omit<HiddenChatPruning, 'chats' | 'now'>, now: number): Set<string> {
     const settledBefore = now - HIDDEN_CHAT_KEEP_MS;
     const settledLongAgo = (id: string): boolean => {
         const given = deps.tasks.involving(id).filter((task) => task.childId === id);

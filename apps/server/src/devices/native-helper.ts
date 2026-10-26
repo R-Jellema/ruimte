@@ -67,7 +67,7 @@ const CONSUMER_BUTTONS: Partial<Record<Extract<DeviceInput, { kind: 'button' }>[
     power: 0x30
 };
 
-export function resolveDeviceNativeAddon(): string {
+function resolveDeviceNativeAddon(): string {
     const besideExecutable = join(dirname(process.execPath), 'native', 'serve-sim-native.node');
     if (existsSync(besideExecutable)) {
         return besideExecutable;
@@ -88,7 +88,7 @@ export function resolveDeviceNativeAddon(): string {
  * The guest helper of an iPhone Duo, beside the addon in a build and in the package otherwise. A
  * path that does not exist only leaves the hinge unavailable, so it never fails the session.
  */
-export function resolveDuoHidHelper(): string {
+function resolveDuoHidHelper(): string {
     const besideExecutable = join(dirname(process.execPath), 'native', 'serve-sim-duo-hid');
     if (existsSync(besideExecutable)) {
         return besideExecutable;
@@ -101,7 +101,7 @@ export function resolveDuoHidHelper(): string {
     }
 }
 
-export function loadDeviceNativeAddon(): DeviceNativeAddon {
+function loadDeviceNativeAddon(): DeviceNativeAddon {
     return require(resolveDeviceNativeAddon()) as DeviceNativeAddon;
 }
 
