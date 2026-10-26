@@ -35,43 +35,25 @@ struct MachinePage: View {
     private var name: String { endpoint.label ?? session.machine.name }
 
     var body: some View {
-        MobileForm {
-            Section {
-                header
-            }
-            .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 4))
+        MobileList {
+            header.listRowInsets(NowSections.cardInsets)
             if let update = endpoint.update, update.headline != nil || endpoint.install == .started {
-                Section {
-                    MachineUpdateBanner(update: update, install: endpoint.install) {
-                        Task { await endpoint.askToInstall() }
-                    }
+                MachineUpdateBanner(update: update, install: endpoint.install) {
+                    Task { await endpoint.askToInstall() }
                 }
-                .listRowBackground(MobileStyle.statusRunning.opacity(0.1))
+                .modifier(MachinePageRow())
+                .listRowInsets(NowSections.cardInsets)
             }
             if let problem = endpoint.problem ?? session.problem {
-                Section {
-                    Label(problem, lucideIcon: "triangle-alert").foregroundStyle(MobileStyle.statusError).font(.callout)
-                    if !session.connected { Button("Reconnect") { session.reconnect() } }
-                }
+                MachineProblemRow(problem: problem, reconnect: session.connected ? nil : { session.reconnect() })
+                    .listRowInsets(NowSections.cardInsets)
             }
-            Section {
-                row(String(localized: "Projects"), icon: "folders", value: projects.listed.isEmpty ? nil : "\(projects.listed.count)") {
-                    destination = .projects
-                }
-                row(String(localized: "Files"), icon: "folder") { destination = .files }
-                    .disabled(!session.connected)
-                row(String(localized: "Devices"), icon: "tablet-smartphone", value: devicesValue, highlighted: devices.runningCount > 0) {
-                    destination = .devices
-                }
-                row(String(localized: "Processes"), icon: "activity") { destination = .processes }
-                usageRow
+            MobileRowGroup(items: MachineLink.allCases) { link in
+                linkRow(link)
             }
-            Section("On this machine") {
-                keepAwakeRows
-                LabeledContent("Connection", value: connectionValue)
-                lanDoorRow
-                row(String(localized: "Agents"), icon: "bot") { destination = .agents }
+            MobileSectionHeader(title: String(localized: "On this machine")).padding(.top, MobileSpacing.large)
+            MobileRowGroup(items: settingRows, glyphs: false) { setting in
+                settingRow(setting)
             }
         }
         .navigationTitle(name)
@@ -147,10 +129,9 @@ struct MachinePage: View {
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
-            LucideIcon(name: session.icons.icon?.value ?? "server", size: 22)
-                .frame(width: 44, height: 44)
-                .background(MobileStyle.panel, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        HStack(alignment: .firstTextBaseline, spacing: MobileSpacing.medium) {
+            MobileStatusGlyph(tone: .idle, symbol: session.icons.icon?.value ?? "server")
+                .centeredOnFirstLine(of: .caption1)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 MobileStatus(title: reach, color: session.connected ? MobileStyle.positive : MobileStyle.faint)
@@ -159,7 +140,81 @@ struct MachinePage: View {
                 }
             }
         }
-        .padding(.vertical, 4)
+        .modifier(MachinePageRow())
+    }
+
+    private enum MachineLink: CaseIterable, Identifiable {
+        case projects, files, devices, processes, usage
+
+        var id: Self { self }
+    }
+
+    @ViewBuilder private func linkRow(_ link: MachineLink) -> some View {
+        switch link {
+        case .projects:
+            row(
+                String(localized: "Projects"), icon: "folders",
+                value: projects.listed.isEmpty ? nil : "\(projects.listed.count)"
+            ) {
+                destination = .projects
+            }
+        case .files:
+            row(String(localized: "Files"), icon: "folder") { destination = .files }
+                .disabled(!session.connected)
+        case .devices:
+            row(
+                String(localized: "Devices"), icon: "tablet-smartphone", value: devicesValue,
+                highlighted: devices.runningCount > 0
+            ) {
+                destination = .devices
+            }
+        case .processes:
+            row(String(localized: "Processes"), icon: "activity") { destination = .processes }
+        case .usage:
+            usageRow
+        }
+    }
+
+    /// What belongs to the machine itself, in the desktop's order: keep awake, the connection, the local network and
+    /// the agents.
+    private enum MachineSetting: Identifiable {
+        case keepAwake, onBattery, closedLid, display, connection, lanDoor, agents
+
+        var id: Self { self }
+    }
+
+    private var settingRows: [MachineSetting] {
+        var rows: [MachineSetting] = []
+        if let keepAwake = endpoint.keepAwake {
+            rows.append(.keepAwake)
+            if keepAwake.mode != .off {
+                rows.append(.onBattery)
+                if endpoint.closedLid != nil { rows.append(.closedLid) }
+            }
+            if keepAwake.mode == .always { rows.append(.display) }
+        }
+        rows.append(.connection)
+        if endpoint.lanDoor != nil { rows.append(.lanDoor) }
+        rows.append(.agents)
+        return rows
+    }
+
+    @ViewBuilder private func settingRow(_ setting: MachineSetting) -> some View {
+        switch setting {
+        case .keepAwake, .onBattery, .closedLid, .display:
+            keepAwakeRow(setting).modifier(MachinePageRow())
+        case .connection:
+            HStack(spacing: MobileSpacing.medium) {
+                Text("Connection").font(.subheadline).frame(maxWidth: .infinity, alignment: .leading)
+                Text(connectionValue).font(.subheadline).foregroundStyle(MobileStyle.muted).lineLimit(1)
+            }
+            .modifier(MachinePageRow())
+            .accessibilityElement(children: .combine)
+        case .lanDoor:
+            lanDoorRow.modifier(MachinePageRow())
+        case .agents:
+            row(String(localized: "Agents"), icon: "bot") { destination = .agents }
+        }
     }
 
     private var reach: String {
@@ -178,9 +233,9 @@ struct MachinePage: View {
             Toggle(
                 isOn: Binding(get: { open }, set: { value in Task { await endpoint.setLanDoor(value) } })
             ) {
-                Text("Reachable on the local network")
-                Text(
-                    endpoint.lanDoorFixed
+                MachineSettingLabel(
+                    title: String(localized: "Reachable on the local network"),
+                    detail: endpoint.lanDoorFixed
                         ? String(localized: "A flag this machine started with decides this.")
                         : String(localized: "Devices on the same network connect directly."))
             }
@@ -204,39 +259,49 @@ struct MachinePage: View {
         Button {
             destination = .usage
         } label: {
-            VStack(alignment: .leading, spacing: 8) {
-                MachineLinkLabel(title: String(localized: "Usage"), icon: "chart-no-axes-column")
-                MachineLimitList(limits: .card(session.usageWidget))
-            }
+            MachineLinkLabel(
+                title: String(localized: "Usage"), icon: "chart-no-axes-column", limits: .card(session.usageWidget))
         }
-        .foregroundStyle(MobileStyle.text)
+        .buttonStyle(.plain)
     }
 
-    @ViewBuilder private var keepAwakeRows: some View {
+    @ViewBuilder private func keepAwakeRow(_ setting: MachineSetting) -> some View {
         if let keepAwake = endpoint.keepAwake {
-            Picker(
-                "Keep awake",
-                selection: Binding(get: { keepAwake.mode }, set: { mode in changeKeepAwake { $0.mode = mode } })
-            ) {
-                ForEach(KeepAwakeMode.allCases) { Text($0.label).tag($0) }
-            }
-            .pickerStyle(.menu)
-            .disabled(endpoint.savingKeepAwake)
-            if keepAwake.mode != .off {
+            switch setting {
+            case .keepAwake:
+                HStack(spacing: MobileSpacing.medium) {
+                    MachineSettingLabel(title: String(localized: "Keep awake"))
+                    Picker(
+                        "Keep awake",
+                        selection: Binding(
+                            get: { keepAwake.mode }, set: { mode in changeKeepAwake { $0.mode = mode } })
+                    ) {
+                        ForEach(KeepAwakeMode.allCases) { Text($0.label).tag($0) }
+                    }
+                    .pickerStyle(.menu)
+                    .labelsHidden()
+                    .disabled(endpoint.savingKeepAwake)
+                }
+            case .onBattery:
                 Toggle(
-                    "Also on battery",
-                    isOn: Binding(get: { keepAwake.onBattery }, set: { value in changeKeepAwake { $0.onBattery = value } }))
+                    isOn: Binding(
+                        get: { keepAwake.onBattery }, set: { value in changeKeepAwake { $0.onBattery = value } })
+                ) {
+                    MachineSettingLabel(title: String(localized: "Also on battery"))
+                }
                 .disabled(endpoint.savingKeepAwake)
+            case .closedLid:
                 if let closedLid = endpoint.closedLid {
                     closedLidRow(keepAwake, closedLid)
                 }
-            }
-            if keepAwake.mode == .always {
+            default:
                 Toggle(
-                    "Keep display on",
                     isOn: Binding(
                         get: { keepAwake.displayApplies && keepAwake.display },
-                        set: { value in changeKeepAwake { $0.display = value } }))
+                        set: { value in changeKeepAwake { $0.display = value } })
+                ) {
+                    MachineSettingLabel(title: String(localized: "Keep display on"))
+                }
                 .disabled(endpoint.savingKeepAwake || !keepAwake.onBattery)
             }
         }
@@ -249,17 +314,12 @@ struct MachinePage: View {
                 get: { closedLid.ruleInstalled && keepAwake.lidClosed },
                 set: { value in changeKeepAwake { $0.lidClosed = value } })
         ) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Also with the lid closed")
-                Group {
-                    if closedLid.ruleInstalled {
-                        Text("Sleep stays off while keep awake holds, so the Mac keeps running with its lid shut.")
-                    } else {
-                        Text("Allow it once in Ruimte on the Mac, under Settings, Agents.")
-                    }
-                }
-                .font(.caption).foregroundStyle(MobileStyle.muted)
-            }
+            MachineSettingLabel(
+                title: String(localized: "Also with the lid closed"),
+                detail: closedLid.ruleInstalled
+                    ? String(
+                        localized: "Sleep stays off while keep awake holds, so the Mac keeps running with its lid shut.")
+                    : String(localized: "Allow it once in Ruimte on the Mac, under Settings, Agents."))
         }
         .disabled(endpoint.savingKeepAwake || !closedLid.ruleInstalled)
     }
@@ -277,28 +337,87 @@ struct MachinePage: View {
         Button(action: action) {
             MachineLinkLabel(title: title, icon: icon, value: value, highlighted: highlighted)
         }
-        .foregroundStyle(MobileStyle.text)
+        .buttonStyle(.plain)
     }
 }
 
-/// A row that opens a page of the machine: its mark, its name, a value and the chevron.
+/// The padding of a row on a machine's page, so a setting, a banner and a link stand on one edge and one height.
+struct MachinePageRow: ViewModifier {
+    @ScaledMetric(relativeTo: .subheadline) private var height = MobileMetrics.rowHeight
+
+    func body(content: Content) -> some View {
+        content
+            .padding(.horizontal, MobileSpacing.cardPadding)
+            .padding(.vertical, MobileSpacing.small)
+            .frame(maxWidth: .infinity, minHeight: height, alignment: .leading)
+    }
+}
+
+/// A setting's name with what it does under it, as the desktop's settings rows read.
+struct MachineSettingLabel: View {
+    let title: String
+    var detail: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(verbatim: title).font(.subheadline).foregroundStyle(MobileStyle.text)
+            if let detail {
+                Text(verbatim: detail).font(.caption).foregroundStyle(MobileStyle.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// What went wrong on the link to the machine, with Reconnect while it is away.
+struct MachineProblemRow: View {
+    let problem: String
+    var reconnect: (() -> Void)?
+
+    var body: some View {
+        HStack(spacing: MobileSpacing.medium) {
+            HStack(alignment: .firstTextBaseline, spacing: MobileSpacing.medium) {
+                MobileStatusGlyph(tone: .error, symbol: "triangle-alert").centeredOnFirstLine(of: .subheadline)
+                Text(verbatim: problem).font(.subheadline).foregroundStyle(MobileStyle.text)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if let reconnect {
+                Button("Reconnect", action: reconnect).buttonStyle(.mobileCapsuleSmall)
+            }
+        }
+        .modifier(MachinePageRow())
+    }
+}
+
+/// A row that opens a page of the machine: its mark, its name, a value and the chevron, and the limits of its
+/// accounts under the name where it has them.
 struct MachineLinkLabel: View {
     let title: String
     let icon: String
     var value: String?
     var highlighted = false
+    var limits = MachineLimits()
+    @ScaledMetric(relativeTo: .subheadline) private var column = MobileMetrics.statusColumn
 
     var body: some View {
-        HStack(spacing: 11) {
-            Image(lucide: icon, size: 17).foregroundStyle(MobileStyle.muted).frame(width: 22)
-            Text(title)
-            Spacer(minLength: 8)
-            if let value {
-                Text(value).font(.subheadline)
-                    .foregroundStyle(highlighted ? MobileStyle.positive : MobileStyle.muted)
+        VStack(alignment: .leading, spacing: MobileSpacing.small) {
+            HStack(spacing: MobileSpacing.medium) {
+                MobileStatusGlyph(tone: .idle, symbol: icon).accessibilityHidden(true)
+                Text(verbatim: title).font(.subheadline).foregroundStyle(MobileStyle.text)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                if let value {
+                    Text(verbatim: value).font(.caption).monospacedDigit()
+                        .foregroundStyle(highlighted ? MobileStyle.positive : MobileStyle.muted)
+                }
+                Image(lucide: "chevron-right", size: 12).foregroundStyle(MobileStyle.faint).accessibilityHidden(true)
             }
-            Image(lucide: "chevron-right", size: 12).foregroundStyle(MobileStyle.faint).accessibilityHidden(true)
+            if !limits.lines.isEmpty || limits.accountsUnavailable {
+                MachineLimitList(limits: limits).padding(.leading, column + MobileSpacing.medium)
+            }
         }
+        .modifier(MachinePageRow())
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
     }

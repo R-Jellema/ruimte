@@ -41,14 +41,16 @@ struct MobileCard<Content: View>: View {
     }
 }
 
-/// The line between two rows of a card, starting where the row's text does.
+/// The line between two rows of a card, starting where the row's text does: after the glyph column, or at the row's
+/// edge for rows without a glyph, such as a setting.
 struct MobileRowDivider: View {
+    var glyphs = true
     @Environment(\.displayScale) private var displayScale
     @ScaledMetric(relativeTo: .subheadline) private var column = MobileMetrics.statusColumn
 
     var body: some View {
         MobileStyle.hairline.frame(height: 1 / displayScale)
-            .padding(.leading, MobileSpacing.cardPadding + column + MobileSpacing.medium)
+            .padding(.leading, MobileSpacing.cardPadding + (glyphs ? column + MobileSpacing.medium : 0))
             .accessibilityHidden(true)
     }
 }
@@ -57,12 +59,13 @@ struct MobileRowDivider: View {
 /// row into its menu.
 struct MobileRowGroup<Item: Identifiable, Row: View>: View {
     let items: [Item]
+    var glyphs = true
     @ViewBuilder var row: (Item) -> Row
 
     var body: some View {
         ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
             VStack(spacing: 0) {
-                if index > 0 { MobileRowDivider() }
+                if index > 0 { MobileRowDivider(glyphs: glyphs) }
                 row(item)
             }
             .mobileCard(padding: 0)

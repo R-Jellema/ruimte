@@ -1,46 +1,56 @@
 import RuimtePulsar
 import SwiftUI
 
-/// Every machine as a card: how it is reached and how fast, the limits of its CLIs and an update when one is there. A
-/// machine opens its page; one that is away offers Retry. How to add a machine is the row at the end, and on the
-/// iPhone's Machines tab the plus as well.
+/// Every machine as a row: how it is reached and how fast, the limits of its CLIs and an update when one is there. A
+/// machine opens its page; one that is away offers Retry. Add machine stands under the rows, and on the iPhone's
+/// Machines tab the plus as well.
 struct MachinesPage: View {
     let runtime: AppRuntime
     let addMachine: () -> Void
     /// Opens a machine by its id, on whichever stack the page stands.
     let open: (String) -> Void
-    /// The machine the iPad shows beside the list, whose card is marked.
+    /// The machine the iPad shows beside the list, whose row is marked.
     var selectedID: String?
 
     var body: some View {
-        MobileForm {
-            if showsLegend {
-                Section {
-                    MachineLimitLegend()
-                        .listRowBackground(Color.clear)
-                        .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 4))
+        MobileList {
+            if runtime.machines.isEmpty {
+                ContentUnavailableView {
+                    Label(String(localized: "No machines yet"), lucideIcon: "server", iconSize: 48)
+                } description: {
+                    Text("Add a machine to see its projects, devices and processes.")
+                } actions: {
+                    Button("Add machine", action: addMachine)
                 }
-            }
-            ForEach(runtime.machines, id: \.id) { machine in
-                Section {
-                    MachineCard(session: runtime.session(for: machine)) { open(machine.id) }
-                        .listRowBackground(selectedID == machine.id ? MobileStyle.active : MobileStyle.panel)
-                        .accessibilityAddTraits(selectedID == machine.id ? .isSelected : [])
+            } else {
+                if showsLegend {
+                    MachineLimitLegend().listRowInsets(MachinesPage.textInsets)
                 }
-            }
-            Section {
+                MobileRowGroup(items: runtime.machines.map { MachineItem(session: runtime.session(for: $0)) }) {
+                    item in
+                    MachineSessionRow(session: item.session, selected: selectedID == item.id) { open(item.id) }
+                }
                 Button(action: addMachine) {
-                    MachineLinkLabel(title: String(localized: "Add machine"), icon: "plus")
+                    Label(String(localized: "Add machine"), lucideIcon: "plus")
                 }
-                .foregroundStyle(MobileStyle.text)
+                .buttonStyle(.mobileCapsule)
+                .accessibilityIdentifier("machines.add")
+                .listRowInsets(
+                    EdgeInsets(
+                        top: MobileSpacing.large, leading: MobileSpacing.margin, bottom: MobileSpacing.large,
+                        trailing: MobileSpacing.margin))
             }
         }
-        .listSectionSpacing(10)
         .navigationTitle("Machines")
         .navigationBarTitleDisplayMode(UIDevice.current.userInterfaceIdiom == .pad ? .inline : .automatic)
     }
 
-    /// The legend shows once some card has limits to read.
+    /// A row of text alone, such as the legend, on the page's margin.
+    static let textInsets = EdgeInsets(
+        top: MobileSpacing.small, leading: MobileSpacing.margin, bottom: MobileSpacing.small,
+        trailing: MobileSpacing.margin)
+
+    /// The legend shows once some row has limits to read.
     private var showsLegend: Bool {
         runtime.machines.contains { machine in
             let session = runtime.session(for: machine)
@@ -49,51 +59,25 @@ struct MachinesPage: View {
     }
 }
 
-private struct MachineCard: View {
+private struct MachineItem: Identifiable {
+    let session: SharedMachineSession
+
+    var id: String { session.machine.id }
+}
+
+/// A machine's row as the session it has stands.
+private struct MachineSessionRow: View {
     @Bindable var session: SharedMachineSession
+    let selected: Bool
     let open: () -> Void
 
     var body: some View {
-        let limits = MachineLimits.card(session.usageWidget)
-        Button(action: open) {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: MobileSpacing.medium) {
-                    HStack(alignment: .firstTextBaseline, spacing: MobileSpacing.medium) {
-                        MobileStatusGlyph(tone: .idle, symbol: session.icons.icon?.value ?? "server")
-                            .centeredOnFirstLine(of: .body)
-                            .accessibilityHidden(true)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(session.endpoint.label ?? session.machine.name).font(.body.weight(.semibold))
-                                .foregroundStyle(session.connected ? MobileStyle.text : MobileStyle.muted)
-                                .lineLimit(1)
-                            MobileStatus(
-                                title: reach, color: session.connected ? MobileStyle.positive : MobileStyle.faint)
-                        }
-                    }
-                    Spacer(minLength: 8)
-                    if session.endpoint.update?.installable == true {
-                        Text("Update", comment: "Badge on a machine that has a newer version to install")
-                            .font(.caption.weight(.semibold))
-                            .padding(.horizontal, 9).padding(.vertical, 4)
-                            .foregroundStyle(MobileStyle.statusRunning)
-                            .background(MobileStyle.statusRunning.opacity(0.12), in: Capsule())
-                    }
-                    if retries {
-                        Button("Retry") { session.reconnect() }
-                            .buttonStyle(.mobileCapsuleSmall)
-                    } else {
-                        Image(lucide: "chevron-right", size: 13).foregroundStyle(MobileStyle.faint)
-                            .accessibilityHidden(true)
-                    }
-                }
-                if session.connected && !limits.lines.isEmpty {
-                    MachineLimitList(limits: limits)
-                }
-            }
-            .padding(.vertical, 4)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
+        MachineRow(
+            name: session.endpoint.label ?? session.machine.name, icon: session.icons.icon?.value,
+            reach: reach, connected: session.connected, update: session.endpoint.update?.installable == true,
+            limits: session.connected ? MachineLimits.card(session.usageWidget) : MachineLimits(),
+            selected: selected, retry: retries ? { session.reconnect() } : nil, open: open
+        )
         .accessibilityIdentifier("machines.\(session.machine.id)")
         .task(id: session.connected) {
             if session.connected { await session.endpoint.followLatency() }
@@ -106,6 +90,65 @@ private struct MachineCard: View {
         MachineReach.line(
             connected: session.connected, connecting: !retries, route: session.route,
             latency: session.endpoint.latency, problem: session.problem, lastSeen: session.lastSeen)
+    }
+}
+
+/// A machine in the list: its mark, its name over how it is reached, Update when one is there, Retry while it is
+/// away, and the limits of its accounts under the name.
+struct MachineRow: View {
+    let name: String
+    let icon: String?
+    let reach: String
+    let connected: Bool
+    var update = false
+    var limits = MachineLimits()
+    var selected = false
+    var retry: (() -> Void)?
+    let open: () -> Void
+    @ScaledMetric(relativeTo: .subheadline) private var height = MobileMetrics.rowHeight
+    @ScaledMetric(relativeTo: .subheadline) private var column = MobileMetrics.statusColumn
+
+    var body: some View {
+        HStack(spacing: MobileSpacing.medium) {
+            Button(action: open) {
+                VStack(alignment: .leading, spacing: MobileSpacing.small) {
+                    HStack(spacing: MobileSpacing.medium) {
+                        HStack(alignment: .firstTextBaseline, spacing: MobileSpacing.medium) {
+                            MobileStatusGlyph(tone: .idle, symbol: icon ?? "server")
+                                .centeredOnFirstLine(of: .subheadline)
+                                .accessibilityHidden(true)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(verbatim: name).font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(connected ? MobileStyle.text : MobileStyle.muted)
+                                    .lineLimit(1).truncationMode(.tail)
+                                MobileStatus(
+                                    title: reach, color: connected ? MobileStyle.positive : MobileStyle.faint)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        if update {
+                            Text("Update", comment: "Badge on a machine that has a newer version to install")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(MobileStyle.statusRunning)
+                        }
+                    }
+                    if !limits.lines.isEmpty {
+                        MachineLimitList(limits: limits).padding(.leading, column + MobileSpacing.medium)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityAddTraits(selected ? .isSelected : [])
+            if let retry {
+                Button("Retry", action: retry).buttonStyle(.mobileCapsuleSmall)
+            }
+        }
+        .padding(.horizontal, MobileSpacing.cardPadding)
+        .padding(.vertical, MobileSpacing.medium)
+        .frame(maxWidth: .infinity, minHeight: height, alignment: .leading)
+        .background(selected ? MobileStyle.active : .clear, in: .rect(cornerRadius: MobileMetrics.tileRadius))
     }
 }
 
