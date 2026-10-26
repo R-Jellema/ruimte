@@ -1,5 +1,5 @@
 use std::io::{BufRead, Read, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use anyhow::{Result, bail};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
@@ -18,59 +18,64 @@ struct Arguments {
     command: Command,
 }
 
+#[derive(clap::Args)]
+struct Model {
+    #[arg(long)]
+    model: PathBuf,
+
+    // Only CoreML compiles into the cache, so the CPU provider leaves it unused.
+    #[arg(long)]
+    #[allow(dead_code)]
+    cache: Option<PathBuf>,
+}
+
 #[derive(Subcommand)]
 enum Command {
     Serve {
-        #[arg(long)]
-        model: PathBuf,
-        #[arg(long)]
-        cache: Option<PathBuf>,
+        #[command(flatten)]
+        model: Model,
     },
     Probe {
-        #[arg(long)]
-        model: PathBuf,
-        #[arg(long)]
-        cache: Option<PathBuf>,
+        #[command(flatten)]
+        model: Model,
     },
     Transcribe {
-        #[arg(long)]
-        model: PathBuf,
+        #[command(flatten)]
+        model: Model,
+
         #[arg(long, default_value = "auto")]
         language: String,
-        #[arg(long)]
-        cache: Option<PathBuf>,
     },
 }
 
 #[derive(Deserialize)]
-#[serde(tag = "type", rename_all = "lowercase")]
+#[serde(
+    tag = "type",
+    rename_all = "lowercase",
+    rename_all_fields = "camelCase"
+)]
 enum Request {
     Start {
-        #[serde(rename = "sessionId")]
         session_id: String,
         language: String,
     },
     Samples {
-        #[serde(rename = "sessionId")]
         session_id: String,
         audio: String,
     },
     Stop {
-        #[serde(rename = "sessionId")]
         session_id: String,
     },
     Cancel {
-        #[serde(rename = "sessionId")]
         session_id: String,
     },
 }
 
-fn load(model: &Path, cache: Option<&Path>) -> Result<Nemotron> {
-    let _ = cache;
+fn load(model: &Model) -> Result<Nemotron> {
     // CPU only: CoreML's compiler crashes the process while loading this model, past any Rust error handling.
     // Try CoreML again once a model or ONNX Runtime update loads under it in `probe` without a crash.
     let handle = NemotronHandle::from_pretrained(
-        model,
+        &model.model,
         Some(ExecutionConfig::new().with_execution_provider(ExecutionProvider::Cpu)),
     )?;
     Ok(Nemotron::from_shared(&handle))
@@ -84,20 +89,29 @@ fn emit(value: serde_json::Value) -> Result<()> {
     Ok(())
 }
 
+fn fail(session_id: &str, error: anyhow::Error) -> Result<()> {
+    emit(json!({"type":"failed", "sessionId":session_id, "message":error.to_string()}))
+}
+
 fn samples_from(bytes: &[u8]) -> Result<Vec<f32>> {
     if !bytes.len().is_multiple_of(4) {
         bail!("Audio ends inside a sample");
     }
+
     let samples: Vec<_> = bytes
-        .chunks_exact(4)
-        .map(|chunk| f32::from_le_bytes(chunk.try_into().unwrap()))
+        .as_chunks()
+        .0
+        .iter()
+        .map(|chunk| f32::from_le_bytes(*chunk))
         .collect();
+
     if samples.iter().any(|sample| !sample.is_finite()) {
         bail!("Audio contains a non-finite sample");
     }
     Ok(samples)
 }
 
+#[derive(Default)]
 struct Run {
     id: String,
     heard: usize,
@@ -107,20 +121,27 @@ struct Run {
 
 fn feed(model: &mut Nemotron, run: &mut Run, samples: &[f32]) -> Result<()> {
     run.heard += samples.len();
+
     if run.heard > MAX_SAMPLES {
         bail!("A dictation can last at most ten minutes");
     }
+
     run.pending.extend_from_slice(samples);
     let chunk_size = model.chunk_samples();
-    while run.pending.len() >= chunk_size {
-        let chunk: Vec<_> = run.pending.drain(..chunk_size).collect();
-        model.transcribe_chunk(&chunk)?;
+    let whole = run.pending.len() / chunk_size * chunk_size;
+
+    for chunk in run.pending[..whole].chunks_exact(chunk_size) {
+        model.transcribe_chunk(chunk)?;
         let text = model.get_transcript();
+
         if text != run.last_text {
             emit(json!({"type":"transcript", "sessionId":run.id, "text":text, "final":false}))?;
             run.last_text = text;
         }
     }
+
+    run.pending.drain(..whole);
+
     Ok(())
 }
 
@@ -129,29 +150,35 @@ fn finish(model: &mut Nemotron, run: &mut Run) -> Result<()> {
         // The decoder needs a complete chunk and trailing silence to release the final words.
         run.pending.resize(model.chunk_samples(), 0.0);
         model.transcribe_chunk(&run.pending)?;
-        model.transcribe_chunk(&vec![0.0; model.chunk_samples()])?;
+        run.pending.fill(0.0);
+        model.transcribe_chunk(&run.pending)?;
     }
+
     emit(
         json!({"type":"transcript", "sessionId":run.id, "text":model.get_transcript(), "final":true}),
     )?;
     emit(json!({"type":"ended", "sessionId":run.id}))
 }
 
-fn serve(model_path: &Path, cache: Option<&Path>) -> Result<()> {
-    let mut model = load(model_path, cache)?;
+fn serve(model: &Model) -> Result<()> {
+    let mut model = load(model)?;
     let mut run: Option<Run> = None;
     let mut input = std::io::stdin().lock();
+    let mut line = String::new();
+
     loop {
-        let mut line = String::new();
+        line.clear();
         let read = input.by_ref().take(MAX_LINE + 1).read_line(&mut line)?;
+
         if read == 0 {
             break;
         }
+
         if read as u64 > MAX_LINE {
             bail!("Speech message too large");
         }
-        let request: Request = serde_json::from_str(&line)?;
-        match request {
+
+        match serde_json::from_str(&line)? {
             Request::Start {
                 session_id,
                 language,
@@ -159,85 +186,78 @@ fn serve(model_path: &Path, cache: Option<&Path>) -> Result<()> {
                 if run.is_some() {
                     bail!("A dictation is already running");
                 }
-                // Reset the utterance and explicitly replace the previous language prompt.
+
+                // Reset the utterance and replace the previous language prompt.
                 model.reset();
+
                 if let Err(error) = model.set_target_lang(&language) {
-                    emit(
-                        json!({"type":"failed", "sessionId":session_id, "message":error.to_string()}),
-                    )?;
+                    fail(&session_id, error.into())?;
                     continue;
                 }
-                run = Some(Run {
-                    id: session_id.clone(),
-                    heard: 0,
-                    pending: Vec::new(),
-                    last_text: String::new(),
-                });
+
                 emit(json!({"type":"ready", "sessionId":session_id}))?;
+                run = Some(Run {
+                    id: session_id,
+                    ..Run::default()
+                });
             }
             Request::Samples { session_id, audio } => {
-                if let Some(active) = run.as_mut().filter(|active| active.id == session_id) {
-                    let result = STANDARD
-                        .decode(audio)
-                        .map_err(anyhow::Error::from)
-                        .and_then(|bytes| samples_from(&bytes))
-                        .and_then(|samples| feed(&mut model, active, &samples));
-                    if let Err(error) = result {
-                        emit(
-                            json!({"type":"failed", "sessionId":session_id, "message":error.to_string()}),
-                        )?;
-                        run = None;
-                        model.reset();
-                    }
-                }
-            }
-            Request::Stop { session_id } => {
-                if run.as_ref().is_some_and(|active| active.id == session_id) {
-                    let mut active = run.take().unwrap();
-                    if let Err(error) = finish(&mut model, &mut active) {
-                        emit(
-                            json!({"type":"failed", "sessionId":session_id, "message":error.to_string()}),
-                        )?;
-                    }
+                let Some(active) = run.as_mut().filter(|active| active.id == session_id) else {
+                    continue;
+                };
+
+                let result = STANDARD
+                    .decode(audio)
+                    .map_err(anyhow::Error::from)
+                    .and_then(|bytes| samples_from(&bytes))
+                    .and_then(|samples| feed(&mut model, active, &samples));
+
+                if let Err(error) = result {
+                    fail(&session_id, error)?;
+                    run = None;
                     model.reset();
                 }
             }
+            Request::Stop { session_id } => {
+                let Some(mut active) = run.take_if(|active| active.id == session_id) else {
+                    continue;
+                };
+
+                if let Err(error) = finish(&mut model, &mut active) {
+                    fail(&session_id, error)?;
+                }
+
+                model.reset();
+            }
             Request::Cancel { session_id } => {
-                if run.as_ref().is_some_and(|active| active.id == session_id) {
-                    run = None;
+                if run.take_if(|active| active.id == session_id).is_some() {
                     model.reset();
                     emit(json!({"type":"ended", "sessionId":session_id}))?;
                 }
             }
         }
     }
+
     Ok(())
 }
 
 fn main() -> Result<()> {
     match Arguments::parse().command {
-        Command::Serve { model, cache } => serve(&model, cache.as_deref()),
-        Command::Probe { model, cache } => {
-            let model = load(&model, cache.as_deref())?;
+        Command::Serve { model } => serve(&model),
+        Command::Probe { model } => {
+            let model = load(&model)?;
             emit(json!({"present":true, "chunk_samples":model.chunk_samples()}))
         }
-        Command::Transcribe {
-            model,
-            language,
-            cache,
-        } => {
-            let mut model = load(&model, cache.as_deref())?;
+        Command::Transcribe { model, language } => {
+            let mut model = load(&model)?;
             model.set_target_lang(&language)?;
             let mut run = Run {
                 id: "cli".into(),
-                heard: 0,
-                pending: Vec::new(),
-                last_text: String::new(),
+                ..Run::default()
             };
-            let mut input = std::io::stdin().lock();
             let mut bytes = Vec::new();
-            input
-                .by_ref()
+            std::io::stdin()
+                .lock()
                 .take((MAX_SAMPLES * 4 + 1) as u64)
                 .read_to_end(&mut bytes)?;
             feed(&mut model, &mut run, &samples_from(&bytes)?)?;
