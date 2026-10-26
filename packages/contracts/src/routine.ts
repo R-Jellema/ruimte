@@ -171,7 +171,9 @@ export const RoutineRunSchema = z.object({
     // The version of the routine's artifact this run delivered.
     artifactId: z.string().min(1).optional(),
     versionId: z.string().min(1).optional(),
-    versionNumber: z.number().int().positive().optional()
+    versionNumber: z.number().int().positive().optional(),
+    // The turns its chat had ended before this run, so a chat that has not begun the run's turn yet is not read as done.
+    turnsBefore: z.number().int().nonnegative().optional()
 });
 export type RoutineRun = z.infer<typeof RoutineRunSchema>;
 

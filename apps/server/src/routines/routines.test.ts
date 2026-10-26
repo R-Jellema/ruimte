@@ -59,7 +59,7 @@ async function build(): Promise<{ routines: Routines; store: RoutineStore; runs:
         agents: {
             start: async (start) => {
                 started.push(start);
-                chats.set(start.chatId, { status: 'running' });
+                chats.set(start.chatId, { status: 'running', usage: { turns: 0 } as ChatInfo['usage'] });
             },
             info: (chatId) => chats.get(chatId) as ChatInfo | undefined,
             starting: () => false,
@@ -151,6 +151,20 @@ describe('the clock', () => {
         expect(run?.kind).toBe('caught-up');
         expect(run?.missed).toHaveLength(4);
         expect(owed().map((entry) => entry.payload.due)).toEqual([zonedTime(2026, 10, 23, 9, 0, ZONE)]);
+    });
+
+    test('a chat that is idle before its first turn ended is still starting, and done once it ended one', async () => {
+        const { routines, runs } = await build();
+        await routines.save(PROJECT, 0, morning, false);
+        const { runId } = await routines.runNow(PROJECT, 'morning');
+        const chatId = started[0]!.chatId;
+        const idle = (turns: number) => ({ status: 'idle', usage: { turns } }) as ChatInfo;
+        await routines.observe(chatId, idle(0));
+        expect(runs.get(runId!)?.state).toBe('starting');
+        await routines.observe(chatId, { status: 'needs-you', usage: { turns: 0 } } as ChatInfo);
+        expect(runs.get(runId!)?.state).toBe('needs-you');
+        await routines.observe(chatId, idle(1));
+        expect(runs.get(runId!)).toMatchObject({ state: 'done', waited: true });
     });
 
     test('a due run is skipped, never queued, while the previous one still waits on a person', async () => {

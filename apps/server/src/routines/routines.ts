@@ -137,8 +137,8 @@ function freshId(prefix: string): string {
 
 const LIVE: ReadonlySet<RoutineRunState> = new Set(['starting', 'running', 'needs-you', 'limit']);
 
-/* The state of an agent run as its chat says it now. */
-function chatState(info: ChatInfo): { state: RoutineRunState; limitUntil?: number; error?: string } {
+/* The state of an agent run as its chat says it now; idle before the run's turn ended is still the start. */
+function chatState(info: ChatInfo, run: Pick<RoutineRun, 'state' | 'turnsBefore'>): { state: RoutineRunState; limitUntil?: number; error?: string } {
     if (info.status === 'needs-you') {
         return { state: 'needs-you' };
     }
@@ -152,6 +152,9 @@ function chatState(info: ChatInfo): { state: RoutineRunState; limitUntil?: numbe
     }
     if (info.status === 'error' || info.status === 'exited') {
         return { state: 'failed', error: 'The agent stopped with an error' };
+    }
+    if (info.usage.turns <= (run.turnsBefore ?? 0)) {
+        return { state: run.state === 'needs-you' ? 'running' : run.state };
     }
     return { state: 'done' };
 }
@@ -404,7 +407,7 @@ export class Routines {
         if (run === undefined || !LIVE.has(run.state)) {
             return;
         }
-        const now = chatState(info);
+        const now = chatState(info, run);
         const waited = run.waited === true || now.state === 'needs-you';
         if (now.state === run.state && waited === (run.waited === true) && now.limitUntil === run.limitUntil) {
             return;
@@ -510,7 +513,7 @@ export class Routines {
         if (this.deps.runs.ofChat(run.chatId)?.runId !== run.runId) {
             return run;
         }
-        return chatState(info);
+        return chatState(info, run);
     }
 
     private async begin(
@@ -561,7 +564,7 @@ export class Routines {
         if (routine.perRun === 'continue') {
             const last = this.deps.runs.of(projectId, routine.id).find((run) => run.chatId !== undefined);
             if (last?.chatId !== undefined && (await this.deps.agents.exists(last.chatId))) {
-                const run: RoutineRun = { ...base, chatId: last.chatId, state: 'running' };
+                const run: RoutineRun = { ...base, chatId: last.chatId, state: 'running', turnsBefore: this.deps.agents.info(last.chatId)?.usage.turns ?? 0 };
                 await this.deps.runs.put(run);
                 if (!(await this.deps.agents.continueIn(last.chatId, prompt, routine.title))) {
                     const skipped: RoutineRun = { ...base, state: 'skipped', skipped: 'overlap' };

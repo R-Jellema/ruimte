@@ -113,7 +113,8 @@ export async function wireRoutines({ home, machineId, stores, agents, projects, 
                 }
                 return chat.wake({ text, label, taskIds: [] });
             },
-            exists: async (chatId) => placed(chatId) && (chats.get(chatId) !== undefined || (await chats.hasStored(chatId)))
+            // Opens a stored chat as well, so what it ran before is known before the run's turn opens.
+            exists: async (chatId) => placed(chatId) && (await openChat(chatId)) !== null
         },
         commands: { run: runCommand },
         launches: {
