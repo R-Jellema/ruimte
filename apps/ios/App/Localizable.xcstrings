@@ -5995,6 +5995,17 @@
         }
       }
     },
+    "Keep" : {
+      "comment" : "Keeps the chat's full history instead of compacting it",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Houden"
+          }
+        }
+      }
+    },
     "Keep full history" : {
       "localizations" : {
         "nl" : {

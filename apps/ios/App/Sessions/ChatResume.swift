@@ -122,8 +122,11 @@ struct ChatCompactionDock: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityElement(children: .combine)
-                    Button("Keep full history") { model.keepFullHistory(offer.turnID) }
-                        .buttonStyle(.mobileCapsuleSmall)
+                    Button(String(localized: "Keep", comment: "Keeps the chat's full history instead of compacting it")) {
+                        model.keepFullHistory(offer.turnID)
+                    }
+                    .buttonStyle(.mobileCapsuleSmall)
+                    .accessibilityLabel("Keep full history")
                     Button("Compact") { compact() }
                         .buttonStyle(MobileCapsuleButtonStyle(prominent: true, size: .small))
                         .disabled(!model.connected)
