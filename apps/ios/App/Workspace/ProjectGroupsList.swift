@@ -11,6 +11,14 @@ struct ProjectGroupsList: View {
     var body: some View {
         ForEach(groups) { group in
             Section {
+                // A row and not the section's header: a plain list pins its headers, and they piled up under the bar.
+                MachineLinkStateHeading(
+                    machine: group.machine, icon: runtime.session(for: group.machine).icons.icon?.value,
+                    reach: group.reach
+                )
+                .listRowInsets(EdgeInsets(top: 0, leading: 28, bottom: 2, trailing: 18))
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
                 ForEach(group.rows) { overview in
                     Button {
                         openWorkspace(
@@ -29,10 +37,6 @@ struct ProjectGroupsList: View {
                         overview.isChats
                             ? "projects.chats.\(overview.row.machine.id)" : "projects.project.\(overview.id.projectID)")
                 }
-            } header: {
-                MachineLinkStateHeading(
-                    machine: group.machine, icon: runtime.session(for: group.machine).icons.icon?.value,
-                    reach: group.reach)
             }
             .listSectionSeparator(.hidden)
         }
