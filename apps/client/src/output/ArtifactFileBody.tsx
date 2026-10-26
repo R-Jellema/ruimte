@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CircleAlert } from 'lucide-react';
 import { VisualPageFrame } from '@adecore/agents-react/chat/ui';
-import type { ArtifactFile } from '@ruimte/contracts';
+import { injectVisualBootstrap, type ArtifactFile } from '@ruimte/contracts';
 import { EmptyState } from '@adecore/ui';
 import { readArtifactFile, useArtifactText, type ArtifactFileRef } from '@/output/artifact-bytes';
 import { artifactBinaryRead, artifactSource, fileViewOf, languageOfName } from '@/output/file-view';
@@ -71,7 +71,13 @@ export function ArtifactPage(props: ArtifactFileProps & { auto?: boolean }) {
 
 function PageOfFile({ endpointId, reference, file, title, auto = false }: ArtifactFileProps & { auto?: boolean }) {
     // One read per file: the frame opens its bridge again for every new `page`, so a fresh one each render never finishes loading.
-    const [page] = useState(() => (): Promise<string> => readArtifactFile(endpointId, reference, file).then((blob) => blob.text()));
+    // With the bootstrap a chat's visual is served with: it reports the page's size and takes the theme, which is what ends the frame's wait.
+    const [page] = useState(
+        () => (): Promise<string> =>
+            readArtifactFile(endpointId, reference, file)
+                .then((blob) => blob.text())
+                .then(injectVisualBootstrap)
+    );
     if (auto) {
         return <VisualPageFrame page={page} title={title} />;
     }
