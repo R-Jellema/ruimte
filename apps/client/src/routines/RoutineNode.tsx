@@ -85,7 +85,8 @@ function RoutineOnCanvas({ endpointId, entry, timeZone }: { endpointId: string; 
         showRoutine(target, runId);
     };
     return (
-        <div className={clsx('flex h-full min-h-0 w-full flex-col gap-3 overflow-y-auto p-3', paused && 'opacity-70')}>
+        // The node scrolls as a whole, so no part of it is squeezed to fit its height.
+        <div className={clsx('flex h-full min-h-0 w-full flex-col gap-3 overflow-y-auto p-3 *:shrink-0', paused && 'opacity-70')}>
             <HeaderControls>
                 <Switch
                     checked={!paused && entry.local.declined !== entry.digest}
