@@ -1032,10 +1032,10 @@ export class LanguageHost {
     }
 
     /*
-     * Files that move go past the servers of the project: each says what it would change first (imports, a
-     * namespace), which is made before the move, and is told afterwards that the files moved. A server that is
-     * slow or fails is left out, and the move still happens, also when its edit cannot be planned. An edit the editor refuses ends it before a file moved.
-     * `edits: false` skips the first half, for a caller that moves files as part of an edit it made itself.
+     * Each server of the project says what a move would change (imports, a namespace), which is made before
+     * the move, and is told afterwards that the files moved. A slow or failing server is left out and the
+     * move still happens; an edit the editor refuses ends it before a file moved. `edits: false` skips the
+     * first half, for a caller that moves files as part of an edit it made itself.
      */
     async renameFiles(clientId: string, projectId: string, from: string, to: string, edits: boolean, file: FileMove): Promise<string[]> {
         const moved: RenamedFile = {

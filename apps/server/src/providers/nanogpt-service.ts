@@ -64,10 +64,8 @@ function subscriptionModels(models: NanoModel[]): NanoModel[] {
 }
 
 /*
- * The NanoGPT subscription of this machine: its API key and the models it includes. Both live in
- * `$RUIMTE_HOME/nanogpt`, the key in a 0600 file in a 0700 folder like the secrets of launches. No
- * client reads the folder (`MachineHome` keeps it closed) and no verb reaches it; the only reader is
- * the chat backend, which puts the key in the header of its own requests and nowhere else.
+ * The NanoGPT subscription of this machine: its API key and the models it includes, in `$RUIMTE_HOME/nanogpt`
+ * and kept the way the Claude API keeps its key (`anthropic-claude-api-service.ts`).
  */
 export class NanoGptService {
     readonly catalog = new ModelCatalog({ defaultModel: '', profiles: {}, models: [] });
