@@ -71,7 +71,7 @@ export interface RoutineDeps {
         /* Whether a start of this chat is still owed. */
         starting(chatId: string): boolean;
         /* Opens a turn in a chat a person already has; false while it is in one, or gone. */
-        continueIn(chatId: string, message: RunMessage, label: string): Promise<boolean>;
+        continueIn(chatId: string, message: RunMessage, routine: AgentRoutine): Promise<boolean>;
         exists(chatId: string): Promise<boolean>;
     };
     commands: { run(cwd: string, command: string, capBytes: number): Promise<CommandResult> };
@@ -110,7 +110,16 @@ export function isRoutineOpener(openedBy: string): boolean {
 export function digestOf(routine: Routine): string {
     const what =
         routine.kind === 'agent'
-            ? ['agent', routine.prompt, routine.provider, routine.selection ?? null, routine.mode, routine.perRun]
+            ? // What was picked opens views to the run, so it asks again too; a routine without picks keeps its digest.
+              [
+                  'agent',
+                  routine.prompt,
+                  routine.provider,
+                  routine.selection ?? null,
+                  routine.mode,
+                  routine.perRun,
+                  ...(routine.picked === undefined ? [] : [routine.picked])
+              ]
             : routine.kind === 'command'
               ? ['command', routine.command, routine.cwd ?? null]
               : routine.kind === 'launch'
@@ -603,7 +612,7 @@ export class Routines {
             if (last?.chatId !== undefined && (await this.deps.agents.exists(last.chatId))) {
                 const run: RoutineRun = { ...base, chatId: last.chatId, state: 'running', turnsBefore: this.deps.agents.info(last.chatId)?.usage.turns ?? 0 };
                 await this.deps.runs.put(run);
-                if (!(await this.deps.agents.continueIn(last.chatId, message, routine.title))) {
+                if (!(await this.deps.agents.continueIn(last.chatId, message, routine))) {
                     const skipped: RoutineRun = { ...base, state: 'skipped', skipped: 'overlap' };
                     await this.deps.runs.put(skipped);
                     return skipped;

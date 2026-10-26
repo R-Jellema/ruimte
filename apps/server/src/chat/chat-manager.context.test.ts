@@ -174,6 +174,30 @@ describe('the first prompt of an agent node', () => {
         expect(held.left()).toBeNull();
     });
 
+    test('carries what a person picked in it, as a message sent with those chips would', async () => {
+        await retire(manager);
+        const sketch: Reference = { id: 'sketch', kind: 'drawing', name: 'Sketch', canvas: null, sources: [] };
+        let left: FirstPrompt | null = { prompt: 'use $report on #Sketch', picked: { skills: ['report'], references: ['sketch'] } };
+        manager = makeManager({
+            reference: (chatId, id) => (chatId === 'chat-pick' && id === 'sketch' ? sketch : null),
+            firstPrompt: async () => {
+                const value = left;
+                left = null;
+                return value;
+            }
+        });
+        manager.subscribe('c1', recorder.sink());
+        await manager.create({ chatId: 'chat-pick', cwd: home });
+        manager.attach('chat-pick', 'c1');
+        await recorder.until(settledIn('chat-pick'));
+
+        expect(threadOf('chat-pick').find((item) => item.kind === 'user')).toMatchObject({
+            text: 'use $report on #Sketch',
+            skills: ['report'],
+            references: ['sketch']
+        });
+    });
+
     test('its brief is heard on the first turn and folds in the thread under the title, never in the message', async () => {
         await retire(manager);
         manager = withPrompt('summarize main', 'publish it to Output').taken();

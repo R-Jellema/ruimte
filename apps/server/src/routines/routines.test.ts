@@ -296,6 +296,13 @@ describe('approval', () => {
         expect(runs.all()).toEqual([]);
     });
 
+    test('what a person picked in the prompt is approved with it, and a routine without picks keeps its digest', () => {
+        const picked = { ...morning, picked: { references: ['canvas-1'] } };
+        expect(digestOf({ ...morning, picked: undefined })).toBe(digestOf(morning));
+        expect(digestOf(picked)).not.toBe(digestOf(morning));
+        expect(digestOf({ ...morning, picked: { references: ['canvas-2'] } })).not.toBe(digestOf(picked));
+    });
+
     test('a change from outside asks again, and runs nothing meanwhile', async () => {
         const { routines } = await build();
         await routines.save(PROJECT, 0, morning, true);

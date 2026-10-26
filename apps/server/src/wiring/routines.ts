@@ -1,8 +1,10 @@
 import { chatOpener } from '@adecore/agents/chat';
+import type { RoutinePicked, RoutineSkillsPayload, RoutineSkillsResult } from '@ruimte/contracts';
 import { ClientSinks } from '../client-sinks.ts';
+import { attachedReferences, type Reference } from '../context/references.ts';
 import { errorText } from '../error-text.ts';
 import { RoutineAuthorStore, RoutineRunStore } from '../routines/routine-runs.ts';
-import { RoutineStore } from '../routines/routine-store.ts';
+import { RoutineError, RoutineStore } from '../routines/routine-store.ts';
 import { routineOpener, Routines } from '../routines/routines.ts';
 import { runCommand } from '../routines/command-run.ts';
 import type { SessionSink } from '../sessions/manager.ts';
@@ -43,6 +45,20 @@ export interface RoutinesBundle {
     routines: Routines;
     store: RoutineStore;
     watchers: RoutineWatchers;
+    /* What an agent would run as a skill in a project, for a routine's prompt before its chat exists. */
+    skills(payload: RoutineSkillsPayload): Promise<RoutineSkillsResult>;
+}
+
+/*
+ * The brief of a run that continues its chat. A wake carries no message of the person, so the views and chats
+ * the prompt points at are named here; the chat may still open them from the run that started it.
+ */
+export function continuedBrief(brief: string | undefined, picked: RoutinePicked | undefined, lookup: (id: string) => Reference | null): string | undefined {
+    if (brief === undefined) {
+        return undefined;
+    }
+    const { note } = attachedReferences({ chats: picked?.chats, references: picked?.references }, lookup);
+    return note === null ? brief : `${brief}\n\n${note}`;
 }
 
 export interface RoutinesInput {
@@ -89,7 +105,7 @@ export async function wireRoutines({ home, machineId, stores, agents, projects, 
                     openedBy: routineOpener(routine.id),
                     node: { id: chatId, kind: 'chat', title: routine.title, x: 0, y: 0, w: 480, h: 560 }
                 });
-                await stores.prompts.put(projectId, chatId, prompt, brief);
+                await stores.prompts.put(projectId, chatId, prompt, brief, routine.picked);
                 await outboxLink.enqueue(projectId, chatId, {
                     kind: 'start-agent',
                     payload: {
@@ -106,12 +122,17 @@ export async function wireRoutines({ home, machineId, stores, agents, projects, 
             },
             info: (chatId) => chats.get(chatId)?.info,
             starting: (chatId) => stores.outbox.list().some((entry) => entry.kind === 'start-agent' && entry.target === chatId),
-            continueIn: async (chatId, { prompt, brief }, label) => {
+            continueIn: async (chatId, { prompt, brief }, routine) => {
                 const chat = await openChat(chatId);
                 if (chat === null || chat.relocating?.() === true) {
                     return false;
                 }
-                return chats.withBrief(chatId, brief, () => chat.wake({ text: prompt, label, taskIds: [] }));
+                const { mentions, skills } = routine.picked ?? {};
+                return chats.withBrief(
+                    chatId,
+                    continuedBrief(brief, routine.picked, (id) => project.index.referenceBeside(chatId, id)),
+                    () => chat.wake({ text: prompt, label: routine.title, taskIds: [], ...(mentions ? { mentions } : {}), ...(skills ? { skills } : {}) })
+                );
             },
             // Opens a stored chat as well, so what it ran before is known before the run's turn opens.
             exists: async (chatId) => placed(chatId) && (await openChat(chatId)) !== null
@@ -188,5 +209,12 @@ export async function wireRoutines({ home, machineId, stores, agents, projects, 
             void routines.observe(chatId, chatEvent.info).catch((e: unknown) => console.error('Noting a routine run failed:', errorText(e)));
         }
     });
-    return { routines, store, watchers };
+    const skills = async ({ projectId, provider }: RoutineSkillsPayload): Promise<RoutineSkillsResult> => {
+        const folder = project.index.folderOf(projectId);
+        if (folder === null) {
+            throw new RoutineError('project-not-found', `No project ${projectId} on this machine`);
+        }
+        return { skills: await chats.skillsIn(provider, folder) };
+    };
+    return { routines, store, watchers, skills };
 }

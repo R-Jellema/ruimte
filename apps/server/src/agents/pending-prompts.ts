@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import { RecordDirectory } from '@adecore/agents';
+import { RoutinePickedSchema, type RoutinePicked } from '@ruimte/contracts';
 import { z } from 'zod';
 
 export { MAX_PROMPT_LENGTH } from '@ruimte/actions';
@@ -10,7 +11,9 @@ const PendingPromptSchema = z.object({
     prompt: z.string().min(1),
     createdAt: z.number(),
     // Ruimte's own instructions for the first turn, which a chat hears beside the prompt and folds away in its thread.
-    brief: z.string().min(1).optional()
+    brief: z.string().min(1).optional(),
+    // What a person picked in the prompt, sent with it as `chat.send` would: a routine's `@`, `$` and `#`.
+    picked: RoutinePickedSchema.optional()
 });
 
 type PendingPrompt = z.infer<typeof PendingPromptSchema>;
@@ -18,6 +21,7 @@ type PendingPrompt = z.infer<typeof PendingPromptSchema>;
 export interface FirstPrompt {
     prompt: string;
     brief?: string;
+    picked?: RoutinePicked;
 }
 
 /*
@@ -39,8 +43,15 @@ export class PendingPromptStore {
         return this.pending.load();
     }
 
-    async put(projectId: string, nodeId: string, prompt: string, brief?: string): Promise<void> {
-        await this.pending.write({ projectId, nodeId, prompt, createdAt: Date.now(), ...(brief === undefined ? {} : { brief }) });
+    async put(projectId: string, nodeId: string, prompt: string, brief?: string, picked?: RoutinePicked): Promise<void> {
+        await this.pending.write({
+            projectId,
+            nodeId,
+            prompt,
+            createdAt: Date.now(),
+            ...(brief === undefined ? {} : { brief }),
+            ...(picked === undefined ? {} : { picked })
+        });
     }
 
     /*
@@ -54,7 +65,11 @@ export class PendingPromptStore {
             return null;
         }
         await this.pending.remove(nodeId);
-        return entry.brief === undefined ? { prompt: entry.prompt } : { prompt: entry.prompt, brief: entry.brief };
+        return {
+            prompt: entry.prompt,
+            ...(entry.brief === undefined ? {} : { brief: entry.brief }),
+            ...(entry.picked === undefined ? {} : { picked: entry.picked })
+        };
     }
 
     has(nodeId: string): boolean {

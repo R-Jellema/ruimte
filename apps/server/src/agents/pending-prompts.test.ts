@@ -43,6 +43,19 @@ test('a prompt and its brief survive a daemon that restarts before anyone mounts
     expect(await again.take('chat-a')).toBeNull();
 });
 
+test('what a person picked in a prompt survives a restart beside it', async () => {
+    const before = new PendingPromptStore(home);
+    await before.put('p1', 'chat-a', 'use $report', 'publish it to Output', { skills: ['report'], references: ['canvas-1'] });
+
+    const after = new PendingPromptStore(home);
+    await after.load();
+    expect(await after.take('chat-a')).toEqual({
+        prompt: 'use $report',
+        brief: 'publish it to Output',
+        picked: { skills: ['report'], references: ['canvas-1'] }
+    });
+});
+
 test('the file goes with the prompt, so the directory does not grow', async () => {
     const store = new PendingPromptStore(home);
     await store.put('p1', 'terminal-a', 'one');

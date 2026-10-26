@@ -675,7 +675,7 @@ export class ChatManager extends ChatCore {
                 this.briefs.set(chatId, first.brief);
             }
             try {
-                session.send(first.prompt);
+                session.send(first.prompt, first.picked ?? {});
             } catch (e) {
                 this.briefs.delete(chatId);
                 // A CLI that will not start must not take chat.create down with it: the node is there either way.

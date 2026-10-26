@@ -2,7 +2,9 @@ import type { Dispatcher } from '../dispatcher.ts';
 import type { RoutinesBundle } from '../wiring/routines.ts';
 
 /* A client connection is always a person, so a save here counts as approval. None of these is on a peer's list; an agent has its verbs. */
-export function registerRoutineHandlers(dispatcher: Dispatcher, { routines, watchers }: RoutinesBundle): void {
+export function registerRoutineHandlers(dispatcher: Dispatcher, { routines, watchers, skills }: RoutinesBundle): void {
+    dispatcher.register('routine.skills', (payload) => skills(payload));
+
     dispatcher.register('routine.list', ({ projectId }) => routines.list(projectId));
 
     dispatcher.register('routine.get', ({ projectId, routineId }) => routines.get(projectId, routineId));
