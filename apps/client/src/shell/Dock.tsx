@@ -2,13 +2,17 @@ import { TerminalDictationButton } from '@/dictation/TerminalDictationButton';
 import { useDictation } from '@/dictation/controller';
 import { useTranslation } from 'react-i18next';
 import { useEffect } from 'react';
-import { Globe, LayoutGrid, LayoutTemplate, Lock, LockOpen, MessageSquare, Plus, Save, StickyNote, Terminal, Type, X } from 'lucide-react';
+import { FileText, Globe, LayoutGrid, LayoutTemplate, Lock, LockOpen, MessageSquare, Minus, Plus, Save, StickyNote, Terminal, Type, X } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { isCanvasView } from '@ruimte/contracts';
 import { applyLayoutAction, createNodeAction, createTextAction, deleteLayoutAction, fitAction, setLocksAction } from '@/actions/client-actions';
 import { AgentSubmenus } from '@/agents/AgentMenus';
+import { centerWorld } from '@/actions/action-reach';
 import { LOCK_KEYS, lockHint, lockLabel } from '@/canvas/locks';
+import type { Point } from '@/canvas/math';
+import { RemoteMachineItems } from '@/canvas/RemoteMachineItems';
 import { RoutineAddItems } from '@/routines/RoutineAddItems';
+import { shownFolderOf, useProject } from '@/state/project';
 import { maximizedNodeOf, useCanvas, useCanvasStore } from '@/state/canvas';
 import { activeViewOf, useDocument } from '@/state/document';
 import { useUi } from '@/state/ui';
@@ -23,7 +27,7 @@ import { ADD_NODE_SHORTCUTS, CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
  * section, and the way out of a body is Escape, the shortcut a terminal uses, or its row in the list.
  */
 export function Dock({ onHiddenChange }: { onHiddenChange?: (hidden: boolean) => void }) {
-    const { t } = useTranslation(['shell', 'common']);
+    const { t } = useTranslation(['shell', 'common', 'canvas', 'drawing']);
     const dictationEnabled = useDictation((state) => state.model?.enabled === true);
     /* The canvas under this dock. It is drawn in the focused cell only, which is the canvas the
        actions behind adding a node and fitting are sent to. */
@@ -48,6 +52,10 @@ export function Dock({ onHiddenChange }: { onHiddenChange?: (hidden: boolean) =>
     const dockAutoHide = useSettings((s) => s.dockAutoHide);
     // A maximized node is all the canvas shows, so the controls for the rest of it step aside.
     const maximized = useCanvas((s) => maximizedNodeOf(s) !== null);
+    /* A file comes out of the open folder, so a project without one has nothing to pick from. */
+    const hasFolder = useProject((s) => shownFolderOf(s.current) !== null);
+    // The dock has no point of its own, so what the right-click places at the pointer lands in the middle of the view.
+    const centerOfCanvas = (): Point => centerWorld(canvasStore.getState());
     const anyLocked = Object.values(locks).some(Boolean);
     const allLocked = Object.values(locks).every(Boolean);
 
@@ -82,10 +90,19 @@ export function Dock({ onHiddenChange }: { onHiddenChange?: (hidden: boolean) =>
                     <Menu.Item onClick={() => void createNodeAction('group')}>
                         <Icon icon={LayoutGrid} size={14} /> {t('nodeKinds.group')} <Kbd shortcut={ADD_NODE_SHORTCUTS.group} />
                     </Menu.Item>
+                    {hasFolder && (
+                        <Menu.Item onClick={() => useUi.getState().openFilePicker({ kind: 'node', at: centerOfCanvas() })}>
+                            <Icon icon={FileText} size={14} /> {t('canvas:canvasMenu.file')}
+                        </Menu.Item>
+                    )}
+                    <RemoteMachineItems at={centerOfCanvas} />
+                    <Menu.Separator />
                     <Menu.Item onClick={() => void createNodeAction('note')}>
                         <Icon icon={StickyNote} size={14} /> {t('nodeKinds.note')} <Kbd shortcut={ADD_NODE_SHORTCUTS.note} />
                     </Menu.Item>
-                    <Menu.Separator />
+                    <Menu.Item onClick={() => canvasStore.getState().setLineTool('line')}>
+                        <Icon icon={Minus} size={14} /> {t('drawing:tools.line')}
+                    </Menu.Item>
                     <Menu.Item onClick={() => createTextAction()}>
                         <Icon icon={Type} size={14} /> {t('nodeKinds.text')} <Menu.Hint>{t('dock.doubleClick')}</Menu.Hint>
                     </Menu.Item>
