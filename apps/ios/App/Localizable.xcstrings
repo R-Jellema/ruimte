@@ -9873,6 +9873,16 @@
         }
       }
     },
+    "Could not show diagram. Showing its source." : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kon het diagram niet tonen. Dit is de bron."
+          }
+        }
+      }
+    },
     "Could not shut down %@. %@" : {
       "localizations" : {
         "en" : {
@@ -14189,6 +14199,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Kon %@ niet mergen"
+          }
+        }
+      }
+    },
+    "Mermaid diagrams" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mermaid-diagrammen"
           }
         }
       }
@@ -18799,6 +18819,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Samenvatting tonen"
+          }
+        }
+      }
+    },
+    "Show source" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bron tonen"
+          }
+        }
+      }
+    },
+    "Show diagram" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diagram tonen"
           }
         }
       }

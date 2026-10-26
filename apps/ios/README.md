@@ -190,7 +190,10 @@ dependencies, and commit the generated project and resolved packages without use
 SwiftTerm is pinned to 1.15.0, Highlightr to 2.3.0, Sentry to 9.30.2, WebRTC to 153.0.0 and LiveKit's WebRTC build to
 150.7871.03. SwiftTerm's shaders need Apple's separate Metal Toolchain. Icons use
 [LucideSwift](https://github.com/ajaxjiang96/lucide-swift) 0.9.5 with upstream icons 1.46.0; the notices are in
-`App/Design/Lucide-LICENSE.txt`.
+`App/Design/Lucide-LICENSE.txt`. A ```` ```mermaid ```` fence is laid out by Pele, the version
+`@adecore/agents-react` pins, which `Scripts/generate-mermaid.ts` copies to `App/Resources/pele.js` with its notice. It
+runs in one web view the app keeps for it, in a content world of its own, and each diagram shows as an image on a page
+without script.
 
 ```sh
 xcodebuild -project apps/ios/Ruimte.xcodeproj -scheme Ruimte -configuration Debug \

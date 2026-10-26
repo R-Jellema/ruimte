@@ -64,7 +64,12 @@ private struct MarkdownBlockView: View {
 
     @ViewBuilder var body: some View {
         switch block.kind {
-        case .code(let language): CodeMessage(text: block.text, language: language, closed: block.closed)
+        case .code(let language):
+            if language.lowercased() == "mermaid" {
+                MermaidMessage(text: block.text, closed: block.closed)
+            } else {
+                CodeMessage(text: block.text, language: language, closed: block.closed)
+            }
         case .heading(let level):
             ChatInlineText(text: block.text, streaming: streaming)
                 .font(MarkdownHeading.font(level)).lineSpacing(2)
@@ -181,6 +186,10 @@ struct CodeMessage: View {
     let text: String
     var language = ""
     var closed = true
+    /// Stands in place of the code, as a diagram does for its source.
+    var replacement: AnyView?
+    /// Goes before Copy.
+    var action: AnyView?
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.chatReplySource) private var replySource
     @State private var colors = CodeHighlightState()
@@ -198,13 +207,16 @@ struct CodeMessage: View {
                     if ChatShellPrepare.offers(language: language, code: text, closed: closed, source: replySource) {
                         ChatPrepareButton(language: language, code: text)
                     }
-                    Button {
-                        wrapsLines.toggle()
-                    } label: {
-                        Image(lucide: "corner-down-left")
-                            .foregroundStyle(wrapsLines ? MobileStyle.accent : Color.secondary)
-                            .frame(width: 44, height: 44)
-                    }.accessibilityLabel(wrapsLines ? "Scroll code horizontally" : "Wrap code lines")
+                    if replacement == nil {
+                        Button {
+                            wrapsLines.toggle()
+                        } label: {
+                            Image(lucide: "corner-down-left")
+                                .foregroundStyle(wrapsLines ? MobileStyle.accent : Color.secondary)
+                                .frame(width: 44, height: 44)
+                        }.accessibilityLabel(wrapsLines ? "Scroll code horizontally" : "Wrap code lines")
+                    }
+                    if let action { action }
                     Button {
                         UIPasteboard.general.string = text
                         copied = true
@@ -215,7 +227,9 @@ struct CodeMessage: View {
                 }
                 .font(.footnote).buttonStyle(.plain).foregroundStyle(MobileStyle.muted)
                 Divider().overlay(MobileStyle.border)
-                if wrapsLines {
+                if let replacement {
+                    replacement
+                } else if wrapsLines {
                     codeText.frame(maxWidth: .infinity, alignment: .leading)
                 } else {
                     ScrollView(.horizontal) { codeText }

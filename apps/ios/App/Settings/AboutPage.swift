@@ -69,6 +69,7 @@ struct LicensesPage: View {
         ("react-bits-license", "React Bits Galaxy"),
         ("package-licenses", String(localized: "Packages")),
         ("document-renderer-licenses", String(localized: "Drawing and diagram renderer")),
+        ("pele-license", String(localized: "Mermaid diagrams")),
     ]
 
     var body: some View {
