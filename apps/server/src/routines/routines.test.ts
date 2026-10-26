@@ -206,7 +206,8 @@ describe('the clock', () => {
         expect(started).toHaveLength(1);
         expect(continued).toHaveLength(1);
         expect(continued[0]).toMatchObject({ chatId, message: { prompt: morning.prompt } });
-        expect(continued[0]?.message.brief).toContain('started at Tue, Oct 20 at 09:00');
+        // ICU joins the date and the time with "at" on macOS and with a comma on Linux.
+        expect(continued[0]?.message.brief).toMatch(/started at Tue, Oct 20(,| at) 09:00/);
     });
 
     test('pause owes nothing, and resume owes the next time from now, not the ones it skipped', async () => {
