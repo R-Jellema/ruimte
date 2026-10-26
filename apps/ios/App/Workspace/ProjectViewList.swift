@@ -31,11 +31,6 @@ struct ProjectMarkSources {
     var warnings: Set<String> = []
     var shared: Set<String> = []
     var snoozes: [String: Date] = [:]
-    /// What each chat waits on, oldest first.
-    var requests: [String: [NowRequest]] = [:]
-    var activity: [String: ChatActivity] = [:]
-    /// When a session last stopped running, in epoch milliseconds.
-    var finishedAt: [String: Double] = [:]
 }
 
 /// What a long press on a row offers, in the order the menu holds it.

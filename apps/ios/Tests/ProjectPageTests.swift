@@ -51,66 +51,6 @@ final class ProjectListLogicTests: XCTestCase {
         XCTAssertEqual(ProjectListLogic.heaviest([.idle, .running, nil, .exited]), .exited)
     }
 
-    func testThePageSplitsChatsFromTheRestAndClosesWithGit() {
-        let views = [node("first"), node("zsh", kind: "terminal"), canvas, node("second")]
-        let groups = ProjectPageLayout.groups(views, git: true, expanded: { $0 == "canvas" })
-        XCTAssertEqual(groups.map(\.title), ["Chats", "Terminals and views"])
-        XCTAssertEqual(groups[0].count, 2)
-        XCTAssertEqual(groups[0].rows.map(\.id), ["view:first", "view:second"])
-        XCTAssertEqual(
-            groups[1].rows.map(\.id), ["view:zsh", "view:canvas", "node:api", "node:logs", "git"])
-        let folded = ProjectPageLayout.groups(views, git: false, expanded: { _ in false })
-        XCTAssertEqual(folded[1].rows.map(\.id), ["view:zsh", "view:canvas"])
-    }
-
-    func testHeadingsAPersonSetKeepTheirPartsAndOrder() {
-        let heading = JSONValue.object(["id": .string("h"), "kind": .string("subheader"), "name": .string("Backend")])
-        let groups = ProjectPageLayout.groups(
-            [node("first"), heading, node("zsh", kind: "terminal"), node("second")], git: true, expanded: { _ in true })
-        XCTAssertEqual(groups.map(\.title), [nil, "Backend"])
-        XCTAssertEqual(groups[1].rows.map(\.id), ["view:zsh", "view:second", "git"])
-        XCTAssertEqual(ProjectPageLayout.groups([], git: true, expanded: { _ in true }).map { $0.rows.map(\.id) }, [["git"]])
-    }
-
-    func testARowSaysWhyItWaitsAndWhenItFinished() throws {
-        let now = Date(timeIntervalSince1970: 1_800_000_000)
-        let question = try XCTUnwrap(
-            NowRequest(
-                .object([
-                    "requestId": .string("q"), "kind": .string("question"), "createdAt": .number(1),
-                    "question": .object([
-                        "questions": .array([
-                            .object([
-                                "id": .string("depth"), "header": .string("Depth"), "question": .string("Which?"),
-                                "choices": .array([]), "multiSelect": .bool(false),
-                            ])
-                        ])
-                    ]),
-                ])))
-        let sources = ProjectMarkSources(
-            statuses: ["ask": .needsYou, "tests": .running, "done": .idle], unseen: ["done"],
-            requests: ["ask": [question]],
-            activity: ["tests": ChatActivity(background: [.init(description: "Running sync tests", startedAt: 1)])],
-            finishedAt: ["done": now.timeIntervalSince1970 * 1000])
-        let line = { (id: String) -> String? in
-            let marks = ProjectListLogic.marks(node: self.node(id), sources: sources)
-            return ProjectRowState.line(ids: [id], marks: marks, sources: sources, now: now)
-        }
-        XCTAssertEqual(line("ask"), "Asks a question")
-        XCTAssertEqual(line("tests"), "Running sync tests")
-        XCTAssertEqual(line("done"), "Finished \(Format.moment(now, now: now))")
-        XCTAssertNil(line("idle"))
-        XCTAssertEqual(ProjectRowState.tone(ProjectListLogic.marks(node: node("ask"), sources: sources)), .waiting)
-        XCTAssertEqual(ProjectRowState.tone(ProjectListLogic.marks(node: node("done"), sources: sources)), .done)
-        XCTAssertEqual(ProjectRowState.tone(ProjectListLogic.marks(node: node("idle"), sources: sources)), .idle)
-        let snoozed = ProjectMarkSources(statuses: ["ask": .needsYou], snoozes: ["ask": now.addingTimeInterval(3_600)])
-        let marks = ProjectListLogic.marks(node: node("ask"), sources: snoozed)
-        XCTAssertEqual(ProjectRowState.tone(marks), .idle)
-        XCTAssertEqual(
-            ProjectRowState.line(ids: ["ask"], marks: marks, sources: snoozed, now: now),
-            "Snoozed until \(SnoozeChoice.moment(now.addingTimeInterval(3_600), from: now))")
-    }
-
     func testALongPressOffersWhatAppliesToTheRow() {
         let claude = JSONValue.object([
             "id": .string("c"), "kind": .string("chat"), "node": .object(["provider": .string("claude")]),

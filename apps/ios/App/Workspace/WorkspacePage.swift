@@ -64,9 +64,9 @@ struct WorkspacePage: View {
             } else {
                 // The list stands from the first frame of the push. Swapping it in for the status once the project
                 // opened, as the push settles, made the bar drop its items for a moment and bring them back.
-                PhoneProjectCards(
-                    workspace: workspace, state: listState, views: listedViews, git: gitLine, open: openView,
-                    openGit: { present(.git) }, act: act
+                PhoneProjectList(
+                    workspace: workspace, state: listState, views: listedViews,
+                    selectedID: navigation.selectedViewID, open: openView, act: act
                 )
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     if workspace.ready && !machineLost {
@@ -135,7 +135,7 @@ struct WorkspacePage: View {
         }
         .navigationTitle(isSidebar ? "" : workspace.title)
         .modifier(PhoneSubtitle(text: isSidebar ? nil : phoneSubtitle))
-        .navigationBarTitleDisplayMode(isSidebar ? .inline : .large)
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if isSidebar { sidebarToolbar } else { phoneToolbar }
         }
