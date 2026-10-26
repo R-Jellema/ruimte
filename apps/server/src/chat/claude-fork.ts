@@ -2,6 +2,7 @@ import { mkdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { writeAtomic } from '@adecore/agents';
 import { claudeProjectSlug, findClaudeSession } from '@adecore/agents/chat';
+import { isRecord } from '../is-record.ts';
 import { ChatError } from './errors.ts';
 
 /* The Claude Code whose transcript this cut was checked against; the file is undocumented, so a change there is a refusal here. */
@@ -14,10 +15,6 @@ const CLAUDE_TRANSCRIPT_CHECKED = '2.1.273';
 export type TranscriptCutPoint = { lastUuid: string } | { turns: number } | 'whole';
 
 type Line = Record<string, unknown>;
-
-function isRecord(value: unknown): value is Line {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 function formatRefusal(detail: string): ChatError {
     return new ChatError(

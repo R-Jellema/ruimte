@@ -1,6 +1,7 @@
 import { constants, type Stats } from 'node:fs';
 import { lstat, open, opendir, realpath, stat, unlink, type FileHandle } from 'node:fs/promises';
-import { dirname, isAbsolute, join, relative, sep } from 'node:path';
+import { dirname, isAbsolute, join, relative } from 'node:path';
+import { climbsOut } from '../fs/path-segment.ts';
 import { isBuildOutput } from '../fs/visibility.ts';
 import type { AppleToolCall, AppleToolResult } from './apple-tools.ts';
 
@@ -47,7 +48,7 @@ async function checkedPath(cwd: string, path: string, signal?: AbortSignal, crea
 async function verifyPath(root: string, target: string): Promise<void> {
     const resolved = await realpath(target);
     const local = relative(root, resolved);
-    if (local === '..' || local.startsWith(`..${sep}`) || isAbsolute(local) || resolved !== target) {
+    if (climbsOut(local) || resolved !== target) {
         throw new Error('The path changed or leaves the project folder.');
     }
 }

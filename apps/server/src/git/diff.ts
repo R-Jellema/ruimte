@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative } from 'node:path';
 import { missingSides, patchFits } from '@adecore/merge';
 import type { ChatCheckpointDiff, ChatCheckpointFile, GitDiffFile, GitDiffResult, GitDiffScope } from '@ruimte/contracts';
-import { climbsOut } from '../projects/project-files.ts';
+import { climbsOut } from '../fs/path-segment.ts';
 import { readCommit } from './log.ts';
 import { nativePath } from './native-path.ts';
 import { git, runGit, runGitBytes, toplevel, GitError } from './run.ts';

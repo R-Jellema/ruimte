@@ -18,14 +18,16 @@ import {
 import { CodedError, Serializer, settled, SYSTEM_WATCH, type DirectoryWatcher, type Settled, type WatchSeams } from '@adecore/agents';
 import { ClientSinks } from '../client-sinks.ts';
 import { errorText } from '../error-text.ts';
+import { climbsOut } from '../fs/path-segment.ts';
 import {
     PRIVATE_DIR,
     PROJECT_DIR,
     PROJECT_FILE,
-    climbsOut,
     parseVersioned,
     readJsonDocument,
+    restOf,
     tooNewMessage,
+    watchDirectories,
     writeGitignoreIfMissing,
     type JsonDocumentParse,
     type JsonDocumentRead
@@ -111,10 +113,6 @@ function serialize(file: Record<string, unknown>): string {
             return `  ${JSON.stringify(key)}: ${text}`;
         });
     return `{\n${fields.join(',\n')}\n}\n`;
-}
-
-function restOf(file: Record<string, unknown>, known: readonly string[]): Record<string, unknown> {
-    return Object.fromEntries(Object.entries(file).filter(([key]) => !known.includes(key)));
 }
 
 function connectionsOf(entries: readonly DatabaseFileEntry[]): DatabaseConnectionEntry[] {
@@ -368,22 +366,11 @@ export class DatabaseConnectionStore {
                 })
         );
         state.settle = settle;
-        state.watchers = [join(state.folder, PROJECT_DIR), join(state.folder, PROJECT_DIR, PRIVATE_DIR)]
-            .map((dir) => {
-                try {
-                    const watcher = this.seams.watch(dir, { recursive: false }, (_event, filename) => {
-                        if (filename === null || filename.endsWith(DATABASES_FILE)) {
-                            settle.nudge();
-                        }
-                    });
-                    watcher.on('error', () => undefined);
-                    return watcher;
-                } catch {
-                    // A folder that is not there yet has nothing to watch; a save still works.
-                    return null;
-                }
-            })
-            .filter((watcher) => watcher !== null);
+        state.watchers = watchDirectories(this.seams, [join(state.folder, PROJECT_DIR), join(state.folder, PROJECT_DIR, PRIVATE_DIR)], (filename) => {
+            if (filename === null || filename.endsWith(DATABASES_FILE)) {
+                settle.nudge();
+            }
+        });
     }
 }
 

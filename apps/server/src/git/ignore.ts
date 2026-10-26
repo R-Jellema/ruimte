@@ -1,5 +1,6 @@
 import { realpath } from 'node:fs/promises';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
+import { climbsOut } from '../fs/path-segment.ts';
 import { nativePath } from './native-path.ts';
 import { runGit } from './run.ts';
 
@@ -8,7 +9,7 @@ function relativeIgnorePath(path: string, cwd: string): string {
         return path;
     }
     const local = relative(cwd, path);
-    if (local === '' || isAbsolute(local) || local === '..' || local.startsWith(`..${sep}`)) {
+    if (local === '' || climbsOut(local)) {
         return path;
     }
     const trailing = path.endsWith(sep) || (sep !== '/' && path.endsWith('/'));

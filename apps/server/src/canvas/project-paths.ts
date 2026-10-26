@@ -1,6 +1,6 @@
 import { lstat, readdir, realpath, stat } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
-import { climbsOut } from '../projects/project-files.ts';
+import { climbsOut } from '../fs/path-segment.ts';
 import { VerbRefusal } from './verb.ts';
 
 export function isInside(root: string, path: string): boolean {

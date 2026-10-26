@@ -5,7 +5,7 @@ import type { DatabaseAgentAccess, DatabaseConnection } from '@ruimte/contracts'
 import type { DatabaseError, DatabaseResponse, RowsResult, SchemaInfo, StatementResult, TableInfo, TableStructure } from '@adecore/database/protocol';
 import { CodedError } from '@adecore/agents';
 import { field } from '@adecore/agents/context';
-import { climbsOut } from '../projects/project-files.ts';
+import { climbsOut } from '../fs/path-segment.ts';
 import type { SessionEvent, SessionSink } from '../sessions/manager.ts';
 import { ClientSinks } from '../client-sinks.ts';
 import type { DatabaseAccessStore } from './agent-access.ts';

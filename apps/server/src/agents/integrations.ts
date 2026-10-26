@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { AgentIntegrationFile, AgentIntegrationReport, AgentIntegrationsSummary, AgentKind } from '@ruimte/contracts';
 import { isNotFound, writeAtomic, Serializer } from '@adecore/agents';
 import { errorText } from '../error-text.ts';
+import { isRecord } from '../is-record.ts';
 import {
     CODEX_RULES,
     HookFileRefused,
@@ -14,7 +15,6 @@ import {
     holdsOurHook,
     hookPathIn,
     installInFolder,
-    isRecord,
     type FolderInstall
 } from './install.ts';
 import { revokeAntigravityRules, revokeCodexRules, revokeHooks, type LedgerEntry } from './revoke.ts';

@@ -27,6 +27,7 @@ import {
 } from '@ruimte/contracts';
 import { fileExists, isNotFound, writeAtomic, type DirectoryWatcher, type WatchSeams } from '@adecore/agents';
 import { retryingRename } from '../fs/busy-retry.ts';
+import { climbsOut } from '../fs/path-segment.ts';
 import { isRecord } from '../is-record.ts';
 
 export const PROJECT_DIR = '.ruimte';
@@ -376,17 +377,6 @@ export function toPortable(content: ProjectContent, folder: string | null): Proj
             return climbsOut(rel) ? cwd : `./${toPosix(rel)}`;
         })
     };
-}
-
-/* Whether a path `relative` gave leaves the folder it was taken from; a folder named `..cache` does not. */
-export function climbsOut(rel: string): boolean {
-    return rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel);
-}
-
-/* Whether `path` lies below `folder`, the folder itself not counted. */
-export function isBelow(folder: string, path: string): boolean {
-    const rel = relative(folder, path);
-    return rel !== '' && !climbsOut(rel);
 }
 
 /* A relative folder that climbs out of the project is one `toPortable` never writes, so it is somebody else's and goes. */

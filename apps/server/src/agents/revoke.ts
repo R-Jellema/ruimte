@@ -3,6 +3,7 @@ import { dirname } from 'node:path';
 import type { AgentIntegrationReport, AgentKind } from '@ruimte/contracts';
 import { isNotFound, writeAtomic } from '@adecore/agents';
 import { errorText } from '../error-text.ts';
+import { isRecord } from '../is-record.ts';
 import {
     CODEX_RULES,
     HOOK_FILE_RETRIES,
@@ -11,7 +12,6 @@ import {
     hookEntry,
     isOurs,
     isOursNamed,
-    isRecord,
     mergeHooks,
     removeAntigravityRules,
     sameEntry,

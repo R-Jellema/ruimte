@@ -12,6 +12,7 @@ import {
 } from '@adecore/agents/providers';
 import { HOOK_EVENTS } from './hooks.ts';
 import { errorText } from '../error-text.ts';
+import { isRecord } from '../is-record.ts';
 
 // The one string the installer recognizes its own hook by, across versions of the command.
 export const HOOK_MARKER = 'RUIMTE_HOOK_URL';
@@ -59,10 +60,6 @@ export function hookEntry(kind: AgentKind): HookEntry {
         command: hookCommand(kind),
         timeout: HOOK_TIMEOUT_S
     };
-}
-
-export function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 export function isOurs(hook: unknown): boolean {
