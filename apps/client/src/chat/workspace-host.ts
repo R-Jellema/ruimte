@@ -17,7 +17,6 @@ import { useContextSources } from '@/context/sources';
 import { isApplePlatform } from '@/desktop/bridge';
 import { saveToOutputActions } from '@/output/save';
 import { useOutputThreadCards } from '@/output/thread-cards';
-import { useRepeatSendActions } from '@/routines/repeat-action';
 import { DictationTextarea } from '@/dictation/DictationTextarea';
 import { dictationPreview, dictationRange } from '@/dictation/editor';
 import { answerRuimtePrompt, computerPrompt, isRuimtePrompt, proposalPrompt, secretPrompt } from '@/prompts/ruimte-prompts';
@@ -89,7 +88,6 @@ export const WORKSPACE_CHAT_HOST: Partial<ChatHost> = {
     useChatPlace,
     useContextSources,
     useThreadCards: useOutputThreadCards,
-    useComposerSendActions: useRepeatSendActions,
     // Saving needs the project the chat is in, which only a workspace has.
     attachments: {
         ...attachments,

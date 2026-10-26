@@ -436,7 +436,7 @@ approval".
 - [ ] Nightly e2e in a worktree: once at 22:00, as a command routine (`bun run test` in the project folder). Its
   output lands as a version in Output and its exit code decides done or failed; after the run the routine owes
   nothing more.
-- [ ] A routine in the Chats project, made from a chat outside any project with "Repeat…" at the send button: it runs
+- [ ] A routine in the Chats project, made with New routine in Routines from a window on Chats: it runs
   without any canvas and its result lands in the Output of Chats.
 - [ ] Lid closed at the due time (keep awake off): open the lid an hour later. The run starts within a minute of
   waking, its block is blue ("caught up") and names the time it missed; it runs once, not once per missed time.

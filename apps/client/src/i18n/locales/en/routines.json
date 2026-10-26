@@ -1,7 +1,4 @@
 {
-  "composer": {
-    "repeat": "Repeat…"
-  },
   "toolbar": {
     "routines": "Routines",
     "attention_one": "Routines, {{count}} waits for you",

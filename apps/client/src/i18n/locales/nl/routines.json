@@ -1,7 +1,4 @@
 {
-  "composer": {
-    "repeat": "Herhalen…"
-  },
   "toolbar": {
     "routines": "Routines",
     "attention_one": "Routines, {{count}} wacht op je",
