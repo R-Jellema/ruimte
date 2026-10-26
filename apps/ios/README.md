@@ -54,7 +54,7 @@ The app follows the desktop wherever a phone can. These are the places where it 
 
 ## Navigation on an iPhone
 
-Five tabs, each at most two levels deep: Now, Scheduled, Projects, Machines and Search. They are the root of one navigation
+Five tabs, each at most two levels deep: Now, Projects, Routines, Machines and Search. They are the root of one navigation
 stack (`PhoneHome`), and every page opens on that stack over the whole tab view, so the tab bar leaves with a push
 and follows the finger on a swipe back. A push only morphs the bar into the items a page has when it starts, so a
 pushed page takes its title and items from its route and the push runs without an animation of ours around it.
@@ -75,7 +75,7 @@ chat's info holds (its background commands and queue) and times only background 
 step or start of a turn. An answer that finds the request settled (`request-not-found`) counts as given. The badge on
 Now counts the needs-you cards and the routine runs that wait.
 
-Scheduled lists the routines of every machine with `routine.list`, again on `routine.changed` while the home or one
+Routines (`ScheduledPage`) lists the routines of every machine with `routine.list`, again on `routine.changed` while the home or one
 of its pages shows (`routine.watch`, asked again after every reconnect), and only on a machine that names
 `routine.list`; with none, the page says the machine needs an update. `ScheduledBoard` is the pure grouping: Needs you
 (a run waiting on a person, answered on the same card as Now's), Today, Tonight (before tomorrow noon), Later and
@@ -87,7 +87,7 @@ unless it ran out.
 
 ## The iPad
 
-The iPad keeps the iPhone's pages and none of its tabs (`PadHome`, `PadRouter`). The sidebar lists Now, Scheduled, Machines
+The iPad keeps the iPhone's pages and none of its tabs (`PadHome`, `PadRouter`). The sidebar lists Now, Routines, Machines
 and the open projects per machine; Search (⌘K, bound once on the window) opens the palette as a sheet. Each content page
 has a stack of its own, so a page pushed in one never outlives a switch.
 

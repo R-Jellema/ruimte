@@ -110,7 +110,7 @@ import UIKit
                         requests: [Self.pullRequest()], repliesWithMessage: true)
                 }, timeZone: { _ in nil }, open: { _ in }, resume: { _ in })
         }
-        try await render(sections.navigationTitle("Scheduled"), name: "scheduled")
+        try await render(sections.navigationTitle("Routines"), name: "scheduled")
     }
 
     /// Every tone on the shared row and the glyph label of a machine, at the default size and at the largest, where the

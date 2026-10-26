@@ -39,14 +39,6 @@ struct PhoneHome: View {
                 }
                 .badge(waiting)
 
-                Tab(value: PhoneTab.scheduled) {
-                    ScheduledPage(
-                        runtime: runtime, now: now, model: scheduled, open: { router.show($0) },
-                        addMachine: addMachine)
-                } label: {
-                    Label(String(localized: "Scheduled"), lucideIcon: "clock")
-                }
-
                 Tab(value: PhoneTab.projects) {
                     ProjectsPage(
                         runtime: runtime, projects: projects, embedded: true, now: now, gitLines: gitLines,
@@ -56,6 +48,14 @@ struct PhoneHome: View {
                     }
                 } label: {
                     Label(String(localized: "Projects"), lucideIcon: "folders")
+                }
+
+                Tab(value: PhoneTab.scheduled) {
+                    ScheduledPage(
+                        runtime: runtime, now: now, model: scheduled, open: { router.show($0) },
+                        addMachine: addMachine)
+                } label: {
+                    Label(String(localized: "Routines"), lucideIcon: "clock")
                 }
 
                 Tab(value: PhoneTab.machines) {

@@ -479,12 +479,12 @@
         }
       }
     },
-    "Connect your computer to see what is scheduled on it." : {
+    "Connect your computer to see its routines." : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Verbind je computer om te zien wat erop gepland staat."
+            "value" : "Verbind je computer om de routines te zien."
           }
         }
       }
@@ -1182,12 +1182,12 @@
         }
       }
     },
-    "Nothing scheduled" : {
+    "No routines" : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Niets gepland"
+            "value" : "Geen routines"
           }
         }
       }
@@ -1565,22 +1565,22 @@
         }
       }
     },
-    "Scheduled" : {
+    "Routines" : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Gepland"
+            "value" : "Routines"
           }
         }
       }
     },
-    "Scheduled shows routines once %@ runs a newer Ruimte." : {
+    "Routines show here once %@ runs a newer Ruimte." : {
       "localizations" : {
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Gepland toont routines zodra %@ een nieuwere Ruimte draait."
+            "value" : "Routines verschijnen hier zodra %@ een nieuwere Ruimte draait."
           }
         }
       }

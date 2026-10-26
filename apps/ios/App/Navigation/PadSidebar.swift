@@ -28,7 +28,7 @@ struct PadSidebar: View {
                         }
                     }
                     row(
-                        String(localized: "Scheduled"), icon: "clock", detail: .scheduled,
+                        String(localized: "Routines"), icon: "clock", detail: .scheduled,
                         id: "sidebar.scheduled"
                     ) {
                         EmptyView()

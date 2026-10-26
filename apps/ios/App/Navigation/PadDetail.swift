@@ -52,7 +52,7 @@ struct PadDetailColumn: View {
                     addMachine: addMachine
                 )
                 .modifier(MobilePageSurface())
-                .navigationTitle(String(localized: "Scheduled"))
+                .navigationTitle(String(localized: "Routines"))
                 .toolbar { toolbar }
                 .navigationDestination(for: ScheduledRoute.self) { route in
                     ScheduledDestination(

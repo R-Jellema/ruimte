@@ -2,13 +2,13 @@ import Foundation
 import Observation
 
 enum PhoneTab: Hashable {
-    case now, scheduled, projects, machines, search
+    case now, projects, scheduled, machines, search
 
     var title: String {
         switch self {
         case .now: String(localized: "Now")
-        case .scheduled: String(localized: "Scheduled")
         case .projects: String(localized: "Projects")
+        case .scheduled: String(localized: "Routines")
         case .machines: String(localized: "Machines")
         case .search: String(localized: "Search")
         }
