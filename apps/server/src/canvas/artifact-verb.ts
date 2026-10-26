@@ -60,6 +60,7 @@ const publish = defineActionVerb('artifact', {
     detail: [
         'prints\tartifact\tid\tversion\tnumber\tkind\ttitle\tfiles\tbytes\tthe version this call saved, or the one an earlier call with the same request id saved',
         'when\tPublish a result the person should keep beyond this conversation: a report, a build, an export, a recording, a page. An answer for now goes in your reply or in visual show',
+        'shown\tThe chat that published shows a report, an image or a page where it was published, so your reply does not repeat its content or copy its tables; a short summary and what stands out are enough',
         'provenance\tThe machine records which chat, turn, task and node made the version from the call itself; nothing you pass sets or changes it',
         'resume\tAn interrupted publish goes on where it stopped when you run the same command with the same --request-id',
         'refusals\ttoo-large\tdisk-full\tupload-incomplete\tupload-mismatch\ttoo-many-uploads\tbad-name\tbad-key\tkey-reserved\tthe codes this action refuses with',
@@ -94,7 +95,7 @@ const publish = defineActionVerb('artifact', {
         return [
             versionLine(artifact, version),
             ...(existing ? ['note\tAn earlier call with this request id saved this version; nothing new was saved'] : []),
-            'next\tThe person finds it in the Output panel of this project'
+            'next\tThe person finds it in the Output panel of this project, and a report, image or page shows in this chat too: do not repeat its content in your reply'
         ];
     }
 });

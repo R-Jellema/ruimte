@@ -144,6 +144,8 @@ describe('the clock', () => {
         // The person's prompt is the message; Ruimte's instructions ride beside it.
         expect(started[0]?.prompt).toBe(morning.prompt);
         expect(started[0]?.brief).toContain('ruimte-context artifact publish --key morning-summary');
+        // The chat shows the published report, so the reply only sums it up.
+        expect(started[0]?.brief).toContain('does not repeat its content or copy its tables');
         const [run] = runs.of(PROJECT, 'morning');
         expect(run?.kind).toBe('scheduled');
         expect(run?.chatId).toBe(started[0]!.chatId);

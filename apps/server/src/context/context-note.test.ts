@@ -5,9 +5,19 @@ import { BUILT_IN_KINDS } from '../providers/kinds.ts';
 import { NODE_VERB_KINDS } from '../canvas/node-verb.ts';
 import { RUIMTE_UI_FENCE } from '../chat/ui-fence.ts';
 import { ruimteUiSources, type UiSourceHosts } from '../chat/ui-sources.ts';
-import { chatPrompt, contextChangeNote, contextHint, contextPrompt, hookContext, verbsNote, VISUAL_RESUME_NOTE } from './context-note.ts';
+import {
+    chatPrompt,
+    contextChangeNote,
+    contextHint,
+    contextPrompt,
+    hookContext,
+    PUBLISHED_INLINE_NOTE,
+    verbsNote,
+    VISUAL_RESUME_NOTE
+} from './context-note.ts';
 
 const VERBS_NOTE = verbsNote({ depth: 0 });
+const TERMINAL_NOTE = verbsNote({ depth: 0, terminal: true });
 const VISUAL_NOTE = verbsNote({ depth: 0, standalone: true, visuals: true, databases: true });
 
 // Only the argument schemas are read; a source that ran would be a bug in the test.
@@ -100,6 +110,14 @@ describe('verbsNote', () => {
         expect(VISUAL_NOTE).not.toContain('<Choices>');
         expect(VISUAL_NOTE).not.toContain('next steps to pick');
         expect(VISUAL_NOTE).not.toMatch(/AskUserQuestion|request_user_input|ask_user/i);
+    });
+
+    test('tells a chat a person reads not to repeat what it published, and nobody else', () => {
+        expect(verbsNote({ depth: 0, standalone: true })).toContain(PUBLISHED_INLINE_NOTE);
+        expect(verbsNote({ depth: 0 })).toContain(PUBLISHED_INLINE_NOTE);
+        expect(verbsNote({ depth: 1, standalone: true })).not.toContain(PUBLISHED_INLINE_NOTE);
+        expect(verbsNote({ depth: 0, standalone: true, terminal: true })).not.toContain(PUBLISHED_INLINE_NOTE);
+        expect(PUBLISHED_INLINE_NOTE).toContain('does not repeat its content or copy its tables');
     });
 
     test('names computer use only while it is on for this machine', () => {
@@ -255,8 +273,8 @@ describe('hookContext', () => {
     });
 
     test('SessionStart always carries the verbs, a prompt only the links', () => {
-        expect(hookContext('SessionStart', [])).toBe(VERBS_NOTE);
-        expect(hookContext('SessionStart', [text])).toBe(`${VERBS_NOTE} ${contextHint([text])}`);
+        expect(hookContext('SessionStart', [])).toBe(TERMINAL_NOTE);
+        expect(hookContext('SessionStart', [text])).toBe(`${TERMINAL_NOTE} ${contextHint([text])}`);
         expect(hookContext('UserPromptSubmit', [])).toBeNull();
         expect(hookContext('UserPromptSubmit', [text])).toBe(contextHint([text]));
     });
@@ -276,14 +294,14 @@ describe('hookContext', () => {
         const changed = contextChangeNote([], [terminal]);
         expect(hookContext('UserPromptSubmit', [terminal], { changed })).toBe(`${contextHint([terminal])} ${changed}`);
         // The start is handed the whole list, so the same note there would only say it twice.
-        expect(hookContext('SessionStart', [terminal], { changed })).toBe(`${VERBS_NOTE} ${contextHint([terminal])}`);
+        expect(hookContext('SessionStart', [terminal], { changed })).toBe(`${TERMINAL_NOTE} ${contextHint([terminal])}`);
         expect(hookContext('UserPromptSubmit', [terminal], { changed: null })).toBe(contextHint([terminal]));
     });
 
     test('a message from another node rides along with a prompt and with a start', () => {
         const message = 'Ruimte: node term-2 ("builder") sent you a message: the build is green.';
         expect(hookContext('UserPromptSubmit', [], { messages: [message] })).toBe(message);
-        expect(hookContext('SessionStart', [], { messages: [message] })).toBe(`${VERBS_NOTE} ${message}`);
+        expect(hookContext('SessionStart', [], { messages: [message] })).toBe(`${TERMINAL_NOTE} ${message}`);
     });
 });
 

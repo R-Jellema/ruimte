@@ -22,6 +22,7 @@ import {
 } from '@ruimte/contracts';
 import { narrowerMode } from '@adecore/agents/providers';
 import { isInside } from '../canvas/project-paths.ts';
+import { PUBLISHED_INLINE_NOTE } from '../context/context-note.ts';
 import { errorText } from '../error-text.ts';
 import type { OutboxEntry, OutboxWork, RoutineRunEntry } from '../outbox/outbox.ts';
 import type { RoutineAuthorStore, RoutineRunStore } from './routine-runs.ts';
@@ -191,7 +192,8 @@ export function runBrief(
 ): string {
     const lines = [
         `This is a run of the routine "${routine.title}", which Ruimte started ${kind === 'manual' ? 'by hand' : kind === 'caught-up' ? `late, after this machine woke (it was due ${when})` : `at ${when}`}.`,
-        `When this run has a result to keep, such as a report, deliver it to Output and never as files in the project: write it to a file outside the project folder, such as a Markdown report in a temporary folder, and publish it with \`ruimte-context artifact publish --key ${routine.outputKey} --title ${JSON.stringify(routine.title)} --file <path>\`. Every run that publishes adds one version of that artifact. A run with nothing to keep publishes nothing.`
+        `When this run has a result to keep, such as a report, deliver it to Output and never as files in the project: write it to a file outside the project folder, such as a Markdown report in a temporary folder, and publish it with \`ruimte-context artifact publish --key ${routine.outputKey} --title ${JSON.stringify(routine.title)} --file <path>\`. Every run that publishes adds one version of that artifact. A run with nothing to keep publishes nothing.`,
+        PUBLISHED_INLINE_NOTE
     ];
     if (previous !== null) {
         lines.push(
