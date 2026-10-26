@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { GitPrWatch, GitPrWatchEndReason } from '@ruimte/contracts';
 import { dropEndpoint, endpointKey, useEndpointId } from '@/state/keys';
-import type { Transport } from '@/transport/transport';
+import { readOnEveryOpen, type Transport } from '@/transport/transport';
 
 /*
  * The pull requests a machine watches, per chat. A person turns one on from the pull request dialog;
@@ -61,14 +61,7 @@ export function watchPrWatches(endpointId: string, transport: Transport): () => 
             .catch(() => undefined);
     };
     const offEvent = transport.on('git.pr-watches', ({ ended }) => refresh(ended));
-    const offStatus = transport.subscribeStatus((status) => {
-        if (status === 'open') {
-            refresh();
-        }
-    });
-    if (transport.status === 'open') {
-        refresh();
-    }
+    const offStatus = readOnEveryOpen(transport, refresh);
     return () => {
         generation++;
         offEvent();

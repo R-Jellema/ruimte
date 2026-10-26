@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { Plan, PlanOfChat } from '@ruimte/contracts';
 import { dropEndpoint, endpointKey, isOfEndpoint, useEndpointId } from '@/state/keys';
-import type { Transport } from '@/transport/transport';
+import { readOnEveryOpen, type Transport } from '@/transport/transport';
 
 /* A chat's plans, newest first. The panel and the pill show the first one unless a person picks another. */
 export type ChatPlans = readonly Plan[];
@@ -156,16 +156,12 @@ export class PlanSync {
                     listener(endpointId, chatId, planId);
                 }
             }),
-            transport.subscribeStatus((status) => {
-                this.generation++;
-                if (status === 'open') {
-                    void this.refresh();
-                }
-            })
+            readOnEveryOpen(
+                transport,
+                () => void this.refresh(),
+                () => this.generation++
+            )
         ];
-        if (transport.status === 'open') {
-            void this.refresh();
-        }
     }
 
     dispose(): void {

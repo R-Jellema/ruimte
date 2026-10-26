@@ -59,3 +59,20 @@ export class TransportError extends Error {
 export function isConnectionError(error: unknown): boolean {
     return error instanceof TransportError && (error.code === 'not-connected' || error.code === 'disconnected');
 }
+
+/*
+ * Runs `read` now if the link is open and again on every open after, since what changed while it was
+ * closed was told to nobody. `onStatus` runs first on every change of status.
+ */
+export function readOnEveryOpen(transport: Transport, read: () => void, onStatus?: () => void): () => void {
+    const off = transport.subscribeStatus((status) => {
+        onStatus?.();
+        if (status === 'open') {
+            read();
+        }
+    });
+    if (transport.status === 'open') {
+        read();
+    }
+    return off;
+}

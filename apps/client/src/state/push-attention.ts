@@ -1,5 +1,5 @@
 import type { PushAttentionEntry } from '@ruimte/contracts';
-import type { Transport } from '@/transport/transport';
+import { readOnEveryOpen, type Transport } from '@/transport/transport';
 
 const changeListeners = new Set<() => void>();
 
@@ -19,17 +19,15 @@ export class PushAttentionSync {
         this.transport = transport;
         this.off = [
             transport.on('push.attention', (entry) => this.receive(entry)),
-            transport.subscribeStatus((status) => {
-                this.generation++;
-                this.entries.clear();
-                if (status === 'open') {
-                    void this.refresh();
+            readOnEveryOpen(
+                transport,
+                () => void this.refresh(),
+                () => {
+                    this.generation++;
+                    this.entries.clear();
                 }
-            })
+            )
         ];
-        if (transport.status === 'open') {
-            void this.refresh();
-        }
     }
 
     setVisible(nodes: ReadonlySet<string>): void {

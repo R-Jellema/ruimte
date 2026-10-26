@@ -1,5 +1,5 @@
 import { pool } from '@/transport';
-import type { Transport } from './transport';
+import { readOnEveryOpen, type Transport } from './transport';
 
 export interface LinkWatch {
     /*
@@ -39,14 +39,7 @@ export function watchPool(attach: (link: Transport, endpointId: string) => LinkW
                 continue;
             }
             const watch = attach(link, endpointId);
-            const offStatus = link.subscribeStatus((status) => {
-                if (status === 'open') {
-                    watch.onOpen?.();
-                }
-            });
-            if (link.status === 'open') {
-                watch.onOpen?.();
-            }
+            const offStatus = readOnEveryOpen(link, () => watch.onOpen?.());
             watching.set(endpointId, () => {
                 offStatus();
                 for (const off of watch.subscriptions) {
