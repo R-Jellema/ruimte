@@ -488,6 +488,8 @@ export interface CreateNodeOptions extends AgentSession {
     artifact?: string;
     /* Artifacts only: the version it stays on; absent follows the latest. */
     artifactVersion?: string;
+    /* Routines only: the routine of the project it shows. */
+    routine?: string;
 }
 
 /* On the canvas on screen, at `at` or in free space near the middle of what it shows. Resolves the new node's id. */
@@ -512,7 +514,8 @@ export async function createNodeAction(kind: CreatableNodeKind, options: CreateN
         cwd: options.cwd ?? null,
         issue: options.issue ?? null,
         artifact: options.artifact ?? null,
-        artifactVersion: options.artifactVersion ?? null
+        artifactVersion: options.artifactVersion ?? null,
+        routine: options.routine ?? null
     }).catch(ignoreRefusal);
     return created?.nodeId ?? null;
 }

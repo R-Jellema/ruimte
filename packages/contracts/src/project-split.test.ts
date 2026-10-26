@@ -502,6 +502,35 @@ describe('an artifact view', () => {
     });
 });
 
+describe('a routine node', () => {
+    const frame = { id: 'morning', kind: 'routine', title: 'Morning summary', x: 0, y: 0, w: 400, h: 560, routine: 'morning-summary' };
+    const sharedFile = (nodes: unknown[]): ProjectSharedFile =>
+        ProjectSharedFileSchema.parse({ version: PROJECT_VERSION, name: 'repo', color: '#7c74ff', views: [canvas('main', nodes as never)] });
+
+    test('carries its routine in the shared file, where it names the same routine for a teammate', () => {
+        const split = splitContent(content([canvas('main', [frame as never])]), ['main'], 1);
+        expect(storedViewsOf(split.shared.views)).toEqual([canvas('main', [frame as never])]);
+        expect(split.private.overlay).toEqual({});
+
+        const merged = mergeFiles(sharedFile([frame]), split.private, fallback);
+        expect((merged.content.views[0] as ProjectCanvasView).nodes[0]).toEqual(frame as never);
+    });
+
+    /* A release that does not know the kind reads the node as `unknown` around the entry of the shared file and writes that entry back. */
+    test('comes back unchanged through a Ruimte that does not know the kind', () => {
+        const older = { id: 'morning', kind: 'unknown', title: 'Morning summary', x: 0, y: 0, w: 400, h: 560, raw: frame };
+        const split = splitContent(content([canvas('main', [older as never])]), ['main'], 2);
+        expect(storedViewsOf(split.shared.views)).toEqual([canvas('main', [frame as never])]);
+        expect(split.private.overlay).toEqual({});
+    });
+
+    test('in a private canvas stays in the private file whole', () => {
+        const split = splitContent(content([canvas('main', [frame as never])]), [], 1);
+        expect(split.shared.views).toEqual([]);
+        expect(storedViewsOf(split.private.views)).toEqual([canvas('main', [frame as never])]);
+    });
+});
+
 describe('a shared view of a kind this version does not know', () => {
     const raw = { kind: 'gallery', id: 'view-g', name: 'Gallery', node: { title: 'Gallery' } };
     const unknown = { kind: 'unknown', id: 'view-g', name: 'Gallery', raw } as never;

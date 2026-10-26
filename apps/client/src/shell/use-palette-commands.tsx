@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { shallow } from 'zustand/shallow';
 import {
+    CalendarClock,
     CircleQuestionMark,
     FileText,
     Globe,
@@ -53,6 +54,7 @@ const KIND_ICON: Record<CanvasNodeKind, React.ReactNode> = {
     diagram: <Icon icon={Workflow} size={14} />,
     file: <Icon icon={FileText} size={14} />,
     artifact: <Icon icon={Package} size={14} />,
+    routine: <Icon icon={CalendarClock} size={14} />,
     unknown: <Icon icon={CircleQuestionMark} size={14} />
 };
 

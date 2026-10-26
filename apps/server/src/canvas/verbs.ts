@@ -101,6 +101,7 @@ const readVerb: ContextVerb = {
         'kind\tdiagram\tIts title, every node layer by layer (sub in brackets), every edge with its label, what each group wraps, and the SVG under it\t--tail counts lines of that list and leaves the SVG out',
         'kind\tfile\tIts path and a line telling you to read it yourself, since your own tools see a fresher copy\t--tail does nothing here',
         "kind\tartifact\tThe version of this project's Output the node shows, the latest unless a person pinned one: its files, then the text of the first when it is text\t--tail counts lines of the whole",
+        "kind\troutine\tThe routine the node shows, worded the way routine list words it, its newest runs, and an agent routine's prompt under them\t--tail counts lines of the whole",
         'kind\tbrowser\tThe address of the page and, under it, the text of that page as this machine has it open, read the moment you ask; the address alone when no page of it is open here\t--tail counts lines of the page text and keeps the address',
         'kind\tbrowser\tReading leaves the page where it is; ruimte-context browser is what sends it somewhere, over the same line',
         'kind\tdevice\tWhich device the node points at: its name, platform, kind and runtime, and the state, deviceId and backendId this machine knows it by, or a line saying the device is not here right now\t--tail does nothing here',

@@ -39,6 +39,8 @@ import type { GitBundle } from './git.ts';
 import type { LaunchesBundle } from './launches.ts';
 import type { ArtifactsBundle } from './artifacts.ts';
 import { artifactReport } from '../artifacts/artifact-report.ts';
+import { routineReport } from '../routines/routine-report.ts';
+import type { RoutinesBundle } from './routines.ts';
 import type { ProjectsBundle } from './projects.ts';
 import type { ProvidersBundle } from './providers.ts';
 import type { DaemonRuntime } from './runtime.ts';
@@ -109,6 +111,7 @@ export interface AgentsLater {
     usage(): UsageBundle;
     work(): AgentWorkBundle;
     artifacts(): ArtifactsBundle;
+    routines(): RoutinesBundle;
 }
 
 export interface AgentsInput {
@@ -239,6 +242,10 @@ export async function wireAgents({ runtime, identity, stores, providers, compute
         artifactReport: async (targetId, artifact) => {
             const place = index().locate(targetId);
             return place ? artifactReport(later.artifacts().artifacts, place.projectId, artifact) : null;
+        },
+        routineReport: async (targetId, routineId) => {
+            const place = index().locate(targetId);
+            return place ? routineReport(later.routines().routines, place.projectId, routineId) : null;
         }
     });
     const outboxLink = new OutboxLink({ outbox, projectOf: (id) => index().locate(id)?.projectId ?? null });

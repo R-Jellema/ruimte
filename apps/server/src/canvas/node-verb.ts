@@ -33,14 +33,14 @@ const REQUIRED_NOTE = `${Object.entries(REQUIRED_FLAG)
 
 const LISTED = 'ruimte-context view list lists them';
 
-const NEW_USAGE = `(<${NODE_VERB_KINDS.join('|')}> [--title T] [--text B] [--url U] [--path P] [--source V] [--device D] [--cwd P] [--artifact A] [--version R] [--color C] [--beside N] | --json J) [--view V] [--dry-run]`;
+const NEW_USAGE = `(<${NODE_VERB_KINDS.join('|')}> [--title T] [--text B] [--url U] [--path P] [--source V] [--device D] [--cwd P] [--artifact A] [--version R] [--routine R] [--color C] [--beside N] | --json J) [--view V] [--dry-run]`;
 
 // What the parser answers a call it cannot read with, for the two it cannot catch on its own: no kind, and a kind beside --json.
 const NEW_USAGE_LINES = [`usage\tnode new\t${NEW_USAGE}`, 'detail\truimte-context help node new'];
 
 /* One node of a --json call: the kind and the fields of the flags a single call takes, by their flag names. */
 const JsonNodeSchema = z.strictObject({
-    // An artifact node is left out: it names its artifact with flags of its own.
+    // An artifact or a routine node is left out: it names what it shows with flags of its own.
     kind: z.enum(JSON_NODE_KINDS, { error: `node new needs a kind: ${JSON_NODE_KINDS.join(', ')}` }),
     title: titleField('title', 'title needs a title').optional(),
     text: z.string().optional(),
@@ -107,6 +107,12 @@ export const nodeNewAction = defineActionVerb('node', {
             more: 'the node stays on this version; without it the node follows the latest'
         },
         {
+            syntax: '--routine R',
+            need: kindsFor('routine'),
+            field: 'routine',
+            more: 'a routine of this project; ruimte-context routine list lists them'
+        },
+        {
             syntax: '--json J',
             need: 'in place of <kind>',
             text: `Several nodes in one call: an array of up to ${MAX_PER_CALL} objects, each with kind and the fields of the flags above by their names (title, text, url, path, source, device, cwd, beside, color)`,
@@ -147,6 +153,7 @@ export const nodeNewAction = defineActionVerb('node', {
         cwd: z.string().min(1, '--cwd needs the path of a directory').optional(),
         artifact: z.string().min(1, '--artifact needs the id of an artifact').optional(),
         version: z.string().min(1, '--version needs the id of a version').optional(),
+        routine: z.string().min(1, '--routine needs the id of a routine').optional(),
         view: z.string().min(1, '--view needs the id of a canvas').optional(),
         beside: z.string().min(1, '--beside needs the id of a node on that canvas').optional(),
         color: z.string().min(1, '--color needs one of the colors').optional(),
@@ -154,7 +161,7 @@ export const nodeNewAction = defineActionVerb('node', {
     }),
     async run({ positionals: [kind], flags, dryRun }, call) {
         if (flags.json !== undefined) {
-            const single = (['title', 'text', 'url', 'path', 'source', 'device', 'cwd', 'beside', 'color', 'artifact', 'version'] as const).filter(
+            const single = (['title', 'text', 'url', 'path', 'source', 'device', 'cwd', 'beside', 'color', 'artifact', 'version', 'routine'] as const).filter(
                 (flag) => flags[flag] !== undefined
             );
             if (kind !== undefined || single.length > 0) {
@@ -217,7 +224,8 @@ export const nodeNewAction = defineActionVerb('node', {
                 beside: flags.beside ?? null,
                 color: flags.color ?? null,
                 artifact: flags.artifact ?? null,
-                artifactVersion: flags.version ?? null
+                artifactVersion: flags.version ?? null,
+                routine: flags.routine ?? null
             },
             dryRun
         );

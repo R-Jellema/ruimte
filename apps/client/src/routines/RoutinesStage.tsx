@@ -1,20 +1,20 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, ChevronLeft, ChevronRight, CircleAlert, Clock, MoreHorizontal, Pause, Pencil, Play, Plus, Trash2 } from 'lucide-react';
-import type { RoutineEntry, RoutineListResult } from '@ruimte/contracts';
-import { Button, ButtonGroup, EmptyState, Icon, IconButton, Menu, PromptDialog, Select, Separator, messageOf, useNow } from '@adecore/ui';
+import { ArrowLeft, ChevronLeft, ChevronRight, CircleAlert, Clock, LayoutGrid, MoreHorizontal, Pause, Pencil, Play, Plus, Trash2 } from 'lucide-react';
+import { isCanvasView, type RoutineEntry, type RoutineListResult } from '@ruimte/contracts';
+import { Button, ButtonGroup, EmptyState, Icon, IconButton, Menu, PromptDialog, Select, Separator, useNow } from '@adecore/ui';
 import { formatDay, formatDayWithYear } from '@adecore/ui/format';
 import { weekOf } from '@/routines/agenda';
 import { openRoutineForm } from '@/routines/form-state';
 import { RoutineAgenda, type AgendaGroup } from '@/routines/RoutineAgenda';
 import { RoutineDetail } from '@/routines/RoutineDetail';
+import { runRoutineNow, setRoutinePaused, showRoutineOnCanvas } from '@/routines/routine-commands';
 import { refreshRoutines, useRoutineList } from '@/routines/routine-list';
 import { RoutineSide } from '@/routines/RoutineSide';
 import { leaveRoutines, setRoutinesFilter, showRoutine, stepWeek, useRoutinesStage } from '@/routines/stage';
 import { activeViewOf, useDocument } from '@/state/document';
 import { useEndpointId } from '@/state/keys';
 import { useProject } from '@/state/project';
-import { useToasts } from '@/state/toasts';
 import { machineTransport } from '@/transport';
 
 const MINUTE_MS = 60_000;
@@ -193,25 +193,13 @@ function DetailHeader({ endpointId, entry, rev }: { endpointId: string; entry: R
     const [removing, setRemoving] = useState(false);
     const paused = entry.local.pausedAt !== undefined;
     const target = { projectId: entry.projectId, routineId: entry.routine.id };
-    const toast = (title: string): void => useToasts.getState().show({ kind: 'info', title });
-    const runNow = (): void => {
-        machineTransport(endpointId)
-            .request('routine.runNow', target)
-            .then((answer) => {
-                if (answer.outcome === 'started') {
-                    refreshRoutines(endpointId);
-                    showRoutine(target, answer.runId ?? null);
-                } else {
-                    toast(t(answer.outcome === 'held' ? 'actions.runHeld' : 'actions.runBusy'));
-                }
-            })
-            .catch((e: unknown) => useToasts.getState().show({ kind: 'error', title: messageOf(e, t('actions.failed')) }));
-    };
-    const setPaused = (): void => {
-        machineTransport(endpointId)
-            .request(paused ? 'routine.resume' : 'routine.pause', target)
-            .then(() => refreshRoutines(endpointId))
-            .catch((e: unknown) => useToasts.getState().show({ kind: 'error', title: messageOf(e, t('actions.failed')) }));
+    const projectId = useProject((s) => s.current?.projectId ?? null);
+    const hasCanvas = useDocument((s) => s.views.some((view) => isCanvasView(view) && view.hidden !== true));
+    const runNow = async (): Promise<void> => {
+        const runId = await runRoutineNow(endpointId, entry);
+        if (runId !== null) {
+            showRoutine(target, runId);
+        }
     };
     const remove = async (): Promise<void> => {
         await machineTransport(endpointId).request('routine.remove', { ...target, baseRev: rev });
@@ -232,14 +220,20 @@ function DetailHeader({ endpointId, entry, rev }: { endpointId: string; entry: R
             }
         >
             <span className="grow" />
-            <Button size="sm" variant="secondary" disabled={!entry.approved} onClick={runNow}>
+            <Button size="sm" variant="secondary" disabled={!entry.approved} onClick={() => void runNow()}>
                 <Icon icon={Play} size={14} />
                 {t('actions.runNow')}
             </Button>
-            <Button size="sm" disabled={!entry.approved} onClick={setPaused}>
+            <Button size="sm" disabled={!entry.approved} onClick={() => setRoutinePaused(endpointId, entry, !paused)}>
                 <Icon icon={paused ? Play : Pause} size={14} />
                 {paused ? t('actions.resume') : t('actions.pause')}
             </Button>
+            {hasCanvas && entry.projectId === projectId && (
+                <Button size="sm" onClick={() => void showRoutineOnCanvas(entry)}>
+                    <Icon icon={LayoutGrid} size={14} />
+                    {t('detail.showOnCanvas')}
+                </Button>
+            )}
             <Menu.Root>
                 <IconButton icon={MoreHorizontal} size="sm" label={t('actions.more')} render={<Menu.Trigger />} />
                 <Menu.Popup align="end">

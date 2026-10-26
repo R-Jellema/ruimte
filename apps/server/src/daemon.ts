@@ -81,7 +81,8 @@ export async function startDaemon(config: ServerConfig, launcher: Launcher = 'st
             launches: () => launches,
             usage: () => usage,
             work: () => work,
-            artifacts: () => artifacts
+            artifacts: () => artifacts,
+            routines: () => routines
         }
     });
     const projects = await wireProjects({

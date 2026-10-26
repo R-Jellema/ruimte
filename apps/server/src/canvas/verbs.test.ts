@@ -350,8 +350,23 @@ function host(): CanvasHost {
             },
             shot: async (browserId) => (pageOpen ? { path: shotPath, state: pageStand(browserId) } : null)
         },
-        artifacts: { read: readOutput } as unknown as NonNullable<CanvasHost['artifacts']>
+        artifacts: { read: readOutput } as unknown as NonNullable<CanvasHost['artifacts']>,
+        routines: { list: listRoutines } as unknown as NonNullable<CanvasHost['routines']>
     };
+}
+
+/* One routine in the test's project; any other project has none. */
+async function listRoutines(asking: string) {
+    const routine = {
+        id: 'morning-summary',
+        title: 'Morning summary',
+        kind: 'command' as const,
+        command: 'git log --since=yesterday',
+        schedule: { kind: 'weekly' as const, days: [1, 2, 3, 4, 5], time: '09:00' },
+        outputKey: 'morning-summary'
+    };
+    const entry = { routine, projectId, projectName: 'repo', shared: true, local: {}, digest: 'd', approved: true, next: null, runs: [] };
+    return { routines: asking === projectId ? [entry] : [], revs: {}, timeZone: 'UTC' };
 }
 
 /* One report in the Output of the test's project, with two versions; anything else answers as Output does for what it does not hold. */
@@ -838,13 +853,13 @@ describe('refusals', () => {
                 verb: 'node new',
                 argv: [],
                 code: 'bad-arguments',
-                message: 'node new needs a kind: note, browser, drawing, diagram, file, device, terminal, chat, artifact'
+                message: 'node new needs a kind: note, browser, drawing, diagram, file, device, terminal, chat, artifact, routine'
             },
             {
                 verb: 'node new',
                 argv: ['group'],
                 code: 'bad-arguments',
-                message: 'node new needs a kind: note, browser, drawing, diagram, file, device, terminal, chat, artifact'
+                message: 'node new needs a kind: note, browser, drawing, diagram, file, device, terminal, chat, artifact, routine'
             },
             {
                 verb: 'node new',
@@ -862,7 +877,7 @@ describe('refusals', () => {
                 argv: ['note', '--cmd', 'ls'],
                 code: 'unknown-flag',
                 message:
-                    '--cmd is not one of --title, --text, --url, --path, --source, --device, --cwd, --artifact, --version, --view, --beside, --color, --json, --revision, --dry-run'
+                    '--cmd is not one of --title, --text, --url, --path, --source, --device, --cwd, --artifact, --version, --routine, --view, --beside, --color, --json, --revision, --dry-run'
             },
             { verb: 'view list', argv: ['--view', 'main'], code: 'unknown-flag', message: '--view is not a flag here; this verb takes none' },
             {
@@ -1335,6 +1350,19 @@ describe('node new', () => {
         const nodes = (await canvasOnDisk()).nodes;
         expect(nodes.find((node) => node.id === latest)).toMatchObject({ kind: 'artifact', title: 'Morning summary', artifact: { id: 'art-1' } });
         expect(nodes.find((node) => node.id === pinned)).toMatchObject({ artifact: { id: 'art-1', version: 'ver-1' } });
+    });
+
+    test("a routine node names a routine of this project and takes the routine's title", async () => {
+        expect((await post('node', ['new', 'routine'])).lines[0]).toStartWith('refused\tmissing-flag\t');
+        expect((await post('node', ['new', 'routine', '--routine', 'nightly'])).lines).toEqual([
+            'refused\troutine-not-found\tThis project has no routine nightly',
+            'routine\tmorning-summary\tMorning summary'
+        ]);
+        expect((await post('node', ['new', 'note', '--routine', 'morning-summary'])).lines[0]).toStartWith('refused\tflag-not-for-kind\t');
+        expect((await post('node', ['new', '--json', '[{"kind":"routine"}]'])).lines[0]).toStartWith('refused\t');
+        const made = (await post('node', ['new', 'routine', '--routine', 'morning-summary'])).lines[0]!.split('\t')[0]!;
+        const node = (await canvasOnDisk()).nodes.find((candidate) => candidate.id === made);
+        expect(node).toMatchObject({ kind: 'routine', title: 'Morning summary', routine: 'morning-summary' });
     });
 
     test('a drawing needs a drawing view of the same project as its source', async () => {

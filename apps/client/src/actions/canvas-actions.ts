@@ -201,7 +201,8 @@ export function canvasActions(document: StoreApi<DocumentState>, reach: CanvasRe
             resume,
             issue,
             artifact,
-            artifactVersion
+            artifactVersion,
+            routine
         }) => {
             refuseUnreachableBrowser(kind, url, browserOwner);
             const { view, canvas } = canvasOnScreen(document, viewId);
@@ -212,6 +213,9 @@ export function canvasActions(document: StoreApi<DocumentState>, reach: CanvasRe
             }
             if (kind === 'artifact' && artifact == null) {
                 throw new ActionRefusal('missing-artifact', 'Name the artifact an artifact node shows.');
+            }
+            if (kind === 'routine' && routine == null) {
+                throw new ActionRefusal('missing-routine', 'Name the routine a routine node shows.');
             }
             const depth = canvas.past.length;
             const options: AddNodeOptions = {
@@ -231,7 +235,8 @@ export function canvasActions(document: StoreApi<DocumentState>, reach: CanvasRe
                 ...(path && kind === 'file' ? { path: storedFilePath(path) } : {}),
                 ...(kind === 'artifact' && artifact != null
                     ? { artifact: { id: artifact, ...(artifactVersion == null ? {} : { version: artifactVersion }) } }
-                    : {})
+                    : {}),
+                ...(kind === 'routine' && routine != null ? { routine } : {})
             };
             const nodeId = at === null ? addNodeInFreeSpace(canvas, kind, options) : canvas.addNode(kind, at, options);
             if (!nodeId) {

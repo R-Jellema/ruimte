@@ -58,6 +58,9 @@ function sourceOf(
     if (node.kind === 'artifact' && node.artifact) {
         return { id: node.id, kind: 'artifact', title: node.title, artifact: node.artifact };
     }
+    if (node.kind === 'routine' && node.routine) {
+        return { id: node.id, kind: 'routine', title: node.title, routine: node.routine };
+    }
     if (node.kind === 'device' && node.device) {
         // What the node points at, never what it is: the daemon looks the device up at the moment of reading.
         return { id: node.id, kind: 'device', title: node.title, device: node.device };

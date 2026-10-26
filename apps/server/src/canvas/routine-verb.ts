@@ -1,6 +1,6 @@
 import { modeFlag } from '@adecore/agents/providers';
 import type { ActionInput } from '@ruimte/actions';
-import { RoutinePerRunSchema, type RoutineEntry, type RoutineSchedule } from '@ruimte/contracts';
+import { RoutinePerRunSchema, type RoutineEntry, type RoutineRun, type RoutineSchedule } from '@ruimte/contracts';
 import { z } from 'zod';
 import { defineActionVerb, runAction } from './action-verb.ts';
 import { modelFlag } from './model.ts';
@@ -136,7 +136,7 @@ function savedLines(
     ];
 }
 
-function approvalOf(entry: RoutineEntry): string {
+export function approvalOf(entry: RoutineEntry): string {
     if (entry.approved) {
         return 'yes';
     }
@@ -145,9 +145,11 @@ function approvalOf(entry: RoutineEntry): string {
 
 function lastOf(entry: RoutineEntry): string {
     const run = entry.runs[0];
-    if (run === undefined) {
-        return '-';
-    }
+    return run === undefined ? '-' : runStateOf(run);
+}
+
+/* A run's state, with why it was skipped after a colon. */
+export function runStateOf(run: RoutineRun): string {
     return run.skipped === undefined ? run.state : `${run.state}:${run.skipped}`;
 }
 

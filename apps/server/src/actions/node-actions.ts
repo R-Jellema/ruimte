@@ -33,6 +33,7 @@ import type { IndexedPlace } from '../projects/project-index.ts';
 import { verbCallOf, type ServerActionCall, type ServerActionContext } from './context.ts';
 import { machineDevice } from './device-actions.ts';
 import { ArtifactError } from '../artifacts/artifact-names.ts';
+import { entryOf, routinesOf } from './routine-actions.ts';
 
 /* The set is closed and short enough to print whole, unlike the Lucide names a view picks from. */
 export const COLOR_LINES: readonly string[] = [['colors', ...NODE_ACCENT_NAMES].join('\t')];
@@ -188,9 +189,10 @@ type NodeSpec = {
     kind: ActionInput<'node.create'>['kind'];
     title: string | null;
     at?: { x: number; y: number } | null;
-    // Only node.create names an artifact: a batch carries none.
+    // Only node.create names an artifact or a routine: a batch carries none.
     artifact?: string | null;
     artifactVersion?: string | null;
+    routine?: string | null;
 };
 
 /* What a spec names on the disk or the machine, looked up before the project's lock is taken. */
@@ -201,6 +203,14 @@ interface Checked {
     cwd: string | undefined;
     device: ProjectNode['device'];
     artifact: { reference: NonNullable<ProjectNode['artifact']>; title: string } | undefined;
+    routine: { id: string; title: string } | undefined;
+}
+
+/* A routine of the caller's own project, whichever of its two files it lives in. */
+async function checkRoutine(call: ServerActionCall, routineId: string): Promise<Checked['routine']> {
+    const { routines } = await routinesOf(call.context).list(call.context.place.projectId);
+    const { routine } = entryOf(routines, routineId);
+    return { id: routine.id, title: routine.title };
 }
 
 /* An artifact of the caller's own project, and a version of it when one is named; one of another project answers as not there. */
@@ -250,9 +260,10 @@ async function checkNode(spec: NodeSpec, call: ServerActionCall): Promise<Checke
         device: spec.device,
         cwd: spec.cwd,
         artifact: spec.artifact,
-        version: spec.artifactVersion
+        version: spec.artifactVersion,
+        routine: spec.routine
     };
-    for (const flag of ['text', 'url', 'path', 'source', 'device', 'cwd', 'artifact', 'version'] as const) {
+    for (const flag of ['text', 'url', 'path', 'source', 'device', 'cwd', 'artifact', 'version', 'routine'] as const) {
         if (given[flag] != null && !KIND_FLAGS[kind].includes(flag)) {
             throw new VerbRefusal('flag-not-for-kind', `--${flag} does not go with a ${kind} node`, kindLines);
         }
@@ -267,7 +278,8 @@ async function checkNode(spec: NodeSpec, call: ServerActionCall): Promise<Checke
         path: spec.path == null ? undefined : await checkPath(place.folder, spec.path),
         cwd: spec.cwd == null ? undefined : await checkCwd(place.folder, spec.cwd, (folder) => host.checkouts.paths(folder)),
         device: spec.device == null ? undefined : await machineDevice(host, spec.device),
-        artifact: spec.artifact == null ? undefined : await checkArtifact(call, spec.artifact, spec.artifactVersion)
+        artifact: spec.artifact == null ? undefined : await checkArtifact(call, spec.artifact, spec.artifactVersion),
+        routine: spec.routine == null ? undefined : await checkRoutine(call, spec.routine)
     };
 }
 
@@ -317,7 +329,7 @@ async function createNodes(call: ServerActionCall, viewId: string, specs: readon
         let current = content;
         const made: Made[] = [];
         const owned: string[] = [];
-        for (const [index, { spec, url, path, cwd, device, artifact }] of checked.entries()) {
+        for (const [index, { spec, url, path, cwd, device, artifact, routine }] of checked.entries()) {
             const { kind } = spec;
             const placed = await forNode(counted ? index : null, async () => {
                 const sourceName = sourceNameOf(current, spec);
@@ -333,7 +345,12 @@ async function createNodes(call: ServerActionCall, viewId: string, specs: readon
                       : placeFree(canvas.nodes, size, caller);
                 return {
                     rect,
-                    title: spec.title ?? sourceName ?? artifact?.title ?? (path === undefined ? (device?.name ?? DEFAULT_TITLES[kind]) : basename(path))
+                    title:
+                        spec.title ??
+                        sourceName ??
+                        artifact?.title ??
+                        routine?.title ??
+                        (path === undefined ? (device?.name ?? DEFAULT_TITLES[kind]) : basename(path))
                 };
             });
             const id = newId(kind, current);
@@ -351,7 +368,8 @@ async function createNodes(call: ServerActionCall, viewId: string, specs: readon
                 ...(spec.source == null ? {} : { viewId: spec.source }),
                 ...(device === undefined ? {} : { device }),
                 ...(cwd === undefined ? {} : { cwd }),
-                ...(artifact === undefined ? {} : { artifact: artifact.reference })
+                ...(artifact === undefined ? {} : { artifact: artifact.reference }),
+                ...(routine === undefined ? {} : { routine: routine.id })
             };
             const edge = caller ? openingEdge(caller.id, node, current) : null;
             canvas = { ...canvas, nodes: [...canvas.nodes, node], edges: edge ? [...canvas.edges, edge] : canvas.edges };

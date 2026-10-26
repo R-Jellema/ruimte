@@ -52,6 +52,8 @@ export interface AddNodeOptions {
     issue?: ProjectNode['issue'];
     // Artifacts only: what of this machine's Output it shows.
     artifact?: ProjectNode['artifact'];
+    // Routines only: the routine of the project it shows.
+    routine?: string;
 }
 
 /* A label on the canvas. Style belongs to the whole element; the text itself holds no runs. */

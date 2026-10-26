@@ -696,3 +696,21 @@ describe('an artifact node read', () => {
         expect(await reading.read('stranger', 'latest')).toBeNull();
     });
 });
+
+describe('a routine node read', () => {
+    const sources: ContextSource[] = [{ id: 'morning-node', kind: 'routine', title: 'Morning summary', routine: 'morning' }];
+    const reading = new ContextStore({
+        sources: () => sources,
+        terminalText: async () => null,
+        chatItems: () => null,
+        drawingElements: async () => null,
+        diagramDocument: async () => null,
+        routineReport: async (targetId, routineId) => (targetId === 'agent' && routineId === 'morning' ? 'routine\tmorning\nrun\trun-1' : null)
+    });
+
+    test("gives the report of the node's routine, and --tail counts its lines", async () => {
+        expect(await reading.read('agent', 'morning-node')).toEndWith('routine\tmorning\nrun\trun-1');
+        expect(await reading.read('agent', 'morning-node', 1)).toEndWith('run\trun-1');
+        expect(await reading.read('stranger', 'morning-node')).toBeNull();
+    });
+});

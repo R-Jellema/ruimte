@@ -188,8 +188,8 @@ export const ARRANGE_LAYOUTS = ['grid', 'row', 'column'] as const;
  */
 const AGENT_NODE_KINDS = ['drawing', 'diagram', 'device'] as const;
 
-/* A node of an artifact this machine keeps in Output, which Voice has no words to name. */
-const OUTPUT_NODE_KINDS = ['artifact'] as const;
+/* A node of an artifact this machine keeps in Output, or of a routine of the project, which Voice has no words to name. */
+const OUTPUT_NODE_KINDS = ['artifact', 'routine'] as const;
 
 /* A view only a person makes: a device is picked from a panel of what this machine has attached. */
 const PERSON_VIEW_KINDS = ['device'] as const;
@@ -1006,7 +1006,8 @@ export const ACTION_DEFINITIONS = {
             artifact: forActors(PERSON_AND_AGENT, ArtifactIdSchema).describe("The artifact of this project's Output an artifact node shows"),
             artifactVersion: forActors(PERSON_AND_AGENT, ArtifactVersionIdSchema).describe(
                 'The version an artifact node stays on; without it the node follows the latest'
-            )
+            ),
+            routine: forActors(PERSON_AND_AGENT, routineId).describe('The routine of this project a routine node shows')
         }),
         output: z.object({
             viewId,

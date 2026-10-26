@@ -25,7 +25,7 @@ function flagOf(name: keyof RoutineFields): string {
     return FLAG_OF[name] ?? `--${name}`;
 }
 
-function routinesOf(context: ServerActionContext): RoutineAgentHost {
+export function routinesOf(context: ServerActionContext): RoutineAgentHost {
     if (!context.host.routines) {
         throw new VerbRefusal('unavailable', 'This machine keeps no routines');
     }
@@ -39,7 +39,7 @@ function routineLines(entries: readonly RoutineEntry[]): string[] {
     );
 }
 
-function entryOf(entries: readonly RoutineEntry[], routineId: string): RoutineEntry {
+export function entryOf(entries: readonly RoutineEntry[], routineId: string): RoutineEntry {
     const entry = entries.find((candidate) => candidate.routine.id === routineId);
     if (entry === undefined) {
         throw new VerbRefusal('routine-not-found', `This project has no routine ${routineId}`, routineLines(entries));

@@ -1,4 +1,5 @@
 import {
+    CalendarClock,
     CircleQuestionMark,
     FileText,
     Globe,
@@ -26,5 +27,6 @@ export const NODE_KIND_ICONS: Record<CanvasNodeKind, LucideIcon> = {
     diagram: Workflow,
     file: FileText,
     artifact: Package,
+    routine: CalendarClock,
     unknown: CircleQuestionMark
 };

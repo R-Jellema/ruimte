@@ -10,7 +10,20 @@ import {
     type ProjectView
 } from '@ruimte/contracts';
 
-export type ReferenceKind = 'canvas' | 'chat' | 'terminal' | 'note' | 'text' | 'drawing' | 'diagram' | 'browser' | 'device' | 'file' | 'database' | 'artifact';
+export type ReferenceKind =
+    | 'canvas'
+    | 'chat'
+    | 'terminal'
+    | 'note'
+    | 'text'
+    | 'drawing'
+    | 'diagram'
+    | 'browser'
+    | 'device'
+    | 'file'
+    | 'database'
+    | 'artifact'
+    | 'routine';
 
 /* A view, node, text or chat of the chat's own project that a person pointed at with `#` (a chat, before `#`, with `@`). */
 export interface Reference {

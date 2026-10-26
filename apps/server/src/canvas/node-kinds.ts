@@ -1,12 +1,14 @@
 import { DEFAULT_TITLES } from '@ruimte/contracts';
 
-export const NODE_VERB_KINDS = ['note', 'browser', 'drawing', 'diagram', 'file', 'device', 'terminal', 'chat', 'artifact'] as const;
+export const NODE_VERB_KINDS = ['note', 'browser', 'drawing', 'diagram', 'file', 'device', 'terminal', 'chat', 'artifact', 'routine'] as const;
 export type NodeVerbKind = (typeof NODE_VERB_KINDS)[number];
 
-// What --json takes: an artifact node names its artifact with flags of its own, which the batch does not carry.
-export const JSON_NODE_KINDS = NODE_VERB_KINDS.filter((kind): kind is Exclude<NodeVerbKind, 'artifact'> => kind !== 'artifact');
+type FlaggedKind = 'artifact' | 'routine';
 
-export type KindFlag = 'text' | 'url' | 'path' | 'source' | 'device' | 'cwd' | 'artifact' | 'version';
+// What --json takes: an artifact or a routine node names what it shows with flags of its own, which the batch does not carry.
+export const JSON_NODE_KINDS = NODE_VERB_KINDS.filter((kind): kind is Exclude<NodeVerbKind, FlaggedKind> => kind !== 'artifact' && kind !== 'routine');
+
+export type KindFlag = 'text' | 'url' | 'path' | 'source' | 'device' | 'cwd' | 'artifact' | 'version' | 'routine';
 
 // The flags that only mean something on one kind; every kind takes --title, --view and --beside.
 export const KIND_FLAGS: Record<NodeVerbKind, readonly KindFlag[]> = {
@@ -18,7 +20,8 @@ export const KIND_FLAGS: Record<NodeVerbKind, readonly KindFlag[]> = {
     device: ['device'],
     terminal: ['cwd'],
     chat: ['cwd'],
-    artifact: ['artifact', 'version']
+    artifact: ['artifact', 'version'],
+    routine: ['routine']
 };
 
 export const REQUIRED_FLAG: Partial<Record<NodeVerbKind, KindFlag>> = {
@@ -27,7 +30,8 @@ export const REQUIRED_FLAG: Partial<Record<NodeVerbKind, KindFlag>> = {
     diagram: 'source',
     file: 'path',
     device: 'device',
-    artifact: 'artifact'
+    artifact: 'artifact',
+    routine: 'routine'
 };
 
 /* Which kinds a flag goes with, from the same table `run` refuses against, so help cannot claim another pairing. */
@@ -50,6 +54,9 @@ function untitled(kind: NodeVerbKind): string {
     }
     if (kind === 'artifact') {
         return "the artifact's own title";
+    }
+    if (kind === 'routine') {
+        return "the routine's own title";
     }
     return `"${DEFAULT_TITLES[kind]}"`;
 }

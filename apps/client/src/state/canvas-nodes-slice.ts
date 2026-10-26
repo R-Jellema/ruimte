@@ -104,7 +104,8 @@ export function createCanvasNodesSlice(
                 path: options.path,
                 ...(options.issue === undefined ? {} : { issue: options.issue }),
                 ...(options.machine === undefined ? {} : { machine: options.machine }),
-                ...(options.artifact === undefined ? {} : { artifact: options.artifact })
+                ...(options.artifact === undefined ? {} : { artifact: options.artifact }),
+                ...(options.routine === undefined ? {} : { routine: options.routine })
             };
             set((s) => ({ nodes: { ...s.nodes, [id]: node }, order: [...s.order, id], selection: [id], ...remember(s) }));
             return id;

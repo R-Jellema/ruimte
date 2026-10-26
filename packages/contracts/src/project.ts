@@ -10,7 +10,7 @@ import { NODE_ACCENT_NAMES } from './node-accents.ts';
 export const ProjectIdSchema = z.string().min(1);
 export type ProjectId = z.infer<typeof ProjectIdSchema>;
 
-export const NodeKindSchema = z.enum(['terminal', 'chat', 'browser', 'device', 'group', 'note', 'drawing', 'diagram', 'file', 'artifact']);
+export const NodeKindSchema = z.enum(['terminal', 'chat', 'browser', 'device', 'group', 'note', 'drawing', 'diagram', 'file', 'artifact', 'routine']);
 export type NodeKind = z.infer<typeof NodeKindSchema>;
 
 // Wraps an entry of a newer version so it is written back verbatim; a reserved kind keeps narrowing useful.
@@ -158,7 +158,10 @@ export const ProjectNodeSchema = keepingUnknown(
         // The daemon id of the machine the node runs on. The daemon lays it over what it sends and never writes it to a project file.
         machine: z.string().min(1).optional(),
         // Artifact only: what in Output this machine shows, one person's and kept in the overlay. Without `version` it follows the latest.
-        artifact: z.object({ id: z.string().min(1).max(64), version: z.string().min(1).max(64).optional() }).optional()
+        artifact: z.object({ id: z.string().min(1).max(64), version: z.string().min(1).max(64).optional() }).optional(),
+        /* Routine only: the id of a routine of the node's own project. It travels in the shared file, since a shared routine's id
+           names the same routine for a teammate; a private one's names nothing on their machine, and the node says so. */
+        routine: z.string().min(1).max(64).optional()
     })
 );
 export type ProjectNode = z.infer<typeof ProjectNodeSchema>;

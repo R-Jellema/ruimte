@@ -4,6 +4,7 @@ import { memo, useState, type CSSProperties, type ReactNode } from 'react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import {
+    CalendarClock,
     ChevronDown,
     ChevronRight,
     CirclePower,
@@ -94,6 +95,7 @@ import { AgentIcon } from '@adecore/agents-react/providers';
 
 // Draws what the artifact view draws, which a canvas without one never loads.
 const ArtifactNodeBody = lazyNamed(() => import('@/output/ArtifactNode'), 'ArtifactNodeBody');
+const RoutineNodeBody = lazyNamed(() => import('@/routines/RoutineNode'), 'RoutineNodeBody');
 
 const ICONS: Record<CanvasNodeKind, ReactNode> = {
     terminal: <Icon icon={Terminal} size={14} />,
@@ -107,6 +109,7 @@ const ICONS: Record<CanvasNodeKind, ReactNode> = {
     // The floor under a file node that has no path yet; with one it wears the mark of its own name.
     file: <Icon icon={FileText} size={14} />,
     artifact: <Icon icon={Package} size={14} />,
+    routine: <Icon icon={CalendarClock} size={14} />,
     unknown: <Icon icon={CircleQuestionMark} size={14} />
 };
 
@@ -570,6 +573,7 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                         </Tooltip>
                     )}
                     {(node.kind === 'file' || node.kind === 'artifact') && <ButtonGroup ref={setFileControls} render={<span />} className="shrink-0" />}
+                    {node.kind === 'routine' && <span ref={setFileControls} className="flex shrink-0 items-center gap-1.5" />}
                     {node.kind === 'device' && <DeviceToolbar id={id} narrow={node.w < MACHINE_PILL_MIN_WIDTH} />}
                     <ButtonGroup className="shrink-0">
                         {maximized ? (
@@ -629,6 +633,13 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                                         <FileToolbarSlotProvider value={toolbarSlot}>
                                             <LazyBoundary>
                                                 <ArtifactNodeBody id={id} />
+                                            </LazyBoundary>
+                                        </FileToolbarSlotProvider>
+                                    )}
+                                    {node.kind === 'routine' && (
+                                        <FileToolbarSlotProvider value={toolbarSlot}>
+                                            <LazyBoundary>
+                                                <RoutineNodeBody id={id} />
                                             </LazyBoundary>
                                         </FileToolbarSlotProvider>
                                     )}

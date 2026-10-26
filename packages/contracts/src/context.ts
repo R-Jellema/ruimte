@@ -4,7 +4,7 @@ import { DeviceReferenceSchema } from './device.ts';
 // What an edge into an agent node makes readable to that agent.
 export const ContextSourceSchema = z.object({
     id: z.string().min(1),
-    kind: z.enum(['text', 'terminal', 'chat', 'browser', 'device', 'drawing', 'diagram', 'file', 'artifact']),
+    kind: z.enum(['text', 'terminal', 'chat', 'browser', 'device', 'drawing', 'diagram', 'file', 'artifact', 'routine']),
     title: z.string(),
     /* A text element carries its own content, a file carries its path (absolute on the daemon's
        machine) and a browser its address. A terminal, a chat, a drawing, a diagram and the page
@@ -19,7 +19,9 @@ export const ContextSourceSchema = z.object({
     // The flag the person put on the node or view, as a node accent name.
     flag: z.string().optional(),
     /* What an artifact node shows of the machine's Output; read when it is asked for, only within the node's own project. */
-    artifact: z.object({ id: z.string().min(1), version: z.string().min(1).optional() }).optional()
+    artifact: z.object({ id: z.string().min(1), version: z.string().min(1).optional() }).optional(),
+    // The routine a routine node names, read when it is asked for, only within the node's own project.
+    routine: z.string().min(1).optional()
 });
 export type ContextSource = z.infer<typeof ContextSourceSchema>;
 
