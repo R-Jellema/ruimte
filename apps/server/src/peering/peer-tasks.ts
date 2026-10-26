@@ -22,7 +22,7 @@ import { narrowerMode } from '@adecore/agents/providers';
 import type { PendingPromptStore } from '../agents/pending-prompts.ts';
 import { MAX_AGENT_DEPTH } from '../canvas/depth.ts';
 import { checkCwd } from '../canvas/project-paths.ts';
-import { taskBrief } from '../canvas/tasks.ts';
+import { taskFirstPrompt } from '../canvas/tasks.ts';
 import { VerbRefusal } from '../canvas/verb.ts';
 import { RequestError } from '../dispatcher.ts';
 import { BundleStore, fetchBundle, makeBundle } from '../git/bundles.ts';
@@ -250,7 +250,8 @@ export class PeerTasks {
             Date.now()
         );
         try {
-            await deps.prompts.put(projectId, nodeId, `${payload.prompt}${taskBrief(chat)}`);
+            const first = taskFirstPrompt(payload.prompt, chat);
+            await deps.prompts.put(projectId, nodeId, first.prompt, first.brief);
             await deps.enqueue(projectId, nodeId, {
                 kind: 'start-agent',
                 payload: {

@@ -1,5 +1,5 @@
 import { isCanvasView, type ProjectContent, type Task } from '@ruimte/contracts';
-import { MAX_PROMPT_LENGTH } from '../agents/pending-prompts.ts';
+import { MAX_PROMPT_LENGTH, type FirstPrompt } from '../agents/pending-prompts.ts';
 import { VerbRefusal, field } from './verb.ts';
 
 /* A result past this is a document, not an answer; the wake shows at most the first 8 KiB of it anyway. */
@@ -17,9 +17,24 @@ export const MAX_TASK_PROMPT_LENGTH = MAX_PROMPT_LENGTH - BRIEF_ROOM;
  * heredoc, which runs the call sandboxed and asks the person for approval.
  */
 export function taskBrief(chat: boolean): string {
-    return chat
-        ? '\n\n(This is a task from the agent that opened you. End this turn with the result as your last message; that is reported back to it, so no ruimte-context call is needed.)'
-        : "\n\n(This is a task from the agent that opened you. When it is finished, run ruimte-context done --result '...' and write a line break as \\n inside those plain single quotes; if you exit without it, the task fails.)";
+    return `\n\n(${chat ? CHAT_TASK_BRIEF : TERMINAL_TASK_BRIEF})`;
+}
+
+const CHAT_TASK_BRIEF =
+    'This is a task from the agent that opened you. End this turn with the result as your last message; that is reported back to it, so no ruimte-context call is needed.';
+const TERMINAL_TASK_BRIEF =
+    "This is a task from the agent that opened you. When it is finished, run ruimte-context done --result '...' and write a line break as \\n inside those plain single quotes; if you exit without it, the task fails.";
+
+/*
+ * The first prompt a child of a task is held with. A chat hears the brief beside the prompt and folds it
+ * in its thread; a terminal has no notes, and a CLI hears nothing in front of a slash command, so for
+ * those it rides in the prompt.
+ */
+export function taskFirstPrompt(prompt: string, chat: boolean): FirstPrompt {
+    if (!chat || prompt.startsWith('/')) {
+        return { prompt: `${prompt}${taskBrief(chat)}` };
+    }
+    return { prompt, brief: CHAT_TASK_BRIEF };
 }
 
 /* What kind of node or view the caller is in its project, or null when neither names it. */

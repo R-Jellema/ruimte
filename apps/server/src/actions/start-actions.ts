@@ -10,7 +10,8 @@ import { refuseMissingNodes } from '../canvas/own-view.ts';
 import { refuseRemoteStart, resolveMachine, sourceCheckout } from '../canvas/remote-agent.ts';
 import { groupMembers, placeBeside, placeFree, placeInGroup, placeTeam } from '../canvas/placement.ts';
 import { checkCwd } from '../canvas/project-paths.ts';
-import { MAX_TASK_PROMPT_LENGTH, requireChatParent, taskBrief } from '../canvas/tasks.ts';
+import { MAX_TASK_PROMPT_LENGTH, requireChatParent, taskFirstPrompt } from '../canvas/tasks.ts';
+import type { FirstPrompt } from '../agents/pending-prompts.ts';
 import { NEW_NODE, OPENING_OFF_CANVAS, VerbRefusal, canvasFor, field, newNode } from '../canvas/verb.ts';
 import { MAX_PROJECT_VIEWS } from '../canvas/views.ts';
 import { branchSlug, makeWorktrees, requireRepository } from '../canvas/worktree.ts';
@@ -320,7 +321,8 @@ const startAgent: StartHandler = async (input, call) => {
                     output.taskId = task.id;
                 }
                 if (prompt !== null) {
-                    await host.starts.holdPrompt(place.projectId, id, input.task == null ? prompt : `${prompt}${taskBrief(chat)}`);
+                    const first: FirstPrompt = input.task == null ? { prompt } : taskFirstPrompt(prompt, chat);
+                    await host.starts.holdPrompt(place.projectId, id, first.prompt, first.brief);
                 }
                 await host.starts.startAgent({
                     projectId: place.projectId,
@@ -645,7 +647,8 @@ export const startActions: ActionHandlers<ServerActionContext> = {
                         }
                         const chat = made.kind === 'chat';
                         const prompt = roles[index]!.prompt;
-                        await host.starts.holdPrompt(place.projectId, made.nodeId, input.task ? `${prompt}${taskBrief(chat)}` : prompt);
+                        const first: FirstPrompt = input.task ? taskFirstPrompt(prompt, chat) : { prompt };
+                        await host.starts.holdPrompt(place.projectId, made.nodeId, first.prompt, first.brief);
                         await host.starts.startAgent({
                             projectId: place.projectId,
                             nodeId: made.nodeId,

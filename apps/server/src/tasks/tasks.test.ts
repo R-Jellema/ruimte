@@ -4,7 +4,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { ChatItem, ChatSubagentItem, ChatTurnItem, ProjectContent } from '@ruimte/contracts';
 import { nextLine } from '../canvas/task-verbs.ts';
-import { claudeStoppingOnResume, ManualClock } from '@adecore/agents/testing';
+import { claudeStoppingOnResume, fakeClaude, fakeCodexWith, ManualClock } from '@adecore/agents/testing';
+import { BRIEF_TITLE } from '../chat/chat-manager.ts';
+import { taskFirstPrompt } from '../canvas/tasks.ts';
+import { START_LINE_ENV } from '../sessions/session.ts';
 import type { FakeCli } from '@adecore/agents/testing';
 import { ProjectStore } from '../projects/project-store.ts';
 import { bootTestDaemon, runVerb, type TestDaemon } from './test-daemon.ts';
@@ -64,10 +67,30 @@ afterEach(async () => {
     await rm(root, { recursive: true, force: true });
 });
 
-async function boot(claudeCli?: FakeCli): Promise<Daemon> {
-    const daemon = await bootTestDaemon({ home, store, clock, ...(claudeCli ? { claudeCli } : {}) });
+async function boot(claudeCli: FakeCli = fakeClaude): Promise<Daemon> {
+    const daemon = await bootTestDaemon({ home, store, clock, claudeCli: briefBehind(claudeCli) });
     running.push(daemon);
     return daemon;
+}
+
+/* The fake reads its scenario from the start of a message, where a chat child hears its task's brief, so the brief goes behind it. */
+function briefBehind(cli: FakeCli): FakeCli {
+    return (io) => {
+        const program = cli(io);
+        return {
+            onLine: (line) => {
+                const frame = JSON.parse(line) as { type?: string; message?: { content?: Array<{ text?: unknown }> } };
+                const first = frame.type === 'user' ? frame.message?.content?.[0] : undefined;
+                if (typeof first?.text !== 'string' || !first.text.startsWith(`${BRIEF_TITLE}\n`)) {
+                    program.onLine(line);
+                    return;
+                }
+                const end = first.text.indexOf('\n\n');
+                first.text = `${first.text.slice(end + 2)}\n\n${first.text.slice(0, end)}`;
+                program.onLine(JSON.stringify(frame));
+            }
+        };
+    };
 }
 
 const verb = runVerb;
@@ -189,6 +212,36 @@ describe('a task wakes the chat that gave it', () => {
         expect((await verb(daemon, 'chat-lead', 'task', ['list'])).map((line) => line.split('\t')[0])).toEqual(['note']);
         expect((await verb(daemon, 'chat-lead', 'task', ['list', '--all'])).map((line) => line.split('\t').slice(0, 4).join('\t'))).toEqual(
             children.map((child) => `task\t${child.taskId}\tgave\tdone`)
+        );
+    });
+
+    test("a chat child's first message is the lead's prompt alone, and the brief is a note it hears on that turn", async () => {
+        const daemon = await bootTestDaemon({ home, store, clock });
+        running.push(daemon);
+        daemon.worker.start();
+        await leadIdle(daemon);
+        const child = await delegate(daemon, 'Lexer', 'fix the tokenizer');
+        await daemon.until(() => daemon.tasks.get(child.taskId)?.status === 'done');
+
+        const brief = taskFirstPrompt('fix the tokenizer', true).brief!;
+        const items = daemon.chats.get(child.childId)!.thread.list();
+        expect(items.filter((item) => item.kind === 'user').map((item) => item.kind === 'user' && item.text)).toEqual(['fix the tokenizer']);
+        expect(items.filter((item) => item.kind === 'note').map((item) => item.kind === 'note' && item.text)).toEqual([`${BRIEF_TITLE}\n${brief}`]);
+        expect(daemon.tasks.get(child.taskId)).toMatchObject({
+            prompt: 'fix the tokenizer',
+            result: { text: `echo: ${BRIEF_TITLE}\n${brief}\n\nfix the tokenizer` }
+        });
+    });
+
+    test('a terminal child hears its brief at the end of the prompt on its launch line', async () => {
+        const daemon = await boot();
+        daemon.worker.start();
+        await leadIdle(daemon);
+        const child = await delegate(daemon, 'Lexer', 'fix the tokenizer', false);
+        await daemon.until(() => daemon.adapter.spawned.some((pty) => pty.options.env.RUIMTE_SESSION_ID === child.childId && pty.input.length > 0));
+        const pty = daemon.adapter.forSession(child.childId);
+        expect(`${pty.input.join('')}${pty.options.env[START_LINE_ENV] ?? ''}`).toContain(
+            taskFirstPrompt('fix the tokenizer', false).prompt.replaceAll("'", "'\\''")
         );
     });
 
@@ -917,7 +970,7 @@ describe('a child that waits on input', () => {
         const child = await asking(daemon, 'ask: which color');
         const [note] = waitingNotes(daemon);
         // The fake asks its whole prompt, the task's brief included.
-        expect(note?.kind === 'note' ? note.text : '').toStartWith(`Lexer (node ${child.childId}) waits for an answer to "which color (This is a task`);
+        expect(note?.kind === 'note' ? note.text : '').toStartWith(`Lexer (node ${child.childId}) waits for an answer to "which color`);
         expect(note?.kind === 'note' ? note.text : '').toContain(`- question 0: "which color`);
         expect(note?.kind === 'note' ? note.text : '').toContain(`(choices: Red (Warm) | Blue (Cool); pick one, or answer in your own words)`);
         expect(note?.kind === 'note' ? note.text : '').toContain(
@@ -1116,7 +1169,8 @@ describe('a child with work running in the background', () => {
     });
 
     test('settles on its last turn when its CLI opens none once the agent it spawned completed', async () => {
-        const daemon = await bootTestDaemon({ home, store, clock, installed: ['claude', 'codex'] });
+        // The fake reads its scenario from the start of a message, so it is told where the task's brief in front of it ends.
+        const daemon = await bootTestDaemon({ home, store, clock, installed: ['claude', 'codex'], codexCli: fakeCodexWith({ resumeLead: BRIEF_TITLE }) });
         running.push(daemon);
         daemon.worker.start();
         await leadIdle(daemon);

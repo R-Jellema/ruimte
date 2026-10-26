@@ -8,6 +8,8 @@ import { Dispatcher, type ClientConnection } from '../dispatcher.ts';
 import { registerPeerTaskHandlers } from '../handlers/peer-tasks.ts';
 import type { OutboxEntry, OutboxWork } from '../outbox/outbox.ts';
 import { BundleStore } from '../git/bundles.ts';
+import type { FirstPrompt } from '../agents/pending-prompts.ts';
+import { taskFirstPrompt } from '../canvas/tasks.ts';
 import { PeerLinks, peerCanvasId } from './links.ts';
 import { PEER_MAX_BRANCH_LENGTH, PEER_MAX_WORKTREES, PeerTasks, peerCaller, type PeerTasksDeps } from './peer-tasks.ts';
 
@@ -19,7 +21,7 @@ let content: ProjectContent;
 let lineage: AgentLineageStore;
 let tasks: TaskStore;
 let enqueued: Array<{ target: string; work: OutboxWork }>;
-let prompts: Map<string, string>;
+let prompts: Map<string, FirstPrompt>;
 let ceiling: 'supervised' | 'auto-accept-edits' | 'auto' | 'full-access';
 let linked: boolean;
 let existing: Set<string>;
@@ -69,11 +71,12 @@ function deps(): PeerTasksDeps {
             enqueued.push({ target, work });
         },
         prompts: {
-            put: async (_projectId: string, nodeId: string, prompt: string) => void prompts.set(nodeId, prompt),
+            put: async (_projectId: string, nodeId: string, prompt: string, brief?: string) =>
+                void prompts.set(nodeId, { prompt, ...(brief === undefined ? {} : { brief }) }),
             take: async (nodeId: string) => {
                 const held = prompts.get(nodeId) ?? null;
                 prompts.delete(nodeId);
-                return held === null ? null : { prompt: held };
+                return held;
             }
         },
         stopNode: async () => undefined,
@@ -169,7 +172,8 @@ describe('starting a task for another machine', () => {
         const [task] = tasks.all();
         expect(task).toMatchObject({ parentId: peerCanvasId(MACHINE), childId: 'chat-one', status: 'open' });
         expect(task?.machine).toBeUndefined();
-        expect(prompts.get('chat-one')).toContain('Fix it');
+        // The chat says the other machine's prompt alone and hears how to report back beside it.
+        expect(prompts.get('chat-one')).toEqual({ prompt: 'Fix it', brief: taskFirstPrompt('Fix it', true).brief! });
         expect(held).toEqual([{ clientId: 'client-1', startsLaunches: false }]);
         const canvas = content.views.find((view): view is ProjectCanvasView => isCanvasView(view) && view.id === peerCanvasId(MACHINE));
         expect(canvas?.nodes.map((node) => node.id)).toEqual(['chat-one']);

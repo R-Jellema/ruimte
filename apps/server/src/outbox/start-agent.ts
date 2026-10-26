@@ -97,7 +97,7 @@ export function agentStartHost(deps: AgentStartHostDeps): AgentStartHost {
     };
     return {
         installedAgents: () => deps.installed(),
-        holdPrompt: (projectId, nodeId, prompt) => deps.prompts.put(projectId, nodeId, prompt),
+        holdPrompt: (projectId, nodeId, prompt, brief) => deps.prompts.put(projectId, nodeId, prompt, brief),
         startAgent: (start) => deps.enqueue(start.projectId, start.nodeId, startAgentWork(start, modes)),
         modeOf: nodeMode(modes),
         accountOf: nodeAccount({ chat: (id) => deps.chats.get(id)?.info, session: (id) => deps.sessions.get(id) }),

@@ -230,8 +230,8 @@ export type MachineHost = Pick<EndpointIdentity, 'agentsDeleteAnyView' | 'nodeSi
 export interface AgentStartHost {
     /* The agent CLIs this machine has; a verb that starts one refuses the rest by name. */
     installedAgents(): Promise<AgentKind[]>;
-    /* Holds the first prompt of a node against its id until the session or the chat for it is made. */
-    holdPrompt(projectId: string, nodeId: string, prompt: string): Promise<void>;
+    /* Holds the first prompt of a node against its id until the session or the chat for it is made; a chat hears `brief` beside it. */
+    holdPrompt(projectId: string, nodeId: string, prompt: string, brief?: string): Promise<void>;
     /* Owes the start of an agent node's chat or terminal, which the daemon makes whether or not a client shows the node. */
     startAgent(start: AgentStart): Promise<void>;
     /* The widest mode an agent this node opens may run in: its own, as far as the daemon knows it. */

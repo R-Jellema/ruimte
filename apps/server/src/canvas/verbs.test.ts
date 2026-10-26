@@ -71,6 +71,7 @@ import { serverActions } from '../actions/server-actions.ts';
 import type { ActionOutput, ActionResult } from '@ruimte/actions';
 import { freeBranch } from '../git/worktrees.ts';
 import { MAX_TASK_PROMPT_LENGTH, nextLine, taskBrief } from './task-verbs.ts';
+import { taskFirstPrompt } from './tasks.ts';
 import { resolveReference, resolveReferences, type Reference } from '../context/references.ts';
 
 function nounNamed(name: string): Noun {
@@ -93,7 +94,7 @@ let projectId: string;
 let worktrees: string[];
 let startClaims: StartClaims;
 let installed: AgentKind[];
-let held: Array<{ projectId: string; nodeId: string; prompt: string }>;
+let held: Array<{ projectId: string; nodeId: string; prompt: string; brief?: string }>;
 let started: AgentStart[];
 /* Hooked by a test that has to look at the project at the moment an agent is started, and not after. */
 let onStart: ((start: AgentStart) => Promise<void>) | null;
@@ -296,8 +297,8 @@ function host(): CanvasHost {
             terminalModePreference: () => terminalPreference,
             preferredSelection: (kind) => preferredSelections[kind],
             installedAgents: async () => installed,
-            holdPrompt: async (projectId, nodeId, prompt) => {
-                held.push({ projectId, nodeId, prompt });
+            holdPrompt: async (projectId, nodeId, prompt, brief) => {
+                held.push({ projectId, nodeId, prompt, ...(brief === undefined ? {} : { brief }) });
             },
             startAgent: async (start) => {
                 started.push(start);
@@ -3885,8 +3886,15 @@ describe('task list', () => {
             wake: 'pending'
         });
         expect((await canvasOnDisk()).nodes.find((node) => node.id === id)?.title).toBe('Lexer');
-        // The record keeps the assignment as it was given; only the child hears how to report back.
-        expect(held).toEqual([{ projectId, nodeId: id!, prompt: `fix the tokenizer${taskBrief(true)}` }]);
+        // The record keeps the assignment as it was given; only the child hears how to report back, beside the prompt.
+        expect(held).toEqual([{ projectId, nodeId: id!, prompt: 'fix the tokenizer', brief: taskFirstPrompt('fix the tokenizer', true).brief! }]);
+        expect(taskBrief(true)).toContain(held[0]!.brief!);
+    });
+
+    test('a task whose prompt is a slash command keeps the brief in it, since a CLI hears nothing in front of one', async () => {
+        const { lines } = await give(['--task', 'Review', '--prompt', '/review the lexer']);
+        const [id] = lines[0]!.split('\t');
+        expect(held).toEqual([{ projectId, nodeId: id!, prompt: `/review the lexer${taskBrief(true)}` }]);
     });
 
     test('a terminal agent cannot give a task, since nothing can wake it with the result', async () => {
@@ -3925,7 +3933,11 @@ describe('task list', () => {
         const rows = lines.slice(1, -1).map((line) => line.split('\t'));
         expect(rows.map((row) => tasks.get(row[6]!)?.title)).toEqual(['Lexer', 'Docs']);
         expect(lines.at(-1)).toBe(nextLine(true));
-        expect(held.map((entry) => entry.prompt)).toEqual([`fix the tokenizer${taskBrief(false)}`, `write the docs${taskBrief(true)}`]);
+        // A terminal has no notes, so its brief rides in the prompt.
+        expect(held.map((entry) => [entry.prompt, entry.brief])).toEqual([
+            [`fix the tokenizer${taskBrief(false)}`, undefined],
+            ['write the docs', taskFirstPrompt('write the docs', true).brief]
+        ]);
     });
 
     test('done settles the open task of the caller, and tasks lists it from both sides', async () => {

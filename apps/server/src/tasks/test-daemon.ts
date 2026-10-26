@@ -104,6 +104,8 @@ export interface TestDaemonOptions {
     installed?: AgentKind[];
     /* What runs as Claude Code; the plain fake unless a test needs one that misbehaves. */
     claudeCli?: FakeCli;
+    /* What runs as Codex; the plain fake unless a test needs another. */
+    codexCli?: FakeCli;
     /* The machine's switches a test flips; resuming after a limit is off and visual replies on, as on a fresh machine. */
     machine?: { resumeAtReset: boolean; visualReplies?: boolean };
     /* The accounts of the CLIs; without them every CLI has only its default account. */
@@ -141,6 +143,7 @@ export async function bootTestDaemon({
     worktrees,
     installed = ['claude'],
     claudeCli = fakeClaude,
+    codexCli = fakeCodex,
     machine = { resumeAtReset: false },
     accounts,
     env = { PATH: process.env.PATH, HOME: home },
@@ -164,7 +167,7 @@ export async function bootTestDaemon({
     await notices.load();
     const adapter = new FakePtyAdapter();
     const claude = inProcess(claudeCli);
-    const codex = inProcess(fakeCodex);
+    const codex = inProcess(codexCli);
     const sessions = new SessionManager({
         adapter: ptyAdapter ?? adapter,
         env,
