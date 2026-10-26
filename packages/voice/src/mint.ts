@@ -16,19 +16,14 @@ export interface LiveSessionRequest {
     sdp: string;
 }
 
-function languageName(language: VoiceLanguage): string {
-    return VOICE_LANGUAGES.find((entry) => entry.id === language)!.english;
-}
-
-function accentOf(language: VoiceLanguage): string | null {
-    const entry = VOICE_LANGUAGES.find((candidate) => candidate.id === language)!;
-    return 'accent' in entry ? entry.accent : null;
+function languageEntry(language: VoiceLanguage): (typeof VOICE_LANGUAGES)[number] {
+    return VOICE_LANGUAGES.find((entry) => entry.id === language)!;
 }
 
 function languageInstruction(language: VoiceLanguage): string {
-    const name = languageName(language);
-    const accent = accentOf(language);
-    const speaker = accent === null ? `a native ${name} speaker` : accent;
+    const entry = languageEntry(language);
+    const name = entry.english;
+    const speaker = 'accent' in entry ? entry.accent : `a native ${name} speaker`;
     return `Conduct the entire conversation in ${name}. Understand ${name} speech and always reply in natural ${name} unless the user explicitly asks for another language. Speak with the pronunciation, rhythm and standard accent of ${speaker}; do not carry an English accent into ${name}.`;
 }
 
@@ -37,7 +32,8 @@ function languageInstruction(language: VoiceLanguage): string {
  * an English cadence, so the backend writes in the spoken language from the start.
  */
 function responsesLanguageInstruction(language: VoiceLanguage): string {
-    const name = languageName(language);
+    const name = languageEntry(language).english;
+
     return `Write every reply that the voice will say to the user in natural, idiomatic ${name}, as a native ${name} speaker would say it aloud, never as a translation from English. Keep ids, tool arguments and quoted names exactly as they are, and send a prompt to an AI Chat in the language the user spoke it in.`;
 }
 
