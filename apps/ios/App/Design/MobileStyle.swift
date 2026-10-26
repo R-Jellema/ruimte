@@ -34,9 +34,6 @@ enum MobileStyle {
     static let statusError = Color(uiColor: statusErrorColor)
     static let statusNeedsYou = Color(uiColor: statusNeedsYouColor)
     static let statusIdle = Color(uiColor: statusIdleColor)
-    static let voiceColor = adaptive(RuimteColors.voice)
-    static let voice = Color(uiColor: voiceColor)
-    static let voiceText = Color(uiColor: adaptive(RuimteColors.voiceText))
     /// The hairline a card is edged with and the ground of a quiet capsule. Alphas over whatever lies behind, so they
     /// are not opaque tokens in `RuimteColors`.
     static let hairline = Color(uiColor: translucent(dark: 0.06, light: 0.08))

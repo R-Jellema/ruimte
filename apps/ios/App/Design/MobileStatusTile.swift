@@ -12,18 +12,16 @@ enum MobileTone: CaseIterable {
     var color: Color {
         switch self {
         case .waiting: MobileStyle.statusNeedsYou
-        case .working: MobileStyle.statusRunning
+        case .working, .voice: MobileStyle.statusRunning
         case .done: MobileStyle.statusIdle
         case .error: MobileStyle.statusError
         case .idle: MobileStyle.muted
-        case .voice: MobileStyle.voiceText
         }
     }
 
     var tint: Color {
         switch self {
         case .idle: MobileStyle.subtleFill
-        case .voice: MobileStyle.voice.opacity(0.14)
         default: color.opacity(0.14)
         }
     }

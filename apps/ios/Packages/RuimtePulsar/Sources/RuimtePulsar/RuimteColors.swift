@@ -43,11 +43,6 @@ public enum RuimteColors {
     public static let statusError = RuimteColorToken(light: 0xdc2626, dark: 0xef4444)
     public static let statusNeedsYou = RuimteColorToken(light: 0xd97706, dark: 0xfbbf24)
     public static let statusIdle = RuimteColorToken(light: 0x16a34a, dark: 0x4ade80)
-    /// Voice, apart from the blue of work running so a listening session never reads as an agent at work. The desktop
-    /// has no token of its own for it; these are the phone design's.
-    public static let voice = RuimteColorToken(light: 0x7c3aed, dark: 0xa78bfa)
-    /// Voice's color for text and glyphs on its own tint, lighter in the dark to keep its contrast.
-    public static let voiceText = RuimteColorToken(light: 0x6d28d9, dark: 0xc4b5fd)
     /// One color per agent CLI and per part of a chat's context, as `@adecore/agents-react/theme.css` has them.
     public static let chartClaude = RuimteColorToken(light: 0xff9500, dark: 0xff9f0a)
     public static let chartCodex = RuimteColorToken(light: 0x30b0c7, dark: 0x40c8e0)

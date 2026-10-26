@@ -244,7 +244,7 @@ extension VoiceHero where Actions == EmptyView {
 
 /// Voice's own color: its half of the band, its name in the timeline and an action that runs.
 enum VoiceStyle {
-    static let voice = MobileStyle.voice
+    static let voice = MobileStyle.statusRunning
 }
 
 /// The sentences Voice shows in more than one place.

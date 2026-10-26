@@ -132,6 +132,6 @@ enum VoiceLiveText {
 /// A Live Activity draws on its own dark tint whatever the system appearance is, so these take the dark values.
 enum VoiceLiveColors {
     static let tint = RuimteColors.activityTint.onDark
-    static let voice = RuimteColors.voice.onDark
+    static let voice = RuimteColors.statusRunning.onDark
     static let stop = RuimteColors.statusError.onDark
 }
