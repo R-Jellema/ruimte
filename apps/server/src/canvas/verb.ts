@@ -92,11 +92,6 @@ export {
 /* A worktree a verb asks for: a new branch named after a title, or the branch it was given. */
 export type WorktreeWant = ({ fresh: string } | { branch: string }) & { base?: string };
 
-/*
- * What a verb reaches the daemon through: the daemon's own services, each typed by what a verb may
- * call of it, so a new capability is a method of its service and a name here. An interface so a
- * test can hand in a store of its own.
- */
 /* What an agent may read of the CLIs a person installs and updates in Settings, Providers. */
 export interface ProviderInstallHost {
     catalog(refresh: boolean): Promise<RegistryCatalog>;
@@ -109,6 +104,11 @@ interface PlanLimitsHost {
     now(): number;
 }
 
+/*
+ * What a verb reaches the daemon through: the daemon's own services, each typed by what a verb may
+ * call of it, so a new capability is a method of its service and a name here. An interface so a
+ * test can hand in a store of its own.
+ */
 export interface CanvasHost {
     projects: ProjectHost;
     hiddenAgents?: HiddenAgentStore;
@@ -213,8 +213,11 @@ interface TerminalAgentHost {
     agentOf(sessionId: string): AgentInfo | null | undefined;
 }
 
-/* The projects of this machine; every write of a verb goes through `mutate`, which refuses a document that moved past `expectedRev`. */
-/* A verb changes the content only; what a move of a view between projects reads besides is the store's own. */
+/*
+ * The projects of this machine; every write of a verb goes through `mutate`, which refuses a document that
+ * moved past `expectedRev`. A verb changes the content only; what a move of a view between projects reads
+ * besides is the store's own.
+ */
 export type ProjectHost = Pick<ProjectStore, 'locate' | 'read' | 'revision' | 'showView' | 'machineOfNode'> & {
     mutate<T>(projectId: string, apply: (content: ProjectContent) => ProjectMutation<T> | Promise<ProjectMutation<T>>, expectedRev?: number): Promise<T>;
 };
