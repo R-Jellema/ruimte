@@ -888,7 +888,7 @@ struct AddProjectItem: View {
                         Text("Choose a model in the chat").tag("")
                     }
                 }
-                if let problem = workspace.problem { Text(problem).foregroundStyle(.red) }
+                if let problem = workspace.problem { Text(problem).foregroundStyle(MobileStyle.statusError) }
             }.navigationTitle(canvasID == nil ? "Add view" : "Add node")
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }

@@ -326,7 +326,7 @@ struct ChatNoteRow: View {
                 iconSize: 14
             )
             .font(.callout).foregroundStyle(
-                level == .error ? Color.red : level == .warning ? Color.orange : MobileStyle.muted
+                level == .error ? MobileStyle.statusError : level == .warning ? MobileStyle.statusNeedsYou : MobileStyle.muted
             )
             .accessibilityLabel("\(Self.levelName(level)): \(parts.head)")
             if !parts.rest.isEmpty || forkTitle != nil {

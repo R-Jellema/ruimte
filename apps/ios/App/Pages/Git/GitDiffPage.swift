@@ -110,8 +110,8 @@ struct GitDiffPage: View {
 
 func gitDiffColor(_ line: String) -> Color {
     if line.hasPrefix("+++") || line.hasPrefix("---") { return MobileStyle.muted }
-    if line.hasPrefix("+") { return .green }
-    if line.hasPrefix("-") { return .red }
+    if line.hasPrefix("+") { return MobileStyle.positive }
+    if line.hasPrefix("-") { return MobileStyle.statusError }
     if line.hasPrefix("@@") { return MobileStyle.accent }
     return MobileStyle.text
 }

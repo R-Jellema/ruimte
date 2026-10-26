@@ -51,7 +51,7 @@ struct AddMachineSheet: View {
         HStack(spacing: 14) {
             Image(lucide: icon, size: 15)
                 .frame(width: iconSize, height: iconSize)
-                .background(MobileStyle.text.opacity(0.08), in: .circle)
+                .background(MobileStyle.fill, in: .circle)
                 .accessibilityHidden(true)
             Text(text).font(.callout)
         }

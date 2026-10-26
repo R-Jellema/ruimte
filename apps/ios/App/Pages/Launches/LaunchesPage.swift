@@ -35,7 +35,7 @@ struct LaunchesPage: View {
     var body: some View {
         MobileList {
             if let problem = store.problem {
-                Label(problem, lucideIcon: "triangle-alert").foregroundStyle(.red)
+                Label(problem, lucideIcon: "triangle-alert").foregroundStyle(MobileStyle.statusError)
             }
             content
         }

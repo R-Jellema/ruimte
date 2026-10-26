@@ -127,7 +127,7 @@ struct FileGrepPage: View {
                 }
             }
             if let problem = model.problem {
-                Label(problem, lucideIcon: "triangle-alert").foregroundStyle(.red)
+                Label(problem, lucideIcon: "triangle-alert").foregroundStyle(MobileStyle.statusError)
             }
             if let answered = model.answered, model.groups.isEmpty, model.problem == nil, !model.searching {
                 ContentUnavailableView(String(localized: "Nothing matches \(answered)"), lucideIcon: "text-search")

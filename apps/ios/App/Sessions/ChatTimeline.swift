@@ -1112,7 +1112,7 @@ struct ChatEntryView: View {
                                 }
                             }
                             .font(.footnote).lineLimit(1).foregroundStyle(
-                                turn.state == .error ? Color.red : MobileStyle.muted
+                                turn.state == .error ? MobileStyle.statusError : MobileStyle.muted
                             )
                             .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading).contentShape(Rectangle())
                         }.buttonStyle(.plain)

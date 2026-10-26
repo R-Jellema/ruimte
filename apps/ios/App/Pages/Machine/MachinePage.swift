@@ -51,7 +51,7 @@ struct MachinePage: View {
             }
             if let problem = endpoint.problem ?? session.problem {
                 Section {
-                    Label(problem, lucideIcon: "triangle-alert").foregroundStyle(.red).font(.callout)
+                    Label(problem, lucideIcon: "triangle-alert").foregroundStyle(MobileStyle.statusError).font(.callout)
                     if !session.connected { Button("Reconnect") { session.reconnect() } }
                 }
             }

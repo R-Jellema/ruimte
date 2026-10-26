@@ -97,7 +97,7 @@ private struct MachineActivityPage: View {
 
     var body: some View {
         MobileList {
-            if let problem = work.problem { Text(problem).foregroundStyle(.red) }
+            if let problem = work.problem { Text(problem).foregroundStyle(MobileStyle.statusError) }
             Section("Needs your attention") { rows(status: "needs-you") }
             Section("Working") { rows(status: "running") }
             if !sessions.contains(where: { active($0["agent"]?.text("status")) })

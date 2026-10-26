@@ -109,7 +109,7 @@ struct MachineProjectsPage: View {
             }
             if let problem = list.work.problem {
                 Section {
-                    Text(problem).foregroundStyle(.red)
+                    Text(problem).foregroundStyle(MobileStyle.statusError)
                     Button("Try again") { Task { await list.load() } }
                 }
             }
@@ -152,7 +152,7 @@ struct OpenFolderSheet: View {
                 TextField("Folder on this machine", text: $folder).textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                 Toggle("Create folder if missing", isOn: $createFolder)
-                if let problem = work.problem { Text(problem).foregroundStyle(.red) }
+                if let problem = work.problem { Text(problem).foregroundStyle(MobileStyle.statusError) }
             }
             .navigationTitle("Open project")
             .toolbar {

@@ -30,7 +30,7 @@ struct GitRepositoryPage: View {
                 GitBusyRow(text: repositories.progress ?? String(localized: "Working"))
             }
             if let problem = repositories.problem {
-                Label(problem, lucideIcon: "triangle-alert").foregroundStyle(.red)
+                Label(problem, lucideIcon: "triangle-alert").foregroundStyle(MobileStyle.statusError)
             }
             if let note {
                 Text(note).font(.caption).foregroundStyle(MobileStyle.muted).textSelection(.enabled)

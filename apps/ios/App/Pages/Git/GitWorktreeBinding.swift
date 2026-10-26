@@ -218,7 +218,7 @@ struct GitWorktreeBindSheet: View {
                     Section { GitBusyRow(text: String(localized: "Creating checkout")) }
                 }
                 if let problem = model.problem {
-                    Section { Label(problem, lucideIcon: "triangle-alert").foregroundStyle(.red) }
+                    Section { Label(problem, lucideIcon: "triangle-alert").foregroundStyle(MobileStyle.statusError) }
                 }
             }
             .navigationTitle("Bind to worktree")

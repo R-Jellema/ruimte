@@ -140,7 +140,7 @@ struct LaunchEditorSheet: View {
         let shown = model.tried ? model.problem : nil
         if let failure = model.failure {
             Section {
-                Label(failure, lucideIcon: "triangle-alert").foregroundStyle(.red)
+                Label(failure, lucideIcon: "triangle-alert").foregroundStyle(MobileStyle.statusError)
                 if model.conflict {
                     Button("Start over") { model.startOver() }
                 }
@@ -149,7 +149,7 @@ struct LaunchEditorSheet: View {
         if let shown, shown.id != model.draftID {
             Section {
                 Text("\(model.drafts.first { $0.id == shown.id }?.name ?? String(localized: "Another launch")): \(shown.problem.message)")
-                    .foregroundStyle(.red)
+                    .foregroundStyle(MobileStyle.statusError)
             }
         }
         Section {
@@ -163,7 +163,7 @@ struct LaunchEditorSheet: View {
         } footer: {
             VStack(alignment: .leading, spacing: 4) {
                 if let shown, shown.id == model.draftID, shown.problem == .name {
-                    Text(shown.problem.message).foregroundStyle(.red)
+                    Text(shown.problem.message).foregroundStyle(MobileStyle.statusError)
                 }
                 Text(Self.kindHint(model.draft.kind))
             }
@@ -215,7 +215,7 @@ struct LaunchEditorSheet: View {
             Text("Launches")
         } footer: {
             if let shown, shown.id == model.draftID, shown.problem == .members {
-                Text(shown.problem.message).foregroundStyle(.red)
+                Text(shown.problem.message).foregroundStyle(MobileStyle.statusError)
             }
         }
     }
@@ -245,7 +245,7 @@ struct LaunchEditorSheet: View {
             Text("Command")
         } footer: {
             if let shown, shown.id == model.draftID, shown.problem == .command {
-                Text(shown.problem.message).foregroundStyle(.red)
+                Text(shown.problem.message).foregroundStyle(MobileStyle.statusError)
             }
         }
         Section("Environment") {
@@ -294,7 +294,7 @@ struct LaunchImportSheet: View {
                 Section {
                     Text("Nothing is saved until you import. What you import counts as your approval on this machine.")
                         .font(.caption).foregroundStyle(MobileStyle.muted)
-                    if let failure { Label(failure, lucideIcon: "triangle-alert").foregroundStyle(.red) }
+                    if let failure { Label(failure, lucideIcon: "triangle-alert").foregroundStyle(MobileStyle.statusError) }
                 }
                 if let offered {
                     if failed {

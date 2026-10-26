@@ -212,7 +212,7 @@ struct CodeMessage: View {
                             wrapsLines.toggle()
                         } label: {
                             Image(lucide: "corner-down-left")
-                                .foregroundStyle(wrapsLines ? MobileStyle.accent : Color.secondary)
+                                .foregroundStyle(wrapsLines ? MobileStyle.accent : MobileStyle.muted)
                                 .frame(width: 44, height: 44)
                         }.accessibilityLabel(wrapsLines ? "Scroll code horizontally" : "Wrap code lines")
                     }

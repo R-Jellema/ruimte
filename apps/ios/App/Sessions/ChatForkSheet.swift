@@ -90,7 +90,7 @@ struct ChatForkSheet: View {
                     Section { Text(refusal + ".").foregroundStyle(MobileStyle.muted) }
                 }
                 if let failure {
-                    Section { Text(failure).foregroundStyle(.red) }
+                    Section { Text(failure).foregroundStyle(MobileStyle.statusError) }
                 }
             }
             .navigationTitle("Fork conversation")
@@ -176,7 +176,7 @@ struct ChatForkSheet: View {
                         .textInputAutocapitalization(.never).autocorrectionDisabled()
                         .accessibilityIdentifier("fork.branch")
                     if let branchProblem {
-                        Text(branchProblem).font(.footnote).foregroundStyle(.red)
+                        Text(branchProblem).font(.footnote).foregroundStyle(MobileStyle.statusError)
                     }
                     Toggle(
                         point?.last ?? true ? "Take uncommitted files along" : "Undo the work after this turn",

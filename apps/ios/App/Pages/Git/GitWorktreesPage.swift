@@ -74,7 +74,7 @@ struct GitWorktreeStatusRows: View {
                 cancel: state.mergeAction == nil ? nil : { Task { await state.cancelMerge(client: client) } })
         }
         if let problem = state.problem {
-            Label(problem, lucideIcon: "triangle-alert").foregroundStyle(.red)
+            Label(problem, lucideIcon: "triangle-alert").foregroundStyle(MobileStyle.statusError)
         }
         if let note = state.note {
             Text(note).font(.caption).foregroundStyle(MobileStyle.muted)
@@ -178,7 +178,7 @@ struct GitWorktreeOutcomeSection: View {
             }
         case .refused(let code, let message, let request):
             Section {
-                Label(message, lucideIcon: "triangle-alert").foregroundStyle(.red)
+                Label(message, lucideIcon: "triangle-alert").foregroundStyle(MobileStyle.statusError)
                 if let hint = GitWorktreeText.refusalHint(code) {
                     Text(hint).font(.caption).foregroundStyle(MobileStyle.muted)
                 }

@@ -23,7 +23,7 @@ struct GitRepositoriesPage: View {
                 GitBusyRow(text: repositories.step ?? repositories.progress ?? String(localized: "Working"))
             }
             if let problem = repositories.problem {
-                Label(problem, lucideIcon: "triangle-alert").foregroundStyle(.red)
+                Label(problem, lucideIcon: "triangle-alert").foregroundStyle(MobileStyle.statusError)
             }
             ForEach(checkouts) { checkout in
                 NavigationLink {
@@ -68,7 +68,7 @@ struct GitRepositoriesPage: View {
                     Text(GitPanel.repositoryState(checkout)).font(.caption)
                         .foregroundStyle(
                             checkout.failure != nil
-                                ? .red : GitPanel.diverged(checkout) ? MobileStyle.statusNeedsYou : MobileStyle.muted)
+                                ? MobileStyle.statusError : GitPanel.diverged(checkout) ? MobileStyle.statusNeedsYou : MobileStyle.muted)
                 }
                 .foregroundStyle(MobileStyle.muted).lineLimit(1)
             }

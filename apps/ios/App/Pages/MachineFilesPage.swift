@@ -82,8 +82,7 @@ struct MachineFilesPage: View {
                     lucideIcon: "folder")
             }
             if state.value?["truncated"] == .bool(true) {
-                Text("This folder has more entries than the machine can list at once.").font(.footnote).foregroundStyle(
-                    .secondary)
+                Text("This folder has more entries than the machine can list at once.").font(.footnote).foregroundStyle(MobileStyle.muted)
             }
         }
         .navigationTitle(path == "~" ? String(localized: "Files") : URL(fileURLWithPath: path).lastPathComponent)
@@ -328,7 +327,7 @@ struct FileContentPage: View {
     private var editor: some View {
         VStack(alignment: .leading, spacing: 0) {
             if let problem = edit.problem, !edit.stale {
-                Label(problem, lucideIcon: "triangle-alert").font(.caption).foregroundStyle(.red).padding()
+                Label(problem, lucideIcon: "triangle-alert").font(.caption).foregroundStyle(MobileStyle.statusError).padding()
             }
             if edit.saving {
                 HStack(spacing: 10) {

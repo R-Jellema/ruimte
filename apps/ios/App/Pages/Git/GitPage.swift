@@ -229,9 +229,9 @@ struct GitPage: View {
 /// The colors the whole app gives the same news, which a row here carries on the porcelain letter alone.
 func gitStatusColor(_ status: String) -> Color {
     switch status.first {
-    case "A", "?": MobileStyle.accent
-    case "D": .red
-    case "R", "C": .orange
+    case "A", "?": MobileStyle.statusIdle
+    case "D": MobileStyle.statusError
+    case "R", "C": MobileStyle.statusRunning
     default: MobileStyle.muted
     }
 }
@@ -349,7 +349,7 @@ struct GitHaltedRows: View {
             GitBusyRow(text: session.progress ?? String(localized: "Working"))
         }
         if let problem = session.problem {
-            Label(problem, lucideIcon: "triangle-alert").font(.caption).foregroundStyle(.red)
+            Label(problem, lucideIcon: "triangle-alert").font(.caption).foregroundStyle(MobileStyle.statusError)
         }
     }
 

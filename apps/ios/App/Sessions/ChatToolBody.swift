@@ -171,7 +171,7 @@ private struct ChatToolOutput: View {
     var body: some View {
         let exit = failed ? ChatToolBody.exitCode(text) : (code: nil, rest: text)
         if ChatToolBody.hasOutput(exit.rest) {
-            let base = failed && exit.code == nil ? Color.red : MobileStyle.muted
+            let base = failed && exit.code == nil ? MobileStyle.statusError : MobileStyle.muted
             let output = ChatAnsi.parse(exit.rest, limit: expanded ? nil : ChatToolBody.outputLimit)
             ChatToolPane {
                 Text(
@@ -190,7 +190,7 @@ private struct ChatToolOutput: View {
             }
         }
         if let code = exit.code {
-            Text("Exit code \(code)").foregroundStyle(.red)
+            Text("Exit code \(code)").foregroundStyle(MobileStyle.statusError)
         }
     }
 }

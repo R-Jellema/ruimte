@@ -266,7 +266,7 @@ private struct ChatToolLine: View {
                 } else if running {
                     ChatElapsed(startedAt: item.progress?.startedAt ?? item.createdAt)
                 } else if failed {
-                    Text("Failed").foregroundStyle(.red)
+                    Text("Failed").foregroundStyle(MobileStyle.statusError)
                 }
                 if opens {
                     Image(lucide: expanded ? "chevron-down" : "chevron-right", size: 12)
@@ -274,7 +274,7 @@ private struct ChatToolLine: View {
             }
             .fixedSize().layoutPriority(3)
         }
-        .font(.footnote).foregroundStyle(failed ? Color.red : MobileStyle.muted)
+        .font(.footnote).foregroundStyle(failed ? MobileStyle.statusError : MobileStyle.muted)
         .frame(minHeight: 28).contentShape(Rectangle())
     }
 }

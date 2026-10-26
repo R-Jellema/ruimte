@@ -414,7 +414,6 @@ struct ChatInlineImage: View {
     /// A cell of a grid: a square the picture fills, rather than the picture at its own shape.
     var square = false
     @Environment(\.chatContent) private var context
-    @Environment(\.colorScheme) private var colorScheme
     @State private var image: UIImage?
     @State private var failure = false
     @State private var preview: URL?
@@ -431,8 +430,7 @@ struct ChatInlineImage: View {
                     picture(image)
                         .clipShape(RoundedRectangle(cornerRadius: 10))
                         .overlay {
-                            RoundedRectangle(cornerRadius: 10).strokeBorder(
-                                (colorScheme == .dark ? Color.white : Color.black).opacity(0.1))
+                            RoundedRectangle(cornerRadius: 10).strokeBorder(MobileStyle.hairline)
                         }
                 }.buttonStyle(.plain).disabled(previewLoading).accessibilityLabel("Preview \(name)")
             } else if failure {

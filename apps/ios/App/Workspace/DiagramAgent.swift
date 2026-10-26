@@ -158,7 +158,7 @@ struct DiagramAgentPicker: View {
             }
             .font(.footnote.weight(.medium))
             .padding(.horizontal, 10).padding(.vertical, 6)
-            .background(MobileStyle.hover, in: .capsule)
+            .background(MobileStyle.fill, in: .capsule)
         }
         .disabled(!model.loaded)
         .accessibilityLabel("Who draws")

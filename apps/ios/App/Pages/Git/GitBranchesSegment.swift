@@ -44,7 +44,7 @@ struct GitBranchesSegment: View {
                 GitBusyRow(text: repositories.progress ?? String(localized: "Working"))
             }
             if let problem = repositories.problem {
-                Label(problem, lucideIcon: "triangle-alert").foregroundStyle(.red).textSelection(.enabled)
+                Label(problem, lucideIcon: "triangle-alert").foregroundStyle(MobileStyle.statusError).textSelection(.enabled)
             }
             Section {
                 if actions.refs.loading && branches.isEmpty {

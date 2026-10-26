@@ -115,7 +115,7 @@ struct GitConflictStatusRows: View {
             GitBusyRow(text: session.progress ?? String(localized: "Working"))
         }
         if let problem = session.problem {
-            Label(problem, lucideIcon: "triangle-alert").foregroundStyle(.red)
+            Label(problem, lucideIcon: "triangle-alert").foregroundStyle(MobileStyle.statusError)
         }
         if let note = session.note {
             Text(note).font(.caption).foregroundStyle(MobileStyle.muted)

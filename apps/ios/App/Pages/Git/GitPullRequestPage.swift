@@ -105,7 +105,7 @@ struct GitPullRequestPage: View {
                 }
             }
             if let problem = model.repositories.problem {
-                Section { Label(problem, lucideIcon: "triangle-alert").foregroundStyle(.red) }
+                Section { Label(problem, lucideIcon: "triangle-alert").foregroundStyle(MobileStyle.statusError) }
             }
         }
         .navigationTitle("Create pull request")
@@ -122,7 +122,7 @@ struct GitPullRequestPage: View {
     private func branchChip(_ name: String) -> some View {
         Text(name).font(.callout.monospaced()).lineLimit(1).truncationMode(.middle)
             .padding(.horizontal, 10).padding(.vertical, 5)
-            .background(MobileStyle.active, in: Capsule())
+            .background(MobileStyle.fill, in: Capsule())
     }
 
     private func create() async {

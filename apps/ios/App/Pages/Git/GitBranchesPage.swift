@@ -218,7 +218,7 @@ struct GitBranchesPage: View {
                 GitBusyRow(text: actions.repositories.progress ?? String(localized: "Working"))
             }
             if let problem = actions.repositories.problem {
-                Label(problem, lucideIcon: "triangle-alert").foregroundStyle(.red)
+                Label(problem, lucideIcon: "triangle-alert").foregroundStyle(MobileStyle.statusError)
             }
             Picker("Show", selection: $remotes) {
                 Text("Local").tag(false)

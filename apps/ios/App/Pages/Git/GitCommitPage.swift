@@ -115,7 +115,7 @@ struct GitCommitPage: View {
                 GitBusyRow(text: repositories.step ?? repositories.progress ?? String(localized: "Committing"))
             }
             if let problem = repositories.problem {
-                Label(problem, lucideIcon: "triangle-alert").foregroundStyle(.red)
+                Label(problem, lucideIcon: "triangle-alert").foregroundStyle(MobileStyle.statusError)
             }
             Section {
                 VStack(alignment: .leading, spacing: 10) {
@@ -224,8 +224,8 @@ struct GitLineCounts: View {
             Text("binary").font(.caption).foregroundStyle(MobileStyle.faint)
         } else {
             HStack(spacing: 6) {
-                if file.added > 0 { Text("+\(file.added)").foregroundStyle(.green) }
-                if file.deleted > 0 { Text("−\(file.deleted)").foregroundStyle(.red) }
+                if file.added > 0 { Text("+\(file.added)").foregroundStyle(MobileStyle.positive) }
+                if file.deleted > 0 { Text("−\(file.deleted)").foregroundStyle(MobileStyle.statusError) }
             }
             .font(.caption.monospacedDigit())
             .accessibilityElement(children: .ignore)

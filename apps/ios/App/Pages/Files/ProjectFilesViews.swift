@@ -106,7 +106,7 @@ struct FileChangeBar: View {
             case .modified: Rectangle().fill(MobileStyle.statusRunning)
             case .deleted:
                 VStack(spacing: 0) {
-                    Rectangle().fill(Color.red).frame(height: 4)
+                    Rectangle().fill(MobileStyle.statusError).frame(height: 4)
                     Spacer(minLength: 0)
                 }
             case nil: Color.clear

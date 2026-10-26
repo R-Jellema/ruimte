@@ -40,7 +40,7 @@ struct TerminalScreen: View {
                     if isPrepared && (model.exited || !model.connected) {
                         MobileStatus(
                             title: model.exited ? String(localized: "Exited") : String(localized: "Reconnecting"),
-                            color: model.exited ? .secondary : .orange
+                            color: model.exited ? MobileStyle.muted : MobileStyle.statusNeedsYou
                         )
                         .padding(.horizontal, 14).padding(.vertical, 8)
                         .glassEffect(.regular, in: .capsule)

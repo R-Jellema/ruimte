@@ -43,7 +43,7 @@ struct ChatAttachmentButton: View {
                 }.padding(.horizontal, 12).frame(minHeight: 48)
                     .background(MobileStyle.surface, in: RoundedRectangle(cornerRadius: 12))
             }.buttonStyle(.plain).disabled(work.busy)
-            if let problem = work.problem { Text(problem).font(.caption).foregroundStyle(.red) }
+            if let problem = work.problem { Text(problem).font(.caption).foregroundStyle(MobileStyle.statusError) }
         }
         .quickLookPreview($preview)
         .onDisappear {

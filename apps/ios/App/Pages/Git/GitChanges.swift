@@ -27,7 +27,7 @@ struct GitChangesList: View {
         MobileList {
             if let problem = repositories.problem {
                 VStack(alignment: .leading, spacing: 12) {
-                    Label(problem, lucideIcon: "triangle-alert").foregroundStyle(.red).textSelection(.enabled)
+                    Label(problem, lucideIcon: "triangle-alert").foregroundStyle(MobileStyle.statusError).textSelection(.enabled)
                     Button("Try again") { Task { await repositories.reload(client: client, folder: folder) } }
                 }.padding(.vertical, 8)
             }
@@ -261,7 +261,7 @@ struct GitHaltedCard: View {
             GitBusyRow(text: session.progress ?? String(localized: "Working"))
         }
         if let problem = session.problem {
-            Label(problem, lucideIcon: "triangle-alert").font(.caption).foregroundStyle(.red)
+            Label(problem, lucideIcon: "triangle-alert").font(.caption).foregroundStyle(MobileStyle.statusError)
         }
         if let note = session.note {
             Text(note).font(.caption).foregroundStyle(MobileStyle.muted)

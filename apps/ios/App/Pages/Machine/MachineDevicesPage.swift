@@ -38,7 +38,7 @@ struct MachineDevicesPage: View {
                 MobileForm {
                     content
                     if let problem = problem ?? devices.problem {
-                        Section { Label(problem, lucideIcon: "triangle-alert").foregroundStyle(.red).font(.callout) }
+                        Section { Label(problem, lucideIcon: "triangle-alert").foregroundStyle(MobileStyle.statusError).font(.callout) }
                     }
                 }
             }
@@ -68,7 +68,7 @@ struct MachineDevicesPage: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 if let problem = problem ?? devices.problem {
-                    Label(problem, lucideIcon: "triangle-alert").foregroundStyle(.red).font(.callout)
+                    Label(problem, lucideIcon: "triangle-alert").foregroundStyle(MobileStyle.statusError).font(.callout)
                 }
                 ForEach(devices.groups) { group in
                     VStack(alignment: .leading, spacing: 8) {

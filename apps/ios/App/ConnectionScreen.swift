@@ -50,7 +50,7 @@ struct ConnectionScreen: View {
                         if runtime.signingOut { MobileLoadingRow(String(localized: "Signing out")) }
                     }
                     if let problem = runtime.problem {
-                        Text(problem).foregroundStyle(.red).textSelection(.enabled)
+                        Text(problem).foregroundStyle(MobileStyle.statusError).textSelection(.enabled)
                     }
                 }
                 if runtime.account != nil {

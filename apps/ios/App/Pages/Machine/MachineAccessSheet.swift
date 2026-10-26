@@ -158,7 +158,7 @@ struct MachineAccessSection: View {
                 Text("Nothing else has access to this machine.").foregroundStyle(MobileStyle.muted)
             }
             if let problem = access.state.problem {
-                Text(problem).foregroundStyle(.red)
+                Text(problem).foregroundStyle(MobileStyle.statusError)
                 Button("Try again") { Task { await access.load() } }
             }
         } header: {

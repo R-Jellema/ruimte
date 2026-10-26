@@ -58,7 +58,7 @@ struct ProcessesPage: View {
             .listRowBackground(Color.clear)
             .listRowInsets(EdgeInsets())
             if let problem = model.problem {
-                Section { Label(problem, lucideIcon: "triangle-alert").foregroundStyle(.red) }
+                Section { Label(problem, lucideIcon: "triangle-alert").foregroundStyle(MobileStyle.statusError) }
             }
             content
         }
@@ -90,7 +90,7 @@ struct ProcessesPage: View {
             .frame(maxWidth: 360)
             .frame(maxWidth: .infinity, alignment: .leading)
             if let problem = model.problem {
-                Label(problem, lucideIcon: "triangle-alert").foregroundStyle(.red)
+                Label(problem, lucideIcon: "triangle-alert").foregroundStyle(MobileStyle.statusError)
             }
             if let sample = model.sample, model.connected, model.supported != false {
                 let series = ProcessesText.series(

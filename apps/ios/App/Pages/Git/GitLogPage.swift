@@ -80,7 +80,7 @@ struct GitHistoryRows: View {
         let merged = history.merged
         if let problem = history.problem {
             VStack(alignment: .leading, spacing: 12) {
-                Label(problem, lucideIcon: "triangle-alert").foregroundStyle(.red)
+                Label(problem, lucideIcon: "triangle-alert").foregroundStyle(MobileStyle.statusError)
                 Button("Try again", action: reload)
             }.padding(.vertical, 8)
         }

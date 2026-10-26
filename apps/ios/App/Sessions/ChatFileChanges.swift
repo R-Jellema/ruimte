@@ -112,13 +112,13 @@ struct ChatDiffView: View {
                             .font(.system(.caption, design: .monospaced)).textSelection(.enabled)
                             .fixedSize(horizontal: true, vertical: false)
                             .foregroundStyle(
-                                line.hasPrefix("+") ? Color.green : line.hasPrefix("-") ? Color.red : MobileStyle.muted
+                                line.hasPrefix("+") ? MobileStyle.positive : line.hasPrefix("-") ? MobileStyle.statusError : MobileStyle.muted
                             )
                             .padding(.horizontal, 12).padding(.vertical, 2)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background(
                                 line.hasPrefix("+")
-                                    ? Color.green.opacity(0.08) : line.hasPrefix("-") ? Color.red.opacity(0.08) : .clear
+                                    ? MobileStyle.positive.opacity(0.08) : line.hasPrefix("-") ? MobileStyle.statusError.opacity(0.08) : .clear
                             )
                     }
                 }.fixedSize(horizontal: true, vertical: false)
@@ -159,8 +159,8 @@ struct ChatFileChangeView: View {
                         .lineLimit(1).truncationMode(.middle)
                     Spacer(minLength: 0)
                     Group {
-                        Text("+\(change.added)").foregroundStyle(.green)
-                        Text("-\(change.deleted)").foregroundStyle(.red)
+                        Text("+\(change.added)").foregroundStyle(MobileStyle.positive)
+                        Text("-\(change.deleted)").foregroundStyle(MobileStyle.statusError)
                     }
                     .fixedSize()
                 }
@@ -256,8 +256,8 @@ struct ChatChangedFilesRow: View {
                 }
                 Spacer(minLength: 0)
                 Group {
-                    Text("+\(files.reduce(0) { $0 + $1.added })").foregroundStyle(.green)
-                    Text("-\(files.reduce(0) { $0 + $1.deleted })").foregroundStyle(.red)
+                    Text("+\(files.reduce(0) { $0 + $1.added })").foregroundStyle(MobileStyle.positive)
+                    Text("-\(files.reduce(0) { $0 + $1.deleted })").foregroundStyle(MobileStyle.statusError)
                     Image(lucide: expanded ? "chevron-down" : "chevron-right", size: 12)
                         .foregroundStyle(MobileStyle.faint)
                 }

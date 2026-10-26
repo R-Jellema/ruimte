@@ -94,7 +94,7 @@ struct ProjectsPage<Notice: View>: View {
                 }
             }
             if let problem = runtime.problem {
-                Section { Text(problem).font(.callout).foregroundStyle(.red) }
+                Section { Text(problem).font(.callout).foregroundStyle(MobileStyle.statusError) }
             }
         }
         .modifier(ProjectListWidth())

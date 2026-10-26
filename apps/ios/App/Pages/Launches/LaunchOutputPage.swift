@@ -31,7 +31,7 @@ struct LaunchOutputPage: View {
             .padding(.horizontal, 16).padding(.vertical, 6)
             .background(MobileStyle.canvas)
             if let problem = store.problem {
-                Label(problem, lucideIcon: "triangle-alert").font(.caption).foregroundStyle(.red).padding(8)
+                Label(problem, lucideIcon: "triangle-alert").font(.caption).foregroundStyle(MobileStyle.statusError).padding(8)
             }
             if let output, let status = output.status {
                 // A start makes a fresh session under the same id, so a new start time attaches afresh.
