@@ -73,9 +73,6 @@ struct NowSections: View {
         } else {
             Section {
                 ForEach(board.needsYou) { entry in
-                    if entry.id != board.needsYou.first?.id {
-                        MobileRowDivider(betweenCards: true).listRowInsets(Self.cardInsets)
-                    }
                     NowCard(
                         now: now, entry: entry,
                         subtitle: NowCard.subtitle(entry, namesMachine: board.namesMachines, at: date),

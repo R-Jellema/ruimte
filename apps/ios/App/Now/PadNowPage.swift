@@ -96,11 +96,13 @@ struct PadNowPage: View {
         if !comingUp.isEmpty {
             VStack(alignment: .leading, spacing: MobileSpacing.medium) {
                 MobileSectionHeader(title: String(localized: "Coming up"))
-                MobileRowGroup(items: comingUp) { item in
-                    NowComingUpButton(
-                        item: item, namesMachine: board.namesMachines, date: date, open: open,
-                        openRoutine: openRoutine
-                    ) { menu($0) }
+                VStack(spacing: 0) {
+                    MobileRowGroup(items: comingUp) { item in
+                        NowComingUpButton(
+                            item: item, namesMachine: board.namesMachines, date: date, open: open,
+                            openRoutine: openRoutine
+                        ) { menu($0) }
+                    }
                 }
             }
         }
@@ -120,15 +122,17 @@ struct PadNowPage: View {
                     .frame(maxWidth: .infinity, minHeight: MobileMetrics.rowHeight, alignment: .leading)
                     .mobileCard(padding: 0)
             } else {
-                MobileRowGroup(items: entries) { entry in
-                    Button {
-                        open(entry.target)
-                    } label: {
-                        row(entry)
+                VStack(spacing: 0) {
+                    MobileRowGroup(items: entries) { entry in
+                        Button {
+                            open(entry.target)
+                        } label: {
+                            row(entry)
+                        }
+                        .buttonStyle(.plain)
+                        .contextMenu { menu(entry) }
+                        .accessibilityIdentifier("now.\(entry.target.itemID)")
                     }
-                    .buttonStyle(.plain)
-                    .contextMenu { menu(entry) }
-                    .accessibilityIdentifier("now.\(entry.target.itemID)")
                 }
             }
         }

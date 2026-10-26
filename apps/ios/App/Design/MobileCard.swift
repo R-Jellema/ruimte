@@ -2,61 +2,71 @@ import RuimtePulsar
 import SwiftUI
 
 /// The one card of the app: a group of content straight on the page, without a ground or an edge, held apart by the
-/// lines between its rows. Rows inside one pass `padding: 0` and pad themselves.
+/// lines between its rows. Rows inside one pass `padding: 0` and pad themselves. A filled card, for what waits on an
+/// answer, is a panel with a radius of 20 and a hairline whose edge stands on the page's margin.
 struct MobileCardSurface: ViewModifier {
     var padding: CGFloat = MobileSpacing.cardPadding
+    var filled = false
 
     func body(content: Content) -> some View {
-        content
-            .padding(padding)
-            .frame(maxWidth: .infinity, alignment: .leading)
+        if filled {
+            content
+                .padding(padding)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(MobileStyle.panel, in: .rect(cornerRadius: MobileMetrics.cardRadius))
+                .overlay(RoundedRectangle(cornerRadius: MobileMetrics.cardRadius).strokeBorder(MobileStyle.hairline))
+                .padding(.horizontal, MobileSpacing.cardPadding)
+        } else {
+            content
+                .padding(padding)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 }
 
 extension View {
-    func mobileCard(padding: CGFloat = MobileSpacing.cardPadding) -> some View {
-        modifier(MobileCardSurface(padding: padding))
+    func mobileCard(padding: CGFloat = MobileSpacing.cardPadding, filled: Bool = false) -> some View {
+        modifier(MobileCardSurface(padding: padding, filled: filled))
     }
 }
 
 /// Stacked content in a card, with the design's gap between its parts.
 struct MobileCard<Content: View>: View {
     var spacing: CGFloat = MobileSpacing.medium
+    var filled = false
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: spacing) { content }.mobileCard()
+        VStack(alignment: .leading, spacing: spacing) { content }.mobileCard(filled: filled)
     }
 }
 
-/// The line between two rows of a card, starting where the row's text does, or between two cards, starting where the
-/// card's content does.
+/// The line between two rows of a card, starting where the row's text does.
 struct MobileRowDivider: View {
-    var betweenCards = false
     @Environment(\.displayScale) private var displayScale
     @ScaledMetric(relativeTo: .subheadline) private var column = MobileMetrics.statusColumn
 
     var body: some View {
         MobileStyle.hairline.frame(height: 1 / displayScale)
-            .padding(
-                .leading, MobileSpacing.cardPadding + (betweenCards ? 0 : column + MobileSpacing.medium))
+            .padding(.leading, MobileSpacing.cardPadding + column + MobileSpacing.medium)
             .accessibilityHidden(true)
     }
 }
 
-/// The rows of one group in one card, with a line between two.
+/// The rows of one group, with a line between two. Each is a row of its own in a list, so a long press lifts only that
+/// row into its menu.
 struct MobileRowGroup<Item: Identifiable, Row: View>: View {
     let items: [Item]
     @ViewBuilder var row: (Item) -> Row
 
     var body: some View {
-        VStack(spacing: 0) {
-            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+        ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+            VStack(spacing: 0) {
                 if index > 0 { MobileRowDivider() }
                 row(item)
             }
+            .mobileCard(padding: 0)
         }
-        .mobileCard(padding: 0)
     }
 }
 

@@ -13,7 +13,7 @@ struct MobileRequestCard<Accessory: View, Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        MobileCard {
+        MobileCard(filled: true) {
             if let open {
                 Button(action: open) { header(disclosure: true) }
                     .buttonStyle(.plain)
