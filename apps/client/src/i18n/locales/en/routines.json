@@ -260,7 +260,9 @@
     "versionOf": "{{title}} v{{number}}",
     "runAt": "Routine run, {{time}}",
     "openInOutput": "Open in Output",
-    "compare": "Compare with previous run",
+    "show": "Show",
+    "chat": "Chat",
+    "output": "Output",
     "runFailed": "This run could not be shown",
     "showOnCanvas": "Show on canvas"
   },

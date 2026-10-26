@@ -1,15 +1,16 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CircleCheck, GitCompare, Hand, Package, SquareArrowOutUpRight } from 'lucide-react';
+import { Ban, CircleCheck, Hand, SquareArrowOutUpRight } from 'lucide-react';
 import type { AgentKind, RoutineEntry, RoutineRun } from '@ruimte/contracts';
-import { Button, EmptyState, ErrorBoundary, FormError, Icon, KeyValueList, Pill, SectionLabel } from '@adecore/ui';
+import { Button, EmptyState, ErrorBoundary, FormError, Icon, IconButton, KeyValueList, Pill, SectionLabel, Segmented } from '@adecore/ui';
 import { formatDateTime } from '@adecore/ui/format';
 import { runtimeModeLabel } from '@adecore/agents-react/chat';
 import { AgentIcon, modelName, ProviderLogo } from '@adecore/agents-react/providers';
 import { useProvidersStore } from '@adecore/agents-react/state';
 import { hasProviderLogo } from '@/agents/provider-logo';
 import { ArtifactView } from '@/output/ArtifactView';
-import { openArtifact, openArtifactCompared } from '@/output/open';
+import { openArtifact } from '@/output/open';
+import { FileToolbarSlotProvider, fixedSlot } from '@/shell/panels/file-toolbar-slot';
 import { lookOfRun } from '@/routines/agenda';
 import { LookIcon } from '@/routines/look';
 import { RoutineRunChat } from '@/routines/RoutineRunChat';
@@ -57,7 +58,7 @@ function Definition({ endpointId, entry }: { endpointId: string; entry: RoutineE
     const machine = useEndpoints((s) => s.endpoints.find((candidate) => candidate.id === endpointId)?.label ?? '');
     return (
         <section className="flex flex-col gap-3 border-b border-border p-4" aria-label={t('detail.definition')}>
-            {entry.held !== undefined && <ApprovalBanner endpointId={endpointId} entry={entry} />}
+            {(entry.held !== undefined || entry.local.declined === entry.digest) && <ApprovalBanner endpointId={endpointId} entry={entry} />}
             {routine.kind === 'agent' && <p className="rounded-lg bg-surface-sunken p-3 text-sm whitespace-pre-wrap text-text select-text">{routine.prompt}</p>}
             {routine.kind === 'command' && (
                 <p className="rounded-lg bg-surface-sunken p-3 font-mono text-code whitespace-pre-wrap text-text select-text">{routine.command}</p>
@@ -166,51 +167,49 @@ function RunTimeline({ entry, picked, timeZone }: { entry: RoutineEntry; picked:
 function RunPane({ entry, run, timeZone }: { entry: RoutineEntry; run: RoutineRun; timeZone: string }) {
     const { t } = useTranslation('routines');
     const artifactId = run.artifactId ?? entry.artifactId;
-    const previous = entry.runs
-        .slice(entry.runs.indexOf(run) + 1)
-        .find((candidate) => candidate.versionId !== undefined && candidate.versionId !== run.versionId);
+    const version = artifactId !== undefined && run.versionId !== undefined ? { artifactId, versionId: run.versionId } : null;
+    const [shown, setShown] = useState<'chat' | 'output'>(run.chatId !== undefined ? 'chat' : 'output');
     const [pinned, setPinned] = useState<string | null>(null);
+    // The version's own controls (versions, compare, info) land in this bar rather than in a second one under it.
+    const [slot, setSlot] = useState<HTMLElement | null>(null);
     const open = (): void => {
-        if (artifactId !== undefined) {
+        if (version !== null) {
             leaveRoutines();
-            openArtifact(artifactId, entry.routine.title, run.versionId ?? null);
-        }
-    };
-    const compare = (): void => {
-        if (artifactId !== undefined && run.versionId !== undefined && previous?.versionId !== undefined) {
-            leaveRoutines();
-            openArtifactCompared(artifactId, entry.routine.title, run.versionId, previous.versionId);
+            openArtifact(version.artifactId, entry.routine.title, pinned ?? version.versionId);
         }
     };
     return (
         <div className="flex min-h-0 grow flex-col">
             <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border-soft px-3 text-xs text-text-muted">
-                <span className="truncate">
+                <span className="min-w-0 truncate">
                     {t('detail.runAt', {
                         time: formatDateTime(run.at, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone })
                     })}
                 </span>
                 <span className="grow" />
-                {run.versionNumber !== undefined && artifactId !== undefined && (
-                    <>
-                        <Pill icon={<Icon icon={Package} size={12} />}>{t('detail.versionOf', { title: entry.routine.title, number: run.versionNumber })}</Pill>
-                        <Button size="sm" onClick={open}>
-                            <Icon icon={SquareArrowOutUpRight} size={14} />
-                            {t('detail.openInOutput')}
-                        </Button>
-                        <Button size="sm" disabled={previous === undefined} onClick={compare}>
-                            <Icon icon={GitCompare} size={14} />
-                            {t('detail.compare')}
-                        </Button>
-                    </>
+                {version !== null && shown === 'output' && <span ref={setSlot} className="flex shrink-0 items-center gap-1" />}
+                {version !== null && run.chatId !== undefined && (
+                    <Segmented
+                        label={t('detail.show')}
+                        size="sm"
+                        value={shown}
+                        onValueChange={setShown}
+                        options={[
+                            { id: 'chat', label: t('detail.chat') },
+                            { id: 'output', label: t('detail.output') }
+                        ]}
+                    />
                 )}
+                {version !== null && <IconButton icon={SquareArrowOutUpRight} size="sm" label={t('detail.openInOutput')} onClick={open} />}
             </div>
-            {run.chatId !== undefined ? (
+            {version !== null && shown === 'output' ? (
+                <FileToolbarSlotProvider value={fixedSlot(slot)}>
+                    <div className="flex min-h-0 grow flex-col">
+                        <ArtifactView artifactId={version.artifactId} pin={{ version: pinned ?? version.versionId, set: setPinned }} />
+                    </div>
+                </FileToolbarSlotProvider>
+            ) : run.chatId !== undefined ? (
                 <RoutineRunChat chatId={run.chatId} />
-            ) : artifactId !== undefined && run.versionId !== undefined ? (
-                <div className="flex min-h-0 grow flex-col">
-                    <ArtifactView artifactId={artifactId} pin={{ version: pinned ?? run.versionId, set: setPinned }} />
-                </div>
             ) : (
                 <div className="grid grow place-items-center">
                     <EmptyState>{runWords(run, timeZone)}</EmptyState>
@@ -224,18 +223,22 @@ function RunPane({ entry, run, timeZone }: { entry: RoutineEntry; run: RoutineRu
 function ApprovalBanner({ endpointId, entry }: { endpointId: string; entry: RoutineEntry }) {
     const { t } = useTranslation('routines');
     const { origin, busy, failure, approve, decline } = useRoutineApproval(endpointId, entry);
+    // A denial stands until the routine changes; approving it here is the way back.
+    const declined = entry.local.declined === entry.digest;
     return (
         <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface-raised bg-clip-padding p-3" role="status">
             <span className="flex items-center gap-2 text-sm font-medium text-text">
-                <Icon icon={Hand} size={14} className="text-status-needs-you" />
-                {t('row.held')}
+                <Icon icon={declined ? Ban : Hand} size={14} className={declined ? 'text-text-muted' : 'text-status-needs-you'} />
+                {t(declined ? 'row.declined' : 'row.held')}
             </span>
             <span className="text-xs text-text-muted">{origin}</span>
             {failure !== null && <FormError className="break-words">{failure}</FormError>}
             <span className="flex items-center justify-end gap-1.5">
-                <Button size="sm" disabled={busy} onClick={decline}>
-                    {t('approval.deny')}
-                </Button>
+                {!declined && (
+                    <Button size="sm" disabled={busy} onClick={decline}>
+                        {t('approval.deny')}
+                    </Button>
+                )}
                 <Button size="sm" variant="secondary" disabled={busy} onClick={approve}>
                     <Icon icon={CircleCheck} size={14} />
                     {t('approval.approve')}

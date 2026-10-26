@@ -260,7 +260,9 @@
     "versionOf": "{{title}} v{{number}}",
     "runAt": "Run van de routine, {{time}}",
     "openInOutput": "Openen in Output",
-    "compare": "Vergelijken met vorige run",
+    "show": "Tonen",
+    "chat": "Chat",
+    "output": "Output",
     "runFailed": "Deze run kon niet getoond worden",
     "showOnCanvas": "Op canvas tonen"
   },
