@@ -71,9 +71,9 @@ export function bothMeters(one: LinkMeter, other: LinkMeter): LinkMeter {
             one.reconnecting(reason);
             other.reconnecting(reason);
         },
-        answered: (type, ms) => {
-            one.answered(type, ms);
-            other.answered(type, ms);
+        answered: (link, ms) => {
+            one.answered(link, ms);
+            other.answered(link, ms);
         }
     };
 }

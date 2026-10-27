@@ -684,14 +684,14 @@ describe('what the transport measures', () => {
         await tick();
         open(run.links[0]!);
         run.links[0]!.events.close('gone', 1006);
-        expect(run.metrics.map((metric) => (metric.name === 'link.reconnect' ? metric.attributes.reason : metric.attributes))).toEqual([
+        expect<unknown[]>(run.metrics.map((metric) => (metric.name === 'link.reconnect' ? metric.attributes.reason : metric.attributes))).toEqual([
             { path: 'local', outcome: 'ok' },
             'dropped'
         ]);
         run.transport.dispose();
     });
 
-    test('request.duration: the wait for an answer, by the area of the request and nothing else', async () => {
+    test('request.duration: the wait for an answer, by the path of the link and nothing of the request', async () => {
         const run = measured();
         await tick();
         open(run.links[0]!);
@@ -700,7 +700,26 @@ describe('what the transport measures', () => {
         run.advance(35);
         run.links[0]!.events.message(JSON.stringify({ id: frame.id, ok: true, result: {} }));
         await reply;
-        expect(run.metrics.at(-1)).toEqual({ kind: 'distribution', name: 'request.duration', value: 35, attributes: { area: 'session' } });
+        expect(run.metrics.at(-1)).toEqual({ kind: 'distribution', name: 'request.duration', value: 35, attributes: { path: 'direct' } });
+        run.transport.dispose();
+    });
+
+    test('request.duration: a stream of pieces and a request that waits on something else are not measured', async () => {
+        const run = measured();
+        await tick();
+        open(run.links[0]!);
+        const before = run.metrics.length;
+        void run.transport.readBytes({ resource: { kind: 'file', path: '/a.mp4' }, offset: 0, length: 4 }).catch(() => undefined);
+        void run.transport.request('git.clone', { url: 'https://example.test/a.git', folder: '/tmp/a' } as never).catch(() => undefined);
+
+        for (const sent of run.links[0]!.sent.slice(-2)) {
+            const frame = JSON.parse(sent) as { id: string };
+            run.links[0]!.events.message(JSON.stringify({ id: frame.id, ok: false, error: { code: 'x', message: 'x' } }));
+        }
+
+        await tick();
+
+        expect(run.metrics.length).toBe(before);
         run.transport.dispose();
     });
 });

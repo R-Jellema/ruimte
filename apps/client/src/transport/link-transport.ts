@@ -35,6 +35,14 @@ const REQUEST_TIMEOUT_MS = 60_000;
 // A drop the reconnect mends within this time (a daemon restart, a Mac waking) is only a metric, not a report.
 const DROP_GRACE_MS = 30_000;
 
+/*
+ * Whether a request's wait says how quick the link is. One that waits on a network, a model or a database says how
+ * slow that was, and `bytes.read` comes as a stream of pieces, dozens a second while a video plays.
+ */
+function measuredRequest(type: RequestType): boolean {
+    return type !== 'bytes.read' && !UNBOUNDED_REQUESTS.has(type);
+}
+
 // Requests whose answer waits on a network, a model, a database or a large transfer, and that a caller ends itself.
 const UNBOUNDED_REQUESTS: ReadonlySet<RequestType> = new Set<RequestType>([
     'archive.extract',
@@ -103,7 +111,8 @@ export interface LinkMeter {
     /* From the start of an attempt until the protocol check passed, or until the attempt failed. */
     connected(link: { relayed: boolean; signaled: SignalRoute | null }, outcome: LinkOutcome, ms: number): void;
     reconnecting(reason: ReconnectReason): void;
-    answered(type: RequestType, ms: number): void;
+    /* A request the link answered, measured only where its wait is the link's (`measuredRequest`), over the link it went. */
+    answered(link: { relayed: boolean; signaled: SignalRoute | null }, ms: number): void;
 }
 
 const NO_METER: LinkMeter = { connected: () => undefined, reconnecting: () => undefined, answered: () => undefined };
@@ -495,7 +504,11 @@ export class LinkTransport implements PooledTransport {
         this.pending.delete(id);
         clearTimeout(entry.timer);
         // Only an answer comes here; a request that timed out was taken off the list by its timer.
-        this.meter.answered(entry.type, this.now() - entry.sentAt);
+        if (measuredRequest(entry.type)) {
+            const link = this.currentConnection;
+            this.meter.answered({ relayed: link.relayed ?? false, signaled: link.signaled ?? null }, this.now() - entry.sentAt);
+        }
+
         return entry;
     }
 
