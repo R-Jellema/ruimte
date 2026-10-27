@@ -52,7 +52,7 @@ final class ChatModel {
     /// The sub-agents the composer's chip speaks for, derived again only when a subagent row or the thread's length
     /// moves, so a reader does not observe every streamed word.
     var activitySubagents: [ChatSubagentItem] {
-        activity.subagents(revision: subagentRevision, count: messageCount) { items }
+        activity.subagents(revision: subagentRevision, count: messageCount) { history.subagents + items }
     }
     var suggestions: [ChatSuggestion] = []
     var suggestionKind = ""
@@ -341,7 +341,7 @@ final class ChatModel {
         } else {
             replace(
                 info: snapshot.info, items: snapshot.items, history: snapshot.history, pending: snapshot.pending ?? [],
-                bookmarks: bookmarks, visuals: visuals)
+                subagents: snapshot.subagents ?? [], bookmarks: bookmarks, visuals: visuals)
         }
         lastSeq = snapshot.seq.map { Int($0) }
     }
@@ -349,12 +349,12 @@ final class ChatModel {
     /// A machine without bookmarks or visuals sends none, and then this chat has none.
     private func replace(
         info: ChatInfo, items: [ChatItem], history page: ChatHistoryPage?, pending: [ChatItem],
-        bookmarks: [ChatBookmark], visuals: [ChatVisual]
+        subagents: [ChatSubagentItem] = [], bookmarks: [ChatBookmark], visuals: [ChatVisual]
     ) {
         historyRevision += 1
         loadingHistory = false
         failedHistoryCursor = nil
-        history.replace(history: page, pending: pending)
+        history.replace(history: page, pending: pending, subagents: subagents)
         self.info = info
         self.items = items
         reindex()
@@ -385,6 +385,7 @@ final class ChatModel {
             let item = change.item
             guard history.includes(item, index: change.historyIndex) else {
                 refreshPending()
+                if item.subagentItem != nil { subagentRevision += 1 }
                 return
             }
             if let index = positions[item.id] {

@@ -15,6 +15,28 @@ final class ChatHistoryTests: XCTestCase {
                 input: .null, description: nil, canAllowAlways: false, decision: decision))
     }
 
+    private func subagent(_ id: String, _ status: ChatSubagentStatus) -> ChatSubagentItem {
+        ChatSubagentItem(
+            id: id, createdAt: 0, turnId: nil, toolUseId: "tool-\(id)", description: id, subagentType: nil, prompt: nil,
+            background: false, status: status, startedAt: 0, finishedAt: nil, summary: nil, result: nil, usage: nil,
+            lastTool: nil, itemsTruncated: false)
+    }
+
+    func testSubagentsBeforePageFollowTheirUpdatesUntilAPageReachesThem() {
+        var history = ChatHistory()
+        history.replace(
+            history: ChatHistoryPage(start: 80, cursor: "epoch:80"), pending: [], subagents: [subagent("s0", .running)])
+        XCTAssertFalse(history.includes(.subagent(subagent("s0", .done)), index: 3))
+        XCTAssertFalse(history.includes(.subagent(subagent("s1", .running)), index: 5))
+        XCTAssertEqual(history.subagents, [.subagent(subagent("s0", .done)), .subagent(subagent("s1", .running))])
+        _ = history.prepend(
+            ChatHistoryResult(items: [.subagent(subagent("s1", .running))], history: ChatHistoryPage(start: 4, cursor: "epoch:4")),
+            to: [])
+        XCTAssertEqual(history.subagents, [.subagent(subagent("s0", .done))])
+        history.replace(history: nil, pending: [], subagents: [subagent("s0", .running)])
+        XCTAssertTrue(history.subagents.isEmpty)
+    }
+
     func testOlderDaemonKeepsFullHistoryAndNeedsNoPagingRequest() {
         var history = ChatHistory()
         history.replace(history: nil, pending: [])

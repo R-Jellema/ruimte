@@ -5,25 +5,41 @@ public struct ChatHistory {
     public private(set) var cursor: String?
     public private(set) var start = 0
     public private(set) var pending: [String: ChatItem] = [:]
+    /// The sub-agents from before the page, in thread order, so the chip knows of one a message woke again without a
+    /// scroll reaching back to its row.
+    public private(set) var subagents: [ChatItem] = []
 
     public init() {}
 
     /// A page from a machine before paging is the whole thread, so it has no history and nothing outside it.
-    public mutating func replace(history page: ChatHistoryPage?, pending requests: [ChatItem]) {
+    public mutating func replace(
+        history page: ChatHistoryPage?, pending requests: [ChatItem], subagents before: [ChatSubagentItem] = []
+    ) {
         start = Int(page?.start ?? 0)
         cursor = page?.cursor
         pending = Dictionary(requests.map { ($0.id, $0) }, uniquingKeysWith: { _, newest in newest })
+        subagents = page == nil ? [] : before.map { .subagent($0) }
     }
 
     public mutating func includes(_ item: ChatItem, index: Int64?) -> Bool {
         if item.isPending { pending[item.id] = item } else { pending.removeValue(forKey: item.id) }
-        return Int(index ?? Int64(start)) >= start
+        let included = Int(index ?? Int64(start)) >= start
+        if !included, item.subagentItem != nil {
+            if let held = subagents.firstIndex(where: { $0.id == item.id }) {
+                subagents[held] = item
+            } else {
+                subagents.append(item)
+            }
+        }
+        return included
     }
 
     public mutating func prepend(_ page: ChatHistoryResult, to items: [ChatItem]) -> [ChatItem] {
         let ids = Set(items.map(\.id))
+        let older = Set(page.items.map(\.id))
         start = Int(page.history.start)
         cursor = page.history.cursor
+        subagents.removeAll { older.contains($0.id) }
         return page.items.filter { !ids.contains($0.id) } + items
     }
 }
