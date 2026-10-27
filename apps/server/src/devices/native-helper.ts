@@ -142,12 +142,7 @@ export async function runDeviceHelper(deviceId: string, runtime?: DeviceHelperRu
                 ready = true;
                 write(encodeDeviceHelperMessage({ type: 'ready', width, height }));
             }
-            write(
-                encodeDeviceHelperMessage({
-                    type: 'frame',
-                    frame: { sequence, width, height, data }
-                })
-            );
+            write(encodeDeviceHelperMessage({ type: 'frame', frame: { sequence, width, height, data } }));
             sequence = (sequence + 1) >>> 0;
         });
         await capture.start();
@@ -174,8 +169,7 @@ export async function runDeviceHelper(deviceId: string, runtime?: DeviceHelperRu
         }
         return 0;
     } catch (error) {
-        const message = error instanceof Error ? error.message : 'The native simulator helper failed';
-        write(encodeDeviceHelperMessage({ type: 'error', code: 'device-helper-native', message: message.slice(0, 4096) }));
+        write(encodeDeviceHelperMessage({ type: 'error', code: 'device-helper-native', message: failureText(error) }));
         return 1;
     } finally {
         await unsubscribe?.();
@@ -205,8 +199,17 @@ async function answerCall(hid: NativeHidHandle, capture: NativeCaptureHandle, id
                 return { type: 'reply', id, ok: true };
         }
     } catch (error) {
-        return { type: 'reply', id, ok: false, message: (error instanceof Error ? error.message : 'The native simulator helper failed').slice(0, 4096) };
+        return { type: 'reply', id, ok: false, message: failureText(error) };
     }
+}
+
+/* Cut to what the protocol carries in a message. */
+function failureText(error: unknown): string {
+    return (error instanceof Error ? error.message : 'The native simulator helper failed').slice(0, 4096);
+}
+
+function touchPhase(phase: 'down' | 'move' | 'up'): 'begin' | 'move' | 'end' {
+    return phase === 'down' ? 'begin' : phase === 'up' ? 'end' : 'move';
 }
 
 async function pressKeys(hid: NativeHidHandle, usages: readonly number[]): Promise<void> {
@@ -220,11 +223,9 @@ async function pressKeys(hid: NativeHidHandle, usages: readonly number[]): Promi
 
 async function applyDeviceInput(hid: NativeHidHandle, input: DeviceInput, width: number, height: number): Promise<void> {
     if (input.kind === 'pointer') {
-        const phase = input.phase === 'down' ? 'begin' : input.phase === 'up' ? 'end' : 'move';
-        await hid.touch(phase, input.x, input.y, width, height, input.edge === 'bottom' ? NATIVE_EDGE_BOTTOM : 0);
+        await hid.touch(touchPhase(input.phase), input.x, input.y, width, height, input.edge === 'bottom' ? NATIVE_EDGE_BOTTOM : 0);
     } else if (input.kind === 'multiPointer') {
-        const phase = input.phase === 'down' ? 'begin' : input.phase === 'up' ? 'end' : 'move';
-        await hid.multiTouch(phase, input.first.x, input.first.y, input.second.x, input.second.y, width, height);
+        await hid.multiTouch(touchPhase(input.phase), input.first.x, input.first.y, input.second.x, input.second.y, width, height);
     } else if (input.kind === 'scroll') {
         void hid.scroll(input.deltaX, input.deltaY, input.x, input.y, width, height).catch(() => undefined);
     } else if (input.kind === 'button') {

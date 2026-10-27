@@ -16,7 +16,17 @@ export async function collect(child: PipedChild): Promise<CommandResult> {
     return { exitCode, stdout, stderr };
 }
 
-/* Runs a command to its end with no input. */
-export function runCommand(command: string[]): Promise<CommandResult> {
-    return collect(Bun.spawn(command, { stdin: 'ignore', stdout: 'pipe', stderr: 'pipe' }));
+/* Runs a command to its end with no input; `signal` ends it early. */
+export async function runCommand(command: string[], signal?: AbortSignal): Promise<CommandResult> {
+    const child = Bun.spawn(command, { stdin: 'ignore', stdout: 'pipe', stderr: 'pipe' });
+    const abort = (): void => child.kill('SIGTERM');
+    signal?.addEventListener('abort', abort, { once: true });
+    if (signal?.aborted) {
+        abort();
+    }
+    try {
+        return await collect(child);
+    } finally {
+        signal?.removeEventListener('abort', abort);
+    }
 }

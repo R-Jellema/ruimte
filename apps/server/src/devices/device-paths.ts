@@ -3,8 +3,8 @@ import type { DeviceAction } from '@ruimte/contracts';
 import { DeviceError } from './manager.ts';
 
 /* What the photos app of either platform imports. */
-export const MEDIA_IMAGES: readonly string[] = ['.png', '.jpg', '.jpeg', '.heic', '.gif'];
-export const MEDIA_VIDEOS: readonly string[] = ['.mp4', '.mov'];
+const MEDIA_IMAGES: readonly string[] = ['.png', '.jpg', '.jpeg', '.heic', '.gif'];
+const MEDIA_VIDEOS: readonly string[] = ['.mp4', '.mov'];
 
 /* The paths on the machine a device action reads, which the daemon checks before any backend sees them. */
 export function actionPaths(action: DeviceAction): string[] {

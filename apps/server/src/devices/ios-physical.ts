@@ -134,18 +134,14 @@ export class IosPhysicalBackend implements DeviceBackend {
             '--timeout',
             '10'
         ]);
-        let json: unknown;
+        let devices: z.infer<typeof PhysicalDeviceSchema>[];
         try {
-            json = JSON.parse(result.stdout);
+            devices = PhysicalDeviceListSchema.parse(JSON.parse(result.stdout)).result.devices;
         } catch {
             throw new DeviceError('invalid-devicectl-output', 'devicectl returned a device list Ruimte could not read');
         }
-        const parsed = PhysicalDeviceListSchema.safeParse(json);
-        if (!parsed.success) {
-            throw new DeviceError('invalid-devicectl-output', 'devicectl returned a device list Ruimte could not read');
-        }
         this.udids.clear();
-        return parsed.data.result.devices.map(({ identifier, properties }) => {
+        return devices.map(({ identifier, properties }) => {
             if (properties.hardware.udid) {
                 this.udids.set(identifier, properties.hardware.udid);
             }

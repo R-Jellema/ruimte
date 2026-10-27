@@ -1,6 +1,7 @@
 import { hevcKeyFrame, type DeviceInput, type LiveStreamFrame } from '@ruimte/contracts';
 import type { LiveFrameSource } from '../streams/live-stream.ts';
-import { DEVICE_HELPER_MAGIC, DeviceHelperDecoder, encodeDeviceHelperMessage, type DeviceHelperCall } from './helper-protocol.ts';
+import { DEVICE_HELPER_MAGIC, DeviceHelperDecoder, encodeDeviceHelperMessage, type DeviceHelperCall, type DeviceHelperMessage } from './helper-protocol.ts';
+import { realTimer, type Timer } from './timer.ts';
 
 export interface DeviceHelperProcess {
     readonly stdin: {
@@ -48,14 +49,6 @@ export function createDeviceHelperLauncher(command: string[]): DeviceHelperLaunc
     };
 }
 
-/* Runs `run` after `ms` and answers how to call it off, so a test decides when a call gives up. */
-type HelperCallTimer = (ms: number, run: () => void) => () => void;
-
-const realCallTimer: HelperCallTimer = (ms, run) => {
-    const timer = setTimeout(run, ms);
-    return () => clearTimeout(timer);
-};
-
 /* Every call answers within moments; a helper that takes this long will not answer at all. */
 export const HELPER_CALL_TIMEOUT_MS = 30_000;
 
@@ -64,7 +57,7 @@ export class DeviceHelperSource implements LiveFrameSource {
     private readonly deviceId: string;
     private readonly launch: DeviceHelperLauncher;
     private readonly stopGraceMs: number;
-    private readonly timer: HelperCallTimer;
+    private readonly timer: Timer;
     private process: DeviceHelperProcess | null = null;
     private outputTask: Promise<void> | null = null;
     private abandonStart: ((error: unknown) => void) | null = null;
@@ -74,7 +67,7 @@ export class DeviceHelperSource implements LiveFrameSource {
     /* The calls waiting for their reply, by id; the helper answers each in the order it was sent. */
     private readonly calls = new Map<number, { resolve: (value: boolean | undefined) => void; reject: (error: unknown) => void; cancel: () => void }>();
 
-    constructor(deviceId: string, launch: DeviceHelperLauncher, stopGraceMs = 500, format: 'jpeg' | 'hevc' = 'jpeg', timer: HelperCallTimer = realCallTimer) {
+    constructor(deviceId: string, launch: DeviceHelperLauncher, stopGraceMs = 500, format: 'jpeg' | 'hevc' = 'jpeg', timer: Timer = realTimer) {
         this.deviceId = deviceId;
         this.launch = launch;
         this.stopGraceMs = stopGraceMs;
@@ -173,19 +166,11 @@ export class DeviceHelperSource implements LiveFrameSource {
     }
 
     input(input: DeviceInput): void {
-        if (this.process === null || !this.ready) {
-            throw new DeviceHelperFailure('device-not-streaming', 'Open the device stream before sending input');
-        }
-        this.process.stdin.write(encodeDeviceHelperMessage({ type: 'input', input }));
-        this.process.stdin.flush();
+        this.send({ type: 'input', input }, 'Open the device stream before sending input');
     }
 
     keys(usages: readonly number[]): void {
-        if (this.process === null || !this.ready) {
-            throw new DeviceHelperFailure('device-not-streaming', 'Open the device stream before sending input');
-        }
-        this.process.stdin.write(encodeDeviceHelperMessage({ type: 'keys', usages: [...usages] }));
-        this.process.stdin.flush();
+        this.send({ type: 'keys', usages: [...usages] }, 'Open the device stream before sending input');
     }
 
     /* Asks the running helper to do something beside input; answers what a yes-or-no call said. */
@@ -202,9 +187,16 @@ export class DeviceHelperSource implements LiveFrameSource {
             });
             this.calls.set(id, { resolve, reject, cancel });
         });
-        this.process.stdin.write(encodeDeviceHelperMessage({ type: 'call', id, call }));
-        this.process.stdin.flush();
+        this.send({ type: 'call', id, call }, 'Open the device stream before using this tool');
         return answered;
+    }
+
+    private send(message: DeviceHelperMessage, notStreaming: string): void {
+        if (this.process === null || !this.ready) {
+            throw new DeviceHelperFailure('device-not-streaming', notStreaming);
+        }
+        this.process.stdin.write(encodeDeviceHelperMessage(message));
+        this.process.stdin.flush();
     }
 
     async stop(): Promise<void> {
@@ -224,11 +216,10 @@ export class DeviceHelperSource implements LiveFrameSource {
             child.kill('SIGTERM');
         }
         const exited = await Promise.race([child.exited.then(() => true), new Promise<false>((resolve) => setTimeout(() => resolve(false), this.stopGraceMs))]);
-        if (!exited) {
-            child.kill('SIGKILL');
-        }
         if (exited) {
             await this.outputTask?.catch(() => undefined);
+        } else {
+            child.kill('SIGKILL');
         }
         this.outputTask = null;
     }

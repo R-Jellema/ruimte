@@ -1,5 +1,11 @@
-import { DeviceInputSchema, encodeLiveStreamFrame, LIVE_STREAM_FRAME_HEADER_BYTES, LIVE_STREAM_MAX_FRAME_BYTES } from '@ruimte/contracts';
-import type { DeviceInput, LiveStreamFrame } from '@ruimte/contracts';
+import {
+    DeviceInputSchema,
+    encodeLiveStreamFrame,
+    LIVE_STREAM_FRAME_HEADER_BYTES,
+    LIVE_STREAM_MAX_FRAME_BYTES,
+    type DeviceInput,
+    type LiveStreamFrame
+} from '@ruimte/contracts';
 import { z } from 'zod';
 
 export const DEVICE_HELPER_MAGIC = new Uint8Array([0x52, 0x44, 0x45, 0x56, 0x01, 0x00, 0x00, 0x00]);
@@ -61,29 +67,35 @@ const MessageKind = {
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 
+function jsonBytes(value: unknown): Uint8Array {
+    return textEncoder.encode(JSON.stringify(value));
+}
+
+/* A schema's parse keeps only its own keys, so `type` never goes into a payload. */
+function payloadOf(message: DeviceHelperMessage): Uint8Array {
+    switch (message.type) {
+        case 'ready':
+            return jsonBytes(ReadySchema.parse(message));
+        case 'frame':
+            return encodeLiveStreamFrame(message.frame);
+        case 'error':
+            return jsonBytes(ErrorSchema.parse(message));
+        case 'input':
+            return jsonBytes(DeviceInputSchema.parse(message.input));
+        case 'keys':
+            return jsonBytes(KeysSchema.parse(message));
+        case 'call':
+            return jsonBytes(CallSchema.parse(message));
+        case 'reply':
+            return jsonBytes(ReplySchema.parse(message));
+        case 'stop':
+            return new Uint8Array();
+    }
+}
+
 export function encodeDeviceHelperMessage(message: DeviceHelperMessage): Uint8Array {
     const kind = MessageKind[message.type];
-    let payload: Uint8Array;
-    if (message.type === 'ready') {
-        const ready = ReadySchema.parse(message);
-        payload = textEncoder.encode(JSON.stringify({ width: ready.width, height: ready.height }));
-    } else if (message.type === 'frame') {
-        payload = encodeLiveStreamFrame(message.frame);
-    } else if (message.type === 'error') {
-        const error = ErrorSchema.parse(message);
-        payload = textEncoder.encode(JSON.stringify({ code: error.code, message: error.message }));
-    } else if (message.type === 'input') {
-        payload = textEncoder.encode(JSON.stringify(DeviceInputSchema.parse(message.input)));
-    } else if (message.type === 'keys') {
-        payload = textEncoder.encode(JSON.stringify(KeysSchema.parse({ usages: message.usages })));
-    } else if (message.type === 'call') {
-        payload = textEncoder.encode(JSON.stringify(CallSchema.parse({ id: message.id, call: message.call })));
-    } else if (message.type === 'reply') {
-        const { type: _type, ...reply } = message;
-        payload = textEncoder.encode(JSON.stringify(ReplySchema.parse(reply)));
-    } else {
-        payload = new Uint8Array();
-    }
+    const payload = payloadOf(message);
     if (message.type !== 'frame' && payload.byteLength > DEVICE_HELPER_MAX_CONTROL_BYTES) {
         throw new Error('Device helper control message is too large');
     }
@@ -96,14 +108,19 @@ export function encodeDeviceHelperMessage(message: DeviceHelperMessage): Uint8Ar
 }
 
 export class DeviceHelperDecoder {
-    private buffer = new Uint8Array();
+    private buffer: Uint8Array = new Uint8Array();
     private preambleRead = false;
 
+    /* Nothing here writes into a buffer it holds, so the rest of one is kept as a view rather than a copy. */
     push(chunk: Uint8Array): DeviceHelperMessage[] {
-        const joined = new Uint8Array(this.buffer.byteLength + chunk.byteLength);
-        joined.set(this.buffer);
-        joined.set(chunk, this.buffer.byteLength);
-        this.buffer = joined;
+        if (this.buffer.byteLength === 0) {
+            this.buffer = chunk;
+        } else {
+            const joined = new Uint8Array(this.buffer.byteLength + chunk.byteLength);
+            joined.set(this.buffer);
+            joined.set(chunk, this.buffer.byteLength);
+            this.buffer = joined;
+        }
 
         if (!this.preambleRead) {
             if (this.buffer.byteLength < DEVICE_HELPER_MAGIC.byteLength) {
@@ -114,7 +131,7 @@ export class DeviceHelperDecoder {
                     throw new Error('Unknown device helper protocol');
                 }
             }
-            this.buffer = this.buffer.slice(DEVICE_HELPER_MAGIC.byteLength);
+            this.buffer = this.buffer.subarray(DEVICE_HELPER_MAGIC.byteLength);
             this.preambleRead = true;
         }
 
@@ -131,9 +148,8 @@ export class DeviceHelperDecoder {
             if (this.buffer.byteLength < total) {
                 break;
             }
-            const payload = this.buffer.slice(DEVICE_HELPER_HEADER_BYTES, total);
-            messages.push(this.decode(kind, payload));
-            this.buffer = this.buffer.slice(total);
+            messages.push(this.decode(kind, this.buffer.subarray(DEVICE_HELPER_HEADER_BYTES, total)));
+            this.buffer = this.buffer.subarray(total);
         }
         return messages;
     }

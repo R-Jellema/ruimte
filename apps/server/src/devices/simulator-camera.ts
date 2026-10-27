@@ -2,8 +2,9 @@ import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { isVideo, MEDIA_IMAGES, MEDIA_VIDEOS, requireExtension } from './device-paths.ts';
+import { isVideo, requireMedia } from './device-paths.ts';
 import { DeviceError } from './manager.ts';
+import { realTimer, type Timer } from './timer.ts';
 
 /* A running camera helper, as far as this daemon needs it. */
 interface CameraHelperProcess {
@@ -24,14 +25,6 @@ export interface CameraHost {
 type SimctlEnvRunner = (arguments_: string[], env: Record<string, string>) => Promise<{ exitCode: number; stderr: string }>;
 
 type CameraSource = 'placeholder' | 'file' | 'off';
-
-/* Runs `run` after `ms` and answers how to call it off, so a test decides when a helper took too long. */
-type CameraTimer = (ms: number, run: () => void) => () => void;
-
-const realCameraTimer: CameraTimer = (ms, run) => {
-    const timer = setTimeout(run, ms);
-    return () => clearTimeout(timer);
-};
 
 /* A helper answers a command at once; one that has not by now is taken for gone and started again. */
 const CAMERA_SEND_TIMEOUT_MS = 5_000;
@@ -69,10 +62,10 @@ export class SimulatorCamera {
     private readonly home: string;
     private readonly host: CameraHost;
     private readonly simctl: SimctlEnvRunner;
-    private readonly timer: CameraTimer;
+    private readonly timer: Timer;
     private readonly feeds = new Map<string, Feed>();
 
-    constructor(home: string, host: CameraHost, simctl: SimctlEnvRunner, timer: CameraTimer = realCameraTimer) {
+    constructor(home: string, host: CameraHost, simctl: SimctlEnvRunner, timer: Timer = realTimer) {
         this.home = home;
         this.host = host;
         this.simctl = simctl;
@@ -147,7 +140,7 @@ export class SimulatorCamera {
         if (path === undefined) {
             throw new DeviceError('device-path-refused', 'A camera picture from a file needs the path of that file');
         }
-        requireExtension(path, [...MEDIA_IMAGES, ...MEDIA_VIDEOS], 'png, jpg, jpeg, heic, gif, mp4 or mov');
+        requireMedia([path]);
         return { source: isVideo(path) ? 'video' : 'image', arg: path };
     }
 

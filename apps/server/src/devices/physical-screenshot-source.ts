@@ -1,10 +1,10 @@
-import { wait } from '@adecore/agents';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { z } from 'zod';
+import { wait } from '@adecore/agents';
 import type { DeviceInput, LiveStreamFrame } from '@ruimte/contracts';
-import { collect, type CommandResult } from './command.ts';
+import { z } from 'zod';
+import { runCommand } from './command.ts';
 import { DeviceError, type DeviceSource } from './manager.ts';
 
 export type PhysicalFrameCapture = (deviceId: string, sequence: number, directory: string, signal: AbortSignal) => Promise<LiveStreamFrame>;
@@ -19,22 +19,8 @@ const CaptureResultSchema = z.object({
     })
 });
 
-async function runCommand(command: string[], signal: AbortSignal): Promise<CommandResult> {
-    const process = Bun.spawn(command, { stdout: 'pipe', stderr: 'pipe' });
-    const abort = (): void => process.kill('SIGTERM');
-    signal.addEventListener('abort', abort, { once: true });
-    if (signal.aborted) {
-        abort();
-    }
-    try {
-        return await collect(process);
-    } finally {
-        signal.removeEventListener('abort', abort);
-    }
-}
-
 /* A png of the screen written to `png`, and the size devicectl says it has. */
-async function capturePng(deviceId: string, png: string, signal: AbortSignal): Promise<{ width: number; height: number }> {
+async function capturePng(deviceId: string, png: string, signal?: AbortSignal): Promise<{ width: number; height: number }> {
     const captured = await runCommand(
         [
             '/usr/bin/xcrun',
@@ -88,7 +74,7 @@ export async function capturePhysicalScreenshot(deviceId: string): Promise<Uint8
     const directory = await mkdtemp(join(tmpdir(), 'ruimte-ios-device-shot-'));
     try {
         const png = join(directory, 'screen.png');
-        await capturePng(deviceId, png, new AbortController().signal);
+        await capturePng(deviceId, png);
         return new Uint8Array(await Bun.file(png).arrayBuffer());
     } finally {
         await rm(directory, { recursive: true, force: true });

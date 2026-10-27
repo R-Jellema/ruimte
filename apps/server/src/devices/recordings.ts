@@ -1,4 +1,5 @@
 import { DeviceError } from './manager.ts';
+import { realTimer, type Timer } from './timer.ts';
 
 /* A recorder running on the machine, which writes its file whole only once it was interrupted and exited. */
 export interface RecordingProcess {
@@ -9,9 +10,6 @@ export interface RecordingProcess {
 
 type RecordingLauncher = (command: readonly string[]) => RecordingProcess;
 
-/* Runs `run` after `ms` and answers how to call it off, so a test decides when a limit passes. */
-type RecordingTimer = (ms: number, run: () => void) => () => void;
-
 function spawnRecording(command: readonly string[]): RecordingProcess {
     const child = Bun.spawn([...command], { stdin: 'ignore', stdout: 'ignore', stderr: 'ignore' });
     return {
@@ -20,11 +18,6 @@ function spawnRecording(command: readonly string[]): RecordingProcess {
         kill: () => child.kill('SIGKILL')
     };
 }
-
-export const realTimer: RecordingTimer = (ms, run) => {
-    const timer = setTimeout(run, ms);
-    return () => clearTimeout(timer);
-};
 
 /* How long a recorder may take to close its file after the interrupt before it is killed and the file given up. */
 const CLOSE_GRACE_MS = 15_000;
@@ -43,10 +36,10 @@ interface Recording {
  */
 export class DeviceRecordings {
     private readonly launch: RecordingLauncher;
-    private readonly timer: RecordingTimer;
+    private readonly timer: Timer;
     private readonly running = new Map<string, Recording>();
 
-    constructor(launch: RecordingLauncher = spawnRecording, timer: RecordingTimer = realTimer) {
+    constructor(launch: RecordingLauncher = spawnRecording, timer: Timer = realTimer) {
         this.launch = launch;
         this.timer = timer;
     }
@@ -126,7 +119,7 @@ export class DeviceRecordings {
         }
     }
 
-    /* Ends every recording without keeping its file, for a device that shut down. */
+    /* Ends the device's recording without keeping its file, for a device that shut down. */
     drop(deviceId: string): void {
         const recording = this.running.get(deviceId);
         this.running.delete(deviceId);
