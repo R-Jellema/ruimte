@@ -82,7 +82,10 @@ const cases: ParityCase[] = [
     },
     { name: 'gallery', source: '<Gallery><Image attachment="shot-1">Login</Image><Image attachment="shot-2" alt="Settings"/></Gallery>' },
     { name: 'compare', source: '<Compare before="shot-1" after="shot-2" beforeLabel="Old">Header spacing</Compare>' },
-    { name: 'text field', source: '$name = "Ada"\n<TextField value={$name} maxLength={5} placeholder="Name">Your name</TextField><Summary>Hello {$name}</Summary>' },
+    {
+        name: 'text field',
+        source: '$name = "Ada"\n<TextField value={$name} maxLength={5} placeholder="Name">Your name</TextField><Summary>Hello {$name}</Summary>'
+    },
     {
         name: 'select input',
         source: '$mode = "a"\n<Select value={$mode}><Option value="a">Alpha</Option><Option value="b">Beta</Option>Mode</Select><Summary>Mode {$mode}</Summary>'
@@ -151,7 +154,10 @@ const { uiChartData, uiNodeLabel, uiTableColumns } = await import(resolve(agents
 // Which choices a page may offer; the expectation exists once the shared package has the rule, so an older one only leaves the fixture stale.
 const uiChoiceLabel = (intelligentUi as Record<string, unknown>).uiChoiceLabel as ((choice: UiViewNode) => string | null) | undefined;
 const presentation = fixtures
-    .filter((fixture) => fixture.request.block.complete && fixture.request.block.catalogVersion !== 999)
+    .filter((fixture) => {
+        const block = fixture.request.block as ReturnType<typeof compileUiBlock>;
+        return block.complete && block.catalogVersion !== 999;
+    })
     .map(({ name, result }) => {
         const expected: Record<string, unknown> = {};
         const visit = (nodes: readonly UiViewNode[]) => {

@@ -5,7 +5,8 @@
 import { createInterface } from 'node:readline';
 import { parseArgs } from 'node:util';
 import { RTCPeerConnection, type RTCDataChannel } from 'werift';
-import { DEFAULT_STUN_SERVER, parsePortRange } from '../src/config.ts';
+import { DEFAULT_STUN_SERVER } from '@ruimte/pulsar';
+import { parsePortRange } from '../src/config.ts';
 
 const { values, positionals } = parseArgs({
     args: process.argv.slice(2),

@@ -63,24 +63,17 @@ export interface AgentStores {
 }
 
 export async function loadAgentStores(home: string): Promise<AgentStores> {
+    // Loaded before anything can take from them, so a restart keeps a node's first prompt, the count of
+    // agents an agent opened, a waiting message, an owed start, a task's wake, an approval and a chat move.
     const snapshots = new SnapshotStore(home);
-    // Loaded before anything can take one: a node made just before a restart still starts on its prompt.
     const prompts = new PendingPromptStore(home);
-    // The same for the chain of agents that opened agents: a restart must not start the count over.
     const lineage = new AgentLineageStore(home);
-    // And for the messages one node left for another: they outlive the CLI they are waiting for.
     const notices = new NoticeStore(home);
-    // And for the agents a verb made that the daemon still has to start.
     const outbox = new OutboxStore(home);
-    // And for the tasks a chat gave, whose results still have to wake it.
     const tasks = new TaskStore(home);
-    // And for the commands a person let a terminal type, which a node's first start asks about.
     const commandApprovals = new CommandApprovals(home);
-    // And for the mode a person gave each terminal agent, which an edit of the project file cannot widen.
     const modeApprovals = new ModeApprovals(home);
-    // And for whether agents may operate this machine's apps, and which ones a person let them into for good.
     const computerStore = new ComputerUseStore(home);
-    // And for the chat moves that were under way when the daemon stopped.
     const chatMoves = new MoveJournal(home);
     // Each store reads a file of its own, so they load side by side.
     const [shellEnvironment] = await Promise.all([
