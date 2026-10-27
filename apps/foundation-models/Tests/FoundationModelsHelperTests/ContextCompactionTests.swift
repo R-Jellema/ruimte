@@ -17,7 +17,6 @@ private func exchange(_ name: String) -> [Transcript.Entry] {
     #expect(!source.contains("prompt-old"))
     let result = Array(try plan.applying(summary: "A fallible summary."))
     #expect(Array(result.suffix(4)) == Array(original.suffix(4)))
-    #expect(original.count == 6)
     #expect(throws: (any Error).self) { try plan.applying(summary: "  ") }
 }
 

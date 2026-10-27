@@ -10,7 +10,7 @@ struct FileReadOutput: Decodable {
 
     static func modelText(_ output: String) -> String {
         guard let page = try? JSONDecoder().decode(Self.self, from: Data(output.utf8)) else { return output }
-        // JSON escaping in model context made the model copy literal backslash-n into edits.
+        // From escaped JSON the model copies a literal backslash-n into its edits.
         return """
             File: \(page.path)
             Line offset: \(page.offset). Total lines: \(page.totalLines).

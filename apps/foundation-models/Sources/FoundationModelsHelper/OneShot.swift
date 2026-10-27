@@ -62,8 +62,6 @@ enum OneShotError: Error, CustomStringConvertible {
     case tooLarge
 
     var description: String {
-        switch self {
-        case .tooLarge: "The request is too large for the on-device model."
-        }
+        "The request is too large for the on-device model."
     }
 }

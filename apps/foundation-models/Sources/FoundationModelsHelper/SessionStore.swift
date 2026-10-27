@@ -8,6 +8,8 @@ struct SessionStoreError: Error, CustomStringConvertible {
 
 // The helper's actor owns all transcript reads/writes; the descriptor only holds the process lock.
 final class SessionStore: @unchecked Sendable {
+    private static let maxBytes = 2 * 1024 * 1024
+
     let id: String
     let folder: URL
     private let file: URL
@@ -58,9 +60,7 @@ final class SessionStore: @unchecked Sendable {
         let lock = directory.appendingPathComponent("\(self.id).lock")
         let descriptor = Darwin.open(lock.path, O_RDWR | O_CREAT | O_NOFOLLOW | O_CLOEXEC, 0o600)
         guard descriptor >= 0 else { throw SessionStoreError(description: "Could not open conversation lock.") }
-        var attributes = stat()
-        guard fstat(descriptor, &attributes) == 0, attributes.st_uid == geteuid(), attributes.st_mode & S_IFMT == S_IFREG,
-              attributes.st_mode & 0o077 == 0, flock(descriptor, LOCK_EX | LOCK_NB) == 0 else {
+        guard Self.privateFileSize(descriptor) != nil, flock(descriptor, LOCK_EX | LOCK_NB) == 0 else {
             Darwin.close(descriptor)
             throw SessionStoreError(description: "Conversation is already open, or its lock is not private.")
         }
@@ -69,6 +69,14 @@ final class SessionStore: @unchecked Sendable {
 
     deinit { Darwin.close(lockDescriptor) }
 
+    /// The size of an open regular file only this account can read or write; nil for any other file.
+    private static func privateFileSize(_ descriptor: Int32) -> Int64? {
+        var attributes = stat()
+        guard fstat(descriptor, &attributes) == 0, attributes.st_mode & S_IFMT == S_IFREG,
+              attributes.st_uid == geteuid(), attributes.st_mode & 0o077 == 0 else { return nil }
+        return attributes.st_size
+    }
+
     func load(required: Bool, toolsetFingerprint: String? = nil) throws -> Transcript? {
         let descriptor = Darwin.open(file.path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
         if descriptor < 0 {
@@ -76,10 +84,7 @@ final class SessionStore: @unchecked Sendable {
             throw SessionStoreError(description: "Saved conversation is missing or cannot be opened safely.")
         }
         let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
-        var attributes = stat()
-        guard fstat(descriptor, &attributes) == 0, attributes.st_mode & S_IFMT == S_IFREG,
-              attributes.st_uid == geteuid(), attributes.st_mode & 0o077 == 0,
-              attributes.st_size <= 2 * 1024 * 1024 else {
+        guard let size = Self.privateFileSize(descriptor), size <= Self.maxBytes else {
             throw SessionStoreError(description: "Saved conversation is not a private regular file, or exceeds 2 MiB.")
         }
         guard let data = try handle.readToEnd() else { throw SessionStoreError(description: "Saved conversation is empty.") }
@@ -99,7 +104,7 @@ final class SessionStore: @unchecked Sendable {
     func save(_ transcript: Transcript, history: Transcript? = nil, toolsetFingerprint: String? = nil, interrupted: Bool = false) throws {
         let data = try JSONEncoder().encode(Record(version: 2, id: id, transcript: transcript, history: history,
                                                   toolsetFingerprint: toolsetFingerprint, interrupted: interrupted))
-        guard data.count <= 2 * 1024 * 1024 else { throw SessionStoreError(description: "Conversation exceeds the 2 MiB storage limit.") }
+        guard data.count <= Self.maxBytes else { throw SessionStoreError(description: "Conversation exceeds the 2 MiB storage limit.") }
         let temporary = folder.appendingPathComponent(".\(id)-\(UUID().uuidString).tmp")
         let descriptor = Darwin.open(temporary.path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0o600)
         guard descriptor >= 0 else { throw SessionStoreError(description: "Could not create private conversation checkpoint.") }

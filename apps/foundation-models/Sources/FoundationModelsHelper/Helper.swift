@@ -95,6 +95,9 @@ actor Runner {
     private var history: [Transcript.Entry] = []
     private var fingerprint: String?
     private var recoveryRequired = false
+    /// Instructions with tool definitions, and the response schema: the same for every turn, so counted once.
+    private var baseTokens: Int?
+    private var schemaTokens: Int?
 
     init(store: SessionStore, output: Output = Output()) {
         self.output = output
@@ -112,14 +115,28 @@ actor Runner {
         fingerprint = try ToolManifest.fingerprint(tools)
         let transcript = try store.load(required: required, toolsetFingerprint: fingerprint)
         recoveryRequired = store.interrupted
-        session = makeSession(transcript: transcript)
-        session!.prewarm()
-        history = Array(store.history ?? session!.transcript)
+        let session = makeSession(transcript: transcript)
+        session.prewarm()
+        self.session = session
+        history = Array(store.history ?? session.transcript)
         try saveCheckpoint(interrupted: recoveryRequired)
-        let baseTokens = try await SystemLanguageModel.default.tokenCount(for: makeSession().transcript)
         await output.send(Frame(type: "session", id: store.id, restored: transcript != nil,
                                 note: recoveryRequired ? "The previous Apple turn was interrupted. Tools may have changed files or external services. Check their results before repeating any action." : transcript == nil ? nil : "Restored local Apple conversation memory from this machine.",
-                                contextSize: SystemLanguageModel.default.contextSize, baseTokens: baseTokens, protocolVersion: 3))
+                                contextSize: SystemLanguageModel.default.contextSize, baseTokens: try await baseTokenCount(), protocolVersion: 3))
+    }
+
+    private func baseTokenCount() async throws -> Int {
+        if let baseTokens { return baseTokens }
+        let count = try await SystemLanguageModel.default.tokenCount(for: makeSession().transcript)
+        baseTokens = count
+        return count
+    }
+
+    private func schemaTokenCount() async throws -> Int {
+        if let schemaTokens { return schemaTokens }
+        let count = try await SystemLanguageModel.default.tokenCount(for: AssistantReply.generationSchema)
+        schemaTokens = count
+        return count
     }
 
     private func makeSession(transcript: Transcript? = nil) -> LanguageModelSession {
@@ -189,30 +206,28 @@ actor Runner {
 
     private func compact(id: String) async {
         let checkpoint = session?.transcript
+        let completion: Frame
         do {
             let changed = try await summarizeHistory(prompt: "", id: id)
             try Task.checkCancellation()
             try saveCheckpoint(interrupted: recoveryRequired)
-            active = nil
-            turnID = nil
-            await output.send(Frame(type: "compacted", id: id, text: changed
+            completion = Frame(type: "compacted", id: id, text: changed
                 ? "Earlier context was summarized locally. The latest two exchanges and the original saved history were retained. Summaries can omit details; reread source files when needed."
-                : "The local context already contains at most two exchanges; no summary was needed."))
+                : "The local context already contains at most two exchanges; no summary was needed.")
         } catch {
             session = checkpoint.map { makeSession(transcript: $0) }
-            active = nil
-            turnID = nil
-            await output.send(Frame(type: "done", id: id, text: String(describing: error), state: Task.isCancelled ? "aborted" : "error"))
+            completion = Frame(type: "done", id: id, text: String(describing: error), state: Task.isCancelled ? "aborted" : "error")
         }
+        active = nil
+        turnID = nil
+        await output.send(completion)
     }
 
     private func contextFits(_ current: LanguageModelSession, prompt: String) async throws -> Bool {
         let model = SystemLanguageModel.default
-        let promptTokens = try await model.tokenCount(for: prompt)
-        let schemaTokens = try await model.tokenCount(for: AssistantReply.generationSchema)
-        let fixedTokens = try await model.tokenCount(for: makeSession().transcript) + promptTokens + schemaTokens
-        guard fixedTokens + 1280 <= model.contextSize else { throw ContextBudgetError.tooLarge }
-        return try await model.tokenCount(for: current.transcript) + promptTokens + schemaTokens + 1280 <= model.contextSize
+        let requestTokens = try await model.tokenCount(for: prompt) + schemaTokenCount() + 1280
+        guard try await baseTokenCount() + requestTokens <= model.contextSize else { throw ContextBudgetError.tooLarge }
+        return try await model.tokenCount(for: current.transcript) + requestTokens <= model.contextSize
     }
 
     private func summarizeHistory(prompt: String, id: String) async throws -> Bool {
@@ -244,7 +259,7 @@ actor Runner {
         if try await !contextFits(current, prompt: prompt) || ContextHistory.turnCount(Array(current.transcript)) >= 12 {
             guard try await summarizeHistory(prompt: prompt, id: id) else { throw ContextBudgetError.tooLarge }
         }
-        return session!
+        return session ?? current
     }
 
     private func generate(id: String, prompt: String) async {
@@ -274,7 +289,7 @@ actor Runner {
                     needsUserInput = snapshot.content.needsUserInput
                     message = snapshot.content.message
                     if needsUserInput == false, let message, await bridge.unresolvedEdits.isEmpty {
-                        if firstTextMs == nil, !message.isEmpty { firstTextMs = milliseconds(started.duration(to: clock.now)) }
+                        if firstTextMs == nil, !message.isEmpty { firstTextMs = (clock.now - started) / .milliseconds(1) }
                         await output.send(Frame(type: "text.snapshot", id: id, text: message))
                     }
                 }
@@ -327,18 +342,14 @@ actor Runner {
                                state: Task.isCancelled || failure?.isDenied == true ? "aborted" : "error")
         }
         if let session, let contextTokens = try? await SystemLanguageModel.default.tokenCount(for: session.transcript),
-           let schemaTokens = try? await SystemLanguageModel.default.tokenCount(for: AssistantReply.generationSchema) {
-            await output.send(Frame(type: "metrics", id: id, elapsedMs: milliseconds(started.duration(to: clock.now)),
+           let schemaTokens = try? await schemaTokenCount() {
+            await output.send(Frame(type: "metrics", id: id, elapsedMs: (clock.now - started) / .milliseconds(1),
                                     firstTextMs: firstTextMs, toolCalls: await bridge.calls, contextTokens: contextTokens, schemaTokens: schemaTokens))
         }
         active = nil
         turnID = nil
         await output.send(completion)
     }
-}
-
-private func milliseconds(_ duration: Duration) -> Double {
-    Double(duration.components.seconds) * 1000 + Double(duration.components.attoseconds) / 1e15
 }
 
 @main

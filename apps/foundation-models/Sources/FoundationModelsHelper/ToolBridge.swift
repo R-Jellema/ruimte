@@ -114,19 +114,23 @@ actor ToolBridge {
         }
     }
 
+    /// The first failure of a turn wins; every call still waiting ends with it.
     @discardableResult private func stop(_ error: ToolBridgeError) -> ToolBridgeError {
-        failure = failure ?? error
-        let waiting = pending
-        pending.removeAll()
-        for continuation in waiting.values { continuation.resume(throwing: failure!) }
-        return failure!
+        let failure = self.failure ?? error
+        self.failure = failure
+        failPending(with: failure)
+        return failure
     }
 
     func cancel(turnID: String? = nil) {
         if let turnID, self.turnID != turnID { return }
         cancelled = true
+        failPending(with: CancellationError())
+    }
+
+    private func failPending(with error: any Error) {
         let waiting = pending
         pending.removeAll()
-        for continuation in waiting.values { continuation.resume(throwing: CancellationError()) }
+        for continuation in waiting.values { continuation.resume(throwing: error) }
     }
 }

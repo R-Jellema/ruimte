@@ -3,12 +3,6 @@ import FoundationModels
 import Testing
 @testable import FoundationModelsHelper
 
-private func temporaryHome() throws -> URL {
-    let url = FileManager.default.temporaryDirectory.appendingPathComponent("ruimte-fm-store-\(UUID().uuidString)")
-    try FileManager.default.createDirectory(at: url, withIntermediateDirectories: false)
-    return url
-}
-
 @Test func transcriptRoundTripIsVersionedPrivateAndLocked() throws {
     let home = try temporaryHome()
     defer { try? FileManager.default.removeItem(at: home) }
@@ -74,13 +68,9 @@ private func temporaryHome() throws -> URL {
 @Test func legacyCheckpointMigratesWithoutDroppingTheConversation() throws {
     let home = try temporaryHome()
     defer { try? FileManager.default.removeItem(at: home) }
-    let id = UUID().uuidString.lowercased()
-    let store = try SessionStore(id: id, home: home.path)
+    let store = try SessionStore(id: UUID().uuidString.lowercased(), home: home.path)
     let original = Transcript(entries: [.prompt(.init(segments: [.text(.init(content: "Legacy request"))]))])
-    struct Legacy: Encodable { let version: Int; let id: String; let transcript: Transcript }
-    let file = store.folder.appendingPathComponent("\(id).json")
-    try JSONEncoder().encode(Legacy(version: 1, id: id, transcript: original)).write(to: file)
-    try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
+    try writeLegacyCheckpoint(original, for: store)
     #expect(try store.load(required: true, toolsetFingerprint: "current-tools") == original)
     #expect(store.history == original)
     try store.save(original, history: store.history, toolsetFingerprint: "current-tools")
