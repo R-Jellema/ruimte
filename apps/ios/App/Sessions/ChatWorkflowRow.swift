@@ -76,7 +76,7 @@ enum ChatWorkflowLayout {
         case .running: return nil
         case .waiting: return String(localized: "waiting", comment: "A workflow's agent that has not started yet")
         case .stopped: return String(localized: "stopped", comment: "A workflow's agent that ended with its workflow")
-        case .done, .failed: return view.agent.durationMs.map { ChatToolPresentation.elapsed(Double($0)) }
+        case .done, .failed: return view.agent.durationMs.map { Format.elapsedShort(milliseconds: Double($0)) }
         }
     }
 
@@ -215,14 +215,7 @@ struct ChatWorkflowRow: View {
             }
             .padding(.leading, 22).padding(.top, 4)
         }
-        .alert(
-            "Could not stop the task",
-            isPresented: $failure.isPresent()
-        ) {
-            Button("OK") { failure = nil }
-        } message: {
-            Text(failure ?? "")
-        }
+        .failureAlert("Could not stop the task", $failure)
     }
 
     @ViewBuilder private func header(_ counts: WorkflowCounts) -> some View {
@@ -349,21 +342,7 @@ private struct WorkflowAgentLine: View {
         let failed = view.state == .failed
         let preview = ChatWorkflowLayout.preview(view)
         HStack(alignment: .top, spacing: 8) {
-            Group {
-                if let provider {
-                    ChatProviderMark(provider: provider, size: 14)
-                } else {
-                    Image(lucide: "bot", size: 14)
-                }
-            }
-            .foregroundStyle(MobileStyle.text)
-            .overlay(alignment: .bottomTrailing) {
-                Circle().fill(Self.dot(view.state)).frame(width: 8, height: 8)
-                    .background { Circle().fill(MobileStyle.surface).padding(-2) }
-                    .offset(x: 3, y: 1)
-            }
-            .padding(.top, 2)
-            .accessibilityHidden(true)
+            ChatAgentMark(provider: provider, dot: Self.dot(view.state))
             VStack(alignment: .leading, spacing: 1) {
                 Text(agent.label).font(.caption.weight(.medium))
                     .foregroundStyle(failed ? MobileStyle.statusError : MobileStyle.text).lineLimit(1)

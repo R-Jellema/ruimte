@@ -80,24 +80,24 @@ final class ChatModel {
     /// A page that failed is not asked for again until the conversation is read again; a scroll asks on every frame.
     @ObservationIgnored private var failedHistoryCursor: String?
     private(set) var history = ChatHistory()
-    private var historyRevision = 0
+    @ObservationIgnored private var historyRevision = 0
     var sending = false
     var revision = 0
-    private var unsubscribe: [() -> Void] = []
-    private var attachTask: Task<Void, Never>?
+    @ObservationIgnored private var unsubscribe: [() -> Void] = []
+    @ObservationIgnored private var attachTask: Task<Void, Never>?
     @ObservationIgnored private var attachment: MachineAttachment?
     @ObservationIgnored private lazy var output = ChatOutputWatch(client: client, chatID: chatID) {
         [weak self] saved in
         self?.presentation.setSaved(saved)
     }
-    private var positions: [String: Int] = [:]
+    @ObservationIgnored private var positions: [String: Int] = [:]
     /// The place of the last event applied here in the chat's stream, offered as `since` on the next attach so the
     /// machine answers only what came after it.
     @ObservationIgnored private(set) var lastSeq: Int?
-    private var generation = 0
+    @ObservationIgnored private var generation = 0
     /// One reattach per connection is enough, since the snapshot brings the thread up to date. A machine that keeps
     /// sending unreadable events would otherwise cause a reattach on every one.
-    private var reattachedOverRejectedEvent = false
+    @ObservationIgnored private var reattachedOverRejectedEvent = false
 
     init(client: any MachineRequesting, chatID: String, machineID: String = "local", draftRoot: URL? = nil) {
         self.client = client
@@ -182,8 +182,7 @@ final class ChatModel {
     private func refreshPending() {
         refreshResume()
         messageCount = items.count
-        let rows = items.compactMap(\.subagentItem).filter { !$0.toolUseId.isEmpty }
-        let next = !rows.isEmpty
+        let next = items.contains { $0.subagentItem.map { !$0.toolUseId.isEmpty } ?? false }
         if next != hasSubagentRows { hasSubagentRows = next }
         let visibleIDs = Set(items.map(\.id))
         let requests =
@@ -358,8 +357,7 @@ final class ChatModel {
         history.replace(history: page, pending: pending)
         self.info = info
         self.items = items
-        positions = Dictionary(
-            items.enumerated().map { ($0.element.id, $0.offset) }, uniquingKeysWith: { _, newest in newest })
+        reindex()
         refreshPending()
         presentation.earlierPageWaits = history.cursor != nil
         presentation.replace(items, info: info)
@@ -446,9 +444,7 @@ final class ChatModel {
                     let page = try? page.decoded(as: ChatHistoryResult.self)
                 else { return }
                 self.items = self.history.prepend(page, to: self.items)
-                self.positions = Dictionary(
-                    self.items.enumerated().map { ($0.element.id, $0.offset) },
-                    uniquingKeysWith: { _, newest in newest })
+                self.reindex()
                 self.refreshPending()
                 self.presentation.earlierPageWaits = self.history.cursor != nil
                 self.presentation.prepend(page.items)
@@ -465,6 +461,11 @@ final class ChatModel {
                 self.error = error.localizedDescription
             }
         }
+    }
+
+    private func reindex() {
+        positions = Dictionary(
+            items.enumerated().map { ($0.element.id, $0.offset) }, uniquingKeysWith: { _, newest in newest })
     }
 
     private static func concernsSubagent(_ item: ChatItem) -> Bool {
@@ -565,20 +566,23 @@ final class ChatModel {
             attachments.removeAll { upload in uploads.contains { $0.id == upload.id } }
             await composition.flush()
         } catch {
-            if let failure = error as? MachineClientError {
-                switch failure {
-                case .disconnected, .timeout, .invalid:
-                    sendUncertain = true
-                    sendProblem = Self.uncertainSendMessage
-                    if connected { attach() }
-                default:
-                    sendUncertain = false
-                    sendProblem = error.localizedDescription
-                }
+            if Self.mayHaveArrived(error) {
+                sendUncertain = true
+                sendProblem = Self.uncertainSendMessage
+                if connected { attach() }
             } else {
+                if error is MachineClientError { sendUncertain = false }
                 sendProblem = error.localizedDescription
             }
             await composition.flush()
+        }
+    }
+
+    /// Whether a request that failed this way may still have reached the machine.
+    private static func mayHaveArrived(_ error: Error) -> Bool {
+        switch error as? MachineClientError {
+        case .disconnected?, .timeout?, .invalid?: true
+        default: false
         }
     }
 
@@ -627,10 +631,7 @@ final class ChatModel {
             if edit {
                 for stored in message.attachments ?? [] {
                     let resource = try await client.readResource(
-                        .object([
-                            "kind": .string("attachment"), "chatId": .string(chatID),
-                            "attachmentId": .string(stored.id),
-                        ]), maxBytes: ChatDraftLimits.bytes)
+                        .chatAttachment(chatID: chatID, id: stored.id), maxBytes: ChatDraftLimits.bytes)
                     recovered.append(
                         try await composition.files.stage(data: resource.data, name: stored.name, mime: stored.mime))
                 }
@@ -652,21 +653,17 @@ final class ChatModel {
                 await composition.flush()
             }
         } catch {
-            if edit, requestedRemoval, let failure = error as? MachineClientError {
-                switch failure {
-                case .disconnected, .timeout, .invalid:
-                    do {
-                        try composition.takeBack(incoming, uploads: recovered)
-                        sendUncertain = true
-                        sendProblem = String(
-                            localized: "Could not take the message out of the queue. A copy is in your draft.")
-                        queueProblem = sendProblem
-                        await composition.flush()
-                        if connected { attach() }
-                        return
-                    } catch { queueProblem = error.localizedDescription }
-                default: break
-                }
+            if edit, requestedRemoval, Self.mayHaveArrived(error) {
+                do {
+                    try composition.takeBack(incoming, uploads: recovered)
+                    sendUncertain = true
+                    sendProblem = String(
+                        localized: "Could not take the message out of the queue. A copy is in your draft.")
+                    queueProblem = sendProblem
+                    await composition.flush()
+                    if connected { attach() }
+                    return
+                } catch { queueProblem = error.localizedDescription }
             }
             for upload in recovered { await composition.files.discard(upload) }
             queueProblem = error.localizedDescription

@@ -1,5 +1,4 @@
 import Foundation
-import ImageIO
 import QuickLook
 import RuimteIntelligentUI
 import RuimtePulsar
@@ -455,15 +454,7 @@ struct ChatInlineImage: View {
                 let bytes = try await context.client.readResource(resource)
                 try Task.checkCancellation()
                 let thumbnail = await Task.detached(priority: .utility) {
-                    guard let source = CGImageSourceCreateWithData(bytes.data as CFData, nil) else {
-                        return nil as CGImage?
-                    }
-                    return CGImageSourceCreateThumbnailAtIndex(
-                        source, 0,
-                        [
-                            kCGImageSourceCreateThumbnailFromImageAlways: true,
-                            kCGImageSourceThumbnailMaxPixelSize: 640, kCGImageSourceCreateThumbnailWithTransform: true,
-                        ] as CFDictionary)
+                    ChatThumbnail.image(bytes.data, maxPixel: 640)
                 }.value
                 try Task.checkCancellation()
                 image = thumbnail.map { UIImage(cgImage: $0) }
@@ -471,14 +462,7 @@ struct ChatInlineImage: View {
             } catch is CancellationError {} catch { failure = true }
         }
         .quickLookPreview($preview)
-        .alert(
-            "Image preview unavailable",
-            isPresented: $previewError.isPresent()
-        ) {
-            Button("OK") { previewError = nil }
-        } message: {
-            Text(previewError ?? "")
-        }
+        .failureAlert("Image preview unavailable", $previewError)
         .onChange(of: preview) { _, url in
             if url == nil, let downloaded {
                 try? FileManager.default.removeItem(at: downloaded)

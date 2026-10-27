@@ -125,7 +125,7 @@ struct UiMapView: View {
 
     var body: some View {
         let places = UiMapPlace.of(node)
-        let current = node.boundValue ?? node.props["value"]
+        let current = node.currentValue
         let selected = places.first { $0.value != nil && $0.value == current }?.id
         let frame = UiMapFrame.fit(places)
         let drawn = tiles && reachability.online

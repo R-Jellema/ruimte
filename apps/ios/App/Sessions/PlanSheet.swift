@@ -89,14 +89,7 @@ struct PlanSheet: View {
             } message: { request in
                 Text(request.title)
             }
-            .alert(
-                "The plan did not change",
-                isPresented: $failure.isPresent()
-            ) {
-                Button("OK") { failure = nil }
-            } message: {
-                Text(failure ?? "")
-            }
+            .failureAlert("The plan did not change", $failure)
         }
         .onAppear {
             store.markSeen(chatID)

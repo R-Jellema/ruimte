@@ -26,13 +26,6 @@ struct ChatComposerPills: View {
         model.selectedModel.list("options").first { $0.text("id") == "effort" && $0.text("type") == "select" }
     }
 
-    private var account: ProviderAccountEntry? {
-        let kind = model.provider
-        guard let accounts = model.accounts, accounts.hasChoice(kind) else { return nil }
-        let id = model.accountID
-        return accounts.entries.first { $0.kind == kind && $0.id == id }
-    }
-
     var body: some View {
         ScrollView(.horizontal) {
             // No GlassEffectContainer: since iOS 26.1 a menu inside one no longer morphs out of its label.
@@ -136,14 +129,14 @@ struct ChatComposerPills: View {
                 }
                 .foregroundStyle(MobileStyle.muted)
                 Text(ModelName.short(name, in: model.models)).lineLimit(1)
-                if let account { AccountDot(color: account.color, size: 6) }
+                if let account = model.accountChoice { AccountDot(color: account.color, size: 6) }
                 Image(lucide: "chevron-down", size: 12).foregroundStyle(MobileStyle.muted)
             }
             .modifier(ChatComposerPill())
         }
         .buttonStyle(MobileGlassButtonStyle(shape: .capsule))
         .accessibilityLabel("Model, \(name)")
-        .accessibilityValue(account?.name(provider: usageProviderName(model.provider)) ?? "")
+        .accessibilityValue(model.accountChoice?.name(provider: usageProviderName(model.provider)) ?? "")
         .accessibilityAction(named: "Run settings") { open { sheets.settings = true } }
     }
 

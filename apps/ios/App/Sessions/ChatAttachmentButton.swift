@@ -15,9 +15,7 @@ struct ChatAttachmentButton: View {
     @State private var downloaded: URL?
     @State private var work = RemotePageState()
 
-    private var resource: JSONValue {
-        .object(["kind": .string("attachment"), "chatId": .string(chatID), "attachmentId": .string(id)])
-    }
+    private var resource: JSONValue { .chatAttachment(chatID: chatID, id: id) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -70,5 +68,12 @@ struct ChatAttachmentButton: View {
             downloaded = url
             preview = url
         }
+    }
+}
+
+extension JSONValue {
+    /// An attachment of a chat as `bytes.read` names the resource.
+    static func chatAttachment(chatID: String, id: String) -> JSONValue {
+        .object(["kind": .string("attachment"), "chatId": .string(chatID), "attachmentId": .string(id)])
     }
 }

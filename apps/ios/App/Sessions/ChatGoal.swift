@@ -114,9 +114,7 @@ struct ChatGoalDock: View {
                         .disabled(changing || !model.connected)
                 }
             }
-            .padding(.horizontal, 14).padding(.vertical, 10)
-            .glassEffect(.regular, in: .rect(cornerRadius: 26))
-            .padding(.bottom, 10)
+            .chatDockCard()
             .alert(
                 view.status, isPresented: $showingDetail
             ) {
@@ -128,14 +126,7 @@ struct ChatGoalDock: View {
                     Text(view.goal.objective)
                 }
             }
-            .alert(
-                "Could not change goal",
-                isPresented: $failure.isPresent()
-            ) {
-                Button("OK") { failure = nil }
-            } message: {
-                Text(failure ?? "")
-            }
+            .failureAlert("Could not change goal", $failure)
         }
     }
 
@@ -150,5 +141,14 @@ struct ChatGoalDock: View {
             }
             changing = false
         }
+    }
+}
+
+extension View {
+    /// A card of glass over the composer, such as the goal, a limit or the offer to compact.
+    func chatDockCard(vertical: CGFloat = 10) -> some View {
+        padding(.horizontal, 14).padding(.vertical, vertical)
+            .glassEffect(.regular, in: .rect(cornerRadius: 26))
+            .padding(.bottom, 10)
     }
 }

@@ -23,27 +23,17 @@ extension EnvironmentValues {
 /// Keeps the model of a block alive while its row scrolls out and back, so local input, a pending choice and its
 /// live readings survive cell reuse. The least recently used of `limit` goes first, as the desktop keeps 64.
 @MainActor final class UiBlockModelCache {
-    private let limit: Int
     private let make: @MainActor (_ itemID: String, _ block: JSONValue) -> UiBlockModel
-    private var models: [String: UiBlockModel] = [:]
-    private var order: [String] = []
+    private var models: UiRecentlyUsed<UiBlockModel>
 
     init(limit: Int = 64, make: @escaping @MainActor (_ itemID: String, _ block: JSONValue) -> UiBlockModel) {
-        self.limit = limit
+        models = UiRecentlyUsed(limit: limit)
         self.make = make
     }
 
     func model(itemID: String, block: JSONValue) -> UiBlockModel {
-        let key = "\(itemID)\n\(block["id"]?.stringValue ?? "")"
-        order.removeAll { $0 == key }
-        order.append(key)
-        if let model = models[key] { return model }
-        let model = make(itemID, block)
-        models[key] = model
-        while order.count > limit {
-            let evicted = order.removeFirst()
-            models.removeValue(forKey: evicted)?.stop()
-        }
+        let (model, evicted) = models.value("\(itemID)\n\(block["id"]?.stringValue ?? "")") { make(itemID, block) }
+        evicted.forEach { $0.stop() }
         return model
     }
 }
@@ -59,17 +49,33 @@ extension EnvironmentValues {
     func pick(_ key: String) -> String? { picks[key] }
     func setPick(_ key: String, _ value: String) { picks[key] = value }
 
-    private static var cache: [String: UiBlockLocal] = [:]
-    private static var order: [String] = []
+    private static var cache = UiRecentlyUsed<UiBlockLocal>(limit: 64)
 
-    static func shared(_ key: String) -> UiBlockLocal {
+    static func shared(_ key: String) -> UiBlockLocal { cache.value(key) { UiBlockLocal() }.value }
+}
+
+/// The `limit` values used last, by key; the one used longest ago goes first.
+struct UiRecentlyUsed<Value> {
+    let limit: Int
+    private var values: [String: Value] = [:]
+    private var order: [String] = []
+
+    init(limit: Int) {
+        self.limit = limit
+    }
+
+    /// The value under `key`, made when there is none, and the values that made room for it.
+    mutating func value(_ key: String, make: () -> Value) -> (value: Value, evicted: [Value]) {
         order.removeAll { $0 == key }
         order.append(key)
-        if let local = cache[key] { return local }
-        let local = UiBlockLocal()
-        cache[key] = local
-        if order.count > 64 { cache.removeValue(forKey: order.removeFirst()) }
-        return local
+        if let value = values[key] { return (value, []) }
+        let value = make()
+        values[key] = value
+        var evicted: [Value] = []
+        while order.count > limit {
+            if let gone = values.removeValue(forKey: order.removeFirst()) { evicted.append(gone) }
+        }
+        return (value, evicted)
     }
 }
 

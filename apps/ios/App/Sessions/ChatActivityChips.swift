@@ -4,10 +4,7 @@ import SwiftUI
 /// What runs in the background of a chat's CLI, as `info.background` lists it: its shells and its monitors.
 enum ChatBackground {
     static func counts(_ tasks: [ChatInfoBackgroundItem]) -> (shells: Int, monitors: Int) {
-        (
-            tasks.filter { $0.kind == .shell }.count,
-            tasks.filter { $0.kind == .monitor }.count
-        )
+        (tasks.count { $0.kind == .shell }, tasks.count { $0.kind == .monitor })
     }
 
     /// The chip's words, without the kinds that have none running.
@@ -48,8 +45,10 @@ struct ChatActivityChips: View {
             HStack(spacing: 6) {
                 if !subagents.isEmpty {
                     let words = subagents.map { ChatSubagents.statusWord($0, task: task(of: $0)) }
+                    let attention = model.presentation.agentSources?.attention
                     let states = subagents.map {
-                        ChatSubagents.taskRowState($0, task: task(of: $0), childWaiting: waiting($0))
+                        ChatSubagents.taskRowState(
+                            $0, task: task(of: $0), childWaiting: ChatSubagents.childWaiting($0, attention: attention))
                     }
                     Menu {
                         subagentRows(subagents)
@@ -85,12 +84,6 @@ struct ChatActivityChips: View {
 
     private func task(of item: ChatSubagentItem) -> JSONValue? {
         ChatSubagents.taskID(item).flatMap { tasks?.task($0) }
-    }
-
-    /// Whether the chat a task's agent works in waits on a person, as the task's own row reads it.
-    private func waiting(_ item: ChatSubagentItem) -> Bool {
-        guard let id = item.childId, let attention = model.presentation.agentSources?.attention else { return false }
-        return attention.needsYou(id) || attention.waits[id] != nil
     }
 
     private func chip(_ label: String, @ViewBuilder icon: () -> some View) -> some View {
@@ -139,7 +132,7 @@ struct ChatActivityChips: View {
                 let elapsed = Date.now.timeIntervalSince1970 * 1000 - startedAt
                 let detail = [
                     !description.isEmpty && !command.isEmpty ? command : nil,
-                    startedAt > 0 ? ChatToolPresentation.elapsed(elapsed) : nil,
+                    startedAt > 0 ? Format.elapsedShort(milliseconds: elapsed) : nil,
                 ].compactMap { $0 }.joined(separator: " · ")
                 Button {
                     stop(task)

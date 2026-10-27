@@ -174,29 +174,11 @@ private struct ChatTaskLine: View {
     var body: some View {
         let task = ChatSubagents.taskID(item).flatMap { sources?.tasks?.task($0) }
         let child = item.childId.flatMap { sources?.attention?.agents[$0] }
-        let waiting =
-            item.childId.map { id in
-                sources?.attention?.needsYou(id) == true || sources?.attention?.waits[id] != nil
-            } ?? false
-        let state = ChatSubagents.taskRowState(item, task: task, childWaiting: waiting)
+        let state = ChatSubagents.taskRowState(
+            item, task: task, childWaiting: ChatSubagents.childWaiting(item, attention: sources?.attention))
         let span = ChatSubagents.taskSpan(item, task: task)
         HStack(alignment: .top, spacing: 8) {
-            // In the gutter of the tool lines, its state a dot on the mark.
-            Group {
-                if let provider = child?.provider {
-                    ChatProviderMark(provider: provider, size: 14)
-                } else {
-                    Image(lucide: "bot", size: 14)
-                }
-            }
-            .foregroundStyle(MobileStyle.text)
-            .overlay(alignment: .bottomTrailing) {
-                Circle().fill(state.look.color).frame(width: 8, height: 8)
-                    .background { Circle().fill(MobileStyle.surface).padding(-2) }
-                    .offset(x: 3, y: 1)
-            }
-            .padding(.top, 2)
-            .accessibilityHidden(true)
+            ChatAgentMark(provider: child?.provider, dot: state.look.color)
             VStack(alignment: .leading, spacing: 1) {
                 Text(ChatSubagents.taskTitle(item, model: modelName(child)))
                     .fontWeight(.medium).foregroundStyle(MobileStyle.text).lineLimit(1)
@@ -250,8 +232,26 @@ private struct ChatTaskLine: View {
     }
 }
 
+/// An agent's mark in the gutter of the tool lines, its state a dot on the corner.
+struct ChatAgentMark: View {
+    let provider: String?
+    let dot: Color
+
+    var body: some View {
+        ChatProviderMark(provider: provider ?? "", size: 14)
+            .foregroundStyle(MobileStyle.text)
+            .overlay(alignment: .bottomTrailing) {
+                Circle().fill(dot).frame(width: 8, height: 8)
+                    .background { Circle().fill(MobileStyle.surface).padding(-2) }
+                    .offset(x: 3, y: 1)
+            }
+            .padding(.top, 2)
+            .accessibilityHidden(true)
+    }
+}
+
 /// A CLI's mark, as the desktop's `AgentIcon` draws it. A CLI without one here, such as one only a newer machine
-/// knows, gets the generic agent icon instead of another CLI's mark.
+/// knows, or none at all, gets the generic agent icon instead of another CLI's mark.
 struct ChatProviderMark: View {
     let provider: String
     var size: CGFloat = 14

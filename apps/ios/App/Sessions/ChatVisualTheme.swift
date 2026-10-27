@@ -92,7 +92,7 @@ struct ChatVisualTheme: Equatable {
     var fragment: String {
         let json = #"{"appearance":\#(Self.json(appearance.rawValue)),"variables":\#(variablesJSON)}"#
         return "#\(ChatVisualContract.fragmentKey)="
-            + (json.addingPercentEncoding(withAllowedCharacters: Self.unescaped) ?? "")
+            + (json.addingPercentEncoding(withAllowedCharacters: .uriComponent) ?? "")
     }
 
     /// `visualHostContextMessage` of the contracts, which the page applies without loading again.
@@ -105,10 +105,6 @@ struct ChatVisualTheme: Equatable {
     private var variablesJSON: String {
         "{" + variables.map { "\(Self.json($0.name)):\(Self.json($0.value))" }.joined(separator: ",") + "}"
     }
-
-    /// What `encodeURIComponent` leaves as it is.
-    private static let unescaped = CharacterSet(
-        charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.!~*'()")
 
     /// A string as `JSON.stringify` writes it, so the fragment reads the same as the desktop's.
     private static func json(_ value: String) -> String {
@@ -132,4 +128,10 @@ struct ChatVisualTheme: Equatable {
         }
         return output + "\""
     }
+}
+
+extension CharacterSet {
+    /// What `encodeURIComponent` leaves as it is.
+    static let uriComponent = CharacterSet(
+        charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.!~*'()")
 }

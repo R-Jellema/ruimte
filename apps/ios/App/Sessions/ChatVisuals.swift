@@ -137,8 +137,7 @@ enum ChatVisualHeights {
         let below = visual.heights.filter { $0.width <= width }.max { $0.width < $1.width }
         let above = visual.heights.filter { $0.width >= width }.min { $0.width < $1.width }
         guard below != nil || above != nil else { return nil }
-        let tallest = min(max(below?.height ?? 0, above?.height ?? 0), visual.maxHeight)
-        return min(max(tallest.rounded(.up), ChatVisualContract.minHeight), ChatVisualContract.maxHeight)
+        return clamp(max(below?.height ?? 0, above?.height ?? 0), maxHeight: visual.maxHeight)
     }
 
     /// What this device saw at that width before, else what the machine measured, else a modest default.
@@ -188,10 +187,8 @@ enum ChatVisualHeights {
     /// A visual's page, read the way any attachment of the chat is.
     func page(_ id: String, client: any MachineRequesting, chatID: String) async throws -> Data {
         try await page(id) {
-            try await client.readResource(
-                .object(["kind": .string("attachment"), "chatId": .string(chatID), "attachmentId": .string(id)]),
-                maxBytes: ChatVisualContract.maxBytes
-            ).data
+            try await client.readResource(.chatAttachment(chatID: chatID, id: id), maxBytes: ChatVisualContract.maxBytes)
+                .data
         }
     }
 

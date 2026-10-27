@@ -187,32 +187,20 @@ private struct CostScale: ViewModifier {
         case .log:
             content
                 .chartXScale(domain: (ticks.first ?? 0.01)...(ticks.last ?? 1), type: .log)
-                .chartXAxis { marks(values: ticks) }
+                .chartXAxis { AxisMarks(values: ticks) { mark($0) } }
         case .linear:
             content
                 .chartXScale(domain: 0...max(0.01, (costs.max() ?? 1) * 1.08), type: .linear)
-                .chartXAxis { marks(values: .automatic(desiredCount: 4)) }
+                .chartXAxis { AxisMarks(values: .automatic(desiredCount: 4)) { mark($0) } }
         }
     }
 
-    private func marks(values: some Sequence<Double>) -> some AxisContent {
-        AxisMarks(values: Array(values)) { value in
-            AxisGridLine().foregroundStyle(MobileStyle.text.opacity(0.06))
-            AxisValueLabel {
-                if let cost = value.as(Double.self) { Text(ModelComparison.cost(cost)) }
-            }
-            .foregroundStyle(MobileStyle.faint)
+    @AxisMarkBuilder private func mark(_ value: AxisValue) -> some AxisMark {
+        AxisGridLine().foregroundStyle(MobileStyle.text.opacity(0.06))
+        AxisValueLabel {
+            if let cost = value.as(Double.self) { Text(ModelComparison.cost(cost)) }
         }
-    }
-
-    private func marks(values: AxisMarkValues) -> some AxisContent {
-        AxisMarks(values: values) { value in
-            AxisGridLine().foregroundStyle(MobileStyle.text.opacity(0.06))
-            AxisValueLabel {
-                if let cost = value.as(Double.self) { Text(ModelComparison.cost(cost)) }
-            }
-            .foregroundStyle(MobileStyle.faint)
-        }
+        .foregroundStyle(MobileStyle.faint)
     }
 }
 

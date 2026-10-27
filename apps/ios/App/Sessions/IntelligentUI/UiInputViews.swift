@@ -16,7 +16,7 @@ struct UiChecklistView: View {
     let context: UiRenderContext
 
     var body: some View {
-        let values = (node.boundValue ?? node.props["value"])?.arrayValue ?? []
+        let values = node.currentValue?.arrayValue ?? []
         let enabled = context.editable(node)
         VStack(alignment: .leading, spacing: 6) {
             ForEach(node.children.filter { !$0.isText }) { child in
@@ -81,7 +81,7 @@ struct UiSwitchView: View {
     let context: UiRenderContext
 
     var body: some View {
-        let value = (node.boundValue ?? node.props["value"])?.boolValue ?? false
+        let value = node.currentValue?.boolValue ?? false
         Toggle(isOn: Binding(get: { value }, set: { context.change(node, to: .bool($0)) })) {
             UiNodesView(nodes: node.children, parent: node.type, context: context)
                 .font(.subheadline.weight(.medium)).foregroundStyle(MobileStyle.text)
@@ -107,7 +107,7 @@ struct UiSliderView: View {
     private static let dragInterval: Duration = .milliseconds(100)
 
     var body: some View {
-        let bound = (node.boundValue ?? node.props["value"])?.numberValue ?? 0
+        let bound = node.currentValue?.numberValue ?? 0
         let low = node.number("min") ?? 0
         let high = max(low + .ulpOfOne, node.number("max") ?? 1)
         let step = node.number("step").flatMap { $0 > 0 ? $0 : nil }
@@ -169,39 +169,48 @@ struct UiSliderView: View {
     }
 }
 
-/// Left aligned and never wider than its options; when they do not fit the card, a menu of the same options. Each
-/// Option is picked by its place, since a value may be any scalar.
+/// The Options of a Segmented or Select, each picked by its place, since a value may be any scalar.
+@MainActor private struct UiOptions {
+    let options: [UiNode]
+    /// The place of the option the value names; -1 for none.
+    let picked: Int
+    let selection: Binding<Int>
+
+    init(_ node: UiNode, context: UiRenderContext) {
+        let current = node.currentValue ?? .null
+        let options = node.children(of: "Option")
+        let picked = options.firstIndex { $0.props["value"] == current } ?? -1
+        self.options = options
+        self.picked = picked
+        selection = Binding(
+            get: { picked },
+            set: { index in
+                if options.indices.contains(index) { context.change(node, to: options[index].props["value"] ?? .null) }
+            })
+    }
+
+    var rows: some View {
+        ForEach(Array(options.enumerated()), id: \.element.id) { index, option in Text(option.label).tag(index) }
+    }
+}
+
+/// Left aligned and never wider than its options; when they do not fit the card, a menu of the same options.
 struct UiSegmentedView: View {
     let node: UiNode
     let context: UiRenderContext
 
     var body: some View {
-        let current = node.boundValue ?? node.props["value"] ?? .null
-        let options = node.children(of: "Option")
-        let picked = options.firstIndex { $0.props["value"] == current } ?? -1
-        let selection = Binding(
-            get: { picked },
-            set: { index in
-                if options.indices.contains(index) { context.change(node, to: options[index].props["value"] ?? .null) }
-            })
+        let options = UiOptions(node, context: context)
         ViewThatFits(in: .horizontal) {
-            Picker(String(localized: "Options"), selection: selection) {
-                ForEach(Array(options.enumerated()), id: \.element.id) { index, option in
-                    Text(option.label).tag(index)
-                }
-            }
-            .pickerStyle(.segmented).fixedSize()
-            Picker(String(localized: "Options"), selection: selection) {
-                ForEach(Array(options.enumerated()), id: \.element.id) { index, option in
-                    Text(option.label).tag(index)
-                }
-            }
-            .pickerStyle(.menu).tint(MobileStyle.text)
+            Picker(String(localized: "Options"), selection: options.selection) { options.rows }
+                .pickerStyle(.segmented).fixedSize()
+            Picker(String(localized: "Options"), selection: options.selection) { options.rows }
+                .pickerStyle(.menu).tint(MobileStyle.text)
         }
         .disabled(!context.editable(node))
         .frame(maxWidth: .infinity, alignment: .leading)
         .modifier(UiPending(complete: node.complete))
-        .sensoryFeedback(.selection, trigger: picked)
+        .sensoryFeedback(.selection, trigger: options.picked)
     }
 }
 
@@ -219,7 +228,7 @@ struct UiTextFieldView: View {
 
     var body: some View {
         let limit = node.number("maxLength").map { Int($0) } ?? Self.defaultLimit
-        let bound = (node.boundValue ?? node.props["value"])?.stringValue ?? ""
+        let bound = node.currentValue?.stringValue ?? ""
         let text = draft ?? bound
         let used = text.utf16.count
         VStack(alignment: .leading, spacing: 6) {
@@ -258,39 +267,27 @@ struct UiTextFieldView: View {
     }
 }
 
-/// A menu of the options of a Select, picked by their place since a value may be any scalar, with the text beside
-/// them as its label above.
+/// A menu of the options of a Select, with the text beside them as its label above.
 struct UiSelectView: View {
     let node: UiNode
     let context: UiRenderContext
 
     var body: some View {
-        let current = node.boundValue ?? node.props["value"] ?? .null
-        let options = node.children(of: "Option")
-        let picked = options.firstIndex { $0.props["value"] == current } ?? -1
+        let options = UiOptions(node, context: context)
         let label = node.ownLabel
-        let selection = Binding(
-            get: { picked },
-            set: { index in
-                if options.indices.contains(index) { context.change(node, to: options[index].props["value"] ?? .null) }
-            })
         VStack(alignment: .leading, spacing: 6) {
             if !label.isEmpty {
                 Text(label).font(.caption).foregroundStyle(MobileStyle.muted).padding(.horizontal, 2)
                     .accessibilityHidden(true)
             }
-            Picker(label.isEmpty ? String(localized: "Options") : label, selection: selection) {
-                ForEach(Array(options.enumerated()), id: \.element.id) { index, option in
-                    Text(option.label).tag(index)
-                }
-            }
-            .pickerStyle(.menu).tint(MobileStyle.text).labelsHidden()
-            .disabled(options.isEmpty || !context.editable(node))
-            .accessibilityLabel(label.isEmpty ? String(localized: "Options") : label)
+            Picker(label.isEmpty ? String(localized: "Options") : label, selection: options.selection) { options.rows }
+                .pickerStyle(.menu).tint(MobileStyle.text).labelsHidden()
+                .disabled(options.options.isEmpty || !context.editable(node))
+                .accessibilityLabel(label.isEmpty ? String(localized: "Options") : label)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .modifier(UiPending(complete: node.complete))
-        .sensoryFeedback(.selection, trigger: picked)
+        .sensoryFeedback(.selection, trigger: options.picked)
     }
 }
 

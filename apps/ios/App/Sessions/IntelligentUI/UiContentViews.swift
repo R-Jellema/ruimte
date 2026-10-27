@@ -22,14 +22,10 @@ struct UiImageView: View {
 
     var body: some View {
         let caption = node.label
-        let name = node.string("alt") ?? (caption.isEmpty ? String(localized: "Image") : caption)
+        let name = node.altLabel(fallback: String(localized: "Image"))
         VStack(alignment: .leading, spacing: 6) {
             if let attachment = node.string("attachment"), let chat {
-                ChatInlineImage(
-                    resource: .object([
-                        "kind": .string("attachment"), "chatId": .string(chat.chatID),
-                        "attachmentId": .string(attachment),
-                    ]), name: name)
+                ChatInlineImage(resource: .chatAttachment(chatID: chat.chatID, id: attachment), name: name)
             } else {
                 UiMissingImage(reason: String(localized: "The image is not available"), side: 120)
             }
@@ -119,14 +115,11 @@ private struct UiGalleryCell: View {
 
     var body: some View {
         let caption = node.label
-        let name = node.string("alt") ?? (caption.isEmpty ? String(localized: "Image") : caption)
         VStack(alignment: .leading, spacing: 4) {
             if let attachment = node.string("attachment"), let chat {
                 ChatInlineImage(
-                    resource: .object([
-                        "kind": .string("attachment"), "chatId": .string(chat.chatID),
-                        "attachmentId": .string(attachment),
-                    ]), name: name, square: true)
+                    resource: .chatAttachment(chatID: chat.chatID, id: attachment),
+                    name: node.altLabel(fallback: String(localized: "Image")), square: true)
             } else {
                 UiQuietSquare(text: node.string("alt") ?? String(localized: "The image is not available"))
             }
@@ -259,20 +252,32 @@ enum UiPicture {
     case failed
 
     @MainActor static func load(attachment: String, chat: ChatContentContext, maxPixel: Int = 1600) async -> Self {
-        let resource: JSONValue = .object([
-            "kind": .string("attachment"), "chatId": .string(chat.chatID), "attachmentId": .string(attachment),
-        ])
-        guard let bytes = try? await chat.client.readResource(resource) else { return .failed }
+        guard let bytes = try? await chat.client.readResource(.chatAttachment(chatID: chat.chatID, id: attachment))
+        else { return .failed }
         let thumbnail = await Task.detached(priority: .utility) {
-            guard let source = CGImageSourceCreateWithData(bytes.data as CFData, nil) else { return nil as CGImage? }
-            return CGImageSourceCreateThumbnailAtIndex(
-                source, 0,
-                [
-                    kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: maxPixel,
-                    kCGImageSourceCreateThumbnailWithTransform: true,
-                ] as CFDictionary)
+            ChatThumbnail.image(bytes.data, maxPixel: maxPixel)
         }.value
         return thumbnail.map { .image(UIImage(cgImage: $0)) } ?? .failed
+    }
+}
+
+/// A picture decoded at most `maxPixel` on its longest side, turned upright; a caller runs it off the main actor.
+enum ChatThumbnail {
+    static func image(_ data: Data, maxPixel: Int) -> CGImage? {
+        CGImageSourceCreateWithData(data as CFData, nil).flatMap { image($0, maxPixel: maxPixel) }
+    }
+
+    static func image(at url: URL, maxPixel: Int) -> CGImage? {
+        CGImageSourceCreateWithURL(url as CFURL, nil).flatMap { image($0, maxPixel: maxPixel) }
+    }
+
+    private static func image(_ source: CGImageSource, maxPixel: Int) -> CGImage? {
+        CGImageSourceCreateThumbnailAtIndex(
+            source, 0,
+            [
+                kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: maxPixel,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+            ] as CFDictionary)
     }
 }
 

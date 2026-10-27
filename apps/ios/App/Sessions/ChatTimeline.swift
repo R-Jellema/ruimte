@@ -61,8 +61,8 @@ struct ChatTimeline: UIViewControllerRepresentable {
 }
 
 /// How far below the composer's top the timeline starts to fade, so it keeps showing behind what stands above the
-/// field. It goes straight to the controller: as view state it re-rendered the screen from inside the composer's own
-/// layout pass, which handed the composer a new root view and laid it out again, and the app hung in that loop.
+/// field. It goes straight to the controller: as view state it re-rendered the screen from the composer's own layout
+/// pass, and the app hung in that loop.
 @MainActor final class ChatComposerFadeLink {
     private weak var controller: ChatTimelineController?
     private var start: CGFloat = 0
@@ -213,11 +213,15 @@ final class ChatTimelineCollection: UICollectionView {
         readingAnchor = captureReadingAnchor?()
         expansion = nil
         guard expanding, let frame = itemFrame?(id) else { return }
-        let end = followingID.flatMap { itemTop?($0) } ?? (throughEnd ? contentSize.height : frame.maxY)
+        let end = expansionEnd(frame, followingID: followingID, throughEnd: throughEnd)
         expansion = ChatExpansionAnchor(
             id: id, followingID: followingID, throughEnd: throughEnd, headerOffset: headerOffset,
-            initialHeight: end - frame.minY,
-            animated: animated)
+            initialHeight: end - frame.minY, animated: animated)
+    }
+
+    /// Where an opened row's content ends: at the row after it, at the end of the thread, or at its own end.
+    private func expansionEnd(_ frame: CGRect, followingID: String?, throughEnd: Bool) -> CGFloat {
+        followingID.flatMap { itemTop?($0) } ?? (throughEnd ? contentSize.height : frame.maxY)
     }
 
     private func cancelProgrammaticScroll() {
@@ -257,8 +261,7 @@ final class ChatTimelineCollection: UICollectionView {
             self.expansion = nil
             return false
         }
-        let end =
-            expansion.followingID.flatMap { itemTop?($0) } ?? (expansion.throughEnd ? contentSize.height : frame.maxY)
+        let end = expansionEnd(frame, followingID: expansion.followingID, throughEnd: expansion.throughEnd)
         guard end - frame.minY > expansion.initialHeight + 1 else { return false }
         self.expansion = nil
         let top = frame.minY + expansion.headerOffset
@@ -404,10 +407,7 @@ final class ChatTimelineController: UIViewController, UICollectionViewDelegate, 
             guard let self, let index = self.source.indexPath(for: id) else { return nil }
             return self.collection.layoutAttributesForItem(at: index)?.frame
         }
-        collection.itemTop = { [weak self] id in
-            guard let self, let index = self.source.indexPath(for: id) else { return nil }
-            return self.collection.layoutAttributesForItem(at: index)?.frame.minY
-        }
+        collection.itemTop = { [weak self] id in self?.collection.itemFrame?(id)?.minY }
         view.addSubview(collection)
         setContentScrollView(collection, for: .top)
         view.keyboardLayoutGuide.usesBottomSafeArea = false
@@ -478,17 +478,21 @@ final class ChatTimelineController: UIViewController, UICollectionViewDelegate, 
     private func answerVisibleEntries() {
         presentation.visibleEntryIDs = { [weak self] in
             guard let self, self.collection != nil else { return [] }
-            let top = self.collection.contentOffset.y + self.collection.adjustedContentInset.top
-            let bottom =
-                self.collection.contentOffset.y + self.collection.bounds.height
-                - self.collection.adjustedContentInset.bottom
-            return self.collection.indexPathsForVisibleItems.sorted().compactMap { index in
-                guard let frame = self.collection.layoutAttributesForItem(at: index)?.frame,
-                    frame.maxY > top, frame.minY < bottom
-                else { return nil }
-                return self.source.itemIdentifier(for: index)
-            }
+            return self.visibleRows().rows.map(\.id)
         }
+    }
+
+    /// The rows that show between the insets, top to bottom, and where that visible part starts.
+    private func visibleRows() -> (top: CGFloat, rows: [(id: String, frame: CGRect)]) {
+        let top = collection.contentOffset.y + collection.adjustedContentInset.top
+        let bottom = collection.contentOffset.y + collection.bounds.height - collection.adjustedContentInset.bottom
+        let rows = collection.indexPathsForVisibleItems.sorted().compactMap { index -> (id: String, frame: CGRect)? in
+            guard let id = source.itemIdentifier(for: index),
+                let frame = collection.layoutAttributesForItem(at: index)?.frame, frame.maxY > top, frame.minY < bottom
+            else { return nil }
+            return (id, frame)
+        }
+        return (top, rows)
     }
 
     func setViewportInsets(top: CGFloat, bottom: CGFloat) {
@@ -831,17 +835,8 @@ final class ChatTimelineController: UIViewController, UICollectionViewDelegate, 
     }
 
     private func visibleAnchor() -> ChatReadingAnchor? {
-        let visibleTop = collection.contentOffset.y + collection.adjustedContentInset.top
-        let visibleBottom =
-            collection.contentOffset.y + collection.bounds.height - collection.adjustedContentInset.bottom
-        for index in collection.indexPathsForVisibleItems.sorted() {
-            guard let id = source.itemIdentifier(for: index),
-                let frame = collection.layoutAttributesForItem(at: index)?.frame,
-                frame.maxY > visibleTop, frame.minY < visibleBottom
-            else { continue }
-            return ChatReadingAnchor(id: id, distanceFromTop: frame.minY - visibleTop)
-        }
-        return nil
+        let visible = visibleRows()
+        return visible.rows.first.map { ChatReadingAnchor(id: $0.id, distanceFromTop: $0.frame.minY - visible.top) }
     }
 
     func scrollViewWillBeginDragging(_ scrollView: UIScrollView) { collection.beginUserScroll() }
@@ -910,9 +905,9 @@ private final class ChatTimelineRootView: UIView {
     }
 }
 
-@MainActor
 /// Covers the timeline under the composer and fades it out along the composer's top edge, so a message does not show
 /// through the glass. A cover rather than a mask on the timeline, which would render every scrolled frame offscreen.
+@MainActor
 private final class ChatComposerFade: UIView {
     static let band: CGFloat = 72
     private let edge = UIView()
@@ -1056,7 +1051,6 @@ struct ChatExpansionButton<Label: View>: View {
 }
 
 private struct ChatDisclosureStyle: DisclosureGroupStyle {
-
     func makeBody(configuration: Configuration) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             ChatExpansionButton(expanding: !configuration.isExpanded) {

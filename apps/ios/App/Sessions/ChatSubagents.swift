@@ -126,16 +126,16 @@ enum ChatSubagents {
 
     /// The number on the chip: the ones still at work, and all of them once none is.
     static func badgeCount(_ words: [SubagentStatusWord]) -> Int {
-        let active = words.filter { $0 == .running }.count
+        let active = words.count { $0 == .running }
         return active > 0 ? active : words.count
     }
 
     /// What the chip says: while more than one works and some still run, how far they got and how many need the person,
     /// as `progressOf` in the desktop's `subagent-list.ts` counts them; otherwise how many there are.
     static func chipLabel(_ states: [TaskRowState], words: [SubagentStatusWord]) -> String {
-        let done = states.filter { $0 == .done }.count
-        let waiting = states.filter { $0 == .waiting }.count
-        let active = states.filter { $0 == .running || $0 == .paused || $0 == .waiting }.count
+        let done = states.count { $0 == .done }
+        let waiting = states.count { $0 == .waiting }
+        let active = states.count { $0 == .running || $0 == .paused || $0 == .waiting }
         guard active > 0, states.count > 1 else { return ChatBackground.subagents(badgeCount(words)) }
         let progress = String(localized: "\(done) of \(states.count) sub-agents done")
         return waiting > 0 ? "\(progress), \(String(localized: "\(waiting) need you"))" : progress
@@ -144,6 +144,12 @@ enum ChatSubagents {
     /// The task a row stands for, whose id the daemon wrote into the row's own.
     static func taskID(_ agent: ChatSubagentItem) -> String? {
         agent.origin == .ruimte && agent.id.hasPrefix("task-") ? String(agent.id.dropFirst(5)) : nil
+    }
+
+    /// Whether the chat a task's agent works in waits on a person, as the task's own row reads it.
+    @MainActor static func childWaiting(_ agent: ChatSubagentItem, attention: AttentionStore?) -> Bool {
+        guard let id = agent.childId, let attention else { return false }
+        return attention.needsYou(id) || attention.waits[id] != nil
     }
 
     /// A cancelled task is a failed row on the wire, and only the task itself still says which it was.
@@ -192,9 +198,7 @@ enum ChatSubagents {
 
     /// When a task was given and settled. Its own record says so first; the row copies those, but may lag behind it.
     static func taskSpan(_ agent: ChatSubagentItem, task: JSONValue?) -> (startedAt: Double, finishedAt: Double?) {
-        let startedAt = task?["createdAt"]?.numberValue ?? agent.startedAt
-        let finishedAt = task == nil ? agent.finishedAt : (task?["settledAt"]?.numberValue ?? agent.finishedAt)
-        return (startedAt, finishedAt)
+        (task?["createdAt"]?.numberValue ?? agent.startedAt, task?["settledAt"]?.numberValue ?? agent.finishedAt)
     }
 
     /// How long a settled task took; nil while it runs and for one that knows no start or end.
@@ -368,19 +372,14 @@ enum ChatSubagents {
         return turnRunning ? nil : .mark
     }
 
-    /// How long an entry has run: the seconds and minutes a running tool call shows, and hours past one.
-    static func runningFor(_ milliseconds: Double) -> String { Format.elapsedShort(milliseconds: milliseconds) }
-
     /// The time on the right of an entry: how long it has run so far, or when it ended, with the date once that was
     /// not today.
     static func entryTime(_ agent: ChatSubagentItem, task: JSONValue?, now: Date, locale: FormatLocale = .current)
         -> String?
     {
-        // A task's own record says when it was given and settled; the row copies those, but may lag behind it.
-        let startedAt = task?["createdAt"]?.numberValue ?? agent.startedAt
-        let finishedAt = task?["settledAt"]?.numberValue ?? agent.finishedAt
+        let (startedAt, finishedAt) = taskSpan(agent, task: task)
         if agent.status == .running {
-            return startedAt > 0 ? runningFor(now.timeIntervalSince1970 * 1000 - startedAt) : nil
+            return startedAt > 0 ? Format.elapsedShort(milliseconds: now.timeIntervalSince1970 * 1000 - startedAt) : nil
         }
         guard let finishedAt, finishedAt > 0 else { return nil }
         return Format.moment(Date(timeIntervalSince1970: finishedAt / 1000), now: now, in: locale)

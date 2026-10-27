@@ -124,10 +124,7 @@ struct ChatPreparePreview: Identifiable, Equatable {
                     "itemId": .string(source.itemID), "language": .string(language), "code": .string(code),
                 ]))
             let next = ChatPreparePreview(answer)
-            guard next.machineID == machineID else {
-                throw MachineClientError.server(
-                    code: "wrong-machine", message: String(localized: "This chat's machine is not connected."))
-            }
+            guard next.machineID == machineID else { throw Self.wrongMachine }
             preview = next
         } catch {
             release()
@@ -177,11 +174,12 @@ struct ChatPreparePreview: Identifiable, Equatable {
 
     private func machineID() async throws -> String {
         let info = try await context.client.request(WireRequest.endpointInfo.rawValue, payload: .object([:]))
-        guard let id = info["id"]?.stringValue, !id.isEmpty else {
-            throw MachineClientError.server(
-                code: "wrong-machine", message: String(localized: "This chat's machine is not connected."))
-        }
+        guard let id = info["id"]?.stringValue, !id.isEmpty else { throw Self.wrongMachine }
         return id
+    }
+
+    private static var wrongMachine: MachineClientError {
+        .server(code: "wrong-machine", message: String(localized: "This chat's machine is not connected."))
     }
 
     private func attach(_ terminals: Set<String>) async {

@@ -131,18 +131,10 @@ struct ChatCompactionDock: View {
                         .buttonStyle(MobileCapsuleButtonStyle(prominent: true, size: .small))
                         .disabled(!model.connected)
                 }
-                .padding(.horizontal, 14).padding(.vertical, 10)
-                .glassEffect(.regular, in: .rect(cornerRadius: 26))
-                .padding(.bottom, 10)
+                .chatDockCard()
             }
         }
-        .alert(
-            "Could not compact", isPresented: $failure.isPresent()
-        ) {
-            Button("OK") { failure = nil }
-        } message: {
-            Text(failure ?? "")
-        }
+        .failureAlert("Could not compact", $failure)
     }
 
     private func compact() {

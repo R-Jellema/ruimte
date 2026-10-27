@@ -349,12 +349,15 @@ final class ChatComposition {
         text = text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? taken : taken + "\n\n" + text
         mentions = Array(Set(incoming.mentions + mentions)).sorted()
         skills = Array(Set(incoming.skills + skills)).sorted()
-        chats = incoming.chats + chats.filter { existing in !incoming.chats.contains { $0.id == existing.id } }
-        let incomingReferences = incoming.references ?? []
-        references =
-            incomingReferences + references.filter { existing in !incomingReferences.contains { $0.id == existing.id } }
+        chats = Self.merged(incoming.chats, before: chats)
+        references = Self.merged(incoming.references ?? [], before: references)
         uploads = added + uploads
         selection = NSRange(location: (text as NSString).length, length: 0)
+    }
+
+    private static func merged(_ first: [ChatDraftReference], before rest: [ChatDraftReference]) -> [ChatDraftReference]
+    {
+        first + rest.filter { existing in !first.contains { $0.id == existing.id } }
     }
 
     private func changed() {

@@ -1,4 +1,3 @@
-import ImageIO
 import PhotosUI
 import QuickLook
 import RuimtePulsar
@@ -362,24 +361,8 @@ private struct ChatDraftAttachment: View {
         .task(id: upload.id) {
             guard upload.mime.hasPrefix("image/") else { return }
             let url = upload.url
-            let thumbnail = await Task.detached {
-                guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil as Data? }
-                let options: [CFString: Any] = [
-                    kCGImageSourceCreateThumbnailFromImageAlways: true,
-                    kCGImageSourceThumbnailMaxPixelSize: 132, kCGImageSourceCreateThumbnailWithTransform: true,
-                ]
-                guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
-                    return nil as Data?
-                }
-                let data = NSMutableData()
-                guard
-                    let destination = CGImageDestinationCreateWithData(data, UTType.png.identifier as CFString, 1, nil)
-                else { return nil }
-                CGImageDestinationAddImage(destination, image, nil)
-                guard CGImageDestinationFinalize(destination) else { return nil }
-                return data as Data
-            }.value
-            if let thumbnail { image = UIImage(data: thumbnail) }
+            let thumbnail = await Task.detached { ChatThumbnail.image(at: url, maxPixel: 132) }.value
+            if let thumbnail { image = UIImage(cgImage: thumbnail) }
         }
     }
 }

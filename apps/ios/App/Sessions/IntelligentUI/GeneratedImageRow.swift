@@ -1,5 +1,4 @@
 import CoreTransferable
-import ImageIO
 import QuickLook
 import RuimteIntelligentUI
 import RuimtePulsar
@@ -229,9 +228,7 @@ private struct GeneratedImageReady: View {
     private var reader: (@Sendable @MainActor () async throws -> Data)? {
         guard let chat, let id = attachment["id"]?.stringValue else { return nil }
         let client = chat.client
-        let resource: JSONValue = .object([
-            "kind": .string("attachment"), "chatId": .string(chat.chatID), "attachmentId": .string(id),
-        ])
+        let resource = JSONValue.chatAttachment(chatID: chat.chatID, id: id)
         return { try await client.readResource(resource).data }
     }
 
@@ -243,30 +240,18 @@ private struct GeneratedImageReady: View {
         do {
             let data = try await read()
             try Task.checkCancellation()
-            let image = await Task.detached(priority: .utility) { Self.downsample(data) }.value
+            let image = await Task.detached(priority: .utility) { ChatThumbnail.image(data, maxPixel: 1200) }.value
             try Task.checkCancellation()
             guard let image else {
                 missing = String(localized: "The image is not available")
                 return
             }
-            thumbnail = image
+            thumbnail = UIImage(cgImage: image)
             missing = nil
         } catch is CancellationError {
         } catch {
             missing = error.localizedDescription
         }
-    }
-
-    private nonisolated static func downsample(_ data: Data) -> UIImage? {
-        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
-            let image = CGImageSourceCreateThumbnailAtIndex(
-                source, 0,
-                [
-                    kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: 1200,
-                    kCGImageSourceCreateThumbnailWithTransform: true,
-                ] as CFDictionary)
-        else { return nil }
-        return UIImage(cgImage: image)
     }
 
     /// Full screen with zoom and the system's share and save, from a copy that goes when the preview closes.

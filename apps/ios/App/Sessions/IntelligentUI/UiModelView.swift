@@ -235,10 +235,9 @@ enum UiModelPhase {
     case row(problem: String?)
 
     @MainActor static func load(attachment: String, chat: ChatContentContext) async -> Self {
-        let resource: JSONValue = .object([
-            "kind": .string("attachment"), "chatId": .string(chat.chatID), "attachmentId": .string(attachment),
-        ])
-        guard let bytes = try? await chat.client.readResource(resource, maxBytes: WireConstants.chatModelMaxBytes)
+        guard
+            let bytes = try? await chat.client.readResource(
+                .chatAttachment(chatID: chat.chatID, id: attachment), maxBytes: WireConstants.chatModelMaxBytes)
         else { return .row(problem: String(localized: "Model unavailable")) }
         guard let format = UiModelFormat.of(bytes.data) else {
             return .row(problem: String(localized: "Could not open the model"))
@@ -265,7 +264,7 @@ struct UiModelView: View {
         let caption = node.label
         let alt = node.string("alt")
         let attachment = node.string("attachment")
-        let label = alt ?? (caption.isEmpty ? String(localized: "3D model") : caption)
+        let label = node.altLabel(fallback: String(localized: "3D model"))
         VStack(alignment: .leading, spacing: 6) {
             switch phase {
             case .ready(let model):

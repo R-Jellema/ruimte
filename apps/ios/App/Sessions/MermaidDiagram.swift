@@ -76,11 +76,8 @@ enum MermaidTheme {
 
     /// `encodeURIComponent` of the drawing, as `svgDataUrl` writes it.
     static func dataURL(_ svg: String) -> String {
-        "data:image/svg+xml;charset=utf-8," + (svg.addingPercentEncoding(withAllowedCharacters: unescaped) ?? "")
+        "data:image/svg+xml;charset=utf-8," + (svg.addingPercentEncoding(withAllowedCharacters: .uriComponent) ?? "")
     }
-
-    private static let unescaped = CharacterSet(
-        charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.!~*'()")
 
     /// The page a drawing is shown on: the drawing as an image, which never runs script and loads nothing.
     static func page(_ drawing: MermaidDrawing, dark: Bool) -> String {

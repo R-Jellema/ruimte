@@ -89,45 +89,40 @@ extension ChatModel {
 
     /// Scrolls to a bookmarked message, reading earlier pages of the thread until it is there.
     func revealBookmark(_ itemID: String) async {
-        while !presentation.revealItem(itemID) {
-            if loadingHistory {
-                do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
-            } else if await !loadOlderNow() {
-                return
-            }
-        }
+        _ = await readOlder { presentation.revealItem(itemID) }
     }
 
     /// Leads a quote back to the reply it quotes and lights it up, reading earlier pages of the thread until it is
     /// there. One the thread no longer holds says so on its message.
     func revealQuote(_ jump: ChatQuoteJump) async {
-        while !presentation.revealItem(jump.sourceID, flashing: true) {
-            guard !Task.isCancelled else { return }
-            if loadingHistory {
-                do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
-            } else if await !loadOlderNow() {
-                // Only a thread read to its start knows the reply is gone; one that could not read further does not.
-                presentation.finishQuote(jump, gone: history.cursor == nil)
-                return
-            }
+        if await readOlder(until: { presentation.revealItem(jump.sourceID, flashing: true) }) {
+            presentation.finishQuote(jump, gone: false)
+        } else if !Task.isCancelled {
+            // Only a thread read to its start knows the reply is gone; one that could not read further does not.
+            presentation.finishQuote(jump, gone: history.cursor == nil)
         }
-        presentation.finishQuote(jump, gone: false)
     }
 
     func revealUiChoice(_ target: UiChoiceJump) async {
-        while presentation.item(target.itemID) == nil {
-            guard !Task.isCancelled else { return }
-            if loadingHistory {
-                do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
-            } else if await !loadOlderNow() {
-                return
-            }
-        }
-        guard !Task.isCancelled, let reply = presentation.item(target.itemID)?.assistantItem,
+        guard await readOlder(until: { presentation.item(target.itemID) != nil }),
+            !Task.isCancelled, let reply = presentation.item(target.itemID)?.assistantItem,
             (reply.ui ?? []).contains(where: { $0.id == target.blockID && $0.revision == target.revision })
         else { return }
         presentation.uiChoiceHighlight = target
         _ = presentation.revealItem(target.itemID)
+    }
+
+    /// Reads earlier pages of the thread until `found` holds; false once no page came or the task was cancelled.
+    private func readOlder(until found: () -> Bool) async -> Bool {
+        while !found() {
+            guard !Task.isCancelled else { return false }
+            if loadingHistory {
+                do { try await Task.sleep(for: .milliseconds(100)) } catch { return false }
+            } else if await !loadOlderNow() {
+                return false
+            }
+        }
+        return true
     }
 
     private func changeBookmarks(_ request: String, _ values: [String: JSONValue]) async -> Bool {

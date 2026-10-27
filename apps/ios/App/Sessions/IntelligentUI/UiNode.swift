@@ -44,19 +44,25 @@ struct UiNode: Identifiable, Equatable {
     /// The current value of an input's binding, or nil for a node that is not bound.
     var boundValue: JSONValue? { bindings["value"]?["value"] }
 
+    /// What an input shows: its binding's value, else the value it was written with.
+    var currentValue: JSONValue? { boundValue ?? props["value"] }
+
     /// Every `$text` below this node joined as written, such as the code of a CodeBlock.
     var nodeText: String { children.map { $0.isText ? $0.text : $0.nodeText }.joined() }
 
     /// The same text on one line, for a name a control or VoiceOver needs as a string.
-    var label: String {
-        nodeText.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
-            .trimmingCharacters(in: .whitespaces)
-    }
+    var label: String { Self.oneLine(nodeText) }
 
     /// The text written beside the children of a control, such as the label of a Select next to its Options.
-    var ownLabel: String {
-        children.filter(\.isText).map(\.text).joined()
-            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+    var ownLabel: String { Self.oneLine(children.filter(\.isText).map(\.text).joined()) }
+
+    /// The name a picture goes by: its `alt`, else its caption, else `fallback`.
+    func altLabel(fallback: String) -> String {
+        string("alt") ?? (label.isEmpty ? fallback : label)
+    }
+
+    private static func oneLine(_ text: String) -> String {
+        text.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
             .trimmingCharacters(in: .whitespaces)
     }
 

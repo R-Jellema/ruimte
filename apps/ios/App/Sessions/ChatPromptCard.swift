@@ -81,15 +81,14 @@ struct ChatPromptCard: View {
                 .padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 16)
         }
         .scrollEdgeEffectStyle(.soft, for: .bottom)
-        .frame(minHeight: 0, idealHeight: bodyHeight + actionsHeight + 44, maxHeight: bodyHeight + actionsHeight + 44)
+        .frame(minHeight: 0, idealHeight: cardHeight, maxHeight: cardHeight)
         .preference(
             key: ChatPromptHeightKey.self,
-            value: contentHeight > 0
-                ? ChatPromptHeight(requestID: (item.requestId ?? ""), height: bodyHeight + actionsHeight + 44) : nil
+            value: contentHeight > 0 ? ChatPromptHeight(requestID: item.requestId ?? "", height: cardHeight) : nil
         )
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("chat.prompt")
-        .task(id: (item.requestId ?? "")) { headingFocused = true }
+        .task(id: item.requestId ?? "") { headingFocused = true }
         .mobileSheet(isPresented: $showingFullDiff) {
             NavigationStack {
                 ScrollView { diffContent.padding() }
@@ -105,6 +104,8 @@ struct ChatPromptCard: View {
         min(contentHeight, max(120, availableHeight * (dynamicTypeSize.isAccessibilitySize ? 0.68 : 0.5)))
     }
 
+    private var cardHeight: CGFloat { bodyHeight + actionsHeight + 44 }
+
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
@@ -117,11 +118,7 @@ struct ChatPromptCard: View {
             HStack(spacing: 8) {
                 if let source {
                     HStack(spacing: 4) {
-                        if let provider = source.provider {
-                            ChatProviderMark(provider: provider, size: 12)
-                        } else {
-                            Image(lucide: "bot", size: 12)
-                        }
+                        ChatProviderMark(provider: source.provider ?? "", size: 12)
                         Text(source.label).lineLimit(1)
                     }
                     .foregroundStyle(MobileStyle.text)
@@ -387,12 +384,17 @@ extension ChatPromptCard {
     ) {
         self.init(
             prompts: prompts, item: item, connected: model.connected && !model.loading, hasDraft: hasDraft,
-            denyReason: model.providers.first(where: {
-                $0["kind"]?.stringValue == model.info?.provider
-            })?["capabilities"]?["denyReason"]?.boolValue == true,
+            denyReason: model.takesDenyReason(provider: model.info?.provider),
             availableHeight: availableHeight, source: source
         ) { action, values in
             _ = try await model.client.request(action, payload: model.target(values))
         }
+    }
+}
+
+extension ChatModel {
+    /// Whether this CLI passes a reason along with a denial, as the machine's `provider.list` says.
+    func takesDenyReason(provider: String?) -> Bool {
+        providers.first { $0["kind"]?.stringValue == provider }?["capabilities"]?["denyReason"]?.boolValue == true
     }
 }

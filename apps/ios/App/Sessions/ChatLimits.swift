@@ -175,9 +175,7 @@ struct ChatLimitBanner: View {
                         continueRow(target, now: context.date)
                     }
                 }
-                .padding(.horizontal, 14).padding(.vertical, 12)
-                .glassEffect(.regular, in: .rect(cornerRadius: 26))
-                .padding(.bottom, 10)
+                .chatDockCard(vertical: 12)
                 .accessibilityElement(children: .contain)
                 .task(id: model.info?.limit) {
                     if model.info?.limit?.kind == .usage && model.accounts?.hasChoice(model.provider) == true {

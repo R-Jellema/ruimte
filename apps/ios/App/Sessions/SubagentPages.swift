@@ -13,15 +13,21 @@ struct EndingAgents: Identifiable {
 extension View {
     func endingAgentsConfirmation(_ pending: Binding<EndingAgents?>) -> some View {
         alert(
-            pending.wrappedValue?.title ?? "",
-            isPresented: Binding(
-                get: { pending.wrappedValue != nil }, set: { if !$0 { pending.wrappedValue = nil } }),
-            presenting: pending.wrappedValue
+            pending.wrappedValue?.title ?? "", isPresented: pending.isPresent(), presenting: pending.wrappedValue
         ) { question in
             Button("Cancel", role: .cancel) {}
             Button("Stop", role: .destructive) { Task { await question.run() } }
         } message: { question in
             Text(question.message)
+        }
+    }
+
+    /// An alert with OK that shows `failure` while it holds a message.
+    func failureAlert(_ title: LocalizedStringKey, _ failure: Binding<String?>) -> some View {
+        alert(title, isPresented: failure.isPresent()) {
+            Button("OK") { failure.wrappedValue = nil }
+        } message: {
+            Text(failure.wrappedValue ?? "")
         }
     }
 }
@@ -59,14 +65,7 @@ struct SubagentListPage: View {
             SubagentConversationPage(model: model, crumb: crumb, session: session)
         }
         .endingAgentsConfirmation($ending)
-        .alert(
-            "Could not stop sub-agent",
-            isPresented: $failure.isPresent()
-        ) {
-            Button("OK") { failure = nil }
-        } message: {
-            Text(failure ?? "")
-        }
+        .failureAlert("Could not stop sub-agent", $failure)
         .modifier(HoldsChat(model: model, session: session))
     }
 
@@ -486,10 +485,7 @@ private struct SubagentComposerDock: View {
             if let chatID = prompts.subjects.first(where: { $0.item == pending })?.chatID {
                 ChatPromptCard(
                     prompts: prompts, item: pending, connected: model.connected, hasDraft: false,
-                    denyReason: model.providers.first(where: {
-                        $0["kind"]?.stringValue == delegatedProvider
-                    })?["capabilities"]?["denyReason"]?.boolValue == true,
-                    availableHeight: availableHeight
+                    denyReason: model.takesDenyReason(provider: delegatedProvider), availableHeight: availableHeight
                 ) { action, values in
                     var payload = values
                     payload["chatId"] = .string(chatID)
