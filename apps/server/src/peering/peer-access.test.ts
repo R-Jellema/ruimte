@@ -1,22 +1,17 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import type { ClientConnection } from '../dispatcher.ts';
 import { PeerLinks } from './links.ts';
 import { requirePeerLinks } from './peer-access.ts';
+import { tempHomes } from '../providers/test-helpers.ts';
 
+const newHome = tempHomes('ruimte-peer-access-');
 let home: string;
 let links: PeerLinks;
 
 beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'ruimte-peer-access-'));
+    home = await newHome();
     links = new PeerLinks(home);
     await links.load();
-});
-
-afterEach(async () => {
-    await rm(home, { recursive: true, force: true });
 });
 
 function peer(machineId: string): ClientConnection {

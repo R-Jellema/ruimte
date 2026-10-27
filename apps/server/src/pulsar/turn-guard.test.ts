@@ -26,7 +26,7 @@ describe('the werift TURN guard', () => {
         expect(isWeriftTransactionFailure(null)).toBe(false);
     });
 
-    test('logs a TURN failure and carries on, and crashes on anything else as before', () => {
+    test('logs a TURN failure and carries on, and crashes on anything else', () => {
         const listeners = new Map<string, (error: unknown) => void>();
         const warned: unknown[] = [];
         const exits: number[] = [];

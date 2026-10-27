@@ -1,22 +1,15 @@
-import { afterEach, expect, test } from 'bun:test';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { expect, test } from 'bun:test';
 import { createAnthropicClaudeApiProvider } from './anthropic-claude-api-provider.ts';
 import { AnthropicClaudeApiService } from './anthropic-claude-api-service.ts';
 import { ProviderRegistry } from './registry.ts';
+import { tempHomes } from './test-helpers.ts';
 
-const homes: string[] = [];
-afterEach(async () => {
-    await Promise.all(homes.splice(0).map((home) => rm(home, { recursive: true, force: true })));
-});
+const newHome = tempHomes('ruimte-claude-provider-');
 
 test('saving, refreshing and removing a Claude API key update the provider offered to other clients', async () => {
-    const home = await mkdtemp(join(tmpdir(), 'ruimte-claude-provider-'));
-    homes.push(home);
     let model = 'claude-sonnet-example';
     const service = new AnthropicClaudeApiService(async () => Response.json({ data: [{ id: model, display_name: model, line: 'sonnet' }] }));
-    await service.load(home);
+    await service.load(await newHome());
     const provider = createAnthropicClaudeApiProvider(service);
     const registry = new ProviderRegistry({ providers: [provider] });
     service.onChange(() => registry.invalidate('anthropic-claude-api'));

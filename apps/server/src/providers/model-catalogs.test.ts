@@ -1,11 +1,11 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { ModelCatalogData } from '@ruimte/contracts';
 import { ModelCatalog } from '@adecore/agents/providers';
 import type { ModelCatalogsResult } from '@ruimte/pulsar';
 import { ModelCatalogFeed } from './model-catalogs.ts';
+import { tempHomes } from './test-helpers.ts';
 
 const HOUR = 60 * 60 * 1000;
 
@@ -21,6 +21,7 @@ function catalogOf(updatedAt: string, slugs: string[]): ModelCatalogData {
 const SHIPPED = catalogOf('2026-09-01T00:00:00Z', ['model-a']);
 const NEWER = catalogOf('2026-09-28T00:00:00Z', ['model-a', 'model-b']);
 
+const newHome = tempHomes('ruimte-catalogs-');
 let home: string;
 let clock: number;
 let asked: number;
@@ -44,14 +45,10 @@ function feedOf(catalogs: { claude: ModelCatalog; codex?: ModelCatalog }, allowF
 }
 
 beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'ruimte-catalogs-'));
+    home = await newHome();
     clock = Date.parse('2026-09-28T12:00:00Z');
     asked = 0;
     answer = async () => ({ catalogs: { claude: NEWER } });
-});
-
-afterEach(async () => {
-    await rm(home, { recursive: true, force: true });
 });
 
 describe('ModelCatalogFeed', () => {

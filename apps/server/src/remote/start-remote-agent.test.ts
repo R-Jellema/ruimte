@@ -11,6 +11,8 @@ import type { PeerLink } from './peer-connection.ts';
 import { leadContent } from './test-helpers.ts';
 
 const MACHINE = 'machine-b';
+const STARTED = { cwd: '/studio/work', branch: null };
+const STILL_OPEN = { status: 'open', result: null, bundle: null };
 
 let root: string;
 let home: string;
@@ -52,7 +54,7 @@ beforeEach(async () => {
     requests = [];
     owed = [];
     linked = true;
-    answer = (type) => (type === 'peer.result' ? { status: 'open', result: null, bundle: null } : { cwd: '/studio/work', branch: null });
+    answer = (type) => (type === 'peer.result' ? STILL_OPEN : STARTED);
     daemon = await bootTestDaemon({
         home,
         store,
@@ -105,7 +107,7 @@ describe('agent --machine', () => {
             if (type === 'peer.taskStart') {
                 throw new Error('cli-not-installed: Claude Code is not installed on this machine');
             }
-            return { status: 'open', result: null, bundle: null };
+            return STILL_OPEN;
         };
         const [line] = await give();
         expect(line).not.toStartWith('refused');
@@ -219,11 +221,9 @@ describe('agent --machine', () => {
                     throw new Error('peer-busy: This machine already runs 4 tasks for that machine. Try again when one is done');
                 }
                 running.add(nodeId);
-                return { cwd: '/studio/work', branch: null };
+                return STARTED;
             }
-            return settled.has(nodeId)
-                ? { status: 'done', result: { text: `${nodeId} done`, source: 'turn', at: 5 }, bundle: null }
-                : { status: 'open', result: null, bundle: null };
+            return settled.has(nodeId) ? { status: 'done', result: { text: `${nodeId} done`, source: 'turn', at: 5 }, bundle: null } : STILL_OPEN;
         };
         const roles = Array.from({ length: 6 }, (_, i) => ({ title: `Role ${i}`, prompt: `Do part ${i}`, provider: 'claude' }));
         const lines = await runVerb(daemon, 'chat-lead', 'team', ['--label', 'Crew', '--task', '--machine', 'Studio', '--roles', JSON.stringify(roles)]);
@@ -262,7 +262,7 @@ describe('agent --machine', () => {
         await daemon.worker.settled();
         answer = (type, payload) => {
             if (type !== 'peer.result') {
-                return { cwd: '/studio/work', branch: null };
+                return STARTED;
             }
             if ((payload as { ack?: boolean }).ack === true) {
                 open = null;
@@ -293,7 +293,7 @@ describe('agent --machine', () => {
             if (type === 'peer.taskStart' && busy) {
                 throw new Error('peer-busy: This machine already runs 4 tasks for that machine');
             }
-            return type === 'peer.result' ? { status: 'open', result: null, bundle: null } : { cwd: '/studio/work', branch: null };
+            return type === 'peer.result' ? STILL_OPEN : STARTED;
         };
         const [line] = await give();
         const nodeId = line!.split('\t')[0]!;
@@ -338,14 +338,14 @@ describe('agent --machine', () => {
                     throw new Error('peer-busy: This machine already runs 4 tasks for that machine');
                 }
                 full = true;
-                return { cwd: '/studio/work', branch: null };
+                return STARTED;
             }
             if ((payload as { ack?: boolean }).ack === true) {
                 full = false;
             }
             return finished.has((payload as { nodeId: string }).nodeId)
                 ? { status: 'done', result: { text: 'Fixed', source: 'turn', at: 1 }, bundle: null }
-                : { status: 'open', result: null, bundle: null };
+                : STILL_OPEN;
         };
         const [first] = await give();
         const [second] = await give();
@@ -422,7 +422,7 @@ describe('agent --machine', () => {
             if (type === 'peer.taskStart' && busy) {
                 throw new Error('peer-busy: This machine already runs 4 tasks for that machine');
             }
-            return type === 'peer.result' ? { status: 'open', result: null, bundle: null } : { cwd: '/studio/work', branch: null };
+            return type === 'peer.result' ? STILL_OPEN : STARTED;
         };
         const [started] = await give();
         const startedNode = started!.split('\t')[0]!;
@@ -452,7 +452,7 @@ describe('agent --machine', () => {
                 asked.resolve();
                 return end.promise;
             }
-            return { status: 'open', result: null, bundle: null };
+            return STILL_OPEN;
         };
         return { asked: asked.promise, end };
     }
@@ -464,7 +464,7 @@ describe('agent --machine', () => {
         await start.asked;
         await daemon.remoteTasks!.leave();
         open = null;
-        start.end.resolve({ cwd: '/studio/work', branch: null });
+        start.end.resolve(STARTED);
         await daemon.worker.settled();
 
         expect(daemon.outbox.list()).toEqual([]);
@@ -538,7 +538,7 @@ describe('agent --machine', () => {
                 open = null;
                 throw new Error('The channel closed');
             }
-            return { status: 'open', result: null, bundle: null };
+            return STILL_OPEN;
         };
         owed = [];
         await daemon.remoteTasks!.giveUp(MACHINE);

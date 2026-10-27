@@ -84,11 +84,11 @@ function handlersWith(connectPeer: (entry: ConnectPeerEntry) => Promise<void>): 
         'deliver-pr-watch': unexpected,
         'run-after-settle': unexpected,
         'connect-peer': connectPeer,
-        'deliver-remote-result': () => Promise.reject(new Error('not used here')),
-        'start-remote-agent': () => Promise.reject(new Error('not used here')),
-        'stop-remote-agent': () => Promise.reject(new Error('not used here')),
-        'take-remote-result': () => Promise.reject(new Error('not used here')),
-        'routine-run': () => Promise.reject(new Error('not used here'))
+        'deliver-remote-result': unexpected,
+        'start-remote-agent': unexpected,
+        'stop-remote-agent': unexpected,
+        'take-remote-result': unexpected,
+        'routine-run': unexpected
     };
 }
 
@@ -250,13 +250,10 @@ describe('the reconnect of a link to another machine', () => {
 
         connections.open = false;
         connections.up = true;
-        let release: () => void = () => undefined;
-        const gate = new Promise<void>((resolve) => {
-            release = resolve;
-        });
+        const gate = Promise.withResolvers<void>();
         const opens = connections.connect.bind(connections);
         connections.connect = async () => {
-            await gate;
+            await gate.promise;
             const link = await opens();
             // The link is lost the moment it opened, before the attempt has ended.
             connections.open = false;
@@ -265,7 +262,7 @@ describe('the reconnect of a link to another machine', () => {
         await reconnect.owe(MACHINE);
         await Promise.resolve();
         await reconnect.owe(MACHINE);
-        release();
+        gate.resolve();
         await worker.settled();
         expect(connections.attempts).toBe(2);
         expect(connectEntries()).toEqual([]);

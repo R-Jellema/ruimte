@@ -1,18 +1,15 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, rm, stat, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { verifySignature } from '@ruimte/pulsar/verify-node';
 import { PEER_KEY_FILE, PeerKey } from './peer-key.ts';
+import { tempHomes } from '../providers/test-helpers.ts';
 
+const newHome = tempHomes('ruimte-peer-key-');
 let home: string;
 
 beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'ruimte-peer-key-'));
-});
-
-afterEach(async () => {
-    await rm(home, { recursive: true, force: true });
+    home = await newHome();
 });
 
 describe('the peer key', () => {

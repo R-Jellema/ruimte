@@ -1,6 +1,4 @@
 import { describe, expect, setSystemTime, test } from 'bun:test';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { BackendEvent, BackendLaunch } from '@adecore/agents/chat';
 import { ModelCatalog, ProviderAccountsService, ProviderRegistry, type ChatProvider } from '@adecore/agents/providers';
@@ -24,6 +22,9 @@ import {
 } from './acp-providers.ts';
 import type { AcpServerLaunch } from './acp-server.ts';
 import { ProviderRegistry as RuimteProviderRegistry } from './registry.ts';
+import { tempHomes } from './test-helpers.ts';
+
+const newHome = tempHomes('ruimte-acp-providers-');
 
 const GROK_SESSION_MODES = ['default', 'plan', 'ask'];
 
@@ -243,7 +244,7 @@ describe('Copilot', () => {
     });
 
     test("a turn's usage is logged in the machine's folder and shows on the usage page under Copilot", async () => {
-        const home = await mkdtemp(join(tmpdir(), 'copilot-usage-'));
+        const home = await newHome();
         setSystemTime(Date.UTC(2026, 9, 1, 12));
         try {
             const copilot = new RuimteProviderRegistry({ home, detect: async () => ({ installed: true, version: '1.0.0' }) }).get('copilot');
@@ -266,7 +267,6 @@ describe('Copilot', () => {
             expect(summary.models[0]!.totals).toMatchObject({ calls: 1, input: 100, cacheRead: 1000, output: 400 });
         } finally {
             setSystemTime();
-            await rm(home, { recursive: true, force: true });
         }
     });
 });
@@ -325,27 +325,23 @@ describe('Antigravity', () => {
     });
 
     test('offers a second account, signed in from its chat, in a GEMINI_HOME of its own', async () => {
-        const home = await mkdtemp(join(tmpdir(), 'ruimte-antigravity-'));
-        try {
-            const accounts = new ProviderAccountsService({
-                home,
-                providers: new ProviderRegistry({
-                    providers: [grokProvider, createAntigravityProvider(installed)],
-                    detect: async () => ({ installed: true, version: null })
-                }),
-                env: { HOME: home },
-                secrets: null,
-                folderExists: () => true
-            });
-            await accounts.load();
-            expect(accounts.snapshot()).toMatchObject({ loginCommands: { grok: 'grok login' }, chatLogins: ['antigravity'] });
-            const created = await accounts.create({ kind: 'antigravity', label: 'Work' });
-            const folder = join(home, 'accounts', created.id);
-            expect(created.accounts[created.id]).toEqual({ kind: 'antigravity', label: 'Work', home: folder });
-            expect(accounts.envFor('antigravity', created.id, { HOME: home }).GEMINI_HOME).toBe(folder);
-        } finally {
-            await rm(home, { recursive: true, force: true });
-        }
+        const home = await newHome();
+        const accounts = new ProviderAccountsService({
+            home,
+            providers: new ProviderRegistry({
+                providers: [grokProvider, createAntigravityProvider(installed)],
+                detect: async () => ({ installed: true, version: null })
+            }),
+            env: { HOME: home },
+            secrets: null,
+            folderExists: () => true
+        });
+        await accounts.load();
+        expect(accounts.snapshot()).toMatchObject({ loginCommands: { grok: 'grok login' }, chatLogins: ['antigravity'] });
+        const created = await accounts.create({ kind: 'antigravity', label: 'Work' });
+        const folder = join(home, 'accounts', created.id);
+        expect(created.accounts[created.id]).toEqual({ kind: 'antigravity', label: 'Work', home: folder });
+        expect(accounts.envFor('antigravity', created.id, { HOME: home }).GEMINI_HOME).toBe(folder);
     });
 
     test("each runtime mode names the server's own mode, the two between sharing auto_edit", () => {

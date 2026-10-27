@@ -7,7 +7,7 @@ import { admitClient } from '../auth/test-admit.ts';
 import { Handshake } from '../auth/handshake.ts';
 import { generateKeyPair, signMessage } from '../auth/keys.ts';
 import { HIGH_WATER_MARK } from '../backpressure.ts';
-import { connectionOpener, type ConnectionServices } from '../connection.ts';
+import { connectionOpener } from '../connection.ts';
 import { Dispatcher, type ClientAccess } from '../dispatcher.ts';
 import { authenticateChannel } from './channel-auth.ts';
 import { AUTHENTICATED_FRAME_CHARS, type DirectChannel } from './data-channel.ts';
@@ -25,6 +25,7 @@ import {
     type SignalEnvelope
 } from '@ruimte/pulsar';
 import { StatementGate } from './statement.ts';
+import { servicesWith, signedSignal } from './test-helpers.ts';
 import { verifySignature } from '@ruimte/pulsar/verify-node';
 
 /*
@@ -47,7 +48,7 @@ const logged: string[] = [];
 const clients: DirectClient[] = [];
 const proofFrames: string[] = [];
 
-const noSource = { subscribe: () => () => undefined, detachAll: () => undefined };
+const logger = { log: (...parts: unknown[]) => logged.push(parts.join(' ')), warn: (...parts: unknown[]) => logged.push(parts.join(' ')) };
 
 beforeAll(async () => {
     home = await mkdtemp(join(tmpdir(), 'ruimte-direct-'));
@@ -59,27 +60,13 @@ beforeAll(async () => {
         'endpoint.info',
         (_payload, client) => ({ reachability: client.access?.reachability, authenticated: client.access?.sessionId !== null }) as never
     );
-    const services = {
-        dispatcher,
-        sessions: { ...noSource, get: () => undefined },
-        chats: noSource,
-        identity: noSource,
-        projects: noSource,
-        drawings: noSource,
-        diagrams: noSource,
-        folders: noSource,
-        statuses: noSource,
-        usage: noSource,
-        limits: noSource,
-        processes: noSource
-    } as unknown as ConnectionServices;
-    const openConnection = connectionOpener(services);
+    const openConnection = connectionOpener(servicesWith(dispatcher));
     peers = new DirectPeers({
         iceServers: () => [],
         portRange: null,
         hostAddresses: [],
         attemptTimeoutMs: 10_000,
-        log: { log: (...parts: unknown[]) => logged.push(parts.join(' ')), warn: (...parts: unknown[]) => logged.push(parts.join(' ')) },
+        log: logger,
         authenticate: (channel, binding) => {
             const receiveWith = channel.receiveWith.bind(channel);
             const observed = {
@@ -251,7 +238,7 @@ describe('a direct connection', () => {
             portRange: null,
             hostAddresses: [],
             attemptTimeoutMs: 300,
-            log: { log: (...parts: unknown[]) => logged.push(parts.join(' ')), warn: (...parts: unknown[]) => logged.push(parts.join(' ')) },
+            log: logger,
             authenticate: async () => null,
             open: () => undefined
         });
@@ -332,15 +319,7 @@ async function throughDoor(key: { publicKey: string; privateKey: string }): Prom
     await proven;
     client = connect(
         { kind: 'key', publicKey: key.publicKey, privateKey: key.privateKey, daemonId: DAEMON_ID, daemonPublicKey: daemonKey.publicKey },
-        (_client, envelope: SignalEnvelope) =>
-            socket.send(
-                JSON.stringify({
-                    type: 'signal',
-                    from: key.publicKey,
-                    envelope,
-                    signature: signMessage(key.privateKey, signalMessage(key.publicKey, daemonKey.publicKey, envelope))
-                })
-            )
+        (_client, envelope: SignalEnvelope) => socket.send(JSON.stringify({ type: 'signal', ...signedSignal(key, daemonKey.publicKey, envelope) }))
     );
     return { client, socket };
 }
@@ -421,13 +400,10 @@ describe('a machine of the account working here as a peer', () => {
             },
             timeoutMs: 10_000,
             ...(access === null ? {} : { access: { peer: access, label: 'Studio' } }),
-            signal: (envelope) =>
-                void gate.accept(
-                    peerKey.publicKey,
-                    envelope,
-                    signMessage(peerKey.privateKey, signalMessage(peerKey.publicKey, daemonKey.publicKey, envelope)),
-                    (reply) => client.receiveSignal(reply)
-                )
+            signal: (envelope) => {
+                const signal = signedSignal(peerKey, daemonKey.publicKey, envelope);
+                void gate.accept(signal.from, signal.envelope, signal.signature, (reply) => client.receiveSignal(reply));
+            }
         });
         clients.push(client);
         return client;

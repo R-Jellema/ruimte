@@ -1,13 +1,13 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import { existsSync } from 'node:fs';
-import { mkdir, mkdtemp, readdir, rm, stat, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir, readdir, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { AgentKind } from '@ruimte/contracts';
 import type { ChatProvider } from '@adecore/agents/providers';
 import { isMachineStatePath } from '../fs/machine-home.ts';
 import { sha256, tarGz, zip } from '../language/test-archives.ts';
 import { AcpRegistry } from './acp-registry.ts';
+import { tempHomes } from './test-helpers.ts';
 import { RegistryAgents, npmBin, packageName, relativeCommand, type InstallRun } from './registry-agents.ts';
 
 const ZIP = zip([{ path: 'bin/agent', text: '#!/bin/sh\n', mode: 0o644 }]);
@@ -44,6 +44,7 @@ const TARRED = {
 
 const NPM = { id: 'kilo', name: 'Kilo', version: '7.8.15', distribution: { npx: { package: '@kilocode/cli@7.8.15', args: ['acp'] } } };
 
+const newHome = tempHomes('ruimte-registry-agents-');
 let home: string;
 let document: unknown;
 let downloads: Record<string, Uint8Array>;
@@ -51,15 +52,11 @@ let ran: string[][];
 let offered: Map<AgentKind, ChatProvider>;
 
 beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'ruimte-registry-agents-'));
+    home = await newHome();
     document = documentWith([ZIPPED(sha256(ZIP)), TARRED, NPM]);
     downloads = { 'https://example.test/agent.zip': ZIP, 'https://example.test/goose.tar.gz': TAR };
     ran = [];
     offered = new Map();
-});
-
-afterEach(async () => {
-    await rm(home, { recursive: true, force: true });
 });
 
 const npmInstall: InstallRun = async (command) => {

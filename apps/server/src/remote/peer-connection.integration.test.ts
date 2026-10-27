@@ -7,7 +7,7 @@ import { peerStatementMessage, type PeerStatement } from '@ruimte/pulsar';
 import { AuthStore } from '../auth/auth-store.ts';
 import { Handshake } from '../auth/handshake.ts';
 import { generateKeyPair, signMessage } from '../auth/keys.ts';
-import { connectionOpener, type ConnectionServices } from '../connection.ts';
+import { connectionOpener } from '../connection.ts';
 import { Dispatcher, type ClientAccess } from '../dispatcher.ts';
 import { BrokerRelay } from '../pulsar/broker-relay.ts';
 import { authenticateChannel } from '../pulsar/channel-auth.ts';
@@ -15,11 +15,13 @@ import { AUTHENTICATED_FRAME_CHARS, type DirectChannel } from '../pulsar/data-ch
 import { DirectPeers } from '../pulsar/peers.ts';
 import { SignalGate } from '../pulsar/signal-gate.ts';
 import { StatementGate } from '../pulsar/statement.ts';
+import { servicesWith } from '../pulsar/test-helpers.ts';
 import { PeerKey } from './peer-key.ts';
 import { PeerMachines } from './peer-machines.ts';
 import { PendingAdmissions } from './pending-admissions.ts';
 import { RemoteConnections, brokerDialer } from './remote-connections.ts';
 import { RemoteStatus } from './remote-status.ts';
+import { startBroker, waitFor } from './test-helpers.ts';
 
 /*
  * Both machines in one process: B the way `network.ts` wires it (the relay on a real broker, the gate
@@ -47,33 +49,8 @@ let connections: RemoteConnections;
 const opened: Array<{ channel: DirectChannel; access: ClientAccess }> = [];
 const heard: string[] = [];
 
-const noSource = { subscribe: () => () => undefined, detachAll: () => undefined };
-
-async function freePort(): Promise<number> {
-    const server = Bun.serve({ port: 0, fetch: () => new Response('') });
-    const { port } = server;
-    await server.stop(true);
-    return port!;
-}
-
-async function waitFor(label: string, ready: () => boolean | Promise<boolean>, timeoutMs = 15_000): Promise<void> {
-    const deadline = Date.now() + timeoutMs;
-    while (!(await ready())) {
-        if (Date.now() > deadline) {
-            throw new Error(`Timed out waiting for ${label}`);
-        }
-        await Bun.sleep(20);
-    }
-}
-
 beforeAll(async () => {
-    const port = await freePort();
-    broker = Bun.spawn(['bun', join(import.meta.dir, '..', '..', '..', 'pulsar-broker', 'src', 'main.ts'), '--port', String(port)], {
-        stdout: 'ignore',
-        stderr: 'inherit'
-    });
-    brokerUrl = `ws://127.0.0.1:${port}`;
-    await waitFor('the broker to answer', async () => (await fetch(`http://127.0.0.1:${port}/health`).catch(() => null))?.ok === true);
+    ({ broker, url: brokerUrl } = await startBroker());
 
     homeA = await mkdtemp(join(tmpdir(), 'ruimte-peer-a-'));
     homeB = await mkdtemp(join(tmpdir(), 'ruimte-peer-b-'));
@@ -85,21 +62,7 @@ beforeAll(async () => {
     dispatcher.register('server.ping', () => ({ time: Date.now() }), { peer: true });
     dispatcher.register('fs.read', () => ({}) as never);
     dispatcher.register('peer.result', () => ({ status: 'done', result: 'not a result', bundle: null }) as never, { peer: true });
-    const services = {
-        dispatcher,
-        sessions: { ...noSource, get: () => undefined },
-        chats: noSource,
-        identity: noSource,
-        projects: noSource,
-        drawings: noSource,
-        diagrams: noSource,
-        folders: noSource,
-        statuses: noSource,
-        usage: noSource,
-        limits: noSource,
-        processes: noSource
-    } as unknown as ConnectionServices;
-    const openConnection = connectionOpener(services);
+    const openConnection = connectionOpener(servicesWith(dispatcher));
     peers = new DirectPeers({
         iceServers: () => [],
         portRange: null,
@@ -224,7 +187,7 @@ describe('the link of one machine to another, over a real broker', () => {
 
     test('notices when the other machine closes the channel, and is refused once its key was revoked', async () => {
         await admitPeer();
-        const link = await connections.connect(MACHINE_ID);
+        await connections.connect(MACHINE_ID);
         const lost: string[] = [];
         connections.onLost((machineId) => lost.push(machineId));
         const sessionId = (await store.sessionForPublicKey(await peerKey.publicKey()))!;
@@ -232,7 +195,6 @@ describe('the link of one machine to another, over a real broker', () => {
         opened.at(-1)!.channel.close(4001, 'Access revoked');
         await waitFor('the link to notice', () => lost.length > 0);
         expect(connections.isOpen(MACHINE_ID)).toBe(false);
-        expect(link).toBeDefined();
 
         await expect(connections.connect(MACHINE_ID)).rejects.toThrow();
         pending.hold(await statement('after-revoke-nonce'.padEnd(22, 'n')));

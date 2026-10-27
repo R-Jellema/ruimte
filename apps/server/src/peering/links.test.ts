@@ -1,17 +1,14 @@
-import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { mkdtemp, readdir, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, expect, test } from 'bun:test';
+import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { PeerLinks } from './links.ts';
+import { tempHomes } from '../providers/test-helpers.ts';
 
+const newHome = tempHomes('ruimte-links-');
 let home: string;
 
 beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'ruimte-links-'));
-});
-
-afterEach(async () => {
-    await rm(home, { recursive: true, force: true });
+    home = await newHome();
 });
 
 test('a folder with a very long path is recorded, and is still known after a restart', async () => {

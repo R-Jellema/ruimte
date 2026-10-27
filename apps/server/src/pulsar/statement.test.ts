@@ -10,7 +10,6 @@ import {
     accessStatementMessage,
     accessStatementV2Message,
     peerStatementMessage,
-    signalMessage,
     type AccessStatement,
     type PeerStatement,
     type SignalAccess,
@@ -21,6 +20,7 @@ import { Handshake } from '../auth/handshake.ts';
 import { PeerLinks } from '../peering/links.ts';
 import { generateKeyPair, signMessage } from '../auth/keys.ts';
 import { SignalGate } from './signal-gate.ts';
+import { signedSignal } from './test-helpers.ts';
 import { STATEMENT_CLOCK_SKEW_MS, StatementGate, TEST_STATEMENT_KEY_VARIABLE, checkPeerStatement, checkStatement, trustedStatementKeys } from './statement.ts';
 
 const MACHINE_ID = 'machine-under-test';
@@ -128,6 +128,95 @@ describe('trustedStatementKeys', () => {
     test('a compiled daemon never takes a test key, and something that is not a key is ignored', () => {
         expect(trustedStatementKeys({ [TEST_STATEMENT_KEY_VARIABLE]: testKey }, true)).toBe(PULSAR_STATEMENT_PUBLIC_KEYS);
         expect(trustedStatementKeys({ [TEST_STATEMENT_KEY_VARIABLE]: 'not-a-key' }, false)).toBe(PULSAR_STATEMENT_PUBLIC_KEYS);
+    });
+});
+
+// The machine that works here, as the account lists it.
+const peerMachine = generateKeyPair();
+
+/* A peer statement as the address book signs it: both machine keys, the account and the peer key. */
+function peerStatementFor(peerPublicKey: string, accountId: string, overrides: Partial<PeerStatement> = {}, signer = addressBook): PeerStatement {
+    const base = {
+        machineId: MACHINE_ID,
+        machinePublicKey: machine.publicKey,
+        accountId,
+        peerPublicKey,
+        peerMachineId: 'machine-a',
+        peerMachinePublicKey: peerMachine.publicKey,
+        nonce: `peer-nonce-${Math.random().toString(36).slice(2)}-${'n'.repeat(16)}`,
+        issuedAt: NOW,
+        expiresAt: NOW + 600_000,
+        ...overrides
+    };
+    return {
+        ...base,
+        signature: signMessage(
+            signer.privateKey,
+            peerStatementMessage(
+                base.machineId,
+                base.machinePublicKey,
+                base.accountId,
+                base.peerPublicKey,
+                base.peerMachineId,
+                base.peerMachinePublicKey,
+                base.nonce,
+                base.issuedAt,
+                base.expiresAt
+            )
+        )
+    };
+}
+
+describe('checkPeerStatement', () => {
+    const peer = generateKeyPair();
+    const expected = {
+        machineId: MACHINE_ID,
+        machinePublicKey: machine.publicKey,
+        clientPublicKey: peer.publicKey,
+        trustedKeys: [addressBook.publicKey],
+        now: NOW + 1_000
+    };
+
+    test('a peer statement for this machine and this key, inside its ten minutes, holds', () => {
+        expect(checkPeerStatement(peerStatementFor(peer.publicKey, 'owner'), expected)).toBeNull();
+        const statement = peerStatementFor(peer.publicKey, 'owner');
+        expect(checkPeerStatement(statement, { ...expected, now: statement.expiresAt + STATEMENT_CLOCK_SKEW_MS })).toBeNull();
+        expect(checkPeerStatement(statement, { ...expected, now: statement.expiresAt + STATEMENT_CLOCK_SKEW_MS + 1 })).toBe('expired');
+        expect(checkPeerStatement(statement, { ...expected, now: statement.issuedAt - STATEMENT_CLOCK_SKEW_MS - 1 })).toBe('not-yet-valid');
+    });
+
+    test('is refused for another machine, another machine key or another offering key', () => {
+        expect(checkPeerStatement(peerStatementFor(peer.publicKey, 'owner', { machineId: 'next-door' }), expected)).toBe('wrong-machine');
+        expect(checkPeerStatement(peerStatementFor(peer.publicKey, 'owner', { machinePublicKey: generateKeyPair().publicKey }), expected)).toBe(
+            'wrong-machine-key'
+        );
+        expect(checkPeerStatement(peerStatementFor(generateKeyPair().publicKey, 'owner'), expected)).toBe('wrong-key');
+    });
+
+    test('is refused when the peer is this machine itself, by id or by either key', () => {
+        expect(checkPeerStatement(peerStatementFor(peer.publicKey, 'owner', { peerMachineId: MACHINE_ID }), expected)).toBe('wrong-peer');
+        expect(checkPeerStatement(peerStatementFor(peer.publicKey, 'owner', { peerMachinePublicKey: machine.publicKey }), expected)).toBe('wrong-peer');
+        expect(checkPeerStatement(peerStatementFor(machine.publicKey, 'owner'), { ...expected, clientPublicKey: machine.publicKey })).toBe('wrong-peer');
+    });
+
+    test('is refused when signed by anyone but a trusted key, or changed after signing', () => {
+        expect(checkPeerStatement(peerStatementFor(peer.publicKey, 'owner', {}, generateKeyPair()), expected)).toBe('bad-signature');
+        expect(checkPeerStatement({ ...peerStatementFor(peer.publicKey, 'owner'), accountId: 'attacker' }, expected)).toBe('bad-signature');
+        expect(checkPeerStatement({ ...peerStatementFor(peer.publicKey, 'owner'), peerMachineId: 'machine-z' }, expected)).toBe('bad-signature');
+    });
+
+    test('a client statement does not verify as a peer statement, and the other way round', () => {
+        const key = generateKeyPair();
+        const client = statementV2For(key.publicKey, 'owner');
+        const asPeer = { ...peerStatementFor(key.publicKey, 'owner'), signature: client.signature };
+        expect(checkPeerStatement(asPeer, { ...expected, clientPublicKey: key.publicKey })).toBe('bad-signature');
+        const peerSigned = peerStatementFor(key.publicKey, 'owner');
+        expect(
+            checkStatement(
+                { ...client, signature: peerSigned.signature, accountSignature: peerSigned.signature },
+                { ...expected, clientPublicKey: key.publicKey }
+            )
+        ).toBe('bad-signature');
     });
 });
 
@@ -305,126 +394,8 @@ describe('StatementGate', () => {
         await store.leaveAccount();
         expect(await new AuthStore(home, () => now).accountBinding()).toBeNull();
     });
-});
-
-// The machine that works here, as the account lists it.
-const peerMachine = generateKeyPair();
-
-/* A peer statement as the address book signs it: both machine keys, the account and the peer key. */
-function peerStatementFor(peerPublicKey: string, accountId: string, overrides: Partial<PeerStatement> = {}, signer = addressBook): PeerStatement {
-    const base = {
-        machineId: MACHINE_ID,
-        machinePublicKey: machine.publicKey,
-        accountId,
-        peerPublicKey,
-        peerMachineId: 'machine-a',
-        peerMachinePublicKey: peerMachine.publicKey,
-        nonce: `peer-nonce-${Math.random().toString(36).slice(2)}-${'n'.repeat(16)}`,
-        issuedAt: NOW,
-        expiresAt: NOW + 600_000,
-        ...overrides
-    };
-    return {
-        ...base,
-        signature: signMessage(
-            signer.privateKey,
-            peerStatementMessage(
-                base.machineId,
-                base.machinePublicKey,
-                base.accountId,
-                base.peerPublicKey,
-                base.peerMachineId,
-                base.peerMachinePublicKey,
-                base.nonce,
-                base.issuedAt,
-                base.expiresAt
-            )
-        )
-    };
-}
-
-describe('checkPeerStatement', () => {
-    const peer = generateKeyPair();
-    const expected = {
-        machineId: MACHINE_ID,
-        machinePublicKey: machine.publicKey,
-        clientPublicKey: peer.publicKey,
-        trustedKeys: [addressBook.publicKey],
-        now: NOW + 1_000
-    };
-
-    test('a peer statement for this machine and this key, inside its ten minutes, holds', () => {
-        expect(checkPeerStatement(peerStatementFor(peer.publicKey, 'owner'), expected)).toBeNull();
-        const statement = peerStatementFor(peer.publicKey, 'owner');
-        expect(checkPeerStatement(statement, { ...expected, now: statement.expiresAt + STATEMENT_CLOCK_SKEW_MS })).toBeNull();
-        expect(checkPeerStatement(statement, { ...expected, now: statement.expiresAt + STATEMENT_CLOCK_SKEW_MS + 1 })).toBe('expired');
-        expect(checkPeerStatement(statement, { ...expected, now: statement.issuedAt - STATEMENT_CLOCK_SKEW_MS - 1 })).toBe('not-yet-valid');
-    });
-
-    test('is refused for another machine, another machine key or another offering key', () => {
-        expect(checkPeerStatement(peerStatementFor(peer.publicKey, 'owner', { machineId: 'next-door' }), expected)).toBe('wrong-machine');
-        expect(checkPeerStatement(peerStatementFor(peer.publicKey, 'owner', { machinePublicKey: generateKeyPair().publicKey }), expected)).toBe(
-            'wrong-machine-key'
-        );
-        expect(checkPeerStatement(peerStatementFor(generateKeyPair().publicKey, 'owner'), expected)).toBe('wrong-key');
-    });
-
-    test('is refused when the peer is this machine itself, by id or by either key', () => {
-        expect(checkPeerStatement(peerStatementFor(peer.publicKey, 'owner', { peerMachineId: MACHINE_ID }), expected)).toBe('wrong-peer');
-        expect(checkPeerStatement(peerStatementFor(peer.publicKey, 'owner', { peerMachinePublicKey: machine.publicKey }), expected)).toBe('wrong-peer');
-        expect(checkPeerStatement(peerStatementFor(machine.publicKey, 'owner'), { ...expected, clientPublicKey: machine.publicKey })).toBe('wrong-peer');
-    });
-
-    test('is refused when signed by anyone but a trusted key, or changed after signing', () => {
-        expect(checkPeerStatement(peerStatementFor(peer.publicKey, 'owner', {}, generateKeyPair()), expected)).toBe('bad-signature');
-        expect(checkPeerStatement({ ...peerStatementFor(peer.publicKey, 'owner'), accountId: 'attacker' }, expected)).toBe('bad-signature');
-        expect(checkPeerStatement({ ...peerStatementFor(peer.publicKey, 'owner'), peerMachineId: 'machine-z' }, expected)).toBe('bad-signature');
-    });
-
-    test('a client statement does not verify as a peer statement, and the other way round', () => {
-        const key = generateKeyPair();
-        const client = statementV2For(key.publicKey, 'owner');
-        const asPeer = { ...peerStatementFor(key.publicKey, 'owner'), signature: client.signature };
-        expect(checkPeerStatement(asPeer, { ...expected, clientPublicKey: key.publicKey })).toBe('bad-signature');
-        const peerSigned = peerStatementFor(key.publicKey, 'owner');
-        expect(
-            checkStatement(
-                { ...client, signature: peerSigned.signature, accountSignature: peerSigned.signature },
-                { ...expected, clientPublicKey: key.publicKey }
-            )
-        ).toBe('bad-signature');
-    });
-});
-
-describe('StatementGate and a peer', () => {
-    let home: string;
-    let store: AuthStore;
-    let now: number;
-    let warnings: string[];
-
-    const gate = (): StatementGate =>
-        new StatementGate({
-            machineId: MACHINE_ID,
-            machinePublicKey: machine.publicKey,
-            trustedKeys: [addressBook.publicKey],
-            store,
-            now: () => now,
-            log: { log: () => undefined, warn: (line: string) => warnings.push(line) }
-        });
 
     const offer = (statement: PeerStatement, label = 'Studio'): SignalOfferAccess => ({ peer: statement, label });
-    const access = (statement: AccessStatement, label = 'Laptop'): SignalAccess => ({ statement, label });
-
-    beforeEach(async () => {
-        home = await mkdtemp(join(tmpdir(), 'ruimte-peer-statement-'));
-        store = new AuthStore(home, () => now);
-        now = NOW + 1_000;
-        warnings = [];
-    });
-
-    afterEach(async () => {
-        await rm(home, { recursive: true, force: true });
-    });
 
     test('a good peer statement lets the key in as a peer of that machine, listed as a machine and as a statement', async () => {
         await store.bindAccount('owner');
@@ -595,12 +566,8 @@ describe('StatementGate and a peer', () => {
         });
         const send = (connectionId: string, access?: SignalOfferAccess) => {
             const envelope = { connectionId, signal: { kind: 'offer' as const, sdp: 'v=0', ...(access === undefined ? {} : { access }) } };
-            return signals.accept(
-                peer.publicKey,
-                envelope,
-                signMessage(peer.privateKey, signalMessage(peer.publicKey, machine.publicKey, envelope)),
-                () => undefined
-            );
+            const signal = signedSignal(peer, machine.publicKey, envelope);
+            return signals.accept(signal.from, signal.envelope, signal.signature, () => undefined);
         };
 
         now += PEER_ATTESTATION_TTL_MS - 5 * 24 * 60 * 60 * 1000;

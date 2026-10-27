@@ -1,6 +1,5 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { isCanvasView, type PeerTaskStartPayload, type ProjectCanvasView, type ProjectContent } from '@ruimte/contracts';
 import { AgentLineageStore, TaskStore } from '@adecore/agents/coordination';
@@ -10,11 +9,15 @@ import type { OutboxEntry, OutboxWork } from '../outbox/outbox.ts';
 import { BundleStore } from '../git/bundles.ts';
 import type { FirstPrompt } from '../agents/pending-prompts.ts';
 import { taskFirstPrompt } from '../canvas/tasks.ts';
+import { tempHomes } from '../providers/test-helpers.ts';
 import { PeerLinks, peerCanvasId } from './links.ts';
 import { PEER_MAX_BRANCH_LENGTH, PEER_MAX_WORKTREES, PeerTasks, peerCaller, type PeerTasksDeps } from './peer-tasks.ts';
 
 const MACHINE = 'machine-a';
 const PROJECT = 'project-1';
+const newHome = tempHomes('ruimte-peer-tasks-');
+const LONG_BRANCH = 'b'.repeat(PEER_MAX_BRANCH_LENGTH + 1);
+const PIECE = Buffer.from('abcd').toString('base64');
 
 let home: string;
 let content: ProjectContent;
@@ -108,7 +111,7 @@ function start(overrides: Partial<PeerTaskStartPayload> = {}): PeerTaskStartPayl
 }
 
 beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'ruimte-peer-tasks-'));
+    home = await newHome();
     lineage = new AgentLineageStore(home);
     tasks = new TaskStore(home);
     await Promise.all([lineage.load(), tasks.load()]);
@@ -124,10 +127,6 @@ beforeEach(async () => {
     failEnqueue = false;
     held = [];
     letGo = [];
-});
-
-afterEach(async () => {
-    await rm(home, { recursive: true, force: true });
 });
 
 function startEntry(): Extract<OutboxWork, { kind: 'start-agent' }>['payload'] {
@@ -290,7 +289,7 @@ describe('starting a task for another machine', () => {
         test('a branch past the limit is refused before anything is fetched, and the copy that came in is dropped', async () => {
             const { peerTasks, bundles } = withBundles();
             await bundles.receive(bundle.bundleId, 0, new Uint8Array(4), 4);
-            await expect(peerTasks.start(MACHINE, 'client-1', start({ bundle, branch: 'b'.repeat(PEER_MAX_BRANCH_LENGTH + 1) }))).rejects.toMatchObject({
+            await expect(peerTasks.start(MACHINE, 'client-1', start({ bundle, branch: LONG_BRANCH }))).rejects.toMatchObject({
                 code: 'branch-too-long'
             });
             expect(await Bun.file(bundles.incomingPathOf(bundle.bundleId)).exists()).toBe(false);
@@ -300,19 +299,19 @@ describe('starting a task for another machine', () => {
         test('a transfer that broke off with its channel is dropped, but not one the reconnected channel began under the same id', async () => {
             const { peerTasks, bundles } = withBundles();
             const piece = (clientId: string, offset: number): Promise<number> =>
-                peerTasks.bundlePut(MACHINE, clientId, { bundleId: bundle.bundleId, offset, data: Buffer.from('abcd').toString('base64'), total: 8 });
+                peerTasks.bundlePut(MACHINE, clientId, { bundleId: bundle.bundleId, offset, data: PIECE, total: 8 });
             await piece('client-1', 0);
             peerTasks.channelClosed('client-1');
             // The channel is back and starts the transfer over before the drop of the old one ran.
             await piece('client-2', 0);
             // Behind the drop in the machine's queue.
-            await expect(peerTasks.start(MACHINE, 'client-2', start({ branch: 'b'.repeat(PEER_MAX_BRANCH_LENGTH + 1) }))).rejects.toMatchObject({
+            await expect(peerTasks.start(MACHINE, 'client-2', start({ branch: LONG_BRANCH }))).rejects.toMatchObject({
                 code: 'branch-too-long'
             });
             expect(await Bun.file(bundles.incomingPathOf(bundle.bundleId)).exists()).toBe(true);
 
             peerTasks.channelClosed('client-2');
-            await expect(peerTasks.start(MACHINE, 'client-2', start({ branch: 'b'.repeat(PEER_MAX_BRANCH_LENGTH + 1) }))).rejects.toMatchObject({
+            await expect(peerTasks.start(MACHINE, 'client-2', start({ branch: LONG_BRANCH }))).rejects.toMatchObject({
                 code: 'branch-too-long'
             });
             expect(await Bun.file(bundles.incomingPathOf(bundle.bundleId)).exists()).toBe(false);
@@ -321,16 +320,16 @@ describe('starting a task for another machine', () => {
                 { bundleId: 'partial', total: 8 }
             ];
             for (const item of incoming) {
-                expect(await peerTasks.bundlePut(MACHINE, 'client-3', { ...item, offset: 0, data: Buffer.from('abcd').toString('base64') })).toBe(4);
+                expect(await peerTasks.bundlePut(MACHINE, 'client-3', { ...item, offset: 0, data: PIECE })).toBe(4);
                 expect(await Bun.file(bundles.incomingPathOf(item.bundleId)).exists()).toBe(true);
             }
             peerTasks.channelClosed('client-3');
-            await expect(peerTasks.start(MACHINE, 'client-4', start({ branch: 'b'.repeat(PEER_MAX_BRANCH_LENGTH + 1) }))).rejects.toMatchObject({
+            await expect(peerTasks.start(MACHINE, 'client-4', start({ branch: LONG_BRANCH }))).rejects.toMatchObject({
                 code: 'branch-too-long'
             });
             for (const item of incoming) {
                 expect(await Bun.file(bundles.incomingPathOf(item.bundleId)).exists()).toBe(false);
-                expect(await peerTasks.bundlePut(MACHINE, 'client-4', { ...item, offset: 0, data: Buffer.from('abcd').toString('base64') })).toBe(4);
+                expect(await peerTasks.bundlePut(MACHINE, 'client-4', { ...item, offset: 0, data: PIECE })).toBe(4);
             }
         });
 
@@ -381,7 +380,8 @@ describe('starting a task for another machine', () => {
         await expect(new PeerTasks(deps()).start(MACHINE, 'client-1', start())).rejects.toMatchObject({ code: 'peer-node-taken' });
     });
 
-    test('a settled task owes its machine the result once, and an acknowledgment ends the debt', async () => {
+    // Keeps what the outbox is owed in `owed`, the way the real one does, and what it lets go of in `removed`.
+    const withOutbox = () => {
         const owed: OutboxEntry[] = [];
         const removed: string[] = [];
         const peerTasks = new PeerTasks({
@@ -392,6 +392,11 @@ describe('starting a task for another machine', () => {
                 owed.push({ ...work, id: `entry-${owed.length}`, projectId, target, createdAt: 0, attempts: 0, notBefore: 0 } as OutboxEntry);
             }
         });
+        return { peerTasks, owed, removed };
+    };
+
+    test('a settled task owes its machine the result once, and an acknowledgment ends the debt', async () => {
+        const { peerTasks, owed, removed } = withOutbox();
         tasks.onChange((task) => peerTasks.changed(task));
         await peerTasks.start(MACHINE, 'client-1', start());
         const [task] = tasks.all();
@@ -411,15 +416,7 @@ describe('starting a task for another machine', () => {
     });
 
     test('unlinking lets go of the results owed for that project, and nothing owes them again', async () => {
-        const owed: OutboxEntry[] = [];
-        const removed: string[] = [];
-        const peerTasks = new PeerTasks({
-            ...deps(),
-            outbox: { list: () => owed, remove: async (id) => void removed.push(id) },
-            enqueue: async (projectId, target, work) => {
-                owed.push({ ...work, id: `entry-${owed.length}`, projectId, target, createdAt: 0, attempts: 0, notBefore: 0 } as OutboxEntry);
-            }
-        });
+        const { peerTasks, owed, removed } = withOutbox();
         tasks.onChange((task) => peerTasks.changed(task));
         await peerTasks.start(MACHINE, 'client-1', start());
         const [task] = tasks.all();

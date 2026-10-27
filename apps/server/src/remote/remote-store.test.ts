@@ -1,18 +1,15 @@
-import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, expect, test } from 'bun:test';
+import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { ProjectCanvasView, ProjectContent } from '@ruimte/contracts';
 import { RemoteStore, idsOf, machinesOf, withBoundMachines, withMachines, withoutMachines } from './remote-store.ts';
+import { tempHomes } from '../providers/test-helpers.ts';
 
+const newHome = tempHomes('ruimte-remote-');
 let home: string;
 
 beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'ruimte-remote-'));
-});
-
-afterEach(async () => {
-    await rm(home, { recursive: true, force: true });
+    home = await newHome();
 });
 
 function node(id: string, machine?: string): ProjectCanvasView['nodes'][number] {

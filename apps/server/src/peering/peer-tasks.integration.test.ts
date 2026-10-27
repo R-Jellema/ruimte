@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { BYTES_CHUNK_MAX, isCanvasView, type ProjectCanvasView, type ProjectContent } from '@ruimte/contracts';
+import { BYTES_CHUNK_MAX, isCanvasView, type PeerTaskStartPayload, type ProjectCanvasView, type ProjectContent } from '@ruimte/contracts';
 import { AgentLineageStore, TaskStore } from '@adecore/agents/coordination';
 import { BundleStore, makeBundle } from '../git/bundles.ts';
 import { Checkpoints } from '../git/checkpoints.ts';
@@ -60,7 +60,6 @@ beforeEach(async () => {
         branches: () => links.peerBranches(),
         untrust: (path, branch) => links.untrustFolder(path, branch)
     });
-    const worktrees = worktreesB;
     await links.bind(A, 'Studio', PROJECT);
     peerTasks = new PeerTasks({
         links: {
@@ -97,7 +96,7 @@ beforeEach(async () => {
         stopNode: async () => undefined,
         installed: async () => ['claude'],
         exists: () => false,
-        git: () => ({ bundles: bundlesB, checkpoints: new Checkpoints(homeB), worktrees }),
+        git: () => ({ bundles: bundlesB, checkpoints: new Checkpoints(homeB), worktrees: worktreesB }),
         peerBundles: (machineId) => {
             const held = stores.get(machineId) ?? new BundleStore(homeB, machineId);
             stores.set(machineId, held);
@@ -129,9 +128,8 @@ async function sendFromA(): Promise<{ bundleId: string; sha256: string }> {
     return { bundleId: made.bundleId, sha256: made.sha256 };
 }
 
-test('the files of the other machine land in a worktree, and what the agent does there comes back to that machine only', async () => {
-    const bundle = await sendFromA();
-    const started = await peerTasks.start(A, 'client-1', {
+function startFromA(bundle: { bundleId: string; sha256: string }, overrides: Partial<PeerTaskStartPayload> = {}) {
+    return peerTasks.start(A, 'client-1', {
         projectId: PROJECT,
         nodeId: 'chat-one',
         parentId: 'chat-parent',
@@ -141,8 +139,14 @@ test('the files of the other machine land in a worktree, and what the agent does
         ceiling: 'full-access',
         depth: 1,
         bundle,
-        branch: 'fix-it'
+        branch: 'fix-it',
+        ...overrides
     });
+}
+
+test('the files of the other machine land in a worktree, and what the agent does there comes back to that machine only', async () => {
+    const bundle = await sendFromA();
+    const started = await startFromA(bundle);
     expect(started.cwd).not.toBe(repoB);
     expect(started.branch).toBe('ruimte/fix-it');
     expect(untrustedAt).toContainEqual({ cwd: started.cwd!, existed: false });
@@ -177,18 +181,7 @@ test('the files of the other machine land in a worktree, and what the agent does
 
 test('a worktree cut from the branch of another machine is untrusted too, and one cut from the project is not', async () => {
     const bundle = await sendFromA();
-    const started = await peerTasks.start(A, 'client-1', {
-        projectId: PROJECT,
-        nodeId: 'chat-one',
-        parentId: 'chat-parent',
-        title: 'Fix it',
-        prompt: 'Fix it',
-        provider: 'claude',
-        ceiling: 'full-access',
-        depth: 1,
-        bundle,
-        branch: 'fix-it'
-    });
+    const started = await startFromA(bundle);
     const fromBranch = await worktreesB.addFresh(repoB, 'second', { madeBy: 'verb' }, { base: started.branch! });
     const tip = (await gitIn(repoB, ['rev-parse', started.branch!])).trim();
     const fromCommit = await worktreesB.addFresh(repoB, 'third', { madeBy: 'verb' }, { base: tip });
@@ -206,38 +199,14 @@ test('a worktree cut from the branch of another machine is untrusted too, and on
 
 test('a branch name of any length the path allows still leaves a record of the folder', async () => {
     const bundle = await sendFromA();
-    const started = await peerTasks.start(A, 'client-1', {
-        projectId: PROJECT,
-        nodeId: 'chat-one',
-        parentId: 'chat-parent',
-        title: 'Fix it',
-        prompt: 'Fix it',
-        provider: 'claude',
-        ceiling: 'full-access',
-        depth: 1,
-        bundle,
-        branch: 'b'.repeat(PEER_MAX_BRANCH_LENGTH)
-    });
+    const started = await startFromA(bundle, { branch: 'b'.repeat(PEER_MAX_BRANCH_LENGTH) });
     expect(links.worktreeFolders()).toContain(started.cwd!);
     expect(links.taskRecord(A, 'chat-one')).not.toBeNull();
 });
 
 test('a bundle that does not match what was said it is refused and nothing starts', async () => {
     const bundle = await sendFromA();
-    await expect(
-        peerTasks.start(A, 'client-1', {
-            projectId: PROJECT,
-            nodeId: 'chat-one',
-            parentId: 'chat-parent',
-            title: 'Fix it',
-            prompt: 'Fix it',
-            provider: 'claude',
-            ceiling: 'full-access',
-            depth: 1,
-            bundle: { bundleId: bundle.bundleId, sha256: 'f'.repeat(64) },
-            branch: 'fix-it'
-        })
-    ).rejects.toMatchObject({ code: 'bundle-corrupt' });
+    await expect(startFromA({ bundleId: bundle.bundleId, sha256: 'f'.repeat(64) })).rejects.toMatchObject({ code: 'bundle-corrupt' });
     expect(tasks.all()).toHaveLength(0);
     expect(enqueued).toHaveLength(0);
 });
@@ -250,18 +219,7 @@ test('three results fetched together all arrive, and acknowledging leaves no bun
     const ids = ['chat-one', 'chat-two', 'chat-three'];
     for (const nodeId of ids) {
         const bundle = await sendFromA();
-        await peerTasks.start(A, 'client-1', {
-            projectId: PROJECT,
-            nodeId,
-            parentId: 'chat-parent',
-            title: nodeId,
-            prompt: 'Fix it',
-            provider: 'claude',
-            ceiling: 'full-access',
-            depth: 1,
-            bundle,
-            branch: nodeId
-        });
+        await startFromA(bundle, { nodeId, title: nodeId, branch: nodeId });
     }
     for (const task of tasks.all()) {
         await tasks.settle(task.id, 'done', { text: 'Done', source: 'turn', at: 1 }, 2);
@@ -283,18 +241,7 @@ test('three results fetched together all arrive, and acknowledging leaves no bun
 
 test('an acknowledgment makes no bundle, and one that was offered and never read goes with it', async () => {
     const bundle = await sendFromA();
-    await peerTasks.start(A, 'client-1', {
-        projectId: PROJECT,
-        nodeId: 'chat-one',
-        parentId: 'chat-parent',
-        title: 'Fix it',
-        prompt: 'Fix it',
-        provider: 'claude',
-        ceiling: 'full-access',
-        depth: 1,
-        bundle,
-        branch: 'fix-it'
-    });
+    await startFromA(bundle);
     await tasks.settle(tasks.all()[0]!.id, 'done', { text: 'Done', source: 'turn', at: 1 }, 2);
     expect((await peerTasks.result(A, 'client-1', { nodeId: 'chat-one' })).bundle).not.toBeNull();
     expect(await bundlesOnDisk()).toHaveLength(1);

@@ -1,17 +1,14 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, rm, stat } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { OneShotPlace } from './one-shot-place.ts';
+import { tempHomes } from '../providers/test-helpers.ts';
 
+const newHome = tempHomes('ruimte-one-shot-');
 let home: string;
 
 beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'ruimte-one-shot-'));
-});
-
-afterEach(async () => {
-    await rm(home, { recursive: true, force: true });
+    home = await newHome();
 });
 
 describe('where a one-shot run works', () => {

@@ -1,8 +1,6 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import { AcpRegistry, readRegistry, registryKind, registryPlatform, type RegistryFetch } from './acp-registry.ts';
+import { tempHomes } from './test-helpers.ts';
 
 const SHA = 'a'.repeat(64);
 
@@ -85,20 +83,17 @@ describe('readRegistry', () => {
 });
 
 describe('AcpRegistry', () => {
+    const newHome = tempHomes('ruimte-acp-registry-');
     let home: string;
     let now: number;
     let answers: (() => unknown)[];
     let asked: number;
 
     beforeEach(async () => {
-        home = await mkdtemp(join(tmpdir(), 'ruimte-acp-registry-'));
+        home = await newHome();
         now = 1_000_000;
         answers = [];
         asked = 0;
-    });
-
-    afterEach(async () => {
-        await rm(home, { recursive: true, force: true });
     });
 
     const fetching: RegistryFetch = async () => {

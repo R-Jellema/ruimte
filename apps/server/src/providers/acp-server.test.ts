@@ -1,12 +1,12 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import { existsSync } from 'node:fs';
-import { mkdtemp, readdir, rm, stat, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { readdir, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import release from './antigravity-acp-release.json' with { type: 'json' };
 import { isMachineStatePath } from '../fs/machine-home.ts';
 import { sha256, zip } from '../language/test-archives.ts';
 import { AcpServerInstall, parseAcpServerRelease, type AcpServerRelease } from './acp-server.ts';
+import { tempHomes } from './test-helpers.ts';
 
 const ARCHIVE = zip([
     { path: 'agy_acp_server.par', text: '#!/bin/sh\n', mode: 0o644 },
@@ -23,16 +23,13 @@ function pinned(sha: string): AcpServerRelease {
     });
 }
 
+const newHome = tempHomes('ruimte-acp-server-');
 let home: string;
 let fetched: string[];
 
 beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'ruimte-acp-server-'));
+    home = await newHome();
     fetched = [];
-});
-
-afterEach(async () => {
-    await rm(home, { recursive: true, force: true });
 });
 
 function server(sha: string, platform: NodeJS.Platform = 'linux', arch = 'x64', bytes: Uint8Array = ARCHIVE): AcpServerInstall {

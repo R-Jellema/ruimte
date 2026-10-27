@@ -14,19 +14,16 @@ test('the machine switch takes effect without restarting the registry or trustin
 
 test('turning the machine switch off while detection is in flight never publishes an available model', async () => {
     let enabled = true;
-    let finish!: () => void;
-    const waiting = new Promise<void>((resolve) => {
-        finish = resolve;
-    });
+    const waiting = Promise.withResolvers<void>();
     const registry = new ProviderRegistry({
         appleEnabled: () => enabled,
         detect: async () => {
-            await waiting;
+            await waiting.promise;
             return { installed: true, version: 'ready' };
         }
     });
     const listing = registry.list();
     enabled = false;
-    finish();
+    waiting.resolve();
     expect((await listing).find((provider) => provider.kind === 'apple')?.installed).toBe(false);
 });

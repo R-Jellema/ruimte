@@ -9,6 +9,7 @@ import { TEST_STATEMENT_KEY_VARIABLE } from '../pulsar/statement.ts';
 import type { PeerLink } from './peer-connection.ts';
 import { PeerKey } from './peer-key.ts';
 import { brokerDialer } from './remote-connections.ts';
+import { freePort, startBroker, waitFor } from './test-helpers.ts';
 
 /*
  * The whole daemon, started as `main.ts` starts it, with a machine of the account working in it as a
@@ -18,7 +19,6 @@ import { brokerDialer } from './remote-connections.ts';
 
 const addressBook = generateKeyPair();
 const SERVER = join(import.meta.dir, '..', 'main.ts');
-const BROKER = join(import.meta.dir, '..', '..', '..', 'pulsar-broker', 'src', 'main.ts');
 
 let daemon: Subprocess;
 let broker: Subprocess;
@@ -26,30 +26,13 @@ let home: string;
 let homeA: string;
 let link: PeerLink;
 
-async function freePort(): Promise<number> {
-    const server = Bun.serve({ port: 0, fetch: () => new Response('') });
-    const { port } = server;
-    await server.stop(true);
-    return port!;
-}
-
-async function waitFor(label: string, ready: () => boolean | Promise<boolean>, timeoutMs = 60_000): Promise<void> {
-    const deadline = Date.now() + timeoutMs;
-    while (!(await ready())) {
-        if (Date.now() > deadline) {
-            throw new Error(`Timed out waiting for ${label}`);
-        }
-        await Bun.sleep(100);
-    }
-}
-
 beforeAll(async () => {
     home = await mkdtemp(join(tmpdir(), 'ruimte-peer-daemon-'));
     homeA = await mkdtemp(join(tmpdir(), 'ruimte-peer-a-'));
-    const [brokerPort, daemonPort] = [await freePort(), await freePort()];
-    const brokerUrl = `ws://127.0.0.1:${brokerPort}`;
-    broker = Bun.spawn(['bun', BROKER, '--port', String(brokerPort)], { stdout: 'ignore', stderr: 'inherit' });
-    await waitFor('the broker to answer', async () => (await fetch(`http://127.0.0.1:${brokerPort}/health`).catch(() => null))?.ok === true);
+    const started = await startBroker();
+    const { port: brokerPort, url: brokerUrl } = started;
+    broker = started.broker;
+    const daemonPort = await freePort();
     daemon = Bun.spawn(
         [
             'bun',
@@ -74,7 +57,8 @@ beforeAll(async () => {
     );
     await waitFor(
         'the daemon to announce itself to the broker',
-        async () => (((await (await fetch(`http://127.0.0.1:${brokerPort}/health`)).json()) as { machines: number }).machines ?? 0) >= 1
+        async () => (((await (await fetch(`http://127.0.0.1:${brokerPort}/health`)).json()) as { machines: number }).machines ?? 0) >= 1,
+        60_000
     );
     const machine = JSON.parse(await readFile(join(home, 'endpoint.json'), 'utf8')) as { id: string; publicKey: string };
 

@@ -1,20 +1,10 @@
-import { afterEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { describe, expect, test } from 'bun:test';
+import { readFile, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { acpCatalogPath, acpCatalogStore } from './acp-catalog-store.ts';
+import { tempHomes } from './test-helpers.ts';
 
-const homes: string[] = [];
-
-async function home(): Promise<string> {
-    const folder = await mkdtemp(join(tmpdir(), 'ruimte-acp-catalog-'));
-    homes.push(folder);
-    return folder;
-}
-
-afterEach(async () => {
-    await Promise.all(homes.splice(0).map((folder) => rm(folder, { recursive: true, force: true })));
-});
+const home = tempHomes('ruimte-acp-catalog-');
 
 describe('acpCatalogStore', () => {
     test('reads nothing before anything was saved', async () => {

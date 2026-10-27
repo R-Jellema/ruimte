@@ -613,20 +613,29 @@ describe('auth handlers', () => {
         });
     });
 
+    const admitStatementFor = (
+        publicKey: string,
+        label: string,
+        nonceChar: string,
+        accountId: string,
+        peer?: { machineId: string; machinePublicKey: string }
+    ) =>
+        store.admitStatement({
+            publicKey,
+            label,
+            nonce: nonceChar.repeat(22),
+            keepNonceUntil: NOW + 60_000,
+            accountId,
+            ...(peer === undefined ? {} : { peer })
+        });
+
     describe('for a peer', () => {
         const PEER = { reachability: 'lan', sessionId: 'peer-session', peer: { machineId: 'machine-a' } } as const;
+        const peerOf = () => ({ machineId: 'machine-a', machinePublicKey: generateKeyPair().publicKey });
 
         async function admitPeer(): Promise<{ sessionId: string; publicKey: string }> {
             const key = generateKeyPair();
-            const admitted = await store.admitStatement({
-                publicKey: key.publicKey,
-                label: 'Studio',
-                nonce: 'p'.repeat(22),
-                keepNonceUntil: NOW + 60_000,
-                accountId: 'owner',
-                peer: { machineId: 'machine-a', machinePublicKey: generateKeyPair().publicKey }
-            });
-            return { sessionId: sessionOf(admitted), publicKey: key.publicKey };
+            return { sessionId: sessionOf(await admitStatementFor(key.publicKey, 'Studio', 'p', 'owner', peerOf())), publicKey: key.publicKey };
         }
 
         test('endpoint.info answers a peer who this machine is and what it may ask, and a person still sees everything', async () => {
@@ -665,16 +674,7 @@ describe('auth handlers', () => {
             expect(await ask(LOCAL, 'auth.revoke', { id: peer.sessionId })).toMatchObject({ ok: true });
             expect(disconnected).toContain(peer.sessionId);
             expect(await store.sessionForPublicKey(peer.publicKey)).toBeNull();
-            expect(
-                await store.admitStatement({
-                    publicKey: peer.publicKey,
-                    label: 'Studio',
-                    nonce: 'q'.repeat(22),
-                    keepNonceUntil: NOW + 60_000,
-                    accountId: 'owner',
-                    peer: { machineId: 'machine-a', machinePublicKey: generateKeyPair().publicKey }
-                })
-            ).toEqual({ refused: 'revoked' });
+            expect(await admitStatementFor(peer.publicKey, 'Studio', 'q', 'owner', peerOf())).toEqual({ refused: 'revoked' });
         });
     });
 
@@ -688,13 +688,7 @@ describe('auth handlers', () => {
     test('leaving the account revokes its statement clients and closes their channels', async () => {
         await ask(LOCAL, 'endpoint.signRegistration', { accountId: 'account-1' });
         const phone = generateKeyPair();
-        const admitted = await store.admitStatement({
-            publicKey: phone.publicKey,
-            label: 'Phone',
-            nonce: 'n'.repeat(22),
-            keepNonceUntil: NOW + 1_000,
-            accountId: 'account-1'
-        });
+        const admitted = await admitStatementFor(phone.publicKey, 'Phone', 'n', 'account-1');
 
         expect(await ask(LOCAL, 'endpoint.leaveAccount')).toMatchObject({ ok: true, result: { revoked: 1 } });
         expect(disconnected).toEqual([sessionOf(admitted)]);
@@ -703,13 +697,7 @@ describe('auth handlers', () => {
 
     test('joining an account cuts off a client another account let in on a statement', async () => {
         const colleague = generateKeyPair();
-        const admitted = await store.admitStatement({
-            publicKey: colleague.publicKey,
-            label: 'Colleague',
-            nonce: 'c'.repeat(22),
-            keepNonceUntil: NOW + 1_000,
-            accountId: 'colleague'
-        });
+        const admitted = await admitStatementFor(colleague.publicKey, 'Colleague', 'c', 'colleague');
         expect(await ask(LOCAL, 'endpoint.signRegistration', { accountId: 'owner' })).toMatchObject({ ok: true });
         expect(disconnected).toEqual([sessionOf(admitted)]);
         expect(await store.list(null)).toEqual([]);

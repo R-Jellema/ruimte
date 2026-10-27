@@ -62,31 +62,16 @@ const quiet = { log: () => undefined, warn: () => undefined };
 
 let clock = 0;
 
-async function setup(
-    admitStatement?: (publicKey: string, access: SignalAccess) => Promise<'admitted' | 'refused'>,
-    log: Pick<Console, 'log' | 'warn'> = quiet
-) {
-    const machine = generateKeyPair();
-    const paired = generateKeyPair();
+type Machine = ReturnType<typeof generateKeyPair>;
+
+/* Dials the broker through a fake socket and goes through the handshake up to ready. */
+async function connect(machine: Machine, gate: SignalGate, extra: Partial<ConstructorParameters<typeof BrokerRelay>[0]> = {}) {
     const sockets: FakeSocket[] = [];
-    const pairedKeys = new Set([paired.publicKey]);
-    const received: SignalEnvelope[] = [];
-    const replies: Array<(envelope: SignalEnvelope) => void> = [];
     const relay = new BrokerRelay({
         url: BROKER_URL,
         publicKey: machine.publicKey,
         sign: (message) => signMessage(machine.privateKey, message),
-        gate: new SignalGate({
-            publicKey: machine.publicKey,
-            isPaired: async (publicKey) => pairedKeys.has(publicKey),
-            ...(admitStatement ? { admitStatement } : {}),
-            receive: (envelope, reply) => {
-                received.push(envelope);
-                replies.push(reply);
-            },
-            log,
-            now: () => clock
-        }),
+        gate,
         createSocket: () => {
             const socket = new FakeSocket();
             sockets.push(socket);
@@ -94,19 +79,44 @@ async function setup(
         },
         backoffMinMs: 10,
         backoffMaxMs: 20,
-        log,
-        now: () => clock
+        log: quiet,
+        now: () => clock,
+        ...extra
     });
     await relay.publish();
     const socket = sockets[0]!;
     socket.onopen?.();
-    expect(socket.sent[0]).toEqual({ type: 'hello', role: 'machine', publicKey: machine.publicKey });
     socket.deliver({ type: 'challenge', broker: 'broker.test:4400', nonce: NONCE });
     await tick();
-    const prove = socket.sent[1] as Extract<BrokerPeerFrame, { type: 'prove' }>;
-    expect(verifySignature(machine.publicKey, brokerHelloMessage('broker.test:4400', 'machine', machine.publicKey, NONCE), prove.signature)).toBe(true);
     socket.deliver({ type: 'ready' });
     await relay.whenReady();
+    return { relay, socket, sockets };
+}
+
+async function setup(
+    admitStatement?: (publicKey: string, access: SignalAccess) => Promise<'admitted' | 'refused'>,
+    log: Pick<Console, 'log' | 'warn'> = quiet
+) {
+    const machine = generateKeyPair();
+    const paired = generateKeyPair();
+    const pairedKeys = new Set([paired.publicKey]);
+    const received: SignalEnvelope[] = [];
+    const replies: Array<(envelope: SignalEnvelope) => void> = [];
+    const gate = new SignalGate({
+        publicKey: machine.publicKey,
+        isPaired: async (publicKey) => pairedKeys.has(publicKey),
+        ...(admitStatement ? { admitStatement } : {}),
+        receive: (envelope, reply) => {
+            received.push(envelope);
+            replies.push(reply);
+        },
+        log,
+        now: () => clock
+    });
+    const { relay, socket, sockets } = await connect(machine, gate, { log });
+    expect(socket.sent[0]).toEqual({ type: 'hello', role: 'machine', publicKey: machine.publicKey });
+    const prove = socket.sent[1] as Extract<BrokerPeerFrame, { type: 'prove' }>;
+    expect(verifySignature(machine.publicKey, brokerHelloMessage('broker.test:4400', 'machine', machine.publicKey, NONCE), prove.signature)).toBe(true);
     // Every announcement asks for ICE servers straight away.
     expect(socket.sent[2]).toEqual({ type: 'ice', id: expect.stringMatching(/^ice-/) });
     socket.sent.splice(2, 1);
@@ -117,39 +127,21 @@ function relayedFrom(from: { publicKey: string; privateKey: string }, to: string
     return { type: 'relayed', ...signedSignal(from, to, envelope, signer) };
 }
 
+const ACCESS: SignalAccess = {
+    statement: { machineId: 'm', clientPublicKey: 'A'.repeat(43), nonce: 'n'.repeat(22), issuedAt: 0, expiresAt: 1, signature: 's'.repeat(86) },
+    label: 'Laptop'
+};
+
 const TURN = { urls: ['turn:turn.example.com:3478?transport=udp', 'turn:turn.example.com:3478?transport=tcp'], username: '1:m-x', credential: 'one' };
 
 describe('BrokerRelay and ICE servers', () => {
     const lastIce = (socket: FakeSocket) => socket.sent.filter((frame) => frame.type === 'ice').at(-1) as Extract<BrokerPeerFrame, { type: 'ice' }> | undefined;
 
-    const withIceRequest = async (onSettled?: () => void) => {
+    const withIceRequest = (onSettled?: () => void) => {
         clock = 1_000_000;
         const machine = generateKeyPair();
-        const sockets: FakeSocket[] = [];
-        const relay = new BrokerRelay({
-            url: BROKER_URL,
-            publicKey: machine.publicKey,
-            sign: (message) => signMessage(machine.privateKey, message),
-            gate: new SignalGate({ publicKey: machine.publicKey, isPaired: async () => true, receive: () => undefined }),
-            createSocket: () => {
-                const socket = new FakeSocket();
-                sockets.push(socket);
-                return socket as unknown as WebSocket;
-            },
-            backoffMinMs: 10,
-            backoffMaxMs: 20,
-            log: quiet,
-            now: () => clock,
-            ...(onSettled === undefined ? {} : { onSettled })
-        });
-        await relay.publish();
-        const socket = sockets[0]!;
-        socket.onopen?.();
-        socket.deliver({ type: 'challenge', broker: 'broker.test:4400', nonce: NONCE });
-        await tick();
-        socket.deliver({ type: 'ready' });
-        await relay.whenReady();
-        return { relay, socket, sockets };
+        const gate = new SignalGate({ publicKey: machine.publicKey, isPaired: async () => true, receive: () => undefined });
+        return connect(machine, gate, onSettled === undefined ? {} : { onSettled });
     };
 
     test('asks after ready, keeps the servers, and asks again with a third of their lifetime left', async () => {
@@ -313,11 +305,8 @@ describe('BrokerRelay', () => {
         await relay.stop();
         expect(sockets[2]!.closed).toBe(true);
     });
+
     test('an offer with a statement the gate takes pairs the key before it is answered, and one it refuses gets the reason', async () => {
-        const access: SignalAccess = {
-            statement: { machineId: 'm', clientPublicKey: 'A'.repeat(43), nonce: 'n'.repeat(22), issuedAt: 0, expiresAt: 1, signature: 's'.repeat(86) },
-            label: 'Laptop'
-        };
         const verdicts = new Map<string, 'admitted' | 'refused'>();
         const asked: string[] = [];
         const { relay, machine, pairedKeys, socket, received } = await setup(async (publicKey, carried) => {
@@ -330,7 +319,7 @@ describe('BrokerRelay', () => {
         });
         const newcomer = generateKeyPair();
         verdicts.set(newcomer.publicKey, 'admitted');
-        const carrying: SignalEnvelope = { connectionId: 'attempt-0002', signal: { kind: 'offer', sdp: 'v=0', access } };
+        const carrying: SignalEnvelope = { connectionId: 'attempt-0002', signal: { kind: 'offer', sdp: 'v=0', access: ACCESS } };
         socket.deliver(relayedFrom(newcomer, machine.publicKey, carrying));
         await waitUntil(() => received.length === 1);
         expect(asked).toEqual([`${newcomer.publicKey}:Laptop`]);
@@ -354,10 +343,6 @@ describe('BrokerRelay', () => {
     });
 
     test('a store that throws under a statement is logged, and the relay carries on', async () => {
-        const access: SignalAccess = {
-            statement: { machineId: 'm', clientPublicKey: 'A'.repeat(43), nonce: 'n'.repeat(22), issuedAt: 0, expiresAt: 1, signature: 's'.repeat(86) },
-            label: 'Laptop'
-        };
         const warnings: string[] = [];
         const { relay, machine, paired, socket, received } = await setup(
             async () => {
@@ -365,7 +350,9 @@ describe('BrokerRelay', () => {
             },
             { log: () => undefined, warn: (...parts: unknown[]) => warnings.push(parts.join(' ')) }
         );
-        socket.deliver(relayedFrom(generateKeyPair(), machine.publicKey, { connectionId: 'attempt-0006', signal: { kind: 'offer', sdp: 'v=0', access } }));
+        socket.deliver(
+            relayedFrom(generateKeyPair(), machine.publicKey, { connectionId: 'attempt-0006', signal: { kind: 'offer', sdp: 'v=0', access: ACCESS } })
+        );
         await waitUntil(() => warnings.length === 1);
         expect(warnings[0]).toContain('ENOSPC');
 

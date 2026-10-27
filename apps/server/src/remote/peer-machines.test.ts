@@ -1,17 +1,13 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import { join } from 'node:path';
 import { PeerMachines } from './peer-machines.ts';
+import { tempHomes } from '../providers/test-helpers.ts';
 
+const newHome = tempHomes('ruimte-peer-machines-');
 let home: string;
 
 beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'ruimte-peer-machines-'));
-});
-
-afterEach(async () => {
-    await rm(home, { recursive: true, force: true });
+    home = await newHome();
 });
 
 describe('the machines this one works in', () => {

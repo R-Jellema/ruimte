@@ -1,11 +1,12 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, rm, symlink } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { mkdir, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { AgentLineageStore } from '@adecore/agents/coordination';
 import { PeerLinks } from './links.ts';
 import { UntrustedFolders, untrustedStartProblem } from './untrusted.ts';
+import { tempHomes } from '../providers/test-helpers.ts';
 
+const newHome = tempHomes('ruimte-untrusted-');
 let home: string;
 let lineage: AgentLineageStore;
 let links: PeerLinks;
@@ -13,16 +14,12 @@ let cwds: Map<string, string>;
 let untrusted: UntrustedFolders;
 
 beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'ruimte-untrusted-'));
+    home = await newHome();
     lineage = new AgentLineageStore(home);
     links = new PeerLinks(home);
     await Promise.all([lineage.load(), links.load()]);
     cwds = new Map();
     untrusted = new UntrustedFolders({ lineage, folders: () => links.worktreeFolders(), cwdOf: (nodeId) => cwds.get(nodeId) ?? null });
-});
-
-afterEach(async () => {
-    await rm(home, { recursive: true, force: true });
 });
 
 async function put(nodeId: string, openedBy: string, extra: { peer?: { machineId: string }; relation?: 'fork' } = {}): Promise<void> {

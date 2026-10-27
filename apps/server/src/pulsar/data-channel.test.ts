@@ -73,6 +73,17 @@ class FakeRawChannel implements RawDataChannel {
     }
 }
 
+/* The channel warns when it drops a frame, which the test asserts through the count and keeps out of the output. */
+function silenced(run: () => void): void {
+    const warn = console.warn;
+    console.warn = () => undefined;
+    try {
+        run();
+    } finally {
+        console.warn = warn;
+    }
+}
+
 describe('directChannel', () => {
     test('a binary frame goes out in binary pieces the peer joins again, and counts its bytes', () => {
         const raw = new FakeRawChannel();
@@ -132,13 +143,7 @@ describe('directChannel', () => {
             closed += 1;
         });
         raw.throwOnSend = true;
-        const warn = console.warn;
-        console.warn = () => undefined;
-        try {
-            expect(channel.send('{}')).toBe(0);
-        } finally {
-            console.warn = warn;
-        }
+        silenced(() => expect(channel.send('{}')).toBe(0));
         expect(closed).toBe(1);
         expect(channel.send('{}')).toBe(0);
     });
@@ -151,13 +156,7 @@ describe('directChannel', () => {
             closed += 1;
         });
         expect(channel.send('x'.repeat(600))).toBe(600);
-        const warn = console.warn;
-        console.warn = () => undefined;
-        try {
-            expect(channel.send('y'.repeat(600))).toBe(0);
-        } finally {
-            console.warn = warn;
-        }
+        silenced(() => expect(channel.send('y'.repeat(600))).toBe(0));
         expect(raw.sent).toHaveLength(1);
         expect(raw.closeCalls).toBe(1);
         expect(closed).toBe(1);
@@ -169,13 +168,7 @@ describe('directChannel', () => {
         raw.bufferedAmount = SOCKET_BACKPRESSURE_LIMIT - 10;
         expect(channel.send('x'.repeat(10))).toBe(10);
         expect(raw.closeCalls).toBe(0);
-        const warn = console.warn;
-        console.warn = () => undefined;
-        try {
-            expect(channel.send('x')).toBe(0);
-        } finally {
-            console.warn = warn;
-        }
+        silenced(() => expect(channel.send('x')).toBe(0));
         expect(raw.closeCalls).toBe(1);
     });
 
@@ -216,13 +209,7 @@ describe('directChannel', () => {
         const channel = directChannel(raw, 200_000);
         raw.bufferedAmount = BINARY_LANE_BYTES + 1;
         expect(channel.send(new Uint8Array(100_000))).toBe(100_000);
-        const warn = console.warn;
-        console.warn = () => undefined;
-        try {
-            expect(channel.send(new Uint8Array(40_000))).toBe(0);
-        } finally {
-            console.warn = warn;
-        }
+        silenced(() => expect(channel.send(new Uint8Array(40_000))).toBe(0));
         expect(raw.closeCalls).toBe(1);
         expect(channel.bufferedAmount()).toBe(raw.bufferedAmount);
     });
