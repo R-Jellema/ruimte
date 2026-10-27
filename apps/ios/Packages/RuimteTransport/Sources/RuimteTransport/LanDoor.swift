@@ -65,11 +65,11 @@ public struct LanDoorPeer {
         case "door":
             guard state == .greeted, frame["machineId"]?.stringValue == machineID,
                 frame["publicKey"]?.stringValue == machineKey, let signature = frame["signature"]?.stringValue,
-                DirectIdentity.verify(
-                    publicKey: machineKey,
+                DeviceKey.verify(
+                    signature: signature,
                     message: try DirectIdentity.lanDoorMessage(
                         nonce: nonce, machineID: machineID, publicKey: machineKey),
-                    signature: signature)
+                    publicKey: machineKey)
             else { throw Self.unproven }
             state = .ready
             return [.ready]
@@ -78,11 +78,12 @@ public struct LanDoorPeer {
             let envelope = try WireSchema.validate("SignalEnvelopeSchema", try field(frame, "envelope"))
             let message = try DirectIdentity.signalMessage(from: machineKey, to: signer.publicKey, envelope: envelope)
             guard let signature = frame["signature"]?.stringValue,
-                DirectIdentity.verify(publicKey: machineKey, message: message, signature: signature)
+                DeviceKey.verify(signature: signature, message: message, publicKey: machineKey)
             else {
                 throw TransportFailure.invalid(
                     String(
-                        localized: "A connection on the local network claims to come from the machine but cannot be verified.",
+                        localized:
+                            "A connection on the local network claims to come from the machine but cannot be verified.",
                         bundle: .module))
             }
             return [.signal(envelope)]

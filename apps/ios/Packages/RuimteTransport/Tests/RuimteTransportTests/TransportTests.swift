@@ -89,10 +89,10 @@ final class TransportTests: XCTestCase {
             signer: client)
         XCTAssertEqual(chosen["compression"]?.stringValue, WireConstants.directCompression)
         XCTAssertTrue(
-            DirectIdentity.verify(
-                publicKey: client.publicKey,
+            DeviceKey.verify(
+                signature: proof["signature"]!.stringValue!,
                 message: "ruimte-client-channel-v1\nmachine\nchallenge\n\(client.publicKey)\n\(binding)",
-                signature: proof["signature"]!.stringValue!))
+                publicKey: client.publicKey))
         XCTAssertThrowsError(
             try DirectIdentity.proof(
                 challenge: challenge, binding: "different", machineID: "machine", machineKey: machine.publicKey,
@@ -117,8 +117,8 @@ final class TransportTests: XCTestCase {
                 challenge: .object(changed), binding: binding, machineID: "machine", machineKey: machine.publicKey,
                 signer: client))
         XCTAssertFalse(
-            DirectIdentity.verify(
-                publicKey: machine.publicKey, message: message + "tampered", signature: try machine.sign(message)))
+            DeviceKey.verify(
+                signature: try machine.sign(message), message: message + "tampered", publicKey: machine.publicKey))
     }
 
     func testBrokerHostAndSignatures() throws {
@@ -134,11 +134,11 @@ final class TransportTests: XCTestCase {
         let answer = try peer.receive(challenge)
         guard case .send(let frame) = answer.first else { return XCTFail("Missing proof") }
         XCTAssertTrue(
-            DirectIdentity.verify(
-                publicKey: key.publicKey,
+            DeviceKey.verify(
+                signature: frame["signature"]!.stringValue!,
                 message:
                     "pulsar-broker-hello-v1\n[\"broker.test:443\",\"client\",\"\(key.publicKey)\",\"\(String(repeating: "a", count: 22))\"]",
-                signature: frame["signature"]!.stringValue!))
+                publicKey: key.publicKey))
         XCTAssertEqual(try peer.receive(.object(["type": .string("ready")])), [.ready])
         XCTAssertNotNil(try peer.ice())
         let envelope: JSONValue = .object([
@@ -149,11 +149,11 @@ final class TransportTests: XCTestCase {
         ])
         let relay = try XCTUnwrap(peer.relay(to: DeviceKey().publicKey, envelope: envelope))
         XCTAssertTrue(
-            DirectIdentity.verify(
-                publicKey: key.publicKey,
+            DeviceKey.verify(
+                signature: relay["signature"]!.stringValue!,
                 message: try DirectIdentity.signalMessage(
                     from: key.publicKey, to: relay["to"]!.stringValue!, envelope: envelope),
-                signature: relay["signature"]!.stringValue!))
+                publicKey: key.publicKey))
         var wrongHost = BrokerPeer(host: "attacker.test", signer: key)
         _ = try wrongHost.start()
         XCTAssertThrowsError(try wrongHost.receive(challenge))

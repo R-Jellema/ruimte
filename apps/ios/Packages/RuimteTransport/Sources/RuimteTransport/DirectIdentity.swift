@@ -1,4 +1,3 @@
-import CryptoKit
 import Foundation
 import RuimtePulsar
 
@@ -72,16 +71,6 @@ public enum DirectIdentity {
             ]))
     }
 
-    public static func verify(publicKey: String, message: String, signature: String) -> Bool {
-        guard let keyData = Base64URL.decode(publicKey),
-            let signatureData = Base64URL.decode(signature),
-            let key = try? Curve25519.Signing.PublicKey(rawRepresentation: keyData)
-        else {
-            return false
-        }
-        return key.isValidSignature(signatureData, for: Data(message.utf8))
-    }
-
     public static func proof(
         challenge raw: JSONValue, binding: String, machineID: String, machineKey: String, signer: any SessionSigner
     ) throws -> JSONValue {
@@ -100,7 +89,7 @@ public enum DirectIdentity {
         let message = "ruimte-daemon-channel-v1\n\(machineID)\n\(nonce)\n\(binding)"
         guard try string(daemon, "id") == machineID,
             try string(daemon, "publicKey") == machineKey,
-            verify(publicKey: machineKey, message: message, signature: try string(daemon, "signature"))
+            DeviceKey.verify(signature: try string(daemon, "signature"), message: message, publicKey: machineKey)
         else {
             throw TransportFailure.invalid(
                 String(localized: "The machine did not prove its identity over this connection.", bundle: .module))

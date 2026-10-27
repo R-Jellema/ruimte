@@ -65,11 +65,11 @@ final class LanDoorPeerTests: XCTestCase {
         let frame = try peer.signal(candidate)
         XCTAssertEqual(frame["from"]?.stringValue, client.publicKey)
         XCTAssertTrue(
-            DirectIdentity.verify(
-                publicKey: client.publicKey,
+            DeviceKey.verify(
+                signature: try XCTUnwrap(frame["signature"]?.stringValue),
                 message: try DirectIdentity.signalMessage(
                     from: client.publicKey, to: machine.key.publicKey, envelope: candidate),
-                signature: try XCTUnwrap(frame["signature"]?.stringValue)))
+                publicKey: client.publicKey))
         let answer = try machine.answer(to: client.publicKey)
         XCTAssertEqual(try peer.receive(answer), [.signal(answer["envelope"]!)])
         XCTAssertEqual(try peer.receive(.object(["type": .string("notice")])), [])

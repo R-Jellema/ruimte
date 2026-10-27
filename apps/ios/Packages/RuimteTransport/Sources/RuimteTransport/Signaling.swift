@@ -165,7 +165,9 @@ public enum SignalingRoute: Equatable, Sendable {
         } else if paths[.broker] == nil {
             close()
             // The broker's word reaches the person; a door that failed beside it stays silent.
-            events.failed(brokerError ?? doorError ?? TransportFailure.invalid(String(localized: "Could not reach the machine.", bundle: .module)))
+            events.failed(
+                brokerError ?? doorError
+                    ?? TransportFailure.invalid(String(localized: "Could not reach the machine.", bundle: .module)))
         }
     }
 }
@@ -204,7 +206,8 @@ public enum SignalingRoute: Equatable, Sendable {
                     self.fail(
                         TransportFailure.invalid(
                             frame["message"]?.stringValue
-                                ?? String(localized: "The connection service refused the connection.", bundle: .module)))
+                                ?? String(localized: "The connection service refused the connection.", bundle: .module))
+                    )
                 }, lost: { [weak self] error in self?.fail(error) }))
     }
 
@@ -227,11 +230,13 @@ public enum SignalingRoute: Equatable, Sendable {
             }
             let message = try DirectIdentity.signalMessage(from: machineKey, to: signer.publicKey, envelope: envelope)
             guard
-                DirectIdentity.verify(
-                    publicKey: machineKey, message: message, signature: try string(frame, "signature"))
+                DeviceKey.verify(
+                    signature: try string(frame, "signature"), message: message, publicKey: machineKey)
             else {
                 throw TransportFailure.invalid(
-                    String(localized: "A connection request claims to come from the machine but cannot be verified.", bundle: .module))
+                    String(
+                        localized: "A connection request claims to come from the machine but cannot be verified.",
+                        bundle: .module))
             }
             events?.signal(envelope)
         } catch { fail(error) }
