@@ -100,8 +100,7 @@ export const viewActions: ActionHandlers<ServerActionContext> = {
                     'kind\tdatabase\t--connection and --table (required), --schema, --mode and --where'
                 ]);
             }
-        }
-        if (kind === 'database') {
+        } else {
             for (const flag of ['connection', 'table'] as const) {
                 if (tableFlags[flag] == null) {
                     throw new VerbRefusal('missing-flag', `A database view needs --${flag}`, ['kind\tdatabase\t--connection and --table (required)']);

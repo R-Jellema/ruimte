@@ -1,7 +1,7 @@
 import { OPERATION_ACTIONS, type ActionHandlers, type ActionOutput, type OperationStatus } from '@ruimte/actions';
 import type { Task } from '@ruimte/contracts';
 import { VerbRefusal, type AgentState, type AgentStateHost, type CanvasHost } from '../canvas/verb.ts';
-import type { ServerActionContext } from './context.ts';
+import { hostService, type ServerActionContext } from './context.ts';
 
 type OperationAction = (typeof OPERATION_ACTIONS)[number];
 
@@ -20,14 +20,26 @@ export const OPERATION_FORMS: readonly string[] = [
     'operation\tteam.start:<id>,<id>\tthe start of a team, under the ids of its roles in the order they were made'
 ];
 
-function parseOperationId(operationId: string): { action: OperationAction; nodeIds: string[] } | null {
-    const colon = operationId.indexOf(':');
-    const action = OPERATION_ACTIONS.find((candidate) => candidate === operationId.slice(0, colon));
-    const nodeIds = operationId.slice(colon + 1).split(',');
-    if (colon === -1 || action === undefined || nodeIds.some((id) => id === '')) {
-        return null;
+/* The action and the nodes an operation id names, refused for anything agent or team did not answer with. */
+function parseOperationId(operationId: string | null): { id: string; action: OperationAction; nodeIds: string[] } {
+    const colon = operationId?.indexOf(':') ?? -1;
+    const action = OPERATION_ACTIONS.find((candidate) => candidate === operationId?.slice(0, colon));
+    const nodeIds = operationId?.slice(colon + 1).split(',') ?? [];
+    if (operationId === null || colon === -1 || action === undefined || nodeIds.some((id) => id === '')) {
+        throw new VerbRefusal('unknown-operation', `${operationId ?? 'nothing'} is not an operation id; agent and team answer with one`, [...OPERATION_FORMS]);
     }
-    return { action, nodeIds };
+
+    return { id: operationId, action, nodeIds };
+}
+
+function agentsOf(context: ServerActionContext): AgentStateHost {
+    return hostService(context, 'agents', 'no-operations', 'This machine cannot tell what runs in an agent node');
+}
+
+function noneOfYours(operationId: string): VerbRefusal {
+    return new VerbRefusal('unknown-operation', `${operationId} names no agent you opened that is still here; a deleted node without a task is forgotten`, [
+        ...OPERATION_FORMS
+    ]);
 }
 
 /* The task a start gave its agent: the first one the caller gave that node, since a later task is its own. */
@@ -131,13 +143,7 @@ export const operationActions: ActionHandlers<ServerActionContext> = {
     'operation.get': async ({ operationId }, { actor, context }) => {
         const { host } = context;
         const parsed = parseOperationId(operationId);
-        if (!parsed) {
-            throw new VerbRefusal('unknown-operation', `${operationId} is not an operation id; agent and team answer with one`, [...OPERATION_FORMS]);
-        }
-        const agents = host.agents;
-        if (agents === undefined) {
-            throw new VerbRefusal('no-operations', 'This machine cannot tell what runs in an agent node');
-        }
+        const agents = agentsOf(context);
         const rows: Array<AgentOperation | null> = [];
         for (const nodeId of parsed.nodeIds) {
             if (!isOwnStart(host, agents, actor.id, nodeId, operationId, 'follow')) {
@@ -151,11 +157,7 @@ export const operationActions: ActionHandlers<ServerActionContext> = {
             rows.push({ nodeId, ...read, taskId: task?.id ?? null });
         }
         if (rows.every((row) => row === null)) {
-            throw new VerbRefusal(
-                'unknown-operation',
-                `${operationId} names no agent you opened that is still here; a deleted node without a task is forgotten`,
-                [...OPERATION_FORMS]
-            );
+            throw noneOfYours(operationId);
         }
         const known = rows.map(
             (row, index) => row ?? { nodeId: parsed.nodeIds[index]!, status: 'cancelled' as const, taskId: null, detail: 'the node is gone' }
@@ -166,33 +168,18 @@ export const operationActions: ActionHandlers<ServerActionContext> = {
     },
     'operation.cancel': async ({ operationId }, { actor, context }) => {
         const { host } = context;
-        const parsed = operationId === null ? null : parseOperationId(operationId);
-        if (operationId === null || !parsed) {
-            throw new VerbRefusal('unknown-operation', `${operationId ?? 'nothing'} is not an operation id; agent and team answer with one`, [
-                ...OPERATION_FORMS
-            ]);
-        }
-        const agents = host.agents;
-        if (agents === undefined) {
-            throw new VerbRefusal('no-operations', 'This machine cannot tell what runs in an agent node');
-        }
+        const { id, nodeIds } = parseOperationId(operationId);
+        const agents = agentsOf(context);
         const lines: CancelLine[] = [];
         let yours = 0;
-        for (const nodeId of parsed.nodeIds) {
+        for (const nodeId of nodeIds) {
+            const own = isOwnStart(host, agents, actor.id, nodeId, id, 'cancel');
+            yours += own ? 1 : 0;
             const placed = host.projects.locate(nodeId) !== null;
-            if (!isOwnStart(host, agents, actor.id, nodeId, operationId, 'cancel')) {
-                lines.push({ operationId, status: 'over', detail: `${nodeId}: the node is gone` });
-                continue;
-            }
-            yours += 1;
-            lines.push(placed ? await cancelNode(agents, operationId, nodeId) : { operationId, status: 'over', detail: `${nodeId}: the node is gone` });
+            lines.push(own && placed ? await cancelNode(agents, id, nodeId) : { operationId: id, status: 'over', detail: `${nodeId}: the node is gone` });
         }
         if (yours === 0) {
-            throw new VerbRefusal(
-                'unknown-operation',
-                `${operationId} names no agent you opened that is still here; a deleted node without a task is forgotten`,
-                [...OPERATION_FORMS]
-            );
+            throw noneOfYours(id);
         }
         return { output: { operations: lines } };
     }

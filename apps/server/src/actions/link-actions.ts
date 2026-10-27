@@ -9,8 +9,8 @@ import { verbCallOf, type ServerActionCall, type ServerActionContext } from './c
 
 type DrawnEdge = ActionOutput<'link.create'>['edges'][number];
 
-function pickId(edge: ProjectEdge): string {
-    return edge.id;
+function edgeRow(edge: ProjectEdge) {
+    return { edgeId: edge.id, from: edge.from, to: edge.to, label: edge.label ?? null };
 }
 
 /*
@@ -49,7 +49,7 @@ async function deleteEdges(call: ServerActionCall, viewId: string, edgeIds: read
         const edges = canvas.edges.filter((candidate) => !gone.has(candidate.id));
         return {
             content: { ...content, views: content.views.map((view) => (view.id === canvas.id ? { ...canvas, edges } : view)) },
-            result: { viewId: canvas.id, edges: going.map((edge) => ({ edgeId: edge.id, from: edge.from, to: edge.to, label: edge.label ?? null })) }
+            result: { viewId: canvas.id, edges: going.map(edgeRow) }
         };
     });
 }
@@ -61,7 +61,7 @@ export const linkActions: ActionHandlers<ServerActionContext> = {
         return {
             output: {
                 viewId: canvas.id,
-                edges: canvas.edges.map((edge) => ({ edgeId: edge.id, from: edge.from, to: edge.to, label: edge.label ?? null })),
+                edges: canvas.edges.map(edgeRow),
                 revision
             }
         };
@@ -137,7 +137,11 @@ export const linkActions: ActionHandlers<ServerActionContext> = {
                 // The label a person's own drag gives it: named only where the line means something.
                 const named = label ?? (reads && isAgentKind(head.kind) ? 'context' : undefined);
                 const edge: ProjectEdge = {
-                    id: newId('edge', content, made.map(pickId)),
+                    id: newId(
+                        'edge',
+                        content,
+                        made.map((edge) => edge.id)
+                    ),
                     from: tail,
                     to: head.id,
                     ...(named === undefined ? {} : { label: named }),
@@ -172,7 +176,5 @@ export const linkActions: ActionHandlers<ServerActionContext> = {
         const removed = await deleteEdges(call, viewId, [edgeId]);
         return { output: { viewId: removed.viewId, ...removed.edges[0]! } };
     },
-    'link.deleteMany': async ({ viewId, edgeIds }, call) => {
-        return { output: await deleteEdges(call, viewId, edgeIds) };
-    }
+    'link.deleteMany': async ({ viewId, edgeIds }, call) => ({ output: await deleteEdges(call, viewId, edgeIds) })
 };

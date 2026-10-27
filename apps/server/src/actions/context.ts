@@ -1,4 +1,5 @@
 import type { ActionCall } from '@ruimte/actions';
+import { callerKind } from '../canvas/tasks.ts';
 import { VerbRefusal, type CanvasHost, type ProjectHost, type VerbCall } from '../canvas/verb.ts';
 import type { IndexedPlace } from '../projects/project-index.ts';
 import type { VoiceFollowHost } from '../voice/voice-follower.ts';
@@ -56,7 +57,26 @@ export function hostService<Key extends keyof CanvasHost>(context: ServerActionC
     if (!service) {
         throw new VerbRefusal(code, message);
     }
+
     return service;
+}
+
+/* The kind of node the caller is, or null when it is no node of this project. */
+export async function callerNodeKind({ host, place }: ServerActionContext, caller: string): Promise<string | null> {
+    return callerKind(await host.projects.read(place.projectId), caller) ?? host.hiddenAgents?.get(caller)?.node.kind ?? null;
+}
+
+/* What the caller is, as a refusal says it to a caller that is no chat. */
+export function youAre(kind: string | null): string {
+    return kind === null ? 'not a node of this project' : `a ${kind}`;
+}
+
+/* Refuses a caller that is no AI chat, with `refusal` given what it is instead. */
+export async function requireChatCaller(context: ServerActionContext, caller: string, refusal: (you: string) => VerbRefusal): Promise<void> {
+    const kind = await callerNodeKind(context, caller);
+    if (kind !== 'chat') {
+        throw refusal(youAre(kind));
+    }
 }
 
 /*
@@ -81,7 +101,7 @@ function heldTo(host: CanvasHost, expected: number): CanvasHost {
     return { ...host, projects: held };
 }
 
-/* A caller no project places still reads what is linked into it; any action that needs a project refuses as the verbs always did. */
+/* A caller no project places still reads what is linked into it; an action that needs a project refuses. */
 function contextOf(host: CanvasHost, place: IndexedPlace | null): ServerActionContext {
     if (place !== null) {
         return { host, place };

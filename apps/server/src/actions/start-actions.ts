@@ -12,10 +12,11 @@ import { groupMembers, placeBeside, placeFree, placeInGroup, placeTeam } from '.
 import { checkCwd } from '../canvas/project-paths.ts';
 import { MAX_TASK_PROMPT_LENGTH, requireChatParent, taskFirstPrompt } from '../canvas/tasks.ts';
 import type { FirstPrompt } from '../agents/pending-prompts.ts';
-import { NEW_NODE, OPENING_OFF_CANVAS, VerbRefusal, canvasFor, field, newNode } from '../canvas/verb.ts';
+import { NEW_NODE, OPENING_OFF_CANVAS, VerbRefusal, canvasFor, field, newNode, type VerbCall, type WorktreeWant } from '../canvas/verb.ts';
 import { MAX_PROJECT_VIEWS } from '../canvas/views.ts';
 import { branchSlug, makeWorktrees, requireRepository } from '../canvas/worktree.ts';
 import { untrustedStartProblem } from '../peering/untrusted.ts';
+import type { IndexedPlace } from '../projects/project-index.ts';
 import { providerFor } from '../providers/registry.ts';
 import { verbCallOf, type ServerActionContext } from './context.ts';
 import { startInputHash } from './start-claims.ts';
@@ -92,6 +93,28 @@ function looseChatView(node: ProjectNode, createdBy: string): ProjectChatView {
     };
 }
 
+/*
+ * The worktrees a start asks for. One on another machine is made there from this checkout when its
+ * task starts; one here is made now, before the lock, so a slow repository holds up no save.
+ */
+async function startWorktrees(
+    caller: VerbCall,
+    place: IndexedPlace,
+    remote: boolean,
+    dryRun: boolean,
+    wants: () => WorktreeWant[]
+): Promise<{ source: string | undefined; paths: string[]; undo(): Promise<void> }> {
+    const source = remote ? await sourceCheckout(caller.host, place, caller.caller) : undefined;
+    await requireRepository(caller, place.folder);
+    if (remote || dryRun) {
+        return { source, paths: [], undo: async () => undefined };
+    }
+
+    const made = await makeWorktrees(caller, place, wants());
+
+    return { source, paths: made.worktrees.map((worktree) => worktree.path), undo: made.undo };
+}
+
 /* The start itself; a retried one never gets here, since its claim answers first. */
 const startAgent: StartHandler = async (input, call) => {
     const { context, dryRun = false } = call;
@@ -162,25 +185,18 @@ const startAgent: StartHandler = async (input, call) => {
             `The prompt is ${prompt.length} characters and a task takes at most ${MAX_TASK_PROMPT_LENGTH}, since the child is also told how to report back; put the rest in a file and tell the agent to read it`
         );
     }
-    let cwd = input.cwd == null ? undefined : await checkCwd(place.folder, input.cwd, (folder) => host.checkouts.paths(folder));
-    refuseUntrustedStart(host, caller.caller, cwd, [{ provider: kind, chat }], voice ? place.folder : undefined);
+    const checkedCwd = input.cwd == null ? undefined : await checkCwd(place.folder, input.cwd, (folder) => host.checkouts.paths(folder));
+    refuseUntrustedStart(host, caller.caller, checkedCwd, [{ provider: kind, chat }], voice ? place.folder : undefined);
     const runtimeMode = chat ? (input.mode ?? undefined) : terminalMode(caller, input.mode ?? undefined, ceiling);
     const account = inheritedAccount(caller, kind);
-    let undoWorktrees = async (): Promise<void> => undefined;
-    // A worktree on another machine is made there, from this checkout, when the task starts.
-    const source = remote !== null && input.worktree ? await sourceCheckout(host, place, caller.caller) : undefined;
-    if (input.worktree && remote !== null) {
-        await requireRepository(caller, place.folder);
-    } else if (input.worktree) {
-        await requireRepository(caller, place.folder);
-        if (!dryRun) {
-            const want = input.branch == null ? { fresh: branchSlug(input.task ?? input.title ?? kind) } : { branch: input.branch };
-            const based = input.base == null ? want : { ...want, base: input.base };
-            const made = await makeWorktrees(caller, { folder: place.folder, projectId: place.projectId }, [based]);
-            cwd = made.worktrees[0]!.path;
-            undoWorktrees = made.undo;
-        }
-    }
+    const worktrees = input.worktree
+        ? await startWorktrees(caller, place, remote !== null, dryRun, () => {
+              const want = input.branch == null ? { fresh: branchSlug(input.task ?? input.title ?? kind) } : { branch: input.branch };
+              return [input.base == null ? want : { ...want, base: input.base }];
+          })
+        : null;
+    const source = worktrees?.source;
+    const cwd = worktrees?.paths[0] ?? checkedCwd;
 
     return host.projects
         .mutate<{ output: ActionOutput<'agent.start'>; operation?: { id: string; status: 'running' } }>(place.projectId, async (content) => {
@@ -206,11 +222,11 @@ const startAgent: StartHandler = async (input, call) => {
             }
             const read = canvas ? nodesNamed(content, canvas, readIds, { cannot: 'no line can run from it into the agent this opens' }) : [];
 
-            const size = host.machine.nodeSize(chat ? 'chat' : 'terminal');
+            const kindName = chat ? ('chat' as const) : ('terminal' as const);
+            const size = host.machine.nodeSize(kindName);
             const self = canvas?.nodes.find((node) => node.id === caller.caller) ?? null;
             const inGroup = group && canvas ? placeInGroup(group, groupMembers(group, canvas.nodes), size) : null;
             const rect = inGroup?.rect ?? (anchor ? placeBeside(anchor, size) : canvas ? placeFree(canvas.nodes, size, self) : { x: 0, y: 0, ...size });
-            const kindName = chat ? ('chat' as const) : ('terminal' as const);
 
             if (dryRun) {
                 return {
@@ -357,7 +373,7 @@ const startAgent: StartHandler = async (input, call) => {
             };
         })
         .catch(async (e: unknown) => {
-            await undoWorktrees();
+            await worktrees?.undo();
             throw e;
         });
 };
@@ -466,23 +482,11 @@ export const startActions: ActionHandlers<ServerActionContext> = {
             cwd,
             roles.map((role) => ({ provider: role.provider, chat: kindOf(role) === 'chat' }))
         );
-        const roleCwds: Array<string | undefined> = roles.map(() => cwd);
-        let undoWorktrees = async (): Promise<void> => undefined;
-        // A worktree on another machine is made there, from this checkout, when its task starts.
-        const source = remote !== null && input.worktree ? await sourceCheckout(host, place, caller.caller) : undefined;
-        if (input.worktree && remote !== null) {
-            await requireRepository(caller, place.folder);
-        } else if (input.worktree) {
-            await requireRepository(caller, place.folder);
-            if (!dryRun) {
-                const wants = roles.map((role) => ({ fresh: branchSlug(role.title) }));
-                const made = await makeWorktrees(caller, { folder: place.folder, projectId: place.projectId }, wants);
-                made.worktrees.forEach((worktree, index) => {
-                    roleCwds[index] = worktree.path;
-                });
-                undoWorktrees = made.undo;
-            }
-        }
+        const worktrees = input.worktree
+            ? await startWorktrees(caller, place, remote !== null, dryRun, () => roles.map((role) => ({ fresh: branchSlug(role.title) })))
+            : null;
+        const source = worktrees?.source;
+        const roleCwds = roles.map((_role, index) => worktrees?.paths[index] ?? cwd);
         const modes: Array<RuntimeMode | undefined> = roles.map((role) =>
             kindOf(role) === 'chat' ? (input.mode ?? undefined) : terminalMode(caller, input.mode ?? undefined, ceiling)
         );
@@ -689,7 +693,7 @@ export const startActions: ActionHandlers<ServerActionContext> = {
                 };
             })
             .catch(async (e: unknown) => {
-                await undoWorktrees();
+                await worktrees?.undo();
                 throw e;
             });
     }

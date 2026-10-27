@@ -1,10 +1,9 @@
 import type { ActionHandlers } from '@ruimte/actions';
 import { VISUAL_LIMITS, type ChatVisual, type VisualLayout } from '@ruimte/contracts';
 import { CodedError } from '@adecore/agents';
-import { callerKind } from '../canvas/tasks.ts';
 import { VerbRefusal, field, orNote, type VisualHost } from '../canvas/verb.ts';
 import { PREVIEW_WIDTH } from '../visuals/renderer.ts';
-import type { ServerActionContext } from './context.ts';
+import { hostService, requireChatCaller, type ServerActionContext } from './context.ts';
 
 const HELP_LINE = 'detail\truimte-context help visual';
 
@@ -27,11 +26,8 @@ export function visualRows(visuals: readonly ChatVisual[]): string[] {
     return orNote(visuals.map(visualRow), 'This chat shows no visual');
 }
 
-function visualsOf({ host }: ServerActionContext): VisualHost {
-    if (!host.visuals) {
-        throw new VerbRefusal('unavailable', 'This machine keeps no visuals; answer in text');
-    }
-    return host.visuals;
+function visualsOf(context: ServerActionContext): VisualHost {
+    return hostService(context, 'visuals', 'unavailable', 'This machine keeps no visuals; answer in text');
 }
 
 function requireEnabled(visuals: VisualHost): void {
@@ -40,20 +36,14 @@ function requireEnabled(visuals: VisualHost): void {
     }
 }
 
-/* The kind of node the caller is, or null when it is no node of this project. */
-export async function callerNodeKind({ host, place }: ServerActionContext, caller: string): Promise<string | null> {
-    return callerKind(await host.projects.read(place.projectId), caller) ?? host.hiddenAgents?.get(caller)?.node.kind ?? null;
-}
-
 /* A visual shows in the thread of an AI chat, and a terminal has no thread to show it in. */
 export async function callerChat(context: ServerActionContext, caller: string): Promise<string> {
-    const kind = await callerNodeKind(context, caller);
-    if (kind !== 'chat') {
-        throw new VerbRefusal(
-            'visual-needs-chat',
-            `A visual shows only in the thread of an AI chat, and you are ${kind === null ? 'not a node of this project' : `a ${kind}`}: answer in text instead`
-        );
-    }
+    await requireChatCaller(
+        context,
+        caller,
+        (you) => new VerbRefusal('visual-needs-chat', `A visual shows only in the thread of an AI chat, and you are ${you}: answer in text instead`)
+    );
+
     return caller;
 }
 

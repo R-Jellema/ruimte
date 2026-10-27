@@ -3,7 +3,8 @@ import type { Plan, PlanActor, PlanOp } from '@ruimte/contracts';
 import { parsePlanDraft, parsePlanMarkdown, progressText, type PlanApplied, type PlanRefusal } from '@adecore/plan';
 import { callerKind } from '../canvas/tasks.ts';
 import { VerbRefusal, field, orNote, type CanvasHost } from '../canvas/verb.ts';
-import type { ServerActionContext } from './context.ts';
+import { youAre, type ServerActionContext } from './context.ts';
+import { parseJson } from './json-input.ts';
 
 const HELP_LINE = 'detail\truimte-context help plan';
 
@@ -16,10 +17,7 @@ function planActorOf(actor: ActionActor): PlanActor {
 async function callerChat({ host, place }: ServerActionContext, caller: string): Promise<string> {
     const kind = callerKind(await host.projects.read(place.projectId), caller);
     if (kind !== 'chat') {
-        throw new VerbRefusal(
-            'plan-needs-chat',
-            `A plan belongs to a chat, and you are ${kind === null ? 'not a node of this project' : `a ${kind}`}: only a chat has a record to keep a plan beside`
-        );
+        throw new VerbRefusal('plan-needs-chat', `A plan belongs to a chat, and you are ${youAre(kind)}: only a chat has a record to keep a plan beside`);
     }
     return caller;
 }
@@ -71,14 +69,6 @@ function changed(applied: PlanApplied) {
     return { output: { plan: applied.plan, dropped: applied.dropped } };
 }
 
-function parseJson(source: string): unknown {
-    try {
-        return JSON.parse(source);
-    } catch (e) {
-        throw new VerbRefusal('bad-json', `The document is not JSON: ${e instanceof Error ? e.message : 'it does not parse'}`, [HELP_LINE]);
-    }
-}
-
 export const planActions: ActionHandlers<ServerActionContext> = {
     'plan.list': async (_input, { actor, context }) => ({
         output: { plans: await context.host.plans.read(await callerChat(context, actor.id)) }
@@ -107,7 +97,7 @@ export const planActions: ActionHandlers<ServerActionContext> = {
                 [HELP_LINE]
             );
         }
-        const parsed = markdown === null ? parsePlanDraft(parseJson(source)) : parsePlanMarkdown(source);
+        const parsed = markdown === null ? parsePlanDraft(parseJson(source, 'document', HELP_LINE)) : parsePlanMarkdown(source);
         if (!parsed.ok) {
             throw await refused(context.host, chatId, parsed);
         }

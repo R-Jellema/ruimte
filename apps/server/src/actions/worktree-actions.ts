@@ -3,24 +3,21 @@ import { isCanvasView, type ProjectContent, type Worktree } from '@ruimte/contra
 import { isInside } from '../canvas/project-paths.ts';
 import { VerbRefusal, field, orNote, type CanvasHost, type WorktreeHost } from '../canvas/verb.ts';
 import { GitError } from '../git/run.ts';
-import type { IndexedPlace } from '../projects/project-index.ts';
-import type { ServerActionContext } from './context.ts';
+import { hostService, type ServerActionContext } from './context.ts';
 
 // How far up the chain of openers a merge looks for the caller; a chain this deep is refused by `agent` long before.
 const MAX_LINEAGE = 64;
 
-function worktreeHostOf(host: CanvasHost): WorktreeHost {
-    if (host.worktrees === undefined) {
-        throw new VerbRefusal('not-a-repository', 'This machine has no git to read worktrees with');
-    }
-    return host.worktrees;
+function worktreeHostOf(context: ServerActionContext): WorktreeHost {
+    return hostService(context, 'worktrees', 'not-a-repository', 'This machine has no git to read worktrees with');
 }
 
 /* The worktrees of the caller's project, refusing a project outside a repository. */
-async function worktreesOf(host: CanvasHost, place: IndexedPlace): Promise<{ content: ProjectContent; worktrees: Worktree[] }> {
+async function worktreesOf(context: ServerActionContext): Promise<{ content: ProjectContent; worktrees: Worktree[] }> {
+    const { host, place } = context;
     const [content, worktrees] = await Promise.all([
         host.projects.read(place.projectId),
-        worktreeHostOf(host)
+        worktreeHostOf(context)
             .list(place.folder)
             .catch((e: unknown) => {
                 if (e instanceof GitError && e.code === 'not-a-repo') {
@@ -77,7 +74,7 @@ function openedBy(host: CanvasHost, caller: string, nodeId: string): boolean {
 
 export const worktreeActions: ActionHandlers<ServerActionContext> = {
     'worktree.list': async (_input, { context }) => {
-        const { content, worktrees } = await worktreesOf(context.host, context.place);
+        const { content, worktrees } = await worktreesOf(context);
         return {
             output: {
                 worktrees: worktrees.map((worktree) => ({
@@ -93,12 +90,12 @@ export const worktreeActions: ActionHandlers<ServerActionContext> = {
         };
     },
     'worktree.diff': async ({ branch }, { context }) => {
-        const { worktrees } = await worktreesOf(context.host, context.place);
+        const { worktrees } = await worktreesOf(context);
         const worktree = named(worktrees, branch);
         if (worktree.missing) {
             throw new VerbRefusal('worktree-missing', `The folder of ${branch} is gone, so there is nothing to diff`);
         }
-        const diff = await worktreeHostOf(context.host).diff(worktree.path, worktree.from?.branch ?? worktree.from?.commit);
+        const diff = await worktreeHostOf(context).diff(worktree.path, worktree.from?.branch ?? worktree.from?.commit);
         return {
             output: {
                 branch,
@@ -124,7 +121,7 @@ export const worktreeActions: ActionHandlers<ServerActionContext> = {
             throw new VerbRefusal('forbidden-action', `The daemon merges a worktree only for an agent, not for the ${actor.kind} actor`);
         }
         const { host, place } = context;
-        const { content, worktrees } = await worktreesOf(host, place);
+        const { content, worktrees } = await worktreesOf(context);
         const worktree = named(worktrees, branch);
         const owner = worktree.nodeId;
         if (owner === undefined || !openedBy(host, actor.id, owner)) {
@@ -135,7 +132,7 @@ export const worktreeActions: ActionHandlers<ServerActionContext> = {
             );
         }
         const title = content.views.flatMap((view) => (isCanvasView(view) ? view.nodes : [])).find((node) => node.id === owner)?.title ?? branch;
-        const result = await worktreeHostOf(host).merge({
+        const result = await worktreeHostOf(context).merge({
             repo: place.folder,
             path: worktree.path,
             strategy,

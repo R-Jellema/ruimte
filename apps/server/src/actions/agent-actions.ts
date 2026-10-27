@@ -1,9 +1,9 @@
 import type { ActionHandlers } from '@ruimte/actions';
-import { isAgentKind, isCanvasView, type ChatApprovalItem, type ChatQuestionItem, type ProjectView } from '@ruimte/contracts';
+import { isAgentKind, isCanvasView, type ChatApprovalItem, type ChatQuestionItem, type ProjectContent, type ProjectView } from '@ruimte/contracts';
 import { refuseMissingNodes } from '../canvas/own-view.ts';
 import { refuseOtherMachine } from '../canvas/remote-node.ts';
 import { VerbRefusal, canvasFor, field, orNote, type ChatRequestHost } from '../canvas/verb.ts';
-import type { ServerActionContext } from './context.ts';
+import { hostService, type ServerActionContext } from './context.ts';
 
 /* One row per request an agent waits on, which is what a refusal of `answer` offers instead. */
 function requestLine(nodeId: string, item: ChatQuestionItem | ChatApprovalItem): string {
@@ -76,10 +76,7 @@ export const agentActions: ActionHandlers<ServerActionContext> = {
         if ((host.agents?.startedBy(nodeId) ?? null) !== caller) {
             throw new VerbRefusal('not-yours', `${nodeId} is not a node you opened; you only answer the questions of an agent you opened yourself`);
         }
-        const requests = host.requests;
-        if (!requests) {
-            throw new VerbRefusal('no-agent', `${nodeId} runs no chat on this machine that could ask anything`);
-        }
+        const requests = hostService(context, 'requests', 'no-agent', `${nodeId} runs no chat on this machine that could ask anything`);
         const item = requests.request(nodeId, requestId);
         if (item === null) {
             throw new VerbRefusal('unknown-request', `${nodeId} asked nothing under ${requestId}`, waitingLines(requests, nodeId));
@@ -101,6 +98,7 @@ export const agentActions: ActionHandlers<ServerActionContext> = {
         return { output: { nodeId, requestId } };
     },
     'agent.alert': async ({ text }, { actor, context }) => {
+        // Reading the place refuses a caller no project places.
         void context.place;
         context.host.messages.alert(actor.id, text);
         return { output: { nodeId: actor.id } };
@@ -111,11 +109,9 @@ export const agentActions: ActionHandlers<ServerActionContext> = {
         if (nodeId === caller) {
             throw new VerbRefusal('self-notify', `${nodeId} is you; a node needs no message to itself`);
         }
-        // A chat or terminal a person pointed the caller at with `#` takes a message as along a line, wherever it stands.
-        const referenced = host.context?.referenced?.(caller).find((reference) => reference.id === nodeId);
-        if (referenced?.kind === 'chat' || referenced?.kind === 'terminal') {
-            refuseOtherMachine(host, nodeId);
-            const content = await host.projects.read(place.projectId);
+
+        // Delivered, waiting, and the one step a message wakes and no further are decided in `deliverNotice`.
+        const notify = async (content: ProjectContent) => {
             const delivery = await host.messages.notify({
                 projectId: place.projectId,
                 targetId: nodeId,
@@ -123,7 +119,15 @@ export const agentActions: ActionHandlers<ServerActionContext> = {
                 fromTitle: field(callerTitle(content.views, caller)),
                 text
             });
+
             return { output: { nodeId, at: delivery.at, detail: delivery.detail } };
+        };
+
+        // A chat or terminal a person pointed the caller at with `#` takes a message as along a line, wherever it stands.
+        const referenced = host.context?.referenced?.(caller).find((reference) => reference.id === nodeId);
+        if (referenced?.kind === 'chat' || referenced?.kind === 'terminal') {
+            refuseOtherMachine(host, nodeId);
+            return notify(await host.projects.read(place.projectId));
         }
         if (place.canvasId === null) {
             throw new VerbRefusal('not-on-a-canvas', 'A message travels along a line between two nodes of one canvas, and this view has none', [
@@ -162,15 +166,6 @@ export const agentActions: ActionHandlers<ServerActionContext> = {
             );
         }
 
-        const self = canvas.nodes.find((node) => node.id === caller);
-        // Delivered, waiting, and the one step a message wakes and no further are decided in `deliverNotice`.
-        const delivery = await host.messages.notify({
-            projectId: place.projectId,
-            targetId: nodeId,
-            from: caller,
-            fromTitle: field(self?.title ?? ''),
-            text
-        });
-        return { output: { nodeId, at: delivery.at, detail: delivery.detail } };
+        return notify(content);
     }
 };

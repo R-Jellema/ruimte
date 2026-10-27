@@ -3,7 +3,7 @@ import { VerbRefusal, type ComputerHost } from '../canvas/verb.ts';
 import type { OperateInput } from '../computer/computer-use.ts';
 import type { ActionResult, AppCommand, StateResult } from '../computer/helper-protocol.ts';
 import type { TreeView } from '../computer/tree-diff.ts';
-import type { ServerActionContext } from './context.ts';
+import { hostService, type ServerActionContext } from './context.ts';
 
 type ComputerState = ActionOutput<'computer.state'>;
 type ComputerOutcome = ActionOutput<'computer.click'>;
@@ -11,12 +11,12 @@ type ComputerOutcome = ActionOutput<'computer.click'>;
 /* How much of one text `read` passes on; a document in a text area can run to megabytes. */
 export const READ_MAX_CHARS = 20_000;
 
-/* The machine's helper, or the refusal for a machine built without one. */
-function computerOf({ host }: ServerActionContext): ComputerHost {
-    if (!host.computer) {
-        throw new VerbRefusal('unavailable', 'This machine cannot operate its apps');
-    }
-    return host.computer;
+function computerOf(context: ServerActionContext): ComputerHost {
+    return hostService(context, 'computer', 'unavailable', 'This machine cannot operate its apps');
+}
+
+function appRefOf(app: { name: string; bundleId?: string; pid: number }) {
+    return { name: app.name, bundleId: app.bundleId ?? null, pid: app.pid };
 }
 
 /* A state as the agent reads it; `view` says whether its tree is whole or only what changed. */
@@ -34,7 +34,7 @@ function stateOf(state: StateResult, view: TreeView | null = null): ComputerStat
               }
             : null;
     return {
-        app: { name: state.app.name, bundleId: state.app.bundleId ?? null, pid: state.app.pid },
+        app: appRefOf(state.app),
         window: { title: state.window.title, ...state.window.frame, sheet: state.window.sheet ?? null },
         screenshot: shot,
         screenshotError: shot === null ? (screenshot.error ?? 'no picture was taken') : null,
@@ -54,7 +54,7 @@ function given<Value>(value: Value | null | undefined): value is Value {
     return value !== null && value !== undefined;
 }
 
-/* The fields every action shares, and the scalars it reported of its own as words. */
+/* The fields every action result shares; `details` carries the scalars of the rest as words. */
 const SHARED = new Set(['app', 'target', 'point', 'settled', 'state', 'menu', 'note', 'truncated']);
 
 function scalar(value: unknown): string | null {
@@ -86,7 +86,7 @@ export function outcomeOf(result: ActionResult, seen: StateSeen = () => ({ kind:
     }
     const state = result.state;
     return {
-        app: result.app ? { name: result.app.name, bundleId: result.app.bundleId ?? null, pid: result.app.pid } : null,
+        app: result.app ? appRefOf(result.app) : null,
         target: result.target
             ? {
                   role: result.target.role ?? null,
@@ -215,10 +215,6 @@ function capped(text: string | undefined, key: string, cut: Record<string, numbe
     return characters.slice(0, READ_MAX_CHARS).join('');
 }
 
-function appRefOf(app: { name: string; bundleId?: string; pid: number }) {
-    return { name: app.name, bundleId: app.bundleId ?? null, pid: app.pid };
-}
-
 export const computerActions: ActionHandlers<ServerActionContext> = {
     'computer.apps': async (_input, { actor, context }) => {
         const { apps, doctor } = await computerOf(context).apps(actor.id);
@@ -226,9 +222,7 @@ export const computerActions: ActionHandlers<ServerActionContext> = {
             output: {
                 screenRecording: doctor.screenRecording.granted,
                 apps: apps.map(({ app, access }) => ({
-                    name: app.name,
-                    bundleId: app.bundleId ?? null,
-                    pid: app.pid,
+                    ...appRefOf(app),
                     frontmost: app.frontmost === true,
                     hidden: app.hidden === true,
                     access

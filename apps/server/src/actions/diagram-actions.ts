@@ -5,6 +5,7 @@ import { VerbRefusal, orNote } from '../canvas/verb.ts';
 import { viewLines } from '../canvas/views.ts';
 import { DiagramError } from '../projects/diagram-store.ts';
 import type { ServerActionContext } from './context.ts';
+import { parseJson, pathOf, problemsRefusal } from './json-input.ts';
 
 /*
  * The document as an agent hands it in. Strict at every level, unlike the schema a save reads: a
@@ -20,10 +21,6 @@ const DocumentSchema = z.strictObject({
     groups: z.array(z.strictObject(DiagramGroupSchema.shape)),
     edges: z.array(z.strictObject(DiagramEdgeSchema.shape))
 });
-
-function pathOf(path: readonly PropertyKey[]): string {
-    return path.reduce<string>((text, key) => (typeof key === 'number' ? `${text}[${key}]` : text === '' ? String(key) : `${text}.${String(key)}`), '');
-}
 
 function valueAt(value: unknown, path: readonly PropertyKey[]): unknown {
     return path.reduce<unknown>(
@@ -69,22 +66,15 @@ function issueText(issue: z.core.$ZodIssue, json: unknown): string {
     }
 }
 
-// Enough to repair a document in one pass, few enough that a broken one does not fill the window.
-const MAX_PROBLEMS = 20;
-
 const HELP_LINE = 'detail\truimte-context help view diagram';
 
 function documentProblems(error: z.ZodError, json: unknown): VerbRefusal {
-    const problems = error.issues.map((issue) => {
-        const path = pathOf(issue.path) || 'document';
-        return { path, text: `${issueText(issue, json)}${whoseLabel(json, issue.path)}` };
-    });
-    const [first] = problems;
-    return new VerbRefusal('bad-document', `${first!.path} ${first!.text}`, [
-        ...problems.slice(0, MAX_PROBLEMS).map((problem) => `problem\t${problem.path}\t${problem.text}`),
-        ...(problems.length > MAX_PROBLEMS ? [`note\t${problems.length - MAX_PROBLEMS} more past these`] : []),
-        HELP_LINE
-    ]);
+    const problems = error.issues.map((issue) => ({
+        path: pathOf(issue.path) || 'document',
+        text: `${issueText(issue, json)}${whoseLabel(json, issue.path)}`
+    }));
+
+    return problemsRefusal('bad-document', problems, HELP_LINE);
 }
 
 export const diagramActions: ActionHandlers<ServerActionContext> = {
@@ -109,12 +99,7 @@ export const diagramActions: ActionHandlers<ServerActionContext> = {
                 [HELP_LINE]
             );
         }
-        let json: unknown;
-        try {
-            json = JSON.parse(document);
-        } catch (e) {
-            throw new VerbRefusal('bad-json', `The document is not JSON: ${e instanceof Error ? e.message : 'it does not parse'}`, [HELP_LINE]);
-        }
+        const json = parseJson(document, 'document', HELP_LINE);
         const parsed = DocumentSchema.safeParse(json);
         if (!parsed.success) {
             throw documentProblems(parsed.error, json);
@@ -124,15 +109,10 @@ export const diagramActions: ActionHandlers<ServerActionContext> = {
         if (problem) {
             throw new VerbRefusal('diagram-invalid', problem, [HELP_LINE]);
         }
-        let rev: number;
-        try {
-            rev = await host.diagrams.write(place.projectId, viewId, { meta, nodes, groups, edges });
-        } catch (e) {
-            if (e instanceof DiagramError) {
-                throw new VerbRefusal(e.code, e.message);
-            }
-            throw e;
-        }
+        const rev = await host.diagrams.write(place.projectId, viewId, { meta, nodes, groups, edges }).catch((e: unknown) => {
+            throw e instanceof DiagramError ? new VerbRefusal(e.code, e.message) : e;
+        });
+
         return { output: { viewId, rev, nodes: nodes.length, groups: groups.length, edges: edges.length } };
     }
 };

@@ -21,6 +21,7 @@ import {
     type ProjectNode,
     type ProjectView
 } from '@ruimte/contracts';
+import { ArtifactError } from '../artifacts/artifact-names.ts';
 import { isChatView } from '../canvas/chat-view.ts';
 import { ownEnd } from '../canvas/links.ts';
 import { EVERY_KIND_LINE, KIND_FLAGS, REQUIRED_FLAG, kindLine, type KindFlag } from '../canvas/node-kinds.ts';
@@ -31,9 +32,8 @@ import { checkCwd, checkPath, isInside } from '../canvas/project-paths.ts';
 import { refuseOtherMachine } from '../canvas/remote-node.ts';
 import { NEW_NODE, VerbRefusal, canvasNamed, field, orNote, referencedBy, snoozedAt, type VerbCall } from '../canvas/verb.ts';
 import type { IndexedPlace } from '../projects/project-index.ts';
-import { verbCallOf, type ServerActionCall, type ServerActionContext } from './context.ts';
+import { hostService, verbCallOf, type ServerActionCall, type ServerActionContext } from './context.ts';
 import { machineDevice } from './device-actions.ts';
-import { ArtifactError } from '../artifacts/artifact-names.ts';
 import { entryOf, routinesOf } from './routine-actions.ts';
 
 /* The set is closed and short enough to print whole, unlike the Lucide names a view picks from. */
@@ -164,11 +164,7 @@ function writtenOn(
             `see\truimte-context link new --to ${nodeId}\tdraws the line this needs`
         ]);
     }
-    /*
-     * The body is read here and nowhere earlier. `mutate` runs under the project's lock
-     * against the document as it stands, so two agents appending in the same breath queue
-     * up and the second one writes its line under the first instead of over it.
-     */
+    // Read here under the project's lock and nowhere earlier, so of two agents appending at once the second writes under the first.
     const body = node.body ?? '';
     const next = append ? withLine(body, text) : text;
     const output = { nodeId, lines: next === '' ? 0 : next.split('\n').length, characters: next.length, changed: next !== body };
@@ -216,12 +212,9 @@ async function checkRoutine(call: ServerActionCall, routineId: string): Promise<
 
 /* An artifact of the caller's own project, and a version of it when one is named; one of another project answers as not there. */
 async function checkArtifact(call: ServerActionCall, artifactId: string, versionId: string | null | undefined): Promise<Checked['artifact']> {
-    const { host, place } = call.context;
-    if (!host.artifacts) {
-        throw new VerbRefusal('no-output', 'This machine keeps no Output');
-    }
+    const artifacts = hostService(call.context, 'artifacts', 'no-output', 'This machine keeps no Output');
     try {
-        const { artifact, version } = await host.artifacts.read(place.projectId, { artifactId, ...(versionId == null ? {} : { versionId }) });
+        const { artifact, version } = await artifacts.read(call.context.place.projectId, { artifactId, ...(versionId == null ? {} : { versionId }) });
         return { reference: { id: artifact.artifactId, ...(versionId == null ? {} : { version: version.versionId }) }, title: artifact.title };
     } catch (error) {
         if (error instanceof ArtifactError) {
@@ -431,9 +424,7 @@ export const nodeActions: ActionHandlers<ServerActionContext> = {
         const [first] = made.nodes;
         return { output: { viewId: made.viewId, view: made.view, nodeId: first!.nodeId, node: first!.node, kind: first!.kind, edge: first!.edge } };
     },
-    'node.createMany': async ({ viewId, nodes }, call) => {
-        return { output: await createNodes(call, viewId, nodes, true) };
-    },
+    'node.createMany': async ({ viewId, nodes }, call) => ({ output: await createNodes(call, viewId, nodes, true) }),
     'node.rename': async ({ viewId, nodeId, name }, { context }) => {
         const { host, place } = context;
         return host.projects.mutate(place.projectId, (content) => {

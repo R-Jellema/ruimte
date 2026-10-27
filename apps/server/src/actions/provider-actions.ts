@@ -48,10 +48,7 @@ export const providerActions: ActionHandlers<ServerActionContext> = {
     }),
     // Only the caller's own account: the numbers come from the CLIs as they last reported them, and nothing asks a provider again.
     'provider.limits': (_input, { actor, context }) => {
-        const limits = context.host.planLimits;
-        if (!limits) {
-            throw new VerbRefusal('no-limits', 'This machine reads no plan windows');
-        }
+        const limits = hostService(context, 'planLimits', 'no-limits', 'This machine reads no plan windows');
         const account = context.host.starts.accountOf?.(actor.id) ?? null;
         if (account === null) {
             throw new VerbRefusal('no-agent', 'You run no agent CLI this machine knows, so there is no plan to read');

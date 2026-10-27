@@ -14,7 +14,7 @@ import type { DriveOutcome } from '../browser/drive.ts';
 import { checkUrl } from '../canvas/nodes.ts';
 import { refuseOtherMachine } from '../canvas/remote-node.ts';
 import { VerbRefusal, field, orNote, referencedBy, type BrowserDriveHost, type CanvasHost } from '../canvas/verb.ts';
-import type { ServerActionContext } from './context.ts';
+import { hostService, type ServerActionContext } from './context.ts';
 
 /* Where a page is now when somebody holds it, else the address stored on its node. Reading it wakes nobody. */
 async function addressOf(host: CanvasHost, id: string, stored: string | undefined): Promise<string | undefined> {
@@ -102,13 +102,8 @@ async function targetOf({ host, place }: ServerActionContext, caller: string, id
     return node;
 }
 
-/* The machine's door to a page, or the refusal for a machine built without one. */
-function driverOf({ host }: ServerActionContext): BrowserDriveHost {
-    const driver = host.browsers;
-    if (!driver) {
-        throw new VerbRefusal('unavailable', 'This machine cannot drive a page');
-    }
-    return driver;
+function driverOf(context: ServerActionContext): BrowserDriveHost {
+    return hostService(context, 'browsers', 'unavailable', 'This machine cannot drive a page');
 }
 
 function pageOf(state: BrowserPageState | null): ActionOutput<'browser.inspect'>['page'] {

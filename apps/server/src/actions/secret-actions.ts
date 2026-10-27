@@ -1,34 +1,24 @@
 import type { ActionHandlers } from '@ruimte/actions';
-import { callerKind } from '../canvas/tasks.ts';
-import { VerbRefusal, type SecretHost } from '../canvas/verb.ts';
+import { VerbRefusal } from '../canvas/verb.ts';
+import { hostService, requireChatCaller, type ServerActionContext } from './context.ts';
 import { launchHostOf, launchLines, named } from './launch-actions.ts';
-import type { ServerActionContext } from './context.ts';
 
 // The daemon hands every session these itself; a secret under one would take over its wiring.
 const RESERVED_PREFIX = 'RUIMTE_';
 
-function secretsOf({ host }: ServerActionContext): SecretHost {
-    if (!host.secrets) {
-        throw new VerbRefusal('no-secrets', 'This machine keeps no secrets for launches');
-    }
-    return host.secrets;
-}
-
-/* The card shows in the thread of an AI chat; a terminal's agent asks in its own TUI or in words. */
-async function requireChat({ host, place }: ServerActionContext, caller: string): Promise<void> {
-    const kind = callerKind(await host.projects.read(place.projectId), caller) ?? host.hiddenAgents?.get(caller)?.node.kind ?? null;
-    if (kind !== 'chat') {
-        throw new VerbRefusal(
-            'secret-needs-chat',
-            `A secret is asked for in a card of an AI chat, and you are ${kind === null ? 'not a node of this project' : `a ${kind}`}: ask the person to add it to the launch themselves`
-        );
-    }
-}
-
 export const secretActions: ActionHandlers<ServerActionContext> = {
     'secret.request': async ({ launch: wanted, variable, label, reason, placeholder, wait }, { actor, context }) => {
-        const secrets = secretsOf(context);
-        await requireChat(context, actor.id);
+        const secrets = hostService(context, 'secrets', 'no-secrets', 'This machine keeps no secrets for launches');
+        // The card shows in the thread of an AI chat; a terminal's agent asks in its own TUI or in words.
+        await requireChatCaller(
+            context,
+            actor.id,
+            (you) =>
+                new VerbRefusal(
+                    'secret-needs-chat',
+                    `A secret is asked for in a card of an AI chat, and you are ${you}: ask the person to add it to the launch themselves`
+                )
+        );
         if (variable.toUpperCase().startsWith(RESERVED_PREFIX)) {
             throw new VerbRefusal('reserved-variable', `${variable} is one of the variables this machine sets itself; pick another name`);
         }

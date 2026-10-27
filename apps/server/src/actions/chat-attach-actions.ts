@@ -9,8 +9,7 @@ import {
     agentAttachmentType
 } from '../chat/attachment-type.ts';
 import { imageType } from '../cli/visual-images.ts';
-import type { ServerActionContext } from './context.ts';
-import { callerNodeKind } from './visual-actions.ts';
+import { hostService, requireChatCaller, type ServerActionContext } from './context.ts';
 
 const HELP_LINE = 'detail\truimte-context help chat attach';
 
@@ -18,18 +17,15 @@ const MIB = 1024 * 1024;
 
 export const chatAttachActions: ActionHandlers<ServerActionContext> = {
     'chat.attach': async ({ name, data }, { actor, context }) => {
-        const images = context.host.agentImages;
-        if (!images) {
-            throw new VerbRefusal('unavailable', 'This machine keeps no attachments for a chat; describe the file in text');
-        }
-        const kind = await callerNodeKind(context, actor.id);
-        if (kind !== 'chat') {
-            throw new VerbRefusal(
-                'attach-needs-chat',
-                `A file attaches only to the thread of an AI chat, and you are ${kind === null ? 'not a node of this project' : `a ${kind}`}: describe it in text instead`,
-                [HELP_LINE]
-            );
-        }
+        const images = hostService(context, 'agentImages', 'unavailable', 'This machine keeps no attachments for a chat; describe the file in text');
+        await requireChatCaller(
+            context,
+            actor.id,
+            (you) =>
+                new VerbRefusal('attach-needs-chat', `A file attaches only to the thread of an AI chat, and you are ${you}: describe it in text instead`, [
+                    HELP_LINE
+                ])
+        );
         const bytes = Buffer.from(data, 'base64');
         if (bytes.byteLength > AGENT_MODEL_BYTES) {
             throw new VerbRefusal(

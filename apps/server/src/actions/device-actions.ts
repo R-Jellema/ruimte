@@ -9,12 +9,12 @@ import {
     type DeviceReference,
     type ProjectCanvasView
 } from '@ruimte/contracts';
+import { CodedError } from '@adecore/agents';
 import { arrangedCanvas, isChatView, notOnView, viewRequired } from '../canvas/chat-view.ts';
 import { checkDevicePath } from '../canvas/project-paths.ts';
 import { refuseOtherMachine } from '../canvas/remote-node.ts';
 import type { DeviceActionBody } from '../devices/agent-driver.ts';
 import { VerbRefusal, field, orNote, referencedBy, type CanvasHost, type DeviceDriveHost } from '../canvas/verb.ts';
-import { CodedError } from '@adecore/agents';
 import type { ServerActionContext } from './context.ts';
 
 /* Every device node this caller may operate, for a refusal that offers what the next call takes. */
@@ -52,10 +52,9 @@ function lineLines(id: string, callerCanvas: string | null, deviceCanvas: string
 }
 
 /*
- * The device a call works on: the one a device node of this project points at, with a line between
- * that node and the caller, the same line a read takes, a `#` a person pointed the caller at it with,
- * or on the canvas a chat view names. No card
- * asks a person: the device is a sandbox of its own, and the line is the permission.
+ * The device a device node of this project points at, reached over the line a read takes, a `#` a
+ * person pointed the caller at it with, or the canvas a chat view names. No card asks a person: the
+ * device is a sandbox of its own, and the line is the permission.
  */
 async function referenceOf({ host, place }: ServerActionContext, caller: string, id: string, viewId: string | null | undefined): Promise<DeviceReference> {
     const content = await host.projects.read(place.projectId);
@@ -167,17 +166,18 @@ function setBodies(input: {
     if (input.statusBar) {
         bodies.push({ action: 'setStatusBar', value: input.statusBar });
     }
-    if (input.battery !== null && input.battery !== undefined) {
+    if (input.battery != null) {
         bodies.push({ action: 'setBattery', level: input.battery, charging: input.charging ?? false });
-    } else if (input.charging !== null && input.charging !== undefined) {
+    } else if (input.charging != null) {
         throw new VerbRefusal('bad-arguments', '--charging goes with --battery N, the level it charges at');
     }
-    const located = input.latitude !== null && input.latitude !== undefined && input.longitude !== null && input.longitude !== undefined;
+    const { latitude, longitude } = input;
+    const located = latitude != null && longitude != null;
     if (located && input.clearLocation) {
         throw new VerbRefusal('bad-arguments', 'A device takes --location or --clear-location, not both');
     }
     if (located) {
-        bodies.push({ action: 'setLocation', latitude: input.latitude!, longitude: input.longitude! });
+        bodies.push({ action: 'setLocation', latitude, longitude });
     } else if (input.clearLocation) {
         bodies.push({ action: 'clearLocation' });
     }
@@ -260,7 +260,7 @@ export const deviceActions: ActionHandlers<ServerActionContext> = {
     },
     'device.tap': async ({ nodeId, viewId, x, y, element }, { actor, context }) => {
         const handle = element ?? null;
-        const pixel = x === null || x === undefined || y === null || y === undefined ? null : { x, y };
+        const pixel = x == null || y == null ? null : { x, y };
         if (handle === null ? pixel === null : (x ?? y ?? null) !== null) {
             throw new VerbRefusal('bad-arguments', 'A tap takes either an element of the last state or a pixel of the last shot as x and y', [
                 'see\truimte-context device state <id>\tnumbers the elements',

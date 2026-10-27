@@ -158,6 +158,14 @@ async function saved(context: ServerActionContext, caller: string, routine: Rout
     };
 }
 
+async function toggled(context: ServerActionContext, routineId: string, change: 'pause' | 'resume') {
+    const host = routinesOf(context);
+    const entry = entryOf((await host.list(context.place.projectId)).routines, routineId);
+    await host[change](context.place.projectId, routineId);
+
+    return { output: { routineId, title: entry.routine.title } };
+}
+
 /* Every call is held to the caller's own project, read off the caller and never off an argument; no call approves. */
 export const routineActions: ActionHandlers<ServerActionContext> = {
     'routine.list': async (_input, { context }) => {
@@ -179,18 +187,8 @@ export const routineActions: ActionHandlers<ServerActionContext> = {
         const routine = await routineFrom(context, actor.id, routineId, input, entry.routine);
         return saved(context, actor.id, routine, entry.shared);
     },
-    'routine.pause': async ({ routineId }, { context }) => {
-        const host = routinesOf(context);
-        const entry = entryOf((await host.list(context.place.projectId)).routines, routineId);
-        await host.pause(context.place.projectId, routineId);
-        return { output: { routineId, title: entry.routine.title } };
-    },
-    'routine.resume': async ({ routineId }, { context }) => {
-        const host = routinesOf(context);
-        const entry = entryOf((await host.list(context.place.projectId)).routines, routineId);
-        await host.resume(context.place.projectId, routineId);
-        return { output: { routineId, title: entry.routine.title } };
-    },
+    'routine.pause': ({ routineId }, { context }) => toggled(context, routineId, 'pause'),
+    'routine.resume': ({ routineId }, { context }) => toggled(context, routineId, 'resume'),
     'routine.run': async ({ routineId }, { context }) => {
         const host = routinesOf(context);
         const entry = entryOf((await host.list(context.place.projectId)).routines, routineId);

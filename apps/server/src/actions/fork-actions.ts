@@ -3,7 +3,7 @@ import { depthForOpening } from '../canvas/depth.ts';
 import { modeForOpening } from '../canvas/mode.ts';
 import { refuseOtherMachine } from '../canvas/remote-node.ts';
 import { VerbRefusal } from '../canvas/verb.ts';
-import { verbCallOf, type ServerActionContext } from './context.ts';
+import { hostService, verbCallOf, type ServerActionContext } from './context.ts';
 
 export const forkActions: ActionHandlers<ServerActionContext> = {
     'chat.fork': async ({ chatId, turnId, title, branch }, call) => {
@@ -18,16 +18,12 @@ export const forkActions: ActionHandlers<ServerActionContext> = {
             throw new VerbRefusal('not-yours', `${chatId} is not a node you opened; you only fork a chat you opened yourself`);
         }
         refuseOtherMachine(host, chatId);
-        const forks = host.forks;
-        if (!forks) {
-            throw new VerbRefusal('fork-unavailable', 'This machine does not fork chats');
-        }
+        const forks = hostService(call.context, 'forks', 'fork-unavailable', 'This machine does not fork chats');
         const verbCall = verbCallOf(call);
         const depth = depthForOpening(verbCall, 'agent', 1);
-        const ceiling = modeForOpening(verbCall, undefined);
         const result = await forks.fork(
             { chatId, turnId, ...(title == null ? {} : { title }), ...(branch == null ? {} : { branch }) },
-            { id: caller, depth, ceiling, recount: () => depthForOpening(verbCall, 'agent', 1) }
+            { id: caller, depth, ceiling: modeForOpening(verbCall, undefined), recount: () => depthForOpening(verbCall, 'agent', 1) }
         );
         return {
             output: {

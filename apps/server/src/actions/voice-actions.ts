@@ -1,7 +1,7 @@
 import { MAX_PROMPT_LENGTH, type ActionHandlers, type ActionInput, type ActionOutput } from '@ruimte/actions';
-import type { ChatInfo, ChatItem, ProjectContent } from '@ruimte/contracts';
+import type { ChatItem, ProjectContent } from '@ruimte/contracts';
 import { matchName, resolveNames, type VoiceNameMatch } from '@ruimte/voice';
-import { VerbRefusal } from '../canvas/verb.ts';
+import { VerbRefusal, type CanvasHost } from '../canvas/verb.ts';
 import { agentReading } from '../voice/agent-reading.ts';
 import { chatExcerpt } from '../voice/chat-excerpt.ts';
 import {
@@ -16,7 +16,7 @@ import {
     type VoiceAgentPlace,
     type VoiceTarget
 } from '../voice/project-reading.ts';
-import { noVoiceProject, type ServerActionContext, type VoiceCaller, type VoiceOpenProject } from './context.ts';
+import { hostService, noVoiceProject, type ServerActionContext, type VoiceCaller, type VoiceOpenProject } from './context.ts';
 
 const DEFAULT_READ = 20;
 
@@ -31,13 +31,17 @@ function voiceOf(context: ServerActionContext): VoiceCaller {
 }
 
 /* The project the session works in now, whatever project or place the model names. */
-async function sessionProject(context: ServerActionContext): Promise<{ voice: VoiceCaller; projectId: string; content: ProjectContent }> {
-    const voice = voiceOf(context);
-    const projectId = voice.projectId;
-    if (projectId === null) {
+function sessionProjectId(voice: VoiceCaller): string {
+    if (voice.projectId === null) {
         throw noVoiceProject();
     }
-    return { voice, projectId, content: await context.host.projects.read(projectId) };
+
+    return voice.projectId;
+}
+
+async function sessionProject(context: ServerActionContext): Promise<{ projectId: string; content: ProjectContent }> {
+    const projectId = sessionProjectId(voiceOf(context));
+    return { projectId, content: await context.host.projects.read(projectId) };
 }
 
 /*
@@ -51,10 +55,7 @@ async function chatOfSession(context: ServerActionContext, chatId: string): Prom
     if (host.projects.machineOfNode(chatId) !== null) {
         throw new VerbRefusal('remote-target', 'That chat runs on another machine; Voice reaches only the chats of this one');
     }
-    const projectId = voice.projectId;
-    if (projectId === null) {
-        throw noVoiceProject();
-    }
+    const projectId = sessionProjectId(voice);
     const place = host.projects.locate(chatId);
     const content = place?.projectId === projectId ? await host.projects.read(projectId) : null;
     const chat = content === null ? null : projectChat(content, chatId);
@@ -98,10 +99,6 @@ async function resolveProject(context: ServerActionContext, names: readonly stri
         );
     }
     return named('project', names, (name) => matchName(name, projects));
-}
-
-async function chatInfoOf(context: ServerActionContext, chatId: string): Promise<ChatInfo | null> {
-    return (await context.host.chatThreads?.info?.(chatId)) ?? null;
 }
 
 function current(target: Resolved['target'], found: VoiceTarget[]): Resolved {
@@ -182,25 +179,25 @@ function pendingRequests(items: readonly ChatItem[]) {
     };
 }
 
-function lastSettledTurn(items: readonly ChatItem[]): string | null {
-    for (let i = items.length - 1; i >= 0; i--) {
-        const item = items[i]!;
-        if (item.kind === 'turn' && item.state !== 'running') {
-            return item.id;
-        }
+/* Where a prompt or a clear goes: a chat whose CLI runs here now. `also` adds what else the model can do. */
+function runningPrompts(context: ServerActionContext, chatId: string, chat: string, also = ''): NonNullable<CanvasHost['chatPrompts']> {
+    const prompts = context.host.chatPrompts;
+    if (prompts === undefined || !prompts.running(chatId)) {
+        throw new VerbRefusal('chat-not-running', `“${chat}” does not run on the machine now. Opening it in Ruimte starts it again${also}`);
     }
-    return null;
+
+    return prompts;
+}
+
+function lastSettledTurn(items: readonly ChatItem[]): string | null {
+    return items.findLast((item) => item.kind === 'turn' && item.state !== 'running')?.id ?? null;
 }
 
 /* The daemon's handlers of actions that only Voice runs here, in the same registry the agents' verbs go through. */
 export const voiceActions: ActionHandlers<ServerActionContext> = {
     'chat.read': async ({ chatId, limit }, { context }) => {
         const chat = await chatOfSession(context, chatId);
-        const threads = context.host.chatThreads;
-        if (threads === undefined) {
-            throw new VerbRefusal('no-chats', 'This machine reads no chats');
-        }
-        const items = await threads.items(chatId);
+        const items = await hostService(context, 'chatThreads', 'no-chats', 'This machine reads no chats').items(chatId);
         if (items === null) {
             // A chat node nobody ever opened has no thread yet, which is an empty one and not an error.
             return { output: { chatId, chat: chat.name, messages: [], truncated: false } };
@@ -210,13 +207,7 @@ export const voiceActions: ActionHandlers<ServerActionContext> = {
     'chat.send': async ({ chatId, prompt, delivery }, { context }) => {
         const voice = voiceOf(context);
         const chat = await chatOfSession(context, chatId);
-        const prompts = context.host.chatPrompts;
-        if (prompts === undefined || !prompts.running(chatId)) {
-            throw new VerbRefusal(
-                'chat-not-running',
-                `“${chat.name}” does not run on the machine now. Opening it in Ruimte starts it again, or agent.start starts a new AI Chat with this prompt`
-            );
-        }
+        const prompts = runningPrompts(context, chatId, chat.name, ', or agent.start starts a new AI Chat with this prompt');
         const text = prompt.trim();
         if (text === '') {
             throw new VerbRefusal('empty-prompt', 'The prompt is empty');
@@ -239,10 +230,7 @@ export const voiceActions: ActionHandlers<ServerActionContext> = {
         const voice = voiceOf(context);
         // Checked again when the person answers, since the registry runs a confirmed action through this handler anew.
         const chat = await chatOfSession(context, chatId);
-        const prompts = context.host.chatPrompts;
-        if (prompts === undefined || !prompts.running(chatId)) {
-            throw new VerbRefusal('chat-not-running', `“${chat.name}” does not run on the machine now. Opening it in Ruimte starts it again`);
-        }
+        const prompts = runningPrompts(context, chatId, chat.name);
         if (!confirmed) {
             return {
                 confirmation: {
@@ -293,8 +281,8 @@ export const voiceActions: ActionHandlers<ServerActionContext> = {
     },
     'chat.inspect': async ({ chatId }, { context }) => {
         const chat = await chatOfSession(context, chatId);
-        const info = await chatInfoOf(context, chatId);
-        if (info === null) {
+        const info = await context.host.chatThreads?.info?.(chatId);
+        if (!info) {
             throw new VerbRefusal('chat-not-started', `“${chat.name}” has not started yet, so there is nothing to inspect`);
         }
         const items = (await context.host.chatThreads?.items(chatId)) ?? [];

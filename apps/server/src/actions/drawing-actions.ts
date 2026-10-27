@@ -5,12 +5,10 @@ import { randomBytes, randomInt } from 'node:crypto';
 import type { z } from 'zod';
 import { VerbRefusal, field, orNote, type CanvasHost } from '../canvas/verb.ts';
 import { DrawingError } from '../projects/drawing-store.ts';
-import type { ServerActionContext } from './context.ts';
+import { hostService, type ServerActionContext } from './context.ts';
+import { MAX_PROBLEMS, parseJson, pathOf, problemsRefusal } from './json-input.ts';
 
 const HELP_LINE = 'detail\truimte-context help view drawing';
-
-// Enough to repair an edit in one pass, few enough that a broken one does not fill the window.
-const MAX_PROBLEMS = 20;
 
 /* The ids the daemon gives new elements, in the shape a person's own elements have. */
 function systemMint(): DrawingEditMint {
@@ -53,30 +51,19 @@ function drawableLines(host: CanvasHost, caller: string, content: ProjectContent
     );
 }
 
-function pathOf(path: readonly PropertyKey[]): string {
-    return path.reduce<string>((text, key) => (typeof key === 'number' ? `${text}[${key}]` : text === '' ? String(key) : `${text}.${String(key)}`), '');
-}
-
 function editProblems(error: z.ZodError): VerbRefusal {
     const problems = error.issues.map((issue) => ({
         path: pathOf(issue.path) || 'edit',
         text: issue.code === 'unrecognized_keys' ? `has no field ${issue.keys.join(', ')}` : issue.message
     }));
-    const [first] = problems;
-    return new VerbRefusal('bad-edit', `${first!.path} ${first!.text}`, [
-        ...problems.slice(0, MAX_PROBLEMS).map((problem) => `problem\t${problem.path}\t${problem.text}`),
-        ...(problems.length > MAX_PROBLEMS ? [`note\t${problems.length - MAX_PROBLEMS} more past these`] : []),
-        HELP_LINE
-    ]);
+
+    return problemsRefusal('bad-edit', problems, HELP_LINE);
 }
 
 export const drawingActions: ActionHandlers<ServerActionContext> = {
     'drawing.edit': async ({ viewId, revision, edit }, { actor, context, dryRun }) => {
         const { host, place } = context;
-        const drawings = host.drawings;
-        if (!drawings) {
-            throw new VerbRefusal('unavailable', 'This machine keeps no drawings an agent can write in');
-        }
+        const drawings = hostService(context, 'drawings', 'unavailable', 'This machine keeps no drawings an agent can write in');
         const content = await host.projects.read(place.projectId);
         const view = drawingOf(content, viewId);
         if (view === null) {
@@ -100,13 +87,7 @@ export const drawingActions: ActionHandlers<ServerActionContext> = {
                 [HELP_LINE]
             );
         }
-        let json: unknown;
-        try {
-            json = JSON.parse(edit);
-        } catch (e) {
-            throw new VerbRefusal('bad-json', `The edit is not JSON: ${e instanceof Error ? e.message : 'it does not parse'}`, [HELP_LINE]);
-        }
-        const parsed = DrawingEditSchema.safeParse(json);
+        const parsed = DrawingEditSchema.safeParse(parseJson(edit, 'edit', HELP_LINE));
         if (!parsed.success) {
             throw editProblems(parsed.error);
         }
