@@ -1,5 +1,3 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
 import { VISUAL_HOST_HEADERS } from '../../../packages/csp/src/index.ts';
 import {
     VISUAL_BRIDGE_METHODS,
@@ -11,8 +9,7 @@ import {
     visualThemeFragment,
     type VisualTheme
 } from '../../../packages/contracts/src/visual.ts';
-
-const root = resolve(import.meta.dir, '..');
+import { writeGenerated } from './generated.ts';
 
 function swiftString(value: string): string {
     if ([...value].some((char) => char.charCodeAt(0) < 0x20)) {
@@ -90,19 +87,10 @@ const fixtures = {
     heights: heightCases
 };
 
-const outputs = new Map([
-    ['App/Sessions/ChatVisualContract.swift', contract],
-    ['Tests/Fixtures/visuals.json', JSON.stringify(fixtures, null, 2) + '\n']
-]);
-for (const [path, contents] of outputs) {
-    const destination = resolve(root, path);
-    if (process.argv.includes('--check')) {
-        if ((await readFile(destination, 'utf8').catch(() => '')) !== contents) {
-            throw new Error(`Stale generated file: ${destination}`);
-        }
-    } else {
-        await mkdir(resolve(destination, '..'), { recursive: true });
-        await writeFile(destination, contents);
-    }
-}
-console.log(`${process.argv.includes('--check') ? 'Checked' : 'Generated'} the visual contract and its parity fixtures.`);
+await writeGenerated(
+    new Map([
+        ['App/Sessions/ChatVisualContract.swift', contract],
+        ['Tests/Fixtures/visuals.json', JSON.stringify(fixtures, null, 2) + '\n']
+    ]),
+    'the visual contract and its parity fixtures'
+);
