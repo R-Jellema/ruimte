@@ -1,10 +1,11 @@
 import { useEffect, useId, useLayoutEffect, useRef, type RefObject } from 'react';
-import { Mic, Square, X, CircleAlert } from 'lucide-react';
+import { Mic, Square, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { ButtonGroup, ErrorBoundary, IconButton } from '@adecore/ui';
 import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
 import { cancelDictation, observeSpeech, registerDictationTarget, toggleDictation, useDictation, type DictationInsertion } from './controller';
+import { DictationButton } from './DictationButton';
 
 const EMPTY_BANDS: number[] = [];
 
@@ -59,33 +60,11 @@ function Control({ targetRef, capture, disabled = false, buttonContainer, inline
             toggleDictation({ id, element, capture: () => latest.current(), disabled: () => latestDisabled.current });
         }
     };
-    const label = active && phase !== 'error' ? t('dictation.stop') : t('dictation.start');
     if (buttonContainer !== undefined) {
-        const working = active && (phase === 'starting' || phase === 'finishing');
-        const recording = active && phase === 'listening';
-        const tooltip = error || (working ? t(`dictation.${phase}`) : label);
         return (
             <>
                 {buttonContainer &&
-                    createPortal(
-                        <IconButton
-                            icon={recording ? Square : error ? CircleAlert : Mic}
-                            busy={working}
-                            size="sm"
-                            label={tooltip}
-                            kbd={CANVAS_SHORTCUTS.dictation}
-                            aria-pressed={recording}
-                            aria-busy={working}
-                            className={error ? 'text-status-error' : recording ? 'text-accent' : undefined}
-                            disabled={active && phase === 'finishing'}
-                            onPointerDown={(event) => {
-                                event.preventDefault();
-                                event.stopPropagation();
-                            }}
-                            onClick={toggle}
-                        />,
-                        buttonContainer
-                    )}
+                    createPortal(<DictationButton phase={phase} error={error} size="sm" disabled={phase === 'finishing'} onToggle={toggle} />, buttonContainer)}
                 {!inlinePreview && active && text && phase !== 'error' && (
                     <p
                         className="max-h-32 overflow-auto whitespace-pre-wrap break-words px-3.5 pb-2 text-sm text-text-muted"
@@ -102,6 +81,7 @@ function Control({ targetRef, capture, disabled = false, buttonContainer, inline
             </>
         );
     }
+    const label = active && phase !== 'error' ? t('dictation.stop') : t('dictation.start');
     return (
         <div className="flex min-w-0 flex-col gap-2 px-2 py-1" onPointerDown={(event) => event.stopPropagation()}>
             <div className="flex items-center gap-2">

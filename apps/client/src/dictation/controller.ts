@@ -49,10 +49,11 @@ export interface DictationTarget {
     /* Refuses a start only. A run that is going keeps going, and its insertion refuses a field that went read-only. */
     disabled?(): boolean;
 }
+export type DictationPhase = 'idle' | 'starting' | 'listening' | 'finishing' | 'error';
 interface State {
     model: SpeechState | null;
     targetId: string | null;
-    phase: 'idle' | 'starting' | 'listening' | 'finishing' | 'error';
+    phase: DictationPhase;
     text: string;
     error: string | null;
     bands: number[];
@@ -153,7 +154,7 @@ export function registerDictationTarget(target: DictationTarget): () => void {
  * A person cancels from a focused window, so a cancel without the focus is the window losing it. That
  * ends a recording, but not the system's question about the microphone or a run that already stopped.
  */
-function endsOnBlur(phase: State['phase']): boolean {
+function endsOnBlur(phase: DictationPhase): boolean {
     return phase === 'listening' || (phase === 'starting' && !awaitingAccess);
 }
 

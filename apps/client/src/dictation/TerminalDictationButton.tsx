@@ -1,10 +1,9 @@
 import { useEffect } from 'react';
-import { CircleAlert, Mic, Square } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useEndpointId } from '@/state/keys';
-import { ErrorBoundary, IconButton } from '@adecore/ui';
-import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
+import { ErrorBoundary } from '@adecore/ui';
 import { observeSpeech, toggleDictation, useDictation } from './controller';
+import { DictationButton } from './DictationButton';
 import { terminalTargetKey, useTerminalDictationTargets } from './terminal-targets';
 
 export function TerminalDictationButton(props: { terminalId: string | null }) {
@@ -17,7 +16,6 @@ export function TerminalDictationButton(props: { terminalId: string | null }) {
 }
 
 function Control({ terminalId }: { terminalId: string | null }) {
-    const { t } = useTranslation('voice');
     const endpointId = useEndpointId();
     const target = useTerminalDictationTargets((state) => (terminalId ? state.targets.get(terminalTargetKey(endpointId, terminalId)) : undefined));
     const enabled = useDictation((state) => state.model?.enabled === true);
@@ -27,24 +25,12 @@ function Control({ terminalId }: { terminalId: string | null }) {
     if (!enabled) {
         return null;
     }
-    const working = phase === 'starting' || phase === 'finishing';
-    const recording = phase === 'listening';
-    const label = error || (working ? t(`dictation.${phase}`) : recording ? t('dictation.stop') : t('dictation.start'));
     return (
-        <IconButton
-            icon={recording ? Square : error ? CircleAlert : Mic}
-            busy={working}
-            label={label}
-            kbd={CANVAS_SHORTCUTS.dictation}
-            className={error ? 'text-status-error' : recording ? 'text-accent' : undefined}
+        <DictationButton
+            phase={phase}
+            error={error}
             disabled={!target || phase === 'finishing'}
-            aria-pressed={recording}
-            aria-busy={working}
-            onPointerDown={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-            }}
-            onClick={() => {
+            onToggle={() => {
                 if (target) {
                     toggleDictation(target);
                 }
