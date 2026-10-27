@@ -1,19 +1,11 @@
 import { MACHINE_NOTIFY_PATH, MachineNotifyRefusalSchema } from '@ruimte/contracts';
-import { readLocalSecret } from '../auth/local-secret.ts';
-import { startFirst } from './machine-status.ts';
+import { commandIo, homeSecret, otherHome, startFirst, tooOld, type LocalDaemonOptions } from './local-daemon.ts';
 
-type Fetch = (input: string, init: RequestInit) => Promise<Response>;
-
-export interface NotifyOptions {
-    port: number;
-    home: string;
+export interface NotifyOptions extends Omit<LocalDaemonOptions, 'out'> {
     // `--node`; absent, the terminal of Ruimte the script runs in.
     node?: string;
     text: string;
     env?: Record<string, string | undefined>;
-    fetch?: Fetch;
-    readSecret?: (home: string) => Promise<string>;
-    err?: (line: string) => void;
 }
 
 const MAX_TEXT = 500;
@@ -23,8 +15,7 @@ const MAX_TEXT = 500;
  * on the phones and in every window, and it opens the node it names. Only the local secret may.
  */
 export async function runNotify(options: NotifyOptions): Promise<number> {
-    const fetcher: Fetch = options.fetch ?? ((input, init) => fetch(input, init));
-    const err = options.err ?? ((line: string) => console.error(line));
+    const { fetcher, err } = commandIo(options);
     const nodeId = options.node ?? (options.env ?? process.env).RUIMTE_SESSION_ID ?? '';
     const text = options.text.trim();
     if (nodeId === '') {
@@ -35,7 +26,7 @@ export async function runNotify(options: NotifyOptions): Promise<number> {
         err(`Usage: ruimte notify [--node <id>] <text>, with a text of at most ${MAX_TEXT} characters.`);
         return 1;
     }
-    const secret = await (options.readSecret ?? readLocalSecret)(options.home).catch(() => null);
+    const secret = await homeSecret(options);
     if (secret === null) {
         err(`No local secret in ${options.home}: only a process of the person whose daemon has that home may notify. ${startFirst(options.port)}`);
         return 1;
@@ -50,11 +41,11 @@ export async function runNotify(options: NotifyOptions): Promise<number> {
         return 1;
     }
     if (response.status === 404) {
-        err(`The daemon on port ${options.port} is older than \`ruimte notify\`; update it first.`);
+        err(tooOld(options.port, 'notify'));
         return 1;
     }
     if (response.status === 401 || response.status === 403) {
-        err(`The daemon on port ${options.port} does not use ${options.home}; set RUIMTE_HOME to the home it was started with.`);
+        err(otherHome(options));
         return 1;
     }
     if (!response.ok) {

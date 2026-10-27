@@ -1,15 +1,7 @@
-import { readLocalSecret } from '../auth/local-secret.ts';
-import { readMachineStatus, startFirst, statusLines } from './machine-status.ts';
+import { commandIo, homeSecret, otherHome, startFirst, tooOld, type LocalDaemonOptions } from './local-daemon.ts';
+import { readMachineStatus, statusLines } from './machine-status.ts';
 
-type Fetch = (input: string, init: RequestInit) => Promise<Response>;
-
-interface StatusOptions {
-    port: number;
-    home: string;
-    fetch?: Fetch;
-    readSecret?: (home: string) => Promise<string>;
-    out?: (line: string) => void;
-    err?: (line: string) => void;
+interface StatusOptions extends LocalDaemonOptions {
     /* The answer as JSON, for a script or an agent. */
     json?: boolean;
     /* Check how other devices reach the machine before answering, instead of the last check. */
@@ -21,29 +13,23 @@ interface StatusOptions {
  * its home. Exits 0 when it answers and 1 when it does not, so a script can wait on it.
  */
 export async function runStatus(options: StatusOptions): Promise<number> {
-    const out = options.out ?? ((line: string) => console.log(line));
-    const err = options.err ?? ((line: string) => console.error(line));
-    const secret = await (options.readSecret ?? readLocalSecret)(options.home).catch(() => null);
+    const { fetcher, out, err } = commandIo(options);
+    const secret = await homeSecret(options);
     if (secret === null) {
         err(`No daemon has started with ${options.home} as its home. ${startFirst(options.port)}`);
         return 1;
     }
-    const answer = await readMachineStatus(options.port, secret, options.fetch ?? ((input, init) => fetch(input, init)), options.check === true);
+    const answer = await readMachineStatus(options.port, secret, fetcher, options.check);
     if ('problem' in answer) {
-        switch (answer.problem) {
-            case 'not-running':
-                err(`No daemon answers on port ${options.port}. ${startFirst(options.port)}`);
-                break;
-            case 'other-home':
-                err(`The daemon on port ${options.port} does not use ${options.home}; set RUIMTE_HOME to the home it was started with.`);
-                break;
-            case 'too-old':
-                err(`The daemon on port ${options.port} is older than \`ruimte status\`; update it first.`);
-                break;
-        }
+        const problems = {
+            'not-running': `No daemon answers on port ${options.port}. ${startFirst(options.port)}`,
+            'other-home': otherHome(options),
+            'too-old': tooOld(options.port, 'status')
+        };
+        err(problems[answer.problem]);
         return 1;
     }
-    if (options.json === true) {
+    if (options.json) {
         out(JSON.stringify(answer.status, null, 2));
         return 0;
     }

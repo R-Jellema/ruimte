@@ -10,25 +10,17 @@ import {
     type DeviceLinkStartResult
 } from '@ruimte/pulsar';
 import type { z } from 'zod';
-import { readLocalSecret } from '../auth/local-secret.ts';
 import { describeError } from '../error-text.ts';
-import { readMachineStatus, reachSentence, startFirst } from './machine-status.ts';
+import { commandIo, homeSecret, otherHome, startFirst, tooOld, type LocalDaemonOptions } from './local-daemon.ts';
+import { readMachineStatus, reachSentence } from './machine-status.ts';
 
-type Fetch = (input: string, init: RequestInit) => Promise<Response>;
-
-export interface LoginOptions {
-    port: number;
-    home: string;
+export interface LoginOptions extends LocalDaemonOptions {
     // The address book; its production address when absent.
     addressBookUrl?: string;
     // Aborting withdraws the code and ends with 130, what a shell expects after Ctrl+C.
     signal?: AbortSignal;
-    fetch?: Fetch;
-    readSecret?: (home: string) => Promise<string>;
     sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
     now?: () => number;
-    out?: (line: string) => void;
-    err?: (line: string) => void;
 }
 
 // A poll that reaches nobody this many times in a row is a network that is gone, not a hiccup.
@@ -85,14 +77,12 @@ const ON_ANOTHER_ACCOUNT =
  * daemon to sign.
  */
 export async function runLogin(options: LoginOptions): Promise<number> {
-    const fetcher: Fetch = options.fetch ?? ((input, init) => fetch(input, init));
+    const { fetcher, out, err } = commandIo(options);
     const sleep = options.sleep ?? sleepFor;
     const now = options.now ?? Date.now;
-    const out = options.out ?? ((line: string) => console.log(line));
-    const err = options.err ?? ((line: string) => console.error(line));
     const book = new AddressBookClient({ baseUrl: options.addressBookUrl, fetch: fetcher });
 
-    const secret = await (options.readSecret ?? readLocalSecret)(options.home).catch(() => null);
+    const secret = await homeSecret(options);
     if (secret === null) {
         err(`No daemon has started with ${options.home} as its home. ${startFirst(options.port)}`);
         return 1;
@@ -108,13 +98,13 @@ export async function runLogin(options: LoginOptions): Promise<number> {
             throw new LoginFailure(`No daemon answers on port ${options.port}. ${startFirst(options.port)}`);
         }
         if (response.status === 404) {
-            throw new LoginFailure(`The daemon on port ${options.port} is older than \`ruimte login\`; update it first.`);
+            throw new LoginFailure(tooOld(options.port, 'login'));
         }
         if (response.status === 409) {
             throw new LoginFailure(ON_ANOTHER_ACCOUNT);
         }
         if (!response.ok) {
-            throw new LoginFailure(`The daemon on port ${options.port} does not use ${options.home}; set RUIMTE_HOME to the home it was started with.`);
+            throw new LoginFailure(otherHome(options));
         }
         const parsed = schema.safeParse(await response.json().catch(() => null));
         if (!parsed.success) {
