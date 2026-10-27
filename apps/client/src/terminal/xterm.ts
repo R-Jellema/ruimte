@@ -1,6 +1,7 @@
 import type { Terminal } from '@xterm/xterm';
 import type { TerminalSize, TerminalViewHandle } from '@adecore/terminal';
 import { isApplePlatform } from '@/desktop/bridge';
+import type { SessionClient } from '@/terminal/session-client';
 import { isAppShortcut, isClearShortcut, isLeaveNodeShortcut, isTerminalFindShortcut, isTerminalPaste, macMotionSequence } from '@/terminal/keymap';
 
 /* ESC CR: what agent CLIs read as "newline, do not submit". Harmless in a plain shell. */
@@ -12,7 +13,7 @@ const findableTerminals = new WeakSet<Element>();
 interface TerminalKeys {
     write(data: string): void;
     clear(): void;
-    /* Opens the find bar. A terminal without one (the launches panel, a login dialog) leaves the key to its program. */
+    /* Opens the find bar. A terminal without one (a login dialog) leaves the key to its program. */
     find?: () => void;
     /* Whether the leave shortcut hands Escape back to the window, which a node on a canvas does and a terminal in a dialog does not. */
     leaves: boolean;
@@ -98,9 +99,25 @@ export function terminalHasKeyboard(): boolean {
     return keyboardIsIn(keyedTerminals);
 }
 
-/* Whether that terminal also has a find bar to open; the launches panel and the login dialog have none. */
+/* Whether that terminal also has a find bar to open; a login dialog has none. */
 export function terminalHasFind(): boolean {
     return keyboardIsIn(findableTerminals);
+}
+
+/*
+ * Draws a session into a view: its output, the grid of a client elsewhere until a resize here claims
+ * it back, and the fresh screen after a reattach or a resync. Answers the call that stops it.
+ */
+export function drawSession(sessions: SessionClient, sessionId: string, view: TerminalViewHandle): () => void {
+    const offs = [
+        sessions.onOutput(sessionId, (data) => view.write(data)),
+        sessions.onSize(sessionId, (size) => view.followGrid(size)),
+        sessions.onScreen(sessionId, ({ screen }) => {
+            view.reset();
+            view.write(screen);
+        })
+    ];
+    return () => offs.forEach((off) => off());
 }
 
 /* The grid the terminal fits its host to, or null while the layout has not given that host any room. */

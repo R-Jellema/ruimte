@@ -8,28 +8,23 @@ import { browserClientFor, chatClientFor, sessionClientFor } from '@/transport/c
 
 /* The node names the machine it ran on, so a node that leaves is ended there and not on the machine that is active now. */
 function end(endpointId: string, id: string, kind: CanvasNodeKind, exit: NodeExit): void {
-    const kills = exit === 'closed';
     if (kind === 'terminal') {
         forgetScreen(endpointId, id);
-        if (kills) {
-            void sessionClientFor(endpointId)
-                ?.kill(id)
-                .catch(() => undefined);
-        }
-    } else if (kind === 'chat') {
-        if (kills) {
-            void chatClientFor(endpointId)
-                ?.kill(id)
-                .catch(() => undefined);
-        }
     } else if (kind === 'browser') {
         browserRegistry.destroy(endpointKey(endpointId, id));
-        if (kills) {
-            void browserClientFor(endpointId)
-                ?.kill(id)
-                .catch(() => undefined);
-        }
     }
+    if (exit !== 'closed') {
+        return;
+    }
+    const client =
+        kind === 'terminal'
+            ? sessionClientFor(endpointId)
+            : kind === 'chat'
+              ? chatClientFor(endpointId)
+              : kind === 'browser'
+                ? browserClientFor(endpointId)
+                : null;
+    void client?.kill(id).catch(() => undefined);
 }
 
 /* Ends the daemon session of every node this client takes out of the document. */

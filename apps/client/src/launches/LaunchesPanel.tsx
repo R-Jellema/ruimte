@@ -22,7 +22,7 @@ import { useEndpointId } from '@/state/keys';
 import { useSettings } from '@/state/settings';
 import { useUi } from '@/state/ui';
 import { isAppShortcut, isTerminalPaste, macMotionSequence } from '@/terminal/keymap';
-import { fittedGrid } from '@/terminal/xterm';
+import { drawSession, fittedGrid } from '@/terminal/xterm';
 import { deviceClientFor, sessionClientFor } from '@/transport/connections';
 import { basenameOf } from '@/shell/panels/files-tree';
 
@@ -257,13 +257,7 @@ function LaunchTerminal({ sessionId }: { sessionId: string }) {
         });
 
         let cancelled = false;
-        const offOutput = sessions.onOutput(sessionId, (data) => view.write(data));
-        // The grid of another window that reads the same launch, until a resize here claims it back.
-        const offSize = sessions.onSize(sessionId, (size) => view.followGrid(size));
-        const offScreen = sessions.onScreen(sessionId, ({ screen }) => {
-            view.reset();
-            view.write(screen);
-        });
+        const stopDrawing = drawSession(sessions, sessionId, view);
         sessions
             .open(sessionId, { follow: true }, fittedGrid(view))
             .then((result) => {
@@ -280,9 +274,7 @@ function LaunchTerminal({ sessionId }: { sessionId: string }) {
 
         return () => {
             cancelled = true;
-            offOutput();
-            offSize();
-            offScreen();
+            stopDrawing();
             void sessions.detach(sessionId);
         };
     }, [sessions, sessionId]);
