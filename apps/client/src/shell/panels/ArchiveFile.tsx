@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import type { FileTreeVisibleRow } from '@pierre/trees';
@@ -8,29 +8,17 @@ import { ignoreRefusal, perform } from '@/actions/client-actions';
 import { saveBlob } from '@/download';
 import { ArchiveEntryItems, ArchiveEntryPreview, type ArchiveVersion } from '@/shell/panels/ArchiveEntryPreview';
 import { archiveTotals, archiveTreePaths, entryPathOf, extractFolderName, freeFolderName, isFolderName, isFolderRow } from '@/shell/panels/archive-tree';
+import { FILE_FOOTER } from '@/shell/panels/classes';
 import { FileTextMenu, FileToolbar } from '@/shell/panels/FileToolbar';
 import { basenameOf, dirnameOf } from '@/shell/panels/files-tree';
+import { TreeSplit } from '@/shell/panels/TreeSplit';
 import { useProject } from '@/state/project';
 import { useToasts } from '@/state/toasts';
 import { readResource } from '@/transport/byte-transfer';
 import { useTransport } from '@/transport/context';
 import { readPiece } from '@/transport/piece';
 import type { Transport } from '@/transport/transport';
-import {
-    Button,
-    ColumnResizeHandle,
-    ContextMenu,
-    EmptyState,
-    ErrorBoundary,
-    FileTree,
-    Icon,
-    IconButton,
-    Menu,
-    PromptDialog,
-    useColumnResize,
-    useFileTree,
-    messageOf
-} from '@adecore/ui';
+import { Button, ContextMenu, EmptyState, ErrorBoundary, FileTree, Icon, IconButton, Menu, PromptDialog, useFileTree, messageOf } from '@adecore/ui';
 import { formatBytes, formatNumber } from '@adecore/ui/format';
 
 const { rowPathOf } = FileTree;
@@ -42,7 +30,7 @@ const LOADING: Listing = { status: 'loading' };
 // Names of formats, the way their tools write them; not words, so not translated.
 const FORMAT_NAMES: Record<ArchiveFormat, string> = { zip: 'ZIP', tar: 'TAR', 'tar-gzip': 'TAR.GZ', gzip: 'GZIP' };
 
-// Room for a name and its size, and never more than half the view, as the tree of a patch has.
+// Room for a name and its size.
 const MIN_TREE_WIDTH = 180;
 const DEFAULT_TREE_WIDTH = 280;
 
@@ -227,17 +215,8 @@ export function ArchiveFile({ path, name, read }: { path: string; name: string; 
     const [picked, setPicked] = useState<{ key: string; path: string } | null>(null);
     const [extracting, setExtracting] = useState<ExtractTarget | null>(null);
     const [treeWidth, setTreeWidth] = useState(DEFAULT_TREE_WIDTH);
-    const bodyRef = useRef<HTMLDivElement>(null);
-    const treeRef = useRef<HTMLElement>(null);
     const listing = held !== null && held.key === key ? held.listing : LOADING;
     const archive: ArchiveVersion = { path, mtime: read.mtime, size: read.size };
-    const { startResize } = useColumnResize(treeRef, {
-        size: treeWidth,
-        min: MIN_TREE_WIDTH,
-        from: 'left',
-        max: () => Math.floor((bodyRef.current?.getBoundingClientRect().width ?? 0) / 2),
-        onSize: setTreeWidth
-    });
 
     useEffect(() => {
         let cancelled = false;
@@ -295,41 +274,39 @@ export function ArchiveFile({ path, name, read }: { path: string; name: string; 
                         {list.unsafe > 0 && <span>{t('file.archive.unsafe', { count: list.unsafe })}</span>}
                     </div>
                 )}
-                <div ref={bodyRef} className="@container flex min-h-0 grow flex-col">
-                    <div className="flex min-h-0 grow flex-col @xl:flex-row">
-                        <aside
-                            ref={treeRef}
-                            className="relative flex h-60 max-h-1/2 min-h-0 shrink-0 flex-col border-b border-border bg-surface @xl:h-auto @xl:max-h-none @xl:w-(--archive-tree-width) @xl:max-w-1/2 @xl:border-r @xl:border-b-0"
-                            style={{ '--archive-tree-width': `${treeWidth}px` } as CSSProperties}
-                        >
-                            <div className="flex min-h-0 grow flex-col overflow-hidden py-1">
-                                <ArchiveTree
-                                    entries={list.entries}
-                                    label={t('file.archive.tree', { name })}
-                                    onPick={pick}
-                                    onSave={save}
-                                    onExtract={setExtracting}
-                                />
-                            </div>
-                            <ColumnResizeHandle from="left" className="hidden @xl:block" onPointerDown={startResize} />
-                        </aside>
-                        <div className="flex min-h-0 min-w-0 grow flex-col">
-                            {selected === undefined ? (
-                                centered(<EmptyState icon={MousePointerClick}>{t('file.archive.pick')}</EmptyState>)
-                            ) : (
-                                <ErrorBoundary label={t('file.archive.crashed')} resetKeys={[selected.path]} className="min-h-0 grow">
-                                    <ArchiveEntryPreview
-                                        key={selected.path}
-                                        archive={archive}
-                                        entry={selected}
-                                        onSave={() => save(selected)}
-                                        onExtract={() => setExtracting({ entries: [selected.path], label: basenameOf(selected.path) })}
-                                    />
-                                </ErrorBoundary>
-                            )}
+                <TreeSplit
+                    side={
+                        <div className="flex min-h-0 grow flex-col overflow-hidden py-1">
+                            <ArchiveTree
+                                entries={list.entries}
+                                label={t('file.archive.tree', { name })}
+                                onPick={pick}
+                                onSave={save}
+                                onExtract={setExtracting}
+                            />
                         </div>
+                    }
+                    width={treeWidth}
+                    minWidth={MIN_TREE_WIDTH}
+                    onWidth={setTreeWidth}
+                    stackedHeight="h-60"
+                >
+                    <div className="flex min-h-0 min-w-0 grow flex-col">
+                        {selected === undefined ? (
+                            centered(<EmptyState icon={MousePointerClick}>{t('file.archive.pick')}</EmptyState>)
+                        ) : (
+                            <ErrorBoundary label={t('file.archive.crashed')} resetKeys={[selected.path]} className="min-h-0 grow">
+                                <ArchiveEntryPreview
+                                    key={selected.path}
+                                    archive={archive}
+                                    entry={selected}
+                                    onSave={() => save(selected)}
+                                    onExtract={() => setExtracting({ entries: [selected.path], label: basenameOf(selected.path) })}
+                                />
+                            </ErrorBoundary>
+                        )}
                     </div>
-                </div>
+                </TreeSplit>
             </>
         );
     };
@@ -346,7 +323,7 @@ export function ArchiveFile({ path, name, read }: { path: string; name: string; 
                 />
             </FileToolbar>
             {body()}
-            <div className="flex h-7 shrink-0 items-center gap-3 border-t border-border px-2 text-xs text-text-muted select-text">
+            <div className={FILE_FOOTER}>
                 {listing.status === 'ready' && totals !== null && (
                     <>
                         <span>{FORMAT_NAMES[listing.list.format]}</span>

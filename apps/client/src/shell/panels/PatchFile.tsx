@@ -1,53 +1,33 @@
-import { useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FileDiff, FileText } from 'lucide-react';
 import type { FsReadText } from '@ruimte/contracts';
 import type { Editor } from '@adecore/editor';
 import { usePatchDecorations } from '@adecore/editor-react';
-import { ButtonGroup, ColumnResizeHandle, ErrorBoundary, Pill, Tooltip, useColumnResize } from '@adecore/ui';
+import { ButtonGroup, ErrorBoundary, Pill, Tooltip } from '@adecore/ui';
 import { CodeFile } from '@/shell/panels/CodeFile';
 import { CommitFileTree } from '@/shell/panels/CommitFileTree';
 import { FileToolbarToggle } from '@/shell/panels/FileToolbar';
 import { hasInconsistentHunk, patchSectionParts, sectionAt, sectionsOf, showsTree, type PatchSection } from '@/shell/panels/patch-tree';
+import { COMMIT_TREE_MIN_WIDTH, TreeSplit } from '@/shell/panels/TreeSplit';
 import { useEditorCaret } from '@/shell/panels/use-editor-caret';
 import { useGit } from '@/state/git';
 import { usePatchView } from '@/state/patch-view';
 import { useProject } from '@/state/project';
 
-/* The tree keeps room for a name and its counts and never takes more than half the view, as a commit's does. */
-const MIN_TREE_WIDTH = 160;
-
-/*
- * The editor with the tree of the patch's files beside it, laid out like a commit tab. The editor
- * stays the last child in both states, so showing or hiding the tree never mounts it again.
- */
+/* The editor with the tree of the patch's files beside it, laid out like a commit tab. */
 function PatchFrame({ tree, children }: { tree: ReactNode; children: ReactNode }) {
     const treeWidth = useGit((s) => s.commitTreeWidth);
-    const bodyRef = useRef<HTMLDivElement>(null);
-    const treeRef = useRef<HTMLElement>(null);
-    const { startResize } = useColumnResize(treeRef, {
-        size: treeWidth,
-        min: MIN_TREE_WIDTH,
-        from: 'left',
-        max: () => Math.floor((bodyRef.current?.getBoundingClientRect().width ?? 0) / 2),
-        onSize: (next) => useGit.getState().setCommitTreeWidth(next)
-    });
     return (
-        <div ref={bodyRef} className="@container flex min-h-0 grow flex-col">
-            <div className="flex min-h-0 grow flex-col @xl:flex-row">
-                {tree !== null && (
-                    <aside
-                        ref={treeRef}
-                        className="relative flex h-72 min-h-0 max-h-1/2 shrink-0 flex-col border-b bg-surface border-border @xl:h-auto @xl:max-h-none @xl:w-(--commit-tree-width) @xl:max-w-1/2 @xl:border-r @xl:border-b-0"
-                        style={{ '--commit-tree-width': `${treeWidth}px` } as CSSProperties}
-                    >
-                        <div className="flex min-h-0 grow flex-col overflow-hidden py-1">{tree}</div>
-                        <ColumnResizeHandle from="left" className="hidden @xl:block" onPointerDown={startResize} />
-                    </aside>
-                )}
-                <div className="flex min-h-0 min-w-0 grow flex-col">{children}</div>
-            </div>
-        </div>
+        <TreeSplit
+            side={tree === null ? null : <div className="flex min-h-0 grow flex-col overflow-hidden py-1">{tree}</div>}
+            width={treeWidth}
+            minWidth={COMMIT_TREE_MIN_WIDTH}
+            onWidth={(next) => useGit.getState().setCommitTreeWidth(next)}
+            stackedHeight="h-72"
+        >
+            <div className="flex min-h-0 min-w-0 grow flex-col">{children}</div>
+        </TreeSplit>
     );
 }
 

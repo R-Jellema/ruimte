@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FileAudio, FileVideo } from 'lucide-react';
 import type { FsReadBinary } from '@ruimte/contracts';
+import { FILE_FOOTER } from '@/shell/panels/classes';
 import { FileContextMenu, FileToolbar } from '@/shell/panels/FileToolbar';
 import { machineResourceOf, revealablePath, useEndpointIdOf, type FileSource } from '@/shell/panels/file-source';
 import { RevealButton } from '@/shell/panels/RevealButton';
@@ -70,7 +71,7 @@ export function MediaFile({ kind, source, name, read }: MediaFileProps) {
                     )
                 )}
             </FileContextMenu>
-            <div className="flex h-7 shrink-0 items-center gap-3 border-t border-border px-2 text-xs text-text-muted select-text">
+            <div className={FILE_FOOTER}>
                 {kind === 'audio' && loaded !== null && Number.isFinite(loaded.duration) && <span>{formatClockDuration(loaded.duration * 1000)}</span>}
                 {kind === 'video' && loaded !== null && loaded.width > 0 && (
                     <span>

@@ -11,6 +11,14 @@ const DROP_LINE_BREAKS: ShikiTransformer = {
     }
 };
 
+type Highlighter = Awaited<ReturnType<typeof codeHighlighter>>;
+
+async function withTheme(highlighter: Highlighter, theme: string): Promise<void> {
+    if (!highlighter.getLoadedThemes().includes(theme)) {
+        await highlighter.loadTheme(shikiThemeOf(theme) as Parameters<Highlighter['loadTheme']>[0]);
+    }
+}
+
 let loading: Promise<Highlight> | null = null;
 
 /* Loads on the first code file, never with the app. The full bundle, not the chat's web one: a
@@ -25,9 +33,7 @@ function loadHighlighter(): Promise<Highlight> {
                 // The editor's own loader, so a file reads the same in both and embedded languages come with it.
                 const highlighter = await codeHighlighter();
                 const lang = known && (await loadGrammar(highlighter, grammar, code)) ? grammar : 'text';
-                if (!highlighter.getLoadedThemes().includes(theme)) {
-                    await highlighter.loadTheme(shikiThemeOf(theme) as Parameters<typeof highlighter.loadTheme>[0]);
-                }
+                await withTheme(highlighter, theme);
                 return highlighter.codeToHtml(code, { lang, theme, transformers: [DROP_LINE_BREAKS] });
             }
     );
@@ -63,9 +69,7 @@ export function highlightDocumentChunks(blocks: readonly string[], language: str
     return (index) => {
         loading ??= Promise.all([codeHighlighter(), import('@adecore/editor/shiki')])
             .then(async ([highlighter, { shikiDocumentHighlighter }]) => {
-                if (!highlighter.getLoadedThemes().includes(theme)) {
-                    await highlighter.loadTheme(shikiThemeOf(theme) as Parameters<typeof highlighter.loadTheme>[0]);
-                }
+                await withTheme(highlighter, theme);
                 return shikiDocumentHighlighter(async () => highlighter, blocks, language, theme, [DROP_LINE_BREAKS]);
             })
             .catch((error: unknown) => {

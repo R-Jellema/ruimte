@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ImageOff, Maximize, Scan } from 'lucide-react';
 import type { FsReadBinary } from '@ruimte/contracts';
-import { useMachineUrl } from '@/transport/machine-url';
+import { FILE_FOOTER } from '@/shell/panels/classes';
 import { drawsImageMime, imageFormatName } from '@/shell/panels/file-kind';
 import { FileContextMenu, FileToolbar, FileToolbarToggle } from '@/shell/panels/FileToolbar';
 import { machineResourceOf, revealablePath, useEndpointIdOf, type FileSource } from '@/shell/panels/file-source';
 import { RevealButton } from '@/shell/panels/RevealButton';
+import { useMachineUrl } from '@/transport/machine-url';
 import { ButtonGroup, EmptyState } from '@adecore/ui';
 import { formatBytes } from '@adecore/ui/format';
 
@@ -55,7 +56,7 @@ export function ImageFile({ source, name, read }: { source: FileSource; name: st
                     )
                 )}
             </FileContextMenu>
-            <div className="flex h-7 shrink-0 items-center gap-3 border-t border-border px-2 text-xs text-text-muted select-text">
+            <div className={FILE_FOOTER}>
                 {/* An SVG without a width of its own reports nothing, and 0 x 0 is worse than no line at all. */}
                 {size !== null && size.width > 0 && (
                     <span>

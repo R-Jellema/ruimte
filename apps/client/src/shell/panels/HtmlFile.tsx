@@ -1,8 +1,6 @@
-import { useFileActions } from '@/shell/panels/file-actions';
-import { useFiles } from '@/state/files';
 import { useContext, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Code, Eye, FileWarning } from 'lucide-react';
+import { Eye, FileWarning } from 'lucide-react';
 import type { FsReadText } from '@ruimte/contracts';
 import { focusCellOfView, watchGuestFocus } from '@/browser/guest-focus';
 import { registerPreviewGuest } from '@/browser/preview-guests';
@@ -10,19 +8,16 @@ import { isDesktop } from '@/desktop/bridge';
 import { FindBar } from '@/find/FindBar';
 import { useFind } from '@/find/use-find';
 import { CodeFile } from '@/shell/panels/CodeFile';
-import { FileToolbar, FileToolbarToggle } from '@/shell/panels/FileToolbar';
+import { FileToolbar } from '@/shell/panels/FileToolbar';
 import { localFileUrl } from '@/shell/panels/file-url';
 import { dirnameOf, isPathBelow } from '@/shell/panels/files-tree';
 import { htmlPreviewDocument } from '@/shell/panels/html-preview';
 import { trackPageReady, usePreviewFind, type FindablePage, type FoundInPage } from '@/shell/panels/use-preview-find';
+import { useSourceToggle } from '@/shell/panels/use-source-toggle';
 import { useEndpoints } from '@/state/endpoints';
-import { useEndpointId } from '@/state/keys';
-import { useUnsaved } from '@/state/text-drafts';
 import { CellViewContext } from '@/state/workspace-stores';
 import { useTransport } from '@/transport/context';
-import { Button, ButtonGroup, EmptyState } from '@adecore/ui';
-
-type HtmlView = 'preview' | 'source';
+import { Button, EmptyState } from '@adecore/ui';
 
 const PREVIEW_PARTITION = 'preview';
 const ABORTED = -3;
@@ -80,13 +75,7 @@ export function HtmlFile({ path, name, read }: { path: string; name: string; rea
     const { t } = useTranslation('panels');
     const onThisMachine = useEndpoints((state) => state.endpoints.find((endpoint) => endpoint.id === state.activeId)?.reachability === 'loopback');
     const nativePreview = isDesktop() && onThisMachine;
-    const tabKey = useFileActions()?.tabKey ?? null;
-    const reveal = useFiles((state) => (state.revealLine?.key === tabKey ? state.revealLine : null));
-    const [dismissedReveal, setDismissedReveal] = useState<number | null>(null);
-    const [chosen, setView] = useState<HtmlView>('preview');
-    // The preview draws what is on disk, so a file with unsaved changes stays in the editor until they are saved.
-    const unsaved = useUnsaved(useEndpointId(), path);
-    const view = unsaved || (reveal != null && reveal.nonce !== dismissedReveal) ? 'source' : chosen;
+    const { source, toggle } = useSourceToggle(path, Eye, { label: t('file.view.preview'), afterSave: t('file.view.previewAfterSave') });
     const [loading, setLoading] = useState(nativePreview);
     const [error, setError] = useState<string | null>(null);
     const transport = useTransport();
@@ -97,7 +86,7 @@ export function HtmlFile({ path, name, read }: { path: string; name: string; rea
     const staticDocument = staticPreviewDocument(read.text);
     const surface = useRef<HTMLDivElement>(null);
     // The source is the editor's to search.
-    const find = useFind(surface, view === 'preview');
+    const find = useFind(surface, !source);
     const pageFind = usePreviewFind(find, page);
     // Read by the page's own events, so the find's new functions never put a fresh webview in place of the one that is loaded.
     const pageFindRef = useRef(pageFind);
@@ -179,26 +168,10 @@ export function HtmlFile({ path, name, read }: { path: string; name: string; rea
         page.current?.reload();
     };
 
-    const controls = (
-        <ButtonGroup>
-            <FileToolbarToggle
-                icon={Eye}
-                label={unsaved ? t('file.view.previewAfterSave') : t('file.view.preview')}
-                active={view === 'preview'}
-                disabled={unsaved}
-                onClick={() => {
-                    setDismissedReveal(reveal?.nonce ?? null);
-                    setView('preview');
-                }}
-            />
-            <FileToolbarToggle icon={Code} label={t('file.view.source')} active={view === 'source'} onClick={() => setView('source')} />
-        </ButtonGroup>
-    );
-
     return (
         <div className="flex min-h-0 min-w-0 grow flex-col">
-            {view === 'source' ? <CodeFile path={path} read={read} toolbarExtra={controls} /> : <FileToolbar>{controls}</FileToolbar>}
-            <div ref={surface} className={view === 'preview' ? 'relative flex min-h-0 grow flex-col bg-surface' : 'hidden'}>
+            {source ? <CodeFile path={path} read={read} toolbarExtra={toggle} /> : <FileToolbar>{toggle}</FileToolbar>}
+            <div ref={surface} className={source ? 'hidden' : 'relative flex min-h-0 grow flex-col bg-surface'}>
                 {find.open && (
                     <FindBar
                         find={find}

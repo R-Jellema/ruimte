@@ -1,18 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Download, FileArchive, FileLock, FileQuestion, FileWarning, Link2, PackageOpen, type LucideIcon } from 'lucide-react';
-import {
-    BYTES_CHUNK_MAX,
-    BYTES_READ_MAX_BYTES,
-    isArchiveMime,
-    isAudioMime,
-    isImageMime,
-    isModelMime,
-    isPdfMime,
-    isVideoMime,
-    type ArchiveEntry,
-    type FsReadBinary
-} from '@ruimte/contracts';
+import { BYTES_CHUNK_MAX, BYTES_READ_MAX_BYTES, isArchiveMime, type ArchiveEntry, type FsReadBinary } from '@ruimte/contracts';
 import { canSaveEntry, hasArchiveName } from '@/shell/panels/archive-tree';
 import { CodeText } from '@/shell/panels/CodeFile';
 import { FileActionsContext, FileMenuRowsContext } from '@/shell/panels/file-actions';
@@ -20,10 +9,7 @@ import type { FileSource } from '@/shell/panels/file-source';
 import { fixedSlot, FileToolbarSlotProvider } from '@/shell/panels/file-toolbar-slot';
 import { FileTextMenu, FileToolbar } from '@/shell/panels/FileToolbar';
 import { basenameOf } from '@/shell/panels/files-tree';
-import { ImageFile } from '@/shell/panels/ImageFile';
-import { ModelPreview } from '@/shell/panels/ModelPreview';
-import { PdfPreview } from '@/shell/panels/PdfPreview';
-import { MediaFile } from '@/shell/panels/MediaFile';
+import { renderBinary } from '@/shell/panels/renderers';
 import { readResource } from '@/transport/byte-transfer';
 import { useTransport } from '@/transport/context';
 import { readPiece } from '@/transport/piece';
@@ -191,27 +177,15 @@ export function ArchiveEntryPreview({
         }
         const source: FileSource = { kind: 'archive-entry', path: archive.path, entry: entry.path, archiveMtime: archive.mtime, archiveSize: archive.size };
         const read: FsReadBinary = { kind: 'binary', mime: probe.mime, size: probe.size, mtime: entry.mtime ?? archive.mtime };
-        if (isImageMime(probe.mime)) {
-            return <ImageFile source={source} name={name} read={read} />;
-        }
-        if (isVideoMime(probe.mime)) {
-            return <MediaFile kind="video" source={source} name={name} read={read} />;
-        }
-        if (isAudioMime(probe.mime)) {
-            return <MediaFile kind="audio" source={source} name={name} read={read} />;
-        }
-        if (isPdfMime(probe.mime)) {
-            return <PdfPreview source={source} name={name} read={read} />;
-        }
-        if (isModelMime(probe.mime)) {
-            return <ModelPreview source={source} name={name} read={read} />;
-        }
-        return state(
-            FileQuestion,
-            t('file.archive.entry.cannotShow', { name, mime: probe.mime, size: formatBytes(probe.size) }),
-            <Button variant="secondary" size="sm" onClick={onSave}>
-                <Icon icon={Download} size={14} /> {t('file.archive.menu.saveAs')}
-            </Button>
+        return (
+            renderBinary(source, name, read) ??
+            state(
+                FileQuestion,
+                t('file.archive.entry.cannotShow', { name, mime: probe.mime, size: formatBytes(probe.size) }),
+                <Button variant="secondary" size="sm" onClick={onSave}>
+                    <Icon icon={Download} size={14} /> {t('file.archive.menu.saveAs')}
+                </Button>
+            )
         );
     };
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import i18next from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { Columns2, FileWarning, GitCompare, RefreshCw, Rows2 } from 'lucide-react';
@@ -12,32 +12,18 @@ import { pickedFile } from '@/shell/panels/commit-tree';
 import { FileActionsContext } from '@/shell/panels/file-actions';
 import { FileToolbar, FileToolbarToggle } from '@/shell/panels/FileToolbar';
 import { relativeTo } from '@/shell/panels/files-tree';
+import { COMMIT_TREE_MIN_WIDTH, TreeSplit } from '@/shell/panels/TreeSplit';
 import { isCheckoutDiff, useFiles, type FileTabView } from '@/state/files';
 import { useGit } from '@/state/git';
 import { useGitSignal } from '@/state/git-watch';
 import { useSettings } from '@/state/settings';
 import { useTransport } from '@/transport/context';
-import {
-    ButtonGroup,
-    ColumnResizeHandle,
-    EmptyState,
-    ErrorBoundary,
-    Menu,
-    Separator,
-    lazyNamed,
-    useColumnResize,
-    useNow,
-    LazyBoundary,
-    messageOf
-} from '@adecore/ui';
+import { ButtonGroup, EmptyState, ErrorBoundary, LazyBoundary, Menu, Separator, lazyNamed, messageOf, useNow } from '@adecore/ui';
 import { formatAge } from '@adecore/ui/format';
 
 const UnifiedDiff = lazyNamed(() => import('@adecore/agents-react/chat/ui'), 'UnifiedDiff');
 
 const MINUTE_MS = 60_000;
-
-/* A commit's file tree keeps room for a name and its counts; it never takes more than half the tab (`max-w-1/2`). */
-const MIN_TREE_WIDTH = 160;
 
 type DiffState = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; diff: GitDiffResult };
 
@@ -48,6 +34,11 @@ function contentsOf(diff: GitDiffResult): DiffContents | undefined {
 
 function omittedLabel(omitted: GitDiffResult['omitted']): string {
     return omitted === 'binary' ? i18next.t('panels:diff.omitted.binary') : i18next.t('panels:diff.omitted.tooLarge');
+}
+
+/* A diff that has nothing to draw says why, centered where it would be. */
+function DiffMessage({ children }: { children: ReactNode }) {
+    return <div className="file-diff grid min-h-0 grow place-items-center">{children}</div>;
 }
 
 /*
@@ -163,30 +154,23 @@ function DiffBody({
     const { t } = useTranslation('panels');
     if (state.status === 'loading') {
         return (
-            <div className="file-diff grid min-h-0 grow place-items-center">
+            <DiffMessage>
                 <EmptyState busy>{t('diff.reading', { path: relative })}</EmptyState>
-            </div>
+            </DiffMessage>
         );
     }
-    if (state.status === 'error') {
+    if (state.status === 'error' || state.diff.omitted) {
         return (
-            <div className="file-diff grid min-h-0 grow place-items-center">
-                <EmptyState icon={FileWarning}>{state.message}</EmptyState>
-            </div>
-        );
-    }
-    if (state.diff.omitted) {
-        return (
-            <div className="file-diff grid min-h-0 grow place-items-center">
-                <EmptyState icon={FileWarning}>{omittedLabel(state.diff.omitted)}</EmptyState>
-            </div>
+            <DiffMessage>
+                <EmptyState icon={FileWarning}>{state.status === 'error' ? state.message : omittedLabel(state.diff.omitted)}</EmptyState>
+            </DiffMessage>
         );
     }
     if (state.diff.diff === '') {
         return (
-            <div className="file-diff grid min-h-0 grow place-items-center">
+            <DiffMessage>
                 <EmptyState icon={GitCompare}>{t('diff.noChange', { path: relative })}</EmptyState>
-            </div>
+            </DiffMessage>
         );
     }
     return (
@@ -205,8 +189,6 @@ function DiffBody({
     );
 }
 
-type CommitState = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; diff: GitDiffResult };
-
 /*
  * A whole commit in one tab: its message over a tree of the files it touched, beside the diff of the
  * file picked in the tree. One request answers all of it, so moving through the tree reads nothing.
@@ -224,10 +206,10 @@ function CommitDiff({ tabKey, cwd, commit, base }: { tabKey: string; cwd: string
        that has to empty the state first. A reread of the same one keeps what is on screen. */
     const asked = `${cwd}\u0000${commit ?? ''}\u0000${base ?? ''}`;
 
-    const [held, setHeld] = useState<{ asked: string; state: CommitState } | null>(null);
+    const [held, setHeld] = useState<{ asked: string; state: DiffState } | null>(null);
     // The same path on another machine is another diff, so a switch reads it again.
     const transport = useTransport();
-    const state: CommitState = held !== null && held.asked === asked ? held.state : { status: 'loading' };
+    const state: DiffState = held !== null && held.asked === asked ? held.state : { status: 'loading' };
 
     useEffect(() => {
         let alive = true;
@@ -261,15 +243,6 @@ function CommitDiff({ tabKey, cwd, commit, base }: { tabKey: string; cwd: string
     const shown = pickedFile(files, picked);
     const pick = (path: string) => useGit.getState().setCommitFile(tabKey, path);
     const treeWidth = useGit((s) => s.commitTreeWidth);
-    const bodyRef = useRef<HTMLDivElement>(null);
-    const treeRef = useRef<HTMLElement>(null);
-    const { startResize } = useColumnResize(treeRef, {
-        size: treeWidth,
-        min: MIN_TREE_WIDTH,
-        from: 'left',
-        max: () => Math.floor((bodyRef.current?.getBoundingClientRect().width ?? 0) / 2),
-        onSize: (next) => useGit.getState().setCommitTreeWidth(next)
-    });
 
     return (
         <div className="flex min-h-0 min-w-0 grow flex-col">
@@ -300,25 +273,20 @@ function CommitDiff({ tabKey, cwd, commit, base }: { tabKey: string; cwd: string
                 </ButtonGroup>
             </div>
             {state.status === 'loading' && (
-                <div className="file-diff grid min-h-0 grow place-items-center">
+                <DiffMessage>
                     <EmptyState busy>{commit === undefined ? t('diff.readingChanges') : t('diff.readingCommit')}</EmptyState>
-                </div>
+                </DiffMessage>
             )}
             {state.status === 'error' && (
-                <div className="file-diff grid min-h-0 grow place-items-center">
+                <DiffMessage>
                     <EmptyState icon={FileWarning}>{state.message}</EmptyState>
-                </div>
+                </DiffMessage>
             )}
             {ready !== null && (
                 <ErrorBoundary label={t('diff.commitCrashed')} resetKeys={[asked]} className="min-h-0 grow">
-                    {/* Too narrow for the two side by side, the tree stands above the diff at a height it cannot grow past. */}
-                    <div ref={bodyRef} className="@container flex min-h-0 grow flex-col">
-                        <div className="flex min-h-0 grow flex-col @xl:flex-row">
-                            <aside
-                                ref={treeRef}
-                                className="relative flex h-72 min-h-0 max-h-1/2 shrink-0 flex-col border-b bg-surface border-border @xl:h-auto @xl:max-h-none @xl:w-(--commit-tree-width) @xl:max-w-1/2 @xl:border-r @xl:border-b-0"
-                                style={{ '--commit-tree-width': `${treeWidth}px` } as CSSProperties}
-                            >
+                    <TreeSplit
+                        side={
+                            <>
                                 <div className="shrink-0 border-b border-border px-3 py-2">
                                     {commit === undefined ? (
                                         <p className="text-xs text-text-faint">
@@ -337,11 +305,15 @@ function CommitDiff({ tabKey, cwd, commit, base }: { tabKey: string; cwd: string
                                     {files.length > 0 && <CommitFileTree files={files} shown={shown?.path ?? null} onPick={pick} menu={{ cwd, commit }} />}
                                     {ready.truncated === true && <p className="shrink-0 px-3 py-2 text-xs text-text-faint">{t('diff.moreFiles')}</p>}
                                 </div>
-                                <ColumnResizeHandle from="left" className="hidden @xl:block" onPointerDown={startResize} />
-                            </aside>
-                            <CommitFileDiff file={shown} empty={files.length === 0} commit={commit !== undefined} wrap={wrap} layout={layout} />
-                        </div>
-                    </div>
+                            </>
+                        }
+                        width={treeWidth}
+                        minWidth={COMMIT_TREE_MIN_WIDTH}
+                        onWidth={(next) => useGit.getState().setCommitTreeWidth(next)}
+                        stackedHeight="h-72"
+                    >
+                        <CommitFileDiff file={shown} empty={files.length === 0} commit={commit !== undefined} wrap={wrap} layout={layout} />
+                    </TreeSplit>
                 </ErrorBoundary>
             )}
         </div>

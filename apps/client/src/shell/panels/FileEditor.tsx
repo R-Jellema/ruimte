@@ -1,16 +1,40 @@
-import { revealLocation } from '@/shell/panels/reveal-location';
-import i18next from 'i18next';
 import { type RefObject, useEffect, useLayoutEffect, useRef } from 'react';
+import i18next from 'i18next';
 import { useTranslation } from 'react-i18next';
 import type { Editor, EditorEngine, EditorIndentation } from '@adecore/editor';
+import { forgetMovesFrom, openingPlace, viewStateKey, viewStates } from '@adecore/editor-react';
 import { mountDraftEditor } from '@/shell/panels/draft-editor';
+import { revealLocation } from '@/shell/panels/reveal-location';
+import { foldRolesFor } from '@/state/code-folding';
 import { useCodeTheme } from '@/state/code-theme';
 import type { RevealLineRequest } from '@/state/files';
-import { foldRolesFor } from '@/state/code-folding';
-import { useSettings } from '@/state/settings';
-import { forgetMovesFrom, openingPlace, viewStateKey, viewStates } from '@adecore/editor-react';
 import { endpointKey } from '@/state/keys';
+import { useSettings } from '@/state/settings';
 import { type DiskText, textDrafts } from '@/state/text-drafts';
+
+type EditorSetter =
+    | 'setTheme'
+    | 'setLabel'
+    | 'setWrap'
+    | 'setIndentation'
+    | 'setSmartKeys'
+    | 'setGuides'
+    | 'setWhitespace'
+    | 'setStickyScroll'
+    | 'setFoldOutline'
+    | 'setRightMargin';
+
+/* Hands a value the editor mounted with to it again whenever it changes. */
+function useEditorSetting<Setter extends EditorSetter>(
+    editor: RefObject<Editor | null>,
+    setter: Setter,
+    value: Parameters<NonNullable<Editor[Setter]>>[0]
+): void {
+    useEffect(() => {
+        const target = editor.current;
+        (target?.[setter] as ((next: typeof value) => void) | undefined)?.call(target, value);
+    }, [editor, setter, value]);
+}
 
 interface FileEditorProps {
     engine: EditorEngine;
@@ -141,50 +165,21 @@ export function FileEditor({
         };
     }, [engine, endpointId, path, placeholderScroll, onEditor]);
 
-    useEffect(() => {
-        editorRef.current?.setTheme(theme);
-    }, [theme]);
-
-    useEffect(() => {
-        editorRef.current?.setLabel(label);
-    }, [label]);
+    useEditorSetting(editorRef, 'setTheme', theme);
+    useEditorSetting(editorRef, 'setLabel', label);
+    useEditorSetting(editorRef, 'setWrap', wrap);
+    useEditorSetting(editorRef, 'setIndentation', indentation);
+    useEditorSetting(editorRef, 'setSmartKeys', smartKeys);
+    useEditorSetting(editorRef, 'setGuides', guides);
+    useEditorSetting(editorRef, 'setWhitespace', whitespace);
+    useEditorSetting(editorRef, 'setStickyScroll', stickyScroll);
+    useEditorSetting(editorRef, 'setFoldOutline', foldOutline);
+    useEditorSetting(editorRef, 'setRightMargin', rightMargin);
 
     // The settings wrote the tokens on the root before the store told anyone, so the editor reads the new face.
     useEffect(() => {
         editorRef.current?.refreshFont();
     }, [codeFontSize, codeLineHeight, font, codeLigatures]);
-
-    useEffect(() => {
-        editorRef.current?.setWrap(wrap);
-    }, [wrap]);
-
-    useEffect(() => {
-        editorRef.current?.setIndentation(indentation);
-    }, [indentation]);
-
-    useEffect(() => {
-        editorRef.current?.setSmartKeys(smartKeys);
-    }, [smartKeys]);
-
-    useEffect(() => {
-        editorRef.current?.setGuides(guides);
-    }, [guides]);
-
-    useEffect(() => {
-        editorRef.current?.setWhitespace(whitespace);
-    }, [whitespace]);
-
-    useEffect(() => {
-        editorRef.current?.setStickyScroll?.(stickyScroll);
-    }, [stickyScroll]);
-
-    useEffect(() => {
-        editorRef.current?.setFoldOutline(foldOutline);
-    }, [foldOutline]);
-
-    useEffect(() => {
-        editorRef.current?.setRightMargin(rightMargin);
-    }, [rightMargin]);
 
     useEffect(() => {
         editorRef.current?.setReadOnly(readOnly, readOnlyReason ?? undefined);

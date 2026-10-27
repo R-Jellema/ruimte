@@ -1,9 +1,10 @@
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import clsx from 'clsx';
-import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Box, Cuboid, Grid3x3, Pause, Play, RotateCcw, Spotlight } from 'lucide-react';
 import { BYTES_READ_MAX_BYTES, type FsReadBinary } from '@ruimte/contracts';
 import { useTheme } from '@/state/theme';
+import { FILE_FOOTER } from '@/shell/panels/classes';
 import { FileContextMenu, FileToolbar, FileToolbarToggle } from '@/shell/panels/FileToolbar';
 import { readSourceBytes, revealablePath, useEndpointIdOf, type FileSource } from '@/shell/panels/file-source';
 import { canDrawWebgl, ModelViewer, type LoadedModel } from '@/shell/panels/model-viewer';
@@ -15,6 +16,20 @@ type Phase = { kind: 'loading' } | { kind: 'ready'; model: LoadedModel } | { kin
 
 const LOADING: Phase = { kind: 'loading' };
 const NO_WEBGL: Phase = { kind: 'no-webgl' };
+
+/* Hands a switch of the toolbar to the viewer once the model is in, and again whenever it flips. */
+function useViewerSetting(
+    viewer: RefObject<ModelViewer | null>,
+    ready: boolean,
+    setter: 'setWireframe' | 'setGrid' | 'setDark' | 'setStudioLight' | 'setPlaying',
+    value: boolean
+): void {
+    useEffect(() => {
+        if (ready) {
+            viewer.current?.[setter](value);
+        }
+    }, [viewer, ready, setter, value]);
+}
 
 /* A binary glTF, a USDZ package or an STL, drawn in 3D on the same plain surface as an image. */
 export function ModelFile({ source, name, read }: { source: FileSource; name: string; read: FsReadBinary }) {
@@ -76,57 +91,24 @@ export function ModelFile({ source, name, read }: { source: FileSource; name: st
         };
     }, [key, endpointId, locator, read.mime, t]);
 
-    useEffect(() => {
-        if (ready) {
-            viewerRef.current?.setWireframe(wireframe);
-        }
-    }, [ready, wireframe]);
+    useViewerSetting(viewerRef, ready, 'setWireframe', wireframe);
+    useViewerSetting(viewerRef, ready, 'setGrid', grid);
+    useViewerSetting(viewerRef, ready, 'setDark', dark);
+    useViewerSetting(viewerRef, ready, 'setStudioLight', studioLight);
+    useViewerSetting(viewerRef, ready, 'setPlaying', playing);
 
-    useEffect(() => {
-        if (ready) {
-            viewerRef.current?.setGrid(grid);
-        }
-    }, [ready, grid]);
-
-    useEffect(() => {
-        if (ready) {
-            viewerRef.current?.setDark(dark);
-        }
-    }, [ready, dark]);
-
-    useEffect(() => {
-        if (ready) {
-            viewerRef.current?.setStudioLight(studioLight);
-        }
-    }, [ready, studioLight]);
-
-    useEffect(() => {
-        if (ready) {
-            viewerRef.current?.setPlaying(playing);
-        }
-    }, [ready, playing]);
-
-    const revealAction = path === null ? undefined : <RevealButton path={path} />;
-
-    const overlay = (): React.ReactNode => {
+    const overlay = (): ReactNode => {
         if (phase.kind === 'loading') {
             return <EmptyState busy>{t('file.reading', { name })}</EmptyState>;
         }
-        if (phase.kind === 'failed') {
-            return (
-                <EmptyState className="select-text" icon={Box} action={revealAction}>
-                    {t('file.model.failed', { name, reason: phase.reason })}
-                </EmptyState>
-            );
+        if (phase.kind === 'ready') {
+            return null;
         }
-        if (phase.kind === 'no-webgl') {
-            return (
-                <EmptyState className="select-text" icon={Box} action={revealAction}>
-                    {t('file.model.noWebgl', { name })}
-                </EmptyState>
-            );
-        }
-        return null;
+        return (
+            <EmptyState className="select-text" icon={Box} action={path === null ? undefined : <RevealButton path={path} />}>
+                {phase.kind === 'failed' ? t('file.model.failed', { name, reason: phase.reason }) : t('file.model.noWebgl', { name })}
+            </EmptyState>
+        );
     };
 
     return (
@@ -160,7 +142,7 @@ export function ModelFile({ source, name, read }: { source: FileSource; name: st
                 <div ref={hostRef} className={clsx('absolute inset-0', !ready && 'invisible')} />
                 {!ready && <div className="absolute inset-0 grid place-items-center overflow-auto p-4">{overlay()}</div>}
             </FileContextMenu>
-            <div className="flex h-7 shrink-0 items-center gap-3 border-t border-border px-2 text-xs text-text-muted select-text">
+            <div className={FILE_FOOTER}>
                 {phase.kind === 'ready' && (
                     <>
                         <span>{t('file.model.vertices', { count: phase.model.vertices, value: formatNumber(phase.model.vertices) })}</span>

@@ -6,6 +6,7 @@ import { compileFind, stepIndex } from '@adecore/editor-react/models';
 import { formatBytes, formatNumber } from '@adecore/ui/format';
 import { FindBar } from '@/find/FindBar';
 import { useFind } from '@/find/use-find';
+import { FILE_FOOTER } from '@/shell/panels/classes';
 import { findCells, parseDelimited, sortRows, tableOf, type CellMatch, type Delimiter } from '@/shell/panels/delimited';
 import { EditorNotice } from '@/shell/panels/DraftBar';
 
@@ -70,7 +71,7 @@ export function TableGrid({ path, name, read, header, delimiter, delimiterName }
                     empty={t('file.table.noRows', { name })}
                 />
             </div>
-            <div className="flex h-7 shrink-0 items-center gap-3 border-t border-border px-2 text-xs text-text-muted select-text">
+            <div className={FILE_FOOTER}>
                 <span>{t('file.table.rows', { count: table.rows.length, value: formatNumber(table.rows.length) })}</span>
                 <span>{t('file.table.columns', { count: table.columns.length, value: formatNumber(table.columns.length) })}</span>
                 <span>{delimiterName}</span>

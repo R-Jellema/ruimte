@@ -30,16 +30,24 @@ const VIEW_DIRECTION = normalized([0.6, 0.45, 1]);
 // Room around the model, so its outline never touches the edge of the view.
 const MARGIN = 1.15;
 
+/* The sphere around the bounds; no bounds, or bounds without size, are a unit sphere around their center. */
+export function boundingSphere(bounds: ModelBounds | null): { center: Vec3; radius: number } {
+    const { min, max } = bounds ?? { min: [0, 0, 0], max: [0, 0, 0] };
+    const halfDiagonal = Math.hypot(max[0] - min[0], max[1] - min[1], max[2] - min[2]) / 2;
+    return {
+        center: [(min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2],
+        radius: halfDiagonal > 0 && Number.isFinite(halfDiagonal) ? halfDiagonal : 1
+    };
+}
+
 /*
- * Where the camera stands to show the whole model: far enough along `VIEW_DIRECTION` that the sphere
- * around the bounds fits the narrower of the two fields of view. No bounds, or bounds without size,
- * frame a unit sphere instead. `verticalFov` is in degrees.
+ * Where the camera stands to show the whole model: far enough along `VIEW_DIRECTION` that the bounding
+ * sphere fits the narrower of the two fields of view. `verticalFov` is in degrees.
  */
 export function fitCamera(bounds: ModelBounds | null, verticalFov: number, aspect: number): CameraFit {
-    const { min, max } = bounds ?? { min: [0, 0, 0], max: [0, 0, 0] };
-    const center: Vec3 = [(min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2];
-    const halfDiagonal = Math.hypot(max[0] - min[0], max[1] - min[1], max[2] - min[2]) / 2;
-    const radius = (halfDiagonal > 0 && Number.isFinite(halfDiagonal) ? halfDiagonal : 1) * MARGIN;
+    const sphere = boundingSphere(bounds);
+    const center = sphere.center;
+    const radius = sphere.radius * MARGIN;
     const halfVertical = (verticalFov * Math.PI) / 360;
     const halfHorizontal = Math.atan(Math.tan(halfVertical) * (aspect > 0 && Number.isFinite(aspect) ? aspect : 1));
     const distance = radius / Math.sin(Math.min(halfVertical, halfHorizontal));
@@ -93,8 +101,5 @@ export function firstZipEntry(bytes: Uint8Array): string | null {
  * model's half diagonal or less, so a model shows a few cells across in any unit it was made in.
  */
 export function gridCellSize(bounds: ModelBounds | null): number {
-    const { min, max } = bounds ?? { min: [0, 0, 0], max: [0, 0, 0] };
-    const halfDiagonal = Math.hypot(max[0] - min[0], max[1] - min[1], max[2] - min[2]) / 2;
-    const radius = halfDiagonal > 0 && Number.isFinite(halfDiagonal) ? halfDiagonal : 1;
-    return 10 ** Math.floor(Math.log10(radius / 5));
+    return 10 ** Math.floor(Math.log10(boundingSphere(bounds).radius / 5));
 }

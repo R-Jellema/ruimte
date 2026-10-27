@@ -1,5 +1,7 @@
 import { DirectionalLight, Group, HemisphereLight, Mesh, PlaneGeometry, ShadowMaterial, Vector3 } from 'three';
-import type { ModelBounds } from '@/shell/panels/model-view';
+import { boundingSphere, type ModelBounds } from '@/shell/panels/model-view';
+
+const UNIT_BOX: ModelBounds = { min: [-1, -1, -1], max: [1, 1, 1] };
 
 // Where each light shines from, as seen from the model: in front, to the right and above, the way a product is photographed.
 const KEY_DIRECTION = new Vector3(1, 1.5, 1.2).normalize();
@@ -34,12 +36,12 @@ export class ModelStudio extends Group {
         this.visible = false;
     }
 
-    /* Aims the key light at the model and sizes its shadow to it; no bounds frame a unit sphere at the origin. */
+    /* Aims the key light at the model and sizes its shadow to it; no bounds light a cube of 2 around the origin. */
     fit(bounds: ModelBounds | null): void {
-        const { min, max } = bounds ?? { min: [-1, -1, -1], max: [1, 1, 1] };
-        const center = new Vector3((min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2);
-        const halfDiagonal = Math.hypot(max[0] - min[0], max[1] - min[1], max[2] - min[2]) / 2;
-        const radius = halfDiagonal > 0 && Number.isFinite(halfDiagonal) ? halfDiagonal : 1;
+        const box = bounds ?? UNIT_BOX;
+        const sphere = boundingSphere(box);
+        const center = new Vector3(...sphere.center);
+        const radius = sphere.radius;
         this.key.target.position.copy(center);
         this.key.position.copy(center).addScaledVector(KEY_DIRECTION, radius * 3);
         // The shadow of a model lit from above and aside falls past its own bounds, so the box is wider than the model.
@@ -54,7 +56,7 @@ export class ModelStudio extends Group {
         this.key.shadow.bias = -0.0005;
         // Scaled with the model, or a model in millimeters would draw stripes of its own shadow across itself.
         this.key.shadow.normalBias = radius * 0.01;
-        this.ground.position.set(center.x, min[1], center.z);
+        this.ground.position.set(center.x, box.min[1], center.z);
         this.ground.scale.setScalar(radius * GROUND_RADII * 2);
     }
 
