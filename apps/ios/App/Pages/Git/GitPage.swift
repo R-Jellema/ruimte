@@ -13,8 +13,7 @@ func gitRepoIcon(_ kind: String) -> String {
 
 /// The git sheet: Changes, History and Branches as segments under a pill that says where the project stands and
 /// switches between the project folder and its worktrees. Every repository the folder holds is in it at once;
-/// the staged files say where a commit lands, so there is no repository to pick first. A folder with exactly one
-/// repository reads as one repository.
+/// the staged files say where a commit lands, so there is no repository to pick first.
 struct GitPage: View {
     let client: any MachineRequesting
     let folder: String
@@ -90,7 +89,7 @@ struct GitPage: View {
             GitDiffPage(client: client, target: target)
         }
         .navigationDestination(item: $conflictFile) { target in
-            GitConflictFilePage(client: client, session: repositories.conflicts.session(target.cwd), path: target.path)
+            GitConflictFilePage(client: client, session: repositories.conflicts[path: target.cwd], path: target.path)
         }
         .navigationDestination(isPresented: $committing) {
             if let commitModel {
@@ -317,7 +316,7 @@ struct GitHaltedRows: View {
     let named: Bool
     @State private var confirmAbort = false
 
-    private var session: GitConflictSession { repositories.conflicts.session(checkout.path) }
+    private var session: GitConflictSession { repositories.conflicts[path: checkout.path] }
 
     var body: some View {
         NavigationLink {

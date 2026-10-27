@@ -289,18 +289,6 @@ enum GitWorktreeText {
     }
 }
 
-/// The worktrees of each repository a git sheet reaches, kept while a person walks between its pages.
-@MainActor final class GitWorktreesStore {
-    private var states: [String: GitWorktreesState] = [:]
-
-    func state(_ repo: String) -> GitWorktreesState {
-        if let known = states[repo] { return known }
-        let made = GitWorktreesState(repo: repo)
-        states[repo] = made
-        return made
-    }
-}
-
 /// The worktrees of one repository and everything done to them from the phone.
 @MainActor @Observable final class GitWorktreesState {
     let repo: String

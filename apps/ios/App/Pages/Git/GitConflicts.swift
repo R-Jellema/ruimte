@@ -313,9 +313,7 @@ func gitRefusalCode(_ error: any Error) -> String? {
     }
 
     func answer(_ path: String, block: Int, lines: [String]) {
-        var draft = draft(path)
-        draft.answers[block] = GitBlockAnswer(lines: lines)
-        drafts[path] = draft
+        drafts[path, default: GitConflictDraft()].answers[block] = GitBlockAnswer(lines: lines)
     }
 
     func editWhole(_ path: String, text: String) {
@@ -324,9 +322,7 @@ func gitRefusalCode(_ error: any Error) -> String? {
     }
 
     func clear(_ path: String, block: Int) {
-        var draft = draft(path)
-        draft.answers[block] = nil
-        drafts[path] = draft
+        drafts[path, default: GitConflictDraft()].answers[block] = nil
     }
 
     /// Every open conflict of the file that needs no choice, closed in one go.
@@ -416,9 +412,7 @@ func gitRefusalCode(_ error: any Error) -> String? {
                     "git.resolveAi",
                     payload: .object(["cwd": .string(cwd), "path": .string(path), "actionId": .string(actionId)]))
                 let usable = GitConflictModel.usable(file, answers: result.list("blocks"))
-                var draft = draft(path)
-                draft.propose(usable)
-                drafts[path] = draft
+                drafts[path, default: GitConflictDraft()].propose(usable)
                 answered += usable.count
                 if let line = result["note"]?.stringValue, !line.isEmpty { notes.append(line) }
             }
@@ -515,17 +509,5 @@ func gitRefusalCode(_ error: any Error) -> String? {
             drafts[path] = draft(path).carried(from: before, to: after)
             note = String(localized: "The file changed on the machine and was read again. Answers that still fit were kept.")
         }
-    }
-}
-
-/// The conflict sessions of the checkouts a git page reaches, worktrees a merge stopped in included.
-@MainActor final class GitConflictStore {
-    private var sessions: [String: GitConflictSession] = [:]
-
-    func session(_ cwd: String) -> GitConflictSession {
-        if let known = sessions[cwd] { return known }
-        let made = GitConflictSession(cwd: cwd)
-        sessions[cwd] = made
-        return made
     }
 }

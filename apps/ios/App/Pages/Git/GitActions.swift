@@ -71,20 +71,13 @@ extension GitRepositories {
             busy = false
             progress = nil
         }
-        switch await perform(client: client, cwd: cwd, kind: kind, extra: extra) {
-        case .success(let result):
-            problem = nil
-            await refresh(client: client, cwd: cwd)
-            return result
-        case .failure(let error):
-            problem = message(of: error)
-            await refresh(client: client, cwd: cwd)
-            return nil
-        }
+        let outcome = await perform(client: client, cwd: cwd, kind: kind, extra: extra)
+        if case .failure(let error) = outcome { problem = error.localizedDescription } else { problem = nil }
+        await refresh(client: client, cwd: cwd)
+        return try? outcome.get()
     }
 
-    /// Every repository in order, never two at once: a folder of nine pushes over one link. A repository
-    /// that fails does not stop the run, so the end is the only place the whole outcome can be read.
+    /// Every repository in order, never two at once: a folder of nine pushes over one link.
     func actAll(client: any MachineRequesting, kind: String) async {
         guard !busy, !checkouts.isEmpty else { return }
         busy = true
@@ -92,15 +85,8 @@ extension GitRepositories {
             busy = false
             progress = nil
         }
-        var failed: [String] = []
-        for (index, checkout) in checkouts.enumerated() {
-            step = "\(checkout.label) (\(index + 1)/\(checkouts.count))"
-            if case .failure(let error) = await perform(client: client, cwd: checkout.path, kind: kind, extra: [:]) {
-                failed.append("\(checkout.label): \(message(of: error))")
-            }
-        }
+        await performEach(client: client, targets: checkouts, kind: kind, extra: [:], counted: true)
         step = nil
-        problem = failed.isEmpty ? nil : failed.joined(separator: "\n")
         await refreshAll(client: client)
     }
 
@@ -116,19 +102,26 @@ extension GitRepositories {
             progress = nil
             step = nil
         }
-        let kind = push ? "commit-push" : "commit"
-        let extra: [String: JSONValue] = [
-            "subject": .string(subject), "body": .string(body), "stageAll": .bool(stageAll),
-        ]
+        let succeeded = await performEach(
+            client: client, targets: targets, kind: push ? "commit-push" : "commit",
+            extra: ["subject": .string(subject), "body": .string(body), "stageAll": .bool(stageAll)], counted: false)
+        await refreshAll(client: client)
+        return succeeded
+    }
+
+    /// One action per repository in order. A repository that fails does not stop the run, so `problem` says at the
+    /// end which ones did. `counted` names the repository in `step` even when it is the only one.
+    @discardableResult private func performEach(
+        client: any MachineRequesting, targets: [GitCheckout], kind: String, extra: [String: JSONValue], counted: Bool
+    ) async -> Bool {
         var failed: [String] = []
         for (index, target) in targets.enumerated() {
-            step = targets.count > 1 ? "\(target.label) (\(index + 1)/\(targets.count))" : nil
+            step = counted || targets.count > 1 ? "\(target.label) (\(index + 1)/\(targets.count))" : nil
             if case .failure(let error) = await perform(client: client, cwd: target.path, kind: kind, extra: extra) {
-                failed.append("\(target.label): \(message(of: error))")
+                failed.append("\(target.label): \(error.localizedDescription)")
             }
         }
         problem = failed.isEmpty ? nil : failed.joined(separator: "\n")
-        await refreshAll(client: client)
         return failed.isEmpty
     }
 
@@ -145,7 +138,7 @@ extension GitRepositories {
                 ]))
             problem = nil
         } catch {
-            problem = message(of: error)
+            problem = error.localizedDescription
         }
         await refresh(client: client, cwd: cwd)
     }
@@ -162,7 +155,7 @@ extension GitRepositories {
             stash = answer["stash"]?.stringValue
             problem = nil
         } catch {
-            problem = message(of: error)
+            problem = error.localizedDescription
         }
         await refresh(client: client, cwd: cwd)
         return stash
@@ -181,19 +174,13 @@ extension GitRepositories {
             cancel()
             progress = nil
         }
-        var fields: [String: JSONValue] = [
-            "cwd": .string(cwd), "actionId": .string(actionId), "kind": .string(kind),
-        ]
-        for (key, value) in extra { fields[key] = value }
+        let fields: [String: JSONValue] = ["cwd": .string(cwd), "actionId": .string(actionId), "kind": .string(kind)]
+            .merging(extra) { $1 }
         do {
             return .success(try await client.request("git.action", payload: .object(fields)))
         } catch {
             return .failure(error)
         }
-    }
-
-    private func message(of error: any Error) -> String {
-        error.localizedDescription
     }
 }
 

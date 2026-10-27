@@ -77,8 +77,7 @@ struct GitRepositoriesPage: View {
 }
 
 extension GitRepositories {
-    /// Every repository that has something to push, one after another. A branch git has never seen is published
-    /// with an upstream in the same push, which is a different flag for git.
+    /// Every repository that has something to push, one after another.
     func pushAll(client: any MachineRequesting) async {
         for entry in GitPanel.pushable(checkouts) {
             await act(client: client, cwd: entry.checkout.path, kind: entry.kind)

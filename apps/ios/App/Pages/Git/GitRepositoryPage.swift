@@ -183,7 +183,6 @@ struct GitDivergedRow: View {
     private(set) var loading = false
 
     var branches: [JSONValue] { refs.filter { $0.text("kind") == "local" } }
-    var current: String? { refs.first { $0["current"] == .bool(true) }?.text("name") }
 
     /// Forgets what was read, for a page that now points at another repository.
     func clear() {

@@ -5,7 +5,7 @@ import SwiftUI
 
 /// One checkout the git page draws, with what was last read of it. A project folder is one or more of
 /// these: the repository the folder is in, its initialized submodules, and the repositories sitting
-/// beside it. A folder with exactly one reads as the page always did.
+/// beside it.
 struct GitCheckout: Identifiable, Equatable {
     let path: String
     /// What a person reads: the path under the project folder, or the folder's own name for the
@@ -32,10 +32,33 @@ struct GitCheckout: Identifiable, Equatable {
     var hasStaged: Bool { files.contains { $0.state == .staged } }
 }
 
+/// One value per checkout path, kept while a person walks between the pages of a git sheet.
+@MainActor final class GitCheckoutCache<Value> {
+    private var values: [String: Value] = [:]
+    private let make: @MainActor (String) -> Value
+
+    init(_ make: @escaping @MainActor (String) -> Value) {
+        self.make = make
+    }
+
+    subscript(path path: String) -> Value {
+        if let known = values[path] { return known }
+        let made = make(path)
+        values[path] = made
+        return made
+    }
+}
+
 /// The groups a change falls in, in the order a person acts on them.
 let gitFileGroups = ["conflicted", "staged", "unstaged", "untracked"]
 
 enum GitPanel {
+    /// The hold on `git.watch` that a checkout's `git.status` events come under.
+    @MainActor static func watch(_ client: any MachineRequesting, cwd: String) -> MachineSubscription {
+        let payload: JSONValue = .object(["cwd": .string(cwd)])
+        return client.acquireSubscription(start: "git.watch", stop: "git.unwatch", payload: payload, stopPayload: payload)
+    }
+
     /// The label a repository is listed under, for a page that only has its path.
     static func label(folder: String, path: String) -> String {
         guard path != folder, path.hasPrefix(folder + "/") else { return (path as NSString).lastPathComponent }
@@ -70,13 +93,12 @@ enum GitPanel {
         return changed.count == 1 ? (changed, true) : ([], false)
     }
 
-    /// The repositories a push would move, and what each one's push is called: a branch git has never
-    /// seen is published with an upstream in the same push, which is another flag for git.
+    /// The repositories a push would move, each with its `pushKind`.
     static func pushable(_ checkouts: [GitCheckout]) -> [(checkout: GitCheckout, kind: String)] {
         checkouts.compactMap { checkout in
-            guard checkout.isRepository, checkout.branch != nil else { return nil }
-            if checkout.status?.upstream == nil { return (checkout, "publish") }
-            return checkout.ahead > 0 ? (checkout, "push") : nil
+            guard checkout.isRepository, checkout.branch != nil, checkout.status?.upstream == nil || checkout.ahead > 0
+            else { return nil }
+            return (checkout, pushKind(checkout))
         }
     }
 }
@@ -106,12 +128,12 @@ extension GitPanel {
     /// under that line a repository could still hold a commit older than the rows around it, and putting
     /// those rows in now would mean moving them later. They come with the next page instead.
     static func mergeLogs(_ logs: [GitLoadedLog]) -> (rows: [GitLogRow], more: Bool) {
-        let floors = logs.filter { $0.cursor != nil && !$0.commits.isEmpty }.map { $0.commits[$0.commits.count - 1].number("at") }
-        let floor = floors.max()
+        let floor =
+            logs.filter { $0.cursor != nil }.compactMap { $0.commits.last?.number("at") }.max() ?? -.infinity
         let rows =
             logs
             .flatMap { log in log.commits.map { GitLogRow(cwd: log.cwd, repo: log.repo, commit: $0) } }
-            .filter { floor == nil || $0.at >= floor! }
+            .filter { $0.at >= floor }
             .sorted { $0.at > $1.at }
         return (rows, logs.contains { $0.cursor != nil })
     }

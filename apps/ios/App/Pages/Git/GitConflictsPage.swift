@@ -40,11 +40,7 @@ struct GitConflictsPage: View {
         .task(id: session.cwd) {
             await RemotePageLifecycle.run(
                 client: client, events: ["git.status"], matches: { $0.text("cwd") == session.cwd },
-                subscription: {
-                    let payload: JSONValue = .object(["cwd": .string(session.cwd)])
-                    return client.acquireSubscription(
-                        start: "git.watch", stop: "git.unwatch", payload: payload, stopPayload: payload)
-                }, load: { await session.load(client: client) })
+                subscription: { GitPanel.watch(client, cwd: session.cwd) }, load: { await session.load(client: client) })
         }
         .refreshable { await session.load(client: client) }
         .modifier(
@@ -355,7 +351,8 @@ private struct GitConflictBlockView: View {
                 Spacer(minLength: 8)
                 MobileStatus(
                     title: state,
-                    color: answer == nil ? MobileStyle.statusNeedsYou : answer!.byAgent ? MobileStyle.accent : MobileStyle.statusIdle)
+                    color: answer.map { $0.byAgent ? MobileStyle.accent : MobileStyle.statusIdle }
+                        ?? MobileStyle.statusNeedsYou)
             }
             if let answer {
                 side(

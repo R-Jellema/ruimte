@@ -24,7 +24,7 @@ struct GitBranchesSegment: View {
         _actions = State(initialValue: GitBranchActions(repositories: repositories, path: path))
     }
 
-    private var worktrees: GitWorktreesState { repositories.worktrees.state(actions.path) }
+    private var worktrees: GitWorktreesState { repositories.worktrees[path: actions.path] }
     private var branches: [JSONValue] { actions.refs.branches }
 
     var body: some View {
@@ -113,7 +113,7 @@ struct GitBranchesSegment: View {
                 client: client, events: ["git.worktrees"],
                 load: {
                     await actions.load(client: client)
-                    await repositories.worktrees.state(path).load(client: client)
+                    await repositories.worktrees[path: path].load(client: client)
                 })
         }
         .refreshable {

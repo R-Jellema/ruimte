@@ -27,9 +27,9 @@ import SwiftUI
     var behind: Int { checkouts.reduce(0) { $0 + $1.behind } }
 
     @ObservationIgnored private var leases: [String: MachineSubscription] = [:]
-    /// What was made of the conflicts of every checkout so far, kept while a person walks between pages.
-    @ObservationIgnored let conflicts = GitConflictStore()
-    @ObservationIgnored let worktrees = GitWorktreesStore()
+    /// What was made of the conflicts of every checkout so far, worktrees a merge stopped in included.
+    @ObservationIgnored let conflicts = GitCheckoutCache(GitConflictSession.init(cwd:))
+    @ObservationIgnored let worktrees = GitCheckoutCache(GitWorktreesState.init(repo:))
 
     func checkout(_ path: String) -> GitCheckout? { checkouts.first { $0.path == path } }
 
@@ -95,9 +95,7 @@ import SwiftUI
             await lease.release()
         }
         for checkout in checkouts where leases[checkout.path] == nil {
-            let payload: JSONValue = .object(["cwd": .string(checkout.path)])
-            leases[checkout.path] = client.acquireSubscription(
-                start: "git.watch", stop: "git.unwatch", payload: payload, stopPayload: payload)
+            leases[checkout.path] = GitPanel.watch(client, cwd: checkout.path)
         }
         for lease in leases.values { _ = try? await lease.refresh() }
     }

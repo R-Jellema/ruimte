@@ -115,11 +115,8 @@ struct MachineFilesPage: View {
                     let root = event.text("root")
                     return resolved == root || resolved.hasPrefix(root + "/")
                 },
-                subscription: {
-                    let payload: JSONValue = .object(["path": .string(state.value?.text("path") ?? path)])
-                    return client.acquireSubscription(
-                        start: "fs.watch", stop: "fs.unwatch", payload: payload, stopPayload: payload)
-                }, start: { if path == "~" { await load() } }, load: load)
+                subscription: { fsWatch(client, path: state.value?.text("path") ?? path) },
+                start: { if path == "~" { await load() } }, load: load)
         }
         .refreshable { await load() }
     }
@@ -264,11 +261,7 @@ struct FileContentPage: View {
                 await RemotePageLifecycle.run(
                     client: client, events: ["fs.changed"],
                     matches: { parent == $0.text("root") || parent.hasPrefix($0.text("root") + "/") },
-                    subscription: {
-                        let payload: JSONValue = .object(["path": .string(parent)])
-                        return client.acquireSubscription(
-                            start: "fs.watch", stop: "fs.unwatch", payload: payload, stopPayload: payload)
-                    }, load: load)
+                    subscription: { fsWatch(client, path: parent) }, load: load)
             }
             // Only a pause, and not on the way into full screen: the page comes back without reading the file again.
             .onDisappear { if !fullScreen { player?.pause() } }
@@ -516,6 +509,12 @@ struct FileContentPage: View {
             return result
         }
     }
+}
+
+/// The hold on `fs.watch` that a folder's `fs.changed` events come under.
+@MainActor private func fsWatch(_ client: any MachineRequesting, path: String) -> MachineSubscription {
+    let payload: JSONValue = .object(["path": .string(path)])
+    return client.acquireSubscription(start: "fs.watch", stop: "fs.unwatch", payload: payload, stopPayload: payload)
 }
 
 /// What a file page shows beside the read itself. Observable like `RemotePageState`, so a read and the picture it

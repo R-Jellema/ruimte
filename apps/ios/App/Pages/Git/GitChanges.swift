@@ -13,7 +13,7 @@ struct GitChangesList: View {
     let onDiff: (GitDiffTarget) -> Void
     let onConflict: (GitConflictTarget) -> Void
     let onCommit: () -> Void
-    @State private var discard: (cwd: String, path: String)?
+    @State private var discard: GitConfirmation?
     @State private var confirmAbort = false
 
     private var checkouts: [GitCheckout] { repositories.checkouts }
@@ -53,30 +53,25 @@ struct GitChangesList: View {
         }
         .refreshable { await repositories.reload(client: client, folder: folder) }
         .safeAreaInset(edge: .bottom, spacing: 0) { bar }
-        .alert(
-            discard.map { String(localized: "Discard changes in \(($0.path as NSString).lastPathComponent)?") } ?? "",
-            isPresented: $discard.isPresent()
-        ) {
-            Button("Discard", role: .destructive) {
-                guard let pending = discard else { return }
+        .alert(discard?.title ?? "", isPresented: $discard.isPresent(), presenting: discard) { pending in
+            Button(pending.confirmLabel, role: .destructive) {
+                guard case .discard(let cwd, let path) = pending else { return }
                 Task {
-                    let stash = await repositories.discard(client: client, cwd: pending.cwd, path: pending.path)
+                    let stash = await repositories.discard(client: client, cwd: cwd, path: path)
                     note =
-                        stash.map {
-                            String(localized: "Discarded \(pending.path). Restore it with git stash pop \($0).")
-                        }
-                        ?? String(localized: "Nothing to discard in \(pending.path).")
+                        stash.map { String(localized: "Discarded \(path). Restore it with git stash pop \($0).") }
+                        ?? String(localized: "Nothing to discard in \(path).")
                 }
             }
             Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("The file goes back to what it was, and git keeps a stash to undo it with.")
+        } message: { pending in
+            Text(pending.detail)
         }
     }
 
     @ViewBuilder private var bar: some View {
         if let halted, let operation = halted.operation {
-            let session = repositories.conflicts.session(halted.path)
+            let session = repositories.conflicts[path: halted.path]
             GitBottomBar {
                 GitBarButton(title: String(localized: "Abort"), prominent: false, role: .destructive) {
                     confirmAbort = true
@@ -198,7 +193,7 @@ struct GitChangesList: View {
                 Task { await stage(checkout, [file], group) }
             }.tint(MobileStyle.swipeAction).disabled(repositories.busy)
             if group != "conflicted" {
-                Button("Discard", role: .destructive) { discard = (checkout.path, path) }
+                Button("Discard", role: .destructive) { discard = .discard(cwd: checkout.path, path: path) }
                     .tint(MobileStyle.swipeDestructive).disabled(repositories.busy)
             }
         }
@@ -213,14 +208,14 @@ struct GitChangesList: View {
             }
             if group != "conflicted" {
                 Button(String(localized: "Discard changes"), lucideIcon: "trash", role: .destructive) {
-                    discard = (checkout.path, path)
+                    discard = .discard(cwd: checkout.path, path: path)
                 }
             }
         }
     }
 
     private func finish(_ checkout: GitCheckout, _ action: String) async {
-        await repositories.conflicts.session(checkout.path).finish(client: client, action: action)
+        await repositories.conflicts[path: checkout.path].finish(client: client, action: action)
         await repositories.refresh(client: client, cwd: checkout.path)
     }
 }
@@ -233,7 +228,7 @@ struct GitHaltedCard: View {
     let checkout: GitCheckout
     let named: Bool
 
-    private var session: GitConflictSession { repositories.conflicts.session(checkout.path) }
+    private var session: GitConflictSession { repositories.conflicts[path: checkout.path] }
 
     var body: some View {
         NavigationLink {

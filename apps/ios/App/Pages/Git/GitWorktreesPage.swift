@@ -167,7 +167,7 @@ struct GitWorktreeOutcomeSection: View {
                     Text(files.joined(separator: ", ")).font(.caption).foregroundStyle(MobileStyle.muted).lineLimit(4)
                 }
                 NavigationLink {
-                    GitConflictsPage(client: client, session: repositories.conflicts.session(cwd))
+                    GitConflictsPage(client: client, session: repositories.conflicts[path: cwd])
                 } label: {
                     Label(String(localized: "Resolve"), lucideIcon: "file-exclamation-point")
                 }
