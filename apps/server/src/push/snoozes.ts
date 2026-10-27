@@ -1,11 +1,9 @@
-import { systemClock, type OutboxClock } from '@adecore/agents/coordination';
+import type { OutboxClock } from '@adecore/agents/coordination';
 import { SnoozeListSchema, type Snooze } from '@ruimte/contracts';
 import { ClientSinks } from '../client-sinks.ts';
 import { JsonFileStore } from '../json-file-store.ts';
+import { wakefulClock } from '../outbox/wakeful-clock.ts';
 import type { SessionSink } from '../sessions/manager.ts';
-
-/* A timer asleep with the machine runs late by as long as it slept, so the wall clock is read again at least this often. */
-export const MAX_WAIT_MS = 60_000;
 
 /* Woke: the snooze ran out by itself, so a node still waiting is a new wait. Cleared: a person ended it early, and knows. */
 export interface SnoozeChange {
@@ -38,7 +36,7 @@ export class SnoozeStore {
 
     constructor(options: SnoozeStoreOptions = {}) {
         this.file = new JsonFileStore(options.path, SnoozeListSchema, 'snoozes start empty');
-        this.clock = options.clock ?? systemClock;
+        this.clock = wakefulClock(options.clock);
         const saved = this.file.read()?.snoozes ?? [];
         const now = this.clock.now();
         // What ran out while the daemon was down wakes nobody: no status is known yet to say the node still waits.
@@ -172,7 +170,7 @@ export class SnoozeStore {
                 this.expire();
                 this.arm();
             },
-            Math.max(0, Math.min(next - this.clock.now(), MAX_WAIT_MS))
+            Math.max(0, next - this.clock.now())
         );
     }
 
