@@ -1,73 +1,33 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
-import type { EventMap, EventType, RequestMap, RequestType } from '@ruimte/contracts';
 import type { Endpoint } from '../state/endpoints';
-import { TransportPool, type PooledTransport } from './pool';
+import { TransportPool } from './pool';
 import type { SocketAddress } from './websocket-transport';
-import type { ConnectionState, TransportStatus } from './transport';
+import type { TransportStatus } from './transport';
+import { endpoint, FakeLink } from '../../testing/fake-link';
 
-function endpoint(id: string): Endpoint {
-    return {
-        id,
-        label: id,
-        httpBaseUrl: `http://${id}`,
-        wsBaseUrl: `ws://${id}`,
-        reachability: 'lan',
-        daemonId: null,
-        daemonPublicKey: null
-    };
-}
-
-class FakeTransport implements PooledTransport {
+class FakeTransport extends FakeLink {
     url: SocketAddress;
     disposed = false;
-    connection: ConnectionState = { status: 'connecting', attempts: 0, retryAt: null };
-    private readonly statusHandlers = new Set<(status: TransportStatus) => void>();
-
-    constructor(url: SocketAddress) {
-        this.url = url;
-    }
-
-    get status(): TransportStatus {
-        return this.connection.status;
-    }
-
-    setStatus(status: TransportStatus): void {
-        this.connection = { ...this.connection, status };
-        for (const handler of this.statusHandlers) {
-            handler(status);
-        }
-    }
-
-    request<T extends RequestType>(): Promise<RequestMap[T]['result']> {
-        return Promise.resolve(undefined as RequestMap[T]['result']);
-    }
-
-    on<E extends EventType>(_event: E, _handler: (payload: EventMap[E]) => void): () => void {
-        return () => undefined;
-    }
-
-    subscribeStatus(handler: (status: TransportStatus) => void): () => void {
-        this.statusHandlers.add(handler);
-        return () => {
-            this.statusHandlers.delete(handler);
-        };
-    }
-
-    switchTo(url: SocketAddress): void {
-        this.url = url;
-    }
-
-    retarget(url: SocketAddress): void {
-        this.url = url;
-    }
-
     reconnects = 0;
 
-    reconnect(): void {
+    constructor(url: SocketAddress) {
+        super();
+        this.url = url;
+    }
+
+    override switchTo(url: SocketAddress): void {
+        this.url = url;
+    }
+
+    override retarget(url: SocketAddress): void {
+        this.url = url;
+    }
+
+    override reconnect(): void {
         this.reconnects += 1;
     }
 
-    dispose(): void {
+    override dispose(): void {
         this.disposed = true;
     }
 }

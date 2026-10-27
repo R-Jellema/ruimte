@@ -1,34 +1,7 @@
 import { describe, expect, test } from 'bun:test';
-import type { EventMap, EventType, RequestMap, RequestType } from '@ruimte/contracts';
 import { watchPool, type WatchablePool } from './pool-watch';
-import type { Transport, TransportStatus } from './transport';
-
-class FakeLink implements Transport {
-    status: TransportStatus = 'connecting';
-    private readonly statusHandlers = new Set<(status: TransportStatus) => void>();
-
-    setStatus(status: TransportStatus): void {
-        this.status = status;
-        for (const handler of this.statusHandlers) {
-            handler(status);
-        }
-    }
-
-    request<T extends RequestType>(): Promise<RequestMap[T]['result']> {
-        return Promise.resolve(undefined as RequestMap[T]['result']);
-    }
-
-    on<E extends EventType>(_event: E, _handler: (payload: EventMap[E]) => void): () => void {
-        return () => undefined;
-    }
-
-    subscribeStatus(handler: (status: TransportStatus) => void): () => void {
-        this.statusHandlers.add(handler);
-        return () => {
-            this.statusHandlers.delete(handler);
-        };
-    }
-}
+import type { Transport } from './transport';
+import { FakeLink } from '../../testing/fake-link';
 
 class FakePool implements WatchablePool {
     private readonly links = new Map<string, FakeLink>();
@@ -120,7 +93,7 @@ describe('watchPool', () => {
     test('asks an already open link at once and attaches every link only once', () => {
         const pool = new FakePool();
         const link = new FakeLink();
-        link.status = 'open';
+        link.setStatus('open');
         pool.put('one', link);
         let attached = 0;
         const asks: string[] = [];

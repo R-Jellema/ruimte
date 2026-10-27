@@ -1,44 +1,26 @@
 import { describe, expect, test } from 'bun:test';
-import type { EventMap, EventType, RequestMap, RequestType } from '@ruimte/contracts';
+import type { RequestMap, RequestType } from '@ruimte/contracts';
 import { LOCAL_ENDPOINT_ID } from '@/state/endpoints';
 import type { WatchablePool } from './pool-watch';
 import { startStartupReport } from './startup-report';
-import type { ConnectionState, Transport, TransportStatus } from './transport';
+import { FakeLink } from '../../testing/fake-link';
 
-class FakeLink implements Transport {
-    status: TransportStatus = 'open';
-    connection: ConnectionState;
+class Link extends FakeLink {
     readonly asked: Array<{ type: string; payload: unknown }> = [];
-    private readonly handlers = new Set<(status: TransportStatus) => void>();
 
     constructor(features: string[]) {
+        super();
         this.connection = { status: 'open', attempts: 0, retryAt: null, failure: null, features };
     }
 
-    request<T extends RequestType>(type: T, payload: RequestMap[T]['payload']): Promise<RequestMap[T]['result']> {
-        this.asked.push({ type, payload });
+    override request<T extends RequestType>(type?: T, payload?: RequestMap[T]['payload']): Promise<RequestMap[T]['result']> {
+        this.asked.push({ type: type as string, payload });
+
         return Promise.resolve({} as RequestMap[T]['result']);
-    }
-
-    on<E extends EventType>(_event: E, _handler: (payload: EventMap[E]) => void): () => void {
-        return () => undefined;
-    }
-
-    subscribeStatus(handler: (status: TransportStatus) => void): () => void {
-        this.handlers.add(handler);
-        return () => this.handlers.delete(handler);
-    }
-
-    setStatus(status: TransportStatus): void {
-        this.status = status;
-        this.connection = { ...this.connection, status };
-        for (const handler of this.handlers) {
-            handler(status);
-        }
     }
 }
 
-function poolOf(links: Record<string, FakeLink>): WatchablePool & { replace(next: Record<string, FakeLink>): void } {
+function poolOf(links: Record<string, Link>): WatchablePool & { replace(next: Record<string, Link>): void } {
     const handlers = new Set<() => void>();
     return {
         ids: () => Object.keys(links),
@@ -58,9 +40,9 @@ function poolOf(links: Record<string, FakeLink>): WatchablePool & { replace(next
 
 describe('the startup report', () => {
     test('sends the time the shell hands out to this machine only, once', async () => {
-        const local = new FakeLink(['usage.startup']);
-        const other = new FakeLink(['usage.startup']);
-        const replacement = new FakeLink(['usage.startup']);
+        const local = new Link(['usage.startup']);
+        const other = new Link(['usage.startup']);
+        const replacement = new Link(['usage.startup']);
         const source = poolOf({ elsewhere: other, [LOCAL_ENDPOINT_ID]: local });
         const startup = Promise.withResolvers<number | null>();
         let taken = 0;
@@ -88,7 +70,7 @@ describe('the startup report', () => {
     });
 
     test('asks nothing of a machine that does not answer it, and sends nothing the shell withholds', async () => {
-        const older = new FakeLink([]);
+        const older = new Link([]);
         let taken = 0;
         const stopOlder = startStartupReport(
             async () => {
@@ -97,7 +79,7 @@ describe('the startup report', () => {
             },
             poolOf({ [LOCAL_ENDPOINT_ID]: older })
         );
-        const current = new FakeLink(['usage.startup']);
+        const current = new Link(['usage.startup']);
         const withheld = Promise.resolve(null);
         const stopCurrent = startStartupReport(() => withheld, poolOf({ [LOCAL_ENDPOINT_ID]: current }));
         try {

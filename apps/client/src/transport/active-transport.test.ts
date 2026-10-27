@@ -4,18 +4,7 @@ import type { Endpoint } from '../state/endpoints';
 import { ActiveTransport } from './active-transport';
 import { TransportPool, type PooledTransport } from './pool';
 import { TransportError, type ConnectionState, type TransportStatus } from './transport';
-
-function endpoint(id: string): Endpoint {
-    return {
-        id,
-        label: id,
-        httpBaseUrl: `http://${id}`,
-        wsBaseUrl: `ws://${id}`,
-        reachability: 'lan',
-        daemonId: null,
-        daemonPublicKey: null
-    };
-}
+import { endpoint } from '../../testing/fake-link';
 
 interface Pending {
     type: RequestType;
