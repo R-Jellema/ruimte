@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { ActionRegistry, type ActionResult } from '@ruimte/actions';
+import { ActionRegistry } from '@ruimte/actions';
 import type { GitFile, GitStatus, ProjectCanvasView, RequestMap, RequestType, Worktree } from '@ruimte/contracts';
 import { developerActions } from './developer-actions';
 import { PERSON_ACTION_CALL, VOICE_ACTION_CALL } from './client-actions';
 import { useDocument } from '@/state/document';
 import { TransportError, type Transport } from '@/transport/transport';
-import { confirmed } from './action-support';
+import { confirmed, questionOf } from './action-support';
 
 const FOLDER = '/work/atlas';
 
@@ -83,10 +83,6 @@ function fake(answers: Answers, options: { hidden?: string[] } = {}): Fake {
         })
     );
     return { registry, asked, of: (type) => asked.filter((entry) => entry.type === type).map((entry) => entry.payload) };
-}
-
-function questionOf(result: ActionResult): string {
-    return result.status === 'needs_confirmation' ? [result.confirmation.title, ...result.confirmation.consequences].join(' ') : '';
 }
 
 const main: ProjectCanvasView = {

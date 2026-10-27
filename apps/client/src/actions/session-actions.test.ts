@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { ActionRegistry, type ActionResult } from '@ruimte/actions';
+import { ActionRegistry } from '@ruimte/actions';
 import type { ChatForkResult, ChatInfo, ChatItem, Plan, PlanPersonOp, ProviderInfo, RequestMap, RequestType } from '@ruimte/contracts';
 import { applyPlanOps } from '@adecore/plan';
 import { createClientActionRegistry, PERSON_ACTION_CALL, VOICE_ACTION_CALL } from './client-actions';
@@ -8,7 +8,7 @@ import type { ChatState } from '@adecore/agents-react/state';
 import { useDocument } from '@/state/document';
 import type { SessionState } from '@/state/sessions';
 import { TransportError, type Transport } from '@/transport/transport';
-import { confirmed } from './action-support';
+import { confirmed, questionOf } from './action-support';
 
 type Answers = { [Type in RequestType]?: (payload: RequestMap[Type]['payload']) => RequestMap[Type]['result'] | Promise<RequestMap[Type]['result']> };
 
@@ -254,10 +254,6 @@ function fake(answers: Answers = {}, machine: Partial<SessionMachine> = {}): Fak
     return { registry, of: (type) => asked.filter((entry) => entry.type === type).map((entry) => entry.payload), applied, retargeted, revealed };
 }
 
-function consequences(result: ActionResult): string {
-    return result.status === 'needs_confirmation' ? `${result.confirmation.title} ${result.confirmation.consequences.join(' ')}` : '';
-}
-
 beforeEach(() => {
     useDocument.getState().load(
         {
@@ -284,9 +280,9 @@ describe('stopping', () => {
     test('Voice asks before it stops a turn, names what else ends, and a person stops at once', async () => {
         const { registry, of } = fake();
         const asked = await registry.execute('chat.stopTurn', { chatId: 'chat', subagents: true }, VOICE_ACTION_CALL);
-        expect(consequences(asked)).toContain('Stop the turn of “Research”?');
-        expect(consequences(asked)).toContain('ends unfinished');
-        expect(consequences(asked)).toContain('The 2 agents it opened end as well');
+        expect(questionOf(asked)).toContain('Stop the turn of “Research”?');
+        expect(questionOf(asked)).toContain('ends unfinished');
+        expect(questionOf(asked)).toContain('The 2 agents it opened end as well');
         expect(of('chat.cancel')).toEqual([]);
         expect(await confirmed(registry, asked)).toMatchObject({ status: 'completed', output: { chat: 'Research', subagents: true } });
         expect(of('chat.cancel')).toEqual([{ chatId: 'chat', subagents: true }]);
@@ -305,8 +301,8 @@ describe('stopping', () => {
     test('a sub-agent opened with a task says its task is cancelled; one that belongs to the running turn is refused', async () => {
         const { registry, of } = fake();
         const asked = await registry.execute('chat.stopSubagent', { chatId: 'chat', toolUseId: 'use-task' }, VOICE_ACTION_CALL);
-        expect(consequences(asked)).toContain('Stop “Write the migration”?');
-        expect(consequences(asked)).toContain('the task is cancelled');
+        expect(questionOf(asked)).toContain('Stop “Write the migration”?');
+        expect(questionOf(asked)).toContain('the task is cancelled');
         expect(of('chat.stopSubagent')).toEqual([]);
         await confirmed(registry, asked);
         expect(of('chat.stopSubagent')).toEqual([{ chatId: 'chat', toolUseId: 'use-task' }]);
@@ -319,8 +315,8 @@ describe('stopping', () => {
         const nativeItem = { ...thread.find((item) => item.id === 'own')!, id: 'native', toolUseId: 'use-native', native: { agentId: 'agent-1' } } as ChatItem;
         const { registry, of } = fake({}, { chat: () => rowOf(info(), [...thread, nativeItem]) });
         const asked = await registry.execute('chat.stopSubagent', { chatId: 'chat', toolUseId: 'use-native' }, VOICE_ACTION_CALL);
-        expect(consequences(asked)).toContain('turn carries on without its result');
-        expect(consequences(asked)).not.toContain('marked stopped');
+        expect(questionOf(asked)).toContain('turn carries on without its result');
+        expect(questionOf(asked)).not.toContain('marked stopped');
         expect(of('chat.stopSubagent')).toEqual([]);
         await confirmed(registry, asked);
         expect(of('chat.stopSubagent')).toEqual([{ chatId: 'chat', toolUseId: 'use-native' }]);
@@ -335,7 +331,7 @@ describe('stopping', () => {
             }
         );
         const asked = await registry.execute('chat.stopTask', { chatId: 'chat', taskId: 'bg-1' }, VOICE_ACTION_CALL);
-        expect(consequences(asked)).toContain('background command “Watch the tests”');
+        expect(questionOf(asked)).toContain('background command “Watch the tests”');
         expect(of('chat.stopTask')).toEqual([]);
         await confirmed(registry, asked);
         expect(of('chat.stopTask')).toEqual([{ chatId: 'chat', taskId: 'bg-1' }]);
@@ -347,7 +343,7 @@ describe('stopping', () => {
     test('Voice asks before it pauses a goal, and a chat without one is refused', async () => {
         const { registry, of } = fake({}, { chat: () => rowOf(info({ goal: { objective: 'Make the build green', status: 'active' } })) });
         const asked = await registry.execute('chat.goal', { chatId: 'chat', change: 'pause' }, VOICE_ACTION_CALL);
-        expect(consequences(asked)).toContain('Pause the goal of');
+        expect(questionOf(asked)).toContain('Pause the goal of');
         expect(of('chat.goal')).toEqual([]);
         await confirmed(registry, asked);
         expect(of('chat.goal')).toEqual([{ chatId: 'chat', action: 'pause' }]);
@@ -361,8 +357,8 @@ describe('stopping', () => {
     test('Voice asks before it ends a terminal session and says what is lost', async () => {
         const { registry, of } = fake();
         const asked = await registry.execute('terminal.stop', { terminalId: 'term' }, VOICE_ACTION_CALL);
-        expect(consequences(asked)).toContain('Stop the session of “Build”?');
-        expect(consequences(asked)).toContain('scrollback');
+        expect(questionOf(asked)).toContain('Stop the session of “Build”?');
+        expect(questionOf(asked)).toContain('scrollback');
         expect(of('session.kill')).toEqual([]);
         await confirmed(registry, asked);
         expect(of('session.kill')).toEqual([{ sessionId: 'term' }]);
@@ -396,8 +392,8 @@ describe('starting a terminal over', () => {
         expect(machine.restarts).toEqual([{ terminalId: 'term', resume: null }]);
 
         const asked = await registry.execute('terminal.restart', { terminalId: 'term' }, VOICE_ACTION_CALL);
-        expect(consequences(asked)).toContain('Restart “Build”?');
-        expect(consequences(asked)).toContain('Claude Code starts again on a new session, in auto-accept-edits mode.');
+        expect(questionOf(asked)).toContain('Restart “Build”?');
+        expect(questionOf(asked)).toContain('Claude Code starts again on a new session, in auto-accept-edits mode.');
         expect(machine.restarts).toHaveLength(1);
         await confirmed(registry, asked);
         expect(machine.restarts).toHaveLength(2);
@@ -438,8 +434,8 @@ describe('answering', () => {
             { questionId: 'name', answer: 'orders' }
         ];
         const asked = await registry.execute('chat.answer', { chatId: 'chat', requestId: 'ask-1', answers }, VOICE_ACTION_CALL);
-        expect(consequences(asked)).toContain('Which database? Answer: “Postgres”.');
-        expect(consequences(asked)).toContain('What is the table called? Answer: “orders”.');
+        expect(questionOf(asked)).toContain('Which database? Answer: “Postgres”.');
+        expect(questionOf(asked)).toContain('What is the table called? Answer: “orders”.');
         expect(of('chat.answer')).toEqual([]);
         await confirmed(registry, asked);
         expect(of('chat.answer')).toEqual([{ chatId: 'chat', requestId: 'ask-1', answers: { db: 'Postgres', name: 'orders' } }]);
@@ -628,7 +624,7 @@ describe('forking', () => {
         expect(of('chat.fork')).toEqual([{ chatId: 'chat', turnId: 'turn-1', title: 'Research (fork)' }]);
         expect(revealed).toHaveLength(1);
         const asked = await registry.execute('chat.fork', { chatId: 'chat', turnId: null, title: 'Try B', branch: 'try-b' }, VOICE_ACTION_CALL);
-        expect(consequences(asked)).toContain('worktree on the new branch try-b');
+        expect(questionOf(asked)).toContain('worktree on the new branch try-b');
         expect(of('chat.fork')).toEqual([{ chatId: 'chat', turnId: 'turn-1', title: 'Research (fork)' }]);
         expect(revealed).toHaveLength(1);
         expect(await confirmed(registry, asked)).toMatchObject({ output: { branch: 'try-b' } });

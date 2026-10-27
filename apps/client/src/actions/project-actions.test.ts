@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { ActionRegistry, type ActionResult } from '@ruimte/actions';
+import { ActionRegistry } from '@ruimte/actions';
 import type { ProjectClosingResult, ProjectSummary } from '@ruimte/contracts';
 import { PERSON_ACTION_CALL, VOICE_ACTION_CALL } from './client-actions';
 import { projectActions, type ListedProject, type ProjectMachine } from './project-actions';
 import { useDocument } from '@/state/document';
 import { TransportError } from '@/transport/transport';
+import { questionOf } from './action-support';
 
 function summary(projectId: string, name: string, closedAt: number | null = null): ProjectSummary {
     return {
@@ -76,13 +77,6 @@ function fake(projects: ListedProject[], overrides: Partial<ProjectMachine> = {}
         ...overrides
     };
     return { registry: new ActionRegistry<void>(projectActions(useDocument, machine)), calls };
-}
-
-function questionOf(result: ActionResult): string {
-    if (result.status !== 'needs_confirmation') {
-        throw new Error(`Expected a question, got ${result.status}`);
-    }
-    return [result.confirmation.title, ...result.confirmation.consequences].join(' ');
 }
 
 afterEach(() => {
