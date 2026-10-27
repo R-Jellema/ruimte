@@ -14,6 +14,7 @@ import { ChatManager } from './chat-manager.ts';
 import { verbsNote } from '../context/context-note.ts';
 import { chatForkDeps, forkChat, itemsThrough, type ChatForkDeps } from './fork.ts';
 import { assistantTexts, turnsOf } from './chat-test-helpers.ts';
+import { retire } from './chat-manager.fixture.test.ts';
 
 function content(): ProjectContent {
     return {
@@ -580,10 +581,7 @@ describe('forking a Codex chat', () => {
     });
 
     afterEach(async () => {
-        await manager.shutdown();
-        for (const info of manager.list()) {
-            manager.get(info.chatId)?.dispose();
-        }
+        await retire(manager);
         await rm(home, { recursive: true, force: true });
     });
 

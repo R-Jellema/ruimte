@@ -8,6 +8,7 @@ import { waitFor } from '../sessions/test-helpers.ts';
 import { AttachmentStore } from '@adecore/agents/chat';
 import { ChatManager } from './chat-manager.ts';
 import { ChatRecorder, processAlive } from './chat-test-helpers.ts';
+import { retire } from './chat-manager.fixture.test.ts';
 
 /*
  * The fakes run as real child processes here, since the in-process tests cannot show that frames
@@ -37,10 +38,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-    await manager.shutdown();
-    for (const info of manager.list()) {
-        manager.get(info.chatId)?.dispose();
-    }
+    await retire(manager);
     await rm(home, { recursive: true, force: true });
 });
 

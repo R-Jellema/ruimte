@@ -8,6 +8,7 @@ import { AttachmentStore, ChatStore, COMPACT_ABOVE_BYTES, ChatThread } from '@ad
 import { ChatManager } from './chat-manager.ts';
 import { ChatRecorder, RecordingStore } from './chat-test-helpers.ts';
 import { fakeClaude, inProcess, type InProcessCli } from '@adecore/agents/testing';
+import { retire } from './chat-manager.fixture.test.ts';
 
 let home: string;
 let attachments: AttachmentStore;
@@ -52,10 +53,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
     for (const manager of managers) {
-        await manager.shutdown();
-        for (const info of manager.list()) {
-            manager.get(info.chatId)?.dispose();
-        }
+        await retire(manager);
     }
     await rm(home, { recursive: true, force: true });
 });

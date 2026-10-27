@@ -11,6 +11,7 @@ import { ChatManager } from './chat-manager.ts';
 import { ChatRecorder } from './chat-test-helpers.ts';
 import { inProcess, type InProcessCli, FAKE_CHILD_STEPS, fakeCodexWith } from '@adecore/agents/testing';
 import nativeApprovalCapture from '@adecore/agents/testing/fixtures/codex-0.159.2-native-approval.json';
+import { retire } from './chat-manager.fixture.test.ts';
 
 let home: string;
 let store: ChatStore;
@@ -34,14 +35,6 @@ const providers = new ProviderRegistry({ detect: async () => ({ installed: true,
 
 function makeManager(extra: Partial<ConstructorParameters<typeof ChatManager>[0]> = {}) {
     return new ChatManager({ providers, store, attachments, spawn: codex.spawn, env: { PATH: process.env.PATH, HOME: home }, ...extra });
-}
-
-// A chat's CLI outlives a shutdown; only a dispose ends it.
-async function retire(target: ChatManager): Promise<void> {
-    await target.shutdown();
-    for (const info of target.list()) {
-        target.get(info.chatId)?.dispose();
-    }
 }
 
 beforeEach(async () => {
