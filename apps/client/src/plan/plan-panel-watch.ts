@@ -36,11 +36,11 @@ export function openPlanFromPill(chatId: string, planId: string): void {
 }
 
 export function closePlanPanel(): void {
-    return activeRules().close();
+    activeRules().close();
 }
 
 export function pickPlan(planId: string): void {
-    return activeRules().pick(planId);
+    activeRules().pick(planId);
 }
 
 /*

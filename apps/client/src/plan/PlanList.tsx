@@ -149,7 +149,12 @@ export function PlanList({ endpointId, chatId, plan }: PlanListProps) {
         plan,
         agent,
         working,
-        setState: (ids, state) => setPlanStepsAction(chatId, plan.id, ids, state),
+        setState: (id, state) => {
+            setPlanStepsAction(chatId, plan.id, [id], state);
+            if (asksForNote(state)) {
+                setEditingNote(id);
+            }
+        },
         saveNote: (id, text) => notePlanStepAction(chatId, plan.id, id, text),
         unlock: (id) => unlockPlanStepsAction(chatId, plan.id, [id]),
         toggle: (id) => usePlanViewPrefs.getState().toggleCollapsed(planKey, id),
@@ -196,7 +201,8 @@ interface StepContext {
     plan: Plan;
     agent: string;
     working: boolean;
-    setState(ids: string[], state: PlanStepState): void;
+    /* Opens the note as well for a state that asks for one. */
+    setState(id: string, state: PlanStepState): void;
     saveNote(id: string, text: string): void;
     unlock(id: string): void;
     toggle(id: string): void;
@@ -377,15 +383,7 @@ function StepRow({ row, context }: { row: Extract<PlanRow, { type: 'step' }>; co
                     <>
                         <ContextMenu.Label>{t('step.menu.status')}</ContextMenu.Label>
                         {PERSON_STATES.map((state) => (
-                            <ContextMenu.Item
-                                key={state}
-                                onClick={() => {
-                                    context.setState([step.id], state);
-                                    if (asksForNote(state)) {
-                                        context.setEditingNote(step.id);
-                                    }
-                                }}
-                            >
+                            <ContextMenu.Item key={state} onClick={() => context.setState(step.id, state)}>
                                 <ContextMenu.Check kind="radio" checked={row.state === state} />
                                 <Icon icon={STATE_ICON[state]} size={14} className={STATE_TONE[state]} />
                                 {stateLabel(plan.meta.kind, state)}
@@ -460,6 +458,7 @@ function StepMark({ row, context, locked, setBy }: { row: Extract<PlanRow, { typ
     }
     const label = stateLabel(plan.meta.kind, state);
     const stopped = state === 'active' && !context.working;
+    const stoppedHere = t('agent.stoppedHere', { agent: context.agent });
     // The state mark, not a button's icon: it keeps the size a locked step shows it at.
     const glyph = stopped ? (
         <Icon icon={CirclePause} size={16} className="text-text-muted" />
@@ -472,7 +471,7 @@ function StepMark({ row, context, locked, setBy }: { row: Extract<PlanRow, { typ
                 {glyph}
             </span>
         );
-        return stopped ? <Tooltip label={t('agent.stoppedHere', { agent: context.agent })}>{mark}</Tooltip> : mark;
+        return stopped ? <Tooltip label={stoppedHere}>{mark}</Tooltip> : mark;
     }
     if (plan.meta.kind === 'steps') {
         const next = toggledState(state);
@@ -480,12 +479,8 @@ function StepMark({ row, context, locked, setBy }: { row: Extract<PlanRow, { typ
             <IconButton
                 size="2xs"
                 label={label}
-                tooltip={
-                    stopped
-                        ? t('agent.stoppedHere', { agent: context.agent })
-                        : [setBy, t('step.markAs', { state: stateLabel('steps', next).toLowerCase() })].filter(Boolean).join('. ')
-                }
-                onClick={() => context.setState([row.item.id], next)}
+                tooltip={stopped ? stoppedHere : [setBy, t('step.markAs', { state: stateLabel('steps', next).toLowerCase() })].filter(Boolean).join('. ')}
+                onClick={() => context.setState(row.item.id, next)}
             >
                 {glyph}
             </IconButton>
@@ -497,22 +492,14 @@ function StepMark({ row, context, locked, setBy }: { row: Extract<PlanRow, { typ
                 render={<Menu.Trigger />}
                 size="2xs"
                 label={label}
-                tooltip={stopped ? t('agent.stoppedHere', { agent: context.agent }) : [label, setBy].filter(Boolean).join('. ')}
+                tooltip={stopped ? stoppedHere : [label, setBy].filter(Boolean).join('. ')}
                 className="data-[popup-open]:bg-surface-active"
             >
                 {glyph}
             </IconButton>
             <Menu.Popup sideOffset={4} className="min-w-40">
                 {TEST_OUTCOMES.map((outcome) => (
-                    <Menu.Item
-                        key={outcome}
-                        onClick={() => {
-                            context.setState([row.item.id], outcome);
-                            if (asksForNote(outcome)) {
-                                context.setEditingNote(row.item.id);
-                            }
-                        }}
-                    >
+                    <Menu.Item key={outcome} onClick={() => context.setState(row.item.id, outcome)}>
                         <Menu.Check kind="radio" checked={state === outcome} />
                         <Icon icon={STATE_ICON[outcome]} size={14} className={STATE_TONE[outcome]} />
                         {stateLabel('test', outcome)}

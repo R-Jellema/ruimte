@@ -52,7 +52,7 @@ export function planViewKey(endpointId: string, chatId: string, planId: string):
 }
 
 export function collapseAll(planKey: string, plan: Pick<Plan, 'items'>): void {
-    return usePlanViewPrefs.getState().setCollapsed(planKey, foldableIds(plan));
+    usePlanViewPrefs.getState().setCollapsed(planKey, foldableIds(plan));
 }
 
 /* Collapse done would keep finished groups folded, and "all" has to mean all. */

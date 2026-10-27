@@ -39,7 +39,7 @@ let clock: FakeClock;
 let rules: PlanPanelRules;
 
 function sight(...chatIds: string[]): void {
-    return rules.sight(new Set(chatIds));
+    rules.sight(new Set(chatIds));
 }
 
 beforeEach(() => {
