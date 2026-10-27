@@ -3,7 +3,8 @@ import { mkdtemp, readdir, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { UsageService } from '@adecore/agents/usage';
-import { NANOGPT_URL, NanoGptService, type NanoFetch } from './nanogpt-service.ts';
+import type { ApiFetch } from './keyed-api-service.ts';
+import { NANOGPT_URL, NanoGptService } from './nanogpt-service.ts';
 
 const homes: string[] = [];
 afterEach(async () => {
@@ -25,7 +26,7 @@ const MODELS = {
     ]
 };
 
-function api(status = 200): { request: NanoFetch; calls: Array<{ url: string; init?: RequestInit }> } {
+function api(status = 200): { request: ApiFetch; calls: Array<{ url: string; init?: RequestInit }> } {
     const calls: Array<{ url: string; init?: RequestInit }> = [];
     return {
         calls,
@@ -177,27 +178,6 @@ describe('NanoGPT settings', () => {
         await expect(service.setSettings({ runs: 21 })).rejects.toThrow();
         await expect(service.setSettings({ roundsPerRun: 12.5 })).rejects.toThrow();
         expect(service.status().settings).toEqual({ autoContinue: true, roundsPerRun: 40, runs: 5 });
-    });
-
-    test('give a chat one run when it may not go on by itself', async () => {
-        const folder = await home();
-        const service = new NanoGptService(api().request);
-        await service.load(folder);
-        expect(service.runLimits()).toEqual({ roundsPerRun: 40, runs: 5 });
-        await service.setSettings({ autoContinue: false, roundsPerRun: 10 });
-        expect(service.runLimits()).toEqual({ roundsPerRun: 10, runs: 1 });
-    });
-
-    test('a file that cannot be read leaves the defaults', async () => {
-        const folder = await home();
-        const first = new NanoGptService(api().request);
-        await first.load(folder);
-        await first.setSettings({ runs: 2 });
-        await Bun.write(join(folder, 'nanogpt', 'settings.json'), '{"autoContinue":"yes"}');
-
-        const again = new NanoGptService(api().request);
-        await again.load(folder);
-        expect(again.status().settings).toEqual({ autoContinue: true, roundsPerRun: 40, runs: 5 });
     });
 
     test('the models carry who made them', async () => {

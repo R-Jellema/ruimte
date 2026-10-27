@@ -1,10 +1,10 @@
 import { randomBytes } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { chmod, mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, readFile, readdir, rename, rm } from 'node:fs/promises';
 import { basename, dirname, join, posix } from 'node:path';
 import { z } from 'zod';
 import type { AgentKind, RegistryAgent, RegistryCatalog } from '@ruimte/contracts';
-import { runProcess, type ProcessResult } from '@adecore/agents';
+import { runProcess, writeAtomic, type ProcessResult } from '@adecore/agents';
 import { createAcpProvider, type ChatProvider } from '@adecore/agents/providers';
 import { errorText } from '../error-text.ts';
 import { extractEntries, extractZipFile, readArchive } from '../language/archive.ts';
@@ -12,7 +12,7 @@ import { acpCatalogStore } from './acp-catalog-store.ts';
 import { throwOnFailure } from './cli-versions.ts';
 import { RUIMTE_ACP_CLIENT, agentDefaultCatalog, agentModel, allowsContextCommand } from './acp-providers.ts';
 import type { AcpRegistry, RegistryDistribution, RegistryEntry } from './acp-registry.ts';
-import { downloadFile, sha256OfFile, type ServerDownload } from './acp-server.ts';
+import { downloadChecked, downloadFile, type ServerDownload } from './acp-server.ts';
 
 const InstalledSchema = z.object({
     id: z.string(),
@@ -179,7 +179,8 @@ export class RegistryAgents {
 
     /* Where one agent stands, by the catalog as it was last read. */
     status(id: string): RegistryAgent | null {
-        const entry = this.registry.known(id) ?? this.entryOf(id);
+        const agent = this.agents.get(id);
+        const entry = this.registry.known(id) ?? (agent === undefined ? null : this.entryOfInstalled(agent));
         return entry === null ? null : this.statusOf(entry);
     }
 
@@ -237,9 +238,7 @@ export class RegistryAgents {
                 env: entry.distribution.env,
                 sha256: entry.distribution.type === 'binary' ? entry.distribution.sha256 : null
             };
-            const record = join(folder, `.${INSTALLED_FILE}.${randomBytes(6).toString('hex')}`);
-            await writeFile(record, `${JSON.stringify(agent, null, 2)}\n`, { mode: 0o600 });
-            await rename(record, join(folder, INSTALLED_FILE));
+            await writeAtomic(join(folder, INSTALLED_FILE), `${JSON.stringify(agent, null, 2)}\n`);
             await this.dropOtherVersions(folder, folderOf(entry.version));
             this.offer(agent);
         } catch (e) {
@@ -290,13 +289,7 @@ export class RegistryAgents {
         try {
             await mkdir(partial, { recursive: true, mode: 0o700 });
             const archive = join(partial, 'download');
-            await this.download(distribution.url, archive);
-            if (distribution.sha256 !== null) {
-                const actual = await sha256OfFile(archive);
-                if (actual !== distribution.sha256) {
-                    throw new Error('The download is damaged. Try again.');
-                }
-            }
+            await downloadChecked(this.download, distribution.url, archive, distribution.sha256);
             const unpacked = join(partial, 'agent');
             await mkdir(unpacked, { recursive: true });
             const packing = packingOf(distribution.url);
@@ -382,11 +375,6 @@ export class RegistryAgents {
             state,
             ...(state === 'failed' ? { error: failure!.error } : {})
         };
-    }
-
-    private entryOf(id: string): RegistryEntry | null {
-        const agent = this.agents.get(id);
-        return agent === undefined ? null : this.entryOfInstalled(agent);
     }
 
     /* An installed agent as a catalog entry, for one the registry no longer lists or has not been read for. */

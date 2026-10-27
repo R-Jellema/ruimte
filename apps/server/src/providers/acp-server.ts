@@ -1,10 +1,11 @@
-import { createHash, randomBytes } from 'node:crypto';
-import { createReadStream, existsSync, readFileSync } from 'node:fs';
-import { chmod, mkdir, rename, rm, writeFile } from 'node:fs/promises';
+import { randomBytes } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
+import { chmod, mkdir, rename, rm } from 'node:fs/promises';
+import { writeAtomic } from '@adecore/agents';
 import { join } from 'node:path';
-import { pipeline } from 'node:stream/promises';
 import { z } from 'zod';
 import type { AgentKind, AgentServerStatus } from '@ruimte/contracts';
+import { sha256Of } from '../git/bundles.ts';
 import { extractZipFile } from '../language/archive.ts';
 
 const AssetSchema = z.object({
@@ -41,10 +42,13 @@ export const downloadFile: ServerDownload = async (url, destination) => {
     await Bun.write(destination, response);
 };
 
-export async function sha256OfFile(path: string): Promise<string> {
-    const hash = createHash('sha256');
-    await pipeline(createReadStream(path), hash);
-    return hash.digest('hex');
+/* Downloads to the file and holds it to the checksum, where there is one, before anything unpacks it. */
+export async function downloadChecked(download: ServerDownload, url: string, destination: string, sha256: string | null): Promise<void> {
+    await download(url, destination);
+
+    if (sha256 !== null && (await sha256Of(destination)) !== sha256) {
+        throw new Error('The download is damaged. Try again.');
+    }
 }
 
 const InstalledSchema = z.object({ version: z.string(), sha256: z.string(), executable: z.string(), args: z.array(z.string()) });
@@ -127,11 +131,7 @@ export class AcpServerInstall implements AcpServerLaunch {
         try {
             await mkdir(partial, { recursive: true, mode: 0o700 });
             const archive = join(partial, 'release.zip');
-            await this.download(asset.url, archive);
-            const actual = await sha256OfFile(archive);
-            if (actual !== asset.sha256) {
-                throw new Error('The download is damaged. Try again.');
-            }
+            await downloadChecked(this.download, asset.url, archive, asset.sha256);
             const unpacked = join(partial, 'server');
             const written = await extractZipFile(archive, unpacked);
             if (!written.includes(asset.executable)) {
@@ -143,9 +143,7 @@ export class AcpServerInstall implements AcpServerLaunch {
             await rm(target, { recursive: true, force: true });
             await rename(unpacked, target);
             const installed: Installed = { version: this.release.version, sha256: asset.sha256, executable: asset.executable, args: asset.args };
-            const record = join(partial, INSTALLED_FILE);
-            await writeFile(record, `${JSON.stringify(installed, null, 2)}\n`);
-            await rename(record, join(this.folder, INSTALLED_FILE));
+            await writeAtomic(join(this.folder, INSTALLED_FILE), `${JSON.stringify(installed, null, 2)}\n`);
         } catch (e) {
             this.failure = e instanceof Error ? e.message : String(e);
         } finally {

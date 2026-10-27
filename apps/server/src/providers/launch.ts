@@ -1,20 +1,17 @@
 import { resumeCommandFor, type AgentKind, type AgentLaunch, type RuntimeMode } from '@ruimte/contracts';
 import { ANTIGRAVITY_CLI, COPILOT_ALLOW_CONTEXT, GROK_ALLOW_CONTEXT } from './acp-providers.ts';
 import { CLAUDE_ALLOW_CONTEXT } from './claude-provider.ts';
-import { BUILT_IN_KINDS } from './kinds.ts';
 import { providerFor } from './registry.ts';
 
 /*
- * The flags each CLI takes for Ruimte's runtime modes, verified against the installed CLIs where
- * there is one on this machine. A mode a CLI has no flag for launches bare, which leaves that
- * CLI's own default in place: a missing flag is always the safer of the two mistakes.
+ * The flags each CLI takes for Ruimte's runtime modes, verified against the installed CLIs. A CLI or mode
+ * without flags launches bare, which leaves that CLI's own default in place: a missing flag is always the
+ * safer of the two mistakes.
  *
- * Codex 0.153 takes only `on-request` and `never` on `--ask-for-approval`, so the three modes that
- * still ask share one policy and differ in nothing; the sandbox is what full access widens.
+ * Codex 0.153 takes only `on-request` and `never` on `--ask-for-approval`, so the three modes that still
+ * ask share one policy; the sandbox is what full access widens.
  */
 const RUNTIME_FLAGS: Partial<Record<AgentKind, Record<RuntimeMode, string[]>>> = {
-    apple: { supervised: [], 'auto-accept-edits': [], auto: [], 'full-access': [] },
-    nanogpt: { supervised: [], 'auto-accept-edits': [], auto: [], 'full-access': [] },
     claude: {
         supervised: [],
         'auto-accept-edits': ['--permission-mode', 'acceptEdits'],
@@ -26,12 +23,6 @@ const RUNTIME_FLAGS: Partial<Record<AgentKind, Record<RuntimeMode, string[]>>> =
         'auto-accept-edits': ['--ask-for-approval', 'on-request', '--sandbox', 'workspace-write'],
         auto: ['--ask-for-approval', 'on-request', '--sandbox', 'workspace-write'],
         'full-access': ['--ask-for-approval', 'never', '--sandbox', 'danger-full-access']
-    },
-    copilot: {
-        supervised: [],
-        'auto-accept-edits': [],
-        auto: [],
-        'full-access': []
     },
     // Grok's own `--permission-mode` values (xai-org/grok-build); `bypassPermissions` is its always-approve.
     grok: {
@@ -48,11 +39,6 @@ const RUNTIME_FLAGS: Partial<Record<AgentKind, Record<RuntimeMode, string[]>>> =
         'full-access': ['--dangerously-skip-permissions']
     }
 };
-
-/* Whether this daemon has a CLI of this kind at all; a node may still name one it dropped (`gemini`) or never knew. */
-export function offersKind(kind: AgentKind): boolean {
-    return (BUILT_IN_KINDS as readonly string[]).includes(kind);
-}
 
 // The executable a terminal of a CLI starts where its provider's command is a chat server instead.
 const TERMINAL_EXECUTABLES: Partial<Record<AgentKind, string>> = { antigravity: ANTIGRAVITY_CLI };

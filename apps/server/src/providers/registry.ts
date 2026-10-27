@@ -16,12 +16,21 @@ import {
     grokProvider
 } from './acp-providers.ts';
 import type { AcpServerLaunch } from './acp-server.ts';
-import { BUILT_IN_KINDS } from './kinds.ts';
+import { BUILT_IN_KINDS, offersKind } from './kinds.ts';
 import { nanoGptProvider } from './nanogpt-provider.ts';
 import { anthropicClaudeApiProvider } from './anthropic-claude-api-provider.ts';
 
-// The CLIs the daemon ships with, in the order of `BUILT_IN_KINDS`. A new one is one more value there, here and in `builtInProviders`.
-const BUILT_IN_PROVIDERS: ChatProvider[] = [claudeProvider, codexProvider, createAntigravityProvider(null), copilotProvider, grokProvider];
+// The providers the daemon ships with, in the order of `BUILT_IN_KINDS`. A new one is one more value there, here and in `builtInProviders`.
+const BUILT_IN_PROVIDERS: ChatProvider[] = [
+    claudeProvider,
+    codexProvider,
+    createAntigravityProvider(null),
+    copilotProvider,
+    grokProvider,
+    appleProvider,
+    nanoGptProvider,
+    anthropicClaudeApiProvider
+];
 
 // As long as the base registry keeps whether a CLI is there.
 const AGY_DETECTION_TTL_MS = 60_000;
@@ -34,15 +43,6 @@ const ADDED_PROVIDERS = new Map<AgentKind, ChatProvider>();
 
 /* The provider of a kind, for the places that have no registry at hand (the hooks). */
 export function providerFor(kind: AgentKind): ChatProvider {
-    if (kind === 'apple') {
-        return appleProvider;
-    }
-    if (kind === 'anthropic-claude-api') {
-        return anthropicClaudeApiProvider;
-    }
-    if (kind === 'nanogpt') {
-        return nanoGptProvider;
-    }
     return BUILT_IN_PROVIDERS.find((provider) => provider.kind === kind) ?? ADDED_PROVIDERS.get(kind) ?? UNOFFERED.get(kind);
 }
 
@@ -101,7 +101,7 @@ export class ProviderRegistry extends AgentProviderRegistry {
     /* A provider a person installed since the start, which `providerFor` answers too while this registry offers it. */
     override add(provider: ChatProvider): void {
         super.add(provider);
-        if (!(BUILT_IN_KINDS as readonly string[]).includes(provider.kind)) {
+        if (!offersKind(provider.kind)) {
             ADDED_PROVIDERS.set(provider.kind, provider);
         }
     }

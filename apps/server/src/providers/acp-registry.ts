@@ -1,10 +1,10 @@
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { z } from 'zod';
 import { AgentKindSchema, KNOWN_AGENT_KINDS, type AgentKind } from '@ruimte/contracts';
-import { isNotFound } from '@adecore/agents';
+import { isNotFound, writeAtomic } from '@adecore/agents';
 import { errorText } from '../error-text.ts';
-import { BUILT_IN_KINDS } from './kinds.ts';
+import { offersKind } from './kinds.ts';
 
 /* The public ACP registry, the same list the Antigravity server's pin is taken from. */
 const ACP_REGISTRY_URL = 'https://cdn.agentclientprotocol.com/registry/v1/latest/registry.json';
@@ -85,7 +85,7 @@ export function registryPlatform(platform: NodeJS.Platform, arch: string): strin
  * older one knows by itself (Gemini's id would bring back the kind its old nodes keep).
  */
 export function registryKind(id: string): AgentKind | null {
-    if (BUILT_IN_REGISTRY_IDS.has(id) || (BUILT_IN_KINDS as readonly string[]).includes(id) || (KNOWN_AGENT_KINDS as readonly string[]).includes(id)) {
+    if (BUILT_IN_REGISTRY_IDS.has(id) || offersKind(id) || (KNOWN_AGENT_KINDS as readonly string[]).includes(id)) {
         return null;
     }
     return AgentKindSchema.safeParse(id).success ? id : null;
@@ -248,8 +248,6 @@ export class AcpRegistry {
 
     private async save(fetchedAt: number, document: unknown): Promise<void> {
         await mkdir(dirname(this.path), { recursive: true, mode: 0o700 });
-        const temporary = `${this.path}.${process.pid}.tmp`;
-        await writeFile(temporary, `${JSON.stringify({ fetchedAt, document })}\n`, { mode: 0o600 });
-        await rename(temporary, this.path);
+        await writeAtomic(this.path, `${JSON.stringify({ fetchedAt, document })}\n`);
     }
 }

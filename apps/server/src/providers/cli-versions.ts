@@ -357,15 +357,14 @@ export class CliVersions {
         if (!refresh && known !== undefined && known.key === key && this.now() - known.at < FRESH_MS) {
             return known;
         }
-        try {
-            const entry = { at: this.now(), key, latest: await look() };
-            this.checked.set(kind, entry);
-            return entry;
-        } catch (e) {
-            const entry = { at: this.now(), key, latest: { latest: null }, error: errorText(e) };
-            this.checked.set(kind, entry);
-            return entry;
-        }
+        const at = this.now();
+        const entry = await look().then(
+            (latest) => ({ at, key, latest }),
+            (e: unknown) => ({ at, key, latest: { latest: null }, error: errorText(e) })
+        );
+        this.checked.set(kind, entry);
+
+        return entry;
     }
 
     private async latestOf(install: CliInstall): Promise<Latest> {

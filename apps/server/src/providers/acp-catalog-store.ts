@@ -1,8 +1,8 @@
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import type { AgentKind } from '@ruimte/contracts';
 import type { AcpCatalogStore } from '@adecore/agents/providers';
-import { isNotFound } from '@adecore/agents';
+import { isNotFound, writeAtomicSync } from '@adecore/agents';
 
 /* Where the models and commands an ACP agent reported are kept, in the machine's own state and never handed to a client. */
 export function acpCatalogPath(home: string, kind: AgentKind): string {
@@ -15,17 +15,21 @@ export function acpCatalogPath(home: string, kind: AgentKind): string {
  */
 export function acpCatalogStore(home: string, kind: AgentKind): AcpCatalogStore {
     const path = acpCatalogPath(home, kind);
+
     return {
         load(): unknown {
             let text: string;
+
             try {
                 text = readFileSync(path, 'utf8');
             } catch (e) {
                 if (isNotFound(e)) {
                     return null;
                 }
+
                 throw e;
             }
+
             try {
                 return JSON.parse(text);
             } catch {
@@ -34,9 +38,7 @@ export function acpCatalogStore(home: string, kind: AgentKind): AcpCatalogStore 
         },
         save(value: unknown): void {
             mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-            const temporary = `${path}.${process.pid}.tmp`;
-            writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
-            renameSync(temporary, path);
+            writeAtomicSync(path, `${JSON.stringify(value, null, 2)}\n`);
         }
     };
 }

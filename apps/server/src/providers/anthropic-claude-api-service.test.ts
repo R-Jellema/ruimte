@@ -4,14 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { UsageService } from '@adecore/agents/usage';
 import { UsageSummaryResultSchema } from '@ruimte/contracts';
-import {
-    ANTHROPIC_URL,
-    ANTHROPIC_VERSION,
-    AnthropicClaudeApiService,
-    anthropicHttpError,
-    defaultModelOf,
-    type AnthropicFetch
-} from './anthropic-claude-api-service.ts';
+import { ANTHROPIC_URL, ANTHROPIC_VERSION, AnthropicClaudeApiService, anthropicHttpError, defaultModelOf } from './anthropic-claude-api-service.ts';
+import type { ApiFetch } from './keyed-api-service.ts';
 
 const homes: string[] = [];
 beforeEach(() => setSystemTime(new Date('2026-10-24T12:00:00Z')));
@@ -58,7 +52,7 @@ const MODELS = [
 ];
 
 function api(options: { status?: number; pages?: Array<{ data: unknown[]; has_more: boolean; last_id: string | null }> } = {}): {
-    request: AnthropicFetch;
+    request: ApiFetch;
     calls: Array<{ url: string; init?: RequestInit }>;
 } {
     const calls: Array<{ url: string; init?: RequestInit }> = [];
