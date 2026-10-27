@@ -1,7 +1,6 @@
 import { errorText } from '../error-text.ts';
 import { realTimers, type Timers } from '../timers.ts';
 
-/* What a sweep took away. */
 export interface Reclaimed {
     files: number;
     bytes: number;
@@ -50,6 +49,7 @@ export class Maintenance {
         if (this.started || this.abort.signal.aborted) {
             return;
         }
+
         this.started = true;
         this.run();
     }
@@ -67,8 +67,10 @@ export class Maintenance {
             if (this.running === pass) {
                 this.running = null;
             }
+
             this.schedule();
         });
+
         this.running = pass;
     }
 
@@ -76,6 +78,7 @@ export class Maintenance {
         if (this.abort.signal.aborted) {
             return;
         }
+
         this.cancelNext = this.timers.set(() => {
             this.cancelNext = null;
             this.run();
@@ -86,12 +89,15 @@ export class Maintenance {
         if (!this.idleNow()) {
             return;
         }
+
         for (const sweeper of this.options.sweepers) {
             if (this.abort.signal.aborted) {
                 return;
             }
+
             try {
                 const { files, bytes } = await sweeper.sweep(this.options.now(), this.abort.signal);
+
                 if (files > 0) {
                     this.options.log(`Maintenance took away ${files} expired ${sweeper.name} (${bytes} bytes)`);
                 }

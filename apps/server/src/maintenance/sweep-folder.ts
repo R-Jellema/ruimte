@@ -19,33 +19,43 @@ interface SweepFolderOptions {
 export async function sweepFolder(folder: string, options: SweepFolderOptions): Promise<Reclaimed> {
     const reclaimed: Reclaimed = { files: 0, bytes: 0 };
     let directory;
+
     try {
         directory = await opendir(folder);
     } catch {
         return reclaimed;
     }
+
     let seen = 0;
+
     for await (const entry of directory) {
         seen += 1;
+
         if (options.signal?.aborted || seen > MAX_ENTRIES || reclaimed.files >= MAX_REMOVED) {
             break;
         }
+
         if (!entry.isFile()) {
             continue;
         }
+
         const path = join(folder, entry.name);
         const stats = await lstat(path).catch(() => null);
+
         if (stats === null || !stats.isFile() || !options.expired(entry.name, stats.mtimeMs)) {
             continue;
         }
+
         const removed = await rm(path).then(
             () => true,
             () => false
         );
+
         if (removed) {
             reclaimed.files += 1;
             reclaimed.bytes += stats.size;
         }
     }
+
     return reclaimed;
 }

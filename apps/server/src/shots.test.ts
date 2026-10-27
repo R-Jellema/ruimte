@@ -43,6 +43,7 @@ describe('captures', () => {
         const foreign = join(home, DEVICE_CAPTURES_FOLDER, 'notes.png');
         await writeFile(foreign, '');
         const reclaimed = await sweepDeviceCaptures(home, 1_000 + WEEK_MS + 1);
+
         expect(reclaimed).toEqual({ files: 1, bytes: pngOf(1, 1).byteLength });
         expect(existsSync(passing)).toBe(false);
         expect(existsSync(recent)).toBe(true);
@@ -52,13 +53,16 @@ describe('captures', () => {
 
     test('maintenance takes a screenshot past a day, stops once aborted, and answers nothing for a missing folder', async () => {
         const DAY_MS = 24 * 60 * 60 * 1000;
+
         expect(await sweepScreenshots(home, DAY_MS)).toEqual({ files: 0, bytes: 0 });
+
         const folder = join(home, 'screenshots');
         await mkdir(folder);
         await writeFile(join(folder, 'agent-1000.png'), 'old');
         await writeFile(join(folder, `agent-${DAY_MS}.png`), 'new');
         const aborted = new AbortController();
         aborted.abort();
+
         expect(await sweepScreenshots(home, DAY_MS + 1_001, aborted.signal)).toEqual({ files: 0, bytes: 0 });
         expect(await sweepScreenshots(home, DAY_MS + 1_001)).toEqual({ files: 1, bytes: 3 });
         expect(await readdir(folder)).toEqual([`agent-${DAY_MS}.png`]);

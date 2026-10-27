@@ -27,9 +27,11 @@ function fileSafe(id: string): string {
  */
 function sweep(folder: string, now: number, maxAgeMs: number, signal?: AbortSignal): Promise<Reclaimed> {
     const oldest = now - maxAgeMs;
+
     return sweepFolder(folder, {
         expired: (name) => {
             const taken = Number(/-(\d+)\.(png|mp4)$/.exec(name)?.[1]);
+
             return Number.isFinite(taken) && taken < oldest;
         },
         signal
