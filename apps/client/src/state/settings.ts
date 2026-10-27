@@ -20,7 +20,7 @@ import {
 } from '@/state/ai-settings';
 import { type CodeFolding, codeFoldingFrom, DEFAULT_CODE_FOLDING } from '@/state/code-folding';
 import { CODE_THEMES } from '@/shell/panels/code-themes';
-import { storedJson } from '@/state/stored-json';
+import { storedJson, switchesFrom } from '@/state/stored-json';
 import { applyPalette } from '@/state/palette';
 import { palettePresetFrom, presetTokens, type PalettePreset } from '@/state/palette-presets';
 
@@ -38,18 +38,6 @@ const DEFAULT_SMART_KEYS: EditorSmartKeys = {
     smartArrow: true,
     camelHumps: false
 };
-
-/* A key a client has not stored is what a fresh one gets, so the keys a later version adds start as it decides. */
-function smartKeysFrom(stored: unknown): EditorSmartKeys {
-    const keys: Partial<Record<keyof EditorSmartKeys, unknown>> = typeof stored === 'object' && stored !== null ? stored : {};
-    const result = { ...DEFAULT_SMART_KEYS };
-    for (const name of Object.keys(DEFAULT_SMART_KEYS) as (keyof EditorSmartKeys)[]) {
-        if (typeof keys[name] === 'boolean') {
-            result[name] = keys[name];
-        }
-    }
-    return result;
-}
 
 export const FOLD_OUTLINES: readonly EditorFoldOutline[] = ['off', 'hover', 'always'];
 
@@ -167,20 +155,15 @@ export interface Settings {
     filesTabLimit: number;
     /* Whether the files tree shows dotfiles; the panel's eye button writes the same value. */
     filesShowHidden: boolean;
-    /* Where the palette starts when it browses for a folder to open. Empty is the home of whichever
-       machine is being browsed. One setting for every machine rather than one per machine, because
-       the folders people keep their work in have the same name everywhere; a path that is not on the
-       machine being browsed falls back to its home, which `fs.browse` answering `exists` can tell. */
+    /* Where the palette starts browsing for a folder; empty is the machine's home. One for every machine,
+       since work folders have the same name everywhere; a path a machine lacks falls back to its home. */
     browseStartFolder: string;
     /* The Shiki theme id code is drawn in while the app is light, in the viewer, the editor and a chat. */
     codeThemeLight: string;
     /* The same while the app is dark. */
     codeThemeDark: string;
-    /* Whether a long line of code wraps in the viewer, the editor and a diff. */
     codeWrap: boolean;
-    /* Whether the editor draws a line at each indentation level. */
     codeIndentGuides: boolean;
-    /* Whether the editor draws spaces as dots and tabs as arrows. */
     codeWhitespace: boolean;
     /* Whether the editor pins the lines that open the scopes around the top line while scrolling. */
     codeStickyScroll: boolean;
@@ -207,7 +190,6 @@ export interface Settings {
     codeLigatures: boolean;
     /* What the editor does by itself as you type. The defaults are the editor's own: all on, except the camel humps. */
     smartKeys: EditorSmartKeys;
-    /* Whether a diff draws the two sides next to each other or one patch under the other. */
     diffLayout: 'stacked' | 'split';
     /* Whether a diff counts and shows changes that are whitespace alone. */
     diffWhitespace: boolean;
@@ -229,15 +211,12 @@ export interface Settings {
     voiceConfirmDestructiveActions: boolean;
     /* Whether the desktop shell downloads an update as soon as it finds one, or waits to be asked. */
     updatesAutoDownload: boolean;
-    /* Whether a view an agent asks for takes the place of the one you are working in. Off, which is
-       where everyone starts, nothing moves and the request waits in the banner over the views.
-       Making is shared and the daemon enforces it; looking is one person at one screen, so moving
-       someone's eyes is the one thing that is asked rather than done. */
+    /* Whether a view an agent asks for takes the place of the one you work in. Off, the request waits
+       in the banner: moving someone's eyes is the one thing an agent asks rather than does. */
     agentsShowViews: boolean;
     /* Whether the maps in chats load their tiles through Ruimte's map service. On to start with; off, a map is the outline of the world and the list of its places. */
     chatMapTiles: boolean;
-    /* When this computer stays awake. About the computer this window runs on and nothing else, which is
-       why it sits with the client and not with a project or a daemon. Off to start with: a laptop
+    /* About the computer this window runs on, so it sits with the client. Off to start with: a laptop
        that never sleeps is not something to arrange behind someone. */
     keepAwake: KeepAwakeMode;
     /* Whether that holds on battery as well. Off, it holds on the power adapter only. */
@@ -259,13 +238,11 @@ export interface Settings {
     /* Which language the interface is written in. `system` is whatever the operating system asks
        for, and one of `APP_LANGUAGES` overrules it. */
     language: string;
-    /* Which region writes the numbers, dates and times. `language` follows whatever the interface
-       is written in, `system` follows the operating system, and a tag from `FORMAT_REGIONS`
-       overrules both. The two are apart because a person can read one language in another country's
-       notation, which is what an English app on a Dutch Mac already was. */
+    /* Which region writes the numbers, dates and times: `language`, `system` or a tag from
+       `FORMAT_REGIONS`. Apart from `language`, since a person can read one language in another
+       country's notation. */
     formatRegion: string;
-    /* Whether this client has met the onboarding: put off, closed or finished. A client from before it
-       has nothing stored, which reads as not met, so every install meets it once. */
+    /* Whether this client has met the onboarding: put off, closed or finished. */
     onboardingSeen: boolean;
     /* Whether "How Ruimte works" was read here, the one task no machine can tell. */
     onboardingIntroSeen: boolean;
@@ -352,8 +329,7 @@ const DEFAULT_SETTINGS: Settings = {
     onboardingSkipWelcome: false
 };
 
-// Rounded as well as clamped. The stepper used to move in halves, so a browser can still hand back
-// a half pixel from before, and both text and the terminal render sharpest on a whole one.
+// Rounded as well as clamped: storage can still hold a half pixel, and text renders sharpest on a whole one.
 function clampSize(value: unknown, range: { min: number; max: number }, fallback: number): number {
     const size = typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : fallback;
     return Math.min(range.max, Math.max(range.min, size));
@@ -365,23 +341,37 @@ function clampRatio(value: unknown, range: { min: number; max: number }, fallbac
     return Math.min(range.max, Math.max(range.min, ratio));
 }
 
+/* The layout and the sizes, which an update checks as well as a read. */
+function measuresFrom(
+    values: Partial<Settings>
+): Pick<Settings, 'panelLayout' | 'fontSize' | 'interfaceFontSize' | 'codeFontSize' | 'codeLineHeight' | 'terminalLineHeight' | 'filesTabLimit'> {
+    return {
+        panelLayout: values.panelLayout === 'roomy' ? 'roomy' : 'standard',
+        fontSize: clampSize(values.fontSize, FONT_SIZE_RANGE, DEFAULT_SETTINGS.fontSize),
+        interfaceFontSize: clampSize(values.interfaceFontSize, INTERFACE_FONT_SIZE_RANGE, DEFAULT_SETTINGS.interfaceFontSize),
+        codeFontSize: clampSize(values.codeFontSize, FONT_SIZE_RANGE, DEFAULT_SETTINGS.codeFontSize),
+        codeLineHeight: clampRatio(values.codeLineHeight, CODE_LINE_HEIGHT_RANGE, DEFAULT_SETTINGS.codeLineHeight),
+        terminalLineHeight: clampRatio(values.terminalLineHeight, TERMINAL_LINE_HEIGHT_RANGE, DEFAULT_SETTINGS.terminalLineHeight),
+        filesTabLimit: clampSize(values.filesTabLimit, FILES_TAB_LIMIT_RANGE, DEFAULT_SETTINGS.filesTabLimit)
+    };
+}
+
+/* The settings alone, without the store's version and methods. */
+function settingsOf(state: Settings): Settings {
+    return Object.fromEntries(Object.keys(DEFAULT_SETTINGS).map((key) => [key, state[key as keyof Settings]])) as unknown as Settings;
+}
+
 /* What a stored blob means, key by key. Everything a client wrote before a setting existed, or wrote
    as something else, reads as what a fresh client gets. */
 export function settingsFrom(stored: Partial<Settings>): Settings {
     return {
         ...DEFAULT_SETTINGS,
         ...stored,
-        panelLayout: stored.panelLayout === 'roomy' ? 'roomy' : 'standard',
+        ...measuresFrom(stored),
         sidebarScope: stored.sidebarScope === 'all-open' ? 'all-open' : 'current',
         projectNavigation: stored.projectNavigation === 'tabs' ? 'tabs' : 'switcher',
         needsYouAllProjects: stored.needsYouAllProjects !== false,
-        fontSize: clampSize(stored.fontSize, FONT_SIZE_RANGE, DEFAULT_SETTINGS.fontSize),
-        interfaceFontSize: clampSize(stored.interfaceFontSize, INTERFACE_FONT_SIZE_RANGE, DEFAULT_SETTINGS.interfaceFontSize),
-        codeFontSize: clampSize(stored.codeFontSize, FONT_SIZE_RANGE, DEFAULT_SETTINGS.codeFontSize),
-        codeLineHeight: clampRatio(stored.codeLineHeight, CODE_LINE_HEIGHT_RANGE, DEFAULT_SETTINGS.codeLineHeight),
-        terminalLineHeight: clampRatio(stored.terminalLineHeight, TERMINAL_LINE_HEIGHT_RANGE, DEFAULT_SETTINGS.terminalLineHeight),
         terminalLinkDestination: stored.terminalLinkDestination === 'ruimte' ? 'ruimte' : 'external',
-        filesTabLimit: clampSize(stored.filesTabLimit, FILES_TAB_LIMIT_RANGE, DEFAULT_SETTINGS.filesTabLimit),
         // A path is typed by hand and read back as one; anything else in the blob is no folder.
         browseStartFolder: typeof stored.browseStartFolder === 'string' ? stored.browseStartFolder : DEFAULT_SETTINGS.browseStartFolder,
         codeThemeLight: codeThemeFrom(stored.codeThemeLight, 'light', DEFAULT_SETTINGS.codeThemeLight),
@@ -401,7 +391,7 @@ export function settingsFrom(stored: Partial<Settings>): Settings {
         aiOnDeviceHelp: stored.aiOnDeviceHelp !== false,
         aiGhostText: ghostTextModeFrom(stored.aiGhostText),
         codeLigatures: stored.codeLigatures !== false,
-        smartKeys: smartKeysFrom(stored.smartKeys),
+        smartKeys: switchesFrom(stored.smartKeys, DEFAULT_SMART_KEYS),
         // A client that stored null for the theme's own accent, or an id that has since gone, lands on the brand's.
         accent: NODE_ACCENTS.find((entry) => entry.id === stored.accent)?.id ?? DEFAULT_SETTINGS.accent,
         palette: palettePresetFrom(stored.palette),
@@ -410,7 +400,6 @@ export function settingsFrom(stored: Partial<Settings>): Settings {
         agentsShowViews: stored.agentsShowViews === true,
         // On unless a person turned it off, so a client that stored nothing yet draws maps.
         chatMapTiles: stored.chatMapTiles !== false,
-        // Same rule. Nothing keeps a laptop from sleeping unless a person asked for it.
         keepAwake: keepAwakeFrom(stored.keepAwake, (stored as Partial<Settings> & { agentsKeepAwake?: unknown }).agentsKeepAwake),
         keepAwakeOnBattery: stored.keepAwakeOnBattery === true,
         keepAwakeDisplay: stored.keepAwakeDisplay === true,
@@ -432,8 +421,6 @@ export function settingsFrom(stored: Partial<Settings>): Settings {
         canvasMinimap: stored.canvasMinimap === true,
         worktreeMergeStrategy:
             WORKTREE_MERGE_STRATEGIES.find((strategy) => strategy === stored.worktreeMergeStrategy) ?? DEFAULT_SETTINGS.worktreeMergeStrategy,
-        // The key before it, `directStunServer`, held the previous default for nearly every client, since the field was hidden
-        // and every save writes the whole blob; a new key leaves that value behind instead of recognizing it.
         directStunServers: typeof stored.directStunServers === 'string' ? stored.directStunServers : DEFAULT_SETTINGS.directStunServers,
         language: languageFrom(stored.language),
         formatRegion: formatRegionFrom(stored.formatRegion),
@@ -517,142 +504,8 @@ export const useSettings = create<SettingsStore>((set, get) => {
         ...initial,
         version: 0,
         update(patch) {
-            const {
-                sidebarScope,
-                panelLayout,
-                projectNavigation,
-                needsYouAllProjects,
-                accent,
-                palette,
-                projectGlow,
-                interfaceFont,
-                font,
-                fontSize,
-                interfaceFontSize,
-                codeFontSize,
-                codeLineHeight,
-                terminalLineHeight,
-                terminalLinkDestination,
-                filesTabLimit,
-                filesShowHidden,
-                browseStartFolder,
-                codeThemeLight,
-                codeThemeDark,
-                codeWrap,
-                codeIndentGuides,
-                codeWhitespace,
-                codeStickyScroll,
-                codeRenderDocs,
-                codeVisionUsages,
-                codeVisionAuthors,
-                codeFolding,
-                codeFoldOutline,
-                aiInlineAgent,
-                aiAgentChanges,
-                aiAttribution,
-                aiOnDeviceHelp,
-                aiGhostText,
-                codeLigatures,
-                smartKeys,
-                diffLayout,
-                diffWhitespace,
-                worktreeMergeStrategy,
-                drawingSnap,
-                dockAutoHide,
-                chatStreaming,
-                chatSteerByDefault,
-                voiceLanguage,
-                liveVoice,
-                voiceInputDeviceId,
-                voiceConfirmDestructiveActions,
-                updatesAutoDownload,
-                agentsShowViews,
-                chatMapTiles,
-                keepAwake,
-                keepAwakeOnBattery,
-                keepAwakeDisplay,
-                agentsTurnSound,
-                browserSwipe,
-                canvasMinimap,
-                directStunServers,
-                language,
-                formatRegion,
-                onboardingSeen,
-                onboardingIntroSeen,
-                onboardingSkipWelcome
-            } = get();
-            const next: Settings = {
-                sidebarScope,
-                panelLayout,
-                projectNavigation,
-                needsYouAllProjects,
-                accent,
-                palette,
-                projectGlow,
-                interfaceFont,
-                font,
-                fontSize,
-                interfaceFontSize,
-                codeFontSize,
-                codeLineHeight,
-                terminalLineHeight,
-                terminalLinkDestination,
-                filesTabLimit,
-                filesShowHidden,
-                browseStartFolder,
-                codeThemeLight,
-                codeThemeDark,
-                codeWrap,
-                codeIndentGuides,
-                codeWhitespace,
-                codeStickyScroll,
-                codeRenderDocs,
-                codeVisionUsages,
-                codeVisionAuthors,
-                codeFolding,
-                codeFoldOutline,
-                aiInlineAgent,
-                aiAgentChanges,
-                aiAttribution,
-                aiOnDeviceHelp,
-                aiGhostText,
-                codeLigatures,
-                smartKeys,
-                diffLayout,
-                diffWhitespace,
-                worktreeMergeStrategy,
-                drawingSnap,
-                dockAutoHide,
-                chatStreaming,
-                chatSteerByDefault,
-                voiceLanguage,
-                liveVoice,
-                voiceInputDeviceId,
-                voiceConfirmDestructiveActions,
-                updatesAutoDownload,
-                agentsShowViews,
-                chatMapTiles,
-                keepAwake,
-                keepAwakeOnBattery,
-                keepAwakeDisplay,
-                agentsTurnSound,
-                browserSwipe,
-                canvasMinimap,
-                directStunServers,
-                language,
-                formatRegion,
-                onboardingSeen,
-                onboardingIntroSeen,
-                onboardingSkipWelcome,
-                ...patch
-            };
-            next.panelLayout = next.panelLayout === 'roomy' ? 'roomy' : 'standard';
-            next.fontSize = clampSize(next.fontSize, FONT_SIZE_RANGE, DEFAULT_SETTINGS.fontSize);
-            next.interfaceFontSize = clampSize(next.interfaceFontSize, INTERFACE_FONT_SIZE_RANGE, DEFAULT_SETTINGS.interfaceFontSize);
-            next.codeFontSize = clampSize(next.codeFontSize, FONT_SIZE_RANGE, DEFAULT_SETTINGS.codeFontSize);
-            next.codeLineHeight = clampRatio(next.codeLineHeight, CODE_LINE_HEIGHT_RANGE, DEFAULT_SETTINGS.codeLineHeight);
-            next.terminalLineHeight = clampRatio(next.terminalLineHeight, TERMINAL_LINE_HEIGHT_RANGE, DEFAULT_SETTINGS.terminalLineHeight);
-            next.filesTabLimit = clampSize(next.filesTabLimit, FILES_TAB_LIMIT_RANGE, DEFAULT_SETTINGS.filesTabLimit);
+            const next: Settings = { ...settingsOf(get()), ...patch };
+            Object.assign(next, measuresFrom(next));
             // Storage that refuses still leaves the setting on for this session.
             storedSettings.write(next);
             apply(next);

@@ -4,6 +4,10 @@ import { nextId, remember, type CanvasSet, type TextElement } from '@/state/canv
 
 /* The labels on the canvas. */
 export function createCanvasTextsSlice(set: CanvasSet): Pick<CanvasState, 'addText' | 'updateText' | 'styleText' | 'resizeText' | 'setEditingText'> {
+    const patchText = (id: string, patch: Partial<TextElement>, undoable: boolean): void => {
+        set((s) => (s.texts[id] ? { texts: { ...s.texts, [id]: { ...s.texts[id], ...patch } }, ...(undoable ? remember(s) : {}) } : {}));
+    };
+
     return {
         addText(at) {
             const id = nextId('text');
@@ -12,13 +16,13 @@ export function createCanvasTextsSlice(set: CanvasSet): Pick<CanvasState, 'addTe
             return id;
         },
         updateText(id, text) {
-            set((s) => (s.texts[id] ? { texts: { ...s.texts, [id]: { ...s.texts[id], text } } } : {}));
+            patchText(id, { text }, false);
         },
         styleText(id, patch, undoable = true) {
-            set((s) => (s.texts[id] ? { texts: { ...s.texts, [id]: { ...s.texts[id], ...patch } }, ...(undoable ? remember(s) : {}) } : {}));
+            patchText(id, patch, undoable);
         },
         resizeText(id, x, maxWidth, undoable = true) {
-            set((s) => (s.texts[id] ? { texts: { ...s.texts, [id]: { ...s.texts[id], x, maxWidth } }, ...(undoable ? remember(s) : {}) } : {}));
+            patchText(id, { x, maxWidth }, undoable);
         },
         setEditingText(id) {
             set({ editingTextId: id });

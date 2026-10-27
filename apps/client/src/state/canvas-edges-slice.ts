@@ -30,8 +30,7 @@ export function createCanvasEdgesSlice(
                 drawn.push({ id: nextId('edge'), from: start, to: end, label, ...ends });
             };
             draw(from, to, sides ?? {});
-            /* Both ways between two agents, the way the daemon's `link new` draws it: a line is what
-           lets the end it runs into read the other, so two agents that read each other are two. */
+            // Both ways between two agents, as the daemon's `link new` draws it: a line lets only its head read its tail.
             if (isAgent(from) && isAgent(to)) {
                 draw(to, from, mirroredSides(sides));
             }
@@ -45,8 +44,7 @@ export function createCanvasEdgesSlice(
             if (!node) {
                 return;
             }
-            const to = center(node);
-            set({ linkDraft: { from, to, aiming: true }, selection: [from] });
+            set({ linkDraft: { from, to: center(node), aiming: true }, selection: [from] });
         },
         removeEdge(id) {
             set((s) => ({ edges: s.edges.filter((edge) => edge.id !== id), selection: s.selection.filter((selected) => selected !== id), ...remember(s) }));

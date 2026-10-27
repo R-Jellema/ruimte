@@ -2,6 +2,17 @@ import type { ProjectLayout } from '@ruimte/contracts';
 import type { CanvasState } from '@/state/canvas';
 import { remember, type CanvasGet, type CanvasSet } from '@/state/canvas-model';
 
+/* Items the layout never saw stay where they are; nothing is added or removed. */
+function placed<T>(items: Record<string, T>, places: Record<string, Partial<T>>): Record<string, T> {
+    const next = { ...items };
+    for (const [id, place] of Object.entries(places)) {
+        if (next[id]) {
+            next[id] = { ...next[id], ...place };
+        }
+    }
+    return next;
+}
+
 /* The named placements a person saves and puts the canvas back into. */
 export function createCanvasLayoutsSlice(set: CanvasSet, get: CanvasGet): Pick<CanvasState, 'saveLayout' | 'putLayout' | 'applyLayout' | 'deleteLayout'> {
     return {
@@ -23,20 +34,7 @@ export function createCanvasLayoutsSlice(set: CanvasSet, get: CanvasGet): Pick<C
             if (!layout) {
                 return;
             }
-            // Nodes the layout never saw stay where they are; nothing is added or removed.
-            const nodes = { ...s.nodes };
-            for (const [id, rect] of Object.entries(layout.nodes)) {
-                if (nodes[id]) {
-                    nodes[id] = { ...nodes[id], ...rect };
-                }
-            }
-            const texts = { ...s.texts };
-            for (const [id, point] of Object.entries(layout.texts)) {
-                if (texts[id]) {
-                    texts[id] = { ...texts[id], ...point };
-                }
-            }
-            set({ nodes, texts, ...remember(s) });
+            set({ nodes: placed(s.nodes, layout.nodes), texts: placed(s.texts, layout.texts), ...remember(s) });
         },
         deleteLayout(name) {
             set((s) => ({ layouts: s.layouts.filter((entry) => entry.name !== name) }));

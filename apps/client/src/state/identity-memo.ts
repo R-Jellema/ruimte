@@ -17,7 +17,7 @@ export function memoByIdentity<Args extends object[], Result>(derive: (...args: 
             }
             level = next;
         }
-        const last = args[args.length - 1]!;
+        const last = args.at(-1)!;
         const known = level.get(last) as { value: Result } | undefined;
         if (known !== undefined) {
             return known.value;

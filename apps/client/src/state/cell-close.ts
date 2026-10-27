@@ -9,10 +9,14 @@ import { useFiles } from '@/state/files';
  * document's; these run once every loose tab in their way is closed.
  */
 
-/* What has a question to ask: a loose tab, and a database view of the project that holds edits nobody submitted. */
-function looseKeysIn(ids: readonly string[]): string[] {
+/* Whether closing asks first: a loose tab, or a database view of the project that holds edits nobody submitted. */
+export function asksOnClose(id: string): boolean {
     const { tabs, unsubmitted } = useFiles.getState();
-    return ids.filter((id) => unsubmitted[id] === true || tabs.some((tab) => tab.key === id));
+    return unsubmitted[id] === true || tabs.some((tab) => tab.key === id);
+}
+
+function looseKeysIn(ids: readonly string[]): string[] {
+    return ids.filter(asksOnClose);
 }
 
 /* The cell a view stands in now, since closing the tabs before it may have moved or removed cells. */

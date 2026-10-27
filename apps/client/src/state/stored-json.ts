@@ -46,6 +46,19 @@ export function storedJson<Value, Stored = Value>(key: string, schema: z.ZodType
     };
 }
 
+/* A set of switches read over its defaults, so a switch a later version adds starts as that version decides. */
+export function switchesFrom<T extends { [K in keyof T]: boolean }>(stored: unknown, defaults: T): T {
+    const values: Partial<Record<keyof T, unknown>> = typeof stored === 'object' && stored !== null ? stored : {};
+    const result = { ...defaults };
+    for (const name of Object.keys(defaults) as (keyof T)[]) {
+        const value = values[name];
+        if (typeof value === 'boolean') {
+            result[name] = value as T[keyof T];
+        }
+    }
+    return result;
+}
+
 /* One key that holds a bare string, as the ones written before a key was JSON still do. */
 export function storedText(key: string): StoredValue<string> {
     return {

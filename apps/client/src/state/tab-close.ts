@@ -1,4 +1,5 @@
 import { cellAt, cellViewIds, locateView } from '@/shell/split';
+import { asksOnClose } from '@/state/cell-close';
 import { useDocument } from '@/state/document';
 import { useFiles } from '@/state/files';
 import { isViewPinned, setViewPinned } from '@/state/view-pins';
@@ -42,8 +43,7 @@ function hostTabIds(id: string): string[] {
 
 /* False when a person kept the tab at one of its questions. */
 export function closeTabGuarded(id: string): Promise<boolean> {
-    const { tabs, unsubmitted } = useFiles.getState();
-    if (unsubmitted[id] === true || tabs.some((tab) => tab.key === id)) {
+    if (asksOnClose(id)) {
         return useFiles.getState().closeGuarded(id);
     }
     useDocument.getState().closeViewTab(id);

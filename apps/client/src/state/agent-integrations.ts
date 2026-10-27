@@ -25,7 +25,7 @@ export function pendingReview(summary: AgentIntegrationsSummary | null | undefin
     return summary.providers.some((entry) => entry.state === 'unset' || (entry.state === 'on' && !entry.reviewed));
 }
 
-/** Migrated providers left without a choice, minus those the person already answered or is answering. */
+/* Migrated providers left without a choice, minus those the person already answered or is answering. */
 export function providersToKeep(
     summary: AgentIntegrationsSummary | null | undefined,
     answered: readonly string[],
