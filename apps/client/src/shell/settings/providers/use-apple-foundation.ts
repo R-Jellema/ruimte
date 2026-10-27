@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ProviderInfo } from '@ruimte/contracts';
-import { useProvidersStore } from '@adecore/agents-react/state';
 import { messageOf } from '@adecore/ui';
 import { perform } from '@/actions/client-actions';
+import { listProvidersAgain } from '@/shell/settings/providers/use-provider-installs';
 import { useServers } from '@/state/server';
 import { useToasts } from '@/state/toasts';
 import { transportFor } from '@/transport';
@@ -32,15 +32,13 @@ export function useAppleFoundation(endpointId: string, provider: ProviderInfo | 
     const enabled = info?.appleFoundationEnabled === true;
 
     const setEnabled = async (checked: boolean): Promise<void> => {
-        const link = transportFor(endpointId);
-        if (!link) {
+        if (!transportFor(endpointId)) {
             return;
         }
         setBusy(true);
         try {
             await perform('machine.setIdentity', { endpointId, appleFoundationEnabled: checked });
-            const { providers } = await link.request('provider.list', {});
-            useProvidersStore.getState().setProviders(endpointId, providers);
+            await listProvidersAgain(endpointId);
         } catch (error) {
             useToasts.getState().show({
                 id: `apple-foundation-${endpointId}`,

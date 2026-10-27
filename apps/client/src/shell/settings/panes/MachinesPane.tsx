@@ -56,8 +56,6 @@ export function MachinesPane() {
         }
     }
 
-    const addMachine = (): void => setPicked({ kind: 'account' });
-
     const list = (
         <>
             <MasterItem selected={current.kind === 'account'} onSelect={() => setPicked({ kind: 'account' })} className="min-h-14">
@@ -84,7 +82,7 @@ export function MachinesPane() {
             )}
             <div className="mt-2 flex min-w-0 shrink-0 items-center gap-2 border-t border-border pt-2.5 pl-3">
                 <SectionLabel className="grow">{t('machines.title')}</SectionLabel>
-                <Button size="sm" onClick={addMachine}>
+                <Button size="sm" onClick={() => setPicked({ kind: 'account' })}>
                     <Icon icon={Plus} size={14} />
                     {t('machines.add.short')}
                 </Button>

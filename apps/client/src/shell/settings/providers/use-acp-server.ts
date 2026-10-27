@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { AgentKind, AgentServerStatus } from '@ruimte/contracts';
-import { useProvidersStore } from '@adecore/agents-react/state';
 import { messageOf } from '@adecore/ui';
+import { listProvidersAgain } from '@/shell/settings/providers/use-provider-installs';
 import { LOCAL_ENDPOINT_ID } from '@/state/endpoints';
 import { transportFor } from '@/transport';
 import { useMachineAnswers } from '@/transport/features';
@@ -53,8 +53,7 @@ export function useAcpServer(endpointId: string, kind: AgentKind): AcpServer {
         setServer({ ...server, state: 'installing' });
         try {
             setServer((await link.request('provider.installServer', { provider: kind })).server);
-            const { providers } = await link.request('provider.list', {});
-            useProvidersStore.getState().setProviders(endpointId, providers);
+            await listProvidersAgain(endpointId);
         } catch (e) {
             setError(messageOf(e));
             setServer((await link.request('provider.server', { provider: kind }).catch(() => null))?.server ?? server);

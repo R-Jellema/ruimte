@@ -6,8 +6,8 @@ import { LOCAL_ENDPOINT_ID } from '@/state/endpoints';
 import { transportFor } from '@/transport';
 import { useMachineAnswers } from '@/transport/features';
 
-/* The provider list again, so a provider a person just installed, updated or removed shows at once. */
-async function listProvidersAgain(endpointId: string): Promise<void> {
+/* The provider list again, so a provider a person just installed, updated, removed or keyed shows at once. */
+export async function listProvidersAgain(endpointId: string): Promise<void> {
     const link = transportFor(endpointId);
     if (link) {
         const { providers } = await link.request('provider.list', {});

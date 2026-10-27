@@ -3,8 +3,8 @@ import { useTranslation } from 'react-i18next';
 import type { ClaudeApiSettings, ClaudeApiStatus, NanoGptSettings, NanoGptStatus } from '@ruimte/contracts';
 import { Button, Input, Switch, messageOf } from '@adecore/ui';
 import { SettingsRow } from '@adecore/ui/settings';
-import { useProvidersStore } from '@adecore/agents-react/state';
 import { CountField } from '@/shell/settings/providers/CountField';
+import { listProvidersAgain } from '@/shell/settings/providers/use-provider-installs';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
 import { transportFor, type Transport } from '@/transport';
 
@@ -87,8 +87,7 @@ function ApiKeySection<Settings extends RunSettings>({ endpointId, title, words,
         try {
             setStatus(await write(link, payload));
             setApiKey('');
-            const { providers } = await link.request('provider.list', {});
-            useProvidersStore.getState().setProviders(endpointId, providers);
+            await listProvidersAgain(endpointId);
         } catch (cause) {
             setError(messageOf(cause, t(`${words}.failed`)));
         } finally {

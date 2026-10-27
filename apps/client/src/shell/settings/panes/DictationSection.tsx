@@ -15,6 +15,7 @@ export function DictationSection() {
         </ErrorBoundary>
     );
 }
+
 function Section() {
     const { t } = useTranslation('voice');
     const model = useDictation((state) => state.model);
