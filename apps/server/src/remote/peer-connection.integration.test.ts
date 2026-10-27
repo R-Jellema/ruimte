@@ -21,7 +21,8 @@ import { PeerMachines } from './peer-machines.ts';
 import { PendingAdmissions } from './pending-admissions.ts';
 import { RemoteConnections, brokerDialer } from './remote-connections.ts';
 import { RemoteStatus } from './remote-status.ts';
-import { startBroker, waitFor } from './test-helpers.ts';
+import { waitFor } from '../sessions/test-helpers.ts';
+import { startBroker } from './test-helpers.ts';
 
 /*
  * Both machines in one process: B the way `network.ts` wires it (the relay on a real broker, the gate
@@ -193,7 +194,7 @@ describe('the link of one machine to another, over a real broker', () => {
         const sessionId = (await store.sessionForPublicKey(await peerKey.publicKey()))!;
         await store.revoke(sessionId);
         opened.at(-1)!.channel.close(4001, 'Access revoked');
-        await waitFor('the link to notice', () => lost.length > 0);
+        await waitFor(() => lost.length > 0, 'the link to notice', 15_000);
         expect(connections.isOpen(MACHINE_ID)).toBe(false);
 
         await expect(connections.connect(MACHINE_ID)).rejects.toThrow();

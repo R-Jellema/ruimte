@@ -8,6 +8,7 @@ import { foregroundGroup } from '../processes/foreground.ts';
 import { BunPtyAdapter } from '../pty/bun-pty.ts';
 import { CommandApprovals } from '../sessions/command-approvals.ts';
 import { SessionManager } from '../sessions/manager.ts';
+import { freePort } from '../free-port-test-helpers.ts';
 import { waitFor } from '../sessions/test-helpers.ts';
 import { LaunchRunner } from './runner.ts';
 import { managerSessions } from './sessions.ts';
@@ -23,13 +24,6 @@ let manager: SessionManager;
 let store: LaunchStore;
 let runner: LaunchRunner;
 let statuses: LaunchStatus[];
-
-function freePort(): number {
-    const probe = Bun.serve({ port: 0, fetch: () => new Response('') });
-    const port = probe.port!;
-    probe.stop(true);
-    return port;
-}
 
 function lastOf(launchId: string): LaunchStatus | undefined {
     return statuses.findLast((status) => status.launchId === launchId);
@@ -68,7 +62,7 @@ afterEach(async () => {
 
 describe('a launch in a real shell', () => {
     test('a server runs once its port answers and stops on Ctrl+C', async () => {
-        const port = freePort();
+        const port = await freePort();
         const command = `'${process.execPath}' -e 'Bun.serve({ port: ${port}, fetch: () => new Response("ok") }); console.log("listening")'`;
         await store.save('p1', 0, [{ id: 'serve', name: 'Serve', kind: 'service', command, url: `http://localhost:${port}`, shared: false }]);
 

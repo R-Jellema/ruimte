@@ -1,6 +1,8 @@
 import { join } from 'node:path';
 import type { Subprocess } from 'bun';
 import type { ProjectContent } from '@ruimte/contracts';
+import { freePort } from '../free-port-test-helpers.ts';
+import { waitForAsync } from '../sessions/test-helpers.ts';
 
 /** A project whose canvas holds one Claude chat, `chat-lead`, that hands work to another machine. */
 export function leadContent(): ProjectContent {
@@ -21,23 +23,6 @@ export function leadContent(): ProjectContent {
     };
 }
 
-export async function freePort(): Promise<number> {
-    const server = Bun.serve({ port: 0, fetch: () => new Response('') });
-    const { port } = server;
-    await server.stop(true);
-    return port!;
-}
-
-export async function waitFor(label: string, ready: () => boolean | Promise<boolean>, timeoutMs = 15_000): Promise<void> {
-    const deadline = Date.now() + timeoutMs;
-    while (!(await ready())) {
-        if (Date.now() > deadline) {
-            throw new Error(`Timed out waiting for ${label}`);
-        }
-        await Bun.sleep(50);
-    }
-}
-
 /** A real broker in a process of its own, on a free port. */
 export async function startBroker(): Promise<{ broker: Subprocess; port: number; url: string }> {
     const port = await freePort();
@@ -45,6 +30,6 @@ export async function startBroker(): Promise<{ broker: Subprocess; port: number;
         stdout: 'ignore',
         stderr: 'inherit'
     });
-    await waitFor('the broker to answer', async () => (await fetch(`http://127.0.0.1:${port}/health`).catch(() => null))?.ok === true);
+    await waitForAsync(async () => (await fetch(`http://127.0.0.1:${port}/health`).catch(() => null))?.ok === true, 'the broker to answer', 15_000);
     return { broker, port, url: `ws://127.0.0.1:${port}` };
 }

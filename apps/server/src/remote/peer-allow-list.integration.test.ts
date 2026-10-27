@@ -9,7 +9,9 @@ import { TEST_STATEMENT_KEY_VARIABLE } from '../pulsar/statement.ts';
 import type { PeerLink } from './peer-connection.ts';
 import { PeerKey } from './peer-key.ts';
 import { brokerDialer } from './remote-connections.ts';
-import { freePort, startBroker, waitFor } from './test-helpers.ts';
+import { freePort } from '../free-port-test-helpers.ts';
+import { waitForAsync } from '../sessions/test-helpers.ts';
+import { startBroker } from './test-helpers.ts';
 
 /*
  * The whole daemon, started as `main.ts` starts it, with a machine of the account working in it as a
@@ -55,9 +57,9 @@ beforeAll(async () => {
             stderr: 'inherit'
         }
     );
-    await waitFor(
-        'the daemon to announce itself to the broker',
+    await waitForAsync(
         async () => (((await (await fetch(`http://127.0.0.1:${brokerPort}/health`)).json()) as { machines: number }).machines ?? 0) >= 1,
+        'the daemon to announce itself to the broker',
         60_000
     );
     const machine = JSON.parse(await readFile(join(home, 'endpoint.json'), 'utf8')) as { id: string; publicKey: string };
