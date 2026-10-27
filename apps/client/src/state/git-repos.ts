@@ -372,23 +372,30 @@ export function useGitCheckouts(refs: readonly GitCheckoutRef[]): GitCheckouts {
         }
     }, [entries, endpointId]);
 
-    const checkouts = refs.map((ref) => ({ ...ref, ...(knownEntry(entries, endpointId, ref.path) ?? BLANK) }));
+    // The compiler leaves this hook and the panels that read it as written, so these keep their identity by hand.
+    const checkouts = useMemo(() => refs.map((ref) => ({ ...ref, ...(knownEntry(entries, endpointId, ref.path) ?? BLANK) })), [refs, entries, endpointId]);
 
-    const refresh = async (cwd?: string): Promise<void> => {
-        const targets = cwd === undefined ? paths.split('\n').filter((path) => path !== '') : [cwd];
-        await Promise.all(targets.map((path) => read(path)));
-    };
+    const refresh = useCallback(
+        async (cwd?: string): Promise<void> => {
+            const targets = cwd === undefined ? paths.split('\n').filter((path) => path !== '') : [cwd];
+            await Promise.all(targets.map((path) => read(path)));
+        },
+        [read, paths]
+    );
 
-    const assume = (cwd: string, next: (status: GitStatus) => GitStatus): void => {
-        setHeld((previous) => {
-            const entries = previous.endpointId === endpointId ? previous.entries : {};
-            const entry = knownEntry(entries, endpointId, cwd);
-            if (entry === undefined || entry.status === null) {
-                return previous;
-            }
-            return { endpointId, entries: { ...entries, [cwd]: { ...entry, status: next(entry.status) } } };
-        });
-    };
+    const assume = useCallback(
+        (cwd: string, next: (status: GitStatus) => GitStatus): void => {
+            setHeld((previous) => {
+                const entries = previous.endpointId === endpointId ? previous.entries : {};
+                const entry = knownEntry(entries, endpointId, cwd);
+                if (entry === undefined || entry.status === null) {
+                    return previous;
+                }
+                return { endpointId, entries: { ...entries, [cwd]: { ...entry, status: next(entry.status) } } };
+            });
+        },
+        [endpointId]
+    );
 
     return { checkouts, refresh, assume };
 }
