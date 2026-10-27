@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { memoryDedupeStore } from '@ruimte/telemetry';
 import { fileDedupeStore } from '@ruimte/telemetry/file-store';
-import { isCrash, problemEvent, processTag, shellBeforeSend } from './telemetry';
+import { isCrash, problemEvent, processTag, shellBeforeSend, shellTags } from './telemetry';
 
 const IDENTITY = { home: '/Users/jane', username: 'jane', hostname: 'janes-mac' };
 
@@ -12,6 +12,19 @@ describe('isCrash', () => {
     test('is a crash or running out of memory, never an exit that was asked for', () => {
         expect(['crashed', 'oom'].filter(isCrash)).toEqual(['crashed', 'oom']);
         expect(['clean-exit', 'killed', 'abnormal-exit', 'launch-failed'].filter(isCrash)).toEqual([]);
+    });
+});
+
+describe('shellTags', () => {
+    test('names the Electron, and on Linux whether an AppImage runs', () => {
+        expect(shellTags({ platform: 'darwin', arch: 'arm64', electron: '44.9.0', appImage: undefined })).toEqual({
+            process: 'main',
+            platform: 'darwin',
+            arch: 'arm64',
+            electron: '44.9.0'
+        });
+        expect(shellTags({ platform: 'linux', arch: 'x64', electron: '44.9.0', appImage: '/home/jane/Ruimte.AppImage' }).package).toBe('appimage');
+        expect(shellTags({ platform: 'linux', arch: 'x64', electron: '44.9.0', appImage: undefined }).package).toBe('installed');
     });
 });
 

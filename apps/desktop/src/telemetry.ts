@@ -28,7 +28,27 @@ export interface ShellIdentity {
     readonly hostname: string;
 }
 
-const TAGS = ['process', 'platform', 'arch', 'problem', 'exit_reason', 'step'];
+const TAGS = ['process', 'platform', 'arch', 'electron', 'package', 'problem', 'exit_reason', 'step'];
+
+export interface ShellRuntime {
+    readonly platform: NodeJS.Platform;
+    readonly arch: string;
+    readonly electron: string;
+    /* `APPIMAGE`, which the AppImage runtime sets to the image's own path. */
+    readonly appImage: string | undefined;
+}
+
+/*
+ * The tags every report of the shell carries. A native crash is only read against the symbols of the
+ * Electron it ran on, and on Linux an AppImage runs without the AppArmor profile the deb and rpm install.
+ */
+export function shellTags(runtime: ShellRuntime): Record<string, string> {
+    const tags: Record<string, string> = { process: 'main', platform: runtime.platform, arch: runtime.arch, electron: runtime.electron };
+    if (runtime.platform === 'linux') {
+        tags.package = runtime.appImage ? 'appimage' : 'installed';
+    }
+    return tags;
+}
 const EXTRAS = ['exit_code', 'reason', 'ends', 'signal', 'startup_output'];
 
 /* A crash or running out of memory; an exit the app asked for, a kill or a clean exit is no report. */
