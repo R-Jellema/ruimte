@@ -71,6 +71,7 @@ export function reportError(error: unknown, mechanism: string, handled: boolean)
         if (error instanceof TransportError && error.request !== undefined) {
             scope.setTag('request', error.request);
         }
+
         captureException(error, { mechanism: { type: mechanism, handled } });
     });
 }

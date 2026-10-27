@@ -214,6 +214,7 @@ export function connectionOpener(services: ConnectionServices): (channel: Client
             }
             sendEvent(client, event.event, event.payload);
         };
+
         const kind = clientKindOf(access);
         clientOpened(kind);
         // Events carry what other clients are doing here; another machine asks for what it needs and hears nothing else.

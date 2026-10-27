@@ -94,6 +94,7 @@ export type MomentCategory = keyof typeof DAEMON_MOMENTS;
 
 export function allowedMoment(breadcrumb: { category?: string; message?: string }): boolean {
     const words = (DAEMON_MOMENTS as Record<string, readonly string[]>)[breadcrumb.category ?? ''];
+
     return words !== undefined && breadcrumb.message !== undefined && words.includes(breadcrumb.message);
 }
 
@@ -186,6 +187,7 @@ export function clientKindOf(access: { sessionId: string | null; peer?: unknown 
     if (access?.peer !== undefined) {
         return 'machine';
     }
+
     return access === undefined || access.sessionId === null ? 'local' : 'account';
 }
 
@@ -212,17 +214,21 @@ export function recordRequestDuration(type: string, ms: number): void {
  */
 function startMeters(active: Sentry): void {
     let last = performance.now();
+
     const tick = setInterval(() => {
         const now = performance.now();
         active.metrics.distribution('daemon.loop.lag', Math.max(0, now - last - LAG_TICK_MS), { unit: 'millisecond' });
         last = now;
     }, LAG_TICK_MS);
+
     const gauges = setInterval(() => {
         active.metrics.gauge('daemon.memory', Math.round(process.memoryUsage().rss / 1_048_576), { unit: 'megabyte' });
+
         for (const kind of Object.keys(liveClients) as ClientKind[]) {
             active.metrics.gauge('daemon.clients', liveClients[kind], { attributes: { kind } });
         }
     }, GAUGE_MS);
+
     tick.unref();
     gauges.unref();
     meters = [tick, gauges];
@@ -232,9 +238,11 @@ function startMeters(active: Sentry): void {
 export async function startTelemetry(current: TelemetrySettings): Promise<void> {
     const loaded = await import('@sentry/bun');
     const redactions = (): string[] => [...secrets, ...projectRedactions];
+
     loaded.initWithoutDefaultIntegrations(
         daemonClientOptions(loaded, current, daemonBeforeSend(current, redactions), undefined, daemonBeforeSendLog(current, redactions))
     );
+
     sentry = loaded;
     startMeters(loaded);
 }
@@ -368,6 +376,7 @@ export async function stopTelemetry(): Promise<void> {
     for (const meter of meters) {
         clearInterval(meter);
     }
+
     meters = [];
     sentry?.endSession();
     await sentry?.close(FLUSH_MS);

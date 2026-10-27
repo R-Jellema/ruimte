@@ -29,6 +29,7 @@ export interface ShellIdentity {
 }
 
 const TAGS = ['process', 'platform', 'arch', 'electron', 'package', 'problem', 'exit_reason', 'step'];
+const EXTRAS = ['exit_code', 'reason', 'ends', 'signal', 'startup_output'];
 
 export interface ShellRuntime {
     readonly platform: NodeJS.Platform;
@@ -44,12 +45,13 @@ export interface ShellRuntime {
  */
 export function shellTags(runtime: ShellRuntime): Record<string, string> {
     const tags: Record<string, string> = { process: 'main', platform: runtime.platform, arch: runtime.arch, electron: runtime.electron };
+
     if (runtime.platform === 'linux') {
         tags.package = runtime.appImage ? 'appimage' : 'installed';
     }
+
     return tags;
 }
-const EXTRAS = ['exit_code', 'reason', 'ends', 'signal', 'startup_output'];
 
 /* A crash or running out of memory; an exit the app asked for, a kill or a clean exit is no report. */
 export function isCrash(reason: string): boolean {

@@ -148,6 +148,7 @@ export class Dispatcher {
         }
 
         const started = performance.now();
+
         try {
             const result = await handler(payloadParse.data, client);
             recordRequestDuration(type, performance.now() - started);

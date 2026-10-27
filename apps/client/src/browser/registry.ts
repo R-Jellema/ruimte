@@ -339,6 +339,7 @@ class BrowserRegistry {
        element is in the DOM and its first `dom-ready` came, which an agent's ask can arrive ahead of. */
     attached(key: string): boolean {
         const element = this.elements.get(key);
+
         return element !== undefined && webContentsIdOf(element) !== null;
     }
 

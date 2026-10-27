@@ -64,6 +64,7 @@ async function sharedToken(env: Env, environment: ApnsEnvironment, secret: strin
     // A push still goes out while the database does not answer, on a token of this isolate's own.
     const unshared = (e: unknown): null => {
         console.warn('APNs provider token is not shared', { error: e instanceof Error ? e.message : String(e) });
+
         return null;
     };
 
@@ -75,6 +76,7 @@ async function sharedToken(env: Env, environment: ApnsEnvironment, secret: strin
 
     const key = await importP8(secret);
     const signed = { issued_at: now, token: await signEs256Jwt(key, { kid: keyId }, { iss: teamId, iat: Math.floor(now / 1000) }) };
+
     const stored = await env.DB.prepare(
         `INSERT INTO apns_provider_tokens (environment, key_id, team_id, issued_at, token) VALUES (?1, ?2, ?3, ?4, ?5)
          ON CONFLICT (environment) DO UPDATE SET key_id = excluded.key_id, team_id = excluded.team_id, issued_at = excluded.issued_at, token = excluded.token
@@ -107,11 +109,15 @@ function providerToken(env: Env, environment: ApnsEnvironment, now: number): Pro
 
     const entry: CachedToken = { secret, keyId, teamId, issuedAt: now, token: Promise.resolve('') };
     const shared = sharedToken(env, environment, secret, keyId, teamId, now);
+
     entry.token = shared.then((resolved) => {
         entry.issuedAt = resolved.issued_at;
+
         return resolved.token;
     });
+
     tokens.set(environment, entry);
+
     void entry.token.catch(() => {
         if (tokens.get(environment) === entry) {
             tokens.delete(environment);

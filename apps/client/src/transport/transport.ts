@@ -51,6 +51,7 @@ export class TransportError extends Error {
         super(message, options?.cause === undefined ? undefined : { cause: options.cause });
         this.name = 'TransportError';
         this.code = code;
+
         if (options?.request !== undefined) {
             this.request = options.request;
         }

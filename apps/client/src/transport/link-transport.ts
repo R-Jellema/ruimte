@@ -251,8 +251,10 @@ export class LinkTransport implements PooledTransport {
         if (this.dropTimer !== null) {
             return;
         }
+
         this.dropTimer = setTimeout(() => {
             this.dropTimer = null;
+
             if (!this.disposed && this.currentConnection.status !== 'open') {
                 this.report({ kind: 'dropped', code });
             }
@@ -456,6 +458,7 @@ export class LinkTransport implements PooledTransport {
         const id = String(this.nextId++);
         const callSite = new Error(`${type} was asked here`);
         callSite.name = 'RequestCallSite';
+
         const promise = new Promise<R>((resolve, reject) => {
             const entry: Pending = {
                 type,
