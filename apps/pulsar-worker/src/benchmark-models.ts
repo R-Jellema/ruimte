@@ -223,11 +223,11 @@ export const BENCHMARK_MODELS: readonly BenchmarkSource[] = [
         provider: 'codex',
         legacy: false,
         efforts: [
-            { effort: 'low', id: null, name: null },
-            { effort: 'medium', id: null, name: null },
-            { effort: 'high', id: null, name: null },
-            { effort: 'xhigh', id: null, name: null },
-            { effort: 'max', id: null, name: null }
+            { effort: 'low', id: 'c955b262-a17f-4f1a-b097-6860b866295b', name: 'GPT-6.1 Terra (Low)' },
+            { effort: 'medium', id: 'c441e158-a87d-4116-911b-93325e4b4f1c', name: 'GPT-6.1 Terra (Medium)' },
+            { effort: 'high', id: 'ea3e1f50-f62d-41d2-849a-9af0413e4d37', name: 'GPT-6.1 Terra (High)' },
+            { effort: 'xhigh', id: 'e8d443ba-8aca-4830-a186-ae869bb9c6fe', name: 'GPT-6.1 Terra (Xhigh)' },
+            { effort: 'max', id: 'b0c462cf-f2d0-4126-9434-28db9502219f', name: 'GPT-6.1 Terra (Max)' }
         ]
     },
     {
