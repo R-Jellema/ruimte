@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'bun:test';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { basename, dirname, join, resolve, sep } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import { pathToFileUri } from '@adecore/lsp';
 import { LANGUAGE_ERROR_CODES, type LanguageServerKind } from '@ruimte/contracts';
 import { CodedError } from '@adecore/agents';
@@ -13,7 +13,7 @@ import { NativePolicy, nativeProgramFile, type Download } from './native.ts';
 import { KIND_PROFILES, type ProjectSqlSettings } from './profiles.ts';
 import { FULL_CAPABILITIES, fakeSpawner, ManualClock, settle, type FakeProcess, type FakeSpawner } from './test-fakes.ts';
 import { tarGz } from './test-archives.ts';
-import { versionOf } from './versions.ts';
+import { LANGUAGE_KIND_PACKAGES, pinnedVersionsOf, versionOf, type NpmKind } from './versions.ts';
 import { tempHomes } from '../temp-home-test-helpers.ts';
 
 let root = '';
@@ -111,10 +111,13 @@ function rig(
                 onLine(`Version ${versionOf('typescript')}`);
                 return 0;
             }
-            // An install runs in its own folder, `<kind>/versions/<id>`.
-            const kind = basename(dirname(dirname(spec.cwd))) as LanguageServerKind;
-            installs.push(kind);
-            for (const component of KIND_PROFILES[kind].components) {
+            // A package set installs in a staging folder that names no kind: it stands for every kind that pins these packages, and the first of them is the one the install is counted for.
+            const { dependencies } = JSON.parse(await readFile(join(spec.cwd, 'package.json'), 'utf8')) as { dependencies: Record<string, string> };
+            const kinds = (Object.keys(LANGUAGE_KIND_PACKAGES) as NpmKind[]).filter(
+                (candidate) => JSON.stringify(pinnedVersionsOf(candidate)) === JSON.stringify(dependencies)
+            );
+            installs.push(kinds[0]!);
+            for (const component of kinds.flatMap((kind) => KIND_PROFILES[kind].components)) {
                 const entry = join(spec.cwd, 'node_modules', component.entry);
                 await mkdir(dirname(entry), { recursive: true });
                 await writeFile(entry, '');

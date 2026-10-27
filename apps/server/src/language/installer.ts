@@ -1,5 +1,5 @@
-import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { lstat, mkdir, readdir, readFile, readlink, rename, rm, symlink, unlink, writeFile } from 'node:fs/promises';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { LanguageServerKindSchema, type LanguageServerKind } from '@ruimte/contracts';
 import { fileExists } from '@adecore/agents';
 import { downloadFile, sha256 } from '../artifacts/artifact-fs.ts';
@@ -22,6 +22,7 @@ import {
     type NativeKind,
     type NativePlan
 } from './native.ts';
+import { PackageStore } from './package-store.ts';
 import { KIND_PROFILES } from './profiles.ts';
 import { runCommand, type LanguageRuntime, type RunCommand } from './runtime.ts';
 import {
@@ -84,6 +85,8 @@ interface Marker {
     /* A checkout: the revision it was built at (`CheckoutRevision`). */
     revision?: string;
     installedAt?: number;
+    /* Npm kinds: the id of the shared package set the install links to; none for an install that holds its own packages. */
+    packages?: string;
 }
 
 /* `current.json`: the install a kind runs, and the one before it a person can go back to. */
@@ -148,6 +151,7 @@ export class LanguageInstaller {
     private readonly failures = new Map<LanguageServerKind, string>();
     private readonly logs = new Map<LanguageServerKind, LanguageLog>();
     private readonly native: NativePolicy;
+    private readonly store: PackageStore;
     /* What each kind has installed, as last read, for the answers that cannot wait for the disk. */
     private readonly known = new Map<LanguageServerKind, Installs>();
     /* The revision of the checkout a native kind builds from, as last read. */
@@ -159,10 +163,16 @@ export class LanguageInstaller {
         this.options = options;
         this.run = options.run ?? runCommand;
         this.native = options.native ?? new NativePolicy({ checkouts: {} });
+        this.store = new PackageStore({ root: options.root, runtime: options.runtime, run: this.run, now: this.now });
+    }
+
+    private get now(): () => number {
+        return this.options.now ?? Date.now;
     }
 
     /* Reads what every kind has installed, and looks for the programs the toolchains bring. */
     async load(): Promise<void> {
+        await this.store.recover();
         await Promise.all(LanguageServerKindSchema.options.map((kind) => (isToolchainKind(kind) ? this.detect(kind) : this.refresh(kind))));
     }
 
@@ -322,8 +332,9 @@ export class LanguageInstaller {
         if (selection === null || selection.previous === undefined || previous === null || !(await this.isWhole(kind, previous))) {
             throw new Error('There is no earlier version of this server to go back to');
         }
+        const started = this.now();
         await this.select(kind, { current: selection.previous, previous: selection.current });
-        this.logOf(kind).push('install', `Went back to ${this.versionOf(kind)} from ${this.previousOf(kind) ?? ''}`);
+        this.logOf(kind).push('install', `Went back to ${this.versionOf(kind)} from ${this.previousOf(kind) ?? ''} in ${this.now() - started} ms`);
         this.options.onSwitched?.(kind);
     }
 
@@ -498,6 +509,7 @@ export class LanguageInstaller {
 
     private async perform(kind: LanguageServerKind): Promise<void> {
         const log = this.logOf(kind);
+        const started = this.now();
         this.failures.delete(kind);
         if (isToolchainKind(kind)) {
             const found = await this.detect(kind);
@@ -528,7 +540,7 @@ export class LanguageInstaller {
             }
             if (id !== DEV) {
                 // A folder an earlier attempt left half done is started over; the install the kind runs is never this one.
-                await rm(target, { recursive: true, force: true });
+                await this.removeInstallFolder(target);
             }
             await mkdir(target, { recursive: true });
             if (isNativeKind(kind)) {
@@ -537,7 +549,7 @@ export class LanguageInstaller {
                 await this.performPackages(kind, target, log);
             }
             await this.switchTo(kind, id);
-            log.push('install', 'Installed');
+            log.push('install', `Installed in ${((this.now() - started) / 1000).toFixed(1)} s`);
             this.options.onSwitched?.(kind);
         } catch (error) {
             const message = errorText(error);
@@ -549,6 +561,26 @@ export class LanguageInstaller {
     private async performPackages(kind: NpmKind, target: string, log: LanguageLog): Promise<void> {
         const dependencies = pinnedVersionsOf(kind);
         await writeFile(join(target, 'package.json'), `${JSON.stringify({ name: `ruimte-language-server-${kind}`, private: true, dependencies }, null, 2)}\n`);
+        // Windows does not link folders without a privilege, so there an install holds its own packages.
+        if (process.platform === 'win32') {
+            await this.installOwnPackages(kind, target, dependencies, log);
+            await this.verifyPrograms(kind, target, log);
+            await this.writeMarker(target, { versions: dependencies, version: versionOf(kind) });
+            return;
+        }
+        const entries = KIND_PROFILES[kind].components.map((component) => component.entry);
+        const lease = await this.store.ensure(dependencies, entries, (line) => log.push('install', line));
+        try {
+            // Relative, so the whole language-servers folder can move and a link never points outside it.
+            await symlink(relative(target, join(lease.folder, 'node_modules')), join(target, 'node_modules'), 'dir');
+            await this.verifyPrograms(kind, target, log);
+            await this.writeMarker(target, { versions: dependencies, version: versionOf(kind), packages: lease.setId });
+        } finally {
+            lease.release();
+        }
+    }
+
+    private async installOwnPackages(kind: NpmKind, target: string, dependencies: Record<string, string>, log: LanguageLog): Promise<void> {
         log.push(
             'install',
             `Installing ${Object.entries(dependencies)
@@ -569,8 +601,49 @@ export class LanguageInstaller {
                 throw new Error(`The install did not leave ${entry}`);
             }
         }
-        await this.verifyPrograms(kind, target, log);
-        await this.writeMarker(target, { versions: dependencies, version: versionOf(kind) });
+    }
+
+    /* Removes the folder of an install. Its `node_modules` may be a link to a shared set, which is unlinked first so no removal can follow it into the set. */
+    private async removeInstallFolder(folder: string): Promise<void> {
+        const modules = join(folder, 'node_modules');
+        const stat = await lstat(modules).catch(() => null);
+        if (stat?.isSymbolicLink()) {
+            await unlink(modules);
+        }
+        await rm(folder, { recursive: true, force: true });
+    }
+
+    /* The ids of the package sets the installs on disk link to or name, or null when the disk could not be read in full. */
+    private async referencedSets(): Promise<Set<string> | null> {
+        const used = new Set<string>();
+        try {
+            for (const kind of LanguageServerKindSchema.options) {
+                if (isNativeKind(kind) || isToolchainKind(kind)) {
+                    continue;
+                }
+                const folders = [this.directoryOf(kind)];
+                for (const id of await readdir(join(this.directoryOf(kind), VERSIONS)).catch(ignoreMissing)) {
+                    folders.push(join(this.directoryOf(kind), VERSIONS, id));
+                }
+                for (const folder of folders) {
+                    const link = await readlink(join(folder, 'node_modules')).catch(ignoreNotALink);
+                    if (link !== null) {
+                        // The set is the folder above the `node_modules` the link points at.
+                        const set = dirname(resolve(folder, link));
+                        if (dirname(set) === this.store.directory) {
+                            used.add(basename(set));
+                        }
+                    }
+                    const marker = await this.readMarker(folder);
+                    if (marker?.packages !== undefined) {
+                        used.add(marker.packages);
+                    }
+                }
+            }
+        } catch {
+            return null;
+        }
+        return used;
     }
 
     private async performNative(kind: NativeKind, target: string, log: LanguageLog): Promise<void> {
@@ -624,6 +697,7 @@ export class LanguageInstaller {
         const previous = replaced ? selection?.previous : selection.current;
         await this.select(kind, { current: id, ...(previous === undefined || previous === id ? {} : { previous }) });
         await this.prune(kind);
+        await this.store.collect(() => this.referencedSets());
     }
 
     private async select(kind: LanguageServerKind, selection: Selection): Promise<void> {
@@ -641,7 +715,7 @@ export class LanguageInstaller {
         const versions = join(this.directoryOf(kind), VERSIONS);
         for (const id of await readdir(versions).catch(() => [] as string[])) {
             if (!kept.has(id)) {
-                await rm(join(versions, id), { recursive: true, force: true });
+                await this.removeInstallFolder(join(versions, id));
             }
         }
         if (!kept.has(LEGACY)) {
@@ -672,4 +746,21 @@ export class LanguageInstaller {
             throw new Error(`cargo build exited with code ${code}`);
         }
     }
+}
+
+/* A read of a folder that is not there is an empty folder; any other failure stops the caller. */
+function ignoreMissing(error: unknown): string[] {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return [];
+    }
+    throw error;
+}
+
+/* A `node_modules` that is missing or a real folder is no link; any other failure stops the caller. */
+function ignoreNotALink(error: unknown): null {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'EINVAL') {
+        return null;
+    }
+    throw error;
 }
