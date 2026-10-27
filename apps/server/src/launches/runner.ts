@@ -110,17 +110,6 @@ export function launchSessionIdOf(projectId: string, launchId: string): string {
         .slice(0, 20)}`;
 }
 
-function hostOf(url: string | null): string | null {
-    if (url === null) {
-        return null;
-    }
-    try {
-        return new URL(url).hostname;
-    } catch {
-        return null;
-    }
-}
-
 function isLive(run: Run): boolean {
     return run.state === 'starting' || run.state === 'running';
 }
@@ -187,7 +176,7 @@ export class LaunchRunner {
         return this.runs.has(sessionId) ? sessionId : null;
     }
 
-    async start(projectId: string, launchId: string, options: LaunchStartOptions): Promise<LaunchStartResult> {
+    start(projectId: string, launchId: string, options: LaunchStartOptions): Promise<LaunchStartResult> {
         return this.run(projectId, launchId, options, false);
     }
 
@@ -206,7 +195,7 @@ export class LaunchRunner {
     }
 
     /* Stops what runs of the launch and starts it again; a launch that did not run just starts. */
-    async restart(projectId: string, launchId: string, options: LaunchStartOptions): Promise<LaunchStartResult> {
+    restart(projectId: string, launchId: string, options: LaunchStartOptions): Promise<LaunchStartResult> {
         return this.run(projectId, launchId, options, true);
     }
 
@@ -372,7 +361,7 @@ export class LaunchRunner {
             endedAt: null,
             port: resolved.port,
             url: resolved.url,
-            host: hostOf(resolved.url),
+            host: resolved.url === null ? null : (URL.parse(resolved.url)?.hostname ?? null),
             stopped: false,
             worktree,
             exited,

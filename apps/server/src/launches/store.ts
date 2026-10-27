@@ -43,8 +43,6 @@ import { detectLaunches } from './detect.ts';
 
 const LAUNCHES_FILE = 'launches.json';
 
-// The burst rule of the other project files: git and editors write more than once per save.
-
 type LaunchErrorCode =
     | 'project-not-found'
     | 'launch-not-found'
@@ -168,12 +166,11 @@ function worktreesDigestOf(resolved: Pick<ResolvedLaunch, 'folder' | 'command' |
     if (inside.startsWith('..') || isAbsolute(inside)) {
         return null;
     }
-    return JSON.stringify([
-        'worktrees',
-        resolved.command,
-        inside.split(sep).join('/'),
-        Object.entries(resolved.env).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-    ]);
+    return JSON.stringify(['worktrees', resolved.command, inside.split(sep).join('/'), sortedEnv(resolved.env)]);
+}
+
+function sortedEnv(env: Record<string, string>): [string, string][] {
+    return Object.entries(env).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
 }
 
 /* The digest of a launch that may run in a worktree at all, refused for any other. */
@@ -190,7 +187,7 @@ function worktreesDigestIn(resolved: ResolvedLaunch): string {
 
 /* Everything that decides what runs, approved as one, so a change to any of it asks again. */
 function digestOf(resolved: Pick<ResolvedLaunch, 'command' | 'cwd' | 'env'>): string {
-    return JSON.stringify([resolved.command, resolved.cwd, Object.entries(resolved.env).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))]);
+    return JSON.stringify([resolved.command, resolved.cwd, sortedEnv(resolved.env)]);
 }
 
 /*
@@ -298,26 +295,51 @@ export class LaunchStore {
         const own = launches.filter((entry) => !entry.shared);
         const overlays = Object.fromEntries(shared.filter((entry) => !isEmptyOverlay(entry.overlay)).map((entry) => [entry.id, entry.overlay!]));
         const sharedFile = { version: LAUNCHES_VERSION, ...state.sharedRest, launches: [...shared.map(stripEntry), ...rawOf(state.shared)] };
-        const privateFile = {
-            version: LAUNCHES_VERSION,
-            ...state.privateRest,
-            rev: state.rev + 1,
-            order: launches.map((entry) => entry.id),
-            launches: [...own.map(stripEntry), ...rawOf(state.private)],
-            overlays
-        };
         const sharedText = serialize(sharedFile);
         // A project that never shared a launch gets no file for git to see.
         if (sharedText !== state.sharedText && (state.sharedText !== '' || sharedFile.launches.length > 0)) {
             state.sharedText = await writeJsonDocument(sharedPathIn(state.folder), sharedFile, serialize);
         }
+        state.shared = readLaunchEntries(sharedFile.launches);
+        await this.writePrivate(
+            state,
+            own.map(stripEntry),
+            launches.map((entry) => entry.id),
+            overlays
+        );
+    }
+
+    /* Writes the private file at the next rev, with the entries this release cannot read kept after the given ones. */
+    private async writePrivate(
+        state: LoadedLaunches,
+        own: readonly LaunchConfig[],
+        order: string[],
+        overlays: Record<string, LaunchConfigOverlay>
+    ): Promise<void> {
+        const privateFile = {
+            version: LAUNCHES_VERSION,
+            ...state.privateRest,
+            rev: state.rev + 1,
+            order,
+            launches: [...own, ...rawOf(state.private)],
+            overlays
+        };
         await writeGitignoreIfMissing(join(state.folder, PROJECT_DIR, PROJECT_FILE));
         state.privateText = await writeJsonDocument(privatePathIn(state.folder), privateFile, serialize);
         state.rev = privateFile.rev;
-        state.shared = readLaunchEntries(sharedFile.launches);
         state.private = readLaunchEntries(privateFile.launches);
-        state.order = privateFile.order;
+        state.order = order;
         state.overlays = overlays;
+    }
+
+    private resolvedOne(projectId: string, state: LoadedLaunches, launchId: string): ResolvedLaunch {
+        const found = this.resolvedAll(projectId, state).find((resolved) => resolved.launch.id === launchId);
+
+        if (!found) {
+            throw new LaunchError('launch-not-found', `This project has no launch ${launchId}`);
+        }
+
+        return found;
     }
 
     /*
@@ -346,22 +368,9 @@ export class LaunchStore {
             } else {
                 own = own.map((launch) => (launch.id === launchId ? { ...launch, env: { ...launch.env, [variable]: LAUNCH_SECRET_REFERENCE } } : launch));
             }
-            const privateFile = {
-                version: LAUNCHES_VERSION,
-                ...state.privateRest,
-                rev: state.rev + 1,
-                order: state.order,
-                launches: [...own, ...rawOf(state.private)],
-                overlays
-            };
-            await writeGitignoreIfMissing(join(state.folder, PROJECT_DIR, PROJECT_FILE));
-            state.privateText = await writeJsonDocument(privatePathIn(state.folder), privateFile, serialize);
-            state.rev = privateFile.rev;
-            state.private = readLaunchEntries(privateFile.launches);
-            state.overlays = overlays;
+            await this.writePrivate(state, own, state.order, overlays);
             if (wasApproved) {
-                const bound = this.resolvedAll(projectId, state).find((resolved) => resolved.launch.id === launchId)!;
-                await this.approvals.approve(state.folder, approvalKeyOf(launchId), digestOf(bound));
+                await this.approvals.approve(state.folder, approvalKeyOf(launchId), digestOf(this.resolvedOne(projectId, state, launchId)));
             }
             this.emitChanged(projectId, state);
         });
@@ -392,11 +401,7 @@ export class LaunchStore {
             }
             const state = await this.load(projectId);
             if (launchId !== null) {
-                const resolved = this.resolvedAll(projectId, state).find((candidate) => candidate.launch.id === launchId);
-                if (!resolved) {
-                    throw new LaunchError('launch-not-found', `This project has no launch ${launchId}`);
-                }
-                await this.approvals.approve(state.folder, worktreesKeyOf(launchId), worktreesDigestIn(resolved));
+                await this.approvals.approve(state.folder, worktreesKeyOf(launchId), worktreesDigestIn(this.resolvedOne(projectId, state, launchId)));
             }
             await this.afterSettle.choose(projectId, launchId);
             this.emitChanged(projectId, state);
@@ -407,10 +412,7 @@ export class LaunchStore {
     inWorktree(projectId: string, launchId: string, worktreeFolder: string): Promise<ResolvedLaunch> {
         return this.writes.run(async () => {
             const state = await this.load(projectId);
-            const resolved = this.resolvedAll(projectId, state).find((candidate) => candidate.launch.id === launchId);
-            if (!resolved) {
-                throw new LaunchError('launch-not-found', `This project has no launch ${launchId}`);
-            }
+            const resolved = this.resolvedOne(projectId, state, launchId);
             const digest = worktreesDigestIn(resolved);
             return {
                 ...resolved,
@@ -439,13 +441,8 @@ export class LaunchStore {
         );
     }
 
-    async resolve(projectId: string, launchId: string): Promise<ResolvedLaunch> {
-        const all = await this.resolveAll(projectId);
-        const found = all.find((resolved) => resolved.launch.id === launchId);
-        if (!found) {
-            throw new LaunchError('launch-not-found', `This project has no launch ${launchId}`);
-        }
-        return found;
+    resolve(projectId: string, launchId: string): Promise<ResolvedLaunch> {
+        return this.writes.run(async () => this.resolvedOne(projectId, await this.load(projectId), launchId));
     }
 
     /* Stops watching a project the last client closed; the next read loads it again. */

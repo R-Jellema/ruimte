@@ -4,6 +4,7 @@ import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import type { LaunchConfig, LaunchConfigEnv, LaunchConfigKind, LaunchSuggestion } from '@ruimte/contracts';
 import { fileExists } from '@adecore/agents';
 import { isInside } from '../canvas/project-paths.ts';
+import { isRecord } from '../is-record.ts';
 import { readVscodeLaunch } from './vscode.ts';
 
 /*
@@ -310,13 +311,13 @@ function readRunFile(text: string, context: RunFileContext): Built[] {
                 return read(configuration, context);
             }
             const described = configuration.attributes.factoryName ?? type;
-            return {
-                launch: { id: '', name: configuration.attributes.name ?? described, kind: 'task' },
-                detail: described,
-                outside: false,
-                unsupported: described
-            };
+            return unsupported(configuration.attributes.name ?? described, described, described);
         });
+}
+
+/* A configuration the import cannot read, offered by name with the reason. */
+export function unsupported(name: string, detail: string, reason: string): Built {
+    return { launch: { id: '', name, kind: 'task' }, detail, outside: false, unsupported: reason };
 }
 
 /* A path relative to the project folder with forward slashes, the form a project file holds on every machine. */
@@ -360,7 +361,7 @@ function scriptAddress(script: string): string | undefined {
 async function readJson(path: string): Promise<Record<string, unknown> | null> {
     try {
         const value: unknown = JSON.parse(await readFile(path, 'utf8'));
-        return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null;
+        return isRecord(value) ? value : null;
     } catch {
         return null;
     }

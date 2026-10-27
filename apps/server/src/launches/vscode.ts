@@ -3,8 +3,7 @@ import { isAbsolute, relative, resolve } from 'node:path';
 import type { LaunchConfigEnv } from '@ruimte/contracts';
 import { isInside } from '../canvas/project-paths.ts';
 import { isRecord } from '../is-record.ts';
-import { kindOfScript, portable, shellQuote, type Built } from './detect.ts';
-import { parseJsonc } from './jsonc.ts';
+import { kindOfScript, portable, shellQuote, unsupported, type Built } from './detect.ts';
 
 /*
  * The node launch configurations of a `.vscode/launch.json`. Only what a launch can say is read: a
@@ -18,8 +17,6 @@ const VARIABLE = /\$\{[^}]*\}/g;
 const SCRIPT_RUNNERS = new Set(['run', 'run-script']);
 
 class Unsupported extends Error {}
-
-type Record_ = Record<string, unknown>;
 
 /* Resolves the variables a launch may use; any other one makes the whole configuration unsupported. */
 class Variables {
@@ -89,7 +86,7 @@ function scriptOf(runtimeArgs: readonly string[]): string | undefined {
     return at === -1 ? undefined : runtimeArgs[at + 1];
 }
 
-function build(configuration: Record_, name: string, root: string, folder: string): Built {
+function build(configuration: Record<string, unknown>, name: string, root: string, folder: string): Built {
     const type = String(configuration.type);
     if (!NODE_TYPES.has(type)) {
         throw new Unsupported(type);
@@ -159,8 +156,13 @@ function build(configuration: Record_, name: string, root: string, folder: strin
     };
 }
 
-function unsupported(name: string, detail: string, reason: string): Built {
-    return { launch: { id: '', name, kind: 'task' }, detail, outside: false, unsupported: reason };
+/* A `launch.json` is JSON with comments and trailing commas. */
+function parseJsonc(text: string): unknown {
+    try {
+        return Bun.JSONC.parse(text);
+    } catch {
+        return null;
+    }
 }
 
 /* Every configuration and compound in one launch.json; one this import cannot read comes back with the reason. */
