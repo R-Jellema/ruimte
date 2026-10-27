@@ -155,7 +155,6 @@ export async function startDaemon(config: ServerConfig, launcher: Launcher = 'st
     sessions.observe((event) => work.tasks.terminals.sessionEvent(event));
     chats.observe((event) => push.consume(event));
     processes.processes.observeAlerts((alerts) => push.processAlerts(alerts));
-    // Its tools run through the host the agents' verbs reach.
     const voice = wireVoice({ config, projects: projects.store, machine: identity, canvasHost, chats });
     const power = wirePower(home, identity, agents);
     sessions.observe((event) => computer.observe(event));

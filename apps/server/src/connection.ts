@@ -115,6 +115,60 @@ export interface OpenConnection {
     receive(message: string | Uint8Array): void;
 }
 
+function subscribeClient(services: ConnectionServices, client: ClientConnection, access: ClientAccess, sink: LiveSink, gate: OutputGate): Array<() => void> {
+    const { presence, sessions } = services;
+    const sources: Array<Subscribable | LiveAttachable | undefined> = [
+        services.chats,
+        services.browsers,
+        services.browserPages,
+        services.devices,
+        services.deviceControl,
+        services.identity,
+        services.updates,
+        services.projects,
+        services.drawings,
+        services.diagrams,
+        services.launchStore,
+        services.launches,
+        services.databaseConnections,
+        services.databaseAgents,
+        services.language,
+        services.sqlAnalysis,
+        services.folders,
+        services.statuses,
+        services.usage,
+        services.limits,
+        services.providerAccounts,
+        services.providerList,
+        services.processes,
+        services.tasks,
+        services.worktrees,
+        services.plans,
+        services.provenance,
+        services.computer,
+        services.secrets,
+        services.proposals,
+        services.snoozes,
+        services.prWatches,
+        services.peers,
+        services.remote,
+        services.voicePreferences,
+        services.artifacts,
+        services.routines
+    ];
+    const none = (): void => undefined;
+
+    return [
+        presence?.connected(access.sessionId) ?? none,
+        () => presence?.reportPresence?.(client.id, false),
+        presence?.observeAttention?.((entry) => sendEvent(client, 'push.attention', entry)) ?? none,
+        presence?.observeNotification?.((alert) => sendEvent(client, 'push.notification', alert)) ?? none,
+        sessions.subscribe(client.id, sink),
+        sessions.observeScreens?.(client.id, (sessionId) => gate.screenTaken(sessionId)) ?? none,
+        ...sources.map((source) => source?.subscribe(client.id, sink) ?? none)
+    ];
+}
+
 /*
  * Makes a client of every channel that is handed to it: its id, its output gate and every
  * subscription, torn down again when the channel closes. The ids count up per opener, which is one
@@ -160,54 +214,7 @@ export function connectionOpener(services: ConnectionServices): (channel: Client
             sendEvent(client, event.event, event.payload);
         };
         // Events carry what other clients are doing here; another machine asks for what it needs and hears nothing else.
-        const unsubscribes =
-            access.peer !== undefined
-                ? []
-                : [
-                      services.presence?.connected(access.sessionId) ?? (() => undefined),
-                      () => services.presence?.reportPresence?.(clientId, false),
-                      services.presence?.observeAttention?.((entry) => sendEvent(client, 'push.attention', entry)) ?? (() => undefined),
-                      services.presence?.observeNotification?.((alert) => sendEvent(client, 'push.notification', alert)) ?? (() => undefined),
-                      services.sessions.subscribe(clientId, sink),
-                      services.sessions.observeScreens?.(clientId, (sessionId) => gate.screenTaken(sessionId)) ?? (() => undefined),
-                      services.chats.subscribe(clientId, sink),
-                      services.browsers?.subscribe(clientId, sink) ?? (() => undefined),
-                      services.browserPages?.subscribe(clientId, sink) ?? (() => undefined),
-                      services.devices?.subscribe(clientId, sink) ?? (() => undefined),
-                      services.deviceControl?.subscribe(clientId, sink) ?? (() => undefined),
-                      services.identity.subscribe(clientId, sink),
-                      services.updates?.subscribe(clientId, sink) ?? (() => undefined),
-                      services.projects.subscribe(clientId, sink),
-                      services.drawings.subscribe(clientId, sink),
-                      services.diagrams.subscribe(clientId, sink),
-                      services.launchStore?.subscribe(clientId, sink) ?? (() => undefined),
-                      services.launches?.subscribe(clientId, sink) ?? (() => undefined),
-                      services.databaseConnections?.subscribe(clientId, sink) ?? (() => undefined),
-                      services.databaseAgents?.subscribe(clientId, sink) ?? (() => undefined),
-                      services.language?.subscribe(clientId, sink) ?? (() => undefined),
-                      services.sqlAnalysis?.subscribe(clientId, sink) ?? (() => undefined),
-                      services.folders.subscribe(clientId, sink),
-                      services.statuses.subscribe(clientId, sink),
-                      services.usage.subscribe(clientId, sink),
-                      services.limits.subscribe(clientId, sink),
-                      services.providerAccounts?.subscribe(clientId, sink) ?? (() => undefined),
-                      services.providerList?.subscribe(clientId, sink) ?? (() => undefined),
-                      services.processes.subscribe(clientId, sink),
-                      services.tasks?.subscribe(clientId, sink) ?? (() => undefined),
-                      services.worktrees?.subscribe(clientId, sink) ?? (() => undefined),
-                      services.plans?.subscribe(clientId, sink) ?? (() => undefined),
-                      services.provenance?.subscribe(clientId, sink) ?? (() => undefined),
-                      services.computer?.subscribe(clientId, sink) ?? (() => undefined),
-                      services.secrets?.subscribe(clientId, sink) ?? (() => undefined),
-                      services.proposals?.subscribe(clientId, sink) ?? (() => undefined),
-                      services.snoozes?.subscribe(clientId, sink) ?? (() => undefined),
-                      services.prWatches?.subscribe(clientId, sink) ?? (() => undefined),
-                      services.peers?.subscribe(clientId, sink) ?? (() => undefined),
-                      services.remote?.subscribe(clientId, sink) ?? (() => undefined),
-                      services.voicePreferences?.subscribe(clientId, sink) ?? (() => undefined),
-                      services.artifacts?.subscribe(clientId, sink) ?? (() => undefined),
-                      services.routines?.subscribe(clientId, sink) ?? (() => undefined)
-                  ];
+        const unsubscribes = access.peer !== undefined ? [] : subscribeClient(services, client, access, sink, gate);
 
         channel.onDrain(() => {
             if (!closed) {
@@ -220,13 +227,17 @@ export function connectionOpener(services: ConnectionServices): (channel: Client
             }
             closed = true;
             // The sessions keep running; only this client's view of them goes.
-            services.sessions.detachAll(clientId);
-            services.chats.detachAll(clientId);
-            services.browsers?.detachAll(clientId);
-            services.browserPages?.detachAll(clientId);
-            services.devices?.detachAll(clientId);
-            services.folders.detachAll(clientId);
-            services.statuses.detachAll(clientId);
+            for (const source of [
+                services.sessions,
+                services.chats,
+                services.browsers,
+                services.browserPages,
+                services.devices,
+                services.folders,
+                services.statuses
+            ]) {
+                source?.detachAll(clientId);
+            }
             if (access.peer !== undefined) {
                 services.peerTasks?.channelClosed(clientId);
             } else {

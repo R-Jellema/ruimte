@@ -1,10 +1,8 @@
 import { readFile } from 'node:fs/promises';
 
 /*
- * What the hardware this daemon runs on is called, in the words a person would use for it: "MacBook
- * Pro", "Mac mini", "XPS 15 9500", "Raspberry Pi 4 Model B". The client puts it in the row for the
- * machine you are on ("This MacBook Pro"), which falls back to "This machine", so every reader here
- * may answer null and none of them may throw: a model nobody can read is not a failure.
+ * The hardware's name in a person's words ("MacBook Pro", "XPS 15 9500"), for the client's "This
+ * MacBook Pro". The client falls back to "This machine", so every reader here answers null and never throws.
  */
 
 /* Firmware fills these in when the board maker left the field empty; they are worse than nothing. */
@@ -38,11 +36,7 @@ function usable(value: string | null | undefined): string | null {
     return text;
 }
 
-/*
- * Apple's marketing name, as macOS reports it in the device tree: "MacBook Pro (16-inch, Nov 2024)".
- * The parenthetical is the exact configuration, which nobody calls their laptop, so the family is
- * what is left in front of it.
- */
+/* "MacBook Pro (16-inch, Nov 2024)" from the device tree; nobody calls their laptop by the parenthetical. */
 export function familyFromProductName(raw: string): string | null {
     return usable(raw.split(' (')[0] ?? '');
 }
@@ -61,9 +55,8 @@ const APPLE_FAMILIES: [string, string][] = [
 ];
 
 /*
- * The family behind a `hw.model` identifier such as "MacBookPro18,3". Only Intel Macs name their
- * family there; every Apple Silicon Mac answers "Mac16,5", which says nothing a person would use,
- * so this returns null for those and the device tree above is what covers them.
+ * The family behind a `hw.model` identifier such as "MacBookPro18,3". Only Intel Macs name it there;
+ * Apple Silicon answers "Mac16,5", so those get null and the device tree covers them.
  */
 export function familyFromAppleIdentifier(raw: string): string | null {
     const identifier = usable(raw);

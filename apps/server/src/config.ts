@@ -4,6 +4,13 @@ import { parseArgs } from 'node:util';
 import { DEFAULT_STUN_SERVER, brokerUrlProblem, type BrokerOverride } from '@ruimte/pulsar';
 import { RUIMTE_SESSION_VARIABLES } from '@adecore/agents/host';
 
+const COMMANDS = ['serve', 'login', 'logout', 'status', 'context', 'service', 'closed-lid', 'notify', 'voice', 'version'] as const;
+type Command = (typeof COMMANDS)[number];
+
+function isCommand(value: string): value is Command {
+    return (COMMANDS as readonly string[]).includes(value);
+}
+
 export interface ServerConfig {
     host: string;
     port: number;
@@ -35,7 +42,7 @@ export interface ServerConfig {
     // `login` puts it on an account with a code; `status` says how the running daemon is reached; `context` is the agent-side CLI (`ruimte-context`);
     // `service` installs, removes or reports the background service; `closed-lid` installs or removes the sudoers rule behind keep awake
     // with the lid closed; `notify` raises a notification; `voice` sets the key of Voice run by the daemon; `version` prints the version.
-    command: 'serve' | 'login' | 'logout' | 'status' | 'context' | 'service' | 'closed-lid' | 'notify' | 'voice' | 'version';
+    command: Command;
     // What follows the command: the words of `context` and `notify`, and the action of `service` followed by the daemon flags its service runs with.
     args: string[];
     // `notify --node`: the node the notification opens.
@@ -136,18 +143,7 @@ export function parseServerArgs(argv: string[], env: Record<string, string | und
         allowPositionals: true
     });
     const command = values.version ? 'version' : (positionals[0] ?? 'serve');
-    if (
-        command !== 'serve' &&
-        command !== 'login' &&
-        command !== 'logout' &&
-        command !== 'status' &&
-        command !== 'context' &&
-        command !== 'service' &&
-        command !== 'closed-lid' &&
-        command !== 'notify' &&
-        command !== 'voice' &&
-        command !== 'version'
-    ) {
+    if (!isCommand(command)) {
         throw new Error(`Unknown command: ${command}`);
     }
     // The flags after `service install` are the ones the service runs the daemon with, so they are kept as written.

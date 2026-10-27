@@ -83,7 +83,7 @@ class FakeSource {
 
 const NAMES = ['sessions', 'chats', 'identity', 'projects', 'drawings', 'diagrams', 'folders', 'statuses', 'usage', 'limits', 'processes'] as const;
 
-function setup(screens: Record<string, string> = {}, presence?: ConnectionServices['presence']) {
+function setup(screens: Record<string, string> = {}, extra: Partial<ConnectionServices> = {}) {
     const order: string[] = [];
     const sources = Object.fromEntries(NAMES.map((name) => [name, new FakeSource(name, order)])) as Record<(typeof NAMES)[number], FakeSource>;
     const dispatcher = new Dispatcher();
@@ -97,7 +97,7 @@ function setup(screens: Record<string, string> = {}, presence?: ConnectionServic
                   }
                 : undefined
     });
-    const services: ConnectionServices = { ...sources, sessions, dispatcher, presence };
+    const services: ConnectionServices = { ...sources, sessions, dispatcher, ...extra };
     return { open: connectionOpener(services), sources, order };
 }
 
@@ -130,15 +130,7 @@ describe('connectionOpener', () => {
 
     test('tells the tasks of another machine when its channel closes, and nothing when any other channel does', () => {
         const closed: string[] = [];
-        const order: string[] = [];
-        const sources = Object.fromEntries(NAMES.map((name) => [name, new FakeSource(name, order)])) as Record<(typeof NAMES)[number], FakeSource>;
-        const sessions = Object.assign(sources.sessions, { get: () => undefined });
-        const open = connectionOpener({
-            ...sources,
-            sessions,
-            dispatcher: new Dispatcher(),
-            peerTasks: { channelClosed: (clientId) => void closed.push(clientId) }
-        });
+        const { open } = setup({}, { peerTasks: { channelClosed: (clientId) => void closed.push(clientId) } });
         const peerChannel = new FakeChannel();
         const peer = open(peerChannel, { reachability: 'lan', sessionId: 'peer-1', peer: { machineId: 'machine-a' } });
         const personChannel = new FakeChannel();
@@ -152,15 +144,7 @@ describe('connectionOpener', () => {
 
     test("ends the Voice sessions of a person's channel when it closes, once", () => {
         const ended: string[] = [];
-        const order: string[] = [];
-        const sources = Object.fromEntries(NAMES.map((name) => [name, new FakeSource(name, order)])) as Record<(typeof NAMES)[number], FakeSource>;
-        const sessions = Object.assign(sources.sessions, { get: () => undefined });
-        const open = connectionOpener({
-            ...sources,
-            sessions,
-            dispatcher: new Dispatcher(),
-            voice: { channelClosed: (clientId) => void ended.push(clientId) }
-        });
+        const { open } = setup({}, { voice: { channelClosed: (clientId) => void ended.push(clientId) } });
         const personChannel = new FakeChannel();
         const person = open(personChannel, { reachability: 'loopback', sessionId: null });
         const peerChannel = new FakeChannel();
@@ -194,7 +178,6 @@ describe('connectionOpener', () => {
     });
 
     test('sends a live frame from a device as one binary frame, and its JSON twin as an event', () => {
-        const { sources } = setup();
         let deviceSink: LiveSink | null = null;
         const devices = {
             subscribe: (_clientId: string, sink: LiveSink) => {
@@ -205,10 +188,7 @@ describe('connectionOpener', () => {
             requestKeyFrame: () => undefined
         };
         const channel = new FakeChannel();
-        connectionOpener({ ...sources, sessions: Object.assign(sources.sessions, { get: () => undefined }), dispatcher: new Dispatcher(), devices })(channel, {
-            reachability: 'loopback',
-            sessionId: null
-        });
+        setup({}, { devices }).open(channel, { reachability: 'loopback', sessionId: null });
         const header = { deviceId: 'phone-1', backendId: 'simctl', platform: 'ios' as const, sequence: 1, width: 2, height: 3 };
         const live: LiveFrame = { event: 'device.frame', payload: header, bytes: new Uint8Array([9]) };
 
@@ -245,18 +225,16 @@ describe('connectionOpener', () => {
 
     test('releases the database sessions of a client once when its channel closes', () => {
         const released: string[] = [];
-        const order: string[] = [];
-        const sources = Object.fromEntries(NAMES.map((name) => [name, new FakeSource(name, order)])) as Record<(typeof NAMES)[number], FakeSource>;
-        const open = connectionOpener({
-            ...sources,
-            sessions: Object.assign(sources.sessions, { get: () => undefined }),
-            dispatcher: new Dispatcher(),
-            databases: {
-                release: async (clientId) => {
-                    released.push(clientId);
+        const { open } = setup(
+            {},
+            {
+                databases: {
+                    release: async (clientId) => {
+                        released.push(clientId);
+                    }
                 }
             }
-        });
+        );
         const channel = new FakeChannel();
         open(channel, { reachability: 'loopback', sessionId: null });
 
@@ -291,12 +269,14 @@ test('requested notifications travel over the connection and unsubscribe on clos
     const { open } = setup(
         {},
         {
-            connected: () => () => undefined,
-            observeNotification: (listener) => {
-                listeners.add(listener);
-                return () => {
-                    listeners.delete(listener);
-                };
+            presence: {
+                connected: () => () => undefined,
+                observeNotification: (listener) => {
+                    listeners.add(listener);
+                    return () => {
+                        listeners.delete(listener);
+                    };
+                }
             }
         }
     );

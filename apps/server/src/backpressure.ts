@@ -54,12 +54,9 @@ interface OutputGateOptions {
     share?: OutputShare;
 }
 
-/* The session a frame streams output for, or null for every other frame; only output is gated. */
-function outputSessionId(frame: ServerFrame): string | null {
-    if (!('event' in frame) || frame.event !== 'session.output') {
-        return null;
-    }
-    return (frame.payload as SessionOutputEvent).sessionId;
+/* Only output is gated. */
+function outputOf(frame: ServerFrame): SessionOutputEvent | null {
+    return 'event' in frame && frame.event === 'session.output' ? (frame.payload as SessionOutputEvent) : null;
 }
 
 function deviceFrameOf(frame: ServerFrame): DeviceFrame | null {
@@ -148,13 +145,14 @@ export class OutputGate {
             this.paused = true;
             return;
         }
-        const sessionId = outputSessionId(frame);
+        const output = outputOf(frame);
+        const sessionId = output?.sessionId ?? null;
         if (sessionId !== null && (this.paused || this.stale.has(sessionId))) {
             this.markStale(sessionId);
             return;
         }
-        if (this.share !== null && sessionId !== null) {
-            this.enqueueOutput(sessionId, ((frame as { payload: unknown }).payload as SessionOutputEvent).data, this.share);
+        if (this.share !== null && output !== null) {
+            this.enqueueOutput(output.sessionId, output.data, this.share);
             this.pump();
             return;
         }

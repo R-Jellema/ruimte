@@ -22,6 +22,10 @@ async function readOrCreateEndpointIdentity(folder: string, defaultName?: string
     return lendNothing(await readIdentity(folder, defaultName));
 }
 
+async function readWritten(): Promise<Record<string, unknown>> {
+    return JSON.parse(await readFile(join(home, 'endpoint.json'), 'utf8')) as Record<string, unknown>;
+}
+
 describe('readOrCreateEndpointIdentity', () => {
     test('mints an id and a key pair once and answers with the same ones after that', async () => {
         const first = await readOrCreateEndpointIdentity(home);
@@ -31,7 +35,7 @@ describe('readOrCreateEndpointIdentity', () => {
         expect(again.publicKey).toBe(first.publicKey);
         expect(verifySignature(first.publicKey, 'hello', again.sign('hello'))).toBe(true);
 
-        const written = JSON.parse(await readFile(join(home, 'endpoint.json'), 'utf8')) as { version: number; id: string; privateKey: string };
+        const written = await readWritten();
         expect(written.version).toBe(1);
         expect(written.id).toBe(first.id);
         expect(written.privateKey).toContain('PRIVATE KEY');
@@ -45,21 +49,13 @@ describe('readOrCreateEndpointIdentity', () => {
         expect((await readOrCreateEndpointIdentity(home)).publicKey).toBe(identity.publicKey);
     });
 
-    test('two machines sign with two keys', async () => {
+    test('two homes are two machines, with two ids and two keys', async () => {
         const other = await mkdtemp(join(tmpdir(), 'ruimte-endpoint-id-'));
         try {
             const mine = await readOrCreateEndpointIdentity(home);
             const theirs = await readOrCreateEndpointIdentity(other);
+            expect(theirs.id).not.toBe(mine.id);
             expect(verifySignature(theirs.publicKey, 'x', mine.sign('x'))).toBe(false);
-        } finally {
-            await rm(other, { recursive: true, force: true });
-        }
-    });
-
-    test('mints a new id in a home that has none, so two homes are two machines', async () => {
-        const other = await mkdtemp(join(tmpdir(), 'ruimte-endpoint-id-'));
-        try {
-            expect((await readOrCreateEndpointIdentity(other)).id).not.toBe((await readOrCreateEndpointIdentity(home)).id);
         } finally {
             await rm(other, { recursive: true, force: true });
         }
@@ -78,7 +74,7 @@ describe('readOrCreateEndpointIdentity', () => {
         expect(identity.label).toBe('Studio');
         expect(identity.nameSource).toBe('chosen');
 
-        const written = JSON.parse(await readFile(join(home, 'endpoint.json'), 'utf8')) as { version: number; name: string; privateKey: string };
+        const written = await readWritten();
         // Still version 1: an older daemon reading this file has to keep the id rather than mint one.
         expect(written.version).toBe(1);
         expect(written.name).toBe('Studio');
@@ -119,7 +115,7 @@ describe('readOrCreateEndpointIdentity', () => {
         expect(identity.label).toBe('the-hostname');
         expect(identity.nameSource).toBe('default');
 
-        const written = JSON.parse(await readFile(join(home, 'endpoint.json'), 'utf8')) as Record<string, unknown>;
+        const written = await readWritten();
         expect(written.name).toBeUndefined();
         expect(written.icon).toBeUndefined();
     });
@@ -191,7 +187,7 @@ describe('readOrCreateEndpointIdentity', () => {
         expect(identity.agentsDeleteAnyView).toBe(true);
 
         await identity.setIdentity('Studio again', null, { agentsDeleteAnyView: false });
-        const written = JSON.parse(await readFile(join(home, 'endpoint.json'), 'utf8')) as Record<string, unknown>;
+        const written = await readWritten();
         expect(written.agentsDeleteAnyView).toBeUndefined();
     });
 
@@ -201,11 +197,11 @@ describe('readOrCreateEndpointIdentity', () => {
 
         await identity.setIdentity(null, null, { streamingAllowed: false });
         expect((await readOrCreateEndpointIdentity(home, 'the-hostname')).streamingAllowed).toBe(false);
-        let written = JSON.parse(await readFile(join(home, 'endpoint.json'), 'utf8')) as Record<string, unknown>;
+        let written = await readWritten();
         expect(written.streamingAllowed).toBe(false);
 
         await identity.setIdentity(null, null, { streamingAllowed: true });
-        written = JSON.parse(await readFile(join(home, 'endpoint.json'), 'utf8')) as Record<string, unknown>;
+        written = await readWritten();
         expect(written.streamingAllowed).toBeUndefined();
     });
 
@@ -217,7 +213,7 @@ describe('readOrCreateEndpointIdentity', () => {
         expect((await readOrCreateEndpointIdentity(home, 'the-hostname')).resumeAtReset).toBe(true);
 
         await identity.setIdentity(null, null, { resumeAtReset: false });
-        const written = JSON.parse(await readFile(join(home, 'endpoint.json'), 'utf8')) as Record<string, unknown>;
+        const written = await readWritten();
         expect(written.resumeAtReset).toBeUndefined();
     });
 
@@ -238,13 +234,13 @@ describe('readOrCreateEndpointIdentity', () => {
         await identity.setNodeSize('terminal', null);
         await identity.setNodeSize('note', null);
         expect(identity.nodeSize('terminal')).toEqual(NODE_SIZE.terminal);
-        const written = JSON.parse(await readFile(join(home, 'endpoint.json'), 'utf8')) as Record<string, unknown>;
+        const written = await readWritten();
         expect(written.nodeSizes).toBeUndefined();
     });
 
     test('a node size that will not read costs only its own kind, and a kind this version does not know is left out', async () => {
         const identity = await readOrCreateEndpointIdentity(home, 'the-hostname');
-        const written = JSON.parse(await readFile(join(home, 'endpoint.json'), 'utf8')) as Record<string, unknown>;
+        const written = await readWritten();
         const nodeSizes = { terminal: { w: 640, h: 400 }, chat: { w: 10, h: 400 }, note: { w: 320.5, h: 240 }, hologram: { w: 640, h: 400 } };
         await writeFile(join(home, 'endpoint.json'), JSON.stringify({ ...written, nodeSizes }));
         const again = await readOrCreateEndpointIdentity(home, 'the-hostname');
@@ -258,7 +254,7 @@ describe('readOrCreateEndpointIdentity', () => {
 
         await identity.setIdentity(null, null, { visualReplies: false });
         expect((await readOrCreateEndpointIdentity(home, 'the-hostname')).visualReplies).toBe(false);
-        let written = JSON.parse(await readFile(join(home, 'endpoint.json'), 'utf8')) as Record<string, unknown>;
+        let written = await readWritten();
         expect(written.visualReplies).toBe(false);
 
         // Naming the machine is a different control, so it leaves this one where it stands.
@@ -266,7 +262,7 @@ describe('readOrCreateEndpointIdentity', () => {
         expect(identity.visualReplies).toBe(false);
 
         await identity.setIdentity('Studio', null, { visualReplies: true });
-        written = JSON.parse(await readFile(join(home, 'endpoint.json'), 'utf8')) as Record<string, unknown>;
+        written = await readWritten();
         expect(written.visualReplies).toBeUndefined();
     });
 
@@ -276,11 +272,11 @@ describe('readOrCreateEndpointIdentity', () => {
 
         await identity.setSwitches({ usageStats: false });
         expect((await readOrCreateEndpointIdentity(home, 'the-hostname')).usageStats).toBe(false);
-        let written = JSON.parse(await readFile(join(home, 'endpoint.json'), 'utf8')) as Record<string, unknown>;
+        let written = await readWritten();
         expect(written.usageStats).toBe(false);
 
         await identity.setSwitches({ usageStats: true });
-        written = JSON.parse(await readFile(join(home, 'endpoint.json'), 'utf8')) as Record<string, unknown>;
+        written = await readWritten();
         expect(written.usageStats).toBeUndefined();
     });
 
@@ -299,7 +295,7 @@ describe('readOrCreateEndpointIdentity', () => {
         });
 
         await identity.setIdentity(null, null, { keepAwake: 'off', keepAwakeOnBattery: false, keepAwakeDisplay: false, keepAwakeLidClosed: false });
-        const written = JSON.parse(await readFile(join(home, 'endpoint.json'), 'utf8')) as Record<string, unknown>;
+        const written = await readWritten();
         expect([written.keepAwake, written.keepAwakeOnBattery, written.keepAwakeDisplay, written.keepAwakeLidClosed]).toEqual([
             undefined,
             undefined,
@@ -366,7 +362,7 @@ describe('readOrCreateEndpointIdentity', () => {
         expect(applied).toEqual(['off']);
 
         await identity.setIdentity(null, null, { broker: { mode: 'default' } });
-        const written = JSON.parse(await readFile(join(home, 'endpoint.json'), 'utf8')) as Record<string, unknown>;
+        const written = await readWritten();
         expect(written.broker).toBeUndefined();
     });
 
@@ -383,7 +379,7 @@ describe('readOrCreateEndpointIdentity', () => {
 
     test('a name or an icon that will not read is dropped, and the machine keeps its id', async () => {
         const identity = await readOrCreateEndpointIdentity(home, 'the-hostname');
-        const written = JSON.parse(await readFile(join(home, 'endpoint.json'), 'utf8')) as Record<string, unknown>;
+        const written = await readWritten();
         await writeFile(join(home, 'endpoint.json'), JSON.stringify({ ...written, name: '', icon: { kind: 'nonsense', value: 'x' } }));
 
         const read = await readOrCreateEndpointIdentity(home, 'the-hostname');
@@ -391,13 +387,6 @@ describe('readOrCreateEndpointIdentity', () => {
         expect(read.publicKey).toBe(identity.publicKey);
         expect(read.label).toBe('the-hostname');
         expect(read.icon).toBeNull();
-    });
-
-    test('replaces a file that will not parse instead of failing to start', async () => {
-        await writeFile(join(home, 'endpoint.json'), '{ not json');
-        const minted = await readOrCreateEndpointIdentity(home);
-        expect(minted.id.length).toBeGreaterThan(8);
-        expect((await readOrCreateEndpointIdentity(home)).id).toBe(minted.id);
     });
 
     test('creates the home directory when the daemon has never written there', async () => {

@@ -20,7 +20,7 @@ import { BrokerSettingSchema, type BrokerSetting } from '@ruimte/pulsar';
 import { z } from 'zod';
 import { generateKeyPair, signMessage } from './auth/keys.ts';
 import { isNotFound, writeAtomic } from '@adecore/agents';
-import type { SessionEvent, SessionSink } from './sessions/manager.ts';
+import type { SessionSink } from './sessions/manager.ts';
 import { ClientSinks } from './client-sinks.ts';
 import { Binding } from './binding.ts';
 
@@ -33,46 +33,39 @@ const FileSchema = z.object({
     id: z.string().min(1),
     publicKey: z.string().min(1).optional(),
     privateKey: z.string().min(1).optional(),
-    /* What a person called this machine from a client; absent while it still answers to its default.
-       Both are dropped rather than refused when they will not read: an id and a key pair every
-       client pairs on are worth more than a name, which a person can simply type again. */
+    /* Absent while the machine answers to its default. A name or icon that will not read is dropped
+       rather than refused: the id and key pair every client pinned are worth more than a name. */
     name: z.string().min(1).optional().catch(undefined),
     icon: ProjectIconChoiceSchema.optional().catch(undefined),
-    /* Whether an agent's `view delete` may remove any view of a project on this machine instead of
-       only the ones it made. It is here rather than in a client's settings because the daemon is
-       what enforces it, and a client setting would hold nothing back. Absent is off. */
+    /* Whether an agent's `view delete` may remove any view here, not only the ones it made. A machine
+       setting because the daemon enforces it. Absent is off. */
     agentsDeleteAnyView: z.boolean().optional().catch(undefined),
-    /* Whether clients may stream browser pages and, later, device screens from this daemon. Absent
-       is on so existing machines keep the behavior they had before this switch existed. */
+    /* Whether clients may stream browser pages and device screens. Absent is on. */
     streamingAllowed: z.boolean().optional().catch(undefined),
-    /* Whether a chat that stopped on a limit may be taken up again on a clock, at the reset or after an
-       overload, when its own switch lets it. The daemon keeps that clock, so the switch is the machine's.
-       Absent is off. */
+    /* Whether a chat stopped on a limit may resume on a clock when its own switch lets it. The daemon
+       keeps that clock, so the switch is the machine's. Absent is off. */
     resumeAtReset: z.boolean().optional().catch(undefined),
-    /* Whether an agent in an AI chat may show a page above its reply. Absent is on: a page says more
-       than prose for a chart or a table, so a machine shows them until a person says otherwise. */
+    /* Whether an agent in an AI chat may show a page above its reply. Absent is on. */
     visualReplies: z.boolean().optional().catch(undefined),
     appleFoundationEnabled: z.boolean().optional().catch(undefined),
-    /* When the machine keeps itself from sleeping. The daemon holds the block, so the setting is the
-       machine's and a phone can set it. Absent is off, on the adapter only and without the display. */
+    /* The daemon holds the sleep block, so a phone can set it. Absent is off, on the adapter only and
+       without the display. */
     keepAwake: KeepAwakeModeSchema.optional().catch(undefined),
     keepAwakeOnBattery: z.boolean().optional().catch(undefined),
     keepAwakeDisplay: z.boolean().optional().catch(undefined),
-    // Also with the lid closed; it does nothing until the sudoers rule is installed. Absent is off.
+    // Does nothing until the sudoers rule is installed. Absent is off.
     keepAwakeLidClosed: z.boolean().optional().catch(undefined),
-    /* Which broker this machine announces itself to, set from a client. Absent is the build's default;
-       one that will not read falls back to it too, since a machine on the default broker is findable. */
+    /* Absent is the build's default, and one that will not read falls back to it, since a machine on
+       the default broker is findable. */
     broker: BrokerSettingSchema.optional().catch(undefined),
-    /* Whether the door on the local network is open, so a client on the same network signals without
-       the broker. Absent is open: a machine nobody changed is found at home without anything set. */
+    /* Whether a client on the same network signals without the broker. Absent is open. */
     lanDoor: z.boolean().optional().catch(undefined),
-    /* Where new worktrees are made, set by the owner of the machine. Absent is `worktrees` in the data folder. */
+    /* Absent is `worktrees` in the data folder. */
     worktreeRoot: z.string().min(1).optional().catch(undefined),
-    /* The size new nodes of a kind take here, by kind; only the kinds a person changed. Read one kind at
-       a time (`knownNodeSizes`), so a size that will not read costs that kind and not the others. */
+    /* Only the kinds a person changed, read one kind at a time (`knownNodeSizes`) so a size that will
+       not read costs that kind alone. */
     nodeSizes: z.unknown().optional(),
-    /* Whether a release build sends its anonymous daily usage counts. Absent is on, and only the owner
-       of the machine turns it off. */
+    /* Whether a release build sends its anonymous daily usage counts. Absent is on. */
     usageStats: z.boolean().optional().catch(undefined)
 });
 
@@ -104,8 +97,6 @@ export interface KeepAwakeSetting {
     display: boolean;
     lidClosed: boolean;
 }
-
-const KEEP_AWAKE_OFF: KeepAwakeSetting = { mode: 'off', onBattery: false, display: false, lidClosed: false };
 
 /* What the daemon's broker switch lends the identity: a way to follow a new setting and to say where it ended up. */
 interface IdentityBroker {
@@ -211,18 +202,15 @@ export class EndpointIdentity {
         return this.chosenIcon;
     }
 
-    /* What a canvas verb asks before it removes a view somebody else made. Off on a fresh machine:
-       an agent destroys only what it made until a person says otherwise. */
     get agentsDeleteAnyView(): boolean {
         return this.deleteAnyView;
     }
 
-    /* The daemon checks this at the streaming boundary; native views on a client do not need it. */
     get streamingAllowed(): boolean {
         return this.allowStreaming;
     }
 
-    /* Whether the outbox may take up a limited chat on a clock; off on a fresh machine, and each chat can still say no. */
+    /* Each chat can still say no. */
     get resumeAtReset(): boolean {
         return this.resumeLimited;
     }
@@ -270,17 +258,16 @@ export class EndpointIdentity {
         this.brokerSwitch.bind(broker);
     }
 
-    /* Whether a person keeps the door on the local network open, which `--no-lan` may still override. */
+    /* `--no-lan` may still override it. */
     get lanDoor(): boolean {
         return this.lanDoorOpen;
     }
 
-    /* The folder new worktrees are made in; null while they go in the data folder. */
+    /* Null while new worktrees go in the data folder. */
     get worktreeRoot(): string | null {
         return this.checkoutRoot;
     }
 
-    /* Whether a release build sends its anonymous daily usage counts; on until the owner turns it off. */
     get usageStats(): boolean {
         return this.stats;
     }
@@ -290,7 +277,6 @@ export class EndpointIdentity {
         return this.sizes;
     }
 
-    /* The size a new node of a kind takes on this machine, whoever adds it. */
     nodeSize(kind: NodeKind): NodeSize {
         return nodeSizeOf(this.sizes, kind);
     }
@@ -319,8 +305,7 @@ export class EndpointIdentity {
 
     /*
      * A null name hands the machine back to the one it starts with; a null icon leaves it without
-     * one. A switch is left as it stands when it is not passed, since the dialog that names a machine
-     * is not the control that sets it.
+     * one. A switch not passed stays as it stands, since naming a machine is a control of its own.
      */
     async setIdentity(name: string | null, icon: ProjectIconChoice | null, flags: IdentityFlags = {}): Promise<void> {
         this.chosenName = name;
@@ -352,14 +337,13 @@ export class EndpointIdentity {
         this.announce();
     }
 
-    /* Changes the switches only, keeping the name and the icon as they are. */
     setSwitches(flags: IdentityFlags): Promise<void> {
         return this.setIdentity(this.chosenName, this.chosenIcon, flags);
     }
 
-    /* Tells every client how the machine stands now, after a change of its own or of something it describes. */
+    /* Also called after a change in something the event describes. */
     announce(): void {
-        const event: SessionEvent = {
+        this.sinks.emit({
             event: 'endpoint.changed',
             payload: {
                 id: this.id,
@@ -381,8 +365,7 @@ export class EndpointIdentity {
                 nodeSizes: this.sizes,
                 usageStats: this.stats
             }
-        };
-        this.sinks.emit(event);
+        });
     }
 
     /* Writes the file as this object stands; a fresh home is written the moment it is minted. */
@@ -466,10 +449,10 @@ export async function readOrCreateEndpointIdentity(home: string, defaultName: st
         visualReplies: file?.visualReplies ?? true,
         appleFoundationEnabled: file?.appleFoundationEnabled ?? false,
         keepAwake: {
-            mode: file?.keepAwake ?? KEEP_AWAKE_OFF.mode,
-            onBattery: file?.keepAwakeOnBattery ?? KEEP_AWAKE_OFF.onBattery,
-            display: file?.keepAwakeDisplay ?? KEEP_AWAKE_OFF.display,
-            lidClosed: file?.keepAwakeLidClosed ?? KEEP_AWAKE_OFF.lidClosed
+            mode: file?.keepAwake ?? 'off',
+            onBattery: file?.keepAwakeOnBattery ?? false,
+            display: file?.keepAwakeDisplay ?? false,
+            lidClosed: file?.keepAwakeLidClosed ?? false
         },
         broker: file?.broker ?? { mode: 'default' },
         lanDoor: file?.lanDoor ?? true,
