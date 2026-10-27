@@ -17,10 +17,10 @@ import type {
 import { locateAndroidSdk, type AndroidSdk } from './android-sdk.ts';
 import { androidTree, parseWmSize } from './android-tree.ts';
 import type { DeviceTree } from './device-tree.ts';
-import { DeviceError, PASTE_SETTLE_MS, typeInRuns, type DeviceBackend, type DeviceKeyboard, type DeviceSource } from './manager.ts';
-import { isVideo, requireExtension, requireMedia } from './device-paths.ts';
-import { DeviceRecordings } from './recordings.ts';
 import { runCommand, type CommandResult } from './command.ts';
+import { isVideo, requireExtension, requireMedia } from './device-paths.ts';
+import { DeviceError, PASTE_SETTLE_MS, typeInRuns, type DeviceBackend, type DeviceKeyboard, type DeviceSource } from './manager.ts';
+import { DeviceRecordings } from './recordings.ts';
 
 type AndroidRunner = (command: string, arguments_: string[]) => Promise<CommandResult>;
 
@@ -404,7 +404,7 @@ export class AndroidBackend implements DeviceBackend {
         }
         const sdk = this.sdk();
         this.recordings.drop(deviceId);
-        await this.adb(sdk, ['-s', serial, 'emu', 'kill']);
+        await this.adbOn(serial, ['emu', 'kill']);
         this.booting.delete(deviceId);
         for (let attempt = 0; attempt < 20; attempt += 1) {
             if (!(await this.isConnected(sdk, serial))) {
@@ -502,14 +502,13 @@ export class AndroidBackend implements DeviceBackend {
     /* The recorder finishes its file on an interrupt sent on the device itself, which a signal to the local adb does not reach. */
     async stopRecording(deviceId: string): Promise<string> {
         const { serial } = await this.booted(deviceId);
-        const sdk = this.sdk();
         return this.recordings.stop(
             deviceId,
             async () => {
                 await this.shell(serial, 'pkill -INT screenrecord').catch(() => undefined);
             },
             async (file) => {
-                await this.adb(sdk, ['-s', serial, 'pull', RECORDING_ON_DEVICE, file]);
+                await this.adbOn(serial, ['pull', RECORDING_ON_DEVICE, file]);
                 await this.shell(serial, `rm -f ${RECORDING_ON_DEVICE}`).catch(() => undefined);
             }
         );
@@ -548,7 +547,7 @@ export class AndroidBackend implements DeviceBackend {
                     throw new DeviceError('device-action-unavailable', 'A phone takes a simulated location only from an app');
                 }
                 // The emulator console takes longitude first.
-                await this.adb(this.sdk(), ['-s', serial, 'emu', 'geo', 'fix', String(action.longitude), String(action.latitude)]);
+                await this.console(serial, ['geo', 'fix', String(action.longitude), String(action.latitude)]);
                 break;
             case 'setPermission':
                 await this.permission(serial, probe, requirePackage(action.appId), action.permission, action.decision);
@@ -603,7 +602,7 @@ export class AndroidBackend implements DeviceBackend {
                 break;
             case 'installApp': {
                 requireExtension(action.path, ['.apk'], 'an .apk');
-                const installed = await this.adb(this.sdk(), ['-s', serial, 'install', '-r', action.path]);
+                const installed = await this.adbOn(serial, ['install', '-r', action.path]);
                 const failure = /^Failure.*$/m.exec(installed.stdout);
                 if (failure) {
                     throw new DeviceError('adb-failed', failure[0]);
@@ -653,8 +652,7 @@ export class AndroidBackend implements DeviceBackend {
      */
     async tree(deviceId: string): Promise<DeviceTree> {
         const { serial } = await this.booted(deviceId);
-        const sdk = this.sdk();
-        const [dump, size] = await Promise.all([this.adb(sdk, ['-s', serial, 'exec-out', 'uiautomator', 'dump', '/dev/tty']), this.shell(serial, 'wm size')]);
+        const [dump, size] = await Promise.all([this.adbOn(serial, ['exec-out', 'uiautomator', 'dump', '/dev/tty']), this.shell(serial, 'wm size')]);
         const screen = parseWmSize(size);
         if (screen === null) {
             throw new DeviceError('invalid-adb-output', 'adb did not say how large the screen is');
@@ -917,7 +915,7 @@ export class AndroidBackend implements DeviceBackend {
      */
     private async addMedia(serial: string, path: string): Promise<void> {
         const remote = `${isVideo(path) ? '/sdcard/Movies' : '/sdcard/Pictures'}/${basename(path)}`;
-        await this.adb(this.sdk(), ['-s', serial, 'push', path, remote]);
+        await this.adbOn(serial, ['push', path, remote]);
         await this.shell(
             serial,
             `am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d ${shellQuote(`file://${encodeURI(remote)}`)} >/dev/null; content call --uri content://media/external/file --method scan_file --arg ${shellQuote(remote)} >/dev/null 2>&1; true`
@@ -937,11 +935,16 @@ export class AndroidBackend implements DeviceBackend {
 
     /* The emulator console, which a phone does not have. */
     private async console(serial: string, arguments_: string[]): Promise<void> {
-        await this.adb(this.sdk(), ['-s', serial, 'emu', ...arguments_]);
+        await this.adbOn(serial, ['emu', ...arguments_]);
     }
 
     private async shell(serial: string, script: string): Promise<string> {
-        return (await this.adb(this.sdk(), ['-s', serial, 'shell', script])).stdout;
+        return (await this.adbOn(serial, ['shell', script])).stdout;
+    }
+
+    /* adb for one device by its serial. */
+    private adbOn(serial: string, arguments_: string[]): Promise<CommandResult> {
+        return this.adb(this.sdk(), ['-s', serial, ...arguments_]);
     }
 
     private async adb(sdk: AndroidSdk, arguments_: string[]): Promise<CommandResult> {
