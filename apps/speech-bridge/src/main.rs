@@ -94,13 +94,13 @@ fn fail(session_id: &str, error: anyhow::Error) -> Result<()> {
 }
 
 fn samples_from(bytes: &[u8]) -> Result<Vec<f32>> {
-    if !bytes.len().is_multiple_of(4) {
+    let (chunks, rest) = bytes.as_chunks();
+
+    if !rest.is_empty() {
         bail!("Audio ends inside a sample");
     }
 
-    let samples: Vec<_> = bytes
-        .as_chunks()
-        .0
+    let samples: Vec<_> = chunks
         .iter()
         .map(|chunk| f32::from_le_bytes(*chunk))
         .collect();
@@ -108,6 +108,7 @@ fn samples_from(bytes: &[u8]) -> Result<Vec<f32>> {
     if samples.iter().any(|sample| !sample.is_finite()) {
         bail!("Audio contains a non-finite sample");
     }
+
     Ok(samples)
 }
 
@@ -187,7 +188,6 @@ fn serve(model: &Model) -> Result<()> {
                     bail!("A dictation is already running");
                 }
 
-                // Reset the utterance and replace the previous language prompt.
                 model.reset();
 
                 if let Err(error) = model.set_target_lang(&language) {
@@ -251,15 +251,18 @@ fn main() -> Result<()> {
         Command::Transcribe { model, language } => {
             let mut model = load(&model)?;
             model.set_target_lang(&language)?;
+
             let mut run = Run {
                 id: "cli".into(),
                 ..Run::default()
             };
             let mut bytes = Vec::new();
+
             std::io::stdin()
                 .lock()
                 .take((MAX_SAMPLES * 4 + 1) as u64)
                 .read_to_end(&mut bytes)?;
+
             feed(&mut model, &mut run, &samples_from(&bytes)?)?;
             finish(&mut model, &mut run)
         }
@@ -269,12 +272,14 @@ fn main() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn validates_audio_frames() {
         assert_eq!(samples_from(&0.5f32.to_le_bytes()).unwrap(), vec![0.5]);
         assert!(samples_from(&[0, 1, 2]).is_err());
         assert!(samples_from(&f32::NAN.to_le_bytes()).is_err());
     }
+
     #[test]
     fn session_identity_is_required() {
         assert!(serde_json::from_str::<Request>(r#"{"type":"stop"}"#).is_err());

@@ -24,9 +24,9 @@ fn arguments(words: impl Iterator<Item = OsString>) -> Vec<OsString> {
         .collect()
 }
 
-/// Ctrl+C reaches every process on the console: the daemon's CLI decides what it means, and this one
-/// waits for it, so the prompt does not come back before the command is done. A handler rather than
-/// ignoring the event, since ignoring it is inherited by the child.
+/// Ctrl+C reaches every process on the console. The daemon's CLI decides what it means and this one
+/// waits for it, so the prompt does not come back before the command is done. A handler, because an
+/// ignored event is ignored by the child as well.
 #[cfg(windows)]
 fn outlast_interrupts() {
     const CTRL_C_EVENT: u32 = 0;
@@ -54,14 +54,13 @@ fn outlast_interrupts() {}
 
 fn main() {
     outlast_interrupts();
-    let launcher = match env::current_exe() {
-        Ok(path) => path,
-        Err(error) => {
-            eprintln!("ruimte-context: cannot find where it runs from: {error}");
-            exit(1);
-        }
-    };
+
+    let launcher = env::current_exe().unwrap_or_else(|error| {
+        eprintln!("ruimte-context: cannot find where it runs from: {error}");
+        exit(1);
+    });
     let daemon = daemon_beside(&launcher);
+
     match Command::new(&daemon)
         .args(arguments(env::args_os().skip(1)))
         .status()
@@ -88,6 +87,7 @@ mod tests {
         .map(OsString::from);
         let mut expected = vec![OsString::from("context")];
         expected.extend(words.iter().cloned());
+
         assert_eq!(arguments(words.into_iter()), expected);
     }
 
@@ -95,6 +95,7 @@ mod tests {
     fn finds_the_daemon_in_its_own_folder() {
         let folder = Path::new("bin");
         let daemon = daemon_beside(&folder.join("ruimte-context.exe"));
+
         assert_eq!(daemon.parent(), Some(folder));
         assert_eq!(
             daemon.file_name().and_then(|name| name.to_str()),

@@ -8,7 +8,7 @@ A release builds the helper for macOS only. The prebuilt ONNX Runtime that `ort`
 
 `bun dev` builds the release helper before starting Electron. Rust and a working native toolchain are required. A standalone build is `cargo build --release --locked` in this directory.
 
-In **Settings > Voice**, enable **Speech to Text**. This downloads approximately 2.6 GB of Nemotron 3.5 ASR streaming ONNX weights. The source revision, file sizes and SHA-256 hashes are pinned in `apps/desktop/src/speech-model.ts`. Files are downloaded to temporary names and installed only after verification. Cancellation keeps completed, verified files for a retry.
+In **Settings > Voice**, enable **Speech to Text**. This downloads about 2.6 GB of Nemotron 3.5 ASR streaming ONNX weights. The source revision, file sizes and SHA-256 hashes are pinned in `apps/desktop/src/speech-model.ts`. Files are downloaded to temporary names and installed only after verification. Cancellation keeps completed, verified files for a retry.
 
 Turning it off cancels a recording and shuts down the helper, but keeps the model. **Remove model** removes the weights and their compiled CoreML cache.
 
