@@ -1,7 +1,6 @@
-import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
 import type { DeviceInput } from '@ruimte/contracts';
+import { besideDaemon, serveSimFile } from './serve-sim.ts';
 import { DEVICE_HELPER_MAGIC, DeviceHelperDecoder, encodeDeviceHelperMessage, type DeviceHelperCall, type DeviceHelperMessage } from './helper-protocol.ts';
 
 interface NativeHidHandle {
@@ -67,42 +66,17 @@ const CONSUMER_BUTTONS: Partial<Record<Extract<DeviceInput, { kind: 'button' }>[
     power: 0x30
 };
 
-function resolveDeviceNativeAddon(): string {
-    const besideExecutable = join(dirname(process.execPath), 'native', 'serve-sim-native.node');
-    if (existsSync(besideExecutable)) {
-        return besideExecutable;
-    }
-    try {
-        const middleware = Bun.resolveSync('serve-sim/middleware', import.meta.dir);
-        const dependency = join(dirname(middleware), 'native', 'serve-sim-native.node');
-        if (existsSync(dependency)) {
-            return dependency;
-        }
-    } catch {
-        // The stable error below names the missing runtime component without leaking resolver details.
-    }
-    throw new Error('serve-sim-native.node is not installed beside Ruimte or in its server dependencies');
-}
-
-/*
- * The guest helper of an iPhone Duo, beside the addon in a build and in the package otherwise. A
- * path that does not exist only leaves the hinge unavailable, so it never fails the session.
- */
-function resolveDuoHidHelper(): string {
-    const besideExecutable = join(dirname(process.execPath), 'native', 'serve-sim-duo-hid');
-    if (existsSync(besideExecutable)) {
-        return besideExecutable;
-    }
-    try {
-        const middleware = Bun.resolveSync('serve-sim/middleware', import.meta.dir);
-        return join(dirname(middleware), 'simduo', 'serve-sim-duo-hid');
-    } catch {
-        return besideExecutable;
-    }
-}
-
 function loadDeviceNativeAddon(): DeviceNativeAddon {
-    return require(resolveDeviceNativeAddon()) as DeviceNativeAddon;
+    const path = serveSimFile('serve-sim-native.node', 'native');
+    if (path === null) {
+        throw new Error('serve-sim-native.node is not installed beside Ruimte or in its server dependencies');
+    }
+    return require(path) as DeviceNativeAddon;
+}
+
+/* The guest helper of an iPhone Duo. A path that does not exist only leaves the hinge unavailable, so it never fails the session. */
+function resolveDuoHidHelper(): string {
+    return serveSimFile('serve-sim-duo-hid', 'simduo') ?? besideDaemon('serve-sim-duo-hid');
 }
 
 export async function runDeviceHelper(deviceId: string, runtime?: DeviceHelperRuntime): Promise<number> {

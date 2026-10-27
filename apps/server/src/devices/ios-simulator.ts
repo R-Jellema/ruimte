@@ -1,8 +1,6 @@
-import { z } from 'zod';
-import { existsSync } from 'node:fs';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import {
     DevicePermissionSchema,
     type DeviceAction,
@@ -14,13 +12,15 @@ import {
     type DeviceToggleSetting,
     type DeviceTool
 } from '@ruimte/contracts';
+import { z } from 'zod';
 import { collect, type CommandResult } from './command.ts';
+import { requireExtension, requireMedia } from './device-paths.ts';
 import { simulatorTree, type DeviceTree } from './device-tree.ts';
 import { DeviceHelperSource, type DeviceHelperLauncher } from './helper-source.ts';
 import { DeviceError, KEY_LEFT_COMMAND, KEY_V, PASTE_SETTLE_MS, typeInRuns, type DeviceBackend, type DeviceKeyboard, type DeviceSource } from './manager.ts';
-import { requireExtension, requireMedia } from './device-paths.ts';
 import { DeviceRecordings } from './recordings.ts';
 import type { SimulatorCamera } from './simulator-camera.ts';
+import { serveSimFile } from './serve-sim.ts';
 import { realPanelMonitor, SimulatorFold, type PanelMonitorFactory } from './simulator-fold.ts';
 import type { SimulatorTreeReader } from './simulator-tree.ts';
 
@@ -203,16 +203,18 @@ function textSizeFromIos(category: string): DeviceTextSize {
 }
 
 function axHelperPath(): string | null {
-    const besideExecutable = join(dirname(process.execPath), 'native', 'serve-sim-ax-settings');
-    if (existsSync(besideExecutable)) {
-        return besideExecutable;
+    return serveSimFile('serve-sim-ax-settings', 'simax');
+}
+
+/* The settings the accessibility helper reports, or none for an answer it cannot read. */
+function axSettingsOf(output: string | undefined): Record<string, string> {
+    if (!output) {
+        return {};
     }
     try {
-        const middleware = Bun.resolveSync('serve-sim/middleware', import.meta.dir);
-        const dependency = join(dirname(middleware), 'simax', 'serve-sim-ax-settings');
-        return existsSync(dependency) ? dependency : null;
+        return z.record(z.string(), z.string()).parse(JSON.parse(output));
     } catch {
-        return null;
+        return {};
     }
 }
 
@@ -255,17 +257,13 @@ export class IosSimulatorBackend implements DeviceBackend {
 
     async list(): Promise<DeviceInfo[]> {
         const result = await this.command(['list', 'devices', 'available', '--json']);
-        let json: unknown;
+        let byRuntime: z.infer<typeof SimctlListSchema>['devices'];
         try {
-            json = JSON.parse(result.stdout);
+            byRuntime = SimctlListSchema.parse(JSON.parse(result.stdout)).devices;
         } catch {
             throw new DeviceError('invalid-simctl-output', 'simctl returned a device list Ruimte could not read');
         }
-        const parsed = SimctlListSchema.safeParse(json);
-        if (!parsed.success) {
-            throw new DeviceError('invalid-simctl-output', 'simctl returned a device list Ruimte could not read');
-        }
-        const listed = Object.entries(parsed.data.devices).flatMap(([runtime, devices]) =>
+        const listed = Object.entries(byRuntime).flatMap(([runtime, devices]) =>
             devices.filter((device) => device.isAvailable && runtime.includes('.iOS-')).map((device) => ({ runtime, device }))
         );
         this.foldable.clear();
@@ -335,14 +333,7 @@ export class IosSimulatorBackend implements DeviceBackend {
             read(['ui', deviceId, 'increase_contrast']),
             helper ? read(['spawn', deviceId, helper, 'status']) : undefined
         ]);
-        let ax: Record<string, string> = {};
-        if (axOutput) {
-            try {
-                ax = z.record(z.string(), z.string()).parse(JSON.parse(axOutput));
-            } catch {
-                ax = {};
-            }
-        }
+        const ax = axSettingsOf(axOutput);
         const onOff = (value: string | undefined): boolean | undefined => (value === 'on' ? true : value === 'off' ? false : undefined);
         const reduceMotion = onOff(ax['reduce-motion']);
         const reduceTransparency = onOff(ax['reduce-transparency']);

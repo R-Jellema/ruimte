@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { isVideo, requireMedia } from './device-paths.ts';
 import { DeviceError } from './manager.ts';
+import { besideDaemon, serveSimFolder } from './serve-sim.ts';
 import { realTimer, type Timer } from './timer.ts';
 
 /* A running camera helper, as far as this daemon needs it. */
@@ -38,18 +39,16 @@ interface Feed {
 
 /* Where the helper and the library are: beside the compiled daemon, else in the serve-sim package. */
 function cameraFiles(): CameraHost['files'] {
-    const native = join(dirname(process.execPath), 'native');
-    const compiled = { helper: join(native, 'serve-sim-camera-helper'), injector: join(native, 'libSimCameraInjector.dylib') };
+    const compiled = { helper: besideDaemon('serve-sim-camera-helper'), injector: besideDaemon('libSimCameraInjector.dylib') };
     if (existsSync(compiled.helper) && existsSync(compiled.injector)) {
         return compiled;
     }
-    try {
-        const simcam = join(dirname(Bun.resolveSync('serve-sim/middleware', import.meta.dir)), 'simcam');
-        const dependency = { helper: join(simcam, 'serve-sim-camera-helper'), injector: join(simcam, 'libSimCameraInjector.dylib') };
-        return existsSync(dependency.helper) && existsSync(dependency.injector) ? dependency : null;
-    } catch {
+    const simcam = serveSimFolder('simcam');
+    if (simcam === null) {
         return null;
     }
+    const dependency = { helper: join(simcam, 'serve-sim-camera-helper'), injector: join(simcam, 'libSimCameraInjector.dylib') };
+    return existsSync(dependency.helper) && existsSync(dependency.injector) ? dependency : null;
 }
 
 /*
