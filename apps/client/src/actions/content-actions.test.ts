@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import type { ActionRegistry, ActionResult } from '@ruimte/actions';
 import type { DrawingElement, ProjectCanvasView, ProjectDocument } from '@ruimte/contracts';
 import { createClientActionRegistry, PERSON_ACTION_CALL, VOICE_ACTION_CALL } from './client-actions';
 import type { ContentMachine } from './content-actions';
@@ -8,6 +7,7 @@ import { defaultDiagrams } from '@/state/diagram';
 import { useDocument } from '@/state/document';
 import { defaultDrawings } from '@/state/drawing';
 import { useProject } from '@/state/project';
+import { completed, confirmed } from './action-support';
 
 const main: ProjectCanvasView = {
     kind: 'canvas',
@@ -41,20 +41,6 @@ function fakes() {
         diagramSvg: async () => '<svg>diagram</svg>'
     };
     return { log, registry: createClientActionRegistry(useDocument, { content: machine }) };
-}
-
-function completed<Result extends ActionResult>(result: Result): Extract<Result, { status: 'completed' }> {
-    if (result.status !== 'completed') {
-        throw new Error(`Expected a completed action, got ${JSON.stringify(result)}`);
-    }
-    return result as Extract<Result, { status: 'completed' }>;
-}
-
-async function confirmed(registry: ActionRegistry<void>, asked: ActionResult) {
-    if (asked.status !== 'needs_confirmation') {
-        throw new Error(`Expected a confirmation, got ${asked.status}`);
-    }
-    return registry.confirm(asked.confirmationToken, true, VOICE_ACTION_CALL);
 }
 
 function canvas() {

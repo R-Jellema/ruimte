@@ -5,6 +5,7 @@ import { developerActions } from './developer-actions';
 import { PERSON_ACTION_CALL, VOICE_ACTION_CALL } from './client-actions';
 import { useDocument } from '@/state/document';
 import { TransportError, type Transport } from '@/transport/transport';
+import { confirmed } from './action-support';
 
 const FOLDER = '/work/atlas';
 
@@ -82,13 +83,6 @@ function fake(answers: Answers, options: { hidden?: string[] } = {}): Fake {
         })
     );
     return { registry, asked, of: (type) => asked.filter((entry) => entry.type === type).map((entry) => entry.payload) };
-}
-
-async function confirm(registry: ActionRegistry<void>, asked: ActionResult): Promise<ActionResult> {
-    if (asked.status !== 'needs_confirmation') {
-        throw new Error(`Expected a confirmation, got ${JSON.stringify(asked)}`);
-    }
-    return registry.confirm(asked.confirmationToken, true, VOICE_ACTION_CALL);
 }
 
 function questionOf(result: ActionResult): string {
@@ -222,7 +216,7 @@ describe('git actions for Voice', () => {
         expect(questionOf(asked)).toContain('2 files in web');
         expect(questionOf(asked)).toContain('a.ts and b.ts');
         expect(of('git.discard')).toEqual([]);
-        expect(await confirm(registry, asked)).toMatchObject({ status: 'completed', output: { stash: null } });
+        expect(await confirmed(registry, asked)).toMatchObject({ status: 'completed', output: { stash: null } });
         expect(of('git.discard')).toEqual([{ cwd: `${FOLDER}/web`, paths: ['a.ts', 'b.ts'] }]);
     });
 
@@ -240,7 +234,7 @@ describe('git actions for Voice', () => {
         expect(questionOf(asked)).toContain('atlas: 2 commits of main to origin/main');
         expect(questionOf(asked)).toContain('web: 1 commit of dev to origin/dev');
         expect(of('git.action')).toEqual([]);
-        const result = await confirm(registry, asked);
+        const result = await confirmed(registry, asked);
         expect(result).toMatchObject({
             status: 'completed',
             output: {
@@ -269,7 +263,7 @@ describe('git actions for Voice', () => {
         const asked = await registry.execute('git.pull', { repository: 'atlas', strategy: null }, VOICE_ACTION_CALL);
         expect(questionOf(asked)).toContain('Only a fast-forward');
         expect(of('git.action')).toEqual([]);
-        expect(await confirm(registry, asked)).toMatchObject({ status: 'completed' });
+        expect(await confirmed(registry, asked)).toMatchObject({ status: 'completed' });
         expect(of('git.action')).toEqual([{ cwd: FOLDER, actionId: 'run-2', kind: 'pull' }]);
     });
 
@@ -283,7 +277,7 @@ describe('git actions for Voice', () => {
         const asked = await registry.execute(name, input, VOICE_ACTION_CALL);
         expect(asked.status).toBe('needs_confirmation');
         expect(of('git.action')).toEqual([]);
-        expect(await confirm(registry, asked)).toMatchObject({ status: 'completed' });
+        expect(await confirmed(registry, asked)).toMatchObject({ status: 'completed' });
         expect(of('git.action')).toEqual([{ cwd: FOLDER, actionId: 'run-2', ...command }]);
     });
 
@@ -304,7 +298,7 @@ describe('git actions for Voice', () => {
         expect(questionOf(asked)).toContain('Commit “fix” in “atlas”?');
         expect(questionOf(asked)).toContain('atlas on main: a.ts.');
         expect(of('git.action')).toEqual([]);
-        await confirm(registry, asked);
+        await confirmed(registry, asked);
         expect(of('git.action')).toEqual([{ cwd: FOLDER, actionId: 'run-2', kind: 'commit', subject: 'fix', stageAll: false }]);
     });
 
@@ -328,7 +322,7 @@ describe('git actions for Voice', () => {
         const asked = await registry.execute('git.merge', { repository: 'atlas', branch: 'dev' }, VOICE_ACTION_CALL);
         expect(questionOf(asked)).toContain('Merge dev into main in atlas?');
         expect(of('git.action')).toEqual([]);
-        expect(await confirm(registry, asked)).toMatchObject({ status: 'completed', output: { conflicts: ['a.ts'] } });
+        expect(await confirmed(registry, asked)).toMatchObject({ status: 'completed', output: { conflicts: ['a.ts'] } });
         expect(of('git.action')).toEqual([{ cwd: FOLDER, actionId: 'run-2', kind: 'merge', ref: 'dev' }]);
     });
 
@@ -360,7 +354,7 @@ describe('git actions for Voice', () => {
         const asked = await registry.execute('git.operation', { repository: 'atlas', step: 'abort' }, VOICE_ACTION_CALL);
         expect(questionOf(asked)).toContain('Take back the merge in atlas?');
         expect(of('git.operation')).toEqual([]);
-        await confirm(registry, asked);
+        await confirmed(registry, asked);
         expect(of('git.operation')).toEqual([{ cwd: FOLDER, actionId: 'run-2', action: 'abort' }]);
     });
 
@@ -372,7 +366,7 @@ describe('git actions for Voice', () => {
         const asked = await registry.execute('git.createPullRequest', { repository: 'atlas', title: 'Lexer', body: null }, VOICE_ACTION_CALL);
         expect(questionOf(asked)).toContain('feature is published to origin first');
         expect(of('git.action')).toEqual([]);
-        expect(await confirm(registry, asked)).toMatchObject({ output: { url: 'https://example.test/pr/1' } });
+        expect(await confirmed(registry, asked)).toMatchObject({ output: { url: 'https://example.test/pr/1' } });
         expect(of('git.action')).toEqual([{ cwd: FOLDER, actionId: 'run-2', kind: 'create-pr', subject: 'Lexer' }]);
     });
 });
@@ -404,7 +398,7 @@ describe('worktree actions for Voice', () => {
         expect(questionOf(asked)).toContain('into main');
         expect(questionOf(asked)).toContain('2 uncommitted files committed first');
         expect(of('git.worktree-merge')).toEqual([]);
-        expect(await confirm(registry, asked)).toMatchObject({ output: { branch: 'lexer', conflicts: ['a.ts'], cwd: FOLDER } });
+        expect(await confirmed(registry, asked)).toMatchObject({ output: { branch: 'lexer', conflicts: ['a.ts'], cwd: FOLDER } });
         expect(of('git.worktree-merge')).toEqual([
             {
                 repo: FOLDER,
@@ -422,7 +416,7 @@ describe('worktree actions for Voice', () => {
         const asked = await registry.execute('worktree.create', { branch: 'docs' }, VOICE_ACTION_CALL);
         expect(questionOf(asked)).toContain('Create a worktree on docs?');
         expect(of('git.worktree-add')).toEqual([]);
-        expect(await confirm(registry, asked)).toMatchObject({ output: { created: true } });
+        expect(await confirmed(registry, asked)).toMatchObject({ output: { created: true } });
         expect(of('git.worktree-add')).toEqual([{ repo: FOLDER, branch: 'docs', projectId: 'atlas' }]);
     });
 

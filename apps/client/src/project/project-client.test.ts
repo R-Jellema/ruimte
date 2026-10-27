@@ -27,6 +27,7 @@ import { setViewShared } from './views';
 import { ProjectClient, type ProjectSink } from './project-client';
 import { sessionNodesOf } from './project-sessions';
 import { withClientClosedProject } from './closed-projects';
+import { fakeStorage } from './fake-storage';
 
 type Call = { type: RequestType; payload: unknown };
 
@@ -247,14 +248,6 @@ afterEach(() => {
 });
 
 /* The three calls `ProjectClient` makes on the storage it is given, over a map a test can read. */
-function fakeStorage(storage: Map<string, string>) {
-    return {
-        getItem: (key: string) => storage.get(key) ?? null,
-        setItem: (key: string, value: string) => void storage.set(key, value),
-        removeItem: (key: string) => void storage.delete(key)
-    };
-}
-
 /*
  * `open` is the project the client is built to open, the way a workspace is. A test that says nothing
  * gets the first project listed, so a test about saving or panels has a canvas without saying so.

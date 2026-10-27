@@ -3,6 +3,7 @@ import { useEndpoints, type Endpoint } from '../state/endpoints';
 import { useWindow } from '../state/window';
 import type { OpenRequest } from '../transport/connections';
 import { bootWindow, switchRun, type SwitchDeps, type SwitchPlan, type Whereabouts } from './open';
+import { fakeStorage } from './fake-storage';
 
 function endpoint(id: string): Endpoint {
     return {
@@ -13,14 +14,6 @@ function endpoint(id: string): Endpoint {
         reachability: 'lan',
         daemonId: id,
         daemonPublicKey: null
-    };
-}
-
-function fakeStorage(storage: Map<string, string>) {
-    return {
-        getItem: (key: string) => storage.get(key) ?? null,
-        setItem: (key: string, value: string) => void storage.set(key, value),
-        removeItem: (key: string) => void storage.delete(key)
     };
 }
 

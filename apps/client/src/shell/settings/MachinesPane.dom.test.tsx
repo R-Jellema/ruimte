@@ -6,8 +6,7 @@ import { useWindow } from '@/state/window';
 import { clickOn, mount, until, type Mounted } from '../../../testing/dom';
 import { connectFakeMachine, FakeMachine } from '../../../testing/fake-machine';
 import { machineBridge } from '../../../testing/machine-bridge';
-
-const scope = globalThis as unknown as { window: { ruimteDesktop?: DesktopBridge } };
+import { button, everything, installDesktop, removeDesktop } from './settings-dom';
 
 let page: Mounted;
 let release: (() => void) | null;
@@ -18,28 +17,12 @@ function text(): string {
     return page.host.textContent ?? document.body.textContent ?? '';
 }
 
-function everything(): string {
-    return document.body.textContent ?? '';
-}
-
-function button(label: string): HTMLButtonElement | null {
-    return [...document.querySelectorAll('button')].find((element) => element.textContent?.trim() === label) ?? null;
-}
-
 function row(label: string): HTMLElement | null {
     return [...document.querySelectorAll<HTMLElement>('[role="tab"], [role="option"], button')].find((element) => element.textContent?.includes(label)) ?? null;
 }
 
 async function open(machine: DesktopBridge['machine']): Promise<void> {
-    scope.window.ruimteDesktop = {
-        platform: 'darwin',
-        pickFolder: async () => null,
-        openExternal: async () => undefined,
-        openGuestDevTools: () => undefined,
-        isFullscreen: async () => false,
-        onFullscreen: () => () => undefined,
-        ...(machine === undefined ? {} : { machine })
-    };
+    installDesktop({ machine });
     page = mount();
     await page.renderApp();
     await act(async () => useUi.getState().setSettings({ open: true, section: 'machines' }));
@@ -69,7 +52,7 @@ afterEach(async () => {
     await act(async () => useUi.getState().setSettings({ open: false }));
     await page.unmount();
     release?.();
-    delete scope.window.ruimteDesktop;
+    removeDesktop();
 });
 
 describe('Settings > Machines of an app that runs no machine', () => {

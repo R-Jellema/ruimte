@@ -5,6 +5,7 @@ import { useUi } from '@/state/ui';
 import { clickOn, mount, until, type Mounted } from '../../../../testing/dom';
 import { FakeMachine } from '../../../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../../../testing/fake-workspace';
+import { button, everything, typeInto } from '../settings-dom';
 
 const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [], texts: [], edges: [], layouts: [] };
 
@@ -71,29 +72,12 @@ function info(provider: Provider, installed: boolean): ProviderInfo {
     };
 }
 
-function everything(): string {
-    return document.body.textContent ?? '';
-}
-
-function button(label: string): HTMLButtonElement | undefined {
-    return [...document.querySelectorAll<HTMLButtonElement>('button')].find((candidate) => candidate.textContent?.trim() === label);
-}
-
 function field(label: string): HTMLInputElement | null {
     return document.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`);
 }
 
 function continueSwitch(): HTMLElement | null {
     return document.querySelector<HTMLElement>('[aria-label="Continue automatically"]');
-}
-
-async function typeInto(input: HTMLInputElement, text: string): Promise<void> {
-    await act(async () => {
-        input.focus();
-        // React tracks the value it set, so the browser's own setter is what makes the change show.
-        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, text);
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-    });
 }
 
 async function enter(input: HTMLInputElement, text: string): Promise<void> {

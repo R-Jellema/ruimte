@@ -1,15 +1,13 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
 import type { EndpointInfo } from '@ruimte/contracts';
-import type { DesktopBridge } from '@/desktop/bridge';
 import { LOCAL_ENDPOINT_ID } from '@/state/endpoints';
 import { useUi } from '@/state/ui';
 import { useWindow } from '@/state/window';
 import { adoptEndpointInfo } from '@/transport/server-info';
 import { clickOn, mount, until, type Mounted } from '../../../testing/dom';
 import { connectFakeMachine, FakeMachine } from '../../../testing/fake-machine';
-
-const scope = globalThis as unknown as { window: { ruimteDesktop?: DesktopBridge } };
+import { everything, installDesktop, removeDesktop } from './settings-dom';
 
 let page: Mounted;
 let release: () => void;
@@ -28,10 +26,6 @@ function infoOf(usageStats: boolean | undefined): EndpointInfo {
     };
 }
 
-function everything(): string {
-    return document.body.textContent ?? '';
-}
-
 function usageSwitch(): HTMLElement | null {
     return document.querySelector<HTMLElement>('[aria-label="Send usage statistics from This machine"]');
 }
@@ -40,16 +34,11 @@ async function open(usageStats: boolean | undefined): Promise<void> {
     machine = new FakeMachine();
     machine.answer('endpoint.setIdentity', (payload) => infoOf(payload.usageStats ?? usageStats));
     release = connectFakeMachine(machine);
-    scope.window.ruimteDesktop = {
-        platform: 'darwin',
-        pickFolder: async () => null,
+    installDesktop({
         openExternal: async (url) => {
             opened.push(url);
-        },
-        openGuestDevTools: () => undefined,
-        isFullscreen: async () => false,
-        onFullscreen: () => () => undefined
-    };
+        }
+    });
     page = mount();
     await page.renderApp();
     await act(async () => adoptEndpointInfo(LOCAL_ENDPOINT_ID, infoOf(usageStats)));
@@ -65,7 +54,7 @@ afterEach(async () => {
     await act(async () => useUi.getState().setSettings({ open: false }));
     await page.unmount();
     release();
-    delete scope.window.ruimteDesktop;
+    removeDesktop();
 });
 
 describe('Settings > Account > this machine > Usage statistics', () => {

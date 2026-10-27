@@ -9,8 +9,8 @@ import { useWindow } from '@/state/window';
 import { clickOn, mount, until, type Mounted } from '../../../../testing/dom';
 import { connectFakeMachine, FakeMachine } from '../../../../testing/fake-machine';
 import { machineBridge } from '../../../../testing/machine-bridge';
+import { button, everything, installDesktop, removeDesktop } from '../settings-dom';
 
-const scope = globalThis as unknown as { window: { ruimteDesktop?: DesktopBridge } };
 const previousTimeZone = process.env.TZ;
 process.env.TZ = 'UTC';
 
@@ -37,24 +37,8 @@ let page: Mounted;
 let chosen: string[];
 let release: (() => void) | null;
 
-function everything(): string {
-    return document.body.textContent ?? '';
-}
-
-function button(label: string): HTMLButtonElement | null {
-    return [...document.querySelectorAll('button')].find((element) => element.textContent?.trim() === label) ?? null;
-}
-
 async function open(platform: string, machine: DesktopBridge['machine']): Promise<void> {
-    scope.window.ruimteDesktop = {
-        platform,
-        pickFolder: async () => null,
-        openExternal: async () => undefined,
-        openGuestDevTools: () => undefined,
-        isFullscreen: async () => false,
-        onFullscreen: () => () => undefined,
-        ...(machine === undefined ? {} : { machine })
-    } as DesktopBridge;
+    installDesktop({ platform, machine });
     useEndpoints.getState().add(ATTIC);
     page = mount();
     await page.renderApp();
@@ -88,7 +72,7 @@ afterEach(async () => {
     await page.unmount();
     release?.();
     useEndpoints.getState().remove(ATTIC.id);
-    delete scope.window.ruimteDesktop;
+    removeDesktop();
 });
 
 describe('Settings > Computer Use of an app that runs no machine', () => {

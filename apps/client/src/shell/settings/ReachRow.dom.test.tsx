@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
 import { act } from 'react';
 import { REQUEST_SCHEMAS, type EndpointInfo, type ReachCheck, type RequestType } from '@ruimte/contracts';
-import type { DesktopBridge } from '@/desktop/bridge';
 import { endpointById, LOCAL_ENDPOINT_ID } from '@/state/endpoints';
 import { ReachRow } from '@/shell/settings/MachineSettings';
 import { useUi } from '@/state/ui';
@@ -9,11 +8,10 @@ import { useWindow } from '@/state/window';
 import { adoptEndpointInfo } from '@/transport/server-info';
 import { clickOn, mount, until, type Mounted } from '../../../testing/dom';
 import { connectFakeMachine, FakeMachine } from '../../../testing/fake-machine';
+import { everything, installDesktop, removeDesktop } from './settings-dom';
 
 const NOW = Date.UTC(2026, 9, 1);
 const MINUTE_MS = 60_000;
-
-const scope = globalThis as unknown as { window: { ruimteDesktop?: DesktopBridge } };
 
 const INFO: EndpointInfo = { id: 'machine-1', label: 'Studio', platform: 'darwin', version: '1.0.0', reachability: 'loopback', authenticated: false };
 
@@ -36,10 +34,6 @@ let page: Mounted;
 let release: () => void;
 let machine: FakeMachine;
 
-function everything(): string {
-    return document.body.textContent ?? '';
-}
-
 function checkAgain(): HTMLButtonElement | null {
     return document.querySelector<HTMLButtonElement>('[aria-label="Check again whether other devices reach This machine"]');
 }
@@ -48,14 +42,7 @@ async function open(setUp: (machine: FakeMachine) => void): Promise<void> {
     machine = new FakeMachine();
     setUp(machine);
     release = connectFakeMachine(machine);
-    scope.window.ruimteDesktop = {
-        platform: 'darwin',
-        pickFolder: async () => null,
-        openExternal: async () => undefined,
-        openGuestDevTools: () => undefined,
-        isFullscreen: async () => false,
-        onFullscreen: () => () => undefined
-    };
+    installDesktop();
     page = mount();
     await page.renderApp();
     await act(async () => adoptEndpointInfo(LOCAL_ENDPOINT_ID, INFO));
@@ -70,7 +57,7 @@ afterEach(async () => {
     await act(async () => useUi.getState().setSettings({ open: false }));
     await page.unmount();
     release();
-    delete scope.window.ruimteDesktop;
+    removeDesktop();
     jest.useRealTimers();
 });
 

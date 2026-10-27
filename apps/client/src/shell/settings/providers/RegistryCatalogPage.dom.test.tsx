@@ -5,8 +5,8 @@ import { RegistryCatalogPage } from '@/shell/settings/providers/RegistryCatalogP
 import { useCliVersions, useRegistryCatalog } from '@/shell/settings/providers/use-provider-installs';
 import { LOCAL_ENDPOINT_ID } from '@/state/endpoints';
 import { FakeMachine, connectFakeMachine } from '../../../../testing/fake-machine';
-import { act } from 'react';
 import { clickOn, mount, until, type Mounted } from '../../../../testing/dom';
+import { button, everything, typeInto } from '../settings-dom';
 
 const GOOSE: RegistryAgent = {
     id: 'goose',
@@ -44,23 +44,6 @@ function Catalog() {
     return <RegistryCatalogPage registry={registry} onOpen={(kind) => opened.push(kind)} />;
 }
 
-function button(label: string): HTMLButtonElement | null {
-    return [...document.querySelectorAll('button')].find((element) => element.textContent?.trim() === label) ?? null;
-}
-
-async function typeInto(input: HTMLInputElement, value: string): Promise<void> {
-    await act(async () => {
-        input.focus();
-        // React tracks the value it set, so the browser's own setter is what makes the change show.
-        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value);
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-}
-
-function text(): string {
-    return document.body.textContent ?? '';
-}
-
 beforeEach(() => {
     opened = [];
     machine = new FakeMachine();
@@ -81,18 +64,18 @@ afterEach(async () => {
 describe('adding a provider from the ACP registry', () => {
     test('shows the whole catalog without a search, and narrows it as a person types', async () => {
         await page.render(<Catalog />);
-        await until(() => text().includes('Kilo'));
-        expect(text()).toContain('goose');
-        expect(text()).toContain('Version 1.55.0 · verified');
-        expect(text()).toContain('Version 7.8.15');
-        expect(text()).not.toContain('npm package');
+        await until(() => everything().includes('Kilo'));
+        expect(everything()).toContain('goose');
+        expect(everything()).toContain('Version 1.55.0 · verified');
+        expect(everything()).toContain('Version 7.8.15');
+        expect(everything()).not.toContain('npm package');
 
         await typeInto(document.querySelector('input')!, 'open source');
-        await until(() => !text().includes('A local, extensible agent'));
-        expect(text()).toContain('Kilo');
+        await until(() => !everything().includes('A local, extensible agent'));
+        expect(everything()).toContain('Kilo');
 
         await typeInto(document.querySelector('input')!, 'nothing like it');
-        await until(() => text().includes('No agent matches "nothing like it".'));
+        await until(() => everything().includes('No agent matches "nothing like it".'));
     });
 
     test('installs an agent on a press, asks for the providers again and opens it', async () => {
@@ -110,8 +93,8 @@ describe('adding a provider from the ACP registry', () => {
     test('shows the last good catalog when the registry cannot be reached, and says why', async () => {
         machine.answer('provider.registry', () => ({ catalog: { ...LIVE, source: 'cached' as const, error: 'The list of agents is unavailable (503)' } }));
         await page.render(<Catalog />);
-        await until(() => text().includes('Could not refresh the list (The list of agents is unavailable (503)).'));
-        expect(text()).toContain('Kilo');
+        await until(() => everything().includes('Could not refresh the list (The list of agents is unavailable (503)).'));
+        expect(everything()).toContain('Kilo');
     });
 
     test('says what went wrong when there is no catalog at all, and tries again on a press', async () => {
@@ -119,11 +102,11 @@ describe('adding a provider from the ACP registry', () => {
             catalog: { source: 'unavailable' as const, fetchedAt: null, error: 'offline', platform: 'darwin-aarch64', agents: [] }
         }));
         await page.render(<Catalog />);
-        await until(() => text().includes('Could not load the agents'));
-        expect(text()).toContain('offline');
+        await until(() => everything().includes('Could not load the agents'));
+        expect(everything()).toContain('offline');
         machine.answer('provider.registry', () => ({ catalog: LIVE }));
         await clickOn(button('Try again'));
-        await until(() => text().includes('Kilo'));
+        await until(() => everything().includes('Kilo'));
         expect(machine.requests('provider.registry').at(-1)).toEqual({ refresh: true });
     });
 });
@@ -164,24 +147,24 @@ describe('the version of a CLI in Settings, Providers', () => {
     test('says how it was installed and updates it through that route on a press', async () => {
         await page.render(<Version provider={COPILOT} />);
         await until(() => button('Update to 1.0.110') !== null);
-        expect(text()).toContain('Installed with npm (@github/copilot)');
-        expect(text()).toContain('Version 1.0.101. Version 1.0.110 is available.');
+        expect(everything()).toContain('Installed with npm (@github/copilot)');
+        expect(everything()).toContain('Version 1.0.101. Version 1.0.110 is available.');
         await clickOn(button('Update to 1.0.110'));
-        await until(() => text().includes('Version 1.0.110. Up to date.'));
+        await until(() => everything().includes('Version 1.0.110. Up to date.'));
         expect(machine.requests('provider.update')).toEqual([{ provider: 'copilot' }]);
     });
 
     test('a CLI installed some other way shows its version and no update', async () => {
         await page.render(<Version provider={CLAUDE} />);
-        await until(() => text().includes('Installed some other way'));
-        expect(text()).toContain('Version 2.1.304. Its own installer keeps it up to date.');
+        await until(() => everything().includes('Installed some other way'));
+        expect(everything()).toContain('Version 2.1.304. Its own installer keeps it up to date.');
         expect(document.querySelectorAll('button')).toHaveLength(0);
     });
 
     test('an agent Ruimte installed can be removed again', async () => {
         await page.render(<Version provider={GOOSE_PROVIDER} />);
         await until(() => button('Remove') !== null);
-        expect(text()).toContain('Installed by Ruimte');
+        expect(everything()).toContain('Installed by Ruimte');
         await clickOn(button('Remove'));
         expect(machine.requests('provider.removeAgent')).toEqual([{ id: 'goose' }]);
     });

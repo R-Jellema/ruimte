@@ -3,16 +3,9 @@ import { act } from 'react';
 import { AccentRow, PaletteRow } from '@/shell/settings/panes/ColorRows';
 import { useSettings } from '@/state/settings';
 import { clickOn, mount, until, type Mounted } from '../../../../testing/dom';
+import { button, everything } from '../settings-dom';
 
 let page: Mounted;
-
-function everything(): string {
-    return document.body.textContent ?? '';
-}
-
-function button(label: string): HTMLButtonElement | null {
-    return [...document.querySelectorAll('button')].find((element) => element.textContent?.trim() === label) ?? null;
-}
 
 function swatch(label: string, wheel = 'Palette'): HTMLElement | null {
     return document.querySelector<HTMLElement>(`[role="radiogroup"][aria-label="${wheel}"] [aria-label="${label}"]`);

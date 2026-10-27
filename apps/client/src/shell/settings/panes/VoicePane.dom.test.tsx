@@ -1,14 +1,12 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
 import { REQUEST_SCHEMAS, type RequestType, type VoicePreferences } from '@ruimte/contracts';
-import type { DesktopBridge } from '@/desktop/bridge';
 import { useSettings } from '@/state/settings';
 import { clickOn, mount, until, type Mounted } from '../../../../testing/dom';
 import { connectFakeMachine, FakeMachine } from '../../../../testing/fake-machine';
 import { machineBridge } from '../../../../testing/machine-bridge';
+import { installDesktop, removeDesktop } from '../settings-dom';
 import { VoicePane } from './VoicePane';
-
-const scope = globalThis as unknown as { window: { ruimteDesktop?: DesktopBridge } };
 
 let page: Mounted;
 let machine: FakeMachine;
@@ -36,13 +34,7 @@ async function open(answers: readonly RequestType[] | null = null): Promise<void
         return { preferences: payload };
     });
     release = connectFakeMachine(machine);
-    scope.window.ruimteDesktop = {
-        platform: 'darwin',
-        pickFolder: async () => null,
-        openExternal: async () => undefined,
-        openGuestDevTools: () => undefined,
-        isFullscreen: async () => false,
-        onFullscreen: () => () => undefined,
+    installDesktop({
         machine: machineBridge('local'),
         openAi: {
             credentialStatus: async () => ({ configured: true, persistent: true }),
@@ -50,7 +42,7 @@ async function open(answers: readonly RequestType[] | null = null): Promise<void
             clearApiKey: async () => ({ configured: false, persistent: true }),
             createLiveSession: async () => ({ session: { id: 'session' }, transport: { type: 'webrtc', sdp: 'v=0' } })
         }
-    } as DesktopBridge;
+    });
     page = mount();
     await page.render(<VoicePane />);
     await until(() => trigger('Conversation voice') !== null);
@@ -64,7 +56,7 @@ beforeEach(() => {
 afterEach(async () => {
     await page.unmount();
     release();
-    delete scope.window.ruimteDesktop;
+    removeDesktop();
 });
 
 describe('Settings > Voice, language and voice of the machine', () => {
@@ -89,7 +81,7 @@ describe('Settings > Voice, language and voice of the machine', () => {
         expect(trigger('Conversation voice')?.textContent).toContain('Marin');
     });
 
-    test('a machine that keeps none of its own leaves both to this app, as before', async () => {
+    test('a machine that keeps none of its own leaves both to this app', async () => {
         const older = (Object.keys(REQUEST_SCHEMAS) as RequestType[]).filter((type) => type !== 'voice.preferences' && type !== 'voice.setPreferences');
         await open(older);
         expect(trigger('Conversation language')).toBeNull();

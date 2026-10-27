@@ -17,6 +17,7 @@ import {
     writeCachedList,
     type OpenListSource
 } from './list';
+import { fakeStorage } from './fake-storage';
 
 function summary(projectId: string, lastOpenedAt = 0, closedAt: number | null = null): ProjectSummary {
     return {
@@ -45,14 +46,6 @@ function endpoint(id: string, label: string): Endpoint {
 }
 
 /* The three calls the list makes on the storage it is given, over a map a test can read. */
-function fakeStorage(storage: Map<string, string>) {
-    return {
-        getItem: (key: string) => storage.get(key) ?? null,
-        setItem: (key: string, value: string) => void storage.set(key, value),
-        removeItem: (key: string) => void storage.delete(key)
-    };
-}
-
 beforeEach(() => {
     useProjectList.setState({ projects: [] });
 });

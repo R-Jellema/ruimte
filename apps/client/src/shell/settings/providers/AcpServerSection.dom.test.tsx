@@ -5,6 +5,7 @@ import { useAcpServer } from '@/shell/settings/providers/use-acp-server';
 import { LOCAL_ENDPOINT_ID } from '@/state/endpoints';
 import { FakeMachine, connectFakeMachine } from '../../../../testing/fake-machine';
 import { clickOn, mount, until, type Mounted } from '../../../../testing/dom';
+import { button } from '../settings-dom';
 
 const ANTIGRAVITY = { kind: 'antigravity', name: 'Antigravity', installed: false, version: null } as unknown as ProviderInfo;
 const MISSING: AgentServerStatus = { provider: 'antigravity', state: 'missing', version: '1.4.1', installed: null };
@@ -27,10 +28,6 @@ function Step() {
             </section>
         )
     );
-}
-
-function button(label: string): HTMLButtonElement | null {
-    return [...document.querySelectorAll('button')].find((element) => element.textContent?.trim() === label) ?? null;
 }
 
 beforeEach(async () => {

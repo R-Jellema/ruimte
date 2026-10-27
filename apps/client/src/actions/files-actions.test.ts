@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import type { ActionResult } from '@ruimte/actions';
 import type { FileLocation, FsEntry, RequestMap, RequestType } from '@ruimte/contracts';
+import { completed } from './action-support';
 import { createClientActionRegistry, PERSON_ACTION_CALL, VOICE_ACTION_CALL } from './client-actions';
 import type { FilesMachine } from './files-actions';
 import { useDocument } from '@/state/document';
@@ -44,13 +44,6 @@ function fakes(answers: Answers = {}, overrides: Partial<FilesMachine> = {}) {
         ...overrides
     };
     return { asked, open, copied, revealed, forgotten, moved, registry: createClientActionRegistry(useDocument, { files: machine }) };
-}
-
-function completed<Result extends ActionResult>(result: Result): Extract<Result, { status: 'completed' }> {
-    if (result.status !== 'completed') {
-        throw new Error(`Expected a completed action, got ${JSON.stringify(result)}`);
-    }
-    return result as Extract<Result, { status: 'completed' }>;
 }
 
 beforeEach(() => {

@@ -3,34 +3,23 @@ import type { BackgroundServiceState, DesktopBridge, MachineMode } from '@/deskt
 import { mount, until, type Mounted } from '../../../testing/dom';
 import { machineBridge } from '../../../testing/machine-bridge';
 import { BackgroundServiceSection } from './BackgroundServiceSection';
-
-const scope = globalThis as unknown as { window: { ruimteDesktop?: DesktopBridge } };
+import { everything, installDesktop, removeDesktop } from './settings-dom';
 
 const STATE: BackgroundServiceState = { support: 'supported', keepRunning: true, owner: 'service', failure: null, linger: null };
 
 let page: Mounted;
 
-function everything(): string {
-    return document.body.textContent ?? '';
-}
-
 async function open(machine: DesktopBridge['machine'] | MachineMode): Promise<void> {
-    scope.window.ruimteDesktop = {
-        platform: 'darwin',
-        pickFolder: async () => null,
-        openExternal: async () => undefined,
-        openGuestDevTools: () => undefined,
-        isFullscreen: async () => false,
-        onFullscreen: () => () => undefined,
+    installDesktop({
+        machine: typeof machine === 'string' ? machineBridge(machine) : machine,
         backgroundService: {
             state: async () => STATE,
             onState: () => () => undefined,
             setKeepRunning: async () => STATE,
             enableLinger: async () => STATE,
             stopMachine: () => undefined
-        },
-        ...(machine === undefined ? {} : { machine: typeof machine === 'string' ? machineBridge(machine) : machine })
-    };
+        }
+    });
     page = mount();
     await page.render(<BackgroundServiceSection />);
     // The section draws once the shell answered with its state.
@@ -39,7 +28,7 @@ async function open(machine: DesktopBridge['machine'] | MachineMode): Promise<vo
 
 afterEach(async () => {
     await page.unmount();
-    delete scope.window.ruimteDesktop;
+    removeDesktop();
 });
 
 describe('the way back to an app that only connects', () => {

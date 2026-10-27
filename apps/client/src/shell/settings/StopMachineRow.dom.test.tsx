@@ -1,14 +1,13 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { RequestType } from '@ruimte/contracts';
-import type { DesktopBridge, MachineStopPreview } from '@/desktop/bridge';
+import type { MachineStopPreview } from '@/desktop/bridge';
 import { LOCAL_ENDPOINT_ID } from '@/state/endpoints';
 import { useServers } from '@/state/server';
 import { clickOn, mount, until, type Mounted } from '../../../testing/dom';
 import { connectFakeMachine, FakeMachine } from '../../../testing/fake-machine';
 import { machineBridge } from '../../../testing/machine-bridge';
+import { button, everything, installDesktop, removeDesktop } from './settings-dom';
 import { StopMachineRow } from './StopMachineRow';
-
-const scope = globalThis as unknown as { window: { ruimteDesktop?: DesktopBridge } };
 
 const BUSY: MachineStopPreview = { work: { agents: 2, terminals: 0 }, home: '~/.ruimte', commandLine: false };
 
@@ -17,14 +16,6 @@ let order: string[];
 let preview: Promise<MachineStopPreview>;
 let previewFails: boolean;
 let release: (() => void) | null;
-
-function everything(): string {
-    return document.body.textContent ?? '';
-}
-
-function button(label: string): HTMLButtonElement | null {
-    return [...document.querySelectorAll('button')].find((element) => element.textContent?.trim() === label) ?? null;
-}
 
 /* What a person clicks: the words beside the box. */
 function boxLabel(): HTMLElement | null {
@@ -36,15 +27,7 @@ function box(): HTMLElement | null {
 }
 
 async function open(choose: () => Promise<void> = async () => void order.push('choose')): Promise<void> {
-    scope.window.ruimteDesktop = {
-        platform: 'darwin',
-        pickFolder: async () => null,
-        openExternal: async () => undefined,
-        openGuestDevTools: () => undefined,
-        isFullscreen: async () => false,
-        onFullscreen: () => () => undefined,
-        machine: machineBridge('local', { stopPreview: () => (previewFails ? Promise.reject(new Error('no answer')) : preview), choose })
-    };
+    installDesktop({ machine: machineBridge('local', { stopPreview: () => (previewFails ? Promise.reject(new Error('no answer')) : preview), choose }) });
     page = mount();
     await page.render(<StopMachineRow />);
     await clickOn(button('Stop running…'));
@@ -62,7 +45,7 @@ afterEach(async () => {
     await page.unmount();
     release?.();
     useServers.getState().setAccount(LOCAL_ENDPOINT_ID, null);
-    delete scope.window.ruimteDesktop;
+    removeDesktop();
 });
 
 function connect(failLeave = false): FakeMachine {

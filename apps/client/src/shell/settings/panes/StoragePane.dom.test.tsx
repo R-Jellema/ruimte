@@ -5,6 +5,7 @@ import { useUi } from '@/state/ui';
 import { clickOn, mount, until, type Mounted } from '../../../../testing/dom';
 import { FakeMachine } from '../../../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../../../testing/fake-workspace';
+import { button, everything } from '../settings-dom';
 
 const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [], texts: [], edges: [], layouts: [] };
 const MB = 1024 * 1024;
@@ -32,14 +33,6 @@ let machine: FakeMachine;
 let workspace: FakeWorkspace;
 let page: Mounted;
 
-function text(): string {
-    return document.body.textContent ?? '';
-}
-
-function button(label: string): HTMLElement | null {
-    return ([...document.querySelectorAll('button')] as HTMLElement[]).find((element) => element.textContent?.trim() === label) ?? null;
-}
-
 async function openStorage(): Promise<void> {
     await act(async () => useUi.getState().setSettings({ open: true, section: 'storage' }));
 }
@@ -66,34 +59,34 @@ afterEach(async () => {
 describe('the Storage pane', () => {
     test('shows what the machine keeps, a bar per project and what is free', async () => {
         await openStorage();
-        await until(() => text().includes('Output on Fake machine'));
-        expect(text()).toContain('733 MB');
-        expect(text()).toContain('388 GB free on the disk');
+        await until(() => everything().includes('Output on Fake machine'));
+        expect(everything()).toContain('733 MB');
+        expect(everything()).toContain('388 GB free on the disk');
         expect(document.querySelector('[aria-label="Output by project"]')?.querySelectorAll('li')).toHaveLength(2);
         // The largest project first.
-        expect(text().indexOf('Atlas')).toBeLessThan(text().indexOf('Chats'));
-        expect(text()).toContain('8 items, 163 versions');
+        expect(everything().indexOf('Atlas')).toBeLessThan(everything().indexOf('Chats'));
+        expect(everything()).toContain('8 items, 163 versions');
     });
 
     test('Show in Output opens the panel on this project, and on All projects for another one', async () => {
         await openStorage();
-        await until(() => text().includes('Show in Output'));
+        await until(() => everything().includes('Show in Output'));
         // Atlas is the window's project and comes first; Chats is another one of this machine.
         await clickOn([...document.querySelectorAll('button')].filter((element) => element.textContent?.trim() === 'Show in Output')[1] ?? null);
         expect(useUi.getState().settings.open).toBe(false);
         expect(useUi.getState().panel.open && useUi.getState().panel.kind).toBe('output');
-        await until(() => text().includes('All projects'));
+        await until(() => everything().includes('All projects'));
 
         await openStorage();
-        await until(() => text().includes('Show in Output'));
+        await until(() => everything().includes('Show in Output'));
         await clickOn(button('Show in Output'));
-        await until(() => !text().includes('All projects'));
+        await until(() => !everything().includes('All projects'));
     });
 
     test('Review removes exactly the versions left checked', async () => {
         await openStorage();
-        await until(() => text().includes('Older versions of Morning summary'));
-        expect(text()).toContain('Frees 12 MB, 3 versions');
+        await until(() => everything().includes('Older versions of Morning summary'));
+        expect(everything()).toContain('Frees 12 MB, 3 versions');
         await clickOn(button('Review'));
         await until(() => document.querySelector('[role="dialog"] [role="checkbox"][aria-label="Version 2"]') !== null);
         await clickOn(document.querySelector('[role="checkbox"][aria-label="Version 2"]'));
@@ -107,36 +100,36 @@ describe('the Storage pane', () => {
                 { artifactId: 'morning', versionId: 'm-3' }
             ]
         });
-        await until(() => text().includes('8 MB freed on Fake machine'));
+        await until(() => everything().includes('8 MB freed on Fake machine'));
     });
 
     test('Not now puts a proposal away for this session', async () => {
         await openStorage();
-        await until(() => text().includes('Older versions of Morning summary'));
+        await until(() => everything().includes('Older versions of Morning summary'));
         await clickOn(button('Not now'));
-        await until(() => text().includes('Nothing to clean up'));
+        await until(() => everything().includes('Nothing to clean up'));
         expect(machine.requests('artifact.cleanup').every((payload) => payload.mode === 'preview')).toBe(true);
     });
 
     test('a machine with nothing to let go says so', async () => {
         machine.answer('artifact.cleanup', () => ({ proposals: [] }));
         await openStorage();
-        await until(() => text().includes('Nothing to clean up'));
+        await until(() => everything().includes('Nothing to clean up'));
     });
 
     test('a machine that does not keep Output asks for an update and is never asked', async () => {
         const all = Object.keys(REQUEST_SCHEMAS) as RequestType[];
         machine.answersOnly(all.filter((type) => !type.startsWith('artifact.')));
         await openStorage();
-        await until(() => text().includes('Update Fake machine to use Output.'));
+        await until(() => everything().includes('Update Fake machine to use Output.'));
         expect(machine.requests('artifact.storage')).toHaveLength(0);
     });
 
     test('a machine that does not answer says so', async () => {
         await openStorage();
-        await until(() => text().includes('Output on Fake machine'));
+        await until(() => everything().includes('Output on Fake machine'));
         await act(async () => machine.lose());
-        await until(() => text().includes('Fake machine is not reachable.'));
-        expect(text()).not.toContain('Show in Output');
+        await until(() => everything().includes('Fake machine is not reachable.'));
+        expect(everything()).not.toContain('Show in Output');
     });
 });

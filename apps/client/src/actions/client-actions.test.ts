@@ -21,6 +21,7 @@ import { useDocument } from '@/state/document';
 import { defaultDrawings } from '@/state/drawing';
 import { useFiles } from '@/state/files';
 import { useProject } from '@/state/project';
+import { confirmed } from './action-support';
 
 const PROJECT: ProjectSummary = {
     projectId: 'atlas',
@@ -53,14 +54,6 @@ function createNode(registry: ActionRegistry<void>, input: Partial<ActionInput<'
 
 function canvas() {
     return defaultCanvases.of('main').getState();
-}
-
-/* Asks, answers yes, and hands back what the action did. */
-async function confirmed(registry: ActionRegistry<void>, asked: Awaited<ReturnType<ActionRegistry<void>['execute']>>) {
-    if (asked.status !== 'needs_confirmation') {
-        throw new Error(`Expected a confirmation, got ${asked.status}`);
-    }
-    return registry.confirm(asked.confirmationToken, true, VOICE_ACTION_CALL);
 }
 
 const document: ProjectDocument = {
