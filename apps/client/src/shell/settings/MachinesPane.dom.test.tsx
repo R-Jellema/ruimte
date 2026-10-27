@@ -45,6 +45,17 @@ async function open(machine: DesktopBridge['machine']): Promise<void> {
     await act(async () => useUi.getState().setSettings({ open: true, section: 'machines' }));
 }
 
+/* Confirms the restart to run a machine on a shell that refuses it with `failure`. */
+async function setUpRefused(failure: Error): Promise<void> {
+    choose = () => Promise.reject(failure);
+    await open(machineBridge('none', { choose: (mode) => choose(mode) }));
+    await until(() => row('This computer') !== null);
+    await clickOn(row('This computer'));
+    await until(() => button('Set up') !== null);
+    await clickOn(button('Set up'));
+    await clickOn(button('Restart'));
+}
+
 beforeEach(() => {
     release = null;
     chosen = [];
@@ -75,25 +86,13 @@ describe('Settings > Machines of an app that runs no machine', () => {
     });
 
     test('a choice that could not be saved stays in the dialog with its reason', async () => {
-        choose = () => Promise.reject(new Error('disk full'));
-        await open(machineBridge('none', { choose: (mode) => choose(mode) }));
-        await until(() => row('This computer') !== null);
-        await clickOn(row('This computer'));
-        await until(() => button('Set up') !== null);
-        await clickOn(button('Set up'));
-        await clickOn(button('Restart'));
+        await setUpRefused(new Error('disk full'));
         await until(() => everything().includes('disk full'));
         expect(everything()).toContain('Restart Ruimte to run a machine here?');
     });
 
     test('a failure of the shell itself is told in our own words', async () => {
-        choose = () => Promise.reject(new Error("Error invoking remote method 'machine:choose': Error: EACCES"));
-        await open(machineBridge('none', { choose: (mode) => choose(mode) }));
-        await until(() => row('This computer') !== null);
-        await clickOn(row('This computer'));
-        await until(() => button('Set up') !== null);
-        await clickOn(button('Set up'));
-        await clickOn(button('Restart'));
+        await setUpRefused(new Error("Error invoking remote method 'machine:choose': Error: EACCES"));
         await until(() => everything().includes('Ruimte could not restart to run a machine here. Try again.'));
         expect(everything()).not.toContain('Error invoking');
     });
