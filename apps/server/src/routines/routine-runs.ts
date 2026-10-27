@@ -25,7 +25,7 @@ export class RoutineRunStore {
         return this.records
             .all()
             .filter((run) => run.projectId === projectId && run.routineId === routineId)
-            .sort((a, b) => b.at - a.at || b.due - a.due);
+            .sort((left, right) => right.at - left.at || right.due - left.due);
     }
 
     all(): RoutineRun[] {
@@ -37,7 +37,7 @@ export class RoutineRunStore {
         return this.records
             .all()
             .filter((run) => run.chatId === chatId)
-            .sort((a, b) => b.at - a.at)[0];
+            .sort((left, right) => right.at - left.at)[0];
     }
 
     async put(run: RoutineRun): Promise<void> {

@@ -32,8 +32,6 @@ import {
 
 const ROUTINES_FILE = 'routines.json';
 
-// The burst rule of the other project files: git and editors write more than once per save.
-
 type RoutineErrorCode =
     | 'project-not-found'
     | 'routine-not-found'

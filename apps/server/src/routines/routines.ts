@@ -210,7 +210,7 @@ function runBrief(
 
 /*
  * The brief goes beside the prompt, except after a slash command: a CLI hears nothing in front of one,
- * so it rides in the message as the command's arguments, as it did before the two were apart.
+ * so it rides in the message as the command's arguments.
  */
 export function runMessage(prompt: string, brief: string): RunMessage {
     return prompt.startsWith('/') ? { prompt: `${prompt}\n\n---\n${brief}` } : { prompt, brief };
@@ -278,6 +278,7 @@ export class Routines {
         }
         const routines: RoutineEntry[] = [];
         const revs: Record<string, number> = {};
+        const since = this.deps.now() - LISTED_RUNS_MS;
         for (const project of projects) {
             let document: RoutinesDocument;
             try {
@@ -289,7 +290,7 @@ export class Routines {
             }
             revs[project.projectId] = document.rev;
             for (const stored of document.routines) {
-                routines.push(this.entryOf(project.projectId, project.name, document.folder, stored, this.deps.now() - LISTED_RUNS_MS));
+                routines.push(this.entryOf(project.projectId, project.name, document.folder, stored, since));
             }
         }
         return { routines, revs, timeZone: this.deps.timeZone() };
