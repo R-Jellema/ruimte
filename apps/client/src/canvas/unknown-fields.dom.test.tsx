@@ -4,7 +4,7 @@ import type { ProjectCanvasView, ProjectNode } from '@ruimte/contracts';
 import { windowWorkspace } from '@/state/window';
 import { FakeMachine } from '../../testing/fake-machine';
 import { pressKey, until } from '../../testing/dom';
-import { openCanvasPage, savedNodes, type CanvasPage } from './canvas-page';
+import { openCanvasPage, savedNodes, type CanvasPage } from '../../testing/canvas-page';
 
 // A key a newer Ruimte added: the types do not carry it, the file and the wire do.
 const PLAN = { id: 'plan', kind: 'note', title: 'Plan', body: 'Ship it', x: 0, y: 0, w: 400, h: 320, location: { line: 3 } } as ProjectNode;

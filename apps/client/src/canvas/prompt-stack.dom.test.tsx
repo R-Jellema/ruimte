@@ -5,7 +5,7 @@ import { PROMPT_SAMPLES } from '@adecore/agents-react/testing';
 import { chatInfoOf } from '../../testing/chat-info';
 import { FakeMachine } from '../../testing/fake-machine';
 import { clickOn, until } from '../../testing/dom';
-import { openCanvasPage, type CanvasPage } from './canvas-page';
+import { openCanvasPage, type CanvasPage } from '../../testing/canvas-page';
 
 const WRITER: ProjectNode = { id: 'writer', kind: 'chat', title: 'Writer', x: 40, y: 80, w: 480, h: 520 };
 const TEAM: ProjectNode = { id: 'team', kind: 'group', title: 'Team', x: 0, y: 0, w: 600, h: 700, memberIds: [WRITER.id] };

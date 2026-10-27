@@ -10,7 +10,7 @@ import { startServerInfo } from '@/transport/server-info';
 import { FakeMachine } from '../../testing/fake-machine';
 import { typeInto } from '../../testing/dom-helpers';
 import { clickOn, openSubmenu, pressKey, until } from '../../testing/dom';
-import { menuItem, openCanvasPage, openContextMenu, savedNodes, type CanvasPage } from './canvas-page';
+import { menuItem, openCanvasPage, openContextMenu, savedNodes, type CanvasPage } from '../../testing/canvas-page';
 
 const MACHINE = 'fake-machine';
 const PLAN: ProjectNode = { id: 'plan', kind: 'note', title: 'Plan', body: 'Ship it', x: 0, y: 0, w: 400, h: 320 };

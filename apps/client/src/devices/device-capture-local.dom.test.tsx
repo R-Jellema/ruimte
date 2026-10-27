@@ -4,7 +4,7 @@ import { useDocument } from '@/state/document';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { answerDevices, FAKE_SIMULATOR, type FakeDevices } from '../../testing/fake-devices';
-import { button, phoneCanvas } from './device-dom';
+import { button, phoneCanvas } from '../../testing/device-dom';
 import { clickOn, mount, until, type Mounted } from '../../testing/dom';
 
 const MAIN = phoneCanvas();

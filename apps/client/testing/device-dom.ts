@@ -1,5 +1,5 @@
 import type { ProjectCanvasView, ProjectNode } from '@ruimte/contracts';
-import { FAKE_SIMULATOR, referenceOf } from '../../testing/fake-devices';
+import { FAKE_SIMULATOR, referenceOf } from './fake-devices';
 
 export function button(label: string): HTMLElement | null {
     return document.body.querySelector<HTMLElement>(`button[aria-label="${label}"]`);

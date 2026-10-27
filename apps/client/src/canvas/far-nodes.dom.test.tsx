@@ -4,7 +4,7 @@ import type { ProjectCanvasView, ProjectNode } from '@ruimte/contracts';
 import { canvasOfNode } from '@/state/canvas';
 import { FakeMachine } from '../../testing/fake-machine';
 import { until } from '../../testing/dom';
-import { openCanvasPage, type CanvasPage } from './canvas-page';
+import { openCanvasPage, type CanvasPage } from '../../testing/canvas-page';
 
 const NEAR: ProjectNode = { id: 'near', kind: 'note', title: 'Near', body: 'In sight', x: 0, y: 0, w: 320, h: 240 };
 // More than a viewport past the right edge of a 1280 by 800 view at 100%.

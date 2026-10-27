@@ -6,7 +6,7 @@ import { swapPeerLinker } from '@/project/peer-linker';
 import { connectFakeMachine, FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { answerDevices, FAKE_SIMULATOR, type FakeDevices } from '../../testing/fake-devices';
-import { button, phoneCanvas } from './device-dom';
+import { button, phoneCanvas } from '../../testing/device-dom';
 import { clickOn, mount, until, type Mounted } from '../../testing/dom';
 
 const REMOTE = 'machine-b';

@@ -5,7 +5,7 @@ import { focusedCanvas } from '@/state/canvas';
 import { windowWorkspace } from '@/state/window';
 import { FakeMachine } from '../../testing/fake-machine';
 import { until } from '../../testing/dom';
-import { openCanvasPage, savedNodes, type CanvasPage } from './canvas-page';
+import { openCanvasPage, savedNodes, type CanvasPage } from '../../testing/canvas-page';
 
 const PLAN: ProjectNode = { id: 'plan', kind: 'note', title: 'Plan', body: 'Ship it', x: 0, y: 0, w: 280, h: 200 };
 const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [PLAN], texts: [], edges: [], layouts: [] };

@@ -8,7 +8,7 @@ import { chatInfoOf } from '../../testing/chat-info';
 import { FakeMachine } from '../../testing/fake-machine';
 import { fakeProvider } from '../../testing/fake-provider';
 import { clickOn, openSubmenu, pressKey, until } from '../../testing/dom';
-import { menuItem, openCanvasPage, openContextMenu, savedNodes, type CanvasPage } from './canvas-page';
+import { menuItem, openCanvasPage, openContextMenu, savedNodes, type CanvasPage } from '../../testing/canvas-page';
 
 const CLAUDE = fakeProvider('claude', 'Claude Code', { version: '2.1.0', resumeCommand: 'claude --resume {id}' });
 
