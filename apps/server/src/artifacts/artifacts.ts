@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { lstat, realpath } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
 import {
@@ -23,7 +24,6 @@ import {
     type ChatAttachment
 } from '@ruimte/contracts';
 import { KeyedSerializer } from '@adecore/agents';
-import { createHash } from 'node:crypto';
 import { isInside } from '../canvas/project-paths.ts';
 import { ClientSinks } from '../client-sinks.ts';
 import type { MachineHome } from '../fs/machine-home.ts';
@@ -33,7 +33,7 @@ import type { SessionSink } from '../sessions/manager.ts';
 import { cleanupProposals, NO_PINS, removable, type PinnedVersions } from './artifact-cleanup.ts';
 import { copyVersionInto } from './artifact-copy.ts';
 import { ArtifactError, isTextMime, SNIFF_HEAD_BYTES } from './artifact-names.ts';
-import type { ArtifactStore, CommitResult } from './artifact-store.ts';
+import { versionTooLarge, type ArtifactStore, type CommitResult } from './artifact-store.ts';
 
 // One agent with this many publishes half sent holds them all; the next waits until one is done.
 export const MAX_OPEN_UPLOADS = 8;
@@ -192,18 +192,7 @@ export class Artifacts {
         }
         const found = await this.sourceFile(source, project.folder);
         const size = (await lstat(found.path)).size;
-        if (size > ARTIFACT_LIMITS.versionBytes) {
-            throw new ArtifactError('too-large', 'A version holds at most 2 GiB');
-        }
-        await this.store.ensureRoom(size);
-        const stagingId = await this.store.openStaging();
-        try {
-            await this.store.stageCopy(stagingId, 0, found.path);
-        } catch (e) {
-            await this.store.discardStaging(stagingId);
-            throw e;
-        }
-        const committed = await this.store.commit(stagingId, {
+        const committed = await this.store.saveNew(size, (stagingId) => this.store.stageCopy(stagingId, 0, found.path), {
             projectId: payload.projectId,
             projectName: project.name,
             title: payload.title ?? found.title,
@@ -253,7 +242,7 @@ export class Artifacts {
             const total = [...sizes.values()].reduce((sum, size) => sum + size, 0);
             if (total + bytes.byteLength > ARTIFACT_LIMITS.versionBytes) {
                 await this.dropUpload(stagingId);
-                throw new ArtifactError('too-large', 'A version holds at most 2 GiB');
+                throw versionTooLarge();
             }
             try {
                 await this.store.ensureRoom(bytes.byteLength);
@@ -313,20 +302,12 @@ export class Artifacts {
             return earlier;
         }
         const bytes = input.files.reduce((sum, file) => sum + file.bytes.byteLength, 0);
-        if (bytes > ARTIFACT_LIMITS.versionBytes) {
-            throw new ArtifactError('too-large', 'A version holds at most 2 GiB');
-        }
-        await this.store.ensureRoom(bytes);
-        const stagingId = await this.store.openStaging();
-        try {
+        const stage = async (stagingId: string): Promise<void> => {
             for (const [index, file] of input.files.entries()) {
                 await this.store.stageAppend(stagingId, index, file.bytes);
             }
-        } catch (e) {
-            await this.store.discardStaging(stagingId);
-            throw e;
-        }
-        return this.store.commit(stagingId, {
+        };
+        return this.store.saveNew(bytes, stage, {
             projectId: input.projectId,
             projectName: project.name,
             title: input.title,

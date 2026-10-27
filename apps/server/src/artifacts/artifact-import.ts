@@ -1,6 +1,5 @@
 import { createHash } from 'node:crypto';
 import {
-    ARTIFACT_LIMITS,
     PEER_ARTIFACT_PIECE_BYTES,
     type ArtifactFile,
     type ArtifactGetResult,
@@ -96,20 +95,16 @@ export class ArtifactImporter {
                 throw new ArtifactError('not-found', 'That version is no longer on the other machine');
             }
             const bytes = version.files.reduce((sum, file) => sum + file.size, 0);
-            if (bytes > ARTIFACT_LIMITS.versionBytes) {
-                throw new ArtifactError('too-large', 'A version holds at most 2 GiB');
-            }
-            await deps.store.ensureRoom(bytes);
-            const stagingId = await deps.store.openStaging();
-            try {
-                for (const [index, file] of version.files.entries()) {
-                    await this.fetchFile(link, { projectId: remoteProjectId, artifactId: payload.artifactId, version, index, file }, stagingId);
+            const stage = async (stagingId: string): Promise<void> => {
+                try {
+                    for (const [index, file] of version.files.entries()) {
+                        await this.fetchFile(link, { projectId: remoteProjectId, artifactId: payload.artifactId, version, index, file }, stagingId);
+                    }
+                } catch (e) {
+                    throw importFailure(e);
                 }
-            } catch (e) {
-                await deps.store.discardStaging(stagingId).catch(() => undefined);
-                throw importFailure(e);
-            }
-            const committed = await deps.store.commit(stagingId, {
+            };
+            const committed = await deps.store.saveNew(bytes, stage, {
                 projectId: payload.projectId,
                 projectName: project.name,
                 title: found.artifact.title,

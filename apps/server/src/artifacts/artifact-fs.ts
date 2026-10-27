@@ -66,30 +66,31 @@ async function digestStream(stream: AsyncIterable<Uint8Array>, write?: (chunk: U
     return { size, sha256: hasher.digest('hex') };
 }
 
+async function unlessMissing<T>(read: Promise<T>, missing: T): Promise<T> {
+    try {
+        return await read;
+    } catch (e) {
+        if (isNotFound(e)) {
+            return missing;
+        }
+        throw e;
+    }
+}
+
+async function readSlice(path: string, offset: number, length: number): Promise<Uint8Array> {
+    return new Uint8Array(
+        await Bun.file(path)
+            .slice(offset, offset + length)
+            .arrayBuffer()
+    );
+}
+
 export const NODE_ARTIFACT_FS: ArtifactFs = {
     async mkdir(path) {
         await mkdir(path, { recursive: true, mode: 0o700 });
     },
-    async list(path) {
-        try {
-            return await readdir(path);
-        } catch (e) {
-            if (isNotFound(e)) {
-                return [];
-            }
-            throw e;
-        }
-    },
-    async readText(path) {
-        try {
-            return await readFile(path, 'utf8');
-        } catch (e) {
-            if (isNotFound(e)) {
-                return null;
-            }
-            throw e;
-        }
-    },
+    list: (path) => unlessMissing(readdir(path), []),
+    readText: (path) => unlessMissing(readFile(path, 'utf8'), null),
     writeDurable: (path, text) => writeAtomic(path, text, 0o600, { durable: true }),
     async append(path, bytes) {
         const handle = await open(path, 'a', 0o600);
@@ -99,16 +100,11 @@ export const NODE_ARTIFACT_FS: ArtifactFs = {
             await handle.close();
         }
     },
-    async sizeOf(path) {
-        try {
-            return (await stat(path)).size;
-        } catch (e) {
-            if (isNotFound(e)) {
-                return null;
-            }
-            throw e;
-        }
-    },
+    sizeOf: (path) =>
+        unlessMissing(
+            stat(path).then((info) => info.size),
+            null
+        ),
     async copyIn(from, to) {
         const handle = await open(to, 'wx', 0o600);
         try {
@@ -122,16 +118,8 @@ export const NODE_ARTIFACT_FS: ArtifactFs = {
         }
     },
     digest: (path) => digestStream(createReadStream(path)),
-    async readHead(path, length) {
-        return new Uint8Array(await Bun.file(path).slice(0, length).arrayBuffer());
-    },
-    async readRange(path, offset, length) {
-        return new Uint8Array(
-            await Bun.file(path)
-                .slice(offset, offset + length)
-                .arrayBuffer()
-        );
-    },
+    readHead: (path, length) => readSlice(path, 0, length),
+    readRange: readSlice,
     syncFile: syncPath,
     syncDir: syncPath,
     rename: (from, to) => rename(from, to),

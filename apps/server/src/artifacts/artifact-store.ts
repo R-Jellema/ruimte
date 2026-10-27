@@ -105,6 +105,10 @@ function parsed<T>(schema: z.ZodType<T>, text: string | null): T | null {
     }
 }
 
+export function versionTooLarge(): ArtifactError {
+    return new ArtifactError('too-large', 'A version holds at most 2 GiB');
+}
+
 /* What a failure during a save says; a full disk is its own refusal, and a message never names a file. */
 function saveFailure(e: unknown): unknown {
     if (isDiskFull(e)) {
@@ -278,6 +282,25 @@ export class ArtifactStore {
         }
     }
 
+    /*
+     * Stages a new version of `bytes` in all through `stage` and commits it; what was staged goes when a
+     * step fails. A version past the limit, or one the disk has no room for, is refused before anything is written.
+     */
+    async saveNew(bytes: number, stage: (stagingId: string) => Promise<void>, input: CommitInput): Promise<CommitResult> {
+        if (bytes > ARTIFACT_LIMITS.versionBytes) {
+            throw versionTooLarge();
+        }
+        await this.ensureRoom(bytes);
+        const stagingId = await this.openStaging();
+        try {
+            await stage(stagingId);
+        } catch (e) {
+            await this.discardStaging(stagingId).catch(() => undefined);
+            throw e;
+        }
+        return this.commit(stagingId, input);
+    }
+
     /* Notes that a version was copied into a project, which keeps it out of every cleanup proposal. */
     markCopied(artifactId: string, versionId: string, path: string): Promise<void> {
         return this.writes.run(async () => {
@@ -416,7 +439,7 @@ export class ArtifactStore {
         const files = await this.describeStaged(stagingId, names);
         const bytes = files.reduce((sum, file) => sum + file.size, 0);
         if (bytes > ARTIFACT_LIMITS.versionBytes) {
-            throw new ArtifactError('too-large', 'A version holds at most 2 GiB');
+            throw versionTooLarge();
         }
         return this.writes.run(async () => {
             // Asked again under the lock: two retries of one request may both have reached this point.
