@@ -335,15 +335,22 @@ class BrowserRegistry {
         element.loadURL(url).catch(() => undefined);
     }
 
+    /* Whether the page has a guest to drive. Electron throws on history, stop and reload before the
+       element is in the DOM and its first `dom-ready` came, which an agent's ask can arrive ahead of. */
+    attached(key: string): boolean {
+        const element = this.elements.get(key);
+        return element !== undefined && webContentsIdOf(element) !== null;
+    }
+
     back(key: string): void {
-        if (this.pendingRoutes.has(key) || !this.permits(key)) {
+        if (this.pendingRoutes.has(key) || !this.permits(key) || !this.attached(key)) {
             return;
         }
         this.elements.get(key)?.goBack();
     }
 
     forward(key: string): void {
-        if (this.pendingRoutes.has(key) || !this.permits(key)) {
+        if (this.pendingRoutes.has(key) || !this.permits(key) || !this.attached(key)) {
             return;
         }
         this.elements.get(key)?.goForward();
@@ -352,11 +359,14 @@ class BrowserRegistry {
     /* Ends a navigation that is still running. The guest answers with `did-stop-loading`, so the
        bar and the button come back on their own. */
     stop(key: string): void {
+        if (!this.attached(key)) {
+            return;
+        }
         this.elements.get(key)?.stop();
     }
 
     reload(key: string, ignoreCache: boolean): void {
-        if (this.pendingRoutes.has(key) || !this.permits(key)) {
+        if (this.pendingRoutes.has(key) || !this.permits(key) || !this.attached(key)) {
             return;
         }
         const element = this.elements.get(key);

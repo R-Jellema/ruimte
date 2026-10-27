@@ -84,6 +84,9 @@ async function answer(endpointId: string, event: BrowserDriveEvent): Promise<Bro
             ? { askId: event.askId, state: state(), error: 'This client could not read the text of the page' }
             : { askId: event.askId, state: state(), text };
     }
+    if ((action.kind === 'back' || action.kind === 'forward' || action.kind === 'reload' || action.kind === 'stop') && !browserRegistry.attached(key)) {
+        return { askId: event.askId, state: state(), error: 'The page has not finished opening yet' };
+    }
     if (action.kind === 'go') {
         browserRegistry.navigate(key, action.url);
     } else if (action.kind === 'back') {
