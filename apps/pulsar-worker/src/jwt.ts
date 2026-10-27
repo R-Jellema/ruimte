@@ -38,6 +38,13 @@ export function decodeJwt(token: string): DecodedJwt | null {
     }
 }
 
+/* A .p8 key as Apple hands it out: PKCS #8 in PEM, standard base64 between the armor lines. */
+export async function importP8(pem: string): Promise<CryptoKey> {
+    const body = pem.replace(/-----(BEGIN|END) PRIVATE KEY-----/g, '').replace(/\s+/g, '');
+    const der = Uint8Array.from(atob(body), (character) => character.charCodeAt(0));
+    return crypto.subtle.importKey('pkcs8', der, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
+}
+
 /*
  * An ES256 JWT. WebCrypto's ECDSA signature is already the raw r and s JWS expects (RFC 7518, 3.4),
  * so there is no DER to unwrap.

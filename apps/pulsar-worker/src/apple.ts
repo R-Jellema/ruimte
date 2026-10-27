@@ -1,7 +1,7 @@
 import { APPLE_NATIVE_CLIENT_ID, sha256 } from '@ruimte/pulsar';
 import { cleanDisplayName } from './display-name.ts';
 import type { Env } from './env.ts';
-import { decodeJwt, signEs256Jwt, verifyRs256 } from './jwt.ts';
+import { decodeJwt, importP8, signEs256Jwt, verifyRs256 } from './jwt.ts';
 import type { OAuthProvider } from './providers.ts';
 
 export const APPLE_ISSUER = 'https://appleid.apple.com';
@@ -19,13 +19,6 @@ const CLOCK_SKEW_S = 60;
 
 let signingKey: { secret: string; key: Promise<CryptoKey> } | null = null;
 
-// The .p8 file as Apple hands it out: PKCS #8 in PEM, standard base64 between the armor lines.
-async function importP8(pem: string): Promise<CryptoKey> {
-    const body = pem.replace(/-----(BEGIN|END) PRIVATE KEY-----/g, '').replace(/\s+/g, '');
-    const der = Uint8Array.from(atob(body), (char) => char.charCodeAt(0));
-    return crypto.subtle.importKey('pkcs8', der, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
-}
-
 function signingKeyOf(secret: string): Promise<CryptoKey> {
     if (signingKey?.secret !== secret) {
         signingKey = { secret, key: importP8(secret) };
@@ -41,6 +34,23 @@ async function appleClientSecret(env: Env, now = Date.now(), clientId = env.APPL
         { kid: env.APPLE_KEY_ID },
         { iss: env.APPLE_TEAM_ID, iat: issuedAt, exp: issuedAt + CLIENT_SECRET_LIFETIME_S, aud: APPLE_ISSUER, sub: clientId }
     );
+}
+
+interface AppleTokens {
+    id_token?: unknown;
+    refresh_token?: unknown;
+    access_token?: unknown;
+    error?: unknown;
+}
+
+/* Trades an authorization code at Apple's token endpoint; `tokens` is null for an answer that is not JSON. */
+async function redeemCode(form: Record<string, string>): Promise<{ response: Response; tokens: AppleTokens | null }> {
+    const response = await fetch(TOKEN_URL, {
+        method: 'POST',
+        headers: { accept: 'application/json', 'content-type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ ...form, grant_type: 'authorization_code' })
+    });
+    return { response, tokens: (await response.json().catch(() => null)) as AppleTokens | null };
 }
 
 let keys: { fetchedAt: number; keys: JsonWebKey[] } | null = null;
@@ -110,17 +120,11 @@ export async function identifyNativeApple(env: Env, input: { identityToken: stri
     };
     const subject = await verify(input.identityToken);
     // Native authorization has no redirect URI: https://developer.apple.com/documentation/signinwithapplerestapi/generate-and-validate-tokens
-    const response = await fetch(TOKEN_URL, {
-        method: 'POST',
-        headers: { accept: 'application/json', 'content-type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-            client_id: APPLE_NATIVE_CLIENT_ID,
-            client_secret: await appleClientSecret(env, Date.now(), APPLE_NATIVE_CLIENT_ID),
-            code: input.authorizationCode,
-            grant_type: 'authorization_code'
-        })
+    const { response, tokens: token } = await redeemCode({
+        client_id: APPLE_NATIVE_CLIENT_ID,
+        client_secret: await appleClientSecret(env, Date.now(), APPLE_NATIVE_CLIENT_ID),
+        code: input.authorizationCode
     });
-    const token = (await response.json().catch(() => null)) as { id_token?: unknown } | null;
     if (!response.ok || typeof token?.id_token !== 'string' || (await verify(token.id_token)) !== subject) {
         throw new Error('Apple did not confirm this sign-in');
     }
@@ -136,12 +140,7 @@ export async function identifyNativeApple(env: Env, input: { identityToken: stri
  */
 export async function revokeNativeApple(env: Env, authorizationCode: string, subject: string): Promise<'revoked' | 'other-identity'> {
     const clientSecret = await appleClientSecret(env, Date.now(), APPLE_NATIVE_CLIENT_ID);
-    const response = await fetch(TOKEN_URL, {
-        method: 'POST',
-        headers: { accept: 'application/json', 'content-type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ client_id: APPLE_NATIVE_CLIENT_ID, client_secret: clientSecret, code: authorizationCode, grant_type: 'authorization_code' })
-    });
-    const token = (await response.json().catch(() => null)) as { id_token?: unknown; refresh_token?: unknown; access_token?: unknown } | null;
+    const { response, tokens: token } = await redeemCode({ client_id: APPLE_NATIVE_CLIENT_ID, client_secret: clientSecret, code: authorizationCode });
     if (!response.ok || typeof token?.id_token !== 'string') {
         throw new Error(`Apple refused the code: ${response.status}`);
     }
@@ -216,18 +215,12 @@ export const apple: OAuthProvider = {
     },
     async identify(env, input) {
         const clientId = env.APPLE_CLIENT_ID ?? '';
-        const response = await fetch(TOKEN_URL, {
-            method: 'POST',
-            headers: { accept: 'application/json', 'content-type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({
-                client_id: clientId,
-                client_secret: await appleClientSecret(env),
-                code: input.code,
-                grant_type: 'authorization_code',
-                redirect_uri: input.redirectUri
-            })
+        const { response, tokens: token } = await redeemCode({
+            client_id: clientId,
+            client_secret: await appleClientSecret(env),
+            code: input.code,
+            redirect_uri: input.redirectUri
         });
-        const token = (await response.json().catch(() => null)) as { id_token?: unknown; error?: unknown } | null;
         if (!response.ok || typeof token?.id_token !== 'string') {
             throw new Error(`Apple refused the code: ${typeof token?.error === 'string' ? token.error : response.status}`);
         }

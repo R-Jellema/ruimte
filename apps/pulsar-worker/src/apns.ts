@@ -1,6 +1,6 @@
 import { PUSH_MAX_AGE_MS, type PushEnvelope } from '@ruimte/pulsar';
 import type { Env } from './env.ts';
-import { signEs256Jwt } from './jwt.ts';
+import { importP8, signEs256Jwt } from './jwt.ts';
 import { countPush, pushOutcomeOf } from './metrics.ts';
 
 type ApnsEnvironment = 'sandbox' | 'production';
@@ -41,12 +41,7 @@ function providerToken(env: Env, environment: ApnsEnvironment, now: number): Pro
     ) {
         return cached.token;
     }
-    const token = (async () => {
-        const body = secret.replace(/-----(BEGIN|END) PRIVATE KEY-----/g, '').replace(/\s+/g, '');
-        const der = Uint8Array.from(atob(body), (character) => character.charCodeAt(0));
-        const key = await crypto.subtle.importKey('pkcs8', der, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
-        return signEs256Jwt(key, { kid: keyId }, { iss: teamId, iat: Math.floor(now / 1000) });
-    })();
+    const token = importP8(secret).then((key) => signEs256Jwt(key, { kid: keyId }, { iss: teamId, iat: Math.floor(now / 1000) }));
     tokens.set(environment, { secret, keyId, teamId, issuedAt: now, token });
     void token.catch(() => {
         if (tokens.get(environment)?.token === token) {
