@@ -10,6 +10,7 @@ import {
     MachineListResultSchema,
     ModelBenchmarksResultSchema,
     ModelCatalogsResultSchema,
+    ModelCatalogsV2ResultSchema,
     ProvidersResultSchema,
     RegisterMachineResultSchema,
     SessionResultSchema,
@@ -28,6 +29,7 @@ import {
     type MachineListResult,
     type ModelBenchmarksResult,
     type ModelCatalogsResult,
+    type ModelCatalogsV2Result,
     type RegisterMachinePayload,
     type SessionExchangePayload,
     type SessionRefreshPayload,
@@ -125,6 +127,10 @@ export class AddressBookClient {
 
     modelCatalogs(): Promise<ModelCatalogsResult> {
         return this.call({ method: 'GET', path: '/v1/models/catalog', schema: ModelCatalogsResultSchema });
+    }
+
+    modelCatalogsV2(): Promise<ModelCatalogsV2Result> {
+        return this.call({ method: 'GET', path: '/v2/models/catalog', schema: ModelCatalogsV2ResultSchema });
     }
 
     account(accessToken: string): Promise<AccountResult> {

@@ -1,5 +1,8 @@
+import antigravity from '@adecore/agents/providers/antigravity-models.json' with { type: 'json' };
 import claude from '@adecore/agents/providers/claude-models.json' with { type: 'json' };
 import codex from '@adecore/agents/providers/codex-models.json' with { type: 'json' };
+import copilot from '@adecore/agents/providers/copilot-models.json' with { type: 'json' };
+import grok from '@adecore/agents/providers/grok-models.json' with { type: 'json' };
 import { ROUTE_KINDS, ROUTE_SCHEMAS, type CatalogRoute } from './catalog-schemas.ts';
 import { json } from './http.ts';
 
@@ -7,7 +10,7 @@ import { json } from './http.ts';
  * The manifests the Worker was deployed with, for a kind D1 holds no readable catalog of and for a D1 that does not
  * answer. Once a kind is in D1, D1 is where it changes (`migrations/0019_model_catalogs.sql`).
  */
-export const BUNDLED_CATALOGS: Readonly<Record<string, unknown>> = { claude, codex };
+export const BUNDLED_CATALOGS: Readonly<Record<string, unknown>> = { claude, codex, grok, copilot, antigravity };
 
 // Short enough that a fix to a catalog reaches every machine within the hour it asks.
 const CACHE_CONTROL = 'public, max-age=300';

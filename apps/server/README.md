@@ -250,7 +250,8 @@ $RUIMTE_HOME/
     prices.json                    the last LiteLLM price table
     exchange-rate.json             the last euro rate for a dollar
     copilot/<session>.jsonl        0600, the usage of every Copilot chat turn, which its CLI keeps nowhere the scanner reads
-  models/catalogs.json             0700, the last model catalogs from the address book
+  models/catalogs-v2.json          0700, the last model catalogs from the address book
+  models/catalogs.json             0700, the same from a daemon that read `/v1`, read only until the first v2 answer
   models/agents/<kind>.json        0600, the models, effort and commands an ACP agent (Grok, Copilot, Antigravity) last reported
   power/closed-lid-held            0700 folder, present while sleep is off for a closed lid
 ```
@@ -419,7 +420,7 @@ Any other agent of the public ACP registry (`cdn.agentclientprotocol.com/registr
 
 Ruimte no longer offers Gemini: a node stored with `provider: 'gemini'` keeps that value and opens a plain shell that says the CLI is not available on this machine.
 
-The model catalogs are `claude-models.json` and `codex-models.json` in `@adecore/agents/providers`. Adding a model there is a JSON edit. The address book hands out the same files on `GET /v1/models/catalog`, so a model added there reaches every machine without a release. The daemon asks at start and on `provider.list` once the last answer is six hours old, and keeps the answer in `models/catalogs.json`. A catalog older than the one the app shipped with is never taken. `--no-model-fetch` turns the fetch off.
+The model catalogs a release starts with are `<kind>-models.json` in `@adecore/agents/providers`, for Claude, Codex, Grok, Copilot and Antigravity. The address book keeps the live ones in D1 and hands them out on `GET /v2/models/catalog` (`apps/pulsar-worker/README.md`, "Model catalogs"), so a model added, marked as legacy or removed there reaches every machine without a release. The daemon asks at start and on `provider.list` once the last answer is fifteen minutes old, never on a clock, and keeps the answer in `models/catalogs-v2.json`; a daemon before that read `/v1` into `models/catalogs.json`, which is read until the first v2 answer. A catalog older than the one the app shipped with is never taken. For an ACP agent the catalog is the base under the models the agent reported itself: those keep their order and default, and take the name and profile the catalog gives them. `--no-model-fetch` turns the fetch off.
 
 The runtime mode (`supervised`, `auto-accept-edits`, `auto`, `full-access`) is one vocabulary for every provider. Each provider maps it to its own flags: `--permission-mode` for Claude Code and a Grok terminal (`default`, `acceptEdits`, `auto`, `bypassPermissions`), an approval policy plus a sandbox for Codex.
 

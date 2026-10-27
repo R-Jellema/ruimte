@@ -1116,6 +1116,29 @@ public struct ModelCatalogsResultCatalogsValueModelsItem: Codable, Sendable, Equ
     }
 }
 
+public struct ModelCatalogsV2Result: Codable, Sendable, Equatable {
+    public let `catalogs`: [String: JSONValue]
+
+    public init(`catalogs`: [String: JSONValue]) {
+        self.`catalogs` = `catalogs`
+    }
+
+    public init(from decoder: Decoder) throws {
+        _ = try WireSchema.validate("ModelCatalogsV2ResultSchema", JSONValue(from: decoder))
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `catalogs` = try container.decode([String: JSONValue].self, forKey: .`catalogs`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`catalogs`, forKey: .`catalogs`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `catalogs` = "catalogs"
+    }
+}
+
 public struct NativeAppleCompletePayload: Codable, Sendable, Equatable {
     public let `attempt`: String
     public let `identityToken`: String

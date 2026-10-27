@@ -1175,6 +1175,23 @@
       "catalogs"
     ]
   },
+  "ModelCatalogsV2ResultSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "catalogs": {
+        "type": "object",
+        "propertyNames": {
+          "type": "string",
+          "maxLength": 32
+        },
+        "additionalProperties": {}
+      }
+    },
+    "required": [
+      "catalogs"
+    ]
+  },
   "NativeAppleCompletePayloadSchema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",

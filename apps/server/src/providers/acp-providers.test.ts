@@ -18,7 +18,8 @@ import {
     createGrokProvider,
     grokAuthMethod,
     grokProvider,
-    readGrokModels
+    readGrokModels,
+    shippedAgentCatalog
 } from './acp-providers.ts';
 import type { AcpServerLaunch } from './acp-server.ts';
 import { ProviderRegistry as RuimteProviderRegistry } from './registry.ts';
@@ -290,12 +291,15 @@ describe('a catalog store', () => {
         expect(again.capabilities.compaction).toBe('prompt');
     });
 
-    test('a provider without one starts from its own default model every time', () => {
-        expect(
-            createCopilotProvider()
-                .catalog.list()
+    test('a provider without one starts from the shipped models, with the agent left its own choice', () => {
+        const catalog = createCopilotProvider().catalog;
+        expect(catalog.defaultModel).toBe(AGENT_DEFAULT_MODEL);
+        expect(catalog.list().map((model) => model.slug)).toEqual(
+            shippedAgentCatalog('copilot')
+                .list()
                 .map((model) => model.slug)
-        ).toEqual([AGENT_DEFAULT_MODEL]);
+        );
+        expect(catalog.list().length).toBeGreaterThan(1);
     });
 });
 
