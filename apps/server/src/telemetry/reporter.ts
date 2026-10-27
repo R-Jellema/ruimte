@@ -1,6 +1,15 @@
 import { homedir, hostname, userInfo } from 'node:os';
 import { join } from 'node:path';
-import { blankQuoted, createDailyDedupe, createScrubber, TELEMETRY_DATA_COLLECTION, TELEMETRY_DSN, telemetryRelease } from '@ruimte/telemetry';
+import {
+    blankQuoted,
+    createDailyDedupe,
+    createScrubber,
+    startQuarterMeter,
+    TELEMETRY_DATA_COLLECTION,
+    TELEMETRY_DSN,
+    telemetryRelease,
+    type QuarterMeter
+} from '@ruimte/telemetry';
 import { fileDedupeStore } from '@ruimte/telemetry/file-store';
 import { COMPILED, VERSION } from '../version.ts';
 
@@ -35,11 +44,12 @@ let sentry: Sentry | null = null;
 let projects: ProjectSource | null = null;
 let projectRedactions: readonly string[] = [];
 let stopping = false;
-let meters: ReturnType<typeof setInterval>[] = [];
+let timers: ReturnType<typeof setInterval>[] = [];
+let meter: QuarterMeter | null = null;
 const secrets = new Set<string>();
 const MAX_MOMENTS = 30;
 const LAG_TICK_MS = 1000;
-const GAUGE_MS = 15 * 60_000;
+const GAUGE_MS = 60_000;
 
 /*
  * Reports go out only from a release build: `scripts/compile.ts` stamps `RUIMTE_TELEMETRY` into the
@@ -205,38 +215,42 @@ export function clientClosed(kind: ClientKind): void {
 
 /* How long a handler took, by the area of its request (`session`, `fs`, `chat`), never the request itself. */
 export function recordRequestDuration(type: string, ms: number): void {
-    sentry?.metrics.distribution('daemon.request.duration', Math.max(0, ms), { unit: 'millisecond', attributes: { area: type.split('.')[0] ?? 'other' } });
+    meter?.record({
+        kind: 'distribution',
+        name: 'daemon.request.duration',
+        value: Math.max(0, ms),
+        unit: 'millisecond',
+        attributes: { area: type.split('.')[0] ?? 'other' }
+    });
 }
 
 /*
- * The event loop's lag, as how late a one-second tick fires, and the memory and the clients by kind, all sent once
- * a quarter of an hour. The SDK sends every value as an item of its own, five seconds after the first, so a lag sent
- * per tick would keep a request going out every five seconds all day; the quarter's worst tick is what a hang shows in.
- * Both timers are unref'd, so they never keep a stopping daemon alive.
+ * The event loop's lag, as how late a one-second tick fires, and once a minute the memory and the clients by kind,
+ * gathered in a quarter-hour window (`startQuarterMeter`) with the request durations. Both timers are unref'd, so
+ * they never keep a stopping daemon alive.
  */
 function startMeters(active: Sentry): void {
+    const window = startQuarterMeter(active.metrics);
     let last = performance.now();
-    let worstLag = 0;
 
     const tick = setInterval(() => {
         const now = performance.now();
-        worstLag = Math.max(worstLag, now - last - LAG_TICK_MS);
+        window.record({ kind: 'distribution', name: 'daemon.loop.lag', value: Math.max(0, now - last - LAG_TICK_MS), unit: 'millisecond' });
         last = now;
     }, LAG_TICK_MS);
 
     const gauges = setInterval(() => {
-        active.metrics.distribution('daemon.loop.lag', worstLag, { unit: 'millisecond' });
-        worstLag = 0;
-        active.metrics.gauge('daemon.memory', Math.round(process.memoryUsage().rss / 1_048_576), { unit: 'megabyte' });
+        window.record({ kind: 'gauge', name: 'daemon.memory', value: Math.round(process.memoryUsage().rss / 1_048_576), unit: 'megabyte' });
 
         for (const kind of Object.keys(liveClients) as ClientKind[]) {
-            active.metrics.gauge('daemon.clients', liveClients[kind], { attributes: { kind } });
+            window.record({ kind: 'gauge', name: 'daemon.clients', value: liveClients[kind], attributes: { kind } });
         }
     }, GAUGE_MS);
 
     tick.unref();
     gauges.unref();
-    meters = [tick, gauges];
+    timers = [tick, gauges];
+    meter = window;
 }
 
 /* Starts reporting for the serving daemon (`daemonClientOptions`). */
@@ -378,11 +392,14 @@ export function helperStderrOf(lines: readonly string[]): string[] {
  * `beforeExit`, which a daemon that stops on a signal never reaches.
  */
 export async function stopTelemetry(): Promise<void> {
-    for (const meter of meters) {
-        clearInterval(meter);
+    for (const timer of timers) {
+        clearInterval(timer);
     }
 
-    meters = [];
+    timers = [];
+    // What the quarter gathered so far goes along with the last flush.
+    meter?.stop();
+    meter = null;
     sentry?.endSession();
     await sentry?.close(FLUSH_MS);
 }

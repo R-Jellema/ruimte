@@ -9,7 +9,15 @@ import {
     metrics,
     withScope
 } from '@sentry/browser';
-import { createDailyDedupe, createScrubber, TELEMETRY_DATA_COLLECTION, TELEMETRY_DSN, telemetryRelease } from '@ruimte/telemetry';
+import {
+    createDailyDedupe,
+    createScrubber,
+    startQuarterMeter,
+    TELEMETRY_DATA_COLLECTION,
+    TELEMETRY_DSN,
+    telemetryRelease,
+    type QuarterMeter
+} from '@ruimte/telemetry';
 import { useProjectList } from '@/state/project-list';
 import { TransportError } from '@/transport/transport';
 import { CLIENT_TAGS, connectionEvent, storageDedupeStore, type ConnectionProblem } from './events';
@@ -80,11 +88,33 @@ export function reportConnection(problem: ConnectionProblem): void {
     captureEvent(connectionEvent(problem));
 }
 
+let meter: QuarterMeter | null = null;
+
+/* The page's quarter-hour window, sent on its clock and when the page is hidden or goes away, so a closed window loses nothing. */
+function pageMeter(): QuarterMeter {
+    if (meter !== null) {
+        return meter;
+    }
+
+    const started = startQuarterMeter(metrics);
+
+    window.addEventListener('pagehide', () => started.flush());
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+            started.flush();
+        }
+    });
+
+    meter = started;
+
+    return started;
+}
+
 /* A metric with exactly the name, unit and attributes Observatory's Connections dashboard reads (`metrics.ts`). */
 export function recordMetric(metric: PageMetric): void {
     if (metric.kind === 'count') {
-        metrics.count(metric.name, 1, { attributes: metric.attributes });
+        pageMeter().record({ kind: 'count', name: metric.name, value: 1, attributes: metric.attributes });
     } else {
-        metrics.distribution(metric.name, metric.value, { unit: 'millisecond', attributes: metric.attributes });
+        pageMeter().record({ kind: 'distribution', name: metric.name, value: metric.value, unit: 'millisecond', attributes: metric.attributes });
     }
 }

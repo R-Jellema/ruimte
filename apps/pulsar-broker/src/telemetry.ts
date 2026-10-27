@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/bun';
-import { createScrubber, TELEMETRY_DATA_COLLECTION } from '@ruimte/telemetry';
+import { createScrubber, startQuarterMeter, TELEMETRY_DATA_COLLECTION, type QuarterMeter } from '@ruimte/telemetry';
 import type { BrokerMeter } from './broker.ts';
 
 // The broker's app in Observatory. A DSN only lets a client send, so it is no secret.
@@ -42,23 +42,28 @@ function brokerRelease(): string | null {
     return /^[0-9a-f]{40}$/.test(commit) ? `broker@${commit.slice(0, 12)}` : null;
 }
 
+let quarter: QuarterMeter | null = null;
+
 export function startTelemetry(): void {
     Sentry.initWithoutDefaultIntegrations(brokerTelemetryOptions(brokerRelease()));
+    quarter = startQuarterMeter(Sentry.metrics);
 }
 
-/* The broker's counts as Observatory metrics; only once `startTelemetry` ran, since the SDK drops them without a client. */
+/* The broker's counts as Observatory metrics, sent once a quarter of an hour; nothing before `startTelemetry` ran. */
 export const sentryMeter: BrokerMeter = {
-    rateLimited: (limit) => Sentry.metrics.count('broker.rate_limited', 1, { attributes: { limit } }),
-    relayed: (outcome) => Sentry.metrics.count('broker.relay', 1, { attributes: { outcome } }),
-    ice: (outcome) => Sentry.metrics.count('broker.ice', 1, { attributes: { outcome } }),
+    rateLimited: (limit) => quarter?.record({ kind: 'count', name: 'broker.rate_limited', value: 1, attributes: { limit } }),
+    relayed: (outcome) => quarter?.record({ kind: 'count', name: 'broker.relay', value: 1, attributes: { outcome } }),
+    ice: (outcome) => quarter?.record({ kind: 'count', name: 'broker.ice', value: 1, attributes: { outcome } }),
     online: (counts) => {
-        Sentry.metrics.gauge('broker.sockets', counts.sockets);
-        Sentry.metrics.gauge('broker.machines', counts.machines);
-        Sentry.metrics.gauge('broker.clients', counts.clients);
+        quarter?.record({ kind: 'gauge', name: 'broker.sockets', value: counts.sockets });
+        quarter?.record({ kind: 'gauge', name: 'broker.machines', value: counts.machines });
+        quarter?.record({ kind: 'gauge', name: 'broker.clients', value: counts.clients });
     }
 };
 
-/* Sends what is still queued before the process exits; a no-op while telemetry is off. */
+/* Sends the quarter so far and what is still queued before the process exits; a no-op while telemetry is off. */
 export async function stopTelemetry(): Promise<void> {
+    quarter?.stop();
+    quarter = null;
     await Sentry.close(CLOSE_MS);
 }
