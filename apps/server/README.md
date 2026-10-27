@@ -224,6 +224,7 @@ $RUIMTE_HOME/
   chats/                           0700
     <chatId>.json                  the thread and info of one chat, with the seq it holds
     <chatId>.log                   every event since that snapshot, one `{ seq, at, event }` per line
+    <chatId>.payloads/<sha256>.gz  the whole of a large tool output or turn diff whose beginning the record keeps
     <chatId>.bookmarks.json        bookmarked messages
     <chatId>.plans.json            the chat's plans (src/chat/CLAUDE.md)
     <chatId>.visuals.json          the pages agents showed in that chat
@@ -252,7 +253,8 @@ $RUIMTE_HOME/
     custom.json                    a person's own language servers
     <kind>/                        one folder per installed kind (see "Language servers")
   usage/                           0700
-    index.json                     every transcript the scanner read, with where it stopped
+    scan-state.json                a cache of where the scanner left each transcript
+    history.jsonl                  the usage of every transcript ever read, which cannot be rebuilt (see "Usage")
     stats.json                     0600, the usage counts of today and the seven days before it, with the first day and the last week and month (see "Usage statistics")
     prices.json                    the last LiteLLM price table
     exchange-rate.json             the last euro rate for a dollar
@@ -481,6 +483,7 @@ Without `RUIMTE_HOME` the CLI writes into `~/.ruimte`, the home of an installed 
 The chat lifecycle, the backends per CLI and the projector that builds the thread live in `@adecore/agents/chat`. `src/chat/chat-manager.ts` binds them to Ruimte, and `src/chat/CLAUDE.md` has the invariants of forks, plans, bookmarks and visuals. What the daemon owns on disk:
 
 - Every event goes to `chats/<id>.log` as it is broadcast, so a daemon that goes down mid-turn keeps everything a client saw. Reading a chat plays the log over the snapshot `chats/<id>.json` and skips a torn last line. The log is folded into the snapshot when it passes 1 MB, on a clear and on shutdown.
+- A tool output or a turn's checkpoint diff past 64 KiB is written gzipped to `chats/<id>.payloads/<sha256>.gz`, and the record keeps its first 8 KiB with a ref (`outputRef` on a tool item, `checkpointDiffRef` on a turn). Opening a chat reads only those beginnings; `chat.toolOutput` answers a whole output, refusing a chat that runs on another machine as `chat.attach` does, and `chat.turnDiff` a whole diff. A record from before moves its large values out the next time it is read. A fork copies the payloads it refers to, a deletion removes the folder, and a fold of the log drops what the record no longer names.
 - A turn that was running when the daemon went down is resumed at start through a `resume-run` outbox entry, with a note in the thread. One that cannot be resumed ends `aborted` with a note saying why.
 - Attachments are any file type, at most 25 MB each and 8 per message, written to `attachments/<chatId>/<id>.<ext>`. The thread keeps only their metadata and path. `GET /attachments/<chatId>/<id>` serves them behind the same access rules as `/ws`, `inline` only for what a browser paints, with `nosniff` and an immutable cache. A chat's own thread says which id belongs to which file, so nothing else is reachable through the route. A visual's page goes through the same route and is always a download, never inline.
 - A turn takes a checkpoint when it starts (`src/git/checkpoints.ts`). The chat's folder is written as a git tree through a private index under `checkpoints/`, so the person's own index, stashes and commits are untouched. When the turn settles, the daemon diffs the working tree against it for the turn's diff.
@@ -671,7 +674,8 @@ Root `CLAUDE.md` holds the product rules for agents, and `src/canvas/CLAUDE.md` 
 
 `@adecore/agents/usage` answers what the CLIs cost and what is left of their plans. Nothing here calls a vendor API or reads a credential.
 
-- The scanner reads the transcripts of every account (`~/.claude/projects` and `~/.codex/sessions`, honoring `CLAUDE_CONFIG_DIR` and `CODEX_HOME`) and keeps its place per file in `usage/index.json`. Throwing that file away costs one cold scan.
+- The scanner reads the transcripts of every account (`~/.claude/projects` and `~/.codex/sessions`, honoring `CLAUDE_CONFIG_DIR` and `CODEX_HOME`).
+- Usage lives in two files under `$RUIMTE_HOME/usage`. `scan-state.json` is a cache: where the scan left each transcript (offsets, hashes, parser state). Deleting it costs one cold scan and loses nothing. `history.jsonl` is history: it keeps the usage of every transcript ever read, also after its CLI removed the transcript, so it cannot be rebuilt. Deleting it erases the usage of every transcript that is gone. A scan appends a line per changed transcript and rewrites the file only to compact it. An `index.json` from before 0.26 is migrated on the first start and removed.
 - Copilot keeps no usage the scanner can read, so the daemon logs every turn of a Copilot chat to `usage/copilot`, a file per session, read like a transcript. A Copilot terminal is not counted.
 - Prices come from LiteLLM's `model_prices_and_context_window.json`, refreshed every 24 hours and kept in `usage/prices.json`, with a snapshot bundled as the offline fallback. A model the table does not price shows as unknown, never as free.
 - The daemon fetches the ECB reference rate from frankfurter.app on the same schedule into `usage/exchange-rate.json`, so the client can show euros.
