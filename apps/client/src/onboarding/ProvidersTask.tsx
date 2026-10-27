@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Laptop, LogIn, RefreshCw, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import type { ProviderInfo } from '@ruimte/contracts';
 import { accountStatusLine, ACCOUNT_TONE_CLASSES, CliMark } from '@adecore/agents-react/providers';
 import { useProviderAccountsStore, useProviders, useProvidersStore } from '@adecore/agents-react/state';
 import { joinNames, type CliRow } from '@/onboarding/tasks';
@@ -83,7 +84,7 @@ export function ProvidersTask({ machine, rows, missing, done, next }: ProvidersT
                 {rows.map((row) => (
                     <CliLoginRow key={row.provider.kind} row={row} />
                 ))}
-                {mac && apple !== null && <AppleRow />}
+                {mac && apple !== null && <AppleRow provider={apple} />}
                 {missing.length > 0 && (
                     <SettingsRow
                         muted
@@ -161,9 +162,8 @@ function CliLoginRow({ row }: { row: CliRow }) {
 }
 
 /* The model on this Mac, behind the same switch as in the settings. */
-function AppleRow() {
+function AppleRow({ provider }: { provider: ProviderInfo }) {
     const { t } = useTranslation('onboarding');
-    const provider = useProviders((s) => s.providers.find((entry) => entry.kind === 'apple') ?? null);
     const apple = useAppleFoundation(LOCAL_ENDPOINT_ID, provider);
     return (
         <SettingsRow

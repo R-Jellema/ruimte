@@ -32,11 +32,13 @@ export interface OnboardingFacts {
 }
 
 /*
- * Apple's on-device model and the APIs of NanoGPT and Claude are providers with no CLI to install or log in to. Not read from
- * `capabilities.terminal`: an agent from the ACP registry has no terminal either, and is still a CLI a person installs.
+ * Providers with no CLI to install or log in to. Not read from `capabilities.terminal`: an agent from
+ * the ACP registry has no terminal either, and is still a CLI a person installs.
  */
+const NOT_CLIS: ReadonlySet<string> = new Set(['apple', 'nanogpt', 'anthropic-claude-api']);
+
 function isCli(provider: ProviderInfo): boolean {
-    return provider.kind !== 'apple' && provider.kind !== 'nanogpt' && provider.kind !== 'anthropic-claude-api';
+    return !NOT_CLIS.has(provider.kind);
 }
 
 export function cliRowsOf(providers: readonly ProviderInfo[], accounts: ProviderAccounts | null): CliRow[] {
@@ -106,7 +108,7 @@ function t(key: string, values?: Record<string, unknown>): string {
 
 /* Names as a sentence lists them: `Antigravity and Copilot`, `A, B and C`. */
 export function joinNames(names: readonly string[]): string {
-    return names.length <= 1 ? (names[0] ?? '') : t('list', { rest: names.slice(0, -1).join(', '), last: names[names.length - 1] });
+    return names.length <= 1 ? (names[0] ?? '') : t('list', { rest: names.slice(0, -1).join(', '), last: names.at(-1) });
 }
 
 /* The line under a task in the list, which says how far it is. */

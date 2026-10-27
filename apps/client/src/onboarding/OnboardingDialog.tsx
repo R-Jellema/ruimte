@@ -10,7 +10,7 @@ import { closeOnboarding } from '@/onboarding/open';
 import { ComputerTask } from '@/onboarding/ComputerTask';
 import { ProvidersTask } from '@/onboarding/ProvidersTask';
 import { RowTile, TaskPane } from '@/onboarding/TaskPane';
-import { WELCOME_ORBITS } from '@/onboarding/welcome-orbits';
+import { WELCOME_SKY } from '@/onboarding/welcome-sky';
 import {
     cliRowsOf,
     doneCount,
@@ -103,7 +103,7 @@ function Welcome({ titleId }: { titleId: string }) {
 
     return (
         <div className="relative flex min-w-0 grow items-center justify-center">
-            <Eclipse center={202} glows={[380, 200]} rings={[150, 190]} orbits={WELCOME_ORBITS} stars={{ density: 0.9, seed: 202 }} className="h-full" />
+            <Eclipse center={202} {...WELCOME_SKY} className="h-full" />
             <div className="relative flex flex-col items-center gap-4 px-8 text-center">
                 <BrandSymbol size={96} className="rounded-[22px] shadow-float" />
                 <h2 id={titleId} className="text-4xl font-semibold tracking-tight text-text">

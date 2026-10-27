@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import clsx from 'clsx';
 import { Info, type LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { CloseButton, Icon } from '@adecore/ui';
@@ -49,13 +50,7 @@ export function TaskNote({ children }: { children: ReactNode }) {
 /* A square behind a mark at the start of a row. */
 export function RowTile({ children, size = 'md' }: { children: ReactNode; size?: 'sm' | 'md' }) {
     return (
-        <span
-            className={
-                size === 'md'
-                    ? 'grid size-8 shrink-0 place-items-center rounded-lg bg-surface-hover'
-                    : 'grid size-7 shrink-0 place-items-center rounded-[7px] bg-surface-hover'
-            }
-        >
+        <span className={clsx('grid shrink-0 place-items-center bg-surface-hover', size === 'md' ? 'size-8 rounded-lg' : 'size-7 rounded-[7px]')}>
             {children}
         </span>
     );

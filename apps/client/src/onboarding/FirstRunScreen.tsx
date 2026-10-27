@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { MonitorSmartphone, Server } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { desktop } from '@/desktop/bridge';
 import { isShellFailure } from '@/desktop/shell-failure';
 import { STRIP_PADDING_PX, useTrafficLightInset } from '@/desktop/useFullscreen';
-import { WELCOME_ORBITS } from '@/onboarding/welcome-orbits';
+import { WELCOME_SKY } from '@/onboarding/welcome-sky';
 import { useSettings } from '@/state/settings';
 import { BrandSymbol } from '@/ui/Brand';
 import { Eclipse } from '@/ui/Eclipse';
@@ -25,13 +25,10 @@ export function FirstRunScreen() {
     const [busy, setBusy] = useState(false);
     const [failure, setFailure] = useState<string | null>(null);
 
-    const choices = useMemo<Choice<FirstChoice>[]>(
-        () => [
-            { value: 'local', title: t('firstRun.local.title'), description: t('firstRun.local.description'), icon: Server },
-            { value: 'none', title: t('firstRun.none.title'), description: t('firstRun.none.description'), icon: MonitorSmartphone }
-        ],
-        [t]
-    );
+    const choices: Choice<FirstChoice>[] = [
+        { value: 'local', title: t('firstRun.local.title'), description: t('firstRun.local.description'), icon: Server },
+        { value: 'none', title: t('firstRun.none.title'), description: t('firstRun.none.description'), icon: MonitorSmartphone }
+    ];
 
     const proceed = (): void => {
         if (machine === undefined) {
@@ -52,7 +49,7 @@ export function FirstRunScreen() {
         <div className="relative flex h-full w-full flex-col bg-bg">
             <div className="app-drag absolute inset-x-0 top-0 z-10 h-12" style={{ paddingLeft: inset ?? STRIP_PADDING_PX }} />
             <div className="relative flex min-h-0 grow flex-col items-center overflow-auto pt-12">
-                <Eclipse center={216} glows={[380, 200]} rings={[150, 190]} orbits={WELCOME_ORBITS} stars={{ density: 0.9, seed: 202 }} className="h-full" />
+                <Eclipse center={216} {...WELCOME_SKY} className="h-full" />
                 <div className="relative mt-30 flex w-full max-w-md flex-col items-center gap-4 px-8 pb-12 text-center">
                     <BrandSymbol size={96} className="rounded-[22px] shadow-float" />
                     <h1 className="text-4xl font-semibold tracking-tight text-text">{t('welcome.title')}</h1>
