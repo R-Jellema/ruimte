@@ -68,11 +68,6 @@ const RoutineBaseShape = {
 };
 
 /*
- * What a routine runs: an agent with a prompt, a command in a shell, or a launch of the project.
- * Loose, so a field a newer release adds survives a save by this one; a new field goes at the end, and
- * an entry of a kind this release does not know is kept as it stands.
- */
-/*
  * What a person picked in an agent routine's prompt, as `chat.send` takes it: `@` files, `$` skills, and chats and
  * views of the project with `#`. The paths and names also sit in the prompt; these make them chips and context of a run.
  */
@@ -84,6 +79,11 @@ export const RoutinePickedSchema = z.looseObject({
 });
 export type RoutinePicked = z.infer<typeof RoutinePickedSchema>;
 
+/*
+ * What a routine runs: an agent with a prompt, a command in a shell, or a launch of the project.
+ * Loose, so a field a newer release adds survives a save by this one; a new field goes at the end, and
+ * an entry of a kind this release does not know is kept as it stands.
+ */
 export const AgentRoutineSchema = z.looseObject({
     ...RoutineBaseShape,
     kind: z.literal('agent'),

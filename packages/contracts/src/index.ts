@@ -4,7 +4,6 @@ import {
     TerminalPreparePayloadSchema,
     TerminalPrepareResultSchema
 } from './terminal-prepare.ts';
-export * from './terminal-prepare.ts';
 import { AgentIntegrationSetPayloadSchema, AgentIntegrationSetResultSchema, AgentIntegrationsResultSchema } from './agent-integrations.ts';
 import {
     ArtifactChangedEventSchema,
@@ -442,9 +441,7 @@ import {
     ComputerUseStatusSchema
 } from './computer.ts';
 import { ClaudeApiConfigurePayloadSchema, ClaudeApiStatusSchema } from './claude-api.ts';
-export * from './claude-api.ts';
 import { NanoGptConfigurePayloadSchema, NanoGptStatusSchema } from './nanogpt.ts';
-export * from './nanogpt.ts';
 import { SecretAnswerResultSchema, SecretDeclinePayloadSchema, SecretRequestsSchema, SecretSavePayloadSchema } from './secrets.ts';
 import {
     VoiceActivityEventSchema,
@@ -469,6 +466,7 @@ export * from './routine.ts';
 export * from './routine-schedule.ts';
 export * from './routine-cron.ts';
 export * from './agent-server.ts';
+export * from './apple-foundation.ts';
 export * from './archive.ts';
 export * from './auth.ts';
 export * from './browser.ts';
@@ -478,6 +476,7 @@ export * from './chat-image.ts';
 export * from './chat-handoff.ts';
 export * from './chat-move.ts';
 export * from './chat-search.ts';
+export * from './claude-api.ts';
 export * from './computer.ts';
 export * from './context.ts';
 export * from './direct.ts';
@@ -502,6 +501,7 @@ export * from './lan-door.ts';
 export * from './machine-http.ts';
 export * from './machine-update.ts';
 export * from './model.ts';
+export * from './nanogpt.ts';
 export * from './node-defaults.ts';
 export { emptyCanvasGroupIds } from './canvas-groups.ts';
 export * from './plan-host.ts';
@@ -528,11 +528,22 @@ export * from './language-patterns.ts';
 export * from './stored-path.ts';
 export * from './sql-binding.ts';
 export * from './task.ts';
+export * from './terminal-prepare.ts';
 export * from './text.ts';
 export * from './usage.ts';
 export * from './visual.ts';
 export * from './voice.ts';
 export * from './voice-languages.ts';
+export { FileLocationSchema, type FileLocation } from './file-location.ts';
+export {
+    TerminalCwdSnapshotSchema,
+    TERMINAL_CWD_OSC,
+    trackTerminalCwd,
+    terminalCwdScreenSize,
+    windowsPathOfMsys,
+    type CwdTerminal,
+    type TerminalCwd
+} from './terminal-cwd.ts';
 
 // Every request the wire knows, with the schema of what goes in and what comes back.
 // Both apps derive their types from this table, so a shape can only change here.
@@ -1011,16 +1022,3 @@ export function isRequestType(type: string): type is RequestType {
 export function isEventType(event: string): event is EventType {
     return Object.hasOwn(EVENT_SCHEMAS, event);
 }
-export * from './apple-foundation.ts';
-
-export { FileLocationSchema, type FileLocation } from './file-location.ts';
-
-export {
-    TerminalCwdSnapshotSchema,
-    TERMINAL_CWD_OSC,
-    trackTerminalCwd,
-    terminalCwdScreenSize,
-    windowsPathOfMsys,
-    type CwdTerminal,
-    type TerminalCwd
-} from './terminal-cwd.ts';

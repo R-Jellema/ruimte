@@ -1,15 +1,11 @@
 import { z } from 'zod';
+import { NanoGptSettingsSchema } from './nanogpt.ts';
 
 /*
- * How a chat on the API of Claude behaves, which a person decides per machine. A run of tool rounds is cut at
- * `roundsPerRun` so a loop that never ends cannot spend money; with `autoContinue` the chat goes on by itself for
- * up to `runs` runs, and without it the first cut stops it and waits for a message. `maxOutputTokens` is the
- * `max_tokens` of every request, which the API requires, and is capped by what the model allows.
+ * How a chat on the API of Claude behaves, which a person decides per machine: the cut of a run of tool rounds
+ * a NanoGPT chat has, and `maxOutputTokens`, the `max_tokens` of every request, which the API requires and the model caps.
  */
-export const ClaudeApiSettingsSchema = z.object({
-    autoContinue: z.boolean(),
-    roundsPerRun: z.number().int().min(5).max(200),
-    runs: z.number().int().min(1).max(20),
+export const ClaudeApiSettingsSchema = NanoGptSettingsSchema.extend({
     maxOutputTokens: z.number().int().min(1024).max(128_000)
 });
 export type ClaudeApiSettings = z.infer<typeof ClaudeApiSettingsSchema>;

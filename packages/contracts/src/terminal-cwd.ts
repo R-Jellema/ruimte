@@ -76,6 +76,16 @@ export function trackTerminalCwd(term: CwdTerminal, platform: string | null = nu
     let cwd: string | null = null;
     let pending = false;
     let clearing = false;
+
+    // Markers disposed here are dropped on purpose, so their disposal never moves `base`.
+    const disposeQuietly = (markers: Iterable<Marker>): void => {
+        clearing = true;
+        for (const marker of markers) {
+            marker.dispose();
+        }
+        clearing = false;
+    };
+
     const add = (row: number, value: string | null): void => {
         const buffer = term.buffer.active;
         if (buffer.type !== 'normal') {
@@ -96,9 +106,8 @@ export function trackTerminalCwd(term: CwdTerminal, platform: string | null = nu
             entries.delete(marker);
         });
         if (entries.size > MAX_CHANGES) {
-            clearing = true;
-            entries.keys().next().value?.dispose();
-            clearing = false;
+            const oldest = entries.keys().next().value;
+            disposeQuietly(oldest ? [oldest] : []);
             base = { cwd: null, order: -1 };
         }
     };
@@ -135,11 +144,7 @@ export function trackTerminalCwd(term: CwdTerminal, platform: string | null = nu
         add(row, occupied ? null : cwd);
     };
     const clear = (): void => {
-        clearing = true;
-        for (const marker of entries.keys()) {
-            marker.dispose();
-        }
-        clearing = false;
+        disposeQuietly(entries.keys());
         cwd = null;
         pending = false;
         base = { cwd: null, order: -1 };
@@ -254,13 +259,7 @@ export function trackTerminalCwd(term: CwdTerminal, platform: string | null = nu
             // in the erased tail are invalidated; scrollback and the current cwd survive.
             const buffer = term.buffer.active;
             const row = buffer.baseY + buffer.cursorY;
-            clearing = true;
-            for (const marker of entries.keys()) {
-                if (marker.line > row) {
-                    marker.dispose();
-                }
-            }
-            clearing = false;
+            disposeQuietly([...entries.keys()].filter((marker) => marker.line > row));
         }
         return false;
     });

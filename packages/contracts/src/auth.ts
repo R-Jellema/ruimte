@@ -35,16 +35,8 @@ export { CLOSED_LID_BATTERY_FLOOR, KeepAwakeModeSchema, type KeepAwakeMode } fro
  */
 export const EndpointNodeSizesSchema = z.record(z.string(), z.object({ w: z.number(), h: z.number() }));
 
-export const EndpointInfoSchema = z.object({
-    // The daemon's own id, minted once and kept in its home; a client keys a machine on this because an address moves.
-    id: z.string().min(1),
-    // What this machine is called: the name a person gave it, or `--label`, `RUIMTE_LABEL`, else its hostname.
-    label: z.string(),
-    // Which of the two the label is. Absent reads as `default`.
-    nameSource: EndpointNameSourceSchema.optional(),
-    // The set a project and a view pick from; no image, since a machine has no folder to keep one in.
-    // Null or absent when nobody picked one.
-    icon: ProjectIconChoiceSchema.nullish(),
+/* The switches a person sets on a machine, which its info, its settings and its change event all carry. */
+const MACHINE_SWITCHES = {
     // Lets `ruimte-context view delete` remove views an agent did not make. Enforced by the daemon, so it
     // lives in `endpoint.json`, not in a client's settings. Absent reads as false.
     agentsDeleteAnyView: z.boolean().optional(),
@@ -60,7 +52,20 @@ export const EndpointInfoSchema = z.object({
     // Hold the block on battery as well; off, it holds on the power adapter only.
     keepAwakeOnBattery: z.boolean().optional(),
     // Keep the display on too, only under `always`.
-    keepAwakeDisplay: z.boolean().optional(),
+    keepAwakeDisplay: z.boolean().optional()
+};
+
+export const EndpointInfoSchema = z.object({
+    // The daemon's own id, minted once and kept in its home; a client keys a machine on this because an address moves.
+    id: z.string().min(1),
+    // What this machine is called: the name a person gave it, or `--label`, `RUIMTE_LABEL`, else its hostname.
+    label: z.string(),
+    // Which of the two the label is. Absent reads as `default`.
+    nameSource: EndpointNameSourceSchema.optional(),
+    // The set a project and a view pick from; no image, since a machine has no folder to keep one in.
+    // Null or absent when nobody picked one.
+    icon: ProjectIconChoiceSchema.nullish(),
+    ...MACHINE_SWITCHES,
     // Only macOS has a way to hold the block.
     keepAwakeAvailable: z.boolean().optional(),
     // Turns sleep off (`pmset disablesleep`) while the block holds: on the adapter, or on battery above
@@ -155,14 +160,7 @@ export type PairResult = z.infer<typeof PairResultSchema>;
  * left out leaves the machine as it stands. `endpoint.settings` takes these alone.
  */
 export const EndpointSettingsSchema = z.object({
-    agentsDeleteAnyView: z.boolean().optional(),
-    streamingAllowed: z.boolean().optional(),
-    resumeAtReset: z.boolean().optional(),
-    visualReplies: z.boolean().optional(),
-    appleFoundationEnabled: z.boolean().optional(),
-    keepAwake: KeepAwakeModeSchema.optional(),
-    keepAwakeOnBattery: z.boolean().optional(),
-    keepAwakeDisplay: z.boolean().optional(),
+    ...MACHINE_SWITCHES,
     // Turning it on is refused with `closed-lid-no-rule` while the rule is not installed; off always goes through.
     keepAwakeLidClosed: z.boolean().optional(),
     broker: BrokerSettingSchema.optional(),
@@ -190,14 +188,7 @@ export const EndpointChangedEventSchema = z.object({
     label: z.string(),
     nameSource: EndpointNameSourceSchema,
     icon: ProjectIconChoiceSchema.nullable(),
-    agentsDeleteAnyView: z.boolean().optional(),
-    streamingAllowed: z.boolean().optional(),
-    resumeAtReset: z.boolean().optional(),
-    visualReplies: z.boolean().optional(),
-    appleFoundationEnabled: z.boolean().optional(),
-    keepAwake: KeepAwakeModeSchema.optional(),
-    keepAwakeOnBattery: z.boolean().optional(),
-    keepAwakeDisplay: z.boolean().optional(),
+    ...MACHINE_SWITCHES,
     keepAwakeLidClosed: z.boolean().optional(),
     keepAwakeLidRule: z.boolean().optional(),
     broker: BrokerSettingSchema.optional(),

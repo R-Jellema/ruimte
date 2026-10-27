@@ -536,7 +536,7 @@ export type ProjectIconChoice = z.infer<typeof ProjectIconChoiceSchema>;
  * so `GET /projects/<id>/icon?v=<version>` can be cached forever.
  */
 export const ProjectIconSchema = z.discriminatedUnion('kind', [
-    z.object({ kind: z.literal('lucide'), value: ProjectIconNameSchema }),
+    ProjectIconChoiceSchema,
     z.object({ kind: z.literal('image'), value: z.string(), version: z.string() }),
     z.object({ kind: z.literal('initial'), value: z.string() })
 ]);
@@ -673,6 +673,7 @@ export const ProjectDatabaseViewSchema = ViewBaseSchema.extend({
     tableKind: ProjectTableKindSchema.optional()
 });
 export type ProjectDatabaseView = z.infer<typeof ProjectDatabaseViewSchema>;
+
 // An Output artifact as a sidebar row. Which artifact is one person's on one machine, so `node.artifact` lives in the private overlay.
 export const ProjectArtifactViewSchema = ViewBaseSchema.extend({ kind: z.literal('artifact'), node: StandaloneNodeSchema });
 export type ProjectArtifactView = z.infer<typeof ProjectArtifactViewSchema>;

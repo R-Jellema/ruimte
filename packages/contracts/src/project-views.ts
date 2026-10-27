@@ -164,13 +164,12 @@ export function withoutView(views: readonly ProjectView[], id: string): { views:
     if (!removed) {
         return null;
     }
-    const rest = views.filter((view) => view.id !== id);
-    return { views: rest, removed };
+    return { views: views.filter((view) => view.id !== id), removed };
 }
 
 /*
- * Keeps the node's id and so its session. Only a chat, terminal, browser or device can stand on its
- * own; its lines stay behind, since an edge lives on the canvas it was drawn on.
+ * Keeps the node's id and so its session. Only a chat, terminal, browser, device or artifact can stand
+ * on its own; its lines stay behind, since an edge lives on the canvas it was drawn on.
  */
 export function withNodeAsView(views: readonly ProjectView[], nodeId: string): { views: ProjectView[]; view: ProjectView } | null {
     const source = views.find((view) => isCanvasView(view) && view.nodes.some((node) => node.id === nodeId));

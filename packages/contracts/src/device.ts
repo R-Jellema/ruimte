@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 const DeviceIdSchema = z.string().min(1).max(256);
+const DeviceBackendIdSchema = z.string().min(1).max(64);
 const DeviceCoordinateSchema = z.number().finite().min(0).max(1);
 const DeviceFrameSizeSchema = z.number().int().min(1).max(8192);
 
@@ -71,11 +72,8 @@ export const DeviceReferenceSchema = z.object({
 
 export const DeviceInfoSchema = z.object({
     deviceId: DeviceIdSchema,
-    backendId: z.string().min(1).max(64),
-    platform: DevicePlatformSchema,
-    kind: DeviceKindSchema,
-    name: z.string().min(1).max(256),
-    runtime: z.string().min(1).max(256),
+    backendId: DeviceBackendIdSchema,
+    ...DeviceReferenceSchema.shape,
     state: DeviceStateSchema,
     /* Why a device is in its state when that takes the person to act, such as `unauthorized` for a phone that has not allowed debugging yet. */
     reason: z.string().min(1).max(64).optional(),
@@ -105,7 +103,7 @@ export function deviceMatches(device: DeviceInfo, reference: DeviceReference): b
 
 export const DeviceTargetPayloadSchema = z.object({
     deviceId: DeviceIdSchema,
-    backendId: z.string().min(1).max(64),
+    backendId: DeviceBackendIdSchema,
     platform: DevicePlatformSchema
 });
 
@@ -138,6 +136,9 @@ export const DevicePermissionSchema = z.enum([
     'faceid'
 ]);
 
+const DeviceLiquidGlassSchema = z.enum(['clear', 'tinted']);
+const DevicePermissionDecisionSchema = z.enum(['grant', 'revoke', 'reset']);
+
 export const DeviceStatusBarSchema = z.enum(['clean', 'default']);
 export const DeviceFoldPoseSchema = z.enum(['closed', 'tent', 'tabletop', 'book', 'open']);
 const DeviceBatteryLevelSchema = z.number().int().min(0).max(100);
@@ -151,7 +152,7 @@ export const DeviceSettingsSchema = z.object({
     reduceTransparency: z.boolean().optional(),
     showBorders: z.boolean().optional(),
     voiceOver: z.boolean().optional(),
-    liquidGlass: z.enum(['clear', 'tinted']).optional(),
+    liquidGlass: DeviceLiquidGlassSchema.optional(),
     colorFilter: DeviceColorFilterSchema.optional(),
     statusBar: DeviceStatusBarSchema.optional(),
     battery: z.object({ level: DeviceBatteryLevelSchema, charging: z.boolean() }).optional(),
@@ -191,7 +192,7 @@ export const DeviceActionPayloadSchema = z.discriminatedUnion('action', [
     z.object({ ...DeviceActionTarget, action: z.literal('setAppearance'), value: DeviceAppearanceSchema }),
     z.object({ ...DeviceActionTarget, action: z.literal('setTextSize'), value: DeviceTextSizeSchema }),
     z.object({ ...DeviceActionTarget, action: z.literal('setToggle'), setting: DeviceToggleSettingSchema, value: z.boolean() }),
-    z.object({ ...DeviceActionTarget, action: z.literal('setLiquidGlass'), value: z.enum(['clear', 'tinted']) }),
+    z.object({ ...DeviceActionTarget, action: z.literal('setLiquidGlass'), value: DeviceLiquidGlassSchema }),
     z.object({ ...DeviceActionTarget, action: z.literal('setColorFilter'), value: DeviceColorFilterSchema }),
     z.object({
         ...DeviceActionTarget,
@@ -205,7 +206,7 @@ export const DeviceActionPayloadSchema = z.discriminatedUnion('action', [
         action: z.literal('setPermission'),
         appId: DeviceAppIdSchema,
         permission: DevicePermissionSchema,
-        decision: z.enum(['grant', 'revoke', 'reset'])
+        decision: DevicePermissionDecisionSchema
     }),
     z.object({ ...DeviceActionTarget, action: z.literal('openUrl'), url: z.string().trim().min(1).max(2048) }),
     z.object({ ...DeviceActionTarget, action: z.literal('launchApp'), appId: DeviceAppIdSchema }),
@@ -222,7 +223,7 @@ export const DeviceActionPayloadSchema = z.discriminatedUnion('action', [
     }),
     z.object({ ...DeviceActionTarget, action: z.literal('shake') }),
     z.object({ ...DeviceActionTarget, action: z.literal('memoryWarning') }),
-    z.object({ ...DeviceActionTarget, action: z.literal('setAllPermissions'), appId: DeviceAppIdSchema, decision: z.enum(['grant', 'revoke', 'reset']) }),
+    z.object({ ...DeviceActionTarget, action: z.literal('setAllPermissions'), appId: DeviceAppIdSchema, decision: DevicePermissionDecisionSchema }),
     z.object({ ...DeviceActionTarget, action: z.literal('installApp'), path: DeviceMachinePathSchema }),
     z.object({ ...DeviceActionTarget, action: z.literal('addMedia'), paths: z.array(DeviceMachinePathSchema).min(1).max(20) }),
     z.object({ ...DeviceActionTarget, action: z.literal('erase') }),
@@ -319,7 +320,7 @@ export const DeviceInputPayloadSchema = DeviceTargetPayloadSchema.extend({ input
 
 export const DeviceFrameSchema = z.object({
     deviceId: DeviceIdSchema,
-    backendId: z.string().min(1).max(64),
+    backendId: DeviceBackendIdSchema,
     platform: DevicePlatformSchema,
     sequence: z.number().int().min(0).max(0xffffffff),
     width: DeviceFrameSizeSchema,
@@ -351,7 +352,7 @@ export const DeviceAgentStepSchema = z.object({
 export const DeviceOperatedStateSchema = z.enum(['running', 'paused', 'takenOver', 'ended']);
 
 export const DeviceOperatedSchema = z.object({
-    backendId: z.string().min(1).max(64),
+    backendId: DeviceBackendIdSchema,
     deviceId: DeviceIdSchema,
     // The chat or terminal whose agent operates the device; null when the machine does not know it.
     nodeId: z.string().min(1).nullable(),
@@ -365,7 +366,7 @@ export const DeviceOperationsResultSchema = z.object({ devices: z.array(DeviceOp
 export const DeviceControlModeSchema = z.enum(['pause', 'resume', 'takeOver']);
 
 export const DeviceControlPayloadSchema = z.object({
-    backendId: z.string().min(1).max(64),
+    backendId: DeviceBackendIdSchema,
     deviceId: DeviceIdSchema,
     mode: DeviceControlModeSchema
 });

@@ -1,14 +1,14 @@
 import { z } from 'zod';
 
+// Longer than any path a file system stores, so an archive entry named past it is not one to read or extract.
+export const ARCHIVE_ENTRY_PATH_MAX = 4096;
+
 /*
  * The bytes a client draws that the daemon also serves over HTTP: a chat attachment, a project's image
  * icon and an image, a video, sound or a PDF the file viewer shows. Over a socket the HTTP route is the cheaper way
  * and stays the one used; over a direct connection there is no HTTP, so the same bytes travel as
  * `bytes.read` in pieces the client asks for one after the other.
  */
-// Longer than any path a file system stores, so an archive entry named past it is not one to read or extract.
-export const ARCHIVE_ENTRY_PATH_MAX = 4096;
-
 export const ByteResourceSchema = z.discriminatedUnion('kind', [
     z.object({ kind: z.literal('attachment'), chatId: z.string().min(1), attachmentId: z.string().min(1) }),
     z.object({ kind: z.literal('projectIcon'), projectId: z.string().min(1), theme: z.enum(['light', 'dark']) }),
