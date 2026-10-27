@@ -1,4 +1,6 @@
+import type { EventMap, EventType, RequestMap } from '@ruimte/contracts';
 import { pool } from '@/transport';
+import type { BareRequest } from './machine-watch';
 import { readOnEveryOpen, type Transport } from './transport';
 
 export interface LinkWatch {
@@ -57,5 +59,41 @@ export function watchPool(attach: (link: Transport, endpointId: string) => LinkW
             stop();
         }
         watching.clear();
+    };
+}
+
+/*
+ * A snapshot the machine pushes whole on every change: asked for once on an open link, then heard.
+ * A failed ask leaves what the caller shows as it was, and the next open link asks again. `when`
+ * holds the ask back, for a machine older than the request.
+ */
+export function snapshotWatch<Q extends BareRequest, E extends EventType>(
+    link: Transport,
+    request: Q,
+    event: E,
+    apply: (payload: RequestMap[Q]['result'] | EventMap[E]) => void,
+    when: () => boolean = () => true
+): LinkWatch {
+    return {
+        onOpen: () => {
+            if (when()) {
+                link.request(request, {} as RequestMap[Q]['payload'])
+                    .then(apply)
+                    .catch(() => undefined);
+            }
+        },
+        subscriptions: [link.on(event, apply)]
+    };
+}
+
+/* Several watches of one link as a single one. */
+export function joinWatches(...parts: LinkWatch[]): LinkWatch {
+    return {
+        onOpen: () => {
+            for (const part of parts) {
+                part.onOpen?.();
+            }
+        },
+        subscriptions: parts.flatMap((part) => part.subscriptions)
     };
 }
