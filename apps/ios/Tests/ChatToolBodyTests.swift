@@ -103,6 +103,61 @@ final class ChatToolBodyTests: XCTestCase {
         }
     }
 
+    @MainActor func testTheWholeOutputIsAskedForTheItemAndReplacesTheBeginning() async {
+        let machine = ScriptedMachine(["chat.toolOutput": { _ in .object(["output": .string("all of it")]) }])
+        let whole = ChatWhole<String>()
+        await whole.load { try await ChatWholeReads.toolOutput(client: machine, chatID: "chat-1", itemID: "item-7") }
+        XCTAssertEqual(whole.value, "all of it")
+        XCTAssertEqual(machine.requests, ["chat.toolOutput"])
+        XCTAssertEqual(machine.sent.first?.payload["chatId"]?.stringValue, "chat-1")
+        XCTAssertEqual(machine.sent.first?.payload["itemId"]?.stringValue, "item-7")
+    }
+
+    @MainActor func testAnOutputTheMachineNoLongerHasFailsAndCanBeTriedAgain() async {
+        let machine = ScriptedMachine(["chat.toolOutput": { _ in .object(["output": .null]) }])
+        let whole = ChatWhole<String>()
+        let read = { try await ChatWholeReads.toolOutput(client: machine, chatID: "chat-1", itemID: "item-7") }
+        await whole.load(read)
+        XCTAssertTrue(isFailed(whole))
+        for code in ["payload-missing", "item-not-found"] {
+            machine.refusals["chat.toolOutput"] = code
+            await whole.load(read)
+            XCTAssertTrue(isFailed(whole), code)
+        }
+        machine.refusals = [:]
+        machine.answers["chat.toolOutput"] = { _ in .object(["output": .string("back")]) }
+        await whole.load(read)
+        XCTAssertEqual(whole.value, "back")
+    }
+
+    @MainActor func testOnlyAMachineThatNamesTheRequestIsAskedForAWholeOutput() {
+        XCTAssertFalse(ChatWholeReads.offersToolOutput(ScriptedMachine()))
+    }
+
+    @MainActor func testAHeldBackDiffReadsTheTurnsWholeDiff() async {
+        let file: JSONValue = .object([
+            "path": .string("a.ts"), "kind": .string("update"), "diff": .string("@@ -1 +1 @@\n-a\n+b"),
+            "added": .number(1), "deleted": .number(1),
+        ])
+        let machine = ScriptedMachine([
+            "chat.turnDiff": { _ in .object(["diff": .object(["files": .array([file]), "truncated": .bool(false)])]) }
+        ])
+        let whole = ChatWhole<ChatTurnItemCheckpointDiff>()
+        await whole.load { try await ChatWholeReads.turnDiff(client: machine, chatID: "chat-1", turnID: "turn-2") }
+        XCTAssertEqual(whole.value?.files.first?.diff, "@@ -1 +1 @@\n-a\n+b")
+        XCTAssertEqual(machine.sent.first?.payload["turnId"]?.stringValue, "turn-2")
+
+        let empty = ScriptedMachine(["chat.turnDiff": { _ in .object(["diff": .null]) }])
+        let missing = ChatWhole<ChatTurnItemCheckpointDiff>()
+        await missing.load { try await ChatWholeReads.turnDiff(client: empty, chatID: "chat-1", turnID: "turn-2") }
+        XCTAssertTrue(isFailed(missing))
+    }
+
+    @MainActor private func isFailed<Value>(_ whole: ChatWhole<Value>) -> Bool {
+        if case .failed = whole.state { return true }
+        return false
+    }
+
     private func pair(_ value: (code: Int?, rest: String)) -> Pair { Pair(value.code, value.rest) }
 
     private func argument(_ key: String, _ value: String) -> ChatToolCallLines.Argument {

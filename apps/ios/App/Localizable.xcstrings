@@ -22506,6 +22506,47 @@
         }
       }
     },
+    "Show full output" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volledige output tonen"
+          }
+        }
+      }
+    },
+    "Could not load the full output" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De volledige output kon niet worden geladen"
+          }
+        }
+      }
+    },
+    "Could not load the full diff" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De volledige diff kon niet worden geladen"
+          }
+        }
+      }
+    },
+    "%@ in total" : {
+      "comment" : "%@ is the size of a whole output",
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ in totaal"
+          }
+        }
+      }
+    },
     "View icon" : {
       "localizations" : {
         "nl" : {

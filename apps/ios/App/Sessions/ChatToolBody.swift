@@ -1,4 +1,5 @@
 import RuimtePulsar
+import RuimteTransport
 import SwiftUI
 
 /// What a call was asked to do, as the lines its opened row shows.
@@ -111,7 +112,7 @@ struct ChatToolBodyView: View {
                 if let text = lines.text {
                     ChatToolPane { Text(ChatToolBody.clipped(text)).foregroundStyle(MobileStyle.text) }
                 }
-                ChatToolOutput(text: output, failed: item.state == .error)
+                ChatToolOutput(item: item)
             }
             .modifier(ChatToolText())
         } else {
@@ -124,10 +125,108 @@ struct ChatToolBodyView: View {
             // The answer to a reported patch only repeats the paths it touched.
             if (item.changes ?? []).allSatisfy(\.diff.isEmpty), ChatToolBody.hasOutput(output) {
                 VStack(alignment: .leading, spacing: 6) {
-                    ChatToolOutput(text: output, failed: item.state == .error)
+                    ChatToolOutput(item: item)
                 }
                 .modifier(ChatToolText())
             }
+        }
+    }
+}
+
+/// The whole of what the thread keeps only the beginning of, read once a person asks, as the desktop's chat does. A
+/// failure can be tried again.
+@MainActor @Observable final class ChatWhole<Value> {
+    enum State {
+        case idle, loading
+        case loaded(Value)
+        case failed
+    }
+
+    private(set) var state = State.idle
+
+    var value: Value? {
+        if case .loaded(let value) = state { return value }
+        return nil
+    }
+
+    var loading: Bool {
+        if case .loading = state { return true }
+        return false
+    }
+
+    /// A read that answers nil found nothing on the machine, which fails like a refusal does.
+    func load(_ read: () async throws -> Value?) async {
+        guard !loading else { return }
+        state = .loading
+        do {
+            if let value = try await read() {
+                state = .loaded(value)
+            } else {
+                state = .failed
+            }
+        } catch {
+            state = .failed
+        }
+    }
+}
+
+/// The requests behind the wholes a thread offers.
+enum ChatWholeReads {
+    /// Only a machine that answers `chat.toolOutput` keeps an output apart, so on any other there is nothing to ask.
+    @MainActor static func offersToolOutput(_ client: any MachineRequesting) -> Bool {
+        (client as? MachineFeatures)?.answers(.chatToolOutput) == true
+    }
+
+    @MainActor static func toolOutput(client: any MachineRequesting, chatID: String, itemID: String) async throws
+        -> String?
+    {
+        let result = try await client.request(
+            WireRequest.chatToolOutput.rawValue,
+            payload: .object(["chatId": .string(chatID), "itemId": .string(itemID)]))
+        return result["output"]?.stringValue
+    }
+
+    @MainActor static func turnDiff(client: any MachineRequesting, chatID: String, turnID: String) async throws
+        -> ChatTurnItemCheckpointDiff?
+    {
+        let result = try await client.request(
+            WireRequest.chatTurnDiff.rawValue,
+            payload: .object(["chatId": .string(chatID), "turnId": .string(turnID)]))
+        guard let diff = result["diff"], diff != .null else { return nil }
+        return try diff.decoded(as: ChatTurnItemCheckpointDiff.self)
+    }
+}
+
+/// The line under a beginning that offers the rest: its size when known, and Try again after a failure.
+struct ChatWholeBar<Value>: View {
+    let whole: ChatWhole<Value>
+    let label: LocalizedStringKey
+    let failedLabel: LocalizedStringKey
+    var bytes: Int64? = nil
+    let read: () async throws -> Value?
+
+    var body: some View {
+        if whole.value == nil {
+            let failed = if case .failed = whole.state { true } else { false }
+            HStack(spacing: 8) {
+                if failed {
+                    Text(failedLabel).foregroundStyle(MobileStyle.statusError)
+                } else if let bytes {
+                    Text("\(mobileByteCount(Double(bytes))) in total", comment: "%@ is the size of a whole output")
+                        .foregroundStyle(MobileStyle.faint)
+                }
+                Button {
+                    Task { await whole.load(read) }
+                } label: {
+                    HStack(spacing: 6) {
+                        if whole.loading { ProgressView().controlSize(.small) }
+                        Text(failed ? "Try again" : label)
+                    }
+                    .frame(minHeight: 44)
+                }
+                .disabled(whole.loading)
+            }
+            .font(.caption)
         }
     }
 }
@@ -162,13 +261,19 @@ private struct ChatToolPane<Content: View>: View {
     }
 }
 
+/// What a call answered, and the whole of it on request when the thread keeps only its beginning.
 private struct ChatToolOutput: View {
-    let text: String
-    let failed: Bool
+    let item: ChatToolItem
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.chatContent) private var context
     @State private var expanded = false
+    @State private var whole = ChatWhole<String>()
 
     var body: some View {
+        let text = whole.value ?? ChatToolBody.output(item)
+        let failed = item.state == .error
+        // A beginning whose rest the machine keeps has no count of what it leaves out, so only the whole expands here.
+        let beginning = item.outputRef != nil && whole.value == nil
         let exit = failed ? ChatToolBody.exitCode(text) : (code: nil, rest: text)
         if ChatToolBody.hasOutput(exit.rest) {
             let base = failed && exit.code == nil ? MobileStyle.statusError : MobileStyle.muted
@@ -180,13 +285,22 @@ private struct ChatToolOutput: View {
                 )
                 .foregroundStyle(base)
             }
-            if output.omitted > 0 {
+            if output.omitted > 0 && !beginning {
                 ChatExpansionButton(expanding: true) {
                     expanded = true
                 } label: {
                     Text("Show all output")
                 }
                 .font(.caption).frame(minHeight: 44)
+            }
+        }
+        if ChatToolBody.hasOutput(text), let ref = item.outputRef, let context,
+            ChatWholeReads.offersToolOutput(context.client)
+        {
+            ChatWholeBar(
+                whole: whole, label: "Show full output", failedLabel: "Could not load the full output", bytes: ref.bytes
+            ) {
+                try await ChatWholeReads.toolOutput(client: context.client, chatID: context.chatID, itemID: item.id)
             }
         }
         if let code = exit.code {

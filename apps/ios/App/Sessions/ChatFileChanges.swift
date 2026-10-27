@@ -144,6 +144,8 @@ struct ChatFileChangeView: View {
     let change: ChatFileChange
     /// Whether a line separates the file from what is above it in the card.
     var ruled = true
+    /// Offered by a file whose diff the thread held back, which then reads the turn's whole diff.
+    var whole: ChatFileChangeWhole? = nil
     @State private var expanded = false
 
     var body: some View {
@@ -174,12 +176,24 @@ struct ChatFileChangeView: View {
                 if let omitted = change.omitted {
                     Text(omitted == "binary" ? "Binary file, no diff" : "Too large to show")
                         .font(.caption).foregroundStyle(MobileStyle.faint).padding(12)
+                } else if let whole, change.diff.isEmpty {
+                    ChatWholeBar(
+                        whole: whole.state, label: "Show full diff", failedLabel: "Could not load the full diff",
+                        read: whole.read
+                    )
+                    .padding(.horizontal, 12)
                 } else {
                     ChatDiffView(diff: change.diff)
                 }
             }
         }
     }
+}
+
+/// The turn's whole diff, which every held-back file of its card offers and one read fills in for all of them.
+struct ChatFileChangeWhole {
+    let state: ChatWhole<ChatTurnItemCheckpointDiff>
+    let read: () async throws -> ChatTurnItemCheckpointDiff?
 }
 
 struct ChatCardRule: View {
@@ -196,8 +210,9 @@ struct ChatChangedFilesRow: View {
     @State private var fetched: ChatTurnItemCheckpointDiff?
     @State private var fetchedOnce = false
     @State private var expanded = false
+    @State private var whole = ChatWhole<ChatTurnItemCheckpointDiff>()
     private var item: ChatTurnItem? { turn.item.turnItem }
-    private var stored: ChatTurnItemCheckpointDiff? { item?.checkpointDiff }
+    private var stored: ChatTurnItemCheckpointDiff? { whole.value ?? item?.checkpointDiff }
     private var files: [ChatFileChange] {
         if let diff = stored ?? fetched {
             return ChatFileChanges.grouped(diff.files.map(ChatFileChanges.fromFile))
@@ -221,7 +236,8 @@ struct ChatChangedFilesRow: View {
                             .padding(.leading, 34).padding(.trailing, 12).padding(.bottom, 10)
                         }
                         if expanded {
-                            ForEach(files) { change in ChatFileChangeView(change: change) }
+                            let whole = heldBack
+                            ForEach(files) { change in ChatFileChangeView(change: change, whole: whole) }
                         }
                     }
                     if work.loading { ProgressView("Loading changes…").font(.caption).padding(12) }
@@ -268,6 +284,17 @@ struct ChatChangedFilesRow: View {
         }
         .buttonStyle(.plain)
         .accessibilityValue(expanded ? "Expanded" : "Collapsed")
+    }
+
+    /// The whole diff behind a card whose later files the thread held back, until it is read.
+    private var heldBack: ChatFileChangeWhole? {
+        guard let item, item.checkpointDiffRef != nil, whole.value == nil else { return nil }
+        let client = client
+        let chatID = chatID
+        let turnID = item.turnId ?? item.id
+        return ChatFileChangeWhole(state: whole) {
+            try await ChatWholeReads.turnDiff(client: client, chatID: chatID, turnID: turnID)
+        }
     }
 
     private func load() async {
