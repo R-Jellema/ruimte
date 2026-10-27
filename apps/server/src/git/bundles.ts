@@ -9,7 +9,7 @@ import {
     type GitFetchBundlePayload,
     type GitFetchBundleResult
 } from '@ruimte/contracts';
-import { sha256 } from '../artifacts/artifact-fs.ts';
+import { sha256, sha256Of } from '../artifacts/artifact-fs.ts';
 import { KeyedQueue } from '../keyed-queue.ts';
 import type { CheckpointService } from './checkpoints.ts';
 import { GitError, git, gitOrThrow, runGit, toplevel, verifyRev } from './run.ts';
@@ -240,15 +240,6 @@ export class BundleStore {
 /* The id the bundle of one piece of work always has, so sending it again replaces the earlier copy instead of adding to it. */
 export function bundleIdFor(key: string): string {
     return `bundle-${sha256(key).slice(0, 32)}`;
-}
-
-/* Keeps the hash of a file without holding it in memory. */
-export async function sha256Of(path: string): Promise<string> {
-    const hasher = new Bun.CryptoHasher('sha256');
-    for await (const chunk of Bun.file(path).stream()) {
-        hasher.update(chunk);
-    }
-    return hasher.digest('hex');
 }
 
 /* Git commits as someone even where nobody set a name, since the handoff commit is the daemon's. */

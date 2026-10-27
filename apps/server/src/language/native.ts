@@ -5,7 +5,7 @@ import { access, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import type { LanguageServerKind } from '@ruimte/contracts';
-import { sha256 } from '../artifacts/artifact-fs.ts';
+import { sha256, type FileDownload } from '../artifacts/artifact-fs.ts';
 import { extractEntries, readArchive, type ArchiveFormat } from './archive.ts';
 import { cargoBin } from './toolchain.ts';
 
@@ -300,16 +300,7 @@ export function stubsComplete(directory: string): Promise<boolean> {
     );
 }
 
-/* Writes the file at the address. The default is a plain GET; tests answer from memory. */
-export type Download = (url: string, destination: string) => Promise<void>;
-
-export const download: Download = async (url, destination) => {
-    const response = await fetch(url, { redirect: 'follow' });
-    if (!response.ok) {
-        throw new Error(`${url} answered ${response.status}`);
-    }
-    await writeFile(destination, new Uint8Array(await response.arrayBuffer()));
-};
+export type Download = FileDownload;
 
 /* Downloads the archive into a temporary folder, hands its path to `handle` and removes the folder after, whatever `handle` does. */
 async function withDownload<T>(url: string, name: string, get: Download, handle: (file: string) => Promise<T>): Promise<T> {

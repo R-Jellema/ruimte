@@ -5,7 +5,7 @@ import { writeAtomic } from '@adecore/agents';
 import { join } from 'node:path';
 import { z } from 'zod';
 import type { AgentKind, AgentServerStatus } from '@ruimte/contracts';
-import { sha256Of } from '../git/bundles.ts';
+import { downloadFile, sha256Of, type FileDownload } from '../artifacts/artifact-fs.ts';
 import { extractZipFile } from '../language/archive.ts';
 
 const AssetSchema = z.object({
@@ -31,19 +31,8 @@ export function parseAcpServerRelease(descriptor: unknown): AcpServerRelease {
     return ReleaseSchema.parse(descriptor);
 }
 
-/* Writes the body at the address to the file. The default streams it; tests answer from memory. */
-export type ServerDownload = (url: string, destination: string) => Promise<void>;
-
-export const downloadFile: ServerDownload = async (url, destination) => {
-    const response = await fetch(url, { redirect: 'follow' });
-    if (!response.ok) {
-        throw new Error(`${url} answered ${response.status}`);
-    }
-    await Bun.write(destination, response);
-};
-
 /* Downloads to the file and holds it to the checksum, where there is one, before anything unpacks it. */
-export async function downloadChecked(download: ServerDownload, url: string, destination: string, sha256: string | null): Promise<void> {
+export async function downloadChecked(download: FileDownload, url: string, destination: string, sha256: string | null): Promise<void> {
     await download(url, destination);
 
     if (sha256 !== null && (await sha256Of(destination)) !== sha256) {
@@ -66,7 +55,7 @@ interface AcpServerInstallOptions {
     release: AcpServerRelease;
     platform?: NodeJS.Platform;
     arch?: string;
-    download?: ServerDownload;
+    download?: FileDownload;
 }
 
 const INSTALLED_FILE = 'installed.json';
@@ -81,7 +70,7 @@ export class AcpServerInstall implements AcpServerLaunch {
     private readonly folder: string;
     private readonly release: AcpServerRelease;
     private readonly asset: AcpServerAsset | undefined;
-    private readonly download: ServerDownload;
+    private readonly download: FileDownload;
     private installing: Promise<void> | null = null;
     private failure: string | null = null;
 

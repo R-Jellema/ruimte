@@ -2,12 +2,11 @@ import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promise
 import { dirname, join } from 'node:path';
 import { LanguageServerKindSchema, type LanguageServerKind } from '@ruimte/contracts';
 import { fileExists } from '@adecore/agents';
-import { sha256 } from '../artifacts/artifact-fs.ts';
+import { downloadFile, sha256 } from '../artifacts/artifact-fs.ts';
 import { errorText } from '../error-text.ts';
 import { LanguageLog } from './log.ts';
 import {
     cargoCommand,
-    download,
     fetchStubs,
     installRelease,
     isNativeKind,
@@ -334,7 +333,7 @@ export class LanguageInstaller {
     }
 
     private get downloader(): Download {
-        return this.options.download ?? download;
+        return this.options.download ?? downloadFile;
     }
 
     private get checkoutRevision(): CheckoutRevision {

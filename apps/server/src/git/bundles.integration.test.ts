@@ -2,7 +2,8 @@ import { afterAll, afterEach, beforeAll, beforeEach, expect, setDefaultTimeout, 
 import { chmod, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { BYTES_CHUNK_MAX } from '@ruimte/contracts';
-import { BundleStore, fetchBundle, makeBundle, sha256Of } from './bundles.ts';
+import { sha256Of } from '../artifacts/artifact-fs.ts';
+import { BundleStore, fetchBundle, makeBundle } from './bundles.ts';
 import { Checkpoints } from './checkpoints.ts';
 import { listRefs } from './refs.ts';
 import { gitIn, initRepo, repoTemplate, type RepoTemplate, NO_WORKTREE_AGENTS } from './test-repo.ts';

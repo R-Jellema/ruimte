@@ -55,6 +55,24 @@ export function sha256(data: string | Uint8Array): string {
     return new Bun.CryptoHasher('sha256').update(data).digest('hex');
 }
 
+/* Hashes a file without holding it in memory. */
+export async function sha256Of(path: string): Promise<string> {
+    return (await digestStream(Bun.file(path).stream())).sha256;
+}
+
+/* Writes the body at the address to the file. The default streams it; tests answer from memory. */
+export type FileDownload = (url: string, destination: string) => Promise<void>;
+
+export const downloadFile: FileDownload = async (url, destination) => {
+    const response = await fetch(url, { redirect: 'follow' });
+
+    if (!response.ok) {
+        throw new Error(`${url} answered ${response.status}`);
+    }
+
+    await Bun.write(destination, response);
+};
+
 async function digestStream(stream: AsyncIterable<Uint8Array>, write?: (chunk: Uint8Array) => Promise<void>): Promise<FileDigest> {
     const hasher = new Bun.CryptoHasher('sha256');
     let size = 0;

@@ -12,7 +12,8 @@ import { acpCatalogStore } from './acp-catalog-store.ts';
 import { throwOnFailure } from './cli-versions.ts';
 import { RUIMTE_ACP_CLIENT, agentDefaultCatalog, agentModel, allowsContextCommand } from './acp-providers.ts';
 import type { AcpRegistry, RegistryDistribution, RegistryEntry } from './acp-registry.ts';
-import { downloadChecked, downloadFile, type ServerDownload } from './acp-server.ts';
+import { downloadFile, type FileDownload } from '../artifacts/artifact-fs.ts';
+import { downloadChecked } from './acp-server.ts';
 
 const InstalledSchema = z.object({
     id: z.string(),
@@ -51,7 +52,7 @@ interface RegistryAgentsOptions {
     home: string;
     registry: AcpRegistry;
     providers: OfferedProviders;
-    download?: ServerDownload;
+    download?: FileDownload;
     run?: InstallRun;
     // Where an executable on the PATH is, null for none.
     which?: (command: string) => string | null;
@@ -118,7 +119,7 @@ export class RegistryAgents {
     private readonly home: string;
     private readonly registry: AcpRegistry;
     private readonly providers: OfferedProviders;
-    private readonly download: ServerDownload;
+    private readonly download: FileDownload;
     private readonly run: InstallRun;
     private readonly which: (command: string) => string | null;
     private readonly platform: NodeJS.Platform;
