@@ -35,22 +35,6 @@ const storedChosenLaunches = storedJson(
 const LEGACY_PANEL_KEY = 'ruimte.panel';
 const LEGACY_PANEL_WIDTH_KEY = 'ruimte.panel.width';
 
-function readSidebarOpen(): boolean {
-    return storedSidebar.read() !== 'closed';
-}
-
-function readChosenLaunches(): Record<string, string> {
-    return storedChosenLaunches.read() ?? {};
-}
-
-function persistChosenLaunches(chosen: Record<string, string>): void {
-    storedChosenLaunches.write(chosen);
-}
-
-function persistSidebarOpen(open: boolean): void {
-    storedSidebar.write(open ? 'open' : 'closed');
-}
-
 export interface PanelState {
     open: boolean;
     /* Which panel the surface shows; it survives a close, so the toggle reopens the last one. */
@@ -91,10 +75,6 @@ export function parseWidth(raw: string | null): number | null {
     return Number.isFinite(stored) && stored > 0 ? stored : null;
 }
 
-function readLegacy(key: string): string | null {
-    return storedText(key).read();
-}
-
 export interface PanelDefaults {
     panel: PanelState;
     panelWidth: number | null;
@@ -104,8 +84,8 @@ export interface PanelDefaults {
 
 /* What a project whose local file says nothing about the panels opens with. */
 export const PANEL_DEFAULTS: PanelDefaults = {
-    panel: parsePanel(readLegacy(LEGACY_PANEL_KEY)),
-    panelWidth: parseWidth(readLegacy(LEGACY_PANEL_WIDTH_KEY)),
+    panel: parsePanel(storedText(LEGACY_PANEL_KEY).read()),
+    panelWidth: parseWidth(storedText(LEGACY_PANEL_WIDTH_KEY).read()),
     planAnchor: null,
     planWidth: null
 };
@@ -139,9 +119,6 @@ export type ViewDialog =
     | { kind: 'new-browser' }
     | null;
 
-/* What the palette is doing: jumping and running commands, searching through the files of the open
-   folder, searching the messages of the project's chats, or picking one file out of it. The mode is a
-   step inside the same dialog, not a dialog of its own. */
 /*
  * A chat in Chats that leaves it. `make` starts a new project from the chat ("Make project…"); `pick`
  * moves it into a project that already exists, `projectId` being the one chosen beforehand, if any.
@@ -186,6 +163,8 @@ export interface AddToMachineRequest {
     then?: RemoteNodeRequest;
 }
 
+/* What the palette is doing: jumping and running commands, searching the files of the open folder,
+   searching the project's chats, or picking one file. A step inside the same dialog. */
 export type PaletteMode = 'default' | 'grep' | 'chats' | 'file';
 
 /* What a picked file becomes. A node carries where it lands, in world units, because the menu that
@@ -332,205 +311,207 @@ interface UiStore {
 
 /* Which app-level dialog is up; nothing here belongs to a node. The panels do belong to a project.
    They are loaded from and saved to its machine-local file by `project/panels-port.ts`. */
-export const useUi = create<UiStore>((set, get) => ({
-    paletteOpen: false,
-    paletteMode: 'default',
-    usageOpen: false,
-    modelsOpen: false,
-    login: null,
-    providerCommand: null,
-    onboarding: null,
-    agentIntegrations: false,
-    paletteSeed: '',
-    paletteBrowseAt: 0,
-    paletteBrowseMachine: null,
-    paletteBrowseFor: 'folder',
-    filePick: null,
-    sidebarOpen: readSidebarOpen(),
-    sidebarExpanded: null,
-    settings: { open: false, section: 'appearance', target: null, searchAt: 0 },
-    /* Closed until a project says otherwise, so a reload cannot flash open a panel the project has closed. */
-    panel: CLOSED_PANEL,
-    panelWidth: null,
-    planAnchor: null,
-    planOpen: false,
-    planWidth: null,
-    panelsRestoring: true,
-    layoutDialogOpen: false,
-    worktreeDialogFor: null,
-    worktreeRemoval: null,
-    worktreeMerge: null,
-    conflicts: null,
-    forkDialog: null,
-    moveChatDialog: null,
-    newWorktreeChatOpen: false,
-    issueStartOpen: false,
-    pullRequestDialog: null,
-    remoteNodeDialog: null,
-    addToMachineDialog: null,
-    viewDialog: null,
-    renamingViewId: null,
-    projectSettingsAsked: false,
-    chosenLaunches: readChosenLaunches(),
-    chooseLaunch(projectKey, launchId) {
-        if (get().chosenLaunches[projectKey] === launchId) {
-            return;
-        }
-        const chosenLaunches = { ...get().chosenLaunches, [projectKey]: launchId };
-        persistChosenLaunches(chosenLaunches);
-        set({ chosenLaunches });
-    },
-    setUsageOpen(open) {
-        set({ usageOpen: open });
-    },
-    setModelsOpen(open) {
-        set({ modelsOpen: open });
-    },
-    setLogin(login) {
-        set({ login });
-    },
-    setProviderCommand(request) {
-        set({ providerCommand: request });
-    },
-    setOnboarding(step) {
-        set({ onboarding: step });
-    },
-    setAgentIntegrations(open) {
-        set({ agentIntegrations: open });
-    },
-    askProjectSettings(asked) {
-        set({ projectSettingsAsked: asked });
-    },
-    setWorktreeDialogFor(groupId) {
-        set({ worktreeDialogFor: groupId });
-    },
-    setWorktreeRemoval(removal) {
-        set({ worktreeRemoval: removal });
-    },
-    setWorktreeMerge(merge) {
-        set({ worktreeMerge: merge });
-    },
-    setConflicts(request) {
-        set({ conflicts: request });
-    },
-    setForkDialog(fork) {
-        set({ forkDialog: fork });
-    },
-    setMoveChatDialog(move) {
-        set({ moveChatDialog: move });
-    },
-    setNewWorktreeChatOpen(open) {
-        set({ newWorktreeChatOpen: open });
-    },
-    setIssueStartOpen(open) {
-        set({ issueStartOpen: open });
-    },
-    setPullRequestDialog(request) {
-        set({ pullRequestDialog: request });
-    },
-    setRemoteNodeDialog(request) {
-        set({ remoteNodeDialog: request });
-    },
-    setAddToMachineDialog(request) {
-        set({ addToMachineDialog: request });
-    },
-    setViewDialog(dialog) {
-        set({ viewDialog: dialog });
-    },
-    setRenamingViewId(viewId) {
-        set({ renamingViewId: viewId });
-    },
-    setSidebarOpen(open) {
-        persistSidebarOpen(open);
-        set({ sidebarOpen: open, panelsRestoring: false });
-    },
-    toggleSidebar() {
-        get().setSidebarOpen(!get().sidebarOpen);
-    },
-    setLayoutDialogOpen(open) {
-        set({ layoutDialogOpen: open });
-    },
-    openPalette(seed = '') {
-        set({ paletteOpen: true, paletteMode: 'default', paletteSeed: seed, filePick: null });
-    },
-    openFindInFiles(seed = '') {
-        set({ paletteOpen: true, paletteMode: 'grep', paletteSeed: seed, filePick: null });
-    },
-    openChatSearch(seed = '') {
-        set({ paletteOpen: true, paletteMode: 'chats', paletteSeed: seed, filePick: null });
-    },
-    openFolderBrowser(machineId) {
+export const useUi = create<UiStore>((set, get) => {
+    const openPaletteIn = (paletteMode: PaletteMode, seed: string): void => {
+        set({ paletteOpen: true, paletteMode, paletteSeed: seed, filePick: null });
+    };
+
+    const browseMachines = (paletteBrowseFor: UiStore['paletteBrowseFor'], machineId: string | null): void => {
         set({
             paletteOpen: true,
             paletteMode: 'default',
             paletteSeed: '',
             paletteBrowseAt: get().paletteBrowseAt + 1,
-            paletteBrowseMachine: machineId ?? null,
-            paletteBrowseFor: 'folder',
+            paletteBrowseMachine: machineId,
+            paletteBrowseFor,
             filePick: null
         });
-    },
-    openChatMachines() {
-        set({
-            paletteOpen: true,
-            paletteMode: 'default',
-            paletteSeed: '',
-            paletteBrowseAt: get().paletteBrowseAt + 1,
-            paletteBrowseMachine: null,
-            paletteBrowseFor: 'chat',
-            filePick: null
-        });
-    },
-    openFilePicker(pick) {
-        set({ paletteOpen: true, paletteMode: 'file', paletteSeed: '', filePick: pick });
-    },
-    setPaletteMode(mode) {
-        set({ paletteMode: mode, paletteSeed: '', filePick: null });
-    },
-    setPaletteOpen(open) {
-        set(open ? { paletteOpen: true, paletteMode: 'default', paletteSeed: '', filePick: null } : { paletteOpen: false, filePick: null });
-    },
-    setSettings(patch) {
-        set({ settings: { ...get().settings, ...patch } });
-    },
-    setPanel(patch) {
-        const panel = { ...get().panel, ...patch };
-        set({ panel, panelsRestoring: false });
-    },
-    togglePanel(kind) {
-        const was = get().panel;
-        /* Without a kind the shortcut reopens whatever was up last, so the panel has one toggle of its own. */
-        const panel = kind ? { open: !(was.open && was.kind === kind), kind } : { ...was, open: !was.open };
-        set({ panel, panelsRestoring: false });
-    },
-    setPanelWidth(width) {
-        set({ panelWidth: width, panelsRestoring: false });
-    },
-    setPlanPanel({ anchor, open }) {
-        if (get().planAnchor === anchor && get().planOpen === open) {
-            return;
+    };
+
+    return {
+        paletteOpen: false,
+        paletteMode: 'default',
+        usageOpen: false,
+        modelsOpen: false,
+        login: null,
+        providerCommand: null,
+        onboarding: null,
+        agentIntegrations: false,
+        paletteSeed: '',
+        paletteBrowseAt: 0,
+        paletteBrowseMachine: null,
+        paletteBrowseFor: 'folder',
+        filePick: null,
+        sidebarOpen: storedSidebar.read() !== 'closed',
+        sidebarExpanded: null,
+        settings: { open: false, section: 'appearance', target: null, searchAt: 0 },
+        /* Closed until a project says otherwise, so a reload cannot flash open a panel the project has closed. */
+        panel: CLOSED_PANEL,
+        panelWidth: null,
+        planAnchor: null,
+        planOpen: false,
+        planWidth: null,
+        panelsRestoring: true,
+        layoutDialogOpen: false,
+        worktreeDialogFor: null,
+        worktreeRemoval: null,
+        worktreeMerge: null,
+        conflicts: null,
+        forkDialog: null,
+        moveChatDialog: null,
+        newWorktreeChatOpen: false,
+        issueStartOpen: false,
+        pullRequestDialog: null,
+        remoteNodeDialog: null,
+        addToMachineDialog: null,
+        viewDialog: null,
+        renamingViewId: null,
+        projectSettingsAsked: false,
+        chosenLaunches: storedChosenLaunches.read() ?? {},
+        chooseLaunch(projectKey, launchId) {
+            if (get().chosenLaunches[projectKey] === launchId) {
+                return;
+            }
+            const chosenLaunches = { ...get().chosenLaunches, [projectKey]: launchId };
+            storedChosenLaunches.write(chosenLaunches);
+            set({ chosenLaunches });
+        },
+        setUsageOpen(open) {
+            set({ usageOpen: open });
+        },
+        setModelsOpen(open) {
+            set({ modelsOpen: open });
+        },
+        setLogin(login) {
+            set({ login });
+        },
+        setProviderCommand(request) {
+            set({ providerCommand: request });
+        },
+        setOnboarding(step) {
+            set({ onboarding: step });
+        },
+        setAgentIntegrations(open) {
+            set({ agentIntegrations: open });
+        },
+        askProjectSettings(asked) {
+            set({ projectSettingsAsked: asked });
+        },
+        setWorktreeDialogFor(groupId) {
+            set({ worktreeDialogFor: groupId });
+        },
+        setWorktreeRemoval(removal) {
+            set({ worktreeRemoval: removal });
+        },
+        setWorktreeMerge(merge) {
+            set({ worktreeMerge: merge });
+        },
+        setConflicts(request) {
+            set({ conflicts: request });
+        },
+        setForkDialog(fork) {
+            set({ forkDialog: fork });
+        },
+        setMoveChatDialog(move) {
+            set({ moveChatDialog: move });
+        },
+        setNewWorktreeChatOpen(open) {
+            set({ newWorktreeChatOpen: open });
+        },
+        setIssueStartOpen(open) {
+            set({ issueStartOpen: open });
+        },
+        setPullRequestDialog(request) {
+            set({ pullRequestDialog: request });
+        },
+        setRemoteNodeDialog(request) {
+            set({ remoteNodeDialog: request });
+        },
+        setAddToMachineDialog(request) {
+            set({ addToMachineDialog: request });
+        },
+        setViewDialog(dialog) {
+            set({ viewDialog: dialog });
+        },
+        setRenamingViewId(viewId) {
+            set({ renamingViewId: viewId });
+        },
+        setSidebarOpen(open) {
+            storedSidebar.write(open ? 'open' : 'closed');
+            set({ sidebarOpen: open, panelsRestoring: false });
+        },
+        toggleSidebar() {
+            get().setSidebarOpen(!get().sidebarOpen);
+        },
+        setLayoutDialogOpen(open) {
+            set({ layoutDialogOpen: open });
+        },
+        openPalette(seed = '') {
+            openPaletteIn('default', seed);
+        },
+        openFindInFiles(seed = '') {
+            openPaletteIn('grep', seed);
+        },
+        openChatSearch(seed = '') {
+            openPaletteIn('chats', seed);
+        },
+        openFolderBrowser(machineId) {
+            browseMachines('folder', machineId ?? null);
+        },
+        openChatMachines() {
+            browseMachines('chat', null);
+        },
+        openFilePicker(pick) {
+            set({ paletteOpen: true, paletteMode: 'file', paletteSeed: '', filePick: pick });
+        },
+        setPaletteMode(mode) {
+            set({ paletteMode: mode, paletteSeed: '', filePick: null });
+        },
+        setPaletteOpen(open) {
+            set(open ? { paletteOpen: true, paletteMode: 'default', paletteSeed: '', filePick: null } : { paletteOpen: false, filePick: null });
+        },
+        setSettings(patch) {
+            set({ settings: { ...get().settings, ...patch } });
+        },
+        setPanel(patch) {
+            const panel = { ...get().panel, ...patch };
+            set({ panel, panelsRestoring: false });
+        },
+        togglePanel(kind) {
+            const was = get().panel;
+            /* Without a kind the shortcut reopens whatever was up last, so the panel has one toggle of its own. */
+            const panel = kind ? { open: !(was.open && was.kind === kind), kind } : { ...was, open: !was.open };
+            set({ panel, panelsRestoring: false });
+        },
+        setPanelWidth(width) {
+            set({ panelWidth: width, panelsRestoring: false });
+        },
+        setPlanPanel({ anchor, open }) {
+            if (get().planAnchor === anchor && get().planOpen === open) {
+                return;
+            }
+            set({ planAnchor: anchor, planOpen: open, panelsRestoring: false });
+        },
+        setPlanWidth(width) {
+            set({ planWidth: width, panelsRestoring: false });
+        },
+        setSidebarExpanded(ids) {
+            set({ sidebarExpanded: ids });
+        },
+        setPanels(state) {
+            /* One update, so a panel and its width reach the DOM together instead of sliding from the default. */
+            set({
+                panel: state.panel,
+                panelWidth: state.panelWidth,
+                planAnchor: state.planAnchor,
+                // Closed until the chat is on screen. The rules open it, never the file.
+                planOpen: false,
+                planWidth: state.planWidth,
+                panelsRestoring: true
+            });
         }
-        set({ planAnchor: anchor, planOpen: open, panelsRestoring: false });
-    },
-    setPlanWidth(width) {
-        set({ planWidth: width, panelsRestoring: false });
-    },
-    setSidebarExpanded(ids) {
-        set({ sidebarExpanded: ids });
-    },
-    setPanels(state) {
-        /* One update, so a panel and its width reach the DOM together instead of sliding from the default. */
-        set({
-            panel: state.panel,
-            panelWidth: state.panelWidth,
-            planAnchor: state.planAnchor,
-            // Closed until the chat is on screen. The rules open it, never the file.
-            planOpen: false,
-            planWidth: state.planWidth,
-            panelsRestoring: true
-        });
-    }
-}));
+    };
+});
 
 export function useShownPanel(): PanelState {
     const panel = useUi((s) => s.panel);

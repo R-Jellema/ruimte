@@ -427,6 +427,20 @@ export const useFiles = create<FilesStore>((set, get) => {
         useDocument.getState().showLoose(key, { focus: !quietly });
         makeRoom(key, limit);
     };
+    /* A drop that did not land leaves a tab no cell holds, which goes again. */
+    const settleDrop = (key: string, limit: number, landed: boolean): boolean => {
+        if (!landed) {
+            pruneLoose();
+            return false;
+        }
+        makeRoom(key, limit);
+        return true;
+    };
+    const dropLoose = (key: string, at: CellAt, zone: SplitZone, index: number | null): boolean =>
+        zone === 'center' ? useDocument.getState().dropLooseAsTab(key, at, index) : useDocument.getState().dropLooseAt(key, at, zone);
+    const patchFileView = (key: string, patch: Partial<FileTabView>): void => {
+        set({ tabs: get().tabs.map((tab) => (isFileTab(tab) && tab.key === key && tab.view ? { ...tab, view: { ...tab.view, ...patch } } : tab)) });
+    };
 
     return {
         projectId: null,
@@ -484,13 +498,7 @@ export const useFiles = create<FilesStore>((set, get) => {
                 return false;
             }
             set({ tabs: next.tabs, focusRequest: focusRequestAfter(key, undefined) });
-            const landed = zone === 'center' ? useDocument.getState().dropLooseAsTab(key, at, index) : useDocument.getState().dropLooseAt(key, at, zone);
-            if (!landed) {
-                pruneLoose();
-                return false;
-            }
-            makeRoom(key, limit);
-            return true;
+            return settleDrop(key, limit, dropLoose(key, at, zone, index));
         },
         dropFile(path, limit, at, zone) {
             const key = tabKey(path);
@@ -501,12 +509,7 @@ export const useFiles = create<FilesStore>((set, get) => {
             if (fileTabOf(get(), key) === undefined) {
                 set(placeTab(get(), { key, path, pinned: false }));
             }
-            if (!useDocument.getState().dropLooseAt(key, at, zone)) {
-                pruneLoose();
-                return null;
-            }
-            makeRoom(key, limit);
-            return key;
+            return settleDrop(key, limit, useDocument.getState().dropLooseAt(key, at, zone)) ? key : null;
         },
         dropDiff(path, view, limit, at, zone, index = null) {
             const key = tabKey(path, view);
@@ -515,13 +518,7 @@ export const useFiles = create<FilesStore>((set, get) => {
                 return false;
             }
             take(openTab(get(), path, view), undefined, undefined);
-            const landed = zone === 'center' ? useDocument.getState().dropLooseAsTab(key, at, index) : useDocument.getState().dropLooseAt(key, at, zone);
-            if (!landed) {
-                pruneLoose();
-                return false;
-            }
-            makeRoom(key, limit);
-            return true;
+            return settleDrop(key, limit, dropLoose(key, at, zone, index));
         },
         keepsOpen(tab) {
             return !isFileTab(tab) ? get().unsubmitted[tab.key] === true : tab.view === undefined && textDrafts.isUnsaved(currentEndpointId(), tab.path);
@@ -546,7 +543,7 @@ export const useFiles = create<FilesStore>((set, get) => {
             }
             closeAfterSaving(
                 currentEndpointId(),
-                tab === undefined || tab.view !== undefined ? [] : [tab.path],
+                tab.view !== undefined ? [] : [tab.path],
                 () => closeNow(key),
                 () => settle(key, false)
             );
@@ -596,11 +593,11 @@ export const useFiles = create<FilesStore>((set, get) => {
             set(pinTab(get(), key, pinned));
         },
         setScope(key, scope) {
-            set({ tabs: get().tabs.map((tab) => (isFileTab(tab) && tab.key === key && tab.view ? { ...tab, view: { ...tab.view, scope } } : tab)) });
+            patchFileView(key, { scope });
         },
         /* Staging a file from its own diff moves the tab to the side of the index it now sits on. */
         setStaged(key, staged) {
-            set({ tabs: get().tabs.map((tab) => (isFileTab(tab) && tab.key === key && tab.view ? { ...tab, view: { ...tab.view, staged } } : tab)) });
+            patchFileView(key, { staged });
         },
         setConsole(key, binding) {
             set(bindConsole(get(), key, binding));

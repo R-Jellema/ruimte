@@ -3,7 +3,7 @@ import i18next from 'i18next';
 import type { StoreApi } from 'zustand';
 import { messageOf } from '@adecore/ui';
 import { viewIdsIn } from '@/shell/split';
-import type { EditorRegistry } from '@/state/editors';
+import type { EditorRegistry, SavedFileSetters } from '@/state/editors';
 import { isConnectionError, TransportError, type Transport, type TransportStatus } from '@/transport/transport';
 
 /* The slice of the document store this client reads; the real store has more. */
@@ -28,7 +28,7 @@ export interface ProjectAccess {
 }
 
 /* What an editor of a file-backed view offers this client, whatever kind of file it holds. */
-export interface FileEditorState<TDocument, TContent> {
+export interface FileEditorState<TDocument, TContent> extends SavedFileSetters<TDocument> {
     rev: number;
     dirty: boolean;
     /* Counts changes to the content, which is what this client saves on. */
@@ -39,10 +39,6 @@ export interface FileEditorState<TDocument, TContent> {
     load(viewId: string, document: TDocument, local: ProjectViewLocal | null): void;
     unload(): void;
     exportContent(): TContent;
-    setRev(rev: number): void;
-    setDirty(dirty: boolean): void;
-    setConflict(conflict: TDocument | null): void;
-    setError(error: string | null): void;
     applyDocument(document: TDocument): void;
 }
 
