@@ -82,11 +82,7 @@ describe('ruimte-context computer', () => {
             'settled\tyes'
         ]);
         // The tree after it is the one the agent read before, so nothing changed.
-        expect(lines.slice(5)).toEqual([
-            'window\tUntitled\t292,161\t586x488',
-            'shot\t/home/computer-use/screenshots/shot.png\t1172x976\t2\t292,161',
-            'changes\tnone'
-        ]);
+        expect(lines.slice(5)).toEqual(UNCHANGED);
         expect(setup.helper.acted.at(-1)).toMatchObject({ command: 'click', app: '501', element: 4, count: 2, withState: true });
     });
 

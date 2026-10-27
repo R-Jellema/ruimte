@@ -1,14 +1,10 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import type { SecretAsk, SecretOutcome } from '../secrets/secret-requests.ts';
-import { type CanvasHost, type LaunchReading, type Noun, type Verb } from './verb.ts';
-import { printed } from './verb-test-helpers.ts';
+import type { CanvasHost, Noun, Verb } from './verb.ts';
+import { launchReading as reading, printed } from './verb-test-helpers.ts';
 import { verbNamed } from './verbs.ts';
 
 const noun = verbNamed('secret') as Noun;
-
-function reading(launchId: string, overrides: Partial<LaunchReading> = {}): LaunchReading {
-    return { launchId, name: launchId, kind: 'service', approved: true, url: null, port: null, members: [], status: null, ...overrides };
-}
 
 let asks: { ask: SecretAsk; waitMs: number | undefined }[];
 let outcome: SecretOutcome;

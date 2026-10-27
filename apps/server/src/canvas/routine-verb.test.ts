@@ -4,8 +4,8 @@ import type { Routine, RoutineEntry, RoutineMadeBy, RoutineRunNowResult, Runtime
 import { agentRoutines } from '../routines/agent-host.ts';
 import type { Routines } from '../routines/routines.ts';
 import { parseSchedule, scheduleText } from './routine-verb.ts';
-import { type CanvasHost, type LaunchReading, type Noun } from './verb.ts';
-import { printed } from './verb-test-helpers.ts';
+import type { CanvasHost, Noun } from './verb.ts';
+import { launchReading, printed } from './verb-test-helpers.ts';
 import { verbNamed } from './verbs.ts';
 
 const noun = verbNamed('routine') as Noun;
@@ -84,7 +84,7 @@ function fakeRoutines(): Pick<Routines, 'list' | 'saveByAgent' | 'pause' | 'resu
     };
 }
 
-const launches: LaunchReading[] = [{ launchId: 'dev', name: 'Dev server', kind: 'service', approved: true, url: null, port: null, members: [], status: null }];
+const launches = [launchReading('dev', { name: 'Dev server' })];
 
 beforeEach(() => {
     entries = [

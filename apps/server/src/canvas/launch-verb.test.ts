@@ -4,7 +4,7 @@ import { agentLaunches } from '../launches/agent-host.ts';
 import type { LaunchStartOptions } from '../launches/runner.ts';
 import type { ResolvedLaunch } from '../launches/store.ts';
 import { type CanvasHost, type LaunchHost, type LaunchReading, type Noun } from './verb.ts';
-import { printed } from './verb-test-helpers.ts';
+import { launchReading as reading, printed } from './verb-test-helpers.ts';
 import { verbNamed } from './verbs.ts';
 
 const noun = verbNamed('launches') as Noun;
@@ -22,20 +22,6 @@ function status(launchId: string, overrides: Partial<LaunchStatus> = {}): Launch
         port: 5173,
         url: 'http://localhost:5173',
         stopped: false,
-        ...overrides
-    };
-}
-
-function reading(launchId: string, overrides: Partial<LaunchReading> = {}): LaunchReading {
-    return {
-        launchId,
-        name: launchId,
-        kind: 'service',
-        approved: true,
-        url: null,
-        port: null,
-        members: [],
-        status: null,
         ...overrides
     };
 }
