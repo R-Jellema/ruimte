@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { readEventData } from './sse.ts';
 
 const ChunkSchema = z.object({
     error: z.unknown().optional(),
@@ -63,23 +64,12 @@ export async function readNanoStream(
 ): Promise<NanoAnswer> {
     const answer: NanoAnswer = { role: 'assistant', content: '' };
     const tools = new Map<number, NanoToolRequest>();
-    let buffer = '';
-    let bytes = 0;
     let complete = false;
     let finish: string | null = null;
-    const decoder = new TextDecoder();
-    const consume = (frame: string) => {
-        const data = frame
-            .split('\n')
-            .filter((line) => line.startsWith('data:'))
-            .map((line) => line.slice(5).trimStart())
-            .join('\n');
-        if (!data) {
-            return;
-        }
+    const consume = (data: string): boolean => {
         if (data === '[DONE]') {
             complete = true;
-            return;
+            return true;
         }
         const chunk = ChunkSchema.parse(JSON.parse(data));
         if (chunk.error) {
@@ -120,23 +110,9 @@ export async function readNanoStream(
             }
             tools.set(part.index, call);
         }
+        return false;
     };
-    for await (const chunk of body) {
-        bytes += chunk.byteLength;
-        if (bytes > 8 * 1024 * 1024) {
-            throw new Error('NanoGPT response exceeded the size limit.');
-        }
-        // On the whole buffer, since a CRLF can be split across two chunks.
-        buffer = (buffer + decoder.decode(chunk, { stream: true })).replace(/\r\n/g, '\n');
-        let boundary: number;
-        while ((boundary = buffer.indexOf('\n\n')) >= 0) {
-            consume(buffer.slice(0, boundary));
-            buffer = buffer.slice(boundary + 2);
-        }
-        if (complete) {
-            break;
-        }
-    }
+    await readEventData(body, 8 * 1024 * 1024, 'NanoGPT response exceeded the size limit.', consume);
     if (!complete || !finish) {
         throw new Error('NanoGPT connection ended before the response completed.');
     }

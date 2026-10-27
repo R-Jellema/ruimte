@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { isRecord } from '../is-record.ts';
+import { readEventData } from './sse.ts';
 
 const MAX_STREAM_BYTES = 16 * 1024 * 1024;
 
@@ -125,9 +127,6 @@ export async function readAnthropicStream(body: AsyncIterable<Uint8Array>, sink:
     const usage: AnthropicUsage = { input: 0, cacheRead: 0, cacheWrite: 0, output: 0 };
     let stopReason: string | null = null;
     let complete = false;
-    let buffer = '';
-    let bytes = 0;
-    const decoder = new TextDecoder();
 
     // A later count replaces an earlier one field by field, since the ones at the end are cumulative.
     const countUsage = (counts: z.infer<typeof UsageSchema> | undefined): void => {
@@ -141,15 +140,7 @@ export async function readAnthropicStream(body: AsyncIterable<Uint8Array>, sink:
         sink.usage({ ...usage });
     };
 
-    const consume = (frame: string): void => {
-        const data = frame
-            .split('\n')
-            .filter((line) => line.startsWith('data:'))
-            .map((line) => line.slice(5).trimStart())
-            .join('\n');
-        if (data === '') {
-            return;
-        }
+    const consume = (data: string): void => {
         const parsed = EventSchema.safeParse(JSON.parse(data));
         // An event of a kind this version does not know is not an error: the API adds some.
         if (!parsed.success) {
@@ -204,22 +195,10 @@ export async function readAnthropicStream(body: AsyncIterable<Uint8Array>, sink:
         }
     };
 
-    for await (const chunk of body) {
-        bytes += chunk.byteLength;
-        if (bytes > MAX_STREAM_BYTES) {
-            throw new Error('Anthropic response exceeded the size limit.');
-        }
-        // A line ending can fall across two chunks, so the whole buffer is normalized each time.
-        buffer = (buffer + decoder.decode(chunk, { stream: true })).replace(/\r\n/g, '\n');
-        let boundary: number;
-        while ((boundary = buffer.indexOf('\n\n')) >= 0) {
-            consume(buffer.slice(0, boundary));
-            buffer = buffer.slice(boundary + 2);
-        }
-        if (complete) {
-            break;
-        }
-    }
+    await readEventData(body, MAX_STREAM_BYTES, 'Anthropic response exceeded the size limit.', (data) => {
+        consume(data);
+        return complete;
+    });
     if (!complete || stopReason === null) {
         throw new Error('Anthropic connection ended before the response completed.');
     }
@@ -242,7 +221,7 @@ export async function readAnthropicStream(body: AsyncIterable<Uint8Array>, sink:
             let input: Record<string, unknown> | null = null;
             try {
                 const value: unknown = block.json === '' ? {} : JSON.parse(block.json);
-                input = typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+                input = isRecord(value) ? value : null;
             } catch {
                 input = null;
             }

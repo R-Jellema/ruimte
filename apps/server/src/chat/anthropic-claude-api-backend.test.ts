@@ -5,7 +5,8 @@ import { join } from 'node:path';
 import type { RuntimeMode } from '@ruimte/contracts';
 import type { BackendEvent, BackendLaunch, TurnInput } from '@adecore/agents/chat';
 import { ANTHROPIC_URL, AnthropicClaudeApiService } from '../providers/anthropic-claude-api-service.ts';
-import { AnthropicClaudeApiBackend, STREAM_IDLE_MS, type ClaudeApiLimits, type IdleTimer } from './anthropic-claude-api-backend.ts';
+import { AnthropicClaudeApiBackend, STREAM_IDLE_MS, type IdleTimer } from './anthropic-claude-api-backend.ts';
+import type { ToolRounds } from './api-chat.ts';
 import type { executeNanoTool } from './nanogpt-tools.ts';
 
 const turn: TurnInput = { text: 'What is in the project?', preamble: null, attachments: [], mentions: [], skills: [] };
@@ -98,7 +99,7 @@ interface Rig {
 /* A backend against a fake API that answers each message request with the next response given. */
 async function rig(
     responses: Array<(init?: RequestInit) => Response>,
-    options: { resume?: string; home?: string; mode?: RuntimeMode; limits?: ClaudeApiLimits; model?: string; idleTimer?: IdleTimer } = {}
+    options: { resume?: string; home?: string; mode?: RuntimeMode; limits?: ToolRounds; model?: string; idleTimer?: IdleTimer } = {}
 ): Promise<Rig> {
     const home = options.home ?? (await mkdtemp(join(tmpdir(), 'ruimte-claude-api-chat-')));
     if (options.home === undefined) {

@@ -5,7 +5,8 @@ import { join } from 'node:path';
 import type { RuntimeMode } from '@ruimte/contracts';
 import type { BackendEvent, BackendLaunch, TurnInput } from '@adecore/agents/chat';
 import { NANOGPT_URL, NanoGptService } from '../providers/nanogpt-service.ts';
-import { NanoGptBackend, type NanoGptLimits } from './nanogpt-backend.ts';
+import type { ToolRounds } from './api-chat.ts';
+import { NanoGptBackend } from './nanogpt-backend.ts';
 import type { executeNanoTool } from './nanogpt-tools.ts';
 
 const turn: TurnInput = { text: 'What is in the project?', preamble: null, attachments: [], mentions: [], skills: [] };
@@ -44,10 +45,7 @@ interface Rig {
 }
 
 /* A backend against a fake API that answers each chat request with the next response given. */
-async function rig(
-    responses: Array<() => Response>,
-    options: { resume?: string; home?: string; mode?: RuntimeMode; limits?: NanoGptLimits } = {}
-): Promise<Rig> {
+async function rig(responses: Array<() => Response>, options: { resume?: string; home?: string; mode?: RuntimeMode; limits?: ToolRounds } = {}): Promise<Rig> {
     const home = options.home ?? (await mkdtemp(join(tmpdir(), 'ruimte-nanogpt-chat-')));
     if (options.home === undefined) {
         homes.push(home);
@@ -265,7 +263,7 @@ describe('NanoGPT backend', () => {
         await declined.backend.start();
         declined.backend.sendTurn(turn);
         const card = (await declined.until((event) => event.type === 'question.requested')) as { requestId: string };
-        expect(declined.backend.declineRequest(card.requestId, 'No thanks')).toBe(true);
+        expect(declined.backend.declineRequest(card.requestId)).toBe(true);
         expect(await declined.until(isDone)).toMatchObject({ state: 'done' });
         expect(declined.bodies[1]!.messages.at(-1)?.content).toContain('declined');
 
