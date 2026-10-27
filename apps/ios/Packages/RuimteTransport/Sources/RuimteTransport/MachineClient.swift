@@ -148,6 +148,7 @@ public enum MachineClientError: Error, LocalizedError, Sendable, Equatable {
         let type: WireRequest
         let continuation: CheckedContinuation<JSONValue, Error>
         let onResult: (@MainActor @Sendable (JSONValue) -> Void)?
+        let sentAt: Double
         // Asked by `readBytes`, which alone takes a binary reply.
         var binary = false
         var cancelTimeout: () -> Void = {}
@@ -165,6 +166,7 @@ public enum MachineClientError: Error, LocalizedError, Sendable, Equatable {
     private let send: (String) throws -> Void
     private let scheduler: any TransportScheduling
     private let timeoutMilliseconds: Double
+    private let now: @MainActor () -> Double
     private var pending: [String: Pending] = [:]
     // The bytes of a binary reply, held from its arrival until `readBytes` resumes and takes them.
     private var binaryBodies: [String: Data] = [:]
@@ -187,11 +189,13 @@ public enum MachineClientError: Error, LocalizedError, Sendable, Equatable {
 
     public init(
         send: @escaping (String) throws -> Void, scheduler: any TransportScheduling = TaskTransportScheduler(),
-        timeoutMilliseconds: Double = 15_000, connected: Bool = false
+        timeoutMilliseconds: Double = 15_000, connected: Bool = false,
+        now: @escaping @MainActor () -> Double = { ProcessInfo.processInfo.systemUptime * 1_000 }
     ) {
         self.send = send
         self.scheduler = scheduler
         self.timeoutMilliseconds = timeoutMilliseconds
+        self.now = now
         isConnected = connected
     }
 
@@ -284,7 +288,8 @@ public enum MachineClientError: Error, LocalizedError, Sendable, Equatable {
                     continuation.resume(throwing: CancellationError())
                     return
                 }
-                pending[id] = Pending(type: requestType, continuation: continuation, onResult: onResult, binary: binary)
+                pending[id] = Pending(
+                    type: requestType, continuation: continuation, onResult: onResult, sentAt: now(), binary: binary)
                 if Self.timedRequests.contains(requestType) {
                     armTimeout(id, type: type)
                     guard pending[id] != nil else { return }
@@ -461,7 +466,10 @@ public enum MachineClientError: Error, LocalizedError, Sendable, Equatable {
     }
 
     private func receive(_ reply: BytesReply, generation: Int) {
-        guard generation == connectionGeneration, isConnected, pending[reply.id]?.binary == true else { return }
+        guard generation == connectionGeneration, isConnected, let request = pending[reply.id], request.binary else {
+            return
+        }
+        measure(request)
         do {
             _ = try BytesPiece(header: reply.header, data: reply.data)
             binaryBodies[reply.id] = reply.data
@@ -478,6 +486,7 @@ public enum MachineClientError: Error, LocalizedError, Sendable, Equatable {
         guard isConnected else { return }
         if let id = frame["id"]?.stringValue {
             guard let request = pending[id] else { return }
+            measure(request)
             do {
                 let reply = try WireSchema.validate("ReplySchema", frame)
                 if reply["ok"] == .bool(true), let value = reply["result"] {
@@ -510,6 +519,13 @@ public enum MachineClientError: Error, LocalizedError, Sendable, Equatable {
             return
         }
         for handler in Array(subscribers[name]?.values ?? [:].values) { handler(payload) }
+    }
+
+    /// Only a reply comes here; a request that timed out or lost its link is never measured.
+    private func measure(_ request: Pending) {
+        LinkMeasures.record(
+            .answered(
+                area: LinkMeasure.area(of: request.type.rawValue), milliseconds: max(0, now() - request.sentAt)))
     }
 
     private func finish(_ id: String, result: Result<JSONValue, Error>) {

@@ -65,6 +65,7 @@ import RuimtePulsar
         connectionID = try Base64URL.randomToken(bytes: 16)
         super.init()
         cancelTimeout = scheduler.after(milliseconds: 20_000) { [weak self] in
+            self?.events.failing(.timeout)
             self?.fail(
                 String(localized: "The direct connection did not come up within 20 seconds.", bundle: .module))
         }
@@ -390,11 +391,16 @@ import RuimtePulsar
                 cancelTimeout?()
                 cancelTimeout = nil
                 events.features(features)
+                // The route goes first, so the attempt's measurement knows the path it opened on, a relay the
+                // statistics already found included.
+                report(reportedRoute ?? directRoute)
                 events.opened()
-                report(directRoute)
             },
             message: { [weak self] in self?.events.message($0) },
-            refuse: { [weak self] in self?.end($0) })
+            refuse: { [weak self] in
+                self?.events.failing(.refused)
+                self?.end($0)
+            })
         self.gate = gate
         gate.start()
     }

@@ -30,11 +30,13 @@ public enum LinkRoute: Equatable, Sendable {
     public var accepted: () -> Void
     /// A piece of a frame arrived, the last one included.
     public var progress: () -> Void
+    /// Why the attempt is about to close before it opened, when the link knows better than "it failed".
+    public var failing: (LinkReconnectReason) -> Void
     public init(
         opened: @escaping () -> Void, message: @escaping (String) -> Void, binary: @escaping (Data) -> Void = { _ in },
         closed: @escaping (Error?) -> Void, route: @escaping (LinkRoute?) -> Void = { _ in },
         features: @escaping ([String]) -> Void = { _ in }, accepted: @escaping () -> Void = {},
-        progress: @escaping () -> Void = {}
+        progress: @escaping () -> Void = {}, failing: @escaping (LinkReconnectReason) -> Void = { _ in }
     ) {
         self.opened = opened
         self.message = message
@@ -44,6 +46,7 @@ public enum LinkRoute: Equatable, Sendable {
         self.features = features
         self.accepted = accepted
         self.progress = progress
+        self.failing = failing
     }
 }
 
@@ -97,6 +100,8 @@ public enum LinkRoute: Equatable, Sendable {
         var connected = false
         var route: LinkRoute?
         var features: [String] = []
+        var attemptStartedAt: Double = 0
+        var failedBecause: LinkReconnectReason?
         init(open: @escaping Opener) { self.open = open }
 
         /// Lets go of the link, whose late callbacks no longer count, and hands it back.
@@ -117,13 +122,20 @@ public enum LinkRoute: Equatable, Sendable {
     private var machines: [String: Entry] = [:]
     private var foregroundScenes = Set<String>()
     private let scheduler: any TransportScheduling
+    private let now: @MainActor () -> Double
     private var monitor: NWPathMonitor?
     private var pathFingerprint: String?
     private var lastPath: NWPath?
     private var pathRevision = 0
 
-    public init(scheduler: any TransportScheduling = TaskTransportScheduler(), monitorPaths: Bool = true) {
+    /// `now` is in milliseconds since the device started, which a clock change never moves, and only measures how
+    /// long an attempt takes.
+    public init(
+        scheduler: any TransportScheduling = TaskTransportScheduler(), monitorPaths: Bool = true,
+        now: @escaping @MainActor () -> Double = { ProcessInfo.processInfo.systemUptime * 1_000 }
+    ) {
         self.scheduler = scheduler
+        self.now = now
         if monitorPaths {
             let monitor = NWPathMonitor()
             self.monitor = monitor
@@ -146,7 +158,7 @@ public enum LinkRoute: Equatable, Sendable {
         if foreground { foregroundScenes.insert(id) } else { foregroundScenes.remove(id) }
         let isForeground = !foregroundScenes.isEmpty
         guard wasForeground != isForeground else { return }
-        for (id, entry) in Array(machines) { restart(id, entry: entry, reopen: isForeground) }
+        for (id, entry) in Array(machines) { restart(id, entry: entry, reopen: isForeground, measured: false) }
     }
 
     public func pathChanged(fingerprint: String, reachable: Bool) {
@@ -225,12 +237,14 @@ public enum LinkRoute: Equatable, Sendable {
         disconnectAll()
     }
 
-    /// Drops the entry's link, then the entry once nobody holds it, or opens a new link when `reopen`.
-    private func restart(_ id: String, entry: Entry, reopen: Bool) {
+    /// Drops the entry's link, then the entry once nobody holds it, or opens a new link when `reopen`. A scene that
+    /// comes back resumes rather than reconnects, so only a switch of network or an ask names its reason.
+    private func restart(_ id: String, entry: Entry, reopen: Bool, measured: Bool = true) {
         suspend(entry)
         if entry.members.isEmpty {
             machines.removeValue(forKey: id)
         } else if reopen {
+            if measured { LinkMeasures.record(.reconnecting(.switch)) }
             connect(id, entry: entry)
         }
     }
@@ -254,14 +268,24 @@ public enum LinkRoute: Equatable, Sendable {
         entry.generation += 1
         let generation = entry.generation
         LinkProblems.note(.connecting)
+        entry.attemptStartedAt = now()
+        entry.failedBecause = nil
         let valid = { [weak self, weak entry] () -> Bool in
             guard let self, let entry else { return false }
             return self.machines[id] === entry && entry.generation == generation
+        }
+        let measureAttempt = { [weak self, weak entry] (outcome: LinkOutcome) in
+            guard let self, let entry else { return }
+            LinkMeasures.record(
+                .connected(
+                    path: LinkPath(entry.route), outcome: outcome,
+                    milliseconds: max(0, self.now() - entry.attemptStartedAt)))
         }
         let events = LinkEvents(
             opened: { [weak entry] in
                 guard valid(), let entry else { return }
                 LinkProblems.note(.opened)
+                measureAttempt(.ok)
                 entry.dropReport?()
                 entry.dropReport = nil
                 entry.connected = true
@@ -288,9 +312,13 @@ public enum LinkRoute: Equatable, Sendable {
                         if !entry.connected { LinkProblems.report(.dropped) }
                     }
                 }
+                let wasOpen = entry.connected
+                if !wasOpen { measureAttempt(.failed) }
+                let reason = wasOpen ? .dropped : entry.failedBecause ?? .failed
                 entry.detach()
                 entry.each { $0.closed(error) }
                 guard !self.foregroundScenes.isEmpty, !entry.members.isEmpty else { return }
+                LinkMeasures.record(.reconnecting(reason))
                 let delay = min(10_000, 500 * pow(2, Double(min(entry.attempt, 5))))
                 entry.attempt += 1
                 entry.retry = self.scheduler.after(milliseconds: delay) { [weak self, weak entry] in
@@ -312,6 +340,10 @@ public enum LinkRoute: Equatable, Sendable {
             progress: { [weak entry] in
                 guard valid(), let entry else { return }
                 entry.each { $0.progress() }
+            },
+            failing: { [weak entry] reason in
+                guard valid(), let entry else { return }
+                entry.failedBecause = reason
             })
         do {
             let opened = try entry.open(events)
