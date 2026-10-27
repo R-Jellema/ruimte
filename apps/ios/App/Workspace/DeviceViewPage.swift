@@ -155,7 +155,7 @@ final class DeviceViewModel {
 
     func start() {
         guard reference != nil, subscriptions.isEmpty else { return }
-        subscriptions.append(client.subscribe("device.frame") { [weak self] payload in self?.receive(payload) })
+        subscriptions.append(client.subscribe(.deviceFrame) { [weak self] payload in self?.receive(payload) })
         subscriptions.append(
             client.observeConnection { [weak self] connected in
                 guard let self else { return }
@@ -183,9 +183,7 @@ final class DeviceViewModel {
         booting = true
         defer { booting = false }
         do {
-            let info = try await client.request(
-                "device.boot", payload: .object(DeviceView.target(device)))
-            self.device = info
+            self.device = try await client.request(.deviceBoot, payload: .object(DeviceView.target(device)))
             phase = .starting
             await refresh()
         } catch {
@@ -197,7 +195,7 @@ final class DeviceViewModel {
         guard let device else { return }
         detach()
         do {
-            self.device = try await client.request("device.shutdown", payload: .object(DeviceView.target(device)))
+            self.device = try await client.request(.deviceShutdown, payload: .object(DeviceView.target(device)))
             frame = nil
             phase = .stopped
         } catch {
@@ -226,12 +224,12 @@ final class DeviceViewModel {
         var payload = DeviceView.target(device)
         payload["text"] = .string(text)
         payload["paste"] = .bool(true)
-        Task { _ = try? await client.request("device.clipboard", payload: .object(payload)) }
+        Task { _ = try? await client.request(.deviceClipboard, payload: .object(payload)) }
     }
 
     func act(_ name: String) {
         guard let device else { return }
-        Task { _ = try? await client.request("device.action", payload: DeviceTools.action(device, name)) }
+        Task { _ = try? await client.request(.deviceAction, payload: DeviceTools.action(device, name)) }
     }
 
     /// Erases a simulator or an emulator as the desktop does: a running one stops first, and a simulator starts
@@ -242,14 +240,14 @@ final class DeviceViewModel {
         defer { erasing = false }
         let running = device.text("state") == "booted"
         do {
-            if running && device["capabilities"]?["shutdown"]?.boolValue == true {
+            if canStop {
                 detach()
                 frame = nil
-                _ = try await client.request("device.shutdown", payload: .object(DeviceView.target(device)))
+                _ = try await client.request(.deviceShutdown, payload: .object(DeviceView.target(device)))
             }
-            _ = try await client.request("device.action", payload: DeviceTools.action(device, "erase"))
+            _ = try await client.request(.deviceAction, payload: DeviceTools.action(device, "erase"))
             if running && device.text("platform") == "ios" && device["capabilities"]?["boot"]?.boolValue == true {
-                _ = try await client.request("device.boot", payload: .object(DeviceView.target(device)))
+                _ = try await client.request(.deviceBoot, payload: .object(DeviceView.target(device)))
             }
             phase = .finding
             await refresh()
@@ -278,7 +276,7 @@ final class DeviceViewModel {
         guard let device, phase == .streaming else { return }
         var payload = DeviceView.target(device)
         payload["input"] = input
-        Task { _ = try? await client.request("device.input", payload: .object(payload)) }
+        Task { _ = try? await client.request(.deviceInput, payload: .object(payload)) }
     }
 
     private func startPolling() {
@@ -296,7 +294,7 @@ final class DeviceViewModel {
     func refresh() async {
         guard let reference else { return }
         do {
-            let result = try await client.request("device.list", payload: .object([:]))
+            let result = try await client.request(.deviceList)
             guard let found = DeviceView.resolve(reference, in: result.list("devices")) else {
                 device = nil
                 frame = nil
@@ -307,7 +305,6 @@ final class DeviceViewModel {
             device = found
             let next = DeviceView.phase(for: found)
             guard found.text("state") == "booted", next == .starting else {
-
                 detach()
                 frame = nil
                 phase = next
@@ -336,7 +333,7 @@ final class DeviceViewModel {
         payload["stream"] = .string("events")
         payload["formats"] = .array([.string("jpeg")])
         do {
-            let info = try await client.request("device.open", payload: .object(payload))
+            let info = try await client.request(.deviceOpen, payload: .object(payload))
             opened = DeviceView.target(info)
             self.device = info
             lastSequence = -1
@@ -349,7 +346,7 @@ final class DeviceViewModel {
     private func detach() {
         guard let opened else { return }
         self.opened = nil
-        Task { [client] in _ = try? await client.request("device.detach", payload: .object(opened)) }
+        Task { [client] in _ = try? await client.request(.deviceDetach, payload: .object(opened)) }
     }
 
     private func receive(_ payload: JSONValue) {
@@ -387,7 +384,6 @@ final class DeviceViewModel {
             decode(next)
         }
     }
-
 }
 
 struct DeviceViewPage: View {

@@ -136,6 +136,15 @@ final class SharedMachineSession {
     func release() {
         references = max(0, references - 1)
         guard references == 0 else { return }
+        stopServices()
+        lease?.release()
+        lease = nil
+        linkEpoch += 1
+        connected = false
+        rpc.disconnected(error: nil)
+    }
+
+    private func stopServices() {
         clearChats()
         attention.stop()
         snoozes.stop()
@@ -145,11 +154,6 @@ final class SharedMachineSession {
         endpoint.stop()
         usageWidget.stop()
         stopPreferences()
-        lease?.release()
-        lease = nil
-        linkEpoch += 1
-        connected = false
-        rpc.disconnected(error: nil)
     }
 
     func retainProject(_ id: String) { projectSubscriptions.retain(id) }
@@ -212,15 +216,7 @@ final class SharedMachineSession {
 
     func invalidate() {
         invalidated = true
-        clearChats()
-        attention.stop()
-        snoozes.stop()
-        tasks.stop()
-        plans.stop()
-        icons.stop()
-        endpoint.stop()
-        usageWidget.stop()
-        stopPreferences()
+        stopServices()
         projectSubscriptions.invalidate()
         lease?.release()
         lease = nil

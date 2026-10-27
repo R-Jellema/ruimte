@@ -204,77 +204,42 @@ struct WorkspacePage: View {
         }
         .mobileSheet(isPresented: $showDiagnostics) {
             if let runtime {
-                NavigationStack {
-                    ConnectionScreen(runtime: runtime)
-                        .toolbar {
-                            ToolbarItem(placement: .confirmationAction) { Button(role: .close) { showDiagnostics = false } }
-                        }
-                }
+                ClosablePage(isPresented: $showDiagnostics) { ConnectionScreen(runtime: runtime) }
             }
         }
         .mobileSheet(isPresented: $navigation.showingUsage) {
-            NavigationStack {
-                MachineUsagePage(client: workspace.client)
-                    .toolbar {
-                        ToolbarItem(placement: .confirmationAction) {
-                            Button(role: .close) { navigation.showingUsage = false }
-                        }
-                    }
-            }
+            ClosablePage(isPresented: $navigation.showingUsage) { MachineUsagePage(client: workspace.client) }
         }
         .mobileSheet(isPresented: phoneSheet($navigation.showingFiles)) {
-            NavigationStack {
+            ClosablePage(isPresented: $navigation.showingFiles) {
                 ProjectFilesPage(workspace: workspace) { id in
                     navigation.showingFiles = false
                     openView(id)
                 }
-                    .toolbar {
-                        ToolbarItem(placement: .confirmationAction) {
-                            Button(role: .close) { navigation.showingFiles = false }
-                        }
-                    }
             }
         }
         .mobileSheet(isPresented: $showProcesses) {
-            NavigationStack {
+            ClosablePage(isPresented: $showProcesses) {
                 ProcessesPage(client: workspace.client, titles: workspace.nodeTitles)
-                    .toolbar {
-                        ToolbarItem(placement: .confirmationAction) { Button(role: .close) { showProcesses = false } }
-                    }
             }
         }
         .mobileSheet(isPresented: phoneSheet($navigation.showingGit)) {
-            NavigationStack {
+            ClosablePage(isPresented: $navigation.showingGit) {
                 GitPage(client: workspace.client, folder: workspace.folder, workspace: workspace)
-                    .toolbar {
-                        ToolbarItem(placement: .confirmationAction) { Button(role: .close) { navigation.showingGit = false } }
-                    }
             }
         }
         .mobileSheet(isPresented: $navigation.showingLaunches) {
-            NavigationStack {
+            ClosablePage(isPresented: $navigation.showingLaunches) {
                 LaunchesPage(
                     client: workspace.client, projectID: workspace.projectID, folder: workspace.folder,
-                    projectName: workspace.title
-                )
-                .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button(role: .close) { navigation.showingLaunches = false }
-                    }
-                }
+                    projectName: workspace.title)
             }
         }
         .mobileSheet(isPresented: $navigation.showingOutput) {
-            NavigationStack {
+            ClosablePage(isPresented: $navigation.showingOutput) {
                 OutputPage(
                     context: OutputContext(workspace: workspace), projectID: workspace.projectID,
-                    projectName: workspace.title
-                )
-                .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button(role: .close) { navigation.showingOutput = false }
-                    }
-                }
+                    projectName: workspace.title)
             }
         }
         .alert(
@@ -306,7 +271,9 @@ struct WorkspacePage: View {
                         if views.isEmpty && !workspace.isScratch { views = [newCanvas()] }
                         return document.setting("views", .array(views))
                     }
-                    if workspace.problem == nil { await SessionEnding.end(pending.question, session: workspace.session) }
+                    if workspace.problem == nil {
+                        await SessionEnding.end(pending.question, session: workspace.session)
+                    }
                 }
             }
             Button("Cancel", role: .cancel) {}
@@ -442,7 +409,7 @@ struct WorkspacePage: View {
             Task {
                 do {
                     _ = try await workspace.client.request(
-                        "chat.cancel", payload: .object(["chatId": .string(item.stableID)]))
+                        .chatCancel, payload: .object(["chatId": .string(item.stableID)]))
                 } catch {
                     workspace.problem = error.localizedDescription
                 }
@@ -520,7 +487,9 @@ struct WorkspacePage: View {
 
     private func openView(_ id: String) {
         if let sidebar {
-            guard workspace.item(id) != nil, !WorkspaceViewSections.isDivider(workspace.item(id) ?? .null) else { return }
+            guard workspace.item(id) != nil, !WorkspaceViewSections.isDivider(workspace.item(id) ?? .null) else {
+                return
+            }
             sidebar.show(view: id)
             return
         }
@@ -531,7 +500,9 @@ struct WorkspacePage: View {
             navigation.openedViewID = id
             return
         }
-        guard workspace.views.contains(where: { $0.stableID == id && !WorkspaceViewSections.isDivider($0) }) else { return }
+        guard workspace.views.contains(where: { $0.stableID == id && !WorkspaceViewSections.isDivider($0) }) else {
+            return
+        }
         workspace.select(id)
         withAnimation(reduceMotion ? nil : .default) {
             navigation.selectedViewID = id
@@ -622,6 +593,20 @@ struct WorkspacePage: View {
     }
 }
 
+/// A page in a sheet of its own, with the close button the sheets of the project share.
+struct ClosablePage<Page: View>: View {
+    @Binding var isPresented: Bool
+    @ViewBuilder let page: Page
+
+    var body: some View {
+        NavigationStack {
+            page.toolbar {
+                ToolbarItem(placement: .confirmationAction) { Button(role: .close) { isPresented = false } }
+            }
+        }
+    }
+}
+
 /// A second line under an iPhone page's title: the machine of a project, or the project of a view opened elsewhere.
 private struct PhoneSubtitle: ViewModifier {
     let text: String?
@@ -702,13 +687,13 @@ struct ProjectItemPage: View {
     @State private var problem: String?
     @State private var selectedMember: String?
     private var isPresent: Bool {
-        !workspace.ready || workspace.views.contains {
-            $0.stableID == item.stableID || $0.list("nodes").contains { $0.stableID == item.stableID }
-        }
+        !workspace.ready
+            || workspace.views.contains {
+                $0.stableID == item.stableID || $0.list("nodes").contains { $0.stableID == item.stableID }
+            }
     }
     private var current: JSONValue {
-        workspace.views.first(where: { $0.stableID == item.stableID }) ?? workspace.views.flatMap { $0.list("nodes") }
-            .first(where: { $0.stableID == item.stableID }) ?? item
+        workspace.item(item.stableID) ?? item
     }
     var body: some View {
         Group {
@@ -903,7 +888,10 @@ struct AddProjectItem: View {
                 Picker("Kind", selection: $kind) {
                     ForEach(
                         canvasID == nil
-                            ? ["chat", "terminal", "canvas", "browser", "file", "drawing", "diagram", "separator", "subheader"]
+                            ? [
+                                "chat", "terminal", "canvas", "browser", "file", "drawing", "diagram", "separator",
+                                "subheader",
+                            ]
                             : ["chat", "terminal", "browser", "file", "note", "group"], id: \.self
                     ) { Text(NewViewFactory.kindTitle($0)).tag($0) }
                 }

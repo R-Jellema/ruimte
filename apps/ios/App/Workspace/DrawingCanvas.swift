@@ -221,7 +221,7 @@ private final class DrawingInputSurface: SceneSurface, UIPencilInteractionDelega
     }
     private var visibleElements: [JSONValue] { activeTouch == nil ? (model?.elements ?? []) : working }
     private var selectedElements: [JSONValue] {
-        visibleElements.filter { model?.selection.contains($0.stableID) == true && $0["locked"] != .bool(true) }
+        visibleElements.filter { model?.selection.contains($0.stableID) == true && !$0.isLocked }
     }
     private func hit(_ point: CGPoint) -> JSONValue? {
         visibleElements.reversed().first { DrawingGeometry.hit($0, point: point, tolerance: max(6, 8 / zoom)) }
@@ -235,8 +235,7 @@ private final class DrawingInputSurface: SceneSurface, UIPencilInteractionDelega
         ]
     }
     private func endpoints(_ element: JSONValue) -> [CGPoint] {
-        let center = CGPoint(
-            x: element.number("x") + element.number("w") / 2, y: element.number("y") + element.number("h") / 2)
+        let center = DrawingGeometry.center(of: element)
         return element.list("points").compactMap { value in
             guard let row = value.arrayValue, row.count >= 2 else { return nil }
             return DrawingGeometry.rotate(
@@ -408,7 +407,7 @@ private final class DrawingInputSurface: SceneSurface, UIPencilInteractionDelega
         pendingShape = nil
         switch finished {
         case .pen, .shape: break
-        default: if after == before { if let documentScene { setDocumentScene(documentScene) } }
+        default: if after == before, let documentScene { setDocumentScene(documentScene) }
         }
         refreshSelection()
     }
@@ -453,14 +452,13 @@ private final class DrawingInputSurface: SceneSurface, UIPencilInteractionDelega
             var delta = CGPoint(x: point.x - from.x, y: point.y - from.y)
             if constrained { if abs(delta.x) > abs(delta.y) { delta.y = 0 } else { delta.x = 0 } }
             working = original.map {
-                selectionAtStart.contains($0.stableID) && $0["locked"] != .bool(true)
-                    ? DrawingGeometry.moved($0, by: delta) : $0
+                selectionAtStart.contains($0.stableID) && !$0.isLocked ? DrawingGeometry.moved($0, by: delta) : $0
             }
             preview(working)
         case .marquee:
             let rect = DrawingGeometry.bounds([start, exact])
             model.selection = selectionAtStart.union(
-                original.filter { $0["locked"] != .bool(true) && DrawingGeometry.box($0).intersects(rect) }.map(
+                original.filter { !$0.isLocked && DrawingGeometry.box($0).intersects(rect) }.map(
                     \.stableID))
             refreshSelection(marquee: rect)
         case .resize(let handle, let source):
@@ -488,16 +486,15 @@ private final class DrawingInputSurface: SceneSurface, UIPencilInteractionDelega
             }
             let target = CGRect(x: left, y: top, width: right - left, height: bottom - top)
             working = original.map {
-                selectionAtStart.contains($0.stableID) && $0["locked"] != .bool(true)
+                selectionAtStart.contains($0.stableID) && !$0.isLocked
                     ? DrawingGeometry.scaled($0, from: source, to: target) : $0
             }
             preview(working)
         case .rotate(let center, let angle):
             var delta = atan2(exact.y - center.y, exact.x - center.x) - angle
-
             if constrained { delta = (delta / (.pi / 12)).rounded() * (.pi / 12) }
             working = original.map {
-                selectionAtStart.contains($0.stableID) && $0["locked"] != .bool(true)
+                selectionAtStart.contains($0.stableID) && !$0.isLocked
                     ? $0.setting("angle", .number($0.number("angle") + delta)) : $0
             }
             preview(working)
@@ -654,9 +651,7 @@ private final class DrawingInputSurface: SceneSurface, UIPencilInteractionDelega
         if command.modifierFlags.contains(.command) {
             switch input {
             case "z": if shift { model.redo() } else { model.undo() }
-            case "a":
-                model.tool = .select
-                model.select(Set(model.elements.filter { $0["locked"] != .bool(true) }.map(\.stableID)))
+            case "a": model.selectAll()
             case "d": model.duplicate()
             case "c": model.copySelection()
             case "x": model.copySelection(cut: true)

@@ -19,7 +19,7 @@ struct CanvasPage: View {
     @State private var savingLayout = false
     @State private var layoutName = ""
     @State private var removal: NodeRemoval?
-    private var canvas: JSONValue { workspace.views.first { $0.stableID == viewID } ?? .object([:]) }
+    private var canvas: JSONValue { workspace.view(viewID) }
     private var nodes: [JSONValue] { canvas.list("nodes") }
     private var locks: CanvasLocks { workspace.locks(for: viewID) }
     private var status: CanvasStatus {
@@ -74,11 +74,7 @@ struct CanvasPage: View {
                     if nodes.isEmpty && canvas.list("texts").isEmpty {
                         CanvasStartGrid(
                             workspace: workspace, viewID: viewID,
-                            compose: { kind in
-                                addingKind = kind
-                                adding = true
-                            },
-                            added: { fit += 1 })
+                            compose: compose, added: { fit += 1 })
                     }
                 }
             } else {
@@ -88,10 +84,7 @@ struct CanvasPage: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             CanvasDock(
                 status: status, locks: locks, layouts: CanvasEditing.layoutNames(canvas),
-                add: { kind in
-                    addingKind = kind
-                    adding = true
-                },
+                add: compose,
                 fit: {
                     listed = false
                     fit += 1
@@ -189,7 +182,9 @@ struct CanvasPage: View {
                 removal = nil
                 Task {
                     await workspace.updateView(viewID) { canvasWithoutNode($0, id: pending.id) }
-                    if workspace.problem == nil { await SessionEnding.end(pending.question, session: workspace.session) }
+                    if workspace.problem == nil {
+                        await SessionEnding.end(pending.question, session: workspace.session)
+                    }
                 }
             }
             Button("Cancel", role: .cancel) {}
@@ -202,6 +197,11 @@ struct CanvasPage: View {
                 } ?? String(localized: "Its connections are removed too."))
         }
     }
+    private func compose(_ kind: String) {
+        addingKind = kind
+        adding = true
+    }
+
     @ViewBuilder private func nodeActions(_ node: JSONValue) -> some View {
         ForEach(CanvasNodeAction.actions(for: node), id: \.self) { action in
             switch action {
@@ -260,7 +260,7 @@ private struct CanvasLinkSheet: View {
     let viewID: String
     let sourceID: String
     let done: () -> Void
-    private var canvas: JSONValue { workspace.views.first { $0.stableID == viewID } ?? .object([:]) }
+    private var canvas: JSONValue { workspace.view(viewID) }
     private var source: JSONValue? { canvas.list("nodes").first { $0.stableID == sourceID } }
     private var targets: [JSONValue] {
         let others = canvas.list("nodes").filter {
@@ -344,7 +344,7 @@ private struct CanvasColorSheet: View {
     let viewID: String
     let nodeID: String
     let done: () -> Void
-    private var canvas: JSONValue { workspace.views.first { $0.stableID == viewID } ?? .object([:]) }
+    private var canvas: JSONValue { workspace.view(viewID) }
     private var node: JSONValue? { canvas.list("nodes").first { $0.stableID == nodeID } }
     private var picked: String? {
         guard let node else { return nil }
@@ -426,7 +426,7 @@ private struct CanvasGroupSheet: View {
     let done: () -> Void
     @State private var picked: Set<String>
     private var nodes: [JSONValue] {
-        (workspace.views.first { $0.stableID == viewID }?.list("nodes") ?? []).filter { $0.text("kind") != "group" }
+        workspace.view(viewID).list("nodes").filter { $0.text("kind") != "group" }
     }
 
     init(workspace: MobileWorkspace, viewID: String, firstID: String, done: @escaping () -> Void) {
@@ -630,8 +630,7 @@ final class CanvasScrollView: UIScrollView, UIScrollViewDelegate {
             y: bounds.inset(by: contentInset).midY / zoomScale + surface.origin.y)
     }
     private func apply(center: CGPoint, zoom: CGFloat) {
-        let center = CGPoint(
-            x: max(-10_000_000, min(10_000_000, center.x)), y: max(-10_000_000, min(10_000_000, center.y)))
+        let center = CGPoint(x: center.x.clamped(), y: center.y.clamped())
         setZoomScale(max(minimumZoomScale, min(maximumZoomScale, zoom)), animated: false)
         contentOffset = CGPoint(
             x: (center.x - surface.origin.x) * zoomScale - contentInset.left - bounds.inset(by: contentInset).width / 2,
@@ -706,11 +705,10 @@ private final class CanvasSurface: UIView {
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     private func nodeRect(_ node: JSONValue) -> CGRect {
-        func bounded(_ value: Double) -> CGFloat { max(-10_000_000, min(10_000_000, value)) }
-        return CGRect(
-            x: bounded(node.number("x")), y: bounded(node.number("y")),
-            width: max(1, bounded(node.number("w", fallback: 320))),
-            height: max(1, bounded(node.number("h", fallback: 200))))
+        CGRect(
+            x: node.number("x").clamped(), y: node.number("y").clamped(),
+            width: max(1, node.number("w", fallback: 320).clamped()),
+            height: max(1, node.number("h", fallback: 200).clamped()))
     }
     func configure(_ canvas: JSONValue) {
         nodes = canvas.list("nodes")
@@ -940,6 +938,11 @@ private final class CanvasDrawing: UIView {
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     override func draw(_ rect: CGRect) { if let context = UIGraphicsGetCurrentContext() { paint(context) } }
+}
+
+extension BinaryFloatingPoint {
+    /// Keeps a coordinate from a hand-edited file where the scroll view and the tile index can still hold it.
+    fileprivate func clamped() -> Self { Swift.max(-10_000_000, Swift.min(10_000_000, self)) }
 }
 
 extension UIFont {

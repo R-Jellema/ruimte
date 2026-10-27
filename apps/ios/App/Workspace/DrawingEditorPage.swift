@@ -35,7 +35,6 @@ struct DrawingEditorPage: View {
                                 "Pick a pen or a shape below and draw with a finger or Apple Pencil. Tap the tool again for its options."
                             )
                         )
-
                         .allowsHitTesting(false)
                         .accessibilityIdentifier("drawing.empty")
                     }
@@ -99,8 +98,7 @@ struct DrawingEditorPage: View {
         Section("Selection") {
             Toggle("Add to selection", isOn: $model.additiveSelection)
             Button(String(localized: "Select all"), lucideIcon: "square-dashed") {
-                model.tool = .select
-                model.select(Set(model.elements.filter { $0["locked"] != .bool(true) }.map(\.stableID)))
+                model.selectAll()
             }
             if !model.selection.isEmpty {
                 Button(String(localized: "Deselect"), lucideIcon: "square-dashed") { model.selection = [] }
@@ -114,13 +112,17 @@ struct DrawingEditorPage: View {
                 Button(String(localized: "Duplicate"), lucideIcon: "copy") { model.duplicate() }
                 Button(String(localized: "Copy"), lucideIcon: "copy") { model.copySelection() }
                 Button(String(localized: "Cut"), lucideIcon: "scissors") { model.copySelection(cut: true) }
-                Button(String(localized: "Bring to front"), lucideIcon: "arrow-up-to-line") { model.reorder(front: true) }
-                Button(String(localized: "Send to back"), lucideIcon: "arrow-down-to-line") { model.reorder(front: false) }
+                Button(String(localized: "Bring to front"), lucideIcon: "arrow-up-to-line") {
+                    model.reorder(front: true)
+                }
+                Button(String(localized: "Send to back"), lucideIcon: "arrow-down-to-line") {
+                    model.reorder(front: false)
+                }
                 Button(String(localized: "Lock"), lucideIcon: "lock") { model.lockSelection() }
                 Button(String(localized: "Delete"), lucideIcon: "trash", role: .destructive) { model.deleteSelected() }
             }
             Button(String(localized: "Paste"), lucideIcon: "clipboard-paste") { model.paste() }
-            if model.elements.contains(where: { $0["locked"] == .bool(true) }) {
+            if model.elements.contains(where: \.isLocked) {
                 Button(String(localized: "Unlock all"), lucideIcon: "lock-open") { model.unlockAll() }
             }
         }
@@ -147,14 +149,13 @@ struct DrawingEditorPage: View {
             }
         }
         Section(model.selection.isEmpty ? "Export drawing" : "Export selection") {
-            Button(String(localized: "Copy PNG"), lucideIcon: "copy") { export(.png, copy: true) }.disabled(
-                model.exportElements.isEmpty || exporting)
-            Button(String(localized: "Copy SVG"), lucideIcon: "copy") { export(.svg, copy: true) }.disabled(
-                model.exportElements.isEmpty || exporting)
-            Button(String(localized: "Share PNG"), lucideIcon: "share") { export(.png, copy: false) }.disabled(
-                model.exportElements.isEmpty || exporting)
-            Button(String(localized: "Share SVG"), lucideIcon: "share") { export(.svg, copy: false) }.disabled(
-                model.exportElements.isEmpty || exporting)
+            Group {
+                Button(String(localized: "Copy PNG"), lucideIcon: "copy") { export(.png, copy: true) }
+                Button(String(localized: "Copy SVG"), lucideIcon: "copy") { export(.svg, copy: true) }
+                Button(String(localized: "Share PNG"), lucideIcon: "share") { export(.png, copy: false) }
+                Button(String(localized: "Share SVG"), lucideIcon: "share") { export(.svg, copy: false) }
+            }
+            .disabled(model.exportElements.isEmpty || exporting)
             Toggle("Include background", isOn: $model.exportBackground)
         }
     }
@@ -203,22 +204,12 @@ struct DrawingEditorPage: View {
                 }
                 if model.selected.contains(where: { $0.text("kind") == "line" }) {
                     Section("Arrowheads") {
-                        Toggle(
-                            String(
-                                localized: "drawing.arrowhead.start", defaultValue: "Start",
-                                comment: "The arrowhead at the start of a line, beside End"),
-                            isOn: Binding(
-                                get: {
-                                    model.selected.first(where: { $0.text("kind") == "line" })?["arrowStart"]
-                                        == .bool(true)
-                                }, set: { model.setArrow("arrowStart", value: $0) }))
-                        Toggle(
-                            "End",
-                            isOn: Binding(
-                                get: {
-                                    model.selected.first(where: { $0.text("kind") == "line" })?["arrowEnd"]
-                                        == .bool(true)
-                                }, set: { model.setArrow("arrowEnd", value: $0) }))
+                        arrowhead(
+                            Text(
+                                String(
+                                    localized: "drawing.arrowhead.start", defaultValue: "Start",
+                                    comment: "The arrowhead at the start of a line, beside End")), key: "arrowStart")
+                        arrowhead(Text("End"), key: "arrowEnd")
                     }
                 }
                 Section {
@@ -230,6 +221,13 @@ struct DrawingEditorPage: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button(role: .close) { showStyle = false } } }
         }
+    }
+    private func arrowhead(_ title: Text, key: String) -> some View {
+        Toggle(
+            isOn: Binding(
+                get: { model.selected.first { $0.text("kind") == "line" }?[key] == .bool(true) },
+                set: { model.setArrow(key, value: $0) })
+        ) { title }
     }
     private func binding<Value>(_ path: WritableKeyPath<DrawingStyle, Value>, _ key: String) -> Binding<Value> {
         Binding(

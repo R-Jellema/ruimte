@@ -100,12 +100,7 @@ struct SearchPage: View {
         }
         .mobileSheet(item: $usage) { target in
             if let session = runtime.session(machineID: target.machineID) {
-                NavigationStack {
-                    MachineUsagePage(client: session.rpc)
-                        .toolbar {
-                            ToolbarItem(placement: .confirmationAction) { Button(role: .close) { usage = nil } }
-                        }
-                }
+                ClosablePage(isPresented: $usage.isPresent()) { MachineUsagePage(client: session.rpc) }
             }
         }
     }
@@ -121,16 +116,12 @@ struct SearchPage: View {
 
     private func projectRow(_ row: UnifiedProjectRow) -> some View {
         Button {
-            openWorkspace(workspace(row))
+            openWorkspace(row.workspace(runtime))
         } label: {
             ProjectHomeRow(
                 summary: row.summary, machine: row.machine.name, connected: row.connected,
                 session: runtime.session(for: row.machine))
         }
-    }
-
-    private func workspace(_ row: UnifiedProjectRow) -> MobileWorkspace {
-        MobileWorkspace(session: runtime.session(for: row.machine), projectID: row.id.projectID, summary: row.summary)
     }
 
     private func fileRow(_ file: PaletteFile, query: String) -> some View {
@@ -174,7 +165,7 @@ struct SearchPage: View {
         case .appearance(let value): appearance = value
         case .project(let id, let projectAction):
             guard let row = projects.open.first(where: { $0.id == id }) else { return }
-            let navigation = navigator.openProject(workspace(row))
+            let navigation = navigator.openProject(row.workspace(runtime))
             switch projectAction {
             case .newView: navigation.pendingSheet = .newView
             case .newTerminal: navigation.pendingKind = "terminal"

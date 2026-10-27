@@ -26,6 +26,8 @@ final class MobileWorkspace {
     private var openTask: Task<Void, Never>?
     private var localTask: Task<Void, Never>?
     var views: [JSONValue] { document.list("views") }
+    /// A view by id; an empty object when it is gone, so a page that outlives its view reads nothing.
+    func view(_ id: String) -> JSONValue { views.first { $0.stableID == id } ?? .object([:]) }
     var folder: String { summary.text("folder", fallback: "~") }
     var title: String {
         document.text("name", fallback: summary.text("name", fallback: String(localized: "Project")))
@@ -60,17 +62,17 @@ final class MobileWorkspace {
         session.retainProject(projectID)
         session.tasks.watch(projectID)
         subscriptions.append(
-            client.subscribe("project.changed") { [weak self] event in
+            client.subscribe(.projectChanged) { [weak self] event in
                 guard let self, event.text("projectId") == projectID, let incoming = event["document"] else { return }
                 receive(incoming)
             })
         subscriptions.append(
-            client.subscribe("project.showView") { [weak self] event in
+            client.subscribe(.projectShowView) { [weak self] event in
                 guard let self, event.text("projectId") == projectID else { return }
                 notice = event
             })
         subscriptions.append(
-            client.subscribe("session.list-changed") { [weak self] _ in
+            client.subscribe(.sessionListChanged) { [weak self] _ in
                 guard let self, !heldCommands.isEmpty else { return }
                 Task { await self.refreshHeldCommands() }
             })
@@ -174,7 +176,7 @@ final class MobileWorkspace {
             let content = sent.setting("rev", nil).setting("version", nil)
             do {
                 let result = try await client.request(
-                    "project.save",
+                    .projectSave,
                     payload: .object([
                         "projectId": .string(projectID), "baseRev": .number(Double(revision)), "content": content,
                     ]))
@@ -203,7 +205,9 @@ final class MobileWorkspace {
     }
 
     private func reconcileSelection() {
-        guard !views.contains(where: { $0.stableID == selectedID && !WorkspaceViewSections.isDivider($0) }) else { return }
+        guard !views.contains(where: { $0.stableID == selectedID && !WorkspaceViewSections.isDivider($0) }) else {
+            return
+        }
         select(views.first(where: { !WorkspaceViewSections.isDivider($0) })?.stableID)
     }
 
@@ -235,7 +239,7 @@ final class MobileWorkspace {
             do { try await Task.sleep(for: .milliseconds(400)) } catch { return }
             guard let self, !stopped else { return }
             _ = try? await client.request(
-                "project.save-local", payload: .object(["projectId": .string(projectID), "local": local]))
+                .projectSaveLocal, payload: .object(["projectId": .string(projectID), "local": local]))
         }
     }
 
@@ -281,7 +285,8 @@ final class MobileWorkspace {
             for key in ["provider", "account", "resume", "runtimeMode"] { payload[key] = metadata[key] }
         }
         do {
-            let info = try await client.request(kind == "chat" ? "chat.create" : "session.create", payload: .object(payload))
+            let info = try await client.request(
+                kind == "chat" ? .chatCreate : .sessionCreate, payload: .object(payload))
             if kind == "terminal" { heldCommands[item.stableID] = info["heldCommand"]?.stringValue }
         } catch MachineClientError.server(let code, _) where kind == "terminal" && code == "session-exists" {
             // The existing shell is shared with the desktop and keeps its current dimensions.
@@ -292,7 +297,7 @@ final class MobileWorkspace {
     /// Approves the command the machine holds for this terminal. The machine records the approval and types it.
     func runHeldCommand(_ id: String) async {
         do {
-            _ = try await client.request("session.runHeld", payload: .object(["sessionId": .string(id)]))
+            _ = try await client.request(.sessionRunHeld, payload: .object(["sessionId": .string(id)]))
             heldCommands[id] = nil
         } catch { problem = error.localizedDescription }
     }
@@ -300,7 +305,7 @@ final class MobileWorkspace {
     /// Another client may have approved a command, or a shell started elsewhere may hold one. Only the session list
     /// knows.
     private func refreshHeldCommands(including id: String? = nil) async {
-        guard let result = try? await client.request("session.list", payload: .object([:])) else { return }
+        guard let result = try? await client.request(.sessionList) else { return }
         let held = Dictionary(
             result.list("sessions").compactMap { session in
                 session["heldCommand"]?.stringValue.map { (session.text("sessionId"), $0) }

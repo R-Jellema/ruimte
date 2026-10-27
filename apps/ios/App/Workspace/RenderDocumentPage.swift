@@ -306,7 +306,6 @@ class SceneSurface: UIView {
         context.translateBy(
             x: 32 - (scene["bounds"]?.number("x") ?? 0) - origin.x,
             y: 32 - (scene["bounds"]?.number("y") ?? 0) - origin.y)
-
         for element in scene.list("elements") {
             context.saveGState()
             let cx = element.number("centerX")

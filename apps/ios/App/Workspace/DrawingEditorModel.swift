@@ -64,7 +64,7 @@ final class DrawingEditorModel {
                 start: "drawing.open", stop: "drawing.close", payload: target, stopPayload: target)
         }
         if subscription == nil {
-            subscription = client.subscribe("drawing.changed") { [weak self] event in
+            subscription = client.subscribe(.drawingChanged) { [weak self] event in
                 guard let self, event["projectId"] == self.target["projectId"],
                     event["viewId"] == self.target["viewId"],
                     let document = event["document"]
@@ -102,7 +102,7 @@ final class DrawingEditorModel {
             if let lease {
                 result = try await lease.refresh()
             } else {
-                result = try await client.request("drawing.open", payload: target)
+                result = try await client.request(.drawingOpen, payload: target)
             }
             guard revision == lifecycle else { return }
             guard let document = result["document"] else {
@@ -154,6 +154,10 @@ final class DrawingEditorModel {
         selection = ids
         if let first = selected.first { style.adopt(first) }
     }
+    func selectAll() {
+        tool = .select
+        select(Set(elements.filter { !$0.isLocked }.map(\.stableID)))
+    }
     func append(_ element: JSONValue) {
         replace(elements + [element])
         selection = [element.stableID]
@@ -176,7 +180,7 @@ final class DrawingEditorModel {
     func updateStyle(_ keys: Set<String>) {
         replace(
             elements.map {
-                selection.contains($0.stableID) && $0["locked"] != .bool(true) ? style.apply(to: $0, keys: keys) : $0
+                selection.contains($0.stableID) && !$0.isLocked ? style.apply(to: $0, keys: keys) : $0
             })
     }
     func updateText(_ element: JSONValue, text: String, isNew: Bool) {
@@ -201,7 +205,7 @@ final class DrawingEditorModel {
         if isNew { append(written) } else { replace(elements.map { $0.stableID == written.stableID ? written : $0 }) }
     }
     func deleteSelected() {
-        replace(elements.filter { !selection.contains($0.stableID) || $0["locked"] == .bool(true) })
+        replace(elements.filter { !selection.contains($0.stableID) || $0.isLocked })
         selection = []
     }
     func duplicate() { insertCopies(selected, at: nil) }
@@ -238,13 +242,13 @@ final class DrawingEditorModel {
         } catch { problem = String(localized: "The clipboard does not contain a valid Ruimte drawing.") }
     }
     func reorder(front: Bool) {
-        let moving = selected.filter { $0["locked"] != .bool(true) }
+        let moving = selected.filter { !$0.isLocked }
         let ids = Set(moving.map(\.stableID))
         let staying = elements.filter { !ids.contains($0.stableID) }
         replace(front ? staying + moving : moving + staying)
     }
     func lockSelection() {
-        let locking = selected.contains { $0["locked"] != .bool(true) }
+        let locking = selected.contains { !$0.isLocked }
         replace(
             elements.map { selection.contains($0.stableID) ? $0.setting("locked", locking ? .bool(true) : nil) : $0 })
         if locking { selection = [] }
@@ -253,24 +257,27 @@ final class DrawingEditorModel {
     func moveSelection(_ delta: CGPoint) {
         replace(
             elements.map {
-                selection.contains($0.stableID) && $0["locked"] != .bool(true)
-                    ? DrawingGeometry.moved($0, by: delta) : $0
+                selection.contains($0.stableID) && !$0.isLocked ? DrawingGeometry.moved($0, by: delta) : $0
             })
     }
     func setArrow(_ key: String, value: Bool) {
         replace(
             elements.map {
-                selection.contains($0.stableID) && $0.text("kind") == "line" && $0["locked"] != .bool(true)
+                selection.contains($0.stableID) && $0.text("kind") == "line" && !$0.isLocked
                     ? $0.setting(key, .bool(value)) : $0
             })
     }
-    func erase(_ id: String) { replace(elements.filter { $0.stableID != id || $0["locked"] == .bool(true) }) }
+    func erase(_ id: String) { replace(elements.filter { $0.stableID != id || $0.isLocked }) }
     private func replace(_ elements: [JSONValue]) {
         guard let document, elements != self.elements else { return }
         history.append(self.elements)
         future.removeAll()
         if history.count > 50 { history.removeFirst() }
-        self.document = document.setting("elements", .array(elements))
+        commit(document.setting("elements", .array(elements)))
+    }
+
+    private func commit(_ document: JSONValue) {
+        self.document = document
         persist()
         render()
         save()
@@ -280,20 +287,14 @@ final class DrawingEditorModel {
         guard let previous = history.popLast(), let document else { return }
         future.append(elements)
         selection = []
-        self.document = document.setting("elements", .array(previous))
-        persist()
-        render()
-        save()
+        commit(document.setting("elements", .array(previous)))
     }
 
     func redo() {
         guard let next = future.popLast(), let document else { return }
         history.append(elements)
         selection = []
-        self.document = document.setting("elements", .array(next))
-        persist()
-        render()
-        save()
+        commit(document.setting("elements", .array(next)))
     }
 
     func discardDraft() {
@@ -348,7 +349,7 @@ final class DrawingEditorModel {
                 defer { inFlightElements = nil }
                 do {
                     let result = try await client.request(
-                        "drawing.save",
+                        .drawingSave,
                         payload:
                             target
                             .setting("baseRev", base["rev"])

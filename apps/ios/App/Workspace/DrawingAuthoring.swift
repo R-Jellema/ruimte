@@ -2,6 +2,11 @@ import CoreGraphics
 import Foundation
 import RuimtePulsar
 
+extension JSONValue {
+    /// A locked element is not moved, restyled, erased or hit.
+    var isLocked: Bool { self["locked"] == .bool(true) }
+}
+
 struct DrawingStyle: Equatable {
     var stroke = "ink"
     var strokeWidth = 2
@@ -118,10 +123,12 @@ enum DrawingGeometry {
             x: element.number("x"), y: element.number("y"), width: element.number("w"), height: element.number("h")
         ).standardized
         guard rotated, element.number("angle") != 0 else { return rect }
-        let center = CGPoint(
-            x: element.number("x") + element.number("w") / 2, y: element.number("y") + element.number("h") / 2)
-        let points = corners(rect).map { rotate($0, around: center, angle: element.number("angle")) }
+        let pivot = center(of: element)
+        let points = corners(rect).map { rotate($0, around: pivot, angle: element.number("angle")) }
         return bounds(points)
+    }
+    static func center(of element: JSONValue) -> CGPoint {
+        CGPoint(x: element.number("x") + element.number("w") / 2, y: element.number("y") + element.number("h") / 2)
     }
     static func bounds(_ elements: [JSONValue]) -> CGRect? {
         elements.map { box($0) }.reduce(nil) { result, rect in result.map { $0.union(rect) } ?? rect }
@@ -232,10 +239,8 @@ enum DrawingGeometry {
             "h", .number(kind == "text" ? element.number("size", fallback: 20) * 1.25 : (kind == "note" ? 160 : 100)))
     }
     static func hit(_ element: JSONValue, point: CGPoint, tolerance: CGFloat = 8) -> Bool {
-        guard element["locked"] != .bool(true) else { return false }
-        let center = CGPoint(
-            x: element.number("x") + element.number("w") / 2, y: element.number("y") + element.number("h") / 2)
-        let point = rotate(point, around: center, angle: -element.number("angle"))
+        guard !element.isLocked else { return false }
+        let point = rotate(point, around: center(of: element), angle: -element.number("angle"))
         let local = CGPoint(x: point.x - element.number("x"), y: point.y - element.number("y"))
         if ["freehand", "line"].contains(element.text("kind")) {
             let points = element.list("points").compactMap { value -> CGPoint? in

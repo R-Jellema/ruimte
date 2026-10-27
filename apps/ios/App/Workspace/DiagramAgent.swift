@@ -119,7 +119,7 @@ final class DiagramAgentModel {
             }
             try await workspace.ensureSession(chat)
             _ = try await workspace.client.request(
-                "chat.send", payload: .object(["chatId": .string(chat.stableID), "text": .string(text)]))
+                .chatSend, payload: .object(["chatId": .string(chat.stableID), "text": .string(text)]))
             request = ""
             return chat.stableID
         } catch {

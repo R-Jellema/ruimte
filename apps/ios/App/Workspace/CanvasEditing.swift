@@ -10,21 +10,6 @@ struct CanvasLocks: Equatable {
     var move = false
     var resize = false
 
-    init(pan: Bool = false, zoom: Bool = false, move: Bool = false, resize: Bool = false) {
-        self.pan = pan
-        self.zoom = zoom
-        self.move = move
-        self.resize = resize
-    }
-
-    /// Absent means nothing locked, which is every file written before a lock outlived a view switch.
-    init(_ value: JSONValue?) {
-        pan = value?["pan"]?.boolValue ?? false
-        zoom = value?["zoom"]?.boolValue ?? false
-        move = value?["move"]?.boolValue ?? false
-        resize = value?["resize"]?.boolValue ?? false
-    }
-
     var json: JSONValue {
         .object(["pan": .bool(pan), "zoom": .bool(zoom), "move": .bool(move), "resize": .bool(resize)])
     }
@@ -33,6 +18,15 @@ struct CanvasLocks: Equatable {
 
     func locking(everything: Bool) -> CanvasLocks {
         CanvasLocks(pan: everything, zoom: everything, move: everything, resize: everything)
+    }
+}
+
+extension CanvasLocks {
+    /// Absent means nothing locked, which is every file written before a lock outlived a view switch.
+    init(_ value: JSONValue?) {
+        self.init(
+            pan: value?["pan"]?.boolValue ?? false, zoom: value?["zoom"]?.boolValue ?? false,
+            move: value?["move"]?.boolValue ?? false, resize: value?["resize"]?.boolValue ?? false)
     }
 }
 
@@ -140,8 +134,8 @@ enum CanvasEditing {
         from != to && !edges.contains { $0.text("from") == from && $0.text("to") == to }
     }
 
-    /// Gives a node one of the accents, or none. A note takes its paper from it and loses the paper it had before
-    /// Color covered notes, none too, as `nodeColorPatch` in `packages/contracts` writes it on the desktop.
+    /// Gives a node one of the accents, or none. A note takes its paper from the accent and loses its old `color`,
+    /// as `nodeColorPatch` in `packages/contracts` writes it.
     static func coloring(_ canvas: JSONValue, id: String, accent: String?) -> JSONValue {
         let value: JSONValue? = accent.flatMap { RuimteColors.nodeAccents[$0] == nil ? nil : .string($0) }
         return canvas.setting(
@@ -234,13 +228,15 @@ enum CanvasEditing {
             "id": .string(node.stableID), "kind": node["kind"] ?? .string("unknown"),
             "name": .string(node.text("title", fallback: node.text("kind").capitalized)),
         ])
-        switch node.text("kind") {
-        case "browser":
+        let kind = node.text("kind")
+        if kind == "browser" || kind == "device" {
             for (key, value) in carried where view[key] == nil { view = view.setting(key, value) }
+        }
+        switch kind {
+        case "browser":
             view = view.setting("url", node["url"] ?? .string(""))
                 .setting("browserOwner", node["browserOwner"])
         case "device":
-            for (key, value) in carried where view[key] == nil { view = view.setting(key, value) }
             view = view.setting("device", node["device"])
         default:
             var metadata = carried

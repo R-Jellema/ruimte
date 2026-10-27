@@ -22,12 +22,7 @@ struct PadDetailColumn: View {
     var body: some View {
         content
             .mobileSheet(isPresented: $diagnostics) {
-                NavigationStack {
-                    ConnectionScreen(runtime: runtime)
-                        .toolbar {
-                            ToolbarItem(placement: .confirmationAction) { Button(role: .close) { diagnostics = false } }
-                        }
-                }
+                ClosablePage(isPresented: $diagnostics) { ConnectionScreen(runtime: runtime) }
             }
     }
 
@@ -41,9 +36,10 @@ struct PadDetailColumn: View {
                         router.detail = .scheduled
                         scheduledPath = [route]
                     },
-                    addMachine: addMachine)
-                    .modifier(MobilePageSurface())
-                    .toolbar { toolbar }
+                    addMachine: addMachine
+                )
+                .modifier(MobilePageSurface())
+                .toolbar { toolbar }
             }
         case .scheduled:
             NavigationStack(path: $scheduledPath) {
@@ -69,9 +65,10 @@ struct PadDetailColumn: View {
                 NavigationStack {
                     ContentUnavailableView(
                         String(localized: "No project open"), lucideIcon: "folder",
-                        description: Text("Choose a project in the sidebar."))
-                        .modifier(MobilePageSurface())
-                        .toolbar { toolbar }
+                        description: Text("Choose a project in the sidebar.")
+                    )
+                    .modifier(MobilePageSurface())
+                    .toolbar { toolbar }
                 }
             }
         case .machines:
@@ -124,8 +121,9 @@ struct PadDetailColumn: View {
                     NavigationStack {
                         LaunchesPage(
                             client: navigation.workspace.client, projectID: navigation.workspace.projectID,
-                            folder: navigation.workspace.folder)
-                            .navigationBarTitleDisplayMode(.inline)
+                            folder: navigation.workspace.folder
+                        )
+                        .navigationBarTitleDisplayMode(.inline)
                     }
                     .frame(minWidth: 400, idealWidth: 440, minHeight: 520)
                     .modifier(MobileSheetSurface())
@@ -293,9 +291,10 @@ private struct PadProjectCell<Bar: ToolbarContent>: View {
         } else {
             ContentUnavailableView(
                 String(localized: "Select a view"), lucideIcon: "panel-left",
-                description: Text("Choose a view in the sidebar to get started."))
-                .navigationTitle(workspace.title)
-                .navigationBarTitleDisplayMode(.inline)
+                description: Text("Choose a view in the sidebar to get started.")
+            )
+            .navigationTitle(workspace.title)
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
 
