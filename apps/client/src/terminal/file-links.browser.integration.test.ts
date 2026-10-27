@@ -241,6 +241,10 @@ async function click(view: View, point: { x: number; y: number }, button: 'left'
     await view.evaluate(frame);
 }
 
+function previewItemShown(view: View): Promise<boolean> {
+    return view.evaluate<boolean>(`[...document.querySelectorAll('[role=menuitem]')].some(element=>element.textContent.includes('Open in preview'))`);
+}
+
 async function menuOpen(view: View): Promise<void> {
     const point = await view.evaluate<{ x: number; y: number }>(`(() => {
         const item=[...document.querySelectorAll('[role=menuitem]')].find(element=>element.textContent.includes('Open in preview'));
@@ -369,11 +373,8 @@ test('relative links without output cwd, including a replaced screen, never use 
             await click(view, await hover(view, 'local', 0), 'left', modifier);
             expect(await view.evaluate<unknown>('window.files.getState().tabs')).toEqual([]);
             await click(view, await hover(view, 'local', 0), 'right');
-            expect(
-                await view.evaluate<boolean>(`[...document.querySelectorAll('[role=menuitem]')].some(element=>element.textContent.includes('Open in preview'))`)
-            ).toBe(false);
-            await view.cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
-            await view.cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+            expect(await previewItemShown(view)).toBe(false);
+            await escapeMenu(view);
             await view.evaluate(`window.writeOutput('local', '\\x1b]7;file://fixture/repo/nested\\x07same.ts:12:4-16\\r\\n')`);
             await click(view, await hover(view, 'local', 1), 'left', modifier);
             await expectLocation(view, '/repo/nested/same.ts');
@@ -429,9 +430,7 @@ async function expectCorrectPreviewOrRefusal(view: View, row: number, route: 'cl
         await click(view, point, 'left', modifier);
     } else {
         await click(view, point, 'right');
-        const available = await view.evaluate<boolean>(
-            `[...document.querySelectorAll('[role=menuitem]')].some(element=>element.textContent.includes('Open in preview'))`
-        );
+        const available = await previewItemShown(view);
         if (available) {
             await menuOpen(view);
         } else {
@@ -639,11 +638,8 @@ async function assertRefused(view: View, row: number): Promise<void> {
     expect(await view.evaluate<unknown>('window.files.getState().tabs')).toEqual([]);
     expect(await view.evaluate<unknown>('window.reads')).toEqual([]);
     await click(view, await hover(view, 'local', row), 'right');
-    expect(await view.evaluate<boolean>(`[...document.querySelectorAll('[role=menuitem]')].some(item=>item.textContent.includes('Open in preview'))`)).toBe(
-        false
-    );
-    await view.cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
-    await view.cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+    expect(await previewItemShown(view)).toBe(false);
+    await escapeMenu(view);
 }
 
 test('returning from a cursor-addressed TUI preserves older normal output and leaves new output unknown', async () => {
@@ -663,9 +659,7 @@ test('returning from a cursor-addressed TUI preserves older normal output and le
             await click(view, await hover(view, 'local', 1), 'left', modifier);
             expect(await view.evaluate<number>('window.files.getState().revealLine.nonce')).toBe(nonce);
             await click(view, await hover(view, 'local', 1), 'right');
-            expect(
-                await view.evaluate<boolean>(`[...document.querySelectorAll('[role=menuitem]')].some(item=>item.textContent.includes('Open in preview'))`)
-            ).toBe(false);
+            expect(await previewItemShown(view)).toBe(false);
         },
         '\x1b]7;file://fixture/repo/worktree\x07same.ts:12:4-16\r\n'
     );

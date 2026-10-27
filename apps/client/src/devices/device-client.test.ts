@@ -98,6 +98,12 @@ class LiveTransport extends FakeTransport {
     }
 }
 
+const settle = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
+
+function listReads(transport: FakeTransport): number {
+    return transport.calls.filter((call) => call.type === 'device.list').length;
+}
+
 beforeEach(() => useDevices.setState({ byEndpoint: {} }));
 afterEach(() => jest.useRealTimers());
 
@@ -118,25 +124,24 @@ describe('DeviceClient', () => {
         jest.useFakeTimers();
         const transport = new FakeTransport();
         const client = new DeviceClient('machine-1', transport);
-        const settle = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
         const stopFirst = client.watch();
         const stopSecond = client.watch();
         await settle();
-        expect(transport.calls.filter((call) => call.type === 'device.list')).toHaveLength(1);
+        expect(listReads(transport)).toBe(1);
 
         jest.advanceTimersByTime(1_000);
         await settle();
-        expect(transport.calls.filter((call) => call.type === 'device.list')).toHaveLength(2);
+        expect(listReads(transport)).toBe(2);
 
         stopFirst();
         jest.advanceTimersByTime(1_000);
         await settle();
-        expect(transport.calls.filter((call) => call.type === 'device.list')).toHaveLength(3);
+        expect(listReads(transport)).toBe(3);
 
         stopSecond();
         jest.advanceTimersByTime(1_000);
         await settle();
-        expect(transport.calls.filter((call) => call.type === 'device.list')).toHaveLength(3);
+        expect(listReads(transport)).toBe(3);
         client.dispose();
     });
 
@@ -145,7 +150,6 @@ describe('DeviceClient', () => {
         const transport = new FakeTransport();
         Object.assign(transport, { connection: { features: ['device.power'] } });
         const client = new DeviceClient('machine-1', transport);
-        const settle = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
         const reads = (): number => transport.calls.filter((call) => call.type === 'device.power').length;
         const stopFirst = client.watchPower(phone);
         const stopSecond = client.watchPower(phone);
@@ -256,7 +260,7 @@ describe('DeviceClient', () => {
         transport.streamId = 'device:stream-2';
         transport.setStatus('closed');
         transport.setStatus('open');
-        await Bun.sleep(0);
+        await settle();
 
         expect(streamIds).toEqual(['device:stream-1', 'device:stream-2']);
         stop();

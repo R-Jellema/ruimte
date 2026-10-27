@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { withBrowserFixture } from '../../testing/browser-fixture';
 
+const HOST_BOX = '(() => {const rect=document.querySelector(".browser-host").getBoundingClientRect(); return [rect.x,rect.y,rect.width,rect.height];})()';
 const frame = 'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))';
 
 test('parked browser pages leave the node border visible at every canvas zoom', async () => {
@@ -54,11 +55,7 @@ test('parked browser pages leave the node border visible at every canvas zoom', 
 
             await view.evaluate('fixture.canvas.setState({maximizedId:"browser"})');
             await view.evaluate(frame);
-            expect(
-                await view.evaluate<number[]>(
-                    '(() => {const rect=document.querySelector(".browser-host").getBoundingClientRect(); return [rect.x,rect.y,rect.width,rect.height];})()'
-                )
-            ).toEqual([0, 76, 800, 524]);
+            expect(await view.evaluate<number[]>(HOST_BOX)).toEqual([0, 76, 800, 524]);
             expect(await view.evaluate<string>('getComputedStyle(document.querySelector(".browser-host")).borderBottomLeftRadius')).toBe('0px');
 
             await view.evaluate('fixture.canvas.setState({maximizedId:null})');
@@ -66,14 +63,9 @@ test('parked browser pages leave the node border visible at every canvas zoom', 
             expect(await view.evaluate<string>('getComputedStyle(document.querySelector(".browser-host")).borderBottomLeftRadius')).toBe('11px');
 
             await view.evaluate('fixture.document.setState({layout:{columns:[{size:1,cells:[{size:1,viewId:"browser"}]}],focus:{column:0,cell:0}}})');
-            await view.evaluate('(() => {const cell=document.querySelector("#root > div"); fixture.cell=cell;})()');
-            await view.evaluate('fixture.registerCell("browser",fixture.cell)');
+            await view.evaluate('fixture.registerCell("browser",document.querySelector("#root > div"))');
             await view.evaluate(frame);
-            expect(
-                await view.evaluate<number[]>(
-                    '(() => {const rect=document.querySelector(".browser-host").getBoundingClientRect(); return [rect.x,rect.y,rect.width,rect.height];})()'
-                )
-            ).toEqual([0, 0, 800, 600]);
+            expect(await view.evaluate<number[]>(HOST_BOX)).toEqual([0, 0, 800, 600]);
             expect(await view.evaluate<string>('getComputedStyle(document.querySelector(".browser-host")).borderBottomLeftRadius')).toBe('0px');
             expect(await view.evaluate<boolean>('fixture.guest.parentElement === document.querySelector(".browser-host")')).toBe(true);
             expect(await view.evaluate<string[]>('window.errors')).toEqual([]);

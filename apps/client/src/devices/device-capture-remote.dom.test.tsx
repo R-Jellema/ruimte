@@ -1,26 +1,16 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { REQUEST_SCHEMAS, type ProjectCanvasView, type ProjectNode, type RequestType } from '@ruimte/contracts';
+import { REQUEST_SCHEMAS, type RequestType } from '@ruimte/contracts';
 import { LOCAL_ENDPOINT_ID, useEndpoints } from '@/state/endpoints';
 import { useDocument } from '@/state/document';
 import { swapPeerLinker } from '@/project/peer-linker';
 import { connectFakeMachine, FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
-import { answerDevices, FAKE_SIMULATOR, referenceOf, type FakeDevices } from '../../testing/fake-devices';
+import { answerDevices, FAKE_SIMULATOR, type FakeDevices } from '../../testing/fake-devices';
+import { button, phoneCanvas } from './device-dom';
 import { clickOn, mount, until, type Mounted } from '../../testing/dom';
 
 const REMOTE = 'machine-b';
-const PHONE: ProjectNode = {
-    id: 'phone',
-    kind: 'device',
-    title: FAKE_SIMULATOR.name,
-    x: 0,
-    y: 0,
-    w: 420,
-    h: 860,
-    device: referenceOf(FAKE_SIMULATOR),
-    machine: REMOTE
-};
-const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [PHONE], texts: [], edges: [], layouts: [] };
+const MAIN = phoneCanvas(REMOTE);
 
 let here: FakeMachine;
 let there: FakeMachine;
@@ -29,10 +19,6 @@ let workspace: FakeWorkspace;
 let disconnectThere: () => void;
 let page: Mounted;
 let restoreLinker: () => void;
-
-function button(label: string): HTMLElement | null {
-    return document.body.querySelector<HTMLElement>(`button[aria-label="${label}"]`);
-}
 
 beforeEach(async () => {
     restoreLinker = swapPeerLinker(async () => undefined);

@@ -116,6 +116,17 @@ async function hover(view: View, id: string, row: number): Promise<{ x: number; 
     return point;
 }
 
+async function drag(view: View, start: { x: number; y: number }, end: { x: number; y: number }, modifiers: number): Promise<void> {
+    await view.cdp('Input.dispatchMouseEvent', { type: 'mousePressed', ...start, button: 'left', buttons: 1, clickCount: 1, modifiers });
+    await view.cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', ...end, button: 'left', buttons: 1, modifiers });
+    await view.cdp('Input.dispatchMouseEvent', { type: 'mouseReleased', ...end, button: 'left', buttons: 0, clickCount: 1, modifiers });
+}
+
+/* How many rows the wrapped link takes in the terminal. */
+function wrappedRows(view: View, id: string): Promise<number> {
+    return view.evaluate<number>(`Math.ceil(${wrapped.length}/window.instances.${id}.terminal.cols)`);
+}
+
 async function click(view: View, point: { x: number; y: number }, modifiers: number): Promise<void> {
     await view.cdp('Input.dispatchMouseEvent', { type: 'mousePressed', ...point, button: 'left', buttons: 1, clickCount: 1, modifiers });
     await view.cdp('Input.dispatchMouseEvent', { type: 'mouseReleased', ...point, button: 'left', buttons: 0, clickCount: 1, modifiers });
@@ -166,7 +177,7 @@ for (const platform of ['darwin', 'linux', 'browser'] as const) {
             if (platform === 'browser') {
                 expect(await view.evaluate<string>('window.toasts.getState().toasts[0].description')).toContain('This address only works on');
             }
-            const rows = await view.evaluate<number>('Math.ceil(' + wrapped.length + '/window.instances.local.terminal.cols)');
+            const rows = await wrappedRows(view, 'local');
             for (let row = 2; row < 2 + rows; row++) {
                 const point = await hover(view, 'local', row);
                 expect(await view.evaluate<string>(`document.querySelector('[role=tooltip]').textContent`)).toContain(wrapped);
@@ -185,9 +196,7 @@ for (const platform of ['darwin', 'linux', 'browser'] as const) {
             for (const modifiers of [0, modifier]) {
                 const start = await hover(view, 'local', 0);
                 const end = await pointAt(view, 'local', 0, 18);
-                await view.cdp('Input.dispatchMouseEvent', { type: 'mousePressed', ...start, button: 'left', buttons: 1, clickCount: 1, modifiers });
-                await view.cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', ...end, button: 'left', buttons: 1, modifiers });
-                await view.cdp('Input.dispatchMouseEvent', { type: 'mouseReleased', ...end, button: 'left', buttons: 0, clickCount: 1, modifiers });
+                await drag(view, start, end, modifiers);
                 expect(await view.evaluate<string[]>('window.opened')).toEqual(expected);
                 if (modifiers === 0) {
                     expect(await view.evaluate<string>('window.instances.local.selection()')).not.toBe('');
@@ -259,7 +268,7 @@ for (const platform of ['darwin', 'browser'] as const) {
             await click(view, await hover(view, 'local', 0), modifier);
             await view.evaluate(frame);
             expect(await view.evaluate<string[]>(views)).toEqual([github]);
-            const rows = await view.evaluate<number>('Math.ceil(' + wrapped.length + '/window.instances.local.terminal.cols)');
+            const rows = await wrappedRows(view, 'local');
             await click(view, await hover(view, 'local', 2 + rows - 1), modifier);
             await view.evaluate(frame);
             expect(await view.evaluate<string[]>(views)).toEqual([github, wrapped]);
@@ -352,15 +361,13 @@ test('TerminalBody links work through canvas focus, zoom, selection and dragging
             expect(await view.evaluate<boolean>('document.activeElement===window.instances.canvas.terminal.textarea')).toBe(true);
             await click(view, await hover(view, 'canvas', 0), modifier);
             expect(await view.evaluate<string[]>('window.opened')).toEqual([github]);
-            const rows = await view.evaluate<number>('Math.ceil(' + wrapped.length + '/window.instances.canvas.terminal.cols)');
+            const rows = await wrappedRows(view, 'canvas');
             const last = await hover(view, 'canvas', 2 + rows - 1);
             await click(view, last, modifier);
             expect(await view.evaluate<string[]>('window.opened')).toEqual([github, wrapped]);
             const start = await hover(view, 'canvas', 0);
             const end = await pointAt(view, 'canvas', 0, 18);
-            await view.cdp('Input.dispatchMouseEvent', { type: 'mousePressed', ...start, button: 'left', buttons: 1, clickCount: 1 });
-            await view.cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', ...end, button: 'left', buttons: 1 });
-            await view.cdp('Input.dispatchMouseEvent', { type: 'mouseReleased', ...end, button: 'left', buttons: 0, clickCount: 1 });
+            await drag(view, start, end, 0);
             expect(await view.evaluate<string>('window.instances.canvas.terminal.getSelection()')).not.toBe('');
             expect(await view.evaluate<string[]>('window.opened')).toEqual([github, wrapped]);
             await view.evaluate('window.instances.canvas.terminal.clearSelection()');

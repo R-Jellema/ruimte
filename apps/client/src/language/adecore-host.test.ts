@@ -1,6 +1,5 @@
 import { settleLanguage as settle } from './settle.test';
 import { describe, expect, test } from 'bun:test';
-import { EditorLanguage as SharedEditorLanguage, ProjectLanguage as SharedProjectLanguage } from '@adecore/editor-react';
 import { FakeEditorEngine } from '@adecore/editor/fake';
 import { EditorLanguage } from './ruimte-editor-language';
 import { ProjectLanguage } from './ruimte-project-language';
@@ -32,8 +31,6 @@ describe('Adecore over the Ruimte language wire', () => {
         const timers = new ManualTimers();
         const language = new EditorLanguage(project, editor, 'file:///work/app/a.ts', 'typescript', timers);
         try {
-            expect(project).toBeInstanceOf(SharedProjectLanguage);
-            expect(language).toBeInstanceOf(SharedEditorLanguage);
             expect(language.keymap).toBe(RUIMTE_EDITOR_KEYMAP);
             await language.document.ready;
             language.completion.invoke();

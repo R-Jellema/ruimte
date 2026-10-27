@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import type { EventMap, EventType, RequestMap, RequestType } from '@ruimte/contracts';
+import type { RequestType } from '@ruimte/contracts';
 import type { Transport } from '@/transport/transport';
 import { TextDrafts, textDrafts, type DraftLink } from '@/state/text-drafts';
 import { TransportError } from '@/transport/transport';
@@ -9,21 +9,26 @@ import { ProjectLanguage } from './ruimte-project-language';
 
 type Call = { type: RequestType; payload: unknown };
 
+/* A transport that answers each request with `answer` and has no events. */
+function transportOf(answer: (type: string, payload: never) => unknown): Transport {
+    return {
+        status: 'open',
+        request: async (type: string, payload: never) => answer(type, payload),
+        on: () => () => undefined,
+        subscribeStatus: () => () => undefined
+    } as unknown as Transport;
+}
+
 /* A transport that records every request and answers it with nothing, or refuses it with `refusal`. */
 function fakeTransport(refusal?: string): { transport: Transport; calls: Call[] } {
     const calls: Call[] = [];
-    const transport: Transport = {
-        status: 'open',
-        request: <T extends RequestType>(type: T, payload: RequestMap[T]['payload']) => {
-            calls.push({ type, payload });
-            return refusal === undefined ? Promise.resolve({} as RequestMap[T]['result']) : Promise.reject(new Error(refusal));
-        },
-        on:
-            <E extends EventType>(_event: E, _handler: (payload: EventMap[E]) => void) =>
-            () =>
-                undefined,
-        subscribeStatus: () => () => undefined
-    };
+    const transport = transportOf((type, payload) => {
+        calls.push({ type: type as RequestType, payload });
+        if (refusal !== undefined) {
+            throw new Error(refusal);
+        }
+        return {};
+    });
     return { transport, calls };
 }
 
@@ -180,23 +185,19 @@ describe('a file that moves and is edited while it has an unsaved draft', () => 
             },
             projectOpen: async () => undefined
         };
-        const transport = {
-            status: 'open',
-            request: async (type: string, payload: { path: string; to?: string }) => {
-                if (type === 'fs.rename') {
-                    file.path = payload.to!;
-                    return {};
-                }
-                if (type === 'fs.read') {
-                    return payload.path === file.path
-                        ? { kind: 'text', path: payload.path, text: file.text, mtime: file.mtime }
-                        : Promise.reject(new Error('gone'));
-                }
+        const transport = transportOf((type, payload: { path: string; to?: string }) => {
+            if (type === 'fs.rename') {
+                file.path = payload.to!;
                 return {};
-            },
-            on: () => () => undefined,
-            subscribeStatus: () => () => undefined
-        } as unknown as Transport;
+            }
+            if (type === 'fs.read') {
+                if (payload.path !== file.path) {
+                    throw new Error('gone');
+                }
+                return { kind: 'text', path: payload.path, text: file.text, mtime: file.mtime };
+            }
+            return {};
+        });
         return { transport, drafts: new TextDrafts(() => link), file: () => file };
     }
 
@@ -237,12 +238,7 @@ describe('a rename that fails', () => {
 
 describe('overwriting a file that is open', () => {
     test('takes the draft along to what the machine wrote, so the editor text is no change', async () => {
-        const transport = {
-            status: 'open',
-            request: async () => ({ size: 3, mtime: 9 }),
-            on: () => () => undefined,
-            subscribeStatus: () => () => undefined
-        } as unknown as Transport;
+        const transport = transportOf(() => ({ size: 3, mtime: 9 }));
         textDrafts.stage('local', '/work/src/open.php', { text: 'old', mtime: 1 }, 'old');
         expect(await draftFiles('local', transport, 'p1').create!('/work/src/open.php', 'new', { overwrite: true })).toBeNull();
         textDrafts.edit('local', '/work/src/open.php', 'new');

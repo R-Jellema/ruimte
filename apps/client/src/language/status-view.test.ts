@@ -97,7 +97,7 @@ describe('groupedStatuses', () => {
             status('css', 'ready'),
             status('typescript', 'ready'),
             status('future', 'stopped'),
-            own('custom:a')
+            ownServer('custom:a')
         ];
         expect(groupedStatuses(all).map((group) => [group.id, group.statuses.map((entry) => entry.server)])).toEqual([
             ['scripts', ['typescript']],
@@ -107,6 +107,6 @@ describe('groupedStatuses', () => {
     });
 });
 
-function own(server: string): LanguageServerStatus {
+function ownServer(server: string): LanguageServerStatus {
     return status(server, 'stopped', { name: 'Zig', languages: [], patterns: [] });
 }

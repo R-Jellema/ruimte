@@ -15,10 +15,15 @@ function service(texts: Record<string, string> = { [uri]: 'let a = 1;' }) {
     return { transport, language, texts };
 }
 
+async function opened() {
+    const context = service();
+    await context.language.openDocument({ uri, languageId: 'typescript', text: 'let a = 1;' });
+    return context;
+}
+
 describe('documents', () => {
     test('opens under the stored path of the file, with its text, and takes the version and providers from the answer', async () => {
-        const { transport, language } = service();
-        await language.openDocument({ uri, languageId: 'typescript', text: 'let a = 1;' });
+        const { transport, language } = await opened();
         expect(transport.callsOf('language.document.open')[0].payload).toEqual({
             projectId: 'p1',
             path: 'src/a.ts',
@@ -54,8 +59,7 @@ describe('documents', () => {
     });
 
     test('sends changes ahead of their answers, each against the version the one before leaves', async () => {
-        const { transport, language } = service();
-        await language.openDocument({ uri, languageId: 'typescript', text: 'let a = 1;' });
+        const { transport, language } = await opened();
         const first = language.changeDocument(uri, [{ text: 'one' }]);
         const second = language.changeDocument(uri, [{ text: 'two' }]);
         const third = language.changeDocument(uri, [{ text: 'three' }]);
@@ -65,9 +69,7 @@ describe('documents', () => {
     });
 
     test('opens the document again with the text of the view when the daemon refuses a change', async () => {
-        const texts = { [uri]: 'let a = 1;' };
-        const { transport, language } = service(texts);
-        await language.openDocument({ uri, languageId: 'typescript', text: 'let a = 1;' });
+        const { transport, language, texts } = await opened();
         // Another client set other text, so the version moved under this one.
         transport.documents.get('src/a.ts')!.version = 7;
         texts[uri] = 'let a = 12;';
@@ -98,8 +100,7 @@ describe('documents', () => {
     });
 
     test('opens every document again when the link comes back', async () => {
-        const { transport, language } = service();
-        await language.openDocument({ uri, languageId: 'typescript', text: 'let a = 1;' });
+        const { transport } = await opened();
         transport.documents.clear();
         transport.setStatus('closed');
         transport.setStatus('open');
@@ -108,8 +109,7 @@ describe('documents', () => {
     });
 
     test('closes on the daemon and forgets the document', async () => {
-        const { transport, language } = service();
-        await language.openDocument({ uri, languageId: 'typescript', text: 'let a = 1;' });
+        const { transport, language } = await opened();
         await language.closeDocument(uri);
         expect(transport.documents.size).toBe(0);
         await expect(language.hover(uri, origin)).rejects.toThrow('not open');
@@ -131,8 +131,7 @@ describe('the unsaved text of a file', () => {
     });
 
     test('keeps the document open when its editor goes while the text is unsaved', async () => {
-        const { transport, language, texts } = service();
-        await language.openDocument({ uri, languageId: 'typescript', text: 'let a = 1;' });
+        const { transport, language, texts } = await opened();
         language.holdText(uri, 'typescript', 'let a = 1;');
         delete texts[uri];
         await language.closeDocument(uri);
@@ -143,8 +142,7 @@ describe('the unsaved text of a file', () => {
     });
 
     test('leaves the changes to the editor that holds the file, and its document open when the text is saved', async () => {
-        const { transport, language } = service();
-        await language.openDocument({ uri, languageId: 'typescript', text: 'let a = 1;' });
+        const { transport, language } = await opened();
         const opens = transport.callsOf('language.document.open').length;
         language.holdText(uri, 'typescript', 'let a = 2;');
         language.releaseText(uri);
@@ -156,8 +154,7 @@ describe('the unsaved text of a file', () => {
 
 describe('requests', () => {
     test('asks the daemon for the version it expects and answers with the result', async () => {
-        const { transport, language } = service();
-        await language.openDocument({ uri, languageId: 'typescript', text: 'let a = 1;' });
+        const { transport, language } = await opened();
         expect(await language.hover(uri, origin)).toEqual({ contents: 'hover at 1' });
         expect(transport.callsOf('language.request')[0].payload).toEqual({
             projectId: 'p1',
@@ -169,8 +166,7 @@ describe('requests', () => {
     });
 
     test('rejects a result for text the view has left, and one the daemon calls stale, with the stale error', async () => {
-        const { transport, language } = service();
-        await language.openDocument({ uri, languageId: 'typescript', text: 'let a = 1;' });
+        const { transport, language } = await opened();
         transport.holdNextReply();
         const hover = language.hover(uri, origin);
         const caught = hover.catch((error: unknown) => error);
@@ -186,8 +182,7 @@ describe('requests', () => {
     });
 
     test('lets a newer request of one feature supersede the older, and an aborted one stop waiting', async () => {
-        const { transport, language } = service();
-        await language.openDocument({ uri, languageId: 'typescript', text: 'let a = 1;' });
+        const { transport, language } = await opened();
         transport.holdNextReply();
         const old = language.hover(uri, origin).catch((error: unknown) => error);
         await settle();
@@ -204,8 +199,7 @@ describe('requests', () => {
     });
 
     test('lets requests that ask to run in parallel finish side by side, and still supersede the ones that do not', async () => {
-        const { transport, language } = service();
-        await language.openDocument({ uri, languageId: 'typescript', text: 'let a = 1;' });
+        const { transport, language } = await opened();
         transport.holdNextReply();
         const first = language.references(uri, origin, false, { parallel: true }).catch((error: unknown) => error);
         await settle();
@@ -222,8 +216,7 @@ describe('requests', () => {
     });
 
     test('sends the typed character, and the resolve requests, as the methods the daemon routes', async () => {
-        const { transport, language } = service();
-        await language.openDocument({ uri, languageId: 'typescript', text: 'let a = 1;' });
+        const { transport, language } = await opened();
         await language.onTypeFormatting(uri, origin, '}', { tabSize: 4, insertSpaces: true });
         await language.resolveCompletion(uri, { label: 'a' });
         await language.resolveInlayHint(uri, { position: origin, label: 'a' });
@@ -238,8 +231,7 @@ describe('requests', () => {
     });
 
     test('says why the daemon could not answer, in the codes of LSP', async () => {
-        const { transport, language } = service();
-        await language.openDocument({ uri, languageId: 'typescript', text: 'let a = 1;' });
+        const { transport, language } = await opened();
         const refuse = (code: string) =>
             transport.answers.set('language.request', () => {
                 throw new TransportError(code, `refused ${code}`);
@@ -255,8 +247,7 @@ describe('requests', () => {
     });
 
     test('resolves an item against the process that produced it and only for the text it was made for', async () => {
-        const { transport, language } = service();
-        await language.openDocument({ uri, languageId: 'typescript', text: 'let a = 1;' });
+        const { transport, language } = await opened();
         transport.answers.set('language.request', () => ({ result: { isIncomplete: false, items: [{ label: 'a', data: 1 }] }, server: 'vue', version: 1 }));
         const result = await language.completion(uri, origin);
         const item = !Array.isArray(result) && result ? result.items[0] : null;
@@ -273,8 +264,7 @@ describe('requests', () => {
     });
 
     test('resolves an item of a merged list against the process that made that item', async () => {
-        const { transport, language } = service();
-        await language.openDocument({ uri, languageId: 'typescript', text: 'let a = 1;' });
+        const { transport, language } = await opened();
         transport.answers.set('language.request', () => ({
             result: { isIncomplete: false, items: [{ label: 'a' }, { label: 'flex' }] },
             server: 'typescript',
@@ -293,8 +283,7 @@ describe('requests', () => {
 
 describe('events', () => {
     test('passes diagnostics of the open documents on with the server that sent them, and drops those of another version', async () => {
-        const { transport, language } = service();
-        await language.openDocument({ uri, languageId: 'typescript', text: 'let a = 1;' });
+        const { transport, language } = await opened();
         const reports: DiagnosticsReport[] = [];
         language.onDiagnostics((report) => reports.push(report));
         const diagnostic = { range: { start: origin, end: origin }, message: 'bad' };
@@ -309,8 +298,7 @@ describe('events', () => {
     });
 
     test('tells the listeners what a document may ask when a server came up', async () => {
-        const { transport, language } = service();
-        await language.openDocument({ uri, languageId: 'typescript', text: 'let a = 1;' });
+        const { transport, language } = await opened();
         const changed: string[] = [];
         language.onProvidersChanged((changedUri) => changed.push(changedUri));
         transport.emit('language.providers', { projectId: 'p1', path: 'src/a.ts', providers: { 'textDocument/rename': { prepareProvider: true } } });
@@ -320,8 +308,7 @@ describe('events', () => {
     });
 
     test('stops listening and closes its documents when it is disposed', async () => {
-        const { transport, language } = service();
-        await language.openDocument({ uri, languageId: 'typescript', text: 'let a = 1;' });
+        const { transport, language } = await opened();
         language.dispose();
         await settle();
         expect(transport.documents.size).toBe(0);
@@ -336,8 +323,7 @@ describe('commands', () => {
     const command = { title: 'Fix all', command: 'fix.all', arguments: [1] };
 
     test('runs a command of an item on the server that made it', async () => {
-        const { transport, language } = service();
-        await language.openDocument({ uri, languageId: 'typescript', text: 'let a = 1;' });
+        const { transport, language } = await opened();
         transport.answers.set('language.request', () => ({ result: [{ title: 'Fix', command }], server: 'vue', version: 1 }));
         transport.answers.set('language.command', () => ({ result: 'done', server: 'vue' }));
         const actions = await language.codeActions(uri, { start: origin, end: origin });

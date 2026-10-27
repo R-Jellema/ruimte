@@ -6,7 +6,7 @@ import { useSettings } from '@/state/settings';
 import { useToasts } from '@/state/toasts';
 import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
 import { EditorLanguage } from './ruimte-editor-language';
-import { FakeLanguageTransport } from './fake-daemon';
+import { FakeLanguageTransport, readOnlyFiles } from './fake-daemon';
 import { eventOf } from './key-events';
 import { ProjectLanguage } from './ruimte-project-language';
 
@@ -35,12 +35,7 @@ async function setup(options: { available?: boolean; fail?: boolean } = {}) {
         };
         return { result: results[payload.method] ?? null, server: 'typescript', version: 1 };
     });
-    const project = new ProjectLanguage(transport, 'p1', '/work/app', {
-        read: async (path) => (path === '/work/app/src/b.ts' ? { text: 'log(hits);', mtime: 1 } : null),
-        stage: () => undefined,
-        save: async () => null,
-        rename: async () => null
-    });
+    const project = new ProjectLanguage(transport, 'p1', '/work/app', readOnlyFiles({ '/work/app/src/b.ts': 'log(hits);' }));
     const editor = new FakeEditorEngine().mount({} as HTMLElement, { text: TEXT, theme: 'light' });
     const language = new EditorLanguage(project, editor, uri, 'typescript');
     await language.document.ready;
@@ -48,6 +43,10 @@ async function setup(options: { available?: boolean; fail?: boolean } = {}) {
     editor.press(eventOf(CANVAS_SHORTCUTS.rename));
     await settle();
     return { transport, model, editor, language };
+}
+
+function renameSent(transport: FakeLanguageTransport): boolean {
+    return transport.callsOf('language.request').some((call) => (call.payload as { method: string }).method === 'textDocument/rename');
 }
 
 beforeEach(() => {
@@ -72,7 +71,7 @@ describe('rename suggestions', () => {
         await settle();
         expect(language.popups.getState().rename!.suggestions).toEqual(['matchedSkills', 'matches', 'foundSkills']);
         expect(language.popups.getState().rename!.name).toBe('hits');
-        expect(transport.callsOf('language.request').some((call) => (call.payload as { method: string }).method === 'textDocument/rename')).toBe(false);
+        expect(renameSent(transport)).toBe(false);
     });
 
     test('offers none when the setting is off or the machine has no model', async () => {
@@ -88,6 +87,7 @@ describe('rename suggestions', () => {
 
     test('drops the answer of a rename that was closed, and cancels the request', async () => {
         const { model, language, transport, editor } = await setup();
+        // Records the cancel but lets the answer still arrive afterwards, to prove it is dropped.
         transport.answers.set('ondevice.cancel', ({ id }: { id: string }) => {
             model.cancels.push(id);
             return {};
@@ -100,7 +100,7 @@ describe('rename suggestions', () => {
         await settle();
         expect(language.popups.getState().rename).toBeNull();
         expect(editor.getText()).toBe(TEXT);
-        expect(transport.callsOf('language.request').some((call) => (call.payload as { method: string }).method === 'textDocument/rename')).toBe(false);
+        expect(renameSent(transport)).toBe(false);
     });
 
     test('invalid output and a failed model leave the input as it is', async () => {
@@ -113,6 +113,6 @@ describe('rename suggestions', () => {
         expect(failed.transport.callsOf('ondevice.generate')).toHaveLength(1);
         expect(failed.language.popups.getState().rename).toMatchObject({ suggestions: [], phase: 'input', name: 'hits' });
         expect(failed.editor.getText()).toBe(TEXT);
-        expect(failed.transport.callsOf('language.request').some((call) => (call.payload as { method: string }).method === 'textDocument/rename')).toBe(false);
+        expect(renameSent(failed.transport)).toBe(false);
     });
 });

@@ -3,6 +3,7 @@ import { REQUEST_SCHEMAS, type ProjectView, type RequestType } from '@ruimte/con
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { answerDevices, FAKE_EMULATOR, FAKE_PHONE, referenceOf, type FakeDevices } from '../../testing/fake-devices';
+import { button, buttonWithText } from './device-dom';
 import { clickOn, mount, until, type Mounted } from '../../testing/dom';
 
 const PHONE: ProjectView = { kind: 'device', id: 'phone', name: FAKE_PHONE.name, device: referenceOf(FAKE_PHONE) };
@@ -15,14 +16,6 @@ let page: Mounted | null = null;
 
 function toolbarText(): string {
     return document.body.querySelector('header')?.textContent ?? document.body.textContent ?? '';
-}
-
-function button(label: string): HTMLElement | null {
-    return document.body.querySelector<HTMLElement>(`button[aria-label="${label}"]`);
-}
-
-function buttonWithText(text: string): HTMLElement | null {
-    return [...document.body.querySelectorAll<HTMLElement>('button')].find((candidate) => candidate.textContent?.trim() === text) ?? null;
 }
 
 async function show(view: ProjectView): Promise<void> {

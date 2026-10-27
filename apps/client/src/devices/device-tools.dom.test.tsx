@@ -4,6 +4,7 @@ import type { ProjectView } from '@ruimte/contracts';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { answerDevices, FAKE_EMULATOR, FAKE_SIMULATOR, referenceOf, type FakeDevices } from '../../testing/fake-devices';
+import { button, buttonWithText } from './device-dom';
 import { clickOn, mount, until, type Mounted } from '../../testing/dom';
 
 const PHONE: ProjectView = { kind: 'device', id: 'phone', name: FAKE_SIMULATOR.name, device: referenceOf(FAKE_SIMULATOR) };
@@ -16,14 +17,6 @@ let page: Mounted;
 let downloads: string[];
 let clipboardWrites: unknown[];
 let restores: Array<() => void>;
-
-function button(label: string): HTMLElement | null {
-    return document.body.querySelector<HTMLElement>(`button[aria-label="${label}"]`);
-}
-
-function buttonWithText(text: string): HTMLElement | null {
-    return [...document.body.querySelectorAll<HTMLElement>('button')].find((candidate) => candidate.textContent?.trim() === text) ?? null;
-}
 
 /* The window's connection light is a status too, so the badge is found by its label. */
 function recordingBadge(): HTMLElement | null {

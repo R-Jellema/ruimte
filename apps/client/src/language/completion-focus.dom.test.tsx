@@ -9,6 +9,7 @@ import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { mount, pressKey, until, type Mounted } from '../../testing/dom';
 
+const MOD = isApplePlatform() ? { metaKey: true } : { ctrlKey: true };
 const VIEW = { kind: 'file', id: 'greet-view', name: 'greet.ts', path: 'greet.ts' };
 
 let machine: FakeMachine;
@@ -71,16 +72,16 @@ describe('the completion list of the editor', () => {
             await page.renderApp();
             await until(() => input() !== null);
             await act(async () => input()!.focus());
-            await pressKey(input()!, 'End', isApplePlatform() ? { metaKey: true } : { ctrlKey: true });
+            await pressKey(input()!, 'End', MOD);
             await act(async () => {
                 input()!.dispatchEvent(new KeyboardEvent('keydown', { ...eventOf(CANVAS_SHORTCUTS.suggestInline), bubbles: true, cancelable: true }));
             });
             await until(() => page.host.querySelector('.se-ghost-accessory') !== null);
             await pressKey(input()!, 'Tab');
-            await pressKey(input()!, 's', isApplePlatform() ? { metaKey: true } : { ctrlKey: true });
+            await pressKey(input()!, 's', MOD);
             expect(machine.requests('fs.write').at(-1)?.text).toBe(before + suggestion);
-            await pressKey(input()!, 'z', isApplePlatform() ? { metaKey: true } : { ctrlKey: true });
-            await pressKey(input()!, 's', isApplePlatform() ? { metaKey: true } : { ctrlKey: true });
+            await pressKey(input()!, 'z', MOD);
+            await pressKey(input()!, 's', MOD);
             expect(machine.requests('fs.write').at(-1)?.text).toBe(before);
         } finally {
             useSettings.setState({ aiGhostText: previous });
@@ -110,7 +111,7 @@ describe('the completion list of the editor', () => {
         await act(async () => {
             typeInto(window, input()!, ';');
         });
-        await pressKey(input()!, 's', isApplePlatform() ? { metaKey: true } : { ctrlKey: true });
+        await pressKey(input()!, 's', MOD);
         expect(machine.requests('fs.write').at(-1)?.text).toBe('greetA;');
     });
 });

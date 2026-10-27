@@ -1,5 +1,6 @@
 import type { EventMap, EventType, RequestMap, RequestType } from '@ruimte/contracts';
 import { applyContentChanges, type ContentChange } from '@adecore/lsp';
+import type { ProjectFiles } from '@adecore/editor-react';
 import { TransportError, type Transport, type TransportStatus } from '@/transport/transport';
 
 interface Call {
@@ -120,4 +121,14 @@ export class FakeLanguageTransport implements Transport {
         }
         throw new Error(`The fake daemon does not know ${type}`);
     }
+}
+
+/* The project files of a test: the given paths read back their text, every other path is missing, and nothing is written. */
+export function readOnlyFiles(texts: Record<string, string>): ProjectFiles {
+    return {
+        read: async (path) => (path in texts ? { text: texts[path]!, mtime: 1 } : null),
+        stage: () => undefined,
+        save: async () => null,
+        rename: async () => null
+    };
 }

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, test } from 'bun:test';
 import { FakeEditorEngine } from '@adecore/editor/fake';
 import { useToasts } from '@/state/toasts';
 import { EditorLanguage } from './ruimte-editor-language';
-import { FakeLanguageTransport } from './fake-daemon';
+import { FakeLanguageTransport, readOnlyFiles } from './fake-daemon';
 import { distinguishingFolders } from '@adecore/editor-react/models';
 import { ProjectLanguage } from './ruimte-project-language';
 import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
@@ -18,12 +18,7 @@ async function setup(answer: unknown, providers: Record<string, unknown> = { 'te
     const transport = new FakeLanguageTransport();
     transport.providers = providers;
     transport.answers.set('language.request', () => ({ result: answer, server: 'typescript', version: 1 }));
-    const project = new ProjectLanguage(transport, 'p1', '/work/app', {
-        read: async (path) => (path === '/work/app/src/b.ts' ? { text: 'x\ny\nuse(value);', mtime: 1 } : null),
-        stage: () => undefined,
-        save: async () => null,
-        rename: async () => null
-    });
+    const project = new ProjectLanguage(transport, 'p1', '/work/app', readOnlyFiles({ '/work/app/src/b.ts': 'x\ny\nuse(value);' }));
     const editor = new FakeEditorEngine().mount({} as HTMLElement, { text: 'let value = 1;\nvalue + 1;\n', theme: 'light' });
     const language = new EditorLanguage(project, editor, uri, 'typescript');
     await language.document.ready;
@@ -149,12 +144,7 @@ describe('peek definition', () => {
             transport,
             'p1',
             '/work/app',
-            {
-                read: async (path) => (path === '/work/app/src/b.ts' ? { text: 'function use() {\n  return 1;\n    }\nother();', mtime: 1 } : null),
-                stage: () => undefined,
-                save: async () => null,
-                rename: async () => null
-            },
+            readOnlyFiles({ '/work/app/src/b.ts': 'function use() {\n  return 1;\n    }\nother();' }),
             (...args) => opened.push(args)
         );
         const editor = new FakeEditorEngine().mount({} as HTMLElement, { text: 'use();', theme: 'light' });

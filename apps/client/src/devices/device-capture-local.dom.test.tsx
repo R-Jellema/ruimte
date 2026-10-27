@@ -1,31 +1,18 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { REQUEST_SCHEMAS, type ProjectCanvasView, type ProjectNode, type RequestType } from '@ruimte/contracts';
+import { REQUEST_SCHEMAS, type RequestType } from '@ruimte/contracts';
 import { useDocument } from '@/state/document';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
-import { answerDevices, FAKE_SIMULATOR, referenceOf, type FakeDevices } from '../../testing/fake-devices';
+import { answerDevices, FAKE_SIMULATOR, type FakeDevices } from '../../testing/fake-devices';
+import { button, phoneCanvas } from './device-dom';
 import { clickOn, mount, until, type Mounted } from '../../testing/dom';
 
-const PHONE: ProjectNode = {
-    id: 'phone',
-    kind: 'device',
-    title: FAKE_SIMULATOR.name,
-    x: 0,
-    y: 0,
-    w: 420,
-    h: 860,
-    device: referenceOf(FAKE_SIMULATOR)
-};
-const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [PHONE], texts: [], edges: [], layouts: [] };
+const MAIN = phoneCanvas();
 
 let here: FakeMachine;
 let devices: FakeDevices;
 let workspace: FakeWorkspace;
 let page: Mounted;
-
-function button(label: string): HTMLElement | null {
-    return document.body.querySelector<HTMLElement>(`button[aria-label="${label}"]`);
-}
 
 async function openTools(): Promise<void> {
     workspace = await openFakeWorkspace(here, { views: [MAIN] }, { activeViewId: MAIN.id, views: {} });

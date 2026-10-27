@@ -29,6 +29,14 @@ async function setup(options: { available?: boolean; text?: string; caret?: { li
     return { transport, model, editor, language, project, timers, suggest };
 }
 
+// Requests a continuation and lets the fake model answer it.
+async function suggested({ model, language }: Pick<Awaited<ReturnType<typeof setup>>, 'model' | 'language'>, answer: string) {
+    void language.ghost.request();
+    await settle();
+    model.answer(answer);
+    await settle();
+}
+
 const key = (name: string, extra: Record<string, boolean> = {}) => ({ key: name, ...extra });
 
 beforeEach(() => {
@@ -51,10 +59,10 @@ describe('ghost text on request', () => {
 
     test('draws what comes back after the caret without the lines it wrote again, and takes the hint away', async () => {
         const { model, editor, language } = await setup();
-        void language.ghost.request();
-        await settle();
-        model.answer('export function bestMatch(pool: Candidate[]): Candidate | null {\n    const [first] = rank(pool);\n    return first ?? null;\n}');
-        await settle();
+        await suggested(
+            { model, language },
+            'export function bestMatch(pool: Candidate[]): Candidate | null {\n    const [first] = rank(pool);\n    return first ?? null;\n}'
+        );
         expect(editor.ghost).toMatchObject({ position: at(1, 4), text: 'const [first] = rank(pool);\n    return first ?? null;' });
         expect(editor.lineActionsByOwner.has('ghost-progress')).toBe(false);
         expect(language.ghost.busy).toBe(false);
@@ -63,10 +71,7 @@ describe('ghost text on request', () => {
 
     test('Tab takes all of it as one edit and leaves the caret behind it', async () => {
         const { model, editor, language } = await setup();
-        void language.ghost.request();
-        await settle();
-        model.answer('return null;');
-        await settle();
+        await suggested({ model, language }, 'return null;');
         expect(editor.press(key('Tab'))).toBe(true);
         expect(editor.getText()).toBe('export function bestMatch(pool: Candidate[]): Candidate | null {\n    return null;\n}\n');
         expect(editor.getCaret()).toEqual(at(1, 16));
@@ -76,20 +81,14 @@ describe('ghost text on request', () => {
 
     test('a suggestion over several lines puts the caret at the end of its last line', async () => {
         const { model, editor, language } = await setup();
-        void language.ghost.request();
-        await settle();
-        model.answer('const a = 1;\n    return a;');
-        await settle();
+        await suggested({ model, language }, 'const a = 1;\n    return a;');
         editor.press(key('Tab'));
         expect(editor.getCaret()).toEqual(at(2, 13));
     });
 
     test('Option+] takes a word and keeps the rest as the suggestion after it', async () => {
         const { model, editor, language } = await setup();
-        void language.ghost.request();
-        await settle();
-        model.answer('return pool[0];');
-        await settle();
+        await suggested({ model, language }, 'return pool[0];');
         expect(editor.press(eventOf(CANVAS_SHORTCUTS.acceptGhostWord))).toBe(true);
         expect(editor.getText()).toContain('\n    return\n');
         expect(editor.ghost).toMatchObject({ position: at(1, 10), text: ' pool[0];' });
@@ -105,10 +104,7 @@ describe('ghost text on request', () => {
             (rig: Awaited<ReturnType<typeof setup>>) => rig.editor.moveCaret(at(0, 3))
         ]) {
             const rig = await setup();
-            void rig.language.ghost.request();
-            await settle();
-            rig.model.answer('return null;');
-            await settle();
+            await suggested(rig, 'return null;');
             expect(rig.editor.ghost).not.toBeNull();
             away(rig);
             expect(rig.editor.ghost).toBeNull();
@@ -123,6 +119,7 @@ describe('ghost text on request', () => {
 
     test('Escape while the model works cancels the request, and a late answer shows nothing', async () => {
         const { model, editor, language, transport } = await setup();
+        // Records the cancel but lets the answer still arrive afterwards, to prove it shows nothing.
         transport.answers.set('ondevice.cancel', ({ id }: { id: string }) => {
             model.cancels.push(id);
             return {};
@@ -159,19 +156,13 @@ describe('ghost text on request', () => {
 
     test('with text after the caret on the line only the rest of that line is suggested', async () => {
         const { model, editor, language } = await setup({ text: 'const total = (1 + 2)\nnext();', caret: at(0, 13) });
-        void language.ghost.request();
-        await settle();
-        model.answer('(1 + 2) * 3;\nconsole.log(total);');
-        await settle();
+        await suggested({ model, language }, '(1 + 2) * 3;\nconsole.log(total);');
         expect(editor.ghost?.text).toBe('(1 + 2) * 3;');
     });
 
     test('says so when there is nothing to suggest', async () => {
         const { model, editor, language } = await setup();
-        void language.ghost.request();
-        await settle();
-        model.answer('}');
-        await settle();
+        await suggested({ model, language }, '}');
         expect(editor.ghost).toBeNull();
         expect(useToasts.getState().toasts.at(-1)?.title).toBe('No suggestion here');
     });
@@ -213,10 +204,7 @@ describe('ghost text with shared completions', () => {
                 server: 'typescript',
                 version: 1
             }));
-            void language.ghost.request();
-            await settle();
-            model.answer('return null;');
-            await settle();
+            await suggested({ model, language }, 'return null;');
             language.completion.invoke();
             timers.advance(20);
             await settle();

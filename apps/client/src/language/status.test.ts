@@ -23,7 +23,7 @@ describe('language status', () => {
         expect(seen[0]).not.toBe(seen[1]);
     });
 
-    test('ignores another project', async () => {
+    test('ignores another project', () => {
         const transport = new FakeLanguageTransport();
         const tracker = new LanguageStatusTracker(transport, 'p1');
         transport.emit('language.status', { projectId: 'p2', status: status('typescript', 'ready') });
