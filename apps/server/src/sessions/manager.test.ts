@@ -13,10 +13,6 @@ afterEach(async () => {
     await harness.cleanup();
 });
 
-function create(sessionId: string, cols = 80, rows = 24) {
-    return harness.manager.create({ sessionId, cols, rows, shell: '/bin/sh', args: [], cwd: harness.home });
-}
-
 /* Output from the program in a session's PTY, delivered to every attached client right away instead of on the next tick. */
 function print(sessionId: string, text: string): void {
     harness.adapter.forSession(sessionId).emit(text);
@@ -25,7 +21,7 @@ function print(sessionId: string, text: string): void {
 
 describe('SessionManager.killAllSettled', () => {
     test('waits for a kill that still runs, as a taskkill on Windows does', async () => {
-        await create('s1');
+        await harness.create('s1');
         const pty = harness.adapter.forSession('s1');
         const taskkill = Promise.withResolvers<void>();
         pty.pendingKill = taskkill.promise;
@@ -44,7 +40,7 @@ describe('SessionManager.killAllSettled', () => {
     test('stops waiting after its limit', async () => {
         jest.useFakeTimers();
         try {
-            await create('s1');
+            await harness.create('s1');
             harness.adapter.forSession('s1').pendingKill = new Promise<void>(() => undefined);
             let done = false;
             const ending = harness.manager.killAllSettled(3_000).then(() => {
@@ -66,7 +62,7 @@ describe('SessionManager', () => {
     test('a permission request only says the node needs a person; its CLI asks on its own screen', async () => {
         const recorder = new Recorder();
         harness.manager.subscribe('c1', recorder.sink());
-        await create('s1');
+        await harness.create('s1');
         const hook = { hook_event_name: 'PermissionRequest', session_id: 'cli-1', tool_name: 'Bash', tool_input: { command: 'sleep 12' } };
         expect(await harness.manager.applyHook('claude', harness.manager.get('s1')!.hookToken, hook)).toBe('applied');
         expect(recorder.statusesOf('s1').at(-1)).toBe('needs-you');
@@ -77,7 +73,7 @@ describe('SessionManager', () => {
         const recorder = new Recorder();
         harness.manager.subscribe('c1', recorder.sink());
 
-        await create('s1');
+        await harness.create('s1');
         await harness.manager.attach('s1', 'c1', 80, 24);
         print('s1', 'hello\r\n$ ');
         expect(recorder.output).toContain('hello');
@@ -95,7 +91,7 @@ describe('SessionManager', () => {
     test('output that is still waiting for its tick is delivered before a clear, never on the fresh screen', async () => {
         const recorder = new Recorder();
         harness.manager.subscribe('c1', recorder.sink());
-        await create('s1');
+        await harness.create('s1');
         await harness.manager.attach('s1', 'c1', 80, 24);
 
         harness.adapter.forSession('s1').emit('before the clear');
@@ -110,7 +106,7 @@ describe('SessionManager', () => {
         const recorder = new Recorder();
         harness.manager.subscribe('c1', recorder.sink());
 
-        const info = await create('s1');
+        const info = await harness.create('s1');
         expect(info).toMatchObject({ sessionId: 's1', cols: 80, rows: 24, exited: false, attached: 0 });
         expect(info.pid).toBe(harness.adapter.forSession('s1').pid);
 
@@ -135,7 +131,7 @@ describe('SessionManager', () => {
     test('a detach hands over the tail buffered after the first output', async () => {
         const recorder = new Recorder();
         harness.manager.subscribe('c1', recorder.sink());
-        await create('s1');
+        await harness.create('s1');
         await harness.manager.attach('s1', 'c1', 80, 24);
         const pty = harness.adapter.forSession('s1');
 
@@ -158,7 +154,7 @@ describe('SessionManager', () => {
     test('a UTF-8 character split over two reads arrives whole', async () => {
         const recorder = new Recorder();
         harness.manager.subscribe('c1', recorder.sink());
-        await create('s1');
+        await harness.create('s1');
         await harness.manager.attach('s1', 'c1', 80, 24);
         const bytes = new TextEncoder().encode('é');
         const pty = harness.adapter.forSession('s1');
@@ -171,8 +167,8 @@ describe('SessionManager', () => {
     test('a session with links at its start shows the context line above the first prompt; one without stays quiet', async () => {
         await harness.cleanup();
         harness = await makeHarness({ contextFor: (sessionId) => (sessionId === 'linked' ? [{ id: 'text-1', kind: 'text', title: 'Sprint goals' }] : []) });
-        await create('linked');
-        await create('plain');
+        await harness.create('linked');
+        await harness.create('plain');
         const linked = await harness.manager.attach('linked', 'c1', 80, 24);
         const plain = await harness.manager.attach('plain', 'c1', 80, 24);
         expect(linked.screen).toContain('Ruimte: linked context is available with ruimte-context (list, read <id>): "Sprint goals" (text).');
@@ -187,7 +183,7 @@ describe('SessionManager', () => {
         harness.manager.subscribe('c1', first.sink());
         harness.manager.subscribe('c2', second.sink());
 
-        await create('s2');
+        await harness.create('s2');
         await harness.manager.attach('s2', 'c1', 80, 24);
         print('s2', 'first\r\n');
         expect(first.output).toContain('first');
@@ -203,7 +199,7 @@ describe('SessionManager', () => {
     });
 
     test('resize reaches the PTY and the last attacher decides the size', async () => {
-        await create('s3');
+        await harness.create('s3');
         const pty = harness.adapter.forSession('s3');
         await harness.manager.attach('s3', 'c1', 80, 24);
         // The size it was spawned with is no resize.
@@ -226,7 +222,7 @@ describe('SessionManager', () => {
         const laptop = new Recorder();
         harness.manager.subscribe('desk', desk.sink());
         harness.manager.subscribe('laptop', laptop.sink());
-        await create('s3');
+        await harness.create('s3');
         const pty = harness.adapter.forSession('s3');
         const sizes = (recorder: Recorder) =>
             recorder.events.flatMap((event) => (event.event === 'session.size' ? [[event.payload.cols, event.payload.rows]] : []));
@@ -258,7 +254,7 @@ describe('SessionManager', () => {
     });
 
     test('a follower attaches without a grid and takes nothing with its keys', async () => {
-        await create('s3');
+        await harness.create('s3');
         const pty = harness.adapter.forSession('s3');
         await harness.manager.attach('s3', 'desk', 160, 50);
         await harness.manager.attach('s3', 'phone');
@@ -267,7 +263,7 @@ describe('SessionManager', () => {
     });
 
     test('a shell that has ended is not resized any more', async () => {
-        await create('s3');
+        await harness.create('s3');
         const pty = harness.adapter.forSession('s3');
         pty.exit(0);
         harness.manager.resize('s3', 100, 30);
@@ -278,7 +274,7 @@ describe('SessionManager', () => {
     test('kill delivers session.exit to attached clients and drops the session from the list', async () => {
         const recorder = new Recorder();
         harness.manager.subscribe('c1', recorder.sink());
-        await create('s4');
+        await harness.create('s4');
         await harness.manager.attach('s4', 'c1', 80, 24);
         await harness.snapshots.write('s4', 'stale');
         const pty = harness.adapter.forSession('s4');
@@ -296,7 +292,7 @@ describe('SessionManager', () => {
     test('a shell that exits on its own stays listed as exited until it is killed or recreated', async () => {
         const recorder = new Recorder();
         harness.manager.subscribe('c1', recorder.sink());
-        await create('s5');
+        await harness.create('s5');
         await harness.manager.attach('s5', 'c1', 80, 24);
         const pty = harness.adapter.forSession('s5');
         pty.emit('$ exit 3\r\n');
@@ -313,7 +309,7 @@ describe('SessionManager', () => {
         expect(attached.exited).toBe(true);
 
         // Recreating the id carries the old screen over with the restored marker, like a disk snapshot would.
-        await create('s5');
+        await harness.create('s5');
         expect(harness.adapter.forSession('s5')).not.toBe(pty);
         const fresh = await harness.manager.attach('s5', 'c2', 80, 24);
         expect(fresh.exited).toBe(false);
@@ -323,7 +319,7 @@ describe('SessionManager', () => {
     });
 
     test('an exited session that is killed goes at once, without a signal', async () => {
-        await create('s5');
+        await harness.create('s5');
         const pty = harness.adapter.forSession('s5');
         pty.exit(0);
         await harness.manager.kill('s5');
@@ -332,8 +328,8 @@ describe('SessionManager', () => {
     });
 
     test('refuses a duplicate id and an unknown id with their own codes', async () => {
-        await create('s6');
-        await expect(create('s6')).rejects.toMatchObject({ code: 'session-exists' });
+        await harness.create('s6');
+        await expect(harness.create('s6')).rejects.toMatchObject({ code: 'session-exists' });
         await expect(harness.manager.attach('nope', 'c1', 80, 24)).rejects.toMatchObject({ code: 'session-not-found' });
         expect(() => harness.manager.detach('nope', 'c1')).toThrow(expect.objectContaining({ code: 'session-not-found' }));
     });
@@ -343,8 +339,8 @@ describe('SessionManager', () => {
         const second = new Recorder();
         harness.manager.subscribe('c1', first.sink());
         harness.manager.subscribe('c2', second.sink());
-        await create('s7');
-        await create('s8');
+        await harness.create('s7');
+        await harness.create('s8');
         await harness.manager.attach('s7', 'c1', 80, 24);
         await harness.manager.attach('s8', 'c1', 80, 24);
         await harness.manager.attach('s8', 'c2', 80, 24);

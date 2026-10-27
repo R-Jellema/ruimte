@@ -8,6 +8,7 @@ import { readServedFile } from '../fs/read.ts';
 import { MachineHome } from '../fs/machine-home.ts';
 import { FolderWatcher } from '../fs/watch.ts';
 import { Dispatcher } from '../dispatcher.ts';
+import { askOnce } from './test-helpers.ts';
 import { registerBytesHandlers } from './bytes.ts';
 import { registerFsHandlers } from './fs.ts';
 
@@ -49,10 +50,8 @@ afterEach(async () => {
     await rm(root, { recursive: true, force: true });
 });
 
-async function request(type: string, payload: unknown): Promise<ServerFrame> {
-    const frames: ServerFrame[] = [];
-    await dispatcher.handle({ id: 'paired', send: (frame) => frames.push(frame) }, JSON.stringify({ id: 'request', type, payload }));
-    return frames[0]!;
+function request(type: string, payload: unknown): Promise<ServerFrame> {
+    return askOnce(dispatcher, { id: 'paired' }, type, payload);
 }
 
 const refused = { ok: false, error: { code: 'machine-state' } };

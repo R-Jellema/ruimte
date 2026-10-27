@@ -6,6 +6,7 @@ import { AgentLineageStore, TaskStore } from '@adecore/agents/coordination';
 import { FakeWatch } from '@adecore/agents/testing';
 import type { ProjectContent, ServerFrame } from '@ruimte/contracts';
 import { Dispatcher } from '../dispatcher.ts';
+import { askOnce } from './test-helpers.ts';
 import { peerCanvasId } from '../peering/links.ts';
 import { PeerTasks } from '../peering/peer-tasks.ts';
 import { projectLinks } from '../projects/project-file-test-helpers.ts';
@@ -92,10 +93,8 @@ afterEach(async () => {
     await rm(root, { recursive: true, force: true });
 });
 
-async function ask(type: string, payload: unknown): Promise<ServerFrame> {
-    const frames: ServerFrame[] = [];
-    await dispatcher.handle({ id: 'phone', send: (frame) => frames.push(frame) }, JSON.stringify({ id: 'request', type, payload }));
-    return frames[0]!;
+function ask(type: string, payload: unknown): Promise<ServerFrame> {
+    return askOnce(dispatcher, { id: 'phone' }, type, payload);
 }
 
 function withPeerCanvas(): ProjectContent {

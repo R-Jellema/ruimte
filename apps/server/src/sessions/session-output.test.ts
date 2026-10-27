@@ -13,7 +13,7 @@ afterEach(async () => {
 test('idle output goes immediately while a burst stays batched without losing order', async () => {
     const recorder = new Recorder();
     harness.manager.subscribe('client', recorder.sink());
-    await harness.manager.create({ sessionId: 'session', cols: 80, rows: 24, shell: '/bin/sh', args: [], cwd: harness.home });
+    await harness.create('session');
     await harness.manager.attach('session', 'client', 80, 24);
     recorder.events.length = 0;
     jest.useFakeTimers();

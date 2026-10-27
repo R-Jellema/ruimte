@@ -18,8 +18,20 @@ afterEach(async () => {
     await harness.cleanup();
 });
 
-function create(sessionId: string) {
-    return harness.manager.create({ sessionId, cols: 80, rows: 24, shell: '/bin/sh', args: [], cwd: harness.home });
+// A socket whose buffered amount a test sets, and the frames it was sent.
+function recordingSocket() {
+    const frames: ServerFrame[] = [];
+    const socket: BackpressuredSocket & { buffered: number } = {
+        buffered: 0,
+        send(data) {
+            frames.push(JSON.parse(String(data)) as ServerFrame);
+            return 1;
+        },
+        getBufferedAmount() {
+            return this.buffered;
+        }
+    };
+    return { socket, frames };
 }
 
 // Every character in a color of its own, so parsing a line costs enough that a burst outlasts one of xterm's write slices.
@@ -67,7 +79,7 @@ describe('Session.snapshotFor', () => {
     test('output emitted while an attach takes its screen is in the screen or in the stream, exactly once', async () => {
         const recorder = new Recorder();
         harness.manager.subscribe('c1', recorder.sink());
-        await create('s1');
+        await harness.create('s1');
 
         const lines = emitLines('s1', 0, 3000);
         const attaching = harness.manager.attach('s1', 'c1', 80, 24);
@@ -80,17 +92,7 @@ describe('Session.snapshotFor', () => {
     });
 
     test('a resync after dropped output repeats nothing the client was about to be sent', async () => {
-        const frames: SessionEvent[] = [];
-        const socket: BackpressuredSocket & { buffered: number } = {
-            buffered: 0,
-            send(data) {
-                frames.push(JSON.parse(String(data)) as SessionEvent);
-                return 1;
-            },
-            getBufferedAmount() {
-                return this.buffered;
-            }
-        };
+        const { socket, frames } = recordingSocket();
         const gate = new OutputGate({
             socket,
             screenOf: (sessionId, deliver) => {
@@ -103,7 +105,7 @@ describe('Session.snapshotFor', () => {
             }
         });
         harness.manager.subscribe('c1', ({ event, payload }) => gate.send({ type: 'event', event, payload } as ServerFrame));
-        await create('s1');
+        await harness.create('s1');
         const session = harness.manager.get('s1')!;
         const { screen } = await harness.manager.attach('s1', 'c1', 80, 24);
 
@@ -123,7 +125,7 @@ describe('Session.snapshotFor', () => {
         session.flush();
 
         const steps: Step[] = [{ screen }];
-        for (const frame of frames) {
+        for (const frame of frames as SessionEvent[]) {
             if (frame.event === 'session.output') {
                 steps.push({ output: frame.payload.data });
             } else if (frame.event === 'session.resync') {
@@ -135,22 +137,12 @@ describe('Session.snapshotFor', () => {
     });
 
     test('output waiting for its share when the same client attaches again is in the new screen and not the stream', async () => {
-        const frames: ServerFrame[] = [];
-        const socket: BackpressuredSocket & { buffered: number } = {
-            buffered: 0,
-            send(data) {
-                frames.push(JSON.parse(String(data)) as ServerFrame);
-                return 1;
-            },
-            getBufferedAmount() {
-                return this.buffered;
-            }
-        };
+        const { socket, frames } = recordingSocket();
         const share = { budget: 1_000, backlogChars: 1_000_000, sliceChars: 100 };
         const gate = new OutputGate({ socket, screenOf: () => false, share });
         harness.manager.subscribe('c1', ({ event, payload }) => gate.send({ type: 'event', event, payload } as ServerFrame));
         harness.manager.observeScreens('c1', (sessionId) => gate.screenTaken(sessionId));
-        await create('s1');
+        await harness.create('s1');
         const session = harness.manager.get('s1')!;
         const attach = async (id: string): Promise<void> => {
             const result = await harness.manager.attach('s1', 'c1', 80, 24);
@@ -183,7 +175,7 @@ describe('Session.snapshotFor', () => {
     test('a second attach of the same client drops what the first one had buffered', async () => {
         const recorder = new Recorder();
         harness.manager.subscribe('c1', recorder.sink());
-        await create('s1');
+        await harness.create('s1');
         await harness.manager.attach('s1', 'c1', 80, 24);
 
         const lines = emitLines('s1', 0, 10);
@@ -197,7 +189,7 @@ describe('Session.snapshotFor', () => {
     });
 
     test('a screen still being taken when its session is disposed is handed over anyway', async () => {
-        await create('s1');
+        await harness.create('s1');
         const session = harness.manager.get('s1')!;
         emitLines('s1', 0, 100);
         const screens: string[] = [];
@@ -213,7 +205,7 @@ describe('Session.snapshotFor', () => {
 
 describe('Session screens shared between clients', () => {
     test('clients that ask at the same moment share one serialization', async () => {
-        await create('s1');
+        await harness.create('s1');
         emitLines('s1', 0, 50);
         const serialize = spyOn(SerializeAddon.prototype, 'serialize');
         try {
@@ -236,7 +228,7 @@ describe('Session screens shared between clients', () => {
         const second = new Recorder();
         harness.manager.subscribe('c1', first.sink());
         harness.manager.subscribe('c2', second.sink());
-        await create('s1');
+        await harness.create('s1');
         const lines = emitLines('s1', 0, 500);
         const serialize = spyOn(SerializeAddon.prototype, 'serialize');
         try {
@@ -260,7 +252,7 @@ describe('Session screens shared between clients', () => {
 
 describe('Session.attach', () => {
     test('a client that comes back at another grid gets every line it left, through a snapshot pass and a resize', async () => {
-        await create('s1');
+        await harness.create('s1');
         await harness.manager.attach('s1', 'c1', 120, 30);
         const lines = emitLines('s1', 0, 60);
         await harness.manager.snapshotAll(true);
@@ -332,7 +324,7 @@ describe('Session screens and character widths', () => {
     }
 
     test('a screen after a resize lands on the cells of the live stream, which Unicode 11 widths make possible', async () => {
-        await create('s1');
+        await harness.create('s1');
         const output = `${WIDE_LINES.join('\r\n')}\r\nprompt \u{1f680}`;
         harness.adapter.forSession('s1').emit(output);
         harness.manager.resize('s1', 33, 24);

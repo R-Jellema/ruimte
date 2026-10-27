@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { ServerFrame } from '@ruimte/contracts';
 import { Dispatcher } from '../dispatcher.ts';
+import { askOnce } from './test-helpers.ts';
 import type { ChatManager } from '../chat/chat-manager.ts';
 import type { ProviderRegistry } from '../providers/registry.ts';
 import { registerChatHandlers } from './chat.ts';
@@ -23,10 +24,8 @@ function register(started: string[]): Dispatcher {
     return dispatcher;
 }
 
-async function ask(dispatcher: Dispatcher, type: string, payload: unknown): Promise<ServerFrame> {
-    const frames: ServerFrame[] = [];
-    await dispatcher.handle({ id: 'client', send: (frame) => frames.push(frame) }, JSON.stringify({ id: 'request', type, payload }));
-    return frames[0]!;
+function ask(dispatcher: Dispatcher, type: string, payload: unknown): Promise<ServerFrame> {
+    return askOnce(dispatcher, { id: 'client' }, type, payload);
 }
 
 describe('a chat that runs on another machine', () => {

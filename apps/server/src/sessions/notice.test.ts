@@ -17,7 +17,7 @@ afterEach(async () => {
 });
 
 async function start(sessionId: string): Promise<void> {
-    await harness.manager.create({ sessionId, cols: 80, rows: 24, cwd: harness.home });
+    await harness.create(sessionId);
     await harness.manager.attach(sessionId, 'client', 80, 24);
 }
 

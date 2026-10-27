@@ -368,12 +368,8 @@ describe('agent status via hooks', () => {
         ]);
     });
 
-    /*
-     * The bug this holds shut: a node started in accept-edits came back on the daemon's own default
-     * after a restart, because the resume line named only the session id. Claude Code 2.1.270 reads
-     * the mode and the model back out of the transcript it resumes (measured against the real CLI),
-     * but the daemon is not going to lean on that: Codex takes both from the line alone.
-     */
+    // A resume line that names only the session id lost the mode after a restart. Claude reads it back
+    // from the transcript, Codex only from the line, so the daemon puts both on the line.
     test('a node restored after a daemon restart resumes in the mode and on the model it was started in', async () => {
         const launch: AgentLaunch = { kind: 'claude', runtimeMode: 'auto-accept-edits', model: 'claude-opus-5' };
         await createAgent('s10', launch);
@@ -456,7 +452,7 @@ describe('the mode of a node no agent opened', () => {
         await createAgent('s22', { kind: 'claude', runtimeMode: 'auto-accept-edits' });
         expect(harness.adapter.forSession('s22').input).toEqual([`claude ${ALLOW} --permission-mode acceptEdits\n`]);
 
-        // Supervised puts no flag on Claude's line, so the resume reads its mode from the transcript as before.
+        // Supervised puts no flag on Claude's line, so the resume reads its mode from the transcript.
         await createAgent('s23', { kind: 'claude', resume: 'claude-1' });
         expect(harness.adapter.forSession('s23').input).toEqual([`claude ${ALLOW} --resume 'claude-1' || claude ${ALLOW}\n`]);
     });

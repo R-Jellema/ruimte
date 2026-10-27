@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { ServerFrame } from '@ruimte/contracts';
 import { Dispatcher, type ClientAccess } from '../dispatcher.ts';
+import { askOnce } from './test-helpers.ts';
 import { CustomLanguageServers } from '../language/custom.ts';
 import { MachineHome } from '../fs/machine-home.ts';
 import { LanguageHost } from '../language/host.ts';
@@ -13,7 +14,6 @@ import { registerLanguageHandlers } from './language.ts';
 
 let root: string;
 let dispatcher: Dispatcher;
-let frames: ServerFrame[];
 
 beforeEach(async () => {
     // The project folder holds the home, the way a person who opens their own home folder has it.
@@ -37,7 +37,6 @@ beforeEach(async () => {
     });
     host.subscribe('client-1', () => undefined);
     registerLanguageHandlers(dispatcher, host);
-    frames = [];
 });
 
 afterEach(async () => {
@@ -47,9 +46,8 @@ afterEach(async () => {
 const OWNER: ClientAccess = { reachability: 'loopback', sessionId: null };
 const GUEST: ClientAccess = { reachability: 'lan', sessionId: 'session-1' };
 
-async function call(type: string, payload: unknown, access?: ClientAccess): Promise<ServerFrame> {
-    await dispatcher.handle({ id: 'client-1', access, send: (frame) => frames.push(frame) }, JSON.stringify({ id: 'r1', type, payload }));
-    return frames.at(-1) as ServerFrame;
+function call(type: string, payload: unknown, access?: ClientAccess): Promise<ServerFrame> {
+    return askOnce(dispatcher, { id: 'client-1', access }, type, payload);
 }
 
 describe('language handlers', () => {

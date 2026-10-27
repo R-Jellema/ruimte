@@ -11,6 +11,7 @@ import { DatabaseConnectionStore } from '../database/connection-store.ts';
 import { DatabaseService } from '../database/database-service.ts';
 import { FakeHelper } from '../database/fake-helper.ts';
 import { Dispatcher, type ClientAccess } from '../dispatcher.ts';
+import { askOnce } from './test-helpers.ts';
 import { MachineHome } from '../fs/machine-home.ts';
 import { registerDatabaseHandlers } from './database.ts';
 
@@ -24,10 +25,8 @@ let service: DatabaseService;
 let connections: DatabaseConnectionStore;
 let passwords: DatabasePasswords;
 
-async function call(clientId: string, type: string, payload: unknown, access?: ClientAccess): Promise<ServerFrame> {
-    const frames: ServerFrame[] = [];
-    await dispatcher.handle({ id: clientId, access, send: (frame) => frames.push(frame) }, JSON.stringify({ id: 'r1', type, payload }));
-    return frames[0]!;
+function call(clientId: string, type: string, payload: unknown, access?: ClientAccess): Promise<ServerFrame> {
+    return askOnce(dispatcher, { id: clientId, access }, type, payload);
 }
 
 beforeEach(async () => {

@@ -12,13 +12,17 @@ let prepare: PrepareTerminal;
 let now = 0;
 let inserted: string[];
 
+function typed(): string {
+    return harness.adapter.spawned[0]!.typed;
+}
+
 function prompt(cwd = '/work'): void {
     harness.manager.get('shell')!.shellPrompt.connect({
         async inspect() {
-            return { cwd, empty: inserted.length === 0 && harness.adapter.spawned[0]!.typed === '' };
+            return { cwd, empty: inserted.length === 0 && typed() === '' };
         },
         async prepare(expected, command) {
-            if (expected !== cwd || inserted.length || harness.adapter.spawned[0]!.typed !== '') {
+            if (expected !== cwd || inserted.length || typed() !== '') {
                 return 'refused';
             }
             inserted.push(command);
@@ -62,10 +66,10 @@ describe('prepare terminal input', () => {
         const result = await preview();
         expect(result).toMatchObject({ command: 'echo "hello"', machine: 'Remote machine', machineId: 'owner', cwd: '/work' });
         expect(result.targets[0]).toMatchObject({ sessionId: 'shell', title: 'My terminal', cwd: '/work' });
-        expect(harness.adapter.spawned[0]!.typed).toBe('');
+        expect(typed()).toBe('');
         const chosen = result.targets[0]!.token;
         await prepare.prepare('owner', chosen, client);
-        expect(harness.adapter.spawned[0]!.typed).toBe('');
+        expect(typed()).toBe('');
         expect(inserted).toEqual(['echo "hello"']);
         await expect(prepare.prepare('owner', chosen, client)).rejects.toThrow();
         expect((await preview()).targets).toEqual([]);
@@ -75,7 +79,7 @@ describe('prepare terminal input', () => {
         const chosen = await token();
         harness.manager.write('shell', 'typed\x7f', 'another-client');
         await expect(prepare.prepare('owner', chosen, client)).rejects.toThrow();
-        expect(harness.adapter.spawned[0]!.typed).toBe('typed\x7f');
+        expect(typed()).toBe('typed\x7f');
         expect((await preview()).targets).toEqual([]);
     });
 
@@ -85,7 +89,7 @@ describe('prepare terminal input', () => {
             harness.manager.holdsForeground = async () => foreground;
             expect((await preview()).targets).toEqual([]);
             await expect(prepare.prepare('owner', chosen, client)).rejects.toThrow();
-            expect(harness.adapter.spawned[0]!.typed).toBe('');
+            expect(typed()).toBe('');
         });
     }
 
@@ -96,7 +100,7 @@ describe('prepare terminal input', () => {
             return true;
         };
         await expect(prepare.prepare('owner', chosen, client)).rejects.toThrow();
-        expect(harness.adapter.spawned[0]!.typed).toBe('mine');
+        expect(typed()).toBe('mine');
     });
 
     test('two simultaneous confirmations paste once', async () => {
@@ -104,7 +108,7 @@ describe('prepare terminal input', () => {
         const results = await Promise.allSettled([prepare.prepare('owner', chosen, client), prepare.prepare('owner', chosen, client)]);
         expect(results.map((result) => result.status).sort()).toEqual(['fulfilled', 'rejected']);
         expect(inserted).toHaveLength(1);
-        expect(harness.adapter.spawned[0]!.typed).toBe('');
+        expect(typed()).toBe('');
     });
 
     test('machine and client identity cannot be substituted', async () => {
@@ -114,7 +118,7 @@ describe('prepare terminal input', () => {
         await expect(prepare.prepare('owner', chosen, { ...client, id: 'other' })).rejects.toThrow();
         await prepare.prepare('owner', chosen, client);
         expect(inserted).toHaveLength(1);
-        expect(harness.adapter.spawned[0]!.typed).toBe('');
+        expect(typed()).toBe('');
     });
 
     for (const change of ['source', 'folder', 'project', 'exit', 'detach', 'editor', 'held', 'agent', 'expire', 'closed'] as const) {
@@ -158,7 +162,7 @@ describe('prepare terminal input', () => {
                 return true;
             };
             await expect(prepare.prepare('owner', chosen, connection)).rejects.toThrow();
-            expect(harness.adapter.spawned[0]!.typed).toBe('');
+            expect(typed()).toBe('');
         });
     }
 
@@ -180,6 +184,6 @@ describe('prepare terminal input', () => {
         host.syntax = async () => true;
         host.source = () => null;
         await expect(preview()).rejects.toThrow();
-        expect(harness.adapter.spawned[0]!.typed).toBe('');
+        expect(typed()).toBe('');
     });
 });

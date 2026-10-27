@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { LaunchConfigEntry, LaunchStartResult, LaunchStatus } from '@ruimte/contracts';
@@ -12,7 +12,8 @@ import { SessionManager } from '../sessions/manager.ts';
 import { launchSessionIdOf, LaunchRunner, PROBE_INTERVAL_MS, STOP_GRACE_MS } from './runner.ts';
 import { managerSessions } from './sessions.ts';
 import { TEST_GIT_BASH } from '../sessions/test-helpers.ts';
-import { LaunchStore } from './store.ts';
+import type { LaunchStore } from './store.ts';
+import { editLaunchOnDisk, launchStoreFor } from './test-helpers.ts';
 
 let root: string;
 let folder: string;
@@ -67,11 +68,7 @@ beforeEach(async () => {
     const approvals = new CommandApprovals(join(root, 'home'));
     await approvals.load();
     fake = new FakeWatch();
-    store = new LaunchStore({
-        projects: { folderOf: (projectId) => (projectId === 'p1' ? folder : null), worktreePaths: () => Promise.resolve([]) },
-        approvals,
-        seams: fake
-    });
+    store = launchStoreFor(folder, approvals, fake);
     adapter = new FakePtyAdapter();
     manager = new SessionManager({ adapter, env: { PATH: '/usr/bin:/bin', HOME: root, SHELL: '/bin/zsh' }, findGitBash: () => TEST_GIT_BASH });
     timers = new ManualTimers();
@@ -138,12 +135,9 @@ describe('LaunchRunner', () => {
 
     test('a changed command is held until a person approves it, and an agent cannot', async () => {
         await store.save('p1', 0, [server]);
-        const path = join(folder, '.ruimte', 'launches.json');
-        const file = JSON.parse(await readFile(path, 'utf8'));
-        file.launches[0].command = 'php -S 0.0.0.0:8000 -t web';
-        await writeFile(path, JSON.stringify(file));
-        fake.on(join(folder, '.ruimte')).emit('launches.json');
-        await fake.settle();
+        await editLaunchOnDisk(fake, folder, 'shared', (launch) => {
+            launch.command = 'php -S 0.0.0.0:8000 -t web';
+        });
 
         const held: LaunchStartResult = {
             outcome: 'held',
@@ -159,12 +153,9 @@ describe('LaunchRunner', () => {
 
     test('a launch held for a change to its variables alone names those variables', async () => {
         await store.save('p1', 0, [server]);
-        const path = join(folder, '.ruimte', 'launches.json');
-        const file = JSON.parse(await readFile(path, 'utf8'));
-        file.launches[0].env = { PATH: './shim:/usr/bin', NODE_OPTIONS: '--require ./hook.js' };
-        await writeFile(path, JSON.stringify(file));
-        fake.on(join(folder, '.ruimte')).emit('launches.json');
-        await fake.settle();
+        await editLaunchOnDisk(fake, folder, 'shared', (launch) => {
+            launch.env = { PATH: './shim:/usr/bin', NODE_OPTIONS: '--require ./hook.js' };
+        });
 
         expect(await runner.start('p1', 'run-server', { actor: 'person' })).toEqual({
             outcome: 'held',
@@ -182,12 +173,9 @@ describe('LaunchRunner', () => {
     test('a folder outside the project is refused before anything runs', async () => {
         await mkdir(join(root, 'outside'));
         await store.save('p1', 0, [tests]);
-        const path = join(folder, '.ruimte', 'private', 'launches.json');
-        const file = JSON.parse(await readFile(path, 'utf8'));
-        file.launches[0].cwd = '../outside';
-        await writeFile(path, JSON.stringify(file));
-        fake.on(join(folder, '.ruimte', 'private')).emit('launches.json');
-        await fake.settle();
+        await editLaunchOnDisk(fake, folder, 'private', (launch) => {
+            launch.cwd = '../outside';
+        });
 
         await expect(runner.start('p1', 'run-tests', { actor: 'person', approve: true })).rejects.toMatchObject({ code: 'cwd-outside-project' });
         expect(adapter.spawned).toHaveLength(0);
@@ -273,12 +261,9 @@ describe('LaunchRunner', () => {
 
     test('a launch that is not approved does not start with the project', async () => {
         await store.save('p1', 0, [{ ...tests, autostart: true }]);
-        const path = join(folder, '.ruimte', 'private', 'launches.json');
-        const file = JSON.parse(await readFile(path, 'utf8'));
-        file.launches[0].command = 'rm -rf build';
-        await writeFile(path, JSON.stringify(file));
-        fake.on(join(folder, '.ruimte', 'private')).emit('launches.json');
-        await fake.settle();
+        await editLaunchOnDisk(fake, folder, 'private', (launch) => {
+            launch.command = 'rm -rf build';
+        });
         await runner.opened('p1');
         expect(adapter.spawned).toHaveLength(0);
     });

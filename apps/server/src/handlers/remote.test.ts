@@ -7,6 +7,7 @@ import type { ServerFrame } from '@ruimte/contracts';
 import { peerStatementMessage } from '@ruimte/pulsar';
 import { generateKeyPair, signMessage } from '../auth/keys.ts';
 import { Dispatcher } from '../dispatcher.ts';
+import { askOnce } from './test-helpers.ts';
 import { projectLinks } from '../projects/project-file-test-helpers.ts';
 import { ProjectStore } from '../projects/project-store.ts';
 import { PeerMachines } from '../remote/peer-machines.ts';
@@ -121,10 +122,8 @@ afterEach(async () => {
     await rm(root, { recursive: true, force: true });
 });
 
-async function ask(type: string, payload: unknown): Promise<ServerFrame> {
-    const frames: ServerFrame[] = [];
-    await dispatcher.handle({ id: 'phone', send: (frame) => frames.push(frame) }, JSON.stringify({ id: 'request', type, payload }));
-    return frames[0]!;
+function ask(type: string, payload: unknown): Promise<ServerFrame> {
+    return askOnce(dispatcher, { id: 'phone' }, type, payload);
 }
 
 describe('the checkout a project is linked to on another machine', () => {

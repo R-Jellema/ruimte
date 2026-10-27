@@ -41,7 +41,7 @@ describe('SnapshotStore', () => {
 
 describe('snapshot and restore', () => {
     test('a snapshot of a live session restores into a new session with the marker', async () => {
-        await harness.manager.create({ sessionId: 'r1', cols: 80, rows: 24, cwd: harness.home });
+        await harness.create('r1');
         harness.adapter.forSession('r1').emit('survives\r\n');
 
         const schedule = scheduleSnapshots(harness.manager, harness.snapshots, 60_000);
@@ -56,7 +56,7 @@ describe('snapshot and restore', () => {
         try {
             const recorder = new Recorder();
             restarted.manager.subscribe('c2', recorder.sink());
-            await restarted.manager.create({ sessionId: 'r1', cols: 80, rows: 24, cwd: harness.home });
+            await restarted.create('r1');
             const attached = await restarted.manager.attach('r1', 'c2', 80, 24);
             expect(attached.screen).toContain('survives');
             expect(attached.screen).toContain(RESTORED_TEXT);
@@ -79,8 +79,8 @@ describe('snapshot and restore', () => {
                 return super.write(sessionId, screen);
             }
         })(harness.home);
-        await harness.manager.create({ sessionId: 'loud', cols: 80, rows: 24, cwd: harness.home });
-        await harness.manager.create({ sessionId: 'quiet', cols: 80, rows: 24, cwd: harness.home });
+        await harness.create('loud');
+        await harness.create('quiet');
         const schedule = scheduleSnapshots(harness.manager, store, 60_000);
         try {
             await schedule.flush();
@@ -110,7 +110,7 @@ describe('snapshot and restore', () => {
                 return super.write(sessionId, screen);
             }
         })(harness.home);
-        await harness.manager.create({ sessionId: 'r1', cols: 80, rows: 24, cwd: harness.home });
+        await harness.create('r1');
         harness.adapter.forSession('r1').emit('kept\r\n');
         const schedule = scheduleSnapshots(harness.manager, store, 60_000);
         try {
@@ -123,29 +123,23 @@ describe('snapshot and restore', () => {
     });
 
     test('a node deleted while its screen is on the way to the disk stays deleted', async () => {
-        let started = (): void => undefined;
-        const writing = new Promise<void>((resolve) => {
-            started = resolve;
-        });
-        let release = (): void => undefined;
-        const released = new Promise<void>((resolve) => {
-            release = resolve;
-        });
+        const writing = Promise.withResolvers<void>();
+        const released = Promise.withResolvers<void>();
         const store = new (class extends SnapshotStore {
             override async write(sessionId: string, screen: string): Promise<void> {
-                started();
-                await released;
+                writing.resolve();
+                await released.promise;
                 return super.write(sessionId, screen);
             }
         })(harness.home);
-        await harness.manager.create({ sessionId: 'r1', cols: 80, rows: 24, cwd: harness.home });
+        await harness.create('r1');
         harness.adapter.forSession('r1').emit('doomed\r\n');
         const schedule = scheduleSnapshots(harness.manager, store, 60_000);
         try {
             const pass = schedule.flush();
-            await writing;
+            await writing.promise;
             await harness.manager.kill('r1');
-            release();
+            released.resolve();
             await pass;
             expect(await harness.snapshots.read('r1')).toBeNull();
         } finally {
@@ -154,7 +148,7 @@ describe('snapshot and restore', () => {
     });
 
     test('a session that keeps writing waits for a quiet pass, and the final pass takes it at once', async () => {
-        await harness.manager.create({ sessionId: 'busy', cols: 80, rows: 24, cwd: harness.home });
+        await harness.create('busy');
         const pty = harness.adapter.forSession('busy');
         const takenIds = async (final: boolean): Promise<string[]> => (await harness.manager.snapshotAll(final)).map((snapshot) => snapshot.sessionId);
 
@@ -171,7 +165,7 @@ describe('snapshot and restore', () => {
     });
 
     test('a session that never goes quiet is still taken every third pass', async () => {
-        await harness.manager.create({ sessionId: 'busy', cols: 80, rows: 24, cwd: harness.home });
+        await harness.create('busy');
         const pty = harness.adapter.forSession('busy');
         const taken: number[] = [];
         for (let pass = 0; pass < 9; pass++) {

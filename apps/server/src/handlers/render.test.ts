@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { RenderSceneResultSchema, type ServerFrame } from '@ruimte/contracts';
 import { Dispatcher } from '../dispatcher.ts';
+import { askOnce } from './test-helpers.ts';
 import { FakeWatch } from '@adecore/agents/testing';
 import { DiagramStore } from '../projects/diagram-store.ts';
 import { DrawingStore } from '../projects/drawing-store.ts';
@@ -49,13 +50,8 @@ afterEach(async () => {
     await rm(root, { force: true, recursive: true });
 });
 
-async function request(type: string, payload: unknown): Promise<ServerFrame> {
-    const frames: ServerFrame[] = [];
-    await dispatcher.handle(
-        { id: 'mobile', access: { reachability: 'public', sessionId: 'paired' }, send: (frame) => frames.push(frame) },
-        JSON.stringify({ id: 'render', type, payload })
-    );
-    return frames[0]!;
+function request(type: string, payload: unknown): Promise<ServerFrame> {
+    return askOnce(dispatcher, { id: 'mobile', access: { reachability: 'public', sessionId: 'paired' } }, type, payload);
 }
 
 test('render requests read the current persisted revision through the registered stores', async () => {

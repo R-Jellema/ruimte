@@ -61,7 +61,7 @@ class FakeSampler implements ProcessSampler {
     }
 }
 
-function monitorWith(sampler: ProcessSampler | null, signals: [number, string][] = []) {
+function monitorWith(sampler: ProcessSampler | null, signals: [number, string][] = [], extra: Partial<ConstructorParameters<typeof ProcessMonitor>[0]> = {}) {
     return new ProcessMonitor({
         sampler,
         sessions: () => [{ id: 'term-1', pid: 200, exited: false, agent: null }],
@@ -71,7 +71,8 @@ function monitorWith(sampler: ProcessSampler | null, signals: [number, string][]
         reportsEnd: () => true,
         daemonPid: 100,
         uid: 501,
-        signal: (pid, signal) => signals.push([pid, signal])
+        signal: (pid, signal) => signals.push([pid, signal]),
+        ...extra
     });
 }
 
@@ -175,16 +176,7 @@ describe('signals', () => {
 
 describe('warnings', () => {
     test('an observer hears each change of the list, and only a change', () => {
-        const monitor = new ProcessMonitor({
-            sampler: new FakeSampler(),
-            sessions: () => [{ id: 'term-1', pid: 200, exited: false, agent: null }],
-            chats: () => [],
-            contextUrl: () => null,
-            reportsEnd: () => true,
-            daemonPid: 100,
-            uid: 501,
-            thresholds: { ...STUCK_THRESHOLDS, memoryBytes: 5 }
-        });
+        const monitor = monitorWith(new FakeSampler(), [], { thresholds: { ...STUCK_THRESHOLDS, memoryBytes: 5 } });
         const heard: string[][] = [];
         const stop = monitor.observeAlerts((alerts) => heard.push(alerts.map((alert) => `${alert.kind}:${alert.nodeId}`)));
         monitor.sampleNow(true);

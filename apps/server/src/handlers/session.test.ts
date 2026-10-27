@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { ServerFrame } from '@ruimte/contracts';
 import { Dispatcher } from '../dispatcher.ts';
+import { askOnce } from './test-helpers.ts';
 import { makeHarness, Recorder, type Harness } from '../sessions/test-helpers.ts';
 import { registerSessionHandlers } from './session.ts';
 
@@ -18,10 +19,8 @@ afterEach(async () => {
     await harness.cleanup();
 });
 
-async function request(clientId: string, type: string, payload: unknown): Promise<ServerFrame> {
-    const frames: ServerFrame[] = [];
-    await dispatcher.handle({ id: clientId, send: (frame) => frames.push(frame) }, JSON.stringify({ id: 'request', type, payload }));
-    return frames[0]!;
+function request(clientId: string, type: string, payload: unknown): Promise<ServerFrame> {
+    return askOnce(dispatcher, { id: clientId }, type, payload);
 }
 
 test('an attach reply precedes output buffered after its screen', async () => {

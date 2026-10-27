@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import type { ServerFrame } from '@ruimte/contracts';
 import { Dispatcher, type ClientAccess } from '../dispatcher.ts';
+import { askOnce } from './test-helpers.ts';
 import type { CliVersions } from '../providers/cli-versions.ts';
 import type { RegistryAgents } from '../providers/registry-agents.ts';
 import { registerAgentRegistryHandlers } from './agent-registry.ts';
@@ -30,7 +31,6 @@ const VERSION = {
 } as const;
 
 let dispatcher: Dispatcher;
-let frames: ServerFrame[];
 let pressed: string[];
 
 beforeEach(() => {
@@ -56,15 +56,13 @@ beforeEach(() => {
     } as unknown as CliVersions;
     dispatcher = new Dispatcher();
     registerAgentRegistryHandlers(dispatcher, agents, versions);
-    frames = [];
 });
 
 const OWNER: ClientAccess = { reachability: 'loopback', sessionId: null };
 const GUEST: ClientAccess = { reachability: 'lan', sessionId: 'session-1' };
 
-async function call(type: string, payload: unknown, access: ClientAccess): Promise<ServerFrame> {
-    await dispatcher.handle({ id: 'client-1', access, send: (frame) => frames.push(frame) }, JSON.stringify({ id: 'r1', type, payload }));
-    return frames.at(-1) as ServerFrame;
+function call(type: string, payload: unknown, access: ClientAccess): Promise<ServerFrame> {
+    return askOnce(dispatcher, { id: 'client-1', access }, type, payload);
 }
 
 describe('agent registry handlers', () => {

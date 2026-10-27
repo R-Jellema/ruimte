@@ -106,6 +106,8 @@ export interface Harness {
     snapshots: SnapshotStore;
     agents: TrackedAgentStore;
     home: string;
+    /** A session of 80 by 24 in the harness's home, unless `extra` says otherwise. */
+    create(sessionId: string, extra?: Partial<Omit<Parameters<SessionManager['create']>[0], 'sessionId'>>): ReturnType<SessionManager['create']>;
     cleanup(): Promise<void>;
 }
 
@@ -131,6 +133,7 @@ export async function makeHarness(extra: Partial<SessionManagerOptions> = {}, ov
         snapshots,
         agents,
         home,
+        create: (sessionId, extra = {}) => manager.create({ sessionId, cols: 80, rows: 24, cwd: home, ...extra }),
         async cleanup() {
             manager.killAll();
             await Promise.all(adapter.spawned.map((pty) => pty.exited));

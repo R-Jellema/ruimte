@@ -34,7 +34,7 @@ async function start(extra: Parameters<typeof makeHarness>[0]): Promise<void> {
     await writeFile(transcript, '');
     recorder = new Recorder();
     harness.manager.subscribe('c1', recorder.sink());
-    await harness.manager.create({ sessionId: 's1', cols: 80, rows: 24, cwd: harness.home });
+    await harness.create('s1');
 }
 
 beforeEach(async () => {

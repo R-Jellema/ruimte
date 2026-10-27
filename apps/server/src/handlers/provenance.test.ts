@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import type { AgentEvent } from '@adecore/agents/host';
 import type { ServerFrame } from '@ruimte/contracts';
 import { Dispatcher } from '../dispatcher.ts';
+import { askOnce } from './test-helpers.ts';
 import { MachineHome } from '../fs/machine-home.ts';
 import { ProvenanceService } from '../provenance/provenance-service.ts';
 import { registerProvenanceHandlers } from './provenance.ts';
@@ -70,10 +71,8 @@ afterEach(async () => {
     await rm(root, { recursive: true, force: true });
 });
 
-async function request(type: string, payload: unknown): Promise<ServerFrame> {
-    const frames: ServerFrame[] = [];
-    await dispatcher.handle({ id: 'client', send: (frame) => frames.push(frame) }, JSON.stringify({ id: 'request', type, payload }));
-    return frames[0]!;
+function request(type: string, payload: unknown): Promise<ServerFrame> {
+    return askOnce(dispatcher, { id: 'client' }, type, payload);
 }
 
 describe('provenance.read', () => {

@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { ServerFrame } from '@ruimte/contracts';
 import { Dispatcher, type ClientAccess } from '../dispatcher.ts';
+import { askOnce } from './test-helpers.ts';
 import { sha256, zip } from '../language/test-archives.ts';
 import { AcpServerInstall, parseAcpServerRelease } from '../providers/acp-server.ts';
 import { registerAgentServerHandlers } from './agent-servers.ts';
@@ -12,7 +13,6 @@ const ARCHIVE = zip([{ path: 'agy_acp_server.par', text: 'server' }]);
 
 let home: string;
 let dispatcher: Dispatcher;
-let frames: ServerFrame[];
 let downloads: number;
 let invalidated: string[];
 
@@ -36,7 +36,6 @@ beforeEach(async () => {
     });
     dispatcher = new Dispatcher();
     registerAgentServerHandlers(dispatcher, { of: (kind) => (kind === 'antigravity' ? server : undefined), installed: (kind) => invalidated.push(kind) });
-    frames = [];
 });
 
 afterEach(async () => {
@@ -46,9 +45,8 @@ afterEach(async () => {
 const OWNER: ClientAccess = { reachability: 'loopback', sessionId: null };
 const GUEST: ClientAccess = { reachability: 'lan', sessionId: 'session-1' };
 
-async function call(type: string, payload: unknown, access: ClientAccess): Promise<ServerFrame> {
-    await dispatcher.handle({ id: 'client-1', access, send: (frame) => frames.push(frame) }, JSON.stringify({ id: 'r1', type, payload }));
-    return frames.at(-1) as ServerFrame;
+function call(type: string, payload: unknown, access: ClientAccess): Promise<ServerFrame> {
+    return askOnce(dispatcher, { id: 'client-1', access }, type, payload);
 }
 
 describe('agent server handlers', () => {
