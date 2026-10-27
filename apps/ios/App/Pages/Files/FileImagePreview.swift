@@ -41,17 +41,24 @@ struct FileImage: Sendable {
 struct FileImageView: UIViewRepresentable {
     let image: UIImage
     let name: String
+    /// False for a page of a lightbox that swiped away, which falls back to the whole picture as Photos does.
+    var active = true
+    /// A single tap, once it is clear it was not the first of a double tap.
+    var onTap: (() -> Void)? = nil
 
     func makeUIView(context: Context) -> ZoomingImageView { ZoomingImageView() }
 
     func updateUIView(_ view: ZoomingImageView, context: Context) {
         view.show(image)
         view.imageView.accessibilityLabel = name
+        view.onTap = onTap
+        if !active { view.zoomOut() }
     }
 }
 
 final class ZoomingImageView: UIScrollView, UIScrollViewDelegate {
     let imageView = UIImageView()
+    var onTap: (() -> Void)?
     private var shown: UIImage?
     private var fittedBounds = CGSize.zero
 
@@ -68,6 +75,9 @@ final class ZoomingImageView: UIScrollView, UIScrollViewDelegate {
         let doubleTap = UITapGestureRecognizer(target: self, action: #selector(toggleZoom(_:)))
         doubleTap.numberOfTapsRequired = 2
         addGestureRecognizer(doubleTap)
+        let tap = UITapGestureRecognizer(target: self, action: #selector(tapped))
+        tap.require(toFail: doubleTap)
+        addGestureRecognizer(tap)
     }
 
     @available(*, unavailable)
@@ -111,6 +121,12 @@ final class ZoomingImageView: UIScrollView, UIScrollViewDelegate {
         let inset = UIEdgeInsets(top: vertical, left: horizontal, bottom: vertical, right: horizontal)
         if contentInset != inset { contentInset = inset }
     }
+
+    func zoomOut() {
+        if zoomScale > minimumZoomScale { setZoomScale(minimumZoomScale, animated: false) }
+    }
+
+    @objc private func tapped() { onTap?() }
 
     @objc private func toggleZoom(_ gesture: UITapGestureRecognizer) {
         if zoomScale > minimumZoomScale {

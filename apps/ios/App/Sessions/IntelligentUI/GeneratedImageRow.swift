@@ -1,5 +1,4 @@
 import CoreTransferable
-import QuickLook
 import RuimteIntelligentUI
 import RuimtePulsar
 import SwiftUI
@@ -98,9 +97,8 @@ private struct GeneratedImageReady: View {
     /// does not hold every image whole.
     @State private var thumbnail: UIImage?
     @State private var missing: String?
-    @State private var preview: URL?
-    @State private var previewFolder: URL?
-    @State private var opening = false
+    @Namespace private var namespace
+    @State private var lightbox: ChatLightboxStart?
     @State private var saving = false
     @State private var savedFlash = false
     @State private var savedPath: String?
@@ -136,13 +134,10 @@ private struct GeneratedImageReady: View {
             }
             if let problem { Text(problem).font(.footnote).foregroundStyle(MobileStyle.statusError) }
         }
-        .quickLookPreview($preview)
-        .onChange(of: preview) { _, url in
-            if url == nil { removePreviewFolder() }
-        }
-        .onDisappear {
-            preview = nil
-            removePreviewFolder()
+        .fullScreenCover(item: $lightbox) { start in
+            if let chat {
+                ChatLightbox(client: chat.client, start: start, namespace: namespace)
+            }
         }
         .task(id: attachment["id"]) { await load() }
     }
@@ -150,7 +145,7 @@ private struct GeneratedImageReady: View {
     @ViewBuilder private var picture: some View {
         let aspect = UiGeneratedImage.aspect(attachment) ?? 1
         Button {
-            Task { await openLarge() }
+            openLarge()
         } label: {
             ZStack {
                 if transparent { UiCheckerboard() } else { MobileStyle.hover }
@@ -168,6 +163,7 @@ private struct GeneratedImageReady: View {
             .overlay {
                 RoundedRectangle(cornerRadius: 14).strokeBorder(MobileStyle.border)
             }
+            .matchedTransitionSource(id: lightboxImage.id, in: namespace)
         }
         .buttonStyle(.plain)
         .disabled(thumbnail == nil)
@@ -181,7 +177,7 @@ private struct GeneratedImageReady: View {
         GlassEffectContainer(spacing: 6) {
             HStack(spacing: 6) {
                 Button {
-                    Task { await openLarge() }
+                    openLarge()
                 } label: {
                     Image(lucide: "maximize-2", size: 14).frame(width: 44, height: 44)
                 }
@@ -204,11 +200,11 @@ private struct GeneratedImageReady: View {
     }
 
     @ViewBuilder private var actions: some View {
-        Button(String(localized: "Open large"), lucideIcon: "maximize-2") { Task { await openLarge() } }
+        Button(String(localized: "Open large"), lucideIcon: "maximize-2") { openLarge() }
             .disabled(thumbnail == nil)
         if let thumbnail, let read = reader {
             ShareLink(
-                item: GeneratedImageFile(
+                item: ChatImageFile(
                     name: name, type: UTType(mimeType: attachment["mime"]?.stringValue ?? ""), data: read),
                 preview: SharePreview(name, image: Image(uiImage: thumbnail))
             ) {
@@ -254,30 +250,15 @@ private struct GeneratedImageReady: View {
         }
     }
 
-    /// Full screen with zoom and the system's share and save, from a copy that goes when the preview closes.
-    private func openLarge() async {
-        guard thumbnail != nil, preview == nil, !opening, let read = reader else { return }
-        opening = true
-        defer { opening = false }
-        do {
-            let bytes = try await read()
-            let folder = FileManager.default.temporaryDirectory.appending(
-                path: "ruimte-image-\(UUID().uuidString)", directoryHint: .isDirectory)
-            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            previewFolder = folder
-            let url = folder.appendingPathComponent(name)
-            try bytes.write(to: url, options: [.atomic, .completeFileProtection])
-            preview = url
-        } catch {
-            removePreviewFolder()
-            if !(error is CancellationError) { problem = error.localizedDescription }
-        }
+    private var lightboxImage: ChatLightboxImage {
+        ChatLightboxImage(
+            resource: .chatAttachment(chatID: chat?.chatID ?? "", id: attachment["id"]?.stringValue ?? ""),
+            name: name, mime: attachment["mime"]?.stringValue)
     }
 
-    private func removePreviewFolder() {
-        guard let previewFolder else { return }
-        try? FileManager.default.removeItem(at: previewFolder)
-        self.previewFolder = nil
+    private func openLarge() {
+        guard let thumbnail, chat != nil else { return }
+        lightbox = ChatLightboxStart(images: [lightboxImage], index: 0, placeholder: thumbnail)
     }
 
     private func save() {
@@ -296,30 +277,6 @@ private struct GeneratedImageReady: View {
                 problem = error.localizedDescription
             }
         }
-    }
-}
-
-/// The image as a file for the share sheet, in the type the attachment says it is, so Save Image and other apps
-/// take it as that image.
-private struct GeneratedImageFile: Transferable {
-    let name: String
-    let type: UTType?
-    /// Read only once the person picks where the image goes.
-    let data: @Sendable @MainActor () async throws -> Data
-
-    static var transferRepresentation: some TransferRepresentation {
-        DataRepresentation(exportedContentType: .png) { try await $0.data() }
-            .exportingCondition { $0.type == .png || $0.type == nil }
-            .suggestedFileName { $0.name }
-        DataRepresentation(exportedContentType: .jpeg) { try await $0.data() }
-            .exportingCondition { $0.type == .jpeg }
-            .suggestedFileName { $0.name }
-        DataRepresentation(exportedContentType: .webP) { try await $0.data() }
-            .exportingCondition { $0.type == .webP }
-            .suggestedFileName { $0.name }
-        DataRepresentation(exportedContentType: .image) { try await $0.data() }
-            .exportingCondition { ![UTType.png, .jpeg, .webP].contains($0.type ?? .png) }
-            .suggestedFileName { $0.name }
     }
 }
 

@@ -87,18 +87,32 @@ struct UiQuietSquare: View {
 struct UiGalleryView: View {
     let node: UiNode
     let context: UiRenderContext
+    @Environment(\.chatContent) private var chat
     @State private var wide = false
 
     private static let wideFrom: CGFloat = 420
 
+    /// The pictures a swipe in the lightbox walks, in the order of the grid.
+    private var images: [ChatLightboxImage] {
+        guard let chat else { return [] }
+        return node.children(of: "Image").compactMap { child in
+            guard child.error == nil, let attachment = child.string("attachment") else { return nil }
+            return ChatLightboxImage(
+                resource: .chatAttachment(chatID: chat.chatID, id: attachment),
+                name: child.altLabel(fallback: String(localized: "Image")))
+        }
+    }
+
     var body: some View {
         let columns = Array(repeating: GridItem(.flexible(), spacing: 8, alignment: .top), count: wide ? 3 : 2)
-        LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
-            ForEach(node.children.filter { !$0.isText }) { child in
-                if child.type == "Image" && child.error == nil {
-                    UiGalleryCell(node: child)
-                } else {
-                    UiNodeView(node: child, parent: node.type, context: context)
+        ChatImageGroupScope(images: images) {
+            LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
+                ForEach(node.children.filter { !$0.isText }) { child in
+                    if child.type == "Image" && child.error == nil {
+                        UiGalleryCell(node: child)
+                    } else {
+                        UiNodeView(node: child, parent: node.type, context: context)
+                    }
                 }
             }
         }

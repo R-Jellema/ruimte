@@ -1,5 +1,4 @@
 import Foundation
-import QuickLook
 import RuimteIntelligentUI
 import RuimtePulsar
 import RuimteTransport
@@ -413,25 +412,28 @@ struct ChatInlineImage: View {
     /// A cell of a grid: a square the picture fills, rather than the picture at its own shape.
     var square = false
     @Environment(\.chatContent) private var context
+    @Environment(\.chatImageGroup) private var group
+    @Namespace private var ownNamespace
     @State private var image: UIImage?
     @State private var failure = false
-    @State private var preview: URL?
-    @State private var downloaded: URL?
-    @State private var previewLoading = false
-    @State private var previewError: String?
+    @State private var lightbox: ChatLightboxStart?
+
+    private var lightboxImage: ChatLightboxImage { ChatLightboxImage(resource: resource, name: name) }
+    private var namespace: Namespace.ID { group?.namespace ?? ownNamespace }
 
     var body: some View {
         Group {
             if let image {
                 Button {
-                    Task { await openPreview() }
+                    open(placeholder: image)
                 } label: {
                     picture(image)
                         .clipShape(RoundedRectangle(cornerRadius: 10))
                         .overlay {
                             RoundedRectangle(cornerRadius: 10).strokeBorder(MobileStyle.hairline)
                         }
-                }.buttonStyle(.plain).disabled(previewLoading).accessibilityLabel("Preview \(name)")
+                        .matchedTransitionSource(id: lightboxImage.id, in: namespace)
+                }.buttonStyle(.plain).accessibilityLabel("Preview \(name)")
             } else if failure {
                 if square {
                     UiQuietSquare(text: name)
@@ -461,14 +463,19 @@ struct ChatInlineImage: View {
                 failure = image == nil
             } catch is CancellationError {} catch { failure = true }
         }
-        .quickLookPreview($preview)
-        .failureAlert("Image preview unavailable", $previewError)
-        .onChange(of: preview) { _, url in
-            if url == nil, let downloaded {
-                try? FileManager.default.removeItem(at: downloaded)
-                self.downloaded = nil
+        .fullScreenCover(item: $lightbox) { start in
+            if let context {
+                ChatLightbox(client: context.client, start: start, namespace: namespace)
             }
         }
+    }
+
+    /// Opens the group this thumbnail stands in when it has one, at this picture, or this picture alone.
+    private func open(placeholder: UIImage) {
+        let own = lightboxImage
+        let images = group?.images.contains { $0.id == own.id } == true ? group?.images ?? [own] : [own]
+        let index = images.firstIndex { $0.id == own.id } ?? 0
+        lightbox = ChatLightboxStart(images: images, index: index, placeholder: placeholder)
     }
 
     @ViewBuilder private func picture(_ image: UIImage) -> some View {
@@ -478,21 +485,5 @@ struct ChatInlineImage: View {
         } else {
             Image(uiImage: image).resizable().scaledToFit().frame(maxWidth: 320, maxHeight: 200)
         }
-    }
-
-    private func openPreview() async {
-        guard let context, !previewLoading else { return }
-        previewLoading = true
-        defer { previewLoading = false }
-        do {
-            let bytes = try await context.client.readResource(resource)
-            try Task.checkCancellation()
-            let ext = UTType(mimeType: bytes.mime)?.preferredFilenameExtension ?? "png"
-            let url = FileManager.default.temporaryDirectory.appendingPathComponent("ruimte-image-\(UUID().uuidString)")
-                .appendingPathExtension(ext)
-            try bytes.data.write(to: url, options: [.atomic, .completeFileProtection])
-            downloaded = url
-            preview = url
-        } catch is CancellationError {} catch { previewError = error.localizedDescription }
     }
 }

@@ -33,12 +33,21 @@ struct ChatUserMessage: View {
         return { presentation.uiChoiceRequest = UiChoiceJump(origin) }
     }
 
+    /// The pictures attached to this message, which a swipe in the lightbox walks.
+    private var images: [ChatLightboxImage] {
+        (item.attachments ?? []).filter { $0.mime.hasPrefix("image/") }.map {
+            ChatLightboxImage(resource: .chatAttachment(chatID: chatID, id: $0.id), name: $0.name, mime: $0.mime)
+        }
+    }
+
     var body: some View {
         VStack(alignment: .trailing, spacing: 8) {
-            ForEach(Array((item.attachments ?? []).enumerated()), id: \.offset) { _, attachment in
-                ChatAttachmentButton(
-                    client: client, chatID: chatID, id: attachment.id, name: attachment.name, mime: attachment.mime,
-                    size: attachment.size)
+            ChatImageGroupScope(images: images) {
+                ForEach(Array((item.attachments ?? []).enumerated()), id: \.offset) { _, attachment in
+                    ChatAttachmentButton(
+                        client: client, chatID: chatID, id: attachment.id, name: attachment.name,
+                        mime: attachment.mime, size: attachment.size)
+                }
             }
             let beside = beside
             if !beside.isEmpty {

@@ -117,6 +117,7 @@
 		43331CB8A5C3827AFBBB9861 /* UsageBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DB727CEBF3E354FC9409B25 /* UsageBackdrop.swift */; };
 		43479217FE53D8D84033CADF /* ChatTimelineSnapshots.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E1ACCE0A05A717A6F7CB302 /* ChatTimelineSnapshots.swift */; };
 		438099B9E0FC7A723C6A0E0A /* RuimteWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = A64C8B5258669EC5003FA9AB /* RuimteWidgets.swift */; };
+		43BF8F491891CA2C63BB7F71 /* ChatLightbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15D5D8FD965048EAF4842D9E /* ChatLightbox.swift */; };
 		43E8D5E328170387048A19DE /* AccountAvatar.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7E49234CBDC57F0121F7139 /* AccountAvatar.swift */; };
 		4438A2B4A36F68A2F9BF3268 /* GitRepositories.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD0B866219FA2F1AA2DEED9 /* GitRepositories.swift */; };
 		448353E96654F6A04021D11B /* GalaxyRendering.metal in Sources */ = {isa = PBXBuildFile; fileRef = 11BFE42D0BD05F39FE21A87F /* GalaxyRendering.metal */; };
@@ -529,6 +530,7 @@
 		13C495C7F630954ED25CCCA0 /* GitPrompts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitPrompts.swift; sourceTree = "<group>"; };
 		14DAA27C094FD2E2C1196975 /* image.heif */ = {isa = PBXFileReference; path = image.heif; sourceTree = "<group>"; };
 		153AD37ADA3F11EE2D4F3090 /* VoiceWaveform.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceWaveform.swift; sourceTree = "<group>"; };
+		15D5D8FD965048EAF4842D9E /* ChatLightbox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatLightbox.swift; sourceTree = "<group>"; };
 		167C6DBAC07CC45025817B07 /* FileGrep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileGrep.swift; sourceTree = "<group>"; };
 		17236BE0F16BF4DE8C134009 /* TerminalScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalScreen.swift; sourceTree = "<group>"; };
 		17A37FD46C9D7AF5C8D62B5B /* NowNewChat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowNewChat.swift; sourceTree = "<group>"; };
@@ -1632,6 +1634,7 @@
 				F5DA820F5A230279EC2E2564 /* ChatForking.swift */,
 				E452AF99CE0B23DE4D02CB90 /* ChatForkSheet.swift */,
 				588CB5F421613BFCAE091D07 /* ChatGoal.swift */,
+				15D5D8FD965048EAF4842D9E /* ChatLightbox.swift */,
 				8BC7EEB4644997BC2EAB10D4 /* ChatLimits.swift */,
 				C67F6B6A322AFD73FF85C3BE /* ChatMenuActions.swift */,
 				2FE979AE94BE836D3CC07590 /* ChatMessageIndex.swift */,
@@ -2116,6 +2119,7 @@
 				28B6EBDEDD0C41084A5FF53D /* ChatForkSheet.swift in Sources */,
 				88496043F5CA8296C720D8EC /* ChatForking.swift in Sources */,
 				EF576663DB38E8ED830F3C9C /* ChatGoal.swift in Sources */,
+				43BF8F491891CA2C63BB7F71 /* ChatLightbox.swift in Sources */,
 				E35458562536C15CF137BA7C /* ChatLimits.swift in Sources */,
 				893A5CF47B1492D565F72875 /* ChatMenuActions.swift in Sources */,
 				2DF24608A7E43F3C1AAE03FD /* ChatMessageIndex.swift in Sources */,
