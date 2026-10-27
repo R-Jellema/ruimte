@@ -59,8 +59,10 @@ const END_STATUSES: Readonly<Record<string, VoiceResponseStatus>> = {
     'response.cancelled': 'cancelled'
 };
 
-/* A code is kept only when it looks like one, so a message can never pass for it. */
-const CODE = /^[a-z][a-z0-9_-]{0,47}$/;
+/* A code is kept only when it looks like one, so a message from the service, which may quote the user, never passes for it. */
+export function voiceCodeOf(value: unknown): string | null {
+    return typeof value === 'string' && /^[a-z][a-z0-9_-]{0,47}$/.test(value) ? value : null;
+}
 
 /* Only a name from the catalog is kept; whatever else the model put in `action` is dropped. */
 export function voiceActionOf(tool: string, rawArguments: string): string | null {
@@ -81,7 +83,7 @@ export function voiceResultOf(output: Record<string, unknown>): string {
     if (output.needs_confirmation === true) {
         return 'needs_confirmation';
     }
-    return typeof output.code === 'string' && CODE.test(output.code) ? output.code : 'failed';
+    return voiceCodeOf(output.code) ?? 'failed';
 }
 
 function lengthOf(value: unknown): number {

@@ -13,7 +13,7 @@ import { machineAnswers, useMachineAnswers } from '@/transport/features';
 /*
  * How Voice talks is the machine's (`voice.preferences`), so the desktop and a phone that start Voice there
  * speak alike. A machine that keeps none falls back to this app's own settings: the language Speech to Text
- * listens for and the voice picked here, as Voice used before the machine kept them.
+ * listens for and the voice picked here.
  */
 function localVoicePreferences(): VoicePreferences {
     const { voiceLanguage, liveVoice } = useSettings.getState();

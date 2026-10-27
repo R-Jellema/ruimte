@@ -59,10 +59,7 @@ function desktopRoute(): LiveSessionRoute {
 
 type MachineRequest = <T extends RequestType>(type: T, payload: RequestMap[T]['payload']) => Promise<RequestMap[T]['result']>;
 
-/*
- * The machine of this window mints with its own key and runs every tool, the route of a phone (`voice.start`).
- * Development only: a stand-in for the phone while the iOS app is not there yet.
- */
+/* The machine of this window mints with its own key and runs every tool, the route of a phone (`voice.start`). Development only. */
 export function machineRoute(request: MachineRequest = (type, payload) => machineTransport(currentEndpointId()).request(type, payload)): LiveSessionRoute {
     const sceneId = `window-${crypto.randomUUID()}`;
     const startId = crypto.randomUUID();

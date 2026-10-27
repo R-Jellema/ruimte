@@ -70,8 +70,7 @@ export function VoiceWaveform({ phase, compact = false }: { phase: VoicePhase; c
     const displayed = useDisplayedWaveform(phase, inputBands, outputBands);
     const inputSpeaking = listening && Math.max(0, ...inputBands) > 0.06;
     const outputSpeaking = listening && Math.max(0, ...outputBands) > 0.04;
-    const inputLabel = listening ? (inputSpeaking ? 'speaking' : 'listening') : 'idle';
-    const outputLabel = listening ? (outputSpeaking ? 'speaking' : 'listening') : 'idle';
+    const activity = (speaking: boolean): string => t(`activity.${listening ? (speaking ? 'speaking' : 'listening') : 'idle'}`);
 
     return (
         <section
@@ -85,10 +84,10 @@ export function VoiceWaveform({ phase, compact = false }: { phase: VoicePhase; c
             {!compact && (
                 <div className="flex items-center justify-between text-xs font-medium tabular-nums">
                     <span className={inputSpeaking ? 'text-text' : 'text-text-muted'}>
-                        {t('speaker.person')} · {t(`activity.${inputLabel}`)}
+                        {t('speaker.person')} · {activity(inputSpeaking)}
                     </span>
                     <span className={outputSpeaking ? 'text-accent' : 'text-text-muted'}>
-                        {t('speaker.assistant')} · {t(`activity.${outputLabel}`)}
+                        {t('speaker.assistant')} · {activity(outputSpeaking)}
                     </span>
                 </div>
             )}

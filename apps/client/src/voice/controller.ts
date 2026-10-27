@@ -105,14 +105,18 @@ function appendTime(): void {
     session?.send({ type: 'session.thinking.append', delegation_id: null, content: temporalContext() });
 }
 
+function dropFollowUp(id: string): void {
+    chatFollowUps.delete(id);
+    followUpReleases.get(id)?.();
+    followUpReleases.delete(id);
+}
+
 function reportCompletion(id: string, followUp: VoiceChatFollowUp, completion: NonNullable<ReturnType<typeof chatCompletion>>): void {
     if (chatFollowUps.get(id) !== followUp || !completionDelivery) {
         return;
     }
     completionDelivery.enqueue(followUp, completion);
-    chatFollowUps.delete(id);
-    followUpReleases.get(id)?.();
-    followUpReleases.delete(id);
+    dropFollowUp(id);
     if (![...chatFollowUps.values()].some((other) => other.key === followUp.key)) {
         sessionWatch?.forget(followUp.key);
     }
@@ -214,9 +218,7 @@ function cancelChatFollowUps(key: string): void {
     sessionWatch?.forget(key);
     for (const [id, followUp] of chatFollowUps) {
         if (followUp.key === key) {
-            chatFollowUps.delete(id);
-            followUpReleases.get(id)?.();
-            followUpReleases.delete(id);
+            dropFollowUp(id);
         }
     }
     completionDelivery?.cancelChat(key);
