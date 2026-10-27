@@ -119,13 +119,17 @@ export function FindBar({
         );
     };
 
+    // The surface around the bar keeps the keyboard; Escape there would step out of it.
+    const closeFrom = (e: ReactKeyboardEvent<HTMLInputElement>): void => {
+        e.preventDefault();
+        e.stopPropagation();
+        find.close();
+    };
+
     const onKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>): void => {
         const key = keys(e);
         if (key === FIND_SHORTCUTS.close) {
-            // The surface around the bar keeps the keyboard; Escape there would step out of it.
-            e.preventDefault();
-            e.stopPropagation();
-            find.close();
+            closeFrom(e);
         } else if (key === FIND_SHORTCUTS.next || key === FIND_SHORTCUTS.previous) {
             e.preventDefault();
             if (!disabled) {
@@ -150,9 +154,7 @@ export function FindBar({
                 replacement?.onReplaceAll();
             }
         } else if (keys(e) === FIND_SHORTCUTS.close) {
-            e.preventDefault();
-            e.stopPropagation();
-            find.close();
+            closeFrom(e);
         } else if (matchesShortcut(FIND_SHORTCUTS.next, e.nativeEvent, isApplePlatform())) {
             e.preventDefault();
             if (!cannotReplace) {
@@ -181,11 +183,10 @@ export function FindBar({
         if (total === 0) {
             return t('find.none');
         }
-        return current === null
-            ? limited
-                ? t('find.countMore', { total: formatNumber(total) })
-                : formatNumber(total)
-            : t(limited ? 'find.countLimited' : 'find.count', { current: formatNumber(current + 1), total: formatNumber(total) });
+        if (current !== null) {
+            return t(limited ? 'find.countLimited' : 'find.count', { current: formatNumber(current + 1), total: formatNumber(total) });
+        }
+        return limited ? t('find.countMore', { total: formatNumber(total) }) : formatNumber(total);
     };
     const count = countOf();
 

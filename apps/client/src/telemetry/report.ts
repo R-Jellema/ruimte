@@ -24,6 +24,10 @@ function surface(): 'desktop' | 'station' | null {
     return desktop() === null ? null : 'desktop';
 }
 
+function reports(): boolean {
+    return VERSION !== '' && surface() !== null;
+}
+
 function reporter(): Promise<Reporter | null> {
     const where = surface();
     if (VERSION === '' || where === null) {
@@ -41,7 +45,7 @@ function reporter(): Promise<Reporter | null> {
 
 /* Errors and rejections nothing caught. React hands an error no boundary caught to `reportError`, which lands here as well. */
 export function startTelemetry(target: Window = window): void {
-    if (VERSION === '' || surface() === null) {
+    if (!reports()) {
         return;
     }
     target.addEventListener('error', (event) => {
@@ -58,10 +62,9 @@ export function startTelemetry(target: Window = window): void {
 
 /* A metric of `metrics.ts`; nothing outside a release of the desktop app or the station. */
 export function recordPageMetric(metric: PageMetric): void {
-    if (VERSION === '' || surface() === null) {
-        return;
+    if (reports()) {
+        void reporter().then((module) => module?.recordMetric(metric));
     }
-    void reporter().then((module) => module?.recordMetric(metric));
 }
 
 /*

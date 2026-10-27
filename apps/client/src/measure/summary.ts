@@ -18,7 +18,7 @@ export function distribution(samples: readonly number[]): Distribution {
         const rank = Math.ceil(fraction * sorted.length) - 1;
         return round(sorted[Math.min(Math.max(rank, 0), sorted.length - 1)]!);
     };
-    return { n: sorted.length, p50: at(0.5), p95: at(0.95), p99: at(0.99), max: round(sorted[sorted.length - 1]!) };
+    return { n: sorted.length, p50: at(0.5), p95: at(0.95), p99: at(0.99), max: round(sorted.at(-1)!) };
 }
 
 export function round(value: number): number {
@@ -63,9 +63,9 @@ export function heapSummary(samples: readonly HeapSample[]): HeapSummary | null 
         return null;
     }
     const used = samples.map((sample) => sample.usedBytes / MB);
-    const last = samples[samples.length - 1]!;
+    const last = samples.at(-1)!;
     return {
-        usedMb: { first: round(used[0]!), min: round(Math.min(...used)), max: round(Math.max(...used)), last: round(used[used.length - 1]!) },
+        usedMb: { first: round(used[0]!), min: round(Math.min(...used)), max: round(Math.max(...used)), last: round(used.at(-1)!) },
         totalMb: round(last.totalBytes / MB),
         limitMb: round(last.limitBytes / MB),
         samples: samples.length

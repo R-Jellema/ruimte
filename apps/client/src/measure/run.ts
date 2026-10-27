@@ -10,10 +10,13 @@ import { serverInfoOf } from '@/state/server';
 import { useToasts } from '@/state/toasts';
 import { transportFor } from '@/transport';
 
+function separatorOf(platform: string | null): string {
+    return platform === 'win32' ? '\\' : '/';
+}
+
 /* Beside the person's own work and outside `$RUIMTE_HOME`, which a file request may not write. */
 function folderFor(home: string, platform: string | null, variant: MeasureVariant): string {
-    const separator = platform === 'win32' ? '\\' : '/';
-    return [home.replace(/[\\/]+$/, ''), '.cache', 'ruimte-measure', variant].join(separator);
+    return [home.replace(/[\\/]+$/, ''), '.cache', 'ruimte-measure', variant].join(separatorOf(platform));
 }
 
 function failed(error: unknown): void {
@@ -29,11 +32,10 @@ function arrangeOnceThere(grid: string[][]): void {
             return false;
         }
         state.setActiveView(grid[0]![0]!);
-        const focus = useDocument.getState().layout?.focus;
-        if (focus) {
-            useDocument.getState().closeOtherCells(focus);
-        }
         const document = useDocument.getState();
+        if (document.layout?.focus) {
+            document.closeOtherCells(document.layout.focus);
+        }
         document.dropViewAt(grid[1]![0]!, { column: 0, cell: 0 }, 'right');
         document.dropViewAt(grid[2]![0]!, { column: 1, cell: 0 }, 'right');
         grid.forEach((column, index) => {
@@ -66,7 +68,7 @@ export async function buildMeasureScene(variant: MeasureVariant): Promise<void> 
     }
     const scene = measureScene(variant);
     const folder = folderFor(home, platform, variant);
-    const separator = platform === 'win32' ? '\\' : '/';
+    const separator = separatorOf(platform);
     try {
         const opened = await transport.request('project.open', { folder, createFolder: true, name: scene.content.name });
         const { projectId } = opened.summary;

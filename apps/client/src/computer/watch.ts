@@ -1,4 +1,5 @@
 import i18next from 'i18next';
+import type { ComputerAppGrants, ComputerApprovals, ComputerUseStatus } from '@ruimte/contracts';
 import { useComputer } from '@/state/computer';
 import { pool } from '@/transport';
 import { watchPool, type WatchablePool } from '@/transport/pool-watch';
@@ -23,23 +24,20 @@ export function startComputerWatch(source: WatchablePool = pool): () => void {
             }
         };
         i18next.on('languageChanged', onLanguage);
+        const setApprovals = (payload: ComputerApprovals): void => useComputer.getState().setApprovals(endpointId, payload.approvals);
+        const setStatus = (status: ComputerUseStatus): void => useComputer.getState().setStatus(endpointId, status);
+        const setGrants = (grants: ComputerAppGrants): void => useComputer.getState().setGrants(endpointId, grants);
         return {
             onOpen: () => {
                 // A failed ask leaves the cards and the status as they were; the next open link asks again.
-                link.request('computer.approvals', {})
-                    .then((result) => useComputer.getState().setApprovals(endpointId, result.approvals))
-                    .catch(() => undefined);
-                link.request('computer.status', {})
-                    .then((status) => useComputer.getState().setStatus(endpointId, status))
-                    .catch(() => undefined);
-                link.request('computer.grants', {})
-                    .then((grants) => useComputer.getState().setGrants(endpointId, grants))
-                    .catch(() => undefined);
+                link.request('computer.approvals', {}).then(setApprovals, () => undefined);
+                link.request('computer.status', {}).then(setStatus, () => undefined);
+                link.request('computer.grants', {}).then(setGrants, () => undefined);
             },
             subscriptions: [
-                link.on('computer.approvals', (payload) => useComputer.getState().setApprovals(endpointId, payload.approvals)),
-                link.on('computer.status', (payload) => useComputer.getState().setStatus(endpointId, payload)),
-                link.on('computer.grants', (payload) => useComputer.getState().setGrants(endpointId, payload)),
+                link.on('computer.approvals', setApprovals),
+                link.on('computer.status', setStatus),
+                link.on('computer.grants', setGrants),
                 () => i18next.off('languageChanged', onLanguage),
                 () => useComputer.getState().forget(endpointId)
             ]
