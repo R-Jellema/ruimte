@@ -1,43 +1,21 @@
 import { chatOpener } from '@adecore/agents/chat';
 import type { RoutinePicked, RoutineSkillsPayload, RoutineSkillsResult } from '@ruimte/contracts';
-import { ClientSinks } from '../client-sinks.ts';
+import { WatchedSinks } from '../client-sinks.ts';
 import { attachedReferences, type Reference } from '../context/references.ts';
 import { errorText } from '../error-text.ts';
 import { RoutineAuthorStore, RoutineRunStore } from '../routines/routine-runs.ts';
 import { RoutineError, RoutineStore } from '../routines/routine-store.ts';
 import { routineOpener, Routines } from '../routines/routines.ts';
 import { runCommand } from '../routines/command-run.ts';
-import type { SessionSink } from '../sessions/manager.ts';
 import type { AgentStores, AgentsBundle } from './agents.ts';
 import type { ArtifactsBundle } from './artifacts.ts';
 import type { LaunchesBundle } from './launches.ts';
 import type { ProjectsBundle } from './projects.ts';
 
 /* The clients that asked with `routine.watch`, who hear a project's routines change. */
-class RoutineWatchers {
-    private readonly sinks = new ClientSinks();
-    private readonly watching = new Set<string>();
-
-    subscribe(clientId: string, sink: SessionSink): () => void {
-        const unsubscribe = this.sinks.subscribe(clientId, sink);
-        return () => {
-            this.watching.delete(clientId);
-            unsubscribe();
-        };
-    }
-
-    watch(clientId: string): void {
-        this.watching.add(clientId);
-    }
-
-    unwatch(clientId: string): void {
-        this.watching.delete(clientId);
-    }
-
+class RoutineWatchers extends WatchedSinks {
     changed(projectId: string): void {
-        for (const clientId of this.watching) {
-            this.sinks.to(clientId, { event: 'routine.changed', payload: { projectId } });
-        }
+        this.emit({ event: 'routine.changed', payload: { projectId } });
     }
 }
 
@@ -168,10 +146,13 @@ export async function wireRoutines({ home, machineId, stores, agents, projects, 
             byRun: (projectId, key) => {
                 const found = versionsUnder(projectId, key);
                 const byRun = new Map<string, { artifactId: string; versionId: string; number: number }>();
-                for (const version of found?.versions ?? []) {
+                if (found === null) {
+                    return byRun;
+                }
+                for (const version of found.versions) {
                     const runId = version.provenance.runId;
                     if (runId !== undefined && !byRun.has(runId)) {
-                        byRun.set(runId, { artifactId: found!.artifact.artifactId, versionId: version.versionId, number: version.number });
+                        byRun.set(runId, { artifactId: found.artifact.artifactId, versionId: version.versionId, number: version.number });
                     }
                 }
                 return byRun;

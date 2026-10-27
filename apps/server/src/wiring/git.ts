@@ -1,5 +1,6 @@
 import type { CheckoutHost } from '../canvas/verb.ts';
 import type { EndpointIdentity } from '../endpoint-id.ts';
+import { errorText } from '../error-text.ts';
 import { SharedWatch } from '../fs/shared-watch.ts';
 import { FolderWatcher } from '../fs/watch.ts';
 import { Checkpoints } from '../git/checkpoints.ts';
@@ -43,6 +44,6 @@ export function wireGit(home: string, identity: EndpointIdentity, agents: Agents
     const merges = new WorktreeMerge(worktrees, agentsInWorktrees);
     const bundles = new BundleStore(home);
     // Nothing is in flight at start, so what an earlier run left is of no one.
-    bundles.sweep().catch((e: unknown) => console.warn('Clearing the bundles failed:', e instanceof Error ? e.message : String(e)));
+    bundles.sweep().catch((e: unknown) => console.warn('Clearing the bundles failed:', errorText(e)));
     return { watches, folders, statuses, worktrees, merges, checkouts: checkoutHost(worktrees), bundles, checkpoints: new Checkpoints(home) };
 }
