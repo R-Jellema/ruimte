@@ -11,15 +11,16 @@ const { app, net, safeStorage } = electron;
  * The page runs the login (PKCE, state, start URL); this side listens on loopback for the redirect and
  * holds the refresh token and the session key, encrypted with the OS keychain. The page only gets access tokens.
  */
-export function installLogin(ipc: AppIpc): void {
+export function installLogin(ipc: AppIpc): { signedIn(): Promise<boolean> } {
     const addressBookUrl = process.env.RUIMTE_PULSAR_URL ?? ADDRESS_BOOK_URL;
+    const store = fileSessionStore(join(app.getPath('userData'), 'pulsar-session.bin'), safeStorage);
     let pulsarVault: SessionVault | null = null;
     let pendingLogin: LoopbackLogin | null = null;
 
     const pulsarSessions = (): SessionVault => {
         pulsarVault ??= new SessionVault({
             client: new AddressBookClient({ baseUrl: addressBookUrl, fetch: (input, init) => net.fetch(input, init) }),
-            store: fileSessionStore(join(app.getPath('userData'), 'pulsar-session.bin'), safeStorage),
+            store,
             signer: fileSessionKey(join(app.getPath('userData'), 'pulsar-key.bin'), safeStorage)
         });
         return pulsarVault;
@@ -70,4 +71,7 @@ export function installLogin(ipc: AppIpc): void {
     ipc.handle('pulsar:refresh', () => pulsarSessions().refresh());
     ipc.handle('pulsar:restore', () => pulsarSessions().restore());
     ipc.handle('pulsar:sign-out', () => pulsarSessions().signOut());
+
+    // A session on disk, without asking the address book whether it still holds.
+    return { signedIn: async () => (await store.read()) !== null };
 }

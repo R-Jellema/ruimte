@@ -7,6 +7,7 @@ import { isCanvasView, isDiagramView } from '@ruimte/contracts';
 import { browserRegistry } from '@/browser/registry';
 import { CANVAS_SHORTCUTS, VIEW_SHORTCUTS } from '@/canvas/shortcuts';
 import { isApplePlatform } from '@/desktop/bridge';
+import { countCommand } from '@/desktop/usage';
 import {
     closeCellAction,
     closeTabAction,
@@ -525,10 +526,13 @@ export function useCanvasShortcuts(): void {
             const apple = isApplePlatform();
             const is: Matches = (target) => matchesShortcut(target, e, apple);
             const command = commandForKey('workspace', e, apple);
-            if (answerWindowKey(e, s, is, command, apple) || answerDiagramKey(e, command)) {
-                return;
+            if (!answerWindowKey(e, s, is, command, apple) && !answerDiagramKey(e, command)) {
+                answerCanvasKey(e, s, is, command);
             }
-            answerCanvasKey(e, s, is, command);
+            // A key counts once something acted on it; one that was let go is whatever has the focus's.
+            if (command !== null && e.defaultPrevented) {
+                countCommand(command, 'shortcut');
+            }
         };
         /* In the capture phase, because leaving the node and leaving a view of its own listen on the
            window too, and only stopping the key here keeps them from also acting on it. */

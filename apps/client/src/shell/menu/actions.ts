@@ -9,6 +9,7 @@ import {
 } from '@/actions/client-actions';
 import { focusPromptStack } from '@/canvas/prompt-stack';
 import { openForkDialog } from '@/chat/open-fork';
+import { countCommand } from '@/desktop/usage';
 import { chooseAfterSettle, chooseLaunch, chosenLaunchId, runChosenLaunch, showLaunchOutput, stopAllLaunches, stopChosenLaunch } from '@/launches/actions';
 import { useLaunches } from '@/launches/state';
 import { askViewSettings, openSessionInKind, setViewShared, showView, stepView, viewAtIndex } from '@/project/views';
@@ -123,6 +124,7 @@ export async function runPaletteCommand(id: string): Promise<void> {
 
 /* A click in the application menu. The palette's rows run through the palette, so both do the same thing. */
 export function runMenuCommand(id: string): void {
+    countCommand(id, 'menu');
     if (isMenuActionId(id)) {
         MENU_ACTIONS[id]?.();
         return;

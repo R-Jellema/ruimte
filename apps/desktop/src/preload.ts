@@ -43,6 +43,7 @@ const machineMode = modeFromArgv(process.argv);
 const localMachineBridge = {
     localSecret: (): Promise<string | null> => ipcRenderer.invoke('daemon:local-secret'),
     takeStartupMs: (): Promise<number | null> => ipcRenderer.invoke('usage:startup'),
+    countUsage: (name: string): void => ipcRenderer.send('usage:count', name),
     backgroundService: {
         state: (): Promise<BackgroundServiceState> => ipcRenderer.invoke('service:state'),
         onState: subscribe<[state: BackgroundServiceState]>('service:state'),
@@ -52,7 +53,7 @@ const localMachineBridge = {
         restartWhenIdle: (): Promise<BackgroundServiceState> => ipcRenderer.invoke('service:restart-when-idle'),
         stopMachine: (): void => ipcRenderer.send('service:stop-machine')
     }
-} satisfies Pick<DesktopBridge, 'localSecret' | 'takeStartupMs' | 'backgroundService'>;
+} satisfies Pick<DesktopBridge, 'localSecret' | 'takeStartupMs' | 'countUsage' | 'backgroundService'>;
 
 /* Quick Look reads the folder a project has on this disk, so only a shell with a machine of its own offers it. */
 const quickLookBridge = {

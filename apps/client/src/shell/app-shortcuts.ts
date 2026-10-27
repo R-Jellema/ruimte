@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { isApplePlatform } from '@/desktop/bridge';
+import { countCommand } from '@/desktop/usage';
 import { isInNodeBody } from '@/canvas/node-body';
 import { newChat } from '@/project/new-chat';
 import { canOpenWindows, openNewWindow } from '@/project/windows';
@@ -81,6 +82,7 @@ export function useAppShortcuts(): void {
             }
             e.preventDefault();
             runAppShortcut(shortcut);
+            countCommand(shortcut, 'shortcut');
         };
         window.addEventListener('keydown', onKeyDown);
         return () => window.removeEventListener('keydown', onKeyDown);

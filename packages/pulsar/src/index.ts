@@ -15,3 +15,4 @@ export * from './statement-key.ts';
 export * from './push.ts';
 export * from './usage.ts';
 export * from './usage-report.ts';
+export * from './usage-desktop.ts';

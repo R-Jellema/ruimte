@@ -240,6 +240,9 @@ export interface DesktopBridge {
     /* How long this app took from its start to now, in milliseconds, for the machine's usage counts.
        Only the first caller after a start gets it; every later one, another window too, gets null. */
     takeStartupMs?(): Promise<number | null>;
+    /* One more of a name of `USAGE_DESKTOP_COUNTERS` (`@ruimte/pulsar`) for the app's own usage counts; the shell drops any other
+       name, and counts nothing at all in a build that does not report or while the machine's switch is off. */
+    countUsage?(name: string): void;
     /* macOS owns the application-level microphone grant; the shell asks while the renderer only
        receives the result. Other platforms let Chromium handle the same request. */
     requestMicrophoneAccess?(): Promise<boolean>;

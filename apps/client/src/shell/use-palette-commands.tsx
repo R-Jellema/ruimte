@@ -9,6 +9,7 @@ import { useBrowser } from '@/browser/registry';
 import { NODE_KIND_ICONS } from '@/canvas/node-icons';
 import { viewShortcut } from '@/canvas/shortcuts';
 import { isApplePlatform } from '@/desktop/bridge';
+import { countCommand } from '@/desktop/usage';
 import { ProjectGlyph } from '@/project/ProjectGlyph';
 import { ViewGlyph } from '@/project/ViewGlyph';
 import { useViewNodes } from '@/project/view-nodes';
@@ -163,6 +164,7 @@ export function usePaletteCommands(context: PaletteContext, files: readonly Entr
         // Only a command comes back among the recents; a jump, a file, a view, a project or a setting does not.
         if (entry.section === 'actions' || entry.section === 'recent') {
             setRecents(rememberRecent(entry.id));
+            countCommand(entry.id, 'palette');
         }
         close();
         if (newWindow && entry.inNewWindow) {

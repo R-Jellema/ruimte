@@ -37,6 +37,7 @@ import { installQuickLook } from './main/quick-look';
 import { createMachine } from './main/service';
 import { installSpeech } from './main/speech';
 import { startTelemetry } from './main/telemetry';
+import { installUsage } from './main/usage';
 import { quitQuestion } from './quit-question';
 import { createReleaseNotes } from './release-notes';
 import { runSmoke } from './smoke';
@@ -380,6 +381,10 @@ function createWindow(
     });
     const id = window.id;
     const contents = window.webContents;
+    // A window back from the last session or the first of a start is no window a person opened.
+    if (origin === 'opened') {
+        usage.windowOpened();
+    }
     window.once('ready-to-show', () => (inactive ? window.showInactive() : window.show()));
     contents.on('before-input-event', (_event, input) => pageKeys.saw(input));
     window.on('closed', () => {
@@ -593,7 +598,8 @@ ipc.handle('browser:capture', async (_event, id: number) => {
 
 const secrets = installSecrets(ipc, localMachine ? (key) => handVoiceKey(machine.daemonPort, key) : null);
 installSpeech(ipc, { ruimteHome, repoRoot, send: (channel, payload) => windows.send(channel, payload), windows: () => windows.all() });
-installLogin(ipc);
+const login = installLogin(ipc);
+const usage = installUsage(ipc, { mode: machineMode, ruimteHome, signedIn: login.signedIn });
 if (localMachine && process.platform === 'darwin') {
     installQuickLook(ipc, { ruimteHome, keyOf: (window) => windows.keyOf(window) });
 }
@@ -844,6 +850,8 @@ if (!app.requestSingleInstanceLock()) {
         }
     });
 
+    app.on('will-quit', () => usage.quit());
+
     void app.whenReady().then(async () => {
         menu.setStatic();
         protocol.handle(scheme.scheme, (request) => answerAppRequest(scheme, request));
@@ -861,6 +869,7 @@ if (!app.requestSingleInstanceLock()) {
             startUpdater: () => updater.start(),
             machineReady: () => {
                 machine.ready();
+                usage.started();
                 void secrets.handOverVoiceKey();
             },
             fail: (message) => {
