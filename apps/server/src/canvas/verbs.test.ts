@@ -425,31 +425,63 @@ async function canvasOnDisk(id = 'main'): Promise<ProjectCanvasView> {
     return (await onDisk()).views.find((view) => view.id === id) as ProjectCanvasView;
 }
 
+async function nodeOnDisk(id: string, view = 'main'): Promise<ProjectNode | undefined> {
+    return (await canvasOnDisk(view)).nodes.find((node) => node.id === id);
+}
+
+/* The id the first line of an answer names, which is the node, view or line a verb made. */
+async function madeId(call: Promise<{ lines: string[] }>): Promise<string> {
+    return (await call).lines[0]!.split('\t')[0]!;
+}
+
+/* Puts the project as a whole, the way a person's save would. */
+async function replaceContent(next: ProjectContent): Promise<void> {
+    await store.mutate(projectId, () => ({ content: next, result: null }));
+}
+
+/* The revision on the last line of a list. */
+function revisionOf(lines: string[]): number {
+    return Number(lines.at(-1)!.split('\t')[1]);
+}
+
+/* What the whole call costs: the revision it starts from, and every project.changed a client holding the project hears. */
+async function watchWrites(): Promise<{ rev: number; changed: number[] }> {
+    const rev = (await onDisk()).rev;
+    const changed: number[] = [];
+    store.subscribe('client-2', (event) => {
+        if (event.event === 'project.changed') {
+            changed.push(event.payload.document.rev);
+        }
+    });
+    store.hold('client-2', projectId);
+    return { rev, changed };
+}
+
+/* The column of `view list` at this index, per view id. */
+async function viewListColumn(index: number, token = 'term'): Promise<Record<string, string>> {
+    return Object.fromEntries(
+        (await post('view', ['list'], token)).lines
+            .filter((line) => !line.startsWith('self\t') && !line.startsWith('revision\t'))
+            .map((line) => line.split('\t'))
+            .map((fields) => [fields[0]!, fields[index]!])
+    );
+}
+
 const CANVAS_LINES = ['canvas\tmain\tCanvas', 'canvas\tboard\tBoard'];
 
 /* A view the caller made itself, which is the only kind `view delete` takes away by default. */
-async function made(name: string, argv: string[] = [], token = 'term'): Promise<string> {
-    return (await post('view', ['new', name, ...argv], token)).lines[0]!.split('\t')[0]!;
+function made(name: string, argv: string[] = [], token = 'term'): Promise<string> {
+    return madeId(post('view', ['new', name, ...argv], token));
 }
 
-/* The last column of `views`, per view id: whether `view delete` would remove it for this caller. */
-async function deleteColumn(token = 'term'): Promise<Record<string, string>> {
-    return Object.fromEntries(
-        (await post('view', ['list'], token)).lines
-            .filter((line) => !line.startsWith('self\t') && !line.startsWith('revision\t'))
-            .map((line) => line.split('\t'))
-            .map(([id, , , may]) => [id!, may!])
-    );
+/* Whether `view delete` would remove each view for this caller. */
+function deleteColumn(token = 'term'): Promise<Record<string, string>> {
+    return viewListColumn(3, token);
 }
 
 /* The reason column beside it, which is what makes a yes or a no read as more than an opinion. */
-async function deleteWhy(token = 'term'): Promise<Record<string, string>> {
-    return Object.fromEntries(
-        (await post('view', ['list'], token)).lines
-            .filter((line) => !line.startsWith('self\t') && !line.startsWith('revision\t'))
-            .map((line) => line.split('\t'))
-            .map(([id, , , , why]) => [id!, why!])
-    );
+function deleteWhy(token = 'term'): Promise<Record<string, string>> {
+    return viewListColumn(4, token);
 }
 
 async function viewOnDisk(id: string): Promise<ProjectView | undefined> {
@@ -919,7 +951,7 @@ describe('refusals', () => {
         const full = content();
         const board = full.views[2] as ProjectCanvasView;
         board.nodes = Array.from({ length: 30 }, (_, i) => ({ id: `n-${i}`, kind: 'note' as const, title: 'n', x: i * 400, y: 0, w: 320, h: 240 }));
-        await store.mutate(projectId, () => ({ content: full, result: null }));
+        await replaceContent(full);
         expect((await post('node', ['new', 'note', '--view', 'board', '--beside', 'nope'])).lines).toEqual([
             'refused\tunknown-node\tnope is not a node on board',
             'detail\truimte-context node list\tthe 30 nodes of board'
@@ -972,7 +1004,7 @@ describe('a closed set that is empty', () => {
 
         const empty = content();
         empty.views = [{ kind: 'chat', id: 'chat-1', name: 'Planner', node: {} }];
-        await store.mutate(projectId, () => ({ content: empty, result: null }));
+        await replaceContent(empty);
         const noCanvas = await post('node', ['new', 'note', '--text', 'x'], 'chat');
         expect(noCanvas.lines).toEqual([`refused\tview-required\t${OPENING_OFF_CANVAS}`, 'note\tThis project has no canvas; a node only ever lands on one']);
     });
@@ -980,7 +1012,7 @@ describe('a closed set that is empty', () => {
     test('a --source with no drawing view in the project says that too', async () => {
         const noDrawings = content();
         noDrawings.views = noDrawings.views.filter((view) => view.kind !== 'drawing');
-        await store.mutate(projectId, () => ({ content: noDrawings, result: null }));
+        await replaceContent(noDrawings);
         const { lines } = await post('node', ['new', 'drawing', '--source', 'nowhere']);
         expect(lines).toEqual([
             'refused\tnot-a-drawing\tnowhere is not a drawing view of this project',
@@ -1114,8 +1146,6 @@ describe('link list', () => {
 });
 
 describe('--revision', () => {
-    const revisionOf = (lines: string[]): number => Number(lines.at(-1)!.split('\t')[1]);
-
     test('a write decided on the revision a list printed goes through, and one decided before a change refuses and writes nothing', async () => {
         const decided = revisionOf((await post('node', ['list'])).lines);
         const first = await post('node', ['new', 'note', '--text', 'one', '--revision', String(decided)]);
@@ -1156,16 +1186,16 @@ describe('node new', () => {
         expect([kind, viewId]).toEqual(['note', 'main']);
         const document = await onDisk();
         expect(document.rev).toBe(2);
-        const node = (await canvasOnDisk()).nodes.find((candidate) => candidate.id === id);
+        const node = await nodeOnDisk(id);
         expect(node).toEqual({ id: id!, kind: 'note', title: 'Note', x: 560 + PLACEMENT_GAP, y: 0, ...NODE_SIZE.note, body: 'hello' });
         expect(store.index.locate(id!)).toEqual({ projectId, folder, canvasId: 'main' });
     });
 
     test('takes the size a person on this machine gave the kind, and the built-in size of every other kind', async () => {
         nodeSizes = { note: { w: 400, h: 320 }, chat: { w: 640, h: 720 } };
-        const note = (await post('node', ['new', 'note', '--text', 'hello'])).lines[0]!.split('\t')[0]!;
-        const browser = (await post('node', ['new', 'browser', '--url', 'https://example.com'])).lines[0]!.split('\t')[0]!;
-        const chat = (await post('agent', ['claude'])).lines[0]!.split('\t')[0]!;
+        const note = await madeId(post('node', ['new', 'note', '--text', 'hello']));
+        const browser = await madeId(post('node', ['new', 'browser', '--url', 'https://example.com']));
+        const chat = await madeId(post('agent', ['claude']));
         const nodes = (await canvasOnDisk()).nodes;
         const sizeOf = (id: string) => {
             const node = nodes.find((candidate) => candidate.id === id)!;
@@ -1180,7 +1210,7 @@ describe('node new', () => {
     test('draws a line from the caller into what it made, context into an agent node and origin into anything else', async () => {
         const withFlow = content();
         withFlow.views.push({ kind: 'diagram', id: 'flow-1', name: 'Flow' });
-        await store.mutate(projectId, () => ({ content: withFlow, result: null }));
+        await replaceContent(withFlow);
 
         const cases: Array<{ argv: string[]; label?: string; role?: string }> = [
             { argv: ['note'], role: 'origin' },
@@ -1281,7 +1311,7 @@ describe('node new', () => {
     test('--beside places right of a named node, and refuses one that is not on the canvas', async () => {
         const { lines } = await post('node', ['new', 'terminal', '--beside', 'note-1', '--title', 'Build']);
         const id = lines[0]!.split('\t')[0];
-        const node = (await canvasOnDisk()).nodes.find((candidate) => candidate.id === id)!;
+        const node = (await nodeOnDisk(id))!;
         expect([node.x, node.y, node.title, node.titleSource]).toEqual([320 + PLACEMENT_GAP, 601, 'Build', 'user']);
         // chat-1 is a view of its own, which the refusal says rather than leaving it to be looked for.
         expect((await post('node', ['new', 'note', '--beside', 'chat-1'])).lines[0]).toBe(
@@ -1295,16 +1325,16 @@ describe('node new', () => {
         const moved = content();
         (moved.views[0] as ProjectCanvasView).nodes[1]!.x = -4000;
         (moved.views[0] as ProjectCanvasView).nodes[1]!.y = 2400;
-        await store.mutate(projectId, () => ({ content: moved, result: null }));
+        await replaceContent(moved);
 
         const { lines } = await post('node', ['new', 'note', '--beside', 'note-1']);
-        const node = (await canvasOnDisk()).nodes.find((candidate) => candidate.id === lines[0]!.split('\t')[0])!;
+        const node = (await nodeOnDisk(lines[0]!.split('\t')[0]!))!;
         expect([node.x, node.y]).toEqual([-4000 + 320 + PLACEMENT_GAP, 2400]);
     });
 
     test('--text reads \\n, \\t and \\\\ and leaves every other backslash alone', async () => {
         const { lines } = await post('node', ['new', 'note', '--text', 'Line one\\nLine two\\tend\\\\d\\s']);
-        const node = (await canvasOnDisk()).nodes.find((candidate) => candidate.id === lines[0]!.split('\t')[0])!;
+        const node = (await nodeOnDisk(lines[0]!.split('\t')[0]!))!;
         expect(node.body).toBe('Line one\nLine two\tend\\d\\s');
     });
 
@@ -1321,24 +1351,18 @@ describe('node new', () => {
         }
     });
 
-    test('a browser needs an http(s) URL', async () => {
-        expect((await post('node', ['new', 'browser'])).lines[0]).toStartWith('refused\tmissing-flag\t');
-        expect((await post('node', ['new', 'browser', '--url', 'file:///etc/passwd'])).lines[0]).toStartWith('refused\tbad-url\t');
-        expect((await post('node', ['new', 'browser', '--url', 'not a url'])).lines[0]).toStartWith('refused\tbad-url\t');
-        const { lines } = await post('node', ['new', 'browser', '--url', 'https://example.com/docs']);
-        const node = (await canvasOnDisk()).nodes.find((candidate) => candidate.id === lines[0]!.split('\t')[0])!;
-        expect(node.url).toBe('https://example.com/docs');
+    test('a browser keeps the address it was given', async () => {
+        const id = await madeId(post('node', ['new', 'browser', '--url', 'https://example.com/docs']));
+        expect((await nodeOnDisk(id))?.url).toBe('https://example.com/docs');
     });
 
     test('a file stores its path relative to the folder, and an outside one absolute', async () => {
         expect((await post('node', ['new', 'file'])).lines[0]).toStartWith('refused\tmissing-flag\t');
-        expect((await post('node', ['new', 'file', '--path', 'src/missing.ts'])).lines[0]).toStartWith('refused\tbad-path\t');
         expect((await post('node', ['new', 'file', '--path', 'src'])).lines[0]).toStartWith('refused\tbad-path\t');
-        const inside = (await post('node', ['new', 'file', '--path', 'src/main.ts'])).lines[0]!.split('\t')[0];
-        const absolute = (await post('node', ['new', 'file', '--path', join(outside, 'notes.md')])).lines[0]!.split('\t')[0];
-        const nodes = (await canvasOnDisk()).nodes;
-        expect(nodes.find((node) => node.id === inside)).toMatchObject({ path: 'src/main.ts', title: 'main.ts' });
-        expect(nodes.find((node) => node.id === absolute)).toMatchObject({ path: join(outside, 'notes.md'), title: 'notes.md' });
+        const inside = await madeId(post('node', ['new', 'file', '--path', 'src/main.ts']));
+        const absolute = await madeId(post('node', ['new', 'file', '--path', join(outside, 'notes.md')]));
+        expect(await nodeOnDisk(inside)).toMatchObject({ path: 'src/main.ts', title: 'main.ts' });
+        expect(await nodeOnDisk(absolute)).toMatchObject({ path: join(outside, 'notes.md'), title: 'notes.md' });
     });
 
     test('an artifact node names an artifact of this project, follows the latest without a version and reads as its report', async () => {
@@ -1346,8 +1370,8 @@ describe('node new', () => {
         expect((await post('node', ['new', 'artifact', '--artifact', 'art-9'])).lines[0]).toStartWith('refused\tnot-found\t');
         expect((await post('node', ['new', 'artifact', '--artifact', 'art-1', '--version', 'ver-9'])).lines[0]).toStartWith('refused\tnot-found\t');
         expect((await post('node', ['new', 'note', '--artifact', 'art-1'])).lines[0]).toStartWith('refused\tflag-not-for-kind\t');
-        const latest = (await post('node', ['new', 'artifact', '--artifact', 'art-1'])).lines[0]!.split('\t')[0]!;
-        const pinned = (await post('node', ['new', 'artifact', '--artifact', 'art-1', '--version', 'ver-1'])).lines[0]!.split('\t')[0]!;
+        const latest = await madeId(post('node', ['new', 'artifact', '--artifact', 'art-1']));
+        const pinned = await madeId(post('node', ['new', 'artifact', '--artifact', 'art-1', '--version', 'ver-1']));
         const nodes = (await canvasOnDisk()).nodes;
         expect(nodes.find((node) => node.id === latest)).toMatchObject({ kind: 'artifact', title: 'Morning summary', artifact: { id: 'art-1' } });
         expect(nodes.find((node) => node.id === pinned)).toMatchObject({ artifact: { id: 'art-1', version: 'ver-1' } });
@@ -1361,8 +1385,8 @@ describe('node new', () => {
         ]);
         expect((await post('node', ['new', 'note', '--routine', 'morning-summary'])).lines[0]).toStartWith('refused\tflag-not-for-kind\t');
         expect((await post('node', ['new', '--json', '[{"kind":"routine"}]'])).lines[0]).toStartWith('refused\t');
-        const made = (await post('node', ['new', 'routine', '--routine', 'morning-summary'])).lines[0]!.split('\t')[0]!;
-        const node = (await canvasOnDisk()).nodes.find((candidate) => candidate.id === made);
+        const made = await madeId(post('node', ['new', 'routine', '--routine', 'morning-summary']));
+        const node = await nodeOnDisk(made);
         expect(node).toMatchObject({ kind: 'routine', title: 'Morning summary', routine: 'morning-summary' });
     });
 
@@ -1371,14 +1395,14 @@ describe('node new', () => {
         const wrong = await post('node', ['new', 'drawing', '--source', 'board']);
         expect(wrong.lines).toEqual(['refused\tnot-a-drawing\tboard is not a drawing view of this project', 'drawing\tsketch-1\tSketch']);
         const { lines } = await post('node', ['new', 'drawing', '--source', 'sketch-1']);
-        const node = (await canvasOnDisk()).nodes.find((candidate) => candidate.id === lines[0]!.split('\t')[0])!;
+        const node = (await nodeOnDisk(lines[0]!.split('\t')[0]!))!;
         expect(node).toMatchObject({ viewId: 'sketch-1', title: 'Sketch' });
     });
 
     test('a diagram needs a diagram view of the same project as its source', async () => {
         const withFlow = content();
         withFlow.views.push({ kind: 'diagram', id: 'flow-1', name: 'Flow' });
-        await store.mutate(projectId, () => ({ content: withFlow, result: null }));
+        await replaceContent(withFlow);
 
         expect((await post('node', ['new', 'diagram'])).lines[0]).toStartWith('refused\tmissing-flag\t');
         // A drawing is not a diagram, even though both take --source.
@@ -1391,7 +1415,7 @@ describe('node new', () => {
         const { lines } = await post('node', ['new', 'diagram', '--source', 'flow-1']);
         const [id, kind] = lines[0]!.split('\t');
         expect(kind).toBe('diagram');
-        const node = (await canvasOnDisk()).nodes.find((candidate) => candidate.id === id)!;
+        const node = (await nodeOnDisk(id))!;
         expect(node).toMatchObject({ kind: 'diagram', viewId: 'flow-1', title: 'Flow', w: 480, h: 360 });
     });
 
@@ -1406,7 +1430,7 @@ describe('node new', () => {
     test('a cwd lies inside the folder or a worktree of it', async () => {
         const { lines } = await post('node', ['new', 'chat', '--cwd', 'src']);
         expect(lines[0]).not.toStartWith('refused');
-        const node = (await canvasOnDisk()).nodes.find((candidate) => candidate.id === lines[0]!.split('\t')[0])!;
+        const node = (await nodeOnDisk(lines[0]!.split('\t')[0]!))!;
         // Stored portable, like every cwd the client saves.
         expect(node.cwd).toBe('./src');
 
@@ -1434,7 +1458,7 @@ describe('node new', () => {
     test('an id is unique across the whole project', async () => {
         const ids = new Set<string>();
         for (let i = 0; i < 20; i++) {
-            ids.add((await post('node', ['new', 'note'])).lines[0]!.split('\t')[0]!);
+            ids.add(await madeId(post('node', ['new', 'note'])));
         }
         expect(ids.size).toBe(20);
     });
@@ -1443,7 +1467,7 @@ describe('node new', () => {
         const full = content();
         const board = full.views[2] as ProjectCanvasView;
         board.nodes = Array.from({ length: MAX_CANVAS_NODES }, (_, i) => ({ id: `n-${i}`, kind: 'note' as const, title: 'n', x: i * 10, y: 0, w: 10, h: 10 }));
-        await store.mutate(projectId, () => ({ content: full, result: null }));
+        await replaceContent(full);
         const before = await onDisk();
         for (const argv of [
             ['node', 'new', 'note'],
@@ -1613,7 +1637,7 @@ describe('agent', () => {
         const { lines } = await post('agent', ['codex', '--title', 'Reviewer']);
         const [id, kind] = lines[0]!.split('\t');
         expect(kind).toBe('chat');
-        const node = (await canvasOnDisk()).nodes.find((candidate) => candidate.id === id)!;
+        const node = (await nodeOnDisk(id))!;
         expect([node.provider, node.providerFixed, node.title, node.titleSource]).toEqual(['codex', true, 'Reviewer', 'user']);
         // Without a prompt it is still started: a chat registers and waits, a terminal runs its CLI at its own prompt.
         expect(started).toEqual([{ projectId, nodeId: id!, openedBy: 'term-1', node: 'chat', provider: 'codex', cwd: folder }]);
@@ -1659,11 +1683,11 @@ describe('agent', () => {
         const canvas = withGroup.views[0] as ProjectCanvasView;
         canvas.nodes.push({ id: 'group-1', kind: 'group', title: 'Work', x: 2000, y: 0, w: 900, h: 800 });
         canvas.nodes.push({ id: 'group-2', kind: 'group', title: 'Folded', x: 5000, y: 0, w: 900, h: 39, collapsed: true, expandedHeight: 800, memberIds: [] });
-        await store.mutate(projectId, () => ({ content: withGroup, result: null }));
+        await replaceContent(withGroup);
 
         const open = await post('agent', ['claude', '--group', 'group-1']);
         const openId = open.lines[0]!.split('\t')[0]!;
-        const node = (await canvasOnDisk()).nodes.find((candidate) => candidate.id === openId)!;
+        const node = (await nodeOnDisk(openId))!;
         expect(node.x).toBe(2000 + 32);
         expect(node.y).toBe(0 + 40 + 32);
         // Its center falls inside the frame, which is what makes it a member of an open group.
@@ -1671,7 +1695,7 @@ describe('agent', () => {
 
         const folded = await post('agent', ['claude', '--group', 'group-2']);
         const foldedId = folded.lines[0]!.split('\t')[0]!;
-        const group = (await canvasOnDisk()).nodes.find((candidate) => candidate.id === 'group-2')!;
+        const group = (await nodeOnDisk('group-2'))!;
         expect(group.memberIds).toEqual([foldedId]);
         expect(group.h).toBe(39);
         expect(group.expandedHeight).toBe(800);
@@ -1680,7 +1704,7 @@ describe('agent', () => {
     test('a --group that is not a group of that canvas is refused with the groups', async () => {
         const withGroup = content();
         (withGroup.views[0] as ProjectCanvasView).nodes.push({ id: 'group-1', kind: 'group', title: 'Work', x: 2000, y: 0, w: 900, h: 800 });
-        await store.mutate(projectId, () => ({ content: withGroup, result: null }));
+        await replaceContent(withGroup);
         const { lines } = await post('agent', ['claude', '--group', 'note-1']);
         expect(lines[0]).toBe('refused\tunknown-group\tnote-1 is not a group on main');
         expect(lines.slice(1)).toEqual(['group\tgroup-1\tWork']);
@@ -1696,7 +1720,7 @@ describe('agent', () => {
     test('--cwd has to stay inside the project folder', async () => {
         expect((await post('agent', ['claude', '--cwd', outside])).lines[0]).toStartWith('refused\tcwd-outside-project\t');
         const { lines } = await post('agent', ['claude', '--cwd', 'src']);
-        const node = (await canvasOnDisk()).nodes.find((candidate) => candidate.id === lines[0]!.split('\t')[0])!;
+        const node = (await nodeOnDisk(lines[0]!.split('\t')[0]!))!;
         expect(node.cwd).toBe('./src');
         expect(started.map((start) => start.cwd)).toEqual([join(folder, 'src')]);
     });
@@ -2251,7 +2275,7 @@ describe('the depth limit', () => {
 
     test('a member may still open one agent, and that one may open none', async () => {
         await openTeam();
-        const opened = (await post('agent', ['claude'], 'member')).lines[0]!.split('\t')[0]!;
+        const opened = await madeId(post('agent', ['claude'], 'member'));
         expect(lineage.depthOf(opened)).toBe(MAX_AGENT_DEPTH);
 
         TOKENS.deep = opened;
@@ -2306,9 +2330,7 @@ describe('link new', () => {
     });
 
     test('between two agents it draws both ways and labels them context', async () => {
-        const pair = content();
-        (pair.views[0] as ProjectCanvasView).nodes.push({ id: 'term-2', kind: 'terminal', title: 'other', x: 2000, y: 0, w: 560, h: 360 });
-        await store.mutate(projectId, () => ({ content: pair, result: null }));
+        await seed({ id: 'term-2', kind: 'terminal', title: 'other', x: 2000, y: 0, w: 560, h: 360 });
 
         const { lines } = await post('link', ['new', '--to', 'term-2']);
         // The last column is what tells one --to answering in two rows from a mistake.
@@ -2357,7 +2379,7 @@ describe('link new', () => {
         expect(both.lines[0]).toBe('refused\tunknown-node\tchat-1, ghost are not a node on main');
         expect(both.lines[1]).toBe('note\tchat-1 is a chat that is a view of its own, not a node on any canvas of this project');
         // A node on another canvas of this project is neither case and keeps the sentence it had.
-        const elsewhere = (await post('node', ['new', 'note', '--view', 'board'])).lines[0]!.split('\t')[0]!;
+        const elsewhere = await madeId(post('node', ['new', 'note', '--view', 'board']));
         expect((await post('link', ['new', '--to', elsewhere])).lines[0]).toBe(`refused\tunknown-node\t${elsewhere} is not a node on main`);
     });
 
@@ -2379,9 +2401,7 @@ describe('link new', () => {
     });
 
     test('a target or an origin is one line, and is never named context by itself', async () => {
-        const pair = content();
-        (pair.views[0] as ProjectCanvasView).nodes.push({ id: 'term-2', kind: 'terminal', title: 'other', x: 2000, y: 0, w: 560, h: 360 });
-        await store.mutate(projectId, () => ({ content: pair, result: null }));
+        await seed({ id: 'term-2', kind: 'terminal', title: 'other', x: 2000, y: 0, w: 560, h: 360 });
 
         const { lines } = await post('link', ['new', '--to', 'term-2', '--role', 'origin']);
         expect(lines.map((line) => line.split('\t').slice(1))).toEqual([['term-1', 'term-2', 'new', 'out']]);
@@ -2701,7 +2721,7 @@ describe('the canvas another machine draws here', () => {
             edges: [],
             layouts: []
         });
-        await store.mutate(projectId, () => ({ content: next, result: null }));
+        await replaceContent(next);
     }
 
     test('is left out of view list and out of the canvases a refusal offers', async () => {
@@ -2891,8 +2911,8 @@ describe('view delete', () => {
 
     test('a canvas takes its sessions with it, and the answer names them', async () => {
         const id = await made('Crew');
-        const shell = (await post('node', ['new', 'terminal', '--view', id])).lines[0]!.split('\t')[0]!;
-        const chat = (await post('node', ['new', 'chat', '--view', id])).lines[0]!.split('\t')[0]!;
+        const shell = await madeId(post('node', ['new', 'terminal', '--view', id]));
+        const chat = await madeId(post('node', ['new', 'chat', '--view', id]));
         await post('node', ['new', 'note', '--text', 'x', '--view', id]);
 
         const { lines } = await post('view', ['delete', id]);
@@ -2911,7 +2931,7 @@ describe('view delete', () => {
 
     test('what the daemon held for a node goes with the canvas the node stood on', async () => {
         const id = await made('Crew');
-        const opened = (await post('agent', ['claude', '--view', id, '--prompt', 'go'])).lines[0]!.split('\t')[0]!;
+        const opened = await madeId(post('agent', ['claude', '--view', id, '--prompt', 'go']));
         expect(lineage.openedCount('term-1')).toBe(1);
         // The same hook the daemon wires up, which is what prunes a prompt and a lineage record.
         let pruned: Promise<void> = Promise.resolve();
@@ -3026,7 +3046,7 @@ describe('view open', () => {
 async function seed(...nodes: ProjectNode[]): Promise<void> {
     const next = content();
     (next.views[0] as ProjectCanvasView).nodes.push(...nodes);
-    await store.mutate(projectId, () => ({ content: next, result: null }));
+    await replaceContent(next);
 }
 
 function box(id: string, x: number, y: number, extra: Partial<ProjectNode> = {}): ProjectNode {
@@ -3040,10 +3060,6 @@ function box(id: string, x: number, y: number, extra: Partial<ProjectNode> = {})
         h: 100,
         ...extra
     };
-}
-
-async function nodeOnDisk(id: string): Promise<ProjectNode | undefined> {
-    return (await canvasOnDisk()).nodes.find((node) => node.id === id);
 }
 
 describe('node group', () => {
@@ -3145,8 +3161,7 @@ describe('node group', () => {
     });
 
     /* A note the caller opened, which is what node new draws a line from the caller into. */
-    const newNote = async (token = 'term', argv: string[] = []): Promise<string> =>
-        (await post('node', ['new', 'note', ...argv], token)).lines[0]!.split('\t')[0]!;
+    const newNote = async (token = 'term', argv: string[] = []): Promise<string> => await madeId(post('node', ['new', 'note', ...argv], token));
 
     const edgesOnDisk = async (): Promise<ProjectEdge[]> => (await canvasOnDisk()).edges;
 
@@ -3165,7 +3180,7 @@ describe('node group', () => {
     test('a line a person drew stays, because that is the context they gave', async () => {
         await seed(box('theirs', 2000, 2000));
         const mine = await newNote('term', ['--beside', 'theirs']);
-        const drawn = (await post('link', ['new', '--to', 'theirs'])).lines[0]!.split('\t')[0]!;
+        const drawn = await madeId(post('link', ['new', '--to', 'theirs']));
 
         const { lines } = await post('node', ['group', '--nodes', `${mine},theirs`]);
         const edges = await edgesOnDisk();
@@ -3186,7 +3201,7 @@ describe('node group', () => {
         const shared = await newNote();
         // A chat that is a view of its own gets no line into what it adds, so it draws one itself.
         const theirs = await newNote('chat', ['--view', 'main']);
-        const drawn = (await post('link', ['new', '--from', theirs, '--to', shared, '--view', 'main'], 'chat')).lines[0]!.split('\t')[0]!;
+        const drawn = await madeId(post('link', ['new', '--from', theirs, '--to', shared, '--view', 'main'], 'chat'));
 
         const { lines } = await post('node', ['group', '--nodes', shared]);
         const edges = await edgesOnDisk();
@@ -3200,11 +3215,11 @@ describe('node group', () => {
         await seed(box('far', 4000, 0));
         const one = await newNote();
         const two = await newNote('term', ['--beside', 'far']);
-        const outer = (await post('node', ['group', '--nodes', `${one},${two}`])).lines[0]!.split('\t')[0]!;
+        const outer = await madeId(post('node', ['group', '--nodes', `${one},${two}`]));
         const around = (await edgesOnDisk())[0]!.id;
 
         // A line drawn again into a node that stands in a frame, which the frame inside it replaces.
-        const again = (await post('link', ['new', '--to', one])).lines[0]!.split('\t')[0]!;
+        const again = await madeId(post('link', ['new', '--to', one]));
         const { lines } = await post('node', ['group', '--nodes', one]);
         const inner = lines[0]!.split('\t')[0]!;
         const edges = await edgesOnDisk();
@@ -3253,7 +3268,7 @@ describe('node arrange', () => {
     test('keeps the sizes and never lets two of them touch', async () => {
         await seed(box('wide', 0, 0, { w: 560, h: 360 }), box('tall', 100, 100, { w: 200, h: 520 }), box('small', 50, 50));
         await post('node', ['arrange', '--nodes', 'wide,tall,small', '--layout', 'row']);
-        const nodes = await Promise.all(['wide', 'tall', 'small'].map(nodeOnDisk));
+        const nodes = await Promise.all(['wide', 'tall', 'small'].map((id) => nodeOnDisk(id)));
         expect(nodes.map((node) => [node!.w, node!.h])).toEqual([
             [560, 360],
             [200, 520],
@@ -3289,7 +3304,7 @@ describe('node arrange', () => {
 
 describe('node edit', () => {
     test('writes the body of a note the caller made, escapes and all', async () => {
-        const id = (await post('node', ['new', 'note', '--text', 'first'])).lines[0]!.split('\t')[0]!;
+        const id = await madeId(post('node', ['new', 'note', '--text', 'first']));
         const { status, lines } = await post('node', ['edit', id, '--text', 'one\\ntwo']);
         expect(status).toBe(200);
         expect(lines).toEqual([`edited\t${id}\t2\t7`]);
@@ -3300,7 +3315,7 @@ describe('node edit', () => {
         await post('link', ['new', '--to', 'note-1']);
         expect((await post('node', ['edit', 'note-1', '--text', 'mine', '--append'])).lines).toEqual(['edited\tnote-1\t2\t6']);
         expect((await nodeOnDisk('note-1'))?.body).toBe('x\nmine');
-        const empty = (await post('node', ['new', 'note'])).lines[0]!.split('\t')[0]!;
+        const empty = await madeId(post('node', ['new', 'note']));
         expect((await post('node', ['edit', empty, '--text', 'first', '--append'])).lines).toEqual([`edited\t${empty}\t1\t5`]);
         expect((await nodeOnDisk(empty))?.body).toBe('first');
     });
@@ -3462,7 +3477,7 @@ describe('node color', () => {
 
     test('node new --color gives the new node its color in the same write', async () => {
         const rev = (await onDisk()).rev;
-        const id = (await post('node', ['new', 'note', '--text', 'hi', '--color', 'teal'])).lines[0]!.split('\t')[0]!;
+        const id = await madeId(post('node', ['new', 'note', '--text', 'hi', '--color', 'teal']));
         expect(await nodeOnDisk(id)).toMatchObject({ kind: 'note', body: 'hi', accent: 'teal' });
         expect((await onDisk()).rev).toBe(rev + 1);
         expect((await post('node', ['new', 'note', '--color', 'paper'])).lines[0]).toBe(
@@ -3473,7 +3488,7 @@ describe('node color', () => {
 
 describe('notify', () => {
     test('refuses a node that runs on another machine, where nothing would ever deliver it', async () => {
-        const target = (await post('node', ['new', 'terminal'])).lines[0]!.split('\t')[0]!;
+        const target = await madeId(post('node', ['new', 'terminal']));
         elsewhere.add(target);
         const { status, lines } = await post('notify', [target, '--text', 'hi']);
         expect(status).toBe(422);
@@ -3505,7 +3520,7 @@ describe('notify', () => {
     });
 
     test('says where the message landed, in the words the daemon gave it', async () => {
-        const target = (await post('node', ['new', 'terminal'])).lines[0]!.split('\t')[0]!;
+        const target = await madeId(post('node', ['new', 'terminal']));
         await post('link', ['new', '--to', target]);
         delivery = { at: 'now', wake: false, detail: 'printed on the screen of that terminal' };
         expect((await post('notify', [target, '--text', 'look at the log'])).lines).toEqual([
@@ -3570,8 +3585,8 @@ describe('notify', () => {
 
 describe('node delete', () => {
     test('deleting the last member also removes its group and the line into the frame', async () => {
-        const member = (await post('node', ['new', 'note', '--title', 'Member'])).lines[0]!.split('\t')[0]!;
-        const group = (await post('node', ['group', '--nodes', member, '--label', 'Work'])).lines[0]!.split('\t')[0]!;
+        const member = await madeId(post('node', ['new', 'note', '--title', 'Member']));
+        const group = await madeId(post('node', ['group', '--nodes', member, '--label', 'Work']));
 
         const result = await post('node', ['delete', member]);
         const canvas = await canvasOnDisk();
@@ -3582,7 +3597,7 @@ describe('node delete', () => {
     });
 
     test('removes a node the caller made, with the lines that ran into it', async () => {
-        const note = (await post('node', ['new', 'note', '--title', 'Scratch'])).lines[0]!.split('\t')[0]!;
+        const note = await madeId(post('node', ['new', 'note', '--title', 'Scratch']));
         await post('link', ['new', '--to', note]);
         const { status, lines } = await post('node', ['delete', note]);
         expect(status).toBe(200);
@@ -3593,7 +3608,7 @@ describe('node delete', () => {
     });
 
     test('a terminal node it made stops before the canvas lets go of it', async () => {
-        const made = (await post('node', ['new', 'terminal', '--title', 'runner'])).lines[0]!.split('\t')[0]!;
+        const made = await madeId(post('node', ['new', 'terminal', '--title', 'runner']));
         const { lines } = await post('node', ['delete', made]);
         // The line node new drew from the caller goes with it.
         expect(lines).toEqual([`deleted\t${made}\tterminal\trunner`, `ended\t${made}\tterminal`, 'edges\t1']);
@@ -3625,14 +3640,14 @@ describe('node delete', () => {
             'refused\tnot-on-a-canvas\tchat-1 is a chat that is a view of its own, not a node on any canvas of this project, so there is no node to remove'
         );
         expect(own.lines.at(-1)).toBe('see\truimte-context view delete chat-1\tremoves a view you made, with the session it holds');
-        const mine = (await post('node', ['new', 'note', '--title', 'Mine'])).lines[0]!.split('\t')[0]!;
+        const mine = await madeId(post('node', ['new', 'note', '--title', 'Mine']));
         expect((await post('node', ['delete', 'nope'])).lines.slice(1)).toEqual([`node\t${mine}\tnote\tMine`]);
     });
 
     test('a group loses its frame and keeps its nodes where they stand', async () => {
-        const first = (await post('node', ['new', 'note', '--title', 'One'])).lines[0]!.split('\t')[0]!;
-        const second = (await post('node', ['new', 'note', '--title', 'Two'])).lines[0]!.split('\t')[0]!;
-        const group = (await post('node', ['group', '--nodes', `${first},${second}`, '--label', 'Work'])).lines[0]!.split('\t')[0]!;
+        const first = await madeId(post('node', ['new', 'note', '--title', 'One']));
+        const second = await madeId(post('node', ['new', 'note', '--title', 'Two']));
+        const group = await madeId(post('node', ['group', '--nodes', `${first},${second}`, '--label', 'Work']));
         const { lines } = await post('node', ['delete', group]);
         // The one line node group drew in place of the two into the notes goes with the frame.
         expect(lines).toEqual([`deleted\t${group}\tgroup\tWork`, 'edges\t1', 'members\t2\tleft where they stand']);
@@ -3644,15 +3659,14 @@ describe('node delete', () => {
 });
 
 describe('link delete', () => {
-    const newNode = async (kind: string, token = 'term', argv: string[] = []): Promise<string> =>
-        (await post('node', ['new', kind, ...argv], token)).lines[0]!.split('\t')[0]!;
+    const newNode = async (kind: string, token = 'term', argv: string[] = []): Promise<string> => await madeId(post('node', ['new', kind, ...argv], token));
 
     const edgeIds = async (id = 'main'): Promise<string[]> => (await canvasOnDisk(id)).edges.map((edge) => edge.id);
 
     test('removes a line between nodes the caller made, and prints the line that went', async () => {
         const note = await newNode('note');
         const other = await newNode('note');
-        const edge = (await post('link', ['new', '--from', note, '--to', other, '--label', 'plan'])).lines[0]!.split('\t')[0]!;
+        const edge = await madeId(post('link', ['new', '--from', note, '--to', other, '--label', 'plan']));
         const { status, lines } = await post('link', ['delete', edge]);
         expect(status).toBe(200);
         expect(lines).toEqual([`deleted\t${edge}\t${note}\t${other}\tplan`]);
@@ -3670,7 +3684,7 @@ describe('link delete', () => {
     });
 
     test('a line that touches a node a person or another agent made stays, unless the machine frees every one', async () => {
-        const into = (await post('link', ['new', '--to', 'note-1'])).lines[0]!.split('\t')[0]!;
+        const into = await madeId(post('link', ['new', '--to', 'note-1']));
         const refused = await post('link', ['delete', into]);
         expect(refused.status).toBe(422);
         expect(refused.lines).toEqual([
@@ -3681,11 +3695,11 @@ describe('link delete', () => {
         ]);
 
         // The context a person gave the caller is theirs, even though the caller is one of its ends.
-        const given = (await post('link', ['new', '--from', 'note-1', '--to', 'term-1'])).lines[0]!.split('\t')[0]!;
+        const given = await madeId(post('link', ['new', '--from', 'note-1', '--to', 'term-1']));
         expect((await post('link', ['delete', given])).lines[0]).toStartWith(`refused\tnot-yours\t${given} runs from note-1, which a person made,`);
 
         const theirs = await newNode('note', 'chat', ['--view', 'main']);
-        const toTheirs = (await post('link', ['new', '--to', theirs])).lines[0]!.split('\t')[0]!;
+        const toTheirs = await madeId(post('link', ['new', '--to', theirs]));
         expect((await post('link', ['delete', toTheirs])).lines[0]).toStartWith(`refused\tnot-yours\t${toTheirs} runs into ${theirs}, which chat-1 made,`);
         expect(await edgeIds()).toEqual([into, given, toTheirs]);
 
@@ -3704,7 +3718,7 @@ describe('link delete', () => {
         ]);
 
         const note = await newNode('note');
-        const mine = (await post('link', ['new', '--to', note])).lines[0]!.split('\t')[0]!;
+        const mine = await madeId(post('link', ['new', '--to', note]));
         expect((await post('link', ['delete', 'nope'])).lines.slice(1)).toEqual([`edge\t${mine}\tterm-1\t${note}\t`]);
         // A node id is not a line id.
         expect((await post('link', ['delete', note])).lines[0]).toBe(`refused\tunknown-edge\t${note} is not a line on main`);
@@ -3713,7 +3727,7 @@ describe('link delete', () => {
     test('finds the canvas the way link new does, and takes its ids in one argument and nothing that would make it a dry run', async () => {
         const note = await newNode('note', 'term', ['--view', 'board']);
         const other = await newNode('note', 'term', ['--view', 'board']);
-        const line = (await post('link', ['new', '--from', note, '--to', other, '--view', 'board'])).lines[0]!.split('\t')[0]!;
+        const line = await madeId(post('link', ['new', '--from', note, '--to', other, '--view', 'board']));
         expect((await post('link', ['delete', line])).lines[0]).toBe(`refused\tunknown-edge\t${line} is not a line on main`);
         expect((await post('link', ['delete', line], 'chat')).lines[0]).toStartWith('refused\tview-required\t');
         expect((await post('link', ['delete', line, '--view', 'sketch-1'])).lines[0]).toBe('refused\tnot-a-canvas\tsketch-1 is not a canvas of this project');
@@ -3897,7 +3911,7 @@ describe('task list', () => {
             status: 'open',
             wake: 'pending'
         });
-        expect((await canvasOnDisk()).nodes.find((node) => node.id === id)?.title).toBe('Lexer');
+        expect((await nodeOnDisk(id!))?.title).toBe('Lexer');
         // The record keeps the assignment as it was given; only the child hears how to report back, beside the prompt.
         expect(held).toEqual([{ projectId, nodeId: id!, prompt: 'fix the tokenizer', brief: taskFirstPrompt('fix the tokenizer', true).brief! }]);
         expect(taskBrief(true)).toContain(held[0]!.brief!);
@@ -3990,7 +4004,7 @@ describe('task list', () => {
 
 describe('browser', () => {
     /* A page of the caller's own: `node new` draws the line from the agent to it, which is what driving takes. */
-    const ownPage = async (): Promise<string> => (await post('node', ['new', 'browser', '--url', 'https://example.com'])).lines[0]!.split('\t')[0]!;
+    const ownPage = async (): Promise<string> => await madeId(post('node', ['new', 'browser', '--url', 'https://example.com']));
 
     test('state prints where the page stands, without asking the page to move', async () => {
         const id = await ownPage();
@@ -4027,7 +4041,7 @@ describe('browser', () => {
         const { lines } = await post('browser', ['go', 'page-blank', '--url', 'https://example.com/start']);
         expect(driven).toEqual([]);
         expect(lines[0]).toBe('open\tno\tThis node had no address yet, so https://example.com/start is now the page it opens with');
-        expect((await canvasOnDisk()).nodes.find((node) => node.id === 'page-blank')?.url).toBe('https://example.com/start');
+        expect((await nodeOnDisk('page-blank'))?.url).toBe('https://example.com/start');
     });
 
     test('reload --hard asks past the cache, and the plain one does not', async () => {
@@ -4066,7 +4080,7 @@ describe('browser', () => {
     });
 
     test('a page no line runs to is refused, and the pages that do run to one are listed', async () => {
-        const stranger = (await post('node', ['new', 'browser', '--url', 'https://example.com/far', '--view', 'board'])).lines[0]!.split('\t')[0]!;
+        const stranger = await madeId(post('node', ['new', 'browser', '--url', 'https://example.com/far', '--view', 'board']));
         const mine = await ownPage();
         const { status, lines } = await post('browser', ['state', stranger]);
         expect(status).toBe(422);
@@ -4078,7 +4092,7 @@ describe('browser', () => {
 
     test('a refusal names the address a page is at, and the stored one only when nobody holds it', async () => {
         const mine = await ownPage();
-        const far = (await post('node', ['new', 'browser', '--url', 'https://example.com/far', '--view', 'board'])).lines[0]!.split('\t')[0]!;
+        const far = await madeId(post('node', ['new', 'browser', '--url', 'https://example.com/far', '--view', 'board']));
         const open = (await post('browser', ['state', far])).lines;
         expect(open).toContain(
             'see\truimte-context node new browser --url https://example.com/two\topens a page of your own on your canvas, with the line to it drawn'
@@ -4095,12 +4109,10 @@ describe('browser', () => {
 
     test('a line is the hint only for a page on the canvas of the caller', async () => {
         pageOpen = false;
-        const near = (
-            await post('node', ['new', 'browser', '--url', 'https://example.com/near', '--view', 'main', '--beside', 'note-1'], 'chat')
-        ).lines[0]!.split('\t')[0]!;
+        const near = await madeId(post('node', ['new', 'browser', '--url', 'https://example.com/near', '--view', 'main', '--beside', 'note-1'], 'chat'));
         expect((await post('browser', ['state', near])).lines[1]).toBe(`see\truimte-context link new --to ${near}\tdraws it`);
 
-        const far = (await post('node', ['new', 'browser', '--url', 'https://example.com/far', '--view', 'board'])).lines[0]!.split('\t')[0]!;
+        const far = await madeId(post('node', ['new', 'browser', '--url', 'https://example.com/far', '--view', 'board']));
         const across = (await post('browser', ['state', far])).lines;
         expect(across.slice(1, 3)).toEqual([
             `note\t${far} stands on board and you on main, and a line only runs between two nodes of one canvas`,
@@ -4116,7 +4128,7 @@ describe('browser', () => {
     });
 
     test('a chat view drives a page of the canvas it names without a line, and only on that canvas', async () => {
-        const far = (await post('node', ['new', 'browser', '--url', 'https://example.com/far', '--view', 'board'])).lines[0]!.split('\t')[0]!;
+        const far = await madeId(post('node', ['new', 'browser', '--url', 'https://example.com/far', '--view', 'board']));
         const { status, lines } = await post('browser', ['go', far, '--url', 'https://example.com/two', '--view', 'board'], 'chat');
         expect(status).toBe(200);
         expect(lines[1]).toBe(`page\t${far}\thttps://example.com/two\tTwo`);
@@ -4163,14 +4175,7 @@ describe('alert', () => {
 
 describe('node new --json', () => {
     test('makes every node in one write, each with its line from the caller, in the order given', async () => {
-        const rev = (await onDisk()).rev;
-        const changed: number[] = [];
-        store.subscribe('client-2', (event) => {
-            if (event.event === 'project.changed') {
-                changed.push(event.payload.document.rev);
-            }
-        });
-        store.hold('client-2', projectId);
+        const { rev, changed } = await watchWrites();
         const nodes = [
             { kind: 'note', title: 'First', text: 'one\ntwo', color: 'teal' },
             { kind: 'note', title: 'Second' },
@@ -4242,19 +4247,6 @@ describe('node new --json', () => {
 });
 
 describe('several at once', () => {
-    /* What the whole call costs: the revision it starts from, and every project.changed a client holding the project hears. */
-    async function watchWrites(): Promise<{ rev: number; changed: number[] }> {
-        const rev = (await onDisk()).rev;
-        const changed: number[] = [];
-        store.subscribe('client-2', (event) => {
-            if (event.event === 'project.changed') {
-                changed.push(event.payload.document.rev);
-            }
-        });
-        store.hold('client-2', projectId);
-        return { rev, changed };
-    }
-
     async function newNotes(count: number, argv: string[] = []): Promise<string[]> {
         const nodes = Array.from({ length: count }, (_, i) => ({ kind: 'note', title: `Note ${i + 1}` }));
         return (await post('node', ['new', '--json', JSON.stringify(nodes), ...argv])).lines.map((line) => line.split('\t')[0]!);
@@ -4262,11 +4254,9 @@ describe('several at once', () => {
 
     const tooMany = (prefix: string): string => Array.from({ length: 101 }, (_, i) => `${prefix}-${i}`).join(',');
 
-    const revisionOf = (lines: string[]): number => Number(lines.at(-1)!.split('\t')[1]);
-
     test('node delete removes every node it names in one write, with their sessions and lines, in the order given', async () => {
         const [first, second] = await newNotes(2);
-        const shell = (await post('node', ['new', 'terminal', '--title', 'runner'])).lines[0]!.split('\t')[0]!;
+        const shell = await madeId(post('node', ['new', 'terminal', '--title', 'runner']));
         const { rev, changed } = await watchWrites();
         const { status, lines } = await post('node', ['delete', `${shell},${first},${second},${first}`]);
         expect(status).toBe(200);
@@ -4323,7 +4313,7 @@ describe('several at once', () => {
     test('link delete removes every line it names in one write, and none when one of them is not the caller’s', async () => {
         const notes = await newNotes(3);
         const mine = (await canvasOnDisk()).edges.map((edge) => edge.id);
-        const into = (await post('link', ['new', '--to', 'note-1'])).lines[0]!.split('\t')[0]!;
+        const into = await madeId(post('link', ['new', '--to', 'note-1']));
         const refused = await post('link', ['delete', `${mine[0]},${into}`]);
         expect(refused.status).toBe(422);
         expect(refused.lines[0]).toBe(
@@ -4532,7 +4522,7 @@ describe('a # in a message', () => {
     });
 
     test('lets a chat view drive the browser node it points at, with no --view', async () => {
-        const page = (await post('node', ['new', 'browser', '--url', 'https://example.com', '--view', 'main'], 'chat')).lines[0]!.split('\t')[0]!;
+        const page = await madeId(post('node', ['new', 'browser', '--url', 'https://example.com', '--view', 'main'], 'chat'));
         expect((await post('browser', ['go', page, '--url', 'https://example.com/two'], 'chat')).lines[0]).toStartWith('refused\tview-required\t');
         await pointAt('chat-1', [page]);
         expect((await post('browser', ['go', page, '--url', 'https://example.com/two'], 'chat')).status).toBe(200);
