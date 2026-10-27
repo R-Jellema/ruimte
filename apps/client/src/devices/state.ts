@@ -18,14 +18,6 @@ const storedCollapsedGroups = storedJson<string[], readonly string[]>(
     z.array(z.unknown()).transform((items) => items.filter((item): item is string => typeof item === 'string'))
 );
 
-function readCollapsedGroups(): readonly string[] {
-    return storedCollapsedGroups.read() ?? [];
-}
-
-function persistCollapsedGroups(keys: readonly string[]): void {
-    storedCollapsedGroups.write(keys);
-}
-
 interface EraseRequest {
     endpointId: string;
     device: DeviceInfo;
@@ -52,52 +44,56 @@ interface DevicesState {
     forget(endpointId: string): void;
 }
 
-export const useDevices = create<DevicesState>((set, get) => ({
-    byEndpoint: {},
-    recordings: {},
-    endedRecordings: {},
-    erasing: null,
-    askErase(request) {
-        set({ erasing: request });
-    },
-    markRecording(key, startedAt) {
-        const { [key]: _removed, ...others } = get().recordings;
-        const { [key]: _ended, ...stillEnded } = get().endedRecordings;
-        set({ recordings: startedAt === null ? others : { ...others, [key]: startedAt }, endedRecordings: stillEnded });
-    },
-    markRecordingEnded(key) {
-        set({ endedRecordings: { ...get().endedRecordings, [key]: true } });
-    },
-    collapsedGroups: readCollapsedGroups(),
-    collapseGroup(key, collapsed) {
-        const others = get().collapsedGroups.filter((candidate) => candidate !== key);
-        const collapsedGroups = collapsed ? [...others, key] : others;
-        persistCollapsedGroups(collapsedGroups);
-        set({ collapsedGroups });
-    },
-    setLoading(endpointId) {
-        const current = get().byEndpoint[endpointId] ?? EMPTY_DEVICE_LIST;
-        set({ byEndpoint: { ...get().byEndpoint, [endpointId]: { ...current, loading: true, error: null } } });
-    },
-    receive(endpointId, devices, unavailable) {
-        set({ byEndpoint: { ...get().byEndpoint, [endpointId]: { devices, unavailable, loaded: true, loading: false, error: null } } });
-    },
-    fail(endpointId, error) {
-        const current = get().byEndpoint[endpointId] ?? EMPTY_DEVICE_LIST;
-        set({ byEndpoint: { ...get().byEndpoint, [endpointId]: { ...current, loaded: true, loading: false, error } } });
-    },
-    patch(endpointId, device) {
-        const current = get().byEndpoint[endpointId] ?? EMPTY_DEVICE_LIST;
-        const devices = current.devices.some((candidate) => sameDevice(candidate, device))
-            ? current.devices.map((candidate) => (sameDevice(candidate, device) ? device : candidate))
-            : [...current.devices, device];
-        set({ byEndpoint: { ...get().byEndpoint, [endpointId]: { ...current, devices, error: null } } });
-    },
-    forget(endpointId) {
-        const { [endpointId]: _removed, ...byEndpoint } = get().byEndpoint;
-        set({ byEndpoint });
-    }
-}));
+export const useDevices = create<DevicesState>((set, get) => {
+    const updateList = (endpointId: string, change: (current: DeviceListState) => DeviceListState): void => {
+        set({ byEndpoint: { ...get().byEndpoint, [endpointId]: change(get().byEndpoint[endpointId] ?? EMPTY_DEVICE_LIST) } });
+    };
+
+    return {
+        byEndpoint: {},
+        recordings: {},
+        endedRecordings: {},
+        erasing: null,
+        askErase(request) {
+            set({ erasing: request });
+        },
+        markRecording(key, startedAt) {
+            const { [key]: _removed, ...others } = get().recordings;
+            const { [key]: _ended, ...stillEnded } = get().endedRecordings;
+            set({ recordings: startedAt === null ? others : { ...others, [key]: startedAt }, endedRecordings: stillEnded });
+        },
+        markRecordingEnded(key) {
+            set({ endedRecordings: { ...get().endedRecordings, [key]: true } });
+        },
+        collapsedGroups: storedCollapsedGroups.read() ?? [],
+        collapseGroup(key, collapsed) {
+            const others = get().collapsedGroups.filter((candidate) => candidate !== key);
+            const collapsedGroups = collapsed ? [...others, key] : others;
+            storedCollapsedGroups.write(collapsedGroups);
+            set({ collapsedGroups });
+        },
+        setLoading(endpointId) {
+            updateList(endpointId, (current) => ({ ...current, loading: true, error: null }));
+        },
+        receive(endpointId, devices, unavailable) {
+            updateList(endpointId, () => ({ devices, unavailable, loaded: true, loading: false, error: null }));
+        },
+        fail(endpointId, error) {
+            updateList(endpointId, (current) => ({ ...current, loaded: true, loading: false, error }));
+        },
+        patch(endpointId, device) {
+            updateList(endpointId, (current) => {
+                const known = current.devices.some((candidate) => sameDevice(candidate, device));
+                const devices = known ? current.devices.map((candidate) => (sameDevice(candidate, device) ? device : candidate)) : [...current.devices, device];
+                return { ...current, devices, error: null };
+            });
+        },
+        forget(endpointId) {
+            const { [endpointId]: _removed, ...byEndpoint } = get().byEndpoint;
+            set({ byEndpoint });
+        }
+    };
+});
 
 function sameDevice(left: Pick<DeviceInfo, 'backendId' | 'deviceId'>, right: Pick<DeviceInfo, 'backendId' | 'deviceId'>): boolean {
     return left.backendId === right.backendId && left.deviceId === right.deviceId;

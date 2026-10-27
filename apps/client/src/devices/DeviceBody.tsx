@@ -38,7 +38,7 @@ import {
 } from '@ruimte/contracts';
 import { PATHS_DRAG_TYPE } from '@/canvas/drop';
 import { useNodeHost } from '@/nodes/node-host';
-import { restartDevice } from '@/devices/control';
+import { restartDevice, runDeviceAction, toastDeviceFailure } from '@/devices/control';
 import { stopRecording } from '@/devices/device-capture';
 import { dropAction } from '@/devices/device-files';
 import { ANDROID_BUTTONS } from '@/devices/operated';
@@ -48,10 +48,9 @@ import { DeviceStream } from '@/devices/DeviceStream';
 import { failed } from '@/shell/surface-failure';
 import { useEndpointId } from '@/state/keys';
 import { useProject } from '@/state/project';
-import { useToasts } from '@/state/toasts';
 import { deviceClientFor } from '@/transport/connections';
 import { formatClockDuration } from '@adecore/ui/format';
-import { Button, ButtonGroup, ErrorBoundary, Icon, IconButton, LazyBoundary, lazyNamed, PanelEmpty, Menu, Popover, useNow, messageOf } from '@adecore/ui';
+import { Button, ButtonGroup, ErrorBoundary, Icon, IconButton, LazyBoundary, lazyNamed, PanelEmpty, Menu, Popover, useNow } from '@adecore/ui';
 
 const DeviceToolsPanel = lazyNamed(() => import('@/devices/DeviceToolsPanel'), 'DeviceToolsPanel');
 
@@ -94,17 +93,7 @@ function DeviceFoldMenu({ device }: { device: DeviceInfo }) {
     const { t } = useTranslation('machines');
     const endpointId = useEndpointId();
     const poses: readonly DeviceFoldPose[] = device.platform === 'ios' ? ['closed', 'tent', 'tabletop', 'book', 'open'] : ['closed', 'open'];
-    const fold = (value: DeviceFoldPose): void => {
-        void deviceClientFor(endpointId)
-            ?.action({ backendId: device.backendId, platform: device.platform, deviceId: device.deviceId, action: 'setFold', value })
-            .catch((error: unknown) =>
-                useToasts.getState().show({
-                    kind: 'error',
-                    title: t('device.fold.failed'),
-                    description: messageOf(error)
-                })
-            );
-    };
+    const fold = (value: DeviceFoldPose): void => runDeviceAction(endpointId, device, { action: 'setFold', value }, t('device.fold.failed'));
     return (
         <Menu.Root>
             <IconButton render={<Menu.Trigger />} icon={FoldVertical} label={t('device.fold.label')} />
@@ -136,17 +125,7 @@ function DeviceMoreMenu({ device }: { device: DeviceInfo }) {
         setRestarting(true);
         void restartDevice(deviceClientFor(endpointId), device).finally(() => setRestarting(false));
     };
-    const act = (action: 'shake' | 'memoryWarning'): void => {
-        void deviceClientFor(endpointId)
-            ?.action({ backendId: device.backendId, platform: device.platform, deviceId: device.deviceId, action })
-            .catch((error: unknown) =>
-                useToasts.getState().show({
-                    kind: 'error',
-                    title: t('device.tools.changeFailed'),
-                    description: messageOf(error)
-                })
-            );
-    };
+    const act = (action: 'shake' | 'memoryWarning'): void => runDeviceAction(endpointId, device, { action }, t('device.tools.changeFailed'));
     return (
         <Menu.Root>
             <IconButton render={<Menu.Trigger />} icon={Ellipsis} busy={restarting} label={t('device.more')} />
@@ -254,13 +233,7 @@ function DeviceRecordingBadge({ device }: { device: DeviceInfo }) {
     const stop = (): void => {
         setStopping(true);
         void stopRecording(endpointId, device)
-            .catch((error: unknown) =>
-                useToasts.getState().show({
-                    kind: 'error',
-                    title: t('device.tools.capture.recordFailed'),
-                    description: messageOf(error)
-                })
-            )
+            .catch((error: unknown) => toastDeviceFailure(t('device.tools.capture.recordFailed'), error))
             .finally(() => setStopping(false));
     };
     return (
@@ -362,9 +335,6 @@ function DeviceDropZone({ device, children }: { device: DeviceInfo; children: Re
     const [over, setOver] = useState(false);
     const tools = deviceTools(device);
     const accepts = folder !== null && (tools.includes('installApp') || tools.includes('addMedia'));
-    const fail = (description: string): void => {
-        useToasts.getState().show({ kind: 'error', title: t('device.tools.files.dropFailed'), description });
-    };
     const drop = (event: DragEvent<HTMLDivElement>): void => {
         setOver(false);
         if (!accepts || !event.dataTransfer.types.includes(PATHS_DRAG_TYPE)) {
@@ -373,12 +343,10 @@ function DeviceDropZone({ device, children }: { device: DeviceInfo; children: Re
         event.preventDefault();
         const action = dropAction(device, draggedPaths(event.dataTransfer, folder));
         if (action === null) {
-            fail(t('device.tools.files.notTaken'));
+            toastDeviceFailure(t('device.tools.files.dropFailed'), new Error(t('device.tools.files.notTaken')));
             return;
         }
-        void deviceClientFor(endpointId)
-            ?.action({ backendId: device.backendId, platform: device.platform, deviceId: device.deviceId, ...action })
-            .catch((error: unknown) => fail(messageOf(error)));
+        runDeviceAction(endpointId, device, action, t('device.tools.files.dropFailed'));
     };
     return (
         <div

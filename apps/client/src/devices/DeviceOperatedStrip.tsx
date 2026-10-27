@@ -8,9 +8,9 @@ import { operatedOf, stripLook, tapPoint, useDeviceOperated, useOperatedDevice }
 import { useResolvedDevice } from '@/devices/state';
 import { useNodeHost } from '@/nodes/node-host';
 import { useEndpointId } from '@/state/keys';
-import { useToasts } from '@/state/toasts';
+import { toastDeviceFailure } from '@/devices/control';
 import { transportFor } from '@/transport';
-import { Button, Tooltip, messageOf } from '@adecore/ui';
+import { Button, Tooltip } from '@adecore/ui';
 
 /* How long the ring of a tap stays; with motion off it stands still for as long. */
 const PING_MS = 700;
@@ -28,13 +28,9 @@ function press(endpointId: string, device: Pick<DeviceInfo, 'backendId' | 'devic
     if (!transportFor(endpointId)) {
         return;
     }
-    perform('device.control', { endpointId, backendId: device.backendId, deviceId: device.deviceId, mode }).catch((error: unknown) => {
-        useToasts.getState().show({
-            kind: 'error',
-            title: i18next.t('machines:device.operated.failed'),
-            description: messageOf(error)
-        });
-    });
+    perform('device.control', { endpointId, backendId: device.backendId, deviceId: device.deviceId, mode }).catch((error: unknown) =>
+        toastDeviceFailure(i18next.t('machines:device.operated.failed'), error)
+    );
 }
 
 /*

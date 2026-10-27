@@ -13,6 +13,7 @@ import {
     type DeviceToggleSetting,
     type DeviceTool
 } from '@ruimte/contracts';
+import type { DeviceActionBody } from '@/devices/control';
 import { copyScreenshot, placeScreenshotOnCanvas, saveScreenshot, startRecording, stopRecording } from '@/devices/device-capture';
 import { isInstallable, isMedia } from '@/devices/device-files';
 import { MachineFilePicker } from '@/devices/MachineFilePicker';
@@ -40,7 +41,8 @@ import {
     messageOf
 } from '@adecore/ui';
 
-type ActionBody = DeviceAction extends infer Action ? (Action extends DeviceAction ? Omit<Action, 'backendId' | 'platform' | 'deviceId'> : never) : never;
+/* Answers whether the device took the change. */
+type Act = (body: DeviceActionBody) => Promise<boolean>;
 
 const TEXT_SIZES: readonly DeviceTextSize[] = ['small', 'default', 'large', 'extra-large'];
 
@@ -91,8 +93,8 @@ export function DeviceToolsPanel({ device, onClose }: { device: DeviceInfo; onCl
         };
     }, [device, endpointId, t]);
 
-    /* Whether the device took the change; a refusal is shown above the tools. */
-    const act = async (body: ActionBody): Promise<boolean> => {
+    /* A refusal is shown above the tools. */
+    const act: Act = async (body) => {
         const client = deviceClientFor(endpointId);
         if (!client) {
             return false;
@@ -425,8 +427,33 @@ function ClipboardTools({ device, onError }: { device: DeviceInfo; onError: (mes
     );
 }
 
-/* How long the battery slider rests before its level is sent, so a drag sends one change and not every step. */
-const BATTERY_SETTLE_MS = 250;
+/* How long a slider rests before its value is sent, so a drag sends one change and not every step. */
+const SLIDER_SETTLE_MS = 250;
+
+/* A slider's value while it moves, sent once it rests; null once the device answered. */
+function useSettledSlider(send: (value: number) => Promise<unknown>): [number | null, (value: number) => void] {
+    const [moving, setMoving] = useState<number | null>(null);
+    const timer = useRef<number | null>(null);
+    useEffect(
+        () => () => {
+            if (timer.current !== null) {
+                window.clearTimeout(timer.current);
+            }
+        },
+        []
+    );
+    const slide = (next: number): void => {
+        setMoving(next);
+        if (timer.current !== null) {
+            window.clearTimeout(timer.current);
+        }
+        timer.current = window.setTimeout(() => {
+            timer.current = null;
+            void send(next).finally(() => setMoving(null));
+        }, SLIDER_SETTLE_MS);
+    };
+    return [moving, slide];
+}
 
 function StatusBarTools({
     device,
@@ -441,32 +468,13 @@ function StatusBarTools({
     canStatusBar: boolean;
     canBattery: boolean;
     disabled: boolean;
-    act: (body: ActionBody) => Promise<unknown>;
+    act: Act;
 }) {
     const { t } = useTranslation('machines');
-    const [level, setLevel] = useState<number | null>(null);
-    const timer = useRef<number | null>(null);
     const battery = settings?.battery;
-    const shownLevel = level ?? battery?.level ?? 100;
     const charging = battery?.charging ?? false;
-    useEffect(
-        () => () => {
-            if (timer.current !== null) {
-                window.clearTimeout(timer.current);
-            }
-        },
-        []
-    );
-    const slide = (next: number): void => {
-        setLevel(next);
-        if (timer.current !== null) {
-            window.clearTimeout(timer.current);
-        }
-        timer.current = window.setTimeout(() => {
-            timer.current = null;
-            void act({ action: 'setBattery', level: next, charging }).finally(() => setLevel(null));
-        }, BATTERY_SETTLE_MS);
-    };
+    const [level, slide] = useSettledSlider((next) => act({ action: 'setBattery', level: next, charging }));
+    const shownLevel = level ?? battery?.level ?? 100;
     return (
         <ToolSection title={t('device.tools.statusBar.title')}>
             {canStatusBar && (
@@ -514,42 +522,10 @@ function StatusBarTools({
     );
 }
 
-/* How long the hinge slider rests before its angle is sent, like the battery's. */
-const HINGE_SETTLE_MS = 250;
-
 /* The hinge as an angle, which only a simulator takes; an emulator folds through the node's fold menu alone. */
-function FoldTools({
-    device,
-    settings,
-    disabled,
-    act
-}: {
-    device: DeviceInfo;
-    settings: DeviceSettings | null;
-    disabled: boolean;
-    act: (body: ActionBody) => Promise<unknown>;
-}) {
+function FoldTools({ device, settings, disabled, act }: { device: DeviceInfo; settings: DeviceSettings | null; disabled: boolean; act: Act }) {
     const { t } = useTranslation('machines');
-    const [degrees, setDegrees] = useState<number | null>(null);
-    const timer = useRef<number | null>(null);
-    useEffect(
-        () => () => {
-            if (timer.current !== null) {
-                window.clearTimeout(timer.current);
-            }
-        },
-        []
-    );
-    const slide = (next: number): void => {
-        setDegrees(next);
-        if (timer.current !== null) {
-            window.clearTimeout(timer.current);
-        }
-        timer.current = window.setTimeout(() => {
-            timer.current = null;
-            void act({ action: 'setHinge', degrees: next }).finally(() => setDegrees(null));
-        }, HINGE_SETTLE_MS);
-    };
+    const [degrees, slide] = useSettledSlider((next) => act({ action: 'setHinge', degrees: next }));
     const panel = settings?.panel;
     return (
         <ToolSection title={t('device.fold.title')}>
@@ -578,17 +554,7 @@ function FoldTools({
     );
 }
 
-function BiometricTools({
-    device,
-    settings,
-    disabled,
-    act
-}: {
-    device: DeviceInfo;
-    settings: DeviceSettings | null;
-    disabled: boolean;
-    act: (body: ActionBody) => Promise<unknown>;
-}) {
+function BiometricTools({ device, settings, disabled, act }: { device: DeviceInfo; settings: DeviceSettings | null; disabled: boolean; act: Act }) {
     const { t } = useTranslation('machines');
     // Android has a fingerprint to touch on an emulator only, and enrolls it in its own Settings.
     const sensors: ReadonlyArray<'face' | 'finger'> = device.platform === 'ios' ? ['face', 'finger'] : ['finger'];
@@ -627,7 +593,7 @@ function BiometricTools({
 }
 
 /* What one app sees through the simulator's camera: a test pattern or a picture or video from the machine. */
-function CameraTools({ appIdPlaceholder, disabled, act }: { appIdPlaceholder: string; disabled: boolean; act: (body: ActionBody) => Promise<boolean> }) {
+function CameraTools({ appIdPlaceholder, disabled, act }: { appIdPlaceholder: string; disabled: boolean; act: Act }) {
     const { t } = useTranslation('machines');
     const endpointId = useEndpointId();
     const folder = useProject((state) => state.current?.folder ?? null);
@@ -712,7 +678,7 @@ function InstallTools({
     canInstall: boolean;
     canMedia: boolean;
     disabled: boolean;
-    act: (body: ActionBody) => Promise<unknown>;
+    act: Act;
 }) {
     const { t } = useTranslation('machines');
     const endpointId = useEndpointId();
@@ -779,7 +745,7 @@ function SettingToggle({
     setting: DeviceToggleSetting;
     value: boolean | undefined;
     disabled: boolean;
-    act: (body: ActionBody) => Promise<unknown>;
+    act: Act;
 }) {
     return (
         <ToolRow label={label}>
@@ -830,17 +796,7 @@ function TextAction({
     );
 }
 
-function LocationTools({
-    canSet,
-    canClear,
-    disabled,
-    act
-}: {
-    canSet: boolean;
-    canClear: boolean;
-    disabled: boolean;
-    act: (body: ActionBody) => Promise<unknown>;
-}) {
+function LocationTools({ canSet, canClear, disabled, act }: { canSet: boolean; canClear: boolean; disabled: boolean; act: Act }) {
     const { t } = useTranslation('machines');
     const [latitude, setLatitude] = useState('');
     const [longitude, setLongitude] = useState('');
@@ -912,6 +868,8 @@ function LocationTools({
     );
 }
 
+const DECISIONS = ['grant', 'revoke', 'reset'] as const;
+
 function PermissionTools({
     permissions,
     appIdPlaceholder,
@@ -921,23 +879,42 @@ function PermissionTools({
     permissions: DevicePermission[];
     appIdPlaceholder: string;
     disabled: boolean;
-    act: (body: ActionBody) => Promise<unknown>;
+    act: Act;
 }) {
     const { t } = useTranslation('machines');
     const [appId, setAppId] = useState('');
     const [permission, setPermission] = useState<DevicePermission>(permissions[0]!);
-    const decide = (decision: 'grant' | 'revoke' | 'reset'): void => {
-        const resolved = appId.trim();
-        if (resolved) {
-            void act({ action: 'setPermission', appId: resolved, permission, decision });
+    const app = appId.trim();
+    const decide = (decision: (typeof DECISIONS)[number], all: boolean): void => {
+        if (app) {
+            void act(all ? { action: 'setAllPermissions', appId: app, decision } : { action: 'setPermission', appId: app, permission, decision });
         }
     };
-    const decideAll = (decision: 'grant' | 'revoke' | 'reset'): void => {
-        const resolved = appId.trim();
-        if (resolved) {
-            void act({ action: 'setAllPermissions', appId: resolved, decision });
-        }
-    };
+    const row = (all: boolean): ReactNode => (
+        <div className="flex flex-wrap gap-1.5">
+            {!all && (
+                <Select<DevicePermission>
+                    label={t('device.tools.permissions.label')}
+                    value={permission}
+                    items={permissions.map((value) => ({ value, label: t(`device.tools.permissions.kinds.${value}`) }))}
+                    size="sm"
+                    disabled={disabled}
+                    onValueChange={setPermission}
+                />
+            )}
+            {DECISIONS.map((decision) => (
+                <Button
+                    key={decision}
+                    size="sm"
+                    variant={decision === 'reset' ? undefined : 'secondary'}
+                    disabled={disabled || !app}
+                    onClick={() => decide(decision, all)}
+                >
+                    {t(`device.tools.permissions.${decision}${all ? 'All' : ''}`)}
+                </Button>
+            ))}
+        </div>
+    );
     return (
         <ToolSection title={t('device.tools.permissions.title')}>
             <Input
@@ -948,41 +925,13 @@ function PermissionTools({
                 placeholder={appIdPlaceholder}
                 onChange={(event) => setAppId(event.target.value)}
             />
-            <div className="flex flex-wrap gap-1.5">
-                <Select<DevicePermission>
-                    label={t('device.tools.permissions.label')}
-                    value={permission}
-                    items={permissions.map((value) => ({ value, label: t(`device.tools.permissions.kinds.${value}`) }))}
-                    size="sm"
-                    disabled={disabled}
-                    onValueChange={setPermission}
-                />
-                <Button size="sm" variant="secondary" disabled={disabled || !appId.trim()} onClick={() => decide('grant')}>
-                    {t('device.tools.permissions.grant')}
-                </Button>
-                <Button size="sm" variant="secondary" disabled={disabled || !appId.trim()} onClick={() => decide('revoke')}>
-                    {t('device.tools.permissions.revoke')}
-                </Button>
-                <Button size="sm" disabled={disabled || !appId.trim()} onClick={() => decide('reset')}>
-                    {t('device.tools.permissions.reset')}
-                </Button>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-                <Button size="sm" variant="secondary" disabled={disabled || !appId.trim()} onClick={() => decideAll('grant')}>
-                    {t('device.tools.permissions.grantAll')}
-                </Button>
-                <Button size="sm" variant="secondary" disabled={disabled || !appId.trim()} onClick={() => decideAll('revoke')}>
-                    {t('device.tools.permissions.revokeAll')}
-                </Button>
-                <Button size="sm" disabled={disabled || !appId.trim()} onClick={() => decideAll('reset')}>
-                    {t('device.tools.permissions.resetAll')}
-                </Button>
-            </div>
+            {row(false)}
+            {row(true)}
         </ToolSection>
     );
 }
 
-function PushAction({ appIdPlaceholder, disabled, act }: { appIdPlaceholder: string; disabled: boolean; act: (body: ActionBody) => Promise<unknown> }) {
+function PushAction({ appIdPlaceholder, disabled, act }: { appIdPlaceholder: string; disabled: boolean; act: Act }) {
     const { t } = useTranslation('machines');
     const [appId, setAppId] = useState('');
     const [payload, setPayload] = useState('');

@@ -2,6 +2,7 @@ import i18next from 'i18next';
 import type { DeviceAction, DeviceInfo } from '@ruimte/contracts';
 import { messageOf } from '@adecore/ui';
 import { useToasts } from '@/state/toasts';
+import { deviceClientFor } from '@/transport/connections';
 
 export interface DeviceControl {
     boot(device: DeviceInfo): Promise<unknown>;
@@ -13,7 +14,30 @@ interface DeviceEraser extends DeviceControl {
     action(action: DeviceAction): Promise<unknown>;
 }
 
-/* Starts or shuts down a device. A refusal goes to a toast, since the row has nowhere else to say it; the answer says whether it went through. */
+/* A refusal of the machine as a toast, for a button that has nowhere else to say it. */
+export function toastDeviceFailure(title: string, error: unknown): void {
+    useToasts.getState().show({ kind: 'error', title, description: messageOf(error) });
+}
+
+export type DeviceActionBody = DeviceAction extends infer Action
+    ? Action extends unknown
+        ? Omit<Action, 'backendId' | 'platform' | 'deviceId'>
+        : never
+    : never;
+
+/* One action on a device of the machine; a refusal goes to a toast under `title`. */
+export function runDeviceAction(
+    endpointId: string,
+    device: Pick<DeviceInfo, 'backendId' | 'platform' | 'deviceId'>,
+    body: DeviceActionBody,
+    title: string
+): void {
+    void deviceClientFor(endpointId)
+        ?.action({ backendId: device.backendId, platform: device.platform, deviceId: device.deviceId, ...body } as DeviceAction)
+        .catch((error: unknown) => toastDeviceFailure(title, error));
+}
+
+/* Starts or shuts down a device; the answer says whether it went through. */
 export async function controlDevice(client: DeviceControl | null | undefined, device: DeviceInfo, action: 'boot' | 'shutdown'): Promise<boolean> {
     if (!client) {
         return false;
@@ -22,11 +46,7 @@ export async function controlDevice(client: DeviceControl | null | undefined, de
         await client[action](device);
         return true;
     } catch (error: unknown) {
-        useToasts.getState().show({
-            kind: 'error',
-            title: i18next.t(action === 'boot' ? 'panels:devices.startFailed' : 'panels:devices.shutdownFailed', { name: device.name }),
-            description: messageOf(error)
-        });
+        toastDeviceFailure(i18next.t(action === 'boot' ? 'panels:devices.startFailed' : 'panels:devices.shutdownFailed', { name: device.name }), error);
         return false;
     }
 }

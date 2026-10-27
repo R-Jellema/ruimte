@@ -260,33 +260,39 @@ export function DeviceStream({ device }: { device: DeviceInfo }) {
         if (state.sent !== state.total) {
             state.frame = window.requestAnimationFrame(advanceTrackpadGesture);
         } else if (state.finishing) {
-            state.frame = window.requestAnimationFrame(() => {
-                state.frame = null;
-                if (state.finishing && state.sent === state.total) {
-                    releaseTrackpadGesture();
-                } else {
-                    state.frame = window.requestAnimationFrame(advanceTrackpadGesture);
-                }
-            });
+            releaseOnNextFrame();
         }
+    };
+    /* Lets go a frame after the last move landed, unless the gesture went on meanwhile. */
+    const releaseOnNextFrame = (): void => {
+        const state = trackpad.current;
+        state.frame = window.requestAnimationFrame(() => {
+            state.frame = null;
+            if (state.finishing && state.sent === state.total) {
+                releaseTrackpadGesture();
+            } else if (state.active) {
+                state.frame = window.requestAnimationFrame(advanceTrackpadGesture);
+            }
+        });
     };
     const settleTrackpadGesture = (): void => {
         const state = trackpad.current;
         state.finishing = true;
-        if (state.frame === null) {
-            if (state.sent === state.total) {
-                state.frame = window.requestAnimationFrame(() => {
-                    state.frame = null;
-                    if (state.finishing && state.sent === state.total) {
-                        releaseTrackpadGesture();
-                    } else if (state.active && state.sent !== state.total) {
-                        state.frame = window.requestAnimationFrame(advanceTrackpadGesture);
-                    }
-                });
-            } else {
-                state.frame = window.requestAnimationFrame(advanceTrackpadGesture);
-            }
+        if (state.frame !== null) {
+            return;
         }
+        if (state.sent === state.total) {
+            releaseOnNextFrame();
+        } else {
+            state.frame = window.requestAnimationFrame(advanceTrackpadGesture);
+        }
+    };
+    const settleAfterGap = (): void => {
+        const state = trackpad.current;
+        if (state.timer !== null) {
+            window.clearTimeout(state.timer);
+        }
+        state.timer = window.setTimeout(settleTrackpadGesture, TRACKPAD_GESTURE_GAP_MS);
     };
     const sendMultiPointer = (phase: 'down' | 'move' | 'up'): void => {
         const [first, second] = [...pointers.current.values()];
@@ -392,10 +398,7 @@ export function DeviceStream({ device }: { device: DeviceInfo }) {
             releaseTrackpadGesture();
         }
         if (state.exhausted) {
-            if (state.timer !== null) {
-                window.clearTimeout(state.timer);
-            }
-            state.timer = window.setTimeout(settleTrackpadGesture, TRACKPAD_GESTURE_GAP_MS);
+            settleAfterGap();
             return;
         }
         const delta = deviceScrollDelta(event, element.getBoundingClientRect(), element);
@@ -418,10 +421,7 @@ export function DeviceStream({ device }: { device: DeviceInfo }) {
         const movement = boundedGestureDelta(state.total, rawDelta * TRACKPAD_DRAG_GAIN, extent * TRACKPAD_DRAG_LIMIT);
         state.total = movement.total;
         state.exhausted = Math.abs(state.total) >= extent * TRACKPAD_DRAG_LIMIT;
-        if (state.timer !== null) {
-            window.clearTimeout(state.timer);
-        }
-        state.timer = window.setTimeout(settleTrackpadGesture, TRACKPAD_GESTURE_GAP_MS);
+        settleAfterGap();
         if (state.frame === null && movement.delta !== 0) {
             state.frame = window.requestAnimationFrame(advanceTrackpadGesture);
         }

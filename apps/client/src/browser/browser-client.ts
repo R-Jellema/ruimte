@@ -3,7 +3,7 @@ import i18next from 'i18next';
 import { messageOf } from '@adecore/ui';
 import { endpointKey } from '@/state/keys';
 import { useBrowser } from './registry';
-import { HandlerTable } from '@/transport/handler-table';
+import { eventStreamFields, LatestFrames } from '@/devices/latest-frames';
 import { decodeBase64 } from '@/transport/piece';
 import { MountedRegistry, type MountedEntry } from '@adecore/agents-react';
 import { isConnectionError, type Transport, type TransportStatus } from '@/transport/transport';
@@ -18,8 +18,7 @@ interface MountedBrowser extends MountedEntry {
 }
 
 export class BrowserClient {
-    private readonly frameHandlers = new HandlerTable<LiveStreamFrame>();
-    private readonly latestFrames = new Map<string, LiveStreamFrame>();
+    private readonly frames = new LatestFrames();
     private readonly mounted = new MountedRegistry<MountedBrowser>();
     private readonly unsubscribe: Array<() => void>;
     readonly endpointId: string;
@@ -92,7 +91,7 @@ export class BrowserClient {
             return;
         }
         this.mounted.delete(browserId);
-        this.latestFrames.delete(browserId);
+        this.frames.forget(browserId);
         if (!mounted.attached) {
             return;
         }
@@ -147,13 +146,7 @@ export class BrowserClient {
     }
 
     onFrame(browserId: string, handler: (frame: LiveStreamFrame) => void): () => void {
-        const stop = this.frameHandlers.listen(browserId, handler);
-        // A node that mounts mid-stream draws the frame that is already in, rather than a blank canvas.
-        const latest = this.latestFrames.get(browserId);
-        if (latest) {
-            handler(latest);
-        }
-        return stop;
+        return this.frames.listen(browserId, handler);
     }
 
     dispose(): void {
@@ -161,8 +154,7 @@ export class BrowserClient {
             unsubscribe();
         }
         this.mounted.clear();
-        this.frameHandlers.clear();
-        this.latestFrames.clear();
+        this.frames.clear();
     }
 
     private apply(info: BrowserInfo): void {
@@ -229,7 +221,7 @@ export class BrowserClient {
             width: mounted.width,
             height: mounted.height,
             deviceScaleFactor: mounted.deviceScaleFactor,
-            ...(mounted.stream === 'events' ? { stream: 'events' as const, ...(this.transport.onLiveFrame ? { binary: true } : {}) } : {})
+            ...eventStreamFields(mounted.stream, this.transport)
         };
     }
 
@@ -238,13 +230,6 @@ export class BrowserClient {
         if (!mounted || mounted.stream !== 'events') {
             return;
         }
-        const decoded: LiveStreamFrame = {
-            sequence: frame.sequence,
-            width: frame.width,
-            height: frame.height,
-            data
-        };
-        this.latestFrames.set(frame.browserId, decoded);
-        this.frameHandlers.fanOut(frame.browserId, decoded);
+        this.frames.push(frame.browserId, { sequence: frame.sequence, width: frame.width, height: frame.height, data });
     }
 }

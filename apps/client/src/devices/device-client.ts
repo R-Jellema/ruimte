@@ -14,6 +14,7 @@ import { messageOf } from '@adecore/ui';
 import { powerKey, useDevicePowers } from '@/devices/device-power';
 import { useDevices } from '@/devices/state';
 import { machineAnswers } from '@/transport/features';
+import { eventStreamFields, LatestFrames } from '@/devices/latest-frames';
 import { HandlerTable } from '@/transport/handler-table';
 import { decodeBase64 } from '@/transport/piece';
 import { MountedRegistry, type MountedEntry } from '@adecore/agents-react';
@@ -39,8 +40,7 @@ function targetOf(device: DeviceTarget) {
 }
 
 export class DeviceClient {
-    private readonly frameHandlers = new HandlerTable<LiveStreamFrame>();
-    private readonly latestFrames = new Map<string, LiveStreamFrame>();
+    private readonly frames = new LatestFrames();
     private readonly mounted = new MountedRegistry<MountedDevice>();
     private readonly powerWatches = new Map<string, { refs: number; timer: ReturnType<typeof setInterval> }>();
     private refreshInFlight: Promise<DeviceInfo[]> | null = null;
@@ -211,7 +211,7 @@ export class DeviceClient {
             return;
         }
         this.mounted.delete(key);
-        this.latestFrames.delete(key);
+        this.frames.forget(key);
         if (mounted.attached) {
             await this.transport.request('device.detach', targetOf(mounted.device)).catch(() => undefined);
         }
@@ -222,14 +222,7 @@ export class DeviceClient {
     }
 
     onFrame(device: DeviceTarget, handler: (frame: LiveStreamFrame) => void): () => void {
-        const key = keyOf(device);
-        const stop = this.frameHandlers.listen(key, handler);
-        // A view that mounts mid-stream draws the frame that is already in, rather than a blank canvas.
-        const latest = this.latestFrames.get(key);
-        if (latest) {
-            handler(latest);
-        }
-        return stop;
+        return this.frames.listen(keyOf(device), handler);
     }
 
     onStream(device: DeviceTarget, handler: (streamId: string) => void): () => void {
@@ -256,8 +249,7 @@ export class DeviceClient {
         this.powerWatches.clear();
         this.watchers = 0;
         this.mounted.clear();
-        this.frameHandlers.clear();
-        this.latestFrames.clear();
+        this.frames.clear();
         this.streamHandlers.clear();
         useDevices.getState().forget(this.endpointId);
     }
@@ -281,7 +273,7 @@ export class DeviceClient {
     private async attach(mounted: MountedDevice): Promise<string> {
         const opened = await this.transport.request('device.open', {
             ...targetOf(mounted.device),
-            ...(mounted.stream === 'events' ? { stream: 'events' as const, ...(this.transport.onLiveFrame ? { binary: true } : {}) } : {}),
+            ...eventStreamFields(mounted.stream, this.transport),
             formats: DRAWABLE_FORMATS
         });
         mounted.attached = true;
@@ -315,14 +307,12 @@ export class DeviceClient {
         if (!mounted || mounted.stream !== 'events') {
             return;
         }
-        const decoded = {
+        this.frames.push(key, {
             sequence: frame.sequence,
             width: frame.width,
             height: frame.height,
             ...(frame.format ? { format: frame.format } : {}),
             data
-        };
-        this.latestFrames.set(key, decoded);
-        this.frameHandlers.fanOut(key, decoded);
+        });
     }
 }

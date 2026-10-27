@@ -28,24 +28,16 @@ export function browserStreamScaleOptions(limit: number): number[] {
     return options;
 }
 
-function readScale(): number {
-    return normalizedScale(Number(storedScale.read() ?? 1));
-}
-
-function persistScale(scale: number): void {
-    storedScale.write(String(scale));
-}
-
 interface BrowserStreamQualityStore {
     scale: number;
     setScale(scale: number): void;
 }
 
 export const useBrowserStreamQuality = create<BrowserStreamQualityStore>((set) => ({
-    scale: readScale(),
+    scale: normalizedScale(Number(storedScale.read() ?? 1)),
     setScale(scale) {
         const next = normalizedScale(scale);
-        persistScale(next);
+        storedScale.write(String(next));
         set({ scale: next });
     }
 }));
