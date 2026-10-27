@@ -196,7 +196,8 @@ export class ScrcpyVideoReader {
                 data: keyFrame && this.config !== null ? concat(this.config, payload) : payload
             });
         }
-        this.buffer = offset === 0 ? this.buffer : this.buffer.slice(offset);
+        // Nothing writes into a buffer once it is held, so what is left stays a view and is not copied.
+        this.buffer = this.buffer.subarray(offset);
         return frames;
     }
 }
@@ -231,7 +232,7 @@ export class ScrcpyDeviceMessageReader {
             }
             offset += size;
         }
-        this.buffer = offset === 0 ? this.buffer : this.buffer.slice(offset);
+        this.buffer = this.buffer.subarray(offset);
         return messages;
     }
 }

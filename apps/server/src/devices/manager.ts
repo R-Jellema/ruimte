@@ -1,6 +1,7 @@
 import { Buffer } from 'node:buffer';
 import { randomUUID } from 'node:crypto';
 import { isAbsolute } from 'node:path';
+import { CodedError } from '@adecore/agents';
 import {
     deviceMatches,
     type DeviceAction,
@@ -17,10 +18,9 @@ import {
     type LiveFrameHeader,
     type LiveStreamFrame
 } from '@ruimte/contracts';
-import { LiveStreamHub, type LiveFrameSource } from '../streams/live-stream.ts';
-import { CodedError } from '@adecore/agents';
-import { FrameFanout, streamKeyOf } from '../streams/frame-fanout.ts';
 import { LiveSinks, type LiveEvent, type LiveSink } from '../client-sinks.ts';
+import { FrameFanout, streamKeyOf } from '../streams/frame-fanout.ts';
+import { LiveStreamHub, type LiveFrameSource } from '../streams/live-stream.ts';
 import { actionPaths } from './device-paths.ts';
 import type { DeviceTree } from './device-tree.ts';
 
@@ -351,14 +351,11 @@ export class DeviceManager {
 
     async screenshot(backendId: string, platform: DevicePlatform, deviceId: string): Promise<Uint8Array> {
         const backend = this.backend(backendId, platform);
-        if (!backend.screenshot) {
+        const take = backend.screenshot?.bind(backend);
+        if (!take) {
             throw new DeviceError('device-capture-unavailable', 'This device cannot be photographed by Ruimte');
         }
-        try {
-            return await backend.screenshot(deviceId);
-        } catch (error) {
-            throw this.sourceError(error);
-        }
+        return this.guarded(() => take(deviceId));
     }
 
     async capture(backendId: string, platform: DevicePlatform, deviceId: string): Promise<Uint8Array> {
@@ -367,35 +364,25 @@ export class DeviceManager {
         if (!take) {
             throw new DeviceError('device-capture-unavailable', 'This device cannot be photographed by Ruimte');
         }
-        try {
-            return await take(deviceId);
-        } catch (error) {
-            throw this.sourceError(error);
-        }
+        return this.guarded(() => take(deviceId));
     }
 
     async startRecording(backendId: string, platform: DevicePlatform, deviceId: string, file: string): Promise<void> {
         const backend = this.backend(backendId, platform);
-        if (!backend.startRecording) {
+        const start = backend.startRecording?.bind(backend);
+        if (!start) {
             throw new DeviceError('device-action-unavailable', 'This device cannot be recorded by Ruimte');
         }
-        try {
-            await backend.startRecording(deviceId, file);
-        } catch (error) {
-            throw this.sourceError(error);
-        }
+        await this.guarded(() => start(deviceId, file));
     }
 
     async stopRecording(backendId: string, platform: DevicePlatform, deviceId: string): Promise<string> {
         const backend = this.backend(backendId, platform);
-        if (!backend.stopRecording) {
+        const stop = backend.stopRecording?.bind(backend);
+        if (!stop) {
             throw new DeviceError('device-action-unavailable', 'This device cannot be recorded by Ruimte');
         }
-        try {
-            return await backend.stopRecording(deviceId);
-        } catch (error) {
-            throw this.sourceError(error);
-        }
+        return this.guarded(() => stop(deviceId));
     }
 
     /*
@@ -406,12 +393,9 @@ export class DeviceManager {
         const backend = this.backend(backendId, platform);
         const session = this.sessions.get(sessionKey(backendId, deviceId));
         const source = session?.clients.has(clientId) ? session.source : null;
-        try {
+        return this.guarded(async () => {
             if (text === undefined) {
-                if (backend.readClipboard) {
-                    return await backend.readClipboard(deviceId);
-                }
-                return await clipboardOf(source).readClipboard();
+                return backend.readClipboard ? backend.readClipboard(deviceId) : clipboardOf(source).readClipboard();
             }
             if (paste) {
                 await this.pasteInto(backend, deviceId, source, text);
@@ -421,9 +405,7 @@ export class DeviceManager {
                 await clipboardOf(source).writeClipboard(text);
             }
             return text;
-        } catch (error) {
-            throw this.sourceError(error);
-        }
+        });
     }
 
     detach(backendId: string, deviceId: string, clientId: string): void {
@@ -447,45 +429,35 @@ export class DeviceManager {
     }
 
     async input(backendId: string, deviceId: string, clientId: string, input: DeviceInput): Promise<void> {
-        const session = this.sessions.get(sessionKey(backendId, deviceId));
-        if (!session || !session.clients.has(clientId)) {
-            throw new DeviceError('device-not-open', 'Open the device before sending input');
-        }
-        try {
-            await session.source.input(input);
-        } catch (error) {
-            throw this.sourceError(error);
-        }
+        const { source } = this.openFor(backendId, deviceId, clientId);
+        await this.guarded(async () => source.input(input));
     }
 
     async keys(backendId: string, deviceId: string, clientId: string, usages: readonly number[]): Promise<void> {
-        const session = this.sessions.get(sessionKey(backendId, deviceId));
-        if (!session || !session.clients.has(clientId)) {
-            throw new DeviceError('device-not-open', 'Open the device before sending input');
-        }
-        if (!session.source.keys) {
+        const { source } = this.openFor(backendId, deviceId, clientId);
+        const keys = source.keys?.bind(source);
+        if (!keys) {
             throw new DeviceError('device-input-unavailable', 'This device takes no keys from Ruimte');
         }
-        try {
-            await session.source.keys(usages);
-        } catch (error) {
-            throw this.sourceError(error);
-        }
+        await this.guarded(async () => keys(usages));
     }
 
     async paste(backendId: string, deviceId: string, clientId: string, text: string): Promise<void> {
+        const { source } = this.openFor(backendId, deviceId, clientId);
+        const paste = source.paste?.bind(source);
+        if (!paste) {
+            throw new DeviceError('device-input-unavailable', 'This device takes no pasted text from Ruimte');
+        }
+        await this.guarded(() => paste(text));
+    }
+
+    /* The session of a device this client or holder has open. */
+    private openFor(backendId: string, deviceId: string, clientId: string): DeviceSession {
         const session = this.sessions.get(sessionKey(backendId, deviceId));
         if (!session || !session.clients.has(clientId)) {
             throw new DeviceError('device-not-open', 'Open the device before sending input');
         }
-        if (!session.source.paste) {
-            throw new DeviceError('device-input-unavailable', 'This device takes no pasted text from Ruimte');
-        }
-        try {
-            await session.source.paste(text);
-        } catch (error) {
-            throw this.sourceError(error);
-        }
+        return session;
     }
 
     /* Whether Ruimte types on this device; a backend that types through keys needs the device to take input. */
@@ -495,14 +467,11 @@ export class DeviceManager {
 
     async type(backendId: string, platform: DevicePlatform, deviceId: string, text: string, keyboard: () => Promise<DeviceKeyboard>): Promise<void> {
         const backend = this.backend(backendId, platform);
-        if (!backend.type) {
+        const type = backend.type?.bind(backend);
+        if (!type) {
             throw new DeviceError('device-input-unavailable', 'Ruimte cannot type on this device');
         }
-        try {
-            await backend.type(deviceId, text, keyboard);
-        } catch (error) {
-            throw this.sourceError(error);
-        }
+        await this.guarded(() => type(deviceId, text, keyboard));
     }
 
     canTree(device: DeviceInfo): boolean {
@@ -511,14 +480,11 @@ export class DeviceManager {
 
     async tree(backendId: string, platform: DevicePlatform, deviceId: string): Promise<DeviceTree> {
         const backend = this.backend(backendId, platform);
-        if (!backend.tree) {
+        const read = backend.tree?.bind(backend);
+        if (!read) {
             throw new DeviceError('device-tree-unavailable', 'Ruimte cannot read the accessibility tree of this device');
         }
-        try {
-            return await backend.tree(deviceId);
-        } catch (error) {
-            throw this.sourceError(error);
-        }
+        return this.guarded(() => read(deviceId));
     }
 
     closeTree(backendId: string, deviceId: string): void {
@@ -635,11 +601,7 @@ export class DeviceManager {
             binary
                 ? { event: 'device.frame', payload: frameHeader(session.info, frame), bytes: frame.data }
                 : { event: 'device.frame', payload: { ...frameHeader(session.info, frame), data: Buffer.from(frame.data).toString('base64') } };
-        try {
-            await this.frames.start(key, session.streamId, clientId, events);
-        } catch (error) {
-            throw this.sourceError(error);
-        }
+        await this.guarded(() => this.frames.start(key, session.streamId, clientId, events));
     }
 
     private destroy(key: string): void {
@@ -650,6 +612,15 @@ export class DeviceManager {
         this.sessions.delete(key);
         this.frames.stopAll(key);
         session.unregister();
+    }
+
+    /* Runs work of a backend or a source, its failure in the words and codes a client knows. */
+    private async guarded<T>(work: () => Promise<T>): Promise<T> {
+        try {
+            return await work();
+        } catch (error) {
+            throw this.sourceError(error);
+        }
     }
 
     private sourceError(error: unknown): DeviceError {

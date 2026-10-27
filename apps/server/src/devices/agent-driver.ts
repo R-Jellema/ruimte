@@ -1,3 +1,4 @@
+import { CodedError } from '@adecore/agents';
 import {
     deviceTools,
     type DeviceAction,
@@ -9,7 +10,6 @@ import {
     type DeviceTool
 } from '@ruimte/contracts';
 import { realTimers, type Timers } from '../computer/approvals.ts';
-import { CodedError } from '@adecore/agents';
 import { captureFile, pngSize, writeShot } from '../shots.ts';
 import { centerOf, findElements, flattenTree, type DeviceElement } from './device-tree.ts';
 import type { DeviceManager } from './manager.ts';
@@ -155,7 +155,7 @@ interface Reading {
     cancel: () => void;
 }
 
-function deviceKey(device: Pick<DeviceInfo, 'backendId' | 'deviceId'>): string {
+export function deviceKey(device: Pick<DeviceInfo, 'backendId' | 'deviceId'>): string {
     return `${device.backendId}\u0000${device.deviceId}`;
 }
 

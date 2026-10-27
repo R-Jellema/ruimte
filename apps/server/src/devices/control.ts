@@ -2,7 +2,7 @@ import type { DeviceAgentStep, DeviceControlMode, DeviceInfo, DeviceOperated } f
 import { ClientSinks } from '../client-sinks.ts';
 import { realTimers, type Timers } from '../computer/approvals.ts';
 import type { SessionSink } from '../sessions/manager.ts';
-import { AGENT_HOLD_IDLE_MS, type AgentStep, type DeviceGate } from './agent-driver.ts';
+import { AGENT_HOLD_IDLE_MS, deviceKey, type AgentStep, type DeviceGate } from './agent-driver.ts';
 
 type Mode = 'running' | 'paused' | 'takenOver';
 
@@ -33,10 +33,6 @@ function held(mode: Exclude<Mode, 'running'>, device: DeviceInfo): { code: strin
         code: HELD_CODES[mode],
         message: heldWords(mode, device.name)
     };
-}
-
-function keyOf(device: Target): string {
-    return `${device.backendId}\u0000${device.deviceId}`;
 }
 
 /* A step in the words a client that does not know its kind still shows. */
@@ -98,7 +94,7 @@ export class DeviceControl implements DeviceGate {
     }
 
     admit(device: DeviceInfo, caller: string, step: AgentStep): { code: string; message: string } | null {
-        const key = keyOf(device);
+        const key = deviceKey(device);
         const entry = this.entries.get(key) ?? this.open(key, device);
         this.keep(key, entry);
         if (entry.mode !== 'running') {
@@ -115,13 +111,13 @@ export class DeviceControl implements DeviceGate {
     }
 
     recheck(device: DeviceInfo): { code: string; message: string } | null {
-        const entry = this.entries.get(keyOf(device));
+        const entry = this.entries.get(deviceKey(device));
         return entry === undefined || entry.mode === 'running' ? null : held(entry.mode, device);
     }
 
     /* A press on the strip; answers how the device stands after it, `ended` when no agent operates it. */
     control(target: Target, mode: DeviceControlMode): DeviceOperated {
-        const key = keyOf(target);
+        const key = deviceKey(target);
         const entry = this.entries.get(key);
         if (!entry) {
             return { backendId: target.backendId, deviceId: target.deviceId, nodeId: null, state: 'ended', step: null };
