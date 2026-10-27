@@ -153,9 +153,7 @@ struct ChatLightbox: View {
 
     var body: some View {
         ZStack {
-            // Measured past the safe area, as the pages and the flight are, so the picture lands where its page centers it.
             Color.black.opacity(backdrop).ignoresSafeArea()
-                .onGeometryChange(for: CGSize.self) { $0.size } action: { screen = $0 }
             TabView(selection: $selection) {
                 ForEach(images) { image in
                     ChatLightboxPage(
@@ -166,6 +164,9 @@ struct ChatLightbox: View {
                         onLoaded: { loaded[image.id] = $0 },
                         onDrag: drag
                     )
+                    // A page lays out inside the safe area of its own, which would center the picture below the
+                    // middle of the screen the flight lands in.
+                    .ignoresSafeArea()
                     .tag(image.id)
                 }
             }
@@ -173,16 +174,21 @@ struct ChatLightbox: View {
             .ignoresSafeArea()
             .opacity(phase == .shown ? 1 : 0)
             .allowsHitTesting(!closing)
-            if phase == .flying, let picture {
-                Image(uiImage: picture).resizable().aspectRatio(contentMode: .fill)
-                    .frame(width: flight.width, height: flight.height)
-                    .clipShape(RoundedRectangle(cornerRadius: radius))
-                    .position(x: flight.midX, y: flight.midY)
-                    .opacity(flightOpacity)
-                    .ignoresSafeArea()
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(true)
+            // The flight's own layer covers the whole screen, so its size, its origin and the thumbnails' global
+            // frames are the same coordinates as the pages.
+            ZStack(alignment: .topLeading) {
+                Color.clear.onGeometryChange(for: CGSize.self) { $0.size } action: { screen = $0 }
+                if phase == .flying, let picture {
+                    Image(uiImage: picture).resizable().aspectRatio(contentMode: .fill)
+                        .frame(width: flight.width, height: flight.height)
+                        .clipShape(RoundedRectangle(cornerRadius: radius))
+                        .offset(x: flight.minX, y: flight.minY)
+                        .opacity(flightOpacity)
+                }
             }
+            .ignoresSafeArea()
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
         }
         .overlay(alignment: .top) {
             bar.opacity(controlsShown ? 1 : 0).offset(y: controlsShown ? 0 : -8).allowsHitTesting(controlsShown)
