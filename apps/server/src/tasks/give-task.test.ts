@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { ChatSubagentItem, ChatTurnItem, ProjectContent, Task } from '@ruimte/contracts';
@@ -71,8 +71,6 @@ async function boot(): Promise<Daemon> {
     return daemon;
 }
 
-const verb = runVerb;
-
 function turnsOf(daemon: Daemon, chatId: string): ChatTurnItem[] {
     return (daemon.chats.get(chatId)?.thread.list() ?? []).filter((item): item is ChatTurnItem => item.kind === 'turn');
 }
@@ -91,14 +89,14 @@ async function leadIdle(daemon: Daemon): Promise<void> {
 
 /* An agent the lead opens without a task, as a chat that is asked something later. */
 async function opened(daemon: Daemon, prompt: string, terminal = false): Promise<string> {
-    const [line] = await verb(daemon, 'chat-lead', 'agent', ['claude', ...(terminal ? ['--terminal'] : []), '--prompt', prompt]);
+    const [line] = await runVerb(daemon, 'chat-lead', 'agent', ['claude', ...(terminal ? ['--terminal'] : []), '--prompt', prompt]);
     const childId = line!.split('\t')[0]!;
     await daemon.until(() => (terminal ? daemon.sessions.get(childId) !== undefined : daemon.chats.get(childId) !== undefined));
     return childId;
 }
 
 async function give(daemon: Daemon, childId: string, argv: string[]): Promise<{ lines: string[]; taskId: string }> {
-    const lines = await verb(daemon, 'chat-lead', 'task', ['new', childId, ...argv]);
+    const lines = await runVerb(daemon, 'chat-lead', 'task', ['new', childId, ...argv]);
     return { lines, taskId: lines[0]!.split('\t')[1]! };
 }
 
@@ -160,7 +158,7 @@ describe('a task given to an agent that is already open', () => {
         const daemon = await boot();
         daemon.worker.start();
         await leadIdle(daemon);
-        const [line] = await verb(daemon, 'chat-lead', 'agent', ['claude', '--task', 'Survey', '--prompt', 'look around']);
+        const [line] = await runVerb(daemon, 'chat-lead', 'agent', ['claude', '--task', 'Survey', '--prompt', 'look around']);
         const [childId = '', , , , , first = ''] = line!.split('\t');
         await daemon.until(() => taskOf(daemon, first).wake === 'sent');
         await daemon.worker.settled();
@@ -188,7 +186,7 @@ describe('a task given to an agent that is already open', () => {
         await daemon.until(() => daemon.chats.get(childId)?.info.activeTurnId !== null);
         const { taskId } = await give(daemon, childId, ['--prompt', 'check the note', '--title', 'The note']);
 
-        const refused = await verb(daemon, 'chat-lead', 'task', ['new', childId, '--prompt', 'and the other one']);
+        const refused = await runVerb(daemon, 'chat-lead', 'task', ['new', childId, '--prompt', 'and the other one']);
         expect(refused[0]).toBe(
             `refused\ttask-running\t${childId} is working on the task "The note" and takes one at a time; wait for its result, which wakes you`
         );
@@ -201,9 +199,9 @@ describe('a task given to an agent that is already open', () => {
         const daemon = await boot();
         daemon.worker.start();
         await leadIdle(daemon);
-        await verb(daemon, 'chat-lead', 'link', ['new', '--to', 'chat-other']);
+        await runVerb(daemon, 'chat-lead', 'link', ['new', '--to', 'chat-other']);
 
-        const refused = await verb(daemon, 'chat-lead', 'task', ['new', 'chat-other', '--prompt', 'check the note']);
+        const refused = await runVerb(daemon, 'chat-lead', 'task', ['new', 'chat-other', '--prompt', 'check the note']);
         expect(refused[0]).toBe('refused\tnot-yours\tchat-other is not a node you opened; a task only goes to an agent you opened yourself');
         expect(daemon.tasks.involving('chat-other')).toEqual([]);
         expect(daemon.outbox.list()).toEqual([]);
@@ -214,7 +212,7 @@ describe('a task given to an agent that is already open', () => {
         daemon.worker.start();
         await leadIdle(daemon);
 
-        const refused = await verb(daemon, 'chat-lead', 'task', ['new', 'note-1', '--prompt', 'check the note']);
+        const refused = await runVerb(daemon, 'chat-lead', 'task', ['new', 'note-1', '--prompt', 'check the note']);
         expect(refused[0]).toBe('refused\tnot-an-agent\tnote-1 is a note node; only a terminal or a chat has an agent that could take a task');
         expect(daemon.tasks.involving('note-1')).toEqual([]);
     });
@@ -225,7 +223,7 @@ describe('a task given to an agent that is already open', () => {
         await leadIdle(daemon);
         const childId = await opened(daemon, 'look around', true);
 
-        const refused = await verb(daemon, 'chat-lead', 'task', ['new', childId, '--prompt', 'check the note']);
+        const refused = await runVerb(daemon, 'chat-lead', 'task', ['new', childId, '--prompt', 'check the note']);
         expect(refused[0]).toBe(
             `refused\tnot-a-chat\t${childId} is a terminal node: a task has to start a turn, and nothing is typed into a shell a person can type in`
         );
@@ -236,11 +234,11 @@ describe('a task given to an agent that is already open', () => {
         const daemon = await boot();
         await leadIdle(daemon);
         // The worker is not running, so the node is on the canvas while its start is still owed.
-        const [line] = await verb(daemon, 'chat-lead', 'agent', ['claude', '--prompt', 'look around']);
+        const [line] = await runVerb(daemon, 'chat-lead', 'agent', ['claude', '--prompt', 'look around']);
         const childId = line!.split('\t')[0]!;
         expect(daemon.chats.get(childId)).toBeUndefined();
 
-        const refused = await verb(daemon, 'chat-lead', 'task', ['new', childId, '--prompt', 'check the note']);
+        const refused = await runVerb(daemon, 'chat-lead', 'task', ['new', childId, '--prompt', 'check the note']);
         expect(refused[0]).toBe(`refused\tno-agent\t${childId} runs no agent yet: nothing was started in it, so there is no turn a task could open`);
         expect(daemon.tasks.involving(childId)).toEqual([]);
     });
@@ -308,8 +306,7 @@ describe('task recovery between durable writes', () => {
         await recovered.until(() => recovered.tasks.get(task.id)?.wake === 'sent');
         await recovered.worker.settled();
         expect(turnsFor(recovered, 'chat-lead', task.id)).toHaveLength(1);
-        // Simulate a crash after the parent's turn write but before markWoken.
-        const { writeFile } = await import('node:fs/promises');
+        // A crash after the parent's turn was written but before markWoken.
         await recovered.stop();
         running = [];
         await writeFile(join(home, 'tasks', `${task.id}.json`), JSON.stringify({ ...recovered.tasks.get(task.id), wake: 'pending' }));

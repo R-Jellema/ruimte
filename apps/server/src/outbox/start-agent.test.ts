@@ -15,6 +15,7 @@ import { ProjectStore } from '../projects/project-store.ts';
 import { ProviderRegistry } from '../providers/registry.ts';
 import { FakePtyAdapter } from '../pty/fake-pty.ts';
 import { SessionManager } from '../sessions/manager.ts';
+import { untilChecked } from '../until-test-helpers.ts';
 import { refusingHandlers } from './outbox-test-helpers.ts';
 import { OutboxStore, type OutboxWork, type StartAgentEntry } from './outbox.ts';
 import { HEADLESS_TERMINAL, nodeMode, startAgentHandler, startAgentWork, type StartAgentDeps } from './start-agent.ts';
@@ -160,18 +161,7 @@ async function boot(): Promise<Daemon> {
         void outbox.prune(id, ids);
     };
 
-    let waiters: Array<{ check: () => boolean; resolve: () => void }> = [];
-    const recheck = (): void => {
-        const waiting = waiters;
-        waiters = [];
-        for (const waiter of waiting) {
-            if (waiter.check()) {
-                waiter.resolve();
-            } else {
-                waiters.push(waiter);
-            }
-        }
-    };
+    const { until, recheck } = untilChecked();
     sessions.observe(recheck);
     chats.observe(recheck);
 
@@ -229,12 +219,7 @@ async function boot(): Promise<Daemon> {
         claude,
         codex,
         host,
-        until: (check) =>
-            check()
-                ? Promise.resolve()
-                : new Promise((resolve) => {
-                      waiters.push({ check, resolve });
-                  }),
+        until,
         retire: async () => {
             worker.stop();
             sessions.killAll();

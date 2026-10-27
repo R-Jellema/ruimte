@@ -49,6 +49,7 @@ import { UntrustedFolders } from '../peering/untrusted.ts';
 import { PeerTasks, type PeerTasksDeps } from '../peering/peer-tasks.ts';
 import { BundleStore } from '../git/bundles.ts';
 import { StartClaims } from '../actions/start-claims.ts';
+import { untilChecked } from '../until-test-helpers.ts';
 
 const providers = new ProviderRegistry({ detect: async () => ({ installed: true, version: '0.0.0' }) });
 
@@ -234,18 +235,7 @@ export async function bootTestDaemon({
             owed: (chatId) => outboxLink.owesLimitResume(chatId)
         }
     });
-    let waiters: Array<{ check: () => boolean; resolve: () => void }> = [];
-    const recheck = (): void => {
-        const waiting = waiters;
-        waiters = [];
-        for (const waiter of waiting) {
-            if (waiter.check()) {
-                waiter.resolve();
-            } else {
-                waiters.push(waiter);
-            }
-        }
-    };
+    const { until, recheck } = untilChecked();
     const alerts: string[] = [];
     const prWatches = new PrWatchStore({
         path: `${home}/pr-watches.json`,
@@ -317,11 +307,8 @@ export async function bootTestDaemon({
             now: () => clock.now()
         });
     }
-    const worker = outboxWiring.worker;
-    const wiring = outboxWiring.tasks;
+    const { worker, tasks: wiring, endChildren, summaries } = outboxWiring;
     await wiring.recover();
-    const endChildren = outboxWiring.endChildren;
-    const summaries = outboxWiring.summaries;
     endChildren.start();
     sessions.onProcessChange = (sessionId, phase) => {
         if (phase === 'changed' && sessions.get(sessionId)?.exited !== false) {
@@ -498,7 +485,7 @@ export async function bootTestDaemon({
         pruned: async () => {
             await Promise.all(drops);
         },
-        until: (check) => (check() ? Promise.resolve() : new Promise((resolve) => waiters.push({ check, resolve }))),
+        until,
         stop: async () => {
             // The order the daemon's own shutdown takes: nothing that dies with it settles a task.
             worker.stop();

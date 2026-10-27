@@ -11,6 +11,7 @@ import { ChatManager, RESUME_PROMPT } from '../chat/chat-manager.ts';
 import { projectLinks } from '../projects/project-file-test-helpers.ts';
 import { ProjectStore } from '../projects/project-store.ts';
 import { ProviderRegistry } from '../providers/registry.ts';
+import { untilChecked } from '../until-test-helpers.ts';
 import { refusingHandlers } from './outbox-test-helpers.ts';
 import { OutboxStore, type OutboxWork } from './outbox.ts';
 import { oweResume, resumeRunHandler, resumeRunParked } from './resume-run.ts';
@@ -103,25 +104,15 @@ async function boot(spawn?: SpawnChatProcess): Promise<Daemon> {
         onParked: resumeRunParked(chats)
     });
     box.worker = worker;
-    let waiters: Array<{ check: () => boolean; resolve: () => void }> = [];
-    chats.observe(() => {
-        const waiting = waiters;
-        waiters = [];
-        for (const waiter of waiting) {
-            if (waiter.check()) {
-                waiter.resolve();
-            } else {
-                waiters.push(waiter);
-            }
-        }
-    });
+    const { until, recheck } = untilChecked();
+    chats.observe(recheck);
     const daemon: Daemon = {
         chats,
         outbox,
         worker,
         claude,
         codex,
-        until: (check) => (check() ? Promise.resolve() : new Promise((resolve) => waiters.push({ check, resolve }))),
+        until,
         stop: async () => {
             worker.stop();
             // The order the daemon's own shutdown takes. Every thread down before anything is awaited.
