@@ -61,20 +61,31 @@ export function ModelsBarChart({
         const effort = rowOf.get(String(key))?.effort ?? '';
         return t(`shortEfforts.${effort}`, { defaultValue: effortName(effort) });
     };
+    // A ranked list reads as rows with the whole name beside each bar; the groups keep their columns under a logo.
+    const horizontal = !grouped;
+    const rowName = (key: unknown): string => {
+        const row = rowOf.get(String(key));
+
+        return row === undefined ? '' : `${row.modelName} · ${effortName(row.effort)}`;
+    };
 
     return (
-        <div ref={measure} className="h-full min-h-0 min-w-0" onKeyDownCapture={clearOnEscape(reference, onClear)}>
+        <div
+            ref={measure}
+            className={horizontal ? 'h-full min-h-0 min-w-0 overflow-y-auto' : 'h-full min-h-0 min-w-0'}
+            onKeyDownCapture={clearOnEscape(reference, onClear)}
+        >
             <BarChart.Root
                 data={rows}
                 x="key"
-                rowLabel={(row) => effortName(row.effort)}
+                orientation={horizontal ? 'horizontal' : 'vertical'}
+                rowLabel={(row) => (grouped ? effortName(row.effort) : `${row.modelName}, ${effortName(row.effort)}`)}
                 group={grouped ? 'modelId' : undefined}
                 groupLabel={grouped ? 'modelName' : undefined}
                 groupGap={grouped ? 20 : 0}
                 label={t(`views.${view}`)}
                 y={{ min: axis.ticks[0], max: axis.ticks.at(-1), step: axis.ticks[1]! - axis.ticks[0]! }}
-                height={300}
-                grow
+                {...(horizontal ? {} : { height: 300, grow: true })}
                 margin={{ top: 44, right: 16 }}
                 surface="raised"
                 minBucketWidth={size.width < 600 ? 34 : 16}
@@ -85,8 +96,7 @@ export function ModelsBarChart({
             >
                 <BarChart.Grid dashed />
                 <BarChart.YAxis title={t(`units.${metric}`)} format={(value) => formatMetric(value, metric, true)} />
-                <BarChart.XAxis format={shortEffort} thin={false} />
-                {!grouped && <BarChart.XAxis angle={-40} format={(key) => shortModelName(rowOf.get(String(key))?.modelName ?? '')} />}
+                {horizontal ? <BarChart.XAxis format={rowName} /> : <BarChart.XAxis format={shortEffort} thin={false} />}
                 <BarChart.Bar
                     value="value"
                     label={t(`metrics.${metric}`)}
@@ -94,7 +104,7 @@ export function ModelsBarChart({
                     opacity={(_row, index, groupSize) => 0.6 + (index / Math.max(groupSize - 1, 1)) * 0.4}
                     hoverOpacity={1}
                     dimOpacity={0.3}
-                    columnWidth={(bucket) => Math.max(6, Math.min(44, Math.floor(bucket) - 4))}
+                    columnWidth={(bucket) => Math.max(6, Math.min(horizontal ? 20 : 44, Math.floor(bucket) - (horizontal ? 12 : 4)))}
                     radius={3}
                     valueLabels
                 />

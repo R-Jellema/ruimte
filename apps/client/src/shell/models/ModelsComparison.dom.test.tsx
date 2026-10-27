@@ -118,6 +118,18 @@ describe('benchmark comparison', () => {
         }
     });
 
+    test('a ranked list lays its bars out as rows with the name of each beside it, and Down walks them', async () => {
+        await open();
+        await clickOn(tab('Intelligence'));
+        await clickOn([...document.querySelectorAll('[role="radio"], button')].find((element) => element.textContent === 'Ranked') ?? null);
+        const labels = [...document.querySelectorAll('[role="tabpanel"] text')].map((element) => element.textContent ?? '');
+        expect(labels).toEqual(expect.arrayContaining(['Claude Opus 5.5 · High', 'Claude Opus 5 · High']));
+        expect(document.querySelector('[role="tabpanel"] text[transform*="rotate"]')).toBeNull();
+
+        await pick('Claude Opus 5', 'ArrowDown');
+        expect(pressed()).toEqual(['Claude Opus 5, High, Intelligence Index 50']);
+    });
+
     test('distinguishes a missing Code score from a model turned off by the user', async () => {
         await open();
         await clickOn(tab('Coding'));
