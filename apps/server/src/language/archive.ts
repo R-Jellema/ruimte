@@ -16,11 +16,12 @@ export interface ArchiveEntry {
 }
 
 const TAR_BLOCK = 512;
+const UTF8 = new TextDecoder();
 
 function tarText(header: Uint8Array, start: number, length: number): string {
     const field = header.subarray(start, start + length);
     const end = field.indexOf(0);
-    return new TextDecoder().decode(end === -1 ? field : field.subarray(0, end));
+    return UTF8.decode(end === -1 ? field : field.subarray(0, end));
 }
 
 function tarNumber(header: Uint8Array, start: number, length: number): number {
@@ -30,7 +31,7 @@ function tarNumber(header: Uint8Array, start: number, length: number): number {
 
 /* The `path` record of a PAX extended header, which holds the names that do not fit a ustar header. */
 function paxPath(data: Uint8Array): string | null {
-    const text = new TextDecoder().decode(data);
+    const text = UTF8.decode(data);
     for (const record of text.split('\n')) {
         const match = /^\d+ path=(.*)$/.exec(record);
         if (match) {
@@ -81,51 +82,85 @@ const ZIP_END_OF_DIRECTORY = 0x06054b50;
 const ZIP_DIRECTORY_ENTRY = 0x02014b50;
 const ZIP_LOCAL_ENTRY = 0x04034b50;
 const ZIP_UNIX = 3;
+const ZIP64_MARKER = 0xffffffff;
 
-function readZip(zip: Uint8Array): ArchiveEntry[] {
-    const view = new DataView(zip.buffer, zip.byteOffset, zip.byteLength);
-    let end = zip.length - 22;
-    while (end >= 0 && view.getUint32(end, true) !== ZIP_END_OF_DIRECTORY) {
-        end--;
+interface ZipRecord {
+    name: string;
+    method: number;
+    compressedSize: number;
+    localOffset: number;
+    mode: number;
+}
+
+/* Where the end-of-directory record starts in `bytes`, the tail of a zip; throws when there is none. */
+function endRecordIn(bytes: Uint8Array): DataView {
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    for (let end = bytes.length - 22; end >= 0; end--) {
+        if (view.getUint32(end, true) === ZIP_END_OF_DIRECTORY) {
+            return new DataView(bytes.buffer, bytes.byteOffset + end, 22);
+        }
     }
-    if (end < 0) {
-        throw new Error('The archive is not a zip file');
-    }
-    const count = view.getUint16(end + 10, true);
-    let cursor = view.getUint32(end + 16, true);
-    const entries: ArchiveEntry[] = [];
+    throw new Error('The archive is not a zip file');
+}
+
+/* The records of a central directory, folders included. */
+function* zipRecords(directory: Uint8Array, count: number): Generator<ZipRecord> {
+    const view = new DataView(directory.buffer, directory.byteOffset, directory.byteLength);
+    let cursor = 0;
     for (let i = 0; i < count; i++) {
         if (view.getUint32(cursor, true) !== ZIP_DIRECTORY_ENTRY) {
             throw new Error('The zip directory is damaged');
         }
-        const madeBy = view.getUint16(cursor + 4, true) >> 8;
-        const method = view.getUint16(cursor + 10, true);
-        const compressedSize = view.getUint32(cursor + 20, true);
         const nameLength = view.getUint16(cursor + 28, true);
-        const extraLength = view.getUint16(cursor + 30, true);
-        const commentLength = view.getUint16(cursor + 32, true);
-        const attributes = view.getUint32(cursor + 38, true);
-        const localOffset = view.getUint32(cursor + 42, true);
-        const name = new TextDecoder().decode(zip.subarray(cursor + 46, cursor + 46 + nameLength));
-        cursor += 46 + nameLength + extraLength + commentLength;
-        if (name.endsWith('/')) {
+        const madeBy = view.getUint16(cursor + 4, true) >> 8;
+        yield {
+            name: UTF8.decode(directory.subarray(cursor + 46, cursor + 46 + nameLength)),
+            method: view.getUint16(cursor + 10, true),
+            compressedSize: view.getUint32(cursor + 20, true),
+            localOffset: view.getUint32(cursor + 42, true),
+            mode: madeBy === ZIP_UNIX ? view.getUint32(cursor + 38, true) >>> 16 : 0o644
+        };
+        cursor += 46 + nameLength + view.getUint16(cursor + 30, true) + view.getUint16(cursor + 32, true);
+    }
+}
+
+function requireMethod(record: ZipRecord): void {
+    if (record.method !== 0 && record.method !== 8) {
+        throw new Error(`The zip entry ${record.name} uses compression method ${record.method}`);
+    }
+}
+
+/* Where an entry's data starts, past a local header of 30 bytes whose name and extra may differ from the directory's. */
+function dataStart(record: ZipRecord, local: Uint8Array): number {
+    const view = new DataView(local.buffer, local.byteOffset, 30);
+    if (view.getUint32(0, true) !== ZIP_LOCAL_ENTRY) {
+        throw new Error('The zip directory points at a damaged entry');
+    }
+    return record.localOffset + 30 + view.getUint16(26, true) + view.getUint16(28, true);
+}
+
+function readZip(zip: Uint8Array): ArchiveEntry[] {
+    const end = endRecordIn(zip);
+    const entries: ArchiveEntry[] = [];
+    for (const record of zipRecords(zip.subarray(end.getUint32(16, true)), end.getUint16(10, true))) {
+        if (record.name.endsWith('/')) {
             continue;
         }
-        if (view.getUint32(localOffset, true) !== ZIP_LOCAL_ENTRY) {
-            throw new Error('The zip directory points at a damaged entry');
-        }
-        const start = localOffset + 30 + view.getUint16(localOffset + 26, true) + view.getUint16(localOffset + 28, true);
-        const stored = zip.subarray(start, start + compressedSize);
-        if (method !== 0 && method !== 8) {
-            throw new Error(`The zip entry ${name} uses compression method ${method}`);
-        }
-        entries.push({ path: name, data: method === 0 ? stored : inflateRawSync(stored), mode: madeBy === ZIP_UNIX ? attributes >>> 16 : 0o644 });
+        const start = dataStart(record, zip.subarray(record.localOffset, record.localOffset + 30));
+        const stored = zip.subarray(start, start + record.compressedSize);
+        requireMethod(record);
+        entries.push({ path: record.name, data: record.method === 0 ? stored : inflateRawSync(stored), mode: record.mode });
     }
     return entries;
 }
 
 export function readArchive(bytes: Uint8Array, format: ArchiveFormat): ArchiveEntry[] {
     return format === 'zip' ? readZip(bytes) : readTar(gunzipSync(bytes));
+}
+
+/* A file is executable for everyone or for nobody, whatever else the archive's mode says. */
+function executableMode(mode: number): number {
+    return mode & 0o111 ? 0o755 : 0o644;
 }
 
 interface ExtractOptions {
@@ -160,7 +195,7 @@ export async function extractEntries(entries: readonly ArchiveEntry[], destinati
         const target = join(destination, relative);
         await mkdir(dirname(target), { recursive: true });
         await writeFile(target, entry.data);
-        await chmod(target, entry.mode & 0o111 ? 0o755 : 0o644);
+        await chmod(target, executableMode(entry.mode));
         written.push(relative);
     }
     return written;
@@ -168,7 +203,6 @@ export async function extractEntries(entries: readonly ArchiveEntry[], destinati
 
 // The end-of-directory record sits in the last 22 bytes plus a comment of at most 64 KiB.
 const ZIP_TAIL = 22 + 0xffff;
-const ZIP64_MARKER = 0xffffffff;
 
 /*
  * Unpacks a zip file from disk one entry at a time, each streamed through the inflater into its file, so
@@ -182,59 +216,33 @@ export async function extractZipFile(file: string, destination: string, options:
         const tailLength = Math.min(size, ZIP_TAIL);
         const tail = Buffer.alloc(tailLength);
         await handle.read(tail, 0, tailLength, size - tailLength);
-        let end = tailLength - 22;
-        while (end >= 0 && tail.readUInt32LE(end) !== ZIP_END_OF_DIRECTORY) {
-            end--;
-        }
-        if (end < 0) {
-            throw new Error('The archive is not a zip file');
-        }
-        const count = tail.readUInt16LE(end + 10);
-        const directorySize = tail.readUInt32LE(end + 12);
-        const directoryOffset = tail.readUInt32LE(end + 16);
+        const end = endRecordIn(tail);
+        const directorySize = end.getUint32(12, true);
+        const directoryOffset = end.getUint32(16, true);
         if (directoryOffset === ZIP64_MARKER || directorySize === ZIP64_MARKER) {
             throw new Error('The archive needs ZIP64, which is not supported');
         }
         const directory = Buffer.alloc(directorySize);
         await handle.read(directory, 0, directorySize, directoryOffset);
         const written: string[] = [];
-        let cursor = 0;
-        for (let i = 0; i < count; i++) {
-            if (directory.readUInt32LE(cursor) !== ZIP_DIRECTORY_ENTRY) {
-                throw new Error('The zip directory is damaged');
-            }
-            const madeBy = directory.readUInt16LE(cursor + 4) >> 8;
-            const method = directory.readUInt16LE(cursor + 10);
-            const compressedSize = directory.readUInt32LE(cursor + 20);
-            const nameLength = directory.readUInt16LE(cursor + 28);
-            const extraLength = directory.readUInt16LE(cursor + 30);
-            const commentLength = directory.readUInt16LE(cursor + 32);
-            const attributes = directory.readUInt32LE(cursor + 38);
-            const localOffset = directory.readUInt32LE(cursor + 42);
-            const name = directory.subarray(cursor + 46, cursor + 46 + nameLength).toString('utf8');
-            cursor += 46 + nameLength + extraLength + commentLength;
-            if (compressedSize === ZIP64_MARKER || localOffset === ZIP64_MARKER) {
+        for (const record of zipRecords(directory, end.getUint16(10, true))) {
+            if (record.compressedSize === ZIP64_MARKER || record.localOffset === ZIP64_MARKER) {
                 throw new Error('The archive needs ZIP64, which is not supported');
             }
-            const relative = name.endsWith('/') ? null : safeRelative(name, options);
+            const relative = record.name.endsWith('/') ? null : safeRelative(record.name, options);
             if (relative === null) {
                 continue;
             }
-            if (method !== 0 && method !== 8) {
-                throw new Error(`The zip entry ${name} uses compression method ${method}`);
-            }
+            requireMethod(record);
             const local = Buffer.alloc(30);
-            await handle.read(local, 0, 30, localOffset);
-            if (local.readUInt32LE(0) !== ZIP_LOCAL_ENTRY) {
-                throw new Error('The zip directory points at a damaged entry');
-            }
-            const start = localOffset + 30 + local.readUInt16LE(26) + local.readUInt16LE(28);
+            await handle.read(local, 0, 30, record.localOffset);
+            const start = dataStart(record, local);
             const target = join(destination, relative);
             await mkdir(dirname(target), { recursive: true });
-            const stored: Readable = compressedSize === 0 ? Readable.from([]) : createReadStream(file, { start, end: start + compressedSize - 1 });
-            await (method === 0 ? pipeline(stored, createWriteStream(target)) : pipeline(stored, createInflateRaw(), createWriteStream(target)));
-            const mode = madeBy === ZIP_UNIX ? attributes >>> 16 : 0o644;
-            await chmod(target, mode & 0o111 ? 0o755 : 0o644);
+            const stored: Readable =
+                record.compressedSize === 0 ? Readable.from([]) : createReadStream(file, { start, end: start + record.compressedSize - 1 });
+            await (record.method === 0 ? pipeline(stored, createWriteStream(target)) : pipeline(stored, createInflateRaw(), createWriteStream(target)));
+            await chmod(target, executableMode(record.mode));
             written.push(relative);
         }
         return written;
