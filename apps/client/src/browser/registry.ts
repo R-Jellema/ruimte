@@ -15,6 +15,7 @@ import { canSwipeBetweenPages, desktop, type DesktopBridge } from '@/desktop/bri
 import { useSettings } from '@/state/settings';
 import { dropEndpoint, endpointKey, isOfEndpoint, splitKey, useEndpointId } from '@/state/keys';
 import { localBrowserRouteAvailable } from './owner-route';
+import { webContentsIdOf } from './preview-guests';
 import { endpointById, LOCAL_ENDPOINT_ID, useEndpoints } from '@/state/endpoints';
 
 /* A main-frame load that did not arrive, in Chromium's own terms. What to say about it is
@@ -309,12 +310,8 @@ class BrowserRegistry {
     /* Which node a guest page belongs to, as a key. The shell knows its pages by web contents id only. */
     keyOfContents(webContentsId: number): string | null {
         for (const [key, element] of this.elements) {
-            try {
-                if (element.getWebContentsId() === webContentsId) {
-                    return key;
-                }
-            } catch {
-                // The guest is not attached yet, so it is not the one that asked.
+            if (webContentsIdOf(element) === webContentsId) {
+                return key;
             }
         }
         return null;
@@ -406,12 +403,9 @@ class BrowserRegistry {
 
     inspect(key: string): void {
         const element = this.elements.get(key);
-        if (element) {
-            try {
-                desktop()?.openGuestDevTools(element.getWebContentsId());
-            } catch {
-                // The guest is not ready yet; nothing to inspect.
-            }
+        const id = element === undefined ? null : webContentsIdOf(element);
+        if (id !== null) {
+            desktop()?.openGuestDevTools(id);
         }
     }
 

@@ -1,11 +1,17 @@
 import { createNodeAction, createViewAction } from '@/actions/client-actions';
 import { browserRegistry } from '@/browser/registry';
-import { canvasOfNode } from '@/state/canvas';
+import { canvasOfNode, type CanvasNode } from '@/state/canvas';
 import { defaultNodeSize } from '@/state/node-size';
 import { currentEndpointId, splitKey } from '@/state/keys';
 
-// The room between a page and the one a link opened beside it, the same step a duplicate takes.
+// The room between a node and the browser opened beside it, the same step a duplicate takes.
 const BESIDE_PX = 32;
+
+/* The center of a browser opened beside a node: to its right, top edges aligned. */
+export function browserBeside(source: Pick<CanvasNode, 'x' | 'y' | 'w'>): { x: number; y: number } {
+    const size = defaultNodeSize('browser');
+    return { x: source.x + source.w + BESIDE_PX + size.w / 2, y: source.y + size.h / 2 };
+}
 
 /*
  * "Open link in new browser node" from a page's own context menu, which the shell names only by its
@@ -25,11 +31,5 @@ export function openLinkBeside(url: string, webContentsId: number): void {
         void createViewAction('browser', { url, browserOwner });
         return;
     }
-    const size = defaultNodeSize('browser');
-    void createNodeAction('browser', {
-        viewId: canvas!.viewId!,
-        url,
-        browserOwner,
-        at: { x: source.x + source.w + BESIDE_PX + size.w / 2, y: source.y + size.h / 2 }
-    });
+    void createNodeAction('browser', { viewId: canvas!.viewId!, url, browserOwner, at: browserBeside(source) });
 }

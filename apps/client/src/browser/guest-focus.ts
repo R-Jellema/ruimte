@@ -2,11 +2,7 @@ import { isCanvasView } from '@ruimte/contracts';
 import { desktop } from '@/desktop/bridge';
 import { locateView } from '@/shell/split';
 import { useDocument } from '@/state/document';
-
-/* Only the part of a `<webview>` this file needs, the id the shell knows its page by once it has one. */
-interface GuestElement extends HTMLElement {
-    getWebContentsId?(): number;
-}
+import { webContentsIdOf } from './preview-guests';
 
 const watched = new Map<HTMLElement, () => void>();
 let installed = false;
@@ -26,14 +22,7 @@ function install(): void {
     );
     desktop()?.onGuestFocus?.((webContentsId) => {
         for (const [element, onFocus] of watched) {
-            let id: number | undefined;
-            try {
-                id = (element as GuestElement).getWebContentsId?.();
-            } catch {
-                // A guest that has not attached yet has no web contents to compare, so it is not this one.
-                continue;
-            }
-            if (id === webContentsId) {
+            if (webContentsIdOf(element) === webContentsId) {
                 onFocus();
             }
         }
