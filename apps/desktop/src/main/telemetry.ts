@@ -2,7 +2,8 @@ import { homedir, hostname, userInfo } from 'node:os';
 import { join } from 'node:path';
 import type { IPCMode } from '@sentry/electron/main';
 import { TELEMETRY_DATA_COLLECTION, TELEMETRY_DSN, telemetryRelease } from '@ruimte/telemetry';
-import { fileDedupeStore, isCrash, problemEvent, processTag, shellBeforeSend, type ShellProblem } from '../telemetry';
+import { fileDedupeStore } from '@ruimte/telemetry/file-store';
+import { isCrash, problemEvent, processTag, shellBeforeSend, type ShellProblem } from '../telemetry';
 import { electron } from './electron';
 
 const { app } = electron;

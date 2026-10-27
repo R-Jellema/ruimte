@@ -1,4 +1,4 @@
-import { MAX_PROMPT_LENGTH, type ActionHandlers, type ActionInput, type ActionOutput } from '@ruimte/actions';
+import { MAX_PROMPT_LENGTH, pendingRequestsOf, type ActionHandlers, type ActionInput, type ActionOutput } from '@ruimte/actions';
 import type { ChatItem, ProjectContent } from '@ruimte/contracts';
 import { matchName, resolveNames, type VoiceNameMatch } from '@ruimte/voice';
 import { VerbRefusal, type CanvasHost } from '../canvas/verb.ts';
@@ -152,33 +152,6 @@ function resolveIn(content: ProjectContent, canvasId: string | null, input: InPr
     });
 }
 
-function pendingRequests(items: readonly ChatItem[]) {
-    return {
-        questions: items.flatMap((item) =>
-            item.kind === 'question' && item.state === 'pending'
-                ? [
-                      {
-                          requestId: item.requestId,
-                          itemId: item.id,
-                          optional: item.async === true,
-                          questions: item.questions.map((question) => ({
-                              questionId: question.id,
-                              header: question.header,
-                              question: question.question,
-                              choices: question.choices.map((choice) => choice.label),
-                              multiSelect: question.multiSelect
-                          }))
-                      }
-                  ]
-                : []
-        ),
-        // An approval by its tool and the description it came with, never by its input: that is a command or a path, which may hold a secret.
-        approvals: items.flatMap((item) =>
-            item.kind === 'approval' && item.decision === 'pending' ? [{ requestId: item.requestId, tool: item.toolName, description: item.description }] : []
-        )
-    };
-}
-
 /* Where a prompt or a clear goes: a chat whose CLI runs here now. `also` adds what else the model can do. */
 function runningPrompts(context: ServerActionContext, chatId: string, chat: string, also = ''): NonNullable<CanvasHost['chatPrompts']> {
     const prompts = context.host.chatPrompts;
@@ -300,7 +273,7 @@ export const voiceActions: ActionHandlers<ServerActionContext> = {
                 // The machine holds every thread whole, open in a window or not.
                 open: true,
                 queue: (info.queue ?? []).map((message) => ({ messageId: message.id, text: message.text })),
-                ...pendingRequests(items),
+                ...pendingRequestsOf(items),
                 // Voice stops nothing on the machine, so none of them is stoppable from here.
                 subagents: items.flatMap((item) =>
                     item.kind === 'subagent'

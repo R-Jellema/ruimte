@@ -2,10 +2,10 @@ import { describe, expect, test } from 'bun:test';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileDedupeStore } from '@ruimte/telemetry/file-store';
 import {
     daemonBeforeSend,
     dedupeStorePath,
-    fileDedupeStore,
     helperExitReportable,
     helperStderrOf,
     markInApp,

@@ -1,6 +1,7 @@
 import {
     ACTION_DEFINITIONS,
     ActionRefusal,
+    worktreeDiffOutput,
     type ActionActor,
     type ActionCall,
     type ActionHandler,
@@ -619,19 +620,7 @@ export function developerActions(document: StoreApi<DocumentState>, overrides: P
             }
             const base = worktree.from?.branch ?? worktree.from?.commit;
             const diff = await ask('git.diff', { cwd: worktree.path, scope: 'base', ...(base === undefined ? {} : { base }) });
-            return {
-                output: {
-                    branch,
-                    from: worktree.from?.branch ?? null,
-                    files: (diff.files ?? []).map((file) => ({
-                        path: file.path,
-                        added: file.added,
-                        deleted: file.deleted,
-                        diff: file.diff,
-                        omitted: file.omitted ?? null
-                    }))
-                }
-            };
+            return { output: worktreeDiffOutput(branch, worktree, diff) };
         },
         'worktree.create': async ({ branch, base }, call) => {
             const folder = projectFolder();

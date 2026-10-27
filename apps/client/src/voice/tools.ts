@@ -1,6 +1,14 @@
 import i18next from 'i18next';
-import { ACTION_DEFINITIONS, VOICE_CONTROL_TOOL, VOICE_TOOL_ACTIONS, type ActionName, type ActionOutput, type ActionResult } from '@ruimte/actions';
-import { voiceReplyOf, type VoiceChatFollowUp, type VoiceReplyWords, type VoiceWatchedSession } from '@ruimte/voice';
+import { VOICE_CONTROL_TOOL, VOICE_TOOL_ACTIONS, type ActionName, type ActionOutput, type ActionResult } from '@ruimte/actions';
+import {
+    actionInput,
+    confirmationOf,
+    objectArguments,
+    voiceReplyOf,
+    type VoiceChatFollowUp,
+    type VoiceReplyWords,
+    type VoiceWatchedSession
+} from '@ruimte/voice';
 import { clientActions, VOICE_ACTION_CALL } from '@/actions/client-actions';
 import { accentLabel } from '@/canvas/accents';
 import { useEndpoints } from '@/state/endpoints';
@@ -9,7 +17,6 @@ import { useProject } from '@/state/project';
 import { useSettings } from '@/state/settings';
 import { endpointOfNodeId } from '@/state/node-endpoint';
 import type { VoiceActionKind } from '@/voice/state';
-import { objectArguments } from '@/voice/tool-arguments';
 import { voiceWorkspaceRevision } from '@/voice/workspace-context';
 
 /* What the activity log shows a person; the message beside it is for the model and stays English. */
@@ -76,11 +83,6 @@ function completed(name: ActionName, output: Record<string, unknown>, undoToken:
     return execution;
 }
 
-/* A strict tool carries every field of its domain; the action gets only its own, and the registry validates those. */
-function inputOf(name: ActionName, args: Record<string, unknown>): Record<string, unknown> {
-    return Object.fromEntries(Object.keys(ACTION_DEFINITIONS[name].input.shape).map((field) => [field, args[field] ?? null]));
-}
-
 async function executed(name: ActionName, input: Record<string, unknown>): Promise<ActionResult> {
     const revision = voiceWorkspaceRevision();
     const result = await clientActions.execute(name, input, VOICE_ACTION_CALL);
@@ -144,7 +146,7 @@ function watchedTerminal(name: ActionName, input: Record<string, unknown>, outpu
 async function runAction(name: ActionName, args: Record<string, unknown>): Promise<VoiceToolExecution> {
     const endpointId = currentEndpointId();
     const project = useProject.getState().current?.name ?? 'Untitled project';
-    const input = inputOf(name, args);
+    const input = actionInput(name, args);
     const result = await executed(name, input);
     if (result.status !== 'completed') {
         return failureOf(result);
@@ -159,12 +161,12 @@ async function runAction(name: ActionName, args: Record<string, unknown>): Promi
 }
 
 async function controlAction(args: Record<string, unknown>): Promise<VoiceToolExecution> {
-    const token = typeof args.confirmation_token === 'string' ? args.confirmation_token : null;
-    if (!token || (args.action !== 'confirm' && args.action !== 'cancel')) {
+    const answer = confirmationOf(args);
+    if (!answer) {
         return failed('Choose confirm or cancel and provide the confirmation token.', { code: 'invalid-confirmation' });
     }
     const endpointId = currentEndpointId();
-    const result = await clientActions.confirm(token, args.action === 'confirm', VOICE_ACTION_CALL);
+    const result = await clientActions.confirm(answer.token, answer.approved, VOICE_ACTION_CALL);
     return result.status === 'completed' ? completed(result.action, result.output as Record<string, unknown>, result.undoToken, endpointId) : failureOf(result);
 }
 

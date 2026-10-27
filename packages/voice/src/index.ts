@@ -7,5 +7,6 @@ export * from './mint.ts';
 export * from './names.ts';
 export * from './replies.ts';
 export * from './session-watch.ts';
+export * from './tool-arguments.ts';
 export * from './tool-events.ts';
 export * from './tool-loop.ts';

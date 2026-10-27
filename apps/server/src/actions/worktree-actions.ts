@@ -1,4 +1,4 @@
-import type { ActionHandlers } from '@ruimte/actions';
+import { worktreeDiffOutput, type ActionHandlers } from '@ruimte/actions';
 import { isCanvasView, type ProjectContent, type Worktree } from '@ruimte/contracts';
 import { isInside } from '../canvas/project-paths.ts';
 import { VerbRefusal, field, orNote, type CanvasHost, type WorktreeHost } from '../canvas/verb.ts';
@@ -96,19 +96,7 @@ export const worktreeActions: ActionHandlers<ServerActionContext> = {
             throw new VerbRefusal('worktree-missing', `The folder of ${branch} is gone, so there is nothing to diff`);
         }
         const diff = await worktreeHostOf(context).diff(worktree.path, worktree.from?.branch ?? worktree.from?.commit);
-        return {
-            output: {
-                branch,
-                from: worktree.from?.branch ?? null,
-                files: (diff.files ?? []).map((file) => ({
-                    path: file.path,
-                    added: file.added,
-                    deleted: file.deleted,
-                    diff: file.diff,
-                    omitted: file.omitted ?? null
-                }))
-            }
-        };
+        return { output: worktreeDiffOutput(branch, worktree, diff) };
     },
     /*
      * An agent's merge only merges, under the limits the host holds it to: only the worktree of an agent

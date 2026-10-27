@@ -3,7 +3,8 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { memoryDedupeStore } from '@ruimte/telemetry';
-import { fileDedupeStore, isCrash, problemEvent, processTag, shellBeforeSend } from './telemetry';
+import { fileDedupeStore } from '@ruimte/telemetry/file-store';
+import { isCrash, problemEvent, processTag, shellBeforeSend } from './telemetry';
 
 const IDENTITY = { home: '/Users/jane', username: 'jane', hostname: 'janes-mac' };
 

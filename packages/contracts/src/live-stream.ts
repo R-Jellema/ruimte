@@ -90,15 +90,26 @@ export function encodeLiveStreamFrame(frame: LiveStreamFrame): Uint8Array {
     return encoded;
 }
 
+/* The header at the start of `bytes`, which must hold at least `LIVE_STREAM_FRAME_HEADER_BYTES`. */
+export function readLiveStreamFrameHeader(bytes: Uint8Array): { length: number; sequence: number; width: number; height: number } {
+    const header = new DataView(bytes.buffer, bytes.byteOffset, LIVE_STREAM_FRAME_HEADER_BYTES);
+    return { length: header.getUint32(0), sequence: header.getUint32(4), width: header.getUint16(8), height: header.getUint16(10) };
+}
+
 export class LiveStreamDecoder {
-    private buffer = new Uint8Array();
+    private buffer: Uint8Array = new Uint8Array();
     private preambleRead = false;
 
+    /* Nothing here writes into a buffer it holds, so the rest of one is kept as a view rather than a copy. */
     push(chunk: Uint8Array): LiveStreamFrame[] {
-        const joined = new Uint8Array(this.buffer.byteLength + chunk.byteLength);
-        joined.set(this.buffer);
-        joined.set(chunk, this.buffer.byteLength);
-        this.buffer = joined;
+        if (this.buffer.byteLength === 0) {
+            this.buffer = chunk;
+        } else {
+            const joined = new Uint8Array(this.buffer.byteLength + chunk.byteLength);
+            joined.set(this.buffer);
+            joined.set(chunk, this.buffer.byteLength);
+            this.buffer = joined;
+        }
 
         if (!this.preambleRead) {
             if (this.buffer.byteLength < LIVE_STREAM_MAGIC.byteLength) {
@@ -109,14 +120,13 @@ export class LiveStreamDecoder {
                     throw new Error('Unknown live stream format');
                 }
             }
-            this.buffer = this.buffer.slice(LIVE_STREAM_MAGIC.byteLength);
+            this.buffer = this.buffer.subarray(LIVE_STREAM_MAGIC.byteLength);
             this.preambleRead = true;
         }
 
         const frames: LiveStreamFrame[] = [];
         while (this.buffer.byteLength >= LIVE_STREAM_FRAME_HEADER_BYTES) {
-            const header = new DataView(this.buffer.buffer, this.buffer.byteOffset, LIVE_STREAM_FRAME_HEADER_BYTES);
-            const length = header.getUint32(0);
+            const { length, sequence, width, height } = readLiveStreamFrameHeader(this.buffer);
             if (length > LIVE_STREAM_MAX_FRAME_BYTES) {
                 throw new Error('Live stream frame is too large');
             }
@@ -124,13 +134,8 @@ export class LiveStreamDecoder {
             if (this.buffer.byteLength < total) {
                 break;
             }
-            frames.push({
-                sequence: header.getUint32(4),
-                width: header.getUint16(8),
-                height: header.getUint16(10),
-                data: this.buffer.slice(LIVE_STREAM_FRAME_HEADER_BYTES, total)
-            });
-            this.buffer = this.buffer.slice(total);
+            frames.push({ sequence, width, height, data: this.buffer.slice(LIVE_STREAM_FRAME_HEADER_BYTES, total) });
+            this.buffer = this.buffer.subarray(total);
         }
         return frames;
     }

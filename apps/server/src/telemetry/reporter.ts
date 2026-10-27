@@ -1,16 +1,7 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir, hostname, userInfo } from 'node:os';
-import { dirname, join } from 'node:path';
-import {
-    blankQuoted,
-    createDailyDedupe,
-    createScrubber,
-    TELEMETRY_DATA_COLLECTION,
-    TELEMETRY_DSN,
-    telemetryRelease,
-    type DedupeStore
-} from '@ruimte/telemetry';
-import { isRecord } from '../is-record.ts';
+import { join } from 'node:path';
+import { blankQuoted, createDailyDedupe, createScrubber, TELEMETRY_DATA_COLLECTION, TELEMETRY_DSN, telemetryRelease } from '@ruimte/telemetry';
+import { fileDedupeStore } from '@ruimte/telemetry/file-store';
 import { COMPILED, VERSION } from '../version.ts';
 
 type Sentry = typeof import('@sentry/bun');
@@ -73,19 +64,6 @@ export function telemetrySettings(launcher: Launcher, ruimteHome: string): Telem
 /* Machine state: no client's file request reaches it (`fs/machine-home.ts`). */
 export function dedupeStorePath(ruimteHome: string): string {
     return join(ruimteHome, 'telemetry', 'sent.json');
-}
-
-export function fileDedupeStore(path: string): DedupeStore {
-    return {
-        read: () => {
-            const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'));
-            return isRecord(parsed) ? (parsed as Record<string, number>) : {};
-        },
-        write: (entries) => {
-            mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-            writeFileSync(path, JSON.stringify(entries), { mode: 0o600 });
-        }
-    };
 }
 
 /*

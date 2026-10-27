@@ -1,5 +1,5 @@
 import { VOICE_CONTROL_TOOL, VOICE_TOOL_ACTIONS, voiceToolsFor, type ActionDomain } from '@ruimte/actions';
-import { objectArguments } from '@/voice/tool-arguments';
+import { objectArguments } from '@ruimte/voice';
 
 /*
  * How Voice fared, measured on this machine and never sent anywhere. A record holds names, codes,

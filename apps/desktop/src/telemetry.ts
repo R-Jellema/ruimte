@@ -1,5 +1,3 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname } from 'node:path';
 import { blankQuoted, createDailyDedupe, createScrubber, type DedupeStore } from '@ruimte/telemetry';
 
 /* What the shell reports besides an error nothing caught and a native crash. Every message is fixed text; a reason is scrubbed. */
@@ -101,20 +99,6 @@ export function problemEvent(problem: ShellProblem): ShellEvent {
                 extra: { reason: problem.reason }
             };
     }
-}
-
-/* Under the app's own folder, which no page reads. */
-export function fileDedupeStore(path: string): DedupeStore {
-    return {
-        read: () => {
-            const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'));
-            return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? (parsed as Record<string, number>) : {};
-        },
-        write: (entries) => {
-            mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-            writeFileSync(path, JSON.stringify(entries), { mode: 0o600 });
-        }
-    };
 }
 
 /*

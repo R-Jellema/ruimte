@@ -3,6 +3,7 @@ import {
     encodeLiveStreamFrame,
     LIVE_STREAM_FRAME_HEADER_BYTES,
     LIVE_STREAM_MAX_FRAME_BYTES,
+    readLiveStreamFrameHeader,
     type DeviceInput,
     type LiveStreamFrame
 } from '@ruimte/contracts';
@@ -195,17 +196,9 @@ function decodeFrame(payload: Uint8Array): LiveStreamFrame {
     if (payload.byteLength < LIVE_STREAM_FRAME_HEADER_BYTES) {
         throw new Error('Invalid device helper frame');
     }
-    const header = new DataView(payload.buffer, payload.byteOffset, LIVE_STREAM_FRAME_HEADER_BYTES);
-    const length = header.getUint32(0);
-    const width = header.getUint16(8);
-    const height = header.getUint16(10);
+    const { length, sequence, width, height } = readLiveStreamFrameHeader(payload);
     if (length > LIVE_STREAM_MAX_FRAME_BYTES || payload.byteLength !== LIVE_STREAM_FRAME_HEADER_BYTES + length || width === 0 || height === 0) {
         throw new Error('Invalid device helper frame');
     }
-    return {
-        sequence: header.getUint32(4),
-        width,
-        height,
-        data: payload.slice(LIVE_STREAM_FRAME_HEADER_BYTES)
-    };
+    return { sequence, width, height, data: payload.slice(LIVE_STREAM_FRAME_HEADER_BYTES) };
 }

@@ -1,6 +1,5 @@
 import { ACTION_DEFINITIONS, VOICE_CONTROL_TOOL, type ActionCall, type ActionName, type ActionResult, type VoiceToolDefinition } from '@ruimte/actions';
-import { voiceReplyOf, type VoiceReplyWords } from '@ruimte/voice';
-import { isRecord } from '../is-record.ts';
+import { actionInput, confirmationOf, objectArguments, voiceReplyOf, type VoiceReplyWords } from '@ruimte/voice';
 import type { VoicePolicy } from './action-policy.ts';
 
 type VoiceToolOutput = Record<string, unknown>;
@@ -76,15 +75,6 @@ function refused(code: string, message: string): VoiceToolOutput {
     return { ok: false, code, message };
 }
 
-function objectArguments(raw: string): Record<string, unknown> | null {
-    try {
-        const parsed: unknown = JSON.parse(raw);
-        return isRecord(parsed) ? parsed : null;
-    } catch {
-        return null;
-    }
-}
-
 /* What each tool reaches, read from the tools themselves, so the executor offers exactly what the model was given. */
 function offeredActions(tools: readonly VoiceToolDefinition[]): Map<string, ReadonlySet<string>> {
     const offered = new Map<string, ReadonlySet<string>>();
@@ -95,11 +85,6 @@ function offeredActions(tools: readonly VoiceToolDefinition[]): Map<string, Read
         }
     }
     return offered;
-}
-
-/* A strict tool carries every field of its domain; the action gets only its own, and the registry validates those. */
-function inputOf(name: ActionName, args: Record<string, unknown>): Record<string, unknown> {
-    return Object.fromEntries(Object.keys(ACTION_DEFINITIONS[name].input.shape).map((field) => [field, args[field] ?? null]));
 }
 
 /* A counted gate: at most `size` of what it runs go at once. */
@@ -220,17 +205,17 @@ export class VoiceToolExecutor<Context> {
             return refused('invalid-arguments', 'The tool arguments are not a JSON object.');
         }
         if (tool === VOICE_CONTROL_TOOL) {
-            const token = typeof args.confirmation_token === 'string' ? args.confirmation_token : null;
-            if (token === null || (args.action !== 'confirm' && args.action !== 'cancel')) {
+            const answer = confirmationOf(args);
+            if (answer === null) {
                 return refused('invalid-confirmation', 'Choose confirm or cancel and provide the confirmation token.');
             }
-            return this.confirm(token, args.action === 'confirm');
+            return this.confirm(answer.token, answer.approved);
         }
         const name = typeof args.action === 'string' ? args.action : '';
         if (!this.#offered.get(tool)?.has(name)) {
             return refused('not-offered', `The tool ${tool} offers no action “${name}”.`);
         }
-        const input = inputOf(name as ActionName, args);
+        const input = actionInput(name as ActionName, args);
         const refusal = this.#options.policy.check(name, input);
         if (refusal !== null) {
             return refused(refusal.code, refusal.message);

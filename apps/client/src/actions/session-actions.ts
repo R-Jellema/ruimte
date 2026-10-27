@@ -1,5 +1,5 @@
 import i18next from 'i18next';
-import { ActionRefusal, type ActionCall, type ActionHandlers, type ActionOutput } from '@ruimte/actions';
+import { ActionRefusal, pendingRequestsOf, type ActionCall, type ActionHandlers, type ActionOutput } from '@ruimte/actions';
 import {
     CHAT_FORK_TITLE_MAX,
     clipText,
@@ -311,29 +311,7 @@ export function sessionActions(document: StoreApi<DocumentState>, overrides: Par
                     working,
                     open,
                     queue: (info.queue ?? []).map((message) => ({ messageId: message.id, text: message.text })),
-                    questions: thread.flatMap((item) =>
-                        item.kind === 'question' && item.state === 'pending'
-                            ? [
-                                  {
-                                      requestId: item.requestId,
-                                      itemId: item.id,
-                                      optional: item.async === true,
-                                      questions: item.questions.map((question) => ({
-                                          questionId: question.id,
-                                          header: question.header,
-                                          question: question.question,
-                                          choices: question.choices.map((choice) => choice.label),
-                                          multiSelect: question.multiSelect
-                                      }))
-                                  }
-                              ]
-                            : []
-                    ),
-                    approvals: thread.flatMap((item) =>
-                        item.kind === 'approval' && item.decision === 'pending'
-                            ? [{ requestId: item.requestId, tool: item.toolName, description: item.description }]
-                            : []
-                    ),
+                    ...pendingRequestsOf(thread),
                     subagents: thread.flatMap((item) =>
                         item.kind === 'subagent'
                             ? [{ toolUseId: item.toolUseId, title: subagentTitle(item), status: item.status, stoppable: stopOf(item, working) !== null }]
