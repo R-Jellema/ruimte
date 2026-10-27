@@ -9,23 +9,14 @@ import {
 import { verifySignature } from '@ruimte/pulsar/verify-web';
 import { signEd25519, statementKeyOf } from './crypto.ts';
 import type { Env } from './env.ts';
-import { clientIp, failure, json, readBody, signInAgain } from './http.ts';
-import { LIMITS, overAnyLimit } from './rate-limit.ts';
-import { authenticate } from './sessions.ts';
+import { clientIp, failure, json, readBody } from './http.ts';
+import { LIMITS, sessionWithinLimits } from './rate-limit.ts';
 
 // `POST /v1/peer-statements`
 export async function issuePeerStatement(request: Request, env: Env): Promise<Response> {
-    const session = await authenticate(request, env.DB);
-    if (!session) {
-        return signInAgain();
-    }
-    const ip = clientIp(request);
-    const limited = await overAnyLimit(env.DB, [
-        [`account:${session.account.id}:peer-statement`, LIMITS.peerStatementAccount],
-        [`ip:${ip}:peer-statement`, LIMITS.peerStatementIp]
-    ]);
-    if (limited) {
-        return limited;
+    const session = await sessionWithinLimits(request, env.DB, ['peer-statement', LIMITS.peerStatementAccount], ['peer-statement', LIMITS.peerStatementIp]);
+    if (session instanceof Response) {
+        return session;
     }
     if (!env.STATEMENT_PRIVATE_KEY) {
         return failure('not-configured', 'The address book has no statement key');
@@ -81,7 +72,7 @@ export async function issuePeerStatement(request: Request, env: Env): Promise<Re
         `INSERT INTO statement_log (account_id, machine_id, device_public_key, session_id, ip, issued_at, expires_at, kind, peer_machine_id)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'peer', ?8)`
     )
-        .bind(accountId, machineId, peerPublicKey, session.id, ip, issuedAt, expiresAt, peerMachineId)
+        .bind(accountId, machineId, peerPublicKey, session.id, clientIp(request), issuedAt, expiresAt, peerMachineId)
         .run();
     return json(statement);
 }

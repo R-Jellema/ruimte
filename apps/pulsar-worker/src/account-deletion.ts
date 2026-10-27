@@ -1,9 +1,8 @@
 import { AccountDeletePayloadSchema, accountConfirmationName, confirmsAccountDeletion } from '@ruimte/pulsar';
 import { nativeAppleConfigured, revokeNativeApple } from './apple.ts';
 import type { Env } from './env.ts';
-import { clientIp, failure, noContent, readBody, signInAgain } from './http.ts';
-import { LIMITS, overAnyLimit } from './rate-limit.ts';
-import { authenticate } from './sessions.ts';
+import { failure, noContent, readBody } from './http.ts';
+import { LIMITS, sessionWithinLimits } from './rate-limit.ts';
 
 const PUSH_HANDLES = 'SELECT handle FROM push_device WHERE account_id = ?1';
 
@@ -61,16 +60,9 @@ async function revokeApple(env: Env, accountId: string, authorizationCode: strin
  * with one of its identities afterwards opens a new account.
  */
 export async function deleteAccount(request: Request, env: Env): Promise<Response> {
-    const session = await authenticate(request, env.DB);
-    if (!session) {
-        return signInAgain();
-    }
-    const limited = await overAnyLimit(env.DB, [
-        [`account:${session.account.id}:delete`, LIMITS.deleteAccount],
-        [`ip:${clientIp(request)}:session`, LIMITS.sessionIp]
-    ]);
-    if (limited) {
-        return limited;
+    const session = await sessionWithinLimits(request, env.DB, ['delete', LIMITS.deleteAccount], ['session', LIMITS.sessionIp]);
+    if (session instanceof Response) {
+        return session;
     }
     const body = await readBody(request, AccountDeletePayloadSchema);
     if ('response' in body) {

@@ -12,7 +12,7 @@ import {
 import type { Env } from './env.ts';
 import { clientIp, failure, json, readBody, signInAgain } from './http.ts';
 import { PROVIDERS, type ProviderIdentity } from './providers.ts';
-import { LIMITS, overAnyLimit } from './rate-limit.ts';
+import { LIMITS, overAnyLimit, sessionWithinLimits } from './rate-limit.ts';
 import { accountDisplayNameSql, accountLoginSql, accountProviderSql, authenticate, type AccountRow, type SessionContext } from './sessions.ts';
 
 // The start URL is opened the moment the token comes back; a token nobody used by then is worth dropping.
@@ -81,11 +81,15 @@ export async function resolveAccount(db: D1Database, provider: ProviderId, ident
             console.warn('a new account lost a race, reading the one that won', error);
         }
     }
-    const row = await db
+    return ownerOf(db, provider, identity.subject);
+}
+
+function ownerOf(db: D1Database, provider: ProviderId, subject: string): Promise<string | null> {
+    return db
         .prepare('SELECT account_id FROM identity WHERE provider = ?1 AND subject = ?2')
-        .bind(provider, identity.subject)
-        .first<{ account_id: string }>();
-    return row?.account_id ?? null;
+        .bind(provider, subject)
+        .first<{ account_id: string }>()
+        .then((row) => row?.account_id ?? null);
 }
 
 export async function accountResult(db: D1Database, accountId: string): Promise<AccountResult | null> {
@@ -127,16 +131,9 @@ export async function getAccount(request: Request, env: Env): Promise<Response> 
 
 // `POST /v1/account/link`: a token for the start URL of the provider to add, bound to this session.
 export async function startIdentityLink(request: Request, env: Env): Promise<Response> {
-    const session = await authenticate(request, env.DB);
-    if (!session) {
-        return signInAgain();
-    }
-    const limited = await overAnyLimit(env.DB, [
-        [`account:${session.account.id}:link`, LIMITS.linkAccount],
-        [`ip:${clientIp(request)}:login`, LIMITS.loginIp]
-    ]);
-    if (limited) {
-        return limited;
+    const session = await sessionWithinLimits(request, env.DB, ['link', LIMITS.linkAccount], ['login', LIMITS.loginIp]);
+    if (session instanceof Response) {
+        return session;
     }
     const body = await readBody(request, IdentityLinkStartPayloadSchema);
     if ('response' in body) {
@@ -252,13 +249,11 @@ export async function completeIdentityLink(request: Request, env: Env): Promise<
     if (row.session_id !== session.id || row.app_redirect_uri !== redirectUri || (await sha256(codeVerifier)) !== row.app_code_challenge) {
         return failure('unauthorized', 'This sign-in was started from another session. Start again.');
     }
-    const owner = await env.DB.prepare('SELECT account_id FROM identity WHERE provider = ?1 AND subject = ?2')
-        .bind(row.provider, row.subject)
-        .first<{ account_id: string }>();
-    if (owner && owner.account_id !== session.account.id) {
+    const owner = await ownerOf(env.DB, row.provider, row.subject);
+    if (owner !== null && owner !== session.account.id) {
         return identityTaken(row.provider);
     }
-    if (owner) {
+    if (owner !== null) {
         await env.DB.prepare('UPDATE identity SET login = ?3, display_name = COALESCE(?4, display_name) WHERE provider = ?1 AND subject = ?2')
             .bind(row.provider, row.subject, row.login, row.display_name)
             .run();
@@ -271,11 +266,9 @@ export async function completeIdentityLink(request: Request, env: Env): Promise<
             .first<{ account_id: string }>();
         if (!inserted) {
             // Either unique pair held: the identity went to another account in the meantime, or this account got one of the provider.
-            const current = await env.DB.prepare('SELECT account_id FROM identity WHERE provider = ?1 AND subject = ?2')
-                .bind(row.provider, row.subject)
-                .first<{ account_id: string }>();
-            if (current?.account_id !== session.account.id) {
-                return current ? identityTaken(row.provider) : providerLinked(row.provider);
+            const current = await ownerOf(env.DB, row.provider, row.subject);
+            if (current !== session.account.id) {
+                return current !== null ? identityTaken(row.provider) : providerLinked(row.provider);
             }
         }
     }

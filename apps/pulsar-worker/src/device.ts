@@ -25,10 +25,10 @@ import {
 } from '@ruimte/pulsar';
 import { verifySignature } from '@ruimte/pulsar/verify-web';
 import type { Env } from './env.ts';
-import { clientIp, failure, json, noContent, readBody, signInAgain } from './http.ts';
+import { clientIp, failure, json, noContent, readBody } from './http.ts';
 import { storeMachine } from './machines.ts';
-import { LIMITS, overAnyLimit } from './rate-limit.ts';
-import { accountDisplayNameSql, accountLoginSql, accountProviderSql, authenticate, type SessionContext } from './sessions.ts';
+import { LIMITS, overAnyLimit, sessionWithinLimits } from './rate-limit.ts';
+import { accountDisplayNameSql, accountLoginSql, accountProviderSql, type SessionContext } from './sessions.ts';
 
 /*
  * Linking a machine with a code (`ruimte login`). The terminal starts a link and holds the device
@@ -134,17 +134,10 @@ export async function startDeviceLink(request: Request, env: Env): Promise<Respo
 
 // The session and the code for the three routes a person uses, or the response that says why not.
 async function personAndCode(request: Request, env: Env): Promise<{ session: SessionContext; userCode: string } | { response: Response }> {
-    const session = await authenticate(request, env.DB);
-    if (!session) {
-        return { response: signInAgain() };
-    }
     // Counted before the code is read, so every guess costs, a malformed one included.
-    const limited = await overAnyLimit(env.DB, [
-        [`account:${session.account.id}:device-code`, LIMITS.deviceCodeAccount],
-        [`ip:${clientIp(request)}:device-code`, LIMITS.deviceCodeIp]
-    ]);
-    if (limited) {
-        return { response: limited };
+    const session = await sessionWithinLimits(request, env.DB, ['device-code', LIMITS.deviceCodeAccount], ['device-code', LIMITS.deviceCodeIp]);
+    if (session instanceof Response) {
+        return { response: session };
     }
     const body = await readBody(request, UserCodePayloadSchema);
     if ('response' in body) {

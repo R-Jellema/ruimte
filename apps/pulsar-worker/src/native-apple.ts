@@ -4,10 +4,10 @@ import { cleanDisplayName } from './display-name.ts';
 import type { Env } from './env.ts';
 import { clientIp, failure, json, readBody } from './http.ts';
 import { resolveAccount } from './identities.ts';
+import { storeLoginCode } from './login.ts';
 import { LIMITS, overAnyLimit } from './rate-limit.ts';
 
 const ATTEMPT_LIFETIME_MS = 10 * 60_000;
-const CODE_LIFETIME_MS = 60_000;
 
 async function available(request: Request, env: Env): Promise<Response | null> {
     const limited = await overAnyLimit(env.DB, [[`ip:${clientIp(request)}:login`, LIMITS.loginIp]]);
@@ -65,9 +65,5 @@ export async function completeNativeApple(request: Request, env: Env): Promise<R
     if (!accountId) {
         return failure('internal', 'The account could not be opened. Start signing in again.');
     }
-    const code = randomToken();
-    await env.DB.prepare('INSERT INTO login_code (code_hash, account_id, app_redirect_uri, app_code_challenge, expires_at) VALUES (?1, ?2, ?3, ?4, ?5)')
-        .bind(await sha256(code), accountId, APP_REDIRECT_SCHEME_URI, attempt.code_challenge, Date.now() + CODE_LIFETIME_MS)
-        .run();
-    return json({ code });
+    return json({ code: await storeLoginCode(env.DB, accountId, APP_REDIRECT_SCHEME_URI, attempt.code_challenge) });
 }

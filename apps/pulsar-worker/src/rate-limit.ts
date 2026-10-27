@@ -1,5 +1,6 @@
-import { failure } from './http.ts';
+import { clientIp, failure, signInAgain } from './http.ts';
 import { retryAfterSeconds, windowStartOf } from './rate-window.ts';
+import { authenticate, type SessionContext } from './sessions.ts';
 
 export { LIMITS } from './rate-window.ts';
 
@@ -28,4 +29,22 @@ export async function overAnyLimit(db: D1Database, checks: ReadonlyArray<readonl
     const now = Date.now();
     const results = await Promise.all(checks.map(([bucket, limit]) => overLimit(db, bucket, limit, now)));
     return results.find((result) => result !== null) ?? null;
+}
+
+/* The session of a signed-in request within a route's limit for its account and for its address, or the answer that turns it down. */
+export async function sessionWithinLimits(
+    request: Request,
+    db: D1Database,
+    account: readonly [bucket: string, limit: number],
+    ip: readonly [bucket: string, limit: number]
+): Promise<SessionContext | Response> {
+    const session = await authenticate(request, db);
+    if (!session) {
+        return signInAgain();
+    }
+    const limited = await overAnyLimit(db, [
+        [`account:${session.account.id}:${account[0]}`, account[1]],
+        [`ip:${clientIp(request)}:${ip[0]}`, ip[1]]
+    ]);
+    return limited ?? session;
 }

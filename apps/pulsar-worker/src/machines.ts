@@ -9,8 +9,8 @@ import {
 } from '@ruimte/pulsar';
 import { verifySignature } from '@ruimte/pulsar/verify-web';
 import type { Env } from './env.ts';
-import { clientIp, failure, json, noContent, readBody, signInAgain } from './http.ts';
-import { LIMITS, overAnyLimit } from './rate-limit.ts';
+import { failure, json, noContent, readBody, signInAgain } from './http.ts';
+import { LIMITS, sessionWithinLimits } from './rate-limit.ts';
 import { authenticate } from './sessions.ts';
 
 interface MachineRow {
@@ -60,16 +60,9 @@ export async function listMachines(request: Request, env: Env): Promise<Response
 
 // `POST /v1/machines`
 export async function registerMachine(request: Request, env: Env): Promise<Response> {
-    const session = await authenticate(request, env.DB);
-    if (!session) {
-        return signInAgain();
-    }
-    const limited = await overAnyLimit(env.DB, [
-        [`account:${session.account.id}:register`, LIMITS.registerAccount],
-        [`ip:${clientIp(request)}:register`, LIMITS.registerIp]
-    ]);
-    if (limited) {
-        return limited;
+    const session = await sessionWithinLimits(request, env.DB, ['register', LIMITS.registerAccount], ['register', LIMITS.registerIp]);
+    if (session instanceof Response) {
+        return session;
     }
     const body = await readBody(request, RegisterMachinePayloadSchema);
     if ('response' in body) {

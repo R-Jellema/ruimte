@@ -41,8 +41,15 @@ function callbackUrl(env: Env, provider: OAuthProvider): string {
     return `${env.PUBLIC_ORIGIN}/auth/${provider.id}/callback`;
 }
 
-function notConfigured(provider: OAuthProvider): Response {
-    return failure('not-configured', `Signing in with ${PROVIDER_NAMES[provider.id]} is not configured on this address book yet`);
+/* Null while this address may still try a login and the provider is set up, else the answer that says why not. */
+async function loginRefused(request: Request, env: Env, provider: OAuthProvider): Promise<Response | null> {
+    const limited = await overAnyLimit(env.DB, [[`ip:${clientIp(request)}:login`, LIMITS.loginIp]]);
+    if (limited) {
+        return limited;
+    }
+    return provider.configured(env)
+        ? null
+        : failure('not-configured', `Signing in with ${PROVIDER_NAMES[provider.id]} is not configured on this address book yet`);
 }
 
 /*
@@ -89,12 +96,9 @@ function redirectToApp(appRedirectUri: string, params: Record<string, string>): 
 
 // `GET /auth/<provider>/start`, opened by the app in the system browser.
 export async function startLogin(request: Request, env: Env, provider: OAuthProvider): Promise<Response> {
-    const limited = await overAnyLimit(env.DB, [[`ip:${clientIp(request)}:login`, LIMITS.loginIp]]);
-    if (limited) {
-        return limited;
-    }
-    if (!provider.configured(env)) {
-        return notConfigured(provider);
+    const refused = await loginRefused(request, env, provider);
+    if (refused) {
+        return refused;
     }
     const parsed = LoginStartQuerySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
     if (!parsed.success) {
@@ -165,12 +169,9 @@ async function callbackParams(request: Request): Promise<URLSearchParams> {
 
 // `GET` or `POST /auth/<provider>/callback`, where the provider sends the browser.
 export async function finishLogin(request: Request, env: Env, provider: OAuthProvider): Promise<Response> {
-    const limited = await overAnyLimit(env.DB, [[`ip:${clientIp(request)}:login`, LIMITS.loginIp]]);
-    if (limited) {
-        return limited;
-    }
-    if (!provider.configured(env)) {
-        return notConfigured(provider);
+    const refused = await loginRefused(request, env, provider);
+    if (refused) {
+        return refused;
     }
     const params = await callbackParams(request);
     const state = params.get('state');
@@ -216,12 +217,19 @@ export async function finishLogin(request: Request, env: Env, provider: OAuthPro
         countLogin(provider.id, 'failed');
         return redirectToApp(attempt.app_redirect_uri, { error: 'server_error', state: attempt.app_state });
     }
-    const loginCode = randomToken();
-    await env.DB.prepare('INSERT INTO login_code (code_hash, account_id, app_redirect_uri, app_code_challenge, expires_at) VALUES (?1, ?2, ?3, ?4, ?5)')
-        .bind(await sha256(loginCode), accountId, attempt.app_redirect_uri, attempt.app_code_challenge, Date.now() + LOGIN_CODE_LIFETIME_MS)
-        .run();
+    const loginCode = await storeLoginCode(env.DB, accountId, attempt.app_redirect_uri, attempt.app_code_challenge);
     countLogin(provider.id, 'signed-in');
     return redirectToApp(attempt.app_redirect_uri, { code: loginCode, state: attempt.app_state });
+}
+
+/* The code an app trades for a session (`POST /v1/session`), with the redirect and the PKCE challenge of its login. */
+export async function storeLoginCode(db: D1Database, accountId: string, appRedirectUri: string, appCodeChallenge: string): Promise<string> {
+    const code = randomToken();
+    await db
+        .prepare('INSERT INTO login_code (code_hash, account_id, app_redirect_uri, app_code_challenge, expires_at) VALUES (?1, ?2, ?3, ?4, ?5)')
+        .bind(await sha256(code), accountId, appRedirectUri, appCodeChallenge, Date.now() + LOGIN_CODE_LIFETIME_MS)
+        .run();
+    return code;
 }
 
 // `POST /v1/session`: the app trades the code from the redirect for a session.
