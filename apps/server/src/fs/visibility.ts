@@ -1,8 +1,8 @@
 /*
  * What a listing shows. `never` is rubbish nobody asked for and no client may draw; `shy` is there
  * once a person asks to see everything; `always` is the project itself, a leading dot or not.
- * A dot is no longer a reason on its own: `.github` and `.editorconfig` are as much of the project
- * as `package.json` is, and what is really noise is what the repository already ignores.
+ * A dot alone hides nothing: `.github` and `.editorconfig` are as much of the project as
+ * `package.json`, and the real noise is what the repository already ignores.
  */
 type FsVisibility = 'always' | 'shy' | 'never';
 

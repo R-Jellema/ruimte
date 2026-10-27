@@ -7,10 +7,11 @@ import { DEVICE_CAPTURES_FOLDER } from '../shots.ts';
 export class MachineHomeError extends CodedError<'machine-state'> {}
 
 /*
- * What under `$RUIMTE_HOME` a person's own work or a picture made for them sits in: the Chats project,
- * the agents' worktrees, the shots agents take, a person's captures of a device, the files people attach and the visuals of a chat. The
- * rest is the machine's: its key pair, the local secret, the approvals, the secrets of launches, the
- * accounts of the CLIs, the browser profile and the threads of the chats beside their visuals.
+ * What under `$RUIMTE_HOME` holds a person's own work or a picture made for them: the Chats project,
+ * the agents' worktrees, the shots agents take, a person's captures of a device, the files people
+ * attach and the visuals of a chat. The rest is the machine's: its key pair, the local secret, the
+ * approvals, the secrets of launches, the accounts of the CLIs, the browser profile and the threads
+ * of the chats beside their visuals.
  */
 const OPEN_FOLDERS = ['scratch', 'worktrees', 'screenshots', join('computer-use', 'screenshots'), 'attachments', DEVICE_CAPTURES_FOLDER];
 
@@ -45,10 +46,10 @@ export function holdsMachineHome(policy: MachineHomePolicy, folder: string): boo
 }
 
 /*
- * The line a client's file requests stop at, the archive requests among them. A client the machine let in is not its owner, so
- * nothing it asks for by path may hand it what only the local secret grants. A path is judged by its
- * name and by where it really leads, so neither a symlink nor another spelling on a case-insensitive
- * volume walks around it.
+ * The line a client's file and archive requests stop at. A client the machine let in is not its
+ * owner, so nothing it asks for by path may hand it what only the local secret grants. A path is
+ * judged by its name and by where it really leads, so neither a symlink nor another spelling on a
+ * case-insensitive volume walks around it.
  */
 export class MachineHome {
     private readonly home: string;

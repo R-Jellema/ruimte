@@ -17,7 +17,6 @@ interface BrowseOptions {
     hidden?: boolean;
 }
 
-/* Without a repository to ask, a name is all there is to go on, which is what `browse` has. */
 function visible(name: string, showHidden: boolean): boolean {
     const visibility = classifyEntry(name);
     return visibility !== 'never' && (showHidden || visibility === 'always');
@@ -53,11 +52,10 @@ export function resolveBrowsePath(partialPath: string, cwd: string | undefined, 
 
 /*
  * Directories that complete what was typed. A path ending in a separator lists that directory;
- * otherwise the last segment filters its parent by prefix. Dot-folders and build output stay
- * hidden unless the prefix itself starts with a dot or the caller asks for them, and OS rubbish
- * stays out either way; git is never asked here, since this answers a keystroke. A directory that
- * cannot be read lists as empty, not as an error, and `exists` is what tells that apart from one
- * that is not there.
+ * otherwise the last segment filters its parent by prefix. Dot-folders and build output stay hidden
+ * unless the prefix starts with a dot or the caller asks for them. Names alone decide, since this
+ * answers a keystroke and has no time to ask git. A directory that cannot be read lists as empty,
+ * and `exists` tells it apart from one that is not there.
  */
 export async function browseDirectories(partialPath: string, cwd: string | undefined, options: BrowseOptions = {}): Promise<FsBrowseResult> {
     const trimmed = partialPath.trim();

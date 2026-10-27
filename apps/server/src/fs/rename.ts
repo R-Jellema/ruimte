@@ -111,10 +111,10 @@ interface RenamePlan {
 }
 
 /*
- * Checks a move of a file or folder of an open project to another place, inside the boundary a save keeps and
- * outside what a delete keeps closed. A name that is taken is never overwritten (unless `overwrite` replaces a file with a file, the old one going to the trash), and a case-only change of a name
- * is the one case where the target is the source itself. Nothing is moved until `run`, so a caller can do
- * what has to come before the move knowing that the move will be allowed.
+ * Checks a move of a file or folder of an open project, inside the boundary a save keeps and outside
+ * what a delete keeps closed. A taken name is never overwritten, unless `overwrite` replaces a file
+ * with a file and the old one goes to the trash. A case-only change is the one case where the target
+ * is the source itself. Nothing moves until `run`, so a caller can first do what has to come before.
  */
 export async function planRename(
     path: string,

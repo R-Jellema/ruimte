@@ -24,7 +24,7 @@ export interface WriteBoundary {
     worktreesOf: (folder: string) => Promise<string[]>;
     // `$RUIMTE_HOME/worktrees`: a worktree counts only when it sits there.
     worktreesRoot: string;
-    // The worktrees the daemon made for the repository a folder is in, which count wherever they were made: the worktree folder can change.
+    // The worktrees the daemon made for the repository a folder is in; they count wherever they are, since the worktree folder can change.
     registeredWorktrees?: (folder: string) => Promise<string[]>;
 }
 
@@ -140,7 +140,7 @@ export async function writeTextFile(path: string, text: string, expectedMtime: n
     if (bytes.length > FS_READ_MAX_TEXT_BYTES) {
         throw new WriteError('too-large', 'That text is too large to save from here');
     }
-    // An editor outside Ruimte can still race this: the in-place write is deliberate, it keeps the inode, the mode and every link.
+    // An editor outside Ruimte can still race this in-place write; the queue only orders Ruimte's own saves.
     return await saves.run(`${file.dev}:${file.ino}`, async () => {
         const handle = await openForSave(real).catch((e: unknown) => {
             throw openError(e, file.path);
