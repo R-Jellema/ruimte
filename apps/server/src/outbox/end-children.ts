@@ -73,7 +73,7 @@ export function wireEndChildren({
         const chat = chats.get(nodeId);
         return chat ? chat.running || chat.info.activeTurnId !== null : sessions.get(nodeId)?.exited === false;
     };
-    const owe = (nodeId: string): Promise<number> => ending.owe(nodeId);
+    const { owe } = ending;
     // The index is warmed before the outbox can take work, so what it says until then waits here.
     let early: Map<string, ReadonlySet<string>> | null = new Map();
     const places = (projectId: string, ids: ReadonlySet<string>): void => {

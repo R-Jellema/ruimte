@@ -1,16 +1,16 @@
-import type { AgentLineageStore, NoticeStore, TaskStore } from '@adecore/agents/coordination';
+import { chatOpener, limitResumeAt } from '@adecore/agents/chat';
+import { deliverMessageHandler, OutboxWorker, type AgentLineageStore, type NoticeStore, type OutboxClock, type TaskStore } from '@adecore/agents/coordination';
 import type { Task } from '@ruimte/contracts';
 import type { PendingPromptStore } from '../agents/pending-prompts.ts';
 import type { ChatManager } from '../chat/chat-manager.ts';
-import { limitResumeAt, chatOpener } from '@adecore/agents/chat';
 import { wireSummaries, type SummaryWiring } from '../chat/summary.ts';
-import { deliverMessageHandler, OutboxWorker, type OutboxClock } from '@adecore/agents/coordination';
 import { MESSAGE_WORDS } from '../context/notices.ts';
+import { errorText } from '../error-text.ts';
 import type { PrWatchStore } from '../github/pr-watch.ts';
+import { placesOf } from '../projects/project-index.ts';
 import type { ProjectStore } from '../projects/project-store.ts';
 import type { SessionManager } from '../sessions/manager.ts';
 import { wireTasks, type TaskWiring } from '../tasks/wiring.ts';
-import { errorText } from '../error-text.ts';
 import { wireEndChildren, type EndChildrenWiring } from './end-children.ts';
 import type {
     ConnectPeerEntry,
@@ -25,7 +25,6 @@ import type {
 } from './outbox.ts';
 import { oweResume, resumeRunHandler, resumeRunParked } from './resume-run.ts';
 import { startAgentHandler } from './start-agent.ts';
-import { placesOf } from '../projects/project-index.ts';
 
 interface OutboxLinkOptions {
     outbox: OutboxStore;
@@ -169,7 +168,7 @@ interface OutboxWiring {
  * only one of them knew would fail in production or in the tests, never in both.
  */
 export function wireOutbox(deps: OutboxWiringDeps): OutboxWiring {
-    const { link, outbox, projects, lineage, prompts, notices, prWatches, tasks, chats, sessions } = deps;
+    const { link, outbox, projects, lineage, prompts, notices, prWatches, tasks, chats, sessions, remoteTasks } = deps;
     const enqueue = (projectId: string, target: string, work: OutboxWork, notBefore?: number): Promise<void> =>
         link.enqueue(projectId, target, work, notBefore);
     const placed = (nodeId: string): boolean => projects.index.locate(nodeId) !== null;
@@ -207,7 +206,7 @@ export function wireOutbox(deps: OutboxWiringDeps): OutboxWiring {
         chats,
         sessions,
         enqueue,
-        remoteStop: deps.remoteTasks ? (nodeId) => deps.remoteTasks!.oweStop(nodeId) : undefined,
+        remoteStop: remoteTasks ? (nodeId) => remoteTasks.oweStop(nodeId) : undefined,
         ended: async (nodeIds) => {
             const projectIds = new Set(nodeIds.map((id) => lineage.projectOf(id)).filter((id) => id !== null));
             for (const projectId of projectIds) {
@@ -226,6 +225,7 @@ export function wireOutbox(deps: OutboxWiringDeps): OutboxWiring {
     });
 
     const openChat = chatOpener({ chats, placed });
+    const runParked = resumeRunParked(chats);
     const worker = new OutboxWorker({
         store: outbox,
         ...(deps.clock ? { clock: deps.clock } : {}),
@@ -255,7 +255,7 @@ export function wireOutbox(deps: OutboxWiringDeps): OutboxWiring {
             'give-task': taskWiring.giveTask,
             'deliver-message': deliverMessageHandler({
                 notices,
-                chat: chatOpener({ chats, placed }),
+                chat: openChat,
                 placed,
                 words: MESSAGE_WORDS
             }),
@@ -281,12 +281,12 @@ export function wireOutbox(deps: OutboxWiringDeps): OutboxWiring {
             'connect-peer': (entry) => deps.connectPeer?.(entry) ?? Promise.resolve(),
             'routine-run': (entry) => deps.runRoutine?.(entry) ?? Promise.resolve(),
             'deliver-remote-result': (entry) => deps.peerTasks?.deliver(entry) ?? Promise.resolve(undefined),
-            'start-remote-agent': (entry) => deps.remoteTasks?.start(entry) ?? Promise.resolve(undefined),
-            'stop-remote-agent': (entry) => deps.remoteTasks?.stop(entry) ?? Promise.resolve(undefined),
-            'take-remote-result': (entry) => deps.remoteTasks?.take(entry) ?? Promise.resolve(undefined)
+            'start-remote-agent': (entry) => remoteTasks?.start(entry) ?? Promise.resolve(undefined),
+            'stop-remote-agent': (entry) => remoteTasks?.stop(entry) ?? Promise.resolve(undefined),
+            'take-remote-result': (entry) => remoteTasks?.take(entry) ?? Promise.resolve(undefined)
         },
         onParked: (entry, error) => {
-            resumeRunParked(chats)(entry, error);
+            runParked(entry, error);
             taskWiring.onParked(entry, error);
             summaries.onParked(entry, error);
         }
@@ -304,7 +304,7 @@ export function wireOutbox(deps: OutboxWiringDeps): OutboxWiring {
             // A node that ran an agent on another machine and is gone ends that agent as well.
             for (const task of tasks.ofProject(projectId)) {
                 if (task.machine !== undefined && task.status === 'open' && !ids.has(task.childId)) {
-                    void deps.remoteTasks?.oweStop(task.childId).catch((e) => failed('Stopping an agent on another machine failed', e));
+                    void remoteTasks?.oweStop(task.childId).catch((e) => failed('Stopping an agent on another machine failed', e));
                 }
             }
             prWatches.prune(projectId, ids);

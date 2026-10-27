@@ -421,9 +421,10 @@ describe('stopping one task from the list of the chat that gave it', () => {
     });
 });
 
-test('what the index says while it warms at start is owed only once the outbox can take work', async () => {
+/* The wiring over a lineage that holds one child of `record`, with every end it owes written down. */
+async function orphanWiring(record: Partial<Parameters<AgentLineageStore['put']>[0]> & { openedBy: string }) {
     const lineage = new AgentLineageStore(home);
-    await lineage.put({ projectId: 'project', nodeId: 'child', openedBy: 'gone-lead', depth: 1, agent: true });
+    await lineage.put({ projectId: 'project', nodeId: 'child', depth: 1, agent: true, ...record });
     const owed: string[] = [];
     const wiring = wireEndChildren({
         lineage,
@@ -435,6 +436,11 @@ test('what the index says while it warms at start is owed only once the outbox c
             owed.push(target);
         }
     });
+    return { wiring, owed };
+}
+
+test('what the index says while it warms at start is owed only once the outbox can take work', async () => {
+    const { wiring, owed } = await orphanWiring({ openedBy: 'gone-lead' });
     // The lead was deleted while the daemon was down. The warm index no longer places it.
     wiring.places('project', new Set(['child']));
     expect(owed).toEqual([]);
@@ -443,40 +449,11 @@ test('what the index says while it warms at start is owed only once the outbox c
     expect(owed).toEqual(['gone-lead']);
 });
 
-test("an agent another machine's agent opened is not an orphan, since its opener never was in this project", async () => {
-    const lineage = new AgentLineageStore(home);
-    await lineage.put({ projectId: 'project', nodeId: 'child', openedBy: 'peer:machine-a:lead', depth: 1, agent: true, peer: { machineId: 'machine-a' } });
-    const owed: string[] = [];
-    const wiring = wireEndChildren({
-        lineage,
-        outbox: new OutboxStore(home),
-        tasks: new TaskStore(home),
-        chats: { get: () => undefined, stop: async () => undefined },
-        sessions: { get: () => undefined, end: async () => undefined },
-        enqueue: async (_projectId, target) => {
-            owed.push(target);
-        }
-    });
-    wiring.start();
-    wiring.places('project', new Set(['child']));
-    await Promise.resolve();
-    expect(owed).toEqual([]);
-});
-
-test('a chat Voice started is not an orphan, since its opener is a Voice session and never in this project', async () => {
-    const lineage = new AgentLineageStore(home);
-    await lineage.put({ projectId: 'project', nodeId: 'child', openedBy: 'voice:session-1', depth: 1, agent: true, ceiling: 'supervised' });
-    const owed: string[] = [];
-    const wiring = wireEndChildren({
-        lineage,
-        outbox: new OutboxStore(home),
-        tasks: new TaskStore(home),
-        chats: { get: () => undefined, stop: async () => undefined },
-        sessions: { get: () => undefined, end: async () => undefined },
-        enqueue: async (_projectId, target) => {
-            owed.push(target);
-        }
-    });
+test.each([
+    ["another machine's agent", { openedBy: 'peer:machine-a:lead', peer: { machineId: 'machine-a' } }],
+    ['a Voice session', { openedBy: 'voice:session-1', ceiling: 'supervised' as const }]
+])('an agent opened by %s is not an orphan, since its opener never was in this project', async (_opener, record) => {
+    const { wiring, owed } = await orphanWiring(record);
     wiring.start();
     wiring.places('project', new Set(['child']));
     await Promise.resolve();

@@ -4,16 +4,16 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { ChatInfo, ChatItem, ProjectContent } from '@ruimte/contracts';
 import { AttachmentStore, ChatStore } from '@adecore/agents/chat';
-import { ChatManager } from '../chat/chat-manager.ts';
-import { RESUME_PROMPT } from '../chat/chat-manager.ts';
 import type { SpawnChatProcess } from '@adecore/agents/chat';
+import { OutboxWorker, RETRY_DELAYS_MS } from '@adecore/agents/coordination';
 import { fakeClaude, fakeCodex, inProcess, type InProcessCli, ManualClock } from '@adecore/agents/testing';
+import { ChatManager, RESUME_PROMPT } from '../chat/chat-manager.ts';
+import { projectLinks } from '../projects/project-file-test-helpers.ts';
 import { ProjectStore } from '../projects/project-store.ts';
 import { ProviderRegistry } from '../providers/registry.ts';
+import { refusingHandlers } from './outbox-test-helpers.ts';
 import { OutboxStore, type OutboxWork } from './outbox.ts';
-import { OutboxWorker, RETRY_DELAYS_MS } from '@adecore/agents/coordination';
 import { oweResume, resumeRunHandler, resumeRunParked } from './resume-run.ts';
-import { projectLinks } from '../projects/project-file-test-helpers.ts';
 
 const providers = new ProviderRegistry({ detect: async () => ({ installed: true, version: '0.0.0' }) });
 
@@ -99,26 +99,7 @@ async function boot(spawn?: SpawnChatProcess): Promise<Daemon> {
     const worker = new OutboxWorker({
         store: outbox,
         clock,
-        handlers: {
-            'deliver-message': () => Promise.reject(new Error('no messages in these tests')),
-            'routine-run': () => Promise.reject(new Error('no routines in these tests')),
-            'deliver-summary': () => Promise.reject(new Error('no summaries in these tests')),
-            'deliver-waiting': () => Promise.reject(new Error('no waiting children in these tests')),
-            'deliver-pr-watch': () => Promise.reject(new Error('no pull request watches in these tests')),
-            'run-after-settle': () => Promise.reject(new Error('no launches after a settle in these tests')),
-            'connect-peer': () => Promise.reject(new Error('no links to other machines in these tests')),
-            'deliver-remote-result': () => Promise.reject(new Error('no tasks from other machines in these tests')),
-            'start-remote-agent': () => Promise.reject(new Error('no tasks on other machines in these tests')),
-            'stop-remote-agent': () => Promise.reject(new Error('no tasks on other machines in these tests')),
-            'take-remote-result': () => Promise.reject(new Error('no tasks on other machines in these tests')),
-            'resume-limit': () => Promise.reject(new Error('no limits in these tests')),
-            'background-limit': () => Promise.reject(new Error('no limits in these tests')),
-            'give-task': () => Promise.reject(new Error('no tasks are given in these tests')),
-            'start-agent': () => Promise.reject(new Error('no start in these tests')),
-            'resume-run': resumeRunHandler(chats),
-            'end-children': () => Promise.reject(new Error('no ending in these tests')),
-            'wake-parent': () => Promise.reject(new Error('no wake in these tests'))
-        },
+        handlers: refusingHandlers({ 'resume-run': resumeRunHandler(chats) }),
         onParked: resumeRunParked(chats)
     });
     box.worker = worker;

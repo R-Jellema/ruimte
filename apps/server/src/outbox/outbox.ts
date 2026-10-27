@@ -114,7 +114,7 @@ const RoutineRunWorkSchema = z.object({
     payload: z.object({ routineId: z.string().min(1), due: z.number().int().nonnegative() })
 });
 
-// The kinds of tasks, ending children and delivering a message are @adecore/agents' own, each at the place it always had.
+// The kinds of tasks, ending children and delivering a message are @adecore/agents' own.
 const OutboxWorkSchema = z.discriminatedUnion('kind', [
     StartAgentSchema,
     ResumeRunSchema,

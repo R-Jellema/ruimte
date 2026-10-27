@@ -15,6 +15,7 @@ import { ProjectStore } from '../projects/project-store.ts';
 import { ProviderRegistry } from '../providers/registry.ts';
 import { FakePtyAdapter } from '../pty/fake-pty.ts';
 import { SessionManager } from '../sessions/manager.ts';
+import { refusingHandlers } from './outbox-test-helpers.ts';
 import { OutboxStore, type OutboxWork, type StartAgentEntry } from './outbox.ts';
 import { HEADLESS_TERMINAL, nodeMode, startAgentHandler, startAgentWork, type StartAgentDeps } from './start-agent.ts';
 import { projectLinks } from '../projects/project-file-test-helpers.ts';
@@ -139,24 +140,7 @@ async function boot(): Promise<Daemon> {
     const worker = new OutboxWorker({
         store: outbox,
         clock: stillClock,
-        handlers: {
-            'deliver-message': () => Promise.reject(new Error('no messages in these tests')),
-            'routine-run': () => Promise.reject(new Error('no routines in these tests')),
-            'deliver-summary': () => Promise.reject(new Error('no summaries in these tests')),
-            'deliver-waiting': () => Promise.reject(new Error('no waiting children in these tests')),
-            'deliver-pr-watch': () => Promise.reject(new Error('no pull request watches in these tests')),
-            'run-after-settle': () => Promise.reject(new Error('no launches after a settle in these tests')),
-            'connect-peer': () => Promise.reject(new Error('no links to other machines in these tests')),
-            'deliver-remote-result': () => Promise.reject(new Error('no tasks from other machines in these tests')),
-            'start-remote-agent': () => Promise.reject(new Error('no tasks on other machines in these tests')),
-            'stop-remote-agent': () => Promise.reject(new Error('no tasks on other machines in these tests')),
-            'take-remote-result': () => Promise.reject(new Error('no tasks on other machines in these tests')),
-            'resume-limit': () => Promise.reject(new Error('no limits in these tests')),
-            'background-limit': () => Promise.reject(new Error('no limits in these tests')),
-            'give-task': () => Promise.reject(new Error('no tasks are given in these tests')),
-            'resume-run': () => Promise.reject(new Error('no resume in these tests')),
-            'wake-parent': () => Promise.reject(new Error('no wake in these tests')),
-            'end-children': () => Promise.reject(new Error('no ending in these tests')),
+        handlers: refusingHandlers({
             'start-agent': startAgentHandler({
                 placed: (nodeId) => store.index.locate(nodeId) !== null,
                 hasChat: (chatId) => chats.get(chatId) !== undefined,
@@ -169,7 +153,7 @@ async function boot(): Promise<Daemon> {
                 checkCwd,
                 log: (line) => logged.push(line)
             })
-        }
+        })
     });
     store.index.onPlaces = (id, ids) => {
         void prompts.prune(id, ids);
