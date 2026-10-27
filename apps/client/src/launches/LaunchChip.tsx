@@ -1,10 +1,10 @@
 import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, GitBranch, OctagonX, Pencil, Play, Plus, RotateCw, Search, ShieldCheck, Square, SquareTerminal } from 'lucide-react';
+import { ChevronDown, GitBranch, Pencil, Play, Plus, Search, ShieldCheck, SquareTerminal } from 'lucide-react';
 import type { GitRepo, LaunchesDocument } from '@ruimte/contracts';
 import { Button, Icon, IconButton, Menu, Popover, PromptDialog, useNow } from '@adecore/ui';
 import { formatAgo } from '@adecore/ui/format';
-import { afterSettleCandidates, chooseAfterSettle, chooseLaunch, showLaunchOutput, startLaunch, stopLaunch } from '@/launches/actions';
+import { afterSettleCandidates, chooseAfterSettle, chooseLaunch, launchActions, showLaunchOutput, startLaunch } from '@/launches/actions';
 import { HeldCommand, LaunchDot, LaunchStatusIcon } from '@/launches/LaunchControls';
 import { foundText, newSuggestions } from '@/launches/editing';
 import { headlineOf, launchSections, type LaunchView } from '@/launches/model';
@@ -241,38 +241,16 @@ function LaunchRow({ view }: { view: LaunchView }) {
                 <span className="min-w-0 truncate">{launch.name}</span>
                 {hint !== null && <Menu.Hint className="max-w-48 truncate">{hint}</Menu.Hint>}
             </Menu.Item>
-            {view.phase === 'stopping' ? (
+            {launchActions(view, t).map((action) => (
                 <Menu.RowAction
-                    icon={OctagonX}
-                    label={t('forceStop', { name: launch.name })}
+                    key={action.key}
+                    icon={action.icon}
+                    iconClassName={action.iconClassName}
+                    label={action.label}
                     closeOnClick={false}
-                    onClick={() => void stopLaunch(launch.id, true)}
+                    onClick={action.run}
                 />
-            ) : view.live ? (
-                <>
-                    <Menu.RowAction
-                        icon={RotateCw}
-                        label={t('restart', { name: launch.name })}
-                        closeOnClick={false}
-                        onClick={() => void startLaunch(launch.id, { restart: true })}
-                    />
-                    <Menu.RowAction
-                        icon={Square}
-                        iconClassName="fill-current"
-                        label={t('stop', { name: launch.name })}
-                        closeOnClick={false}
-                        onClick={() => void stopLaunch(launch.id)}
-                    />
-                </>
-            ) : (
-                <Menu.RowAction
-                    icon={Play}
-                    iconClassName="fill-current"
-                    label={t('start', { name: launch.name })}
-                    closeOnClick={false}
-                    onClick={() => void startLaunch(launch.id)}
-                />
-            )}
+            ))}
             <Menu.RowAction
                 icon={Pencil}
                 label={t('editLaunch', { name: launch.name })}

@@ -1,8 +1,8 @@
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
-import { Circle, CircleAlert, CircleCheck, CircleDot, CircleX, OctagonX, Play, RotateCw, Square, type LucideIcon } from 'lucide-react';
+import { Circle, CircleAlert, CircleCheck, CircleDot, CircleX, type LucideIcon } from 'lucide-react';
 import { Icon, IconButton, Spinner, type IconButtonSize } from '@adecore/ui';
-import { startLaunch, stopLaunch } from '@/launches/actions';
+import { launchActions } from '@/launches/actions';
 import { isSecretReference, type LaunchHeld } from '@ruimte/contracts';
 import type { LaunchPhase, LaunchView } from '@/launches/model';
 
@@ -73,36 +73,7 @@ export function LaunchStatusIcon({ view, size = 12, className }: { view: LaunchV
 
 export function LaunchButtons({ view, size = 'sm' }: { view: LaunchView; size?: IconButtonSize }) {
     const { t } = useTranslation('launches');
-    const { launch, phase } = view;
-    if (phase === 'stopping') {
-        return <IconButton icon={OctagonX} size={size} label={t('forceStop', { name: launch.name })} onClick={() => void stopLaunch(launch.id, true)} />;
-    }
-    if (view.live) {
-        return (
-            <>
-                <IconButton
-                    icon={RotateCw}
-                    size={size}
-                    label={t('restart', { name: launch.name })}
-                    onClick={() => void startLaunch(launch.id, { restart: true })}
-                />
-                <IconButton
-                    icon={Square}
-                    size={size}
-                    iconClassName="fill-current"
-                    label={t('stop', { name: launch.name })}
-                    onClick={() => void stopLaunch(launch.id)}
-                />
-            </>
-        );
-    }
-    return (
-        <IconButton
-            icon={Play}
-            size={size}
-            iconClassName="fill-current"
-            label={t('start', { name: launch.name })}
-            onClick={() => void startLaunch(launch.id)}
-        />
-    );
+    return launchActions(view, t).map((action) => (
+        <IconButton key={action.key} icon={action.icon} size={size} iconClassName={action.iconClassName} label={action.label} onClick={action.run} />
+    ));
 }

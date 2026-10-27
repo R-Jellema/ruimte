@@ -1,8 +1,9 @@
 import i18next from 'i18next';
-import { deviceMatches, type DeviceInfo, type LaunchConfigEntry, type LaunchesDocument } from '@ruimte/contracts';
+import { OctagonX, Play, RotateCw, Square, type LucideIcon } from 'lucide-react';
+import { deviceMatches, type DeviceInfo, type DeviceReference, type LaunchConfigEntry, type LaunchesDocument } from '@ruimte/contracts';
 import { messageOf } from '@adecore/ui';
 import { createNodeAction, createViewAction } from '@/actions/client-actions';
-import { chosenLaunch } from '@/launches/model';
+import { chosenLaunch, type LaunchView } from '@/launches/model';
 import { useLaunches, type LaunchOwner } from '@/launches/state';
 import { nodesOfView } from '@/project/view-nodes';
 import { revealNode } from '@/project/views';
@@ -40,6 +41,13 @@ function target(owner?: LaunchOwner): Target | null {
     return launchTarget(projectOnScreen(), owner);
 }
 
+/* The target with the link to its machine, or null when either is missing. */
+function linkedTarget(owner?: LaunchOwner): (Target & { link: NonNullable<ReturnType<typeof transportFor>> }) | null {
+    const at = target(owner);
+    const link = at === null ? null : transportFor(at.endpointId);
+    return at === null || link === null ? null : { ...at, link };
+}
+
 function failed(title: string, e: unknown): void {
     useToasts.getState().show({ kind: 'error', title, description: messageOf(e) });
 }
@@ -60,9 +68,8 @@ interface StartOptions {
 
 /* Starts a launch, or starts it again; what it has to ask a person first comes back as the store's `ask`. */
 export async function startLaunch(launchId: string, options: StartOptions = {}): Promise<void> {
-    const at = target(options.owner);
-    const link = at === null ? null : transportFor(at.endpointId);
-    if (at === null || link === null) {
+    const at = linkedTarget(options.owner);
+    if (at === null) {
         return;
     }
     // The chip shows the launch a person used last.
@@ -70,7 +77,7 @@ export async function startLaunch(launchId: string, options: StartOptions = {}):
     const restart = options.restart === true;
     const payload = { projectId: at.projectId, launchId, approve: options.approve, replace: options.replace };
     try {
-        const result = await link.request(restart ? 'launch.restart' : 'launch.start', payload);
+        const result = await at.link.request(restart ? 'launch.restart' : 'launch.start', payload);
         const owner = { endpointId: at.endpointId, projectId: at.projectId };
         if (result.outcome === 'held' && result.held !== undefined) {
             useLaunches.getState().setAsk({ kind: 'held', owner, launchId, restart, held: result.held, replace: options.replace === true });
@@ -83,13 +90,12 @@ export async function startLaunch(launchId: string, options: StartOptions = {}):
 }
 
 export async function stopLaunch(launchId: string, force = false): Promise<void> {
-    const at = target();
-    const link = at === null ? null : transportFor(at.endpointId);
-    if (at === null || link === null) {
+    const at = linkedTarget();
+    if (at === null) {
         return;
     }
     try {
-        await link.request('launch.stop', { projectId: at.projectId, launchId, force });
+        await at.link.request('launch.stop', { projectId: at.projectId, launchId, force });
     } catch (e) {
         failed(i18next.t('launches:stopFailed', { name: nameOf(at, launchId) }), e);
     }
@@ -111,13 +117,12 @@ export function stopAllLaunches(): void {
 
 /* A person's choice of the task to run after a worktree chat settles, or of none; choosing one approves it for worktrees. */
 export async function chooseAfterSettle(launchId: string | null): Promise<void> {
-    const at = target();
-    const link = at === null ? null : transportFor(at.endpointId);
-    if (at === null || link === null) {
+    const at = linkedTarget();
+    if (at === null) {
         return;
     }
     try {
-        await link.request('launches.afterSettle', { projectId: at.projectId, launchId });
+        await at.link.request('launches.afterSettle', { projectId: at.projectId, launchId });
     } catch (e) {
         failed(i18next.t('launches:afterSettle.failed'), e);
     }
@@ -159,6 +164,29 @@ export function runChosenLaunch(): void {
     void startLaunch(launchId, { restart: ids.some((id) => statuses[id] !== undefined && statuses[id].state !== 'exited') });
 }
 
+interface LaunchAction {
+    key: string;
+    icon: LucideIcon;
+    label: string;
+    iconClassName?: string;
+    run(): void;
+}
+
+/* What a launch offers in its phase: a force stop while it stops, a restart and a stop while it runs, else a start. */
+export function launchActions(view: LaunchView, t: (key: string, options?: Record<string, unknown>) => string): LaunchAction[] {
+    const { id, name } = view.launch;
+    if (view.phase === 'stopping') {
+        return [{ key: 'force', icon: OctagonX, label: t('forceStop', { name }), run: () => void stopLaunch(id, true) }];
+    }
+    if (view.live) {
+        return [
+            { key: 'restart', icon: RotateCw, label: t('restart', { name }), run: () => void startLaunch(id, { restart: true }) },
+            { key: 'stop', icon: Square, iconClassName: 'fill-current', label: t('stop', { name }), run: () => void stopLaunch(id) }
+        ];
+    }
+    return [{ key: 'start', icon: Play, iconClassName: 'fill-current', label: t('start', { name }), run: () => void startLaunch(id) }];
+}
+
 export function stopChosenLaunch(): void {
     const launchId = chosenLaunchId();
     if (launchId !== null) {
@@ -185,40 +213,29 @@ function originOf(url: string): string | null {
     }
 }
 
+/* Reveals the first view, or else node within it, that shows what `shows` looks for; false when none does. */
+function revealShowing(shows: (item: { kind: string; url?: unknown; device?: DeviceReference }) => boolean): boolean {
+    for (const view of useDocument.getState().views) {
+        const found = shows(view) ? view : nodesOfView(view).find(shows);
+        if (found !== undefined) {
+            revealNode(found.id);
+            return true;
+        }
+    }
+    return false;
+}
+
 /* The page at a launch's address: the browser node that already shows it, else a new one on the canvas on screen. */
 export function openLaunchAddress(url: string): void {
     const origin = originOf(url);
-    for (const view of useDocument.getState().views) {
-        if (view.kind === 'browser' && originOf(view.url) === origin) {
-            revealNode(view.id);
-            return;
-        }
-        const node = nodesOfView(view).find(
-            (candidate) => candidate.kind === 'browser' && typeof candidate.url === 'string' && originOf(candidate.url) === origin
-        );
-        if (node !== undefined) {
-            revealNode(node.id);
-            return;
-        }
+    if (!revealShowing((item) => item.kind === 'browser' && typeof item.url === 'string' && originOf(item.url) === origin)) {
+        void createNodeAction('browser', { url });
     }
-    void createNodeAction('browser', { url });
 }
 
 /* The device a launch runs on: the node or view that already shows it, else a new device view. */
 export function showLaunchDevice(device: DeviceInfo): void {
-    const reference = { platform: device.platform, kind: device.kind, name: device.name, runtime: device.runtime };
-    for (const view of useDocument.getState().views) {
-        if (view.kind === 'device' && deviceMatches(device, view.device)) {
-            revealNode(view.id);
-            return;
-        }
-        const node = nodesOfView(view).find(
-            (candidate) => candidate.kind === 'device' && candidate.device !== undefined && deviceMatches(device, candidate.device)
-        );
-        if (node !== undefined) {
-            revealNode(node.id);
-            return;
-        }
+    if (!revealShowing((item) => item.kind === 'device' && item.device !== undefined && deviceMatches(device, item.device))) {
+        void createViewAction('device', { device: { platform: device.platform, kind: device.kind, name: device.name, runtime: device.runtime } });
     }
-    void createViewAction('device', { device: reference });
 }
