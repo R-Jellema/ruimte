@@ -926,3 +926,40 @@ describe('the settings of a project the SQL servers read', () => {
         expect(process.server.paramsOf('workspace/didChangeConfiguration')).toEqual([]);
     });
 });
+
+describe('the storage a server may read', () => {
+    it('waits for beforeSpawn before it spawns anything, and is live meanwhile', async () => {
+        let release!: () => void;
+        const gate = new Promise<void>((resolve) => {
+            release = resolve;
+        });
+        const { server, spawner } = rig('css', fakeSpawner(), { beforeSpawn: () => gate });
+
+        expect(server.live).toBe(false);
+
+        server.attach(document('/work/a.css', 'css', 'a {}'));
+        await settle();
+
+        expect(server.live).toBe(true);
+        expect(spawner.processes).toHaveLength(0);
+
+        release();
+        await settle();
+
+        expect(spawner.processes).toHaveLength(1);
+        expect(server.state).toBe('ready');
+    });
+
+    it('is live until the process exited, and not before it ended', async () => {
+        const { server, spawner } = rig('css');
+        server.attach(document('/work/a.css', 'css', 'a {}'));
+        await settle();
+
+        expect(server.live).toBe(true);
+
+        await spawner.processes[0].crash();
+        await settle();
+
+        expect(server.live).toBe(false);
+    });
+});

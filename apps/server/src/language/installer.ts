@@ -254,6 +254,13 @@ export class LanguageInstaller {
         return plan.source === 'dev' && revision != null && current.marker.revision !== revision ? { version: plan.version, rebuild: true } : null;
     }
 
+    /* The stubs commits the current and the previous install of a kind read, which pruning keeps. */
+    keptStubsOf(kind: LanguageServerKind): string[] {
+        const known = this.known.get(kind);
+
+        return [known?.current?.marker.stubs, known?.previous?.marker.stubs].filter((commit) => commit !== undefined);
+    }
+
     /* The version a step back goes to, or null when there is none. */
     previousOf(kind: LanguageServerKind): string | null {
         const previous = this.known.get(kind)?.previous;

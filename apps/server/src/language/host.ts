@@ -59,7 +59,7 @@ import { CustomLanguageServers, customProfile } from './custom.ts';
 import { ProjectFileWatcher, type FileChange, type StatPath } from './file-watch.ts';
 import { LanguageInstaller, type CheckoutRevision } from './installer.ts';
 import { findManifests } from './manifests.ts';
-import type { Download, NativePolicy } from './native.ts';
+import { nativeStorageOf, nativeStubsOf, type Download, type NativePolicy } from './native.ts';
 import { MERGED_METHODS, mergeAnswers, mergeProviders } from './merge.ts';
 import {
     activates,
@@ -77,6 +77,7 @@ import {
 } from './profiles.ts';
 import { bunRuntime, runCommand, spawnLanguageProcess, type LanguageRuntime, type RunCommand, type SpawnLanguageProcess } from './runtime.ts';
 import { LanguageServer, MERGE_DEADLINE_MS, realLanguageClock, type LanguageClock, type LanguageServerHooks, type SharedDocument } from './server.ts';
+import { StorageGate } from './storage-gate.ts';
 
 class LanguageError extends CodedError<LanguageErrorCode> {}
 
@@ -148,6 +149,18 @@ interface LanguageHostOptions {
     checkoutRevision?: CheckoutRevision;
     /* What the project's SQL comes down to for the servers that read it; without it they start with none. */
     sqlSettings?: (projectId: string) => Promise<ProjectSqlSettings | null>;
+}
+
+export interface PhpCache {
+    /* `language-servers/php-native/storage`, which holds `cache` and `stubs`. */
+    storage: string;
+    /* The stubs commits of the current and previous install. */
+    keptStubs: string[];
+    liveFolders(): string[];
+    liveStubsDirs(): string[];
+    /* Whether any PHP server runs or is starting, in any project. */
+    anyLive(): boolean;
+    hold<T>(work: () => Promise<T>): Promise<T>;
 }
 
 interface ProjectLanguage {
@@ -243,6 +256,7 @@ export class LanguageHost {
     private readonly isFolder: (path: string) => Promise<boolean>;
     private readonly sinks = new ClientSinks((clientId) => this.dropClient(clientId));
     private readonly projects = new Map<string, ProjectLanguage>();
+    private readonly phpGate = new StorageGate();
     private readonly edits = new Map<string, PendingEdit>();
     private editCounter = 0;
     /* What an agent's call waits on: a server that comes up or a report that comes in. */
@@ -322,6 +336,29 @@ export class LanguageHost {
     async install(kind: LanguageServerKind): Promise<LanguageServerStatus> {
         void this.installer.install(kind);
         return this.statusOf(null, kind);
+    }
+
+    /* What a pass over the PHP server's index caches needs: where they are, what it must leave alone and the gate that keeps a start out meanwhile. */
+    phpCache(): PhpCache {
+        const storage = nativeStorageOf(this.installer.directoryOf('php-native'));
+        const keptStubs = this.installer.keptStubsOf('php-native');
+        const liveServers = (): LanguageServer[] =>
+            [...this.projects.values()].flatMap((project) => {
+                const server = project.servers.get('php-native');
+
+                return server?.live ? [server] : [];
+            });
+
+        return {
+            storage,
+            keptStubs,
+            liveFolders: () =>
+                [...this.projects.values()].filter((project) => project.servers.get('php-native')?.live === true).map((project) => project.folder),
+            // A running server may still read the stubs of the install before the current one.
+            liveStubsDirs: () => (liveServers().length === 0 ? [] : keptStubs.map((commit) => nativeStubsOf(this.installer.directoryOf('php-native'), commit))),
+            anyLive: () => liveServers().length > 0,
+            hold: (work) => this.phpGate.hold(work)
+        };
     }
 
     /* The program a native kind runs on this machine, or null while it is not installed. */
@@ -900,6 +937,7 @@ export class LanguageHost {
                 installDirectory: () => (catalog === null ? '' : this.installer.installDirectoryOf(catalog)),
                 native: () => (catalog === null ? null : this.installer.launchOf(catalog)),
                 isInstalled: () => (catalog === null ? Promise.resolve(true) : this.installer.isInstalled(catalog)),
+                ...(kind === 'php-native' ? { beforeSpawn: () => this.phpGate.wait() } : {}),
                 runtime: this.options.runtime ?? bunRuntime(),
                 spawn: this.options.spawn ?? spawnLanguageProcess,
                 clock: this.clock,

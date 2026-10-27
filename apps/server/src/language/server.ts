@@ -123,6 +123,8 @@ export interface LanguageServerOptions {
     /* The settings of the project's SQL as they stand, asked at each start; null when the project has none to give. */
     sqlSettings?: () => Promise<ProjectSqlSettings | null>;
     isInstalled(): Promise<boolean>;
+    /* Awaited at each start before a process is spawned, so a start waits for work on the kind's storage. */
+    beforeSpawn?: () => Promise<void>;
     runtime: LanguageRuntime;
     spawn: SpawnLanguageProcess;
     clock?: LanguageClock;
@@ -227,6 +229,8 @@ export class LanguageServer {
     private phase: Phase = 'stopped';
     private failure: string | undefined;
     private generation = 0;
+    private launching = 0;
+    private children = 0;
     private readyAt: number | null = null;
     private startPromise: Promise<void> | undefined;
     private sidecarPromise: Promise<Component | null> | undefined;
@@ -240,6 +244,11 @@ export class LanguageServer {
         this.kind = options.kind;
         this.projectId = options.projectId;
         this.clock = options.clock ?? realLanguageClock;
+    }
+
+    /* True from the moment a start begins until every process it made has exited, so storage it may read is not touched meanwhile. */
+    get live(): boolean {
+        return this.launching > 0 || this.children > 0;
     }
 
     private now(): number {
@@ -685,11 +694,27 @@ export class LanguageServer {
     }
 
     private async start(): Promise<void> {
+        this.launching++;
+
+        try {
+            await this.launch();
+        } finally {
+            this.launching--;
+        }
+    }
+
+    private async launch(): Promise<void> {
         const generation = ++this.generation;
         this.phase = 'starting';
         this.failure = undefined;
         this.notify();
         this.sidecarFailure = undefined;
+        await this.options.beforeSpawn?.();
+
+        if (generation !== this.generation) {
+            return;
+        }
+
         const context = await this.launchContext();
         this.context = context;
         try {
@@ -885,7 +910,12 @@ export class LanguageServer {
             }),
             session.onCapabilitiesChanged(() => this.refreshed())
         );
-        void child.exited.then((exit) => this.exited(component, exit, generation));
+        this.children++;
+        void child.exited.then((exit) => {
+            this.children--;
+            this.exited(component, exit, generation);
+        });
+
         return component;
     }
 
