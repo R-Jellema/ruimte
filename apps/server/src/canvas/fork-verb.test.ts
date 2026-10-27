@@ -1,13 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { ChatTurnItem, ProjectCanvasView, ProjectContent, ProjectNode, RuntimeMode } from '@ruimte/contracts';
 import { ManualClock } from '@adecore/agents/testing';
 import { ChatStore, claudeProjectSlug } from '@adecore/agents/chat';
-import { ProjectStore } from '../projects/project-store.ts';
-import { projectLinks } from '../projects/project-file-test-helpers.ts';
-import { bootTestDaemon, runVerb, type TestDaemon } from '../tasks/test-daemon.ts';
+import type { ProjectStore } from '../projects/project-store.ts';
+import { bootTestDaemon, releasedProject, runVerb, type TestDaemon } from '../tasks/test-daemon.ts';
 import { MAX_AGENT_DEPTH, MAX_OPENED_PER_CALLER } from './depth.ts';
 
 function chatNode(id: string, title: string, x: number): ProjectNode {
@@ -45,15 +43,7 @@ describe('fork', () => {
     let daemon: TestDaemon;
 
     beforeEach(async () => {
-        root = await mkdtemp(join(tmpdir(), 'ruimte-fork-verb-'));
-        home = join(root, 'home');
-        folder = join(root, 'repo');
-        await mkdir(folder, { recursive: true });
-        store = new ProjectStore(home, projectLinks());
-        const opened = await store.openProject({ folder });
-        projectId = opened.summary.projectId;
-        await store.save(projectId, opened.document.rev, content());
-        store.release(projectId);
+        ({ root, home, folder, store, projectId } = await releasedProject('ruimte-fork-verb-', content()));
         daemon = await bootTestDaemon({ home, store, clock: new ManualClock() });
         daemon.worker.start();
     });

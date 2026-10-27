@@ -17,6 +17,15 @@ import {
 
 const size = { w: 320, h: 240 };
 
+function overlapping(rects: readonly Rect[]): boolean {
+    return rects.some((one, index) =>
+        rects.some(
+            (other, otherIndex) =>
+                index !== otherIndex && one.x < other.x + other.w && other.x < one.x + one.w && one.y < other.y + other.h && other.y < one.y + one.h
+        )
+    );
+}
+
 describe('placeBeside', () => {
     test('puts the node right of the anchor with its top level', () => {
         expect(placeBeside({ x: 10, y: 20, w: 100, h: 50 }, size)).toEqual({ x: 110 + PLACEMENT_GAP, y: 20, ...size });
@@ -134,13 +143,7 @@ describe('placeTeam', () => {
         const { rects, frame } = placeTeam([terminal, chat]);
         expect(rects[1]!.x).toBe(GROUP_PADDING + 560 + PLACEMENT_GAP);
         expect(frame.h).toBe(GROUP_HEADER + GROUP_PADDING * 2 + 520);
-        const overlapping = rects.some((rect, index) =>
-            rects.some(
-                (other, otherIndex) =>
-                    index !== otherIndex && rect.x < other.x + other.w && other.x < rect.x + rect.w && rect.y < other.y + other.h && other.y < rect.y + rect.h
-            )
-        );
-        expect(overlapping).toBe(false);
+        expect(overlapping(rects)).toBe(false);
     });
 
     test('one role gets a frame of its own size', () => {
@@ -152,14 +155,6 @@ describe('placeTeam', () => {
 
 describe('arrangeRects', () => {
     const rect = (x: number, y: number, w = 200, h = 100): Rect => ({ x, y, w, h });
-
-    const overlapping = (rects: readonly Rect[]): boolean =>
-        rects.some((one, index) =>
-            rects.some(
-                (other, otherIndex) =>
-                    index !== otherIndex && one.x < other.x + other.w && other.x < one.x + one.w && one.y < other.y + other.h && other.y < one.y + one.h
-            )
-        );
 
     test('a grid without --cols is as square as the count allows and starts where the nodes already stood', () => {
         const rects = [rect(400, 300), rect(-20, 1000), rect(900, 20), rect(50, 50)];

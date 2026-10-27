@@ -2,9 +2,8 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { LanguageAgentHost } from './verb.ts';
+import type { CanvasHost, LanguageAgentHost, Noun, Verb } from './verb.ts';
 import { printed } from './verb-test-helpers.ts';
-import { type CanvasHost, type Noun, type Verb } from './verb.ts';
 import { verbNamed } from './verbs.ts';
 
 const noun = verbNamed('language') as Noun;
