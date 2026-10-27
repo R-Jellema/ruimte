@@ -12,9 +12,8 @@ const RegistryEntrySchema = z.object({
     color: z.string(),
     folder: z.string().min(1),
     lastOpenedAt: z.number(),
-    /* When a person last closed this project. Set means the menu keeps it under Recent; only
-       closing puts it there and only opening takes it out, so neither age nor whether it is open
-       right now moves a project. Absent in a registry written before closing meant anything. */
+    /* When a person last closed this project, which keeps it under Recent until it is opened again:
+       neither age nor whether it is open right now moves a project. Absent in an older registry. */
     closedAt: z.number().nullish(),
     // A cache of what the canvas file holds, so `project.list` needs no document read.
     icon: ProjectIconChoiceSchema.nullish()
