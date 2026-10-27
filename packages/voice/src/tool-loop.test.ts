@@ -5,6 +5,18 @@ import { VoiceToolLoop, type ToolLoopObserver } from './tool-loop.ts';
 
 const toolNames = new Set<string>([...VOICE_TOOL_ACTIONS.keys(), VOICE_CONTROL_TOOL]);
 
+function functionCall(delegationId: string, callId: string, name: string, args: string): LiveEvent {
+    return {
+        type: 'response.event',
+        delegation_id: delegationId,
+        event: { type: 'response.output_item.done', item: { type: 'function_call', call_id: callId, name, arguments: args } }
+    };
+}
+
+function responseCompleted(delegationId: string): LiveEvent {
+    return { type: 'response.event', delegation_id: delegationId, event: { type: 'response.completed' } };
+}
+
 describe('VoiceToolLoop', () => {
     test('executes a completed function call and continues after its response completes', async () => {
         const sent: LiveEvent[] = [];
@@ -24,24 +36,8 @@ describe('VoiceToolLoop', () => {
             { toolNames }
         );
 
-        loop.handle({
-            type: 'response.event',
-            delegation_id: 'delegation-1',
-            event: {
-                type: 'response.output_item.done',
-                item: {
-                    type: 'function_call',
-                    call_id: 'call-1',
-                    name: 'manage_views',
-                    arguments: '{"action":"view.focus","viewId":"chat-test"}'
-                }
-            }
-        });
-        loop.handle({
-            type: 'response.event',
-            delegation_id: 'delegation-1',
-            event: { type: 'response.completed' }
-        });
+        loop.handle(functionCall('delegation-1', 'call-1', 'manage_views', '{"action":"view.focus","viewId":"chat-test"}'));
+        loop.handle(responseCompleted('delegation-1'));
         await continued.promise;
 
         expect(calls).toEqual([
@@ -79,19 +75,7 @@ describe('VoiceToolLoop', () => {
             },
             { toolNames }
         );
-        const event = {
-            type: 'response.event',
-            delegation_id: 'delegation-1',
-            event: {
-                type: 'response.output_item.done',
-                item: {
-                    type: 'function_call',
-                    call_id: 'call-1',
-                    name: 'inspect_workspace',
-                    arguments: '{}'
-                }
-            }
-        };
+        const event = functionCall('delegation-1', 'call-1', 'inspect_workspace', '{}');
         loop.handle(event);
         loop.handle(event);
         expect(executions).toBe(1);
@@ -131,25 +115,9 @@ describe('VoiceToolLoop', () => {
         );
 
         for (const title of titles) {
-            loop.handle({
-                type: 'response.event',
-                delegation_id: 'delegation-notes',
-                event: {
-                    type: 'response.output_item.done',
-                    item: {
-                        type: 'function_call',
-                        call_id: `call-${title}`,
-                        name: 'manage_canvas',
-                        arguments: JSON.stringify({ title })
-                    }
-                }
-            });
+            loop.handle(functionCall('delegation-notes', `call-${title}`, 'manage_canvas', JSON.stringify({ title })));
         }
-        loop.handle({
-            type: 'response.event',
-            delegation_id: 'delegation-notes',
-            event: { type: 'response.completed' }
-        });
+        loop.handle(responseCompleted('delegation-notes'));
         expect(sent).toEqual([]);
         for (const index of [2, 0, 1]) {
             results[index]!.resolve();
@@ -186,12 +154,8 @@ describe('VoiceToolLoop', () => {
             { toolNames, observer }
         );
 
-        loop.handle({
-            type: 'response.event',
-            delegation_id: 'd1',
-            event: { type: 'response.output_item.done', item: { type: 'function_call', call_id: 'c1', name: 'inspect_workspace', arguments: '{}' } }
-        });
-        loop.handle({ type: 'response.event', delegation_id: 'd1', event: { type: 'response.completed' } });
+        loop.handle(functionCall('d1', 'c1', 'inspect_workspace', '{}'));
+        loop.handle(responseCompleted('d1'));
         await continued.promise;
 
         expect(seen).toEqual([

@@ -1,10 +1,11 @@
 import { describe, expect, test } from 'bun:test';
-import { VoiceCompletionDelivery, type VoiceDeliveryTimer } from './delivery.ts';
+import { VoiceCompletionDelivery, type VoiceDeliveryOptions, type VoiceDeliveryTimer } from './delivery.ts';
 import { completionPrompt, type VoiceChatFollowUp } from './follow-up.ts';
 import type { LiveEvent } from './live-event.ts';
 
 const followUp: VoiceChatFollowUp = { key: 'remote:chat', chatId: 'chat', chat: 'Research', project: 'Atlas', turnId: 'turn-1' };
 const completion = { state: 'done' as const, answer: 'The report is ready.' };
+
 function ack(event: LiveEvent): LiveEvent {
     return {
         type: event.type === 'session.thinking.append' ? 'session.thinking.appended' : 'session.commentary.appended',
@@ -12,12 +13,12 @@ function ack(event: LiveEvent): LiveEvent {
     };
 }
 
-function setup() {
+function setup(options?: VoiceDeliveryOptions) {
     const sent: LiveEvent[] = [];
     const delivery = new VoiceCompletionDelivery((event) => {
         sent.push(event);
         return true;
-    });
+    }, options);
     const drain = () => {
         for (let index = 0; index < sent.length; index++) {
             delivery.handle(ack(sent[index]!));
@@ -65,21 +66,13 @@ describe('AI Chat completion delivery to GPT-Live', () => {
     });
 
     test('the commentary names the language the conversation is spoken in', () => {
-        const sent: LiveEvent[] = [];
-        const delivery = new VoiceCompletionDelivery(
-            (event) => {
-                sent.push(event);
-                return true;
-            },
-            { language: 'nl' }
-        );
+        const { delivery, sent } = setup({ language: 'nl' });
         delivery.report('local:agent:waits:1', 'local:agent', 'The terminal agent waits.', 'Tell the user it waits.');
         delivery.handle(ack(sent[0]!));
         expect(sent[1]!.content).toBe('Tell the user it waits. Say it in natural Dutch, as a native Dutch speaker would.');
     });
 
     test('an append that is never answered stops holding the queue once its time runs out', () => {
-        const sent: LiveEvent[] = [];
         const timeouts: { run: () => void; cancelled: boolean }[] = [];
         const timer: VoiceDeliveryTimer = (run) => {
             const entry = { run, cancelled: false };
@@ -88,13 +81,7 @@ describe('AI Chat completion delivery to GPT-Live', () => {
                 entry.cancelled = true;
             };
         };
-        const delivery = new VoiceCompletionDelivery(
-            (event) => {
-                sent.push(event);
-                return true;
-            },
-            { timer }
-        );
+        const { delivery, sent } = setup({ timer });
         delivery.report('first', 'local:a', 'First context.', 'Tell the first.');
         delivery.report('second', 'local:b', 'Second context.', 'Tell the second.');
         timeouts.at(-1)!.run();
@@ -104,26 +91,19 @@ describe('AI Chat completion delivery to GPT-Live', () => {
     });
 
     test('the observer hears what became of each report', () => {
-        const sent: LiveEvent[] = [];
         const heard: string[] = [];
         let timeOut = (): void => undefined;
-        const delivery = new VoiceCompletionDelivery(
-            (event) => {
-                sent.push(event);
-                return true;
+        const { delivery, sent } = setup({
+            timer: (run) => {
+                timeOut = run;
+                return () => undefined;
             },
-            {
-                timer: (run) => {
-                    timeOut = run;
-                    return () => undefined;
-                },
-                observer: {
-                    reportSpoken: () => heard.push('spoken'),
-                    appendTimedOut: () => heard.push('timed out'),
-                    reportDropped: (code) => heard.push(`dropped ${String(code)}`)
-                }
+            observer: {
+                reportSpoken: () => heard.push('spoken'),
+                appendTimedOut: () => heard.push('timed out'),
+                reportDropped: (code) => heard.push(`dropped ${String(code)}`)
             }
-        );
+        });
         delivery.report('first', 'local:a', 'First context.', 'Tell the first.');
         timeOut();
         delivery.handle(ack(sent[1]!));

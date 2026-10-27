@@ -29,7 +29,8 @@ export function matchName<Target extends VoiceNamed>(
     label: (target: Target) => string = (target) => target.name
 ): VoiceNameMatch<Target> {
     const wanted = normalizedName(name);
-    const exact = targets.filter((target) => normalizedName(label(target)) === wanted);
+    const named = targets.map((target) => ({ target, name: normalizedName(label(target)) }));
+    const exact = named.filter((entry) => entry.name === wanted).map((entry) => entry.target);
     if (exact.length === 1) {
         return { status: 'found', value: exact[0]! };
     }
@@ -39,7 +40,7 @@ export function matchName<Target extends VoiceNamed>(
     if (wanted === '') {
         return { status: 'missing' };
     }
-    const partial = targets.filter((target) => normalizedName(label(target)).includes(wanted) || wanted.includes(normalizedName(label(target))));
+    const partial = named.filter((entry) => entry.name.includes(wanted) || wanted.includes(entry.name)).map((entry) => entry.target);
     if (partial.length === 1) {
         return { status: 'found', value: partial[0]! };
     }
