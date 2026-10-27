@@ -40,6 +40,7 @@ struct ScheduledPage: View {
         .refreshable { await model.refresh() }
         .modifier(ScheduledWatch(runtime: runtime, model: model))
         .routineNotice($notice)
+        .onAppear { AppUsage.screen(.screenRoutines) }
     }
 
     @ViewBuilder private func unanswered(_ board: ScheduledBoard) -> some View {

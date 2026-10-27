@@ -411,7 +411,7 @@ Apple references: [custom build scripts](https://developer.apple.com/documentati
 ## Crash reports
 
 A build that ships (Release on a device, so TestFlight and the App Store) reports its crashes and errors, always,
-and nothing else (`App/Telemetry`). Debug, the simulator, tests and previews send nothing. A report goes out for a
+with the metrics below and nothing else (`App/Telemetry`). Debug, the simulator, tests and previews send nothing. A report goes out for a
 native crash, a hang of the main thread of two seconds or more, a watchdog termination, and a connection problem with
 a machine: a link that drops while open and is not back within 30 seconds, a read without an answer in time and a machine refused at the protocol
 check. The transport hands those to `LinkProblems`, and the app passes them on. Each run is a session, for the share
@@ -431,6 +431,37 @@ e-mail and IP addresses, URL paths, SQL, other paths and quoted text. The same e
 Reports go to Observatory (`ingest.bmnw.nl`). `ci_scripts/ci_post_xcodebuild.sh` uploads the archive's dSYMs there
 when the workflow has an `OBSERVATORY_UPLOAD_TOKEN` secret, and never fails the build. Without the secret a crash
 arrives with addresses only.
+
+The same builds send the desktop client's four metrics, with its names, units and attribute values
+(`apps/client/src/telemetry/metrics.ts`), so the Connections dashboard draws the phone beside the desktop:
+`link.connect` (milliseconds, `path` of `lan`, `direct` or `turn` and `outcome` of `ok` or `failed`), `link.reconnect`
+(a count, `reason` of `dropped`, `failed`, `refused`, `timeout` or `switch`), `request.duration` (milliseconds, `area`,
+the part of the request type before its dot) and `workspace.load` (milliseconds from opening a project to the first
+frame of its page once it is there). The transport measures the first three in `MachineConnections` and
+`MachineClient` and hands them to `LinkMeasures`, which reports nowhere until the app sets the meter. A scene that
+comes back from the background resumes its links and is no reconnect. `AppMetrics` gathers every measurement for a
+quarter of an hour and sends per name and attributes a counter's sum, a gauge's last value and a distribution's median
+and maximum (its one value when it had one), as `MetricWindow` in `packages/telemetry` does; it also sends when the app
+goes to the background. A metric keeps only the attributes in `AppMetrics.attributes`, so the SDK's `user.id` (the
+install) never goes along.
+
+## Usage statistics
+
+A build that ships also counts a few things per UTC day and sends each finished day once to Observatory's usage
+ingest of the iOS app, in the batch shape the daemon and the desktop app use (`App/Telemetry`), with `launcher`
+`ios` and `platform` `ios` or `ipados`. It counts only what a machine cannot see itself: the main screens that showed
+(`screens.now`, `projects`, `routines`, `machines`, `search`, `project`, `canvas`, `chat`, `terminal`, `machine`,
+`voice`, `settings`; a screen that shows twice in a row counts once) and what a person did from the phone
+(`actions.messageSent`, `approvalAnswered`, `questionAnswered`, `chatStarted`, `attachmentAdded`). `UsageCounter` is
+the whole list; nothing else is ever counted, and no day carries an id, a name, a path or text.
+
+It follows the machines' switch (`usageStats` in `endpoint.info` and `endpoint.changed`). The phone counts only once
+it heard from a machine of the account, and only while every machine it heard from has the switch on; one that says
+off stops the counting and deletes the days not sent yet. A machine that leaves the account loses its say. The days
+and the switches live in `usage/stats.json` under the app's Application Support, written at most once a minute and
+when the app goes to the background. The app sends at launch and when it comes to the foreground, at most once an
+hour, up to seven days a batch and none older than eight days. A 400 drops a batch; any other failure keeps it for the
+next try.
 
 ## Device acceptance
 

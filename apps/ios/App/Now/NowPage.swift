@@ -33,6 +33,7 @@ struct NowPage: View {
             }
         }
         .modifier(NowWatch(now: now))
+        .onAppear { AppUsage.screen(.screenNow) }
     }
 }
 

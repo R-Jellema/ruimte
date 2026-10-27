@@ -17,6 +17,7 @@ struct MobileSettings: View {
 
     var body: some View {
         NavigationStack { content }
+            .onAppear { AppUsage.screen(.screenSettings) }
     }
 
     private var content: some View {

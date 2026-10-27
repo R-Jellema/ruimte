@@ -196,6 +196,7 @@ struct CanvasPage: View {
                         comment: "%@ says which chats and terminals end with the node")
                 } ?? String(localized: "Its connections are removed too."))
         }
+        .onAppear { AppUsage.screen(.screenCanvas) }
     }
     private func compose(_ kind: String) {
         addingKind = kind

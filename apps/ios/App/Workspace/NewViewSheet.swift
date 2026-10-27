@@ -209,6 +209,7 @@ struct NewViewSheet: View {
             let item = NewViewFactory.view(kind: kind, agent: agent, existing: workspace.views)
             await workspace.edit { $0.setting("views", .array($0.list("views") + [item])) }
             guard workspace.problem == nil else { return }
+            if kind == "chat" { AppUsage.count(.chatStarted) }
             if let result = NewViewFactory.result(for: item) { made(result) }
             dismiss()
         }

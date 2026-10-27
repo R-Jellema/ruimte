@@ -140,6 +140,10 @@ struct WorkspacePage: View {
         }
         .navigationDestination(item: $navigation.openedViewID) { id in viewDestination(id) }
         .task { workspace.start() }
+        .onAppear { AppUsage.screen(.screenProject) }
+        .onChange(of: workspace.ready, initial: true) { _, ready in
+            if ready { navigation.load.shown() }
+        }
         .task(id: workspace.ready) {
             await openPendingView()
             await makePendingKind()

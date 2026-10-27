@@ -9,6 +9,7 @@ struct RuimteApp: App {
 
     init() {
         CrashReports.start()
+        AppUsage.start(runtime: NotificationAppDelegate.runtime)
         // A badge counts what waits on you, so it wears the waiting color rather than the system's red.
         UITabBarItem.appearance().badgeColor = MobileStyle.statusNeedsYouColor
         UITabBarItem.appearance().setBadgeTextAttributes([.foregroundColor: MobileStyle.surfaceColor], for: .normal)

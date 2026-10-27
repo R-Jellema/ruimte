@@ -4,8 +4,8 @@ import Sentry
 import Synchronization
 import UIKit
 
-/// Crashes, hangs and connection problems of a build that ships, with a session per run, and nothing else: no tracing,
-/// no breadcrumbs beyond `breadcrumbs`, no screenshots, no logs. Only the DSN and the start name the service, so the DSN can point at any
+/// Crashes, hangs and connection problems of a build that ships, with a session per run and the metrics in
+/// `AppMetrics`, and nothing else: no tracing, no breadcrumbs beyond `breadcrumbs`, no screenshots, no logs. Only the DSN and the start name the service, so the DSN can point at any
 /// ingest that takes the same envelopes. `apps/ios/README.md` ("Crash reports") has what goes out.
 enum CrashReports {
     // A DSN only lets a client send, so it is no secret.
@@ -74,7 +74,12 @@ enum CrashReports {
             options.attachViewHierarchy = false
             options.attachStacktrace = false
             options.enableLogs = false
-            options.enableMetrics = false
+            options.enableMetrics = true
+            options.beforeSendMetric = { metric in
+                var kept = metric
+                kept.attributes = metric.attributes.filter { AppMetrics.attributes.contains($0.key) }
+                return kept
+            }
             options.enableMetricKit = false
             options.sendClientReports = false
             options.sessionReplay.sessionSampleRate = 0
@@ -88,6 +93,7 @@ enum CrashReports {
         SentrySDK.configureScope { scope in scope.setTag(value: "ios", key: "surface") }
         LinkProblems.setReporter { report($0) }
         LinkProblems.setTrail { note(category: "link", $0.rawValue) }
+        LinkMeasures.setMeter { AppMetrics.record(AppMetric($0)) }
         let lifecycle: [(Notification.Name, String)] = [
             (UIApplication.didBecomeActiveNotification, "active"),
             (UIApplication.willResignActiveNotification, "inactive"),
@@ -99,6 +105,9 @@ enum CrashReports {
                 note(category: "app", moment)
             }
         }
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: nil
+        ) { _ in AppMetrics.flush() }
     }
 
     private static func note(category: String, _ message: String) {

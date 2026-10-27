@@ -370,6 +370,7 @@ struct ChatPromptCard: View {
         Task {
             await prompts.submit(item, connected: connected) {
                 try await perform(action, values)
+                UsageCounter.answering(action).map(AppUsage.count)
             }
         }
     }

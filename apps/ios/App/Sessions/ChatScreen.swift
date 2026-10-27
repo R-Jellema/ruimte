@@ -299,6 +299,7 @@ struct ChatScreen: View {
         } message: {
             Text("This removes the conversation history and stops any active turn on every device.")
         }
+        .onAppear { AppUsage.screen(.screenChat) }
     }
 
     private var timelineStatus: AnyView? {

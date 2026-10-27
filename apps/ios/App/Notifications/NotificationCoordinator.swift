@@ -762,6 +762,7 @@ struct NotificationDestination: Identifiable, Hashable {
         try Task.checkCancellation()
         let payload = try NotificationApproval.chatPayload(alert: alert, snapshot: snapshot, decision: decision)
         _ = try await session.rpc.request("chat.approve", payload: payload)
+        AppUsage.count(.approvalAnswered)
     }
 
     private static let machineActivityNode = "__ruimte_machine_activity__"

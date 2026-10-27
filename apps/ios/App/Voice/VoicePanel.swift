@@ -20,6 +20,7 @@ struct VoicePanel: View {
             close: { scene.showsPanel = false }
         )
         .modifier(VoiceSheetSurface())
+        .onAppear { AppUsage.screen(.screenVoice) }
     }
 }
 

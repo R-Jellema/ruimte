@@ -62,6 +62,7 @@ final class NewChatModel {
             guard let projectID = result["summary"]?["projectId"]?.stringValue,
                 let viewID = result["viewId"]?.stringValue
             else { throw MachineClientError.invalid(String(localized: "The machine did not say where the chat is.")) }
+            AppUsage.count(.chatStarted)
             problem = nil
             return NewChatPlace(projectID: projectID, viewID: viewID)
         } catch {

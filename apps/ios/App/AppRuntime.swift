@@ -289,6 +289,7 @@ final class AppRuntime {
     }
 
     private func publishWidgetMachines() {
+        AppUsage.keep(machineIDs: Set(machines.map(\.id)))
         UsageWidgetStore.setMachines(machines.map { UsageWidgetMachine(id: $0.id, name: $0.name) })
         NeedsYouWidgetStore.keep(machineIDs: Set(machines.map(\.id)))
         ProjectWidgetStore.keep(machineIDs: Set(machines.map(\.id)))

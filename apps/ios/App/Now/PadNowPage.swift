@@ -44,6 +44,7 @@ struct PadNowPage: View {
         .navigationTitle("Now")
         .navigationBarTitleDisplayMode(.inline)
         .modifier(NowWatch(now: now))
+        .onAppear { AppUsage.screen(.screenNow) }
     }
 
     @ViewBuilder private func content(_ board: NowBoard, date: Date, comingUp: [NowComingUp]) -> some View {

@@ -308,6 +308,7 @@ final class ChatComposition {
             }
             uploads.append(upload)
             imports.removeAll { $0.id == id }
+            AppUsage.count(.attachmentAdded)
             await flush()
         } catch { failImport(id, error: error) }
     }

@@ -93,6 +93,7 @@ struct ProjectsPage<Notice: View>: View {
             await now?.refresh()
             await refreshGitLines()
         }
+        .onAppear { AppUsage.screen(.screenProjects) }
     }
 
     /// The machines whose trouble no card of theirs already offers Reconnect for.

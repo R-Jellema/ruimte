@@ -126,6 +126,7 @@ struct MachinePage: View {
                 endpoint: endpoint, fallbackName: name, access: isPad ? (session: session, runtime: runtime) : nil)
         }
         .mobileSheet(isPresented: $access) { MachineAccessSheet(session: session, runtime: runtime, name: name) }
+        .onAppear { AppUsage.screen(.screenMachine) }
     }
 
     private var header: some View {

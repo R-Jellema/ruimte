@@ -170,22 +170,26 @@ final class MachineEndpoint {
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let clock: @MainActor () -> Date
     @ObservationIgnored private let learnedLan: @MainActor (LanDoorAddress?) -> Void
+    @ObservationIgnored private let heardUsage: @MainActor (Bool) -> Void
     @ObservationIgnored private var subscriptions: [() -> Void] = []
     @ObservationIgnored private var reading: Task<Void, Never>?
     @ObservationIgnored private var connected = false
     @ObservationIgnored private var generation = 0
 
-    /// `learnedLan` hears where the machine's door listens each time the machine says, nil once it is closed.
+    /// `learnedLan` hears where the machine's door listens each time the machine says, nil once it is closed, and
+    /// `heardUsage` whether its anonymous usage counts are on.
     init(
         client: any MachineRequesting, machineID: String, defaults: UserDefaults = .standard,
         clock: @escaping @MainActor () -> Date = { Date() },
-        learnedLan: @escaping @MainActor (LanDoorAddress?) -> Void = { _ in }
+        learnedLan: @escaping @MainActor (LanDoorAddress?) -> Void = { _ in },
+        heardUsage: @escaping @MainActor (Bool) -> Void = { _ in }
     ) {
         self.client = client
         self.machineID = machineID
         self.defaults = defaults
         self.clock = clock
         self.learnedLan = learnedLan
+        self.heardUsage = heardUsage
         let stored = defaults.double(forKey: lastConnectedKey)
         lastConnected = stored > 0 ? Date(timeIntervalSince1970: stored) : nil
     }
@@ -263,7 +267,11 @@ final class MachineEndpoint {
         keepAwake = Self.keepAwake(in: value)
         closedLid = Self.closedLid(in: value)
         learnedLan(LanDoorAddress(value["lan"]))
+        heardUsage(Self.usageStats(in: value))
     }
+
+    /// Absent reads as on, as `EndpointInfoSchema` has it.
+    static func usageStats(in value: JSONValue) -> Bool { value["usageStats"]?.boolValue ?? true }
 
     /// An event leaves out what it does not change, and never carries whether keep awake is available.
     private func merge(_ value: JSONValue) {

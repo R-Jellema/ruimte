@@ -22,6 +22,8 @@ final class WorkspaceNavigation: Hashable, Identifiable {
     var pendingKind: String?
     /// A sheet to put up once the project is there, which a sheet asked for during the push would not survive.
     var pendingSheet: ProjectSheet?
+    /// A navigation is one opening of its project, so it times that opening.
+    let load = WorkspaceLoad()
 
     init(workspace: MobileWorkspace) { self.workspace = workspace }
 

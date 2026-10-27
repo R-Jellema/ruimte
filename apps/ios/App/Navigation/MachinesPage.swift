@@ -55,6 +55,7 @@ struct MachinesPage: View {
         }
         .navigationTitle("Machines")
         .navigationBarTitleDisplayMode(UIDevice.current.userInterfaceIdiom == .pad ? .inline : .automatic)
+        .onAppear { AppUsage.screen(.screenMachines) }
     }
 
     /// A row of text alone, such as the legend, on the page's margin.

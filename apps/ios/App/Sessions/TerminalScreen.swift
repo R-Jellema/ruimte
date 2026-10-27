@@ -102,6 +102,7 @@ struct TerminalScreen: View {
         } message: {
             Text("This clears the shared terminal scrollback on every device.")
         }
+        .onAppear { AppUsage.screen(.screenTerminal) }
     }
 }
 

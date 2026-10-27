@@ -40,7 +40,8 @@ final class SharedMachineSession {
         learnedLan: { [weak self] door in
             guard let self else { return }
             runtime?.lanDoors.remember(door, machineID: machine.id, machineKey: machine.publicKey)
-        })
+        },
+        heardUsage: { [machine] on in AppUsage.heard(machineID: machine.id, usageStats: on) })
     @ObservationIgnored lazy var usageWidget = UsageWidgetRecorder(machineID: machine.id, client: rpc)
     @ObservationIgnored lazy var snoozes = MachineSnoozes(machineID: machine.id, client: rpc)
     @ObservationIgnored lazy var rpc = MachineClient(send: { [weak self] text in

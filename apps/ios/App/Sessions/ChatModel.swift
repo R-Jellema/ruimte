@@ -173,6 +173,7 @@ final class ChatModel {
                     "text": .string(ChatResume.continuePrompt), "mentions": .array([]), "skills": .array([]),
                     "chats": .array([]), "attachments": .array([]),
                 ]))
+            AppUsage.count(.messageSent)
         } catch {
             continuedFor = nil
             sendProblem = error.localizedDescription
@@ -553,6 +554,7 @@ final class ChatModel {
             ]
             if !references.isEmpty { values["references"] = .array(references.map(JSONValue.string)) }
             _ = try await client.request("chat.send", payload: target(values))
+            AppUsage.count(.messageSent)
             sendUncertain = false
             if draft == snapshot.text && mentions == snapshot.mentions && skills == snapshot.skills
                 && composition.chats == snapshot.chats && composition.references == (snapshot.references ?? [])

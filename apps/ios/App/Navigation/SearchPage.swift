@@ -103,6 +103,7 @@ struct SearchPage: View {
                 ClosablePage(isPresented: $usage.isPresent()) { MachineUsagePage(client: session.rpc) }
             }
         }
+        .onAppear { AppUsage.screen(.screenSearch) }
     }
 
     private func viewRow(_ entry: ProjectViewEntry, query: String) -> some View {

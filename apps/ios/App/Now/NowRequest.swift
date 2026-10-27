@@ -204,6 +204,7 @@ final class NowAnswers {
         defer { sending.remove(key) }
         do {
             _ = try await client.request(type.rawValue, payload: payload)
+            UsageCounter.answering(type.rawValue).map(AppUsage.count)
             settle(key)
         } catch MachineClientError.server(let code, _) where code == "request-not-found" {
             // Someone else answered first, on the desktop or as the parent agent.

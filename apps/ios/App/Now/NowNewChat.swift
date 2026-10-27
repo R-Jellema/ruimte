@@ -95,6 +95,7 @@ final class NowNewChatModel {
             problem = failure
             return nil
         }
+        AppUsage.count(.chatStarted)
         return ProjectViewTarget(machineID: machineID, projectID: projectID, viewID: id, itemID: id)
     }
 }
