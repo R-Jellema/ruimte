@@ -116,6 +116,8 @@ struct ChatLightbox: View {
     @State private var chrome = true
     @State private var phase = LightboxPhase.flying
     @State private var started = false
+    @State private var opened = false
+    @State private var dragging = false
     @State private var closing = false
     @State private var screen = CGSize.zero
     @State private var flight = CGRect.zero
@@ -134,6 +136,11 @@ struct ChatLightbox: View {
         _radius = State(initialValue: start.radius)
         _flight = State(initialValue: start.sources.frames[start.id] ?? .zero)
     }
+
+    private static let controlsFade = Animation.easeOut(duration: 0.2)
+
+    /// The controls fade on their own clock: in while the picture lands, out as soon as a drag or a close starts.
+    private var controlsShown: Bool { chrome && opened && !dragging && !closing }
 
     private var images: [ChatLightboxImage] { start.images }
     private var index: Int { images.firstIndex { $0.id == selection } ?? 0 }
@@ -176,9 +183,13 @@ struct ChatLightbox: View {
             }
         }
         .onGeometryChange(for: CGSize.self) { $0.size } action: { screen = $0 }
-        .overlay(alignment: .top) { if chrome && phase == .shown && !closing { bar.transition(.opacity) } }
-        .overlay(alignment: .bottom) { if chrome && phase == .shown && !closing { caption.transition(.opacity) } }
-        .statusBarHidden(!chrome || phase == .flying)
+        .overlay(alignment: .top) {
+            bar.opacity(controlsShown ? 1 : 0).offset(y: controlsShown ? 0 : -8).allowsHitTesting(controlsShown)
+        }
+        .overlay(alignment: .bottom) {
+            caption.opacity(controlsShown ? 1 : 0).offset(y: controlsShown ? 0 : 8).allowsHitTesting(controlsShown)
+        }
+        .statusBarHidden(!controlsShown)
         .environment(\.colorScheme, .dark)
         .accessibilityAction(.escape) { close() }
         .onAppear(perform: open)
@@ -211,12 +222,13 @@ struct ChatLightbox: View {
             } completion: {
                 phase = .shown
             }
+            withAnimation(Self.controlsFade.delay(0.12)) { opened = true }
         }
     }
 
     private func close() {
         guard !closing else { return }
-        closing = true
+        withAnimation(Self.controlsFade) { closing = true }
         if phase == .shown { flight = fitted(picture) }
         phase = .flying
         let bounds = CGRect(origin: .zero, size: screen)
@@ -242,6 +254,7 @@ struct ChatLightbox: View {
         switch state {
         case .changed(let translation):
             phase = .flying
+            if !dragging { withAnimation(Self.controlsFade) { dragging = true } }
             let distance = abs(translation.height)
             let scale = max(0.5, 1 - distance / max(screen.height, 1) * 0.6)
             flight = CGRect(
@@ -260,6 +273,7 @@ struct ChatLightbox: View {
             } completion: {
                 if !closing { phase = .shown }
             }
+            withAnimation(Self.controlsFade.delay(0.12)) { dragging = false }
         }
     }
 
