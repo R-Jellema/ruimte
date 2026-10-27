@@ -7,9 +7,9 @@ import { useSessions } from '@/state/sessions';
 import { useSnoozes } from '@/state/snooze';
 import { notifyRequested, startAgentNotifications } from './notifications';
 
-test('completed turns only leave an unread mark; needs-you and requested alerts notify', () => {
+/* A window without focus whose notifications land in `shown`; the returned function puts the globals back. */
+function fakeNotifications(shown: { title: string; options: NotificationOptions }[]): () => void {
     const originals = new Map(['window', 'document', 'Notification'].map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
-    const shown: { title: string; options: NotificationOptions }[] = [];
     class FakeNotification {
         static permission = 'granted';
         onclick: (() => void) | null = null;
@@ -24,28 +24,48 @@ test('completed turns only leave an unread mark; needs-you and requested alerts 
     });
     Object.defineProperty(globalThis, 'document', { configurable: true, value: { hasFocus: () => false } });
     Object.defineProperty(globalThis, 'Notification', { configurable: true, value: FakeNotification });
+    return () => {
+        for (const [key, descriptor] of originals) {
+            if (descriptor) {
+                Object.defineProperty(globalThis, key, descriptor);
+            } else {
+                Reflect.deleteProperty(globalThis, key);
+            }
+        }
+    };
+}
+
+function loadBuildTerminal(): void {
+    useDocument
+        .getState()
+        .load(
+            { version: 3, rev: 1, name: 'Project', color: '#000', views: [{ kind: 'terminal', id: 'agent', name: 'Build', node: { provider: 'codex' } }] },
+            null
+        );
+}
+
+function setStatus(key: string, status: AgentStatus): void {
+    useSessions.getState().setAgent(key, { kind: 'codex', status, live: true, agentSessionId: 'cli', transcriptPath: null, updatedAt: 1 });
+}
+
+test('completed turns only leave an unread mark; needs-you and requested alerts notify', () => {
+    const shown: { title: string; options: NotificationOptions }[] = [];
+    const restore = fakeNotifications(shown);
     const endpointId = currentEndpointId();
     const key = endpointKey(endpointId, 'agent');
     let stopAttention = () => {};
     let stopNotifications = () => {};
     try {
-        useDocument
-            .getState()
-            .load(
-                { version: 3, rev: 1, name: 'Project', color: '#000', views: [{ kind: 'terminal', id: 'agent', name: 'Build', node: { provider: 'codex' } }] },
-                null
-            );
+        loadBuildTerminal();
         stopAttention = startAttentionWatch();
         stopNotifications = startAgentNotifications();
-        const status = (status: AgentStatus) =>
-            useSessions.getState().setAgent(key, { kind: 'codex', status, live: true, agentSessionId: 'cli', transcriptPath: null, updatedAt: 1 });
-        status('running');
-        status('idle');
+        setStatus(key, 'running');
+        setStatus(key, 'idle');
         expect(shown).toEqual([]);
         expect(useAttention.getState().unseen[key]).toBeDefined();
-        status('running');
-        status('needs-you');
-        status('needs-you');
+        setStatus(key, 'running');
+        setStatus(key, 'needs-you');
+        setStatus(key, 'needs-you');
         expect(shown).toHaveLength(1);
         notifyRequested(endpointId, { projectId: 'project', viewId: 'agent', nodeId: 'agent', title: 'Build', body: 'The build is ready.' });
         expect(shown).toHaveLength(2);
@@ -56,47 +76,22 @@ test('completed turns only leave an unread mark; needs-you and requested alerts 
         useSessions.getState().forget(key);
         useAttention.getState().setUnseen(new Set());
         useDocument.getState().load(null, null);
-        for (const [key, descriptor] of originals) {
-            if (descriptor) {
-                Object.defineProperty(globalThis, key, descriptor);
-            } else {
-                Reflect.deleteProperty(globalThis, key);
-            }
-        }
+        restore();
     }
 });
 
 test('a snooze that runs out announces the wait again, one a person ended does not', () => {
-    const originals = new Map(['window', 'document', 'Notification'].map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
-    const shown: string[] = [];
-    class FakeNotification {
-        static permission = 'granted';
-        onclick: (() => void) | null = null;
-        constructor(title: string) {
-            shown.push(title);
-        }
-        close(): void {}
-    }
-    Object.defineProperty(globalThis, 'window', {
-        configurable: true,
-        value: { Notification: FakeNotification, addEventListener() {}, removeEventListener() {} }
-    });
-    Object.defineProperty(globalThis, 'document', { configurable: true, value: { hasFocus: () => false } });
-    Object.defineProperty(globalThis, 'Notification', { configurable: true, value: FakeNotification });
+    const shown: { title: string; options: NotificationOptions }[] = [];
+    const restore = fakeNotifications(shown);
     const endpointId = currentEndpointId();
     const key = endpointKey(endpointId, 'agent');
     let now = 1_000_000;
     let stopNotifications = () => {};
     try {
         useSnoozes.setState({ byKey: {} });
-        useDocument
-            .getState()
-            .load(
-                { version: 3, rev: 1, name: 'Project', color: '#000', views: [{ kind: 'terminal', id: 'agent', name: 'Build', node: { provider: 'codex' } }] },
-                null
-            );
+        loadBuildTerminal();
         stopNotifications = startAgentNotifications(() => now);
-        useSessions.getState().setAgent(key, { kind: 'codex', status: 'needs-you', live: true, agentSessionId: 'cli', transcriptPath: null, updatedAt: 1 });
+        setStatus(key, 'needs-you');
         expect(shown).toHaveLength(1);
 
         useSnoozes.getState().snooze(endpointId, 'agent', now + 60_000);
@@ -112,12 +107,6 @@ test('a snooze that runs out announces the wait again, one a person ended does n
         useSessions.getState().forget(key);
         useSnoozes.setState({ byKey: {} });
         useDocument.getState().load(null, null);
-        for (const [key, descriptor] of originals) {
-            if (descriptor) {
-                Object.defineProperty(globalThis, key, descriptor);
-            } else {
-                Reflect.deleteProperty(globalThis, key);
-            }
-        }
+        restore();
     }
 });

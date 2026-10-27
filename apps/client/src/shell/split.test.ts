@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'bun:test';
 import type { ProjectView, SplitCell, SplitLayout } from '@ruimte/contracts';
-import { evenCells, evenColumns, maximizedCell } from './split';
 import {
     activateTab,
     canDropAsTab,
@@ -17,6 +16,8 @@ import {
     closeTab,
     dropAsTab,
     dropView,
+    evenCells,
+    evenColumns,
     focusCell,
     focusDirection,
     focusedViewId,
@@ -25,6 +26,7 @@ import {
     isTabHost,
     layoutOf,
     locateView,
+    maximizedCell,
     moveCell,
     moveTabBy,
     openableViewIds,
