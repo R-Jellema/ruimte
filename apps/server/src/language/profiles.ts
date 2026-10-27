@@ -132,6 +132,17 @@ const NATIVE_TYPESCRIPT_SETTINGS = {
     }
 };
 
+/* What typescript-language-server is started with, in front of the tsserver of a TypeScript 6 SDK. */
+function tsserverOptions(context: LaunchContext): Record<string, unknown> {
+    return {
+        hostInfo: 'ruimte',
+        // Fetching typings is the project's own package manager's job, and the daemon makes no request nobody asked for.
+        disableAutomaticTypingAcquisition: true,
+        tsserver: { path: join(context.typescriptLib, 'tsserver.js'), useSyntaxServer: 'never' },
+        preferences: TYPESCRIPT_PREFERENCES
+    };
+}
+
 function nativeTypescriptComponent(): ComponentProfile {
     return {
         name: 'typescript',
@@ -159,12 +170,7 @@ function typescriptActionsComponent(): ComponentProfile {
         sidecar: true,
         sdkPackage: SIDECAR_SDK_PACKAGE,
         args: () => ['--stdio'],
-        initializationOptions: (context) => ({
-            hostInfo: 'ruimte',
-            disableAutomaticTypingAcquisition: true,
-            tsserver: { path: join(context.typescriptLib, 'tsserver.js'), useSyntaxServer: 'never' },
-            preferences: TYPESCRIPT_PREFERENCES
-        })
+        initializationOptions: tsserverOptions
     };
 }
 
@@ -176,11 +182,7 @@ function vueTypescriptComponent(): ComponentProfile {
         entry: 'typescript-language-server/lib/cli.mjs',
         args: () => ['--stdio'],
         initializationOptions: (context) => ({
-            hostInfo: 'ruimte',
-            // Fetching typings is the project's own package manager's job, and the daemon makes no request nobody asked for.
-            disableAutomaticTypingAcquisition: true,
-            tsserver: { path: join(context.typescriptLib, 'tsserver.js'), useSyntaxServer: 'never' },
-            preferences: TYPESCRIPT_PREFERENCES,
+            ...tsserverOptions(context),
             plugins: [{ name: '@vue/typescript-plugin', location: join(context.installDirectory, 'node_modules'), languages: ['vue'] }]
         })
     };
