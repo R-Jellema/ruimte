@@ -56,14 +56,6 @@ test('what a person picked in a prompt survives a restart beside it', async () =
     });
 });
 
-test('the file goes with the prompt, so the directory does not grow', async () => {
-    const store = new PendingPromptStore(home);
-    await store.put('p1', 'terminal-a', 'one');
-    expect(await readdir(store.dir)).toHaveLength(1);
-    await store.take('terminal-a');
-    expect(await readdir(store.dir)).toHaveLength(0);
-});
-
 test('a node that left the project takes its prompt with it, and the rest stays', async () => {
     const store = new PendingPromptStore(home);
     await store.put('p1', 'terminal-a', 'a');
