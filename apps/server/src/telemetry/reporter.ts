@@ -209,19 +209,24 @@ export function recordRequestDuration(type: string, ms: number): void {
 }
 
 /*
- * The event loop's lag, as how late a one-second tick fires, and once a minute the memory and the clients by kind.
+ * The event loop's lag, as how late a one-second tick fires, and the memory and the clients by kind, all sent once
+ * a minute. The SDK sends every value as an item of its own, five seconds after the first, so a lag sent per tick
+ * would keep a request going out every five seconds all day; the minute's worst tick is what a hang shows in.
  * Both timers are unref'd, so they never keep a stopping daemon alive.
  */
 function startMeters(active: Sentry): void {
     let last = performance.now();
+    let worstLag = 0;
 
     const tick = setInterval(() => {
         const now = performance.now();
-        active.metrics.distribution('daemon.loop.lag', Math.max(0, now - last - LAG_TICK_MS), { unit: 'millisecond' });
+        worstLag = Math.max(worstLag, now - last - LAG_TICK_MS);
         last = now;
     }, LAG_TICK_MS);
 
     const gauges = setInterval(() => {
+        active.metrics.distribution('daemon.loop.lag', worstLag, { unit: 'millisecond' });
+        worstLag = 0;
         active.metrics.gauge('daemon.memory', Math.round(process.memoryUsage().rss / 1_048_576), { unit: 'megabyte' });
 
         for (const kind of Object.keys(liveClients) as ClientKind[]) {
