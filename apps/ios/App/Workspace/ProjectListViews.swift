@@ -57,10 +57,7 @@ struct PhoneProjectList: View {
         .task(id: ProjectListLogic.chatIDs(views)) {
             state.readDrafts(machineID: workspace.session.machine.id, chatIDs: ProjectListLogic.chatIDs(views))
         }
-        .onAppear {
-            state.readDrafts(machineID: workspace.session.machine.id, chatIDs: ProjectListLogic.chatIDs(views))
-            state.watchWarnings(workspace.client)
-        }
+        .onAppear { state.watchWarnings(workspace.client) }
         .onDisappear { state.stopWatching() }
     }
 

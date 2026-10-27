@@ -13,10 +13,7 @@ struct ProjectGroupsList: View {
     var body: some View {
         if cards {
             ProjectMachineCards(groups: groups, session: runtime.session(for:)) { overview in
-                openWorkspace(
-                    MobileWorkspace(
-                        session: runtime.session(for: overview.row.machine), projectID: overview.id.projectID,
-                        summary: overview.row.summary))
+                openWorkspace(overview.row.workspace(runtime))
             }
         } else {
             sidebarRows
@@ -36,10 +33,7 @@ struct ProjectGroupsList: View {
                 .listRowSeparator(.hidden)
                 ForEach(group.rows) { overview in
                     Button {
-                        openWorkspace(
-                            MobileWorkspace(
-                                session: runtime.session(for: overview.row.machine), projectID: overview.id.projectID,
-                                summary: overview.row.summary))
+                        openWorkspace(overview.row.workspace(runtime))
                     } label: {
                         ProjectOverviewLabel(
                             overview: overview, session: runtime.session(for: overview.row.machine),
@@ -48,9 +42,7 @@ struct ProjectGroupsList: View {
                         .modifier(MobileSidebarLabel())
                     }
                     .modifier(MobileSidebarRow())
-                    .accessibilityIdentifier(
-                        overview.isChats
-                            ? "projects.chats.\(overview.row.machine.id)" : "projects.project.\(overview.id.projectID)")
+                    .accessibilityIdentifier(overview.accessibilityID)
                 }
             }
             .listSectionSeparator(.hidden)
@@ -104,12 +96,8 @@ struct ProjectOverviewLabel: View {
                 .frame(width: 32)
                 .centeredOnFirstLine(of: .body)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(
-                        overview.isChats
-                            ? String(localized: "Chats")
-                            : overview.row.summary.text("name", fallback: String(localized: "Untitled project"))
-                    )
-                    .foregroundStyle(offline ? MobileStyle.muted : MobileStyle.text)
+                    Text(overview.title)
+                        .foregroundStyle(offline ? MobileStyle.muted : MobileStyle.text)
                     .lineLimit(1).truncationMode(.tail)
                     if let detail = overview.detail {
                         Text(detail).font(.caption).foregroundStyle(MobileStyle.muted)
@@ -172,9 +160,7 @@ struct ProjectCardRows: View {
                     ProjectCardRow(overview: overview, session: machineSession, offline: offline)
                 }
                 .buttonStyle(.plain)
-                .accessibilityIdentifier(
-                    overview.isChats
-                        ? "projects.chats.\(overview.row.machine.id)" : "projects.project.\(overview.id.projectID)")
+                .accessibilityIdentifier(overview.accessibilityID)
                 if offline && overview.id == rows.first?.id {
                     Button("Reconnect") { machineSession.reconnect() }
                         .buttonStyle(.mobileCapsuleSmall)
@@ -261,7 +247,7 @@ struct ProjectCardRow: View {
                 .frame(width: column)
                 .centeredOnFirstLine(of: .subheadline)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(verbatim: title).font(.subheadline.weight(overview.isChats ? .regular : .semibold))
+                    Text(verbatim: overview.title).font(.subheadline.weight(overview.isChats ? .regular : .semibold))
                         .foregroundStyle(offline ? MobileStyle.muted : MobileStyle.text)
                         .lineLimit(1).truncationMode(.tail)
                     if !overview.isChats, let detail = overview.detail {
@@ -283,12 +269,6 @@ struct ProjectCardRow: View {
         .frame(maxWidth: .infinity, minHeight: height, alignment: .leading)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
-    }
-
-    private var title: String {
-        overview.isChats
-            ? String(localized: "Chats")
-            : overview.row.summary.text("name", fallback: String(localized: "Untitled project"))
     }
 
     @ViewBuilder private var trailing: some View {

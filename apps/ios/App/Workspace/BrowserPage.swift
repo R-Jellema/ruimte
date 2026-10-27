@@ -13,10 +13,7 @@ private final class BrowserState {
     var webView: WKWebView?
     init(_ address: String) { self.address = address }
     func navigate() {
-        let text = address.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let url = URL(string: text.contains("://") ? text : "https://" + text),
-            ["http", "https"].contains(url.scheme?.lowercased() ?? ""), url.host != nil
-        else {
+        guard let full = ViewSettings.address(address), let url = URL(string: full) else {
             problem = String(localized: "Enter an HTTP or HTTPS address.")
             return
         }
@@ -28,7 +25,6 @@ private final class BrowserState {
         if let url = webView?.url { address = url.absoluteString }
     }
 }
-
 
 struct BrowserPage: View {
     @State private var state: BrowserState
@@ -144,7 +140,7 @@ private struct BrowserContent: UIViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(state) }
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
-        // Browser pages have no bridge into the machine or the app's credentials.
+        // Browser pages keep the system's cookies but get no bridge into the machine or the app's credentials.
         configuration.websiteDataStore = .default()
         let view = WKWebView(frame: .zero, configuration: configuration)
         view.navigationDelegate = context.coordinator

@@ -107,7 +107,7 @@ struct CanvasStartGrid: View {
             .accessibilityElement(children: .combine)
         } else {
             section(String(localized: "Agents")) {
-                ForEach(agents, id: \.stableKind) { provider in
+                ForEach(agents, id: \.agentKind) { provider in
                     let chat = provider["capabilities"]?["chat"] == .bool(true)
                     tile(
                         provider.text("name", fallback: provider.text("kind")),
@@ -165,8 +165,4 @@ struct CanvasStartGrid: View {
             if workspace.problem == nil { added() }
         }
     }
-}
-
-extension JSONValue {
-    fileprivate var stableKind: String { text("kind") }
 }

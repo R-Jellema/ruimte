@@ -112,8 +112,6 @@ final class ProjectListState {
     @ObservationIgnored private var stops: [() -> Void] = []
     @ObservationIgnored private var client: (any MachineRequesting)?
 
-    init() {}
-
     func isExpanded(_ id: String) -> Bool { expanded.contains(id) }
 
     func toggle(_ id: String) {
@@ -133,8 +131,7 @@ final class ProjectListState {
     func watchWarnings(_ client: any MachineRequesting) {
         guard stops.isEmpty else { return }
         self.client = client
-        stops.append(
-            client.subscribe("processes.alerts") { [weak self] payload in self?.receive(payload) })
+        stops.append(client.subscribe("processes.alerts") { [weak self] payload in self?.receive(payload) })
         stops.append(
             client.observeConnection { [weak self] connected in
                 guard connected else { return }
@@ -149,9 +146,7 @@ final class ProjectListState {
     }
 
     private func readWarnings() async {
-        guard let client, let result = try? await client.request("processes.listAlerts", payload: .object([:])) else {
-            return
-        }
+        guard let client, let result = try? await client.request(.processesListAlerts) else { return }
         receive(result)
     }
 

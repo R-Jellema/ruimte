@@ -40,7 +40,7 @@ final class MachineProjectList {
         guard session.connected else { return }
         let connection = session.generation
         await work.read(loaded: false) { stillTheLatest in
-            let result = try await session.rpc.request("project.list", payload: .object([:]))
+            let result = try await session.rpc.request(.projectList)
             try stillTheLatest()
             // An answer for a link that has since been rebuilt says nothing about the one on screen now.
             guard connection == session.generation else { throw CancellationError() }

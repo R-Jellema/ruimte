@@ -44,8 +44,7 @@ final class NewChatModel {
         } catch {
             problem = error.localizedDescription
         }
-        accounts = (try? await client.request(WireRequest.accountsList.rawValue, payload: .object([:])))
-            .map(ProviderAccountList.init)
+        accounts = (try? await client.request(.accountsList)).map(ProviderAccountList.init)
     }
 
     /// The account a new chat of this CLI starts under, as remembered for this machine; nil is the CLI's own.
@@ -59,8 +58,7 @@ final class NewChatModel {
         defer { starting = nil }
         do {
             let result = try await client.request(
-                WireRequest.projectNewChat.rawValue,
-                payload: NewChat.payload(provider: provider, account: account(for: provider)))
+                .projectNewChat, payload: NewChat.payload(provider: provider, account: account(for: provider)))
             guard let projectID = result["summary"]?["projectId"]?.stringValue,
                 let viewID = result["viewId"]?.stringValue
             else { throw MachineClientError.invalid(String(localized: "The machine did not say where the chat is.")) }
@@ -116,7 +114,7 @@ struct NewChatSheet: View {
                     if let agents = model.agents {
                         if agents.isEmpty {
                             Text("Install a CLI or add an account in Ruimte on the machine itself, under Agents.")
-                            .foregroundStyle(MobileStyle.muted)
+                                .foregroundStyle(MobileStyle.muted)
                         }
                         ForEach(agents, id: \.agentKind) { agent in row(agent) }
                     } else if model.problem == nil {

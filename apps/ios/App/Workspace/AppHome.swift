@@ -133,15 +133,14 @@ struct AppHome: View {
     }
 
     private func openWorkspace(_ workspace: MobileWorkspace, view: String?) {
-        guard isPad else {
+        if isPad {
+            padRouter.openProject(workspace, view: view)
+        } else {
             // The stack animates its push itself. Inside an animation of ours the page's bar items would animate in
             // after it starts instead of being there for the bar to morph into.
             router.openProject(workspace, view: view)
-            return
         }
-        padRouter.openProject(workspace, view: view)
     }
-
 }
 
 struct RecentProjectsPage: View {
@@ -196,9 +195,7 @@ struct ProjectLinks: View {
     var body: some View {
         ForEach(rows) { row in
             Button {
-                openWorkspace(
-                    MobileWorkspace(
-                        session: runtime.session(for: row.machine), projectID: row.id.projectID, summary: row.summary))
+                openWorkspace(row.workspace(runtime))
             } label: {
                 ProjectHomeRow(
                     summary: row.summary, machine: row.machine.name, connected: row.connected,
@@ -252,14 +249,13 @@ private struct ProjectMachineGlyph: View {
 private struct ProjectHomeGlyph: View {
     let summary: JSONValue
     private var initial: String {
-        summary["icon"]?.text("kind") == "initial"
-            ? summary["icon"]!.text("value") : String(summary.text("name").prefix(1)).uppercased()
+        if let icon = summary["icon"], icon.text("kind") == "initial" { return icon.text("value") }
+        return String(summary.text("name").prefix(1)).uppercased()
     }
     var body: some View {
         Group {
-            if summary["icon"]?.text("kind") == "lucide" {
-                LucideIcon(name: summary["icon"]!.text("value"), size: 20)
-                    .foregroundStyle(MobileStyle.accent)
+            if let icon = summary["icon"], icon.text("kind") == "lucide" {
+                LucideIcon(name: icon.text("value"), size: 20).foregroundStyle(MobileStyle.accent)
             } else {
                 Text(initial).font(.title3.weight(.semibold)).foregroundStyle(MobileStyle.accent)
             }

@@ -46,12 +46,12 @@ final class UsageWidgetRecorder {
 
     func start() {
         guard unobserve == nil else { return }
-        unsubscribe = client.subscribe(WireEvent.usageLimitsChanged.rawValue) { [weak self] value in
+        unsubscribe = client.subscribe(.usageLimitsChanged) { [weak self] value in
             guard let self, let limits = try? WireEvent.usageLimitsChanged.validatePayload(value) else { return }
             take(limits)
             if running == nil { begin(limits: limits) } else { pending = limits }
         }
-        unsubscribeAccounts = client.subscribe(WireEvent.accountsChanged.rawValue) { [weak self] value in
+        unsubscribeAccounts = client.subscribe(.accountsChanged) { [weak self] value in
             guard let self else { return }
             accountsRevision += 1
             accounts = .loaded(ProviderAccountList(value))
@@ -121,7 +121,7 @@ final class UsageWidgetRecorder {
             guard let client = self?.client else { return }
             let next: UsageAccounts
             do {
-                next = .loaded(ProviderAccountList(try await client.request(WireRequest.accountsList.rawValue)))
+                next = .loaded(ProviderAccountList(try await client.request(.accountsList)))
             } catch {
                 next = .failed
             }
@@ -137,7 +137,7 @@ final class UsageWidgetRecorder {
         } else {
             let seen = limitsRevision
             do {
-                limits = try await client.request(WireRequest.usageLimits.rawValue, payload: .object([:]))
+                limits = try await client.request(.usageLimits)
             } catch {
                 // An unreachable machine leaves its last snapshot standing; that is what the widget shows offline.
                 return
@@ -156,7 +156,7 @@ final class UsageWidgetRecorder {
                 "from": .string(day), "to": .string(day), "resolution": .string("day"),
                 "timeZone": .string(TimeZone.current.identifier),
             ])
-            if let summary = try? await client.request(WireRequest.usageSummary.rawValue, payload: payload) {
+            if let summary = try? await client.request(.usageSummary, payload: payload) {
                 let models = summary.list("models")
                 let byProvider = Dictionary(
                     models.map { ($0.text("provider"), $0.number("costUsd")) }, uniquingKeysWith: +)
@@ -177,9 +177,7 @@ final class UsageWidgetRecorder {
         guard snapshot.providers.contains(where: { snapshot.accountCount($0.kind) > 1 }) else { return nil }
         let ids = snapshot.providers.compactMap(\.account?.id)
         let split = payload.setting("accounts", .array(ids.map(JSONValue.string)))
-        guard let summary = try? await client.request(WireRequest.usageSummary.rawValue, payload: split) else {
-            return nil
-        }
+        guard let summary = try? await client.request(.usageSummary, payload: split) else { return nil }
         let models = summary.list("models").filter { $0["account"]?.stringValue != nil }
         // A machine that ignores the filter folds every account into one, which says nothing per account.
         guard !models.isEmpty || summary.list("models").isEmpty else { return nil }

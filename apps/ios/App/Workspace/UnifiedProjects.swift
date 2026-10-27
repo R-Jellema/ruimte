@@ -18,6 +18,11 @@ struct UnifiedProjectRow: Identifiable {
         search.isEmpty || summary.text("name").localizedCaseInsensitiveContains(search)
             || machine.name.localizedCaseInsensitiveContains(search)
     }
+
+    /// The project on its machine's shared session, ready to open.
+    @MainActor func workspace(_ runtime: AppRuntime) -> MobileWorkspace {
+        MobileWorkspace(session: runtime.session(for: machine), projectID: id.projectID, summary: summary)
+    }
 }
 
 @MainActor
@@ -93,15 +98,13 @@ final class UnifiedProjects {
             machines.map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest })
         for id in Array(entries.keys) where known[id] == nil {
             entries.removeValue(forKey: id)?.dispose()
-            defaults.removeObject(forKey: cacheKey(id))
-            defaults.removeObject(forKey: cacheKey(id) + ".publicKey")
+            forgetCache(id)
         }
         for machine in known.values {
             if let previous = entries[machine.id], previous.machine.publicKey != machine.publicKey {
                 previous.dispose()
                 entries.removeValue(forKey: machine.id)
-                defaults.removeObject(forKey: cacheKey(machine.id))
-                defaults.removeObject(forKey: cacheKey(machine.id) + ".publicKey")
+                forgetCache(machine.id)
             }
             let entry =
                 entries[machine.id]
@@ -194,11 +197,8 @@ final class UnifiedProjects {
                 let connection = entry.connection
             else { return }
             do {
-                let response = try await connection.client.request(
-                    "project.list", payload: .object([:]))
-                guard !Task.isCancelled, entry.operation == operation, current(entry),
-                    entry.connected
-                else { return }
+                let response = try await connection.client.request(.projectList)
+                guard !Task.isCancelled, entry.operation == operation, current(entry), entry.connected else { return }
                 let validated = try WireRequest.projectList.validateResult(response)
                 // Events received during this request are newer than its snapshot.
                 entry.summaries = unique(
@@ -228,13 +228,15 @@ final class UnifiedProjects {
 
     private func cacheKey(_ id: String) -> String { "ruimte.ios.projects.\(id)" }
 
+    private func forgetCache(_ id: String) {
+        defaults.removeObject(forKey: cacheKey(id))
+        defaults.removeObject(forKey: cacheKey(id) + ".publicKey")
+    }
+
     private func readCache(_ machine: Machine) -> [JSONValue] {
         let key = cacheKey(machine.id)
-        if let publicKey = defaults.string(forKey: key + ".publicKey"),
-            publicKey != machine.publicKey
-        {
-            defaults.removeObject(forKey: key)
-            defaults.removeObject(forKey: key + ".publicKey")
+        if let publicKey = defaults.string(forKey: key + ".publicKey"), publicKey != machine.publicKey {
+            forgetCache(machine.id)
             return []
         }
         guard let data = defaults.data(forKey: key), let value = try? JSONValue.decode(data),

@@ -52,7 +52,7 @@ enum SessionEnding {
     /// changes nothing.
     @MainActor static func endTerminals(_ terminals: [String], client: any MachineRequesting) async {
         for id in terminals {
-            _ = try? await client.request(WireRequest.sessionKill.rawValue, payload: .object(["sessionId": .string(id)]))
+            _ = try? await client.request(.sessionKill, payload: .object(["sessionId": .string(id)]))
         }
     }
 
@@ -60,7 +60,7 @@ enum SessionEnding {
     @MainActor static func end(_ question: Question, session: SharedMachineSession) async {
         for id in question.chats {
             session.forgetChat(id)
-            _ = try? await session.rpc.request(WireRequest.chatKill.rawValue, payload: .object(["chatId": .string(id)]))
+            _ = try? await session.rpc.request(.chatKill, payload: .object(["chatId": .string(id)]))
         }
         await endTerminals(question.terminals, client: session.rpc)
     }

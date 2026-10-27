@@ -26,7 +26,7 @@ final class MachineIconState {
 
     func start() {
         guard unobserve == nil else { return }
-        unsubscribe = client.subscribe("endpoint.changed") { [weak self] value in
+        unsubscribe = client.subscribe(.endpointChanged) { [weak self] value in
             guard let self, connected,
                 let endpoint = try? WireEvent.endpointChanged.validatePayload(value)
             else { return }
@@ -42,7 +42,7 @@ final class MachineIconState {
             task = Task { [weak self] in
                 guard let self else { return }
                 do {
-                    let endpoint = try await client.request("endpoint.info", payload: .object([:]))
+                    let endpoint = try await client.request(.endpointInfo)
                     guard !Task.isCancelled, self.connected, revision == operation else { return }
                     apply(try WireRequest.endpointInfo.validateResult(endpoint), complete: true)
                 } catch {

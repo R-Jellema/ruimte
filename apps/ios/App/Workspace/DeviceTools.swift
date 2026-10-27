@@ -10,8 +10,7 @@ enum DeviceTools {
     /// What a simulator from before the list was announced has, which is what `deviceTools` assumes for one.
     static let simulatorFallback = [
         "openUrl", "launchApp", "terminateApp", "appearance", "textSize", "liquidGlass", "colorFilter", "reduceMotion",
-        "increaseContrast", "reduceTransparency", "showBorders", "voiceOver", "location", "clearLocation",
-        "permissions",
+        "increaseContrast", "reduceTransparency", "showBorders", "voiceOver", "location", "clearLocation", "permissions",
         "push",
     ]
     static let toggles = ["reduceMotion", "increaseContrast", "reduceTransparency", "showBorders", "voiceOver"]

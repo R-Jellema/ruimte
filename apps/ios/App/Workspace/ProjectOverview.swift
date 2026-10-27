@@ -53,22 +53,6 @@ struct ProjectGitLine: Equatable {
     var added = 0
     var deleted = 0
 
-    /// Nil for a folder outside any repository, which has nothing to say about a branch.
-    init?(status: GitStatus) {
-        guard status.repo else { return nil }
-        branch = status.branch
-        changed = status.files.count
-        added = Int(status.files.reduce(0) { $0 + $1.added })
-        deleted = Int(status.files.reduce(0) { $0 + $1.deleted })
-    }
-
-    init(branch: String?, changed: Int, added: Int = 0, deleted: Int = 0) {
-        self.branch = branch
-        self.changed = changed
-        self.added = added
-        self.deleted = deleted
-    }
-
     var branchName: String { branch ?? String(localized: "Detached", comment: "Git, a checkout that is on no branch") }
 
     /// The lines added and removed, as in "+126 −4"; nil while no line changed.
@@ -83,12 +67,30 @@ struct ProjectGitLine: Equatable {
     }
 }
 
+extension ProjectGitLine {
+    /// Nil for a folder outside any repository, which has nothing to say about a branch.
+    init?(status: GitStatus) {
+        guard status.repo else { return nil }
+        self.init(
+            branch: status.branch, changed: status.files.count, added: Int(status.files.reduce(0) { $0 + $1.added }),
+            deleted: Int(status.files.reduce(0) { $0 + $1.deleted }))
+    }
+}
+
 struct ProjectOverviewRow: Identifiable {
     let row: UnifiedProjectRow
     var activity: ProjectActivity?
     var git: ProjectGitLine?
     var id: UnifiedProjectRow.ID { row.id }
     var isChats: Bool { NewChat.isChats(row.summary) }
+
+    var title: String {
+        isChats ? String(localized: "Chats") : row.summary.text("name", fallback: String(localized: "Untitled project"))
+    }
+
+    var accessibilityID: String {
+        isChats ? "projects.chats.\(row.machine.id)" : "projects.project.\(id.projectID)"
+    }
 
     /// The second line: the branch, then what waits and works, or what changed while nothing does. Without either it
     /// counts the views; for Chats it says how many chats it holds.

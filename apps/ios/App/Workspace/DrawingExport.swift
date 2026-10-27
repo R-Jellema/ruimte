@@ -52,7 +52,6 @@ struct DrawingShareSheet: UIViewControllerRepresentable {
         UIActivityViewController(activityItems: [url], applicationActivities: nil)
     }
     func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
-
 }
 
 @MainActor enum DrawingExport {
@@ -64,8 +63,7 @@ struct DrawingShareSheet: UIViewControllerRepresentable {
             document: .object(["version": .number(1), "rev": .number(0), "elements": .array(elements)]))
         let traits = UITraitCollection(userInterfaceStyle: dark ? .dark : .light)
         if format == .svg { return Data(svg(scene: scene, background: background, traits: traits).utf8) }
-        let rect = scene["bounds"] ?? .object([:])
-        let size = CGSize(width: max(1, rect.number("w") + 64), height: max(1, rect.number("h") + 64))
+        let size = Self.size(of: scene)
         // Bound raster exports to 16 megapixels while retaining the full drawing and vector export.
         let scale = min(2, 4096 / max(size.width, size.height))
         let surface = SceneSurface()
@@ -92,8 +90,8 @@ struct DrawingShareSheet: UIViewControllerRepresentable {
 
     static func svg(scene: JSONValue, background: Bool, traits: UITraitCollection) -> String {
         let bounds = scene["bounds"] ?? .object([:])
-        let width = max(1, bounds.number("w") + 64)
-        let height = max(1, bounds.number("h") + 64)
+        let size = Self.size(of: scene)
+        let (width, height) = (size.width, size.height)
         var body = ""
         if background {
             body += "<rect width=\"100%\" height=\"100%\" fill=\"\(rgba(UIColor.systemBackground, traits: traits))\"/>"
@@ -128,6 +126,12 @@ struct DrawingShareSheet: UIViewControllerRepresentable {
         return
             "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"\(width)\" height=\"\(height)\" viewBox=\"0 0 \(width) \(height)\">\(body)</g></svg>"
     }
+    /// The drawing with a margin of 32 points on every side.
+    private static func size(of scene: JSONValue) -> CGSize {
+        let bounds = scene["bounds"] ?? .object([:])
+        return CGSize(width: max(1, bounds.number("w") + 64), height: max(1, bounds.number("h") + 64))
+    }
+
     private static func escape(_ text: String) -> String {
         text.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
             .replacingOccurrences(of: ">", with: "&gt;").replacingOccurrences(of: "\"", with: "&quot;")

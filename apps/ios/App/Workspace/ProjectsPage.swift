@@ -108,10 +108,7 @@ struct ProjectsPage<Notice: View>: View {
                 rows: projects.chats.map { ProjectOverviewRow(row: $0, activity: now?.activity[$0.id]) },
                 session: runtime.session(for:)
             ) { overview in
-                openWorkspace(
-                    MobileWorkspace(
-                        session: runtime.session(for: overview.row.machine), projectID: overview.id.projectID,
-                        summary: overview.row.summary))
+                openWorkspace(overview.row.workspace(runtime))
             }
         }
         ProjectsCapsuleActions(
@@ -127,10 +124,7 @@ struct ProjectsPage<Notice: View>: View {
             NewChatRow(machines: runtime.machines) { newChat = NewChatTarget(machineID: $0.id) }
             ForEach(grouped ? [] : projects.chats) { row in
                 Button {
-                    openWorkspace(
-                        MobileWorkspace(
-                            session: runtime.session(for: row.machine), projectID: row.id.projectID,
-                            summary: row.summary))
+                    openWorkspace(row.workspace(runtime))
                 } label: {
                     ChatsRowLabel(
                         title: String(localized: "Chats"),

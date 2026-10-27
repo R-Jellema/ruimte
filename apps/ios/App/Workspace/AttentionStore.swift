@@ -61,19 +61,17 @@ struct ChatActivity: Hashable {
     var queued = 0
     var background: [Background] = []
 
-    init(queued: Int = 0, background: [Background] = []) {
-        self.queued = queued
-        self.background = background
-    }
-
-    init(info: JSONValue) {
-        queued = info.list("queue").count
-        background = info.list("background").map {
-            Background(description: $0.text("description"), startedAt: $0.number("startedAt"))
-        }
-    }
-
     var isEmpty: Bool { queued == 0 && background.isEmpty }
+}
+
+extension ChatActivity {
+    init(info: JSONValue) {
+        self.init(
+            queued: info.list("queue").count,
+            background: info.list("background").map {
+                Background(description: $0.text("description"), startedAt: $0.number("startedAt"))
+            })
+    }
 }
 
 @MainActor @Observable
