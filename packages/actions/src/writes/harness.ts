@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
     ACTION_ACTOR_KINDS,
     ACTION_DEFINITIONS,
+    ACTION_NAMES,
     ActionRegistry,
     fieldActors,
     type ActionActor,
@@ -48,8 +49,8 @@ function fakeHost(): { handlers: ActionHandlers<Context>; calls: HostCall[] } {
             return { output: sampleOf(ACTION_DEFINITIONS[action].output) };
         };
     };
-    const names = Object.keys(ACTION_DEFINITIONS) as ActionName[];
-    return { handlers: Object.fromEntries(names.map((name) => [name, handlerFor(name)])) as ActionHandlers<Context>, calls };
+
+    return { handlers: Object.fromEntries(ACTION_NAMES.map((name) => [name, handlerFor(name)])) as ActionHandlers<Context>, calls };
 }
 
 /* Whether a field of an input carries actors of its own, on itself or on a member of its union. */
@@ -61,9 +62,7 @@ function isRestricted(schema: z.ZodType): boolean {
 }
 
 function writesOf(domain: ActionDomain): ActionName[] {
-    return (Object.keys(ACTION_DEFINITIONS) as ActionName[]).filter(
-        (name) => ACTION_DEFINITIONS[name].domain === domain && ACTION_DEFINITIONS[name].effect !== 'read'
-    );
+    return ACTION_NAMES.filter((name) => ACTION_DEFINITIONS[name].domain === domain && ACTION_DEFINITIONS[name].effect !== 'read');
 }
 
 function describeWrite<Name extends ActionName>(name: Name, writeCase: WriteCase<Name>): void {

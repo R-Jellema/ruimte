@@ -1,5 +1,14 @@
 import { z } from 'zod';
-import { ACTION_DEFINITIONS, actionDescription, fieldActors, type ActionActorKind, type ActionInput, type ActionName, type ActionOutput } from './catalog.ts';
+import {
+    ACTION_DEFINITIONS,
+    ACTION_NAMES,
+    actionDescription,
+    fieldActors,
+    type ActionActorKind,
+    type ActionInput,
+    type ActionName,
+    type ActionOutput
+} from './catalog.ts';
 
 export interface ActionActor {
     kind: ActionActorKind;
@@ -160,12 +169,12 @@ function sameActor(left: ActionActor, right: ActionActor): boolean {
 }
 
 function remember<Value>(entries: Map<string, Value>, token: string, value: Value): void {
-    if (entries.size >= TOKEN_LIMIT) {
-        const oldest = entries.keys().next().value;
-        if (oldest !== undefined) {
-            entries.delete(oldest);
-        }
+    const oldest = entries.keys().next().value;
+
+    if (entries.size >= TOKEN_LIMIT && oldest !== undefined) {
+        entries.delete(oldest);
     }
+
     entries.set(token, value);
 }
 
@@ -205,7 +214,7 @@ export class ActionRegistry<Context> {
     }
 
     catalog(call: ActionCall<Context>): ActionCapability[] {
-        return (Object.keys(ACTION_DEFINITIONS) as ActionName[]).flatMap((name) => {
+        return ACTION_NAMES.flatMap((name) => {
             const definition = ACTION_DEFINITIONS[name];
             if (!this.#handlers[name] || !definition.actors.includes(call.actor.kind)) {
                 return [];

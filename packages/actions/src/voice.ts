@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ACTION_DEFINITIONS, ACTION_DOMAINS, type ActionDomain, type ActionName } from './catalog.ts';
+import { ACTION_DEFINITIONS, ACTION_DOMAINS, ACTION_NAMES, type ActionDomain, type ActionName } from './catalog.ts';
 
 type JsonSchema = Record<string, unknown>;
 
@@ -170,14 +170,26 @@ function joined(field: string, left: JsonSchema, right: JsonSchema): JsonSchema 
     return { ...leftShape, ...(description === undefined ? {} : { description }) };
 }
 
-function inputFields(name: ActionName): [string, { schema: JsonSchema; nullable: boolean }][] {
-    const schema = z.toJSONSchema(ACTION_DEFINITIONS[name].input) as { properties?: Record<string, JsonSchema> };
-    return Object.entries(schema.properties ?? {})
-        .filter(([, value]) => forVoice(value))
-        .map(([field, value]) => [field, withoutNull(supported(voiceMembers(value)) as JsonSchema)]);
+type InputFields = [string, { schema: JsonSchema; nullable: boolean }][];
+
+const fieldsByAction = new Map<ActionName, InputFields>();
+
+/* Kept per action, since a session that asks for its own set of actions builds its tools anew. */
+function inputFields(name: ActionName): InputFields {
+    let fields = fieldsByAction.get(name);
+
+    if (fields === undefined) {
+        const schema = z.toJSONSchema(ACTION_DEFINITIONS[name].input) as { properties?: Record<string, JsonSchema> };
+        fields = Object.entries(schema.properties ?? {})
+            .filter(([, value]) => forVoice(value))
+            .map(([field, value]) => [field, withoutNull(supported(voiceMembers(value)) as JsonSchema)]);
+        fieldsByAction.set(name, fields);
+    }
+
+    return fields;
 }
 
-function signature(name: ActionName, fields: ReturnType<typeof inputFields>): string {
+function signature(name: ActionName, fields: InputFields): string {
     return `${name}(${fields.map(([field, entry]) => `${field}${entry.nullable ? '?' : ''}`).join(', ')})`;
 }
 
@@ -228,17 +240,13 @@ function toolOf(domain: ActionDomain, actions: readonly ActionName[], words: Voi
  */
 export const DAEMON_VOICE_ONLY: readonly ActionName[] = ['agent.start'];
 
-function reachableByVoice(name: ActionName): boolean {
-    return ACTION_DEFINITIONS[name].actors.includes('voice');
+function voiceActionsOf(domain: ActionDomain, wanted: (name: ActionName) => boolean): ActionName[] {
+    return ACTION_NAMES.filter((name) => ACTION_DEFINITIONS[name].domain === domain && ACTION_DEFINITIONS[name].actors.includes('voice') && wanted(name));
 }
 
-function voiceActionsOf(domain: ActionDomain): ActionName[] {
-    return (Object.keys(ACTION_DEFINITIONS) as ActionName[]).filter(
-        (name) => ACTION_DEFINITIONS[name].domain === domain && reachableByVoice(name) && !DAEMON_VOICE_ONLY.includes(name)
-    );
-}
-
-const DOMAIN_ACTIONS = ACTION_DOMAINS.map((domain) => ({ domain, actions: voiceActionsOf(domain) })).filter(({ actions }) => actions.length > 0);
+const DOMAIN_ACTIONS = ACTION_DOMAINS.map((domain) => ({ domain, actions: voiceActionsOf(domain, (name) => !DAEMON_VOICE_ONLY.includes(name)) })).filter(
+    ({ actions }) => actions.length > 0
+);
 
 /* The actions each tool reaches. Discovery is convenience: the registry still checks the actor and the input on every call. */
 export const VOICE_TOOL_ACTIONS: ReadonlyMap<string, readonly ActionName[]> = new Map(
@@ -281,9 +289,8 @@ export interface VoiceToolsForActionsOptions {
 export function voiceToolsForActions(actions: readonly ActionName[], { control, words }: VoiceToolsForActionsOptions): VoiceToolDefinition[] {
     const wanted = new Set(actions);
     const tools = ACTION_DOMAINS.flatMap((domain) => {
-        const reached = (Object.keys(ACTION_DEFINITIONS) as ActionName[]).filter(
-            (name) => wanted.has(name) && ACTION_DEFINITIONS[name].domain === domain && reachableByVoice(name)
-        );
+        const reached = voiceActionsOf(domain, (name) => wanted.has(name));
+
         return reached.length > 0 ? [toolOf(domain, reached, words)] : [];
     });
     return control ? [...tools, CONTROL_TOOL] : tools;

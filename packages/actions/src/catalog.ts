@@ -160,6 +160,10 @@ function agentField<Schema extends z.ZodType>(schema: Schema) {
     return forActors(['agent'], schema);
 }
 
+function optionalFields<Shape extends z.ZodRawShape>(shape: Shape) {
+    return z.object(shape).partial().shape;
+}
+
 /* The actors a field or a member of a union is kept for; null when every actor of its action may fill it. */
 export function fieldActors(schema: z.ZodType): readonly ActionActorKind[] | null {
     const actors = (schema.meta() as { actors?: unknown } | undefined)?.actors;
@@ -194,8 +198,10 @@ const PERSON_VIEW_KINDS = ['device'] as const;
 
 /* In world units, the canvas's own coordinates, so a camera move does not change where it lands. */
 const worldPoint = z.object({ x: z.number(), y: z.number() });
+const frame = z.object({ x: z.number(), y: z.number(), width: z.number(), height: z.number() });
 const LOCK_GESTURES = ['pan', 'zoom', 'move', 'resize'] as const;
 const PERSON_AND_VOICE: readonly ActionActorKind[] = ['person', 'voice'];
+const PERSON_VOICE_AND_AGENT: readonly ActionActorKind[] = ['person', 'voice', 'agent'];
 /* What only a client runs: no agent reaches a client, so an agent is left out. */
 const CLIENT_ACTORS: readonly ActionActorKind[] = ['person', 'voice', 'automation'];
 const AGENT: readonly ActionActorKind[] = ['agent'];
@@ -227,6 +233,8 @@ const chatTarget = z.string().min(1).describe('The AI Chat view or node, by id')
 const terminalTarget = z.string().min(1).describe('The terminal view or node, by id');
 const chatNamed = z.object({ chatId: z.string(), chat: z.string() });
 const terminalNamed = z.object({ terminalId: z.string(), terminal: z.string() });
+const queuedMessage = z.object({ chatId: chatTarget, messageId: z.string().min(1).describe('The queued message, by the id chat.inspect gives it') });
+const queuedMessageOutput = chatNamed.extend({ messageId: z.string(), text: z.string() });
 const modelOptions = z.record(z.string(), z.union([z.string(), z.boolean()]));
 /* The composer hands over the whole selection it built; anyone else names the model and one option. */
 const modelSelection = forActors(PERSON, ModelSelectionSchema).describe('The whole model selection, options and all');
@@ -383,7 +391,6 @@ const diagramNodeId = z.string().min(1).describe('A node of the diagram, by the 
 const diagramDocument = z.string().describe('The diagram as one JSON object: meta, nodes, groups and edges');
 const imageFormat = z.enum(['png', 'svg']);
 
-/* Where an operation stands: queued and running go on, the other three are how it ended. */
 const OPERATION_STATUSES = ['queued', 'running', 'completed', 'failed', 'cancelled'] as const;
 export const OperationStatusSchema = z.enum(OPERATION_STATUSES);
 export type OperationStatus = z.infer<typeof OperationStatusSchema>;
@@ -395,6 +402,7 @@ const agentNodeKind = z.enum(['chat', 'terminal']);
 const agentReads = z.array(nodeId).nullable().describe('Nodes the new agent can read from its first turn: a line is drawn from each of them into it');
 // A dry run draws nothing, so its lines have no id yet.
 const drawnLine = z.object({ edgeId: z.string().nullable(), from: nodeId, to: nodeId });
+const canvasLine = z.object({ edgeId: z.string(), from: nodeId, to: nodeId, label: z.string().nullable() });
 const worktreeBranch = z.string().min(1).describe('The branch of the worktree');
 
 /*
@@ -427,7 +435,6 @@ const gitRunsOutput = z.object({
 });
 /* How a branch that moved on both sides comes together; only a person decides that, so without it a pull only fast-forwards. */
 const pullStrategy = forActors(PERSON, z.enum(['merge', 'rebase'])).describe('How a branch that moved on both sides comes together');
-const PERSON_VOICE_AND_AGENT: readonly ActionActorKind[] = ['person', 'voice', 'agent'];
 
 const databaseConnection = z.string().trim().min(1).describe('The connection by id, or by its name when no other connection of the project carries that name');
 const databaseSchema = z.string().min(1).nullable();
@@ -462,6 +469,7 @@ const launchFields = {
         .describe('Environment variables by name; null removes one. A variable that holds a secret stays the person’s'),
     members: z.array(launchName).min(1).describe('The launches a group starts, in order')
 };
+const { name: launchFieldName, ...launchRunFields } = launchFields;
 const launchSaved = z.object({ launchId: z.string(), name: z.string(), kind: LaunchConfigKindSchema, shared: z.boolean() });
 
 const routineId = z.string().min(1).describe('The id of a routine, from ruimte-context routine list');
@@ -490,6 +498,7 @@ const routineSaved = z.object({
     mode: RuntimeModeSchema.nullable(),
     shared: z.boolean()
 });
+const { title: routineTitle, schedule: routineSchedule, ...routineRunFields } = routineFields;
 const routineNamed = z.object({ routineId: z.string(), title: z.string() });
 
 const projectMachine = z.string().min(1).describe('The machine, by the endpointId project.list gives');
@@ -1015,8 +1024,8 @@ export const ACTION_DEFINITIONS = {
             nodeId: z.string().min(1),
             node: z.string(),
             kind: ActionCanvasNodeKindSchema,
-            // The line drawn from the agent into what it made; a dry run has no id for it yet.
-            edge: z.object({ edgeId: z.string().nullable(), from: nodeId, to: nodeId }).nullable().optional()
+            // The line drawn from the agent into what it made.
+            edge: drawnLine.nullable().optional()
         })
     },
     'node.createMany': {
@@ -1055,7 +1064,7 @@ export const ACTION_DEFINITIONS = {
                     nodeId: z.string().min(1),
                     node: z.string(),
                     kind: ActionCanvasNodeKindSchema,
-                    edge: z.object({ edgeId: z.string().nullable(), from: nodeId, to: nodeId }).nullable()
+                    edge: drawnLine.nullable()
                 })
             )
         })
@@ -1252,7 +1261,7 @@ export const ACTION_DEFINITIONS = {
         effect: 'shared',
         domain: 'views',
         // Nothing is shared until a person names it, so neither Voice nor an agent may move a view between the files.
-        actors: ['person'] as readonly ActionActorKind[],
+        actors: PERSON,
         input: z.object({ viewId, shared: z.boolean() }),
         output: z.object({ viewId, view: z.string(), shared: z.boolean(), changed: z.boolean() })
     },
@@ -1433,7 +1442,7 @@ export const ACTION_DEFINITIONS = {
         description: 'Clears conversation history, attachments and plans, and stops the current turn after confirmation. Keeps the chat node or view.',
         effect: 'external',
         domain: 'communicate',
-        actors: ['person', 'voice'] as readonly ActionActorKind[],
+        actors: PERSON_AND_VOICE,
         input: z.object({
             chatId: z.string().min(1),
             // The composer clears without it first, so a turn in the way comes back as chat-busy and the person is asked.
@@ -1528,8 +1537,8 @@ export const ACTION_DEFINITIONS = {
         effect: 'external',
         domain: 'sessions',
         actors: PERSON_AND_VOICE,
-        input: z.object({ chatId: chatTarget, messageId: z.string().min(1).describe('The queued message, by the id chat.inspect gives it') }),
-        output: chatNamed.extend({ messageId: z.string(), text: z.string() })
+        input: queuedMessage,
+        output: queuedMessageOutput
     },
     'chat.sendNow': {
         title: 'Send a queued message now',
@@ -1537,8 +1546,8 @@ export const ACTION_DEFINITIONS = {
         effect: 'external',
         domain: 'sessions',
         actors: PERSON_AND_VOICE,
-        input: z.object({ chatId: chatTarget, messageId: z.string().min(1).describe('The queued message, by the id chat.inspect gives it') }),
-        output: chatNamed.extend({ messageId: z.string(), text: z.string() })
+        input: queuedMessage,
+        output: queuedMessageOutput
     },
     'chat.compact': {
         title: 'Compact AI Chat',
@@ -1928,7 +1937,7 @@ export const ACTION_DEFINITIONS = {
         actors: AGENT,
         input: z.object({ viewId }),
         // The revision is that of the project file.
-        output: z.object({ viewId, edges: z.array(z.object({ edgeId: z.string(), from: nodeId, to: nodeId, label: z.string().nullable() })), revision })
+        output: z.object({ viewId, edges: z.array(canvasLine), revision })
     },
     'link.create': {
         title: 'Draw canvas lines',
@@ -1964,7 +1973,7 @@ export const ACTION_DEFINITIONS = {
         domain: 'canvas',
         actors: AGENT,
         input: z.object({ viewId, edgeId: z.string().min(1) }),
-        output: z.object({ viewId, edgeId: z.string(), from: nodeId, to: nodeId, label: z.string().nullable() })
+        output: z.object({ viewId, ...canvasLine.shape })
     },
     'link.deleteMany': {
         title: 'Remove canvas lines',
@@ -1974,7 +1983,7 @@ export const ACTION_DEFINITIONS = {
         domain: 'canvas',
         actors: AGENT,
         input: z.object({ viewId, edgeIds: z.array(z.string().min(1)).min(1).max(MAX_PER_CALL) }),
-        output: z.object({ viewId, edges: z.array(z.object({ edgeId: z.string(), from: nodeId, to: nodeId, label: z.string().nullable() })) })
+        output: z.object({ viewId, edges: z.array(canvasLine) })
     },
     'agent.alert': {
         title: 'Notify the person',
@@ -2521,7 +2530,7 @@ export const ACTION_DEFINITIONS = {
             description: z.string().nullable(),
             placeholder: z.string().nullable(),
             identifier: z.string().nullable(),
-            frame: z.object({ x: z.number(), y: z.number(), width: z.number(), height: z.number() }).nullable(),
+            frame: frame.nullable(),
             // Per text that was cut: how long it is whole; what is shown is its start.
             cut: z.record(z.string(), z.number().int())
         })
@@ -2722,7 +2731,7 @@ export const ACTION_DEFINITIONS = {
                             label: z.string().nullable(),
                             value: z.string().nullable(),
                             identifier: z.string().nullable(),
-                            frame: z.object({ x: z.number(), y: z.number(), width: z.number(), height: z.number() }),
+                            frame,
                             enabled: z.boolean(),
                             offscreen: z.boolean()
                         })
@@ -2814,7 +2823,7 @@ export const ACTION_DEFINITIONS = {
         input: z.object({
             nodeId: deviceNode,
             viewId: operatedView,
-            app: z.string().trim().min(1).max(256).describe('A bundle id on iOS or a package name on Android')
+            app: deviceApp
         }),
         output: deviceDone
     },
@@ -3645,13 +3654,9 @@ export const ACTION_DEFINITIONS = {
         // An agent's launch is never approved by its save; a person approves it from the launch chip.
         actors: AGENT,
         input: z.object({
-            name: launchFields.name,
+            name: launchFieldName,
             kind: LaunchConfigKindSchema.describe('service runs until stopped, task runs once and ends, group starts other launches'),
-            command: launchFields.command.optional(),
-            cwd: launchFields.cwd.optional(),
-            url: launchFields.url.optional(),
-            env: launchFields.env.optional(),
-            members: launchFields.members.optional(),
+            ...optionalFields(launchRunFields),
             shared: z.boolean().optional().describe("Puts it in the project's shared file, which a team commits; this person's own file when omitted")
         }),
         output: launchSaved
@@ -3662,15 +3667,7 @@ export const ACTION_DEFINITIONS = {
         effect: 'shared',
         domain: 'developer',
         actors: AGENT,
-        input: z.object({
-            launch: launchName,
-            name: launchFields.name.optional(),
-            command: launchFields.command.optional(),
-            cwd: launchFields.cwd.optional(),
-            url: launchFields.url.optional(),
-            env: launchFields.env.optional(),
-            members: launchFields.members.optional()
-        }),
+        input: z.object({ launch: launchName, ...optionalFields(launchFields) }),
         output: launchSaved
     },
     'launch.start': {
@@ -3719,18 +3716,9 @@ export const ACTION_DEFINITIONS = {
         // An agent's save never approves; a person saves and approves through Routines in the app.
         actors: AGENT,
         input: z.object({
-            title: routineFields.title,
-            schedule: routineFields.schedule,
-            kind: routineFields.kind.optional(),
-            prompt: routineFields.prompt.optional(),
-            provider: routineFields.provider.optional(),
-            model: routineFields.model.optional(),
-            mode: routineFields.mode.optional(),
-            perRun: routineFields.perRun.optional(),
-            command: routineFields.command.optional(),
-            cwd: routineFields.cwd.optional(),
-            launch: routineFields.launch.optional(),
-            key: routineFields.key.optional(),
+            title: routineTitle,
+            schedule: routineSchedule,
+            ...optionalFields(routineRunFields),
             shared: z.boolean().optional().describe("Puts it in the project's shared file, which a team commits; this person's own file when omitted")
         }),
         output: routineSaved
@@ -3741,21 +3729,7 @@ export const ACTION_DEFINITIONS = {
         effect: 'shared',
         domain: 'developer',
         actors: AGENT,
-        input: z.object({
-            routineId,
-            title: routineFields.title.optional(),
-            schedule: routineFields.schedule.optional(),
-            kind: routineFields.kind.optional(),
-            prompt: routineFields.prompt.optional(),
-            provider: routineFields.provider.optional(),
-            model: routineFields.model.optional(),
-            mode: routineFields.mode.optional(),
-            perRun: routineFields.perRun.optional(),
-            command: routineFields.command.optional(),
-            cwd: routineFields.cwd.optional(),
-            launch: routineFields.launch.optional(),
-            key: routineFields.key.optional()
-        }),
+        input: z.object({ routineId, ...optionalFields(routineFields) }),
         output: routineSaved
     },
     'routine.pause': {
@@ -4303,7 +4277,7 @@ export const ACTION_DEFINITIONS = {
         input: z.object({ pid: z.number().int().positive(), startTime: z.number(), name: z.string(), signal: ProcessSignalSchema }),
         output: z.object({ pid: z.number().int(), name: z.string(), signal: ProcessSignalSchema })
     },
-    /* The machine checks the request whole (`database.request`), so this passes it on as it stands, and a grid that pages is one parse of nothing. */
+    /* The machine checks the request whole, so this passes it on unparsed and a grid that pages parses nothing twice. */
     'database.request': {
         title: 'Ask a database',
         description:
@@ -4638,6 +4612,7 @@ export const ACTION_DEFINITIONS = {
 } as const;
 
 export type ActionName = keyof typeof ACTION_DEFINITIONS;
+export const ACTION_NAMES = Object.keys(ACTION_DEFINITIONS) as readonly ActionName[];
 export type ActionInput<Name extends ActionName> = z.input<(typeof ACTION_DEFINITIONS)[Name]['input']>;
 export type ActionOutput<Name extends ActionName> = z.output<(typeof ACTION_DEFINITIONS)[Name]['output']>;
 export type ActionActorKind = z.infer<typeof ActionActorKindSchema>;

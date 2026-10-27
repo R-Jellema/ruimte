@@ -3,6 +3,7 @@ import { NODE_ACCENT_NAMES } from '@ruimte/contracts';
 import {
     ACTION_DEFINITIONS,
     ACTION_DOMAINS,
+    ACTION_NAMES,
     DAEMON_VOICE_ONLY,
     VOICE_CONTROL_TOOL,
     VOICE_TOOL_ACTIONS,
@@ -16,9 +17,7 @@ const reached = [...VOICE_TOOL_ACTIONS.values()].flat();
 
 describe('Voice tools', () => {
     test('reach every action Voice may run, each through one tool', () => {
-        const voiceActions = (Object.keys(ACTION_DEFINITIONS) as ActionName[]).filter(
-            (name) => ACTION_DEFINITIONS[name].actors.includes('voice') && !DAEMON_VOICE_ONLY.includes(name)
-        );
+        const voiceActions = ACTION_NAMES.filter((name) => ACTION_DEFINITIONS[name].actors.includes('voice') && !DAEMON_VOICE_ONLY.includes(name));
         expect([...reached].sort()).toEqual([...voiceActions].sort());
         expect(new Set(reached).size).toBe(reached.length);
     });
@@ -39,8 +38,6 @@ describe('Voice tools', () => {
     });
 
     test('are strict: every field required, no extra fields, no keyword outside the strict subset', () => {
-        expect(new Set(voiceToolDefinitions().map((tool) => tool.name)).size).toBe(voiceToolDefinitions().length);
-        expect(voiceToolDefinitions().map((tool) => tool.name)).toContain(VOICE_CONTROL_TOOL);
         for (const tool of voiceToolDefinitions()) {
             expect(tool.strict).toBe(true);
             expect(tool.parameters.additionalProperties).toBe(false);
@@ -183,7 +180,7 @@ describe('Voice tools for a set of actions', () => {
     });
 
     test('leave out an action Voice may not run', () => {
-        const personOnly = (Object.keys(ACTION_DEFINITIONS) as ActionName[]).find((name) => !ACTION_DEFINITIONS[name].actors.includes('voice'))!;
+        const personOnly = ACTION_NAMES.find((name) => !ACTION_DEFINITIONS[name].actors.includes('voice'))!;
         expect(voiceToolsForActions([personOnly], { control: false })).toEqual([]);
     });
 

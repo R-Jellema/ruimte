@@ -1,5 +1,5 @@
 import { MAX_KEY_COMBOS, MAX_TYPED_LENGTH } from '../index.ts';
-import { type WriteCases } from './case.ts';
+import { operatedView, type WriteCases } from './case.ts';
 
 const identity = { endpointId: 'endpoint-1', name: 'Studio', keepAwake: 'working', broker: { mode: 'off' } } as const;
 const swipe = { nodeId: 'device-1', fromX: 10, fromY: 600, toX: 10, toY: 100, ms: 300 };
@@ -80,7 +80,7 @@ export const cases: WriteCases = {
         actors: ['agent'],
         input: { nodeId: 'device-1', x: 120, y: 340 },
         refused: { 'a negative element': { nodeId: 'device-1', element: -1 }, 'a fractional element': { nodeId: 'device-1', element: 1.5 } },
-        restricted: { viewId: { value: 'main', actors: ['agent'] } }
+        restricted: operatedView
     },
     'device.swipe': {
         actors: ['agent'],
@@ -90,25 +90,25 @@ export const cases: WriteCases = {
             'slower than five seconds': { ...swipe, ms: 5001 },
             'no end': { nodeId: 'device-1', fromX: 10, fromY: 600 }
         },
-        restricted: { viewId: { value: 'main', actors: ['agent'] } }
+        restricted: operatedView
     },
     'device.button': {
         actors: ['agent'],
         input: { nodeId: 'device-1', button: 'home' },
         refused: { 'an empty button': { nodeId: 'device-1', button: '' } },
-        restricted: { viewId: { value: 'main', actors: ['agent'] } }
+        restricted: operatedView
     },
     'device.type': {
         actors: ['agent'],
         input: { nodeId: 'device-1', text: 'ruimte\n' },
         refused: { 'nothing to type': { nodeId: 'device-1', text: '' }, 'past two thousand characters': { nodeId: 'device-1', text: 'x'.repeat(2001) } },
-        restricted: { viewId: { value: 'main', actors: ['agent'] } }
+        restricted: operatedView
     },
     'device.launch': {
         actors: ['agent'],
         input: { nodeId: 'device-1', app: 'app.ruimte.ios' },
         refused: { 'a blank app': { nodeId: 'device-1', app: ' ' }, 'an app id past its limit': { nodeId: 'device-1', app: 'x'.repeat(257) } },
-        restricted: { viewId: { value: 'main', actors: ['agent'] } }
+        restricted: operatedView
     },
     'device.set': {
         actors: ['agent'],
@@ -118,13 +118,13 @@ export const cases: WriteCases = {
             'a latitude off the globe': { nodeId: 'device-1', latitude: 91, longitude: 0 },
             'a text size it has not': { nodeId: 'device-1', textSize: 'huge' }
         },
-        restricted: { viewId: { value: 'main', actors: ['agent'] } }
+        restricted: operatedView
     },
     'device.open': {
         actors: ['agent'],
         input: { nodeId: 'device-1', url: 'https://ruimte.app' },
         refused: { 'a blank link': { nodeId: 'device-1', url: ' ' } },
-        restricted: { viewId: { value: 'main', actors: ['agent'] } }
+        restricted: operatedView
     },
     'device.permission': {
         actors: ['agent'],
@@ -133,13 +133,13 @@ export const cases: WriteCases = {
             'a decision it has not': { nodeId: 'device-1', app: 'app.ruimte.ios', decision: 'allow' },
             'a permission it has not': { nodeId: 'device-1', app: 'app.ruimte.ios', decision: 'grant', permission: 'telepathy' }
         },
-        restricted: { viewId: { value: 'main', actors: ['agent'] } }
+        restricted: operatedView
     },
     'device.push': {
         actors: ['agent'],
         input: { nodeId: 'device-1', app: 'app.ruimte.ios', payload: 'Build is green' },
         refused: { 'nothing to say': { nodeId: 'device-1', app: 'app.ruimte.ios', payload: '' } },
-        restricted: { viewId: { value: 'main', actors: ['agent'] } }
+        restricted: operatedView
     },
     'device.biometric': {
         actors: ['agent'],
@@ -148,19 +148,19 @@ export const cases: WriteCases = {
             'an event it has not': { nodeId: 'device-1', event: 'blink' },
             'a sensor it has not': { nodeId: 'device-1', event: 'match', sensor: 'iris' }
         },
-        restricted: { viewId: { value: 'main', actors: ['agent'] } }
+        restricted: operatedView
     },
     'device.clipboard': {
         actors: ['agent'],
         input: { nodeId: 'device-1', text: 'héllo' },
         refused: { 'more than a megabyte': { nodeId: 'device-1', text: 'x'.repeat(1_048_577) } },
-        restricted: { viewId: { value: 'main', actors: ['agent'] } }
+        restricted: operatedView
     },
     'device.install': {
         actors: ['agent'],
         input: { nodeId: 'device-1', path: 'build/Atlas.app' },
         refused: { 'no path': { nodeId: 'device-1', path: '' } },
-        restricted: { viewId: { value: 'main', actors: ['agent'] } }
+        restricted: operatedView
     },
     'device.media': {
         actors: ['agent'],
@@ -169,13 +169,13 @@ export const cases: WriteCases = {
             'no pictures': { nodeId: 'device-1', paths: [] },
             'more than twenty': { nodeId: 'device-1', paths: Array.from({ length: 21 }, () => 'a.png') }
         },
-        restricted: { viewId: { value: 'main', actors: ['agent'] } }
+        restricted: operatedView
     },
     'device.terminate': {
         actors: ['agent'],
         input: { nodeId: 'device-1', app: 'app.ruimte.ios' },
         refused: { 'a blank app': { nodeId: 'device-1', app: ' ' } },
-        restricted: { viewId: { value: 'main', actors: ['agent'] } }
+        restricted: operatedView
     },
     'machine.setIdentity': {
         actors: ['person'],
