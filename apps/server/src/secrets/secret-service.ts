@@ -88,7 +88,7 @@ export class SecretService {
             if (!existed) {
                 await this.store
                     .remove(projectId, slot)
-                    .catch((removal: unknown) => console.warn(`Taking back the secret ${slot.variable} of ${projectId} failed:`, errorText(removal)));
+                    .catch((removal: unknown) => console.warn(`Taking back a secret failed: ${slot.variable} of ${projectId},`, errorText(removal)));
             }
             throw e;
         }

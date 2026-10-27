@@ -8,6 +8,8 @@ import {
     clientKindOf,
     daemonBeforeSend,
     daemonBeforeSendLog,
+    fixedWords,
+    keptMetricAttributes,
     dedupeStorePath,
     helperExitReportable,
     helperStderrOf,
@@ -71,6 +73,46 @@ describe('daemonBeforeSendLog', () => {
         expect(log?.message).not.toContain('Orion');
         expect(log?.message).not.toContain('jane');
         expect(log?.message).not.toContain('second line');
+    });
+
+    test('keeps only the fixed words of a warning, and none of its attributes', () => {
+        const settings: TelemetrySettings = {
+            dsn: 'https://key@ingest.test/3',
+            release: 'ruimte@0.0.0',
+            tags: {},
+            home: '/Users/jane',
+            username: 'jane',
+            hostname: 'janes-mac',
+            ruimteHome: '/Users/jane/.ruimte'
+        };
+        const scrub = daemonBeforeSendLog(settings);
+        const log = scrub({
+            level: 'warn',
+            message: "A schema snapshot was not taken: Access denied for user 'acme_admin'@'db.acme-corp.internal'",
+            attributes: { 'sentry.message.parameter.0': 'acme_admin' }
+        });
+
+        expect(log).toEqual({ level: 'warn', message: 'A schema snapshot was not taken', attributes: {} });
+    });
+});
+
+describe('fixedWords', () => {
+    test('drops ids, variables, hosts and what is in parentheses, and the detail after the colon', () => {
+        expect(fixedWords('Taking back the secret STRIPE_LIVE_KEY of p_8Fx2 failed:')).toBe('Taking back the secret <id> of <id> failed');
+        expect(fixedWords('Process 4123 (php artisan horizon) started by the daemon has run for 912 s')).toBe(
+            'Process <id> started by the daemon has run for <id> s'
+        );
+        expect(fixedWords('Could not reach mysql.acme-corp.internal')).toBe('Could not reach <id>');
+        expect(fixedWords('Could not put <path> back; it was left at <path>')).toBe('Could not put <path> back; it was left at <path>');
+    });
+});
+
+describe('keptMetricAttributes', () => {
+    test('keeps the metric own attributes and the build, never the host or a user', () => {
+        expect(keptMetricAttributes({ area: 'fs', 'server.address': 'Janes-MacBook-Pro.local', 'user.id': 'x', 'sentry.release': 'ruimte@0.26.0' })).toEqual({
+            area: 'fs',
+            'sentry.release': 'ruimte@0.26.0'
+        });
     });
 });
 

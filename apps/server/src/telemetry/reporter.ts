@@ -110,10 +110,38 @@ export function allowedMoment(breadcrumb: { category?: string; message?: string 
 
 /* A warning line on its way out: the same scrubber as an error, its first line only. */
 export function daemonBeforeSendLog(current: TelemetrySettings, redactions: () => Iterable<string> = () => []): LogScrub {
-    return daemonScrubber(current, redactions).scrubLog;
+    const scrubber = daemonScrubber(current, redactions);
+
+    return (log) => {
+        const scrubbed = scrubber.scrubLog(log);
+
+        return { ...scrubbed, message: fixedWords(String(scrubbed.message)), attributes: {} };
+    };
 }
 
 type LogScrub = ReturnType<typeof createScrubber>['scrubLog'];
+
+// What a metric of the daemon may carry: its own attributes and what names the build. Never the host or a user.
+const METRIC_ATTRIBUTES: ReadonlySet<string> = new Set(['area', 'kind', 'sentry.release', 'sentry.environment', 'sentry.sdk.name', 'sentry.sdk.version']);
+
+export function keptMetricAttributes(attributes: Record<string, unknown> | undefined): Record<string, unknown> {
+    return Object.fromEntries(Object.entries(attributes ?? {}).filter(([key]) => METRIC_ATTRIBUTES.has(key)));
+}
+
+/*
+ * Only the fixed words of a warning go out. A warning interpolates whatever it is about (an error from a database,
+ * a secret's name, a process and its arguments, an id), which the scrubber's patterns do not all know. So the
+ * detail after the first colon stays in the log file, what is in parentheses or quotes goes, and every token with a
+ * digit, an underscore or a dot in it, such as an id, a variable or a host, becomes `<id>`.
+ */
+export function fixedWords(message: string): string {
+    const head = message.split(':', 1)[0] ?? '';
+
+    return blankQuoted(head)
+        .replace(/\s*\([^)]*\)/g, '')
+        .replace(/(?<![\w<])(?=[\w.-]*[\d_.])[\w.-]*\w(?![\w>])/g, '<id>')
+        .trim();
+}
 
 /*
  * What every report of the daemon goes through, the hang watchdog's included: the scrubber, then
@@ -178,6 +206,10 @@ export function daemonClientOptions(
         sendClientReports: false,
         integrations,
         initialScope: { tags: { ...current.tags } },
+        // Without a name of its own the SDK takes the host's, and puts it on every metric as `server.address`; an empty
+        // name falls back to the host too. The attribute list below keeps it off a metric either way.
+        serverName: 'ruimte',
+        beforeSendMetric: (metric) => ({ ...metric, attributes: keptMetricAttributes(metric.attributes) }),
         beforeSend: (event) => beforeSend(event),
         // Without a scrubber of its own, a log line is not sent at all.
         beforeSendLog: (log) => (scrubLog === null ? null : scrubLog(log)),
