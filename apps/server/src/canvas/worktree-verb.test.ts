@@ -97,6 +97,46 @@ async function team(lexerWrites: string, parserWrites: string): Promise<{ lexer:
     return { lexer: lexer!, parser: parser! };
 }
 
+test('two roles that change the same file each work in a worktree of their own, and each turn diff holds only its own change', async () => {
+    const { lexer, parser } = await team('shared.txt from the lexer', 'shared.txt from the parser');
+
+    const lexerCwd = daemon.chats.get(lexer)!.info.cwd;
+    const parserCwd = daemon.chats.get(parser)!.info.cwd;
+    expect(lexerCwd).not.toBe(parserCwd);
+    expect(await readFile(join(lexerCwd, 'shared.txt'), 'utf8')).toBe('from the lexer\n');
+    expect(await readFile(join(parserCwd, 'shared.txt'), 'utf8')).toBe('from the parser\n');
+    // The person's own checkout is left as it was.
+    expect(await readFile(join(folder, 'shared.txt'), 'utf8')).toBe('base\n');
+    expect((await gitIn(folder, ['branch', '--list', '--format=%(refname:short)'])).split('\n').filter(Boolean).sort()).toEqual(['lexer', 'main', 'parser']);
+
+    const lexerDiff = await daemon.chats.turnDiff(lexer, firstTurn(lexer)!.id);
+    const parserDiff = await daemon.chats.turnDiff(parser, firstTurn(parser)!.id);
+    expect(lexerDiff?.files.map((file) => file.path)).toEqual(['shared.txt']);
+    expect(parserDiff?.files.map((file) => file.path)).toEqual(['shared.txt']);
+    expect(lexerDiff?.files[0]?.diff).toContain('+from the lexer');
+    expect(lexerDiff?.files[0]?.diff).not.toContain('parser');
+    expect(parserDiff?.files[0]?.diff).toContain('+from the parser');
+    expect(parserDiff?.files[0]?.diff).not.toContain('lexer');
+});
+
+test('a worktree an agent verb makes is written down with the branch and commit the project was on, the project and the node', async () => {
+    await gitIn(folder, ['checkout', '--quiet', '-b', 'feature']);
+    await gitIn(folder, ['commit', '--quiet', '--allow-empty', '--message', 'on feature']);
+    const featureHead = (await gitIn(folder, ['rev-parse', 'HEAD'])).trim();
+    const projectId = store.index.locate('chat-lead')!.projectId;
+
+    const lines = await runVerb(daemon, 'chat-lead', 'agent', ['claude', '--worktree', '--title', 'Lexer']);
+    const nodeId = lines[0]!.split('\t')[0]!;
+
+    const worktrees = new Worktrees(join(root, 'home'), NO_WORKTREE_AGENTS);
+    const listed = await worktrees.list(folder);
+    expect(listed).toHaveLength(1);
+    expect(listed[0]).toMatchObject({ branch: 'lexer', from: { branch: 'feature', commit: featureHead }, projectId, nodeId });
+    // A second daemon over the same home reads what the first wrote.
+    const register = await worktrees.registerOf(folder).read();
+    expect(register.get(listed[0]!.path)).toMatchObject({ madeBy: 'verb', branchMade: true });
+});
+
 test('a lead lists the worktrees of its team with their nodes and counts, and reads what a child wrote', async () => {
     const { lexer, parser } = await team('lexer.txt from the lexer', 'parser.txt from the parser');
 

@@ -1,12 +1,9 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { rm } from 'node:fs/promises';
 import type { ChatTurnItem, ProjectContent } from '@ruimte/contracts';
 import { ManualClock } from '@adecore/agents/testing';
-import { ProjectStore } from '../projects/project-store.ts';
-import { bootTestDaemon, runVerb, type TestDaemon } from '../tasks/test-daemon.ts';
-import { projectLinks } from '../projects/project-file-test-helpers.ts';
+import type { ProjectStore } from '../projects/project-store.ts';
+import { bootTestDaemon, releasedProject, runVerb, type TestDaemon } from '../tasks/test-daemon.ts';
 
 function content(): ProjectContent {
     return {
@@ -34,14 +31,9 @@ let store: ProjectStore;
 let daemon: TestDaemon;
 
 beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'ruimte-operations-'));
-    const folder = join(root, 'repo');
-    await mkdir(folder, { recursive: true });
-    store = new ProjectStore(join(root, 'home'), projectLinks());
-    const opened = await store.openProject({ folder });
-    await store.save(opened.summary.projectId, opened.document.rev, content());
-    store.release(opened.summary.projectId);
-    daemon = await bootTestDaemon({ home: join(root, 'home'), store, clock: new ManualClock() });
+    let home: string;
+    ({ root, home, store } = await releasedProject('ruimte-operations-', content()));
+    daemon = await bootTestDaemon({ home, store, clock: new ManualClock() });
 });
 
 afterEach(async () => {
