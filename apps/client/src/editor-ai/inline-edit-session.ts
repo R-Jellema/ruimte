@@ -116,16 +116,7 @@ export function turnOutcome(chat: ChatState, turnId: string): TurnOutcome {
 
 /* The newest turn of a thread, which is the one a restored card reads its answer from. */
 export function lastTurnId(chat: ChatState): string | null {
-    for (const id of [...chat.order].reverse()) {
-        if (chat.items[id]?.kind === 'turn') {
-            return id;
-        }
-    }
-    return null;
-}
-
-function errorText(error: unknown): string {
-    return messageOf(error);
+    return chat.order.findLast((id) => chat.items[id]?.kind === 'turn') ?? null;
 }
 
 const sessions = new Map<string, InlineEditSession>();
@@ -292,7 +283,7 @@ export class InlineEditSession {
         try {
             await this.deps.stopChat(chatId);
         } catch (e) {
-            this.deps.notify({ kind: 'error', title: i18next.t('inline-edit:error.stop'), description: errorText(e) });
+            this.deps.notify({ kind: 'error', title: i18next.t('inline-edit:error.stop'), description: messageOf(e) });
         }
     }
 
@@ -412,7 +403,7 @@ export class InlineEditSession {
         try {
             await this.deps.showChat(this.init.projectId, viewId);
         } catch (e) {
-            this.deps.notify({ kind: 'error', title: i18next.t('inline-edit:error.open'), description: errorText(e) });
+            this.deps.notify({ kind: 'error', title: i18next.t('inline-edit:error.open'), description: messageOf(e) });
             return;
         }
         this.deps.forgetRecord(this.init.path, chatId);
@@ -582,7 +573,7 @@ export class InlineEditSession {
     }
 
     private fail(error: unknown): void {
-        this.store.setState({ phase: 'failed', error: errorText(error), endedAt: this.deps.now() });
+        this.store.setState({ phase: 'failed', error: messageOf(error), endedAt: this.deps.now() });
     }
 
     private async remove(): Promise<void> {

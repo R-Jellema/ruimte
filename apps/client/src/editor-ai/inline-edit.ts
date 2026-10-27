@@ -163,8 +163,8 @@ export class InlineEditFeature {
             return;
         }
         const { editor } = this.language;
-        const text = editor.getText();
-        const range = inlineRangeOf(editor.getSelection(), (line) => text.split('\n')[line]?.length ?? 0);
+        const lines = editor.getText().split('\n');
+        const range = inlineRangeOf(editor.getSelection(), (line) => lines[line]?.length ?? 0);
         const span = lineSpanOf(range);
         const problems = problemsOnLines(
             this.language.diagnostics.problems.map((problem) => problem.diagnostic),

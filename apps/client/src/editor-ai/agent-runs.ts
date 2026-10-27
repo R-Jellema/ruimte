@@ -41,8 +41,7 @@ export function lineMap(disk: readonly string[], text: readonly string[]): Int32
  * Where the runs the daemon mapped onto the text on disk stand in the text of the editor. A line typed
  * or replaced since has no run; a run an edit cut through draws as the pieces that are left.
  */
-export function drawnRuns(runs: readonly ProvenanceRun[], disk: readonly string[], text: readonly string[]): DrawnRun[] {
-    const where = lineMap(disk, text);
+export function drawnRuns(runs: readonly ProvenanceRun[], disk: readonly string[], text: readonly string[], where = lineMap(disk, text)): DrawnRun[] {
     const drawn: DrawnRun[] = [];
     for (const run of runs) {
         let piece: DrawnRun | null = null;
@@ -71,8 +70,7 @@ export interface RemovalRun {
 }
 
 /* Where the removals stand in the editor, which have no lines of their own to draw a bar on. */
-export function removalRuns(runs: readonly ProvenanceRun[], disk: readonly string[], text: readonly string[]): RemovalRun[] {
-    const where = lineMap(disk, text);
+export function removalRuns(runs: readonly ProvenanceRun[], disk: readonly string[], text: readonly string[], where = lineMap(disk, text)): RemovalRun[] {
     const found: RemovalRun[] = [];
     for (const run of runs) {
         if (run.end >= run.start) {

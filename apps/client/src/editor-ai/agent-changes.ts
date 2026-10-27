@@ -3,7 +3,7 @@ import type { AgentKind, ProvenanceChangedEvent, ProvenanceReadResult, Provenanc
 import type { Editor, EditorRect } from '@adecore/editor';
 import { realTimers, type Timers } from '@adecore/editor-react';
 import type { AgentChangesMode } from '@/state/ai-settings';
-import { colorOfChat, drawnRuns, lastWritten, removalRuns, type DrawnRun, type RemovalRun } from './agent-runs';
+import { colorOfChat, drawnRuns, lastWritten, lineMap, removalRuns, type DrawnRun, type RemovalRun } from './agent-runs';
 
 /* A pause in typing this long before the bars are worked out again, since that reads both texts. */
 const REMAP_DELAY_MS = 200;
@@ -214,8 +214,7 @@ export class AgentChanges {
         }
         const { mode, attribution } = this.settings;
         const disk = this.source.disk();
-        const diskLines = disk === null ? null : splitLines(disk.text);
-        if (mode === 'off' || this.result === null || disk === null || diskLines === null) {
+        if (mode === 'off' || this.result === null || disk === null) {
             this.drawn = new Map();
             this.editor.setAttributionMarks([]);
             this.editor.setRemoteCursors([]);
@@ -225,14 +224,17 @@ export class AgentChanges {
         if (this.state.live === null) {
             this.editor.setRemoteCursors([]);
         }
+        const diskLines = splitLines(disk.text);
         // Runs of another version of the file would land on the wrong lines; the bars stay put until the read of this one comes.
         if (this.result.mtime !== disk.mtime || this.result.lines !== diskLines.length) {
             return;
         }
         const textLines = splitLines(this.editor.getText());
-        const drawn = drawnRuns(this.result.runs, diskLines, textLines);
+        // One diff of the two texts serves the bars and the removals.
+        const where = lineMap(diskLines, textLines);
+        const drawn = drawnRuns(this.result.runs, diskLines, textLines, where);
         this.drawn = new Map(drawn.map((piece) => [piece.markId, piece]));
-        this.emit({ mode, live: this.state.live, pieces: drawn, removals: removalRuns(this.result.runs, diskLines, textLines) });
+        this.emit({ mode, live: this.state.live, pieces: drawn, removals: removalRuns(this.result.runs, diskLines, textLines, where) });
         this.editor.setAttributionMarks(
             attribution
                 ? drawn.map((piece) => ({ id: piece.markId, startLine: piece.startLine, endLine: piece.endLine, color: colorOfChat(piece.run.chatId) }))

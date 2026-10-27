@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import type { Editor } from '@adecore/editor';
 import { createHolder } from '@adecore/editor-react';
 import { useEndpointId } from '@/state/keys';
@@ -16,7 +16,7 @@ export function useConflictResolution(editor: Editor | null, path: string): Conf
     const transport = useTransport();
     const endpointId = useEndpointId();
     const projectId = useProject((s) => s.current?.projectId ?? null);
-    const holder = useMemo(() => createHolder<ConflictResolution>(), []);
+    const [holder] = useState(() => createHolder<ConflictResolution>());
 
     useEffect(() => {
         if (editor === null || projectId === null) {

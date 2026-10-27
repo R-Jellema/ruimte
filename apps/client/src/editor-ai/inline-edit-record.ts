@@ -25,40 +25,26 @@ export interface InlineEditRecord {
     readonly createdAt: number;
 }
 
-function isPosition(value: unknown): boolean {
-    return (
-        typeof value === 'object' &&
-        value !== null &&
-        Number.isInteger((value as { line?: unknown }).line) &&
-        Number.isInteger((value as { character?: unknown }).character)
-    );
-}
+const PositionSchema = z.object({ line: z.int(), character: z.int() });
 
-function isRecord(value: unknown): value is InlineEditRecord {
-    if (typeof value !== 'object' || value === null) {
-        return false;
-    }
-    const record = value as Record<string, unknown>;
-    const range = record.range as { start?: unknown; end?: unknown } | undefined;
-    return (
-        typeof record.chatId === 'string' &&
-        typeof record.viewId === 'string' &&
-        typeof record.projectId === 'string' &&
-        typeof record.path === 'string' &&
-        typeof record.selectedText === 'string' &&
-        typeof record.instruction === 'string' &&
-        typeof record.provider === 'string' &&
-        typeof record.createdAt === 'number' &&
-        range !== undefined &&
-        isPosition(range.start) &&
-        isPosition(range.end)
-    );
-}
+const RecordSchema = z.object({
+    chatId: z.string(),
+    viewId: z.string(),
+    projectId: z.string(),
+    path: z.string(),
+    range: z.object({ start: PositionSchema, end: PositionSchema }),
+    selectedText: z.string(),
+    instruction: z.string(),
+    provider: z.string(),
+    createdAt: z.number()
+});
 
-/* What does not read as a record is left out rather than trusted. */
+/* What does not read as a record is left out rather than trusted; one that does is kept as it was stored. */
 const InlineEditsSchema = z
     .record(z.string(), z.unknown())
-    .transform((stored) => Object.fromEntries(Object.entries(stored).filter((entry): entry is [string, InlineEditRecord] => isRecord(entry[1]))));
+    .transform((stored) =>
+        Object.fromEntries(Object.entries(stored).filter((entry): entry is [string, InlineEditRecord] => RecordSchema.safeParse(entry[1]).success))
+    );
 
 function inlineEdits(endpointId: string): StoredValue<Record<string, InlineEditRecord>> {
     return storedJson(`ruimte.inlineEdits.${endpointId}`, InlineEditsSchema);

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { Editor } from '@adecore/editor';
 import { offerDraft } from '@adecore/agents-react/chat';
 import { useProviders } from '@adecore/agents-react/state';
@@ -39,8 +39,8 @@ export function useAgentChanges(editor: Editor | null, path: string, language: s
     const root = useGitRoot(path);
     // A commit hands lines to git blame, which the daemon notices when it is asked again.
     const commits = useGitSignal(root ?? null);
-    const holder = useMemo(() => createHolder<AgentChanges>(), []);
-    const reviews = useMemo(() => createHolder<AgentReview>(), []);
+    const [holder] = useState(() => createHolder<AgentChanges>());
+    const [reviews] = useState(() => createHolder<AgentReview>());
     const source = useSidebarSource();
     // What the review reads when it is asked, not when it is mounted: chats come and go and the folder may change.
     const folder = useProject((s) => s.current?.folder ?? null);

@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import type { AgentKind, ProviderInfo } from '@ruimte/contracts';
 import { useProviders } from '@adecore/agents-react/state';
 import { chooserChats } from '@/chat/chat-chooser';
@@ -13,10 +12,8 @@ interface ChatIdentity {
 
 export function useChatIdentity(chatId: string): ChatIdentity {
     const source = useSidebarSource();
-    return useMemo(() => {
-        const chat = chooserChats(source.views, source.nodesOf).find((candidate) => candidate.id === chatId);
-        return { exists: chat !== undefined, title: chat?.title ?? null };
-    }, [source, chatId]);
+    const chat = chooserChats(source.views, source.nodesOf).find((candidate) => candidate.id === chatId);
+    return { exists: chat !== undefined, title: chat?.title ?? null };
 }
 
 /* A CLI's name as the app calls it, such as Claude Code; the kind itself where the machine does not list it. */
