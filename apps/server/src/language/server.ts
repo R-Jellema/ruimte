@@ -30,6 +30,7 @@ import {
     type WorkspaceEdit
 } from '@adecore/lsp';
 import { errorText } from '../error-text.ts';
+import { reportHelperExit } from '../telemetry/reporter.ts';
 import type { FileChange } from './file-watch.ts';
 import { LanguageLog } from './log.ts';
 import { findManifests, topmostManifests } from './manifests.ts';
@@ -49,7 +50,6 @@ import {
     type ProjectSqlSettings
 } from './profiles.ts';
 import type { LanguageChild, LanguageExit, LanguageRuntime, SpawnLanguageProcess } from './runtime.ts';
-import { reportHelperExit } from '../telemetry/reporter.ts';
 
 const SHIPPED_COMPONENTS = new Set(Object.values(KIND_PROFILES).flatMap((kind) => kind.components.map((component) => component.name)));
 
@@ -453,9 +453,7 @@ export class LanguageServer {
      * superseding is the client's.
      */
     async request(document: SharedDocument, method: string, params: object, hint?: string): Promise<ServerReply> {
-        if (this.phase !== 'ready') {
-            throw new LspError(`The ${this.label} language server is ${this.state}`, ErrorCodes.ServerNotInitialized);
-        }
+        this.requireReady();
         const sidecar = hint === undefined ? this.sidecarFor(document, method, params) : undefined;
         if (sidecar === undefined) {
             return this.requestProcess(document, method, params, hint);
@@ -475,6 +473,12 @@ export class LanguageServer {
         }
         const merged = mergeCodeActions({ server: main.value.server, result: main.value.result }, { server: extra.value.server, result: extra.value.result });
         return { ...main.value, result: merged.result, itemServers: merged.itemServers };
+    }
+
+    private requireReady(): void {
+        if (this.phase !== 'ready') {
+            throw new LspError(`The ${this.label} language server is ${this.state}`, ErrorCodes.ServerNotInitialized);
+        }
     }
 
     private async requestProcess(document: SharedDocument, method: string, params: object, hint?: string): Promise<ServerReply> {
@@ -620,9 +624,7 @@ export class LanguageServer {
 
     /* Runs a server command for this document, on the process that offered it (`hint`) or the first that supports commands. */
     async executeCommand(document: SharedDocument, command: string, args: unknown[] | undefined, hint?: string): Promise<{ result: unknown; server: string }> {
-        if (this.phase !== 'ready') {
-            throw new LspError(`The ${this.label} language server is ${this.state}`, ErrorCodes.ServerNotInitialized);
-        }
+        this.requireReady();
         for (const component of this.orderFor(document, 'workspace/executeCommand', {}, hint)) {
             if (component.documents.has(document.absolutePath) && component.session.supports('workspace/executeCommand')) {
                 const result = await component.session.executeCommand(command, args, { timeoutMs: 0 });
@@ -761,15 +763,10 @@ export class LanguageServer {
     }
 
     /* A server that never answers its handshake would leave the kind starting for good. */
-    private withinHandshake(handshake: Promise<unknown>, profile: ComponentProfile): Promise<unknown> {
-        let cancel = (): void => undefined;
-        const expired = new Promise<never>((_, reject) => {
-            cancel = this.clock.set(
-                () => reject(new Error(`the ${titleOf(profile)} process did not answer its handshake within ${INITIALIZE_TIMEOUT_MS / 1000} seconds`)),
-                INITIALIZE_TIMEOUT_MS
-            );
-        });
-        return Promise.race([handshake, expired]).finally(cancel);
+    private async withinHandshake(handshake: Promise<unknown>, profile: ComponentProfile): Promise<void> {
+        if ((await this.beforeDeadline(handshake, INITIALIZE_TIMEOUT_MS)) === 'expired') {
+            throw new Error(`the ${titleOf(profile)} process did not answer its handshake within ${INITIALIZE_TIMEOUT_MS / 1000} seconds`);
+        }
     }
 
     /* Starts the sidecar, or joins the start under way. Null when it cannot start, which is remembered until the kind starts again. */
@@ -937,7 +934,12 @@ export class LanguageServer {
     }
 
     private documentByUri(uri: string): SharedDocument | undefined {
-        return [...this.documents.values()].find((document) => document.uri === uri);
+        for (const document of this.documents.values()) {
+            if (document.uri === uri) {
+                return document;
+            }
+        }
+        return undefined;
     }
 
     private progressed(component: Component, params: ProgressParams): void {
