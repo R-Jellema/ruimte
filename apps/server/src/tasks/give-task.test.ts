@@ -1,13 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { ChatSubagentItem, ChatTurnItem, ProjectContent, Task } from '@ruimte/contracts';
 import { nextLine } from '../canvas/task-verbs.ts';
 import { ManualClock } from '@adecore/agents/testing';
-import { ProjectStore } from '../projects/project-store.ts';
-import { bootTestDaemon, runVerb, type TestDaemon } from './test-daemon.ts';
-import { projectLinks } from '../projects/project-file-test-helpers.ts';
+import type { ProjectStore } from '../projects/project-store.ts';
+import { bootTestDaemon, releasedProject, runVerb, type TestDaemon } from './test-daemon.ts';
 
 type Daemon = TestDaemon;
 
@@ -44,15 +42,7 @@ let clock: ManualClock;
 let running: Daemon[];
 
 beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'ruimte-give-task-'));
-    home = join(root, 'home');
-    folder = join(root, 'repo');
-    await mkdir(folder, { recursive: true });
-    store = new ProjectStore(home, projectLinks());
-    const opened = await store.openProject({ folder });
-    projectId = opened.summary.projectId;
-    await store.save(projectId, opened.document.rev, content());
-    store.release(projectId);
+    ({ root, home, folder, store, projectId } = await releasedProject('ruimte-give-task-', content()));
     clock = new ManualClock();
     running = [];
 });

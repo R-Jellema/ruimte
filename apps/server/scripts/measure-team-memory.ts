@@ -1,14 +1,10 @@
-import { mkdir, mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { rm } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
 import { heapStats } from 'bun:jsc';
 import type { ProjectContent } from '@ruimte/contracts';
 import { ChatStore } from '@adecore/agents/chat';
 import { ManualClock } from '@adecore/agents/testing';
-import { projectLinks } from '../src/projects/project-file-test-helpers.ts';
-import { ProjectStore } from '../src/projects/project-store.ts';
-import { bootTestDaemon, runVerb, type TestDaemon } from '../src/tasks/test-daemon.ts';
+import { bootTestDaemon, releasedProject, runVerb, type TestDaemon } from '../src/tasks/test-daemon.ts';
 
 /*
  * The daemon's memory over a long session: a lead with a team of five chat children that keep getting
@@ -66,14 +62,7 @@ ChatStore.prototype.write = async function (this: ChatStore, ...args: Parameters
     return bytes;
 };
 
-const root = await mkdtemp(join(tmpdir(), 'ruimte-memory-'));
-const home = join(root, 'home');
-const folder = join(root, 'repo');
-await mkdir(folder, { recursive: true });
-const store = new ProjectStore(home, projectLinks());
-const opened = await store.openProject({ folder });
-await store.save(opened.summary.projectId, opened.document.rev, content());
-store.release(opened.summary.projectId);
+const { root, home, folder, store } = await releasedProject('ruimte-memory-', content());
 const clock = new ManualClock();
 const daemon: TestDaemon = await bootTestDaemon({ home, store, clock });
 daemon.worker.start();

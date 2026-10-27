@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, readdir, rm, symlink } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir, readdir, rm, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { NODE_SIZE, type ChatItem, type ProjectContent } from '@ruimte/contracts';
 import { AgentLineageStore, OutboxWorker, type OutboxClock } from '@adecore/agents/coordination';
@@ -11,15 +10,15 @@ import type { AgentStart, CanvasHost } from '../canvas/verb.ts';
 import { AttachmentStore, ChatStore } from '@adecore/agents/chat';
 import { ChatManager } from '../chat/chat-manager.ts';
 import { fakeClaude, fakeCodex, inProcess, type InProcessCli } from '@adecore/agents/testing';
-import { ProjectStore } from '../projects/project-store.ts';
+import type { ProjectStore } from '../projects/project-store.ts';
 import { ProviderRegistry } from '../providers/registry.ts';
 import { FakePtyAdapter } from '../pty/fake-pty.ts';
 import { SessionManager } from '../sessions/manager.ts';
 import { untilChecked } from '../until-test-helpers.ts';
 import { refusingHandlers } from './outbox-test-helpers.ts';
 import { OutboxStore, type OutboxWork, type StartAgentEntry } from './outbox.ts';
+import { releasedProject } from '../tasks/test-daemon.ts';
 import { HEADLESS_TERMINAL, nodeMode, startAgentHandler, startAgentWork, type StartAgentDeps } from './start-agent.ts';
-import { projectLinks } from '../projects/project-file-test-helpers.ts';
 
 /* Nothing here fails, so no retry is ever timed; the clock only has to say one moment. */
 const stillClock: OutboxClock = { now: () => 1, setTimeout: () => null, clearTimeout: () => undefined };
@@ -82,16 +81,8 @@ let projectId: string;
 let running: Daemon[];
 
 beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'ruimte-start-agent-'));
-    home = join(root, 'home');
-    folder = join(root, 'repo');
-    await mkdir(folder, { recursive: true });
-    store = new ProjectStore(home, projectLinks());
-    const opened = await store.openProject({ folder });
-    projectId = opened.summary.projectId;
-    await store.save(projectId, opened.document.rev, content());
-    // Released. The view is open in no window, which is the case the daemon has to start agents for.
-    store.release(projectId);
+    // Released: the view is open in no window, which is the case the daemon has to start agents for.
+    ({ root, home, folder, store, projectId } = await releasedProject('ruimte-start-agent-', content()));
     running = [];
 });
 

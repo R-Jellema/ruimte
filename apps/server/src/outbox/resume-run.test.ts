@@ -1,16 +1,14 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { rm } from 'node:fs/promises';
 import type { ChatInfo, ChatItem, ProjectContent } from '@ruimte/contracts';
 import { AttachmentStore, ChatStore } from '@adecore/agents/chat';
 import type { SpawnChatProcess } from '@adecore/agents/chat';
 import { OutboxWorker, RETRY_DELAYS_MS } from '@adecore/agents/coordination';
 import { fakeClaude, fakeCodex, inProcess, type InProcessCli, ManualClock } from '@adecore/agents/testing';
 import { ChatManager, RESUME_PROMPT } from '../chat/chat-manager.ts';
-import { projectLinks } from '../projects/project-file-test-helpers.ts';
-import { ProjectStore } from '../projects/project-store.ts';
+import type { ProjectStore } from '../projects/project-store.ts';
 import { ProviderRegistry } from '../providers/registry.ts';
+import { releasedProject } from '../tasks/test-daemon.ts';
 import { untilChecked } from '../until-test-helpers.ts';
 import { refusingHandlers } from './outbox-test-helpers.ts';
 import { OutboxStore, type OutboxWork } from './outbox.ts';
@@ -57,14 +55,7 @@ let clock: ManualClock;
 let running: Daemon[];
 
 beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'ruimte-resume-run-'));
-    home = join(root, 'home');
-    folder = join(root, 'repo');
-    await mkdir(folder, { recursive: true });
-    projects = new ProjectStore(home, projectLinks());
-    const opened = await projects.openProject({ folder });
-    await projects.save(opened.summary.projectId, opened.document.rev, content());
-    projects.release(opened.summary.projectId);
+    ({ root, home, folder, store: projects } = await releasedProject('ruimte-resume-run-', content()));
     clock = new ManualClock();
     running = [];
 });

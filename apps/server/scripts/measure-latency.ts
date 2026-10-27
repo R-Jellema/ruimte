@@ -1,6 +1,5 @@
-import { mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { rm } from 'node:fs/promises';
 import { cpus, release, tmpdir, totalmem } from 'node:os';
-import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import type { Subprocess } from 'bun';
 import { PROTOCOL_VERSION, type ProjectContent } from '@ruimte/contracts';
@@ -11,14 +10,12 @@ import { generateKeyPair, signMessage } from '../src/auth/keys.ts';
 import { SOCKET_BACKPRESSURE_LIMIT } from '../src/backpressure.ts';
 import { connectionOpener, socketChannel, type ClientChannel, type ConnectionServices, type SocketChannel } from '../src/connection.ts';
 import type { ClientAccess } from '../src/dispatcher.ts';
-import { projectLinks } from '../src/projects/project-file-test-helpers.ts';
-import { ProjectStore } from '../src/projects/project-store.ts';
 import { authenticateChannel } from '../src/pulsar/channel-auth.ts';
 import { AUTHENTICATED_FRAME_CHARS } from '../src/pulsar/data-channel.ts';
 import { DirectClient } from '../src/pulsar/direct-client.ts';
 import { DirectPeers } from '../src/pulsar/peers.ts';
 import { BunPtyAdapter } from '../src/pty/bun-pty.ts';
-import { bootTestDaemon } from '../src/tasks/test-daemon.ts';
+import { bootTestDaemon, releasedProject } from '../src/tasks/test-daemon.ts';
 import { renderReport, type Channel, type ChannelRun, type Environment, type PhaseData, type Run } from './latency-report.ts';
 
 /*
@@ -55,12 +52,6 @@ function post(message: ChildMessage): void {
 
 /* The daemon: the real wiring on real terminals, behind a socket and a direct channel. */
 async function serve(): Promise<void> {
-    const root = await mkdtemp(join(tmpdir(), 'ruimte-latency-'));
-    const home = join(root, 'home');
-    const folder = join(root, 'repo');
-    await mkdir(folder, { recursive: true });
-    const store = new ProjectStore(home, projectLinks());
-    const opened = await store.openProject({ folder });
     const content: ProjectContent = {
         name: 'repo',
         color: '#123456',
@@ -76,8 +67,7 @@ async function serve(): Promise<void> {
             }
         ]
     };
-    await store.save(opened.summary.projectId, opened.document.rev, content);
-    store.release(opened.summary.projectId);
+    const { root, home, folder, store } = await releasedProject('ruimte-latency-', content);
     const daemon = await bootTestDaemon({ home, store, clock: new ManualClock(), ptyAdapter: new BunPtyAdapter() });
     daemon.worker.start();
     await daemon.chats.create({ chatId: CHAT_ID, provider: 'claude', cwd: folder });
@@ -507,7 +497,8 @@ async function measure(): Promise<void> {
     const port = new Promise<number>((resolve) => {
         ready = resolve;
     });
-    let reported: ((report: { lag: number[]; pauses: Record<Channel, number> }) => void) | null = null;
+    // Set by the wait below; declared through `as` so the reader above keeps the wide type.
+    let reported = null as ((report: { lag: number[]; pauses: Record<Channel, number> }) => void) | null;
     void (async () => {
         const decoder = new TextDecoder();
         let buffered = '';

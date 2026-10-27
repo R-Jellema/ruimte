@@ -1,7 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { rm } from 'node:fs/promises';
 import type { ChatItem, ChatSubagentItem, ChatTurnItem, ProjectContent } from '@ruimte/contracts';
 import { nextLine } from '../canvas/task-verbs.ts';
 import { claudeStoppingOnResume, fakeClaude, fakeCodexWith, ManualClock } from '@adecore/agents/testing';
@@ -9,10 +7,9 @@ import { BRIEF_TITLE } from '../chat/chat-manager.ts';
 import { taskFirstPrompt } from '../canvas/tasks.ts';
 import { START_LINE_ENV } from '../sessions/session.ts';
 import type { FakeCli } from '@adecore/agents/testing';
-import { ProjectStore } from '../projects/project-store.ts';
-import { bootTestDaemon, runVerb, type TestDaemon } from './test-daemon.ts';
+import type { ProjectStore } from '../projects/project-store.ts';
+import { bootTestDaemon, releasedProject, runVerb, type TestDaemon } from './test-daemon.ts';
 import { WAITING_GRACE_MS } from '@adecore/agents/coordination';
-import { projectLinks } from '../projects/project-file-test-helpers.ts';
 
 type Daemon = TestDaemon;
 
@@ -46,15 +43,7 @@ let clock: ManualClock;
 let running: Daemon[];
 
 beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'ruimte-tasks-'));
-    home = join(root, 'home');
-    folder = join(root, 'repo');
-    await mkdir(folder, { recursive: true });
-    store = new ProjectStore(home, projectLinks());
-    const opened = await store.openProject({ folder });
-    projectId = opened.summary.projectId;
-    await store.save(projectId, opened.document.rev, content());
-    store.release(projectId);
+    ({ root, home, folder, store, projectId } = await releasedProject('ruimte-tasks-', content()));
     clock = new ManualClock();
     running = [];
 });

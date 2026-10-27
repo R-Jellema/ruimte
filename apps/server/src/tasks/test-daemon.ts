@@ -1,4 +1,7 @@
-import { NODE_SIZE, type AgentKind, type ServerFrame } from '@ruimte/contracts';
+import { mkdir, mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { NODE_SIZE, type AgentKind, type ProjectContent, type ServerFrame } from '@ruimte/contracts';
 import { agentStates } from '../agents/agent-state.ts';
 import { chatRequests, AgentLineageStore, NoticeNotes, NoticeStore, restartBackgroundLimits, TaskStore } from '@adecore/agents/coordination';
 import { PendingPromptStore } from '../agents/pending-prompts.ts';
@@ -32,7 +35,8 @@ import { isPlanFileName, PlanStore } from '../plans/plan-store.ts';
 import { agentChatOpening, agentStartHost } from '../outbox/start-agent.ts';
 import { OutboxLink, wireOutbox } from '../outbox/wiring.ts';
 import { chatAccess } from '../wiring/canvas-host.ts';
-import type { ProjectStore } from '../projects/project-store.ts';
+import { projectLinks } from '../projects/project-file-test-helpers.ts';
+import { ProjectStore } from '../projects/project-store.ts';
 import { openedAgentCount } from '../agents/hidden-agents.ts';
 import type { AccountLaunches } from '@adecore/agents/providers';
 import type { LimitsUpdate } from '@adecore/agents/usage';
@@ -503,6 +507,23 @@ export async function bootTestDaemon({
             }
         }
     };
+}
+
+/* A project saved from `content` in a fresh folder and released, as a project no window holds is. */
+export async function releasedProject(
+    prefix: string,
+    content: ProjectContent
+): Promise<{ root: string; home: string; folder: string; store: ProjectStore; projectId: string }> {
+    const root = await mkdtemp(join(tmpdir(), prefix));
+    const home = join(root, 'home');
+    const folder = join(root, 'repo');
+    await mkdir(folder, { recursive: true });
+    const store = new ProjectStore(home, projectLinks());
+    const opened = await store.openProject({ folder });
+    const projectId = opened.summary.projectId;
+    await store.save(projectId, opened.document.rev, content);
+    store.release(projectId);
+    return { root, home, folder, store, projectId };
 }
 
 /* A verb the node `caller` runs, the way `ruimte-context` posts it; the token is the caller's id. */

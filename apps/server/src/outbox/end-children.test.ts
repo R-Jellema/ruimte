@@ -1,16 +1,13 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { rm } from 'node:fs/promises';
 import type { ChatItem, ChatTurnItem, ProjectContent } from '@ruimte/contracts';
-import { ProjectStore } from '../projects/project-store.ts';
-import { bootTestDaemon, runVerb, type TestDaemon } from '../tasks/test-daemon.ts';
+import type { ProjectStore } from '../projects/project-store.ts';
+import { bootTestDaemon, releasedProject, runVerb, type TestDaemon } from '../tasks/test-daemon.ts';
 import { AgentLineageStore, TaskStore } from '@adecore/agents/coordination';
 import { STOPPED_TASK_REASON } from '../chat/chat-manager.ts';
 import { ENDED_REASON, wireEndChildren } from './end-children.ts';
 import { OutboxStore } from './outbox.ts';
 import { ManualClock } from '@adecore/agents/testing';
-import { projectLinks } from '../projects/project-file-test-helpers.ts';
 import { voiceActionCall } from '../actions/context.ts';
 import { serverActions } from '../actions/server-actions.ts';
 
@@ -44,15 +41,7 @@ let clock: ManualClock;
 let running: TestDaemon[];
 
 beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'ruimte-end-children-'));
-    home = join(root, 'home');
-    folder = join(root, 'repo');
-    await mkdir(folder, { recursive: true });
-    store = new ProjectStore(home, projectLinks());
-    const opened = await store.openProject({ folder });
-    projectId = opened.summary.projectId;
-    await store.save(projectId, opened.document.rev, content());
-    store.release(projectId);
+    ({ root, home, folder, store, projectId } = await releasedProject('ruimte-end-children-', content()));
     clock = new ManualClock();
     running = [];
 });
