@@ -8,6 +8,7 @@ import { appleTextResult, closeAppleNetworkTools, executeAppleNetworkTool } from
 import type { AppleToolCall, AppleToolContext } from './apple-tools.ts';
 import type { AppleWebRequest } from './apple-web.ts';
 
+const NEVER_ABORTED = new AbortController().signal;
 const contexts: AppleToolContext[] = [];
 const folders: string[] = [];
 afterEach(async () => {
@@ -25,6 +26,11 @@ function tool(name: string): Tool {
 }
 const listCall: AppleToolCall = { type: 'tool.call', id: 'list', name: 'mcp_list_tools', server: 'local' };
 const echoCall: AppleToolCall = { type: 'tool.call', id: 'call', name: 'mcp_call', server: 'local', tool: 'echo', arguments: '{"message":"hello"}' };
+/* A connection with nothing to list or return, which tells `onClose` when it is closed. */
+function emptyConnection(onClose: () => void = () => undefined): AppleMcpConnection {
+    return { list: async () => [], call: async () => ({ content: [] }), close: async () => onClose() };
+}
+
 function mcpHarness() {
     let connections = 0;
     let closes = 0;
@@ -213,10 +219,7 @@ describe('Apple configured MCP tools', () => {
     test('aborted MCP results never return to the model', async () => {
         const controller = new AbortController();
         let complete!: (result: CallToolResult) => void;
-        let called!: () => void;
-        const started = new Promise<void>((resolve) => {
-            called = resolve;
-        });
+        const { promise: started, resolve: called } = Promise.withResolvers<void>();
         const current = context();
         const pending = executeAppleNetworkTool('/project', echoCall, controller.signal, current, {
             readConfig: async () => ({ local: configured }),
@@ -257,17 +260,11 @@ describe('Apple configured MCP tools', () => {
         const pool = new AppleMcpPool(async (config) => {
             const name = 'command' in config ? config.command : config.url;
             seen.push(`connect:${name}`);
-            return {
-                list: async () => [],
-                call: async () => ({ content: [] }),
-                close: async () => {
-                    seen.push(`close:${name}`);
-                }
-            };
+            return emptyConnection(() => seen.push(`close:${name}`));
         });
         try {
-            await pool.get('local', configured, '/project', {}, new AbortController().signal);
-            await pool.get('local', { ...configured, command: 'changed' }, '/project', {}, new AbortController().signal);
+            await pool.get('local', configured, '/project', {}, NEVER_ABORTED);
+            await pool.get('local', { ...configured, command: 'changed' }, '/project', {}, NEVER_ABORTED);
             expect(seen).toEqual(['connect:configured-server', 'close:configured-server', 'connect:changed']);
         } finally {
             await pool.close();
@@ -283,15 +280,13 @@ describe('Apple configured MCP tools', () => {
                     complete = resolve;
                 })
         );
-        const pending = pool.get('local', configured, '/project', {}, new AbortController().signal);
+        const pending = pool.get('local', configured, '/project', {}, NEVER_ABORTED);
         const closing = pool.close();
-        complete({
-            list: async () => [],
-            call: async () => ({ content: [] }),
-            close: async () => {
+        complete(
+            emptyConnection(() => {
                 closed++;
-            }
-        });
+            })
+        );
         await expect(pending).rejects.toThrow('closed');
         await closing;
         expect(closed).toBeGreaterThan(0);
@@ -303,13 +298,9 @@ describe('Apple MCP connection recovery', () => {
         let complete!: (connection: AppleMcpConnection) => void;
         let connections = 0;
         let closes = 0;
-        const connection: AppleMcpConnection = {
-            list: async () => [],
-            call: async () => ({ content: [] }),
-            close: async () => {
-                closes++;
-            }
-        };
+        const connection = emptyConnection(() => {
+            closes++;
+        });
         const pool = new AppleMcpPool(async () => {
             connections++;
             return connections === 1
@@ -324,7 +315,7 @@ describe('Apple MCP connection recovery', () => {
             controller.abort();
             complete(connection);
             await expect(pending).rejects.toThrow();
-            await pool.get('local', configured, '/project', {}, new AbortController().signal);
+            await pool.get('local', configured, '/project', {}, NEVER_ABORTED);
             expect(connections).toBe(2);
             expect(closes).toBe(1);
         } finally {

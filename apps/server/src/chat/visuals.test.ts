@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileExists } from '@adecore/agents';
-import { VISUAL_LIMITS, type ChatVisual, type ProjectContent } from '@ruimte/contracts';
+import { VISUAL_LIMITS, type ChatVisual } from '@ruimte/contracts';
 import { visualFileName } from '@adecore/agents/chat';
 import { ManualClock } from '@adecore/agents/testing';
 import { readBytes } from '../bytes/read-bytes.ts';
@@ -15,27 +15,7 @@ import { bootTestDaemon, releasedProject, runVerb, type TestDaemon } from '../ta
 import { ATTACHMENTS_PATH, handleAttachmentRequest } from './attachment-route.ts';
 import { refusalCode } from '../canvas/verb-test-helpers.ts';
 import { turnsOf } from './chat-test-helpers.ts';
-
-function content(): ProjectContent {
-    return {
-        name: 'repo',
-        color: '#123456',
-        views: [
-            {
-                kind: 'canvas',
-                id: 'main',
-                name: 'Canvas',
-                nodes: [
-                    { id: 'chat-lead', kind: 'chat', title: 'Lead', x: 0, y: 0, w: 560, h: 640, provider: 'claude' },
-                    { id: 'term-lead', kind: 'terminal', title: 'Shell', x: 0, y: 700, w: 560, h: 360 }
-                ],
-                texts: [],
-                edges: [],
-                layouts: []
-            }
-        ]
-    };
-}
+import { leadAndShellProject, sayAndSettle } from './lead-chat-test-helpers.ts';
 
 const PAGE = '<!doctype html><html><head><title>Bars</title></head><body><div style="background:var(--chart-1)">32</div></body></html>';
 
@@ -47,7 +27,7 @@ let clock: ManualClock;
 let running: TestDaemon[];
 
 beforeEach(async () => {
-    ({ root, home, folder, store } = await releasedProject('ruimte-visuals-', content()));
+    ({ root, home, folder, store } = await releasedProject('ruimte-visuals-', leadAndShellProject()));
     clock = new ManualClock();
     running = [];
 });
@@ -409,19 +389,10 @@ describe('visuals and the chat they belong to', () => {
         expect(refusalCode(await runVerb(off, 'chat-lead', 'visual', ['write', '--name', 'other.html', `--html=${PAGE}`]))).toBe('visuals-off');
     });
 
-    const say = async (daemon: TestDaemon, chatId: string, text: string): Promise<void> => {
-        const before = turnsOf(daemon.chats.get(chatId)?.thread.list() ?? []).length;
-        await daemon.chats.send(chatId, text);
-        await daemon.until(() => {
-            const chat = daemon.chats.get(chatId);
-            return chat !== undefined && chat.info.activeTurnId === null && turnsOf(chat.thread.list()).length === before + 1;
-        });
-    };
-
     test('a fork copies the visuals up to its cut, each with a page of its own', async () => {
         const daemon = await bootWithChat({ installed: ['claude', 'codex'] });
-        await say(daemon, 'chat-lead', 'one');
-        await say(daemon, 'chat-lead', 'two');
+        await sayAndSettle(daemon, 'chat-lead', 'one');
+        await sayAndSettle(daemon, 'chat-lead', 'two');
         const [first, second] = turnsOf(daemon.chats.get('chat-lead')!.thread.list());
         const kept = await daemon.chats.publishVisual('chat-lead', { title: 'Kept', html: PAGE, turnId: first!.id });
         await daemon.chats.publishVisual('chat-lead', { title: 'Past the cut', html: PAGE, turnId: second!.id });

@@ -1,33 +1,14 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import type { ChatItem, ChatNoteItem, ChatTurnItem, ProjectCanvasView, ProjectContent } from '@ruimte/contracts';
+import { rm } from 'node:fs/promises';
+import type { ChatItem, ChatNoteItem, ChatTurnItem, ProjectCanvasView } from '@ruimte/contracts';
 import { ManualClock } from '@adecore/agents/testing';
 import type { ProjectStore } from '../projects/project-store.ts';
 import { bootTestDaemon, releasedProject, type TestDaemon } from '../tasks/test-daemon.ts';
-import { claudeProjectSlug } from '@adecore/agents/chat';
 import { compileUi } from '@adecore/intelligent-ui';
 import { answerOf, SUMMARY_MAX_BYTES, summaryNoteId, summaryPrompt, summaryTexts } from './summary.ts';
 import { RUIMTE_UI_FENCE } from './ui-fence.ts';
 import { assistantTexts, turnsOf } from './chat-test-helpers.ts';
-
-function content(): ProjectContent {
-    return {
-        name: 'repo',
-        color: '#123456',
-        views: [
-            {
-                kind: 'canvas',
-                id: 'main',
-                name: 'Canvas',
-                nodes: [{ id: 'chat-lead', kind: 'chat', title: 'Lexer', x: 0, y: 0, w: 560, h: 640, provider: 'claude', providerFixed: true }],
-                texts: [],
-                edges: [],
-                layouts: []
-            }
-        ]
-    };
-}
+import { leadProject, removeNodes, sayAndSettle, writeLeadTranscript } from './lead-chat-test-helpers.ts';
 
 function summaryNotes(items: readonly ChatItem[]): ChatNoteItem[] {
     return items.filter((item): item is ChatNoteItem => item.kind === 'note' && item.from !== undefined);
@@ -46,7 +27,7 @@ describe('a fork summarizing for its original', () => {
     };
 
     beforeEach(async () => {
-        ({ root, home, folder, store, projectId } = await releasedProject('ruimte-summary-', content()));
+        ({ root, home, folder, store, projectId } = await releasedProject('ruimte-summary-', leadProject()));
         await boot();
     });
 
@@ -58,27 +39,16 @@ describe('a fork summarizing for its original', () => {
 
     const items = (chatId: string): ChatItem[] => daemon.chats.get(chatId)?.thread.list() ?? [];
 
-    const say = async (chatId: string, text: string): Promise<void> => {
-        const before = turnsOf(items(chatId)).length;
-        await daemon.chats.send(chatId, text);
-        await daemon.until(() => daemon.chats.get(chatId)?.info.activeTurnId === null && turnsOf(items(chatId)).length === before + 1);
-    };
+    const say = (chatId: string, text: string): Promise<void> => sayAndSettle(daemon, chatId, text);
 
     /* An original of two turns and a fork after its first, with the transcript Claude Code would have written. */
     const forked = async (): Promise<string> => {
         await daemon.chats.create({ chatId: 'chat-lead', provider: 'claude', cwd: folder });
         await say('chat-lead', 'alpha');
         await say('chat-lead', 'bravo');
-        const lead = daemon.chats.get('chat-lead')!;
-        const sessionId = lead.info.agentSessionId!;
-        const lines = turnsOf(lead.thread.list()).flatMap((turn, index) => [
-            { type: 'user', uuid: `prompt-${index}`, isSidechain: false, sessionId, message: { role: 'user', content: `turn ${index}` } },
-            { type: 'assistant', uuid: turn.native!.lastUuid, isSidechain: false, sessionId, message: { content: [{ type: 'text', text: 'echo' }] } }
-        ]);
-        const dir = join(daemon.chats.claudeProjectsDir, claudeProjectSlug(folder));
-        await mkdir(dir, { recursive: true });
-        await writeFile(join(dir, `${sessionId}.jsonl`), lines.map((entry) => JSON.stringify(entry)).join('\n'));
-        const answer = await daemon.request('chat.fork', { chatId: 'chat-lead', turnId: turnsOf(lead.thread.list())[0]!.id });
+        const turns = items('chat-lead').filter((item) => item.kind === 'turn');
+        await writeLeadTranscript(daemon, folder, turns);
+        const answer = await daemon.request('chat.fork', { chatId: 'chat-lead', turnId: turns[0]!.id });
         const { nodeId } = (answer as { result: { nodeId: string } }).result;
         await daemon.chats.create({ chatId: nodeId });
         await say(nodeId, 'found it');
@@ -117,12 +87,13 @@ describe('a fork summarizing for its original', () => {
         expect(assistantTexts(items('chat-lead')).at(-1)).toBe('echo: and then');
 
         // The line back from the fork, once, however often it reports.
-        const edges = async () => ((await store.read(projectId)).views[0] as ProjectCanvasView).edges;
-        expect((await edges()).filter((edge) => edge.from === forkId && edge.to === 'chat-lead')).toHaveLength(1);
+        const linesBack = async () =>
+            ((await store.read(projectId)).views[0] as ProjectCanvasView).edges.filter((edge) => edge.from === forkId && edge.to === 'chat-lead');
+        expect(await linesBack()).toHaveLength(1);
         await summarize(forkId);
         await daemon.until(() => summaryNotes(items('chat-lead')).length === 2);
         await daemon.worker.settled();
-        expect((await edges()).filter((edge) => edge.from === forkId && edge.to === 'chat-lead')).toHaveLength(1);
+        expect(await linesBack()).toHaveLength(1);
     });
 
     test('an original in a turn gets the note at once and the preamble with the prompt after it', async () => {
@@ -167,15 +138,7 @@ describe('a fork summarizing for its original', () => {
     test('a chat that is no fork is refused, and so is a fork whose original left the project', async () => {
         const forkId = await forked();
         expect(await daemon.request('chat.summarize', { chatId: 'chat-lead' })).toMatchObject({ ok: false, error: { code: 'not-a-fork' } });
-        await store.mutate(projectId, (current) => ({
-            content: {
-                ...current,
-                views: current.views.map((view) =>
-                    view.kind === 'canvas' ? { ...view, nodes: view.nodes.filter((node) => node.id !== 'chat-lead'), edges: [] } : view
-                )
-            },
-            result: null
-        }));
+        await removeNodes(store, projectId, ['chat-lead']);
         expect(await daemon.request('chat.summarize', { chatId: forkId })).toMatchObject({ ok: false, error: { code: 'original-gone' } });
     });
 });

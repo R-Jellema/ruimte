@@ -1,8 +1,8 @@
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from 'bun:test';
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { ChatInfo, ChatTurnItem, ProjectCanvasView, ProjectContent } from '@ruimte/contracts';
+import type { ChatInfo, ChatTurnItem, ProjectCanvasView } from '@ruimte/contracts';
 import { Checkpoints } from '../git/checkpoints.ts';
 import { gitIn, initRepo, repoTemplate, type RepoTemplate, NO_WORKTREE_AGENTS } from '../git/test-repo.ts';
 import { Worktrees } from '../git/worktrees.ts';
@@ -11,24 +11,8 @@ import { ProjectStore } from '../projects/project-store.ts';
 import { bootTestDaemon, type TestDaemon } from '../tasks/test-daemon.ts';
 import { ChatStore, claudeProjectSlug } from '@adecore/agents/chat';
 import { projectLinks } from '../projects/project-file-test-helpers.ts';
-
-function content(): ProjectContent {
-    return {
-        name: 'repo',
-        color: '#123456',
-        views: [
-            {
-                kind: 'canvas',
-                id: 'main',
-                name: 'Canvas',
-                nodes: [{ id: 'chat-lead', kind: 'chat', title: 'Lexer', x: 0, y: 0, w: 560, h: 640, provider: 'claude', providerFixed: true }],
-                texts: [],
-                edges: [],
-                layouts: []
-            }
-        ]
-    };
-}
+import { turnsOf } from './chat-test-helpers.ts';
+import { leadProject, removeNodes, sayAndSettle, writeLeadTranscript } from './lead-chat-test-helpers.ts';
 
 let template: RepoTemplate;
 let root: string;
@@ -53,7 +37,7 @@ beforeEach(async () => {
     store = new ProjectStore(home, projectLinks());
     const opened = await store.openProject({ folder });
     projectId = opened.summary.projectId;
-    await store.save(projectId, opened.document.rev, content());
+    await store.save(projectId, opened.document.rev, leadProject());
     store.release(projectId);
     daemon = await bootTestDaemon({
         home,
@@ -70,18 +54,13 @@ afterEach(async () => {
     await rm(root, { recursive: true, force: true });
 });
 
-function turnsOf(chatId: string): ChatTurnItem[] {
-    return (daemon.chats.get(chatId)?.thread.list() ?? []).filter((item): item is ChatTurnItem => item.kind === 'turn');
+function turnsIn(chatId: string): ChatTurnItem[] {
+    return turnsOf(daemon.chats.get(chatId)?.thread.list() ?? []);
 }
 
 /* Sends and waits until the turn settled with the tree of where it left the files. */
-async function say(chatId: string, text: string): Promise<void> {
-    const before = turnsOf(chatId).length;
-    await daemon.chats.send(chatId, text);
-    await daemon.until(() => {
-        const turns = turnsOf(chatId);
-        return daemon.chats.get(chatId)?.info.activeTurnId === null && turns.length === before + 1 && turns.at(-1)?.checkpointAfter !== undefined;
-    });
+function say(chatId: string, text: string): Promise<void> {
+    return sayAndSettle(daemon, chatId, text, (turn) => turn.checkpointAfter !== undefined);
 }
 
 /* Two turns that each write a file, with the transcript Claude Code would have written for them. */
@@ -89,16 +68,8 @@ async function twoTurns(): Promise<ChatTurnItem[]> {
     await daemon.chats.create({ chatId: 'chat-lead', provider: 'claude', cwd: folder });
     await say('chat-lead', 'write: first.txt from turn one');
     await say('chat-lead', 'write: second.txt from turn two');
-    const lead = daemon.chats.get('chat-lead')!;
-    const sessionId = lead.info.agentSessionId!;
-    const turns = turnsOf('chat-lead');
-    const lines = turns.flatMap((turn, index) => [
-        { type: 'user', uuid: `prompt-${index}`, isSidechain: false, sessionId, message: { role: 'user', content: `turn ${index}` } },
-        { type: 'assistant', uuid: turn.native!.lastUuid, isSidechain: false, sessionId, message: { content: [{ type: 'text', text: 'done' }] } }
-    ]);
-    const dir = join(daemon.chats.claudeProjectsDir, claudeProjectSlug(folder));
-    await mkdir(dir, { recursive: true });
-    await writeFile(join(dir, `${sessionId}.jsonl`), lines.map((entry) => JSON.stringify(entry)).join('\n'));
+    const turns = turnsIn('chat-lead');
+    await writeLeadTranscript(daemon, folder, turns);
     return turns;
 }
 
@@ -161,7 +132,7 @@ test('a fork after turn 1 in a worktree holds the files after turn 1, with the i
     await daemon.chats.create({ chatId: nodeId });
     await say(nodeId, 'hello');
     await say(nodeId, 'write: third.txt from the fork');
-    const diff = await daemon.chats.turnDiff(nodeId, turnsOf(nodeId).at(-1)!.id);
+    const diff = await daemon.chats.turnDiff(nodeId, turnsIn(nodeId).at(-1)!.id);
     expect(diff?.files.map((file) => file.path)).toEqual(['third.txt']);
     expect(existsSync(join(folder, 'third.txt'))).toBe(false);
 });
@@ -196,13 +167,7 @@ test('a fork deleted before anyone wrote in it takes its record and transcript c
     const copy = join(daemon.chats.claudeProjectsDir, claudeProjectSlug(worktree!.path), `${info.agentSessionId}.jsonl`);
     expect(existsSync(copy)).toBe(true);
 
-    await store.mutate(projectId, (current) => ({
-        content: {
-            ...current,
-            views: current.views.map((view) => (view.kind === 'canvas' ? { ...view, nodes: view.nodes.filter((node) => node.id !== nodeId), edges: [] } : view))
-        },
-        result: null
-    }));
+    await removeNodes(store, projectId, [nodeId]);
     await daemon.pruned();
     expect(existsSync(copy)).toBe(false);
     expect(await new ChatStore(home).read(nodeId)).toBeNull();

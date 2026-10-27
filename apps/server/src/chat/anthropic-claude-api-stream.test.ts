@@ -1,18 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { readAnthropicStream, type AnthropicUsage } from './anthropic-claude-api-stream.ts';
-
-/* A body that arrives in the pieces given, so a frame or a line ending can fall across two of them. */
-function body(...pieces: string[]): ReadableStream<Uint8Array> {
-    const encoder = new TextEncoder();
-    return new ReadableStream({
-        start(controller) {
-            for (const piece of pieces) {
-                controller.enqueue(encoder.encode(piece));
-            }
-            controller.close();
-        }
-    });
-}
+import { streamBody } from './chat-test-helpers.ts';
 
 function frame(event: unknown): string {
     const type = (event as { type: string }).type;
@@ -41,7 +29,7 @@ async function read(stream: ReadableStream<Uint8Array>) {
 describe('readAnthropicStream', () => {
     test('streams text as it comes and keeps the whole message, with a ping and an unknown event skipped', async () => {
         const { turn, text, usage } = await read(
-            body(
+            streamBody(
                 start(),
                 'event: ping\ndata: {"type": "ping"}\n\n',
                 frame({ type: 'something_new', value: 1 }),
@@ -68,7 +56,7 @@ describe('readAnthropicStream', () => {
 
     test('counts the cache reads and writes of a request apart from its input', async () => {
         const { usage } = await read(
-            body(
+            streamBody(
                 start({ input_tokens: 20, cache_creation_input_tokens: 400, cache_read_input_tokens: 9000, output_tokens: 3 }),
                 block(0, { type: 'text', text: 'Hi' }),
                 stop(0),
@@ -80,7 +68,7 @@ describe('readAnthropicStream', () => {
 
     test('keeps a thinking block with its signature in front of the tool call it came with, and parses the input once whole', async () => {
         const { turn, thinking } = await read(
-            body(
+            streamBody(
                 start(),
                 block(0, { type: 'thinking', thinking: '', signature: '' }),
                 delta(0, { type: 'thinking_delta', thinking: 'Look at ' }),
@@ -112,13 +100,13 @@ describe('readAnthropicStream', () => {
             '\r\n'
         );
         const split = whole.indexOf('\r\n\r\n') + 1;
-        const { turn } = await read(body(whole.slice(0, split), whole.slice(split, split + 40), whole.slice(split + 40)));
+        const { turn } = await read(streamBody(whole.slice(0, split), whole.slice(split, split + 40), whole.slice(split + 40)));
         expect(turn.parts).toEqual([{ index: 0, type: 'text', text: 'Fine.' }]);
     });
 
     test('keeps every text and thinking block apart, in the order of their index', async () => {
         const { turn } = await read(
-            body(
+            streamBody(
                 start(),
                 block(0, { type: 'thinking', thinking: 'First.', signature: 's1' }),
                 stop(0),
@@ -140,13 +128,15 @@ describe('readAnthropicStream', () => {
     });
 
     test('a tool call far down the message is kept', async () => {
-        const { turn } = await read(body(start(), block(70, { type: 'tool_use', id: 'toolu_70', name: 'list_files', input: {} }), stop(70), end('tool_use')));
+        const { turn } = await read(
+            streamBody(start(), block(70, { type: 'tool_use', id: 'toolu_70', name: 'list_files', input: {} }), stop(70), end('tool_use'))
+        );
         expect(turn.toolCalls).toEqual([{ id: 'toolu_70', name: 'list_files', input: {} }]);
     });
 
     test('a tool call whose input does not make JSON has no input, and is sent back as an empty one', async () => {
         const { turn } = await read(
-            body(
+            streamBody(
                 start(),
                 block(0, { type: 'tool_use', id: 'toolu_1', name: 'read_file', input: {} }),
                 delta(0, { type: 'input_json_delta', partial_json: '{"path":' }),
@@ -159,33 +149,42 @@ describe('readAnthropicStream', () => {
     });
 
     test('a call with no input at all is an empty one', async () => {
-        const { turn } = await read(body(start(), block(0, { type: 'tool_use', id: 'toolu_1', name: 'list_files', input: {} }), stop(0), end('tool_use')));
+        const { turn } = await read(
+            streamBody(start(), block(0, { type: 'tool_use', id: 'toolu_1', name: 'list_files', input: {} }), stop(0), end('tool_use'))
+        );
         expect(turn.toolCalls[0]!.input).toEqual({});
     });
 
     test('a redacted thinking block is kept as it is, since the next request needs it', async () => {
         const { turn } = await read(
-            body(start(), block(0, { type: 'redacted_thinking', data: 'abc' }), stop(0), block(1, { type: 'text', text: 'Done.' }), stop(1), end('end_turn'))
+            streamBody(
+                start(),
+                block(0, { type: 'redacted_thinking', data: 'abc' }),
+                stop(0),
+                block(1, { type: 'text', text: 'Done.' }),
+                stop(1),
+                end('end_turn')
+            )
         );
         expect(turn.content[0]).toEqual({ type: 'redacted_thinking', data: 'abc' });
     });
 
     test('says why a message ran out of tokens, and that is not an error', async () => {
-        const { turn } = await read(body(start(), block(0, { type: 'text', text: 'Long answer' }), stop(0), end('max_tokens')));
+        const { turn } = await read(streamBody(start(), block(0, { type: 'text', text: 'Long answer' }), stop(0), end('max_tokens')));
         expect(turn.stopReason).toBe('max_tokens');
     });
 
     test('an error in the stream is a sentence of its own and never what came with it', async () => {
-        await expect(read(body(start(), frame({ type: 'error', error: { type: 'overloaded_error', message: 'key sk-ant-secret' } })))).rejects.toThrow(
+        await expect(read(streamBody(start(), frame({ type: 'error', error: { type: 'overloaded_error', message: 'key sk-ant-secret' } })))).rejects.toThrow(
             'Anthropic is overloaded.'
         );
-        await expect(read(body(frame({ type: 'error', error: { type: 'invalid_request_error', message: 'sk-ant-secret' } })))).rejects.toThrow(
+        await expect(read(streamBody(frame({ type: 'error', error: { type: 'invalid_request_error', message: 'sk-ant-secret' } })))).rejects.toThrow(
             'Anthropic reported an error (invalid_request_error).'
         );
     });
 
     test('a connection that ends early is an error and not a short answer', async () => {
-        await expect(read(body(start(), block(0, { type: 'text', text: 'Half' })))).rejects.toThrow(
+        await expect(read(streamBody(start(), block(0, { type: 'text', text: 'Half' })))).rejects.toThrow(
             'Anthropic connection ended before the response completed.'
         );
     });

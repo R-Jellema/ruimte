@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { RuntimeMode } from '@ruimte/contracts';
 import type { BackendEvent, BackendLaunch, TurnInput } from '@adecore/agents/chat';
+import { BackendEventLog, usageLines } from './chat-test-helpers.ts';
 import { NANOGPT_URL, NanoGptService } from '../providers/nanogpt-service.ts';
 import type { ToolRounds } from './api-chat.ts';
 import { NanoGptBackend } from './nanogpt-backend.ts';
@@ -41,6 +42,7 @@ interface Rig {
     events: BackendEvent[];
     bodies: Array<{ model: string; messages: Array<{ role: string; content: string; tool_call_id?: string }>; tools?: unknown[]; stream_options?: unknown }>;
     tools: string[];
+    readonly sessionId: string;
     until(predicate: (event: BackendEvent) => boolean): Promise<BackendEvent>;
 }
 
@@ -65,8 +67,7 @@ async function rig(responses: Array<() => Response>, options: { resume?: string;
     });
     await service.load(home);
     await service.configure('nano-key');
-    const events: BackendEvent[] = [];
-    const waiters: Array<{ predicate: (event: BackendEvent) => boolean; resolve: (event: BackendEvent) => void }> = [];
+    const log = new BackendEventLog();
     const tools: string[] = [];
     const executeTool: typeof executeNanoTool = async (_cwd, call) => {
         tools.push(call.name);
@@ -84,34 +85,18 @@ async function rig(responses: Array<() => Response>, options: { resume?: string;
         instructions: 'Be brief.',
         resumeNote: null
     };
-    const backend = new NanoGptBackend(
-        launch,
-        {
-            onEvent: (event) => {
-                events.push(event);
-                for (const waiter of [...waiters]) {
-                    if (waiter.predicate(event)) {
-                        waiters.splice(waiters.indexOf(waiter), 1);
-                        waiter.resolve(event);
-                    }
-                }
-            }
-        },
-        service,
-        executeTool,
-        options.limits
-    );
+    const backend = new NanoGptBackend(launch, { onEvent: log.onEvent }, service, executeTool, options.limits);
     backends.push(backend);
     return {
         backend,
         service,
-        events,
+        events: log.events,
         bodies,
         tools,
-        until: (predicate) => {
-            const seen = events.find(predicate);
-            return seen ? Promise.resolve(seen) : new Promise((resolve) => waiters.push({ predicate, resolve }));
-        }
+        get sessionId() {
+            return log.sessionId;
+        },
+        until: (predicate) => log.until(predicate)
     };
 }
 
@@ -183,18 +168,15 @@ describe('NanoGPT backend', () => {
     test('every call is counted in the usage log, and the API is asked for the counts', async () => {
         const chat = await rig([() => reply('Hi.')]);
         await chat.backend.start();
-        const session = chat.events.find((event) => event.type === 'session') as { agentSessionId: string };
         chat.backend.sendTurn(turn);
         await chat.until(isDone);
 
         expect(chat.bodies[0]!.stream_options).toEqual({ include_usage: true });
-        const [file] = await readdir(chat.service.usageDirectory);
-        expect(file).toMatch(/^\d{4}-\d{2}\.jsonl$/);
-        const lines = (await readFile(join(chat.service.usageDirectory, file!), 'utf8')).trim().split('\n');
-        expect(lines.map((line) => JSON.parse(line))).toEqual([
+        expect(await readdir(chat.service.usageDirectory)).toEqual([expect.stringMatching(/^\d{4}-\d{2}\.jsonl$/)]);
+        expect(await usageLines(chat.service.usageDirectory)).toEqual([
             expect.objectContaining({
                 model: 'tool-model',
-                session: session.agentSessionId,
+                session: chat.sessionId,
                 input: 100,
                 cacheRead: 20,
                 cacheWrite: 0,
@@ -347,19 +329,19 @@ describe('NanoGPT backend', () => {
     test('a resumed chat continues the saved conversation', async () => {
         const first = await rig([() => reply('First answer.')]);
         await first.backend.start();
-        const session = first.events.find((event) => event.type === 'session') as { agentSessionId: string };
+        const session = first.sessionId;
         first.backend.sendTurn(turn);
         await first.until(isDone);
         await first.backend.dispose();
 
         const home = join(first.service.directory, '..');
-        const second = await rig([() => reply('Second answer.')], { resume: session.agentSessionId, home });
+        const second = await rig([() => reply('Second answer.')], { resume: session, home });
         await second.backend.start();
         second.backend.sendTurn({ ...turn, text: 'And now?' });
         await second.until(isDone);
 
         expect(second.bodies[0]!.messages.slice(1).map((message) => message.content)).toEqual(['What is in the project?', 'First answer.', 'And now?']);
-        const saved = JSON.parse(await readFile(join(first.service.directory, `${session.agentSessionId}.json`), 'utf8'));
+        const saved = JSON.parse(await readFile(join(first.service.directory, `${session}.json`), 'utf8'));
         expect(saved).toHaveLength(4);
     });
 

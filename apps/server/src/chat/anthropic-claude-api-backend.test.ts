@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { RuntimeMode } from '@ruimte/contracts';
 import type { BackendEvent, BackendLaunch, TurnInput } from '@adecore/agents/chat';
+import { BackendEventLog, usageLines } from './chat-test-helpers.ts';
 import { ANTHROPIC_URL, AnthropicClaudeApiService } from '../providers/anthropic-claude-api-service.ts';
 import { AnthropicClaudeApiBackend, STREAM_IDLE_MS, type IdleTimer } from './anthropic-claude-api-backend.ts';
 import type { ToolRounds } from './api-chat.ts';
@@ -92,6 +93,7 @@ interface Rig {
     bodies: Body[];
     headers: Headers[];
     tools: string[];
+    readonly sessionId: string;
     home: string;
     until(predicate: (event: BackendEvent) => boolean): Promise<BackendEvent>;
 }
@@ -119,8 +121,7 @@ async function rig(
     });
     await service.load(home);
     await service.configure('sk-ant-key');
-    const events: BackendEvent[] = [];
-    const waiters: Array<{ predicate: (event: BackendEvent) => boolean; resolve: (event: BackendEvent) => void }> = [];
+    const log = new BackendEventLog();
     const tools: string[] = [];
     const executeTool: typeof executeNanoTool = async (_cwd, call) => {
         tools.push(call.name);
@@ -138,35 +139,24 @@ async function rig(
         instructions: 'Be brief.',
         resumeNote: null
     };
-    const backend = new AnthropicClaudeApiBackend(
-        launch,
-        {
-            onEvent: (event) => {
-                events.push(event);
-                for (const waiter of [...waiters]) {
-                    if (waiter.predicate(event)) {
-                        waiters.splice(waiters.indexOf(waiter), 1);
-                        waiter.resolve(event);
-                    }
-                }
-            }
-        },
-        service,
-        { executeTool, limits: options.limits, idleTimer: options.idleTimer }
-    );
+    const backend = new AnthropicClaudeApiBackend(launch, { onEvent: log.onEvent }, service, {
+        executeTool,
+        limits: options.limits,
+        idleTimer: options.idleTimer
+    });
     backends.push(backend);
     return {
         backend,
         service,
-        events,
+        events: log.events,
         bodies,
         headers,
         tools,
         home,
-        until: (predicate) => {
-            const seen = events.find(predicate);
-            return seen ? Promise.resolve(seen) : new Promise((resolve) => waiters.push({ predicate, resolve }));
-        }
+        get sessionId() {
+            return log.sessionId;
+        },
+        until: (predicate) => log.until(predicate)
     };
 }
 
@@ -352,8 +342,7 @@ describe('Claude API backend', () => {
         expect(await chat.until(isDone)).toMatchObject({ state: 'aborted' });
         expect(chat.events).toContainEqual({ type: 'request.withdrawn', requestId: approval.requestId });
         expect(chat.tools).toEqual([]);
-        const session = (chat.events.find((event) => event.type === 'session') as { agentSessionId: string }).agentSessionId;
-        const saved = JSON.parse(await readFile(join(chat.service.directory, `${session}.json`), 'utf8'));
+        const saved = JSON.parse(await readFile(join(chat.service.directory, `${chat.sessionId}.json`), 'utf8'));
         expect(saved.at(-1)).toMatchObject({ role: 'user', content: [{ type: 'tool_result', tool_use_id: 'toolu_1', is_error: true }] });
     });
 
@@ -400,15 +389,20 @@ describe('Claude API backend', () => {
             });
         const chat = await rig([counted]);
         await chat.backend.start();
-        const session = (chat.events.find((event) => event.type === 'session') as { agentSessionId: string }).agentSessionId;
         chat.backend.sendTurn(turn);
         await chat.until(isDone);
 
         expect(chat.events).toContainEqual(expect.objectContaining({ type: 'usage', contextTokens: 9420, contextWindow: 500_000 }));
-        const [file] = await readdir(chat.service.usageDirectory);
-        const lines = (await readFile(join(chat.service.usageDirectory, file!), 'utf8')).trim().split('\n');
-        expect(lines.map((line) => JSON.parse(line))).toEqual([
-            expect.objectContaining({ model: 'claude-sonnet-5-5', session, input: 20, cacheRead: 9000, cacheWrite: 400, output: 250, reasoning: 0 })
+        expect(await usageLines(chat.service.usageDirectory)).toEqual([
+            expect.objectContaining({
+                model: 'claude-sonnet-5-5',
+                session: chat.sessionId,
+                input: 20,
+                cacheRead: 9000,
+                cacheWrite: 400,
+                output: 250,
+                reasoning: 0
+            })
         ]);
     });
 
@@ -442,9 +436,7 @@ describe('Claude API backend', () => {
         await chat.backend.start();
         chat.backend.sendTurn(turn);
         expect(await chat.until(isDone)).toMatchObject({ state: 'error', error: 'Anthropic is overloaded. Try again in a moment.' });
-        const [file] = await readdir(chat.service.usageDirectory);
-        const lines = (await readFile(join(chat.service.usageDirectory, file!), 'utf8')).trim().split('\n');
-        expect(lines.map((line) => JSON.parse(line))).toEqual([expect.objectContaining({ input: 123, output: 1, cacheWrite: 40 })]);
+        expect(await usageLines(chat.service.usageDirectory)).toEqual([expect.objectContaining({ input: 123, output: 1, cacheWrite: 40 })]);
     });
 
     test('a reply cut at its limit of tokens says so, and a refusal is said as one', async () => {
@@ -462,7 +454,7 @@ describe('Claude API backend', () => {
     test('a resumed chat continues the saved conversation, and one with a call that has no result gets an interrupted one', async () => {
         const first = await rig([listCall]);
         await first.backend.start();
-        const session = (first.events.find((event) => event.type === 'session') as { agentSessionId: string }).agentSessionId;
+        const session = first.sessionId;
         first.backend.sendTurn(turn);
         await first.until((event) => event.type === 'approval.requested');
         first.backend.interrupt();

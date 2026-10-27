@@ -1,7 +1,9 @@
+import { readdir, readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import type { ChatCheckpointDiff, ChatEvent, ChatInfo, ChatItem, ChatTurnItem } from '@ruimte/contracts';
 import type { CheckpointService } from '../git/checkpoints.ts';
 import type { SessionEvent } from '../sessions/manager.ts';
-import { ChatStore } from '@adecore/agents/chat';
+import { ChatStore, type BackendEvent } from '@adecore/agents/chat';
 
 type Check = () => boolean;
 
@@ -32,6 +34,56 @@ export function killQuietly(pid: number): void {
             throw error;
         }
     }
+}
+
+/* A body that arrives in the pieces given, so a frame or a line ending can fall across two of them. */
+export function streamBody(...pieces: string[]): ReadableStream<Uint8Array> {
+    const encoder = new TextEncoder();
+    return new ReadableStream({
+        start(controller) {
+            for (const piece of pieces) {
+                controller.enqueue(encoder.encode(piece));
+            }
+            controller.close();
+        }
+    });
+}
+
+/* What a backend reported, with a wait for the first event that fits (one already seen counts). */
+export class BackendEventLog {
+    readonly events: BackendEvent[] = [];
+    private waiters: Array<{ predicate: (event: BackendEvent) => boolean; resolve: (event: BackendEvent) => void }> = [];
+
+    readonly onEvent = (event: BackendEvent): void => {
+        this.events.push(event);
+        const waiting = this.waiters;
+        this.waiters = [];
+        for (const waiter of waiting) {
+            if (waiter.predicate(event)) {
+                waiter.resolve(event);
+            } else {
+                this.waiters.push(waiter);
+            }
+        }
+    };
+
+    until(predicate: (event: BackendEvent) => boolean): Promise<BackendEvent> {
+        const seen = this.events.find(predicate);
+        return seen ? Promise.resolve(seen) : new Promise((resolve) => this.waiters.push({ predicate, resolve }));
+    }
+
+    get sessionId(): string {
+        return (this.events.find((event) => event.type === 'session') as { agentSessionId: string }).agentSessionId;
+    }
+}
+
+/* The calls a service counted this month, one parsed line each. */
+export async function usageLines(directory: string): Promise<unknown[]> {
+    const [file] = await readdir(directory);
+    return (await readFile(join(directory, file!), 'utf8'))
+        .trim()
+        .split('\n')
+        .map((line) => JSON.parse(line));
 }
 
 /*

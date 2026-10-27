@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { existsSync } from 'node:fs';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { ChatInfo, ChatTurnItem, ProjectCanvasView, ProjectContent } from '@ruimte/contracts';
 import { ManualClock, testAccounts } from '@adecore/agents/testing';
@@ -9,6 +9,8 @@ import type { ProviderAccountsService } from '@adecore/agents/providers';
 import type { LimitsUpdate } from '@adecore/agents/usage';
 import { bootTestDaemon, releasedProject, runVerb, type TestDaemon } from '../tasks/test-daemon.ts';
 import { ChatStore, claudeProjectSlug } from '@adecore/agents/chat';
+import { turnsOf } from './chat-test-helpers.ts';
+import { sayAndSettle, writeLeadTranscript } from './lead-chat-test-helpers.ts';
 
 function content(): ProjectContent {
     return {
@@ -81,14 +83,18 @@ afterEach(async () => {
     await rm(root, { recursive: true, force: true });
 });
 
-function turnsOf(chatId: string): ChatTurnItem[] {
-    return (daemon.chats.get(chatId)?.thread.list() ?? []).filter((item): item is ChatTurnItem => item.kind === 'turn');
+function turnsIn(chatId: string): ChatTurnItem[] {
+    return turnsOf(daemon.chats.get(chatId)?.thread.list() ?? []);
 }
 
-async function say(chatId: string, text: string): Promise<void> {
-    const before = turnsOf(chatId).length;
-    await daemon.chats.send(chatId, text);
-    await daemon.until(() => daemon.chats.get(chatId)?.info.activeTurnId === null && turnsOf(chatId).length === before + 1);
+function say(chatId: string, text: string): Promise<void> {
+    return sayAndSettle(daemon, chatId, text);
+}
+
+/* Has the lead chat start an agent and answers its node id. */
+async function openAgent(argv: string[]): Promise<string> {
+    const [line] = await runVerb(daemon, 'chat-lead', 'agent', argv);
+    return line!.split('\t')[0]!;
 }
 
 describe('a chat under an account', () => {
@@ -164,7 +170,7 @@ describe('a fork under an account', () => {
     test('onto an account that cannot read the transcript carries the conversation over as text', async () => {
         await daemon.chats.create({ chatId: 'chat-lead', provider: 'claude', cwd: folder });
         await say('chat-lead', 'alpha');
-        const [turn] = turnsOf('chat-lead');
+        const [turn] = turnsIn('chat-lead');
         const answer = await daemon.request('chat.fork', { chatId: 'chat-lead', turnId: turn!.id, account: 'claude_personal' });
         expect(answer).toMatchObject({ ok: true });
         const { nodeId, info } = (answer as { result: { nodeId: string; info: ChatInfo } }).result;
@@ -179,16 +185,10 @@ describe('a fork under an account', () => {
     test('without an account stays on the original one and copies the transcript in its folder', async () => {
         await daemon.chats.create({ chatId: 'chat-lead', provider: 'claude', cwd: folder, account: 'claude_personal' });
         await say('chat-lead', 'alpha');
-        const lead = daemon.chats.get('chat-lead')!;
-        const [turn] = turnsOf('chat-lead');
-        const sessionId = lead.info.agentSessionId!;
-        const dir = join(personal, 'projects', claudeProjectSlug(folder));
-        await mkdir(dir, { recursive: true });
-        const lines = [
-            { type: 'user', uuid: 'prompt-0', isSidechain: false, sessionId, message: { role: 'user', content: 'alpha' } },
-            { type: 'assistant', uuid: turn!.native!.lastUuid, isSidechain: false, sessionId, message: { content: [{ type: 'text', text: 'echo' }] } }
-        ];
-        await writeFile(join(dir, `${sessionId}.jsonl`), lines.map((line) => JSON.stringify(line)).join('\n'));
+        const [turn] = turnsIn('chat-lead');
+        const projects = join(personal, 'projects');
+        await writeLeadTranscript(daemon, folder, [turn!], { projectsDir: projects });
+        const dir = join(projects, claudeProjectSlug(folder));
 
         const answer = await daemon.request('chat.fork', { chatId: 'chat-lead', turnId: turn!.id });
         const { info } = (answer as { result: { info: ChatInfo } }).result;
@@ -206,14 +206,14 @@ describe('going on under another account after a limit', () => {
     test('a Codex chat moves to an account that shares its home and takes the limited turn up there', async () => {
         await daemon.chats.create({ chatId: 'chat-codex', provider: 'codex', cwd: folder });
         await say('chat-codex', `limit:${RESET_AT / 1000}`);
-        expect(turnsOf('chat-codex')[0]).toMatchObject({ state: 'error', limit: { kind: 'usage' } });
+        expect(turnsIn('chat-codex')[0]).toMatchObject({ state: 'error', limit: { kind: 'usage' } });
 
         const answer = await daemon.request('chat.continueOn', { chatId: 'chat-codex', account: 'codex_work' });
         expect(answer).toMatchObject({ ok: true, result: { chatId: 'chat-codex' } });
         expect((answer as { result: { fork?: unknown } }).result.fork).toBeUndefined();
-        await daemon.until(() => turnsOf('chat-codex').length === 2 && daemon.chats.get('chat-codex')?.info.activeTurnId === null);
+        await daemon.until(() => turnsIn('chat-codex').length === 2 && daemon.chats.get('chat-codex')?.info.activeTurnId === null);
         expect(daemon.chats.get('chat-codex')!.info.account).toBe('codex_work');
-        expect(turnsOf('chat-codex')[1]).toMatchObject({ origin: 'agent', label: 'Continued on Work', state: 'done' });
+        expect(turnsIn('chat-codex')[1]).toMatchObject({ origin: 'agent', label: 'Continued on Work', state: 'done' });
         expect(daemon.chatEnvs.at(-1)!.CODEX_HOME).toBe(join(root, 'codex_work'));
     });
 
@@ -228,15 +228,15 @@ describe('going on under another account after a limit', () => {
         const { chatId, fork } = (answer as { result: { chatId: string; fork: { nodeId: string; info: ChatInfo } } }).result;
         expect(chatId).toBe(fork.nodeId);
         expect(fork.info).toMatchObject({ provider: 'claude', account: 'claude_personal' });
-        await daemon.until(() => turnsOf(chatId).length === 2 && daemon.chats.get(chatId)?.info.activeTurnId === null);
+        await daemon.until(() => turnsIn(chatId).length === 2 && daemon.chats.get(chatId)?.info.activeTurnId === null);
         // The fake stops on the limit line again, which the handed over conversation still holds.
-        expect(turnsOf(chatId)[1]).toMatchObject({ origin: 'agent', label: 'Continued on Personal' });
+        expect(turnsIn(chatId)[1]).toMatchObject({ origin: 'agent', label: 'Continued on Personal' });
         expect(daemon.chatEnvs.at(-1)!.CLAUDE_CONFIG_DIR).toBe(personal);
 
         expect(owedResumes().filter((entry) => entry.target === 'chat-lead')).toEqual([]);
         expect(daemon.chats.get('chat-lead')!.info.account).toBeUndefined();
         expect(daemon.chats.get('chat-lead')!.info.resumeAt).toBeUndefined();
-        expect(turnsOf('chat-lead')).toHaveLength(1);
+        expect(turnsIn('chat-lead')).toHaveLength(1);
 
         // The fork took the turn over: turning the original's switch off and on again, reset still ahead, owes it nothing.
         const original = daemon.chats.get('chat-lead')!;
@@ -265,7 +265,7 @@ describe('going on under another account after a limit', () => {
             error: { code: 'chat-busy' }
         });
         expect(daemon.chats.get('chat-codex')!.info.account).toBeUndefined();
-        expect(turnsOf('chat-codex')).toHaveLength(1);
+        expect(turnsIn('chat-codex')).toHaveLength(1);
         expect(owedResumes()).toHaveLength(1);
     });
 
@@ -278,14 +278,14 @@ describe('going on under another account after a limit', () => {
 
         clock.advance(RESET_AT - clock.now());
         await daemon.worker.settled();
-        expect(turnsOf('chat-codex')).toHaveLength(1);
+        expect(turnsIn('chat-codex')).toHaveLength(1);
         expect(owedResumes()).toHaveLength(1);
         expect(daemon.chats.get('chat-codex')!.info.resumeAt).toBe(RESET_AT);
 
         daemon.codex.started.at(-1)!.runLater();
-        await daemon.until(() => turnsOf('chat-codex').length === 2 && daemon.chats.get('chat-codex')?.info.activeTurnId === null);
+        await daemon.until(() => turnsIn('chat-codex').length === 2 && daemon.chats.get('chat-codex')?.info.activeTurnId === null);
         await daemon.worker.settled();
-        expect(turnsOf('chat-codex')[1]).toMatchObject({ origin: 'agent', label: 'Usage limit reset' });
+        expect(turnsIn('chat-codex')[1]).toMatchObject({ origin: 'agent', label: 'Usage limit reset' });
         expect(owedResumes()).toEqual([]);
         expect(daemon.chats.get('chat-codex')!.info.resumeAt).toBeUndefined();
     });
@@ -320,15 +320,8 @@ describe('a turned-off default account', () => {
 
     // A transcript for the fake's one turn, in the folder of the default account, so a fork can copy it.
     const transcriptOf = async (chatId: string): Promise<ChatTurnItem> => {
-        const sessionId = daemon.chats.get(chatId)!.info.agentSessionId!;
-        const [turn] = turnsOf(chatId);
-        const dir = join(daemon.chats.claudeProjectsDir, claudeProjectSlug(folder));
-        await mkdir(dir, { recursive: true });
-        const lines = [
-            { type: 'user', uuid: 'prompt-0', isSidechain: false, sessionId, message: { role: 'user', content: 'alpha' } },
-            { type: 'assistant', uuid: turn!.native!.lastUuid, isSidechain: false, sessionId, message: { content: [{ type: 'text', text: 'echo' }] } }
-        ];
-        await writeFile(join(dir, `${sessionId}.jsonl`), lines.map((line) => JSON.stringify(line)).join('\n'));
+        const [turn] = turnsIn(chatId);
+        await writeLeadTranscript(daemon, folder, [turn!]);
         return turn!;
     };
 
@@ -374,7 +367,7 @@ describe('a turned-off default account', () => {
             error: { code: 'account-unavailable', message: expect.stringContaining('it is turned off') }
         });
         expect(daemon.chats.get('chat-lead')!.info.account).toBe('claude_personal');
-        expect(turnsOf('chat-lead')).toHaveLength(1);
+        expect(turnsIn('chat-lead')).toHaveLength(1);
     });
 
     // Needs the daemon of ADE CORE to refuse a named default account that is off (`envFor`).
@@ -399,18 +392,13 @@ describe('a turned-off default account', () => {
 });
 
 describe('a child an agent opens', () => {
-    const open = async (argv: string[]): Promise<string> => {
-        const [line] = await runVerb(daemon, 'chat-lead', 'agent', argv);
-        return line!.split('\t')[0]!;
-    };
-
     test('starts under the account of its opener when it runs the same CLI, and under the default one of another CLI', async () => {
         await daemon.chats.create({ chatId: 'chat-lead', provider: 'claude', cwd: folder, account: 'claude_personal' });
         await say('chat-lead', 'plan');
 
-        const chatChild = await open(['claude', '--prompt', 'look around']);
-        const terminalChild = await open(['claude', '--terminal', '--prompt', 'look around']);
-        const codexChild = await open(['codex', '--prompt', 'look around']);
+        const chatChild = await openAgent(['claude', '--prompt', 'look around']);
+        const terminalChild = await openAgent(['claude', '--terminal', '--prompt', 'look around']);
+        const codexChild = await openAgent(['codex', '--prompt', 'look around']);
         await daemon.until(
             () => daemon.chats.get(chatChild) !== undefined && daemon.sessions.get(terminalChild) !== undefined && daemon.chats.get(codexChild) !== undefined
         );
@@ -454,14 +442,10 @@ describe('the account a person picked for new agents', () => {
         pick({ claude: 'claude_personal', codex: 'codex_work' });
         await daemon.chats.create({ chatId: 'chat-lead', provider: 'claude', cwd: folder, account: 'claude' });
         await say('chat-lead', 'plan');
-        const open = async (argv: string[]): Promise<string> => {
-            const [line] = await runVerb(daemon, 'chat-lead', 'agent', argv);
-            return line!.split('\t')[0]!;
-        };
 
-        const chatChild = await open(['claude', '--prompt', 'look around']);
-        const terminalChild = await open(['claude', '--terminal', '--prompt', 'look around']);
-        const codexChild = await open(['codex', '--prompt', 'look around']);
+        const chatChild = await openAgent(['claude', '--prompt', 'look around']);
+        const terminalChild = await openAgent(['claude', '--terminal', '--prompt', 'look around']);
+        const codexChild = await openAgent(['codex', '--prompt', 'look around']);
         await daemon.until(
             () => daemon.chats.get(chatChild) !== undefined && daemon.sessions.get(terminalChild) !== undefined && daemon.chats.get(codexChild) !== undefined
         );

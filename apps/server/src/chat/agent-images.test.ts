@@ -2,33 +2,12 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { readdir, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { ACTION_DEFINITIONS } from '@ruimte/actions';
-import type { ProjectContent } from '@ruimte/contracts';
 import { ManualClock } from '@adecore/agents/testing';
 import type { ProjectStore } from '../projects/project-store.ts';
 import { bootTestDaemon, releasedProject, runVerb, type TestDaemon } from '../tasks/test-daemon.ts';
 import { AGENT_ATTACHMENT_LIMIT } from './agent-images.ts';
 import { refusalCode } from '../canvas/verb-test-helpers.ts';
-
-function content(): ProjectContent {
-    return {
-        name: 'repo',
-        color: '#123456',
-        views: [
-            {
-                kind: 'canvas',
-                id: 'main',
-                name: 'Canvas',
-                nodes: [
-                    { id: 'chat-lead', kind: 'chat', title: 'Lead', x: 0, y: 0, w: 560, h: 640, provider: 'claude' },
-                    { id: 'term-lead', kind: 'terminal', title: 'Shell', x: 0, y: 700, w: 560, h: 360 }
-                ],
-                texts: [],
-                edges: [],
-                layouts: []
-            }
-        ]
-    };
-}
+import { leadAndShellProject } from './lead-chat-test-helpers.ts';
 
 const MIB = 1024 * 1024;
 
@@ -64,7 +43,7 @@ let store: ProjectStore;
 let running: TestDaemon[];
 
 beforeEach(async () => {
-    ({ root, home, folder, store } = await releasedProject('ruimte-agent-images-', content()));
+    ({ root, home, folder, store } = await releasedProject('ruimte-agent-images-', leadAndShellProject()));
     running = [];
 });
 

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { existsSync } from 'node:fs';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { NODE_SIZE, type ChatInfo, type ChatItem, type ChatTurnItem, type ChatVisual, type ProjectCanvasView, type ProjectContent } from '@ruimte/contracts';
@@ -15,22 +15,23 @@ import { verbsNote } from '../context/context-note.ts';
 import { chatForkDeps, forkChat, itemsThrough, type ChatForkDeps } from './fork.ts';
 import { assistantTexts, turnsOf } from './chat-test-helpers.ts';
 import { retire } from './chat-manager.fixture.test.ts';
+import { leadProject, removeNodes, sayAndSettle, writeLeadTranscript } from './lead-chat-test-helpers.ts';
 
-function content(): ProjectContent {
+/* A canvas kept in memory, read and rewritten through the two calls the project store gives a fork. */
+function inMemoryCanvas(initial: ProjectContent) {
+    let document = initial;
+    const mutate: ChatForkDeps['mutate'] = async (_projectId, apply) => {
+        const mutation = await apply(document);
+        document = mutation.content ?? document;
+        await mutation.landed?.();
+        return mutation.result;
+    };
     return {
-        name: 'repo',
-        color: '#123456',
-        views: [
-            {
-                kind: 'canvas',
-                id: 'main',
-                name: 'Canvas',
-                nodes: [{ id: 'chat-lead', kind: 'chat', title: 'Lexer', x: 0, y: 0, w: 560, h: 640, provider: 'claude', providerFixed: true }],
-                texts: [],
-                edges: [],
-                layouts: []
-            }
-        ]
+        get document() {
+            return document;
+        },
+        read: async () => document,
+        mutate
     };
 }
 
@@ -43,7 +44,7 @@ describe('forking a Claude chat', () => {
     let daemon: TestDaemon;
 
     beforeEach(async () => {
-        ({ root, home, folder, store, projectId } = await releasedProject('ruimte-fork-', content()));
+        ({ root, home, folder, store, projectId } = await releasedProject('ruimte-fork-', leadProject()));
         daemon = await bootTestDaemon({ home, store, clock: new ManualClock(), installed: ['claude', 'codex'] });
         daemon.worker.start();
     });
@@ -54,14 +55,7 @@ describe('forking a Claude chat', () => {
         await rm(root, { recursive: true, force: true });
     });
 
-    const say = async (chatId: string, text: string): Promise<void> => {
-        const before = turnsOf(daemon.chats.get(chatId)?.thread.list() ?? []).length;
-        await daemon.chats.send(chatId, text);
-        await daemon.until(() => {
-            const chat = daemon.chats.get(chatId);
-            return chat !== undefined && chat.info.activeTurnId === null && turnsOf(chat.thread.list()).length === before + 1;
-        });
-    };
+    const say = (chatId: string, text: string): Promise<void> => sayAndSettle(daemon, chatId, text);
 
     /* Four turns, and the transcript Claude Code would have written for them, keyed on the uuids the turns ended on. */
     const fourTurns = async (): Promise<{ turns: ChatTurnItem[]; sessionId: string }> => {
@@ -69,17 +63,8 @@ describe('forking a Claude chat', () => {
         for (const word of ['alpha', 'bravo', 'charlie', 'delta']) {
             await say('chat-lead', word);
         }
-        const lead = daemon.chats.get('chat-lead')!;
-        const sessionId = lead.info.agentSessionId!;
-        const turns = turnsOf(lead.thread.list());
-        const lines = turns.flatMap((turn, index) => [
-            { type: 'user', uuid: `prompt-${index}`, isSidechain: false, sessionId, message: { role: 'user', content: `word ${index}` } },
-            { type: 'assistant', uuid: turn.native!.lastUuid, isSidechain: false, sessionId, message: { content: [{ type: 'text', text: 'echo' }] } },
-            { type: 'last-prompt', sessionId, lastPrompt: `word ${index}` }
-        ]);
-        const dir = join(daemon.chats.claudeProjectsDir, claudeProjectSlug(folder));
-        await mkdir(dir, { recursive: true });
-        await writeFile(join(dir, `${sessionId}.jsonl`), lines.map((entry) => JSON.stringify(entry)).join('\n'));
+        const turns = turnsOf(daemon.chats.get('chat-lead')!.thread.list());
+        const sessionId = await writeLeadTranscript(daemon, folder, turns, { lastPrompt: true });
         return { turns, sessionId };
     };
 
@@ -208,16 +193,7 @@ describe('forking a Claude chat', () => {
         await daemon.chats.create({ chatId: spoken.nodeId });
         await say(spoken.nodeId, 'go on');
 
-        const gone = new Set([unopened.nodeId, loaded.nodeId, spoken.nodeId]);
-        await store.mutate(projectId, (current) => ({
-            content: {
-                ...current,
-                views: current.views.map((view) =>
-                    view.kind === 'canvas' ? { ...view, nodes: view.nodes.filter((node) => !gone.has(node.id)), edges: [] } : view
-                )
-            },
-            result: null
-        }));
+        await removeNodes(store, projectId, [unopened.nodeId, loaded.nodeId, spoken.nodeId]);
         // What a client does for a node that left, which only reaches a chat this daemon has loaded.
         await daemon.request('chat.kill', { chatId: loaded.nodeId });
         await daemon.pruned();
@@ -330,7 +306,7 @@ describe('forkChat', () => {
 
     /* Deps around an in-memory canvas, which record what the fork asked of each CLI. */
     const stub = (source: { info: ChatInfo; items: ChatItem[] }) => {
-        let document = content();
+        const canvas = inMemoryCanvas(leadProject());
         const asked: {
             claude: unknown[];
             codex: unknown[];
@@ -356,13 +332,8 @@ describe('forkChat', () => {
             }),
             locate: () => ({ projectId: 'p1', folder: '/work', canvasId: 'main' }),
             titleFor: () => 'Lexer',
-            read: async () => document,
-            mutate: async (_projectId, apply) => {
-                const mutation = await apply(document);
-                document = mutation.content ?? document;
-                await mutation.landed?.();
-                return mutation.result;
-            },
+            read: canvas.read,
+            mutate: canvas.mutate,
             depthOf: () => 0,
             nodeSize: (kind) => NODE_SIZE[kind],
             recordFork: async () => undefined,
@@ -491,21 +462,12 @@ describe('forkChat', () => {
 
     test('a node asked to fork into a view gets a view after its canvas, and a chat view still takes a named canvas', async () => {
         const { deps, asked } = stub({ info: info('claude'), items: [turn('turn-1', { lastUuid: 'u-1' })] });
-        let document: ProjectContent = { ...content(), views: [...content().views, { kind: 'drawing', id: 'sketch', name: 'Sketch' }] };
-        const onDocument: ChatForkDeps = {
-            ...deps,
-            read: async () => document,
-            mutate: async (_projectId, apply) => {
-                const mutation = await apply(document);
-                document = mutation.content ?? document;
-                await mutation.landed?.();
-                return mutation.result;
-            }
-        };
+        const canvas = inMemoryCanvas({ ...leadProject(), views: [...leadProject().views, { kind: 'drawing', id: 'sketch', name: 'Sketch' }] });
+        const onDocument: ChatForkDeps = { ...deps, read: canvas.read, mutate: canvas.mutate };
         const asView = await forkChat(onDocument, { chatId: 'chat-lead', turnId: 'turn-1', asView: true });
         expect(asView).toMatchObject({ viewId: asView.nodeId, edgeId: null });
-        expect(document.views.map((view) => view.id)).toEqual(['main', asView.nodeId, 'sketch']);
-        expect((document.views[0] as ProjectCanvasView).nodes).toHaveLength(1);
+        expect(canvas.document.views.map((view) => view.id)).toEqual(['main', asView.nodeId, 'sketch']);
+        expect((canvas.document.views[0] as ProjectCanvasView).nodes).toHaveLength(1);
         expect(asked.written[0]!.preambles[0]).toContain('forked from node chat-lead');
 
         const onCanvas = await forkChat(
@@ -513,7 +475,7 @@ describe('forkChat', () => {
             { chatId: 'chat-lead', turnId: 'turn-1', viewId: 'main' }
         );
         expect(onCanvas).toMatchObject({ viewId: 'main', edgeId: null });
-        expect((document.views[0] as ProjectCanvasView).nodes.map((node) => node.id)).toContain(onCanvas.nodeId);
+        expect((canvas.document.views[0] as ProjectCanvasView).nodes.map((node) => node.id)).toContain(onCanvas.nodeId);
     });
 
     test('a record that cannot be written takes back the worktree and the transcript copy made for the fork', async () => {
@@ -602,27 +564,15 @@ describe('forking a Codex chat', () => {
         }
         const lead = manager.get('chat-lead')!;
         const turns = turnsOf(lead.thread.list());
-        let document: ProjectContent = {
-            ...content(),
-            views: [
-                {
-                    ...(content().views[0] as ProjectCanvasView),
-                    nodes: [{ ...(content().views[0] as ProjectCanvasView).nodes[0]!, provider: 'codex' as const }]
-                }
-            ]
-        };
+        const leadView = leadProject().views[0] as ProjectCanvasView;
+        const canvas = inMemoryCanvas({ ...leadProject(), views: [{ ...leadView, nodes: [{ ...leadView.nodes[0]!, provider: 'codex' as const }] }] });
         const host: Parameters<typeof chatForkDeps>[0]['host'] = {
             starts: { installedAgents: async () => ['codex'] },
             machine: { nodeSize: (kind) => NODE_SIZE[kind] },
             projects: {
                 locate: () => ({ projectId: 'p1', folder: home, canvasId: 'main' }),
-                read: async () => document,
-                mutate: async (_projectId, apply) => {
-                    const mutation = await apply(document);
-                    document = mutation.content ?? document;
-                    await mutation.landed?.();
-                    return mutation.result;
-                }
+                read: canvas.read,
+                mutate: canvas.mutate
             }
         };
         const deps = chatForkDeps({ chats: manager, host, titleFor: () => 'Lexer', lineage: new AgentLineageStore(home) });
