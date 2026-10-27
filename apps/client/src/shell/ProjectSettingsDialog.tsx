@@ -13,7 +13,7 @@ import { Button, ColorSwatch, Icon, useAsyncAction, Dialog, Field, FormError, Ic
 
 // The daemon rejects larger files, so the picker catches them before sending the bytes.
 const MAX_BYTES = 256 * 1024;
-const ACCEPT = 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml';
+const ACCEPT = 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml,image/heic,image/heif,.heic,.heif';
 
 /* A picked file without the data URL prefix that FileReader adds. */
 function readAsBase64(file: File): Promise<string> {
@@ -70,7 +70,9 @@ function ProjectSettingsForm({ project, endpointId, actions, onOpenChange }: Pro
             fail(t('projectSettings.tooLarge'));
             return;
         }
-        await run(async () => actions.uploadIcon(file.type, await readAsBase64(file)));
+        const mime = file.type || (/\.hei[cf]$/i.test(file.name) ? `image/${file.name.slice(-4).toLowerCase()}` : '');
+
+        await run(async () => actions.uploadIcon(mime, await readAsBase64(file)));
     };
 
     const save = async (): Promise<void> => {

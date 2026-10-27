@@ -42,9 +42,9 @@ describe('sniffIconMime', () => {
         expect(sniffIconMime(Buffer.from('#!/bin/sh\necho hi\n'))).toBeNull();
     });
 
-    test('takes no picture a browser leaves to the platform', () => {
+    test('accepts HEIC for the display decoder and leaves TIFF to the platform', () => {
         const heic = Buffer.concat([Buffer.from([0x00, 0x00, 0x00, 0x18]), Buffer.from('ftypheic'), Buffer.alloc(4), Buffer.from('mif1heic')]);
-        expect(sniffIconMime(heic)).toBeNull();
+        expect(sniffIconMime(heic)).toBe('image/heic');
         expect(sniffIconMime(Buffer.from('II*\x00\x08\x00\x00\x00', 'latin1'))).toBeNull();
     });
 });

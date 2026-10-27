@@ -11,25 +11,34 @@ afterEach(async () => {
     await Promise.all(folders.splice(0).map((folder) => rm(folder, { recursive: true, force: true })));
 });
 
-async function fixture() {
+async function fixture(image = IMAGE, mime = 'image/png', name = 'rabbit.png') {
     const home = await realpath(await mkdtemp(join(tmpdir(), 'ruimte-image-save-')));
     folders.push(home);
     const folder = join(home, 'project');
     await mkdir(join(folder, 'assets'), { recursive: true });
     const source = join(home, 'attachment.png');
-    await writeFile(source, IMAGE);
+    await writeFile(source, image);
     const machineHome = new MachineHome(join(folder, 'machine-state'));
     const files = new ChatImageFiles({
         project: async (chatId, clientId) => (chatId === 'chat' && clientId === 'person' ? { folder, name: 'Project' } : null),
         attachment: async (chatId, attachmentId) =>
-            chatId === 'chat' && attachmentId === 'image' ? { id: 'image', name: 'rabbit.png', mime: 'image/png', size: IMAGE.length, path: source } : null,
+            chatId === 'chat' && attachmentId === 'image' ? { id: 'image', name, mime, size: image.length, path: source } : null,
         refusePath: (path) => machineHome.refuse(path)
     });
-    const payload = { chatId: 'chat', attachmentId: 'image', path: 'assets/rabbit.png' };
+    const payload = { chatId: 'chat', attachmentId: 'image', path: `assets/${name}` };
     return { home, folder, source, files, payload };
 }
 
 describe('ChatImageFiles', () => {
+    test('saves HEIC with its original bytes and extension', async () => {
+        const image = await readFile(new URL('../../../ios/Tests/Fixtures/Files/image.heic', import.meta.url));
+        const { folder, source, files, payload } = await fixture(image, 'image/heic', 'photo.heic');
+
+        expect(await files.save(payload, 'person')).toMatchObject({ path: join(folder, 'assets/photo.heic'), size: image.length });
+        expect(await readFile(join(folder, payload.path))).toEqual(image);
+        expect(await readFile(source)).toEqual(image);
+    });
+
     test('a project around the daemon home cannot save into machine state', async () => {
         const { folder, files, payload } = await fixture();
         await mkdir(join(folder, 'machine-state'));

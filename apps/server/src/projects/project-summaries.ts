@@ -59,7 +59,7 @@ export class ProjectSummaries {
             const mime = sniffIconMime(bytes);
             const extension = mime ? ICON_EXTENSION_BY_MIME[mime] : undefined;
             if (!extension) {
-                throw new ProjectError('bad-icon', 'That file is not a PNG, JPEG, GIF, WebP or SVG image');
+                throw new ProjectError('bad-icon', 'That file is not a PNG, JPEG, GIF, WebP, HEIC, HEIF or SVG image');
             }
             await writeIconFile(folder, extension, bytes);
         }

@@ -12,7 +12,9 @@ export const AGENT_IMAGE_TYPES: Readonly<Record<string, string>> = {
     'image/png': 'png',
     'image/jpeg': 'jpg',
     'image/gif': 'gif',
-    'image/webp': 'webp'
+    'image/webp': 'webp',
+    'image/heic': 'heic',
+    'image/heif': 'heif'
 };
 
 /* The 3D formats a Model block draws. */

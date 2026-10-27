@@ -3,7 +3,14 @@ import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { CHAT_ATTACHMENT_MAX_BYTES, sniffImageMime } from '@ruimte/contracts';
 
-const EXTENSIONS: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp' };
+const EXTENSIONS: Record<string, string> = {
+    'image/png': 'png',
+    'image/jpeg': 'jpg',
+    'image/gif': 'gif',
+    'image/webp': 'webp',
+    'image/heic': 'heic',
+    'image/heif': 'heif'
+};
 
 /* Only image bytes reach the system viewer; neither a source path nor an executable extension comes from the page. */
 export async function openImageCopy(folder: string, name: string, bytes: Uint8Array, mime: string, openPath: (path: string) => Promise<string>): Promise<void> {

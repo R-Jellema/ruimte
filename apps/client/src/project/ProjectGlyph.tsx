@@ -1,4 +1,5 @@
 import clsx from 'clsx';
+import { DisplayImage } from '@adecore/agents-react/images';
 import { useEffect, useState } from 'react';
 import type { ProjectIcon } from '@ruimte/contracts';
 import { MessagesSquare } from 'lucide-react';
@@ -71,7 +72,7 @@ export function ProjectGlyph({ projectId, endpointId, icon, color, size = 16, cl
             return <span aria-hidden className={clsx('shrink-0', className)} style={box} />;
         }
         return (
-            <img
+            <DisplayImage
                 src={image.url}
                 alt=""
                 width={size}

@@ -2,11 +2,11 @@ import { describe, expect, test } from 'bun:test';
 import { drawsImageMime, imageFormatName, isDelimitedName } from './file-kind';
 
 describe('drawsImageMime', () => {
-    test.each(['image/png', 'image/avif', 'image/bmp', 'image/x-icon', 'image/svg+xml'])('draws %s', (mime) => {
+    test.each(['image/heic', 'image/heif', 'image/png', 'image/avif', 'image/bmp', 'image/x-icon', 'image/svg+xml'])('draws %s', (mime) => {
         expect(drawsImageMime(mime)).toBe(true);
     });
 
-    test.each(['image/heic', 'image/heif', 'image/tiff', 'application/pdf', 'video/mp4'])('does not draw %s', (mime) => {
+    test.each(['image/tiff', 'application/pdf', 'video/mp4'])('does not draw %s', (mime) => {
         expect(drawsImageMime(mime)).toBe(false);
     });
 });

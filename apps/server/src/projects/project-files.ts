@@ -615,7 +615,9 @@ export const ICON_EXTENSION_BY_MIME: Record<string, string> = {
     'image/png': 'png',
     'image/jpeg': 'jpg',
     'image/gif': 'gif',
-    'image/webp': 'webp'
+    'image/webp': 'webp',
+    'image/heic': 'heic',
+    'image/heif': 'heif'
 };
 
 const ICON_EXTENSIONS = Object.values(ICON_EXTENSION_BY_MIME).concat('jpeg');

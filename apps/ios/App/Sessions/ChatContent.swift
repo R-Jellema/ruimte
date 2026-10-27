@@ -103,7 +103,7 @@ struct ChatFileReference: Identifiable, Equatable {
         let ext = (name as NSString).pathExtension.lowercased()
         let extensions = [
             "swift", "ts", "tsx", "js", "jsx", "json", "md", "txt", "py", "rs", "go", "css", "html", "vue", "yml",
-            "yaml", "toml", "sh", "sql", "xml", "png", "jpg", "jpeg", "gif", "webp", "svg", "pdf", "c", "h", "cpp",
+            "yaml", "toml", "sh", "sql", "xml", "png", "jpg", "jpeg", "gif", "webp", "heic", "heif", "svg", "pdf", "c", "h", "cpp",
             "kt", "java",
         ]
         guard

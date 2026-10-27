@@ -35,7 +35,10 @@ export async function prepareAttachment(file: string, name: string | null, rest:
     const bytes = buffer.subarray(0, length);
     const type = agentAttachmentType(bytes);
     if (type === null) {
-        return refusal('attach-not-image', `${file} is no image or model: its bytes are not a PNG, JPEG, GIF or WebP, nor a binary glTF, USDZ or STL`);
+        return refusal(
+            'attach-not-image',
+            `${file} is no image or model: its bytes are not a PNG, JPEG, GIF, WebP, HEIC or HEIF, nor a binary glTF, USDZ or STL`
+        );
     }
     if (length > agentAttachmentBytes(type.kind)) {
         return refusal('attach-too-large', `${file} is more than the ${AGENT_IMAGE_BYTES / MIB} MiB an image may be`);

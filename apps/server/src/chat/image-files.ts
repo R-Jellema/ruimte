@@ -109,7 +109,7 @@ export class ChatImageFiles {
             throw new ImageFileError('outside-project', 'Open the project of this chat before saving its image');
         }
         const attachment = await this.sources.attachment(payload.chatId, payload.attachmentId);
-        if (attachment === null || !['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(attachment.mime)) {
+        if (attachment === null || !['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/heic', 'image/heif'].includes(attachment.mime)) {
             throw new ImageFileError('not-found', 'This chat keeps no image under that attachment id');
         }
         return { project, attachment };

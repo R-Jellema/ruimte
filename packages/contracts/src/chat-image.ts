@@ -34,8 +34,8 @@ function ascii(text: string): number[] {
     return [...text].map((character) => character.charCodeAt(0));
 }
 
-/* The image type its leading bytes say, for the four types an attachment may be; null for anything else. */
-export function sniffImageMime(bytes: Uint8Array): 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp' | null {
+/* The raster image types a chat can display, identified by their bytes rather than their name. */
+export function sniffImageMime(bytes: Uint8Array): 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp' | 'image/heic' | 'image/heif' | null {
     if (bytes.length >= 33 && startsWith(bytes, [137, 80, 78, 71, 13, 10, 26, 10])) {
         return 'image/png';
     }
@@ -48,5 +48,29 @@ export function sniffImageMime(bytes: Uint8Array): 'image/png' | 'image/jpeg' | 
     if (bytes.length >= 20 && startsWith(bytes, ascii('RIFF')) && startsWith(bytes, ascii('WEBP'), 8)) {
         return 'image/webp';
     }
-    return null;
+    if (bytes.length < 16 || !startsWith(bytes, ascii('ftyp'), 4)) {
+        return null;
+    }
+
+    const size = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(0);
+
+    if (size < 16 || size > bytes.length || size % 4 !== 0) {
+        return null;
+    }
+
+    const brands = [String.fromCharCode(...bytes.subarray(8, 12))];
+
+    for (let offset = 16; offset < size; offset += 4) {
+        brands.push(String.fromCharCode(...bytes.subarray(offset, offset + 4)));
+    }
+
+    if (brands.some((brand) => brand === 'avif' || brand === 'avis')) {
+        return null;
+    }
+
+    if (brands.some((brand) => ['heic', 'heix', 'heim', 'heis', 'hevc', 'hevx', 'hevm', 'hevs'].includes(brand))) {
+        return 'image/heic';
+    }
+
+    return brands.some((brand) => brand === 'mif1' || brand === 'msf1') ? 'image/heif' : null;
 }

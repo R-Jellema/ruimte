@@ -28,8 +28,8 @@ export function isDelimitedName(name: string): boolean {
     return DELIMITED_EXTENSIONS.has(extensionOf(name));
 }
 
-// The daemon serves these for a client whose platform decodes them; Chromium decodes none of the three.
-const UNDRAWN_IMAGE_MIMES = new Set(['image/heic', 'image/heif', 'image/tiff']);
+// TIFF still needs a platform decoder; HEIC and HEIF go through the shared display decoder.
+const UNDRAWN_IMAGE_MIMES = new Set(['image/tiff']);
 
 /* Whether this app draws an image of this type, known before a byte of it is fetched. */
 export function drawsImageMime(mime: string): boolean {

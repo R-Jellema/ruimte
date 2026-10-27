@@ -289,7 +289,7 @@ export const FsRenameResultSchema = z.object({
 export type FsRenameResult = z.infer<typeof FsRenameResultSchema>;
 
 // What `GET /fs/file` serves; a read result names one of these before the client asks for the bytes.
-// Not every client draws every one: HEIC and TIFF are left to the platform's own decoder.
+// TIFF needs the platform's decoder; web clients decode HEIC and HEIF before displaying them.
 const IMAGE_MIMES: ReadonlySet<string> = new Set([
     'image/png',
     'image/jpeg',

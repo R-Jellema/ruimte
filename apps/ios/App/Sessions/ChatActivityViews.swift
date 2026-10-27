@@ -187,7 +187,7 @@ struct ChatToolRow: View {
             }
             if item.state == .done, ["Read", "NotebookRead"].contains(item.name),
                 let path = item.input["file_path"]?.stringValue,
-                ["png", "jpg", "jpeg", "gif", "webp"].contains((path as NSString).pathExtension.lowercased())
+                ["png", "jpg", "jpeg", "gif", "webp", "heic", "heif"].contains((path as NSString).pathExtension.lowercased())
             {
                 ChatInlineImage(
                     resource: .object(["kind": .string("file"), "path": .string(path)]),

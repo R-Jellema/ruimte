@@ -365,6 +365,13 @@ describe('ProjectStore', () => {
         const set = await store.setIcon({ projectId: opened.summary.projectId, image: { mime: 'image/png', base64: PNG.toString('base64') } });
         expect(set.icon).toMatchObject({ kind: 'image', value: '.ruimte/icon.png' });
         expect(await readFile(join(folder, '.ruimte', 'icon.png'))).toEqual(PNG);
+
+        const heic = await readFile(new URL('../../../ios/Tests/Fixtures/Files/image.heic', import.meta.url));
+        const photo = await store.setIcon({ projectId: opened.summary.projectId, image: { mime: 'image/heic', base64: heic.toString('base64') } });
+
+        expect(photo.icon).toMatchObject({ kind: 'image', value: '.ruimte/icon.heic' });
+        expect(await readFile(join(folder, '.ruimte', 'icon.heic'))).toEqual(heic);
+        await expect(readFile(join(folder, '.ruimte', 'icon.png'))).rejects.toMatchObject({ code: 'ENOENT' });
     });
 
     test('setIcon refuses bytes that are not an image, whatever the client calls them', async () => {

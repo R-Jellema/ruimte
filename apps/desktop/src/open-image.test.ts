@@ -34,3 +34,18 @@ test('removes the temporary copy when the system viewer refuses it', async () =>
     await expect(openImageCopy(folder, 'image.png', IMAGE, 'image/png', async () => 'No viewer')).rejects.toThrow('No viewer');
     expect(await readdir(folder)).toEqual([]);
 });
+
+test('opens a HEIC copy with its original bytes and a safe HEIC extension', async () => {
+    const folder = await mkdtemp(join(tmpdir(), 'ruimte-open-heic-'));
+    folders.push(folder);
+    const image = await readFile(new URL('../../ios/Tests/Fixtures/Files/image.heic', import.meta.url));
+    let opened = '';
+    await openImageCopy(folder, 'photo.command', image, 'image/heic', async (path) => {
+        opened = path;
+
+        return '';
+    });
+
+    expect(opened.endsWith('.heic')).toBe(true);
+    expect(await readFile(opened)).toEqual(image);
+});

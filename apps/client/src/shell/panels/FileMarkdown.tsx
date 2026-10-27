@@ -1,6 +1,6 @@
 import { type ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Markdown, useFileLinkCwd } from '@adecore/agents-react/chat/ui';
+import { DisplayImage, Markdown, useFileLinkCwd } from '@adecore/agents-react/chat/ui';
 import { parseMarkdownDocument, markdownImagePath, markdownImageStyle } from '@/shell/panels/markdown-document';
 import { FILE_HTML_PLUGINS } from '@/shell/panels/markdown-html';
 import { useFileRead } from '@/shell/panels/use-file-read';
@@ -14,7 +14,7 @@ function LocalImage({ path, ...props }: ImageProps & { path: string }) {
     const endpointId = useEndpointId();
     const resource =
         state.status === 'ready' && state.read.kind === 'binary' && state.read.mime.startsWith('image/')
-            ? { kind: 'file' as const, path, mtime: state.read.mtime, size: state.read.size }
+            ? { kind: 'file' as const, path, mtime: state.read.mtime, size: state.read.size, mime: state.read.mime }
             : null;
     const bytes = useMachineUrl(resource, endpointId);
     return <img {...props} src={bytes.url ?? undefined} loading="lazy" referrerPolicy="no-referrer" />;
@@ -25,7 +25,7 @@ function DocumentImage({ src, alt, title, width, height }: ImageProps) {
     const path = markdownImagePath(src ?? '', folder);
     const props = { alt, title, width, height, style: markdownImageStyle(width, height) };
     return path === null ? (
-        <img {...props} src={src || undefined} loading="lazy" referrerPolicy="no-referrer" />
+        <DisplayImage {...props} src={src || undefined} loading="lazy" referrerPolicy="no-referrer" />
     ) : (
         <LocalImage key={path} {...props} path={path} />
     );

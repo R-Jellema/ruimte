@@ -27,14 +27,14 @@ export function useEndpointIdOf(source: FileSource): string {
 }
 
 /* The machine's bytes for this source. `media` asks for ranges, which only a file has: an entry or an Output file comes whole. */
-export function machineResourceOf(source: FileSource, read: { mtime: number; size: number }, media = false): MachineResource {
+export function machineResourceOf(source: FileSource, read: { mtime: number; size: number; mime?: string }, media = false): MachineResource {
     if (source.kind === 'artifact') {
         return { kind: 'artifact', artifactId: source.artifactId, versionId: source.versionId, file: source.file };
     }
     if (source.kind === 'archive-entry') {
         return { kind: 'archive-entry', path: source.path, entry: source.entry, mtime: source.archiveMtime, size: source.archiveSize };
     }
-    return { kind: media ? 'media' : 'file', path: source.path, mtime: read.mtime, size: read.size };
+    return { kind: media ? 'media' : 'file', path: source.path, mtime: read.mtime, size: read.size, mime: read.mime };
 }
 
 /* What a file manager can be asked to show, which an entry inside an archive or an Output file is not. */

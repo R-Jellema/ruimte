@@ -1,3 +1,4 @@
+import { imageForDisplay } from '@adecore/agents-react/images';
 import type { ProjectIcon, ProjectSummary } from '@ruimte/contracts';
 import { readResource } from '@/transport/byte-transfer';
 import { readPiece } from '@/transport/piece';
@@ -54,7 +55,7 @@ export function iconAppearanceFromPixels(pixels: Uint8ClampedArray): IconAppeara
 }
 
 async function analyze(blob: Blob): Promise<IconAppearance> {
-    const url = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(await imageForDisplay(blob));
     try {
         const image = new Image();
         image.src = url;

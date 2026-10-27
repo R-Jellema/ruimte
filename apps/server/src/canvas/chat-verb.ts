@@ -22,7 +22,7 @@ const attach = defineActionVerb('chat', {
         { syntax: '--data B', need: 'optional', field: 'data', more: 'ruimte-context fills this from --file; there is no reason to write it yourself' }
     ],
     detail: [
-        `limits\tPNG, JPEG, GIF and WebP images of at most ${AGENT_IMAGE_BYTES / MIB} MiB, binary glTF, USDZ and STL models of at most ${AGENT_MODEL_BYTES / MIB} MiB, ${AGENT_ATTACHMENT_LIMIT} per chat together; the type is read off the bytes, not the name`,
+        `limits\tPNG, JPEG, GIF, WebP, HEIC and HEIF images of at most ${AGENT_IMAGE_BYTES / MIB} MiB, binary glTF, USDZ and STL models of at most ${AGENT_MODEL_BYTES / MIB} MiB, ${AGENT_ATTACHMENT_LIMIT} per chat together; the type is read off the bytes, not the name`,
         'prints\tattachment\tid\tname\tmime\tsize\tthe id to write as attachment',
         'use\t<Image attachment="<id>" alt="..."/> in a ruimte-ui block, and Gallery and Compare take ids the same way; a model is <Model attachment="<id>">caption</Model>, shown only when the person asks to see it',
         'chat\tOnly an AI chat takes one, in any permission mode: it changes nothing but your own thread. It goes with a clear or a deletion of the chat',

@@ -42,7 +42,10 @@ function MachineImage({ path, alt, place, saves = false }: { path: string; alt: 
     const outputProject = useOutputProject(endpointId);
     const binary = read?.kind === 'binary' && isImageMime(read.mime) ? read : null;
     const drawable = binary !== null && drawsImageMime(binary.mime);
-    const source = useMachineUrl(binary === null || !drawable ? null : { kind: 'file', path, mtime: binary.mtime, size: binary.size }, endpointId);
+    const source = useMachineUrl(
+        binary === null || !drawable ? null : { kind: 'file', path, mtime: binary.mtime, size: binary.size, mime: binary.mime },
+        endpointId
+    );
 
     useEffect(() => {
         let cancelled = false;

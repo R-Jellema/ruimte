@@ -31,6 +31,8 @@ const ICON_CANDIDATES = [
     `${PROJECT_DIR}/icon.jpeg`,
     `${PROJECT_DIR}/icon.gif`,
     `${PROJECT_DIR}/icon.webp`,
+    `${PROJECT_DIR}/icon.heic`,
+    `${PROJECT_DIR}/icon.heif`,
     '.idea/icon.svg',
     '.idea/icon.png',
     '.vscode/icon.svg',
@@ -79,8 +81,7 @@ interface DerivedIdentity {
 
 const EMPTY: DerivedIdentity = { icon: null, unresolved: false };
 
-// Only what every client draws as it is: the file viewer also knows HEIC and TIFF, which a browser does not.
-const ICON_MIMES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml']);
+const ICON_MIMES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml', 'image/heic', 'image/heif']);
 
 /*
  * What a folder may declare as its icon. An .ico is taken here on its four-byte signature alone,

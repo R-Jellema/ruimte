@@ -74,6 +74,17 @@ function attach(daemon: TestDaemon, caller: string, bytes: Uint8Array, name = 's
 }
 
 describe('chat attach', () => {
+    test.each(['heic', 'heif'])('stores and retrieves a %s attachment without changing its bytes', async (extension) => {
+        const daemon = await bootWithChat();
+        const image = await readFile(new URL(`../../../ios/Tests/Fixtures/Files/image.${extension}`, import.meta.url));
+        const lines = await attach(daemon, 'chat-lead', image, `photo.${extension}`);
+        const [, id] = lines[0]!.split('\t');
+        const found = await daemon.chats.findAttachment('chat-lead', id!);
+
+        expect(found).toMatchObject({ name: `photo.${extension}`, mime: 'image/heic' });
+        expect(await readFile(found!.path)).toEqual(image);
+    });
+
     test('stores an image under an agent id and prints it, and the attachment lookup answers it', async () => {
         const daemon = await bootWithChat();
         const lines = await attach(daemon, 'chat-lead', PNG);
