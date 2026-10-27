@@ -28,6 +28,7 @@ import {
 import i18next from 'i18next';
 import type { Shortcut } from '@adecore/ui';
 import type { EditorRunCommand } from '@adecore/editor';
+import type { KeymapId } from '@adecore/editor/keymap';
 import { editorShortcut } from '@/shell/editor-keymap';
 import { editorForCommand } from '@/shell/panels/focused-editor';
 
@@ -45,117 +46,46 @@ interface EditorCommandSpec {
     readonly group?: 'folding';
 }
 
+/* A command named as its key in the editor's keymap. */
+function command(icon: LucideIcon, name: EditorRunCommand & KeymapId, group?: 'folding'): EditorCommandSpec {
+    return { icon, key: name, command: name, shortcut: editorShortcut(name), ...(group === undefined ? {} : { group }) };
+}
+
+/* A folding command whose key the keymap names otherwise. */
+function folding(icon: LucideIcon, name: EditorRunCommand, keymap: KeymapId): EditorCommandSpec {
+    return { icon, key: name, command: name, shortcut: editorShortcut(keymap), group: 'folding' };
+}
+
 const TABLE = {
-    'toggle-line-comment': { icon: Slash, key: 'toggleLineComment', command: 'toggleLineComment', shortcut: editorShortcut('toggleLineComment') },
-    'toggle-block-comment': { icon: Code, key: 'toggleBlockComment', command: 'toggleBlockComment', shortcut: editorShortcut('toggleBlockComment') },
-    'join-lines': { icon: Merge, key: 'joinLines', command: 'joinLines', shortcut: editorShortcut('joinLines') },
-    'split-line': { icon: Split, key: 'splitLine', command: 'splitLine', shortcut: editorShortcut('splitLine') },
-    'start-new-line': { icon: CornerDownLeft, key: 'startNewLine', command: 'startNewLine', shortcut: editorShortcut('startNewLine') },
-    'start-new-line-before': { icon: CornerLeftUp, key: 'startNewLineBefore', command: 'startNewLineBefore', shortcut: editorShortcut('startNewLineBefore') },
-    'toggle-case': { icon: CaseSensitive, key: 'toggleCase', command: 'toggleCase', shortcut: editorShortcut('toggleCase') },
-    'auto-indent-lines': { icon: IndentIncrease, key: 'autoIndentLines', command: 'autoIndentLines', shortcut: editorShortcut('autoIndentLines') },
-    'collapse-region': { icon: FoldVertical, key: 'collapseRegion', command: 'collapseRegion', shortcut: editorShortcut('collapse'), group: 'folding' },
-    'expand-region': { icon: UnfoldVertical, key: 'expandRegion', command: 'expandRegion', shortcut: editorShortcut('expand'), group: 'folding' },
-    'collapse-region-recursively': {
-        icon: ListCollapse,
-        key: 'collapseRegionRecursively',
-        command: 'collapseRegionRecursively',
-        shortcut: editorShortcut('collapseRecursively'),
-        group: 'folding'
-    },
-    'expand-region-recursively': {
-        icon: ListTree,
-        key: 'expandRegionRecursively',
-        command: 'expandRegionRecursively',
-        shortcut: editorShortcut('expandRecursively'),
-        group: 'folding'
-    },
-    'collapse-all-regions': {
-        icon: ChevronsDownUp,
-        key: 'collapseAllRegions',
-        command: 'collapseAllRegions',
-        shortcut: editorShortcut('collapseAll'),
-        group: 'folding'
-    },
-    'expand-all-regions': {
-        icon: ChevronsUpDown,
-        key: 'expandAllRegions',
-        command: 'expandAllRegions',
-        shortcut: editorShortcut('expandAll'),
-        group: 'folding'
-    },
-    'fold-selection': { icon: FoldHorizontal, key: 'foldSelection', command: 'foldSelection', shortcut: editorShortcut('foldSelection'), group: 'folding' },
-    'collapse-doc-comments': {
-        icon: Book,
-        key: 'collapseDocComments',
-        command: 'collapseDocComments',
-        shortcut: editorShortcut('collapseDocComments'),
-        group: 'folding'
-    },
-    'expand-doc-comments': {
-        icon: BookOpen,
-        key: 'expandDocComments',
-        command: 'expandDocComments',
-        shortcut: editorShortcut('expandDocComments'),
-        group: 'folding'
-    },
-    'expand-all-to-level-1': {
-        icon: ListTree,
-        key: 'expandAllToLevel1',
-        command: 'expandAllToLevel1',
-        shortcut: editorShortcut('expandAllToLevel1'),
-        group: 'folding'
-    },
-    'expand-all-to-level-2': {
-        icon: ListTree,
-        key: 'expandAllToLevel2',
-        command: 'expandAllToLevel2',
-        shortcut: editorShortcut('expandAllToLevel2'),
-        group: 'folding'
-    },
-    'expand-all-to-level-3': {
-        icon: ListTree,
-        key: 'expandAllToLevel3',
-        command: 'expandAllToLevel3',
-        shortcut: editorShortcut('expandAllToLevel3'),
-        group: 'folding'
-    },
-    'expand-all-to-level-4': {
-        icon: ListTree,
-        key: 'expandAllToLevel4',
-        command: 'expandAllToLevel4',
-        shortcut: editorShortcut('expandAllToLevel4'),
-        group: 'folding'
-    },
-    'expand-all-to-level-5': {
-        icon: ListTree,
-        key: 'expandAllToLevel5',
-        command: 'expandAllToLevel5',
-        shortcut: editorShortcut('expandAllToLevel5'),
-        group: 'folding'
-    },
-    'select-next-occurrence': {
-        icon: ScanSearch,
-        key: 'selectNextOccurrence',
-        command: 'selectNextOccurrence',
-        shortcut: editorShortcut('selectNextOccurrence')
-    },
-    'unselect-occurrence': { icon: BoxSelect, key: 'unselectOccurrence', command: 'unselectOccurrence', shortcut: editorShortcut('unselectOccurrence') },
-    'select-all-occurrences': {
-        icon: ListChecks,
-        key: 'selectAllOccurrences',
-        command: 'selectAllOccurrences',
-        shortcut: editorShortcut('selectAllOccurrences')
-    },
-    'add-caret-above': { icon: ArrowUpToLine, key: 'addCaretAbove', command: 'addCaretAbove', shortcut: editorShortcut('addCaretAbove') },
-    'add-caret-below': { icon: ArrowDownToLine, key: 'addCaretBelow', command: 'addCaretBelow', shortcut: editorShortcut('addCaretBelow') },
-    'toggle-column-mode': { icon: Columns3, key: 'toggleColumnMode', command: 'toggleColumnMode', shortcut: editorShortcut('toggleColumnMode') },
-    'add-caret-per-selected-line': {
-        icon: TextCursor,
-        key: 'addCaretPerSelectedLine',
-        command: 'addCaretPerSelectedLine',
-        shortcut: editorShortcut('addCaretPerSelectedLine')
-    }
+    'toggle-line-comment': command(Slash, 'toggleLineComment'),
+    'toggle-block-comment': command(Code, 'toggleBlockComment'),
+    'join-lines': command(Merge, 'joinLines'),
+    'split-line': command(Split, 'splitLine'),
+    'start-new-line': command(CornerDownLeft, 'startNewLine'),
+    'start-new-line-before': command(CornerLeftUp, 'startNewLineBefore'),
+    'toggle-case': command(CaseSensitive, 'toggleCase'),
+    'auto-indent-lines': command(IndentIncrease, 'autoIndentLines'),
+    'collapse-region': folding(FoldVertical, 'collapseRegion', 'collapse'),
+    'expand-region': folding(UnfoldVertical, 'expandRegion', 'expand'),
+    'collapse-region-recursively': folding(ListCollapse, 'collapseRegionRecursively', 'collapseRecursively'),
+    'expand-region-recursively': folding(ListTree, 'expandRegionRecursively', 'expandRecursively'),
+    'collapse-all-regions': folding(ChevronsDownUp, 'collapseAllRegions', 'collapseAll'),
+    'expand-all-regions': folding(ChevronsUpDown, 'expandAllRegions', 'expandAll'),
+    'fold-selection': command(FoldHorizontal, 'foldSelection', 'folding'),
+    'collapse-doc-comments': command(Book, 'collapseDocComments', 'folding'),
+    'expand-doc-comments': command(BookOpen, 'expandDocComments', 'folding'),
+    'expand-all-to-level-1': command(ListTree, 'expandAllToLevel1', 'folding'),
+    'expand-all-to-level-2': command(ListTree, 'expandAllToLevel2', 'folding'),
+    'expand-all-to-level-3': command(ListTree, 'expandAllToLevel3', 'folding'),
+    'expand-all-to-level-4': command(ListTree, 'expandAllToLevel4', 'folding'),
+    'expand-all-to-level-5': command(ListTree, 'expandAllToLevel5', 'folding'),
+    'select-next-occurrence': command(ScanSearch, 'selectNextOccurrence'),
+    'unselect-occurrence': command(BoxSelect, 'unselectOccurrence'),
+    'select-all-occurrences': command(ListChecks, 'selectAllOccurrences'),
+    'add-caret-above': command(ArrowUpToLine, 'addCaretAbove'),
+    'add-caret-below': command(ArrowDownToLine, 'addCaretBelow'),
+    'toggle-column-mode': command(Columns3, 'toggleColumnMode'),
+    'add-caret-per-selected-line': command(TextCursor, 'addCaretPerSelectedLine')
 } satisfies Record<string, EditorCommandSpec>;
 
 export type EditorCommandId = keyof typeof TABLE;

@@ -28,12 +28,10 @@ export function ViewToolbar({ view, focused }: { view: CellView | null; focused:
     const ports = useSessionPortControl(view?.kind === 'terminal' ? view.id : '');
     const operating = useNodeComputerSession(endpointId, view?.kind === 'chat' || view?.kind === 'terminal' ? view.id : '') !== null;
 
-    // The file's own controls portal up into this slot, the way they do for a file view.
+    // The active renderer of a file, a diagram or an artifact portals its controls up into this slot after the body mounts.
+    const slot = <div ref={mount} className="flex min-w-0 grow items-center justify-end gap-1" />;
     if (isLooseView(view)) {
-        if (!isFileTab(view.tab)) {
-            return null;
-        }
-        return <div ref={mount} className="flex min-w-0 grow items-center justify-end gap-1" />;
+        return isFileTab(view.tab) ? slot : null;
     }
     if (!view || !KINDS_WITH_TOOLBAR.has(view.kind)) {
         return null;
@@ -53,8 +51,7 @@ export function ViewToolbar({ view, focused }: { view: CellView | null; focused:
         );
     }
     if (view.kind === 'file' || view.kind === 'diagram' || view.kind === 'artifact') {
-        // The active renderer portals its controls here after the body mounts.
-        return <div ref={mount} className="flex min-w-0 grow items-center justify-end gap-1" />;
+        return slot;
     }
     if (view.kind === 'chat') {
         if (!forked && !planned && !operating) {

@@ -29,8 +29,8 @@ import {
     showViewOnCanvasAction,
     toggleFlagAction
 } from '@/actions/client-actions';
+import { centerWorld } from '@/actions/action-reach';
 import { groupArrangeable } from '@/canvas/arrange-group';
-import { toWorld } from '@/canvas/math';
 import { openNewConsole } from '@/database/console-file';
 import { useDatabasePanel } from '@/database/state';
 import { refreshSqlSchemas } from '@/database/sql-bindings';
@@ -130,11 +130,6 @@ function zoomTarget(): Pick<CanvasState, 'zoomToSelection' | 'zoomTo'> {
         return focusedDrawing().getState();
     }
     return view && isDiagramView(view) ? focusedDiagram().getState() : focusedCanvas().getState();
-}
-
-function centerWorld() {
-    const s = focusedCanvas().getState();
-    return toWorld(s.camera, { x: s.viewport.w / 2, y: s.viewport.h / 2 });
 }
 
 /*
@@ -283,7 +278,6 @@ function projectTabCommands(): Command[] {
 /* The handful of rows an empty palette offers; a palette that opens on forty rows is a list to read rather than a place to type. */
 export const OPENING_COMMAND_IDS: readonly string[] = ['add-chat', 'add-terminal', 'view-new', 'find-in-files', 'open-folder', 'usage', 'settings'];
 
-/* Everything the palette can do besides jumping to a node. One list, so the dock and the keys agree. */
 /* Dev only. The module loads on first use, so the recorder never ships and only watches a page someone measures. */
 function measureCommands(): Command[] {
     const measure = () => import('@/measure/run');
@@ -298,6 +292,7 @@ function measureCommands(): Command[] {
     ];
 }
 
+/* Every row the palette offers besides the jumps, each only while it can act. */
 export function appCommands(prRepos: readonly PrRepo[] = prReposOfCurrent()): Command[] {
     const canvas = focusedCanvas().getState();
     const anyLocked = Object.values(canvas.locks).some(Boolean);
@@ -317,6 +312,7 @@ export function appCommands(prRepos: readonly PrRepo[] = prReposOfCurrent()): Co
     /* The start screen is outside every project, so only the rows about the window are offered there. */
     const inWorkspace = windowWorkspace() !== null;
     const chat = inWorkspace ? focusedChatId() : null;
+    const chatKey = chat === null ? '' : endpointKey(endpointOfNodeId(chat), chat);
     // The palette cannot grey a row, so a chat that works offers none; the menu says why.
     const leaving = inWorkspace ? activeViewFacts() : null;
     const leavingChatId = leaving !== null && leaving.offers.moveToProject && !leaving.working ? leaving.view.id : null;
@@ -337,13 +333,13 @@ export function appCommands(prRepos: readonly PrRepo[] = prReposOfCurrent()): Co
                   // A frame later, so the keyboard the new chat takes is not handed back to the old one as the palette closes.
                   row(
                       'chat-send-new',
-                      afterPaletteCloses(() => sendFromComposer(endpointKey(endpointOfNodeId(chat), chat), 'and-new'))
+                      afterPaletteCloses(() => sendFromComposer(chatKey, 'and-new'))
                   ),
                   row('chat-restart', () => void restartChatSession(chat)),
-                  row('chat-effort-up', () => stepEffortFromComposer(endpointKey(endpointOfNodeId(chat), chat), 'up')),
-                  row('chat-effort-down', () => stepEffortFromComposer(endpointKey(endpointOfNodeId(chat), chat), 'down')),
-                  row('chat-message-previous', () => stepTimelineMessage(endpointKey(endpointOfNodeId(chat), chat), -1)),
-                  row('chat-message-next', () => stepTimelineMessage(endpointKey(endpointOfNodeId(chat), chat), 1))
+                  row('chat-effort-up', () => stepEffortFromComposer(chatKey, 'up')),
+                  row('chat-effort-down', () => stepEffortFromComposer(chatKey, 'down')),
+                  row('chat-message-previous', () => stepTimelineMessage(chatKey, -1)),
+                  row('chat-message-next', () => stepTimelineMessage(chatKey, 1))
               ]
             : []),
         ...(leavingChatId !== null
@@ -361,27 +357,19 @@ export function appCommands(prRepos: readonly PrRepo[] = prReposOfCurrent()): Co
                   ...pullRequestCommands(folder, prRepos, (cwd) => useUi.getState().setPullRequestDialog({ cwd }))
               ]
             : []),
-        ...(inWorkspace ? [row('search-chats', () => useUi.getState().openChatSearch())] : []),
         ...(inWorkspace
             ? [
+                  row('search-chats', () => useUi.getState().openChatSearch()),
                   row(
                       'find',
                       afterPaletteCloses(() => openFocusedFind())
-                  )
-              ]
-            : []),
-        ...(inWorkspace ? languageCommandRows() : []),
-        ...(inWorkspace ? editorCommandRows() : []),
-        ...(inWorkspace
-            ? [
+                  ),
+                  ...languageCommandRows(),
+                  ...editorCommandRows(),
                   row(
                       'find-replace',
                       afterPaletteCloses(() => openFocusedFind({ replace: true }))
-                  )
-              ]
-            : []),
-        ...(inWorkspace
-            ? [
+                  ),
                   row(
                       'find-next',
                       afterPaletteCloses(() => stepFocusedEditorFind(1))
@@ -389,11 +377,7 @@ export function appCommands(prRepos: readonly PrRepo[] = prReposOfCurrent()): Co
                   row(
                       'find-previous',
                       afterPaletteCloses(() => stepFocusedEditorFind(-1))
-                  )
-              ]
-            : []),
-        ...(inWorkspace
-            ? [
+                  ),
                   row(
                       'next-problem',
                       afterPaletteCloses(() => languageForCommand()?.diagnostics.step(1))
@@ -486,7 +470,7 @@ export function appCommands(prRepos: readonly PrRepo[] = prReposOfCurrent()): Co
                             row('add-note', () => void createNodeAction('note')),
                             ...(folder
                                 ? [
-                                      row('add-file', () => useUi.getState().openFilePicker({ kind: 'node', at: centerWorld() }), {
+                                      row('add-file', () => useUi.getState().openFilePicker({ kind: 'node', at: centerWorld(focusedCanvas().getState()) }), {
                                           hint: i18next.t('shell:palette.hints.readOnly')
                                       })
                                   ]

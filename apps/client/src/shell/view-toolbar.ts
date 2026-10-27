@@ -37,20 +37,11 @@ export function useHasViewToolbar(view: CellView | null): boolean {
     if (view.kind === 'chat') {
         return forked || planned;
     }
-    return (
-        (view.kind === 'terminal' && (dictationEnabled || ports !== null)) ||
-        view.kind === 'browser' ||
-        view.kind === 'device' ||
-        view.kind === 'file' ||
-        view.kind === 'diagram' ||
-        view.kind === 'artifact' ||
-        modeOf(host) !== undefined
-    );
+    return view.kind !== 'terminal' || dictationEnabled || ports !== null || modeOf(host) !== undefined;
 }
 
-/* The kinds whose controls begin right where the name ends. The rest hang their buttons on the right
-   of the bar, against the panels: a line beside the name would fence off empty space half a window
-   away from anything. */
+/* The kinds whose controls start right after the name. The rest sit at the right of the bar, where a
+   line after the name would fence off empty space. */
 const LEADING_TOOLBAR_KINDS = new Set<ProjectViewKind>(['browser', 'chat', 'terminal']);
 
 /* Whether the line after the name has anything to fence off. The bar always closes the view's part

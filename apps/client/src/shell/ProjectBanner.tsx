@@ -19,21 +19,13 @@ export function ProjectBanner() {
     const drawingError = useDrawing((s) => s.error);
     const diagramError = useDiagram((s) => s.error);
     const notice = useDocument((s) => s.viewNotice);
-    const file =
-        projectConflict !== null
-            ? 'project'
-            : drawingConflict !== null
-              ? 'drawing'
-              : diagramConflict !== null
-                ? 'diagram'
-                : projectError !== null
-                  ? 'project'
-                  : drawingError !== null
-                    ? 'drawing'
-                    : 'diagram';
-    const conflict = file === 'project' ? projectConflict : file === 'drawing' ? drawingConflict : diagramConflict;
-    const error = file === 'project' ? projectError : file === 'drawing' ? drawingError : diagramError;
-    if (!conflict && !error) {
+    const files = [
+        { file: 'project', client: projectClient, conflict: projectConflict, error: projectError },
+        { file: 'drawing', client: drawingClient, conflict: drawingConflict, error: drawingError },
+        { file: 'diagram', client: diagramClient, conflict: diagramConflict, error: diagramError }
+    ] as const;
+    const shown = files.find((entry) => entry.conflict !== null) ?? files.find((entry) => entry.error !== null);
+    if (!shown?.conflict && !shown?.error) {
         return notice === null ? null : (
             <Banner icon={Eye} tone="neutral" message={notice.message}>
                 <Button size="sm" onClick={() => useDocument.getState().dismissNotice()}>
@@ -47,12 +39,9 @@ export function ProjectBanner() {
             </Banner>
         );
     }
-    const resolve = (choice: 'theirs' | 'mine'): void => {
-        const client = file === 'drawing' ? drawingClient : file === 'diagram' ? diagramClient : projectClient;
-        void client.resolveConflict(choice);
-    };
+    const { file, client, conflict, error } = shown;
+    const resolve = (choice: 'theirs' | 'mine'): void => void client.resolveConflict(choice);
     const retry = (): void => {
-        const client = file === 'drawing' ? drawingClient : file === 'diagram' ? diagramClient : projectClient;
         setRetrying(true);
         void client
             .flush()
