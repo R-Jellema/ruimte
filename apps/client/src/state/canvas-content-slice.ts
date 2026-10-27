@@ -1,7 +1,7 @@
-import { cameraOfView } from '@/canvas/math';
 import type { CanvasPatch } from '@/project/merge';
 import type { CanvasState } from '@/state/canvas';
 import { hiddenIn, patchSnapshot, snapshotOf, type CanvasGet, type CanvasNode, type CanvasSet } from '@/state/canvas-model';
+import { finishLoad } from '@/state/editors';
 
 /* Spread over what the editor holds, so what only lives here (a browser's status) stays. */
 function mergedIn<T extends { id: string }>(held: Record<string, T>, removed: readonly string[], arrived: readonly T[]): Record<string, T> {
@@ -50,16 +50,7 @@ export function createCanvasContentSlice(set: CanvasSet, get: CanvasGet): Pick<C
                 // A reload in place hands over no locks and keeps the ones it has.
                 ...(local?.locks ? { locks: local.locks } : {})
             });
-            const stored = local?.camera ?? null;
-            const camera = stored === null ? null : cameraOfView(stored, get().viewport);
-            if (stored !== null) {
-                set(camera === null ? { pendingCamera: { kind: 'view', view: stored } } : { camera });
-            }
-            set({ loading: false });
-            // No camera for this view on this machine, so it opens on everything it holds, once there is room.
-            if (stored === null) {
-                get().fitAll();
-            }
+            finishLoad(set, get, local);
         },
         applyExternal(patch) {
             set((s) => {

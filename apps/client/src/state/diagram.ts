@@ -1,12 +1,11 @@
 import { createStore, type StoreApi } from 'zustand';
 import { EMPTY_DIAGRAM, type DiagramContent, type DiagramDocument, type DiagramNode, type ProjectViewLocal } from '@ruimte/contracts';
 import { layoutOf, type DiagramLayout } from '@adecore/diagram';
-import { cameraOfView } from '@/canvas/math';
 import { createCameraSlice, type CameraSlice } from '@/canvas/camera-slice';
 import { editorBindings } from '@/state/editor-bindings';
-import { createEditorRegistry } from '@/state/editors';
+import { createEditorRegistry, finishLoad, savedFileSetters, type SavedFileSetters } from '@/state/editors';
 
-export interface DiagramState extends CameraSlice {
+export interface DiagramState extends CameraSlice, SavedFileSetters<DiagramDocument> {
     viewId: string | null;
     content: DiagramContent;
     /* Computed from `content` whenever it changes, once a frame during a drag, so a render never lays the graph out itself. */
@@ -35,10 +34,6 @@ export interface DiagramState extends CameraSlice {
     undo(): void;
     redo(): void;
 
-    setRev(rev: number): void;
-    setDirty(dirty: boolean): void;
-    setConflict(conflict: DiagramDocument | null): void;
-    setError(error: string | null): void;
     /* What is on disk now, loaded in place: the camera stays where the person left it. */
     applyDocument(document: DiagramDocument): void;
 }
@@ -150,15 +145,7 @@ export function createDiagramStore(frame: (callback: () => void) => void = nextF
                     error: null,
                     pendingCamera: null
                 });
-                const stored = local?.camera ?? null;
-                if (stored !== null) {
-                    const camera = cameraOfView(stored, get().viewport);
-                    set(camera === null ? { pendingCamera: { kind: 'view', view: stored } } : { camera });
-                }
-                set({ loading: false });
-                if (stored === null) {
-                    get().fitAll();
-                }
+                finishLoad(set, get, local);
             },
 
             unload() {
@@ -234,18 +221,7 @@ export function createDiagramStore(frame: (callback: () => void) => void = nextF
                 get().fitAll();
             },
 
-            setRev(rev) {
-                set({ rev });
-            },
-            setDirty(dirty) {
-                set({ dirty });
-            },
-            setConflict(conflict) {
-                set({ conflict });
-            },
-            setError(error) {
-                set({ error });
-            },
+            ...savedFileSetters<DiagramDocument>(set),
             applyDocument(document) {
                 const content = contentOf(document);
                 // What is on disk now is another starting point, so the steps back from the old one are gone.

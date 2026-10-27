@@ -35,8 +35,7 @@ export function createCanvasNodesSlice(
     | 'setGroupWorktree'
 > {
     return {
-        /* A node of an unknown kind is written back as it was read, apart from its frame, so a color,
-       a title or a patch on it would be an edit that never reaches the file. */
+        // A node of an unknown kind is written back as read apart from its frame, so a color, a title or a patch would never reach the file.
         setNodeColor(id, accent) {
             set((s) => {
                 const node = s.nodes[id];
@@ -76,15 +75,13 @@ export function createCanvasNodesSlice(
         },
         bringToFront(id) {
             const { order } = get();
-            if (order[order.length - 1] === id) {
+            if (order.at(-1) === id) {
                 return;
             }
-            set({ order: [...order.filter((n) => n !== id), id] });
+            set({ order: [...order.filter((entry) => entry !== id), id] });
         },
         addNode(kind, at, options = {}) {
-            /* Without a view nothing in the project file is behind the canvas, so a node here would be a live
-       terminal or agent that nothing ever saves. The surfaces that offer one are hidden in that
-       state; this is the floor under them. */
+            // Without a view nothing would ever save the node; the surfaces that offer one are hidden then, and this is the floor under them.
             if (get().viewId === null && options.viewId === undefined) {
                 return null;
             }
@@ -205,7 +202,7 @@ export function createCanvasNodesSlice(
                 lines: nextLines,
                 hidden: hiddenIn(nextNodes),
                 order: order.filter((id) => !gone.has(id)),
-                edges: edges.filter((e) => !gone.has(e.id) && !gone.has(e.from) && !gone.has(e.to)),
+                edges: edges.filter((edge) => !gone.has(edge.id) && !gone.has(edge.from) && !gone.has(edge.to)),
                 selection: [],
                 bodyFocusId: gone.has(get().bodyFocusId ?? '') ? null : get().bodyFocusId,
                 ...remember(get())

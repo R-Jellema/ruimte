@@ -1,6 +1,6 @@
 import { createStore, type StoreApi } from 'zustand';
 import { editorBindings } from '@/state/editor-bindings';
-import { createEditorRegistry } from '@/state/editors';
+import { createEditorRegistry, finishLoad, savedFileSetters, type SavedFileSetters } from '@/state/editors';
 import { mergeSelection } from '@/state/selection';
 import type {
     DrawingColor,
@@ -15,7 +15,7 @@ import type {
     DrawingStrokeWidth,
     ProjectViewLocal
 } from '@ruimte/contracts';
-import { cameraOfView, intersects, type Rect } from '@/canvas/math';
+import { intersects, type Rect } from '@/canvas/math';
 import { createCameraSlice, type CameraSlice } from '@/canvas/camera-slice';
 import { boundsOfElements } from '@adecore/drawing';
 import { fitTextBox } from '@/drawing/measure';
@@ -61,7 +61,7 @@ export const HISTORY_LIMIT = 100;
 /* Where a duplicate lands, and how far an arrow key moves a selection. */
 export const DUPLICATE_OFFSET = 16;
 
-export interface DrawingState extends CameraSlice {
+export interface DrawingState extends CameraSlice, SavedFileSetters<DrawingDocument> {
     viewId: string | null;
     /* In stacking order, back to front, the way the file lists them. */
     elements: DrawingElement[];
@@ -127,10 +127,6 @@ export interface DrawingState extends CameraSlice {
     undo(): void;
     redo(): void;
 
-    setRev(rev: number): void;
-    setDirty(dirty: boolean): void;
-    setConflict(conflict: DrawingDocument | null): void;
-    setError(error: string | null): void;
     /* What the incoming document replaces, keeping the camera, the tool and what still exists. */
     applyDocument(document: DrawingDocument): void;
 }
@@ -239,15 +235,7 @@ export function createDrawingStore(): StoreApi<DrawingState> {
                 future: [],
                 pendingCamera: null
             });
-            const stored = local?.camera ?? null;
-            const camera = stored === null ? null : cameraOfView(stored, get().viewport);
-            if (stored !== null) {
-                set(camera === null ? { pendingCamera: { kind: 'view', view: stored } } : { camera });
-            }
-            set({ loading: false });
-            if (stored === null) {
-                get().fitAll();
-            }
+            finishLoad(set, get, local);
         },
 
         unload() {
@@ -412,18 +400,7 @@ export function createDrawingStore(): StoreApi<DrawingState> {
             });
         },
 
-        setRev(rev) {
-            set({ rev });
-        },
-        setDirty(dirty) {
-            set({ dirty });
-        },
-        setConflict(conflict) {
-            set({ conflict });
-        },
-        setError(error) {
-            set({ error });
-        },
+        ...savedFileSetters<DrawingDocument>(set),
         applyDocument(document) {
             const state = get();
             const alive = new Set(document.elements.map((element) => element.id));

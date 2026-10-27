@@ -1,5 +1,6 @@
 import { createStore, type StoreApi } from 'zustand';
 import type { ProjectDocument, ProjectIconChoice, ProjectSummary } from '@ruimte/contracts';
+import { savedFileSetters } from '@/state/editors';
 import { storeHook } from '@/state/workspace-stores';
 
 export type { ProjectRow } from '@/state/project-list';
@@ -49,23 +50,12 @@ export function createProjectStore(): StoreApi<ProjectState> {
         setCurrent(current, rev, endpointId) {
             set({ current, currentEndpointId: current ? endpointId : null, rev, dirty: false, conflict: null, error: null });
         },
-        setRev(rev) {
-            set({ rev });
-        },
+        ...savedFileSetters<ProjectDocument>(set),
         setChosenIcon(chosenIcon) {
             set({ chosenIcon });
         },
         setSummary(summary) {
             set({ current: summary });
-        },
-        setDirty(dirty) {
-            set({ dirty });
-        },
-        setConflict(conflict) {
-            set({ conflict });
-        },
-        setError(error) {
-            set({ error });
         },
         setSwitching(switching) {
             set({ switching });

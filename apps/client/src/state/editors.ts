@@ -1,4 +1,59 @@
 import type { StoreApi } from 'zustand';
+import type { ProjectViewLocal } from '@ruimte/contracts';
+import { cameraOfView } from '@/canvas/math';
+import type { CameraFields, CameraSlice } from '@/canvas/camera-slice';
+
+/* What an editor of a file of its own (a project, a drawing, a diagram) knows about its save. */
+export interface SavedFileFields<Document> {
+    rev: number;
+    dirty: boolean;
+    conflict: Document | null;
+    error: string | null;
+}
+
+export interface SavedFileSetters<Document> {
+    setRev(rev: number): void;
+    setDirty(dirty: boolean): void;
+    setConflict(conflict: Document | null): void;
+    setError(error: string | null): void;
+}
+
+export function savedFileSetters<Document>(set: (partial: Partial<SavedFileFields<Document>>) => void): SavedFileSetters<Document> {
+    return {
+        setRev(rev) {
+            set({ rev });
+        },
+        setDirty(dirty) {
+            set({ dirty });
+        },
+        setConflict(conflict) {
+            set({ conflict });
+        },
+        setError(error) {
+            set({ error });
+        }
+    };
+}
+
+/*
+ * Ends a load: the camera goes where the view last stood on this machine, or waits for a size to do
+ * so. With no camera stored the view opens on everything it holds, once there is room.
+ */
+export function finishLoad(
+    set: (partial: Partial<CameraFields> & { loading?: boolean }) => void,
+    get: () => CameraSlice,
+    local: ProjectViewLocal | null
+): void {
+    const stored = local?.camera ?? null;
+    if (stored !== null) {
+        const camera = cameraOfView(stored, get().viewport);
+        set(camera === null ? { pendingCamera: { kind: 'view', view: stored } } : { camera });
+    }
+    set({ loading: false });
+    if (stored === null) {
+        get().fitAll();
+    }
+}
 
 /*
  * The editors of the open project that hold a single view each, by view id. A store per view is what

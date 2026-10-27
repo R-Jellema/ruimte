@@ -1,4 +1,4 @@
-import { groupFrame } from '@ruimte/contracts';
+import { groupFrame, type ProjectCanvasLine } from '@ruimte/contracts';
 import { textRect } from '@/canvas/edge-lines';
 import { parentGroupOf } from '@/canvas/editable-gaps';
 import { gapFrames } from '@/canvas/element-frames';
@@ -6,6 +6,26 @@ import { lineBounds, snapLine } from '@/canvas/line-geometry';
 import { snapToGrid, unionOf, type Point } from '@/canvas/math';
 import type { CanvasState } from '@/state/canvas';
 import { carriedByGroups, HISTORY_LIMIT, membersOf, remember, snapshotOf, type CanvasGet, type CanvasSet } from '@/state/canvas-model';
+
+/* What is selected, and what its groups carry, each put where `place` and `line` say. */
+function movedSelection(
+    state: Pick<CanvasState, 'nodes' | 'texts' | 'lines' | 'selection'>,
+    place: (at: Point) => Point,
+    line: (line: ProjectCanvasLine) => ProjectCanvasLine
+): Pick<CanvasState, 'nodes' | 'texts' | 'lines'> {
+    const { nodes, texts, lines, selection } = state;
+    const next = { nodes: { ...nodes }, texts: { ...texts }, lines: { ...lines } };
+    for (const id of [...selection, ...carriedByGroups(nodes, texts, selection, lines)]) {
+        if (next.nodes[id]) {
+            next.nodes[id] = { ...next.nodes[id], ...place(next.nodes[id]) };
+        } else if (next.texts[id]) {
+            next.texts[id] = { ...next.texts[id], ...place(next.texts[id]) };
+        } else if (next.lines[id]) {
+            next.lines[id] = line(next.lines[id]);
+        }
+    }
+    return next;
+}
 
 /* Moving and resizing what is selected, the gap move that pushes its neighbors aside, and the locks on both. */
 export function createCanvasGestureSlice(
@@ -29,40 +49,18 @@ export function createCanvasGestureSlice(
     return {
         moveSelected(dx, dy, first = false) {
             const s = get();
-            const { nodes, texts, lines, selection, locks } = s;
-            if (locks.move) {
+            if (s.locks.move) {
                 return;
             }
-            const nextNodes = { ...nodes };
-            const nextTexts = { ...texts };
-            const nextLines = { ...lines };
-            for (const id of [...selection, ...carriedByGroups(nodes, texts, selection, lines)]) {
-                if (nextNodes[id]) {
-                    nextNodes[id] = { ...nextNodes[id], x: nextNodes[id].x + dx, y: nextNodes[id].y + dy };
-                } else if (nextTexts[id]) {
-                    nextTexts[id] = { ...nextTexts[id], x: nextTexts[id].x + dx, y: nextTexts[id].y + dy };
-                } else if (nextLines[id]) {
-                    const line = nextLines[id];
-                    nextLines[id] = snapLine({ ...line, x: line.x + dx, y: line.y + dy, endX: line.endX + dx, endY: line.endY + dy });
-                }
-            }
-            set({ nodes: nextNodes, texts: nextTexts, lines: nextLines, ...(first ? remember(s) : {}) });
+            const moved = movedSelection(
+                s,
+                (at) => ({ x: at.x + dx, y: at.y + dy }),
+                (line) => snapLine({ ...line, x: line.x + dx, y: line.y + dy, endX: line.endX + dx, endY: line.endY + dy })
+            );
+            set({ ...moved, ...(first ? remember(s) : {}) });
         },
         settleMove() {
-            const { nodes, texts, lines, selection } = get();
-            const nextNodes = { ...nodes };
-            const nextTexts = { ...texts };
-            const nextLines = { ...lines };
-            for (const id of [...selection, ...carriedByGroups(nodes, texts, selection, lines)]) {
-                if (nextNodes[id]) {
-                    nextNodes[id] = { ...nextNodes[id], x: snapToGrid(nextNodes[id].x), y: snapToGrid(nextNodes[id].y) };
-                } else if (nextTexts[id]) {
-                    nextTexts[id] = { ...nextTexts[id], x: snapToGrid(nextTexts[id].x), y: snapToGrid(nextTexts[id].y) };
-                } else if (nextLines[id]) {
-                    nextLines[id] = snapLine(nextLines[id]);
-                }
-            }
-            set({ nodes: nextNodes, texts: nextTexts, lines: nextLines });
+            set(movedSelection(get(), (at) => ({ x: snapToGrid(at.x), y: snapToGrid(at.y) }), snapLine));
         },
         resizeNode(id, rect) {
             const { nodes, locks } = get();
