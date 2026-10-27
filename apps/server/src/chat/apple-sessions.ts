@@ -19,6 +19,7 @@ export async function removeAppleSession(home: string, info: Pick<ChatInfo, 'pro
     if (info.provider !== 'apple' || info.agentSessionId === null || !SESSION_ID.test(info.agentSessionId)) {
         return;
     }
+
     const folder = join(home, 'apple-foundation', 'sessions');
     const id = info.agentSessionId.toLowerCase();
     await Promise.all([rm(join(folder, `${id}.json`), { force: true }), rm(join(folder, `${id}.lock`), { force: true })]);

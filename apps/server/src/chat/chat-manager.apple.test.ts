@@ -90,13 +90,16 @@ test('removing an Apple chat takes the helper conversation along and leaves anot
     const sessions = join(home, 'apple-foundation', 'sessions');
     const attachments = new AttachmentStore(home);
     const store = new RecordingStore(home, { attachments });
+
     const helper = inProcess((io) => {
         const id = io.argv[io.argv.indexOf('--session') + 1]!;
         io.out({ type: 'availability', available: true });
         io.out({ type: 'session', protocolVersion: 3, id, restored: false });
+
         return {
             onLine: (line) => {
                 const request = AppleFoundationRequestSchema.parse(JSON.parse(line));
+
                 if (request.type === 'turn') {
                     io.out({ type: 'text.snapshot', id: request.id, text: 'Noted.' });
                     io.out({ type: 'done', id: request.id, state: 'done' });
@@ -104,11 +107,13 @@ test('removing an Apple chat takes the helper conversation along and leaves anot
             }
         };
     });
+
     const provider = {
         ...appleProvider,
         createBackend: (launch: ConstructorParameters<typeof AppleBackend>[0], host: ConstructorParameters<typeof AppleBackend>[1]) =>
             new AppleBackend(launch, host)
     };
+
     const manager = new ChatManager({
         providers: new ProviderRegistry({ providers: [provider] }),
         store,
@@ -116,6 +121,7 @@ test('removing an Apple chat takes the helper conversation along and leaves anot
         spawn: helper.spawn,
         env: { HOME: home, RUIMTE_HOME: home }
     });
+
     const sessionOf = async (chatId: string): Promise<string> => {
         const recorder = new ChatRecorder();
         manager.subscribe(`client-${chatId}`, recorder.sink());
@@ -127,12 +133,15 @@ test('removing an Apple chat takes the helper conversation along and leaves anot
         await mkdir(sessions, { recursive: true });
         await writeFile(join(sessions, `${id}.json`), '{}');
         await writeFile(join(sessions, `${id}.lock`), '');
+
         return id;
     };
+
     try {
         const removed = await sessionOf('apple-removed');
         const kept = await sessionOf('apple-kept');
         await manager.kill('apple-removed');
+
         expect((await readdir(sessions)).sort()).toEqual([`${kept}.json`, `${kept}.lock`]);
         expect(removed).not.toBe(kept);
     } finally {

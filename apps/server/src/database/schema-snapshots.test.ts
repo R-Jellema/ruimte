@@ -281,6 +281,7 @@ describe('schema snapshots', () => {
         await taker.take('p1', SHOP, 'shop');
         await taker.take('p2', SHOP, 'shop');
         await taker.forgetProject('p1');
+
         expect(await readdir(root)).toEqual(['p2']);
         expect(await taker.list('p2')).toHaveLength(1);
     });

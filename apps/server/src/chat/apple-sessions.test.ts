@@ -12,6 +12,7 @@ async function sessionsWith(home: string, names: string[]): Promise<string> {
     const folder = join(home, 'apple-foundation', 'sessions');
     await mkdir(folder, { recursive: true });
     await Promise.all(names.map((name) => writeFile(join(folder, name), '')));
+
     return folder;
 }
 
@@ -20,6 +21,7 @@ describe('removeAppleSession', () => {
         const home = await newHome();
         const folder = await sessionsWith(home, [`${SESSION}.json`, `${SESSION}.lock`, 'other.json']);
         await removeAppleSession(home, { provider: 'apple', agentSessionId: SESSION.toUpperCase() });
+
         expect(await readdir(folder)).toEqual(['other.json']);
     });
 
@@ -29,11 +31,13 @@ describe('removeAppleSession', () => {
         await removeAppleSession(home, { provider: 'claude', agentSessionId: SESSION });
         await removeAppleSession(home, { provider: 'apple', agentSessionId: null });
         await removeAppleSession(home, { provider: 'apple', agentSessionId: '.' });
+
         expect((await readdir(folder)).sort()).toEqual(['..json', `${SESSION}.json`]);
     });
 
     test('is done when the files are already gone', async () => {
         const home = await newHome();
+
         await expect(removeAppleSession(home, { provider: 'apple', agentSessionId: SESSION })).resolves.toBeUndefined();
     });
 });

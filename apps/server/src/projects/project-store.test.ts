@@ -290,8 +290,11 @@ describe('ProjectStore', () => {
         links.databases = { closeProject: () => undefined, forgetProject: async (id) => void forgotten.push(id) };
         const { projectId } = (await store.openProject({ folder })).summary;
         await store.closeProject(projectId, 'client-a');
+
         expect(forgotten).toEqual([]);
+
         await store.delete(projectId, false);
+
         expect(forgotten).toEqual([projectId]);
     });
 
