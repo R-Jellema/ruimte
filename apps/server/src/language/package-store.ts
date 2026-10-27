@@ -1,14 +1,16 @@
 import { randomUUID } from 'node:crypto';
-import { lstat, mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { lstat, mkdir, readdir, readFile, readlink, rename, rm, symlink, writeFile } from 'node:fs/promises';
+import { join, relative } from 'node:path';
 import { fileExists } from '@adecore/agents';
-import { sha256 } from '../artifacts/artifact-fs.ts';
+import { sha256, sha256Of } from '../artifacts/artifact-fs.ts';
 import type { LanguageRuntime, RunCommand } from './runtime.ts';
 
 const SETS = 'packages';
 const STAGING = '.staging';
 const SET_FILE = 'set.json';
 const SET_NAME = 'ruimte-language-packages';
+const JOURNAL = '.journal';
+const ASIDE = '.adopting';
 /* A set id is 16 hex digits; anything else in the folder is not Ruimte's to remove. */
 const SET_ID = /^[0-9a-f]{16}$/;
 
@@ -32,6 +34,9 @@ export interface PackageSetRecord {
     files: number;
     bytes: number;
 }
+
+/* What adoption did with the packages of an install that held its own: moved into a new set, replaced by a link to an identical set, or left alone because the set differs. */
+export type Adoption = 'moved' | 'linked' | 'kept';
 
 /* A hold on a set: while it is out, `collect` leaves the set alone. */
 export interface Lease {
@@ -143,9 +148,29 @@ export class PackageStore {
         });
     }
 
-    /* Clears what an interrupted install left in staging. A set is never in staging once published, so nothing there is worth keeping. */
+    /*
+     * Clears what an interrupted install left in staging, since a set is never in staging once published, and
+     * finishes or undoes the adoptions a crash cut short.
+     */
     async recover(): Promise<void> {
         await rm(join(this.directory, STAGING), { recursive: true, force: true });
+
+        for (const name of await readdir(join(this.directory, JOURNAL)).catch(() => [] as string[])) {
+            const setId = name.replace(/\.json$/, '');
+
+            if (SET_ID.test(setId)) {
+                await this.exclusive(() => this.replay(setId));
+            }
+        }
+    }
+
+    /*
+     * Gives the packages an install holds in its own `node_modules` to the store. A set that does not exist yet
+     * takes the folder itself (one rename, so nothing is copied). A set that does exist replaces it only after
+     * every file proved identical; a different one stays unshared and the next update shares it.
+     */
+    adopt(folder: string): Promise<Adoption | null> {
+        return this.exclusive(() => this.adoptFolder(folder));
     }
 
     async readRecord(setId: string): Promise<PackageSetRecord | null> {
@@ -154,6 +179,126 @@ export class PackageStore {
         } catch {
             return null;
         }
+    }
+
+    private async adoptFolder(folder: string): Promise<Adoption | null> {
+        const modules = join(folder, 'node_modules');
+        const dependencies = await readDependencies(folder);
+
+        if (dependencies === null) {
+            return null;
+        }
+
+        const setId = this.setIdOf(dependencies);
+
+        await this.settleAside(folder, setId);
+
+        if (!(await lstat(modules).catch(() => null))?.isDirectory()) {
+            return null;
+        }
+
+        const set = this.folderOf(setId);
+
+        if (await fileExists(join(set, SET_FILE))) {
+            if (!(await sameTree(modules, join(set, 'node_modules')))) {
+                return 'kept';
+            }
+
+            await rename(modules, `${modules}${ASIDE}`);
+            await symlink(this.linkOf(folder, setId), modules, 'dir');
+            await rm(`${modules}${ASIDE}`, { recursive: true, force: true });
+
+            return 'linked';
+        }
+
+        // A folder under the id without a record is a set that is not ours to finish; this install keeps its packages.
+        if (await lstat(set).catch(() => null)) {
+            return 'kept';
+        }
+
+        await mkdir(join(this.directory, JOURNAL), { recursive: true });
+        await writeFile(join(this.directory, JOURNAL, `${setId}.json`), `${JSON.stringify({ from: relative(this.options.root, folder) })}\n`);
+        await mkdir(set, { recursive: true });
+        await rename(modules, join(set, 'node_modules'));
+        await this.finishMove(setId, folder, dependencies);
+
+        return 'moved';
+    }
+
+    /* The rest of a move once `node_modules` is in the set: the lockfile and manifest, the link left behind, the record, and last the journal. */
+    private async finishMove(setId: string, from: string, dependencies: Record<string, string>): Promise<void> {
+        const set = this.folderOf(setId);
+        const manifest = JSON.parse(await readFile(join(from, 'package.json'), 'utf8')) as { name?: string };
+
+        await writeFile(join(set, 'package.json'), `${JSON.stringify({ name: SET_NAME, private: true, dependencies }, null, 2)}\n`);
+
+        // The lockfile names the workspace after the kind it came from, which a set no longer has.
+        const lock = await readFile(join(from, 'bun.lock'), 'utf8').catch(() => null);
+
+        if (lock !== null) {
+            await writeFile(join(set, 'bun.lock'), manifest.name === undefined ? lock : lock.replaceAll(manifest.name, SET_NAME));
+        }
+
+        if (!(await lstat(join(from, 'node_modules')).catch(() => null))) {
+            await symlink(this.linkOf(from, setId), join(from, 'node_modules'), 'dir');
+        }
+
+        const { files, bytes } = await measure(join(set, 'node_modules'));
+        const record: PackageSetRecord = { format: 1, dependencies, platform: this.platform, arch: this.arch, installedAt: this.options.now(), files, bytes };
+
+        await writeFile(join(set, SET_FILE), `${JSON.stringify(record)}\n`);
+        await rm(join(this.directory, JOURNAL, `${setId}.json`), { force: true });
+    }
+
+    /* A crash between the two renames of a link adoption leaves the packages aside; they become the link's target again or go. */
+    private async settleAside(folder: string, setId: string): Promise<void> {
+        const modules = join(folder, 'node_modules');
+        const aside = `${modules}${ASIDE}`;
+
+        if (!(await lstat(aside).catch(() => null))) {
+            return;
+        }
+
+        if (!(await lstat(modules).catch(() => null))) {
+            if (await fileExists(join(this.folderOf(setId), SET_FILE))) {
+                await symlink(this.linkOf(folder, setId), modules, 'dir');
+            } else {
+                await rename(aside, modules);
+
+                return;
+            }
+        }
+
+        await rm(aside, { recursive: true, force: true });
+    }
+
+    private async replay(setId: string): Promise<void> {
+        const journal = join(this.directory, JOURNAL, `${setId}.json`);
+        const set = this.folderOf(setId);
+        const { from } = JSON.parse(await readFile(journal, 'utf8').catch(() => '{}')) as { from?: string };
+        const folder = from === undefined ? null : join(this.options.root, from);
+        const dependencies = folder === null ? null : await readDependencies(folder);
+
+        if (folder !== null && dependencies !== null) {
+            const modules = (await lstat(join(folder, 'node_modules')).catch(() => null)) ?? null;
+            const moved = (await lstat(join(set, 'node_modules')).catch(() => null)) !== null;
+
+            // Moved, and what is left of the install is nothing or a link: the remaining steps are safe to run again.
+            if (moved && (modules === null || modules.isSymbolicLink())) {
+                await this.finishMove(setId, folder, dependencies);
+
+                return;
+            }
+        }
+
+        // The packages never left the install, or there is nothing to link back: the half set goes and adoption starts over.
+        await rm(set, { recursive: true, force: true });
+        await rm(journal, { force: true });
+    }
+
+    /* The target of an install's link, relative so the whole folder can move. */
+    private linkOf(folder: string, setId: string): string {
+        return relative(folder, join(this.folderOf(setId), 'node_modules'));
     }
 
     private lease(setId: string): Lease {
@@ -292,4 +437,57 @@ async function measure(folder: string): Promise<{ files: number; bytes: number }
     }
 
     return { files, bytes };
+}
+
+async function readDependencies(folder: string): Promise<Record<string, string> | null> {
+    try {
+        const { dependencies } = JSON.parse(await readFile(join(folder, 'package.json'), 'utf8')) as { dependencies?: Record<string, string> };
+
+        return dependencies ?? null;
+    } catch {
+        return null;
+    }
+}
+
+/* What a tree holds, by path: its type, and for a file its mode and SHA-256, for a link its target. */
+async function describeTree(folder: string): Promise<Map<string, string>> {
+    const found = new Map<string, string>();
+    const files: string[] = [];
+
+    for (const entry of await readdir(folder, { withFileTypes: true, recursive: true })) {
+        const path = join(entry.parentPath, entry.name);
+        const name = relative(folder, path);
+
+        if (entry.isDirectory()) {
+            found.set(name, 'directory');
+        } else if (entry.isSymbolicLink()) {
+            found.set(name, `link:${await readlink(path)}`);
+        } else if (entry.isFile()) {
+            found.set(name, `file:${((await lstat(path)).mode & 0o777).toString(8)}`);
+            files.push(name);
+        } else {
+            found.set(name, 'other');
+        }
+    }
+
+    for (let i = 0; i < files.length; i += 64) {
+        await Promise.all(
+            files.slice(i, i + 64).map(async (name) => {
+                found.set(name, `${found.get(name)}:${await sha256Of(join(folder, name))}`);
+            })
+        );
+    }
+
+    return found;
+}
+
+/* Whether two trees hold the same paths, types, modes, link targets and bytes. */
+async function sameTree(left: string, right: string): Promise<boolean> {
+    const [first, second] = await Promise.all([describeTree(left), describeTree(right)]);
+
+    if (first.size !== second.size) {
+        return false;
+    }
+
+    return [...first].every(([name, description]) => second.get(name) === description);
 }

@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it } from 'bun:test';
-import { lstat, mkdir, readdir, readFile, readlink, rm, symlink, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, readdir, readFile, readlink, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import type { LanguageServerKind } from '@ruimte/contracts';
 import { LanguageInstaller } from './installer.ts';
+import { PackageStore } from './package-store.ts';
 import { NativePolicy, nativeProgramFile, nativeStubsOf, type Download, type NativeRelease } from './native.ts';
 import { KIND_PROFILES } from './profiles.ts';
 import type { LanguageProcessSpec, RunCommand } from './runtime.ts';
 import { sha256, tarGz } from './test-archives.ts';
+import { pinnedVersionsOf, versionOf, type NpmKind } from './versions.ts';
 import { tempHomes } from '../temp-home-test-helpers.ts';
 
 let root = '';
@@ -806,5 +808,133 @@ describe('shared package sets', () => {
         await installer.rollback('css');
         expect(installer.versionOf('css')).toBe('4.0.0');
         expect(logTexts(installer, 'css').at(-1)).toMatch(/^Went back to 4\.0\.0 from .* in \d+ ms$/);
+    });
+});
+
+describe('adopting installs that hold their own packages', () => {
+    /* An install from before package sets: a real node_modules, its manifest, lockfile and marker, selected as current. */
+    async function standalone(kind: LanguageServerKind, id: string, content = ''): Promise<string> {
+        const folder = join(root, kind, 'versions', id);
+        const dependencies = pinnedVersionsOf(kind as NpmKind);
+
+        await mkdir(folder, { recursive: true });
+        await writeFile(join(folder, 'package.json'), JSON.stringify({ name: `ruimte-language-server-${kind}`, private: true, dependencies }));
+        await writeFile(join(folder, 'bun.lock'), `{ "workspaces": { "": { "name": "ruimte-language-server-${kind}" } } }`);
+        await writeFile(join(folder, 'installed.json'), JSON.stringify({ versions: dependencies, version: versionOf(kind as NpmKind) }));
+
+        // These kinds pin the same package, so a real install of any of them holds the programs of all.
+        for (const component of ['css', 'html', 'json'].flatMap((name) => KIND_PROFILES[name as LanguageServerKind].components)) {
+            const entry = join(folder, 'node_modules', component.entry);
+
+            await mkdir(dirname(entry), { recursive: true });
+            await writeFile(entry, content);
+        }
+
+        await writeFile(join(root, kind, 'current.json'), JSON.stringify({ current: id }));
+
+        return folder;
+    }
+
+    function loading(): LanguageInstaller {
+        return new LanguageInstaller({ root, runtime, run: async () => 1, onChange: () => undefined });
+    }
+
+    async function isLink(folder: string): Promise<boolean> {
+        return (await lstat(join(folder, 'node_modules'))).isSymbolicLink();
+    }
+
+    const sets = async (): Promise<string[]> => (await readdir(join(root, 'packages')).catch(() => [] as string[])).filter((name) => !name.startsWith('.'));
+
+    it('moves the packages of the first install into a set and links to it', async () => {
+        const folder = await standalone('css', 'old');
+        const installer = loading();
+
+        await installer.load();
+
+        const [setId] = await sets();
+        const set = join(root, 'packages', setId!);
+
+        expect(await isLink(folder)).toBe(true);
+        expect(await installer.state('css')).toBe('installed');
+        expect(await readFile(join(set, 'node_modules', KIND_PROFILES.css.components[0]!.entry), 'utf8')).toBe('');
+        expect(JSON.parse(await readFile(join(set, 'package.json'), 'utf8')).name).toBe('ruimte-language-packages');
+        expect(await readFile(join(set, 'bun.lock'), 'utf8')).toContain('ruimte-language-packages');
+        expect(await readFile(join(set, 'bun.lock'), 'utf8')).not.toContain('server-css');
+        expect(JSON.parse(await readFile(join(set, 'set.json'), 'utf8'))).toMatchObject({ format: 1, files: expect.any(Number) });
+        expect(await readdir(join(root, 'packages', '.journal'))).toEqual([]);
+        expect(logTexts(installer, 'css').at(-1)).toMatch(/^Shared the packages of 1 installs in \d+ ms$/);
+    });
+
+    it('replaces an identical second install with a link and keeps a different one', async () => {
+        const css = await standalone('css', 'old');
+        const html = await standalone('html', 'old');
+        const json = await standalone('json', 'old', 'changed');
+
+        await loading().load();
+
+        expect(await sets()).toHaveLength(1);
+        expect(await isLink(css)).toBe(true);
+        expect(await isLink(html)).toBe(true);
+        expect(await isLink(json)).toBe(false);
+        expect(await readdir(join(html))).not.toContain('node_modules.adopting');
+        expect(await readFile(join(json, 'node_modules', KIND_PROFILES.json.components[0]!.entry), 'utf8')).toBe('changed');
+    });
+
+    it('costs nothing on a later start', async () => {
+        await standalone('css', 'old');
+        await loading().load();
+
+        const installer = loading();
+
+        await installer.load();
+
+        expect(logTexts(installer, 'css')).toEqual([]);
+    });
+
+    it('starts the move over when it stopped before the packages left the install', async () => {
+        const folder = await standalone('css', 'old');
+        const setId = new PackageStore({ root, runtime, run: async () => 1, now: () => 0 }).setIdOf(pinnedVersionsOf('css'));
+
+        await mkdir(join(root, 'packages', setId), { recursive: true });
+        await mkdir(join(root, 'packages', '.journal'), { recursive: true });
+        await writeFile(join(root, 'packages', '.journal', `${setId}.json`), JSON.stringify({ from: join('css', 'versions', 'old') }));
+        await loading().load();
+
+        expect(await isLink(folder)).toBe(true);
+        expect(await sets()).toEqual([setId]);
+        expect(await readdir(join(root, 'packages', '.journal'))).toEqual([]);
+    });
+
+    it('finishes the move when it stopped after the packages left the install', async () => {
+        const folder = await standalone('css', 'old');
+        const setId = new PackageStore({ root, runtime, run: async () => 1, now: () => 0 }).setIdOf(pinnedVersionsOf('css'));
+
+        await mkdir(join(root, 'packages', setId), { recursive: true });
+        await rename(join(folder, 'node_modules'), join(root, 'packages', setId, 'node_modules'));
+        await mkdir(join(root, 'packages', '.journal'), { recursive: true });
+        await writeFile(join(root, 'packages', '.journal', `${setId}.json`), JSON.stringify({ from: join('css', 'versions', 'old') }));
+
+        const installer = loading();
+
+        await installer.load();
+
+        expect(await isLink(folder)).toBe(true);
+        expect(await installer.state('css')).toBe('installed');
+        expect(await readdir(join(root, 'packages', setId))).toContain('set.json');
+        expect(await readdir(join(root, 'packages', '.journal'))).toEqual([]);
+    });
+
+    it('links an install whose packages were set aside when it stopped', async () => {
+        const css = await standalone('css', 'old');
+        const html = await standalone('html', 'old');
+
+        await loading().load();
+        await rm(join(html, 'node_modules'));
+        await mkdir(join(html, 'node_modules.adopting', 'x'), { recursive: true });
+        await loading().load();
+
+        expect(await isLink(css)).toBe(true);
+        expect(await isLink(html)).toBe(true);
+        expect(await readdir(html)).not.toContain('node_modules.adopting');
     });
 });

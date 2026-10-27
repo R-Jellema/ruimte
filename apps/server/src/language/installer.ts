@@ -173,6 +173,7 @@ export class LanguageInstaller {
     /* Reads what every kind has installed, and looks for the programs the toolchains bring. */
     async load(): Promise<void> {
         await this.store.recover();
+        await this.adoptInstalls();
         await Promise.all(LanguageServerKindSchema.options.map((kind) => (isToolchainKind(kind) ? this.detect(kind) : this.refresh(kind))));
     }
 
@@ -600,6 +601,45 @@ export class LanguageInstaller {
             if (!(await fileExists(entry))) {
                 throw new Error(`The install did not leave ${entry}`);
             }
+        }
+    }
+
+    /*
+     * Gives the installs from before package sets (a real `node_modules`) to the store, for the install a kind
+     * runs and the one before it. Awaited by \`load\`, before any server starts. A later start finds links and
+     * costs one \`lstat\` per install.
+     */
+    private async adoptInstalls(): Promise<void> {
+        if (process.platform === 'win32') {
+            return;
+        }
+        const started = this.now();
+        let first: LanguageServerKind | null = null;
+        let adopted = 0;
+        for (const kind of LanguageServerKindSchema.options) {
+            if (isNativeKind(kind) || isToolchainKind(kind)) {
+                continue;
+            }
+            const selection = await this.readSelection(kind);
+            for (const id of [selection?.current, selection?.previous]) {
+                if (id === undefined || id === LEGACY) {
+                    continue;
+                }
+                try {
+                    const adoption = await this.store.adopt(this.folderOf(kind, id));
+                    if (adoption !== null) {
+                        first ??= kind;
+                        adopted++;
+                        this.logOf(kind).push('install', `Packages of ${id}: ${adoption}`);
+                    }
+                } catch (error) {
+                    // An install that cannot be adopted keeps running from its own packages.
+                    this.logOf(kind).push('install', `Could not share the packages of ${id}: ${errorText(error)}`);
+                }
+            }
+        }
+        if (first !== null) {
+            this.logOf(first).push('install', `Shared the packages of ${adopted} installs in ${this.now() - started} ms`);
         }
     }
 
