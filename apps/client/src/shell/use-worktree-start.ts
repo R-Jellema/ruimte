@@ -3,6 +3,7 @@ import type { AgentKind, GitRefsResult, ModelSelection, Worktree } from '@ruimte
 import { branchRefusal, defaultProvider, readChatPreferences, startingSelection } from '@adecore/agents-react/chat';
 import { useProviders } from '@adecore/agents-react/state';
 import { messageOf } from '@adecore/ui';
+import { perform } from '@/actions/client-actions';
 import { availableAgents } from '@/agents/creation';
 import { proposedBranch } from '@/shell/new-worktree-chat';
 import { useTransport } from '@/transport/context';
@@ -17,6 +18,15 @@ export function reusableBranches(worktrees: readonly Pick<Worktree, 'branch' | '
             .filter((worktree) => worktree.missing !== true && worktree.branch !== '(detached)')
             .map((worktree) => worktree.branch)
     );
+}
+
+/* Makes the worktree a start describes: its branch from the base, or a reused branch as it stands. */
+export async function createStartWorktree(start: WorktreeStart): Promise<Worktree> {
+    const { worktree } = await perform('worktree.create', {
+        branch: start.branch.trim(),
+        ...(start.reuses ? {} : { base: start.base.trim() })
+    });
+    return worktree;
 }
 
 export interface WorktreeStart {

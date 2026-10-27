@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GitBranch } from 'lucide-react';
-import { perform } from '@/actions/client-actions';
 import { rememberChatSelection } from '@adecore/agents-react/chat';
 import { Button, Dialog, ErrorBoundary, FormError, Icon, messageOf } from '@adecore/ui';
 import { createWorktreeChat } from '@/shell/worktree-chat';
-import { useWorktreeStart } from '@/shell/use-worktree-start';
+import { createStartWorktree, useWorktreeStart } from '@/shell/use-worktree-start';
 import { WorktreeStartFields } from '@/shell/WorktreeStartFields';
 import { useProject } from '@/state/project';
 import { useUi } from '@/state/ui';
@@ -47,10 +46,7 @@ function NewWorktreeChatForm({ onDone }: { onDone(): void }) {
         setBusy(true);
         setFailure(null);
         try {
-            const { worktree } = await perform('worktree.create', {
-                branch: start.branch.trim(),
-                ...(start.reuses ? {} : { base: start.base.trim() })
-            });
+            const worktree = await createStartWorktree(start);
             if (start.selection !== null) {
                 rememberChatSelection(start.provider, start.selection);
             }

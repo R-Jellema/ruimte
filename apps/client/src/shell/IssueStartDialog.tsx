@@ -11,7 +11,7 @@ import { nodesOfView, useViewNodes } from '@/project/view-nodes';
 import { findIssueNode, issueBranch, issuePrompt } from '@/shell/issue-start';
 import { submitOnEnter } from '@/shell/submit-on-enter';
 import { createWorktreeChat } from '@/shell/worktree-chat';
-import { useWorktreeStart } from '@/shell/use-worktree-start';
+import { createStartWorktree, useWorktreeStart } from '@/shell/use-worktree-start';
 import { WorktreeStartFields } from '@/shell/WorktreeStartFields';
 import { useDocument } from '@/state/document';
 import { endpointKey, useEndpointId } from '@/state/keys';
@@ -113,10 +113,7 @@ function IssueStartForm({ onDone }: { onDone(): void }) {
         setBusy(true);
         setFailure(null);
         try {
-            const { worktree } = await perform('worktree.create', {
-                branch: start.branch.trim(),
-                ...(start.reuses ? {} : { base: start.base.trim() })
-            });
+            const worktree = await createStartWorktree(start);
             const existing = findIssueNode(useDocument.getState().views, nodesOfView, issue.url, worktree.path);
             if (existing !== null) {
                 focusChat(existing);

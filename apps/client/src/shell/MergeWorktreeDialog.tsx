@@ -22,6 +22,7 @@ import {
     type MergeRun
 } from '@/shell/panels/worktree-merge';
 import { nodesInWorktree } from '@/shell/panels/worktree-rows';
+import { inspectWorktrees, nodeNames } from '@/shell/worktree-inspection';
 import { Segmented, Switch, Button, Dialog, Field, FieldHint, Input } from '@adecore/ui';
 import { nodeWorking } from '@/state/agent-work';
 import { useChats, type ChatStatuses } from '@adecore/agents-react/state';
@@ -68,15 +69,11 @@ export function MergeWorktreeDialog() {
             return;
         }
         let cancelled = false;
-        transport
-            .request('git.worktree-list', { repo: request.folder, inspect: true })
-            .then((answer) => {
-                if (cancelled) {
-                    return;
+        inspectWorktrees(transport, request.folder, request.paths)
+            .then((found) => {
+                if (!cancelled) {
+                    setReading({ request, worktrees: found.filter((entry) => !entry.missing), error: null });
                 }
-                const found = request.paths.map((path) => answer.worktrees.find((entry) => entry.path === path)).filter((entry) => entry !== undefined);
-                const usable = found.filter((entry) => !entry.missing);
-                setReading({ request, worktrees: usable, error: null });
             })
             .catch((error: unknown) => {
                 if (!cancelled) {
@@ -161,9 +158,9 @@ export function MergeWorktreeDialog() {
     const endedClause = ended === 0 ? '' : working.length === 1 ? t('merge.endedByIt', { count: ended }) : t('merge.endedByThem', { count: ended });
     const agentLine =
         working.length > 0
-            ? t('merge.working', { count: working.length, names: working.map((node) => node.title || node.kind).join(', '), ended: endedClause })
+            ? t('merge.working', { count: working.length, names: nodeNames(working), ended: endedClause })
             : draft.remove && live.length > 0
-              ? t('merge.live', { count: live.length, names: live.map((node) => node.title || node.kind).join(', ') })
+              ? t('merge.live', { count: live.length, names: nodeNames(live) })
               : null;
 
     return (

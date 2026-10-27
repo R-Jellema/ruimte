@@ -13,6 +13,7 @@ import { useEndpointId } from '@/state/keys';
 import { useToasts } from '@/state/toasts';
 import { useUi } from '@/state/ui';
 import { worktreeLists } from '@/state/worktrees';
+import { inspectWorktrees, nodeNames } from '@/shell/worktree-inspection';
 import { useTransport } from '@/transport/context';
 
 type Reading = { key: string; worktrees: Worktree[]; error: { message: string | null } | null };
@@ -43,11 +44,9 @@ export function RemoveWorktreeDialog() {
             return;
         }
         let cancelled = false;
-        transport
-            .request('git.worktree-list', { repo: removal.folder, inspect: true })
-            .then((answer) => {
+        inspectWorktrees(transport, removal.folder, removal.paths)
+            .then((worktrees) => {
                 if (!cancelled) {
-                    const worktrees = removal.paths.map((path) => answer.worktrees.find((entry) => entry.path === path)).filter((entry) => entry !== undefined);
                     setReading({ key, worktrees, error: null });
                 }
             })
@@ -138,7 +137,7 @@ export function RemoveWorktreeDialog() {
                         {stopping && (
                             <span className="mt-2 block text-sm text-status-needs-you">
                                 {working.length > 0
-                                    ? t('removeWorktree.working', { count: working.length, names: working.map((node) => node.title || node.kind).join(', ') })
+                                    ? t('removeWorktree.working', { count: working.length, names: nodeNames(working) })
                                     : t('removeWorktree.agentWorking')}
                             </span>
                         )}
