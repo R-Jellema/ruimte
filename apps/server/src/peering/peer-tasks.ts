@@ -25,6 +25,7 @@ import { checkCwd } from '../canvas/project-paths.ts';
 import { taskFirstPrompt } from '../canvas/tasks.ts';
 import { VerbRefusal } from '../canvas/verb.ts';
 import { RequestError } from '../dispatcher.ts';
+import { errorText } from '../error-text.ts';
 import { BundleStore, fetchBundle, makeBundle } from '../git/bundles.ts';
 import type { CheckpointService } from '../git/checkpoints.ts';
 import { git } from '../git/run.ts';
@@ -36,7 +37,7 @@ import { providerFor } from '../providers/registry.ts';
 import type { ProjectStore } from '../projects/project-store.ts';
 import { peerTarget } from '../remote/connect-peer.ts';
 import { peerCanvasId, type PeerLinks } from './links.ts';
-import { nodeOf, sameCanvas, stripHidden } from './peer-canvas.ts';
+import { idTakenOutside, nodeOf, sameCanvas, stripHidden } from './peer-canvas.ts';
 
 /* What a machine that works here is given of this one: its tasks, bundles and holds, each judged by the link a person made. */
 export interface PeerTasksDeps {
@@ -172,9 +173,9 @@ export class PeerTasks {
             throw new RequestError('too-many-agents', `That agent has ${MAX_OPENED_PER_CALLER} agents open here already`);
         }
         if (!(await deps.installed()).includes(payload.provider)) {
-            throw new RequestError('cli-not-installed', `${providerFor(payload.provider).name} is not installed on this machine`);
+            throw new RequestError('cli-not-installed', `${provider.name} is not installed on this machine`);
         }
-        const chat = providerFor(payload.provider).capabilities.chat;
+        const chat = provider.capabilities.chat;
         // The narrowest of what it asks, what its own parent allows it and what the link here allows.
         const ceiling = narrowerMode(payload.ceiling, link.ceiling);
         const asked = payload.mode === undefined ? undefined : narrowerMode(payload.mode, ceiling);
@@ -312,10 +313,7 @@ export class PeerTasks {
         const { deps } = this;
         const canvasId = peerCanvasId(machineId);
         await deps.projects.mutate(projectId, async (content) => {
-            const taken = content.views.find(
-                (view) => view.id !== canvasId && (view.id === node.id || (isCanvasView(view) && view.nodes.some((other) => other.id === node.id)))
-            );
-            if (taken !== undefined) {
+            if (idTakenOutside(content.views, canvasId, new Set([node.id]))) {
                 throw new RequestError('peer-node-taken', 'A node of that machine has the id of a view or node here');
             }
             const held = content.views.find((view): view is ProjectCanvasView => view.id === canvasId && isCanvasView(view));
@@ -510,7 +508,7 @@ export class PeerTasks {
                     }
                 }
             })
-            .catch((e: unknown) => this.deps.log?.(`Dropping a broken transfer failed: ${e instanceof Error ? e.message : String(e)}`));
+            .catch((e: unknown) => this.deps.log?.(`Dropping a broken transfer failed: ${errorText(e)}`));
     }
 
     private heldByLiveChannel(bundleId: string): boolean {
@@ -575,9 +573,7 @@ export class PeerTasks {
         if (machineId === null || (task.status !== 'done' && task.status !== 'failed') || task.wake !== 'pending') {
             return;
         }
-        this.oweResult(machineId, task).catch((e: unknown) =>
-            this.deps.log?.(`Owing a result to another machine failed: ${e instanceof Error ? e.message : String(e)}`)
-        );
+        this.oweResult(machineId, task).catch((e: unknown) => this.deps.log?.(`Owing a result to another machine failed: ${errorText(e)}`));
     }
 
     /* Owes again what an earlier run settled and nobody acknowledged. Call once the outbox is loaded. */

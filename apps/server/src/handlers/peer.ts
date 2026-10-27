@@ -4,7 +4,7 @@ import { VerbRefusal } from '../canvas/verb.ts';
 import { checkCwd } from '../canvas/project-paths.ts';
 import { RequestError, type Dispatcher } from '../dispatcher.ts';
 import { peerCanvasId, type PeerLinks } from '../peering/links.ts';
-import { nodeOf, sameCanvas, stripHidden } from '../peering/peer-canvas.ts';
+import { idTakenOutside, nodeOf, sameCanvas, stripHidden } from '../peering/peer-canvas.ts';
 import type { ProjectStore } from '../projects/project-store.ts';
 
 /* What the requests of another machine's links reach of this one. */
@@ -124,11 +124,7 @@ export function registerPeerHandlers(dispatcher: Dispatcher, { links, lineage, t
         const canvasId = peerCanvasId(machineId);
         const gone = await projects.mutate(projectId, async (current) => {
             const placedBefore = links.placedOf(machineId, projectId);
-            // A node of this machine's own with the same id would fail every flush of the other machine, so it is told apart here.
-            const taken = current.views.find(
-                (view) => view.id !== canvasId && (ids.has(view.id) || (isCanvasView(view) && view.nodes.some((node) => ids.has(node.id))))
-            );
-            if (taken !== undefined) {
+            if (idTakenOutside(current.views, canvasId, ids)) {
                 throw new RequestError('peer-node-taken', 'A node of that machine has the id of a view or node here');
             }
             const held = current.views.find((view): view is ProjectCanvasView => view.id === canvasId && isCanvasView(view));
