@@ -5,8 +5,7 @@ import Testing
 
 struct WireSchemaTests {
     @Test func typeScriptValidationFixtures() throws {
-        let url = try #require(Bundle.module.url(forResource: "wire", withExtension: "json"))
-        let fixture = try JSONValue.decode(Data(contentsOf: url))
+        let fixture = try wireFixture()
         #expect(
             Set(WireRequest.allCases.map(\.rawValue))
                 == Set(try #require(fixture["requestTypes"]?.arrayValue).compactMap(\.stringValue)))
@@ -70,8 +69,7 @@ struct WireSchemaTests {
     }
 
     @Test func optionalNullableHasThreeStates() throws {
-        let fixture = try JSONValue.decode(
-            Data(contentsOf: #require(Bundle.module.url(forResource: "wire", withExtension: "json"))))
+        let fixture = try wireFixture()
         let entries = try #require(fixture["validations"]?.arrayValue).filter {
             $0["schema"] == .string("RegisterMachinePayloadSchema")
         }

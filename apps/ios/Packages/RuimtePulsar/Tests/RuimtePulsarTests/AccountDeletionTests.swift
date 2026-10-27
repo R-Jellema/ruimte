@@ -4,10 +4,6 @@ import Testing
 @testable import RuimtePulsar
 
 @Suite struct AccountDeletionTests {
-    private func answer(_ request: URLRequest, status: Int, body: String = "") -> (Data, HTTPURLResponse) {
-        (Data(body.utf8), HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!)
-    }
-
     private func sentBody(_ request: URLRequest) -> [String: String] {
         guard let data = request.httpBody,
             let object = try? JSONSerialization.jsonObject(with: data) as? [String: String]

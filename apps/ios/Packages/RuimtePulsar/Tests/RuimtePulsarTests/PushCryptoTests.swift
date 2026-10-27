@@ -5,8 +5,7 @@ import Testing
 
 struct PushCryptoTests {
     @Test func activityAgentRowsMatchTypeScriptSigningBytes() throws {
-        let fixture = try JSONValue.decode(
-            Data(contentsOf: #require(Bundle.module.url(forResource: "wire", withExtension: "json"))))
+        let fixture = try wireFixture()
         let sample = try #require(fixture["pushActivitySigning"])
         #expect(try PushSigning.message(#require(sample["push"])) == sample["message"]?.stringValue)
         let state = try JSONDecoder().decode(
@@ -18,8 +17,7 @@ struct PushCryptoTests {
     }
 
     @Test func readWatermarksPreserveNewerNotificationsAndIgnoreLateClaims() throws {
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let folder = try temporaryFolder()
         defer { try? FileManager.default.removeItem(at: folder) }
         let ledger = PushReplayLedger(directory: folder)
         try ledger.claim(id: "new", expiresAt: 1000, now: 300, unseenNode: "node", issuedAt: 200)
@@ -32,8 +30,7 @@ struct PushCryptoTests {
     }
 
     @Test func decryptsReadReceiptAndRejectsAlertTypeSubstitution() throws {
-        let fixture = try JSONValue.decode(
-            Data(contentsOf: #require(Bundle.module.url(forResource: "wire", withExtension: "json"))))
+        let fixture = try wireFixture()
         let sample = try #require(fixture["pushReadEncryption"])
         let key = try PushDecryptionKey(rawRepresentation: Base64URL.decode(sample["privateKey"]!.stringValue!)!)
         let push = try #require(sample["push"])
@@ -70,8 +67,7 @@ struct PushCryptoTests {
     }
 
     @Test func replayClaimsAreAtomicAndExpire() async throws {
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let folder = try temporaryFolder()
         defer { try? FileManager.default.removeItem(at: folder) }
         let ledger = PushReplayLedger(directory: folder)
         let accepted = await withTaskGroup(of: Bool.self) { group in
@@ -96,8 +92,7 @@ struct PushCryptoTests {
     }
 
     @Test func badgesCountNodesAcrossMachinesAndClearOnOpen() throws {
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let folder = try temporaryFolder()
         defer { try? FileManager.default.removeItem(at: folder) }
         let ledger = PushReplayLedger(directory: folder)
         let first = try PushReplayLedger.nodeKey(machineID: "one", nodeID: "same-node")
@@ -111,8 +106,7 @@ struct PushCryptoTests {
     }
 
     @Test func aConnectedMachineKeepsOnlyTheMarksItStillHoldsUnread() throws {
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let folder = try temporaryFolder()
         defer { try? FileManager.default.removeItem(at: folder) }
         let ledger = PushReplayLedger(directory: folder)
         let unread = try PushReplayLedger.nodeKey(machineID: "one", nodeID: "unread")
@@ -126,8 +120,7 @@ struct PushCryptoTests {
     }
 
     @Test func corruptedReceiptsFailClosed() throws {
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let folder = try temporaryFolder()
         defer { try? FileManager.default.removeItem(at: folder) }
         try Data("broken".utf8).write(to: folder.appendingPathComponent("push-receipts.json"))
         #expect(throws: (any Error).self) {
@@ -136,8 +129,7 @@ struct PushCryptoTests {
     }
 
     @Test func decryptsTypeScriptFixtureAndRejectsChanges() throws {
-        let fixture = try JSONValue.decode(
-            Data(contentsOf: #require(Bundle.module.url(forResource: "wire", withExtension: "json"))))
+        let fixture = try wireFixture()
         let sample = try #require(fixture["pushEncryption"])
         let push = try #require(sample["push"])
         let key = try PushDecryptionKey(

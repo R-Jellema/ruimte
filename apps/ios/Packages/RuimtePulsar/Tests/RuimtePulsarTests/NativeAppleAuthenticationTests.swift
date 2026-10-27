@@ -14,13 +14,6 @@ private func appleCredential(
     NativeAppleCredential(state: state, identityToken: identity, authorizationCode: code)
 }
 
-private final class AppleSessionStore: SessionStore, @unchecked Sendable {
-    private let lock = NSLock()
-    private var value: StoredSession?
-    func read() -> StoredSession? { lock.withLock { value } }
-    func write(_ value: StoredSession?) { lock.withLock { self.value = value } }
-}
-
 private actor AppleGate {
     private var arrived = false
     private var released = false
@@ -84,7 +77,7 @@ private actor AppleTestAPI: NativeAppleAPI, SessionAPI {
 struct NativeAppleAuthenticationTests {
     @MainActor @Test func challengeStateNonceAndPKCEStayBoundToTheNativeAttempt() async throws {
         let api = AppleTestAPI()
-        let store = AppleSessionStore()
+        let store = MemorySessionStore()
         let vault = SessionVault(client: api, store: store, signer: { DeviceKey() }, now: { appleTestNow })
         let flow = NativeAppleSignIn(
             authorize: { challenge in
@@ -144,7 +137,7 @@ struct NativeAppleAuthenticationTests {
         let api = AppleTestAPI()
         await api.setExpired()
         let vault = SessionVault(
-            client: api, store: AppleSessionStore(), signer: { DeviceKey() }, now: { appleTestNow })
+            client: api, store: MemorySessionStore(), signer: { DeviceKey() }, now: { appleTestNow })
         var opened = false
         let flow = NativeAppleSignIn(
             authorize: { _ in
@@ -162,7 +155,7 @@ struct NativeAppleAuthenticationTests {
     fileprivate func cancellationAtEveryNetworkBoundaryCannotPersistASession(stage: AppleTestAPI.Stage) async throws {
         let gate = AppleGate()
         let api = AppleTestAPI(stage: stage, gate: gate)
-        let store = AppleSessionStore()
+        let store = MemorySessionStore()
         let vault = SessionVault(client: api, store: store, signer: { DeviceKey() }, now: { appleTestNow })
         let flow = NativeAppleSignIn(authorize: { _ in appleCredential() }, now: { appleTestNow })
         let task = Task { try await flow.signIn(client: api, vault: vault, label: "iPhone") }
@@ -176,7 +169,7 @@ struct NativeAppleAuthenticationTests {
     @MainActor @Test func supersededNativeAuthorizationCannotCompleteTheOldAttempt() async throws {
         let gate = AppleGate()
         let api = AppleTestAPI()
-        let store = AppleSessionStore()
+        let store = MemorySessionStore()
         let vault = SessionVault(client: api, store: store, signer: { DeviceKey() }, now: { appleTestNow })
         var presentations = 0
         let flow = NativeAppleSignIn(
@@ -219,7 +212,7 @@ struct NativeAppleAuthenticationTests {
     @MainActor @Test func cancellationAfterPersistenceRollsBackOnlyItsOwnSession() async throws {
         for startNewLogin in [false, true] {
             let api = AppleTestAPI()
-            let store = AppleSessionStore()
+            let store = MemorySessionStore()
             let vault = SessionVault(client: api, store: store, signer: { DeviceKey() }, now: { appleTestNow })
             let operation = SignInOperation()
             let gate = AppleGate()
@@ -247,7 +240,7 @@ struct NativeAppleAuthenticationTests {
         let gate = AppleGate()
         let api = AppleTestAPI(stage: .exchange, gate: gate)
         await api.holdExchange(2)
-        let store = AppleSessionStore()
+        let store = MemorySessionStore()
         let vault = SessionVault(client: api, store: store, signer: { DeviceKey() }, now: { appleTestNow })
         let login = SessionLoginCode(
             code: appleCode, codeVerifier: String(repeating: "v", count: 43), redirectUri: PKCELogin.redirectURI,
@@ -268,7 +261,7 @@ struct NativeAppleAuthenticationTests {
         let gate = AppleGate()
         let firstSigner = AppleFirstSigner(gate: gate)
         let vault = SessionVault(
-            client: api, store: AppleSessionStore(), signer: { await firstSigner.signer() }, now: { appleTestNow })
+            client: api, store: MemorySessionStore(), signer: { await firstSigner.signer() }, now: { appleTestNow })
         let login = SessionLoginCode(
             code: appleCode, codeVerifier: String(repeating: "v", count: 43), redirectUri: PKCELogin.redirectURI,
             label: "iPhone")
@@ -296,16 +289,13 @@ struct NativeAppleAuthenticationTests {
                 data = try JSONEncoder().encode(NativeAppleCompleteResult(code: appleCode))
             default: throw NativeAppleLoginError.unavailable
             }
-            return (data, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+            return answer(request, body: data)
         })
         #expect(try await client.startApple(.init(codeChallenge: appleNonce)).nonce == appleNonce)
         #expect(try await client.completeApple(appleCredential().payload(for: appleAttempt)).code == appleCode)
         await #expect(throws: (any Error).self) { try await client.startApple(.init(codeChallenge: "invalid")) }
         let invalid = AddressBookClient(fetch: { request in
-            (
-                Data(#"{"code":"too-short"}"#.utf8),
-                HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
-            )
+            answer(request, body: #"{"code":"too-short"}"#)
         })
         await #expect(throws: AddressBookRequestError.self) {
             try await invalid.completeApple(appleCredential().payload(for: appleAttempt))
@@ -314,10 +304,10 @@ struct NativeAppleAuthenticationTests {
 
     @MainActor @Test func unavailableBackendNeverFallsBackToBrowser() async throws {
         let client = AddressBookClient(fetch: { request in
-            (Data(), HTTPURLResponse(url: request.url!, statusCode: 404, httpVersion: nil, headerFields: nil)!)
+            answer(request, status: 404)
         })
         let vault = SessionVault(
-            client: client, store: AppleSessionStore(), signer: { DeviceKey() }, now: { appleTestNow })
+            client: client, store: MemorySessionStore(), signer: { DeviceKey() }, now: { appleTestNow })
         var opened = false
         let flow = NativeAppleSignIn(
             authorize: { _ in

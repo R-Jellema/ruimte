@@ -21,10 +21,7 @@ final class ChatUiDeltaTests: XCTestCase {
     }
 
     private func assistant(_ item: ChatItem) throws -> ChatAssistantItem {
-        guard case .assistant(let reply) = item else {
-            return try XCTUnwrap(nil, "The reply came back as another kind")
-        }
-        return reply
+        try XCTUnwrap(item.assistantItem, "The reply came back as another kind")
     }
 
     func testPreviewMatchesUTF16LengthWithoutAppendingItsTextTwice() throws {

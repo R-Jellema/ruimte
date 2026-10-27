@@ -5,6 +5,9 @@ public enum Presence<Value: Codable & Sendable & Equatable>: Sendable, Equatable
     case missing
     case null
     case value(Value)
+
+    /// The value when one was sent; `null` and a missing field read the same.
+    public var present: Value? { if case .value(let value) = self { value } else { nil } }
 }
 
 public enum WireValidationError: Error, LocalizedError, Sendable, Equatable {
@@ -55,26 +58,12 @@ public enum JSONValue: Codable, Sendable, Equatable {
     }
 
     public subscript(_ key: String) -> JSONValue? { objectValue?[key] }
-    public var objectValue: [String: JSONValue]? {
-        if case .object(let value) = self { return value }
-        return nil
-    }
-    public var arrayValue: [JSONValue]? {
-        if case .array(let value) = self { return value }
-        return nil
-    }
-    public var stringValue: String? {
-        if case .string(let value) = self { return value }
-        return nil
-    }
-    public var numberValue: Double? {
-        if case .number(let value) = self { return value }
-        return nil
-    }
-    public var boolValue: Bool? {
-        if case .bool(let value) = self { return value }
-        return nil
-    }
+    public var objectValue: [String: JSONValue]? { if case .object(let value) = self { value } else { nil } }
+    public var arrayValue: [JSONValue]? { if case .array(let value) = self { value } else { nil } }
+    public var stringValue: String? { if case .string(let value) = self { value } else { nil } }
+    public var numberValue: Double? { if case .number(let value) = self { value } else { nil } }
+    public var boolValue: Bool? { if case .bool(let value) = self { value } else { nil } }
+
     public static func decode(_ data: Data) throws -> JSONValue {
         try JSONDecoder().decode(JSONValue.self, from: replacingLoneSurrogates(in: data))
     }
@@ -227,7 +216,10 @@ public enum WireSchema {
                 if let maximum = schema["maxLength"]?.numberValue, length > maximum { throw fail() }
             }
             if let pattern = schema["pattern"]?.stringValue {
-                guard try expression(pattern).firstMatch(in: string, range: NSRange(string.startIndex..., in: string)) != nil else {
+                guard
+                    try expression(pattern).firstMatch(in: string, range: NSRange(string.startIndex..., in: string))
+                        != nil
+                else {
                     throw fail()
                 }
             }
@@ -333,5 +325,4 @@ public enum WireSchema {
         }
         return result
     }
-
 }

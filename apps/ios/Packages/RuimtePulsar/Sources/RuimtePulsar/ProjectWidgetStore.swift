@@ -40,14 +40,7 @@ public struct ProjectWidgetProject: Codable, Sendable, Equatable, Identifiable {
 
     /// The address the app opens a view of this project at, the same door the needs-you widgets use.
     public func url(for view: ProjectWidgetView) -> URL? {
-        var url = URLComponents()
-        url.scheme = "ruimte"
-        url.host = "node"
-        url.queryItems = [
-            .init(name: "machine", value: machineID), .init(name: "node", value: view.id),
-            .init(name: "target", value: "view"),
-        ]
-        return url.url
+        WidgetDefaults.nodeURL(machineID: machineID, nodeID: view.id, target: "view")
     }
 }
 
@@ -64,22 +57,14 @@ public struct ProjectWidgetSnapshot: Codable, Sendable, Equatable {
     public func says(_ other: ProjectWidgetSnapshot) -> Bool { projects == other.projects }
 }
 
-/// The project widget's side of the app group. The widget never reaches a machine itself.
+/// The project widget's side of the app group.
 public enum ProjectWidgetStore {
     public static let kind = "app.ruimte.project"
     private static let snapshotKey = "project-widget.snapshot"
 
-    private static var defaults: UserDefaults? { UserDefaults(suiteName: SharedPushStore.group) }
+    public static func snapshot() -> ProjectWidgetSnapshot? { WidgetDefaults.read(snapshotKey) }
 
-    public static func snapshot() -> ProjectWidgetSnapshot? {
-        guard let data = defaults?.data(forKey: snapshotKey) else { return nil }
-        return try? JSONDecoder().decode(ProjectWidgetSnapshot.self, from: data)
-    }
-
-    public static func save(_ snapshot: ProjectWidgetSnapshot) {
-        guard let data = try? JSONEncoder().encode(snapshot) else { return }
-        defaults?.set(data, forKey: snapshotKey)
-    }
+    public static func save(_ snapshot: ProjectWidgetSnapshot) { WidgetDefaults.write(snapshot, snapshotKey) }
 
     /// Leaves out the machines that are gone, so a removed machine or a sign-out leaves nothing behind.
     public static func keep(machineIDs: Set<String>) {

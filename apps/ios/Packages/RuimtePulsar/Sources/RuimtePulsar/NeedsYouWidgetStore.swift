@@ -28,16 +28,7 @@ public struct NeedsYouWidgetItem: Codable, Sendable, Equatable, Identifiable {
     }
 
     /// The address the app opens the node at.
-    public var url: URL? {
-        var url = URLComponents()
-        url.scheme = "ruimte"
-        url.host = "node"
-        url.queryItems = [
-            .init(name: "machine", value: machineID), .init(name: "node", value: nodeID),
-            .init(name: "target", value: target),
-        ]
-        return url.url
-    }
+    public var url: URL? { WidgetDefaults.nodeURL(machineID: machineID, nodeID: nodeID, target: target) }
 }
 
 /// What Now last knew of every machine, for the widgets that never reach a machine themselves.
@@ -67,17 +58,9 @@ public enum NeedsYouWidgetStore {
     public static let listKind = "app.ruimte.needs-you.list"
     private static let snapshotKey = "needs-you-widget.snapshot"
 
-    private static var defaults: UserDefaults? { UserDefaults(suiteName: SharedPushStore.group) }
+    public static func snapshot() -> NeedsYouWidgetSnapshot? { WidgetDefaults.read(snapshotKey) }
 
-    public static func snapshot() -> NeedsYouWidgetSnapshot? {
-        guard let data = defaults?.data(forKey: snapshotKey) else { return nil }
-        return try? JSONDecoder().decode(NeedsYouWidgetSnapshot.self, from: data)
-    }
-
-    public static func save(_ snapshot: NeedsYouWidgetSnapshot) {
-        guard let data = try? JSONEncoder().encode(snapshot) else { return }
-        defaults?.set(data, forKey: snapshotKey)
-    }
+    public static func save(_ snapshot: NeedsYouWidgetSnapshot) { WidgetDefaults.write(snapshot, snapshotKey) }
 
     /// Leaves out the machines that are gone, so a removed machine or a sign-out leaves nothing behind.
     public static func keep(machineIDs: Set<String>) {

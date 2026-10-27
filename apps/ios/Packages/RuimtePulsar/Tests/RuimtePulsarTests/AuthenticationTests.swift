@@ -9,19 +9,6 @@ private let authLogin = SessionLoginCode(
     code: String(repeating: "c", count: 43), codeVerifier: String(repeating: "v", count: 43),
     redirectUri: PKCELogin.redirectURI, label: "iPhone")
 
-private final class MemorySessionStore: SessionStore, @unchecked Sendable {
-    private let lock = NSLock()
-    private var session: StoredSession?
-
-    func read() -> StoredSession? {
-        lock.withLock { session }
-    }
-
-    func write(_ session: StoredSession?) {
-        lock.withLock { self.session = session }
-    }
-}
-
 private actor FakeSessionAPI: SessionAPI {
     var refreshCalls = 0
     var endedTokens: [String] = []
@@ -86,6 +73,18 @@ private actor FakeSessionAPI: SessionAPI {
     }
 }
 
+/// A store and a device key of its own over `api`.
+private struct VaultHarness {
+    var api = FakeSessionAPI()
+    let store = MemorySessionStore()
+    let key = DeviceKey()
+
+    /// A vault over the store and key, a new one each call as after a restart.
+    func vault() -> SessionVault {
+        SessionVault(client: api, store: store, signer: { [key] in key }, now: { authNow })
+    }
+}
+
 private actor RefreshGate {
     private var opened = false
     private var waiters: [CheckedContinuation<Void, Never>] = []
@@ -143,10 +142,9 @@ struct AuthenticationTests {
 
     @MainActor @Test func cancelDuringExchangeDoesNotKeepTheSession() async throws {
         let gate = RefreshGate()
-        let api = FakeSessionAPI(exchangeGate: gate)
-        let store = MemorySessionStore()
-        let key = DeviceKey()
-        let vault = SessionVault(client: api, store: store, signer: { key }, now: { authNow })
+        let harness = VaultHarness(api: FakeSessionAPI(exchangeGate: gate))
+        let store = harness.store
+        let vault = harness.vault()
         let operation = SignInOperation()
         let signIn = Task { try await operation.perform { try await vault.exchange(authLogin) } }
         await gate.waitForArrival()
@@ -164,9 +162,7 @@ struct AuthenticationTests {
     @Test func parallelRefreshesSpendTheTokenOnce() async throws {
         let gate = RefreshGate()
         let api = FakeSessionAPI(gate: gate)
-        let store = MemorySessionStore()
-        let key = DeviceKey()
-        let vault = SessionVault(client: api, store: store, signer: { key }, now: { authNow })
+        let vault = VaultHarness(api: api).vault()
         _ = try await vault.exchange(authLogin)
         let first = await vault.refreshOperation()
         let second = await vault.refreshOperation()
@@ -178,10 +174,9 @@ struct AuthenticationTests {
 
     @Test func signOutDiscardsALateRefresh() async throws {
         let gate = RefreshGate()
-        let api = FakeSessionAPI(gate: gate)
-        let store = MemorySessionStore()
-        let key = DeviceKey()
-        let vault = SessionVault(client: api, store: store, signer: { key }, now: { authNow })
+        let harness = VaultHarness(api: FakeSessionAPI(gate: gate))
+        let store = harness.store
+        let vault = harness.vault()
         _ = try await vault.exchange(authLogin)
         let refresh = await vault.refreshOperation()
         try await vault.signOut()
@@ -190,26 +185,23 @@ struct AuthenticationTests {
         #expect(store.read() == nil)
     }
     @Test func exchangeRotationAndRestore() async throws {
-        let api = FakeSessionAPI()
-        let store = MemorySessionStore()
-        let key = DeviceKey()
-        let vault = SessionVault(client: api, store: store, signer: { key }, now: { authNow })
+        let harness = VaultHarness()
+        let store = harness.store
+        let vault = harness.vault()
         let first = try await vault.exchange(authLogin)
         #expect(first.accessToken == "access-1")
         #expect(store.read()?.refreshToken == String(repeating: "1", count: 43))
         let second = try await vault.refresh()
         #expect(second?.accessToken == "access-2")
         #expect(store.read()?.refreshToken == String(repeating: "2", count: 43))
-        let restarted = SessionVault(client: api, store: store, signer: { key }, now: { authNow })
+        let restarted = harness.vault()
         #expect(try await restarted.restore()?.account == authAccount)
         #expect(try await restarted.refresh()?.accessToken == "access-3")
     }
 
     @Test func networkFailureKeepsSessionAndRefusalClearsIt() async throws {
-        let api = FakeSessionAPI()
-        let store = MemorySessionStore()
-        let key = DeviceKey()
-        let vault = SessionVault(client: api, store: store, signer: { key }, now: { authNow })
+        let harness = VaultHarness()
+        let (api, store, vault) = (harness.api, harness.store, harness.vault())
         _ = try await vault.exchange(authLogin)
         await api.setFailure("network")
         await #expect(throws: AddressBookRequestError.self) { try await vault.refresh() }
@@ -236,10 +228,8 @@ struct AuthenticationTests {
     }
 
     @Test func signOutForgetsEvenWhenServerIsUnreachable() async throws {
-        let api = FakeSessionAPI()
-        let store = MemorySessionStore()
-        let key = DeviceKey()
-        let vault = SessionVault(client: api, store: store, signer: { key }, now: { authNow })
+        let harness = VaultHarness()
+        let (api, store, vault) = (harness.api, harness.store, harness.vault())
         _ = try await vault.exchange(authLogin)
         await api.setFailure("network")
         try await vault.signOut()
@@ -292,10 +282,7 @@ struct AuthenticationTests {
             let body =
                 request.url?.path == "/v1/providers"
                 ? #"{"providers":["github","future"]}"# : #"{"machines":[{"id":"machine","name":""}]}"#
-            return (
-                Data(body.utf8),
-                HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
-            )
+            return answer(request, body: body)
         })
         #expect(try await client.providers() == ["github", "future"])
         await #expect(throws: AddressBookRequestError.self) { try await client.listMachines(accessToken: "access") }
@@ -341,10 +328,7 @@ struct AuthenticationTests {
                 nonce: mismatch == "nonce" ? String(repeating: "n", count: 24) : payload.nonce,
                 issuedAt: authNow, expiresAt: authNow + 120_000,
                 signature: String(repeating: "a", count: 86))
-            return (
-                try JSONEncoder().encode(statement),
-                HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
-            )
+            return answer(request, body: try JSONEncoder().encode(statement))
         })
         if mismatch == "matching" {
             let access = try await client.signalAccess(
@@ -371,12 +355,10 @@ struct AuthenticationTests {
                 signature: String(repeating: "a", count: 86),
                 machinePublicKey: String(repeating: "M", count: 43), accountId: "account-1",
                 accountSignature: String(repeating: "b", count: 86))
-            return (
-                try JSONEncoder().encode(statement),
-                HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
-            )
+            return answer(request, body: try JSONEncoder().encode(statement))
         })
-        let access = try await client.signalAccess(accessToken: "access", machineID: "machine", key: key, label: "iPhone")
+        let access = try await client.signalAccess(
+            accessToken: "access", machineID: "machine", key: key, label: "iPhone")
         let encoded = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(access)) as? [String: Any])
         let statement = try #require(encoded["statement"] as? [String: Any])
         #expect(statement["machinePublicKey"] as? String == String(repeating: "M", count: 43))

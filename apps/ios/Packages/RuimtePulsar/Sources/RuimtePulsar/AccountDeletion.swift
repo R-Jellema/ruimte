@@ -24,11 +24,3 @@ public enum AccountDeletionConfirmation {
             .lowercased()
     }
 }
-
-extension Presence {
-    /// The value when one was sent; `null` and a missing field read the same.
-    public var present: Value? {
-        if case .value(let value) = self { return value }
-        return nil
-    }
-}

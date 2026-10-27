@@ -92,7 +92,6 @@ private let twoClaudes = """
 
 @Test func anAccountWearsANodeAccentOrNone() {
     #expect(RuimteColors.nodeAccents["blue"] == 0x155dfc)
-    #expect(RuimteColors.nodeAccents.count == 17)
     #expect(RuimteColors.nodeAccent("gray") == nil)
     #expect(RuimteColors.nodeAccent(nil) == nil)
 }

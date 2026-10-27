@@ -5,9 +5,7 @@ import Testing
 
 struct TypedWireTests {
     private func fixtures(_ schema: String) throws -> [JSONValue] {
-        let url = try #require(Bundle.module.url(forResource: "wire", withExtension: "json"))
-        let fixture = try JSONValue.decode(Data(contentsOf: url))
-        return try #require(fixture["validations"]?.arrayValue).filter {
+        return try #require(wireFixture()["validations"]?.arrayValue).filter {
             $0["schema"] == .string(schema) && $0["valid"] == .bool(true)
         }.compactMap { $0["output"] }
     }

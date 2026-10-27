@@ -107,15 +107,13 @@ public enum UsageWidgetStore {
     private static let machinesKey = "usage-widget.machines"
     private static let snapshotsKey = "usage-widget.snapshots"
 
-    private static var defaults: UserDefaults? { UserDefaults(suiteName: SharedPushStore.group) }
-
-    public static func machines() -> [UsageWidgetMachine] { read(machinesKey) ?? [] }
+    public static func machines() -> [UsageWidgetMachine] { WidgetDefaults.read(machinesKey) ?? [] }
 
     /// Drops the snapshot of every machine that left the list, so a removed machine or a sign-out leaves nothing behind.
     public static func setMachines(_ machines: [UsageWidgetMachine]) {
-        write(machines, machinesKey)
+        WidgetDefaults.write(machines, machinesKey)
         let ids = Set(machines.map(\.id))
-        write(snapshots().filter { ids.contains($0.key) }, snapshotsKey)
+        WidgetDefaults.write(snapshots().filter { ids.contains($0.key) }, snapshotsKey)
     }
 
     public static func snapshot(machineID: String) -> UsageWidgetSnapshot? { snapshots()[machineID] }
@@ -124,18 +122,8 @@ public enum UsageWidgetStore {
         guard machines().contains(where: { $0.id == machineID }) else { return }
         var all = snapshots()
         all[machineID] = snapshot
-        write(all, snapshotsKey)
+        WidgetDefaults.write(all, snapshotsKey)
     }
 
-    private static func snapshots() -> [String: UsageWidgetSnapshot] { read(snapshotsKey) ?? [:] }
-
-    private static func read<Value: Decodable>(_ key: String) -> Value? {
-        guard let data = defaults?.data(forKey: key) else { return nil }
-        return try? JSONDecoder().decode(Value.self, from: data)
-    }
-
-    private static func write<Value: Encodable>(_ value: Value, _ key: String) {
-        guard let data = try? JSONEncoder().encode(value) else { return }
-        defaults?.set(data, forKey: key)
-    }
+    private static func snapshots() -> [String: UsageWidgetSnapshot] { WidgetDefaults.read(snapshotsKey) ?? [:] }
 }

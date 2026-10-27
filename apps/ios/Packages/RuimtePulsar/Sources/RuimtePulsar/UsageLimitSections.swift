@@ -61,8 +61,9 @@ public struct UsageLimitSection: Sendable, Equatable, Identifiable {
         guard let entry else { return signedOut ? .signedOut : .notRead(message: account?.message) }
         if !(entry["windows"]?.arrayValue ?? []).isEmpty { return nil }
         if signedOut { return .signedOut }
-        let unavailable = entry["unavailable"].map { $0 != .null } ?? false
-        if (entry["checkedAt"]?.numberValue ?? 0) <= 0 && !unavailable { return .notRead(message: nil) }
+        if (entry["checkedAt"]?.numberValue ?? 0) <= 0 && !ProviderAccountList.isUnavailable(entry) {
+            return .notRead(message: nil)
+        }
         return nil
     }
 }

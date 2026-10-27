@@ -13,7 +13,7 @@ struct PushAPITests {
         let requests = PushRequests()
         let api = PushAPI(fetch: { request in
             await requests.append(request)
-            return (Data(), HTTPURLResponse(url: request.url!, statusCode: 204, httpVersion: nil, headerFields: nil)!)
+            return answer(request, status: 204)
         })
         try await api.startActivity(
             handle: String(repeating: "A", count: 43), token: String(repeating: "ab", count: 32), scope: "machines",
@@ -36,10 +36,7 @@ struct PushAPITests {
         let handle = String(repeating: "A", count: 43)
         let api = PushAPI(fetch: { request in
             await requests.append(request)
-            return (
-                Data(#"{"reserved":true}"#.utf8),
-                HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
-            )
+            return answer(request, body: #"{"reserved":true}"#)
         })
         try await api.startActivity(
             handle: handle, token: String(repeating: "ab", count: 32), machineID: "machine", collapseID: handle,
@@ -71,11 +68,7 @@ struct PushAPITests {
             await requests.append(request)
             let registration = request.httpMethod == "POST"
             let data = registration ? try JSONValue.object(["handle": .string(handle)]).encoded() : Data()
-            return (
-                data,
-                HTTPURLResponse(
-                    url: request.url!, statusCode: registration ? 200 : 204, httpVersion: nil, headerFields: nil)!
-            )
+            return answer(request, status: registration ? 200 : 204, body: data)
         })
         #expect(
             try await api.register(
@@ -108,10 +101,7 @@ struct PushAPITests {
         let requests = PushRequests()
         let api = PushAPI(fetch: { request in
             await requests.append(request)
-            return (
-                Data(#"{"handle":"invalid"}"#.utf8),
-                HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
-            )
+            return answer(request, body: #"{"handle":"invalid"}"#)
         })
         await #expect(throws: (any Error).self) {
             try await api.register(token: "bad-token", environment: "sandbox", accessToken: "access")

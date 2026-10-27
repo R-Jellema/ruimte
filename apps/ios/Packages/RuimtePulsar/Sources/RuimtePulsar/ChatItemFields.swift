@@ -51,12 +51,10 @@ extension ChatItem {
     /// opened have one.
     public var parentToolUseID: String? {
         switch self {
-        case .assistant(let item):
-            if case .value(let parent) = item.parentToolUseId { return parent }
-            return nil
-        case .tool(let item): return item.parentToolUseId
-        case .subagent(let item): return item.parentToolUseId
-        default: return nil
+        case .assistant(let item): item.parentToolUseId.present
+        case .tool(let item): item.parentToolUseId
+        case .subagent(let item): item.parentToolUseId
+        default: nil
         }
     }
 

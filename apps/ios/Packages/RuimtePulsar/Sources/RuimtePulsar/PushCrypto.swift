@@ -6,8 +6,11 @@ public enum PushCryptoError: Error, LocalizedError, Sendable {
     public var errorDescription: String? {
         switch self {
         case .invalid: String(localized: "Could not verify the notification.", bundle: .module)
-        case .expired: String(localized: "This notification has expired. Open the session to see its current state.", bundle: .module)
-        case .unknownMachine: String(localized: "This notification is from a machine that no longer has access.", bundle: .module)
+        case .expired:
+            String(
+                localized: "This notification has expired. Open the session to see its current state.", bundle: .module)
+        case .unknownMachine:
+            String(localized: "This notification is from a machine that no longer has access.", bundle: .module)
         case .wrongDevice: String(localized: "This notification belongs to another device.", bundle: .module)
         case .replay: String(localized: "This notification was already delivered.", bundle: .module)
         }
@@ -83,8 +86,7 @@ public struct PushDecryptionKey: Sendable {
             using: SHA256.self, salt: Data(WireConstants.pushHKDFSalt.utf8), sharedInfo: info, outputByteCount: 32)
         let box = try AES.GCM.SealedBox(
             nonce: .init(data: nonce), ciphertext: encrypted.dropLast(16), tag: encrypted.suffix(16))
-        let bytes = try AES.GCM.open(box, using: symmetric, authenticating: Data(try PushSigning.routing(push).utf8))
-        return bytes
+        return try AES.GCM.open(box, using: symmetric, authenticating: Data(try PushSigning.routing(push).utf8))
     }
 }
 

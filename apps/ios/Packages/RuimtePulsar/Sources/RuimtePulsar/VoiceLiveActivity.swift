@@ -1,9 +1,5 @@
 import Foundation
 
-#if os(iOS) && canImport(ActivityKit)
-    import ActivityKit
-#endif
-
 /// What Voice's Live Activity shows while a session runs on this phone. The app starts, updates and ends it itself;
 /// no push ever reaches it.
 public struct VoiceLiveContent: Codable, Hashable, Sendable {
@@ -52,6 +48,8 @@ public struct VoiceLiveAttributes: Codable, Hashable, Sendable {
 }
 
 #if os(iOS) && canImport(ActivityKit)
+    import ActivityKit
+
     extension VoiceLiveAttributes: ActivityAttributes {
         public typealias ContentState = VoiceLiveContent
     }

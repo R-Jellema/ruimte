@@ -58,10 +58,11 @@ public actor SessionVault {
         refreshing = nil
         guard let key = try await signer() else {
             throw AddressBookRequestError(
-                code: "unauthorized", status: 0, message: String(localized: "This device cannot sign in yet. Try again.", bundle: .module))
+                code: "unauthorized", status: 0,
+                message: String(localized: "This device cannot sign in yet. Try again.", bundle: .module))
         }
         try Task.checkCancellation()
-        guard operation == revision else { throw CancellationError() }
+        try ensureCurrent(operation)
         let signature = try key.sign(SigningBytes.sessionKey(code: login.code, publicKey: key.publicKey))
         let result = try await client.exchange(
             SessionExchangePayload(
@@ -69,9 +70,7 @@ public actor SessionVault {
                 label: login.label, sessionKey: key.publicKey, sessionKeySignature: signature
             ))
         try Task.checkCancellation()
-        guard operation == revision else {
-            throw CancellationError()
-        }
+        try ensureCurrent(operation)
         return try keep(result)
     }
 
@@ -122,10 +121,7 @@ public actor SessionVault {
             token = try? await refresh()?.accessToken
         }
         revision += 1
-        refreshing?.cancel()
-        refreshing = nil
-        current = nil
-        currentRevision = nil
+        dropCurrent()
         try store.write(nil)
         if let token {
             try? await client.endSession(accessToken: token)
@@ -136,21 +132,28 @@ public actor SessionVault {
         // A canceled login must never erase a newer login that finished during cleanup.
         if current?.accessToken == accessToken {
             if currentRevision == revision { revision += 1 }
-            refreshing?.cancel()
-            refreshing = nil
-            current = nil
-            currentRevision = nil
+            dropCurrent()
             try? store.write(nil)
         }
         try? await client.endSession(accessToken: accessToken)
     }
 
+    private func dropCurrent() {
+        refreshing?.cancel()
+        refreshing = nil
+        current = nil
+        currentRevision = nil
+    }
+
+    /// A late answer must not restore a session after a sign-out or another login.
+    private func ensureCurrent(_ operation: Int) throws {
+        guard operation == revision else { throw CancellationError() }
+    }
+
     private func rotate(operation: Int) async throws -> SessionView? {
         let stored = try store.read()
         let key = if let stored, stored.expiresAt > now() { try await signer() } else { nil as any SessionSigner? }
-        guard operation == revision else {
-            throw CancellationError()
-        }
+        try ensureCurrent(operation)
         guard let stored, let key else {
             current = nil
             if stored != nil {
@@ -167,18 +170,13 @@ public actor SessionVault {
         } catch let error as AddressBookRequestError
             where ["unauthorized", "bad-request", "bad-signature"].contains(error.code)
         {
-            guard operation == revision else {
-                throw CancellationError()
-            }
+            try ensureCurrent(operation)
             current = nil
             try store.write(nil)
             return nil
         }
         try Task.checkCancellation()
-        // A late response must not restore a session after sign-out or another login.
-        guard operation == revision else {
-            throw CancellationError()
-        }
+        try ensureCurrent(operation)
         return try keep(result)
     }
 

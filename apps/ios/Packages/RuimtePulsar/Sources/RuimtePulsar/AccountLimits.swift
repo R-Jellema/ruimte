@@ -55,10 +55,12 @@ extension ProviderAccountList {
     /// The numbers were read and no window of the plan is spent. An account never read has no known room.
     private static func hasRoom(_ entry: JSONValue) -> Bool {
         let windows = entry["windows"]?.arrayValue ?? []
-        let unavailable = entry["unavailable"].map { $0 != .null } ?? false
-        return (entry["checkedAt"]?.numberValue ?? 0) > 0 && !unavailable && !windows.isEmpty
+        return (entry["checkedAt"]?.numberValue ?? 0) > 0 && !isUnavailable(entry) && !windows.isEmpty
             && windows.allSatisfy { ($0["used"]?.numberValue ?? 1) < 1 }
     }
+
+    /// Whether the machine said why it could not read the entry's numbers.
+    static func isUnavailable(_ entry: JSONValue) -> Bool { entry["unavailable"].map { $0 != .null } ?? false }
 
     /// What a turn of this account would run into first: its session window, else its fullest one.
     private static func pressure(_ entry: JSONValue) -> Double {

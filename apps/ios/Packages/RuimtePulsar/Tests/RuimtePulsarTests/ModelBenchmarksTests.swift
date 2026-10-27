@@ -4,10 +4,6 @@ import Testing
 @testable import RuimtePulsar
 
 @Suite struct ModelBenchmarksTests {
-    private func answer(_ request: URLRequest, status: Int, body: String) -> (Data, HTTPURLResponse) {
-        (Data(body.utf8), HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!)
-    }
-
     @Test func benchmarksAreReadWithoutAnAccount() async throws {
         let client = AddressBookClient(fetch: { request in
             #expect(request.httpMethod == "GET")
