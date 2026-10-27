@@ -1,5 +1,6 @@
 import { ACTION_DEFINITIONS, VOICE_CONTROL_TOOL, type ActionCall, type ActionName, type ActionResult, type VoiceToolDefinition } from '@ruimte/actions';
 import { voiceReplyOf, type VoiceReplyWords } from '@ruimte/voice';
+import { isRecord } from '../is-record.ts';
 import type { VoicePolicy } from './action-policy.ts';
 
 type VoiceToolOutput = Record<string, unknown>;
@@ -78,7 +79,7 @@ function refused(code: string, message: string): VoiceToolOutput {
 function objectArguments(raw: string): Record<string, unknown> | null {
     try {
         const parsed: unknown = JSON.parse(raw);
-        return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null;
+        return isRecord(parsed) ? parsed : null;
     } catch {
         return null;
     }

@@ -52,11 +52,8 @@ export function voicePolicy(): VoicePolicy {
     return {
         actions,
         check(name, input) {
-            if (!actions.has(name as ActionName)) {
-                return { code: 'not-for-voice', message: `Voice cannot run “${name}” on this machine.` };
-            }
             const rule = VOICE_FIELD_RULES[name];
-            if (rule === undefined) {
+            if (!actions.has(name as ActionName) || rule === undefined) {
                 return { code: 'not-for-voice', message: `Voice cannot run “${name}” on this machine.` };
             }
             for (const field of rule.off ?? []) {

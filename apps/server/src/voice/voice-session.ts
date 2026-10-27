@@ -426,21 +426,20 @@ export class VoiceSession {
             return;
         }
         const definition = ACTION_DEFINITIONS[name];
-        this.#seq += 1;
-        this.#deps.emit('voice.activity', {
-            sessionId: this.id,
-            sceneId: this.owner.sceneId,
-            seq: this.#seq,
-            entry: {
-                id: callId.slice(0, 128) || 'call',
-                at: this.#deps.clock.now(),
-                kind: TIMELINE[definition.domain] ?? 'node',
-                status,
-                label: definition.title,
-                detail,
-                ...(confirmation === undefined ? {} : { confirmation })
-            }
+        this.#emitActivity({
+            id: callId.slice(0, 128) || 'call',
+            at: this.#deps.clock.now(),
+            kind: TIMELINE[definition.domain] ?? 'node',
+            status,
+            label: definition.title,
+            detail,
+            ...(confirmation === undefined ? {} : { confirmation })
         });
+    }
+
+    #emitActivity(entry: VoiceActivityEntry): void {
+        this.#seq += 1;
+        this.#deps.emit('voice.activity', { sessionId: this.id, sceneId: this.owner.sceneId, seq: this.#seq, entry });
     }
 
     /* Quiet context in appends under the byte bound; never the commentary that makes the model speak. */
@@ -490,12 +489,13 @@ export class VoiceSession {
         if (this.#phase !== 'active') {
             return;
         }
-        this.#seq += 1;
-        this.#deps.emit('voice.activity', {
-            sessionId: this.id,
-            sceneId: this.owner.sceneId,
-            seq: this.#seq,
-            entry: { id: entry.id.slice(0, 128), at: this.#deps.clock.now(), kind: 'chat', status: entry.status, label: entry.label.slice(0, 200), detail: '' }
+        this.#emitActivity({
+            id: entry.id.slice(0, 128),
+            at: this.#deps.clock.now(),
+            kind: 'chat',
+            status: entry.status,
+            label: entry.label.slice(0, 200),
+            detail: ''
         });
     }
 
