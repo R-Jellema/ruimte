@@ -7,10 +7,10 @@ import { formatNumber, useFormatLocale } from '@adecore/ui/format';
 import { SettingsRow, TopIcon } from '@adecore/ui/settings';
 import { formatNodeSize, setDefaultSize } from '@/canvas/default-size';
 import { NODE_KIND_ICONS } from '@/canvas/node-icons';
+import { useListedMachines } from '@/shell/settings/machine-list';
 import { readNodeSide, storedNodeSize, type NodeSide } from '@/shell/settings/node-size-fields';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
-import { LOCAL_ENDPOINT_ID, useEndpoints, type Endpoint } from '@/state/endpoints';
-import { listedEndpoints } from '@/state/local-machine';
+import type { Endpoint } from '@/state/endpoints';
 import { useServers } from '@/state/server';
 import { useEndpointConnection } from '@/transport/status';
 
@@ -191,14 +191,9 @@ function NodeSizeSection({ endpoint, sizes, searchId }: { endpoint: Endpoint; si
 /* A section per machine this client heard from, a row per kind a person can add to a canvas. */
 export function NodeSizeSections() {
     useFormatLocale();
-    const stored = useEndpoints((s) => s.endpoints);
-    const endpoints = listedEndpoints(stored);
     // Nothing here holds a link, so a section reads what a connected machine last said.
     const servers = useServers((s) => s.byEndpoint);
-    const keeping = [
-        ...endpoints.filter((endpoint) => endpoint.id === LOCAL_ENDPOINT_ID),
-        ...endpoints.filter((endpoint) => endpoint.id !== LOCAL_ENDPOINT_ID)
-    ].filter((endpoint) => servers[endpoint.id] !== undefined);
+    const keeping = useListedMachines().filter((endpoint) => servers[endpoint.id] !== undefined);
 
     return (
         <>

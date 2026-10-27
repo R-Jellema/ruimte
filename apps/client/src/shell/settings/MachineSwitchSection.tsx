@@ -2,10 +2,10 @@ import { useTranslation } from 'react-i18next';
 import { SettingsRow } from '@adecore/ui/settings';
 import { Switch } from '@adecore/ui';
 import { MACHINE_SWITCHES, type MachineSwitch } from '@/shell/settings/machine-switches';
+import { useListedMachines } from '@/shell/settings/machine-list';
 import { useMachineSetting } from '@/shell/settings/machine-setting';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
-import { LOCAL_ENDPOINT_ID, useEndpoints, type Endpoint } from '@/state/endpoints';
-import { listedEndpoints } from '@/state/local-machine';
+import type { Endpoint } from '@/state/endpoints';
 import { useServers } from '@/state/server';
 import { useEndpointConnection } from '@/transport/status';
 
@@ -44,14 +44,7 @@ function MachineSwitchRow({ endpoint, setting, searchId }: { endpoint: Endpoint;
  */
 export function MachineSwitchSections() {
     const { t } = useTranslation('settings');
-    const stored = useEndpoints((s) => s.endpoints);
-    const endpoints = listedEndpoints(stored);
-
-    // This machine first, which is the one a person with a single machine is looking at.
-    const ordered = [
-        ...endpoints.filter((endpoint) => endpoint.id === LOCAL_ENDPOINT_ID),
-        ...endpoints.filter((endpoint) => endpoint.id !== LOCAL_ENDPOINT_ID)
-    ];
+    const ordered = useListedMachines();
 
     return (
         <>

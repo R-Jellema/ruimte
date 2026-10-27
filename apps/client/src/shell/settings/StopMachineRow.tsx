@@ -21,8 +21,8 @@ export function StopMachineRow() {
     const [leave, setLeave] = useState(false);
     // A retry after `choose` failed must not ask the account to let go of a machine that already left.
     const left = useRef(false);
-    const label = useEndpoints((s) => s.endpoints.find((endpoint) => endpoint.id === LOCAL_ENDPOINT_ID)?.label ?? '');
-    const daemonId = useEndpoints((s) => s.endpoints.find((endpoint) => endpoint.id === LOCAL_ENDPOINT_ID)?.daemonId ?? null);
+    const local = useEndpoints((s) => s.endpoints.find((endpoint) => endpoint.id === LOCAL_ENDPOINT_ID));
+    const label = local?.label ?? '';
     const accountId = useServers((s) => s.byEndpoint[LOCAL_ENDPOINT_ID]?.accountId);
     const reachable = transportFor(LOCAL_ENDPOINT_ID) !== null;
 
@@ -68,7 +68,7 @@ export function StopMachineRow() {
             throw new Error(t('backgroundService.confirmStopRunning.failed'));
         }
         if (leave && reachable && !left.current) {
-            await leaveAccount(LOCAL_ENDPOINT_ID, daemonId ?? LOCAL_ENDPOINT_ID);
+            await leaveAccount(LOCAL_ENDPOINT_ID, local?.daemonId ?? LOCAL_ENDPOINT_ID);
             left.current = true;
         }
         try {

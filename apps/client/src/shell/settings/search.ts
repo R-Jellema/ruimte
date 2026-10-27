@@ -22,6 +22,17 @@ interface SearchEntry {
     available?: () => boolean;
 }
 
+/* A row whose id is also where its words sit, under `settings:<id>.label` and `.description`, in the pane its id starts with. */
+function row(id: `${SettingsSectionId}.${string}`, available?: () => boolean): SearchEntry {
+    return {
+        id,
+        section: id.slice(0, id.indexOf('.')) as SettingsSectionId,
+        label: `settings:${id}.label`,
+        description: `settings:${id}.description`,
+        ...(available === undefined ? {} : { available })
+    };
+}
+
 function hasOpenedMachine(): boolean {
     return useEndpoints.getState().endpoints.some((endpoint) => endpoint.id !== LOCAL_ENDPOINT_ID || hasLocalMachine());
 }
@@ -32,247 +43,54 @@ function hasOpenedMachine(): boolean {
  * the search just does not know it.
  */
 export const SETTINGS_INDEX: readonly SearchEntry[] = [
-    { id: 'appearance.theme', section: 'appearance', label: 'settings:appearance.theme.label', description: 'settings:appearance.theme.description' },
-    { id: 'appearance.palette', section: 'appearance', label: 'settings:appearance.palette.label', description: 'settings:appearance.palette.description' },
-    { id: 'appearance.accent', section: 'appearance', label: 'settings:appearance.accent.label', description: 'settings:appearance.accent.description' },
-    {
-        id: 'appearance.interface.layout',
-        section: 'appearance',
-        label: 'settings:appearance.interface.layout.label',
-        description: 'settings:appearance.interface.layout.description'
-    },
-    {
-        id: 'appearance.interface.projects',
-        section: 'appearance',
-        label: 'settings:appearance.interface.projects.label',
-        description: 'settings:appearance.interface.projects.description'
-    },
-    {
-        id: 'appearance.interface.dock',
-        section: 'appearance',
-        label: 'settings:appearance.interface.dock.label',
-        description: 'settings:appearance.interface.dock.description'
-    },
-    { id: 'appearance.sidebar', section: 'appearance', label: 'settings:appearance.sidebar.label', description: 'settings:appearance.sidebar.description' },
-    {
-        id: 'appearance.needsYou',
-        section: 'appearance',
-        label: 'settings:appearance.needsYou.label',
-        description: 'settings:appearance.needsYou.description'
-    },
-    {
-        id: 'appearance.projectGlow',
-        section: 'appearance',
-        label: 'settings:appearance.projectGlow.label',
-        description: 'settings:appearance.projectGlow.description'
-    },
-    { id: 'appearance.language', section: 'appearance', label: 'settings:appearance.language.label', description: 'settings:appearance.language.description' },
-    { id: 'appearance.region', section: 'appearance', label: 'settings:appearance.region.label', description: 'settings:appearance.region.description' },
-    {
-        id: 'appearance.font.interface',
-        section: 'appearance',
-        label: 'settings:appearance.font.interface.label',
-        description: 'settings:appearance.font.interface.description'
-    },
-    {
-        id: 'appearance.font.interfaceSize',
-        section: 'appearance',
-        label: 'settings:appearance.font.interfaceSize.label',
-        description: 'settings:appearance.font.interfaceSize.description'
-    },
-    {
-        id: 'appearance.font.mono',
-        section: 'appearance',
-        label: 'settings:appearance.font.mono.label',
-        description: 'settings:appearance.font.mono.description'
-    },
-    {
-        id: 'editor.colors.light',
-        section: 'editor',
-        label: 'settings:editor.colors.light.label',
-        description: 'settings:editor.colors.light.description'
-    },
-    {
-        id: 'editor.colors.dark',
-        section: 'editor',
-        label: 'settings:editor.colors.dark.label',
-        description: 'settings:editor.colors.dark.description'
-    },
-    {
-        id: 'editor.general.font.size',
-        section: 'editor',
-        label: 'settings:editor.general.font.size.label',
-        description: 'settings:editor.general.font.size.description'
-    },
-    {
-        id: 'editor.general.font.lineHeight',
-        section: 'editor',
-        label: 'settings:editor.general.font.lineHeight.label',
-        description: 'settings:editor.general.font.lineHeight.description'
-    },
-    {
-        id: 'editor.general.font.ligatures',
-        section: 'editor',
-        label: 'settings:editor.general.font.ligatures.label',
-        description: 'settings:editor.general.font.ligatures.description'
-    },
-    {
-        id: 'editor.general.display.wrap',
-        section: 'editor',
-        label: 'settings:editor.general.display.wrap.label',
-        description: 'settings:editor.general.display.wrap.description'
-    },
-    {
-        id: 'editor.general.display.indentGuides',
-        section: 'editor',
-        label: 'settings:editor.general.display.indentGuides.label',
-        description: 'settings:editor.general.display.indentGuides.description'
-    },
-    {
-        id: 'editor.general.display.whitespace',
-        section: 'editor',
-        label: 'settings:editor.general.display.whitespace.label',
-        description: 'settings:editor.general.display.whitespace.description'
-    },
-    {
-        id: 'editor.general.display.stickyScroll',
-        section: 'editor',
-        label: 'settings:editor.general.display.stickyScroll.label',
-        description: 'settings:editor.general.display.stickyScroll.description'
-    },
-    {
-        id: 'editor.general.display.rightMargin',
-        section: 'editor',
-        label: 'settings:editor.general.display.rightMargin.label',
-        description: 'settings:editor.general.display.rightMargin.description'
-    },
-    {
-        id: 'editor.general.navigation.camelHumps',
-        section: 'editor',
-        label: 'settings:editor.general.navigation.camelHumps.label',
-        description: 'settings:editor.general.navigation.camelHumps.description'
-    },
-    {
-        id: 'editor.general.documentation.render',
-        section: 'editor',
-        label: 'settings:editor.general.documentation.render.label',
-        description: 'settings:editor.general.documentation.render.description',
-        available: () => RENDERED_DOC_COMMENTS
-    },
-    {
-        id: 'editor.general.codeVision.usages',
-        section: 'editor',
-        label: 'settings:editor.general.codeVision.usages.label',
-        description: 'settings:editor.general.codeVision.usages.description'
-    },
-    {
-        id: 'editor.general.codeVision.authors',
-        section: 'editor',
-        label: 'settings:editor.general.codeVision.authors.label',
-        description: 'settings:editor.general.codeVision.authors.description'
-    },
-    {
-        id: 'editor.folding.outline',
-        section: 'editor',
-        label: 'settings:editor.folding.outline.label',
-        description: 'settings:editor.folding.outline.description'
-    },
-    ...FOLDING_GROUPS.flatMap((group) =>
-        group.rows.map((row) => ({
-            id: `editor.folding.${group.id}.${row.words}`,
-            section: 'editor' as const,
-            label: `settings:editor.folding.${group.id}.${row.words}.label`,
-            description: `settings:editor.folding.${group.id}.${row.words}.description`
-        }))
-    ),
-    {
-        id: 'editor.ai.inlineAgent',
-        section: 'editor',
-        label: 'settings:editor.ai.inlineAgent.label',
-        description: 'settings:editor.ai.inlineAgent.description'
-    },
-    {
-        id: 'editor.ai.agentChanges',
-        section: 'editor',
-        label: 'settings:editor.ai.agentChanges.label',
-        description: 'settings:editor.ai.agentChanges.description'
-    },
-    {
-        id: 'editor.ai.attribution',
-        section: 'editor',
-        label: 'settings:editor.ai.attribution.label',
-        description: 'settings:editor.ai.attribution.description'
-    },
-    {
-        id: 'editor.ai.onDevice.help',
-        section: 'editor',
-        label: 'settings:editor.ai.onDevice.help.label',
-        description: 'settings:editor.ai.onDevice.help.description'
-    },
-    {
-        id: 'editor.ai.onDevice.ghost',
-        section: 'editor',
-        label: 'settings:editor.ai.onDevice.ghost.label',
-        description: 'settings:editor.ai.onDevice.ghost.description'
-    },
-    {
-        id: 'editor.smartKeys.pairBrackets',
-        section: 'editor',
-        label: 'settings:editor.smartKeys.pairBrackets.label',
-        description: 'settings:editor.smartKeys.pairBrackets.description'
-    },
-    {
-        id: 'editor.smartKeys.pairQuotes',
-        section: 'editor',
-        label: 'settings:editor.smartKeys.pairQuotes.label',
-        description: 'settings:editor.smartKeys.pairQuotes.description'
-    },
-    {
-        id: 'editor.smartKeys.surroundSelection',
-        section: 'editor',
-        label: 'settings:editor.smartKeys.surroundSelection.label',
-        description: 'settings:editor.smartKeys.surroundSelection.description'
-    },
-    {
-        id: 'editor.smartKeys.tabOut',
-        section: 'editor',
-        label: 'settings:editor.smartKeys.tabOut.label',
-        description: 'settings:editor.smartKeys.tabOut.description'
-    },
-    {
-        id: 'editor.smartKeys.smartEnter',
-        section: 'editor',
-        label: 'settings:editor.smartKeys.smartEnter.label',
-        description: 'settings:editor.smartKeys.smartEnter.description'
-    },
-    {
-        id: 'editor.smartKeys.indentOnPaste',
-        section: 'editor',
-        label: 'settings:editor.smartKeys.indentOnPaste.label',
-        description: 'settings:editor.smartKeys.indentOnPaste.description'
-    },
-    {
-        id: 'editor.smartKeys.smartSemicolon',
-        section: 'editor',
-        label: 'settings:editor.smartKeys.smartSemicolon.label',
-        description: 'settings:editor.smartKeys.smartSemicolon.description'
-    },
-    {
-        id: 'editor.smartKeys.smartArrow',
-        section: 'editor',
-        label: 'settings:editor.smartKeys.smartArrow.label',
-        description: 'settings:editor.smartKeys.smartArrow.description'
-    },
+    row('appearance.theme'),
+    row('appearance.palette'),
+    row('appearance.accent'),
+    row('appearance.interface.layout'),
+    row('appearance.interface.projects'),
+    row('appearance.interface.dock'),
+    row('appearance.sidebar'),
+    row('appearance.needsYou'),
+    row('appearance.projectGlow'),
+    row('appearance.language'),
+    row('appearance.region'),
+    row('appearance.font.interface'),
+    row('appearance.font.interfaceSize'),
+    row('appearance.font.mono'),
+    row('editor.colors.light'),
+    row('editor.colors.dark'),
+    row('editor.general.font.size'),
+    row('editor.general.font.lineHeight'),
+    row('editor.general.font.ligatures'),
+    row('editor.general.display.wrap'),
+    row('editor.general.display.indentGuides'),
+    row('editor.general.display.whitespace'),
+    row('editor.general.display.stickyScroll'),
+    row('editor.general.display.rightMargin'),
+    row('editor.general.navigation.camelHumps'),
+    row('editor.general.documentation.render', () => RENDERED_DOC_COMMENTS),
+    row('editor.general.codeVision.usages'),
+    row('editor.general.codeVision.authors'),
+    row('editor.folding.outline'),
+    ...FOLDING_GROUPS.flatMap((group) => group.rows.map((folding) => row(`editor.folding.${group.id}.${folding.words}`))),
+    row('editor.ai.inlineAgent'),
+    row('editor.ai.agentChanges'),
+    row('editor.ai.attribution'),
+    row('editor.ai.onDevice.help'),
+    row('editor.ai.onDevice.ghost'),
+    row('editor.smartKeys.pairBrackets'),
+    row('editor.smartKeys.pairQuotes'),
+    row('editor.smartKeys.surroundSelection'),
+    row('editor.smartKeys.tabOut'),
+    row('editor.smartKeys.smartEnter'),
+    row('editor.smartKeys.indentOnPaste'),
+    row('editor.smartKeys.smartSemicolon'),
+    row('editor.smartKeys.smartArrow'),
     { id: 'editor.servers', section: 'editor', label: 'settings:editor.servers.title', description: 'settings:editor.servers.description' },
     { id: 'editor.servers.own', section: 'editor', label: 'settings:editor.servers.own.title', description: 'settings:editor.servers.own.description' },
-    { id: 'terminal.font.size', section: 'terminal', label: 'settings:terminal.font.size.label', description: 'settings:terminal.font.size.description' },
-    {
-        id: 'terminal.font.lineHeight',
-        section: 'terminal',
-        label: 'settings:terminal.font.lineHeight.label',
-        description: 'settings:terminal.font.lineHeight.description'
-    },
-    { id: 'terminal.links', section: 'terminal', label: 'settings:terminal.links.label', description: 'settings:terminal.links.description' },
+    row('terminal.font.size'),
+    row('terminal.font.lineHeight'),
+    row('terminal.links'),
     {
         id: 'views.nodeSizes',
         section: 'views',
@@ -280,25 +98,14 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
         description: 'settings:views.nodeSizes.description',
         available: () => Object.keys(useServers.getState().byEndpoint).length > 0
     },
-    { id: 'views.canvas.minimap', section: 'views', label: 'settings:views.canvas.minimap.label', description: 'settings:views.canvas.minimap.description' },
-    { id: 'views.drawing.snap', section: 'views', label: 'settings:views.drawing.snap.label', description: 'settings:views.drawing.snap.description' },
-    {
-        id: 'views.browser.swipe',
-        section: 'views',
-        label: 'settings:views.browser.swipe.label',
-        description: 'settings:views.browser.swipe.description',
-        available: canSwipeBetweenPages
-    },
-    { id: 'files.files.openFiles', section: 'files', label: 'settings:files.files.openFiles.label', description: 'settings:files.files.openFiles.description' },
-    { id: 'files.files.hidden', section: 'files', label: 'settings:files.files.hidden.label', description: 'settings:files.files.hidden.description' },
-    {
-        id: 'files.files.browseStart',
-        section: 'files',
-        label: 'settings:files.files.browseStart.label',
-        description: 'settings:files.files.browseStart.description'
-    },
-    { id: 'files.git.layout', section: 'files', label: 'settings:files.git.layout.label', description: 'settings:files.git.layout.description' },
-    { id: 'files.git.whitespace', section: 'files', label: 'settings:files.git.whitespace.label', description: 'settings:files.git.whitespace.description' },
+    row('views.canvas.minimap'),
+    row('views.drawing.snap'),
+    row('views.browser.swipe', canSwipeBetweenPages),
+    row('files.files.openFiles'),
+    row('files.files.hidden'),
+    row('files.files.browseStart'),
+    row('files.git.layout'),
+    row('files.git.whitespace'),
     { id: 'storage.output', section: 'storage', label: 'settings:storage.output.title', description: 'settings:storage.output.description' },
     { id: 'storage.cleanup', section: 'storage', label: 'settings:storage.cleanup.title', description: 'settings:storage.cleanup.description' },
     { id: 'storage.projects', section: 'storage', label: 'settings:storage.projects.title', description: 'settings:storage.projects.footer' },
@@ -317,53 +124,28 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
     },
     { id: 'agents.defaults.permissions', section: 'agents', label: 'settings:agents.defaults.permissions' },
     { id: 'agents.defaults.terminalMode', section: 'agents', label: 'settings:agents.defaults.terminalMode' },
-    {
-        id: 'agents.chats.sendKey',
-        section: 'agents',
-        label: 'settings:agents.chats.sendKey.label',
-        description: 'settings:agents.chats.sendKey.description'
-    },
-    {
-        id: 'agents.chats.steerByDefault',
-        section: 'agents',
-        label: 'settings:agents.chats.steerByDefault.label',
-        description: 'settings:agents.chats.steerByDefault.description'
-    },
+    row('agents.chats.sendKey'),
+    row('agents.chats.steerByDefault'),
     {
         id: 'agents.chats.streaming',
         section: 'agents',
         label: 'settings:agents.chats.streaming.label',
         description: 'settings:agents.chats.streaming.words.description'
     },
-    {
-        id: 'agents.chats.readingWidth',
-        section: 'agents',
-        label: 'settings:agents.chats.readingWidth.label',
-        description: 'settings:agents.chats.readingWidth.description'
-    },
-    {
-        id: 'agents.chats.showViews',
-        section: 'agents',
-        label: 'settings:agents.chats.showViews.label',
-        description: 'settings:agents.chats.showViews.description'
-    },
-    {
-        id: 'agents.chats.mapTiles',
-        section: 'agents',
-        label: 'settings:agents.chats.mapTiles.label',
-        description: 'settings:agents.chats.mapTiles.description'
-    },
-    { id: 'providers.apple', section: 'providers', label: 'settings:providers.apple.label', description: 'settings:providers.apple.description' },
+    row('agents.chats.readingWidth'),
+    row('agents.chats.showViews'),
+    row('agents.chats.mapTiles'),
+    row('providers.apple'),
     {
         id: 'providers.acpServer',
         section: 'providers',
         label: 'settings:providers.acpServer.searchLabel',
         description: 'settings:providers.acpServer.description'
     },
-    { id: 'agents.resumeAtReset', section: 'agents', label: 'settings:agents.resumeAtReset.label', description: 'settings:agents.resumeAtReset.description' },
-    { id: 'agents.visualReplies', section: 'agents', label: 'settings:agents.visualReplies.label', description: 'settings:agents.visualReplies.description' },
-    { id: 'agents.deleteAnyView', section: 'agents', label: 'settings:agents.deleteAnyView.label', description: 'settings:agents.deleteAnyView.description' },
-    { id: 'agents.working.sound', section: 'agents', label: 'settings:agents.working.sound.label', description: 'settings:agents.working.sound.description' },
+    row('agents.resumeAtReset'),
+    row('agents.visualReplies'),
+    row('agents.deleteAnyView'),
+    row('agents.working.sound'),
     {
         id: 'agents.keepAwake.mode',
         section: 'agents',
@@ -415,18 +197,8 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
         description: 'settings:voice.conversation.confirm.description'
     },
     { id: 'computer.enable', section: 'computer', label: 'settings:computer.allow', description: 'settings:computer.description' },
-    {
-        id: 'computer.grant.accessibility',
-        section: 'computer',
-        label: 'settings:computer.grant.accessibility.label',
-        description: 'settings:computer.grant.accessibility.description'
-    },
-    {
-        id: 'computer.grant.screenRecording',
-        section: 'computer',
-        label: 'settings:computer.grant.screenRecording.label',
-        description: 'settings:computer.grant.screenRecording.description'
-    },
+    row('computer.grant.accessibility'),
+    row('computer.grant.screenRecording'),
     // On the account row of the Account pane.
     { id: 'machines.signIn', section: 'machines', label: 'settings:machines.account.title', description: 'settings:machines.account.description' },
     {
@@ -508,7 +280,7 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
         description: 'settings:backgroundService.stopRunning.description',
         available: () => hasLocalMachine() && desktop()?.machine !== undefined
     },
-    { id: 'about.updates.auto', section: 'about', label: 'settings:about.updates.auto.label', description: 'settings:about.updates.auto.description' },
+    row('about.updates.auto'),
     { id: 'about.onboarding', section: 'about', label: 'onboarding:about.label', description: 'onboarding:about.description', available: hasLocalMachine }
 ];
 

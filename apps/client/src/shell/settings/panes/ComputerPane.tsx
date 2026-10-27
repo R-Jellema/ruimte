@@ -10,9 +10,10 @@ import { Switch, Button, ErrorBoundary, FormError } from '@adecore/ui';
 import { SetUpMachineDialog } from '@/shell/settings/SetUpMachineDialog';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
 import { WithReason } from '@/shell/settings/MachineSettings';
+import { useListedMachines } from '@/shell/settings/machine-list';
 import { ComputerAppGrants } from '@/shell/settings/panes/ComputerAppGrants';
-import { LOCAL_ENDPOINT_ID, useEndpoints, type Endpoint } from '@/state/endpoints';
-import { hasLocalMachine, listedEndpoints } from '@/state/local-machine';
+import type { Endpoint } from '@/state/endpoints';
+import { hasLocalMachine } from '@/state/local-machine';
 
 export function ComputerPane() {
     const { t } = useTranslation('settings');
@@ -25,12 +26,7 @@ export function ComputerPane() {
 
 /* A block per machine, like every setting an agent is held to: the machine enforces it, so each keeps its own. */
 function ComputerSection() {
-    const stored = useEndpoints((s) => s.endpoints);
-    const endpoints = listedEndpoints(stored);
-    const ordered = [
-        ...endpoints.filter((endpoint) => endpoint.id === LOCAL_ENDPOINT_ID),
-        ...endpoints.filter((endpoint) => endpoint.id !== LOCAL_ENDPOINT_ID)
-    ];
+    const ordered = useListedMachines();
     // Computer use acts on the computer its machine runs on, so a Mac whose app runs none has nothing to switch on.
     const thisMac = isDesktop() && !hasLocalMachine() && desktop()?.platform === 'darwin';
     return (

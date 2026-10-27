@@ -1,6 +1,7 @@
 import i18next from 'i18next';
 import type { Machine } from '@ruimte/pulsar';
-import { LOCAL_ENDPOINT_ID, type Endpoint } from '@/state/endpoints';
+import { LOCAL_ENDPOINT_ID, useEndpoints, type Endpoint } from '@/state/endpoints';
+import { listedEndpoints } from '@/state/local-machine';
 
 /* One machine in the Machines pane, however this client knows it: a row of its own, the account, or both. */
 export interface MachineEntry {
@@ -20,6 +21,16 @@ interface MergeInput {
     showLocal: boolean;
 }
 
+function localFirst(endpoints: readonly Endpoint[]): Endpoint[] {
+    return [...endpoints.filter((endpoint) => endpoint.id === LOCAL_ENDPOINT_ID), ...endpoints.filter((endpoint) => endpoint.id !== LOCAL_ENDPOINT_ID)];
+}
+
+/* The machines a section per machine lists, this machine first: it is the one a person with a single machine looks at. */
+export function useListedMachines(): Endpoint[] {
+    const stored = useEndpoints((s) => s.endpoints);
+    return localFirst(listedEndpoints(stored));
+}
+
 /* The row of this machine holds the daemon id once it answered; every other row is keyed on it. */
 export function machineIdOf(endpoint: Endpoint): string {
     return endpoint.daemonId ?? endpoint.id;
@@ -28,9 +39,7 @@ export function machineIdOf(endpoint: Endpoint): string {
 /* This machine first, then the rows in the order they were added, then what only the account has. */
 export function mergeMachines({ endpoints, accountMachines, showLocal }: MergeInput): MachineEntry[] {
     const entries: MachineEntry[] = [];
-    const local = endpoints.find((endpoint) => endpoint.id === LOCAL_ENDPOINT_ID);
-    const ordered = [...(local && showLocal ? [local] : []), ...endpoints.filter((endpoint) => endpoint.id !== LOCAL_ENDPOINT_ID)];
-    for (const endpoint of ordered) {
+    for (const endpoint of localFirst(listedEndpoints(endpoints, showLocal))) {
         const id = machineIdOf(endpoint);
         if (entries.some((entry) => entry.id === id)) {
             continue;
