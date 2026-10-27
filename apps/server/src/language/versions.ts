@@ -8,8 +8,8 @@ export type NpmKind = Exclude<LanguageServerKind, NativeKind | ToolchainKind>;
 /*
  * What a server install pins, exactly. The `typescript` kind runs the native server of TypeScript 7.
  * The Vue kind stays on the TypeScript 6 SDK and typescript-language-server, since TypeScript 7 has no
- * plugin API for `@vue/typescript-plugin`. A version moves here and nowhere else, and a kind installed
- * at other versions reads as not installed.
+ * plugin API for `@vue/typescript-plugin`. A version moves here and nowhere else; a kind installed at
+ * other versions keeps running them until a person updates.
  */
 export const LANGUAGE_PACKAGE_VERSIONS = {
     'typescript-language-server': '6.0.1',

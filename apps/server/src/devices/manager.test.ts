@@ -66,6 +66,12 @@ class FakeSource implements DeviceSource {
     }
 }
 
+function bootedBackend(): FakeBackend {
+    const backend = new FakeBackend();
+    backend.info = { ...phone, state: 'booted' };
+    return backend;
+}
+
 describe('DeviceManager', () => {
     test('closing all also ends what each backend runs beside its sessions', () => {
         const backend = new FakeBackend();
@@ -122,8 +128,7 @@ describe('DeviceManager', () => {
     });
 
     test('refuses a stream to a client that cannot draw its format', async () => {
-        const backend = new FakeBackend();
-        backend.info = { ...phone, state: 'booted' };
+        const backend = bootedBackend();
         Object.assign(backend.source, { format: 'h264' });
         const manager = new DeviceManager([backend]);
         const unsupported = new DeviceError('device-format-unsupported', 'Update Ruimte on this client to show this device');
@@ -134,8 +139,7 @@ describe('DeviceManager', () => {
     });
 
     test('shares one capture between event viewers and stops after the last detach', async () => {
-        const backend = new FakeBackend();
-        backend.info = { ...phone, state: 'booted' };
+        const backend = bootedBackend();
         const manager = new DeviceManager([backend]);
         const first: Array<LiveFrameHeader<'device.frame'>> = [];
         const second: Array<LiveFrameHeader<'device.frame'>> = [];
@@ -169,8 +173,7 @@ describe('DeviceManager', () => {
     });
 
     test('a video frame says whether it is a key frame, and a client that lost one can ask for the next', async () => {
-        const backend = new FakeBackend();
-        backend.info = { ...phone, state: 'booted' };
+        const backend = bootedBackend();
         let keyFrameRequests = 0;
         Object.assign(backend.source, { format: 'h264', requestKeyFrame: () => (keyFrameRequests += 1) });
         const manager = new DeviceManager([backend]);
@@ -194,8 +197,7 @@ describe('DeviceManager', () => {
     });
 
     test('a client that asked for binary frames gets the bytes, one that did not gets base64', async () => {
-        const backend = new FakeBackend();
-        backend.info = { ...phone, state: 'booted' };
+        const backend = bootedBackend();
         Object.assign(backend.source, { format: 'h264' });
         const manager = new DeviceManager([backend]);
         const live: LiveFrame[] = [];
@@ -227,8 +229,7 @@ describe('DeviceManager', () => {
     });
 
     test('a client that subscribed again keeps its newer sink when the older one lets go', async () => {
-        const backend = new FakeBackend();
-        backend.info = { ...phone, state: 'booted' };
+        const backend = bootedBackend();
         const manager = new DeviceManager([backend]);
         const first: Array<LiveFrameHeader<'device.frame'>> = [];
         const second: Array<LiveFrameHeader<'device.frame'>> = [];
@@ -253,8 +254,7 @@ describe('DeviceManager', () => {
     });
 
     test('ends the session when the last client disappears', async () => {
-        const backend = new FakeBackend();
-        backend.info = { ...phone, state: 'booted' };
+        const backend = bootedBackend();
         const manager = new DeviceManager([backend]);
         manager.subscribe('client-1', () => undefined);
         manager.subscribe('client-2', () => undefined);
@@ -292,8 +292,7 @@ describe('DeviceManager', () => {
     });
 
     test('does not attach a client when its event stream fails to start', async () => {
-        const backend = new FakeBackend();
-        backend.info = { ...phone, state: 'booted' };
+        const backend = bootedBackend();
         backend.source.start = () => Promise.reject(new Error('capture failed'));
         const manager = new DeviceManager([backend]);
 
@@ -323,8 +322,7 @@ describe('DeviceManager', () => {
     });
 
     test('a holder that fails to start the stream is not left holding the device', async () => {
-        const backend = new FakeBackend();
-        backend.info = { ...phone, state: 'booted' };
+        const backend = bootedBackend();
         backend.source.start = () => Promise.reject(new Error('capture failed'));
         const manager = new DeviceManager([backend]);
 
@@ -343,8 +341,7 @@ describe('DeviceManager', () => {
     });
 
     test("reads and writes a backend's own clipboard, and pastes through the source's keys", async () => {
-        const backend = new FakeBackend();
-        backend.info = { ...phone, state: 'booted' };
+        const backend = bootedBackend();
         let clipboard = 'from the device';
         const keys: number[][] = [];
         Object.assign(backend, {
@@ -372,8 +369,7 @@ describe('DeviceManager', () => {
     });
 
     test("goes through an open source's clipboard when the backend has none", async () => {
-        const backend = new FakeBackend();
-        backend.info = { ...phone, state: 'booted' };
+        const backend = bootedBackend();
         const written: string[] = [];
         backend.source.readClipboard = () => Promise.resolve('copied on the device');
         backend.source.writeClipboard = (text: string) => {

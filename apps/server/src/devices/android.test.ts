@@ -68,6 +68,17 @@ function backendWith(adb: FakeAdb, options: AndroidBackendOptions = {}): Android
     });
 }
 
+/* Runs one action and returns the adb commands it caused, without the lookups every action makes. */
+function actWith(adb: FakeAdb, backend: AndroidBackend) {
+    return async (deviceId: string, action: Record<string, unknown>) => {
+        adb.calls.length = 0;
+        await backend.action(deviceId, { backendId: 'android', platform: 'android', deviceId, ...action } as DeviceAction);
+        return adb.calls
+            .map((call) => call.join(' '))
+            .filter((call) => !call.includes('settings get') && !call.includes('devices -l') && !call.includes('emu avd name'));
+    };
+}
+
 describe('parseAdbDevices', () => {
     test('reads states, the model and a sentence for a state', () => {
         expect(
@@ -497,13 +508,7 @@ describe('AndroidBackend', () => {
         adb.devices += 'R5CT device usb:1-1 model:SM_S921B transport_id:3\n';
         const backend = backendWith(adb);
         await backend.list();
-        const act = async (deviceId: string, action: Record<string, unknown>) => {
-            adb.calls.length = 0;
-            await backend.action(deviceId, { backendId: 'android', platform: 'android', deviceId, ...action } as DeviceAction);
-            return adb.calls
-                .map((call) => call.join(' '))
-                .filter((call) => !call.includes('settings get') && !call.includes('devices -l') && !call.includes('emu avd name'));
-        };
+        const act = actWith(adb, backend);
 
         expect(await act('Pixel_9_Pro_API_35', { action: 'setStatusBar', value: 'clean' })).toEqual([
             '-s emulator-5554 shell settings put global sysui_demo_allowed 1; am broadcast -a com.android.systemui.demo -e command enter; am broadcast -a com.android.systemui.demo -e command clock -e hhmm 0941; am broadcast -a com.android.systemui.demo -e command battery -e level 100 -e plugged false; am broadcast -a com.android.systemui.demo -e command network -e wifi show -e level 4; am broadcast -a com.android.systemui.demo -e command notifications -e visible false'
@@ -541,31 +546,22 @@ describe('AndroidBackend', () => {
         adb.devices += 'R5CT device product:e1q model:SM_S921B transport_id:3\n';
         const backend = backendWith(adb);
         await backend.list();
-        const act = async (action: Record<string, unknown>, deviceId = 'Pixel_9_Pro_API_35') => {
-            adb.calls.length = 0;
-            await backend.action(deviceId, {
-                backendId: 'android',
-                platform: 'android',
-                deviceId,
-                ...action
-            } as DeviceAction);
-            return adb.calls
-                .map((call) => call.join(' '))
-                .filter((call) => !call.includes('settings get') && !call.includes('devices -l') && !call.includes('emu avd name'));
-        };
+        const act = actWith(adb, backend);
 
-        expect(await act({ action: 'installApp', path: '/work/atlas/app-debug.apk' })).toEqual(['-s emulator-5554 install -r /work/atlas/app-debug.apk']);
-        expect(await act({ action: 'addMedia', paths: ['/work/atlas/my shot.png', '/work/atlas/clip.mp4'] })).toEqual([
+        expect(await act('Pixel_9_Pro_API_35', { action: 'installApp', path: '/work/atlas/app-debug.apk' })).toEqual([
+            '-s emulator-5554 install -r /work/atlas/app-debug.apk'
+        ]);
+        expect(await act('Pixel_9_Pro_API_35', { action: 'addMedia', paths: ['/work/atlas/my shot.png', '/work/atlas/clip.mp4'] })).toEqual([
             '-s emulator-5554 push /work/atlas/my shot.png /sdcard/Pictures/my shot.png',
             "-s emulator-5554 shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Pictures/my%20shot.png >/dev/null; content call --uri content://media/external/file --method scan_file --arg '/sdcard/Pictures/my shot.png' >/dev/null 2>&1; true",
             '-s emulator-5554 push /work/atlas/clip.mp4 /sdcard/Movies/clip.mp4',
             '-s emulator-5554 shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Movies/clip.mp4 >/dev/null; content call --uri content://media/external/file --method scan_file --arg /sdcard/Movies/clip.mp4 >/dev/null 2>&1; true'
         ]);
-        expect(await act({ action: 'addMedia', paths: ['/work/atlas/phone.png'] }, 'R5CT')).toEqual([
+        expect(await act('R5CT', { action: 'addMedia', paths: ['/work/atlas/phone.png'] })).toEqual([
             '-s R5CT push /work/atlas/phone.png /sdcard/Pictures/phone.png',
             '-s R5CT shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Pictures/phone.png >/dev/null; content call --uri content://media/external/file --method scan_file --arg /sdcard/Pictures/phone.png >/dev/null 2>&1; true'
         ]);
-        await expect(act({ action: 'installApp', path: '/work/atlas/Atlas.app' })).rejects.toMatchObject({ code: 'device-path-refused' });
+        await expect(act('Pixel_9_Pro_API_35', { action: 'installApp', path: '/work/atlas/Atlas.app' })).rejects.toMatchObject({ code: 'device-path-refused' });
     });
 
     test('says why adb refused an install', async () => {

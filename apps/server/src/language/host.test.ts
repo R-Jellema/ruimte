@@ -262,6 +262,11 @@ async function openReady(host: LanguageHost, path = 'src/a.ts', text = 'let a = 
 const open = (host: LanguageHost, path = 'src/a.ts', text = 'let a = 1;\n', clientId = 'client-1', languageId = 'typescript') =>
     host.open(clientId, { projectId: 'p1', path, languageId, text });
 
+/* The id a client answers a `language.edit` with. */
+function editIdOf(event: SessionEvent | undefined): string {
+    return (event as { payload: { editId: string } }).payload.editId;
+}
+
 function kinds(events: SessionEvent[], event: SessionEvent['event']): SessionEvent[] {
     return events.filter((candidate) => candidate.event === event);
 }
@@ -501,11 +506,8 @@ describe('several servers on one document', () => {
         await ready(host, 'eslint');
         expect(spawner.of('eslint')[0]!.server.documents.has(uri('src/a.ts'))).toBe(true);
         expect(spawner.of('typescript')[0]!.server.documents.has(uri('src/a.ts'))).toBe(true);
-        expect(
-            (await installed(['typescript', 'eslint'])).host.open('client-1', { projectId: 'p1', path: 'src/a.ts', languageId: 'typescript', text: '' })
-        ).resolves.toMatchObject({
-            servers: ['typescript']
-        });
+        const without = await installed(['typescript', 'eslint']);
+        expect((await open(without.host)).servers).toEqual(['typescript']);
     });
 
     it('adds no server that runs project code to work another machine sent, in a folder of it or a project made of it', async () => {
@@ -944,12 +946,12 @@ describe('commands', () => {
         expect(asked).toMatchObject({ payload: { label: 'first' } });
         expect(kinds(events['client-2'], 'language.edit')).toHaveLength(0);
 
-        host.answerEdit('client-1', { projectId: 'p1', editId: (asked as { payload: { editId: string } }).payload.editId, applied: true });
+        host.answerEdit('client-1', { projectId: 'p1', editId: editIdOf(asked), applied: true });
         expect((await first).result).toEqual({ applied: { applied: true } });
         await settle();
         const [next] = kinds(events['client-2'], 'language.edit');
         expect(next).toMatchObject({ payload: { label: 'second' } });
-        host.answerEdit('client-2', { projectId: 'p1', editId: (next as { payload: { editId: string } }).payload.editId, applied: true });
+        host.answerEdit('client-2', { projectId: 'p1', editId: editIdOf(next), applied: true });
         expect((await second).result).toEqual({ applied: { applied: true } });
         expect(await server.request('workspace/applyEdit', { edit })).toMatchObject({ applied: false });
     });
@@ -1331,7 +1333,7 @@ describe('the PHP server of Ruimte and Intelephense', () => {
         expect((await open(host, 'src/a.php', '<?php', 'client-1', 'php')).servers).toEqual(['php-native']);
     });
 
-    it('runs the program of the kind with the storage and the stubs it installed, and the pull of diagnostics', async () => {
+    it('runs the program of the kind with the storage and the stubs it installed', async () => {
         const { host, spawner } = await installed(['php-native']);
         await open(host, 'src/a.php', '<?php', 'client-1', 'php');
         await ready(host, 'php-native');
@@ -1503,7 +1505,7 @@ describe('files that move', () => {
         const unsubscribe = host.subscribe('client-2', (event) => {
             events['client-2'].push(event);
             if (event.event === 'language.edit') {
-                host.answerEdit('client-2', { projectId: 'p1', editId: (event as { payload: { editId: string } }).payload.editId, applied: true });
+                host.answerEdit('client-2', { projectId: 'p1', editId: editIdOf(event), applied: true });
             }
         });
         try {
@@ -1630,7 +1632,7 @@ describe('files that move', () => {
         const [asked] = kinds(rig.events['client-1'], 'language.edit');
         rig.host.answerEdit('client-1', {
             projectId: 'p1',
-            editId: (asked as { payload: { editId: string } }).payload.editId,
+            editId: editIdOf(asked),
             applied: false,
             failureReason: 'Version in flight'
         });
@@ -1650,7 +1652,7 @@ describe('files that move', () => {
         await until(rig.host, () => kinds(rig.events['client-1'], 'language.edit').length > 0);
         expect(rig.calls).toEqual([]);
         const [asked] = kinds(rig.events['client-1'], 'language.edit');
-        rig.host.answerEdit('client-1', { projectId: 'p1', editId: (asked as { payload: { editId: string } }).payload.editId, applied: true });
+        rig.host.answerEdit('client-1', { projectId: 'p1', editId: editIdOf(asked), applied: true });
         expect(await moving).toEqual([join(WORK, 'src/d.ts'), join(WORK, 'src/a.ts')]);
         expect(rig.calls).toEqual([`rename ${join(WORK, 'src/b.ts')} ${join(WORK, 'src/d.ts')}`, 'write', 'move']);
         expect(rig.written).toEqual([{ path: join(WORK, 'src/d.ts'), text: 'import "./c";\n' }]);
@@ -1699,7 +1701,7 @@ describe('files that move', () => {
         const [asked] = kinds(events['client-1'], 'language.edit');
         host.answerEdit('client-1', {
             projectId: 'p1',
-            editId: (asked as { payload: { editId: string } }).payload.editId,
+            editId: editIdOf(asked),
             applied: false,
             failureReason: 'Read only'
         });

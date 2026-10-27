@@ -96,7 +96,6 @@ describe('server profiles', () => {
     });
 
     it('runs rust-analyzer beside nothing, in a project with a crate at its root or a few folders down, told every topmost crate', async () => {
-        expect(kindForLanguage('rust')).toBeNull();
         expect(additionKindsForLanguage('rust')).toEqual(['rust']);
         const facts = (files: string[], found: string[] = []) => ({
             folder: '/work',

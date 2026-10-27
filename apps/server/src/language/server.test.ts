@@ -856,31 +856,10 @@ describe('the settings of a project the SQL servers read', () => {
     };
 
     function sqlServer(kind: 'sql-native' | 'php-native', current: { value: ProjectSqlSettings | null }) {
-        const spawner = fakeSpawner();
-        const server = new LanguageServer({
-            kind,
-            profile: KIND_PROFILES[kind],
-            projectId: 'p1',
-            folder: '/work',
-            installDirectory: () => `/home/language-servers/${kind}`,
+        return rig(kind, fakeSpawner(), {
             native: () => ({ executable: `/home/bin/${kind === 'sql-native' ? 'sql' : 'php'}-language-server`, stubsCommit: 'c'.repeat(40) }),
-            sqlSettings: async () => current.value,
-            isInstalled: async () => true,
-            runtime,
-            spawn: spawner.spawn,
-            clock: new ManualClock(),
-            exists: async () => false,
-            readText: async () => null,
-            realPath: async (path) => path,
-            hooks: {
-                status: () => undefined,
-                diagnostics: () => undefined,
-                providers: () => undefined,
-                applyEdit: async () => ({ applied: false }),
-                watching: () => undefined
-            }
+            sqlSettings: async () => current.value
         });
-        return { server, spawner };
     }
 
     it('starts the SQL server with them, and answers each document with its own', async () => {
@@ -919,7 +898,7 @@ describe('the settings of a project the SQL servers read', () => {
         });
     });
 
-    it('gives the PHP server its storage and stubs as before, with the SQL of its strings beside them', async () => {
+    it('gives the PHP server its storage and stubs, with the SQL of its strings beside them', async () => {
         const { server, spawner } = sqlServer('php-native', { value: settings });
         server.attach(document('/work/a.php', 'php', '<?php'));
         await settle();
@@ -935,7 +914,7 @@ describe('the settings of a project the SQL servers read', () => {
         expect(answer).toEqual({ sql: settings.php });
     });
 
-    it('starts the PHP server exactly as before when the project has no SQL to give', async () => {
+    it('gives the PHP server only its storage and stubs when the project has no SQL to give', async () => {
         const { server, spawner } = sqlServer('php-native', { value: null });
         server.attach(document('/work/a.php', 'php', '<?php'));
         await settle();

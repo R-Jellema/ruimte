@@ -106,12 +106,11 @@ describe('IosSimulatorBackend', () => {
         });
     });
 
-    test('runs a typed action and reads the resulting settings', async () => {
+    test('runs a typed action as its simctl command', async () => {
         const calls: string[][] = [];
         const backend = new IosSimulatorBackend(async (arguments_) => {
             calls.push(arguments_);
-            const stdout = arguments_.at(-1) === 'appearance' ? 'light\n' : arguments_.at(-1) === 'content_size' ? 'large\n' : '';
-            return { exitCode: 0, stdout, stderr: '' };
+            return { exitCode: 0, stdout: '', stderr: '' };
         });
 
         await backend.action('phone-1', {

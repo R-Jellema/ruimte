@@ -17,6 +17,17 @@ let gate: Pick<DeviceGate, 'admit'>;
 let admitted: { caller: string; step: AgentStep }[];
 let driver: DeviceDriver;
 
+/* Notes each step it is asked about, then answers as the test's `gate` does. */
+function notingGate() {
+    return {
+        admit: (device: Parameters<DeviceGate['admit']>[0], caller: string, step: AgentStep) => {
+            admitted.push({ caller, step });
+            return gate.admit(device, caller, step);
+        },
+        recheck: () => null
+    };
+}
+
 beforeEach(async () => {
     home = await mkdtemp(join(tmpdir(), 'ruimte-device-driver-'));
     backend = new RecordingBackend();
@@ -32,13 +43,7 @@ beforeEach(async () => {
         sleep: async (ms) => {
             slept.push(ms);
         },
-        gate: {
-            admit: (device, caller, step) => {
-                admitted.push({ caller, step });
-                return gate.admit(device, caller, step);
-            },
-            recheck: () => null
-        }
+        gate: notingGate()
     });
 });
 
@@ -273,13 +278,7 @@ describe('DeviceDriver on a device with a tree', () => {
             manager: new DeviceManager([reading]),
             timers,
             sleep: async () => undefined,
-            gate: {
-                admit: (device, caller, step) => {
-                    admitted.push({ caller, step });
-                    return gate.admit(device, caller, step);
-                },
-                recheck: () => null
-            }
+            gate: notingGate()
         });
     });
 

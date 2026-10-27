@@ -41,6 +41,13 @@ function installing(kind: LanguageServerKind, calls: { cwd: string; args: string
     };
 }
 
+function logTexts(installer: LanguageInstaller, kind: LanguageServerKind): string[] {
+    return installer
+        .logOf(kind)
+        .tail()
+        .map((line) => line.text);
+}
+
 describe('language installer', () => {
     it('installs the pinned packages with the daemon as bun, scripts off, and then counts as installed', async () => {
         const calls: { cwd: string; args: string[]; env: Record<string, string> }[] = [];
@@ -59,12 +66,7 @@ describe('language installer', () => {
             dependencies: { intelephense: '1.18.5' }
         });
         expect(changes).toEqual(['php', 'php']);
-        expect(
-            installer
-                .logOf('php')
-                .tail()
-                .map((line) => line.text)
-        ).toEqual(['Installing intelephense@1.18.5', 'bun install v1', 'Installed']);
+        expect(logTexts(installer, 'php')).toEqual(['Installing intelephense@1.18.5', 'bun install v1', 'Installed']);
     });
 
     it('shares the install that is running and does nothing for one that is done', async () => {
@@ -92,12 +94,7 @@ describe('language installer', () => {
         await installer.install('typescript');
         expect(await installer.state('typescript')).toBe('missing');
         expect(installer.failureOf('typescript')).toBe('The installer exited with code 1');
-        expect(
-            installer
-                .logOf('typescript')
-                .tail()
-                .map((line) => line.text)
-        ).toContain('error: network is unreachable');
+        expect(logTexts(installer, 'typescript')).toContain('error: network is unreachable');
         await installer.install('typescript');
         expect(installer.failureOf('typescript')).toBe('The installer exited with code 1');
     });
@@ -206,6 +203,21 @@ describe('language installer', () => {
 const COMMIT = 'b'.repeat(40);
 const STUBS_URL = `https://codeload.github.com/JetBrains/phpstorm-stubs/tar.gz/${COMMIT}`;
 const STUBS = tarGz([{ path: `stubs-${COMMIT}/standard/a.php`, text: '<?php' }]);
+const BINARY = tarGz([{ path: 'php-language-server', text: '#!/bin/sh\n', mode: 0o755 }]);
+
+const releaseOf = (version: string, stubsCommit = COMMIT, checksum = sha256(BINARY)): NativeRelease => ({
+    sourceRevision: COMMIT,
+    version,
+    stubsCommit,
+    assets: {
+        [`${process.platform}-${process.arch}`]: {
+            url: `https://example.test/${version}.tar.gz`,
+            sha256: checksum,
+            format: 'tar.gz',
+            executable: 'php-language-server'
+        }
+    }
+});
 
 describe('native install', () => {
     const checkout = () => ({ folder: join(root, 'repo'), version: '0.1.0', stubsCommit: COMMIT });
@@ -258,12 +270,7 @@ describe('native install', () => {
         });
         expect(requested).toEqual([STUBS_URL]);
         expect(await readFile(join(nativeStubsOf(join(root, 'php-native'), COMMIT), 'standard', 'a.php'), 'utf8')).toBe('<?php');
-        expect(
-            installer
-                .logOf('php-native')
-                .tail()
-                .map((line) => line.text)
-        ).toContain('Compiling php-language-server');
+        expect(logTexts(installer, 'php-native')).toContain('Compiling php-language-server');
         expect(installer.launchOf('php-native')).toEqual({
             executable: join(root, 'repo', 'target', 'release', nativeProgramFile('php-native', process.platform)),
             stubsCommit: COMMIT
@@ -385,22 +392,8 @@ describe('native install', () => {
     });
 
     describe('from a release', () => {
-        const binary = tarGz([{ path: 'php-language-server', text: '#!/bin/sh\n', mode: 0o755 }]);
-        const release = (checksum = sha256(binary)): NativeRelease => ({
-            sourceRevision: COMMIT,
-            version: '1.2.3',
-            stubsCommit: COMMIT,
-            assets: {
-                [`${process.platform}-${process.arch}`]: {
-                    url: 'https://example.test/server.tar.gz',
-                    sha256: checksum,
-                    format: 'tar.gz',
-                    executable: 'php-language-server'
-                }
-            }
-        });
         const download: Download = async (url, destination) => {
-            await writeFile(destination, url === STUBS_URL ? STUBS : binary);
+            await writeFile(destination, url === STUBS_URL ? STUBS : BINARY);
         };
         const versions: RunCommand = async (_spec, onLine) => {
             onLine('php-language-server 1.2.3');
@@ -412,7 +405,7 @@ describe('native install', () => {
                 root,
                 runtime,
                 run: versions,
-                native: new NativePolicy({ checkouts: {}, releases: { 'php-native': release() } }),
+                native: new NativePolicy({ checkouts: {}, releases: { 'php-native': releaseOf('1.2.3') } }),
                 download,
                 onChange: () => undefined
             });
@@ -433,7 +426,7 @@ describe('native install', () => {
                     calls.push(spec);
                     return versions(spec, onLine);
                 },
-                native: new NativePolicy({ checkouts: {}, releases: { 'php-native': release('0'.repeat(64)) } }),
+                native: new NativePolicy({ checkouts: {}, releases: { 'php-native': releaseOf('1.2.3', COMMIT, '0'.repeat(64)) } }),
                 download,
                 onChange: () => undefined
             });
@@ -445,27 +438,13 @@ describe('native install', () => {
     });
 
     describe('updates of a release', () => {
-        const binary = tarGz([{ path: 'php-language-server', text: '#!/bin/sh\n', mode: 0o755 }]);
         const OTHER = 'c'.repeat(40);
-        const releaseOf = (version: string, stubsCommit = COMMIT, checksum = sha256(binary)): NativeRelease => ({
-            sourceRevision: COMMIT,
-            version,
-            stubsCommit,
-            assets: {
-                [`${process.platform}-${process.arch}`]: {
-                    url: `https://example.test/${version}.tar.gz`,
-                    sha256: checksum,
-                    format: 'tar.gz',
-                    executable: 'php-language-server'
-                }
-            }
-        });
         const downloading =
             (fetched: string[] = []): Download =>
             async (url, destination) => {
                 fetched.push(url);
                 const commit = url.startsWith('https://codeload.github.com/') ? url.slice(url.lastIndexOf('/') + 1) : null;
-                await writeFile(destination, commit === null ? binary : tarGz([{ path: `stubs-${commit}/standard/a.php`, text: '<?php' }]));
+                await writeFile(destination, commit === null ? BINARY : tarGz([{ path: `stubs-${commit}/standard/a.php`, text: '<?php' }]));
             };
         const installerFor = (release: NativeRelease, switched: string[] = [], fetched: string[] = []) =>
             new LanguageInstaller({
