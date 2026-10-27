@@ -80,14 +80,7 @@ struct RoutineDetailPage: View {
         } message: {
             Text("It starts on \(machineName) right away, and what it delivers lands in Output.")
         }
-        .alert(
-            notice?.title ?? "", isPresented: $notice.isPresent(),
-            presenting: notice
-        ) { _ in
-            Button(String(localized: "OK")) {}
-        } message: { notice in
-            Text(notice.message)
-        }
+        .routineNotice($notice)
     }
 
     private func status(_ entry: RoutineEntry) -> String {
@@ -208,8 +201,7 @@ struct RoutineDetailPage: View {
             do {
                 try await work()
             } catch {
-                notice = RoutineNotice(
-                    title: String(localized: "Could not do that"), message: error.localizedDescription)
+                notice = .failure(error)
             }
             working = false
         }
@@ -219,6 +211,21 @@ struct RoutineDetailPage: View {
 struct RoutineNotice {
     let title: String
     let message: String
+
+    static func failure(_ error: any Error) -> Self {
+        Self(title: String(localized: "Could not do that"), message: error.localizedDescription)
+    }
+}
+
+extension View {
+    func routineNotice(_ notice: Binding<RoutineNotice?>) -> some View {
+        alert(notice.wrappedValue?.title ?? "", isPresented: notice.isPresent(), presenting: notice.wrappedValue) {
+            _ in
+            Button(String(localized: "OK")) {}
+        } message: { notice in
+            Text(notice.message)
+        }
+    }
 }
 
 /// A run of a routine, opened as the chat it ran in, where a question is answered as in any other chat. The chat is
@@ -229,6 +236,12 @@ struct RoutineRunPage: View {
     @State private var lease: MachineNavigationLease?
     @State private var session: SharedMachineSession?
 
+    init(runtime: AppRuntime, target: RoutineRunTarget) {
+        self.runtime = runtime
+        self.target = target
+        _session = State(initialValue: runtime.session(machineID: target.machineID))
+    }
+
     var body: some View {
         Group {
             if let session {
@@ -238,10 +251,7 @@ struct RoutineRunPage: View {
                         localized: "Routine run · \(Format.moment(target.due))",
                         comment: "%@ is when the run was due"))
             } else {
-                ContentUnavailableView(
-                    String(localized: "Machine unavailable"), lucideIcon: "triangle-alert",
-                    description: Text("This machine is no longer connected to this device."))
-                    .modifier(MobilePageSurface())
+                ContentUnavailableView.machineUnavailable.modifier(MobilePageSurface())
             }
         }
         .task {
@@ -249,12 +259,5 @@ struct RoutineRunPage: View {
             lease = MachineNavigationLease(shared)
             await shared.markSeen(target.chatID)
         }
-    }
-
-    init(runtime: AppRuntime, target: RoutineRunTarget) {
-        self.runtime = runtime
-        self.target = target
-        _session = State(
-            initialValue: runtime.session(machineID: target.machineID))
     }
 }

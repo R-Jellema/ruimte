@@ -45,10 +45,7 @@ enum RoutineSchedule: Equatable {
             case Set(1...5): return String(localized: "Weekdays at \(clock)")
             case [6, 7]: return String(localized: "Weekends at \(clock)")
             default:
-                var calendar = Calendar(identifier: .gregorian)
-                calendar.locale = locale.language
-                let symbols = calendar.shortWeekdaySymbols
-                let names = days.filter { (1...7).contains($0) }.map { symbols[$0 % 7] }.joined(separator: ", ")
+                let names = Self.dayNames(days, in: locale)
                 return String(
                     localized: "\(names) at \(clock)",
                     comment: "Weekdays a routine runs on, such as Mon, Thu, then a time")
@@ -60,7 +57,8 @@ enum RoutineSchedule: Equatable {
                 localized: "\(Self.dayWords(days, in: locale)), \(Self.stepWords(every)) from \(start) to \(end)",
                 comment: "A routine that repeats within a day: its days, how often, then the first and last time")
         case .cron(let expression):
-            return String(localized: "Cron \(expression)", comment: "A routine on a crontab expression, such as 0 9 * * 1-5")
+            return String(
+                localized: "Cron \(expression)", comment: "A routine on a crontab expression, such as 0 9 * * 1-5")
         case .unknown:
             return String(localized: "On a schedule this app does not know")
         }
@@ -72,12 +70,16 @@ enum RoutineSchedule: Equatable {
         case Set(1...5):
             return String(localized: "Weekdays", comment: "The days of a routine that repeats within a day")
         case [6, 7]: return String(localized: "Weekends", comment: "The days of a routine that repeats within a day")
-        default:
-            var calendar = Calendar(identifier: .gregorian)
-            calendar.locale = locale.language
-            let symbols = calendar.shortWeekdaySymbols
-            return days.filter { (1...7).contains($0) }.map { symbols[$0 % 7] }.joined(separator: ", ")
+        default: return dayNames(days, in: locale)
         }
+    }
+
+    /// "Mon, Thu" for ISO weekdays, in the order the routine lists them.
+    private static func dayNames(_ days: [Int], in locale: FormatLocale) -> String {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.locale = locale.language
+        let symbols = calendar.shortWeekdaySymbols
+        return days.filter { (1...7).contains($0) }.map { symbols[$0 % 7] }.joined(separator: ", ")
     }
 
     private static func stepWords(_ minutes: Int) -> String {
@@ -241,6 +243,10 @@ struct ScheduledItem: Equatable, Identifiable {
     let entry: RoutineEntry
     var target: RoutineTarget { RoutineTarget(machineID: machineID, projectID: entry.projectID, routineID: entry.id) }
     var id: String { "\(machineID):\(entry.projectID):\(entry.id)" }
+
+    func place(namesMachine: Bool) -> String {
+        namesMachine ? "\(entry.projectName) · \(machineName)" : entry.projectName
+    }
 }
 
 /// A run waiting on a person. What it asks is its chat's, which Now's attention reads.

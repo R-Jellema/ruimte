@@ -12,23 +12,7 @@ final class NowModel {
     @ObservationIgnored private var contextID = ""
 
     func reconcile(runtime: AppRuntime) {
-        let context = "\(runtime.key?.publicKey ?? ""):\(runtime.connectionRevision)"
-        let restart = context != contextID
-        contextID = context
-        let machines = runtime.machines
-        for (id, feed) in feeds {
-            let current = machines.first { $0.id == id }.map { runtime.session(for: $0) }
-            if restart || current !== feed.session {
-                feed.stop()
-                feeds.removeValue(forKey: id)
-            }
-        }
-        guard runtime.key != nil else { return }
-        for machine in machines where feeds[machine.id] == nil {
-            let feed = NowFeed(session: runtime.session(for: machine))
-            feeds[machine.id] = feed
-            feed.start()
-        }
+        runtime.reconcile(&feeds, context: &contextID)
     }
 
     func stop() {
@@ -46,11 +30,7 @@ final class NowModel {
         feeds.values.map { feed in
             let attention = feed.session.attention
             let machineID = feed.session.machine.id
-            let requests = attention.waits.mapValues { wait in
-                wait.requests.compactMap(NowRequest.init).filter {
-                    !answers.answered.contains(NowAnswers.key(machineID: machineID, requestID: $0.requestID))
-                }
-            }
+            let requests = attention.waits.mapValues { unanswered($0.requests, machineID: machineID) }
             return NowMachineInput(
                 machineID: machineID, machineName: feed.session.machine.name, projects: feed.projects,
                 attention: NowAttention(
@@ -97,9 +77,7 @@ final class NowModel {
         guard let chatID = wait.run.chatID else { return nil }
         let machineID = wait.item.machineID
         let chat = feeds[machineID]?.session.attention.waits[chatID]
-        let requests = (chat?.requests ?? []).compactMap(NowRequest.init).filter {
-            !answers.answered.contains(NowAnswers.key(machineID: machineID, requestID: $0.requestID))
-        }
+        let requests = unanswered(chat?.requests ?? [], machineID: machineID)
         return ProjectViewEntry(
             target: ProjectViewTarget(
                 machineID: machineID, projectID: wait.item.entry.projectID, viewID: chatID, itemID: chatID),
@@ -108,11 +86,23 @@ final class NowModel {
             repliesWithMessage: chat.map { feeds[machineID]?.denyReason.contains($0.provider) == true } ?? false)
     }
 
+    /// A request answered from this device leaves its card before the machine says it settled.
+    private func unanswered(_ requests: [JSONValue], machineID: String) -> [NowRequest] {
+        requests.compactMap(NowRequest.init).filter {
+            !answers.answered.contains(NowAnswers.key(machineID: machineID, requestID: $0.requestID))
+        }
+    }
+
     func snoozes(for machineID: String) -> MachineSnoozes? { feeds[machineID]?.session.snoozes }
 
     func connected(_ machineID: String) -> Bool { feeds[machineID]?.session.connected == true }
 
     var board: NowBoard { NowBoard.build(inputs) }
+
+    /// What waits on a person across Now and Scheduled, which the badge on Now counts.
+    func waiting(with scheduled: ScheduledModel) -> Int {
+        board.needsYou.count + scheduled.board(now: .now).needsYou.count
+    }
 
     /// What each open project holds and how much of it waits on a person, from the same answers Now reads.
     var activity: [UnifiedProjectRow.ID: ProjectActivity] {
@@ -132,6 +122,7 @@ final class NowModel {
     func task(for target: ProjectViewTarget) -> JSONValue? {
         feeds[target.machineID]?.session.tasks.childTask(target.itemID)
     }
+
     var entries: [ProjectViewEntry] { NowBoard.entries(inputs) }
     /// Whether any machine answered yet, which tells an empty Now from one still connecting.
     var loaded: Bool { feeds.values.contains(where: \.loaded) }
@@ -151,53 +142,42 @@ final class NowModel {
     }
 }
 
-@MainActor @Observable
-final class NowFeed {
-    let session: SharedMachineSession
-    private(set) var projects: [JSONValue] = []
-    private(set) var loaded = false
-    private(set) var problem: String?
-    /// The CLIs on this machine whose denial carries a message, from `provider.list`.
-    private(set) var denyReason: Set<String> = []
-    @ObservationIgnored private var providersGeneration: Int?
-    @ObservationIgnored private var stops: [() -> Void] = []
-    @ObservationIgnored private var pending: Task<Void, Never>?
-    @ObservationIgnored private var loading: Task<Void, Never>?
-    @ObservationIgnored private var watched = Set<String>()
+/// A feed of one machine that a model keeps per machine on the account.
+@MainActor protocol MachineFeed: AnyObject {
+    init(session: SharedMachineSession)
+    var session: SharedMachineSession { get }
+    func start()
+    func stop()
+}
 
-    init(session: SharedMachineSession) { self.session = session }
-
-    func start() {
-        guard stops.isEmpty else { return }
-        session.retain()
-        let client = session.rpc
-        stops = ["project.changed", "project.summary", "session.list-changed"].map { event in
-            client.subscribe(event) { [weak self] _ in self?.schedule() }
+extension AppRuntime {
+    /// One running feed per machine on the account. A new device key or a new link to a machine starts them over.
+    func reconcile<Feed: MachineFeed>(_ feeds: inout [String: Feed], context: inout String) {
+        let current = "\(key?.publicKey ?? ""):\(connectionRevision)"
+        let restart = current != context
+        context = current
+        for (id, feed) in feeds where restart || session(machineID: id) !== feed.session {
+            feed.stop()
+            feeds.removeValue(forKey: id)
         }
-        stops.append(
-            client.observeConnection { [weak self] connected in
-                guard let self else { return }
-                if connected {
-                    schedule()
-                } else {
-                    pending?.cancel()
-                    pending = nil
-                }
-            })
-        if session.connected { schedule() }
+        guard key != nil else { return }
+        for machine in machines where feeds[machine.id] == nil {
+            let feed = Feed(session: session(for: machine))
+            feeds[machine.id] = feed
+            feed.start()
+        }
     }
+}
 
-    func stop() {
-        guard !stops.isEmpty else { return }
-        stops.forEach { $0() }
-        stops.removeAll()
-        pending?.cancel()
-        pending = nil
-        loading?.cancel()
-        for id in watched { session.tasks.unwatch(id) }
-        watched.removeAll()
-        session.release()
-    }
+/// One read of a feed at a time: a refresh while one runs waits on it, and a burst of events folds into one read, as
+/// the desktop's sidebar watch does.
+@MainActor
+final class FeedReads {
+    private let load: @MainActor () async -> Void
+    private var pending: Task<Void, Never>?
+    private var loading: Task<Void, Never>?
+
+    init(load: @escaping @MainActor () async -> Void) { self.load = load }
 
     func refresh() async {
         if let loading {
@@ -210,8 +190,7 @@ final class NowFeed {
         loading = nil
     }
 
-    /// Folds a burst of events into one read, as the desktop's sidebar watch does.
-    private func schedule() {
+    func schedule() {
         guard pending == nil else { return }
         pending = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(150))
@@ -220,6 +199,64 @@ final class NowFeed {
             await refresh()
         }
     }
+
+    /// A link that dropped has nothing to read until it is back.
+    func cancelScheduled() {
+        pending?.cancel()
+        pending = nil
+    }
+
+    func cancel() {
+        cancelScheduled()
+        loading?.cancel()
+    }
+}
+
+@MainActor @Observable
+final class NowFeed: MachineFeed {
+    let session: SharedMachineSession
+    private(set) var projects: [JSONValue] = []
+    private(set) var loaded = false
+    private(set) var problem: String?
+    /// The CLIs on this machine whose denial carries a message, from `provider.list`.
+    private(set) var denyReason: Set<String> = []
+    @ObservationIgnored private var providersGeneration: Int?
+    @ObservationIgnored private var stops: [() -> Void] = []
+    @ObservationIgnored private lazy var reads = FeedReads { [weak self] in await self?.load() }
+    @ObservationIgnored private var watched = Set<String>()
+
+    init(session: SharedMachineSession) { self.session = session }
+
+    func start() {
+        guard stops.isEmpty else { return }
+        session.retain()
+        let client = session.rpc
+        stops = ["project.changed", "project.summary", "session.list-changed"].map { event in
+            client.subscribe(event) { [weak self] _ in self?.reads.schedule() }
+        }
+        stops.append(
+            client.observeConnection { [weak self] connected in
+                guard let self else { return }
+                if connected {
+                    reads.schedule()
+                } else {
+                    reads.cancelScheduled()
+                }
+            })
+        if session.connected { reads.schedule() }
+    }
+
+    func stop() {
+        guard !stops.isEmpty else { return }
+        stops.forEach { $0() }
+        stops.removeAll()
+        reads.cancel()
+        for id in watched { session.tasks.unwatch(id) }
+        watched.removeAll()
+        session.release()
+    }
+
+    func refresh() async { await reads.refresh() }
 
     private func load() async {
         guard session.connected else { return }

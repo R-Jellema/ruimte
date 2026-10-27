@@ -68,8 +68,6 @@ struct VoiceSheet: View {
         }
     }
 
-    // MARK: Header
-
     private var header: some View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
@@ -97,8 +95,6 @@ struct VoiceSheet: View {
         }
     }
 
-    // MARK: Band
-
     private var band: some View {
         let listening = running && voice.phase == .active
         let bands = voice.bands
@@ -114,8 +110,6 @@ struct VoiceSheet: View {
             }
         }
     }
-
-    // MARK: Middle
 
     @ViewBuilder private var middle: some View {
         if elsewhere {
@@ -136,9 +130,7 @@ struct VoiceSheet: View {
             VoiceHero(
                 title: problem == .microphoneDenied
                     ? String(localized: "Ruimte may not use the microphone") : String(localized: "Voice stopped"),
-                message: problem == .microphoneDenied
-                    ? String(localized: "Ruimte may not use the microphone. Turn it on in Settings to talk to Voice.")
-                    : VoiceText.problem(problem)
+                message: VoiceText.problem(problem)
             ) {
                 if problem == .microphoneDenied {
                     Button("Open Settings") { VoiceText.openSettings() }.font(.callout.weight(.semibold))
@@ -152,8 +144,6 @@ struct VoiceSheet: View {
             VoiceHero(title: String(localized: "Talk to your workspace"), message: VoiceText.explanation)
         }
     }
-
-    // MARK: Footer
 
     @ViewBuilder private var footer: some View {
         if running {

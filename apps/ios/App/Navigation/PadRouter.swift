@@ -50,9 +50,7 @@ final class PadRouter {
         } else {
             navigation = WorkspaceNavigation(workspace: workspace)
             project = navigation
-            leaveProjectInspector()
-            file = nil
-            subagent = nil
+            leaveProject()
         }
         if let view {
             if navigation.workspace.ready, navigation.workspace.item(view) != nil {
@@ -79,9 +77,7 @@ final class PadRouter {
     /// Leaves the project, for the sidebar's back button, one that was closed or a machine that went.
     func closeProject() {
         project = nil
-        leaveProjectInspector()
-        file = nil
-        subagent = nil
+        leaveProject()
         if detail == .project { detail = .now }
     }
 
@@ -128,14 +124,12 @@ final class PadRouter {
 
     /// Files and Git belong to a project folder, so the Chats project and no project have neither.
     var offersFilesAndGit: Bool {
-        guard let project else { return false }
-        return !project.workspace.isScratch
+        project.map { !$0.workspace.isScratch } ?? false
     }
 
     /// The inspector only stands beside a project's content.
     var showsInspector: Bool {
-        guard let inspector else { return false }
-        guard detail == .project else { return false }
+        guard let inspector, detail == .project else { return false }
         if case .subagent = inspector { return true }
         return offersFilesAndGit
     }
@@ -146,8 +140,10 @@ final class PadRouter {
     }
 
     /// What belongs to the project leaves with it.
-    private func leaveProjectInspector() {
+    private func leaveProject() {
         inspector = nil
+        file = nil
+        subagent = nil
     }
 
     /// A sub-agent belongs to the chat it ran in, so it leaves the inspector with that chat.
@@ -162,7 +158,7 @@ final class PadRouter {
 
     /// A notification's node opens in its project once Now says which one holds it.
     func open(_ notification: NotificationDestination) {
-        detail = notification.target == "machine" || notification.nodeID.isEmpty ? .now : .notification(notification)
+        detail = notification.opensMachine ? .now : .notification(notification)
     }
 }
 

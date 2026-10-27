@@ -38,7 +38,7 @@ struct PhoneHome: View {
                 } label: {
                     Label(String(localized: "Now"), lucideIcon: "inbox")
                 }
-                .badge(waiting)
+                .badge(now.waiting(with: scheduled))
 
                 Tab(value: PhoneTab.projects) {
                     ProjectsPage(
@@ -88,26 +88,13 @@ struct PhoneHome: View {
             }
         }
         .containerBackground(MobileStyle.surface, for: .navigation)
-        .modifier(ScheduledWatch(runtime: runtime, model: scheduled))
-        .onChange(of: now.board) { _, board in
-            if now.loaded { NeedsYouWidgetRecorder.record(board) }
-        }
-        .task(id: runtime.account?.id) { await AccountPictures.shared.load(for: runtime.account) }
-        .onAppear {
-            voiceScene?.openTarget = { [router] in
+        .modifier(
+            HomeWatch(runtime: runtime, now: now, scheduled: scheduled) { [router] in
                 router.project.map { (VoiceTarget($0.workspace, shown: $0.openedViewID), $0.workspace.session) }
-            }
-        }
+            })
     }
 
-    /// What waits on you across Now and Scheduled, which the badge on Now counts.
-    private var waiting: Int { now.board.needsYou.count + scheduled.board(now: .now).needsYou.count }
-
-    private var settingsLink: SettingsLink {
-        SettingsLink(
-            account: runtime.account, picture: AccountPictures.shared.picture(for: runtime.account),
-            show: showSettings)
-    }
+    private var settingsLink: SettingsLink { SettingsLink(runtime: runtime, show: showSettings) }
 
     @ToolbarContentBuilder private var tabToolbar: some ToolbarContent {
         if router.tab == .now, runtime.showsVoice(in: voiceScene), let voiceScene {
@@ -197,6 +184,33 @@ struct SettingsLink {
     /// Nil while it loads, and for an account no provider hands a picture out for.
     let picture: UIImage?
     let show: () -> Void
+}
+
+extension SettingsLink {
+    @MainActor init(runtime: AppRuntime, show: @escaping () -> Void) {
+        self.init(
+            account: runtime.account, picture: AccountPictures.shared.picture(for: runtime.account), show: show)
+    }
+}
+
+/// What both homes keep up while they show: the routines, the Needs you widget, the account's picture and where Voice
+/// opens what it starts.
+struct HomeWatch: ViewModifier {
+    let runtime: AppRuntime
+    let now: NowModel
+    let scheduled: ScheduledModel
+    let openTarget: () -> VoiceScene.Place?
+    @Environment(\.voiceScene) private var voiceScene
+
+    func body(content: Content) -> some View {
+        content
+            .modifier(ScheduledWatch(runtime: runtime, model: scheduled))
+            .onChange(of: now.board) { _, board in
+                if now.loaded { NeedsYouWidgetRecorder.record(board) }
+            }
+            .task(id: runtime.account?.id) { await AccountPictures.shared.load(for: runtime.account) }
+            .onAppear { voiceScene?.openTarget = openTarget }
+    }
 }
 
 /// The avatar into Settings, under one id on every page that shows it, so the bar of the next page finds it at the

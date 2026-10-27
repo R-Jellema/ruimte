@@ -127,24 +127,19 @@ private struct MachineActivityPage: View {
 
     @ViewBuilder private func rows(status: String) -> some View {
         ForEach(chats.filter { $0.text("status") == status }, id: \.stableID) { chat in
-            NavigationLink {
+            let title = chat.text("suggestedTitle", fallback: String(localized: "Chat"))
+            NavigationLink(title) {
                 ChatScreen(
-                    client: session.rpc, chatID: chat.text("chatId", fallback: chat.stableID),
-                    title: chat.text("suggestedTitle", fallback: String(localized: "Chat")), session: session)
-            } label: {
-                Text(chat.text("suggestedTitle", fallback: String(localized: "Chat")))
+                    client: session.rpc, chatID: chat.text("chatId", fallback: chat.stableID), title: title,
+                    session: session)
             }
         }
         ForEach(sessions.filter { $0["agent"]?.text("status") == status }, id: \.stableID) { terminal in
-            NavigationLink {
-                TerminalScreen(
-                    client: session.rpc, sessionID: terminal.text("sessionId"),
-                    title: terminal["agent"]?.text("suggestedTitle", fallback: String(localized: "Terminal"))
-                        ?? String(localized: "Terminal"))
-            } label: {
-                Text(
-                    terminal["agent"]?.text("suggestedTitle", fallback: String(localized: "Terminal"))
-                        ?? String(localized: "Terminal"))
+            let title =
+                terminal["agent"]?.text("suggestedTitle", fallback: String(localized: "Terminal"))
+                ?? String(localized: "Terminal")
+            NavigationLink(title) {
+                TerminalScreen(client: session.rpc, sessionID: terminal.text("sessionId"), title: title)
             }
         }
     }

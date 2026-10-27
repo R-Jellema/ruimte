@@ -91,14 +91,7 @@ struct MobileStatusRow<Trailing: View>: View {
         HStack(spacing: MobileSpacing.medium) {
             HStack(alignment: .firstTextBaseline, spacing: MobileSpacing.medium) {
                 MobileStatusGlyph(tone: tone, symbol: symbol).centeredOnFirstLine(of: .subheadline)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(verbatim: title).font(.subheadline).foregroundStyle(MobileStyle.text)
-                        .lineLimit(1).truncationMode(.tail)
-                    if let subtitle, !subtitle.isEmpty {
-                        Text(verbatim: subtitle).font(.caption).foregroundStyle(MobileStyle.muted)
-                            .lineLimit(1).truncationMode(.tail)
-                    }
-                }
+                MobileRowText(title: title, subtitle: subtitle)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             trailing
@@ -136,17 +129,27 @@ struct MobileGlyphLabel: View {
         HStack(alignment: .firstTextBaseline, spacing: MobileSpacing.medium) {
             MobileStatusGlyph(tone: tone, symbol: symbol).centeredOnFirstLine(of: .subheadline)
                 .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(verbatim: title).font(.subheadline).foregroundStyle(MobileStyle.text)
-                    .lineLimit(1).truncationMode(.tail)
-                if !subtitle.isEmpty {
-                    Text(verbatim: subtitle).font(.caption).foregroundStyle(MobileStyle.muted)
-                        .lineLimit(1).truncationMode(.middle)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            MobileRowText(title: title, subtitle: subtitle, subtitleTruncation: .middle)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// A row's title over its muted second line, each kept to one line.
+private struct MobileRowText: View {
+    let title: String
+    let subtitle: String?
+    var subtitleTruncation = Text.TruncationMode.tail
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(verbatim: title).font(.subheadline).foregroundStyle(MobileStyle.text).lineLimit(1)
+            if let subtitle, !subtitle.isEmpty {
+                Text(verbatim: subtitle).font(.caption).foregroundStyle(MobileStyle.muted)
+                    .lineLimit(1).truncationMode(subtitleTruncation)
+            }
+        }
     }
 }
 
@@ -177,7 +180,8 @@ struct MobileSectionHeader: View {
         .listRowInsets(
             EdgeInsets(
                 top: MobileSpacing.small, leading: MobileSpacing.margin, bottom: MobileSpacing.xSmall,
-                trailing: MobileSpacing.margin))
+                trailing: MobileSpacing.margin)
+        )
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
     }

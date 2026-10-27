@@ -35,9 +35,7 @@ struct ProjectViewPage: View {
                         opening: String(localized: "Opening"))
                 }
             } else {
-                ContentUnavailableView(
-                    String(localized: "Machine unavailable"), lucideIcon: "triangle-alert",
-                    description: Text("This machine is no longer connected to this device."))
+                ContentUnavailableView.machineUnavailable
             }
         }
         .modifier(MobilePageSurface())

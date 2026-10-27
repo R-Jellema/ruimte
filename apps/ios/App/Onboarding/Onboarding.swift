@@ -34,16 +34,8 @@ final class Onboarding {
         defaults.removeObject(forKey: Self.storageKey)
     }
 
-    func step(signedIn: Bool, machines: Int, notificationsEnabled: Bool) -> OnboardingStep {
-        Self.step(
-            signedIn: signedIn, machines: machines, asksForNotifications: asksForNotifications,
-            notificationsEnabled: notificationsEnabled)
-    }
-
     /// An account without machines goes home as well, since its machines may still arrive; the step waits for them.
-    nonisolated static func step(
-        signedIn: Bool, machines: Int, asksForNotifications: Bool, notificationsEnabled: Bool
-    ) -> OnboardingStep {
+    func step(signedIn: Bool, machines: Int, notificationsEnabled: Bool) -> OnboardingStep {
         if !signedIn && machines == 0 {
             return .welcome
         }

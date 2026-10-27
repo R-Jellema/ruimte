@@ -193,7 +193,7 @@ final class AppRuntime {
         }
         do {
             let session: SessionView
-            let label = "Ruimte on \(UIDevice.current.model)"
+            let label = Self.deviceLabel
             if provider == .apple {
                 let authentication = NativeAppleAuthentication(anchor: window)
                 appleAuthentication = authentication
@@ -239,14 +239,14 @@ final class AppRuntime {
                 account = nil
                 applyMachines([])
                 scheduleNotificationSync()
-                if operation == sessionRevision { problem = nil }
+                problem = nil
                 return
             }
             let result = try await client.listMachines(accessToken: token)
             guard operation == sessionRevision else { return }
             applyMachineList(result)
             scheduleNotificationSync()
-            if operation == sessionRevision { problem = nil }
+            problem = nil
         } catch is CancellationError {
             return
         } catch {
@@ -320,6 +320,9 @@ final class AppRuntime {
         }
     }
 
+    /// How the account names this device's session and its access to a machine.
+    private static var deviceLabel: String { "Ruimte on \(UIDevice.current.model)" }
+
     /// The broker a machine announces, which a phone reaches only over `wss`.
     static func broker(of machine: Machine) -> URL? {
         machine.brokerUrl.flatMap(URL.init(string:)).flatMap { $0.scheme == "wss" ? $0 : nil }
@@ -348,7 +351,7 @@ final class AppRuntime {
                     throw TransportFailure.invalid(String(localized: "Sign in to connect to this machine."))
                 }
                 let access = try await client.signalAccess(
-                    accessToken: token, machineID: machine.id, key: key, label: "Ruimte on \(UIDevice.current.model)")
+                    accessToken: token, machineID: machine.id, key: key, label: Self.deviceLabel)
                 return try JSONValue.decode(JSONEncoder().encode(access))
             }, events: events,
             makeLink: { [lanDoors, sockets] access, authenticatedEvents in

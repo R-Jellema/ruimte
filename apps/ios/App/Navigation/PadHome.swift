@@ -17,7 +17,6 @@ struct PadHome: View {
     @State private var sidebarVisibility = NavigationSplitViewVisibility.automatic
     /// What the palette asked for that is a sheet of its own, put up once the palette is gone.
     @State private var afterPalette: (() -> Void)?
-    @Environment(\.voiceScene) private var voiceScene
 
     var body: some View {
         NavigationSplitView(columnVisibility: $sidebarVisibility) {
@@ -70,27 +69,17 @@ struct PadHome: View {
                 }
             }
         }
-        .modifier(ScheduledWatch(runtime: runtime, model: scheduled))
-        .onChange(of: now.board) { _, board in
-            if now.loaded { NeedsYouWidgetRecorder.record(board) }
-        }
-        .task(id: runtime.account?.id) { await AccountPictures.shared.load(for: runtime.account) }
-        .onAppear {
-            voiceScene?.openTarget = { [router] in
+        .modifier(
+            HomeWatch(runtime: runtime, now: now, scheduled: scheduled) { [router] in
                 router.project.map { (VoiceTarget($0.workspace, shown: $0.selectedViewID), $0.workspace.session) }
-            }
-        }
+            })
     }
 
     private var inspectorShown: Binding<Bool> {
         Binding(get: { router.showsInspector }, set: { if !$0 { router.inspector = nil } })
     }
 
-    private var settingsLink: SettingsLink {
-        SettingsLink(
-            account: runtime.account, picture: AccountPictures.shared.picture(for: runtime.account),
-            show: showSettings)
-    }
+    private var settingsLink: SettingsLink { SettingsLink(runtime: runtime, show: showSettings) }
 
     private var navigator: PadPaletteNavigator {
         PadPaletteNavigator(runtime: runtime, router: router) { palette = false }

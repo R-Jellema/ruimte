@@ -32,15 +32,25 @@ struct NowPage: View {
                 }
             }
         }
-        .onChange(of: now.liveRequests) { _, live in now.answers.keep(live) }
-        .refreshable { await now.refresh() }
-        .task {
-            // Released projects have no watcher on the machine, so new chats there only show on a read.
-            while !Task.isCancelled {
-                do { try await Task.sleep(for: .seconds(15)) } catch { return }
-                await now.refresh()
+        .modifier(NowWatch(now: now))
+    }
+}
+
+/// What a page of Now keeps up while it shows: answers that settled, a pull to refresh and a read every 15 seconds.
+struct NowWatch: ViewModifier {
+    let now: NowModel
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: now.liveRequests) { _, live in now.answers.keep(live) }
+            .refreshable { await now.refresh() }
+            .task {
+                // Released projects have no watcher on the machine, so new chats there only show on a read.
+                while !Task.isCancelled {
+                    do { try await Task.sleep(for: .seconds(15)) } catch { return }
+                    await now.refresh()
+                }
             }
-        }
     }
 }
 
@@ -89,31 +99,13 @@ struct NowSections: View {
                 }
             }
         }
-        if !board.working.isEmpty {
-            Section {
-                header(String(localized: "Working"), count: board.working.count)
-                MobileRowGroup(items: board.working) { entry in
-                    row(entry) {
-                        NowWorkingRow(
-                            entry: entry, namesMachine: board.namesMachines, task: now.task(for: entry.target),
-                            date: date)
-                    }
-                }
-                .listRowInsets(Self.cardInsets)
-            }
+        section(String(localized: "Working"), board.working) { entry in
+            NowWorkingRow(
+                entry: entry, namesMachine: board.namesMachines, task: now.task(for: entry.target), date: date)
         }
-        if !board.finished.isEmpty {
-            Section {
-                header(String(localized: "Finished"), count: board.finished.count)
-                MobileRowGroup(items: board.finished) { entry in
-                    row(entry) {
-                        NowFinishedRow(
-                            entry: entry, namesMachine: board.namesMachines, task: now.task(for: entry.target),
-                            date: date)
-                    }
-                }
-                .listRowInsets(Self.cardInsets)
-            }
+        section(String(localized: "Finished"), board.finished) { entry in
+            NowFinishedRow(
+                entry: entry, namesMachine: board.namesMachines, task: now.task(for: entry.target), date: date)
         }
         if !comingUp.isEmpty {
             Section {
@@ -135,6 +127,18 @@ struct NowSections: View {
             .padding(.top, first ? 0 : MobileSpacing.large)
     }
 
+    @ViewBuilder private func section<Label: View>(
+        _ title: String, _ entries: [ProjectViewEntry], @ViewBuilder label: @escaping (ProjectViewEntry) -> Label
+    ) -> some View {
+        if !entries.isEmpty {
+            Section {
+                header(title, count: entries.count)
+                MobileRowGroup(items: entries) { entry in row(entry) { label(entry) } }
+                    .listRowInsets(Self.cardInsets)
+            }
+        }
+    }
+
     private func row<Label: View>(_ entry: ProjectViewEntry, @ViewBuilder label: () -> Label) -> some View {
         Button {
             open(entry.target)
@@ -147,7 +151,11 @@ struct NowSections: View {
     }
 
     private func menu(_ entry: ProjectViewEntry) -> some View {
-        NowEntryMenu(now: now, entry: entry) { open(entry.target) } openProject: { openProject(entry.target) }
+        NowEntryMenu(now: now, entry: entry) {
+            open(entry.target)
+        } openProject: {
+            openProject(entry.target)
+        }
     }
 }
 
@@ -277,8 +285,7 @@ struct NowComingUpButton<Actions: View>: View {
             } label: {
                 MobileStatusRow(
                     tone: .idle, symbol: "calendar-clock", title: scheduled.entry.title,
-                    subtitle: namesMachine
-                        ? "\(scheduled.entry.projectName) · \(scheduled.machineName)" : scheduled.entry.projectName,
+                    subtitle: scheduled.place(namesMachine: namesMachine),
                     value: Format.moment(item.at, now: date)
                 )
                 .accessibilityAddTraits(.isButton)

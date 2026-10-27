@@ -109,9 +109,7 @@ enum CrashReports {
             event.message = SentryMessage(formatted: scrubber.scrubMessage(message.formatted))
         }
         event.fingerprint = event.fingerprint?.map(scrubber.scrubMessage)
-        event.tags = event.tags?.filter { tags.contains($0.key) }.mapValues {
-            CrashScrubber.truncate(scrubber.scrubText($0), CrashScrubber.maxTag)
-        }
+        event.tags = event.tags?.filter { tags.contains($0.key) }.mapValues(scrubber.scrubTag)
         event.context = event.context.map { context in
             context.reduce(into: [:]) { kept, entry in
                 guard let fields = contexts[entry.key] else { return }
@@ -125,7 +123,7 @@ enum CrashReports {
         }
         for exception in event.exceptions ?? [] {
             exception.value = exception.value.map(scrubber.scrubMessage)
-            exception.type = exception.type.map { CrashScrubber.truncate(scrubber.scrubText($0), CrashScrubber.maxTag) }
+            exception.type = exception.type.map(scrubber.scrubTag)
             exception.module = nil
             if let mechanism = exception.mechanism {
                 mechanism.desc = nil
@@ -135,7 +133,7 @@ enum CrashReports {
             scrub(exception.stacktrace, with: scrubber)
         }
         for thread in event.threads ?? [] {
-            thread.name = thread.name.map { CrashScrubber.truncate(scrubber.scrubText($0), CrashScrubber.maxTag) }
+            thread.name = thread.name.map(scrubber.scrubTag)
             scrub(thread.stacktrace, with: scrubber)
         }
         scrub(event.stacktrace, with: scrubber)

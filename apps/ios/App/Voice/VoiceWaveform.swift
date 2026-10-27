@@ -77,17 +77,13 @@ struct VoiceWaveform: View {
             let output = height(index < bands.output.count ? bands.output[index] : 0)
             let above = CGRect(x: x, y: middle - input, width: width, height: input)
             let below = CGRect(x: x, y: middle, width: width, height: output)
+            let top = radius(width: width, height: input)
+            let bottom = radius(width: width, height: output)
             context.fill(
-                UnevenRoundedRectangle(
-                    topLeadingRadius: radius(width: width, height: input),
-                    topTrailingRadius: radius(width: width, height: input)
-                ).path(in: above),
+                UnevenRoundedRectangle(topLeadingRadius: top, topTrailingRadius: top).path(in: above),
                 with: .color(VoiceStyle.voice.opacity(0.6)))
             context.fill(
-                UnevenRoundedRectangle(
-                    bottomLeadingRadius: radius(width: width, height: output),
-                    bottomTrailingRadius: radius(width: width, height: output)
-                ).path(in: below),
+                UnevenRoundedRectangle(bottomLeadingRadius: bottom, bottomTrailingRadius: bottom).path(in: below),
                 with: .color(VoiceStyle.voice))
         }
         context.fill(Path(CGRect(x: 0, y: middle, width: size.width, height: 1)), with: .color(MobileStyle.canvas))

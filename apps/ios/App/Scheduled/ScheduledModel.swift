@@ -35,22 +35,7 @@ final class ScheduledModel {
 
     func reconcile(runtime: AppRuntime) {
         guard viewers > 0 else { return }
-        let context = "\(runtime.key?.publicKey ?? ""):\(runtime.connectionRevision)"
-        let restart = context != contextID
-        contextID = context
-        for (id, feed) in feeds {
-            let current = runtime.session(machineID: id)
-            if restart || current !== feed.session {
-                feed.stop()
-                feeds.removeValue(forKey: id)
-            }
-        }
-        guard runtime.key != nil else { return }
-        for machine in runtime.machines where feeds[machine.id] == nil {
-            let feed = ScheduledFeed(session: runtime.session(for: machine))
-            feeds[machine.id] = feed
-            feed.start()
-        }
+        runtime.reconcile(&feeds, context: &contextID)
     }
 
     func refresh() async {
@@ -80,7 +65,7 @@ final class ScheduledModel {
 
 /// One machine's routines.
 @MainActor @Observable
-final class ScheduledFeed {
+final class ScheduledFeed: MachineFeed {
     let session: SharedMachineSession
     private(set) var entries: [RoutineEntry] = []
     /// The machine's time zone, which every schedule is read in.
@@ -90,8 +75,7 @@ final class ScheduledFeed {
     private(set) var problem: String?
     @ObservationIgnored private var stops: [() -> Void] = []
     @ObservationIgnored private var lease: MachineSubscription?
-    @ObservationIgnored private var pending: Task<Void, Never>?
-    @ObservationIgnored private var loading: Task<Void, Never>?
+    @ObservationIgnored private lazy var reads = FeedReads { [weak self] in await self?.load() }
 
     init(session: SharedMachineSession) { self.session = session }
 
@@ -99,15 +83,14 @@ final class ScheduledFeed {
         guard stops.isEmpty else { return }
         session.retain()
         let client = session.rpc
-        stops.append(client.subscribe(WireEvent.routineChanged.rawValue) { [weak self] _ in self?.schedule() })
+        stops.append(client.subscribe(WireEvent.routineChanged.rawValue) { [weak self] _ in self?.reads.schedule() })
         stops.append(
             client.observeConnection { [weak self] connected in
                 guard let self else { return }
                 if connected {
                     Task { await self.linked() }
                 } else {
-                    pending?.cancel()
-                    pending = nil
+                    reads.cancelScheduled()
                 }
             })
     }
@@ -116,25 +99,14 @@ final class ScheduledFeed {
         guard !stops.isEmpty else { return }
         stops.forEach { $0() }
         stops.removeAll()
-        pending?.cancel()
-        pending = nil
-        loading?.cancel()
+        reads.cancel()
         let lease = lease
         self.lease = nil
         Task { await lease?.release() }
         session.release()
     }
 
-    func refresh() async {
-        if let loading {
-            await loading.value
-            return
-        }
-        let task = Task { await load() }
-        loading = task
-        await task.value
-        loading = nil
-    }
+    func refresh() async { await reads.refresh() }
 
     func pause(_ entry: RoutineEntry) async throws {
         try await send(.routinePause, entry)
@@ -177,17 +149,6 @@ final class ScheduledFeed {
             _ = try? await lease?.refresh()
         }
         await refresh()
-    }
-
-    /// Folds a burst of events into one read.
-    private func schedule() {
-        guard pending == nil else { return }
-        pending = Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(150))
-            guard let self, !Task.isCancelled else { return }
-            pending = nil
-            await refresh()
-        }
     }
 
     private func load() async {

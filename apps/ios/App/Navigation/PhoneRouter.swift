@@ -77,7 +77,7 @@ final class PhoneRouter {
     /// A notification lands on Now: its chat or terminal on top, or for a machine's overview Now itself.
     func open(_ notification: NotificationDestination) {
         tab = .now
-        path = notification.target == "machine" || notification.nodeID.isEmpty ? [] : [.notification(notification)]
+        path = notification.opensMachine ? [] : [.notification(notification)]
     }
 
     func showRecentProjects() {

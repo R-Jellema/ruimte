@@ -80,14 +80,18 @@ struct Eclipse: View {
                         let time = reduceMotion ? nil : timeline.date.timeIntervalSince(start)
                         let frame = proxy.frame(in: .global)
                         let bounds = layout.box.offsetBy(dx: frame.minX, dy: frame.minY)
-                        let touch = reduceMotion ? EclipseInteraction.Frame() : interaction?.frame(in: bounds, at: timeline.date) ?? EclipseInteraction.Frame()
+                        let touch =
+                            reduceMotion
+                            ? EclipseInteraction.Frame()
+                            : interaction?.frame(in: bounds, at: timeline.date) ?? EclipseInteraction.Frame()
                         ZStack {
                             EclipseStars(
                                 size: layout.box.size,
                                 center: CGPoint(x: layout.point.x, y: layout.point.y - layout.box.minY),
-                                density: scene.density, time: time, dark: colorScheme == .dark, interaction: touch)
-                                .frame(width: layout.box.width, height: layout.box.height)
-                                .position(x: layout.box.midX, y: layout.box.midY)
+                                density: scene.density, time: time, dark: colorScheme == .dark, interaction: touch
+                            )
+                            .frame(width: layout.box.width, height: layout.box.height)
+                            .position(x: layout.box.midX, y: layout.box.midY)
                             Canvas { context, _ in
                                 layout.drawScene(in: &context, palette: palette, at: time)
                             }
@@ -277,31 +281,12 @@ enum EclipseMotion {
     static func swing(_ time: Double, duration: Double, delay: Double) -> Double {
         let elapsed = (time - delay).truncatingRemainder(dividingBy: duration)
         let progress = (elapsed < 0 ? elapsed + duration : elapsed) / duration
-        return progress < 0.5 ? easeInOut(progress * 2) : 1 - easeInOut(progress * 2 - 1)
+        let ease = SpinnerMotion.easeInOut
+        return progress < 0.5 ? ease(progress * 2) : 1 - ease(progress * 2 - 1)
     }
 
     /// Degrees turned at `time` by a linear spin of `period` seconds a turn, the other way for a negative period.
     static func turn(_ time: Double, period: Double) -> Double {
         360 * time.truncatingRemainder(dividingBy: abs(period)) / period
-    }
-
-    /// `cubic-bezier(0.42, 0, 0.58, 1)`.
-    static func easeInOut(_ progress: Double) -> Double {
-        let bezier = { (fraction: Double, first: Double, second: Double) -> Double in
-            let rest = 1 - fraction
-            return 3 * rest * rest * fraction * first + 3 * rest * fraction * fraction * second
-                + fraction * fraction * fraction
-        }
-        var low = 0.0
-        var high = 1.0
-        for _ in 0..<24 {
-            let middle = (low + high) / 2
-            if bezier(middle, 0.42, 0.58) < progress {
-                low = middle
-            } else {
-                high = middle
-            }
-        }
-        return bezier((low + high) / 2, 0, 1)
     }
 }

@@ -75,6 +75,13 @@ extension ContentUnavailableView where Label == SwiftUI.Label<Text, Image>, Desc
             String(localized: "No results for “\(text)”"), lucideIcon: "search",
             description: Text("Check the spelling or try a new search."))
     }
+
+    /// For a page whose machine left the account while it was open.
+    @MainActor static var machineUnavailable: Self {
+        Self(
+            String(localized: "Machine unavailable"), lucideIcon: "triangle-alert",
+            description: Text("This machine is no longer connected to this device."))
+    }
 }
 
 struct WorkspaceViewIcon: View {

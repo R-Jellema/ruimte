@@ -15,10 +15,8 @@ struct MobileFlow: Layout {
         var top = bounds.minY
         for row in arrange(width: bounds.width, subviews: subviews) {
             var left = bounds.minX
-            for index in row.indices {
-                let size = subviews[index].sizeThatFits(ProposedViewSize(width: bounds.width, height: nil))
-                subviews[index].place(
-                    at: CGPoint(x: left, y: top), proposal: ProposedViewSize(width: size.width, height: size.height))
+            for (index, size) in row.items {
+                subviews[index].place(at: CGPoint(x: left, y: top), proposal: ProposedViewSize(size))
                 left += size.width + spacing
             }
             top += row.height + spacing
@@ -26,7 +24,7 @@ struct MobileFlow: Layout {
     }
 
     private struct Row {
-        var indices: [Int] = []
+        var items: [(index: Int, size: CGSize)] = []
         var width: CGFloat = 0
         var height: CGFloat = 0
     }
@@ -36,16 +34,15 @@ struct MobileFlow: Layout {
         var current = Row()
         for index in subviews.indices {
             let size = subviews[index].sizeThatFits(ProposedViewSize(width: width, height: nil))
-            let needed = current.indices.isEmpty ? size.width : current.width + spacing + size.width
-            if needed > width && !current.indices.isEmpty {
+            if !current.items.isEmpty && current.width + spacing + size.width > width {
                 rows.append(current)
                 current = Row()
             }
-            current.width = current.indices.isEmpty ? size.width : current.width + spacing + size.width
+            current.width += current.items.isEmpty ? size.width : spacing + size.width
             current.height = max(current.height, size.height)
-            current.indices.append(index)
+            current.items.append((index, size))
         }
-        if !current.indices.isEmpty { rows.append(current) }
+        if !current.items.isEmpty { rows.append(current) }
         return rows
     }
 }

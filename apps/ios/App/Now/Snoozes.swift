@@ -98,10 +98,7 @@ struct SnoozeBook: Codable, Equatable {
     /// What goes to the machine now, oldest node first. A snooze that ran out while it waited for a connection is not
     /// sent at all.
     mutating func due(at now: Double) -> [(node: String, change: Change)] {
-        outbox = outbox.filter { _, change in
-            if case .set(let until) = change { return until > now }
-            return true
-        }
+        dropLapsed(at: now)
         return outbox.sorted { $0.key < $1.key }.map { ($0.key, $0.value) }
     }
 
@@ -127,6 +124,11 @@ struct SnoozeBook: Codable, Equatable {
 
     mutating func prune(at now: Double) {
         listed = listed.filter { $0.value > now }
+        dropLapsed(at: now)
+    }
+
+    /// A snooze that ended before it went out has nothing left to tell the machine.
+    private mutating func dropLapsed(at now: Double) {
         outbox = outbox.filter { _, change in
             if case .set(let until) = change { return until > now }
             return true
@@ -158,7 +160,8 @@ final class MachineSnoozes {
         self.defaults = defaults
         self.clock = clock
         storageKey = "ruimte.ios.snoozes.\(machineID)"
-        book = defaults.data(forKey: storageKey).flatMap { try? JSONDecoder().decode(SnoozeBook.self, from: $0) }
+        book =
+            defaults.data(forKey: storageKey).flatMap { try? JSONDecoder().decode(SnoozeBook.self, from: $0) }
             ?? SnoozeBook()
     }
 

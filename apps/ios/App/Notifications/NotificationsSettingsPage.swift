@@ -46,9 +46,9 @@ struct NotificationsSettingsPage: View {
                     )
                 }
             }
-            if coordinator.enabled && !rows.isEmpty {
+            if coordinator.enabled && !projects.open.isEmpty {
                 Section {
-                    ForEach(rows) { row in
+                    ForEach(projects.open) { row in
                         projectRow(row)
                     }
                 } header: {
@@ -78,8 +78,6 @@ struct NotificationsSettingsPage: View {
             await coordinator.readPreferences()
         }
     }
-
-    private var rows: [UnifiedProjectRow] { projects.open }
 
     private func kind(_ kind: PushNotifyKind, _ title: String, icon: String) -> some View {
         Toggle(

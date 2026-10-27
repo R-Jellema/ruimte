@@ -86,10 +86,10 @@ import SwiftUI
                 models: provider.list("models").filter { $0["legacy"] != .bool(true) },
                 defaultModel: provider["defaultModel"]?.stringValue,
                 accounts: entries.map { entry in
-                    Account(
-                        id: entry.id, name: entry.name(provider: ProcessesText.agentName(kind)),
-                        state: entry.enabled ? entry.state : "disabled",
-                        detail: detail(state: entry.enabled ? entry.state : "disabled", status: statuses[entry.id]))
+                    let state = entry.enabled ? entry.state : "disabled"
+                    return Account(
+                        id: entry.id, name: entry.name(provider: ProcessesText.agentName(kind)), state: state,
+                        detail: detail(state: state, status: statuses[entry.id]))
                 })
         }
     }
@@ -222,8 +222,9 @@ struct MachineAgentsPage: View {
                 }
             }
             .pickerStyle(.menu)
-            ForEach(model.agents.filter { $0.chat && !$0.models.isEmpty && ChatPreferences.providers.contains($0.kind) })
-            { agent in
+            ForEach(
+                model.agents.filter { $0.chat && !$0.models.isEmpty && ChatPreferences.providers.contains($0.kind) }
+            ) { agent in
                 modelPicker(agent)
             }
             if model.endpoint?["resumeAtReset"]?.boolValue != nil {

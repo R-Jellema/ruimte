@@ -39,14 +39,7 @@ struct ScheduledPage: View {
         }
         .refreshable { await model.refresh() }
         .modifier(ScheduledWatch(runtime: runtime, model: model))
-        .alert(
-            notice?.title ?? "", isPresented: $notice.isPresent(),
-            presenting: notice
-        ) { _ in
-            Button(String(localized: "OK")) {}
-        } message: { notice in
-            Text(notice.message)
-        }
+        .routineNotice($notice)
     }
 
     @ViewBuilder private func unanswered(_ board: ScheduledBoard) -> some View {
@@ -78,8 +71,7 @@ struct ScheduledPage: View {
             do {
                 try await feed.resume(item.entry)
             } catch {
-                notice = RoutineNotice(
-                    title: String(localized: "Could not do that"), message: error.localizedDescription)
+                notice = .failure(error)
             }
             resuming.remove(item.id)
         }
@@ -127,17 +119,14 @@ struct ScheduledSections: View {
                 }
             }
         }
-        group(String(localized: "Today"), board.today, first: board.needsYou.isEmpty)
-        group(
-            String(localized: "Tonight", comment: "Routines that run before tomorrow noon"), board.overnight,
-            first: board.needsYou.isEmpty && board.today.isEmpty)
-        group(
-            String(localized: "Later"), board.later,
-            first: board.needsYou.isEmpty && board.today.isEmpty && board.overnight.isEmpty)
-        group(
-            String(localized: "Paused", comment: "Routines that do not run: paused, or not approved yet"), board.held,
-            first: board.needsYou.isEmpty && board.today.isEmpty && board.overnight.isEmpty && board.later.isEmpty)
+        group(String(localized: "Today"), \.today)
+        group(String(localized: "Tonight", comment: "Routines that run before tomorrow noon"), \.overnight)
+        group(String(localized: "Later"), \.later)
+        group(String(localized: "Paused", comment: "Routines that do not run: paused, or not approved yet"), \.held)
     }
+
+    /// The groups below Needs you, top to bottom. The first one shown sits at the top of the page.
+    private static var groups: [KeyPath<ScheduledBoard, [ScheduledItem]>] { [\.today, \.overnight, \.later, \.held] }
 
     @ViewBuilder private func card(_ wait: ScheduledWait) -> some View {
         let subtitle = [
@@ -168,8 +157,11 @@ struct ScheduledSections: View {
                     machineID: wait.item.machineID, chatID: chatID, title: wait.item.entry.title, due: wait.run.due)))
     }
 
-    @ViewBuilder private func group(_ title: String, _ items: [ScheduledItem], first: Bool) -> some View {
+    @ViewBuilder private func group(_ title: String, _ path: KeyPath<ScheduledBoard, [ScheduledItem]>) -> some View {
+        let items = board[keyPath: path]
         if !items.isEmpty {
+            let first =
+                board.needsYou.isEmpty && Self.groups.prefix { $0 != path }.allSatisfy { board[keyPath: $0].isEmpty }
             Section {
                 MobileSectionHeader(title: title).padding(.top, first ? 0 : MobileSpacing.large)
                 MobileRowGroup(items: items) { item in
@@ -225,7 +217,7 @@ struct ScheduledRow: View {
     }
 
     private var subtitle: String {
-        let place = namesMachine ? "\(entry.projectName) · \(item.machineName)" : entry.projectName
+        let place = item.place(namesMachine: namesMachine)
         if entry.pausedAt != nil {
             return place
         }

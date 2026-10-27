@@ -226,7 +226,9 @@ final class VoiceCoordinator {
             self?.adopt(state, machineID: machineID)
         }
         do {
-            adopt(try WireRequest.voicePreferences.validateResult(try await client.request(.voicePreferences)), machineID: machineID)
+            adopt(
+                try WireRequest.voicePreferences.validateResult(try await client.request(.voicePreferences)),
+                machineID: machineID)
         } catch {
             // What the machine stores stays unknown until the next read or event.
         }
@@ -366,10 +368,8 @@ final class VoiceCoordinator {
         end(nil, tellMachine: true)
     }
 
-    func sceneClosed(_ scene: String) {
-        guard owner == scene else { return }
-        end(nil, tellMachine: true)
-    }
+    /// A scene that closes ends the session it owns.
+    func sceneClosed(_ scene: String) { stop(scene: scene) }
 
     /// Turns the microphone off or on again; the session and the reply go on either way.
     func setMuted(_ muted: Bool, scene: String) {
@@ -574,19 +574,16 @@ final class VoiceCoordinator {
 
     private func audioChanged(_ change: VoiceAudioChange) {
         guard owner != nil else { return }
+        let message: String
         switch change {
-        case .interrupted:
-            let message = String(localized: "A call or another app took the audio, so Voice stopped.")
-            end(.message(message), tellMachine: true)
-        case .reset:
-            let message = String(localized: "The audio of this device restarted, so Voice stopped.")
-            end(.message(message), tellMachine: true)
-        case .taken:
-            let message = String(localized: "Something else in Ruimte took the audio, so Voice stopped.")
-            end(.message(message), tellMachine: true)
+        case .interrupted: message = String(localized: "A call or another app took the audio, so Voice stopped.")
+        case .reset: message = String(localized: "The audio of this device restarted, so Voice stopped.")
+        case .taken: message = String(localized: "Something else in Ruimte took the audio, so Voice stopped.")
         case .route(let name):
             route = name.isEmpty ? nil : name
+            return
         }
+        end(.message(message), tellMachine: true)
     }
 
     // MARK: The end

@@ -24,9 +24,7 @@ struct ProjectFilePage: View {
                     client: workspace.client, path: target.path,
                     project: FilesProject(workspace: workspace, openView: { openView(workspace, $0) }))
             } else {
-                ContentUnavailableView(
-                    String(localized: "Machine unavailable"), lucideIcon: "triangle-alert",
-                    description: Text("This machine is no longer connected to this device."))
+                ContentUnavailableView.machineUnavailable
             }
         }
         .modifier(MobilePageSurface())

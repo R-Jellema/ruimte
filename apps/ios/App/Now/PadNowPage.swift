@@ -43,15 +43,7 @@ struct PadNowPage: View {
         }
         .navigationTitle("Now")
         .navigationBarTitleDisplayMode(.inline)
-        .onChange(of: now.liveRequests) { _, live in now.answers.keep(live) }
-        .refreshable { await now.refresh() }
-        .task {
-            // Released projects have no watcher on the machine, so new chats there only show on a read.
-            while !Task.isCancelled {
-                do { try await Task.sleep(for: .seconds(15)) } catch { return }
-                await now.refresh()
-            }
-        }
+        .modifier(NowWatch(now: now))
     }
 
     @ViewBuilder private func content(_ board: NowBoard, date: Date, comingUp: [NowComingUp]) -> some View {
@@ -136,6 +128,10 @@ struct PadNowPage: View {
     }
 
     private func menu(_ entry: ProjectViewEntry) -> some View {
-        NowEntryMenu(now: now, entry: entry) { open(entry.target) } openProject: { openProject(entry.target) }
+        NowEntryMenu(now: now, entry: entry) {
+            open(entry.target)
+        } openProject: {
+            openProject(entry.target)
+        }
     }
 }

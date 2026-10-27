@@ -102,8 +102,6 @@ private struct ExampleNotification: View {
             }
             .font(.subheadline)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
         .modifier(ExampleCard())
     }
 }
@@ -118,8 +116,6 @@ private struct ExampleActivity: View {
         }
         .font(.subheadline)
         .lineLimit(1)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
         .modifier(ExampleCard())
     }
 }
@@ -127,6 +123,8 @@ private struct ExampleActivity: View {
 private struct ExampleCard: ViewModifier {
     func body(content: Content) -> some View {
         content
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
             .background(MobileStyle.panel, in: .rect(cornerRadius: 26))
             .overlay(RoundedRectangle(cornerRadius: 26).strokeBorder(MobileStyle.text.opacity(0.06)))
     }

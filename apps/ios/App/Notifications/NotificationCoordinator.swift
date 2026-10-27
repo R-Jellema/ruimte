@@ -84,6 +84,7 @@ import UIKit
         Self.latestToken = deviceToken
         NotificationCenter.default.post(name: Self.tokenChanged, object: deviceToken)
     }
+
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
         NotificationCenter.default.post(name: Self.tokenFailed, object: error.localizedDescription)
     }
@@ -131,6 +132,9 @@ struct NotificationDestination: Identifiable, Hashable {
     let machineID: String
     let nodeID: String
     let target: String
+
+    /// A notification about the machine itself, or one without a node, opens on Now rather than in a project.
+    var opensMachine: Bool { target == "machine" || nodeID.isEmpty }
 }
 
 @MainActor @Observable final class NotificationCoordinator: NSObject {
@@ -160,6 +164,7 @@ struct NotificationDestination: Identifiable, Hashable {
         get { defaults.stringArray(forKey: "ruimte.push.retired-handles") ?? [] }
         set { defaults.set(newValue, forKey: "ruimte.push.retired-handles") }
     }
+
     private var restored = false
     private var revision = 0
     private var follows: [String: [String]]
@@ -239,6 +244,7 @@ struct NotificationDestination: Identifiable, Hashable {
         UIApplication.shared.registerForRemoteNotifications()
         if let token = NotificationAppDelegate.latestToken { await register(token) }
     }
+
     func enable() async {
         guard !busy else { return }
         busy = true
@@ -256,6 +262,7 @@ struct NotificationDestination: Identifiable, Hashable {
             if let token = NotificationAppDelegate.latestToken { await register(token) }
         } catch { problem = error.localizedDescription }
     }
+
     private func register(_ token: Data) async {
         guard enabled, let runtime else { return }
         let current = revision
@@ -275,15 +282,13 @@ struct NotificationDestination: Identifiable, Hashable {
             let store = try store()
             _ = try store.key(create: true)
             try store.save(
-                PushDeviceContext(
-                    handle: handle,
-                    machinePublicKeys: Dictionary(uniqueKeysWithValues: runtime.machines.map { ($0.id, $0.publicKey) }))
-            )
+                PushDeviceContext(handle: handle, machinePublicKeys: Self.publicKeys(of: runtime)))
             await synchronizeActivityTarget()
             startActivityObservers()
             await synchronize()
         } catch { if current == revision { problem = error.localizedDescription } }
     }
+
     private func removeRetiredDevices() async throws {
         guard !retiredHandles.isEmpty, let access = try await runtime?.vault?.accessToken() else { return }
         for handle in retiredHandles {
@@ -312,7 +317,7 @@ struct NotificationDestination: Identifiable, Hashable {
                 }
                 return
             }
-            context.machinePublicKeys = Dictionary(uniqueKeysWithValues: runtime.machines.map { ($0.id, $0.publicKey) })
+            context.machinePublicKeys = Self.publicKeys(of: runtime)
             try store.save(context)
             for machine in runtime.machines {
                 try Task.checkCancellation()
@@ -325,6 +330,12 @@ struct NotificationDestination: Identifiable, Hashable {
             await synchronizeActivityTarget()
         } catch { if !Task.isCancelled { problem = error.localizedDescription } }
     }
+
+    /// The key of every machine on the account, which the notification extension checks a push against.
+    private static func publicKeys(of runtime: AppRuntime) -> [String: String] {
+        Dictionary(uniqueKeysWithValues: runtime.machines.map { ($0.id, $0.publicKey) })
+    }
+
     private func subscribe(_ machine: Machine, context: PushDeviceContext) async throws {
         guard let runtime else { return }
         let current = revision
@@ -371,19 +382,15 @@ struct NotificationDestination: Identifiable, Hashable {
         }
         if next != preferences { preferences = next }
     }
+
     func disable(accountDeleted: Bool = false) async {
         revision += 1
         defaults.removeObject(forKey: "ruimte.push.activity-target")
         enabled = false
         defaults.set(false, forKey: "ruimte.push.enabled")
-        startTokenTask?.cancel()
-        startTokenTask = nil
+        stopActivityObservers()
         activityStateTasks.values.forEach { $0.cancel() }
         activityStateTasks.removeAll()
-        activityDiscoveryTask?.cancel()
-        activityDiscoveryTask = nil
-        activityTasks.values.forEach { $0.cancel() }
-        activityTasks.removeAll()
         for activity in Activity<RuimteActivityAttributes>.activities {
             await activity.end(nil, dismissalPolicy: .immediate)
         }
@@ -414,6 +421,7 @@ struct NotificationDestination: Identifiable, Hashable {
         UIApplication.shared.unregisterForRemoteNotifications()
         UNUserNotificationCenter.current().removeAllDeliveredNotifications()
     }
+
     private func savePreferences() async {
         defaults.set(approvals, forKey: "ruimte.push.approvals")
         defaults.set(activities, forKey: "ruimte.push.activities")
@@ -421,12 +429,7 @@ struct NotificationDestination: Identifiable, Hashable {
         if activities && supportsActivities {
             startActivityObservers()
         } else {
-            startTokenTask?.cancel()
-            startTokenTask = nil
-            activityDiscoveryTask?.cancel()
-            activityDiscoveryTask = nil
-            activityTasks.values.forEach { $0.cancel() }
-            activityTasks.removeAll()
+            stopActivityObservers()
             await synchronizeActivityTarget()
             for activity in Activity<RuimteActivityAttributes>.activities {
                 guard !activities else { break }
@@ -435,7 +438,17 @@ struct NotificationDestination: Identifiable, Hashable {
         }
         await synchronize()
     }
+
     func startBackgroundActivityDelivery() { startActivityObservers() }
+
+    private func stopActivityObservers() {
+        startTokenTask?.cancel()
+        startTokenTask = nil
+        activityDiscoveryTask?.cancel()
+        activityDiscoveryTask = nil
+        activityTasks.values.forEach { $0.cancel() }
+        activityTasks.removeAll()
+    }
 
     private func startActivityObservers() {
         guard enabled, activities, supportsActivities else { return }
@@ -582,22 +595,27 @@ struct NotificationDestination: Identifiable, Hashable {
         }
         return false
     }
+
     func syncBadge(liveKeys: Set<String>) async {
         liveAttentionKeys = liveKeys
         await updateBadge()
     }
+
     fileprivate func updateBadge() async {
         let offline = (try? store().attentionKeys()) ?? []
         try? await UNUserNotificationCenter.current().setBadgeCount(offline.union(liveAttentionKeys).count)
     }
+
     func applyRead(machineID: String, nodeID: String, through: Double) async {
         try? await NotificationReadSync.apply(machineID: machineID, nodeID: nodeID, through: through, store: store())
         await updateBadge()
     }
+
     func retainUnread(machineID: String, nodeIDs: Set<String>) async {
         _ = try? store().retainAttention(machineID: machineID, nodeIDs: nodeIDs)
         await updateBadge()
     }
+
     func markSeen(machineID: String, nodeID: String) async {
         guard let key = try? PushReplayLedger.nodeKey(machineID: machineID, nodeID: nodeID) else { return }
         _ = try? store().clearAttention(node: key)
@@ -608,6 +626,7 @@ struct NotificationDestination: Identifiable, Hashable {
         UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: identifiers)
         await updateBadge()
     }
+
     func openActivityURL(_ url: URL) {
         if url.scheme == "ruimte", url.host == "now" {
             destination = NotificationDestination(machineID: "", nodeID: "", target: "machine")
@@ -639,6 +658,7 @@ struct NotificationDestination: Identifiable, Hashable {
             destination = NotificationDestination(machineID: machine, nodeID: node, target: "unknown")
         }
     }
+
     /// A needs-you widget's row: the node it names, on a machine this phone still knows.
     private func openWidgetURL(_ url: URL) {
         let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
@@ -694,6 +714,7 @@ struct NotificationDestination: Identifiable, Hashable {
             }
         } catch { problem = error.localizedDescription }
     }
+
     private func answerInBackground(
         _ alert: PushAlertContent, machineID: String, decision: NotificationDecision
     ) async throws {
@@ -742,6 +763,7 @@ struct NotificationDestination: Identifiable, Hashable {
         let payload = try NotificationApproval.chatPayload(alert: alert, snapshot: snapshot, decision: decision)
         _ = try await session.rpc.request("chat.approve", payload: payload)
     }
+
     private static let machineActivityNode = "__ruimte_machine_activity__"
     private static func hex(_ data: Data) -> String { data.map { String(format: "%02x", $0) }.joined() }
     private static func collapseID(machineID: String, nodeID: String) -> String {
