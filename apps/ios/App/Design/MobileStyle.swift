@@ -68,7 +68,7 @@ enum MobileStyle {
         RuimteColors.nodeAccents[id].map { adaptive(RuimteColorToken(light: $0, dark: $0)) }
     }
 
-    private static func adaptive(_ token: RuimteColorToken) -> UIColor {
+    static func adaptive(_ token: RuimteColorToken) -> UIColor {
         UIColor { traits in
             let hex = traits.userInterfaceStyle == .dark ? token.dark : token.light
             return UIColor(

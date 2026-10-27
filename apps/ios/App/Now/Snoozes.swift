@@ -177,7 +177,7 @@ final class MachineSnoozes {
     func start() {
         guard stops.isEmpty else { return }
         stops.append(
-            client.subscribe(WireEvent.snoozeChanged.rawValue) { [weak self] payload in
+            client.subscribe(.snoozeChanged) { [weak self] payload in
                 self?.update { $0.receive(Self.parse(payload)) }
             })
         stops.append(
@@ -212,7 +212,7 @@ final class MachineSnoozes {
     func synchronize() async {
         let generation = generation
         do {
-            let result = try await client.request(WireRequest.snoozeList.rawValue, payload: .object([:]))
+            let result = try await client.request(.snoozeList)
             guard generation == self.generation else { return }
             update { $0.receive(Self.parse(result)) }
         } catch {
@@ -240,11 +240,11 @@ final class MachineSnoozes {
                     switch change {
                     case .set(let until):
                         _ = try await client.request(
-                            WireRequest.snoozeSet.rawValue,
+                            .snoozeSet,
                             payload: .object(["nodeId": .string(node), "until": .number(until.rounded())]))
                     case .clear:
                         _ = try await client.request(
-                            WireRequest.snoozeClear.rawValue, payload: .object(["nodeId": .string(node)]))
+                            .snoozeClear, payload: .object(["nodeId": .string(node)]))
                     }
                     update { $0.delivered(node, change) }
                 } catch MachineClientError.server {

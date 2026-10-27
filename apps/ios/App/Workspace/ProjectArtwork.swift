@@ -111,18 +111,8 @@ final class ProjectArtworkLoader {
     }
 
     static func thumbnail(_ data: Data) -> UIImage? {
-        guard !data.isEmpty, data.count <= maximumBytes,
-            let source = CGImageSourceCreateWithData(data as CFData, nil),
-            let image = CGImageSourceCreateThumbnailAtIndex(
-                source, 0,
-                [
-                    kCGImageSourceCreateThumbnailFromImageAlways: true,
-                    kCGImageSourceCreateThumbnailWithTransform: true,
-                    kCGImageSourceThumbnailMaxPixelSize: 128,
-                    kCGImageSourceShouldCacheImmediately: true,
-                ] as CFDictionary)
-        else { return nil }
-        return UIImage(cgImage: image)
+        guard !data.isEmpty, data.count <= maximumBytes else { return nil }
+        return ChatThumbnail.image(data, maxPixel: 128).map { UIImage(cgImage: $0) }
     }
 }
 

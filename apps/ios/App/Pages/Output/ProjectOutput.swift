@@ -62,7 +62,8 @@ struct OutputVersion: Equatable, Identifiable {
 
     /// "v3, 25 Oct, 20:19", as the desktop labels a version.
     var label: String {
-        String(localized: "v\(number), \(Format.dayClock(date))", comment: "A version: its number, then its day and time")
+        String(
+            localized: "v\(number), \(Format.dayClock(date))", comment: "A version: its number, then its day and time")
     }
 }
 
@@ -169,24 +170,31 @@ enum OutputMachine {
 }
 
 /// `artifact.watch` while a page shows Output, held again after every reconnect, since what changed while the link was
-/// down was pushed to nobody.
+/// down was pushed to nobody. The hold starts at the first connection; `gated` waits for a machine that names
+/// `artifact.list`, which is known only once it is connected.
 @MainActor final class OutputWatch {
     private var stops: [() -> Void] = []
     private var lease: MachineSubscription?
 
     func start(
-        _ client: any MachineRequesting, changed: @escaping @MainActor @Sendable (JSONValue) -> Void,
-        connection: @escaping @MainActor @Sendable (Bool) -> Void, reload: @escaping @MainActor @Sendable () async -> Void
+        _ client: any MachineRequesting, gated: Bool = false,
+        changed: @escaping @MainActor @Sendable (JSONValue) -> Void,
+        connection: @escaping @MainActor @Sendable (Bool) -> Void = { _ in },
+        reload: @escaping @MainActor @Sendable () async -> Void
     ) {
         guard stops.isEmpty else { return }
-        lease = OutputMachine.watch(client)
-        stops.append(client.subscribe(.artifactChanged, handler: changed))
+        stops.append(
+            client.subscribe(.artifactChanged) { [weak self] payload in
+                if self?.lease != nil { changed(payload) }
+            })
         stops.append(
             client.observeConnection { [weak self] available in
                 connection(available)
-                guard available else { return }
+                guard let self, available, !gated || OutputMachine.answers(client) else { return }
+                let lease = lease ?? OutputMachine.watch(client)
+                self.lease = lease
                 Task {
-                    _ = try? await self?.lease?.refresh()
+                    _ = try? await lease.refresh()
                     await reload()
                 }
             })

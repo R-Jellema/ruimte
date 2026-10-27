@@ -135,7 +135,7 @@ struct ChatGoalDock: View {
         Task {
             do {
                 _ = try await model.client.request(
-                    WireRequest.chatGoal.rawValue, payload: model.target(["action": .string(action.rawValue)]))
+                    .chatGoal, payload: model.target(["action": .string(action.rawValue)]))
             } catch {
                 failure = error.localizedDescription
             }

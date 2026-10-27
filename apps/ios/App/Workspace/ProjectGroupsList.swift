@@ -98,7 +98,7 @@ struct ProjectOverviewLabel: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(overview.title)
                         .foregroundStyle(offline ? MobileStyle.muted : MobileStyle.text)
-                    .lineLimit(1).truncationMode(.tail)
+                        .lineLimit(1).truncationMode(.tail)
                     if let detail = overview.detail {
                         Text(detail).font(.caption).foregroundStyle(MobileStyle.muted)
                             .lineLimit(1).truncationMode(.middle)
@@ -214,7 +214,8 @@ struct ProjectMachineHeading: View {
         case .connected(let relayed):
             guard let latency else { return relayed ? String(localized: "via relay") : String(localized: "Connected") }
             let time = String(localized: "\(latency) ms", comment: "A round trip to a machine in milliseconds")
-            return relayed ? String(localized: "via relay · \(time)", comment: "%@ is a round trip, such as 12 ms") : time
+            return relayed
+                ? String(localized: "via relay · \(time)", comment: "%@ is a round trip, such as 12 ms") : time
         case .connecting:
             return String(localized: "Connecting")
         case .offline:
@@ -232,43 +233,36 @@ struct ProjectCardRow: View {
     let overview: ProjectOverviewRow
     let session: SharedMachineSession
     var offline = false
-    @ScaledMetric(relativeTo: .subheadline) private var height = MobileMetrics.rowHeight
     @ScaledMetric(relativeTo: .subheadline) private var column = MobileMetrics.statusColumn
     @ScaledMetric(relativeTo: .caption) private var branchGlyph = 11.0
 
     var body: some View {
-        HStack(spacing: MobileSpacing.medium) {
-            HStack(alignment: .firstTextBaseline, spacing: MobileSpacing.medium) {
-                ProjectBadge(
-                    summary: overview.row.summary, session: session, chats: overview.isChats, size: column.rounded(),
-                    tile: false
-                )
-                .opacity(offline ? 0.6 : 1)
-                .frame(width: column)
-                .centeredOnFirstLine(of: .subheadline)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(verbatim: overview.title).font(.subheadline.weight(overview.isChats ? .regular : .semibold))
-                        .foregroundStyle(offline ? MobileStyle.muted : MobileStyle.text)
-                        .lineLimit(1).truncationMode(.tail)
-                    if !overview.isChats, let detail = overview.detail {
-                        HStack(spacing: MobileSpacing.xSmall) {
-                            if overview.git?.branch != nil {
-                                LucideIcon(name: "git-branch", size: branchGlyph).accessibilityHidden(true)
-                            }
-                            Text(verbatim: detail).lineLimit(1).truncationMode(.middle)
+        MobileCardRow {
+            ProjectBadge(
+                summary: overview.row.summary, session: session, chats: overview.isChats, size: column.rounded(),
+                tile: false
+            )
+            .opacity(offline ? 0.6 : 1)
+            .frame(width: column)
+            .centeredOnFirstLine(of: .subheadline)
+        } text: {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(verbatim: overview.title).font(.subheadline.weight(overview.isChats ? .regular : .semibold))
+                    .foregroundStyle(offline ? MobileStyle.muted : MobileStyle.text)
+                    .lineLimit(1).truncationMode(.tail)
+                if !overview.isChats, let detail = overview.detail {
+                    HStack(spacing: MobileSpacing.xSmall) {
+                        if overview.git?.branch != nil {
+                            LucideIcon(name: "git-branch", size: branchGlyph).accessibilityHidden(true)
                         }
-                        .font(.caption).foregroundStyle(MobileStyle.muted)
+                        Text(verbatim: detail).lineLimit(1).truncationMode(.middle)
                     }
+                    .font(.caption).foregroundStyle(MobileStyle.muted)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+        } trailing: {
             trailing
         }
-        .padding(.horizontal, MobileSpacing.cardPadding)
-        .padding(.vertical, MobileSpacing.small)
-        .frame(maxWidth: .infinity, minHeight: height, alignment: .leading)
-        .contentShape(Rectangle())
-        .accessibilityElement(children: .combine)
     }
 
     @ViewBuilder private var trailing: some View {

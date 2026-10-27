@@ -77,7 +77,7 @@ extension ChatModel {
     }
 
     func readSnoozes() async {
-        guard let result = try? await client.request(WireRequest.snoozeList.rawValue, payload: .object([:])) else {
+        guard let result = try? await client.request(.snoozeList) else {
             return
         }
         snoozedUntil = ChatSnooze.until(of: chatID, in: result)
@@ -87,7 +87,7 @@ extension ChatModel {
         let until = ChatSnooze.until(choice, now: now)
         do {
             _ = try await client.request(
-                WireRequest.snoozeSet.rawValue, payload: ChatSnooze.payload(nodeID: chatID, until: until))
+                .snoozeSet, payload: ChatSnooze.payload(nodeID: chatID, until: until))
             snoozedUntil = until.timeIntervalSince1970 * 1000
             error = nil
         } catch {
@@ -98,7 +98,7 @@ extension ChatModel {
     func unsnooze() async {
         do {
             _ = try await client.request(
-                WireRequest.snoozeClear.rawValue, payload: .object(["nodeId": .string(chatID)]))
+                .snoozeClear, payload: .object(["nodeId": .string(chatID)]))
             snoozedUntil = nil
             error = nil
         } catch {

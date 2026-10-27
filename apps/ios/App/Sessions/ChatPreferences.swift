@@ -108,7 +108,7 @@ final class ChatPreferences {
             // Only asked when there is a pick to check against what the machine has.
             let list =
                 picked
-                ? (try? await client.request(WireRequest.accountsList.rawValue, payload: .object([:]))).map(
+                ? (try? await client.request(.accountsList)).map(
                     ProviderAccountList.init) : nil
             _ = try? await client.request(
                 "chat.setPreferences", payload: payload(machineID: machineID, accounts: list))

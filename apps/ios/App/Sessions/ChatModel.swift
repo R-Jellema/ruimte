@@ -212,26 +212,26 @@ final class ChatModel {
                 if let seq = envelope.seq { self.lastSeq = Int(seq) }
             })
         unsubscribe.append(
-            client.subscribe(WireEvent.accountsChanged.rawValue) { [weak self] payload in
+            client.subscribe(.accountsChanged) { [weak self] payload in
                 self?.accounts = ProviderAccountList(payload)
             })
         unsubscribe.append(
-            client.subscribe(WireEvent.chatBookmarks.rawValue) { [weak self] payload in
+            client.subscribe(.chatBookmarks) { [weak self] payload in
                 guard let self, payload["chatId"]?.stringValue == self.chatID else { return }
                 self.presentation.setBookmarks(ChatBookmarks.parse(payload["bookmarks"]?.arrayValue ?? []))
             })
         unsubscribe.append(
-            client.subscribe(WireEvent.chatVisuals.rawValue) { [weak self] payload in
+            client.subscribe(.chatVisuals) { [weak self] payload in
                 guard let self, payload["chatId"]?.stringValue == self.chatID else { return }
                 self.presentation.setVisuals(ChatVisuals.parse(payload.list("visuals")))
             })
         unsubscribe.append(
-            client.subscribe(WireEvent.snoozeChanged.rawValue) { [weak self] payload in
+            client.subscribe(.snoozeChanged) { [weak self] payload in
                 guard let self else { return }
                 self.snoozedUntil = ChatSnooze.until(of: self.chatID, in: payload)
             })
         unsubscribe.append(
-            client.subscribe(WireEvent.usageLimitsChanged.rawValue) { [weak self] payload in
+            client.subscribe(.usageLimitsChanged) { [weak self] payload in
                 guard let self, self.limits != nil else { return }
                 self.limits = payload
             })
@@ -318,7 +318,7 @@ final class ChatModel {
 
     /// Nil from a machine before accounts, which does not know the request.
     private func loadAccounts() async -> JSONValue? {
-        try? await client.request(WireRequest.accountsList.rawValue, payload: .object([:]))
+        try? await client.request(.accountsList)
     }
 
     /// Applies what came after `since` when the machine still held all of it, and its snapshot otherwise.

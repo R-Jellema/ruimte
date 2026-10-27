@@ -118,7 +118,7 @@ struct ChatPreparePreview: Identifiable, Equatable {
             let machineID = try await machineID()
             await attach(ChatShellPrepare.terminals(workspace.views))
             let answer = try await context.client.request(
-                WireRequest.sessionPreparePreview.rawValue,
+                .sessionPreparePreview,
                 payload: .object([
                     "machineId": .string(machineID), "chatId": .string(context.chatID),
                     "itemId": .string(source.itemID), "language": .string(language), "code": .string(code),
@@ -138,7 +138,7 @@ struct ChatPreparePreview: Identifiable, Equatable {
         defer { busy = false }
         do {
             _ = try await context.client.request(
-                WireRequest.sessionPrepare.rawValue,
+                .sessionPrepare,
                 payload: .object(["machineId": .string(preview.machineID), "token": .string(target.token)]))
             prepared = target.title
             close()
@@ -173,7 +173,7 @@ struct ChatPreparePreview: Identifiable, Equatable {
     }
 
     private func machineID() async throws -> String {
-        let info = try await context.client.request(WireRequest.endpointInfo.rawValue, payload: .object([:]))
+        let info = try await context.client.request(.endpointInfo)
         guard let id = info["id"]?.stringValue, !id.isEmpty else { throw Self.wrongMachine }
         return id
     }
@@ -184,8 +184,7 @@ struct ChatPreparePreview: Identifiable, Equatable {
 
     private func attach(_ terminals: Set<String>) async {
         guard
-            let list = try? await context.client.request(
-                WireRequest.sessionList.rawValue, payload: .object([:]))
+            let list = try? await context.client.request(.sessionList)
         else { return }
         for info in list.list("sessions") {
             let id = info.text("sessionId")

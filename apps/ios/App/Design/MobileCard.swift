@@ -85,13 +85,31 @@ struct MobileStatusRow<Trailing: View>: View {
     let title: String
     var subtitle: String?
     @ViewBuilder var trailing: Trailing
+
+    var body: some View {
+        MobileCardRow {
+            MobileStatusGlyph(tone: tone, symbol: symbol).centeredOnFirstLine(of: .subheadline)
+        } text: {
+            MobileRowText(title: title, subtitle: subtitle)
+        } trailing: {
+            trailing
+        }
+    }
+}
+
+/// The frame of a card row: a glyph and a text block on the first baseline, then a trailing part, at least
+/// `MobileMetrics.rowHeight` high.
+struct MobileCardRow<Glyph: View, Text: View, Trailing: View>: View {
+    @ViewBuilder var glyph: Glyph
+    @ViewBuilder var text: Text
+    @ViewBuilder var trailing: Trailing
     @ScaledMetric(relativeTo: .subheadline) private var height = MobileMetrics.rowHeight
 
     var body: some View {
         HStack(spacing: MobileSpacing.medium) {
             HStack(alignment: .firstTextBaseline, spacing: MobileSpacing.medium) {
-                MobileStatusGlyph(tone: tone, symbol: symbol).centeredOnFirstLine(of: .subheadline)
-                MobileRowText(title: title, subtitle: subtitle)
+                glyph
+                text
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             trailing

@@ -187,8 +187,10 @@ enum ChatVisualHeights {
     /// A visual's page, read the way any attachment of the chat is.
     func page(_ id: String, client: any MachineRequesting, chatID: String) async throws -> Data {
         try await page(id) {
-            try await client.readResource(.chatAttachment(chatID: chatID, id: id), maxBytes: ChatVisualContract.maxBytes)
-                .data
+            try await client.readResource(
+                .chatAttachment(chatID: chatID, id: id), maxBytes: ChatVisualContract.maxBytes
+            )
+            .data
         }
     }
 
@@ -213,7 +215,7 @@ extension ChatModel {
     func removeVisual(_ id: String) async {
         do {
             let result = try await client.request(
-                WireRequest.chatRemoveVisual.rawValue, payload: target(["visualId": .string(id)]))
+                .chatRemoveVisual, payload: target(["visualId": .string(id)]))
             presentation.setVisuals(ChatVisuals.parse(result.list("visuals")))
             error = nil
         } catch {

@@ -86,8 +86,7 @@ enum ChatOutputCards {
     private let chatID: String
     private let deliver: @MainActor ([ChatSavedVersion]) -> Void
     private var versions: [String: [OutputVersion]] = [:]
-    private var subscriptions: [() -> Void] = []
-    private var lease: MachineSubscription?
+    private let watch = OutputWatch()
     private var loading: Task<Void, Never>?
 
     init(client: any MachineRequesting, chatID: String, deliver: @escaping @MainActor ([ChatSavedVersion]) -> Void) {
@@ -97,35 +96,13 @@ enum ChatOutputCards {
     }
 
     func start() {
-        guard subscriptions.isEmpty else { return }
-        subscriptions.append(
-            client.subscribe(WireEvent.artifactChanged.rawValue) { [weak self] _ in
-                guard let self, lease != nil else { return }
-                load()
-            })
-        subscriptions.append(
-            client.observeConnection { [weak self] available in
-                // Which machine answers what is known only once it is connected.
-                guard let self, available, OutputMachine.answers(client) else { return }
-                if let lease {
-                    Task {
-                        _ = try? await lease.refresh()
-                        self.load()
-                    }
-                } else {
-                    lease = OutputMachine.watch(client)
-                    load()
-                }
-            })
+        watch.start(
+            client, gated: true, changed: { [weak self] _ in self?.load() }, reload: { [weak self] in self?.load() })
     }
 
     func stop() {
         loading?.cancel()
-        subscriptions.forEach { $0() }
-        subscriptions.removeAll()
-        let lease = lease
-        self.lease = nil
-        Task { await lease?.release() }
+        watch.stop()
     }
 
     private func load() {
@@ -134,13 +111,13 @@ enum ChatOutputCards {
             guard let self else { return }
             guard
                 let answer = try? await client.request(
-                    WireRequest.artifactList.rawValue, payload: .object(["chatId": .string(chatID)]))
+                    .artifactList, payload: .object(["chatId": .string(chatID)]))
             else { return }
             let items = answer.list("artifacts").map(OutputItem.init(json:))
             for item in items where item.versionCount > 1 {
                 guard
                     let read = try? await client.request(
-                        WireRequest.artifactGet.rawValue, payload: .object(["artifactId": .string(item.id)]))
+                        .artifactGet, payload: .object(["artifactId": .string(item.id)]))
                 else { continue }
                 versions[item.id] = read.list("versions").map(OutputVersion.init(json:))
             }

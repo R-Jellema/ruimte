@@ -83,7 +83,7 @@ final class ScheduledFeed: MachineFeed {
         guard stops.isEmpty else { return }
         session.retain()
         let client = session.rpc
-        stops.append(client.subscribe(WireEvent.routineChanged.rawValue) { [weak self] _ in self?.reads.schedule() })
+        stops.append(client.subscribe(.routineChanged) { [weak self] _ in self?.reads.schedule() })
         stops.append(
             client.observeConnection { [weak self] connected in
                 guard let self else { return }

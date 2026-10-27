@@ -9,15 +9,11 @@ enum UiTileStyle {
     static let padding: CGFloat = 12
     /// The ink mixed over the ground so lightly that muted text keeps 4.5 to 1 on it.
     static let tile = Color(
-        uiColor: UIColor { traits in
-            let dark = traits.userInterfaceStyle == .dark
-            let ground = dark ? RuimteColors.surface.dark : RuimteColors.surface.light
-            let ink = dark ? RuimteColors.text.dark : RuimteColors.text.light
-            let hex = MermaidTheme.over(ground, color: ink, alpha: dark ? 0.03 : 0.045)
-            return UIColor(
-                red: CGFloat((hex >> 16) & 0xff) / 255, green: CGFloat((hex >> 8) & 0xff) / 255,
-                blue: CGFloat(hex & 0xff) / 255, alpha: 1)
-        })
+        uiColor: MobileStyle.adaptive(
+            RuimteColorToken(
+                light: MermaidTheme.over(
+                    RuimteColors.surface.light, color: RuimteColors.text.light, alpha: 0.045),
+                dark: MermaidTheme.over(RuimteColors.surface.dark, color: RuimteColors.text.dark, alpha: 0.03))))
     static let inset = MobileStyle.surface
     static let hatch = MobileStyle.border
 }

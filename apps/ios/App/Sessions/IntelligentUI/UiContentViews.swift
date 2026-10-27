@@ -188,8 +188,9 @@ struct UiCompareView: View {
                     ZStack(alignment: .leading) {
                         // Both sides are cut, since a picture with transparency would show the other one through it.
                         Image(uiImage: second).resizable().scaledToFit().frame(
-                            maxWidth: .infinity, maxHeight: .infinity)
-                            .mask(alignment: .trailing) { Rectangle().frame(width: max(0, geometry.size.width - edge)) }
+                            maxWidth: .infinity, maxHeight: .infinity
+                        )
+                        .mask(alignment: .trailing) { Rectangle().frame(width: max(0, geometry.size.width - edge)) }
                         Image(uiImage: first).resizable().scaledToFit().frame(maxWidth: .infinity, maxHeight: .infinity)
                             .mask(alignment: .leading) { Rectangle().frame(width: edge) }
                         handle.frame(width: 44).offset(x: edge - 22)
@@ -276,7 +277,7 @@ enum ChatThumbnail {
             source, 0,
             [
                 kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: maxPixel,
-                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceCreateThumbnailWithTransform: true, kCGImageSourceShouldCacheImmediately: true,
             ] as CFDictionary)
     }
 }

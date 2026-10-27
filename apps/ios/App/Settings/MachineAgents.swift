@@ -42,7 +42,7 @@ import SwiftUI
     func load() async {
         await state.read(loaded: !agents.isEmpty) { stillTheLatest in
             let providers = try await AgentCatalog.load(client)
-            let accounts = try? await client.request(WireRequest.accountsList.rawValue, payload: .object([:]))
+            let accounts = try? await client.request(.accountsList)
             let endpoint = try? await client.request("endpoint.info")
             let computer = try? await client.request("computer.status")
             try stillTheLatest()
