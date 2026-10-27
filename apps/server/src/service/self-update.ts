@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { unrefTimeout } from '../unref-timeout.ts';
 
 /*
  * A daemon under the background service that finds a newer binary on disk ends itself once nothing
@@ -79,11 +80,7 @@ const realTimers: SelfUpdateTimers = {
         timer.unref?.();
         return () => clearInterval(timer);
     },
-    after(ms, run) {
-        const timer = setTimeout(run, ms);
-        timer.unref?.();
-        return () => clearTimeout(timer);
-    }
+    after: unrefTimeout
 };
 
 const LOG_LINES: Record<Exclude<SelfUpdateVerdict, 'off' | 'current'>, string> = {

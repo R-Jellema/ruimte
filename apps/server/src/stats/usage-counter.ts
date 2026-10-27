@@ -15,6 +15,7 @@ import {
 import { z } from 'zod';
 import { errorText } from '../error-text.ts';
 import type { Launcher } from '../telemetry/reporter.ts';
+import { unrefTimeout } from '../unref-timeout.ts';
 
 const DAY_MS = 86_400_000;
 // Today and every finished day a batch may still carry.
@@ -112,12 +113,6 @@ interface UsageCounterOptions {
     schedule?: (run: () => void, ms: number) => () => void;
 }
 
-function systemSchedule(run: () => void, ms: number): () => void {
-    const timer = setTimeout(run, ms);
-    timer.unref?.();
-    return () => clearTimeout(timer);
-}
-
 /*
  * The machine's anonymous usage, counted in memory per UTC day and written at most once a minute. It
  * keeps today and the seven days before it, the first day it ever counted (for the cohort) and the
@@ -138,7 +133,7 @@ export class UsageCounter {
     constructor(options: UsageCounterOptions) {
         this.options = options;
         this.now = options.now ?? Date.now;
-        this.schedule = options.schedule ?? systemSchedule;
+        this.schedule = options.schedule ?? ((run, ms) => unrefTimeout(ms, run));
     }
 
     /* A file that will not read starts the counts over; they are worth less than a daemon that starts. */

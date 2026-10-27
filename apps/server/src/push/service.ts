@@ -23,6 +23,7 @@ import {
 } from '@ruimte/contracts';
 import type { AuthStore } from '../auth/auth-store.ts';
 import type { SessionEvent } from '../sessions/manager.ts';
+import { unrefTimeout } from '../unref-timeout.ts';
 import { PushAttention } from './attention.ts';
 import type { SnoozeChange } from './snoozes.ts';
 import { encryptPush } from './encrypt.ts';
@@ -85,12 +86,6 @@ function notifyKinds(subscription: PushSubscribePayload, projectId: string | nul
         subscription.notify ??
         PUSH_NOTIFY_DEFAULT
     );
-}
-
-function scheduleTimeout(delayMs: number, run: () => void): () => void {
-    const timer = setTimeout(run, delayMs);
-    timer.unref?.();
-    return () => clearTimeout(timer);
 }
 
 async function sendToAddressBook(push: PushEnvelope): Promise<number> {
@@ -548,7 +543,7 @@ export class PushService {
             return;
         }
         const next = Math.min(...this.held.map((alert) => alert.dueAt), ...this.presentClients.values());
-        this.cancelRelease = (this.options.schedule ?? scheduleTimeout)(Math.max(0, next - now), () => {
+        this.cancelRelease = (this.options.schedule ?? unrefTimeout)(Math.max(0, next - now), () => {
             this.cancelRelease = null;
             this.releaseHeld();
         });

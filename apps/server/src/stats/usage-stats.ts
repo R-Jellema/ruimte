@@ -10,6 +10,7 @@ import {
 } from '@ruimte/pulsar';
 import { isOwner } from '../auth/access.ts';
 import type { ClientAccess } from '../dispatcher.ts';
+import { isRecord } from '../is-record.ts';
 import type { UsageCounter } from './usage-counter.ts';
 
 /*
@@ -25,28 +26,26 @@ export function installUsageCounter(counter: UsageCounter | null, on: () => bool
     enabled = on;
 }
 
+function counting(): UsageCounter | null {
+    return installed !== null && enabled() ? installed : null;
+}
+
 export function countUsage(counter: UsageReportCounter): void {
-    if (installed !== null && enabled()) {
-        installed.count(counter);
-    }
+    counting()?.count(counter);
 }
 
 function countUsageOnce(counter: UsageReportCounter, key: string): void {
-    if (installed !== null && enabled()) {
-        installed.countOnce(counter, key);
-    }
+    counting()?.countOnce(counter, key);
 }
 
 export function recordStartup(ms: number): void {
-    if (installed !== null && enabled()) {
-        installed.startup(ms);
-    }
+    counting()?.startup(ms);
 }
 
 /* One sample of a timing, in milliseconds; the day sends their median. */
 export function recordTiming(timing: UsageReportTiming, ms: number): void {
-    if (installed !== null && enabled() && Number.isFinite(ms) && ms >= 0) {
-        installed.sample(timing, Math.round(ms));
+    if (Number.isFinite(ms) && ms >= 0) {
+        counting()?.sample(timing, Math.round(ms));
     }
 }
 
@@ -81,7 +80,7 @@ const GIT_ACTION_COUNTERS: Readonly<Record<string, readonly UsageReportCounter[]
 };
 
 function fieldOf(payload: unknown, name: string): unknown {
-    return typeof payload === 'object' && payload !== null ? (payload as Record<string, unknown>)[name] : undefined;
+    return isRecord(payload) ? payload[name] : undefined;
 }
 
 // The verbs that also count on the day itself: what an agent delegates, and what it does in a feature a person can use too.

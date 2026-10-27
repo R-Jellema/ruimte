@@ -4,10 +4,10 @@ import { countLimit, countTurn, countUsage, recordFirstToken } from './usage-sta
 type TurnItem = Extract<ChatItem, { kind: 'turn' }>;
 
 /*
- * What a chat's turns count, from the items its thread broadcasts: a turn that opens, once, by provider, model family
- * and mode, and the wait until its first words; a turn that ended on a usage limit, once; and the first turn after
- * such a limit as the work taken up again, by the clock or by a person. Plan mode is Claude's permission mode beside
- * the runtime mode. Only ever per chat in memory, so a restart counts a turn that was open again at most.
+ * What a chat's turns count, from the items its thread broadcasts: each opened turn once (by provider,
+ * model family and mode) with the wait for its first words, each turn that ended on a usage limit once,
+ * and the first turn after one as work taken up again. Plan mode is Claude's permission mode beside the
+ * runtime mode. Kept in memory only, so a restart counts a turn that was open at most once more.
  */
 export class TurnUsage {
     private readonly now: () => number;
