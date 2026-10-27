@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, realpath, rm, symlink } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, symlink, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { ChatInfo } from '@ruimte/contracts';
+import type { ChatInfo, GitStatus } from '@ruimte/contracts';
+import { gitIn, initRepo } from '../git/test-repo.ts';
 import { ruimteUiSources, type UiSourceHosts } from './ui-sources.ts';
 
 let root: string;
@@ -10,6 +11,25 @@ let folder: string;
 let reads: string[];
 let hosts: UiSourceHosts;
 const info = (): ChatInfo => ({ chatId: 'writer', cwd: folder }) as ChatInfo;
+
+/* A status of a folder in no repository, with what a test sets. */
+function statusOf(overrides: Partial<GitStatus> = {}): GitStatus {
+    return {
+        repo: false,
+        root: null,
+        branch: null,
+        detached: false,
+        upstream: null,
+        ahead: 0,
+        behind: 0,
+        base: null,
+        mergeBase: null,
+        files: [],
+        truncated: false,
+        live: false,
+        ...overrides
+    };
+}
 
 beforeEach(async () => {
     root = await realpath(await mkdtemp(join(tmpdir(), 'ruimte-ui-sources-')));
@@ -31,20 +51,7 @@ beforeEach(async () => {
         worktreePaths: async () => [],
         gitStatus: async (cwd) => {
             reads.push(cwd);
-            return {
-                repo: false,
-                root: null,
-                branch: null,
-                detached: false,
-                upstream: null,
-                ahead: 0,
-                behind: 0,
-                base: null,
-                mergeBase: null,
-                files: [],
-                truncated: false,
-                live: false
-            };
+            return statusOf();
         },
         gitLog: async () => ({ commits: [], cursor: null }),
         tasks: (chatId) => {
@@ -116,7 +123,6 @@ test('tasks can read only their writing chat and launches only their project', a
 });
 
 test('file links resolve to a canonical project file, and refuse symlinks outside it', async () => {
-    const { writeFile } = await import('node:fs/promises');
     await writeFile(join(folder, 'readme.md'), 'readme');
     await writeFile(join(root, 'outside', 'secret.md'), 'outside');
     const host = ruimteUiSources(hosts);
@@ -144,7 +150,6 @@ test('node links never cross a project and are checked again after removal', asy
 });
 
 test('a file removed after its initial validation is refused at open time', async () => {
-    const { writeFile, unlink } = await import('node:fs/promises');
     const path = join(folder, 'readme.md');
     await writeFile(path, 'readme');
     const host = ruimteUiSources(hosts);
@@ -154,62 +159,25 @@ test('a file removed after its initial validation is refused at open time', asyn
     await expect(host.link!(info(), access, { type: 'File', path: 'readme.md' })).rejects.toThrow('no longer available');
 });
 
-function fixtureGit(...args: string[]): Promise<string> {
-    return fixtureGitIn(folder, ...args);
-}
-
-async function fixtureGitIn(cwd: string, ...args: string[]): Promise<string> {
-    const process = Bun.spawn(['git', '-c', 'commit.gpgsign=false', '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test', ...args], {
-        cwd,
-        stdout: 'pipe',
-        stderr: 'pipe'
-    });
-    const output = await new Response(process.stdout).text();
-    if ((await process.exited) !== 0) {
-        throw new Error(await new Response(process.stderr).text());
-    }
-    return output.trim();
-}
-
 test("commit links resolve only a real commit of the agent's repository", async () => {
-    const { writeFile } = await import('node:fs/promises');
-    await fixtureGit('init', '-q');
-    await writeFile(join(folder, 'a.md'), 'initial');
-    await fixtureGit('add', 'a.md');
-    await fixtureGit('commit', '-qm', 'Fixture commit');
-    const sha = await fixtureGit('rev-parse', 'HEAD');
+    await initRepo(folder, { 'a.md': 'initial' });
+    const sha = (await gitIn(folder, ['rev-parse', 'HEAD'])).trim();
     const host = ruimteUiSources(hosts);
     const access = await host.capture(info());
     expect(await host.link!(info(), access, { type: 'Commit', sha: sha.slice(0, 8) })).toMatchObject({
         state: 'chip',
         target: { type: 'Commit', sha },
         cwd: folder,
-        label: 'Fixture commit'
+        label: 'init'
     });
     await expect(host.link!(info(), access, { type: 'Commit', sha: 'aaaaaaaa' })).rejects.toThrow('no longer available');
 });
 
 test('diff links retain a deleted file and select the staged side', async () => {
-    const { writeFile, unlink } = await import('node:fs/promises');
-    await fixtureGit('init', '-q');
-    await writeFile(join(folder, 'a.md'), 'initial');
-    await fixtureGit('add', 'a.md');
-    await fixtureGit('commit', '-qm', 'Fixture commit');
+    await initRepo(folder, { 'a.md': 'initial' });
     await unlink(join(folder, 'a.md'));
-    hosts.gitStatus = async () => ({
-        repo: true,
-        root: folder,
-        branch: 'main',
-        detached: false,
-        upstream: null,
-        ahead: 0,
-        behind: 0,
-        base: null,
-        mergeBase: null,
-        files: [{ path: 'a.md', state: 'staged', status: 'D', added: 0, deleted: 1, binary: false }],
-        truncated: false,
-        live: false
-    });
+    hosts.gitStatus = async () =>
+        statusOf({ repo: true, root: folder, branch: 'main', files: [{ path: 'a.md', state: 'staged', status: 'D', added: 0, deleted: 1, binary: false }] });
     const host = ruimteUiSources(hosts);
     const access = await host.capture(info());
     expect(await host.link!(info(), access, { type: 'Diff', path: 'a.md' })).toMatchObject({
@@ -226,34 +194,21 @@ test('diff links retain a deleted file and select the staged side', async () => 
 });
 
 test("commit and diff links resolve in a repository beside the agent's own", async () => {
-    const { writeFile } = await import('node:fs/promises');
-    await fixtureGit('init', '-q');
+    await gitIn(folder, ['init', '--quiet']);
     const nested = join(folder, 'lib');
-    await mkdir(nested);
-    const nestedGit = (...args: string[]) => fixtureGitIn(nested, ...args);
-    await nestedGit('init', '-q');
-    await writeFile(join(nested, 'b.md'), 'initial');
-    await nestedGit('add', 'b.md');
-    await nestedGit('commit', '-qm', 'Nested commit');
-    const sha = await nestedGit('rev-parse', 'HEAD');
+    await initRepo(nested, { 'b.md': 'initial' });
+    const sha = (await gitIn(nested, ['rev-parse', 'HEAD'])).trim();
     await writeFile(join(nested, 'b.md'), 'changed');
-    hosts.gitStatus = async (cwd) => ({
-        repo: true,
-        root: cwd,
-        branch: 'main',
-        detached: false,
-        upstream: null,
-        ahead: 0,
-        behind: 0,
-        base: null,
-        mergeBase: null,
-        files: cwd === nested ? [{ path: 'b.md', state: 'unstaged', status: 'M', added: 1, deleted: 1, binary: false }] : [],
-        truncated: false,
-        live: false
-    });
+    hosts.gitStatus = async (cwd) =>
+        statusOf({
+            repo: true,
+            root: cwd,
+            branch: 'main',
+            files: cwd === nested ? [{ path: 'b.md', state: 'unstaged', status: 'M', added: 1, deleted: 1, binary: false }] : []
+        });
     const host = ruimteUiSources(hosts);
     const access = await host.capture(info());
-    expect(await host.link!(info(), access, { type: 'Commit', sha })).toMatchObject({ state: 'chip', cwd: nested, label: 'Nested commit' });
+    expect(await host.link!(info(), access, { type: 'Commit', sha })).toMatchObject({ state: 'chip', cwd: nested, label: 'init' });
     expect(await host.link!(info(), access, { type: 'Diff', path: 'lib/b.md' })).toMatchObject({ state: 'chip', cwd: nested, relativePath: 'b.md' });
 });
 
@@ -283,9 +238,7 @@ test('git.status reads the branch, the counts and the first files of a busy chec
         deleted: 1,
         binary: false
     }));
-    const base = await hosts.gitStatus(folder);
-    reads = [];
-    hosts.gitStatus = async () => ({ ...base, repo: true, branch: 'main', ahead: 2, files });
+    hosts.gitStatus = async () => statusOf({ repo: true, branch: 'main', ahead: 2, files });
     const host = ruimteUiSources(hosts);
     const access = await host.capture(info());
     const source = host.sources['git.status']!;

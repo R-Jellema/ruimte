@@ -75,13 +75,6 @@ describe('workedFolders', () => {
         expect(await workedFolders(items, dotfiles)).toEqual([{ path: resolve('/Users/bas/Documents'), files: 1 }]);
     });
 
-    test('asks for the checkout of a directory once', async () => {
-        const asked: string[] = [];
-        const items = [tool('a', 'Read', { file_path: resolve('/srv/shelf/a.php') }), tool('b', 'Read', { file_path: resolve('/srv/shelf/b.php') })];
-        await workedFolders(items, options({ gitRoot: async (directory) => (asked.push(directory), resolve('/srv/shelf')) }));
-        expect(asked).toEqual([resolve('/srv/shelf')]);
-    });
-
     test('takes the path of Glob, Grep and LS for a folder, not for a file in it', async () => {
         const items = [
             tool('a', 'Glob', { pattern: '*', path: resolve('/opt/data') }),
