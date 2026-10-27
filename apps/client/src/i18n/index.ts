@@ -6,7 +6,7 @@ import { UI_NAMESPACE } from '@adecore/ui';
 import { forgetMemoizedWords } from '@/compiler-runtime';
 import { desktop } from '@/desktop/bridge';
 import { activeLanguage } from '@/i18n/active';
-import { FALLBACK_LANGUAGE, type AppLanguage } from '@/i18n/languages';
+import { APP_LANGUAGES, FALLBACK_LANGUAGE, type AppLanguage } from '@/i18n/languages';
 import { NAMESPACES } from '@/i18n/namespaces';
 import { useSettings } from '@/state/settings';
 
@@ -27,19 +27,12 @@ async function load(language: AppLanguage): Promise<void> {
     const [editor, resources, agents] = await Promise.all([editorBundles[language](), bundles[language](), AGENTS_LOCALES[language]?.()]);
     i18next.addResourceBundle(language, 'editor', editor.default, true, true);
     const charts = CHARTS_RESOURCES[language];
-    if (charts) {
-        i18next.addResourceBundle(language, CHARTS_NAMESPACE, charts, true, true);
-    }
-    for (const [namespace, resource] of Object.entries(resources.default)) {
+    for (const [namespace, resource] of Object.entries({ ...resources.default, ...agents, ...(charts ? { [CHARTS_NAMESPACE]: charts } : {}) })) {
         i18next.addResourceBundle(language, namespace, resource, true, true);
-    }
-    if (agents) {
-        for (const [namespace, resource] of Object.entries(agents)) {
-            i18next.addResourceBundle(language, namespace, resource, true, true);
-        }
     }
 }
 
+// A load that failed is forgotten, so the next ask tries again.
 function loadOnce(language: AppLanguage): Promise<void> {
     let pending = loaded.get(language);
     if (pending === undefined) {
@@ -78,7 +71,7 @@ export async function initI18n(): Promise<void> {
     await i18next.use(initReactI18next).init({
         lng: language,
         fallbackLng: FALLBACK_LANGUAGE,
-        supportedLngs: ['en', 'nl'],
+        supportedLngs: [...APP_LANGUAGES],
         defaultNS: 'common',
         ns: [...NAMESPACES, UI_NAMESPACE, CHARTS_NAMESPACE, ...AGENTS_NAMESPACES],
         // React escapes what it draws, so escaping here would show `&#39;` where an apostrophe was.

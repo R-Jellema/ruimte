@@ -1,6 +1,6 @@
-/* A language is a whole translation or it is not on this list: a missing half lands mid-sentence. */
 export const LANGUAGE_SYSTEM = 'system';
 
+/* A language is a whole translation or it is not on this list: a missing half lands mid-sentence. */
 export const APP_LANGUAGES = ['en', 'nl'] as const;
 
 export type AppLanguage = (typeof APP_LANGUAGES)[number];

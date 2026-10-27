@@ -1,5 +1,6 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import i18next from 'i18next';
 import { CHARTS_NAMESPACE, CHARTS_RESOURCES } from '@adecore/charts';
 import { UI_NAMESPACE, UI_RESOURCES } from '@adecore/ui';
@@ -7,32 +8,25 @@ import { AGENTS_LOCALES } from '@adecore/agents-react/locales';
 import editorWords from '@adecore/editor-react/locales/en.json' with { type: 'json' };
 import { connectFormat } from './src/format/source';
 import { FALLBACK_LANGUAGE } from './src/i18n/languages';
-import { fileURLToPath } from 'node:url';
 
 /*
  * The English words, in memory, before the first test runs, so a pure function that builds a label
  * reads real words off i18next. Bun loads this through the `preload` in `bunfig.toml`.
  *
- * Synchronous and off disk, since `import.meta.glob` is Vite's. It sits beside `src` rather than in it,
- * because the client never imports Node.
+ * Off disk, since `import.meta.glob` is Vite's. It sits beside `src` rather than in it, because the
+ * client never imports Node.
  */
-const here = fileURLToPath(new URL('.', import.meta.url));
-const dir = join(here, 'src', 'i18n', 'locales', FALLBACK_LANGUAGE);
+const folder = fileURLToPath(new URL(`./src/i18n/locales/${FALLBACK_LANGUAGE}/`, import.meta.url));
 
-function namespacesIn(folder: string): Record<string, Record<string, unknown>> {
-    return Object.fromEntries(
-        readdirSync(folder)
-            .filter((name) => name.endsWith('.json'))
-            .map((name) => [name.slice(0, -'.json'.length), JSON.parse(readFileSync(join(folder, name), 'utf8')) as Record<string, unknown>])
-    );
-}
+const resources = Object.fromEntries(
+    readdirSync(folder)
+        .filter((name) => name.endsWith('.json'))
+        .map((name) => [name.slice(0, -'.json'.length), JSON.parse(readFileSync(join(folder, name), 'utf8')) as Record<string, unknown>])
+);
 
-const resources = namespacesIn(dir);
-
-// The chat's namespaces are named after their files, one per surface, the way the client's are.
 const agentsWords = await AGENTS_LOCALES[FALLBACK_LANGUAGE]!();
 
-// Awaited, so the first test already has the words: nothing here waits for a network or a file.
+// Awaited, so the first test already has the words.
 await i18next.init({
     lng: FALLBACK_LANGUAGE,
     fallbackLng: FALLBACK_LANGUAGE,
