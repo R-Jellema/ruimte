@@ -11,6 +11,28 @@ public enum TransportFailure: Error, LocalizedError, Equatable {
     }
 }
 
+/// What a person reads from more than one place in the transport.
+enum TransportWords {
+    static var unreadableReply: String {
+        String(localized: "The machine sent a reply this app cannot read.", bundle: .module)
+    }
+    static var unreadablePiece: String {
+        String(localized: "The machine sent part of the file this app cannot read.", bundle: .module)
+    }
+    static var tooLarge: String {
+        String(localized: "The machine response is too large to load on this device.", bundle: .module)
+    }
+    static var setupFailed: String {
+        String(localized: "Could not set up the direct connection. Try again.", bundle: .module)
+    }
+    /// A machine refused as older, at the protocol check and at the direct handshake.
+    static var olderMachine: String {
+        String(
+            localized: "This machine runs an older Ruimte. Update Ruimte there, or restart it to pick up the update.",
+            bundle: .module)
+    }
+}
+
 func field(_ value: JSONValue, _ key: String) throws -> JSONValue {
     guard let result = value[key] else {
         throw TransportFailure.invalid("Missing \(key)")
@@ -31,48 +53,63 @@ func wireText(_ value: JSONValue) throws -> String {
 
 public enum DirectIdentity {
     public static func fingerprints(_ sdp: String) -> [String] {
-        let regex = try! NSRegularExpression(pattern: "^a=fingerprint:(\\S+)\\s+([0-9A-Fa-f:]+)\\s*$", options: .anchorsMatchLines)
+        let regex = try! NSRegularExpression(
+            pattern: "^a=fingerprint:(\\S+)\\s+([0-9A-Fa-f:]+)\\s*$", options: .anchorsMatchLines)
         let text = sdp as NSString
         let matches = regex.matches(in: sdp, range: NSRange(location: 0, length: text.length))
-        return Set(matches.map {
-            text.substring(with: $0.range(at: 1)).lowercased() + " " + text.substring(with: $0.range(at: 2)).uppercased()
-        }).sorted()
+        return Set(
+            matches.map {
+                text.substring(with: $0.range(at: 1)).lowercased() + " "
+                    + text.substring(with: $0.range(at: 2)).uppercased()
+            }
+        ).sorted()
     }
 
     public static func channelBinding(offer: String, answer: String) throws -> String {
-        try wireText(.array([.array(fingerprints(offer).map(JSONValue.string)), .array(fingerprints(answer).map(JSONValue.string))]))
+        try wireText(
+            .array([
+                .array(fingerprints(offer).map(JSONValue.string)), .array(fingerprints(answer).map(JSONValue.string)),
+            ]))
     }
 
     public static func verify(publicKey: String, message: String, signature: String) -> Bool {
         guard let keyData = Base64URL.decode(publicKey),
-              let signatureData = Base64URL.decode(signature),
-              let key = try? Curve25519.Signing.PublicKey(rawRepresentation: keyData) else {
+            let signatureData = Base64URL.decode(signature),
+            let key = try? Curve25519.Signing.PublicKey(rawRepresentation: keyData)
+        else {
             return false
         }
         return key.isValidSignature(signatureData, for: Data(message.utf8))
     }
 
-    public static func proof(challenge raw: JSONValue, binding: String, machineID: String, machineKey: String, signer: any SessionSigner) throws -> JSONValue {
+    public static func proof(
+        challenge raw: JSONValue, binding: String, machineID: String, machineKey: String, signer: any SessionSigner
+    ) throws -> JSONValue {
         let challenge = try WireSchema.validate("DirectChallengeFrameSchema", raw)
         guard challenge["protocol"]?.numberValue == Double(WireConstants.protocolVersion) else {
             let olderMachine = (challenge["protocol"]?.numberValue ?? -1) < Double(WireConstants.protocolVersion)
             LinkProblems.report(.refused(mismatch: olderMachine ? .daemonOlder : .daemonNewer))
-            throw TransportFailure.invalid(olderMachine
-                ? ProtocolGate.olderMachine
-                : String(localized: "This machine runs a newer Ruimte than this app. Update this app.", bundle: .module))
+            throw TransportFailure.invalid(
+                olderMachine
+                    ? TransportWords.olderMachine
+                    : String(
+                        localized: "This machine runs a newer Ruimte than this app. Update this app.", bundle: .module))
         }
         let daemon = try field(challenge, "daemon")
         let nonce = try string(challenge, "challenge")
         let message = "ruimte-daemon-channel-v1\n\(machineID)\n\(nonce)\n\(binding)"
         guard try string(daemon, "id") == machineID,
-              try string(daemon, "publicKey") == machineKey,
-              verify(publicKey: machineKey, message: message, signature: try string(daemon, "signature")) else {
-            throw TransportFailure.invalid(String(localized: "The machine did not prove its identity over this connection.", bundle: .module))
+            try string(daemon, "publicKey") == machineKey,
+            verify(publicKey: machineKey, message: message, signature: try string(daemon, "signature"))
+        else {
+            throw TransportFailure.invalid(
+                String(localized: "The machine did not prove its identity over this connection.", bundle: .module))
         }
-        let signature = try signer.sign("ruimte-client-channel-v1\n\(machineID)\n\(nonce)\n\(signer.publicKey)\n\(binding)")
+        let signature = try signer.sign(
+            "ruimte-client-channel-v1\n\(machineID)\n\(nonce)\n\(signer.publicKey)\n\(binding)")
         var fields: [String: JSONValue] = [
             "type": .string("direct.key"), "protocol": .number(Double(WireConstants.protocolVersion)),
-            "challenge": .string(nonce), "publicKey": .string(signer.publicKey), "signature": .string(signature)
+            "challenge": .string(nonce), "publicKey": .string(signer.publicKey), "signature": .string(signature),
         ]
         if challenge["compression"]?.arrayValue?.contains(.string(WireConstants.directCompression)) == true {
             fields["compression"] = .string(WireConstants.directCompression)

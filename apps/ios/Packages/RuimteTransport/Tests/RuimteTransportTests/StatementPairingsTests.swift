@@ -21,6 +21,20 @@ import XCTest
     func close() {}
 }
 
+private func newIdentity() -> PairingIdentity {
+    PairingIdentity(machineID: "machine", machineKey: DeviceKey().publicKey, clientKey: DeviceKey().publicKey)
+}
+
+@MainActor private func open(
+    _ pairings: StatementPairings, _ identity: PairingIdentity, events: LinkEvents = .ignored,
+    requestAccess: @escaping StatementPairings.Access = { .object([:]) }
+) throws -> PairingTestLink {
+    try XCTUnwrap(
+        pairings.open(
+            identity: identity, requestAccess: requestAccess, events: events,
+            makeLink: { PairingTestLink(access: $0, events: $1) }) as? PairingTestLink)
+}
+
 final class StatementPairingsTests: XCTestCase {
     @MainActor func testForgetClearsOnlyThatMachineAndBlocksLateAuthentication() throws {
         let domain = "app.ruimte.mobile.tests.forget.\(UUID().uuidString)"
@@ -28,17 +42,13 @@ final class StatementPairingsTests: XCTestCase {
         defer { defaults.removePersistentDomain(forName: domain) }
         let store = UserDefaultsPairingStore(defaults: defaults)
         let pairings = StatementPairings(store: store)
-        let identity = PairingIdentity(
-            machineID: "machine", machineKey: DeviceKey().publicKey, clientKey: DeviceKey().publicKey)
+        let identity = newIdentity()
         let other = PairingIdentity(machineID: "other", machineKey: identity.machineKey, clientKey: identity.clientKey)
         store.insert(identity)
         store.insert(other)
         var opens = 0
-        let link = try XCTUnwrap(
-            pairings.open(
-                identity: identity, requestAccess: { .object([:]) },
-                events: LinkEvents(opened: { opens += 1 }, message: { _ in }, closed: { _ in }),
-                makeLink: { PairingTestLink(access: $0, events: $1) }) as? PairingTestLink)
+        let link = try open(
+            pairings, identity, events: LinkEvents(opened: { opens += 1 }, message: { _ in }, closed: { _ in }))
         pairings.forget(machineID: "machine")
         link.events.accepted()
         link.events.opened()
@@ -58,18 +68,14 @@ final class StatementPairingsTests: XCTestCase {
         let defaults = try XCTUnwrap(UserDefaults(suiteName: domain))
         defer { defaults.removePersistentDomain(forName: domain) }
         let store = UserDefaultsPairingStore(defaults: defaults)
-        let identity = PairingIdentity(
-            machineID: "machine", machineKey: DeviceKey().publicKey, clientKey: DeviceKey().publicKey)
+        let identity = newIdentity()
         var requests = 0
         var opens = 0
         let events = LinkEvents(opened: { opens += 1 }, message: { _ in }, closed: { _ in })
-        let first = try XCTUnwrap(
-            StatementPairings(store: store).open(
-                identity: identity,
-                requestAccess: {
-                    requests += 1
-                    return .object([:])
-                }, events: events, makeLink: { PairingTestLink(access: $0, events: $1) }) as? PairingTestLink)
+        let first = try open(StatementPairings(store: store), identity, events: events) {
+            requests += 1
+            return .object([:])
+        }
         _ = try await first.access?()
         XCTAssertEqual(requests, 1)
         XCTAssertFalse(store.contains(identity))
@@ -81,13 +87,10 @@ final class StatementPairingsTests: XCTestCase {
 
         let restarted = StatementPairings(
             store: UserDefaultsPairingStore(defaults: try XCTUnwrap(UserDefaults(suiteName: domain))))
-        let second = try XCTUnwrap(
-            restarted.open(
-                identity: identity,
-                requestAccess: {
-                    requests += 1
-                    throw URLError(.notConnectedToInternet)
-                }, events: events, makeLink: { PairingTestLink(access: $0, events: $1) }) as? PairingTestLink)
+        let second = try open(restarted, identity, events: events) {
+            requests += 1
+            throw URLError(.notConnectedToInternet)
+        }
         XCTAssertNil(second.access)
         second.events.opened()
         XCTAssertEqual(requests, 1)
@@ -97,66 +100,42 @@ final class StatementPairingsTests: XCTestCase {
     @MainActor func testRefusalDoesNotSettleOrRestoreStatementAccess() throws {
         let store = MemoryPairingStore()
         let pairings = StatementPairings(store: store)
-        let identity = PairingIdentity(
-            machineID: "machine", machineKey: DeviceKey().publicKey, clientKey: DeviceKey().publicKey)
+        let identity = newIdentity()
         var failures = 0
         let events = LinkEvents(opened: {}, message: { _ in }, closed: { _ in failures += 1 })
-        let first = try XCTUnwrap(
-            pairings.open(
-                identity: identity, requestAccess: { .object([:]) }, events: events,
-                makeLink: { PairingTestLink(access: $0, events: $1) }) as? PairingTestLink)
+        let first = try open(pairings, identity, events: events)
         first.events.closed(TransportFailure.invalid("statements-refused"))
         XCTAssertFalse(store.contains(identity))
         XCTAssertEqual(failures, 1)
         first.events.accepted()
         first.events.opened()
         XCTAssertFalse(store.contains(identity))
-        let accepted = try XCTUnwrap(
-            pairings.open(
-                identity: identity, requestAccess: { .object([:]) }, events: events,
-                makeLink: { PairingTestLink(access: $0, events: $1) }) as? PairingTestLink)
+        let accepted = try open(pairings, identity, events: events)
         XCTAssertNotNil(accepted.access)
         accepted.events.accepted()
         accepted.events.opened()
-        let second = try XCTUnwrap(
-            pairings.open(
-                identity: identity, requestAccess: { .object([:]) }, events: events,
-                makeLink: { PairingTestLink(access: $0, events: $1) }) as? PairingTestLink)
+        let second = try open(pairings, identity, events: events)
         XCTAssertNil(second.access)
         second.events.closed(TransportFailure.invalid("not-paired"))
-        let retry = try XCTUnwrap(
-            pairings.open(
-                identity: identity, requestAccess: { .object([:]) }, events: events,
-                makeLink: { PairingTestLink(access: $0, events: $1) }) as? PairingTestLink)
+        let retry = try open(pairings, identity, events: events)
         XCTAssertNil(retry.access)
         XCTAssertEqual(failures, 2)
     }
 
     @MainActor func testARefusalAfterTheMachineAcceptedDoesNotAskForAccessAgain() throws {
-        let store = MemoryPairingStore()
-        let pairings = StatementPairings(store: store)
-        let identity = PairingIdentity(
-            machineID: "machine", machineKey: DeviceKey().publicKey, clientKey: DeviceKey().publicKey)
-        let events = LinkEvents(opened: {}, message: { _ in }, closed: { _ in })
-        let first = try XCTUnwrap(
-            pairings.open(
-                identity: identity, requestAccess: { .object([:]) }, events: events,
-                makeLink: { PairingTestLink(access: $0, events: $1) }) as? PairingTestLink)
+        let pairings = StatementPairings(store: MemoryPairingStore())
+        let identity = newIdentity()
+        let first = try open(pairings, identity)
         XCTAssertNotNil(first.access)
         first.events.accepted()
         first.events.closed(TransportFailure.invalid("older machine"))
-        let retry = try XCTUnwrap(
-            pairings.open(
-                identity: identity, requestAccess: { .object([:]) }, events: events,
-                makeLink: { PairingTestLink(access: $0, events: $1) }) as? PairingTestLink)
-        XCTAssertNil(retry.access)
+        XCTAssertNil(try open(pairings, identity).access)
     }
 
-    @MainActor func testSettlementIsBoundToMachineAndBothPinnedKeys() {
+    @MainActor func testSettlementIsBoundToMachineAndBothPinnedKeys() throws {
         let store = MemoryPairingStore()
         let pairings = StatementPairings(store: store)
-        let identity = PairingIdentity(
-            machineID: "machine", machineKey: DeviceKey().publicKey, clientKey: DeviceKey().publicKey)
+        let identity = newIdentity()
         store.insert(identity)
         let changed = [
             PairingIdentity(machineID: "other", machineKey: identity.machineKey, clientKey: identity.clientKey),
@@ -166,13 +145,7 @@ final class StatementPairingsTests: XCTestCase {
                 machineID: identity.machineID, machineKey: identity.machineKey, clientKey: DeviceKey().publicKey),
         ]
         for identity in changed {
-            _ = pairings.open(
-                identity: identity, requestAccess: { .object([:]) },
-                events: LinkEvents(opened: {}, message: { _ in }, closed: { _ in }),
-                makeLink: { access, events in
-                    XCTAssertNotNil(access)
-                    return PairingTestLink(access: access, events: events)
-                })
+            XCTAssertNotNil(try open(pairings, identity).access)
         }
     }
 }

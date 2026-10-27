@@ -7,8 +7,7 @@ struct PendingIceCandidates {
     private var sent = Set<String>()
 
     static func hasInitialRoute(_ sdp: String, relayOnly: Bool) -> Bool {
-        sdp.components(separatedBy: .newlines).contains { line in
-            guard line.hasPrefix("a=candidate:") else { return false }
+        candidateLines(sdp).contains { line in
             let fields = line.split(whereSeparator: { $0.isWhitespace })
             return fields.count >= 8 && fields[6] == "typ" && (!relayOnly || fields[7] == "relay")
         }
@@ -16,9 +15,7 @@ struct PendingIceCandidates {
 
     mutating func offered(_ sdp: String) {
         // Replaying routes already in the SDP can exhaust the broker limit before ICE connects.
-        let included = Set(
-            sdp.components(separatedBy: .newlines)
-                .filter { $0.hasPrefix("a=candidate:") }.map { Self.identity(String($0.dropFirst(2))) })
+        let included = Set(Self.candidateLines(sdp).map { Self.identity(String($0.dropFirst(2))) })
         sent.formUnion(included)
         pending.removeAll { included.contains(Self.identity($0["candidate"]?.stringValue ?? "")) }
     }
@@ -35,6 +32,10 @@ struct PendingIceCandidates {
         answered = true
         defer { pending.removeAll() }
         return pending
+    }
+
+    private static func candidateLines(_ sdp: String) -> [String] {
+        sdp.components(separatedBy: .newlines).filter { $0.hasPrefix("a=candidate:") }
     }
 
     private static func identity(_ candidate: String) -> String {

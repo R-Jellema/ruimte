@@ -120,7 +120,8 @@ public enum MachineClientError: Error, LocalizedError, Sendable, Equatable {
 
     public var errorDescription: String? {
         switch self {
-        case .disconnected: String(localized: "The machine is reconnecting. Try again when it is connected.", bundle: .module)
+        case .disconnected:
+            String(localized: "The machine is reconnecting. Try again when it is connected.", bundle: .module)
         case .timeout(let request): String(localized: "The machine did not answer \(request) in time.", bundle: .module)
         case .server(_, let message), .invalid(let message): message
         }
@@ -217,12 +218,7 @@ public enum MachineClientError: Error, LocalizedError, Sendable, Equatable {
         isConnected = true
         let frames = held ?? []
         held = nil
-        for frame in frames {
-            switch frame {
-            case .text(let text): receiveInOrder(text)
-            case .binary(let data): receiveBinaryInOrder(data)
-            }
-        }
+        for frame in frames { enqueue(frame) }
         for observer in Array(observers.values) { observer(true) }
     }
 
@@ -265,7 +261,7 @@ public enum MachineClientError: Error, LocalizedError, Sendable, Equatable {
         let result = try await routedRequest(
             WireRequest.bytesRead.rawValue, payload: .object(fields), onResult: nil, id: id, binary: true)
         guard let data = binaryBodies.removeValue(forKey: id) else {
-            throw MachineClientError.invalid(String(localized: "The machine sent part of the file this app cannot read.", bundle: .module))
+            throw MachineClientError.invalid(TransportWords.unreadablePiece)
         }
         return try BytesPiece(header: result, data: data)
     }
@@ -413,8 +409,16 @@ public enum MachineClientError: Error, LocalizedError, Sendable, Equatable {
     }
 
     @discardableResult public func receiveInOrder(_ text: String) -> Task<Void, Never> {
+        enqueue(.text(text))
+    }
+
+    @discardableResult public func receiveBinaryInOrder(_ frame: Data) -> Task<Void, Never> {
+        enqueue(.binary(frame))
+    }
+
+    @discardableResult private func enqueue(_ frame: HeldFrame) -> Task<Void, Never> {
         guard isConnected else {
-            held?.append(.text(text))
+            held?.append(frame)
             return Task {}
         }
         let previous = incoming
@@ -423,11 +427,17 @@ public enum MachineClientError: Error, LocalizedError, Sendable, Equatable {
         let task = Task.detached(priority: .userInitiated) { [weak self] in
             await previous?.value
             guard !Task.isCancelled else { return }
-            guard let frame = try? JSONValue.decode(Data(text.utf8)) else {
-                await self?.unreadable(text, generation: generation)
-                return
+            switch frame {
+            case .text(let text):
+                guard let decoded = try? JSONValue.decode(Data(text.utf8)) else {
+                    await self?.unreadable(text, generation: generation)
+                    return
+                }
+                await self?.receive(decoded, generation: generation)
+            case .binary(let data):
+                guard let reply = BytesReply(data) else { return }
+                await self?.receive(reply, generation: generation)
             }
-            await self?.receive(frame, generation: generation)
         }
         incoming = task
         return task
@@ -446,24 +456,8 @@ public enum MachineClientError: Error, LocalizedError, Sendable, Equatable {
         let count = replied.count
         Self.log.error("Dropped a frame that does not decode, which answered \(count, privacy: .public) requests")
         for id in replied {
-            finish(id, result: .failure(MachineClientError.invalid(String(localized: "The machine sent a reply this app cannot read.", bundle: .module))))
+            finish(id, result: .failure(MachineClientError.invalid(TransportWords.unreadableReply)))
         }
-    }
-
-    @discardableResult public func receiveBinaryInOrder(_ frame: Data) -> Task<Void, Never> {
-        guard isConnected else {
-            held?.append(.binary(frame))
-            return Task {}
-        }
-        let previous = incoming
-        let generation = connectionGeneration
-        let task = Task.detached(priority: .userInitiated) { [weak self] in
-            await previous?.value
-            guard !Task.isCancelled, let reply = BytesReply(frame) else { return }
-            await self?.receive(reply, generation: generation)
-        }
-        incoming = task
-        return task
     }
 
     private func receive(_ reply: BytesReply, generation: Int) {
@@ -493,8 +487,7 @@ public enum MachineClientError: Error, LocalizedError, Sendable, Equatable {
                 {
                     finish(id, result: .failure(MachineClientError.server(code: code, message: message)))
                 } else {
-                    throw MachineClientError.invalid(
-                        String(localized: "The machine sent a reply this app cannot read.", bundle: .module))
+                    throw MachineClientError.invalid(TransportWords.unreadableReply)
                 }
             } catch {
                 let type = request.type.rawValue
@@ -547,41 +540,38 @@ public struct MachineResource: Sendable, Equatable {
         let length = min(chunkBytes, Int(WireConstants.bytesChunkMax))
         // A model an agent attached to its chat is the largest resource a client reads whole.
         let limit = min(maxBytes, max(Int(WireConstants.bytesReadMaxBytes), WireConstants.chatModelMaxBytes))
-        for attempt in 0...min(restarts, 3) {
+        // A piece of another version, size or type than the first starts the read over.
+        reading: for _ in 0...min(restarts, 3) {
             var data = Data()
             var first: BytesPiece?
-            var changed = false
-            repeat {
+            while true {
                 try Task.checkCancellation()
                 let piece = try await readBytes(
                     .object([
                         "resource": resource, "offset": .number(Double(data.count)), "length": .number(Double(length)),
                     ]))
                 guard piece.size <= limit else {
-                    throw MachineClientError.invalid(String(localized: "This file is too large to load over this connection.", bundle: .module))
+                    throw MachineClientError.invalid(
+                        String(localized: "This file is too large to load over this connection.", bundle: .module))
                 }
-                if first == nil { first = piece }
-                if piece.version != first?.version || piece.size != first?.size || piece.mime != first?.mime
-                    || piece.offset != data.count
-                {
-                    changed = true
-                    break
+                let pinned = first ?? piece
+                first = pinned
+                guard piece.version == pinned.version, piece.size == pinned.size, piece.mime == pinned.mime,
+                    piece.offset == data.count
+                else { continue reading }
+                guard piece.data.count <= length, data.count + piece.data.count <= piece.size else {
+                    throw MachineClientError.invalid(TransportWords.unreadablePiece)
                 }
-                let bytes = piece.data
-                guard bytes.count <= length, data.count + bytes.count <= piece.size else {
-                    throw MachineClientError.invalid(String(localized: "The machine sent part of the file this app cannot read.", bundle: .module))
-                }
-                data.append(bytes)
+                data.append(piece.data)
                 if data.count == piece.size {
                     return MachineResource(data: data, mime: piece.mime)
                 }
-                if bytes.isEmpty {
-                    throw MachineClientError.invalid(String(localized: "The file stopped loading before the end. Try again.", bundle: .module))
+                if piece.data.isEmpty {
+                    throw MachineClientError.invalid(
+                        String(localized: "The file stopped loading before the end. Try again.", bundle: .module))
                 }
-            } while true
-            if changed && attempt < min(restarts, 3) { continue }
-            throw MachineClientError.invalid(String(localized: "The file changed while it was loading.", bundle: .module))
+            }
         }
-        throw MachineClientError.invalid(String(localized: "Could not load the file.", bundle: .module))
+        throw MachineClientError.invalid(String(localized: "The file changed while it was loading.", bundle: .module))
     }
 }

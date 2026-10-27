@@ -33,7 +33,7 @@ import RuimtePulsar
                     case .string(let text): received?(text)
                     case .data(let data):
                         guard let text = String(data: data, encoding: .utf8) else {
-                            throw TransportFailure.invalid(String(localized: "The machine sent a reply this app cannot read.", bundle: .module))
+                            throw TransportFailure.invalid(TransportWords.unreadableReply)
                         }
                         received?(text)
                     @unknown default: throw TransportFailure.invalid("Unknown WebSocket message")
@@ -50,8 +50,7 @@ import RuimtePulsar
         writer = Task { [weak self] in
             await previous?.value
             guard let self, !Task.isCancelled else { return }
-            do { try await socket.send(.string(text)) }
-            catch { if !Task.isCancelled { failed?(error) } }
+            do { try await socket.send(.string(text)) } catch { if !Task.isCancelled { failed?(error) } }
         }
     }
 
@@ -91,7 +90,10 @@ import RuimtePulsar
         public var relayed: (JSONValue) -> Void
         public var refused: (JSONValue) -> Void
         public var lost: (Error) -> Void
-        public init(ready: @escaping ([JSONValue]) -> Void, relayed: @escaping (JSONValue) -> Void, refused: @escaping (JSONValue) -> Void, lost: @escaping (Error) -> Void) {
+        public init(
+            ready: @escaping ([JSONValue]) -> Void, relayed: @escaping (JSONValue) -> Void,
+            refused: @escaping (JSONValue) -> Void, lost: @escaping (Error) -> Void
+        ) {
             self.ready = ready
             self.relayed = relayed
             self.refused = refused
@@ -114,7 +116,10 @@ import RuimtePulsar
     private let createSocket: @MainActor (URL) -> any SignalSocket
     private let now: () -> Double
 
-    public init(now: @escaping () -> Double = { Date().timeIntervalSince1970 * 1_000 }, createSocket: @escaping @MainActor (URL) -> any SignalSocket = { URLSessionSignalSocket(url: $0) }) {
+    public init(
+        now: @escaping () -> Double = { Date().timeIntervalSince1970 * 1_000 },
+        createSocket: @escaping @MainActor (URL) -> any SignalSocket = { URLSessionSignalSocket(url: $0) }
+    ) {
         self.now = now
         self.createSocket = createSocket
     }
@@ -123,7 +128,8 @@ import RuimtePulsar
 
     public func join(url: URL, signer: any SessionSigner, member: Member) throws -> BrokerMembership {
         guard url.scheme == "wss", let host = url.host, url.user == nil, url.password == nil else {
-            throw TransportFailure.invalid(String(localized: "The broker needs a secure WebSocket URL.", bundle: .module))
+            throw TransportFailure.invalid(
+                String(localized: "The broker needs a secure WebSocket URL.", bundle: .module))
         }
         let hostPort = host + (url.port.flatMap { $0 == 443 ? nil : ":\($0)" } ?? "")
         let id = url.absoluteString + " " + signer.publicKey
@@ -156,24 +162,28 @@ import RuimtePulsar
             if let ice = shared.ice, ice["expiresAt"] == .null || (ice["expiresAt"]?.numberValue ?? 0) > now() {
                 Task { [weak self, weak shared] in
                     guard let self, let shared, self.open[id] === shared,
-                          shared.waiting.remove(memberID) != nil, let current = shared.members[memberID] else { return }
+                        shared.waiting.remove(memberID) != nil, let current = shared.members[memberID]
+                    else { return }
                     current.ready(ice["servers"]?.arrayValue ?? [])
                 }
             } else if shared.iceID == nil {
                 try requestIce(shared)
             }
         }
-        return BrokerMembership(leave: { [weak self, weak shared] in
-            guard let self, let shared else { return }
-            shared.members.removeValue(forKey: memberID)
-            shared.waiting.remove(memberID)
-            if shared.members.isEmpty { self.drop(id, shared: shared) }
-        }, relay: { [weak self, weak shared] to, envelope in
-            guard let self, let shared, self.open[id] === shared,
-                  let frame = try shared.peer.relay(to: to, envelope: envelope) else { return nil }
-            shared.socket.send(try wireText(frame))
-            return frame["id"]?.stringValue
-        })
+        return BrokerMembership(
+            leave: { [weak self, weak shared] in
+                guard let self, let shared else { return }
+                shared.members.removeValue(forKey: memberID)
+                shared.waiting.remove(memberID)
+                if shared.members.isEmpty { self.drop(id, shared: shared) }
+            },
+            relay: { [weak self, weak shared] to, envelope in
+                guard let self, let shared, self.open[id] === shared,
+                    let frame = try shared.peer.relay(to: to, envelope: envelope)
+                else { return nil }
+                shared.socket.send(try wireText(frame))
+                return frame["id"]?.stringValue
+            })
     }
 
     private func requestIce(_ shared: Shared) throws {
@@ -190,19 +200,25 @@ import RuimtePulsar
         case .ice(let frame):
             guard frame["id"]?.stringValue == shared.iceID else { return }
             if let expiry = frame["expiresAt"]?.numberValue, expiry <= now() {
-                throw TransportFailure.invalid(String(localized: "Could not set up the direct connection. Try again.", bundle: .module))
+                throw TransportFailure.invalid(TransportWords.setupFailed)
             }
             settleIce(shared, frame: frame)
         case .relayed(let frame):
             for member in Array(shared.members.values) { member.relayed(frame) }
         case .refused(let frame):
             let frameID = frame["id"]?.stringValue
-            if (frameID != nil && frameID == shared.iceID) || (frameID == nil && frame["code"]?.stringValue == "bad-frame" && shared.iceID != nil) {
+            if (frameID != nil && frameID == shared.iceID)
+                || (frameID == nil && frame["code"]?.stringValue == "bad-frame" && shared.iceID != nil)
+            {
                 settleIce(shared, frame: .object(["servers": .array([]), "expiresAt": .null]))
             } else if frameID != nil {
                 for member in Array(shared.members.values) { member.refused(frame) }
             } else {
-                throw TransportFailure.invalid(frame["message"]?.stringValue ?? String(localized: "The connection service is limiting this device. Try again later.", bundle: .module))
+                throw TransportFailure.invalid(
+                    frame["message"]?.stringValue
+                        ?? String(
+                            localized: "The connection service is limiting this device. Try again later.",
+                            bundle: .module))
             }
         case .delivered: break
         }

@@ -70,7 +70,9 @@ public enum LinkRoute: Equatable, Sendable {
         releaseAction = release
     }
     public func send(_ text: String) throws {
-        guard releaseAction != nil else { throw TransportFailure.invalid(String(localized: "This connection to the machine closed.", bundle: .module)) }
+        guard releaseAction != nil else {
+            throw TransportFailure.invalid(String(localized: "This connection to the machine closed.", bundle: .module))
+        }
         try sendAction(text)
     }
     public func release() {
@@ -94,6 +96,20 @@ public enum LinkRoute: Equatable, Sendable {
         var route: LinkRoute?
         var features: [String] = []
         init(open: @escaping Opener) { self.open = open }
+
+        /// Lets go of the link, whose late callbacks no longer count, and hands it back.
+        @discardableResult func detach() -> (any MachineLink)? {
+            generation += 1
+            defer { link = nil }
+            connected = false
+            route = nil
+            features = []
+            return link
+        }
+
+        func each(_ deliver: (LinkEvents) -> Void) {
+            for member in Array(members.values) { deliver(member) }
+        }
     }
     private var machines: [String: Entry] = [:]
     private var foregroundScenes = Set<String>()
@@ -127,30 +143,17 @@ public enum LinkRoute: Equatable, Sendable {
         if foreground { foregroundScenes.insert(id) } else { foregroundScenes.remove(id) }
         let isForeground = !foregroundScenes.isEmpty
         guard wasForeground != isForeground else { return }
-        for (id, entry) in Array(machines) {
-            suspend(entry)
-            if entry.members.isEmpty {
-                machines.removeValue(forKey: id)
-            } else if isForeground {
-                connect(id, entry: entry)
-            }
-        }
+        for (id, entry) in Array(machines) { restart(id, entry: entry, reopen: isForeground) }
     }
 
     public func pathChanged(fingerprint: String, reachable: Bool) {
         defer { pathFingerprint = fingerprint }
         guard pathFingerprint != fingerprint else { return }
         if pathFingerprint == nil { return }
-        for (id, entry) in Array(machines) {
-            // The default route can change while ICE still has a working path to the machine.
-            // Let the channel's liveness checks decide when an authenticated link has failed.
-            if entry.connected { continue }
-            suspend(entry)
-            if entry.members.isEmpty {
-                machines.removeValue(forKey: id)
-            } else if reachable && !foregroundScenes.isEmpty {
-                connect(id, entry: entry)
-            }
+        // The default route can change while ICE still has a working path to the machine, so an open link is left to
+        // its channel's liveness checks.
+        for (id, entry) in Array(machines) where !entry.connected {
+            restart(id, entry: entry, reopen: reachable && !foregroundScenes.isEmpty)
         }
     }
 
@@ -199,12 +202,7 @@ public enum LinkRoute: Equatable, Sendable {
 
     public func reconnect(machineID: String) {
         guard let entry = machines[machineID] else { return }
-        suspend(entry)
-        if entry.members.isEmpty {
-            machines.removeValue(forKey: machineID)
-        } else if !foregroundScenes.isEmpty {
-            connect(machineID, entry: entry)
-        }
+        restart(machineID, entry: entry, reopen: !foregroundScenes.isEmpty)
     }
 
     public func forget(machineID: String) {
@@ -224,22 +222,24 @@ public enum LinkRoute: Equatable, Sendable {
         disconnectAll()
     }
 
+    /// Drops the entry's link, then the entry once nobody holds it, or opens a new link when `reopen`.
+    private func restart(_ id: String, entry: Entry, reopen: Bool) {
+        suspend(entry)
+        if entry.members.isEmpty {
+            machines.removeValue(forKey: id)
+        } else if reopen {
+            connect(id, entry: entry)
+        }
+    }
+
     private func suspend(_ entry: Entry) {
-        entry.generation += 1
         entry.retry?()
         entry.retry = nil
         entry.idleCleanup?()
         entry.idleCleanup = nil
-        let previous = entry.link
-        entry.link = nil
         let wasConnected = entry.connected
-        entry.connected = false
-        entry.route = nil
-        entry.features = []
-        previous?.close()
-        if wasConnected {
-            for member in Array(entry.members.values) { member.closed(nil) }
-        }
+        entry.detach()?.close()
+        if wasConnected { entry.each { $0.closed(nil) } }
     }
 
     private func connect(_ id: String, entry: Entry) {
@@ -254,26 +254,22 @@ public enum LinkRoute: Equatable, Sendable {
                 guard valid(), let entry else { return }
                 entry.connected = true
                 entry.attempt = 0
-                for member in Array(entry.members.values) { member.opened() }
+                entry.each { $0.opened() }
             },
             message: { [weak entry] text in
                 guard valid(), let entry else { return }
-                for member in Array(entry.members.values) { member.message(text) }
+                entry.each { $0.message(text) }
             },
             binary: { [weak entry] frame in
                 guard valid(), let entry else { return }
-                for member in Array(entry.members.values) { member.binary(frame) }
+                entry.each { $0.binary(frame) }
             },
             closed: { [weak self, weak entry] error in
                 guard valid(), let self, let entry else { return }
                 // A link this pool let go of is no longer valid here, so whatever closes an open one closed on its own.
                 if entry.connected { LinkProblems.report(.dropped) }
-                entry.generation += 1
-                entry.link = nil
-                entry.connected = false
-                entry.route = nil
-                entry.features = []
-                for member in Array(entry.members.values) { member.closed(error) }
+                entry.detach()
+                entry.each { $0.closed(error) }
                 guard !self.foregroundScenes.isEmpty, !entry.members.isEmpty else { return }
                 let delay = min(10_000, 500 * pow(2, Double(min(entry.attempt, 5))))
                 entry.attempt += 1
@@ -286,16 +282,16 @@ public enum LinkRoute: Equatable, Sendable {
             route: { [weak entry] route in
                 guard valid(), let entry else { return }
                 entry.route = route
-                for member in Array(entry.members.values) { member.route(route) }
+                entry.each { $0.route(route) }
             },
             features: { [weak entry] features in
                 guard valid(), let entry else { return }
                 entry.features = features
-                for member in Array(entry.members.values) { member.features(features) }
+                entry.each { $0.features(features) }
             },
             progress: { [weak entry] in
                 guard valid(), let entry else { return }
-                for member in Array(entry.members.values) { member.progress() }
+                entry.each { $0.progress() }
             })
         do {
             let opened = try entry.open(events)

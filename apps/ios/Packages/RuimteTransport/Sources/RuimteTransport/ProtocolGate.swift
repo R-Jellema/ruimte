@@ -8,11 +8,6 @@ import RuimtePulsar
     /// A request id the link never hands out, since its own ids are UUIDs.
     static let requestID = "protocol"
 
-    /// What a person reads when a machine is refused as older, here and at the direct handshake.
-    nonisolated static var olderMachine: String {
-        String(localized: "This machine runs an older Ruimte. Update Ruimte there, or restart it to pick up the update.", bundle: .module)
-    }
-
     private let send: (String) throws -> Void
     private let open: ([String]) -> Void
     private let message: (String) -> Void
@@ -33,7 +28,10 @@ import RuimtePulsar
     /// Asks the machine; call it once the link can carry requests. `client` names this app for the machine's
     /// anonymous usage counts; a machine from before it ignores the field.
     public func start() {
-        let frame = JSONValue.object(["id": .string(Self.requestID), "type": .string("endpoint.info"), "payload": .object(["client": .string("ios")])])
+        let frame = JSONValue.object([
+            "id": .string(Self.requestID), "type": .string("endpoint.info"),
+            "payload": .object(["client": .string("ios")]),
+        ])
         do { try send(String(decoding: try frame.encoded(), as: UTF8.self)) } catch { refuse(error) }
     }
 
@@ -53,12 +51,12 @@ import RuimtePulsar
         guard let features else {
             held.removeAll()
             LinkProblems.report(.refused(mismatch: .daemonOlder))
-            refuse(TransportFailure.invalid(Self.olderMachine))
+            refuse(TransportFailure.invalid(TransportWords.olderMachine))
             return
         }
         open(features.compactMap(\.stringValue))
         let delivered = held
         held.removeAll()
-        for entry in delivered { message(entry) }
+        delivered.forEach(message)
     }
 }

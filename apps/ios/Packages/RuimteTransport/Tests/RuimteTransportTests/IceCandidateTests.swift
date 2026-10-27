@@ -27,6 +27,15 @@ final class IceCandidateTests: XCTestCase {
         XCTAssertNil(queue.generated(relay))
     }
 
+    func testAnInitialRouteIsAnyCandidateOrARelayWhenOnlyRelaysCount() {
+        let host = "a=candidate:1 1 udp 123 192.168.1.2 4567 typ host\r\n"
+        let relay = "a=candidate:2 1 udp 100 203.0.113.2 4568 typ relay\r\n"
+        XCTAssertFalse(PendingIceCandidates.hasInitialRoute("v=0\r\n", relayOnly: false))
+        XCTAssertTrue(PendingIceCandidates.hasInitialRoute("v=0\r\n" + host, relayOnly: false))
+        XCTAssertFalse(PendingIceCandidates.hasInitialRoute("v=0\r\n" + host, relayOnly: true))
+        XCTAssertTrue(PendingIceCandidates.hasInitialRoute("v=0\r\n" + host + relay, relayOnly: true))
+    }
+
     private func candidate(_ value: String) -> JSONValue {
         .object([
             "kind": .string("candidate"), "candidate": .string(value),

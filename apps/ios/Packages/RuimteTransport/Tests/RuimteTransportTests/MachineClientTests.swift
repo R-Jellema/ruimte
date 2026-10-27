@@ -4,16 +4,6 @@ import Testing
 
 @testable import RuimteTransport
 
-@MainActor private final class RequestClock: TransportScheduling {
-    var actions: [UUID: @MainActor () -> Void] = [:]
-    func after(milliseconds: Double, _ action: @escaping @MainActor () -> Void) -> () -> Void {
-        let id = UUID()
-        actions[id] = action
-        return { self.actions.removeValue(forKey: id) }
-    }
-    func fire() { for action in Array(actions.values) { action() } }
-}
-
 @MainActor private struct ImmediateClock: TransportScheduling {
     func after(milliseconds: Double, _ action: @escaping @MainActor () -> Void) -> () -> Void {
         action()
@@ -95,26 +85,6 @@ import Testing
         #expect(text == "snapshot delta")
     }
 
-    @Test func initialRoutesPreserveRelayFallbackAndCandidateDeduplication() {
-        let host = "candidate:1 1 udp 123 192.168.1.2 4567 typ host"
-        let relay = "candidate:2 1 udp 100 203.0.113.2 4568 typ relay"
-        let sdp = "v=0\r\na=\(host)\r\n"
-        #expect(!PendingIceCandidates.hasInitialRoute("v=0\r\n", relayOnly: false))
-        #expect(PendingIceCandidates.hasInitialRoute(sdp, relayOnly: false))
-        #expect(!PendingIceCandidates.hasInitialRoute(sdp, relayOnly: true))
-        #expect(PendingIceCandidates.hasInitialRoute(sdp + "a=\(relay)\r\n", relayOnly: true))
-        var candidates = PendingIceCandidates()
-        let hostSignal = JSONValue.object(["candidate": .string(host)])
-        let relaySignal = JSONValue.object(["candidate": .string(relay)])
-        #expect(candidates.generated(hostSignal) == nil)
-        candidates.offered(sdp)
-        #expect(candidates.generated(relaySignal) == nil)
-        #expect(candidates.answerApplied() == [relaySignal])
-        #expect(candidates.generated(hostSignal) == nil)
-        #expect(candidates.generated(relaySignal) == nil)
-        #expect(candidates.answerApplied().isEmpty)
-    }
-
     private func answer(_ client: MachineClient, _ frame: JSONValue, _ result: JSONValue) throws {
         client.receive(
             String(
@@ -123,7 +93,7 @@ import Testing
     }
 
     @Test func routesConcurrentRequestsByIDAndRejectsBadResults() async throws {
-        let clock = RequestClock()
+        let clock = FakeScheduler()
         var frames: [JSONValue] = []
         var client: MachineClient!
         client = MachineClient(
@@ -146,16 +116,16 @@ import Testing
         let values = try await [first, second]
         #expect(values.map { $0["text"] } == [.string("/first"), .string("/second")])
         #expect(client.pendingRequestCount == 0)
-        #expect(clock.actions.isEmpty)
+        #expect(clock.pending.isEmpty)
         client = MachineClient(
             send: { text in try answer(client, JSONValue.decode(Data(text.utf8)), .object([:])) }, connected: true)
         await #expect(throws: (any Error).self) { try await client.request("server.ping") }
     }
 
     @Test func timeoutCancellationAndReconnectDiscardOutstandingRequests() async throws {
-        let clock = RequestClock()
+        let clock = FakeScheduler()
         var client: MachineClient!
-        client = MachineClient(send: { _ in clock.fire() }, scheduler: clock, connected: true)
+        client = MachineClient(send: { _ in clock.advance() }, scheduler: clock, connected: true)
         await #expect(throws: MachineClientError.timeout("server.ping")) { try await client.request("server.ping") }
         #expect(client.pendingRequestCount == 0)
         var task: Task<JSONValue, Error>!
@@ -163,7 +133,7 @@ import Testing
         task = Task { try await client.request("server.ping") }
         await #expect(throws: CancellationError.self) { try await task.value }
         #expect(client.pendingRequestCount == 0)
-        #expect(clock.actions.isEmpty)
+        #expect(clock.pending.isEmpty)
         var sends = 0
         client = MachineClient(
             send: { _ in
@@ -177,7 +147,7 @@ import Testing
     }
 
     @Test func aReplyThatKeepsArrivingOutlastsTheTimeout() async throws {
-        let clock = RequestClock()
+        let clock = FakeScheduler()
         var sent: [JSONValue] = []
         let client = MachineClient(
             send: { sent.append(try JSONValue.decode(Data($0.utf8))) }, scheduler: clock, connected: true)
@@ -189,20 +159,20 @@ import Testing
         // Each firing is a timeout's worth of a reply coming in piece by piece.
         for _ in 0..<4 {
             client.heard()
-            clock.fire()
+            clock.advance()
         }
         #expect(client.pendingRequestCount == 1)
         try answer(
             client, sent[0],
             .object(["items": .array([]), "history": .object(["start": .number(0), "cursor": .null])]))
         _ = try await history.value
-        #expect(clock.actions.isEmpty)
+        #expect(clock.pending.isEmpty)
 
         let ping = Task { try await client.request("server.ping") }
         while sent.count < 2 { await Task.yield() }
         client.heard()
-        clock.fire()
-        clock.fire()
+        clock.advance()
+        clock.advance()
         await #expect(throws: MachineClientError.timeout("server.ping")) { try await ping.value }
     }
 
@@ -215,16 +185,16 @@ import Testing
     }
 
     @Test func aMutationWaitsForTheLinkInsteadOfATimer() async throws {
-        let clock = RequestClock()
+        let clock = FakeScheduler()
         var client: MachineClient!
-        client = MachineClient(send: { _ in #expect(clock.actions.isEmpty) }, scheduler: clock, connected: true)
+        client = MachineClient(send: { _ in #expect(clock.pending.isEmpty) }, scheduler: clock, connected: true)
         let push = Task {
             try await client.request(
                 "git.action",
                 payload: .object(["cwd": .string("/work"), "actionId": .string("push-1"), "kind": .string("push")]))
         }
         while client.pendingRequestCount == 0 { await Task.yield() }
-        clock.fire()
+        clock.advance()
         #expect(client.pendingRequestCount == 1)
         client.disconnected()
         await #expect(throws: MachineClientError.disconnected) { try await push.value }
@@ -344,7 +314,7 @@ import Testing
     }
 
     @Test func aLoneSurrogateHalfInAReplyReadsAsAReplacementCharacter() async throws {
-        let clock = RequestClock()
+        let clock = FakeScheduler()
         var client: MachineClient!
         client = MachineClient(
             send: { text in
@@ -353,7 +323,7 @@ import Testing
                     #"{"id":"\#(id)","ok":true,"result":{"version":"1","platform":"darwin","home":"/Users/\ud83d"}}"#)
                 Task { @MainActor in
                     await delivery.value
-                    clock.fire()
+                    clock.advance()
                 }
             }, scheduler: clock, connected: true)
         let result = try await client.request("server.hello")
@@ -370,7 +340,7 @@ import Testing
     }
 
     @Test func aReplyThatDoesNotDecodeFailsItsRequest() async throws {
-        let clock = RequestClock()
+        let clock = FakeScheduler()
         var client: MachineClient!
         client = MachineClient(
             send: { text in
@@ -378,7 +348,7 @@ import Testing
                 let delivery = client.receiveInOrder(#"{"id":"\#(id)","ok":true,"result":{"time":1}"#)
                 Task { @MainActor in
                     await delivery.value
-                    clock.fire()
+                    clock.advance()
                 }
             }, scheduler: clock, connected: true)
         await #expect(throws: MachineClientError.invalid("The machine sent a reply this app cannot read.")) {
@@ -388,7 +358,7 @@ import Testing
             send: { text in
                 let id = try JSONValue.decode(Data(text.utf8))["id"]?.stringValue ?? ""
                 client.receive(#"{"id":"\#(id)","ok":true,"result":{"time":1"#)
-                clock.fire()
+                clock.advance()
             }, scheduler: clock, connected: true)
         await #expect(throws: MachineClientError.invalid("The machine sent a reply this app cannot read.")) {
             try await client.request("server.ping")

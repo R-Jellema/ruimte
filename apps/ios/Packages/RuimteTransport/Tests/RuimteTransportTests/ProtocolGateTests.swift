@@ -22,11 +22,6 @@ private func event(_ name: String) -> String {
     #"{"type":"event","event":"\#(name)","payload":{}}"#
 }
 
-@MainActor private final class SilentLink: MachineLink {
-    func send(_ text: String) throws {}
-    func close() {}
-}
-
 @MainActor struct ProtocolGateTests {
     @Test func startAsksForTheEndpointInfo() throws {
         let probe = GateProbe()
@@ -41,7 +36,7 @@ private func event(_ name: String) -> String {
         let probe = GateProbe()
         probe.gate.receive(event("chat.status"))
         probe.gate.receive(info(#"{"protocol":1}"#))
-        #expect(probe.refusal as? TransportFailure == .invalid(ProtocolGate.olderMachine))
+        #expect(probe.refusal as? TransportFailure == .invalid(TransportWords.olderMachine))
         #expect(probe.features == nil)
         #expect(probe.delivered.isEmpty)
     }
@@ -70,23 +65,21 @@ private func event(_ name: String) -> String {
         let connections = MachineConnections(scheduler: TaskTransportScheduler(), monitorPaths: false)
         connections.setScene("scene", foreground: true)
         defer { connections.shutdown() }
-        var events: LinkEvents?
+        let links = FakeLinks()
         var order: [String] = []
         let member = LinkEvents(
             opened: { order.append("opened") }, message: { _ in }, closed: { _ in },
             features: { order.append("features \($0.joined(separator: ","))") })
-        let first = connections.hold(
-            machineID: "machine", open: { link in
-                events = link
-                return SilentLink()
-            }, events: member)
-        events?.features(["git.status"])
-        events?.opened()
+        let first = connections.hold(machineID: "machine", open: links.open, events: member)
+        let events = links.last.events
+        events.features(["git.status"])
+        events.opened()
         #expect(order == ["features git.status", "opened"])
         order.removeAll()
-        let second = connections.hold(machineID: "machine", open: { _ in SilentLink() }, events: member)
+        let second = connections.hold(machineID: "machine", open: links.open, events: member)
         #expect(order == ["features git.status", "opened"])
-        events?.closed(nil)
+        #expect(links.all.count == 1)
+        events.closed(nil)
         first.release()
         second.release()
     }

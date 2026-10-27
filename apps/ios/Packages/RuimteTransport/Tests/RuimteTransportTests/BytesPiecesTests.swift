@@ -26,9 +26,16 @@ import Testing
         return frame
     }
 
-    private func sentID(_ sent: [String]) throws -> (id: String, binary: Bool?) {
+    /// Starts `read` on a connected client and waits until it sent its request.
+    private func started<Value: Sendable>(_ read: @escaping @MainActor (MachineClient) async throws -> Value)
+        async throws -> (client: MachineClient, task: Task<Value, any Error>, id: String, binary: Bool?)
+    {
+        var sent: [String] = []
+        let client = MachineClient(send: { sent.append($0) }, connected: true)
+        let task = Task { try await read(client) }
+        while sent.isEmpty { await Task.yield() }
         let frame = try JSONValue.decode(Data(sent[0].utf8))
-        return (frame["id"]!.stringValue!, frame["payload"]?["binary"]?.boolValue)
+        return (client, task, frame["id"]!.stringValue!, frame["payload"]?["binary"]?.boolValue)
     }
 
     private let payload: JSONValue = .object([
@@ -39,8 +46,9 @@ import Testing
     @Test func aReplyTheContractsWriteReadsBack() throws {
         let reply = try #require(BytesReply(Self.contractReply))
         #expect(reply.id == "7")
-        #expect(try BytesPiece(header: reply.header, data: reply.data)
-            == BytesPiece(mime: "video/mp4", size: 10, version: "1-10", offset: 4, data: Data([4, 5, 6])))
+        #expect(
+            try BytesPiece(header: reply.header, data: reply.data)
+                == BytesPiece(mime: "video/mp4", size: 10, version: "1-10", offset: 4, data: Data([4, 5, 6])))
         #expect(BytesReply(Data([2]) + Self.contractReply.dropFirst()) == nil)
         #expect(BytesReply(Self.contractReply.prefix(20)) == nil)
     }
@@ -48,7 +56,8 @@ import Testing
     @Test func aHeaderWhoseNumbersAreNoCountOrPastTheResourceIsRefused() throws {
         func header(size: Double, offset: Double) -> JSONValue {
             .object([
-                "mime": .string("video/mp4"), "size": .number(size), "version": .string("1-10"), "offset": .number(offset),
+                "mime": .string("video/mp4"), "size": .number(size), "version": .string("1-10"),
+                "offset": .number(offset),
             ])
         }
         let refused: [(size: Double, offset: Double, count: Int)] = [
@@ -73,13 +82,13 @@ import Testing
     }
 
     @Test func binaryPiecesJoinAndTextPiecesAreNotBinary() {
-        var assembler = BinaryFrameAssembler()
+        var assembler = MarkedFrameAssembler.binary
         #expect(assembler.push(Data([0x01, 1, 2]), maxBytes: 10) == .partial)
         #expect(assembler.push(Data([0x02, 3]), maxBytes: 10) == .frame(Data([1, 2, 3])))
         #expect(assembler.push(Data([0x02, 1, 2, 3]), maxBytes: 2) == .invalid)
         #expect(assembler.push(Data([0x02]), maxBytes: 2) == .frame(Data()))
-        #expect(!BinaryFrameAssembler.isBinaryPiece(Data("={}".utf8)))
-        #expect(!BinaryFrameAssembler.isBinaryPiece(Data("+{".utf8)))
+        #expect(!assembler.accepts(Data("={}".utf8)))
+        #expect(!assembler.accepts(Data("+{".utf8)))
     }
 
     // `Bun.deflateSync(JSON.stringify({ type: 'event', event: 'chat.status', payload: { text: 'héllo '.repeat(20) } }))`.
@@ -88,60 +97,56 @@ import Testing
     )!
 
     @Test func deflatedPiecesJoinApartFromBinaryAndTextPieces() {
-        var assembler = DeflatedFrameAssembler()
+        var assembler = MarkedFrameAssembler.deflated
         #expect(assembler.push(Data([0x03, 1, 2]), maxBytes: 10) == .partial)
         #expect(assembler.push(Data([0x04, 3]), maxBytes: 10) == .frame(Data([1, 2, 3])))
         #expect(assembler.push(Data([0x04, 1, 2, 3]), maxBytes: 2) == .invalid)
         #expect(assembler.push(Data([0x02, 1]), maxBytes: 10) == .invalid)
-        #expect(!DeflatedFrameAssembler.isDeflatedPiece(Data([0x01, 1])))
-        #expect(!DeflatedFrameAssembler.isDeflatedPiece(Data("={}".utf8)))
-        #expect(!BinaryFrameAssembler.isBinaryPiece(Data([0x03, 1])))
+        #expect(!assembler.accepts(Data([0x01, 1])))
+        #expect(!assembler.accepts(Data("={}".utf8)))
+        #expect(!MarkedFrameAssembler.binary.accepts(Data([0x03, 1])))
     }
 
     @Test func aFrameTheContractsDeflatedInflatesBack() throws {
         let text = String(repeating: "héllo ", count: 20)
-        #expect(try DirectFraming.inflate(Self.contractDeflated, maxBytes: 1_024) == #"{"type":"event","event":"chat.status","payload":{"text":"\#(text)"}}"#)
+        #expect(
+            try DirectFraming.inflate(Self.contractDeflated, maxBytes: 1_024)
+                == #"{"type":"event","event":"chat.status","payload":{"text":"\#(text)"}}"#)
     }
 
     @Test func inflatingPastTheLimitOrGarbageIsRefused() {
         #expect(throws: InflateFailure.tooLarge) { try DirectFraming.inflate(Self.contractDeflated, maxBytes: 40) }
-        #expect(throws: InflateFailure.invalid) { try DirectFraming.inflate(Data([0xFF, 0xFF, 0xFF, 0xFF]), maxBytes: 1_024) }
+        #expect(throws: InflateFailure.invalid) {
+            try DirectFraming.inflate(Data([0xFF, 0xFF, 0xFF, 0xFF]), maxBytes: 1_024)
+        }
     }
 
     @Test func readBytesAsksForABinaryReplyAndTakesItsBytes() async throws {
-        var sent: [String] = []
-        let client = MachineClient(send: { sent.append($0) }, connected: true)
-        let read = Task { try await client.readBytes(payload) }
-        while sent.isEmpty { await Task.yield() }
-        let asked = try sentID(sent)
-        #expect(asked.binary == true)
-        await client.receiveBinaryInOrder(try reply(id: asked.id, offset: 4, data: Data([4, 5, 6]))).value
-        #expect(try await read.value == BytesPiece(mime: "video/mp4", size: 10, version: "1-10", offset: 4, data: Data([4, 5, 6])))
+        let read = try await started { [payload] in try await $0.readBytes(payload) }
+        #expect(read.binary == true)
+        await read.client.receiveBinaryInOrder(try reply(id: read.id, offset: 4, data: Data([4, 5, 6]))).value
+        #expect(
+            try await read.task.value
+                == BytesPiece(mime: "video/mp4", size: 10, version: "1-10", offset: 4, data: Data([4, 5, 6])))
     }
 
     @Test func aJSONAnswerToABinaryReadIsInvalid() async throws {
-        var sent: [String] = []
-        let client = MachineClient(send: { sent.append($0) }, connected: true)
-        let read = Task { try await client.readBytes(payload) }
-        while sent.isEmpty { await Task.yield() }
+        let read = try await started { [payload] in try await $0.readBytes(payload) }
         let frame = try JSONValue.object([
-            "id": .string(try sentID(sent).id), "ok": .bool(true),
+            "id": .string(read.id), "ok": .bool(true),
             "result": .object([
                 "mime": .string("video/mp4"), "size": .number(10), "version": .string("1-10"), "offset": .number(4),
                 "data": .string(Data([4, 5, 6]).base64EncodedString()),
             ]),
         ]).encoded()
-        await client.receiveInOrder(String(decoding: frame, as: UTF8.self)).value
-        await #expect(throws: MachineClientError.self) { try await read.value }
+        await read.client.receiveInOrder(String(decoding: frame, as: UTF8.self)).value
+        await #expect(throws: MachineClientError.self) { try await read.task.value }
     }
 
     @Test func aBinaryReplyToARequestThatDidNotAskIsDropped() async throws {
-        var sent: [String] = []
-        let client = MachineClient(send: { sent.append($0) }, connected: true)
-        let read = Task { try await client.request(.bytesRead, payload: payload) }
-        while sent.isEmpty { await Task.yield() }
-        await client.receiveBinaryInOrder(try reply(id: try sentID(sent).id, offset: 4, data: Data([4, 5, 6]))).value
-        #expect(client.pendingRequestCount == 1)
-        read.cancel()
+        let read = try await started { [payload] in try await $0.request(.bytesRead, payload: payload) }
+        await read.client.receiveBinaryInOrder(try reply(id: read.id, offset: 4, data: Data([4, 5, 6]))).value
+        #expect(read.client.pendingRequestCount == 1)
+        read.task.cancel()
     }
 }

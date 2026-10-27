@@ -11,23 +11,6 @@ private final class Heard: Sendable {
     func append(_ problem: LinkProblem) { problems.withLock { $0.append(problem) } }
 }
 
-@MainActor private final class ClosingLink: MachineLink {
-    let events: LinkEvents
-    init(events: LinkEvents) { self.events = events }
-    func send(_ text: String) throws {}
-    func close() { events.closed(nil) }
-}
-
-@MainActor private final class ManualClock: TransportScheduling {
-    var actions: [UUID: @MainActor () -> Void] = [:]
-    func after(milliseconds: Double, _ action: @escaping @MainActor () -> Void) -> () -> Void {
-        let id = UUID()
-        actions[id] = action
-        return { self.actions.removeValue(forKey: id) }
-    }
-    func fire() { for action in Array(actions.values) { action() } }
-}
-
 @MainActor private func problems(during body: () -> Void) -> [LinkProblem] {
     let heard = Heard()
     LinkProblems.$observer.withValue({ heard.append($0) }, operation: body)
@@ -42,38 +25,29 @@ private final class Heard: Sendable {
 
 @MainActor struct LinkProblemsTests {
     @Test func anOpenLinkThatClosesOnItsOwnIsADrop() {
-        var link: ClosingLink!
-        let pool = MachineConnections(scheduler: ManualClock(), monitorPaths: false)
+        let links = FakeLinks()
+        let pool = MachineConnections(scheduler: FakeScheduler(), monitorPaths: false)
         pool.setScene("scene", foreground: true)
-        let lease = pool.hold(
-            machineID: "machine",
-            open: {
-                link = ClosingLink(events: $0)
-                return link
-            }, events: LinkEvents(opened: {}, message: { _ in }, closed: { _ in }))
+        let lease = pool.hold(machineID: "machine", open: links.open, events: .ignored)
         defer {
             lease.release()
             pool.shutdown()
         }
-        let beforeOpening = problems { link.events.closed(TransportFailure.invalid("The direct connection closed.")) }
+        let lost = TransportFailure.invalid("The direct connection closed.")
+        let beforeOpening = problems { links.last.events.closed(lost) }
         #expect(beforeOpening.isEmpty)
         pool.reconnect(machineID: "machine")
-        link.events.opened()
-        let whileOpen = problems { link.events.closed(TransportFailure.invalid("The direct connection closed.")) }
+        links.last.events.opened()
+        let whileOpen = problems { links.last.events.closed(lost) }
         #expect(whileOpen == [.dropped])
     }
 
     @Test func aLinkThisPhoneLetsGoIsNoDrop() {
-        var link: ClosingLink!
-        let pool = MachineConnections(scheduler: ManualClock(), monitorPaths: false)
+        let links = FakeLinks()
+        let pool = MachineConnections(scheduler: FakeScheduler(), monitorPaths: false)
         pool.setScene("scene", foreground: true)
-        let lease = pool.hold(
-            machineID: "machine",
-            open: {
-                link = ClosingLink(events: $0)
-                return link
-            }, events: LinkEvents(opened: {}, message: { _ in }, closed: { _ in }))
-        link.events.opened()
+        let lease = pool.hold(machineID: "machine", open: links.open, events: .ignored)
+        links.last.events.opened()
         let heard = problems {
             pool.setScene("scene", foreground: false)
             pool.forget(machineID: "machine")
@@ -84,8 +58,8 @@ private final class Heard: Sendable {
     }
 
     @Test func aReadWithoutAnAnswerIsATimeout() async {
-        let clock = ManualClock()
-        let client = MachineClient(send: { _ in clock.fire() }, scheduler: clock, connected: true)
+        let clock = FakeScheduler()
+        let client = MachineClient(send: { _ in clock.advance() }, scheduler: clock, connected: true)
         let heard = await problemsAwaiting { _ = try? await client.request("server.ping") }
         #expect(heard == [.timeout(request: "server.ping")])
     }

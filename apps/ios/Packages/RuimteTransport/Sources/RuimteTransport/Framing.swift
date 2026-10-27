@@ -53,27 +53,30 @@ public struct FrameAssembler {
     public mutating func push(_ piece: String, maxChars: Int) -> FramePiece {
         failure = nil
         guard let mark = piece.unicodeScalars.first, mark == "+" || mark == "=" else {
-            failure = .missingMarker
-            parts.removeAll()
-            length = 0
-            return .invalid
+            return fail(.missingMarker)
         }
         let body = String(piece.unicodeScalars.dropFirst())
         length += body.utf16.count
-        if length > maxChars {
-            failure = .tooLarge(limit: maxChars)
-            parts.removeAll()
-            length = 0
-            return .invalid
+        guard length <= maxChars else {
+            return fail(.tooLarge(limit: maxChars))
         }
         parts.append(body)
         if mark == "+" {
             return .partial
         }
-        let frame = parts.joined()
+        defer { reset() }
+        return .frame(parts.joined())
+    }
+
+    private mutating func fail(_ reason: Failure) -> FramePiece {
+        failure = reason
+        reset()
+        return .invalid
+    }
+
+    private mutating func reset() {
         parts.removeAll()
         length = 0
-        return .frame(frame)
     }
 }
 
@@ -83,51 +86,33 @@ public enum BinaryFramePiece: Equatable {
     case invalid
 }
 
-/// Joins the pieces of a binary frame (`splitBinaryFrame` in the contracts), whose first byte says whether more follow.
-/// No text piece starts with those bytes, so a text piece that arrives as binary still reads as text.
-public struct BinaryFrameAssembler {
-    private static let more: UInt8 = 0x01
-    private static let last: UInt8 = 0x02
+/// Joins the pieces of a frame whose first byte says whether more follow: a binary frame (`splitBinaryFrame` in the
+/// contracts), or a text frame the machine deflated (`splitDeflatedFrame`), which stays deflated. Text pieces and
+/// the two kinds each have marks of their own, so a text piece that arrives as binary still reads as text.
+public struct MarkedFrameAssembler {
+    public static var binary: Self { Self(more: 0x01, last: 0x02) }
+    public static var deflated: Self { Self(more: 0x03, last: 0x04) }
+
+    private let more: UInt8
+    private let last: UInt8
     private var parts = Data()
 
-    public init() {}
-
-    public static func isBinaryPiece(_ piece: Data) -> Bool { piece.first == more || piece.first == last }
-
-    public mutating func push(_ piece: Data, maxBytes: Int) -> BinaryFramePiece {
-        guard Self.isBinaryPiece(piece), parts.count + piece.count - 1 <= maxBytes else {
-            parts = Data()
-            return .invalid
-        }
-        parts.append(piece.dropFirst())
-        if piece.first == Self.more { return .partial }
-        let frame = parts
-        parts = Data()
-        return .frame(frame)
+    private init(more: UInt8, last: UInt8) {
+        self.more = more
+        self.last = last
     }
-}
 
-/// Joins the pieces of a text frame the machine deflated (`splitDeflatedFrame` in the contracts); the frame stays deflated.
-/// Its marks are neither a text piece's nor a binary frame's, so the three never join one another.
-public struct DeflatedFrameAssembler {
-    private static let more: UInt8 = 0x03
-    private static let last: UInt8 = 0x04
-    private var parts = Data()
-
-    public init() {}
-
-    public static func isDeflatedPiece(_ piece: Data) -> Bool { piece.first == more || piece.first == last }
+    public func accepts(_ piece: Data) -> Bool { piece.first == more || piece.first == last }
 
     public mutating func push(_ piece: Data, maxBytes: Int) -> BinaryFramePiece {
-        guard Self.isDeflatedPiece(piece), parts.count + piece.count - 1 <= maxBytes else {
+        guard accepts(piece), parts.count + piece.count - 1 <= maxBytes else {
             parts = Data()
             return .invalid
         }
         parts.append(piece.dropFirst())
-        if piece.first == Self.more { return .partial }
-        let frame = parts
-        parts = Data()
-        return .frame(frame)
+        if piece.first == more { return .partial }
+        defer { parts = Data() }
+        return .frame(parts)
     }
 }
 
@@ -142,7 +127,8 @@ extension DirectFraming {
         let bufferSize = 64 * 1_024
         let stream = UnsafeMutablePointer<compression_stream>.allocate(capacity: 1)
         defer { stream.deallocate() }
-        guard compression_stream_init(stream, COMPRESSION_STREAM_DECODE, COMPRESSION_ZLIB) == COMPRESSION_STATUS_OK else {
+        guard compression_stream_init(stream, COMPRESSION_STREAM_DECODE, COMPRESSION_ZLIB) == COMPRESSION_STATUS_OK
+        else {
             throw .invalid
         }
         defer { compression_stream_destroy(stream) }

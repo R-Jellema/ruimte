@@ -16,6 +16,11 @@ private struct DoorMachine {
     let id = "studio"
     let key = DeviceKey()
 
+    /// A client's peer for this machine, which greets it with a fixed nonce.
+    func peer(signer: DeviceKey = DeviceKey()) -> LanDoorPeer {
+        LanDoorPeer(machineID: id, machineKey: key.publicKey, signer: signer, nonce: String(repeating: "n", count: 43))
+    }
+
     func proof(for hello: JSONValue?, signer: DeviceKey? = nil, id: String? = nil, publicKey: String? = nil) throws
         -> JSONValue
     {
@@ -52,9 +57,7 @@ final class LanDoorPeerTests: XCTestCase {
     func testTheClientSaysWhoItIsOnlyAfterTheMachineProvedItself() throws {
         let machine = DoorMachine()
         let client = DeviceKey()
-        var peer = LanDoorPeer(
-            machineID: machine.id, machineKey: machine.key.publicKey, signer: client,
-            nonce: String(repeating: "n", count: 43))
+        var peer = machine.peer(signer: client)
         let hello = peer.hello()
         XCTAssertEqual(hello, .object(["type": .string("hello"), "nonce": .string(String(repeating: "n", count: 43))]))
         XCTAssertThrowsError(try peer.signal(candidate))
@@ -82,9 +85,7 @@ final class LanDoorPeerTests: XCTestCase {
             { _ in try machine.proof(for: .object(["nonce": .string(String(repeating: "x", count: 43))])) },
         ]
         for forge in forgeries {
-            var peer = LanDoorPeer(
-                machineID: machine.id, machineKey: machine.key.publicKey, signer: DeviceKey(),
-                nonce: String(repeating: "n", count: 43))
+            var peer = machine.peer()
             let hello = peer.hello()
             XCTAssertThrowsError(try peer.receive(forge(hello)))
             XCTAssertFalse(peer.isReady)
@@ -94,9 +95,7 @@ final class LanDoorPeerTests: XCTestCase {
     func testNothingButAProofOrAnErrorComesBeforeTheProof() throws {
         let machine = DoorMachine()
         let client = DeviceKey()
-        var peer = LanDoorPeer(
-            machineID: machine.id, machineKey: machine.key.publicKey, signer: client,
-            nonce: String(repeating: "n", count: 43))
+        var peer = machine.peer(signer: client)
         _ = peer.hello()
         XCTAssertThrowsError(try peer.receive(machine.answer(to: client.publicKey)))
         XCTAssertThrowsError(try peer.receive(.object(["type": .string("notice")])))
@@ -109,9 +108,7 @@ final class LanDoorPeerTests: XCTestCase {
     func testAnAnswerSignedByAnotherKeyIsRefused() throws {
         let machine = DoorMachine()
         let client = DeviceKey()
-        var peer = LanDoorPeer(
-            machineID: machine.id, machineKey: machine.key.publicKey, signer: client,
-            nonce: String(repeating: "n", count: 43))
+        var peer = machine.peer(signer: client)
         let hello = peer.hello()
         _ = try peer.receive(machine.proof(for: hello))
         XCTAssertThrowsError(try peer.receive(machine.answer(to: client.publicKey, signer: DeviceKey())))

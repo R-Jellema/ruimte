@@ -23,9 +23,7 @@ public struct BytesPiece: Sendable, Equatable {
         guard let mime = header["mime"]?.stringValue, let size = Self.count(header["size"]),
             let version = header["version"]?.stringValue, let offset = Self.count(header["offset"]),
             data.count <= Int(WireConstants.bytesChunkMax), offset <= size, data.count <= size - offset
-        else {
-            throw MachineClientError.invalid(String(localized: "The machine sent part of the file this app cannot read.", bundle: .module))
-        }
+        else { throw MachineClientError.invalid(TransportWords.unreadablePiece) }
         self.init(mime: mime, size: size, version: version, offset: offset, data: data)
     }
 
@@ -40,9 +38,7 @@ public struct BytesPiece: Sendable, Equatable {
         guard let encoded = result["data"]?.stringValue,
             encoded.utf8.count <= ((Int(WireConstants.bytesChunkMax) + 2) / 3) * 4,
             let data = Data(base64Encoded: encoded)
-        else {
-            throw MachineClientError.invalid(String(localized: "The machine sent part of the file this app cannot read.", bundle: .module))
-        }
+        else { throw MachineClientError.invalid(TransportWords.unreadablePiece) }
         try self.init(header: result, data: data)
     }
 }

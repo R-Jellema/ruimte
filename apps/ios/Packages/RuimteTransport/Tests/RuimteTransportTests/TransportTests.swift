@@ -85,7 +85,8 @@ final class TransportTests: XCTestCase {
         var offering = challenge.objectValue!
         offering["compression"] = .array([.string("zstd"), .string(WireConstants.directCompression)])
         let chosen = try DirectIdentity.proof(
-            challenge: .object(offering), binding: binding, machineID: "machine", machineKey: machine.publicKey, signer: client)
+            challenge: .object(offering), binding: binding, machineID: "machine", machineKey: machine.publicKey,
+            signer: client)
         XCTAssertEqual(chosen["compression"]?.stringValue, WireConstants.directCompression)
         XCTAssertTrue(
             DirectIdentity.verify(
@@ -161,10 +162,11 @@ final class TransportTests: XCTestCase {
     func testBrokerPeerPassesOverFramesItCannotRead() throws {
         var peer = BrokerPeer(host: "broker.test:443", signer: DeviceKey())
         _ = try peer.start()
-        _ = try peer.receive(.object([
-            "type": .string("challenge"), "broker": .string("broker.test:443"),
-            "nonce": .string(String(repeating: "a", count: 22)),
-        ]))
+        _ = try peer.receive(
+            .object([
+                "type": .string("challenge"), "broker": .string("broker.test:443"),
+                "nonce": .string(String(repeating: "a", count: 22)),
+            ]))
         XCTAssertEqual(try peer.receive(.object(["type": .string("ready")])), [.ready])
         XCTAssertEqual(try peer.receive(.object(["type": .string("notice"), "text": .string("maintenance")])), [])
         let later: JSONValue = .object([
@@ -195,69 +197,21 @@ final class TransportTests: XCTestCase {
     }
 }
 
-@MainActor final class FakeSignalSocket: SignalSocket {
-    var received: ((String) -> Void)?
-    var failed: ((Error) -> Void)?
-    var writes: [JSONValue] = []
-    var closed = false
-    func start() {}
-    func send(_ text: String) { writes.append(try! JSONValue.decode(Data(text.utf8))) }
-    func close() {
-        closed = true
-        received = nil
-        failed = nil
-    }
-    func receive(_ frame: JSONValue) throws { received?(try wireText(frame)) }
-}
-
-@MainActor final class FakeScheduler: TransportScheduling {
-    var pending: [UUID: @MainActor () -> Void] = [:]
-    var delays: [Double] = []
-    func after(milliseconds: Double, _ action: @escaping @MainActor () -> Void) -> () -> Void {
-        let id = UUID()
-        delays.append(milliseconds)
-        pending[id] = action
-        return { self.pending.removeValue(forKey: id) }
-    }
-    func advance() {
-        let actions = Array(pending.values)
-        pending.removeAll()
-        for action in actions { action() }
-    }
-}
-
-@MainActor private final class FakeLink: MachineLink {
-    let events: LinkEvents
-    var closes = 0
-    var onSend: (String) throws -> Void = { _ in }
-    init(events: LinkEvents) { self.events = events }
-    func send(_ text: String) throws { try onSend(text) }
-    func close() {
-        closes += 1
-        events.closed(nil)
-    }
-}
-
 final class BrokerAndLifecycleTests: XCTestCase {
     @MainActor func testPathUpdatesPreserveAnInFlightChatSend() async throws {
         let scheduler = FakeScheduler()
         let pool = MachineConnections(scheduler: scheduler, monitorPaths: false)
         pool.setScene("scene", foreground: true)
         pool.pathChanged(fingerprint: "wifi", reachable: true)
-        var links: [FakeLink] = []
+        let links = FakeLinks()
         var lease: MachineLease!
         let client = MachineClient(send: { try lease.send($0) }, scheduler: scheduler)
         lease = pool.hold(
-            machineID: "machine",
-            open: {
-                let link = FakeLink(events: $0)
-                links.append(link)
-                return link
-            },
+            machineID: "machine", open: links.open,
             events: LinkEvents(
                 opened: { client.connected() }, message: { client.receive($0) },
                 closed: { client.disconnected(error: $0) }))
-        let original = links[0]
+        let original = links.all[0]
         original.events.opened()
         var sends = 0
         original.onSend = { text in
@@ -279,7 +233,7 @@ final class BrokerAndLifecycleTests: XCTestCase {
             "chat.send", payload: .object(["chatId": .string("chat"), "text": .string("Hello")]))
         XCTAssertEqual(result["queued"], .bool(false))
         XCTAssertEqual(sends, 1)
-        XCTAssertEqual(links.count, 1)
+        XCTAssertEqual(links.all.count, 1)
         XCTAssertEqual(original.closes, 0)
         XCTAssertEqual(client.pendingRequestCount, 0)
         XCTAssertTrue(scheduler.pending.isEmpty)
@@ -288,7 +242,7 @@ final class BrokerAndLifecycleTests: XCTestCase {
         XCTAssertFalse(client.isConnected)
         XCTAssertEqual(scheduler.pending.count, 1)
         pool.pathChanged(fingerprint: "wifi-restored", reachable: true)
-        XCTAssertEqual(links.count, 2)
+        XCTAssertEqual(links.all.count, 2)
         XCTAssertTrue(scheduler.pending.isEmpty)
         lease.release()
         pool.shutdown()
@@ -297,14 +251,12 @@ final class BrokerAndLifecycleTests: XCTestCase {
     @MainActor func testProgressReachesTheHoldersOfTheCurrentLinkOnly() {
         let pool = MachineConnections(scheduler: FakeScheduler(), monitorPaths: false)
         pool.setScene("scene", foreground: true)
-        var link: FakeLink!
+        let links = FakeLinks()
         var heard = 0
         let lease = pool.hold(
-            machineID: "machine",
-            open: {
-                link = FakeLink(events: $0)
-                return link
-            }, events: LinkEvents(opened: {}, message: { _ in }, closed: { _ in }, progress: { heard += 1 }))
+            machineID: "machine", open: links.open,
+            events: LinkEvents(opened: {}, message: { _ in }, closed: { _ in }, progress: { heard += 1 }))
+        let link = links.last
         link.events.opened()
         link.events.progress()
         XCTAssertEqual(heard, 1)
@@ -319,26 +271,17 @@ final class BrokerAndLifecycleTests: XCTestCase {
         let scheduler = FakeScheduler()
         let pool = MachineConnections(scheduler: scheduler, monitorPaths: false)
         pool.setScene("scene", foreground: true)
-        var old: FakeLink!
-        var replacement: FakeLink!
+        let links = FakeLinks()
         var received: [String] = []
         let events = LinkEvents(opened: {}, message: { received.append($0) }, closed: { _ in })
-        let oldLease = pool.hold(
-            machineID: "machine",
-            open: {
-                old = FakeLink(events: $0)
-                return old
-            }, events: events)
+        let oldLease = pool.hold(machineID: "machine", open: links.open, events: events)
+        let old = links.last
         old.events.opened()
         pool.forget(machineID: "machine")
         XCTAssertEqual(old.closes, 1)
         XCTAssertThrowsError(try oldLease.send("stale"))
-        let newLease = pool.hold(
-            machineID: "machine",
-            open: {
-                replacement = FakeLink(events: $0)
-                return replacement
-            }, events: events)
+        let newLease = pool.hold(machineID: "machine", open: links.open, events: events)
+        let replacement = links.last
         replacement.events.opened()
         old.events.message("stale event")
         replacement.events.message("current event")
@@ -436,46 +379,40 @@ final class BrokerAndLifecycleTests: XCTestCase {
     @MainActor func testMultipleScenesOneMachineAndReconnectCancellation() {
         let scheduler = FakeScheduler()
         let pool = MachineConnections(scheduler: scheduler, monitorPaths: false)
-        var links: [FakeLink] = []
-        let opener: MachineConnections.Opener = { events in
-            let link = FakeLink(events: events)
-            links.append(link)
-            return link
-        }
-        let events = LinkEvents(opened: {}, message: { _ in }, closed: { _ in })
+        let links = FakeLinks()
         pool.setScene("one", foreground: true)
         pool.setScene("two", foreground: true)
-        let first = pool.hold(machineID: "machine", open: opener, events: events)
-        let second = pool.hold(machineID: "machine", open: opener, events: events)
-        XCTAssertEqual(links.count, 1)
-        links[0].events.opened()
+        let first = pool.hold(machineID: "machine", open: links.open, events: .ignored)
+        let second = pool.hold(machineID: "machine", open: links.open, events: .ignored)
+        XCTAssertEqual(links.all.count, 1)
+        links.all[0].events.opened()
         pool.setScene("one", foreground: false)
-        XCTAssertEqual(links[0].closes, 0)
+        XCTAssertEqual(links.all[0].closes, 0)
         pool.setScene("two", foreground: false)
-        XCTAssertEqual(links[0].closes, 1)
+        XCTAssertEqual(links.all[0].closes, 1)
         pool.setScene("one", foreground: true)
-        XCTAssertEqual(links.count, 2)
-        links[0].events.closed(TransportFailure.invalid("Stale callback"))
+        XCTAssertEqual(links.all.count, 2)
+        links.all[0].events.closed(TransportFailure.invalid("Stale callback"))
         XCTAssertEqual(scheduler.pending.count, 0)
-        links[1].events.closed(TransportFailure.invalid("Network lost"))
+        links.all[1].events.closed(TransportFailure.invalid("Network lost"))
         XCTAssertEqual(scheduler.pending.count, 1)
         scheduler.advance()
-        XCTAssertEqual(links.count, 3)
+        XCTAssertEqual(links.all.count, 3)
         pool.pathChanged(fingerprint: "wifi", reachable: true)
         pool.pathChanged(fingerprint: "cellular", reachable: true)
-        XCTAssertEqual(links.count, 4)
+        XCTAssertEqual(links.all.count, 4)
         first.release()
         XCTAssertEqual(pool.machineCount, 1)
         second.release()
         XCTAssertEqual(scheduler.delays.last, 30_000)
         XCTAssertEqual(pool.machineCount, 1)
-        let returning = pool.hold(machineID: "machine", open: opener, events: events)
+        let returning = pool.hold(machineID: "machine", open: links.open, events: .ignored)
         XCTAssertEqual(scheduler.pending.count, 0)
-        XCTAssertEqual(links.count, 4)
+        XCTAssertEqual(links.all.count, 4)
         returning.release()
         scheduler.advance()
         XCTAssertEqual(pool.machineCount, 0)
-        XCTAssertEqual(links.count, 4)
+        XCTAssertEqual(links.all.count, 4)
         pool.shutdown()
     }
 }
