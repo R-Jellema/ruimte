@@ -90,9 +90,9 @@ function stubsCommitOf(path: string, stubsRoot: string): string | null {
         return null;
     }
 
-    return relative(stubsRoot, path)
-        .split(sep)[0]!
-        .replace(/\.partial$/, '');
+    const [commit = ''] = relative(stubsRoot, path).split(sep);
+
+    return commit.replace(/\.partial$/, '');
 }
 
 function isLive(owner: CacheOwner, live: EvictionInput['live']): boolean {
@@ -398,6 +398,7 @@ export async function sweepPhpCache(options: PhpCacheSweepOptions, now: number, 
 
     return cache.hold(async () => {
         const listing = await listCache(folder, signal);
+
         const plan = planEviction({
             ...listing,
             live: { folders: cache.liveFolders(), stubsDirs: cache.liveStubsDirs(), anyProcess: cache.anyLive() },
@@ -423,12 +424,12 @@ export async function sweepPhpCache(options: PhpCacheSweepOptions, now: number, 
 
                 removals += 1;
 
-                if (
-                    await unlink(join(folder, name)).then(
-                        () => true,
-                        () => false
-                    )
-                ) {
+                const removed = await unlink(join(folder, name)).then(
+                    () => true,
+                    () => false
+                );
+
+                if (removed) {
                     reclaimed.files += 1;
                     reclaimed.bytes += sizes.get(name) ?? 0;
                 }
