@@ -51,6 +51,10 @@ async function syncPath(path: string): Promise<void> {
     }
 }
 
+export function sha256(data: string | Uint8Array): string {
+    return new Bun.CryptoHasher('sha256').update(data).digest('hex');
+}
+
 async function digestStream(stream: AsyncIterable<Uint8Array>, write?: (chunk: Uint8Array) => Promise<void>): Promise<FileDigest> {
     const hasher = new Bun.CryptoHasher('sha256');
     let size = 0;

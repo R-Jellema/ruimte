@@ -89,7 +89,7 @@ function trimTrailing(path: string): string {
     return path.endsWith(sep) && path.length > 1 ? path.slice(0, -1) : path;
 }
 
-async function isDirectory(path: string): Promise<boolean> {
+export async function isDirectory(path: string): Promise<boolean> {
     try {
         return (await stat(path)).isDirectory();
     } catch {

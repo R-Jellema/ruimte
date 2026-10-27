@@ -1,12 +1,8 @@
 import { dirname } from 'node:path';
-import type { ArtifactFs, FileDigest } from './artifact-fs.ts';
+import { sha256, type ArtifactFs, type FileDigest } from './artifact-fs.ts';
 
 function coded(code: string): Error {
     return Object.assign(new Error(code), { code });
-}
-
-function sha256(bytes: Uint8Array): string {
-    return new Bun.CryptoHasher('sha256').update(bytes).digest('hex');
 }
 
 /*

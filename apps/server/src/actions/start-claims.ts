@@ -1,8 +1,8 @@
-import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { ActionRefusal } from '@ruimte/actions';
 import { RecordDirectory, KeyedSerializer } from '@adecore/agents';
+import { sha256 } from '../artifacts/artifact-fs.ts';
 import { VerbRefusal } from '../canvas/verb.ts';
 
 // How long a request id answers a retry; a claim older than this is forgotten at load and ignored after.
@@ -24,14 +24,10 @@ export interface StartClaim {
     inputHash: string;
 }
 
-function sha256(value: unknown): string {
-    return createHash('sha256').update(JSON.stringify(value)).digest('hex');
-}
-
 /* The same command is the same hash: the project and every field of the start except the request id. */
 export function startInputHash(projectId: string, input: Record<string, unknown>): string {
     const { requestId: _requestId, ...rest } = input;
-    return sha256([projectId, rest]);
+    return sha256(JSON.stringify([projectId, rest]));
 }
 
 /*
@@ -66,7 +62,7 @@ export class StartClaims {
      * something, so the id stays pending and a retry is told the start was cut off.
      */
     run<T>(claim: StartClaim, work: () => Promise<T>): Promise<T> {
-        const key = sha256([claim.actor.kind, claim.actor.id, claim.requestId]);
+        const key = sha256(JSON.stringify([claim.actor.kind, claim.actor.id, claim.requestId]));
         return this.queue.run(key, async () => {
             const known = this.claims.get(key);
             if (known !== undefined && this.now() - known.at <= CLAIM_TTL_MS) {

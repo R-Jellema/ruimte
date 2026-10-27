@@ -1,4 +1,4 @@
-import { readFile, stat } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import {
     LANGUAGE_ERROR_CODES,
@@ -52,6 +52,7 @@ import {
 import type { WatchSeams } from '@adecore/agents';
 import { ClientSinks } from '../client-sinks.ts';
 import { errorText } from '../error-text.ts';
+import { isDirectory } from '../fs/browse.ts';
 import { ProjectFileWatcher, type FileChange, type StatPath } from './file-watch.ts';
 import { CustomLanguageServers, customProfile } from './custom.ts';
 import type { SessionEvent, SessionSink } from '../sessions/manager.ts';
@@ -192,10 +193,6 @@ function withoutItemData(params: object): object {
     const { item } = params as { item: Record<string, unknown> };
     const { data: _data, ...rest } = item;
     return { ...params, item: rest };
-}
-
-async function isDirectory(path: string): Promise<boolean> {
-    return (await stat(path).catch(() => null))?.isDirectory() === true;
 }
 
 /* What a file operation leaves to the host: the operation itself (`move`: the move, the create or the delete) and the writing of a file no client holds open. */

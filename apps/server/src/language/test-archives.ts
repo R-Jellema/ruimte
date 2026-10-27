@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { deflateRawSync, gzipSync } from 'node:zlib';
 
 export interface FixtureFile {
@@ -74,6 +73,4 @@ export function zip(files: readonly FixtureFile[]): Uint8Array {
     return Buffer.concat([...parts, central, end]);
 }
 
-export function sha256(bytes: Uint8Array): string {
-    return createHash('sha256').update(bytes).digest('hex');
-}
+export { sha256 } from '../artifacts/artifact-fs.ts';

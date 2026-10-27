@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { mkdir, readFile, rm, rmdir, stat } from 'node:fs/promises';
+import { mkdir, readFile, rm, rmdir } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 import {
     DEFAULT_PROJECT_COLOR,
@@ -68,6 +68,7 @@ import { errorText } from '../error-text.ts';
 import { ClientSinks } from '../client-sinks.ts';
 import { scratchFolderOf } from './scratch-project.ts';
 import { folderToOpen } from './folder-to-open.ts';
+import { isDirectory } from '../fs/browse.ts';
 import { MachineHome } from '../fs/machine-home.ts';
 import { PeerLinks, withHiddenCanvases } from '../peering/links.ts';
 import { RemoteStore, idsOf, machinesOf, withBoundMachines, withMachines, withoutMachines } from '../remote/remote-store.ts';
@@ -1403,14 +1404,6 @@ export class ProjectStore {
             throw new ProjectError('project-not-found', `Project ${projectId} is not open`);
         }
         return state;
-    }
-}
-
-async function isDirectory(path: string): Promise<boolean> {
-    try {
-        return (await stat(path)).isDirectory();
-    } catch {
-        return false;
     }
 }
 

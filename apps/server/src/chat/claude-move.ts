@@ -1,6 +1,7 @@
-import { mkdir, realpath, rmdir, stat } from 'node:fs/promises';
+import { mkdir, realpath, rmdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { claudeProjectSlug, findClaudeSession } from '@adecore/agents/chat';
+import { isDirectory } from '../fs/browse.ts';
 import { renameNoReplace } from '../fs/no-replace-rename.ts';
 import { isPathSegment } from '../fs/path-segment.ts';
 import { errorText } from '../error-text.ts';
@@ -18,10 +19,6 @@ interface MoveTranscriptOptions {
     toCwd: string;
     /* Moves one path without replacing anything; the file system's `renameNoReplace` unless a test injects one. */
     rename?: (from: string, to: string) => Promise<void>;
-}
-
-async function isDirectory(path: string): Promise<boolean> {
-    return (await stat(path).catch(() => null))?.isDirectory() ?? false;
 }
 
 /*

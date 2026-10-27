@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { sha256 } from '../artifacts/artifact-fs.ts';
 import { SCRCPY_PROTOCOL_VERSION } from './scrcpy-protocol.ts';
 import { DeviceError } from './manager.ts';
 
@@ -23,10 +24,6 @@ const SCRCPY_LICENSE_FILE = 'scrcpy-server.LICENSE';
 /* Beside the binary in a build; a development checkout fetches it into a folder git ignores. */
 export function scrcpyServerDirectory(compiled: boolean, executable: string, serverRoot: string): string {
     return compiled ? join(dirname(executable), 'native') : join(serverRoot, '.native', `scrcpy-v${SCRCPY_SERVER.version}`);
-}
-
-function sha256(bytes: Uint8Array): string {
-    return new Bun.CryptoHasher('sha256').update(bytes).digest('hex');
 }
 
 async function fetchVerified(url: string, expected: string): Promise<Uint8Array> {
