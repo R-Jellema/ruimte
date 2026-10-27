@@ -46,7 +46,7 @@ export function parseWorktreeBranches(output: string): Map<string, string> {
     return new Map(parseWorktreeList(output).flatMap((entry) => (entry.branch === null ? [] : [[entry.branch, entry.path] as const])));
 }
 
-/* One line per ref: its short name, the date of its tip and `*` for the one HEAD is on. */
+/* One line per ref: its short name, the date of its tip, `*` for the one HEAD is on and its commit. */
 export function parseRefs(output: string, kind: GitRef['kind'], worktrees: Map<string, string>, base: string | null): GitRef[] {
     const refs: GitRef[] = [];
     for (const line of output.split('\n')) {

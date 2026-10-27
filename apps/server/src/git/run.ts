@@ -18,7 +18,6 @@ interface GitOptions {
 
 type GitErrorCode =
     | 'not-a-repo'
-    // A clone whose URL is not one git may fetch from a remote, or whose folder is taken.
     | 'clone-refused'
     | 'outside-checkout'
     | 'git-failed'
@@ -47,7 +46,6 @@ type GitErrorCode =
     | 'merge-conflict'
     // A pull that can only fast-forward while both sides have moved on: the person picks how they come together.
     | 'diverged'
-    // A bundle for another machine: too big to send, out of order, never arrived, not the one named, or not fitting this repository.
     | 'bundle-too-large'
     | 'bundle-limit'
     | 'bundle-offset'
@@ -193,7 +191,7 @@ async function pump(stream: ReadableStream<Uint8Array>, onLine: (line: string) =
 }
 
 /*
- * One git call whose output is read while it runs, for the actions the panel takes: a push over a
+ * One command whose output is read while it runs, for the actions the panel takes: a push over a
  * slow link says where it is long before it is over. No shell anywhere, the arguments are a list.
  * `GIT_TERMINAL_PROMPT` keeps a credential prompt from stalling the daemon on a socket nobody can
  * type into, and `LC_ALL` keeps the words a summary reads for the ones git writes in C.
