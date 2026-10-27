@@ -5,8 +5,7 @@ import { AcpServerSection, AcpServerStepBody } from '@/shell/settings/providers/
 import { useAcpServer } from '@/shell/settings/providers/use-acp-server';
 import { AppleFoundationSection } from '@/shell/settings/providers/AppleFoundationSection';
 import { CliVersionSection } from '@/shell/settings/providers/CliVersionSection';
-import { ClaudeApiSection } from '@/shell/settings/providers/ClaudeApiSection';
-import { NanoGptSection } from '@/shell/settings/providers/NanoGptSection';
+import { ClaudeApiSection, NanoGptSection } from '@/shell/settings/providers/ApiKeySection';
 import { RegistryCatalogPage } from '@/shell/settings/providers/RegistryCatalogPage';
 import { useCliVersions, useRegistryCatalog } from '@/shell/settings/providers/use-provider-installs';
 import { useMachineAnswers } from '@/transport/features';
@@ -60,7 +59,7 @@ export function ProvidersPane() {
         if (provider.kind === 'apple' && machine?.platform === 'darwin' && !machine.appleFoundationEnabled) {
             return { text: t('providers.apple.off'), tone: 'muted' as const };
         }
-        // The machine reports NanoGPT installed once a saved key brought it models.
+        // The machine reports a provider behind a key installed once a saved key brought it models.
         if (provider.kind === 'anthropic-claude-api' && !provider.installed) {
             return { text: t('providers.claudeApi.noKey'), tone: 'warning' as const };
         }
