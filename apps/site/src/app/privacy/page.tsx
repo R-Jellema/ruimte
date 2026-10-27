@@ -70,7 +70,8 @@ export default function Privacy() {
                         computer, the local network, a direct connection or a relay), why a connection had to be opened again, how long a request to the machine
                         waited for its answer by the kind of request, and how long a project took to appear after you opened it. The machine adds how long it
                         took to handle a request by its kind, how far its work ran behind, how much memory it used and how many apps and machines were
-                        connected.
+                        connected. The iPhone app sends the same connection, request and project measurements, but gathers them for a quarter of an hour first.
+                        Of each kind it then sends a count, or for a duration the median and the slowest one.
                     </li>
                 </ul>
             </Section>
@@ -118,6 +119,12 @@ export default function Privacy() {
                     that exists once per view, launch or agent counts under one name for all of them, so the name of your view or launch never goes out.
                 </p>
                 <p>
+                    The iPhone app keeps a day of its own too, and sends it the same way. It counts which of its main screens you opened (such as Now, Projects,
+                    a chat, a canvas, Voice or Settings), and how many messages you sent, approvals and questions you answered, chats you started and
+                    attachments you added from the phone. Its day has the same date and version as the machine&apos;s. It also says whether it came from an
+                    iPhone or an iPad, and whether the app is signed in.
+                </p>
+                <p>
                     A day carries no identifier. There is no account, no install id and no key of the machine in it, and no names, paths, prompts, file contents
                     or anything you typed. A model outside Ruimte&apos;s list is counted as &quot;other&quot;, so its name is never sent. Observatory does not
                     store the address a day comes from. Versions before 0.22 send their days through Ruimte&apos;s own server on Cloudflare first, which does
@@ -127,7 +134,9 @@ export default function Privacy() {
                     Usage statistics are on by default. To turn them off, open Settings in the desktop app on the computer that runs the machine, go to Account,
                     pick the machine and switch off Usage statistics. Ruimte then deletes the days it has not sent yet. The desktop app follows the same switch,
                     so it stops counting and deletes its own unsent days too. A desktop app that only connects to machines elsewhere has no machine of its own
-                    and sends nothing. A build from the source code on your own computer sends nothing.
+                    and sends nothing. The iPhone app counts only while every machine on your account it has heard from has the switch on. Once one of them says
+                    off, it stops and deletes its unsent days. Before it has heard from any machine it counts nothing. A build from the source code on your own
+                    computer sends nothing.
                 </p>
             </Section>
 
