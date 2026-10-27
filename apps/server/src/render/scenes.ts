@@ -30,16 +30,11 @@ function color(tone: DrawingColor, palette: RenderColor['palette'] = 'ink'): Ren
 }
 
 function elementAtOrigin(id: string, paths: RenderPath[], text: RenderText[]): RenderElement {
-    return {
-        id,
-        x: 0,
-        y: 0,
-        angle: 0,
-        centerX: 0,
-        centerY: 0,
-        paths,
-        text
-    };
+    return { id, x: 0, y: 0, angle: 0, centerX: 0, centerY: 0, paths, text };
+}
+
+function centeredText(line: Pick<RenderText, 'text' | 'x' | 'y' | 'size' | 'bold'>, tone: RenderColor): RenderText {
+    return { text: line.text, x: line.x, y: line.y, size: line.size, bold: line.bold, align: 'center', font: 'sans', color: tone };
 }
 
 export function renderDiagram(document: DiagramDocument): RenderSceneResult {
@@ -85,24 +80,7 @@ export function renderDiagram(document: DiagramDocument): RenderSceneResult {
         if (route.points.length > 0) {
             paths.push({ d: arrowHeadPath(route.points), stroke: null, fill: tone, strokeWidth: 0, dash: null });
         }
-        elements.push(
-            elementAtOrigin(
-                `edge:${route.index}`,
-                paths,
-                route.label
-                    ? edgeLabelLinesOf(route.label).map((line) => ({
-                          text: line.text,
-                          x: line.x,
-                          y: line.y,
-                          size: line.size,
-                          bold: line.bold,
-                          align: 'center',
-                          font: 'sans',
-                          color: tone
-                      }))
-                    : []
-            )
-        );
+        elements.push(elementAtOrigin(`edge:${route.index}`, paths, route.label ? edgeLabelLinesOf(route.label).map((line) => centeredText(line, tone)) : []));
     }
     for (const box of layout.nodes) {
         const node = nodes.get(box.id)!;
@@ -116,16 +94,7 @@ export function renderDiagram(document: DiagramDocument): RenderSceneResult {
             elementAtOrigin(
                 `node:${node.id}`,
                 paths,
-                textLinesOf(box, node.shape).map((line) => ({
-                    text: line.text,
-                    x: line.x,
-                    y: line.y,
-                    size: line.size,
-                    bold: line.bold,
-                    align: 'center',
-                    font: 'sans',
-                    color: color(line.muted ? 'muted' : 'ink')
-                }))
+                textLinesOf(box, node.shape).map((line) => centeredText(line, color(line.muted ? 'muted' : 'ink')))
             )
         );
     }
@@ -151,8 +120,8 @@ function drawingText(element: DrawingElement): RenderText[] {
 }
 
 function drawingPaths(element: DrawingElement): RenderPath[] {
+    const note = element.kind === 'note';
     return pathsOfElement(element).map((path) => {
-        const note = element.kind === 'note';
         if (path.role === 'stroke') {
             return {
                 d: path.d,

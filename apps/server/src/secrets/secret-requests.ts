@@ -132,7 +132,7 @@ export class SecretRequests {
     }
 
     list(): SecretRequest[] {
-        return [...this.pending.values()].map((pending) => pending.request).sort((a, b) => a.createdAt - b.createdAt);
+        return [...this.pending.values()].map((pending) => pending.request).sort((left, right) => left.createdAt - right.createdAt);
     }
 
     /* A turn of the chat ended, however it went: what it asked is no longer asked by anyone. */

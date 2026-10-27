@@ -3,6 +3,7 @@ import { mkdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { isSecretReference } from '@ruimte/contracts';
 import { isNotFound, writeAtomic, Serializer } from '@adecore/agents';
+import { isRecord } from '../is-record.ts';
 
 const SECRETS_DIR = 'secrets';
 
@@ -25,16 +26,12 @@ export interface SecretSlot {
     variable: string;
 }
 
-function sameSlot(a: SecretSlot, b: SecretSlot): boolean {
-    return a.launchId === b.launchId && a.variable === b.variable;
+function sameSlot(left: SecretSlot, right: SecretSlot): boolean {
+    return left.launchId === right.launchId && left.variable === right.variable;
 }
 
 function isStoredSecret(value: unknown): value is StoredSecret {
-    if (typeof value !== 'object' || value === null) {
-        return false;
-    }
-    const entry = value as Record<string, unknown>;
-    return typeof entry.launchId === 'string' && typeof entry.variable === 'string' && typeof entry.value === 'string';
+    return isRecord(value) && typeof value.launchId === 'string' && typeof value.variable === 'string' && typeof value.value === 'string';
 }
 
 /*
