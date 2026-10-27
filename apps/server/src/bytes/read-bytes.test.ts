@@ -61,6 +61,12 @@ async function readAll(resource: ByteResource): Promise<Uint8Array> {
     return Buffer.concat(parts);
 }
 
+function bytesDispatcher(): Dispatcher {
+    const dispatcher = new Dispatcher();
+    registerBytesHandlers(dispatcher, sources, new MachineHome(join(folder, 'home')));
+    return dispatcher;
+}
+
 describe('readBytes', () => {
     test('a file comes back whole, one piece at a time', async () => {
         expect(await readAll({ kind: 'file', path: join(folder, 'picture.gif') })).toEqual(picture);
@@ -155,8 +161,7 @@ describe('readBytes', () => {
     });
 
     test('the handler answers a refusal with its code on the wire', async () => {
-        const dispatcher = new Dispatcher();
-        registerBytesHandlers(dispatcher, sources, new MachineHome(join(folder, 'home')));
+        const dispatcher = bytesDispatcher();
         const frames: unknown[] = [];
         const client: ClientConnection = { id: 'c1', send: (frame) => frames.push(frame) };
         await dispatcher.handle(
@@ -174,8 +179,7 @@ describe('readBytes', () => {
         });
 
     test('a client that asks for a binary reply gets the bytes as they are, with the header in front', async () => {
-        const dispatcher = new Dispatcher();
-        registerBytesHandlers(dispatcher, sources, new MachineHome(join(folder, 'home')));
+        const dispatcher = bytesDispatcher();
         const frames: unknown[] = [];
         const binary: Uint8Array[] = [];
         const client: ClientConnection = { id: 'c1', send: (frame) => frames.push(frame), sendBinary: (frame) => binary.push(frame) };
@@ -187,8 +191,7 @@ describe('readBytes', () => {
     });
 
     test('a client that did not ask, or a channel without binary frames, gets base64 in JSON', async () => {
-        const dispatcher = new Dispatcher();
-        registerBytesHandlers(dispatcher, sources, new MachineHome(join(folder, 'home')));
+        const dispatcher = bytesDispatcher();
         for (const [binary, sendBinary] of [
             [undefined, true],
             [true, false]

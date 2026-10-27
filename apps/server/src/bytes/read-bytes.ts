@@ -60,12 +60,12 @@ export async function readBytes(sources: ByteSources, payload: BytesReadPayload)
     if (resource.kind === 'file' && resource.entry !== undefined) {
         return readEntryPiece(sources, resource.path, resource.entry, payload);
     }
-    const found = await locate(sources, payload.resource);
+    const found = await locate(sources, resource);
     const info = found ? await stat(found.path).catch(() => null) : null;
     if (!found || !info?.isFile()) {
         throw new BytesError('not-found', 'Not a file this machine serves');
     }
-    if (payload.resource.kind === 'bundle' && info.size > BUNDLE_MAX_BYTES) {
+    if (resource.kind === 'bundle' && info.size > BUNDLE_MAX_BYTES) {
         throw new BytesError('bundle-too-large', 'A bundle this large is not sent. Push the branch to origin and fetch it there instead.');
     }
     if (payload.offset > info.size) {
@@ -73,8 +73,8 @@ export async function readBytes(sources: ByteSources, payload: BytesReadPayload)
     }
     const end = Math.min(payload.offset + payload.length, info.size);
     const piece = new Uint8Array(await Bun.file(found.path).slice(payload.offset, end).arrayBuffer());
-    if (payload.resource.kind === 'bundle' && end === info.size) {
-        await sources.bundleRead?.(payload.resource.bundleId);
+    if (resource.kind === 'bundle' && end === info.size) {
+        await sources.bundleRead?.(resource.bundleId);
     }
     return {
         mime: found.mime,

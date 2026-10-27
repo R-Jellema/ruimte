@@ -103,15 +103,14 @@ export function bytesResponse(file: ServedFile, options: ServedFileOptions): Res
     if (file.mime === 'image/svg+xml') {
         headers['content-security-policy'] = SVG_CSP;
     }
-    if (options.range === undefined) {
+    if (options.range !== undefined) {
+        headers['accept-ranges'] = 'bytes';
+    }
+    if (options.range === undefined || options.range === null) {
         return new Response(file.body, { headers });
     }
-    headers['accept-ranges'] = 'bytes';
     if (options.range === 'unsatisfiable') {
         return new Response('Range not satisfiable', { status: 416, headers: { 'accept-ranges': 'bytes', 'content-range': `bytes */${file.size}` } });
-    }
-    if (options.range === null) {
-        return new Response(file.body, { headers });
     }
     const { start, end } = options.range;
     return new Response(file.body.slice(start, end + 1), {

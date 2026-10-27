@@ -1,7 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { describe, expect, test } from 'bun:test';
 import { bytesResponse, guardBytesRequest, parseByteRange } from './byte-route.ts';
 
 // What the desktop app on this machine presents; a loopback address alone gets nothing.
@@ -12,19 +9,9 @@ const URL_OF_A_FILE = 'http://127.0.0.1:4210/fs/file?path=%2Ftmp%2Ficon.png';
 const PNG = new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])]);
 const SVG = new Blob(['<svg xmlns="http://www.w3.org/2000/svg"></svg>']);
 
-let root: string;
-
 function local(init?: RequestInit): Request {
     return new Request(URL_OF_A_FILE, { ...init, headers: { authorization: `Bearer ${LOCAL_SECRET}`, ...(init?.headers as Record<string, string>) } });
 }
-
-beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'ruimte-byte-route-'));
-});
-
-afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
-});
 
 describe('guardBytesRequest', () => {
     test('lets the local secret read with GET and HEAD, and answers 405 for another method', async () => {
