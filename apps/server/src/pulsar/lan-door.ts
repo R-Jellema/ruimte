@@ -125,13 +125,12 @@ export class AddressLimiter {
 
     /* Counts a new socket from `address`; false when that address is over either limit, and then nothing is counted. */
     admit(address: string): boolean {
-        const now = this.now();
-        const recent = (this.opened.get(address) ?? []).filter((at) => now - at < MINUTE_MS);
+        const recent = this.recent(address);
         if (recent.length >= ATTEMPTS_PER_MINUTE || (this.holding.get(address) ?? 0) >= OPEN_PER_ADDRESS) {
             this.opened.set(address, recent);
             return false;
         }
-        this.opened.set(address, [...recent, now]);
+        this.opened.set(address, [...recent, this.now()]);
         this.holding.set(address, (this.holding.get(address) ?? 0) + 1);
         return true;
     }
@@ -143,13 +142,18 @@ export class AddressLimiter {
         } else {
             this.holding.delete(address);
         }
-        const now = this.now();
-        const recent = (this.opened.get(address) ?? []).filter((at) => now - at < MINUTE_MS);
+        const recent = this.recent(address);
         if (recent.length === 0) {
             this.opened.delete(address);
         } else {
             this.opened.set(address, recent);
         }
+    }
+
+    private recent(address: string): number[] {
+        const now = this.now();
+
+        return (this.opened.get(address) ?? []).filter((at) => now - at < MINUTE_MS);
     }
 }
 

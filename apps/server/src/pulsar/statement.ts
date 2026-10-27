@@ -39,6 +39,14 @@ function signedByTrustedKey(keys: readonly string[], message: string, signature:
     return keys.some((key) => verifySignature(key, message, signature));
 }
 
+function lifetimeRefusal(statement: { issuedAt: number; expiresAt: number }, now: number): StatementRefusal | null {
+    if (now + STATEMENT_CLOCK_SKEW_MS < statement.issuedAt) {
+        return 'not-yet-valid';
+    }
+
+    return now - STATEMENT_CLOCK_SKEW_MS > statement.expiresAt ? 'expired' : null;
+}
+
 /* Whether a statement opens this machine for this key right now; null when it does, the reason when it does not. */
 export function checkStatement(statement: AccessStatement, expected: StatementExpectation): StatementRefusal | null {
     if (statement.machineId !== expected.machineId) {
@@ -47,11 +55,9 @@ export function checkStatement(statement: AccessStatement, expected: StatementEx
     if (statement.clientPublicKey !== expected.clientPublicKey) {
         return 'wrong-key';
     }
-    if (expected.now + STATEMENT_CLOCK_SKEW_MS < statement.issuedAt) {
-        return 'not-yet-valid';
-    }
-    if (expected.now - STATEMENT_CLOCK_SKEW_MS > statement.expiresAt) {
-        return 'expired';
+    const lifetime = lifetimeRefusal(statement, expected.now);
+    if (lifetime !== null) {
+        return lifetime;
     }
     const message = accessStatementMessage(statement.machineId, statement.clientPublicKey, statement.nonce, statement.issuedAt, statement.expiresAt);
     if (!signedByTrustedKey(expected.trustedKeys, message, statement.signature)) {
@@ -102,13 +108,7 @@ export function checkPeerStatement(statement: PeerStatement, expected: Statement
     ) {
         return 'wrong-peer';
     }
-    if (expected.now + STATEMENT_CLOCK_SKEW_MS < statement.issuedAt) {
-        return 'not-yet-valid';
-    }
-    if (expected.now - STATEMENT_CLOCK_SKEW_MS > statement.expiresAt) {
-        return 'expired';
-    }
-    return peerStatementSigned(statement, expected.trustedKeys) ? null : 'bad-signature';
+    return lifetimeRefusal(statement, expected.now) ?? (peerStatementSigned(statement, expected.trustedKeys) ? null : 'bad-signature');
 }
 
 /* Whether the address book signed exactly these fields, for the machine that was asked to work here and the one that works. */

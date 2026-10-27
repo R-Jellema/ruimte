@@ -432,7 +432,7 @@ export class ProcessMonitor {
             cpuRuimte: ruimte.cpu === null ? null : ruimte.cpu / cores,
             memory: after.machine.memoryUsed,
             memoryRuimte: ruimte.memory,
-            disk: disk.read === null && disk.write === null ? null : (disk.read ?? 0) + (disk.write ?? 0),
+            disk: diskOf({ diskRead: disk.read, diskWrite: disk.write }),
             diskRuimte: ruimte.disk
         };
     }

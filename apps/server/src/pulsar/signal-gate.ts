@@ -45,13 +45,12 @@ export class SignalGate {
             (this.options.log ?? console).warn('Dropped a signal whose signature does not verify');
             return 'dropped';
         }
+        const { signal } = envelope;
         if (await this.options.isPaired(from)) {
-            const { signal } = envelope;
             if (signal.kind === 'offer' && signal.access !== undefined && 'peer' in signal.access && this.options.admitStatement) {
                 await this.options.admitStatement(from, signal.access);
             }
         } else {
-            const { signal } = envelope;
             if (signal.kind !== 'offer') {
                 return 'refused';
             }
@@ -72,7 +71,7 @@ export class SignalGate {
         if (owner && owner.publicKey !== from) {
             return 'refused';
         }
-        if (!owner && envelope.signal.kind === 'offer') {
+        if (!owner && signal.kind === 'offer') {
             this.owners.set(envelope.connectionId, { publicKey: from, expiresAt: now + OWNER_TTL_MS });
         }
         this.options.receive(envelope, reply);

@@ -89,20 +89,24 @@ class ProbeTimeout extends Error {
     }
 }
 
+function transactionKey(transactionId: Uint8Array): string {
+    return Buffer.from(transactionId).toString('hex');
+}
+
 function udpExchange(target: IceTarget, timeoutMs: number): Promise<StunExchange> {
     const socket = createSocket(target.host.includes(':') ? 'udp6' : 'udp4');
     const waiting = new Map<string, (message: StunMessage) => void>();
     socket.on('message', (bytes) => {
         const message = decodeMessage(new Uint8Array(bytes));
         if (message !== null) {
-            waiting.get(Buffer.from(message.transactionId).toString('hex'))?.(message);
+            waiting.get(transactionKey(message.transactionId))?.(message);
         }
     });
     socket.on('error', () => undefined);
     return Promise.resolve({
         ask: (request, transactionId) =>
             new Promise<StunMessage>((resolve, reject) => {
-                const key = Buffer.from(transactionId).toString('hex');
+                const key = transactionKey(transactionId);
                 const timers: ReturnType<typeof setTimeout>[] = [];
                 const settle = (): void => {
                     waiting.delete(key);
@@ -169,7 +173,7 @@ function exchangeOver(socket: Socket, timeoutMs: number): StunExchange {
             const message = decodeMessage(buffered.slice(0, length));
             buffered = buffered.slice(length);
             if (message !== null) {
-                waiting.get(Buffer.from(message.transactionId).toString('hex'))?.(message);
+                waiting.get(transactionKey(message.transactionId))?.(message);
             }
         }
     });
@@ -177,7 +181,7 @@ function exchangeOver(socket: Socket, timeoutMs: number): StunExchange {
     return {
         ask: (request, transactionId) =>
             new Promise<StunMessage>((resolve, reject) => {
-                const key = Buffer.from(transactionId).toString('hex');
+                const key = transactionKey(transactionId);
                 const timer = setTimeout(() => {
                     waiting.delete(key);
                     reject(new ProbeTimeout());
@@ -235,22 +239,14 @@ async function allocate(exchange: StunExchange, target: IceTarget): Promise<Outc
     const realm = textOf(attributeOf(answer, STUN_ATTRIBUTE.realm)) ?? '';
     const key = longTermKey(target.username, realm, target.credential);
     for (let attempt = 0; attempt < 2; attempt++) {
-        const nonce = textOf(attributeOf(answer, STUN_ATTRIBUTE.nonce)) ?? '';
-        const signed = [
-            requestedTransportUdp(),
+        const credentials = [
             textAttribute(STUN_ATTRIBUTE.username, target.username),
             textAttribute(STUN_ATTRIBUTE.realm, realm),
-            textAttribute(STUN_ATTRIBUTE.nonce, nonce)
+            textAttribute(STUN_ATTRIBUTE.nonce, textOf(attributeOf(answer, STUN_ATTRIBUTE.nonce)) ?? '')
         ];
-        answer = await ask(exchange, STUN_METHOD.allocate, signed, key);
+        answer = await ask(exchange, STUN_METHOD.allocate, [requestedTransportUdp(), ...credentials], key);
         if (answer.kind === 'success') {
-            const release = [
-                lifetime(0),
-                textAttribute(STUN_ATTRIBUTE.username, target.username),
-                textAttribute(STUN_ATTRIBUTE.realm, realm),
-                textAttribute(STUN_ATTRIBUTE.nonce, nonce)
-            ];
-            await ask(exchange, STUN_METHOD.refresh, release, key).catch(() => undefined);
+            await ask(exchange, STUN_METHOD.refresh, [lifetime(0), ...credentials], key).catch(() => undefined);
             return { outcome: 'ok' };
         }
         // 438 is a stale nonce, which comes with a fresh one.
