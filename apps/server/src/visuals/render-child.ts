@@ -369,7 +369,7 @@ export async function render(request: RenderRequest, signal?: AbortSignal): Prom
             })
         );
         await within(work, remaining(context));
-        return { ok: true, pages: pages.toSorted((a, b) => a.width - b.width) };
+        return { ok: true, pages: pages.toSorted((left, right) => left.width - right.width) };
     } finally {
         for (const view of views) {
             view.view.close();
