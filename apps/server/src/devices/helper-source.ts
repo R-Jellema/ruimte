@@ -1,7 +1,7 @@
 import { hevcKeyFrame, type DeviceInput, type LiveStreamFrame } from '@ruimte/contracts';
 import type { LiveFrameSource } from '../streams/live-stream.ts';
 import { DEVICE_HELPER_MAGIC, DeviceHelperDecoder, encodeDeviceHelperMessage, type DeviceHelperCall, type DeviceHelperMessage } from './helper-protocol.ts';
-import { cancellableTimeout, type Timer } from '../timers.ts';
+import { cancellableTimeout, type Timer } from '@adecore/agents';
 
 export interface DeviceHelperProcess {
     readonly stdin: {

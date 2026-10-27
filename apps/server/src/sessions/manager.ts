@@ -15,7 +15,7 @@ import { Session } from './session.ts';
 import type { ShellEnvironment } from './shell-integration.ts';
 import type { SessionSnapshot, SnapshotStore } from './snapshot-store.ts';
 import { errorText } from '../error-text.ts';
-import { CodedError } from '@adecore/agents';
+import { CodedError, SingleFlight } from '@adecore/agents';
 import { ClientSinks } from '../client-sinks.ts';
 import { countUsage } from '../stats/usage-stats.ts';
 import { prependPath } from '../env-path.ts';
@@ -170,7 +170,7 @@ export class SessionManager {
     private readonly env: Record<string, string | undefined>;
     private readonly sessions = new Map<string, Session>();
     private readonly lifecycleListeners = new Set<(session: Session, phase: 'created' | 'closed') => void>();
-    private readonly creating = new Map<string, Promise<SessionInfo>>();
+    private readonly creating = new SingleFlight<SessionInfo>();
     private readonly sinks = new ClientSinks();
     private readonly screenWatchers = new Map<string, Set<(sessionId: string) => void>>();
     private readonly observers = new Set<SessionSink>();
@@ -293,13 +293,7 @@ export class SessionManager {
      * the prompt and lost from the map.
      */
     create(options: CreateSessionOptions): Promise<SessionInfo> {
-        const inFlight = this.creating.get(options.sessionId);
-        if (inFlight) {
-            return inFlight;
-        }
-        const created = this.createNow(options).finally(() => this.creating.delete(options.sessionId));
-        this.creating.set(options.sessionId, created);
-        return created;
+        return this.creating.run(options.sessionId, () => this.createNow(options));
     }
 
     private async createNow(options: CreateSessionOptions): Promise<SessionInfo> {

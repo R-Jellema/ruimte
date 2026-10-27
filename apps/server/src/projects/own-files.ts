@@ -1,7 +1,7 @@
 import { cp, mkdir, readdir, rm, rmdir } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { basename, dirname, join } from 'node:path';
-import { entryExists } from '@adecore/agents';
+import { entryExists, hasErrorCode, isNotFound } from '@adecore/agents';
 import { ChatError } from '../chat/errors.ts';
 import { errorText } from '../error-text.ts';
 import { renameNoReplace } from '../fs/no-replace-rename.ts';
@@ -57,13 +57,8 @@ export function ownFolderOf(scratchFolder: string, chatId: string): string {
     return join(scratchFolder, chatId);
 }
 
-function codeOf(error: unknown): string | undefined {
-    return typeof error === 'object' && error !== null && 'code' in error && typeof error.code === 'string' ? error.code : undefined;
-}
-
 function isTaken(error: unknown): boolean {
-    const code = codeOf(error);
-    return code === 'EEXIST' || code === 'ERR_FS_CP_EEXIST';
+    return hasErrorCode(error, 'EEXIST', 'ERR_FS_CP_EEXIST');
 }
 
 /* One entry back to where it came from: a rename, else (another volume) a copy and then the delete. */
@@ -71,7 +66,7 @@ async function moveBack(io: OwnFilesIO, from: string, to: string): Promise<void>
     try {
         await io.rename(from, to);
     } catch (e) {
-        if (codeOf(e) !== 'EXDEV') {
+        if (!hasErrorCode(e, 'EXDEV')) {
             throw e;
         }
         await io.copy(from, to);
@@ -88,7 +83,7 @@ async function moveBack(io: OwnFilesIO, from: string, to: string): Promise<void>
  */
 export async function moveOwnFiles(from: string, to: string, io: OwnFilesIO = SYSTEM_IO): Promise<MovedOwnFiles> {
     const listed = await readdir(from).catch((e: unknown) => {
-        if (codeOf(e) === 'ENOENT') {
+        if (isNotFound(e)) {
             return [];
         }
         throw new ChatError('move-failed', `The folder ${from} could not be read: ${errorText(e)}`);
@@ -138,7 +133,7 @@ export async function moveOwnFiles(from: string, to: string, io: OwnFilesIO = SY
             await io.rename(join(from, name), join(to, name));
             arrived.push(name);
         } catch (e) {
-            if (codeOf(e) !== 'EXDEV') {
+            if (!hasErrorCode(e, 'EXDEV')) {
                 return failed(e, name);
             }
             crossing = i;

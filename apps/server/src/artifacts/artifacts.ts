@@ -24,12 +24,12 @@ import {
     type ChatAttachment
 } from '@ruimte/contracts';
 import { KeyedSerializer } from '@adecore/agents';
+import { WatchedSinks } from '@adecore/agents/host';
 import { isInside } from '../canvas/project-paths.ts';
-import { WatchedSinks } from '../client-sinks.ts';
 import type { MachineHome } from '../fs/machine-home.ts';
 import { sniffMime } from '../fs/sniff.ts';
 import { DEVICE_CAPTURES_FOLDER } from '../shots.ts';
-import type { SessionSink } from '../sessions/manager.ts';
+import type { SessionEvent, SessionSink } from '../sessions/manager.ts';
 import { cleanupProposals, NO_PINS, removable, type PinnedVersions } from './artifact-cleanup.ts';
 import { copyVersionInto } from './artifact-copy.ts';
 import { ArtifactError, isTextMime, SNIFF_HEAD_BYTES } from './artifact-names.ts';
@@ -131,7 +131,7 @@ export class Artifacts {
     private readonly store: ArtifactStore;
     private readonly deps: ArtifactsDeps;
     private readonly pinned: PinnedVersions;
-    private readonly sinks = new WatchedSinks();
+    private readonly sinks = new WatchedSinks<SessionEvent>();
     private readonly uploads = new Map<string, OpenUpload>();
     private readonly uploadWrites = new KeyedSerializer();
 

@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'bun:test';
 import type { LanguageServerStatus } from '@ruimte/contracts';
-import { lspLanguageIdOf } from '@adecore/editor-react';
 import { customLanguageIdOf } from './language-ids-host';
 
 function own(languages: string[], patterns: string[]): LanguageServerStatus {
@@ -8,17 +7,6 @@ function own(languages: string[], patterns: string[]): LanguageServerStatus {
 }
 
 describe('the language a file opens with', () => {
-    test('knows the languages of the catalog by the highlighter id of the file', () => {
-        expect(lspLanguageIdOf('css')).toBe('css');
-        expect(lspLanguageIdOf('docker')).toBe('dockerfile');
-        expect(lspLanguageIdOf('sql')).toBe('sql');
-        expect(lspLanguageIdOf('shellscript')).toBe('shellscript');
-        expect(lspLanguageIdOf('twig')).toBe('twig');
-        expect(lspLanguageIdOf('rust')).toBe('rust');
-        expect(lspLanguageIdOf('zig')).toBeNull();
-        expect(lspLanguageIdOf(undefined)).toBeNull();
-    });
-
     test('is the language of a file a server of a person serves, or its own pattern', () => {
         const statuses = [{ server: 'typescript', state: 'ready', version: '1', documents: 0 } as LanguageServerStatus, own(['zig'], ['*.zon'])];
         expect(customLanguageIdOf(statuses, 'zig', 'src/main.zig')).toBe('zig');

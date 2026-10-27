@@ -1,6 +1,6 @@
 import { clipText } from '@ruimte/contracts';
 import type { AppleToolResult } from './apple-tools.ts';
-import { cancellableTimeout } from '../timers.ts';
+import { cancellableTimeout } from '@adecore/agents';
 
 interface AppleCommandProcess {
     stdout: ReadableStream<Uint8Array>;

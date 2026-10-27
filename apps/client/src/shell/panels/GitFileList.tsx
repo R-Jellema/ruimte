@@ -33,7 +33,6 @@ import {
     indexFile,
     itemsOfNodes,
     nodeOf,
-    rebuildTree,
     repoParts,
     shownFile,
     toggleItems,
@@ -53,7 +52,7 @@ import { fileManagerName, useServer } from '@/state/server';
 import { useTransport } from '@/transport/context';
 import { ContextMenu, FileTree, Icon, PanelEmpty, useFileTree, type FoldKeyOf } from '@adecore/ui';
 
-const { applyExpansion, directoryHandle, menuTargetsOf, mergeCollapsedPaths, rowPathOf, selectOnly, visibleRows } = FileTree;
+const { applyExpansion, directoryHandle, menuTargetsOf, mergeCollapsedPaths, rebuildPaths, rowPathOf, selectOnly, visibleRows } = FileTree;
 
 const COUNT_COLOR = 'var(--text-faint)';
 
@@ -232,7 +231,7 @@ function GitTree({
             return;
         }
         builtRef.current = key;
-        rebuildTree(model, layout.paths, () => applyExpansion(model, collapsedRef.current, keyOf), applyingRef);
+        rebuildPaths(model, layout.paths, () => applyExpansion(model, collapsedRef.current, keyOf), applyingRef);
     }, [keyOf, layout, model, t]);
 
     useEffect(() => {

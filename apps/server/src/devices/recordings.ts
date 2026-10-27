@@ -1,5 +1,5 @@
 import { DeviceError } from './manager.ts';
-import { cancellableTimeout, type Timer } from '../timers.ts';
+import { cancellableTimeout, type Timer } from '@adecore/agents';
 
 /* A recorder running on the machine, which writes its file whole only once it was interrupted and exited. */
 export interface RecordingProcess {

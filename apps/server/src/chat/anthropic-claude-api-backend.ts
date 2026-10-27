@@ -7,7 +7,7 @@ import { ANTHROPIC_URL, anthropicHeaders, anthropicHttpError, type AnthropicClau
 import { ApiTools, CONTINUE_MESSAGE, INTERRUPTED, apiInstructions, endTurn, readThread, writeThread, type ToolRounds } from './api-chat.ts';
 import { executeNanoTool, NANOGPT_TOOLS, nanoEffectiveMode } from './nanogpt-tools.ts';
 import { readAnthropicStream, type AnthropicToolUse, type AnthropicUsage, type AnthropicTurn } from './anthropic-claude-api-stream.ts';
-import { cancellableTimeout, type Timer } from '../timers.ts';
+import { cancellableTimeout, type Timer } from '@adecore/agents';
 
 const BlockSchema = z.union([
     z.object({ type: z.literal('thinking'), thinking: z.string(), signature: z.string() }),

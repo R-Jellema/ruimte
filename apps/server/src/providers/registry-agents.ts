@@ -4,7 +4,7 @@ import { chmod, mkdir, readFile, readdir, rename, rm } from 'node:fs/promises';
 import { basename, dirname, join, posix } from 'node:path';
 import { z } from 'zod';
 import type { AgentKind, RegistryAgent, RegistryCatalog } from '@ruimte/contracts';
-import { runProcess, writeAtomic, type ProcessResult } from '@adecore/agents';
+import { runProcess, SingleFlight, writeAtomic, type ProcessResult } from '@adecore/agents';
 import { createAcpProvider, type ChatProvider } from '@adecore/agents/providers';
 import { errorText } from '../error-text.ts';
 import { extractEntries, extractZipFile, readArchive } from '../language/archive.ts';
@@ -124,7 +124,7 @@ export class RegistryAgents {
     private readonly which: (command: string) => string | null;
     private readonly platform: NodeJS.Platform;
     private readonly agents = new Map<string, InstalledAgent>();
-    private readonly installing = new Map<string, Promise<RegistryAgent>>();
+    private readonly installing = new SingleFlight<RegistryEntry>();
     private readonly failures = new Map<string, Failure>();
 
     constructor(options: RegistryAgentsOptions) {
@@ -187,17 +187,7 @@ export class RegistryAgents {
 
     /* Puts the version the registry names in place, which is also how an installed agent is updated; a second press while one runs shares its outcome. */
     install(id: string): Promise<RegistryAgent> {
-        const running = this.installing.get(id);
-        if (running !== undefined) {
-            return running;
-        }
-        const install = this.installNow(id)
-            .finally(() => {
-                this.installing.delete(id);
-            })
-            .then((entry) => this.statusOf(entry));
-        this.installing.set(id, install);
-        return install;
+        return this.installing.run(id, () => this.installNow(id)).then((entry) => this.statusOf(entry));
     }
 
     /* Takes an agent off this machine and stops offering it; a chat of it that runs keeps its process until it ends. */

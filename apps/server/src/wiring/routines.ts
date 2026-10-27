@@ -1,6 +1,7 @@
 import { chatOpener } from '@adecore/agents/chat';
 import type { RoutinePicked, RoutineSkillsPayload, RoutineSkillsResult } from '@ruimte/contracts';
-import { WatchedSinks } from '../client-sinks.ts';
+import { WatchedSinks } from '@adecore/agents/host';
+import type { SessionEvent } from '../sessions/manager.ts';
 import { attachedReferences, type Reference } from '../context/references.ts';
 import { errorText } from '../error-text.ts';
 import { RoutineAuthorStore, RoutineRunStore } from '../routines/routine-runs.ts';
@@ -13,7 +14,7 @@ import type { LaunchesBundle } from './launches.ts';
 import type { ProjectsBundle } from './projects.ts';
 
 /* The clients that asked with `routine.watch`, who hear a project's routines change. */
-class RoutineWatchers extends WatchedSinks {
+class RoutineWatchers extends WatchedSinks<SessionEvent> {
     changed(projectId: string): void {
         this.emit({ event: 'routine.changed', payload: { projectId } });
     }

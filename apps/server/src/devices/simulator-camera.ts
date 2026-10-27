@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { isVideo, requireMedia } from './device-paths.ts';
 import { DeviceError } from './manager.ts';
 import { besideDaemon, serveSimFolder } from './serve-sim.ts';
-import { cancellableTimeout, type Timer } from '../timers.ts';
+import { cancellableTimeout, type Timer } from '@adecore/agents';
 
 /* A running camera helper, as far as this daemon needs it. */
 interface CameraHelperProcess {

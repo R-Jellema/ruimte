@@ -4,11 +4,11 @@ import type { FileTreeVisibleRow } from '@pierre/trees';
 import type { GitDiffFile } from '@ruimte/contracts';
 import { diffFileParts, firstFile, folderParts } from '@/shell/panels/commit-tree';
 import { DiffRowMenuItems } from '@/shell/panels/DiffRowMenuItems';
-import { rebuildTree, type DecorationPart } from '@/shell/panels/git-tree';
+import type { DecorationPart } from '@/shell/panels/git-tree';
 import { GitTreeMarks } from '@/shell/panels/GitTreeMarks';
 import { ContextMenu, FileTree, useFileTree } from '@adecore/ui';
 
-const { applyExpansion, dirPathOf, mergeCollapsedPaths, rowPathOf, selectOnly, visibleRows } = FileTree;
+const { applyExpansion, dirPathOf, mergeCollapsedPaths, rebuildPaths, rowPathOf, selectOnly, visibleRows } = FileTree;
 
 interface CommitFileTreeProps {
     files: readonly GitDiffFile[];
@@ -73,7 +73,7 @@ export function CommitFileTree({ files, shown, onPick, marks = diffFileParts, me
             return;
         }
         builtRef.current = key;
-        rebuildTree(model, paths, () => applyExpansion(model, new Set(foldedRef.current)), applyingRef);
+        rebuildPaths(model, paths, () => applyExpansion(model, new Set(foldedRef.current)), applyingRef);
     }, [byPath, files, model]);
 
     useEffect(() => {

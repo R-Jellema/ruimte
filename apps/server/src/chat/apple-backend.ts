@@ -15,7 +15,7 @@ import {
 } from './apple-tools.ts';
 import type { ApprovalDecision, BackendHost, BackendLaunch, ChatBackend, TurnInput } from '@adecore/agents/chat';
 import { ChatChild, LineSplitter } from '@adecore/agents/chat';
-import { cancellableTimeout } from '../timers.ts';
+import { cancellableTimeout } from '@adecore/agents';
 
 export interface AppleBackendOptions {
     enabled?: () => boolean;

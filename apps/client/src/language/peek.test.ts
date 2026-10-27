@@ -4,7 +4,6 @@ import { FakeEditorEngine } from '@adecore/editor/fake';
 import { useToasts } from '@/state/toasts';
 import { EditorLanguage } from './ruimte-editor-language';
 import { FakeLanguageTransport, readOnlyFiles } from './fake-daemon';
-import { distinguishingFolders } from '@adecore/editor-react/models';
 import { ProjectLanguage } from './ruimte-project-language';
 import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
 import { eventOf } from './key-events';
@@ -175,23 +174,5 @@ describe('peek definition', () => {
         const supported = await setup(null, { 'textDocument/definition': {} });
         await supported.language.peek.openDefinition();
         expect(useToasts.getState().toasts.at(-1)?.title).toBe('No definition found');
-    });
-});
-
-describe('files with the same name in the list', () => {
-    test('shows the folders that tell them apart, and nothing for a name of its own', () => {
-        expect(distinguishingFolders(['src/a/TestData.php', 'src/b/TestData.php', 'src/Other.php'])).toEqual(['a', 'b', '']);
-    });
-
-    test('goes up as many folders as it takes', () => {
-        expect(distinguishingFolders(['tests/one/Fixtures/Data.php', 'tests/two/Fixtures/Data.php', 'tests/one/Data.php'])).toEqual([
-            'one/Fixtures',
-            'two/Fixtures',
-            'one'
-        ]);
-    });
-
-    test('tells a file in the root from one in a folder', () => {
-        expect(distinguishingFolders(['a.ts', 'src/a.ts'])).toEqual(['', 'src']);
     });
 });

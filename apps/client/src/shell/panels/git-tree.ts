@@ -1,4 +1,4 @@
-import type { FileTreeRowDecoration, FileTree as TreeModel } from '@pierre/trees';
+import type { FileTreeRowDecoration } from '@pierre/trees';
 import { FileTree } from '@adecore/ui';
 import i18next from 'i18next';
 import type { GitFile, GitStatus } from '@ruimte/contracts';
@@ -514,28 +514,6 @@ export function foldedBranches(layout: GitTreeLayout, before: readonly string[],
         }
     }
     return branches;
-}
-
-/*
- * Builds a tree from `paths` again, keeping its selection, and while the tree has the keyboard its focus,
- * on the nearest row when that one went. `fold` puts back what stood folded while `applying` is set,
- * so the tree's own report of it is not read back as a person's doing.
- */
-export function rebuildTree(model: TreeModel, paths: string[], fold: () => void, applying: { current: boolean }): void {
-    const selected = model.getSelectedPaths();
-    const focused = model.getFocusedPath();
-    const typing = document.activeElement !== null && document.activeElement === model.getFileTreeContainer();
-    applying.current = true;
-    model.resetPaths(paths);
-    fold();
-    applying.current = false;
-    for (const path of selected) {
-        model.getItem(path)?.select();
-    }
-    const next = !typing || focused === null ? null : model.getItem(focused) !== null ? focused : model.focusNearestPath(focused);
-    if (next !== null) {
-        FileTree.focusRow(model, next);
-    }
 }
 
 /* The changed file a diff tab shows and its checkout, so the list can mark the row a person is reading. */
