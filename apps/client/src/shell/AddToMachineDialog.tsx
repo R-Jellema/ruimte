@@ -49,14 +49,7 @@ export function AddToMachineDialog() {
     const request = useUi((s) => s.addToMachineDialog);
     const close = (): void => useUi.getState().setAddToMachineDialog(null);
     return (
-        <Dialog.Root
-            open={request !== null}
-            onOpenChange={(open) => {
-                if (!open) {
-                    close();
-                }
-            }}
-        >
+        <Dialog.Root open={request !== null} onOpenChange={(open) => !open && close()}>
             <Dialog.Popup size="sm">{request !== null && <AddToMachineBody request={request} onDone={close} />}</Dialog.Popup>
         </Dialog.Root>
     );

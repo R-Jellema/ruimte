@@ -32,14 +32,7 @@ export function IssueStartDialog() {
     const open = useUi((s) => s.issueStartOpen);
     const close = (): void => useUi.getState().setIssueStartOpen(false);
     return (
-        <Dialog.Root
-            open={open}
-            onOpenChange={(next) => {
-                if (!next) {
-                    close();
-                }
-            }}
-        >
+        <Dialog.Root open={open} onOpenChange={(next) => !next && close()}>
             <Dialog.Popup size="sm" className="flex flex-col">
                 <Dialog.Title className="flex items-center gap-2">
                     <Icon icon={CircleDot} size={16} /> {t('issueStart.title')}

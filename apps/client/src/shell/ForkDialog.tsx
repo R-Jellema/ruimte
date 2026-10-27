@@ -52,14 +52,7 @@ export function ForkDialog() {
     const fork = useUi((s) => s.forkDialog);
     const close = (): void => useUi.getState().setForkDialog(null);
     return (
-        <Dialog.Root
-            open={fork !== null}
-            onOpenChange={(open) => {
-                if (!open) {
-                    close();
-                }
-            }}
-        >
+        <Dialog.Root open={fork !== null} onOpenChange={(open) => !open && close()}>
             <Dialog.Popup size="sm">
                 <Dialog.Title className="flex items-center gap-2">
                     <Icon icon={GitFork} size={16} /> {t('fork.title')}

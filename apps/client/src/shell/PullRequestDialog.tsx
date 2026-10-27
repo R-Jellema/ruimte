@@ -43,14 +43,7 @@ export function PullRequestDialog() {
     const request = useUi((s) => s.pullRequestDialog);
     const close = (): void => useUi.getState().setPullRequestDialog(null);
     return (
-        <Dialog.Root
-            open={request !== null}
-            onOpenChange={(open) => {
-                if (!open) {
-                    close();
-                }
-            }}
-        >
+        <Dialog.Root open={request !== null} onOpenChange={(open) => !open && close()}>
             <Dialog.Popup className="flex max-h-[640px] w-[720px] flex-col">
                 <ErrorBoundary label={t('git.pr.failed')} resetKeys={[request?.cwd]}>
                     {request !== null && <PullRequestView key={request.cwd} cwd={request.cwd} onDone={close} />}
@@ -156,14 +149,29 @@ function watchFailure(error: unknown, t: (key: string) => string): string {
     return messageOf(error, t('git.pr.watch.failed'));
 }
 
+/* Every chat of the project, the ones of this view first. */
+function useProjectChats() {
+    const sections = useChooserSections([]);
+    return [...sections.here, ...sections.others];
+}
+
+/* A menu row per chat, with the mark of its CLI. */
+function ChatMenuItems({ chats, onPick }: { chats: ReturnType<typeof useProjectChats>; onPick(chatId: string): void }) {
+    return chats.map((chat) => (
+        <Menu.Item key={chat.id} onClick={() => onPick(chat.id)}>
+            {chat.provider !== null && <AgentIcon kind={chat.provider} />}
+            <span className="min-w-0 truncate">{chat.title}</span>
+        </Menu.Item>
+    ));
+}
+
 /* Which chat the machine wakes when this pull request's checks finish or a review comes in. */
 function PullRequestWatch({ cwd, pr }: { cwd: string; pr: PullRequest }) {
     const { t } = useTranslation('panels');
     const transport = useTransport();
     const endpointId = useEndpointId();
     const projectId = useProject((state) => state.current?.projectId ?? null);
-    const sections = useChooserSections([]);
-    const chats = [...sections.here, ...sections.others];
+    const chats = useProjectChats();
     const watches = usePrWatches((state) => state.byChat);
     const watching = Object.entries(watches).filter(([key, watch]) => isOfEndpoint(key, endpointId) && watch.repo === pr.repo && watch.number === pr.number);
     const ended = usePrWatches((state) => state.ended);
@@ -203,12 +211,7 @@ function PullRequestWatch({ cwd, pr }: { cwd: string; pr: PullRequest }) {
                     </Menu.Trigger>
                 </Tooltip>
                 <Menu.Popup align="end">
-                    {chats.map((chat) => (
-                        <Menu.Item key={chat.id} onClick={() => start(chat.id)}>
-                            {chat.provider !== null && <AgentIcon kind={chat.provider} />}
-                            <span className="min-w-0 truncate">{chat.title}</span>
-                        </Menu.Item>
-                    ))}
+                    <ChatMenuItems chats={chats} onPick={start} />
                 </Menu.Popup>
             </Menu.Root>
         </>
@@ -306,28 +309,32 @@ function Section({ children }: { children: ReactNode }) {
     return <section className="border-b border-border px-5 py-4 last:border-b-0">{children}</section>;
 }
 
-function mergeMark(pr: PullRequest): { icon: LucideIcon; tone: string } {
+interface Mark {
+    icon: LucideIcon;
+    tone: string;
+}
+
+const GOOD: Mark = { icon: CircleCheck, tone: 'text-positive' };
+const WAITING: Mark = { icon: CircleDashed, tone: 'text-status-needs-you' };
+const BAD: Mark = { icon: CircleX, tone: 'text-status-error' };
+
+function mergeMark(pr: PullRequest): Mark {
     const key = mergeStateKey(pr);
     if (key === 'clean' || key === 'has_hooks') {
-        return { icon: CircleCheck, tone: 'text-positive' };
+        return GOOD;
     }
-    if (key === 'unknown' || key === 'draft' || key === 'behind') {
-        return { icon: CircleDashed, tone: 'text-status-needs-you' };
-    }
-    return { icon: CircleX, tone: 'text-status-error' };
+    return key === 'unknown' || key === 'draft' || key === 'behind' ? WAITING : BAD;
 }
 
-function reviewMark(decision: string): { icon: LucideIcon; tone: string } {
-    if (decision === 'APPROVED') {
-        return { icon: CircleCheck, tone: 'text-positive' };
-    }
-    if (decision === 'CHANGES_REQUESTED') {
-        return { icon: CircleX, tone: 'text-status-error' };
-    }
-    return { icon: CircleDashed, tone: 'text-status-needs-you' };
+function reviewMark(decision: string): Mark {
+    return decision === 'APPROVED' ? GOOD : decision === 'CHANGES_REQUESTED' ? BAD : WAITING;
 }
 
-function StatusRow({ icon, tone, children }: { icon: LucideIcon; tone: string; children: ReactNode }) {
+function checkMark(check: GitPrCheck): Mark {
+    return check.state === 'failure' ? BAD : check.state === 'pending' ? WAITING : GOOD;
+}
+
+function StatusRow({ icon, tone, children }: Mark & { children: ReactNode }) {
     return (
         <li className="flex items-center gap-2 text-sm text-text">
             <Icon icon={icon} size={14} className={tone} />
@@ -344,13 +351,9 @@ function PullRequestStatus({ pr }: { pr: PullRequest }) {
         <Section>
             <SectionLabel>{t('git.pr.status')}</SectionLabel>
             <ul className="mt-2 flex flex-col gap-1">
-                <StatusRow icon={merge.icon} tone={merge.tone}>
-                    {t(`git.pr.merge.${mergeStateKey(pr)}`)}
-                </StatusRow>
+                <StatusRow {...merge}>{t(`git.pr.merge.${mergeStateKey(pr)}`)}</StatusRow>
                 {review !== null && pr.reviewDecision !== null && (
-                    <StatusRow icon={review.icon} tone={review.tone}>
-                        {t(`git.pr.merge.review.${pr.reviewDecision.toLowerCase()}`, { defaultValue: pr.reviewDecision })}
-                    </StatusRow>
+                    <StatusRow {...review}>{t(`git.pr.merge.review.${pr.reviewDecision.toLowerCase()}`, { defaultValue: pr.reviewDecision })}</StatusRow>
                 )}
             </ul>
         </Section>
@@ -358,11 +361,10 @@ function PullRequestStatus({ pr }: { pr: PullRequest }) {
 }
 
 function CheckRow({ check }: { check: GitPrCheck }) {
-    const mark = check.state === 'failure' ? CircleX : check.state === 'pending' ? CircleDashed : CircleCheck;
-    const tone = check.state === 'failure' ? 'text-status-error' : check.state === 'pending' ? 'text-status-needs-you' : 'text-positive';
+    const { icon, tone } = checkMark(check);
     return (
         <li className="group -mx-2 flex items-center gap-2 rounded-md px-2 py-1 hover:bg-surface-hover">
-            <Icon icon={mark} size={14} className={`shrink-0 ${tone}`} />
+            <Icon icon={icon} size={14} className={`shrink-0 ${tone}`} />
             <span className="min-w-0 truncate text-sm text-text">{check.name}</span>
             {(check.workflow !== undefined || check.event !== undefined) && (
                 <span className="shrink-0 text-xs text-text-faint">{[check.workflow, check.event].filter(Boolean).join(' · ')}</span>
@@ -460,8 +462,7 @@ function PullRequestThreads({ pr, showBots, showResolved, onBots, onResolved }: 
 
 function ThreadCard({ pr, thread }: { pr: PullRequest; thread: GitPrThread }) {
     const { t } = useTranslation('panels');
-    const sections = useChooserSections([]);
-    const chats = [...sections.here, ...sections.others];
+    const chats = useProjectChats();
     return (
         <li className="rounded-lg border border-border p-3">
             <div className="flex items-center gap-2 text-xs text-text-muted">
@@ -479,12 +480,7 @@ function ThreadCard({ pr, thread }: { pr: PullRequest; thread: GitPrThread }) {
                         <Menu.Trigger render={<Button size="xs" disabled={chats.length === 0} />}>{t('git.pr.copyToChat')}</Menu.Trigger>
                     </Tooltip>
                     <Menu.Popup align="end">
-                        {chats.map((chat) => (
-                            <Menu.Item key={chat.id} onClick={() => sendToChat(chat.id, threadBlock(pr, thread))}>
-                                {chat.provider !== null && <AgentIcon kind={chat.provider} />}
-                                <span className="min-w-0 truncate">{chat.title}</span>
-                            </Menu.Item>
-                        ))}
+                        <ChatMenuItems chats={chats} onPick={(chatId) => sendToChat(chatId, threadBlock(pr, thread))} />
                     </Menu.Popup>
                 </Menu.Root>
             </div>

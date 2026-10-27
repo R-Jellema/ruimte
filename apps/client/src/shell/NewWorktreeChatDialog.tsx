@@ -19,14 +19,7 @@ export function NewWorktreeChatDialog() {
     const open = useUi((s) => s.newWorktreeChatOpen);
     const close = (): void => useUi.getState().setNewWorktreeChatOpen(false);
     return (
-        <Dialog.Root
-            open={open}
-            onOpenChange={(next) => {
-                if (!next) {
-                    close();
-                }
-            }}
-        >
+        <Dialog.Root open={open} onOpenChange={(next) => !next && close()}>
             <Dialog.Popup size="sm">
                 <Dialog.Title className="flex items-center gap-2">
                     <Icon icon={GitBranch} size={16} /> {t('newWorktreeChat.title')}

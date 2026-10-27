@@ -51,14 +51,7 @@ export function RemoteNodeDialog() {
     const request = useUi((s) => s.remoteNodeDialog);
     const close = (): void => useUi.getState().setRemoteNodeDialog(null);
     return (
-        <Dialog.Root
-            open={request !== null}
-            onOpenChange={(open) => {
-                if (!open) {
-                    close();
-                }
-            }}
-        >
+        <Dialog.Root open={request !== null} onOpenChange={(open) => !open && close()}>
             <Dialog.Popup size="sm">
                 {request !== null && <RemoteNodeBody key={`${request.machineId}:${request.viewId}:${request.relink}`} request={request} onDone={close} />}
             </Dialog.Popup>

@@ -127,14 +127,7 @@ export function AgentIntegrationsDialog() {
     };
 
     return (
-        <Dialog.Root
-            open={open}
-            onOpenChange={(next) => {
-                if (!next) {
-                    close();
-                }
-            }}
-        >
+        <Dialog.Root open={open} onOpenChange={(next) => !next && close()}>
             <Dialog.Popup className="flex w-[560px] flex-col p-5">
                 <Dialog.Title>{t('settings:agents.integrations.dialog.title')}</Dialog.Title>
                 <Dialog.Description className="mt-1">{t('settings:agents.integrations.dialog.description')}</Dialog.Description>
