@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { existsSync } from 'node:fs';
-import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { LanguageRequestResult } from '@ruimte/contracts';
@@ -9,6 +9,7 @@ import { MachineHome } from '../fs/machine-home.ts';
 import type { SessionEvent } from '../sessions/manager.ts';
 import { LanguageHost } from './host.ts';
 import { cargoCommand, NativePolicy, phpLanguageServerCheckout, type Download } from './native.ts';
+import { sweepPhpCache } from './php-cache.ts';
 import { spawnLanguageProcess } from './runtime.ts';
 import { tarGz } from './test-archives.ts';
 import { eventually, positionOf } from './test-integration.ts';
@@ -189,4 +190,76 @@ describe.skipIf(!hasCargo || checkout === null)('the standalone PHP server in Ru
         );
         expect(problems.some((item) => item.severity === 1 && item.range.start.line >= end.line)).toBe(true);
     }, 180_000);
+
+    describe('the index caches', () => {
+        const cacheFolder = (): string => join(host.phpCache().storage, 'cache');
+
+        const cacheNames = async (): Promise<string[]> => (await readdir(cacheFolder()).catch(() => [])).filter((name) => !name.includes('.tmp'));
+
+        /* Opens main.php on a stopped project and times the first answer that needs the index. */
+        async function firstHover(): Promise<number> {
+            const text = FILES['main.php']!;
+            const started = performance.now();
+            await host.open('c1', { projectId: 'p1', path: 'main.php', languageId: 'php', text });
+            const hover = await eventually(
+                'a hover on a class of the project',
+                () => ask('main.php', 'textDocument/hover', { position: positionOf(text, 'Greeter()', 2) }),
+                (reply) => reply.result !== null,
+                120_000
+            );
+            expect(JSON.stringify(hover.result)).toContain('Greeter');
+
+            return performance.now() - started;
+        }
+
+        test('the server writes an owner manifest for the project beside its cache', async () => {
+            await host.end('p1');
+            await firstHover();
+            await eventually('the manifest', async () => (await cacheNames()).some((name) => /^owner-.+\.json$/.test(name)));
+            const manifest = (await cacheNames()).find((name) => /^owner-(?!stubs-).+\.json$/.test(name))!;
+            const owner = JSON.parse(await readFile(join(cacheFolder(), manifest), 'utf8')) as { format: number; kind: string; path: string; folder: string };
+
+            expect(owner).toMatchObject({ format: 1, kind: 'project', path: project, folder: project });
+        }, 180_000);
+
+        test('a pass over budget while the project is closed empties the cache, and reopening rebuilds correct answers', async () => {
+            await host.end('p1');
+            const warm = await firstHover();
+            await host.end('p1');
+            const before = await cacheNames();
+            await writeFile(join(project, 'src/Late.php'), '<?php\n\nnamespace Acme;\n\nfinal class Late\n{\n}\n');
+            await writeFile(
+                join(project, 'composer.json'),
+                JSON.stringify({ name: 'acme/app', require: { php: '^8.2' }, autoload: { 'psr-4': { 'Acme\\': 'src/' } } })
+            );
+
+            const reclaimed = await sweepPhpCache(
+                {
+                    cache: () => host.phpCache(),
+                    sightingsFile: join(base, 'home', 'language-servers', 'php-native', 'cache-sightings.json'),
+                    knownFolders: () => [project],
+                    probe: async () => 'present',
+                    budget: 0
+                },
+                performance.now(),
+                new AbortController().signal
+            );
+            const cold = await firstHover();
+            const lateText = '<?php\n\nnamespace Acme;\n\n$late = new Late();\n';
+            await host.open('c1', { projectId: 'p1', path: 'late.php', languageId: 'php', text: lateText });
+            const late = await eventually(
+                'a hover on the class added while the cache was gone',
+                () => ask('late.php', 'textDocument/hover', { position: positionOf(lateText, 'Late()', 2) }),
+                (reply) => reply.result !== null
+            );
+            const kept = await cacheNames();
+
+            console.log(
+                `PHP index cache: warm ${Math.round(warm)} ms, cold ${Math.round(cold)} ms, reclaimed ${reclaimed.bytes} bytes in ${reclaimed.files} files, ${before.length} names before, ${kept.length} after the rebuild`
+            );
+
+            expect(reclaimed.files).toBeGreaterThan(0);
+            expect(JSON.stringify(late.result)).toContain('Late');
+        }, 300_000);
+    });
 });

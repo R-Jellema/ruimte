@@ -1,29 +1,35 @@
 {
-  "version": "0.6.2",
+  "version": "0.8.0",
   "stubsCommit": "e4f5f6c3de39f3bab3e9f3fca4b8cdb8b061e681",
-  "sourceRevision": "9a4c5161e44334d0dc48ca7f11f51d6a45d7981a",
+  "sourceRevision": "ba5f627f0207472b44d999808802587d43a3a0ef",
   "assets": {
     "darwin-arm64": {
-      "url": "https://github.com/basmilius/language-server-php/releases/download/v0.6.2/php-language-server-v0.6.2-darwin-arm64.tar.gz",
-      "sha256": "4f0452306ea8e895698af14bbdab1374e61cfed38036183e32d0a65ee1d99675",
+      "url": "https://github.com/basmilius/language-server-php/releases/download/v0.8.0/php-language-server-v0.8.0-darwin-arm64.tar.gz",
+      "sha256": "1bef5876f3a40db049fa2810cdc8af6f8829a0654ba39b18ab43619db686696c",
       "format": "tar.gz",
       "executable": "php-language-server"
     },
     "linux-arm64": {
-      "url": "https://github.com/basmilius/language-server-php/releases/download/v0.6.2/php-language-server-v0.6.2-linux-arm64.tar.gz",
-      "sha256": "1355fd367934220d155228bb3ba690c5ecb153588f2d419b3794d4dc5a012665",
+      "url": "https://github.com/basmilius/language-server-php/releases/download/v0.8.0/php-language-server-v0.8.0-linux-arm64.tar.gz",
+      "sha256": "3907a219f22daff06d3d18e4ae106bb6f4c5f2ec2ae5ab844618d18a81415b3a",
       "format": "tar.gz",
       "executable": "php-language-server"
     },
     "linux-x64": {
-      "url": "https://github.com/basmilius/language-server-php/releases/download/v0.6.2/php-language-server-v0.6.2-linux-x64.tar.gz",
-      "sha256": "9893272501c5d814c7964c3bb70e7a70048e200758adc65b629082938a8d42b6",
+      "url": "https://github.com/basmilius/language-server-php/releases/download/v0.8.0/php-language-server-v0.8.0-linux-x64.tar.gz",
+      "sha256": "b665cf2ab374e0a806e8efaa01a5e5d9a541ca0e4ee820e81f176cf821cbcde7",
       "format": "tar.gz",
       "executable": "php-language-server"
     },
     "win32-x64": {
-      "url": "https://github.com/basmilius/language-server-php/releases/download/v0.6.2/php-language-server-v0.6.2-win32-x64.zip",
-      "sha256": "3942a9c71bb348f463a101d345ee4878d8a83e648e61c9ac43872693cf61a3dd",
+      "url": "https://github.com/basmilius/language-server-php/releases/download/v0.8.0/php-language-server-v0.8.0-win32-x64.zip",
+      "sha256": "6503961ef061741d3fe762508ede3a5790b43e744b0ae3040fa53927162ce154",
+      "format": "zip",
+      "executable": "php-language-server.exe"
+    },
+    "win32-arm64": {
+      "url": "https://github.com/basmilius/language-server-php/releases/download/v0.8.0/php-language-server-v0.8.0-win32-arm64.zip",
+      "sha256": "3b37413870ca1c0af05f87aa11e1fabc583467abaa3f765771abf064be9322ee",
       "format": "zip",
       "executable": "php-language-server.exe"
     }
