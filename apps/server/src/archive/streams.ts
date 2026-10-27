@@ -1,4 +1,4 @@
-import { open, type FileHandle } from 'node:fs/promises';
+import { open } from 'node:fs/promises';
 import { Readable, type Transform } from 'node:stream';
 import { ArchiveError, type InflateMeter } from './limits.ts';
 
@@ -13,7 +13,7 @@ export interface RandomAccess {
 
 /* The file open for reads at offsets, closed once `work` is done with it, however it ends. */
 export async function withFile<T>(path: string, work: (file: RandomAccess) => Promise<T>): Promise<T> {
-    const handle: FileHandle = await open(path, 'r');
+    const handle = await open(path, 'r');
     try {
         const size = (await handle.stat()).size;
         return await work({
@@ -47,6 +47,14 @@ export async function* rangeChunks(file: RandomAccess, offset: number, length: n
         }
         meter?.take(chunk.length);
         at += chunk.length;
+        yield chunk;
+    }
+}
+
+/* Bytes that need no inflating, counted into the meter as output all the same. */
+export async function* counted(source: AsyncIterable<Uint8Array>, meter: InflateMeter): AsyncGenerator<Uint8Array> {
+    for await (const chunk of source) {
+        meter.give(chunk.length);
         yield chunk;
     }
 }

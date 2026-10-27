@@ -1,7 +1,7 @@
 import { createReadStream } from 'node:fs';
 import { createGunzip } from 'node:zlib';
 import type { InflateMeter } from './limits.ts';
-import { inflated } from './streams.ts';
+import { counted, inflated } from './streams.ts';
 
 /* Format: RFC 1952, section 2.3. */
 
@@ -58,9 +58,6 @@ export function gunzipChunks(path: string, meter: InflateMeter): AsyncGenerator<
 }
 
 /* The file as it is, for a tar that is not compressed; the meter only counts. */
-export async function* plainChunks(path: string, meter: InflateMeter): AsyncGenerator<Uint8Array> {
-    for await (const chunk of fileBytes(path, meter)) {
-        meter.give(chunk.length);
-        yield chunk;
-    }
+export function plainChunks(path: string, meter: InflateMeter): AsyncGenerator<Uint8Array> {
+    return counted(fileBytes(path, meter), meter);
 }

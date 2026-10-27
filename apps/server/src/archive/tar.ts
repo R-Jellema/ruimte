@@ -25,9 +25,12 @@ export interface TarHeader {
     readable: boolean;
 }
 
+const UTF8 = new TextDecoder('utf-8');
+const LATIN1 = new TextDecoder('latin1');
+
 function text(bytes: Uint8Array): string {
     const end = bytes.indexOf(0);
-    return new TextDecoder('utf-8').decode(end < 0 ? bytes : bytes.subarray(0, end));
+    return UTF8.decode(end < 0 ? bytes : bytes.subarray(0, end));
 }
 
 /* An octal field, or a base-256 one when its high bit is set, which is how GNU writes what octal cannot hold. */
@@ -42,8 +45,7 @@ function numeric(bytes: Uint8Array): number {
         }
         return value;
     }
-    const digits = new TextDecoder('latin1')
-        .decode(bytes)
+    const digits = LATIN1.decode(bytes)
         .replace(/[\0 ]+$/, '')
         .trim();
     if (digits === '') {
@@ -88,11 +90,11 @@ function paxRecords(bytes: Uint8Array): Map<string, string> {
         if (space < 0) {
             break;
         }
-        const length = Number.parseInt(new TextDecoder('latin1').decode(bytes.subarray(at, space)), 10);
+        const length = Number.parseInt(LATIN1.decode(bytes.subarray(at, space)), 10);
         if (!Number.isInteger(length) || length <= space - at || at + length > bytes.length) {
             throw new ArchiveError('corrupt', 'A pax header of this tar does not hold together');
         }
-        const record = new TextDecoder('utf-8').decode(bytes.subarray(space + 1, at + length - 1));
+        const record = UTF8.decode(bytes.subarray(space + 1, at + length - 1));
         const equals = record.indexOf('=');
         if (equals > 0) {
             records.set(record.slice(0, equals), record.slice(equals + 1));
@@ -153,7 +155,7 @@ export async function* tarEntries(reader: ChunkReader): AsyncGenerator<TarEntry>
             continue;
         }
         // POSIX keeps a prefix in the bytes GNU spends on access and change times.
-        const posix = new TextDecoder('latin1').decode(block.subarray(257, 263)) === 'ustar\0';
+        const posix = LATIN1.decode(block.subarray(257, 263)) === 'ustar\0';
         const prefix = posix ? text(block.subarray(345, 500)) : '';
         const shortName = text(block.subarray(0, 100));
         const name = pax.get('path') ?? longName ?? (prefix === '' ? shortName : `${prefix}/${shortName}`);
@@ -167,7 +169,7 @@ export async function* tarEntries(reader: ChunkReader): AsyncGenerator<TarEntry>
         const paxTime = pax.get('mtime');
         const seconds = paxTime === undefined ? numeric(block.subarray(136, 148)) : Number.parseFloat(paxTime);
         const kind = kindOf(type, name);
-        // Only a file carries bytes; the size of a link, a folder or a device is a number and no data.
+        // Only a file carries bytes; the size of a link, a folder or a device is no data.
         const carried = kind === 'file' ? size : 0;
         longName = null;
         pax = new Map();
@@ -176,7 +178,7 @@ export async function* tarEntries(reader: ChunkReader): AsyncGenerator<TarEntry>
             header: {
                 name,
                 kind,
-                size: kind === 'file' ? size : 0,
+                size: carried,
                 mtime: Number.isFinite(seconds) && seconds > 0 ? Math.round(seconds * 1000) : null,
                 mode: numeric(block.subarray(100, 108)),
                 readable: type !== 'S'

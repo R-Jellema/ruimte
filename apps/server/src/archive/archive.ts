@@ -5,7 +5,7 @@ import { looksLikeSvg, sniffMime } from '../fs/sniff.ts';
 import { namesTop, safeEntryPath } from './entry-path.ts';
 import { gunzipChunks, parseGzipHeader, plainChunks } from './gzip.ts';
 import { ARCHIVE_SCAN_MAX_BYTES, ARCHIVE_SCAN_MAX_ENTRIES, ArchiveError, InflateMeter } from './limits.ts';
-import { ChunkReader, collect, withFile } from './streams.ts';
+import { ChunkReader, collect, withFile, type RandomAccess } from './streams.ts';
 import { isTarHeader, tarEntries, type TarKind } from './tar.ts';
 import { readZipDirectory, zipEntryChunks, zipReadable } from './zip.ts';
 
@@ -48,13 +48,11 @@ export async function openArchive(path: string): Promise<ArchiveFile> {
     throw new ArchiveError('not-an-archive', `${basename(file.path)} is not a zip, a tar or a gzip`);
 }
 
-type WalkedKind = TarKind;
-
 export interface WalkedEntry {
     /* Null when the name could land outside the folder it is extracted into. */
     path: string | null;
     raw: string;
-    kind: WalkedKind;
+    kind: TarKind;
     readable: boolean;
     size: number;
     compressedSize?: number;
@@ -73,6 +71,14 @@ interface WalkLimits {
 /* A visit answers true when it has what it came for, which ends the walk. */
 type Visit = (entry: WalkedEntry) => Promise<boolean | void>;
 
+function meterOf(limits: WalkLimits): InflateMeter {
+    return new InflateMeter(limits.maxBytes, limits.tooLarge);
+}
+
+function tooManyEntries(): ArchiveError {
+    return new ArchiveError('too-many-entries', `This archive holds more than ${ARCHIVE_SCAN_MAX_ENTRIES} entries`);
+}
+
 function gzipName(archivePath: string, recorded: string | null): string {
     // The header may keep a whole path; only the file's own name is of use here.
     const name = recorded === null ? null : safeEntryPath(recorded.split(/[/\\]/).pop() ?? '');
@@ -85,12 +91,12 @@ function gzipName(archivePath: string, recorded: string | null): string {
 
 async function walkZip(archive: ArchiveFile, limits: WalkLimits, visit: Visit): Promise<void> {
     await withFile(archive.path, async (file) => {
-        const { entries, truncated } = await readZipDirectory(file, ARCHIVE_SCAN_MAX_ENTRIES);
+        const { entries, truncated } = await readZipDirectory(file);
         for (const entry of entries) {
             if (namesTop(entry.name)) {
                 continue;
             }
-            const kind: WalkedKind = entry.symlink ? 'symlink' : entry.directory ? 'directory' : 'file';
+            const kind: TarKind = entry.symlink ? 'symlink' : entry.directory ? 'directory' : 'file';
             const stop = await visit({
                 path: safeEntryPath(entry.name),
                 raw: entry.name,
@@ -100,26 +106,26 @@ async function walkZip(archive: ArchiveFile, limits: WalkLimits, visit: Visit): 
                 compressedSize: entry.compressedSize,
                 mtime: entry.mtime,
                 mode: entry.mode,
-                chunks: () => zipEntryChunks(file, entry, new InflateMeter(limits.maxBytes, limits.tooLarge))
+                chunks: () => zipEntryChunks(file, entry, meterOf(limits))
             });
             if (stop === true) {
                 return;
             }
         }
         if (truncated) {
-            throw new ArchiveError('too-many-entries', `This archive holds more than ${ARCHIVE_SCAN_MAX_ENTRIES} entries`);
+            throw tooManyEntries();
         }
     });
 }
 
 async function walkTar(archive: ArchiveFile, limits: WalkLimits, visit: Visit): Promise<void> {
-    const meter = new InflateMeter(limits.maxBytes, limits.tooLarge);
+    const meter = meterOf(limits);
     const reader = new ChunkReader(archive.format === 'tar' ? plainChunks(archive.path, meter) : gunzipChunks(archive.path, meter));
     try {
         let count = 0;
         for await (const { header, body } of tarEntries(reader)) {
             if (++count > ARCHIVE_SCAN_MAX_ENTRIES) {
-                throw new ArchiveError('too-many-entries', `This archive holds more than ${ARCHIVE_SCAN_MAX_ENTRIES} entries`);
+                throw tooManyEntries();
             }
             if (namesTop(header.name)) {
                 continue;
@@ -144,7 +150,7 @@ async function walkTar(archive: ArchiveFile, limits: WalkLimits, visit: Visit): 
 }
 
 /* The size the trailer of the last member claims, modulo 4 GiB as the format keeps it; shown, never trusted. */
-async function gzipTrailerSize(file: { read(offset: number, length: number): Promise<Uint8Array>; size: number }): Promise<number> {
+async function gzipTrailerSize(file: RandomAccess): Promise<number> {
     if (file.size < 18) {
         throw new ArchiveError('corrupt', 'This gzip is shorter than its own header and trailer');
     }
@@ -170,7 +176,7 @@ async function walkGzip(archive: ArchiveFile, limits: WalkLimits, visit: Visit):
         compressedSize: archive.size,
         mtime: header.mtime,
         mode: null,
-        chunks: () => gunzipChunks(archive.path, new InflateMeter(limits.maxBytes, limits.tooLarge))
+        chunks: () => gunzipChunks(archive.path, meterOf(limits))
     });
 }
 
@@ -241,9 +247,11 @@ interface ArchiveEntryBytes {
     version: string;
 }
 
+const STRICT_UTF8 = new TextDecoder('utf-8', { fatal: true });
+
 function isUtf8(bytes: Uint8Array): boolean {
     try {
-        new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+        STRICT_UTF8.decode(bytes);
         return true;
     } catch {
         return false;

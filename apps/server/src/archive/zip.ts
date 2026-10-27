@@ -1,6 +1,6 @@
 import { createInflateRaw, crc32 } from 'node:zlib';
 import { ARCHIVE_SCAN_MAX_ENTRIES, ArchiveError, type InflateMeter } from './limits.ts';
-import { inflated, rangeChunks, type RandomAccess } from './streams.ts';
+import { counted, inflated, rangeChunks, type RandomAccess } from './streams.ts';
 
 /*
  * A zip read from its central directory, the way the format means it to be read: the end record says
@@ -28,7 +28,7 @@ const UNICODE_PATH_EXTRA = 0x7075;
 const FLAG_ENCRYPTED = 0x0001;
 const FLAG_UTF8 = 0x0800;
 
-export const STORED = 0;
+const STORED = 0;
 const DEFLATED = 8;
 
 // The hosts in "version made by" whose external attributes carry a Unix mode: Unix and OS X.
@@ -70,15 +70,19 @@ function uint64(data: DataView, offset: number): number {
     return Number(value);
 }
 
+const UTF8 = new TextDecoder('utf-8');
+const STRICT_UTF8 = new TextDecoder('utf-8', { fatal: true });
+const LATIN1 = new TextDecoder('latin1');
+
 function decodeName(bytes: Uint8Array, utf8: boolean): string {
     if (utf8) {
-        return new TextDecoder('utf-8').decode(bytes);
+        return UTF8.decode(bytes);
     }
     // Without the flag the name is meant as code page 437, though most tools write UTF-8 anyway; Latin-1 keeps the rest legible.
     try {
-        return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+        return STRICT_UTF8.decode(bytes);
     } catch {
-        return new TextDecoder('latin1').decode(bytes);
+        return LATIN1.decode(bytes);
     }
 }
 
@@ -174,7 +178,7 @@ function readExtra(bytes: Uint8Array): Extra {
         } else if (id === TIMESTAMP_EXTRA && body.length >= 5 && (body[0]! & 1) === 1) {
             extra.mtime = view(body).getInt32(1, true) * 1000;
         } else if (id === UNICODE_PATH_EXTRA && body.length > 5 && body[0] === 1) {
-            extra.unicodeName = new TextDecoder('utf-8').decode(body.subarray(5));
+            extra.unicodeName = UTF8.decode(body.subarray(5));
         }
         at += 4 + size;
     }
@@ -267,13 +271,6 @@ async function dataOffset(file: RandomAccess, entry: ZipEntry): Promise<number> 
         throw new ArchiveError('corrupt', `The data of ${entry.name} runs past the end of the file`);
     }
     return start;
-}
-
-async function* counted(source: AsyncIterable<Uint8Array>, meter: InflateMeter): AsyncGenerator<Uint8Array> {
-    for await (const chunk of source) {
-        meter.give(chunk.length);
-        yield chunk;
-    }
 }
 
 /*
