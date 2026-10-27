@@ -2,11 +2,12 @@ import phpRelease from './php-native-release.json' with { type: 'json' };
 import sqlRelease from './sql-native-release.json' with { type: 'json' };
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { access, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
-import { homedir, tmpdir } from 'node:os';
+import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import type { LanguageServerKind } from '@ruimte/contracts';
 import { sha256 } from '../artifacts/artifact-fs.ts';
 import { extractEntries, readArchive, type ArchiveFormat } from './archive.ts';
+import { cargoBin } from './toolchain.ts';
 
 /* A kind whose server is a program of its own, downloaded or built once, and not an npm package. */
 export type NativeKind = 'php-native' | 'sql-native';
@@ -370,5 +371,5 @@ export async function fetchStubs(directory: string, commit: string, get: Downloa
 
 /* The `cargo` a checkout builds with: the one on the PATH, else rustup's own folder, which a daemon started by the desktop app or a service may not have on its PATH. */
 export function cargoCommand(): string {
-    return Bun.which('cargo', { PATH: process.env.PATH ?? '' }) ?? join(homedir(), '.cargo', 'bin', 'cargo');
+    return Bun.which('cargo', { PATH: process.env.PATH ?? '' }) ?? join(cargoBin(), 'cargo');
 }

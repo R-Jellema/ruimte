@@ -1,6 +1,5 @@
 import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
-import { delimiter, dirname, join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { LanguageServerKindSchema, type LanguageServerKind } from '@ruimte/contracts';
 import { fileExists } from '@adecore/agents';
 import { sha256 } from '../artifacts/artifact-fs.ts';
@@ -329,13 +328,9 @@ export class LanguageInstaller {
         this.options.onSwitched?.(kind);
     }
 
-    private planOf(kind: NativeKind, directory: string): NativePlan | null {
-        return this.native.plan(kind, directory);
-    }
-
     /* What an install of the kind brings now, into its own folder. */
     private pinnedPlanOf(kind: NativeKind): NativePlan | null {
-        return this.planOf(kind, this.directoryOf(kind));
+        return this.native.plan(kind, this.directoryOf(kind));
     }
 
     private get downloader(): Download {
@@ -418,7 +413,7 @@ export class LanguageInstaller {
         if (install.marker.executable !== undefined) {
             return install.marker.executable;
         }
-        const plan = this.planOf(kind, install.directory);
+        const plan = this.native.plan(kind, install.directory);
         if (install.marker.source === 'dev') {
             return plan?.source === 'dev' ? plan.executable : null;
         }
@@ -580,7 +575,7 @@ export class LanguageInstaller {
     }
 
     private async performNative(kind: NativeKind, target: string, log: LanguageLog): Promise<void> {
-        const plan = this.planOf(kind, target);
+        const plan = this.native.plan(kind, target);
         if (plan === null) {
             throw new Error(NO_RELEASE);
         }
@@ -597,7 +592,9 @@ export class LanguageInstaller {
         if (!(await fileExists(plan.executable))) {
             throw new Error(`The install did not leave ${plan.executable}`);
         }
-        await this.verifyNative(plan, push);
+        if (!(await this.reportsVersion(plan.executable, dirname(plan.executable), plan.version, push))) {
+            throw new Error(`The server did not report version ${plan.version}`);
+        }
         if (plan.stubsCommit !== undefined) {
             await fetchStubs(this.directoryOf(kind), plan.stubsCommit, this.downloader, push);
         }
@@ -665,7 +662,7 @@ export class LanguageInstaller {
     }
 
     private async build(kind: NativeKind, plan: NativePlan, push: (line: string) => void): Promise<void> {
-        const env = { PATH: `${process.env.PATH ?? ''}${delimiter}${join(homedir(), '.cargo', 'bin')}` };
+        const env = { PATH: toolchainPath() };
         let code: number;
         try {
             code = await this.run({ command: cargoCommand(), args: ['build', '--release', '--locked'], cwd: plan.checkout!, env }, push);
@@ -674,12 +671,6 @@ export class LanguageInstaller {
         }
         if (code !== 0) {
             throw new Error(`cargo build exited with code ${code}`);
-        }
-    }
-
-    private async verifyNative(plan: NativePlan, push: (line: string) => void): Promise<void> {
-        if (!(await this.reportsVersion(plan.executable, dirname(plan.executable), plan.version, push))) {
-            throw new Error(`The server did not report version ${plan.version}`);
         }
     }
 }

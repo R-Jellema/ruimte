@@ -37,7 +37,7 @@ export function toolchainMissingOf(kind: ToolchainKind): string {
 }
 
 /* rustup's own folder, which a daemon started by the desktop app or a service may not have on its PATH. */
-function cargoBin(): string {
+export function cargoBin(): string {
     return join(homedir(), '.cargo', 'bin');
 }
 
