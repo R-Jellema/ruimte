@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { FS_LIST_MAX_ENTRIES } from '../../packages/contracts/src/fs';
+import { assertMedianWithin } from './budget';
 
 const control = process.env.BENCH_LIST_SOURCE;
 if (control) {
@@ -52,10 +53,7 @@ try {
         }
     }
     console.log(JSON.stringify({ benchmark: 'file-list', files, runs, repository, control: Boolean(control), samples }, null, 2));
-    const median = samples.toSorted((left, right) => left - right)[Math.floor(runs / 2)]!;
-    if (median > Number(process.env.BENCH_MAX_LIST_MS ?? Infinity)) {
-        throw new Error('File listing exceeded its timing budget');
-    }
+    assertMedianWithin(samples, 'BENCH_MAX_LIST_MS', 'File listing exceeded its timing budget');
 } finally {
     await rm(root, { recursive: true, force: true });
 }

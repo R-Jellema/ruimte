@@ -91,10 +91,7 @@ function chatMoveRefusalDeps(wiring: ChatMoveWiring): MoveRefusalDeps {
 
 /* The info of a chat, loaded from disk when nobody has it. */
 async function loadedInfo(chats: ChatManager, chatId: string): Promise<ChatInfo> {
-    if (chats.get(chatId) === undefined) {
-        if (!(await chats.hasStored(chatId))) {
-            throw new ChatError('chat-not-found', `No chat ${chatId}`);
-        }
+    if (chats.get(chatId) === undefined && (await chats.hasStored(chatId))) {
         await chats.create({ chatId });
     }
     const session = chats.get(chatId);
@@ -102,6 +99,16 @@ async function loadedInfo(chats: ChatManager, chatId: string): Promise<ChatInfo>
         throw new ChatError('chat-not-found', `No chat ${chatId}`);
     }
     return session.info;
+}
+
+/* The chat steps a move and its repair share. */
+function sharedChatSteps(chats: ChatManager) {
+    return {
+        load: (chatId: string) => loadedInfo(chats, chatId),
+        relocate: (chatId: string, cwd: string, during: () => Promise<void>) => chats.relocate(chatId, cwd, during),
+        deliverNote: (chatId: string, delivery: { noteId: string; note: string; preamble: string }) => chats.deliverNote(chatId, delivery),
+        claudeProjectsDirOf: (info: Pick<ChatInfo, 'account'>) => chats.claudeProjectsDirOf(info)
+    };
 }
 
 /* Finishes the chat moves the machine stopped in the middle of; once at start, before the outbox runs. */
@@ -115,12 +122,7 @@ export function repairChatMoves(wiring: ChatMoveWiring & { journal: MoveJournal 
         lineage: wiring.lineage,
         ...(wiring.snoozes ? { snoozes: wiring.snoozes } : {}),
         ownFolder: (chatId) => ownFolderOf(store.scratchFolder, chatId),
-        chats: {
-            load: (chatId) => loadedInfo(chats, chatId),
-            deliverNote: (chatId, delivery) => chats.deliverNote(chatId, delivery),
-            relocate: (chatId, cwd, during) => chats.relocate(chatId, cwd, during),
-            claudeProjectsDirOf: (info) => chats.claudeProjectsDirOf(info)
-        }
+        chats: sharedChatSteps(chats)
     };
     return repairInterruptedMoves(deps);
 }
@@ -155,7 +157,7 @@ export function chatMoveDeps(wiring: ChatMoveWiring): { info: MoveInfoDeps; move
         },
         ownFolder: (chatId) => ownFolderOf(store.scratchFolder, chatId),
         chatsInChats: async () => {
-            const scratch = (await registry()).find((project) => project.folder === store.scratchFolder);
+            const scratch = (await store.known()).find((project) => project.folder === store.scratchFolder);
             return (store.index.viewsOf(scratch?.projectId ?? '') ?? [])
                 .filter((view) => view.kind === 'chat' && refusalDeps.inChats(view.id))
                 .map((view) => view.id);
@@ -195,7 +197,7 @@ export function chatMoveDeps(wiring: ChatMoveWiring): { info: MoveInfoDeps; move
             await gitOrThrow(['init'], folder);
         },
         chats: {
-            load: (chatId) => loadedInfo(chats, chatId),
+            ...sharedChatSteps(chats),
             claim: (chatId) => {
                 // The card holds the chat, and a held chat does not relocate: the move it asks for lets go of the hold and puts it back if the move fails.
                 const putBack = wiring.proposals?.pauseHold(chatId) ?? (() => undefined);
@@ -204,10 +206,7 @@ export function chatMoveDeps(wiring: ChatMoveWiring): { info: MoveInfoDeps; move
                     return null;
                 }
                 return putBack;
-            },
-            relocate: (chatId, cwd, during) => chats.relocate(chatId, cwd, during),
-            deliverNote: (chatId, delivery) => chats.deliverNote(chatId, delivery),
-            claudeProjectsDirOf: (info) => chats.claudeProjectsDirOf(info)
+            }
         },
         lineage: wiring.lineage,
         moved: (chatId) => wiring.proposals?.moved(chatId),

@@ -62,6 +62,12 @@ async function boot(claudeCli: FakeCli = fakeClaude): Promise<Daemon> {
     return daemon;
 }
 
+async function bootStarted(claudeCli?: FakeCli): Promise<Daemon> {
+    const daemon = await boot(claudeCli);
+    daemon.worker.start();
+    return daemon;
+}
+
 /* The fake reads its scenario from the start of a message, where a chat child hears its task's brief, so the brief goes behind it. */
 function briefBehind(cli: FakeCli): FakeCli {
     return (io) => {
@@ -123,6 +129,10 @@ function wakeTurns(daemon: Daemon): ChatTurnItem[] {
     return turnsOf(daemon, 'chat-lead').filter((turn) => turn.taskIds !== undefined);
 }
 
+function untilWoken(daemon: Daemon): Promise<void> {
+    return daemon.until(() => wakeTurns(daemon).some((turn) => turn.state === 'done'));
+}
+
 function leadItems(daemon: Daemon): ChatItem[] {
     return daemon.chats.get('chat-lead')?.thread.list() ?? [];
 }
@@ -143,8 +153,7 @@ function settledTasks(daemon: Daemon, count: number) {
 
 describe('a task wakes the chat that gave it', () => {
     test('three children that settle while the lead works give it exactly one new turn with three results, without polling', async () => {
-        const daemon = await boot();
-        daemon.worker.start();
+        const daemon = await bootStarted();
         await leadWorking(daemon);
 
         const children = [
@@ -166,7 +175,7 @@ describe('a task wakes the chat that gave it', () => {
 
         // The lead ends its turn.
         daemon.chats.cancel('chat-lead');
-        await daemon.until(() => wakeTurns(daemon).some((turn) => turn.state === 'done'));
+        await untilWoken(daemon);
         await daemon.worker.settled();
 
         const [wake] = wakeTurns(daemon);
@@ -221,8 +230,7 @@ describe('a task wakes the chat that gave it', () => {
     });
 
     test('a terminal child hears its brief at the end of the prompt on its launch line', async () => {
-        const daemon = await boot();
-        daemon.worker.start();
+        const daemon = await bootStarted();
         await leadIdle(daemon);
         const child = await delegate(daemon, 'Lexer', 'fix the tokenizer', false);
         await daemon.until(() => daemon.adapter.spawned.some((pty) => pty.options.env.RUIMTE_SESSION_ID === child.childId && pty.input.length > 0));
@@ -233,18 +241,16 @@ describe('a task wakes the chat that gave it', () => {
     });
 
     test('a child that settles while the lead is idle wakes it at once', async () => {
-        const daemon = await boot();
-        daemon.worker.start();
+        const daemon = await bootStarted();
         await leadWorking(daemon);
         const child = await delegate(daemon, 'Lexer', 'fix the tokenizer');
         daemon.chats.cancel('chat-lead');
-        await daemon.until(() => wakeTurns(daemon).some((turn) => turn.state === 'done'));
+        await untilWoken(daemon);
         expect(wakeTurns(daemon).map((turn) => turn.taskIds)).toEqual([[child.taskId]]);
     });
 
     test('five children without a team that settle over three wakes give the lead every result exactly once', async () => {
-        const daemon = await boot();
-        daemon.worker.start();
+        const daemon = await bootStarted();
         await leadIdle(daemon);
         const one = await delegate(daemon, 'One', 'work on one', false);
         const two = await delegate(daemon, 'Two', 'work on two', false);
@@ -288,8 +294,7 @@ describe('a task wakes the chat that gave it', () => {
     });
 
     test('clearing a lead with a settled task discards its pending wake', async () => {
-        const daemon = await boot();
-        daemon.worker.start();
+        const daemon = await bootStarted();
         await leadWorking(daemon);
         const child = await delegate(daemon, 'Lexer', 'fix the tokenizer');
         await daemon.until(() => daemon.tasks.get(child.taskId)?.status === 'done');
@@ -302,8 +307,7 @@ describe('a task wakes the chat that gave it', () => {
     });
 
     test('Clear owes the end of running children before resetting and cancels their tasks without a wake', async () => {
-        const daemon = await boot();
-        daemon.worker.start();
+        const daemon = await bootStarted();
         await leadWorking(daemon);
         const child = await delegate(daemon, 'Lexer', 'slow');
         await daemon.until(() => Boolean(daemon.chats.get(child.childId)?.info.agentSessionId));
@@ -320,8 +324,7 @@ describe('a task wakes the chat that gave it', () => {
     });
 
     test('Clear of a tasked child cancels the assignment instead of leaving its parent waiting for a lost turn', async () => {
-        const daemon = await boot();
-        daemon.worker.start();
+        const daemon = await bootStarted();
         await leadWorking(daemon);
         const child = await delegate(daemon, 'Lexer', 'slow');
         await daemon.until(() => Boolean(daemon.chats.get(child.childId)?.info.agentSessionId));
@@ -333,8 +336,7 @@ describe('a task wakes the chat that gave it', () => {
     });
 
     test('a terminal child that exits without done fails its task, and the lead is woken with that', async () => {
-        const daemon = await boot();
-        daemon.worker.start();
+        const daemon = await bootStarted();
         await daemon.chats.create({ chatId: 'chat-lead', provider: 'claude', cwd: folder });
         const child = await delegate(daemon, 'Lexer', 'fix the tokenizer', false);
         await daemon.worker.settled();
@@ -343,7 +345,7 @@ describe('a task wakes the chat that gave it', () => {
         expect(pty.input[0]).toContain('ruimte-context done --result');
 
         pty.exit(0);
-        await daemon.until(() => wakeTurns(daemon).some((turn) => turn.state === 'done'));
+        await untilWoken(daemon);
         await daemon.worker.settled();
 
         expect(daemon.tasks.get(child.taskId)).toMatchObject({
@@ -357,15 +359,14 @@ describe('a task wakes the chat that gave it', () => {
     });
 
     test('a terminal child that calls done settles its task with that result, and its exit afterwards changes nothing', async () => {
-        const daemon = await boot();
-        daemon.worker.start();
+        const daemon = await bootStarted();
         await daemon.chats.create({ chatId: 'chat-lead', provider: 'claude', cwd: folder });
         const child = await delegate(daemon, 'Lexer', 'fix the tokenizer', false);
         await daemon.worker.settled();
 
         expect(await runVerb(daemon, child.childId, 'done', ['--result', 'Both bugs fixed'])).toEqual([`done\t${child.taskId}\tchat-lead`]);
         daemon.adapter.forSession(child.childId).exit(0);
-        await daemon.until(() => wakeTurns(daemon).some((turn) => turn.state === 'done'));
+        await untilWoken(daemon);
         expect(daemon.tasks.get(child.taskId)).toMatchObject({ status: 'done', result: { source: 'done', text: 'Both bugs fixed' } });
         expect(daemon.alerts).toEqual([]);
     });
@@ -378,8 +379,7 @@ describe('a task wakes the chat that gave it', () => {
     });
 
     test('a restart between a child settling and the lead waking still wakes the lead exactly once', async () => {
-        const first = await boot();
-        first.worker.start();
+        const first = await bootStarted();
         await leadWorking(first);
         const child = await delegate(first, 'Lexer', 'fix the tokenizer');
         await first.until(settledTasks(first, 1));
@@ -388,8 +388,7 @@ describe('a task wakes the chat that gave it', () => {
         running.splice(running.indexOf(first), 1);
         await first.stop();
 
-        const second = await boot();
-        second.worker.start();
+        const second = await bootStarted();
         // The lead's own turn is taken up again first; the wake waits for it and then goes out once.
         await second.chats.recoverInterrupted();
         await second.until(() => wakeTurns(second).some((turn) => turn.state === 'done'));
@@ -405,8 +404,7 @@ describe('a task wakes the chat that gave it', () => {
     test.each(['missing', 'exit'] as const)(
         'a child whose CLI stops at once on its resume after a restart (%s) ends its turn in an error, fails its task and wakes the lead once',
         async (how) => {
-            const first = await boot();
-            first.worker.start();
+            const first = await bootStarted();
             await leadIdle(first);
             // `slow` keeps the child's first turn open, so the restart catches it in the middle.
             const child = await delegate(first, 'Lexer', 'slow');
@@ -416,8 +414,7 @@ describe('a task wakes the chat that gave it', () => {
             running.splice(running.indexOf(first), 1);
             await first.stop();
 
-            const second = await boot(claudeStoppingOnResume(new Set([sessionId]), how));
-            second.worker.start();
+            const second = await bootStarted(claudeStoppingOnResume(new Set([sessionId]), how));
             await second.chats.recoverInterrupted();
             await second.until(() => wakeTurns(second).some((turn) => turn.state === 'done'));
             await second.worker.settled();
@@ -439,8 +436,7 @@ describe('a task wakes the chat that gave it', () => {
     );
 
     test('a child a person removes cancels its task, fails its row with a note and wakes nobody', async () => {
-        const daemon = await boot();
-        daemon.worker.start();
+        const daemon = await bootStarted();
         await daemon.chats.create({ chatId: 'chat-lead', provider: 'claude', cwd: folder });
         // A question keeps the child's first turn open, so the task is still open when the node goes.
         const child = await delegate(daemon, 'Lexer', 'ask: which color');
@@ -474,8 +470,7 @@ describe('a task wakes the chat that gave it', () => {
 
 describe('the tasks of one team call wake the lead together', () => {
     test('three roles that settle at different moments while the lead is idle give exactly one wake with three results', async () => {
-        const daemon = await boot();
-        daemon.worker.start();
+        const daemon = await bootStarted();
         await leadIdle(daemon);
         const roles = await delegateTeam(daemon, ['Lexer', 'Parser', 'Docs']);
         await daemon.worker.settled();
@@ -490,7 +485,7 @@ describe('the tasks of one team call wake the lead together', () => {
         expect(daemon.tasks.ofParent('chat-lead').map((task) => task.wake)).toEqual(['pending', 'pending', 'pending']);
 
         await report(daemon, roles[2]!, 'Docs written');
-        await daemon.until(() => wakeTurns(daemon).some((turn) => turn.state === 'done'));
+        await untilWoken(daemon);
         await daemon.worker.settled();
 
         expect(wakeTurns(daemon).map((turn) => turn.taskIds)).toEqual([roles.map((role) => role.taskId)]);
@@ -507,8 +502,7 @@ describe('the tasks of one team call wake the lead together', () => {
     });
 
     test('a role that fails and a role a person removes still complete the team', async () => {
-        const daemon = await boot();
-        daemon.worker.start();
+        const daemon = await bootStarted();
         await leadIdle(daemon);
         const [done, failed, removed] = await delegateTeam(daemon, ['Lexer', 'Parser', 'Docs']);
         await daemon.worker.settled();
@@ -535,7 +529,7 @@ describe('the tasks of one team call wake the lead together', () => {
             },
             result: null
         }));
-        await daemon.until(() => wakeTurns(daemon).some((turn) => turn.state === 'done'));
+        await untilWoken(daemon);
         await daemon.worker.settled();
 
         expect(daemon.tasks.get(removed!.taskId)).toMatchObject({ status: 'cancelled', wake: 'none' });
@@ -544,8 +538,7 @@ describe('the tasks of one team call wake the lead together', () => {
     });
 
     test('a single agent task wakes the lead on its own beside an open team, and the team comes later in one wake', async () => {
-        const daemon = await boot();
-        daemon.worker.start();
+        const daemon = await bootStarted();
         await leadIdle(daemon);
         const [first, second] = await delegateTeam(daemon, ['Lexer', 'Parser']);
         await daemon.worker.settled();
@@ -554,7 +547,7 @@ describe('the tasks of one team call wake the lead together', () => {
         const single = await delegate(daemon, 'Review', 'review the plan', false);
         await daemon.worker.settled();
         await report(daemon, single, 'Looks fine');
-        await daemon.until(() => wakeTurns(daemon).some((turn) => turn.state === 'done'));
+        await untilWoken(daemon);
         await daemon.worker.settled();
 
         expect(wakeTurns(daemon).map((turn) => turn.taskIds)).toEqual([[single.taskId]]);
@@ -574,8 +567,7 @@ describe('the tasks of one team call wake the lead together', () => {
     });
 
     test('a restart in the middle of a team keeps its results together', async () => {
-        const first = await boot();
-        first.worker.start();
+        const first = await bootStarted();
         await leadIdle(first);
         const roles = await delegateTeam(first, ['Lexer', 'Parser']);
         await first.worker.settled();
@@ -584,8 +576,7 @@ describe('the tasks of one team call wake the lead together', () => {
         running.splice(running.indexOf(first), 1);
         await first.stop();
 
-        const second = await boot();
-        second.worker.start();
+        const second = await bootStarted();
         await second.worker.settled();
         expect(second.tasks.get(roles[0]!.taskId)).toMatchObject({ status: 'done', wake: 'pending' });
         expect(wakeTurns(second)).toEqual([]);
@@ -602,13 +593,12 @@ describe('the tasks of one team call wake the lead together', () => {
 
 describe('waiting on owed work', () => {
     test('a wake the worker already ran and took off the outbox is still seen as owed', async () => {
-        const daemon = await boot();
-        daemon.worker.start();
+        const daemon = await bootStarted();
         await leadIdle(daemon);
         const single = await delegate(daemon, 'Review', 'review the plan', false);
         await daemon.worker.settled();
         expect(await runVerb(daemon, single.childId, 'done', ['--result', 'Looks fine'])).toEqual([`done\t${single.taskId}\tchat-lead`]);
-        await daemon.until(() => wakeTurns(daemon).some((turn) => turn.state === 'done'));
+        await untilWoken(daemon);
         await daemon.worker.settled();
 
         // The order a loaded machine can take: the wake ran and is gone before `report` looks for it.
@@ -619,8 +609,7 @@ describe('waiting on owed work', () => {
 
 describe('a child on a limit', () => {
     test('stops on the usage limit with its task open, paused until the reset, and wakes the lead once it finishes after it', async () => {
-        const daemon = await boot();
-        daemon.worker.start();
+        const daemon = await bootStarted();
         await leadIdle(daemon);
 
         const child = await delegate(daemon, 'Lexer', 'fix the tokenizer\nlimit:1789000000');
@@ -634,7 +623,7 @@ describe('a child on a limit', () => {
 
         // A person takes it up after the reset: the task goes on, and settles on that turn's answer.
         await daemon.chats.send(child.childId, 'go on');
-        await daemon.until(() => wakeTurns(daemon).some((turn) => turn.state === 'done'));
+        await untilWoken(daemon);
         const task = daemon.tasks.get(child.taskId);
         expect(task).toMatchObject({ status: 'done', result: { text: 'echo: go on' } });
         expect(task?.paused).toBeUndefined();
@@ -642,8 +631,7 @@ describe('a child on a limit', () => {
     });
 
     test('fails its task on an overload nobody tries again, as on any other error', async () => {
-        const daemon = await boot();
-        daemon.worker.start();
+        const daemon = await bootStarted();
         await leadIdle(daemon);
 
         const child = await delegate(daemon, 'Lexer', 'fix the tokenizer\noverloaded');
@@ -683,7 +671,7 @@ describe('resume at reset', () => {
         expect(turnsOf(daemon, child.childId)).toHaveLength(1);
 
         clock.advance(1);
-        await daemon.until(() => wakeTurns(daemon).some((turn) => turn.state === 'done'));
+        await untilWoken(daemon);
         const [limited, resumed] = turnsOf(daemon, child.childId);
         expect(limited).toMatchObject({ state: 'error', limit: { kind: 'usage' } });
         expect(resumed).toMatchObject({ state: 'done', origin: 'agent', label: 'Usage limit reset' });
@@ -835,8 +823,7 @@ describe('resume at reset', () => {
     });
 
     test('nothing is owed while the machine has it off, whatever the chat says', async () => {
-        const daemon = await boot();
-        daemon.worker.start();
+        const daemon = await bootStarted();
         await daemon.chats.create({ chatId: 'chat-lead', provider: 'claude', cwd: folder });
         daemon.chats.configure({ chatId: 'chat-lead', resumeAtReset: true });
         await daemon.chats.send('chat-lead', `limit:${RESET_AT / 1000}`);
@@ -865,8 +852,7 @@ describe('a child that waits on input', () => {
     };
 
     test('an approval that waits for a person leaves the lead one note, and only once the grace is over', async () => {
-        const daemon = await boot();
-        daemon.worker.start();
+        const daemon = await bootStarted();
         await leadIdle(daemon);
         const child = await delegate(daemon, 'Lexer', 'tool: date');
         await daemon.until(owesNote(daemon, child.childId));
@@ -885,15 +871,14 @@ describe('a child that waits on input', () => {
     });
 
     test('an approval allowed before the grace is over leaves no note, and the child finishing still wakes the lead once', async () => {
-        const daemon = await boot();
-        daemon.worker.start();
+        const daemon = await bootStarted();
         await leadIdle(daemon);
         const child = await delegate(daemon, 'Lexer', 'tool: date');
         await daemon.until(owesNote(daemon, child.childId));
 
         // Whatever settles it (the mode, a rule, a person at the child), the request no longer waits when the entry is due.
         daemon.chats.approve(child.childId, 'req-1', 'allow');
-        await daemon.until(() => wakeTurns(daemon).some((turn) => turn.state === 'done'));
+        await untilWoken(daemon);
         clock.advance(WAITING_GRACE_MS);
         await daemon.worker.settled();
 
@@ -905,8 +890,7 @@ describe('a child that waits on input', () => {
     });
 
     test('a question nobody answered within the grace leaves exactly one note', async () => {
-        const daemon = await boot();
-        daemon.worker.start();
+        const daemon = await bootStarted();
         await leadIdle(daemon);
         const child = await asking(daemon, 'ask: which color');
         clock.advance(WAITING_GRACE_MS);
@@ -917,8 +901,7 @@ describe('a child that waits on input', () => {
     });
 
     test('an approval leaves the lead one note that a restart does not bring back, and the child finishing wakes it once', async () => {
-        const first = await boot();
-        first.worker.start();
+        const first = await bootStarted();
         await leadIdle(first);
         const child = await asking(first, 'tool: date');
 
@@ -936,8 +919,7 @@ describe('a child that waits on input', () => {
         running.splice(running.indexOf(first), 1);
         await first.stop();
 
-        const second = await boot();
-        second.worker.start();
+        const second = await bootStarted();
         await second.chats.create({ chatId: 'chat-lead' });
         // The child's turn is taken up again, its approval gone with the process that asked it, and it finishes.
         await second.chats.recoverInterrupted();
@@ -951,8 +933,7 @@ describe('a child that waits on input', () => {
     });
 
     test('the lead answers its own child, the child goes on with that answer, and a person answering after it is refused', async () => {
-        const daemon = await boot();
-        daemon.worker.start();
+        const daemon = await bootStarted();
         await leadIdle(daemon);
         const child = await asking(daemon, 'ask: which color');
         const [note] = waitingNotes(daemon);
@@ -968,7 +949,7 @@ describe('a child that waits on input', () => {
         const person = await daemon.request('chat.answer', { chatId: child.childId, requestId: 'req-q', answers: { '0': 'Blue' } });
         expect(person).toMatchObject({ ok: false, error: { code: 'request-not-found' } });
 
-        await daemon.until(() => wakeTurns(daemon).some((turn) => turn.state === 'done'));
+        await untilWoken(daemon);
         await daemon.worker.settled();
         expect(daemon.tasks.get(child.taskId)).toMatchObject({ status: 'done', result: { text: 'you chose Red' } });
         expect(wakeTurns(daemon).map((turn) => turn.taskIds)).toEqual([[child.taskId]]);
@@ -976,8 +957,7 @@ describe('a child that waits on input', () => {
     });
 
     test('a person who answers first wins, and the lead answering after is refused', async () => {
-        const daemon = await boot();
-        daemon.worker.start();
+        const daemon = await bootStarted();
         await leadIdle(daemon);
         const child = await asking(daemon, 'ask: which color');
 
@@ -990,8 +970,7 @@ describe('a child that waits on input', () => {
     });
 
     test('an agent answers no question of a child it did not open, no approval, and no question that was answered', async () => {
-        const daemon = await boot();
-        daemon.worker.start();
+        const daemon = await bootStarted();
         await leadIdle(daemon);
         const asker = await asking(daemon, 'ask: which color');
 
@@ -1013,8 +992,7 @@ describe('a child that waits on input', () => {
     });
 
     test("a background agent's approval outlives the child's turn with one note and its task open, and a person allowing it lets the child finish", async () => {
-        const daemon = await boot();
-        daemon.worker.start();
+        const daemon = await bootStarted();
         await leadIdle(daemon);
         const child = await asking(daemon, 'background approval: ls');
         await daemon.until(() => turnsOf(daemon, child.childId).some((turn) => turn.state === 'done'));
@@ -1035,7 +1013,7 @@ describe('a child that waits on input', () => {
         expect(page.context?.chatId).toBe(child.childId);
 
         daemon.chats.approve(child.childId, 'req-bg', 'allow');
-        await daemon.until(() => wakeTurns(daemon).some((turn) => turn.state === 'done'));
+        await untilWoken(daemon);
         await daemon.worker.settled();
 
         expect(waitingNotes(daemon).map((item) => item.id)).toEqual([`waiting-${child.childId}-req-bg`]);
@@ -1064,8 +1042,7 @@ describe('a child with work running in the background', () => {
     };
 
     test('does not settle when its turn ends, and settles on the turn its CLI opens once the work is done, waking the lead once', async () => {
-        const daemon = await boot();
-        daemon.worker.start();
+        const daemon = await bootStarted();
         await leadIdle(daemon);
         const child = await launched(daemon);
 
@@ -1078,7 +1055,7 @@ describe('a child with work running in the background', () => {
         await daemon.worker.settled();
         expect(daemon.tasks.get(child.taskId)?.status).toBe('open');
         later(daemon);
-        await daemon.until(() => wakeTurns(daemon).some((turn) => turn.state === 'done'));
+        await untilWoken(daemon);
         await daemon.worker.settled();
 
         expect(backgroundRow(daemon, child.childId)?.status).toBe('done');
@@ -1092,13 +1069,12 @@ describe('a child with work running in the background', () => {
     });
 
     test('takes done while the work still runs, and its CLI reporting afterwards wakes nobody again', async () => {
-        const daemon = await boot();
-        daemon.worker.start();
+        const daemon = await bootStarted();
         await leadIdle(daemon);
         const child = await launched(daemon);
 
         expect(await runVerb(daemon, child.childId, 'done', ['--result', 'the survey is under way'])).toEqual([`done\t${child.taskId}\tchat-lead`]);
-        await daemon.until(() => wakeTurns(daemon).some((turn) => turn.state === 'done'));
+        await untilWoken(daemon);
         later(daemon);
         later(daemon);
         await daemon.until(() => turnsOf(daemon, child.childId).length === 2 && turnsOf(daemon, child.childId).every((turn) => turn.state === 'done'));
@@ -1110,8 +1086,7 @@ describe('a child with work running in the background', () => {
     });
 
     test('in a team keeps the lead asleep until it is done too, then wakes it once for both', async () => {
-        const daemon = await boot();
-        daemon.worker.start();
+        const daemon = await bootStarted();
         await leadIdle(daemon);
         const roles = [
             { title: 'Survey', prompt: 'background: read the docs', provider: 'claude' },
@@ -1131,7 +1106,7 @@ describe('a child with work running in the background', () => {
 
         later(daemon);
         later(daemon);
-        await daemon.until(() => wakeTurns(daemon).some((turn) => turn.state === 'done'));
+        await untilWoken(daemon);
         await daemon.worker.settled();
 
         expect(wakeTurns(daemon).map((turn) => turn.taskIds)).toEqual([[survey!.taskId, lexer!.taskId]]);
@@ -1139,15 +1114,13 @@ describe('a child with work running in the background', () => {
     });
 
     test('fails a native task lost at restart and wakes its lead once', async () => {
-        const first = await boot();
-        first.worker.start();
+        const first = await bootStarted();
         await leadIdle(first);
         const child = await launched(first);
         running.splice(running.indexOf(first), 1);
         await first.stop();
 
-        const second = await boot();
-        second.worker.start();
+        const second = await bootStarted();
         await second.worker.settled();
         expect(second.tasks.get(child.taskId)).toMatchObject({ status: 'failed', wake: 'sent', result: { source: 'exit' } });
         expect(second.outbox.list()).toEqual([]);
@@ -1172,7 +1145,7 @@ describe('a child with work running in the background', () => {
         expect(daemon.tasks.get(taskId)?.status).toBe('open');
 
         later(daemon);
-        await daemon.until(() => wakeTurns(daemon).some((turn) => turn.state === 'done'));
+        await untilWoken(daemon);
         expect(turnsOf(daemon, childId)).toHaveLength(1);
         expect(daemon.tasks.get(taskId)).toMatchObject({ status: 'done', result: { text: 'spawned' } });
         expect(wakeTurns(daemon).map((turn) => turn.taskIds)).toEqual([[taskId]]);
@@ -1206,8 +1179,7 @@ describe('a child with a command running in the background', () => {
     };
 
     test('whose subagent started it holds the task until it ended, and settles on the turn with what it came to, waking the lead once', async () => {
-        const daemon = await boot();
-        daemon.worker.start();
+        const daemon = await bootStarted();
         await leadIdle(daemon);
         const child = await commandRunning(daemon, 'sleep 30');
 
@@ -1220,7 +1192,7 @@ describe('a child with a command running in the background', () => {
 
         // The command ends, the subagent reads what it printed, and the CLI opens a turn on that.
         later(daemon);
-        await daemon.until(() => wakeTurns(daemon).some((turn) => turn.state === 'done'));
+        await untilWoken(daemon);
         await daemon.worker.settled();
 
         expect(turnsOf(daemon, child.childId)).toHaveLength(3);
@@ -1230,8 +1202,7 @@ describe('a child with a command running in the background', () => {
     });
 
     test('that runs past the limit settles the task then, with the last result and what still ran, and nothing wakes the lead again', async () => {
-        const daemon = await boot();
-        daemon.worker.start();
+        const daemon = await bootStarted();
         await leadIdle(daemon);
         const child = await commandRunning(daemon, 'sleep 3000');
 
@@ -1240,7 +1211,7 @@ describe('a child with a command running in the background', () => {
         expect(daemon.tasks.get(child.taskId)?.status).toBe('open');
 
         clock.advance(1);
-        await daemon.until(() => wakeTurns(daemon).some((turn) => turn.state === 'done'));
+        await untilWoken(daemon);
         await daemon.worker.settled();
         expect(daemon.tasks.get(child.taskId)).toMatchObject({
             status: 'done',
@@ -1260,16 +1231,14 @@ describe('a child with a command running in the background', () => {
     });
 
     test('fails its task at once after a restart, with the last result and what went down, and wakes the lead once', async () => {
-        const first = await boot();
-        first.worker.start();
+        const first = await bootStarted();
         await leadIdle(first);
         const child = await commandRunning(first, 'sleep 40');
         const [entry] = owedLimits(first);
         running.splice(running.indexOf(first), 1);
         await first.stop();
 
-        const second = await boot();
-        second.worker.start();
+        const second = await bootStarted();
         await second.until(() => wakeTurns(second).some((turn) => turn.state === 'done'));
         await second.worker.settled();
         expect(second.tasks.get(child.taskId)).toMatchObject({

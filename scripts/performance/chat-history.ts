@@ -1,6 +1,7 @@
 import { realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ChatInfo, ChatItem } from '../../packages/contracts/src/index';
+import { assertMedianWithin } from './budget';
 
 const shared = realpathSync(join(import.meta.dir, '../../apps/server/node_modules/@adecore/agents/src'));
 const { ChatThread } = await import(join(shared, 'chat/thread.ts'));
@@ -61,7 +62,4 @@ for (let run = 0; run < runs; run++) {
     }
 }
 console.log(JSON.stringify({ benchmark: 'chat-history-snapshot', count, runs, samples, pages }, null, 2));
-const warm = samples.slice(1).toSorted((left, right) => left - right);
-if (warm[Math.floor(warm.length / 2)]! > Number(process.env.BENCH_MAX_WARM_MS ?? Infinity)) {
-    throw new Error('Warm chat snapshot exceeded its timing budget');
-}
+assertMedianWithin(samples.slice(1), 'BENCH_MAX_WARM_MS', 'Warm chat snapshot exceeded its timing budget');

@@ -2,6 +2,7 @@ import { mkdtemp, mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { forgetSearchCache, rankFiles, searchFiles } from '../../apps/server/src/fs/search';
+import { assertMedianWithin } from './budget';
 
 const count = Number(process.env.BENCH_FILES ?? 100_000);
 const diskCount = Number(process.env.BENCH_DISK_FILES ?? 20_000);
@@ -50,10 +51,7 @@ try {
         search.push({ query, samples, result });
     }
     console.log(JSON.stringify({ benchmark: 'file-search', count, diskCount, runs, ranking, search }, null, 2));
-    const broad = search.find((row) => row.query === 'src')!.samples.toSorted((left, right) => left - right);
-    if (broad[Math.floor(broad.length / 2)]! > Number(process.env.BENCH_MAX_SEARCH_MS ?? Infinity)) {
-        throw new Error('Broad file search exceeded its timing budget');
-    }
+    assertMedianWithin(search.find((row) => row.query === 'src')!.samples, 'BENCH_MAX_SEARCH_MS', 'Broad file search exceeded its timing budget');
 } finally {
     forgetSearchCache();
     await rm(root, { recursive: true, force: true });

@@ -190,16 +190,16 @@ export function linkLocalPackages(root: string, adecore: string, link: LinkPacka
     const aliases = plan.consumers.map((dep) => ({ path: dep.path, target: readlinkSync(dep.path) }));
     try {
         // bun link inside a consumer cannot resolve Ruimte's workspace:* dependencies in Bun 1.4.2.
+        const folders = new Map(plan.packages.map((pkg) => [pkg.manifest.name, pkg.folder]));
         for (const dep of plan.consumers) {
-            const pkg = plan.packages.find((entry) => entry.manifest.name === dep.name)!;
-            link(dep.path, pkg.folder);
+            link(dep.path, folders.get(dep.name)!);
         }
         unchanged();
         sourceUnchanged();
         for (const dep of plan.consumers) {
-            const expected = plan.packages.find((pkg) => pkg.manifest.name === dep.name)!;
-            if (resolvedFolder(dep.path) !== realpathSync(expected.folder)) {
-                throw new Error(`${dep.path} does not resolve to ${expected.folder}.`);
+            const expected = folders.get(dep.name)!;
+            if (resolvedFolder(dep.path) !== realpathSync(expected)) {
+                throw new Error(`${dep.path} does not resolve to ${expected}.`);
             }
         }
         if (statusMode(packageStatus(root, adecore)) !== 'local') {
@@ -341,6 +341,7 @@ function installedVersion(folder: string, name: string): string | null {
 
 export function peerVersionDrift(root: string, adecore: string): string[] {
     const warnings = new Map<string, string>();
+    const adecoreFolder = resolvedFolder(adecore) ?? resolve(adecore);
     for (const consumer of packageStatus(root, adecore).filter((pkg) => pkg.mode === 'local')) {
         const pending = [consumer.target!];
         const visited = new Set<string>();
@@ -372,7 +373,7 @@ export function peerVersionDrift(root: string, adecore: string): string[] {
             }
             for (const name of Object.keys(dependencies).filter((name) => name.startsWith('@adecore/'))) {
                 const target = resolvedFolder(join(folder, 'node_modules', name));
-                if (target && isInside(resolvedFolder(adecore) ?? resolve(adecore), target)) {
+                if (target && isInside(adecoreFolder, target)) {
                     pending.push(target);
                 }
             }

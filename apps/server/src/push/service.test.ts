@@ -73,6 +73,35 @@ afterEach(async () => {
     await rm(home, { recursive: true, force: true });
 });
 
+function approvalFrame(
+    chatId: string,
+    requestId: string,
+    options: { description?: string; decision?: 'pending' | 'allow' } = {}
+): Parameters<PushService['consume']>[0] {
+    return {
+        event: 'chat.event',
+        payload: {
+            chatId,
+            event: {
+                type: 'item',
+                item: {
+                    id: requestId,
+                    createdAt: NOW,
+                    turnId: null,
+                    kind: 'approval',
+                    requestId,
+                    toolUseId: null,
+                    toolName: 'Bash',
+                    input: {},
+                    description: options.description ?? 'Run test',
+                    canAllowAlways: false,
+                    decision: options.decision ?? 'pending'
+                }
+            }
+        }
+    };
+}
+
 function status(value: AgentStatus, nodeId = 'node', destination = service): void {
     return destination.consume({
         event: 'session.status',
@@ -217,35 +246,13 @@ describe('offline push delivery', () => {
     });
 
     test('a chat approval notifies once per request even outside followed nodes and carries its choices', async () => {
-        const approval = (requestId: string) => ({
-            event: 'chat.event' as const,
-            payload: {
-                chatId: 'other',
-                event: {
-                    type: 'item' as const,
-                    item: {
-                        id: requestId,
-                        createdAt: NOW,
-                        turnId: null,
-                        kind: 'approval' as const,
-                        requestId,
-                        toolUseId: null,
-                        toolName: 'Bash',
-                        input: {},
-                        description: 'Run test',
-                        canAllowAlways: false,
-                        decision: 'pending' as const
-                    }
-                }
-            }
-        });
-        service.consume(approval('request'));
-        service.consume(approval('request'));
+        service.consume(approvalFrame('other', 'request'));
+        service.consume(approvalFrame('other', 'request'));
         await service.settled();
         expect(pushes.length).toBe(1);
         expect(decrypt(pushes[0]!)).toMatchObject({ kind: 'approval', target: 'chat', nodeId: 'other', requestId: 'request', body: 'Run test' });
         await auth.setPush(sessionId, { ...subscription, approvals: false });
-        service.consume(approval('second'));
+        service.consume(approvalFrame('other', 'second'));
         await service.settled();
         expect(pushes.length).toBe(1);
     });
@@ -253,28 +260,7 @@ describe('offline push delivery', () => {
     test('a long approval is cut between two characters, so the phone still reads its choices', async () => {
         // The emoji takes the 500th and 501st unit.
         const description = `${'x'.repeat(499)}😀 and more`;
-        service.consume({
-            event: 'chat.event',
-            payload: {
-                chatId: 'other',
-                event: {
-                    type: 'item',
-                    item: {
-                        id: 'approval-long',
-                        createdAt: NOW,
-                        turnId: null,
-                        kind: 'approval',
-                        requestId: 'long',
-                        toolUseId: null,
-                        toolName: 'Bash',
-                        input: {},
-                        description,
-                        canAllowAlways: false,
-                        decision: 'pending'
-                    }
-                }
-            }
-        });
+        service.consume(approvalFrame('other', 'long', { description }));
         await service.settled();
         expect(decrypt(pushes[0]!)).toMatchObject({ kind: 'approval', body: 'x'.repeat(499) });
     });
@@ -650,32 +636,10 @@ describe('a snoozed node', () => {
     });
 
     test('a snooze that runs out on an approval raises the card with its choices again', async () => {
-        const approval = {
-            event: 'chat.event' as const,
-            payload: {
-                chatId: 'node',
-                event: {
-                    type: 'item' as const,
-                    item: {
-                        id: 'request',
-                        createdAt: NOW,
-                        turnId: null,
-                        kind: 'approval' as const,
-                        requestId: 'request',
-                        toolUseId: null,
-                        toolName: 'Bash',
-                        input: {},
-                        description: 'Run test',
-                        canAllowAlways: false,
-                        decision: 'pending' as const
-                    }
-                }
-            }
-        };
         status('running', 'node', snoozing);
         snoozes.set('project', 'node', clock.now() + 60_000);
         status('needs-you', 'node', snoozing);
-        snoozing.consume(approval);
+        snoozing.consume(approvalFrame('node', 'request'));
         await snoozing.settled();
         expect(alerts()).toEqual([]);
         clock.advance(60_000);
@@ -780,28 +744,7 @@ describe('what a device chose to hear of', () => {
         await auth.setPush(sessionId, { ...subscription, notify: ['turn'] });
         status('running', 'node', chosen);
         status('needs-you', 'node', chosen);
-        chosen.consume({
-            event: 'chat.event',
-            payload: {
-                chatId: 'node',
-                event: {
-                    type: 'item',
-                    item: {
-                        id: 'approval-no-needs-you',
-                        createdAt: NOW,
-                        turnId: null,
-                        kind: 'approval',
-                        requestId: 'approval-no-needs-you',
-                        toolUseId: null,
-                        toolName: 'Bash',
-                        input: {},
-                        description: 'Run test',
-                        canAllowAlways: false,
-                        decision: 'pending'
-                    }
-                }
-            }
-        });
+        chosen.consume(approvalFrame('node', 'approval-no-needs-you'));
         chosen.alert('chat', 'node', 'Task failed', 'It failed');
         await chosen.settled();
         expect(alerts()).toEqual([]);
@@ -923,29 +866,6 @@ describe('a person at a desktop', () => {
         await held.settled();
     };
 
-    const approval = (decision: 'pending' | 'allow') => ({
-        event: 'chat.event' as const,
-        payload: {
-            chatId: 'node',
-            event: {
-                type: 'item' as const,
-                item: {
-                    id: 'request',
-                    createdAt: NOW,
-                    turnId: null,
-                    kind: 'approval' as const,
-                    requestId: 'request',
-                    toolUseId: null,
-                    toolName: 'Bash',
-                    input: {},
-                    description: 'Run test',
-                    canAllowAlways: false,
-                    decision
-                }
-            }
-        }
-    });
-
     beforeEach(() => {
         now = NOW;
         timers = [];
@@ -1026,15 +946,15 @@ describe('a person at a desktop', () => {
     });
 
     test('holds an approval for ten seconds and drops one answered in that time', async () => {
-        held.consume(approval('pending'));
+        held.consume(approvalFrame('node', 'request', { decision: 'pending' }));
         await advance(9_000);
         expect(pushes).toEqual([]);
         await advance(1_000);
         expect(decrypt(pushes[0]!)).toMatchObject({ kind: 'approval', requestId: 'request' });
         pushes = [];
-        held.consume(approval('allow'));
-        held.consume({ ...approval('pending'), payload: { ...approval('pending').payload, chatId: 'other' } });
-        held.consume({ ...approval('allow'), payload: { ...approval('allow').payload, chatId: 'other' } });
+        held.consume(approvalFrame('node', 'request', { decision: 'allow' }));
+        held.consume(approvalFrame('other', 'request', { decision: 'pending' }));
+        held.consume(approvalFrame('other', 'request', { decision: 'allow' }));
         await advance(10_000);
         expect(pushes).toEqual([]);
     });

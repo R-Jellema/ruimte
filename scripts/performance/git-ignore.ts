@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { ignoredPaths } from '../../apps/server/src/git/ignore';
 import { runGit } from '../../apps/server/src/git/run';
+import { assertMedianWithin } from './budget';
 
 const count = Number(process.env.BENCH_PATHS ?? 1800);
 const runs = Number(process.env.BENCH_RUNS ?? 9);
@@ -64,10 +65,11 @@ try {
         }
     }
     console.log(JSON.stringify({ benchmark: 'git-ignore-paths', count, runs, measurements }, null, 2));
-    const ordered = measurements.find((row) => row.mode === 'alias' && row.stage === 'current')!.samples.toSorted((left, right) => left - right);
-    if (ordered[Math.floor(runs / 2)]! > Number(process.env.BENCH_MAX_ALIAS_MS ?? Infinity)) {
-        throw new Error('Git ignore through a directory alias exceeded its timing budget');
-    }
+    assertMedianWithin(
+        measurements.find((row) => row.mode === 'alias' && row.stage === 'current')!.samples,
+        'BENCH_MAX_ALIAS_MS',
+        'Git ignore through a directory alias exceeded its timing budget'
+    );
 } finally {
     await rm(root, { recursive: true, force: true });
 }

@@ -22,9 +22,14 @@ const client = join(ruimte, 'apps/client');
 const server = join(ruimte, 'apps/server');
 const env = { ...process.env, ADECORE_PATH: adecore, BUN_INSTALL: join(root, 'bun'), BUN_INSTALL_CACHE_DIR: join(root, 'cache') };
 
-const run: RunCommand = async (cwd, args) => {
-    const child = Bun.spawn([process.execPath, ...args], { cwd, env, stdout: 'pipe', stderr: 'pipe' });
+async function collect(args: string[], cwd: string, childEnv = env): Promise<{ code: number; stdout: string; stderr: string }> {
+    const child = Bun.spawn([process.execPath, ...args], { cwd, env: childEnv, stdout: 'pipe', stderr: 'pipe' });
     const [code, stdout, stderr] = await Promise.all([child.exited, new Response(child.stdout).text(), new Response(child.stderr).text()]);
+    return { code, stdout, stderr };
+}
+
+const run: RunCommand = async (cwd, args) => {
+    const { code, stdout, stderr } = await collect(args, cwd);
     if (code !== 0) {
         throw new Error(`${args.join(' ')}: ${stderr || stdout}`);
     }
@@ -42,24 +47,11 @@ function trackedFiles(): Map<string, string> {
 }
 
 async function cli(args: string[], localPath = adecore): Promise<{ code: number; stdout: string; stderr: string }> {
-    const child = Bun.spawn([process.execPath, join(ruimte, 'scripts/adecore.ts'), ...args], {
-        cwd: ruimte,
-        env: { ...env, ADECORE_PATH: localPath },
-        stdout: 'pipe',
-        stderr: 'pipe'
-    });
-    const [code, stdout, stderr] = await Promise.all([child.exited, new Response(child.stdout).text(), new Response(child.stderr).text()]);
-    return { code, stdout, stderr };
+    return collect([join(ruimte, 'scripts/adecore.ts'), ...args], ruimte, { ...env, ADECORE_PATH: localPath });
 }
 
 async function value(): Promise<string> {
-    const child = Bun.spawn([process.execPath, '--conditions=source', '-e', 'console.log((await import("@adecore/editor")).value)'], {
-        cwd: client,
-        env,
-        stdout: 'pipe',
-        stderr: 'pipe'
-    });
-    const [code, stdout, stderr] = await Promise.all([child.exited, new Response(child.stdout).text(), new Response(child.stderr).text()]);
+    const { code, stdout, stderr } = await collect(['--conditions=source', '-e', 'console.log((await import("@adecore/editor")).value)'], client);
     expect(code, stderr).toBe(0);
     return stdout.trim();
 }
@@ -250,11 +242,7 @@ describe('ADE CORE package switching with Bun', () => {
                 scripts: { dev: `bun -e 'console.log("fixture dev started")'` }
             });
         }
-        const start = async () => {
-            const child = Bun.spawn([process.execPath, 'dev'], { cwd: ruimte, env, stdout: 'pipe', stderr: 'pipe' });
-            const [code, stdout, stderr] = await Promise.all([child.exited, new Response(child.stdout).text(), new Response(child.stderr).text()]);
-            return { code, stdout, stderr };
-        };
+        const start = () => collect(['dev'], ruimte);
         const npm = await start();
         expect(npm.code, npm.stderr).toBe(0);
         expect(npm.stdout.indexOf('ADE CORE: npm')).toBeLessThan(npm.stdout.indexOf('fixture dev started'));

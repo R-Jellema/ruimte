@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ChatThread, ChatStore } from '@adecore/agents/chat';
 import { ChatInfoSchema, ChatItemSchema, type ChatApprovalItem, type ChatEvent, type ChatItem } from '@ruimte/contracts';
+import { assertMedianWithin } from '../../../../scripts/performance/budget';
 
 const count = Number(process.env.BENCH_ITEMS ?? 30_000);
 const updates = Number(process.env.BENCH_UPDATES ?? 200);
@@ -78,10 +79,11 @@ try {
         }
     }
     console.log(JSON.stringify({ benchmark: 'chat-thread-requests', count, updates, runs, samples }, null, 2));
-    const median = samples.map((sample) => sample.updatesMs).toSorted((left, right) => left - right)[Math.floor(runs / 2)]!;
-    if (median > Number(process.env.BENCH_MAX_UPDATES_MS ?? Infinity)) {
-        throw new Error('Chat request processing exceeded its timing budget');
-    }
+    assertMedianWithin(
+        samples.map((sample) => sample.updatesMs),
+        'BENCH_MAX_UPDATES_MS',
+        'Chat request processing exceeded its timing budget'
+    );
 } finally {
     await rm(temporary, { recursive: true, force: true });
 }

@@ -95,14 +95,18 @@ describe('bumpPackages', () => {
         write(join(root, workspace, 'node_modules', name, 'package.json'), JSON.stringify({ name, version }));
     }
 
+    function installAll(version: string): void {
+        installed('apps/client', '@adecore/ui', version);
+        installed('apps/client', '@adecore/terminal', version);
+        installed('apps/client', '@adecore/agents', version);
+        installed('apps/server', '@adecore/agents', version);
+    }
+
     function install(version: string, lockVersion = version): RunCommand {
         return async (cwd, args) => {
             expect(cwd).toBe(root);
             expect(args).toEqual(['install']);
-            installed('apps/client', '@adecore/ui', version);
-            installed('apps/client', '@adecore/terminal', version);
-            installed('apps/client', '@adecore/agents', version);
-            installed('apps/server', '@adecore/agents', version);
+            installAll(version);
             write(join(root, 'bun.lock'), `"@adecore/ui": ["@adecore/ui@${version}"],\n"@adecore/plan": ["@adecore/plan@${lockVersion}"],\n`);
         };
     }
@@ -119,10 +123,7 @@ describe('bumpPackages', () => {
         write(join(root, 'apps/client/package.json'), clientManifest);
         write(join(root, 'apps/server/package.json'), serverManifest);
         write(join(root, 'bun.lock'), '"@adecore/ui": ["@adecore/ui@0.23.1"],\n');
-        installed('apps/client', '@adecore/ui', '0.23.1');
-        installed('apps/client', '@adecore/terminal', '0.23.1');
-        installed('apps/client', '@adecore/agents', '0.23.1');
-        installed('apps/server', '@adecore/agents', '0.23.1');
+        installAll('0.23.1');
         write(join(adecore, 'packages/ui/package.json'), JSON.stringify({ name: '@adecore/ui', version: '0.24.0' }));
     });
 
