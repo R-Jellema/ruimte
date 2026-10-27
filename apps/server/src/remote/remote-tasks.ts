@@ -8,6 +8,7 @@ import type { Worktrees } from '../git/worktrees.ts';
 import { errorText } from '../error-text.ts';
 import type { OutboxEntry, OutboxWork, StartRemoteAgentEntry, StopRemoteAgentEntry, TakeRemoteResultEntry } from '../outbox/outbox.ts';
 import { RECONNECT_LIFETIME_MS, peerTarget } from './connect-peer.ts';
+import type { PeerLink } from './peer-connection.ts';
 import type { RemoteConnections } from './remote-connections.ts';
 
 // The words of a refusal that are kept, since the machine that refused chose them.
@@ -18,9 +19,6 @@ const CLIPPED = '\n[The rest of the result was left out.]';
 
 // A refusal that is a place not free yet: the entry waits for the machine to say a task settled, or for the link to open again.
 const WAITS: ReadonlySet<string> = new Set(['peer-busy', 'peer-bundle-limit']);
-
-// A stop that cannot reach its machine in this long is given up on, as the reconnect is.
-const STOP_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
 
 export interface RemoteTasksDeps {
     connections: Pick<RemoteConnections, 'link'>;
@@ -90,9 +88,7 @@ export class RemoteTasks {
         }
         const link = deps.connections.link(machineId);
         if (link === null) {
-            await deps.reconnect.owe(machineId);
-            deps.refresh?.(machineId);
-            return 'wait';
+            return await this.waitForLink(machineId);
         }
         let bundleId: string | null = null;
         try {
@@ -130,9 +126,7 @@ export class RemoteTasks {
                     await this.oweStopTo(entry.projectId, machineId, entry.target);
                     return undefined;
                 }
-                await deps.reconnect.owe(machineId);
-                deps.refresh?.(machineId);
-                return 'wait';
+                return await this.waitForLink(machineId);
             }
             const refused = refusal(e);
             if (refused === null) {
@@ -144,11 +138,7 @@ export class RemoteTasks {
                 deps.refresh?.(machineId);
                 return 'wait';
             }
-            await deps.coordinator.settleFromElsewhere(
-                taskId,
-                { text: `The task could not be started on the other machine: ${refused.message}`, source: 'exit', at: deps.now() },
-                'failed'
-            );
+            await this.fail(taskId, `The task could not be started on the other machine: ${refused.message}`);
         } finally {
             if (bundleId !== null) {
                 await deps
@@ -204,6 +194,19 @@ export class RemoteTasks {
         await this.deps.outbox.update(entry);
     }
 
+    /* The link is down while work waits on it: a reconnect is owed, and this entry runs again once the link is back. */
+    private async waitForLink(machineId: string): Promise<'wait'> {
+        await this.deps.reconnect.owe(machineId);
+        this.deps.refresh?.(machineId);
+
+        return 'wait';
+    }
+
+    /* Fails the task with a line of its own, which wakes its parent once. */
+    private fail(taskId: string, text: string): Promise<unknown> {
+        return this.deps.coordinator.settleFromElsewhere(taskId, { text, source: 'exit', at: this.deps.now() }, 'failed');
+    }
+
     private owes(entryId: string): boolean {
         return this.deps.outbox.list().some((entry) => entry.id === entryId);
     }
@@ -225,11 +228,7 @@ export class RemoteTasks {
     }
 
     /* Writes the checkout as a bundle and sends it a piece at a time; a transfer that stops starts over, since offset 0 starts a bundle anew. */
-    private async send(
-        link: NonNullable<ReturnType<RemoteConnections['link']>>,
-        entry: StartRemoteAgentEntry,
-        name: string
-    ): Promise<{ bundleId: string; sha256: string }> {
+    private async send(link: PeerLink, entry: StartRemoteAgentEntry, name: string): Promise<{ bundleId: string; sha256: string }> {
         const { bundles, checkpoints } = this.deps.git();
         // Under the id of the task, so a second try replaces the copy the machine still holds of the first.
         const made = await makeBundle(
@@ -296,9 +295,7 @@ export class RemoteTasks {
         }
         const link = deps.connections.link(machineId);
         if (link === null) {
-            await deps.reconnect.owe(machineId);
-            deps.refresh?.(machineId);
-            return 'wait';
+            return await this.waitForLink(machineId);
         }
         try {
             // Settled here before: only the machine's acknowledgment is left.
@@ -323,9 +320,7 @@ export class RemoteTasks {
             }
             // The link went while the work came back: the task stays open and the transfer starts over once it is back.
             if (text === null) {
-                await deps.reconnect.owe(machineId);
-                deps.refresh?.(machineId);
-                return 'wait';
+                return await this.waitForLink(machineId);
             }
             await link.request('peer.result', { nodeId: entry.target, ack: true });
             // A task that ended there leaves a place for one that waited for it.
@@ -336,25 +331,17 @@ export class RemoteTasks {
                 return undefined;
             }
             if (deps.connections.link(machineId) === null) {
-                await deps.reconnect.owe(machineId);
-                deps.refresh?.(machineId);
-                return 'wait';
+                return await this.waitForLink(machineId);
             }
             const refused = refusal(e);
             if (refused === null) {
                 throw e;
             }
-            await deps.coordinator.settleFromElsewhere(
+            await this.fail(
                 taskId,
-                {
-                    text:
-                        refused.code === 'peer-not-linked'
-                            ? 'The other machine no longer links this project to this one, so the task ended there.'
-                            : `The other machine would not report on this task: ${refused.message}`,
-                    source: 'exit',
-                    at: deps.now()
-                },
-                'failed'
+                refused.code === 'peer-not-linked'
+                    ? 'The other machine no longer links this project to this one, so the task ended there.'
+                    : `The other machine would not report on this task: ${refused.message}`
             );
         }
         return undefined;
@@ -364,17 +351,11 @@ export class RemoteTasks {
      * Settles the task from what the machine reported, with the branch it sent back named in the result.
      * Null leaves it open: the link went while the work came back, which a reconnect brings again.
      */
-    private async settle(
-        link: NonNullable<ReturnType<RemoteConnections['link']>>,
-        entry: TakeRemoteResultEntry,
-        projectId: string,
-        reported: PeerResultResult,
-        era: number
-    ): Promise<string | null> {
+    private async settle(link: PeerLink, entry: TakeRemoteResultEntry, projectId: string, reported: PeerResultResult, era: number): Promise<string | null> {
         const { deps } = this;
         if (reported.status === 'unknown') {
             const text = 'The other machine has no record of this task, so it did not run there.';
-            await deps.coordinator.settleFromElsewhere(entry.payload.taskId, { text, source: 'exit', at: deps.now() }, 'failed');
+            await this.fail(entry.payload.taskId, text);
             return text;
         }
         const base =
@@ -408,7 +389,7 @@ export class RemoteTasks {
 
     /* Reads the bundle of the machine a piece at a time and takes it in as a remote branch with a worktree on it that the node owns. */
     private async bringBack(
-        link: NonNullable<ReturnType<RemoteConnections['link']>>,
+        link: PeerLink,
         entry: TakeRemoteResultEntry,
         projectId: string,
         bundle: NonNullable<PeerResultResult['bundle']>,
@@ -479,7 +460,7 @@ export class RemoteTasks {
                 entry.kind === 'start-remote-agent'
                     ? `The other machine ${why}, so this task was never started there.`
                     : `The other machine ${why}, so what became of this task is not known. The agent there may still run until a person stops it on that machine.`;
-            await deps.coordinator.settleFromElsewhere(entry.payload.taskId, { text, source: 'exit', at: deps.now() }, 'failed');
+            await this.fail(entry.payload.taskId, text);
             const stopOwed = deps.outbox.list().some((other) => other.kind === 'stop-remote-agent' && other.payload.nodeId === entry.target);
             // A start may have reached the machine without its answer reaching this one, so it too may have an agent to stop.
             if (!stopOwed) {
@@ -498,7 +479,8 @@ export class RemoteTasks {
         const { deps } = this;
         const { machineId, nodeId, once } = entry.payload;
         const era = this.leaves;
-        if (once !== true && deps.now() - entry.createdAt >= STOP_LIFETIME_MS) {
+        // A stop that cannot reach its machine is given up on after as long as the reconnect tries.
+        if (once !== true && deps.now() - entry.createdAt >= RECONNECT_LIFETIME_MS) {
             return undefined;
         }
         const link = deps.connections.link(machineId);
@@ -580,7 +562,7 @@ export class RemoteTasks {
                     : entry.kind === 'start-remote-agent'
                       ? 'This machine left its account while the other machine was asked to start the task, so whether it started there is not known. The agent there may still run until a person stops it on that machine.'
                       : 'This machine left its account, so what became of this task on the other machine is not known. The agent there may still run until a person stops it on that machine.';
-            await deps.coordinator.settleFromElsewhere(entry.payload.taskId, { text, source: 'exit', at: deps.now() }, 'failed');
+            await this.fail(entry.payload.taskId, text);
         }
         for (const machineId of machines) {
             deps.refresh?.(machineId);
