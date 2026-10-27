@@ -1,9 +1,9 @@
-import { createHash } from 'node:crypto';
 import { join } from 'node:path';
-import { isCanvasView, RuntimeModeSchema, type AgentKind, type ProjectView, type RuntimeMode } from '@ruimte/contracts';
+import { RuntimeModeSchema, type AgentKind, type ProjectView, type RuntimeMode } from '@ruimte/contracts';
 import { z } from 'zod';
 import { RecordDirectory } from '@adecore/agents';
 import { launchedMode } from '../providers/launch.ts';
+import { approvalHash, terminalsOf } from './command-approvals.ts';
 
 const ApprovalSchema = z.object({
     hash: z.string().min(1),
@@ -12,12 +12,6 @@ const ApprovalSchema = z.object({
 });
 
 type Approval = z.infer<typeof ApprovalSchema>;
-
-function hashOf(folder: string, nodeId: string): string {
-    return createHash('sha256')
-        .update(JSON.stringify([folder, nodeId]))
-        .digest('hex');
-}
 
 /*
  * The permission mode a person on this machine gave each terminal agent, per project folder and node.
@@ -38,14 +32,14 @@ export class ModeApprovals {
 
     /* What a person's save gave this node; null for a node no save named since the daemon kept these. */
     modeOf(folder: string, nodeId: string): RuntimeMode | null {
-        return this.approvals.get(hashOf(folder, nodeId))?.mode ?? null;
+        return this.approvals.get(approvalHash(folder, nodeId))?.mode ?? null;
     }
 
     async approve(folder: string, nodeId: string, mode: RuntimeMode): Promise<void> {
         if (this.modeOf(folder, nodeId) === mode) {
             return;
         }
-        await this.approvals.write({ hash: hashOf(folder, nodeId), mode, approvedAt: Date.now() });
+        await this.approvals.write({ hash: approvalHash(folder, nodeId), mode, approvedAt: Date.now() });
     }
 }
 
@@ -60,19 +54,9 @@ function startsIn(kind: AgentKind, runtimeMode: RuntimeMode | undefined, resume:
 
 /* The mode every terminal agent in these views starts in, by node id, read the way the launch line is. */
 function modesOf(views: readonly ProjectView[]): Map<string, RuntimeMode> {
-    const modes = new Map<string, RuntimeMode>();
-    for (const view of views) {
-        if (isCanvasView(view)) {
-            for (const node of view.nodes) {
-                if (node.kind === 'terminal' && node.provider) {
-                    modes.set(node.id, startsIn(node.provider, node.runtimeMode, node.resume));
-                }
-            }
-        } else if (view.kind === 'terminal' && view.node.provider) {
-            modes.set(view.id, startsIn(view.node.provider, view.node.runtimeMode, view.node.resume));
-        }
-    }
-    return modes;
+    return new Map(
+        terminalsOf(views).flatMap(({ id, node }) => (node.provider ? [[id, startsIn(node.provider, node.runtimeMode, node.resume)] as const] : []))
+    );
 }
 
 /*

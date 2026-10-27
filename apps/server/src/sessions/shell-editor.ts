@@ -1,6 +1,7 @@
 import { chmodSync, mkdtempSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Socket } from 'bun';
+import { isNotFound } from '@adecore/agents';
 import { ShellPrompt, type ShellEditorConnection, type ShellEditorState, type ShellPrepareOutcome } from './shell-prompt.ts';
 
 // The version of the line protocol the shell integration's `hello` must name.
@@ -105,9 +106,9 @@ export function openShellEditor(env: Record<string, string>, prompt: ShellPrompt
             const revoke = (): void => {
                 try {
                     unlinkSync(permit);
-                } catch (error) {
-                    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-                        throw error;
+                } catch (e) {
+                    if (!isNotFound(e)) {
+                        throw e;
                     }
                 }
             };

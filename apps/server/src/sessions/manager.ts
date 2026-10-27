@@ -428,10 +428,7 @@ export class SessionManager {
      * this node types it too, then typed. A second client that says yes as well finds nothing held.
      */
     async runHeld(sessionId: string): Promise<void> {
-        const session = this.require(sessionId);
-        if (session.exited) {
-            throw new SessionError('session-exited', `Session ${sessionId} has ended`);
-        }
+        const session = this.requireRunning(sessionId);
         const command = session.heldCommand;
         if (command === null) {
             return;
@@ -525,46 +522,42 @@ export class SessionManager {
     /* Types the CLI's resume command into the shell of a session whose agent is known but not running. */
     async resumeAgent(sessionId: string): Promise<void> {
         const session = this.require(sessionId);
-        if (session.exited) {
-            throw new SessionError('session-exited', `Session ${sessionId} has ended`);
-        }
-        if (!session.agent) {
-            throw new SessionError('agent-not-found', `Session ${sessionId} has no agent to resume`);
-        }
-        // A CLI that died without a SessionEnd still reads as live; the process monitor is what knows better.
-        if (session.agent.live && !this.isAgentGone(sessionId)) {
-            throw new SessionError('agent-live', `The agent in ${sessionId} is still running`);
-        }
+        const { kind } = this.resumableAgent(session);
         const typedAt = this.resuming.get(sessionId);
         if (typedAt !== undefined && this.now() - typedAt < RESUME_GRACE_MS) {
             throw new SessionError('agent-resuming', `A resume for ${sessionId} was typed already and its agent has not reported back yet`);
         }
         // Held while the foreground is asked, so a second resume in the meantime is refused as a repeat.
         this.resuming.set(sessionId, this.now());
+        let line: string;
         try {
-            await this.prepareAgent(session.agent.kind);
+            await this.prepareAgent(kind);
+            // The line goes to whatever holds the terminal: a vim or an ssh started after the agent left would take it.
+            if ((await this.holdsForeground(session.pid)) === false) {
+                throw new SessionError('shell-busy', 'Another program runs in front of the shell; quit it and resume again');
+            }
+            // Asked again, since the shell or its agent may have moved on while the foreground was asked.
+            line = this.resumeLine(session, this.resumableAgent(session));
         } catch (e) {
             this.resuming.delete(sessionId);
             throw e;
         }
-        // The line goes to whatever holds the terminal: a vim or an ssh started after the agent left would take it.
-        if ((await this.holdsForeground(session.pid)) === false) {
-            this.resuming.delete(sessionId);
-            throw new SessionError('shell-busy', 'Another program runs in front of the shell; quit it and resume again');
-        }
+        session.write(`${line}\n`);
+    }
+
+    /* The agent of a running session that a resume may start again. */
+    private resumableAgent(session: Session): AgentInfo {
         if (session.exited) {
-            this.resuming.delete(sessionId);
-            throw new SessionError('session-exited', `Session ${sessionId} has ended`);
+            throw new SessionError('session-exited', `Session ${session.id} has ended`);
         }
         if (!session.agent) {
-            this.resuming.delete(sessionId);
-            throw new SessionError('agent-not-found', `Session ${sessionId} has no agent to resume`);
+            throw new SessionError('agent-not-found', `Session ${session.id} has no agent to resume`);
         }
-        if (session.agent.live && !this.isAgentGone(sessionId)) {
-            this.resuming.delete(sessionId);
-            throw new SessionError('agent-live', `The agent in ${sessionId} is still running`);
+        // A CLI that died without a SessionEnd still reads as live; the process monitor is what knows better.
+        if (session.agent.live && !this.isAgentGone(session.id)) {
+            throw new SessionError('agent-live', `The agent in ${session.id} is still running`);
         }
-        session.write(`${this.resumeLine(session, session.agent)}\n`);
+        return session.agent;
     }
 
     get(sessionId: string): Session | undefined {
@@ -631,10 +624,7 @@ export class SessionManager {
 
     /* Input from a client; a keystroke, unlike what its emulator answers by itself, sizes the PTY to that client's node. */
     write(sessionId: string, data: string, clientId?: string): void {
-        const session = this.require(sessionId);
-        if (session.exited) {
-            throw new SessionError('session-exited', `Session ${sessionId} has ended`);
-        }
+        const session = this.requireRunning(sessionId);
         if (clientId !== undefined && !isTerminalReply(data)) {
             const before = sizeOf(session);
             session.activate(clientId);
@@ -825,12 +815,7 @@ export class SessionManager {
         launch?: AgentLaunch;
         env: Record<string, string | undefined>;
     }): Session {
-        const env: Record<string, string> = {};
-        for (const [key, value] of Object.entries(options.env)) {
-            if (value !== undefined) {
-                env[key] = value;
-            }
-        }
+        const env = Object.fromEntries(Object.entries(options.env).filter((entry): entry is [string, string] => entry[1] !== undefined));
         env.TERM = 'xterm-256color';
         env.COLORTERM = 'truecolor';
         env.RUIMTE_SESSION_ID = options.id;
@@ -1010,6 +995,14 @@ export class SessionManager {
         const session = this.sessions.get(sessionId);
         if (!session) {
             throw new SessionError('session-not-found', `No session ${sessionId}`);
+        }
+        return session;
+    }
+
+    private requireRunning(sessionId: string): Session {
+        const session = this.require(sessionId);
+        if (session.exited) {
+            throw new SessionError('session-exited', `Session ${sessionId} has ended`);
         }
         return session;
     }

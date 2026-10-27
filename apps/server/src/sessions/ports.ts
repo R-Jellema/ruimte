@@ -263,8 +263,13 @@ function sameListener(one: SessionPort, other: SessionPort): boolean {
     );
 }
 
+/* Whether a socket bound to this address takes connections to the host. */
+function reaches(bindAddress: string, host: string): boolean {
+    return ['*', '0.0.0.0', '[::]', host].includes(bindAddress);
+}
+
 function isLoopbackBinding(listener: TcpListener): boolean {
-    return ['*', '0.0.0.0', '[::]', listener.host].includes(listener.bindAddress);
+    return reaches(listener.bindAddress, listener.host);
 }
 
 function competesForDestination(target: TcpListener, other: TcpListener): boolean {
@@ -272,11 +277,5 @@ function competesForDestination(target: TcpListener, other: TcpListener): boolea
         return false;
     }
     // An IPv6 wildcard may accept IPv4 too; lsof cannot prove IPV6_V6ONLY, so refuse ambiguity.
-    return (
-        other.bindAddress === '*' ||
-        other.bindAddress === '[::]' ||
-        other.bindAddress === '0.0.0.0' ||
-        other.bindAddress === target.host ||
-        (target.host === '127.0.0.1' && /^\[::ffff:(127\.0\.0\.1|7f00:1)\]$/i.test(other.bindAddress))
-    );
+    return reaches(other.bindAddress, target.host) || (target.host === '127.0.0.1' && /^\[::ffff:(127\.0\.0\.1|7f00:1)\]$/i.test(other.bindAddress));
 }

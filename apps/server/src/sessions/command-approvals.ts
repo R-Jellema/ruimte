@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
-import { isCanvasView, type ProjectView } from '@ruimte/contracts';
+import { isCanvasView, type ProjectView, type StandaloneNode } from '@ruimte/contracts';
 import { z } from 'zod';
 import { RecordDirectory } from '@adecore/agents';
 
@@ -12,10 +12,19 @@ const ApprovalSchema = z.object({
 type Approval = z.infer<typeof ApprovalSchema>;
 
 /* A hash rather than the command itself, so the folder does not keep a readable list of what ran where. */
-function hashOf(folder: string, nodeId: string, command: string): string {
-    return createHash('sha256')
-        .update(JSON.stringify([folder, nodeId, command]))
-        .digest('hex');
+export function approvalHash(...parts: string[]): string {
+    return createHash('sha256').update(JSON.stringify(parts)).digest('hex');
+}
+
+/* Every terminal of these views, on a canvas or a view of its own, by the id its session runs under. */
+export function terminalsOf(views: readonly ProjectView[]): Array<{ id: string; node: StandaloneNode }> {
+    return views.flatMap((view) => {
+        if (isCanvasView(view)) {
+            return view.nodes.flatMap((node) => (node.kind === 'terminal' ? [{ id: node.id, node }] : []));
+        }
+
+        return view.kind === 'terminal' ? [{ id: view.id, node: view.node }] : [];
+    });
 }
 
 /*
@@ -36,14 +45,14 @@ export class CommandApprovals {
     }
 
     has(folder: string, nodeId: string, command: string): boolean {
-        return this.approvals.has(hashOf(folder, nodeId, command));
+        return this.approvals.has(approvalHash(folder, nodeId, command));
     }
 
     async approve(folder: string, nodeId: string, command: string): Promise<void> {
         if (this.has(folder, nodeId, command)) {
             return;
         }
-        await this.approvals.write({ hash: hashOf(folder, nodeId, command), approvedAt: Date.now() });
+        await this.approvals.write({ hash: approvalHash(folder, nodeId, command), approvedAt: Date.now() });
     }
 }
 
@@ -52,21 +61,8 @@ interface NodeCommand {
     command: string;
 }
 
-/* The command of every terminal in these views, on a canvas or a view of its own, by node id. */
 function commandsOf(views: readonly ProjectView[]): Map<string, string> {
-    const commands = new Map<string, string>();
-    for (const view of views) {
-        if (isCanvasView(view)) {
-            for (const node of view.nodes) {
-                if (node.kind === 'terminal' && node.command) {
-                    commands.set(node.id, node.command);
-                }
-            }
-        } else if (view.kind === 'terminal' && view.node.command) {
-            commands.set(view.id, view.node.command);
-        }
-    }
-    return commands;
+    return new Map(terminalsOf(views).flatMap(({ id, node }) => (node.command ? [[id, node.command] as const] : [])));
 }
 
 /* The commands a save sets or changes: what `after` has that `before` did not have for the same node. */
