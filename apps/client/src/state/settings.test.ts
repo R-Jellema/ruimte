@@ -30,8 +30,10 @@ describe('panel layout', () => {
         expect(settingsFrom({ panelLayout: 'roomy' }).panelLayout).toBe('roomy');
         expect(settingsFrom({ panelLayout: 'wide' as Settings['panelLayout'] }).panelLayout).toBe('standard');
     });
+});
 
-    test('persists the choice through unrelated updates and reloads it for another window', () => {
+describe('an update', () => {
+    test('keeps every choice through unrelated updates and reloads it for another window', () => {
         const previousStorage = globalThis.localStorage;
         const previous = useSettings.getState();
         const items = new Map<string, string>();
@@ -40,12 +42,19 @@ describe('panel layout', () => {
             setItem: (key: string, value: string) => items.set(key, value)
         } as unknown as Storage;
         try {
-            useSettings.getState().update({ panelLayout: 'roomy' });
-            useSettings.getState().update({ dockAutoHide: true });
-            useSettings.setState({ panelLayout: 'standard' });
+            useSettings.getState().update({ panelLayout: 'roomy', chatSteerByDefault: true });
+            useSettings.getState().update({ terminalLinkDestination: 'ruimte' });
+            useSettings.getState().update({ dockAutoHide: true, chatStreaming: 'blocks', browserSwipe: false });
+            useSettings.setState({ panelLayout: 'standard', chatSteerByDefault: false, terminalLinkDestination: 'external' });
             useSettings.getState().reload();
-            expect(useSettings.getState().panelLayout).toBe('roomy');
-            expect(useSettings.getState().dockAutoHide).toBe(true);
+            expect(useSettings.getState()).toMatchObject({
+                panelLayout: 'roomy',
+                chatSteerByDefault: true,
+                terminalLinkDestination: 'ruimte',
+                dockAutoHide: true,
+                chatStreaming: 'blocks',
+                browserSwipe: false
+            });
         } finally {
             globalThis.localStorage = previousStorage;
             useSettings.setState(previous);
@@ -128,27 +137,6 @@ describe('sending to a running agent', () => {
         expect(settingsFrom({ chatSteerByDefault: true }).chatSteerByDefault).toBe(true);
         expect(settingsFrom({ chatSteerByDefault: 'yes' as unknown as boolean }).chatSteerByDefault).toBe(false);
     });
-
-    test('keeps the choice through other updates and reloads it in another window', () => {
-        const previousStorage = globalThis.localStorage;
-        const previous = useSettings.getState();
-        const items = new Map<string, string>();
-        globalThis.localStorage = {
-            getItem: (key: string) => items.get(key) ?? null,
-            setItem: (key: string, value: string) => items.set(key, value)
-        } as unknown as Storage;
-        try {
-            useSettings.getState().update({ chatSteerByDefault: true });
-            useSettings.getState().update({ chatStreaming: 'blocks' });
-            useSettings.setState({ chatSteerByDefault: false });
-            useSettings.getState().reload();
-            expect(useSettings.getState().chatSteerByDefault).toBe(true);
-            expect(useSettings.getState().chatStreaming).toBe('blocks');
-        } finally {
-            globalThis.localStorage = previousStorage;
-            useSettings.setState(previous);
-        }
-    });
 });
 
 describe('streaming replies', () => {
@@ -212,27 +200,6 @@ describe('terminal link destination', () => {
         expect(settingsFrom({}).terminalLinkDestination).toBe('external');
         expect(settingsFrom({ terminalLinkDestination: 'ruimte' }).terminalLinkDestination).toBe('ruimte');
         expect(settingsFrom({ terminalLinkDestination: 'browser' as Settings['terminalLinkDestination'] }).terminalLinkDestination).toBe('external');
-    });
-
-    test('persists through unrelated updates and reloads in another window', () => {
-        const previousStorage = globalThis.localStorage;
-        const previous = useSettings.getState();
-        const items = new Map<string, string>();
-        globalThis.localStorage = {
-            getItem: (key: string) => items.get(key) ?? null,
-            setItem: (key: string, value: string) => items.set(key, value)
-        } as unknown as Storage;
-        try {
-            useSettings.getState().update({ terminalLinkDestination: 'ruimte' });
-            useSettings.getState().update({ browserSwipe: false });
-            useSettings.setState({ terminalLinkDestination: 'external' });
-            useSettings.getState().reload();
-            expect(useSettings.getState().terminalLinkDestination).toBe('ruimte');
-            expect(useSettings.getState().browserSwipe).toBe(false);
-        } finally {
-            globalThis.localStorage = previousStorage;
-            useSettings.setState(previous);
-        }
     });
 });
 
