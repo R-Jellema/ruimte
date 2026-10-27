@@ -1,9 +1,8 @@
 import type { FsCreateResult } from '@ruimte/contracts';
 import type { Dispatcher } from '../dispatcher.ts';
 import { browseDirectories } from '../fs/browse.ts';
-import { planCreate } from '../fs/create.ts';
+import { createEntry, planCreate } from '../fs/create.ts';
 import { planDelete } from '../fs/delete.ts';
-import { createEntry } from '../fs/create.ts';
 import { listDirectory } from '../fs/list.ts';
 import { locateFile } from '../fs/locate.ts';
 import { cachedRepos } from '../git/repo-cache.ts';

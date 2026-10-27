@@ -1,5 +1,5 @@
-import type { AgentKind } from '@ruimte/contracts';
-import type { Dispatcher } from '../dispatcher.ts';
+import type { AgentKind, SessionInfo } from '@ruimte/contracts';
+import type { ClientConnection, Dispatcher } from '../dispatcher.ts';
 import { refuseBoundNode, type MachineOfNode } from '../remote/bound-nodes.ts';
 import { SessionError, type SessionManager } from '../sessions/manager.ts';
 import { recordTiming } from '../stats/usage-stats.ts';
@@ -20,6 +20,15 @@ export function registerSessionHandlers(
     logins?: LoginCommands,
     machineOf?: MachineOfNode
 ): void {
+    // A shell or a login lives for its client, whose leaving while it started ended the others before this one was there.
+    const keptForClient = async (client: ClientConnection, created: SessionInfo): Promise<SessionInfo> => {
+        if (client.closed) {
+            await manager.kill(created.sessionId);
+        }
+
+        return created;
+    };
+
     dispatcher.register('session.create', async (payload, client) => {
         refuseBoundNode(machineOf, payload.sessionId);
         const { endsWithClient, ...options } = payload;
@@ -30,12 +39,7 @@ export function registerSessionHandlers(
         if (options.command !== undefined || options.agent !== undefined) {
             throw new SessionError('client-shell-command', 'A shell that ends with its client starts nothing of its own');
         }
-        const created = await manager.create({ ...options, fresh: true, forClient: { clientId: client.id, label: 'Shell' } });
-        // As with a login: a client that left while the shell started had its others ended before this one was there.
-        if (client.closed) {
-            await manager.kill(created.sessionId);
-        }
-        return created;
+        return keptForClient(client, await manager.create({ ...options, fresh: true, forClient: { clientId: client.id, label: 'Shell' } }));
     });
 
     /* No `cwd`, so the shell starts in the home folder. The default account is named outright, since a
@@ -54,11 +58,8 @@ export function registerSessionHandlers(
             fresh: true,
             forClient: { clientId: client.id, label: `${logins.nameOf(payload.kind)} login` }
         });
-        // The login lives for its client, whose leaving ended the others before this one was there.
-        if (client.closed) {
-            await manager.kill(created.sessionId);
-        }
-        return created;
+
+        return keptForClient(client, created);
     });
 
     dispatcher.register('session.attach', async (payload, client) => {

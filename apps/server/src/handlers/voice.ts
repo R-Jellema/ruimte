@@ -40,8 +40,8 @@ export function registerVoiceHandlers(dispatcher: Dispatcher, deps: VoiceHandler
         },
         { owner: true }
     );
-    dispatcher.register('voice.preferences', async () => ({ preferences: preferences.get() }));
-    dispatcher.register('voice.setPreferences', async (payload) => ({ preferences: preferences.set(payload) }));
+    dispatcher.register('voice.preferences', () => ({ preferences: preferences.get() }));
+    dispatcher.register('voice.setPreferences', (payload) => ({ preferences: preferences.set(payload) }));
     dispatcher.register('voice.start', (payload, client) => sessions.start(client, payload));
     dispatcher.register('voice.stop', (payload, client) => sessions.stop(client, payload));
     dispatcher.register('voice.confirm', (payload, client) => sessions.confirm(client, payload));

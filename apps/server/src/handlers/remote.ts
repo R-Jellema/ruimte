@@ -30,13 +30,8 @@ interface PeerLinkHost {
  * passes the broker the address book lists for that machine; this machine cannot ask the address book itself.
  */
 function acceptableBrokerUrl(value: string): boolean {
-    let url: URL;
-    try {
-        url = new URL(value);
-    } catch {
-        return false;
-    }
-    if (url.username !== '' || url.password !== '') {
+    const url = URL.parse(value);
+    if (url === null || url.username !== '' || url.password !== '') {
         return false;
     }
     return url.protocol === 'wss:' || (url.protocol === 'ws:' && ['127.0.0.1', '[::1]', 'localhost'].includes(url.hostname));

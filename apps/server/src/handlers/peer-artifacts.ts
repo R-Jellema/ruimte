@@ -10,9 +10,7 @@ import type { PeerLinks } from '../peering/links.ts';
  */
 export function registerPeerArtifactHandlers(dispatcher: Dispatcher, links: Pick<PeerLinks, 'list' | 'linkOf'>, artifacts: Artifacts): void {
     const linkedProject = (client: ClientConnection, projectId: string): string => {
-        requirePeerLinks(client, links);
-        const machineId = client.access?.peer?.machineId;
-        if (machineId === undefined || links.linkOf(machineId, projectId) === null) {
+        if (links.linkOf(requirePeerLinks(client, links), projectId) === null) {
             throw new RequestError('peer-not-linked', 'That project here is not linked to this machine');
         }
         return projectId;

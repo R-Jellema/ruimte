@@ -1,4 +1,4 @@
-import { RequestError, type ClientConnection, type Dispatcher } from '../dispatcher.ts';
+import type { ClientConnection, Dispatcher } from '../dispatcher.ts';
 import { requirePeerLinks } from '../peering/peer-access.ts';
 import type { PeerLinks } from '../peering/links.ts';
 import type { PeerTasks } from '../peering/peer-tasks.ts';
@@ -8,14 +8,7 @@ import type { PeerTasks } from '../peering/peer-tasks.ts';
  * let in grants nothing: without a link a person made here the answer is `peer-not-linked`.
  */
 export function registerPeerTaskHandlers(dispatcher: Dispatcher, links: Pick<PeerLinks, 'list'>, tasks: PeerTasks): void {
-    const machineOf = (client: ClientConnection): string => {
-        requirePeerLinks(client, links);
-        const machineId = client.access?.peer?.machineId;
-        if (machineId === undefined) {
-            throw new RequestError('forbidden', 'Another machine may not ask this');
-        }
-        return machineId;
-    };
+    const machineOf = (client: ClientConnection): string => requirePeerLinks(client, links);
 
     dispatcher.register('peer.taskStart', (payload, client) => tasks.start(machineOf(client), client.id, payload), { peer: true });
 

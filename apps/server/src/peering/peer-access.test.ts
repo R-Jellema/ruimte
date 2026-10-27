@@ -34,10 +34,10 @@ describe('the links of a peer', () => {
         expect(() => requirePeerLinks(client, links)).toThrow(expect.objectContaining({ code: 'peer-not-linked' }));
     });
 
-    test('a linked peer gets its own links and no other machine`s', async () => {
+    test('a linked peer is let through as the machine it is', async () => {
         await links.bind('machine-a', 'Studio', 'project-1', 'auto-accept-edits');
         await links.bind('machine-b', 'MacBook', 'project-2');
-        expect(requirePeerLinks(peer('machine-a'), links)).toMatchObject([{ machineId: 'machine-a', projectId: 'project-1', ceiling: 'auto-accept-edits' }]);
+        expect(requirePeerLinks(peer('machine-a'), links)).toBe('machine-a');
     });
 
     test('unlinking takes the access away again', async () => {

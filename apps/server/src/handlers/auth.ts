@@ -129,10 +129,6 @@ export function registerAuthHandlers(dispatcher: Dispatcher, store: AuthStore, h
         { peer: true }
     );
 
-    /*
-     * Any client the machine let in may name it. A name and an icon are how a person tells two
-     * machines apart, so they belong to the machine and not to whichever client typed them.
-     */
     /* The checks and the side effects of the switches both requests set; `write` stores them, with or without a new name. */
     const applySettings = async (
         settings: EndpointSettings,
@@ -205,6 +201,10 @@ export function registerAuthHandlers(dispatcher: Dispatcher, store: AuthStore, h
         }
     };
 
+    /*
+     * Any client the machine let in may name it. A name and an icon are how a person tells two
+     * machines apart, so they belong to the machine and not to whichever client typed them.
+     */
     dispatcher.register('endpoint.setIdentity', async (payload, client) => {
         await applySettings(payload, client.access, (flags) => identity.setIdentity(payload.name, payload.icon, flags));
         return info(client.access);
