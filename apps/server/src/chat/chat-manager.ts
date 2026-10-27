@@ -434,14 +434,23 @@ export class ChatManager extends ChatCore {
 
     /* Opens the turn a fork writes its summary in, loading the fork when nobody has; null while a turn is in the way. */
     async openSummaryTurn(chatId: string, wake: { text: string; label: string; note: string; summaryFor: string }): Promise<string | null> {
-        await this.loaded(chatId);
-        if (!this.get(chatId)) {
-            if (!(await this.hasStored(chatId))) {
-                throw new ChatError('chat-not-found', `No chat ${chatId}`);
-            }
-            await this.create({ chatId });
+        if (!(await this.loadStored(chatId))) {
+            throw new ChatError('chat-not-found', `No chat ${chatId}`);
         }
         return this.require(chatId).wake({ ...wake, taskIds: [] });
+    }
+
+    /* Loads a chat nobody holds from its record; false when it has none. */
+    private async loadStored(chatId: string): Promise<boolean> {
+        await this.loaded(chatId);
+        if (this.get(chatId)) {
+            return true;
+        }
+        if (!(await this.hasStored(chatId))) {
+            return false;
+        }
+        await this.create({ chatId });
+        return true;
     }
 
     /*
@@ -481,10 +490,7 @@ export class ChatManager extends ChatCore {
      * can go on under it. Refuses an account it cannot start, and a chat with nothing to go on after.
      */
     async limitedTurnFor(chatId: string, account: string): Promise<{ turnId: string; limit: ChatTurnLimit['kind']; inPlace: boolean }> {
-        await this.loaded(chatId);
-        if (!this.get(chatId) && (await this.hasStored(chatId))) {
-            await this.create({ chatId });
-        }
+        await this.loadStored(chatId);
         const session = this.require(chatId);
         const { provider: kind, account: from } = session.info;
         const to = storedAccount(kind, account);
@@ -772,12 +778,8 @@ export class ChatManager extends ChatCore {
     }
 
     private async childChat(childId: string): Promise<ChatSession> {
-        await this.loaded(childId);
-        if (!this.get(childId)) {
-            if (!(await this.hasStored(childId))) {
-                throw new ChatError('chat-unsupported', 'This task runs in a terminal or has not started; its node shows what it does');
-            }
-            await this.create({ chatId: childId });
+        if (!(await this.loadStored(childId))) {
+            throw new ChatError('chat-unsupported', 'This task runs in a terminal or has not started; its node shows what it does');
         }
         return this.require(childId);
     }
@@ -816,10 +818,5 @@ export class ChatManager extends ChatCore {
 
 /* A fork with no turn after the one it was cut at: nobody wrote in it, so its CLI never touched the copy. */
 function unspokenFork(items: readonly ChatItem[], info: ChatInfo): boolean {
-    const forkOf = info.forkOf;
-    if (forkOf === undefined) {
-        return false;
-    }
-    const turns = items.filter((item) => item.kind === 'turn');
-    return turns.at(-1)?.id === forkOf.turnId;
+    return info.forkOf !== undefined && items.findLast((item) => item.kind === 'turn')?.id === info.forkOf.turnId;
 }
