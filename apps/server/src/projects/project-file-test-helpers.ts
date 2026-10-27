@@ -57,7 +57,7 @@ export function projectLinks(links: Partial<ProjectLinks> = {}): ProjectLinks {
         launches: { opened: () => undefined, running: () => 0, end: async () => 0 },
         language: { end: async () => undefined },
         provenance: { forget: async () => undefined },
-        databases: { closeProject: () => undefined },
+        databases: { closeProject: () => undefined, forgetProject: async () => undefined },
         bindings: { machineId: 'machine-a', started: async () => false },
         viewFiles: () => [],
         ...links

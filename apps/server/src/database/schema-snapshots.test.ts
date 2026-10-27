@@ -276,6 +276,15 @@ describe('schema snapshots', () => {
         expect(await taker.list('p1')).toEqual([]);
     });
 
+    test('forgetting a project takes the snapshots of all its connections and leaves other projects alone', async () => {
+        const taker = snapshots(fakeService());
+        await taker.take('p1', SHOP, 'shop');
+        await taker.take('p2', SHOP, 'shop');
+        await taker.forgetProject('p1');
+        expect(await readdir(root)).toEqual(['p2']);
+        expect(await taker.list('p2')).toHaveLength(1);
+    });
+
     test('a take asked for while one runs follows it once, however many ask', async () => {
         let opened = 0;
         const fake = fakeService((method) => {

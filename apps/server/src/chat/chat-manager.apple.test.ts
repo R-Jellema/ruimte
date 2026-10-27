@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { AppleFoundationRequestSchema } from '@ruimte/contracts';
@@ -79,6 +79,62 @@ test('Apple chat projects approved directory and file tools across turns into it
         expect(recorder.ofKind('assistant')[1]?.text).toContain('ORCHID');
         expect(recorder.ofKind('turn').map((item) => item.state)).toEqual(['done', 'done']);
         expect(recorder.ofKind('note').filter((item) => item.text.includes('conversation memory'))).toHaveLength(1);
+    } finally {
+        await retire(manager);
+        await rm(home, { recursive: true, force: true });
+    }
+});
+
+test('removing an Apple chat takes the helper conversation along and leaves another chat its own', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'ruimte-apple-remove-'));
+    const sessions = join(home, 'apple-foundation', 'sessions');
+    const attachments = new AttachmentStore(home);
+    const store = new RecordingStore(home, { attachments });
+    const helper = inProcess((io) => {
+        const id = io.argv[io.argv.indexOf('--session') + 1]!;
+        io.out({ type: 'availability', available: true });
+        io.out({ type: 'session', protocolVersion: 3, id, restored: false });
+        return {
+            onLine: (line) => {
+                const request = AppleFoundationRequestSchema.parse(JSON.parse(line));
+                if (request.type === 'turn') {
+                    io.out({ type: 'text.snapshot', id: request.id, text: 'Noted.' });
+                    io.out({ type: 'done', id: request.id, state: 'done' });
+                }
+            }
+        };
+    });
+    const provider = {
+        ...appleProvider,
+        createBackend: (launch: ConstructorParameters<typeof AppleBackend>[0], host: ConstructorParameters<typeof AppleBackend>[1]) =>
+            new AppleBackend(launch, host)
+    };
+    const manager = new ChatManager({
+        providers: new ProviderRegistry({ providers: [provider] }),
+        store,
+        attachments,
+        spawn: helper.spawn,
+        env: { HOME: home, RUIMTE_HOME: home }
+    });
+    const sessionOf = async (chatId: string): Promise<string> => {
+        const recorder = new ChatRecorder();
+        manager.subscribe(`client-${chatId}`, recorder.sink());
+        await manager.create({ chatId, provider: 'apple', cwd: home });
+        manager.attach(chatId, `client-${chatId}`);
+        await manager.send(chatId, 'Remember this.');
+        await recorder.untilIdle();
+        const id = recorder.info?.agentSessionId ?? '';
+        await mkdir(sessions, { recursive: true });
+        await writeFile(join(sessions, `${id}.json`), '{}');
+        await writeFile(join(sessions, `${id}.lock`), '');
+        return id;
+    };
+    try {
+        const removed = await sessionOf('apple-removed');
+        const kept = await sessionOf('apple-kept');
+        await manager.kill('apple-removed');
+        expect((await readdir(sessions)).sort()).toEqual([`${kept}.json`, `${kept}.lock`]);
+        expect(removed).not.toBe(kept);
     } finally {
         await retire(manager);
         await rm(home, { recursive: true, force: true });

@@ -226,6 +226,11 @@ export class SchemaSnapshots {
         await rm(this.connectionFolder(projectId, connectionId), { recursive: true, force: true });
     }
 
+    /* A project deleted for good takes the snapshots of every connection along; closing one keeps them. */
+    async forgetProject(projectId: string): Promise<void> {
+        await rm(join(this.options.root, segmentOf(projectId)), { recursive: true, force: true });
+    }
+
     /*
      * Takes the snapshot of one target. While one runs for it, a call waits for it and takes it once more
      * after, since the one that runs may have read the schema before what asked for this changed it; calls

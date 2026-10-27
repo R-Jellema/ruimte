@@ -83,7 +83,8 @@ export async function wireProjects({ home, machineId, stores, agents, computer, 
             closeProject: (projectId) => {
                 later.databases().connections.closeProject(projectId);
                 later.databases().agents.letGo(projectId);
-            }
+            },
+            forgetProject: (projectId) => later.databases().snapshots.forgetProject(projectId)
         },
         bindings: {
             machineId,

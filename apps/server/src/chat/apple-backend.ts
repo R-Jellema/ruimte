@@ -1,9 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
 import { AppleFoundationEventSchema, clipText, type AppleFoundationEvent, type AppleFoundationRequest } from '@ruimte/contracts';
 import { reportHelperExit } from '../telemetry/reporter.ts';
 import { closeAppleNetworkTools } from './apple-network-tools.ts';
+import { appleHomeOf } from './apple-sessions.ts';
 import {
     APPLE_TOOL_NAMES,
     appleToolInput,
@@ -62,7 +61,7 @@ export class AppleBackend implements ChatBackend {
         this.executeTool = executeTool;
         this.options = options;
         this.sessionId = (launch.resume ?? randomUUID()).toLowerCase();
-        this.home = launch.env.RUIMTE_HOME ?? join(launch.env.HOME ?? homedir(), '.ruimte');
+        this.home = appleHomeOf(launch.env);
         this.toolContext = { env: launch.env, home: this.home, runtimeMode: launch.runtimeMode };
     }
 

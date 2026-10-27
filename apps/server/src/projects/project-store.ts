@@ -129,9 +129,10 @@ export interface ProjectLanguage {
     end(projectId: string): Promise<void>;
 }
 
-/* What the store needs of the database connections: they let go of a project when it does. */
+/* What the store needs of the database connections: they let go of a project when it does, and forget it when it is deleted. */
 interface ProjectDatabases {
     closeProject(projectId: string): void;
+    forgetProject(projectId: string): Promise<void>;
 }
 
 /* What the store needs of the provenance records: they go with the project. */
@@ -1030,6 +1031,9 @@ export class ProjectStore {
         await this.links.provenance
             .forget(projectId)
             .catch((e: unknown) => console.warn(`Forgetting the provenance of project ${projectId} failed:`, errorText(e)));
+        await this.links.databases
+            .forgetProject(projectId)
+            .catch((e: unknown) => console.warn(`Forgetting the schema snapshots of project ${projectId} failed:`, errorText(e)));
         if (!removeFiles) {
             return;
         }

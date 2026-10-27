@@ -285,6 +285,16 @@ describe('ProjectStore', () => {
         expect((await store.list()).map((project) => project.projectId)).not.toContain(second.summary.projectId);
     });
 
+    test('deleting a project has its schema snapshots forgotten, closing it does not', async () => {
+        const forgotten: string[] = [];
+        links.databases = { closeProject: () => undefined, forgetProject: async (id) => void forgotten.push(id) };
+        const { projectId } = (await store.openProject({ folder })).summary;
+        await store.closeProject(projectId, 'client-a');
+        expect(forgotten).toEqual([]);
+        await store.delete(projectId, false);
+        expect(forgotten).toEqual([projectId]);
+    });
+
     test('deleting a folder project without removing files keeps the canvas on disk', async () => {
         const opened = await store.openProject({ folder });
         await store.delete(opened.summary.projectId, false);

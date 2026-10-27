@@ -17,6 +17,7 @@ export interface DatabasesBundle {
     connections: DatabaseConnectionStore;
     agents: AgentDatabases;
     sqlAnalysis: SqlAnalysis;
+    snapshots: SchemaSnapshots;
 }
 
 export async function wireDatabases(
@@ -48,6 +49,11 @@ export async function wireDatabases(
         passwords,
         scratchFolder: projects.scratchFolder
     });
+    const snapshots = new SchemaSnapshots({
+        root: join(home, 'database-snapshots'),
+        service,
+        passwordOf: (projectId, connectionId, target) => passwords.passwordOf(projectId, connectionId, target)
+    });
     const sqlAnalysis = new SqlAnalysis({
         projects: {
             folderOf: (projectId) => projects.index.folderOf(projectId),
@@ -56,16 +62,12 @@ export async function wireDatabases(
             mutate: (projectId, apply) => projects.mutate(projectId, apply)
         },
         connections,
-        snapshots: new SchemaSnapshots({
-            root: join(home, 'database-snapshots'),
-            service,
-            passwordOf: (projectId, connectionId, target) => passwords.passwordOf(projectId, connectionId, target)
-        }),
+        snapshots,
         access: agents,
         listeners: {
             sqlChanged: (projectId) => later.language().host.sqlChanged(projectId),
             outsideFilesChanged: (changes) => later.language().host.outsideFilesChanged(changes)
         }
     });
-    return { service, connections, agents, sqlAnalysis };
+    return { service, connections, agents, sqlAnalysis, snapshots };
 }

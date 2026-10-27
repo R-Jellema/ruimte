@@ -31,6 +31,7 @@ import { errorText } from '../error-text.ts';
 import { RUIMTE_CODEX_CLIENT } from '../providers/codex-provider.ts';
 import { continueOnWake, continuedInForkNote } from './continue-on.ts';
 import { AgentImages } from './agent-images.ts';
+import { appleHomeOf, removeAppleSession } from './apple-sessions.ts';
 import { ChatError } from './errors.ts';
 import { RUIMTE_UI_FENCE } from './ui-fence.ts';
 import { InlineEditNotes } from './inline-edit.ts';
@@ -246,6 +247,7 @@ export class ChatManager extends ChatCore {
     private readonly dropWakes: (chatId: string) => Promise<void>;
     private readonly endChildren: (chatId: string) => Promise<unknown>;
     private readonly plans: ChatPlans | null;
+    private readonly appleHome: string;
     private readonly agentImages: AgentImages;
     private readonly tokens = new Map<string, string>();
     // The tasks whose rows a clear hid, per chat.
@@ -313,6 +315,7 @@ export class ChatManager extends ChatCore {
         this.dropWakes = options.dropWakes ?? (() => Promise.resolve());
         this.endChildren = options.endChildren ?? (() => Promise.resolve());
         this.plans = options.plans ?? null;
+        this.appleHome = appleHomeOf(options.env ?? process.env);
         this.agentImages = new AgentImages(options.attachments);
     }
 
@@ -328,11 +331,13 @@ export class ChatManager extends ChatCore {
         return this.readChat(chatId);
     }
 
-    /* Also takes back the plans the fork was given, beside what the core removes. */
+    /* Also takes back the plans the fork was given and the helper's own conversation, beside what the core removes. */
     override async deleteRecord(chatId: string): Promise<boolean> {
+        // Read before the record goes, since only the record names the helper's session; a loaded chat is `kill`'s.
+        const stored = this.get(chatId) ? null : await this.readChat(chatId).catch(() => null);
         const deleted = await super.deleteRecord(chatId);
         if (deleted) {
-            await this.plans?.removeChat(chatId);
+            await Promise.all([this.plans?.removeChat(chatId), stored === null ? undefined : removeAppleSession(this.appleHome, stored.info)]);
         }
         return deleted;
     }
@@ -718,7 +723,7 @@ export class ChatManager extends ChatCore {
     }
 
     private async removed(chatId: string, chat: { info: ChatInfo; items: ChatItem[] }): Promise<void> {
-        await Promise.all([this.plans?.removeChat(chatId), this.dropForkCopy(chat)]);
+        await Promise.all([this.plans?.removeChat(chatId), this.dropForkCopy(chat), removeAppleSession(this.appleHome, chat.info)]);
     }
 
     /* A client following a task's node hears whenever an item of that node's thread lands; a delta alone does not. */
