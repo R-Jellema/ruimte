@@ -5,7 +5,6 @@ import type { ProcessesBundle } from './processes.ts';
 
 /* The disposable files of this machine, each on the rule of the code that writes it. */
 function sweepersOf(home: string): Sweeper[] {
-    // The previews of visuals join here once ADE CORE sweeps them itself (basmilius/adecore#153).
     return [
         { name: 'screenshots', sweep: (now, signal) => sweepScreenshots(home, now, signal) },
         { name: 'device captures', sweep: (now, signal) => sweepDeviceCaptures(home, now, signal) },
