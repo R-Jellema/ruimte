@@ -25,7 +25,8 @@ import { canStandInCell, type DocumentKit } from '@/state/document-model';
 export function createDocumentGridSlice({
     set,
     get,
-    commit
+    commit,
+    change
 }: DocumentKit): Pick<
     DocumentState,
     | 'setActiveView'
@@ -48,17 +49,8 @@ export function createDocumentGridSlice({
 > {
     return {
         setActiveView(id) {
-            const state = get();
-            if (!canStandInCell(state, id) || state.activeViewId === id) {
-                return;
-            }
-            if (state.layout === null) {
-                commit(singleLayout(id));
-                return;
-            }
-            const shown = showViewIn(state.layout, id);
-            if (shown !== null) {
-                commit(shown.layout);
+            if (get().activeViewId !== id) {
+                get().showView(id);
             }
         },
 
@@ -110,30 +102,15 @@ export function createDocumentGridSlice({
         },
 
         closeCellAt(at) {
-            const state = get();
-            if (state.layout === null) {
-                return;
-            }
-            const next = closeCell(state.layout, at);
-            if (next !== state.layout) {
-                commit(next);
-            }
+            change((layout) => closeCell(layout, at));
         },
 
         closeOtherCells(at) {
-            const state = get();
-            const next = state.layout === null ? null : closeOtherCells(state.layout, at);
-            if (next !== null && next !== state.layout) {
-                commit(next);
-            }
+            change((layout) => closeOtherCells(layout, at));
         },
 
         closeCellsRightOf(at) {
-            const state = get();
-            const next = state.layout === null ? null : closeCellsRightOf(state.layout, at);
-            if (next !== null && next !== state.layout) {
-                commit(next);
-            }
+            change((layout) => closeCellsRightOf(layout, at));
         },
 
         focusCellAt(at) {

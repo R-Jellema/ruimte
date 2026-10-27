@@ -22,7 +22,8 @@ import { canStandInCell, cellViewOf, type DocumentKit } from '@/state/document-m
 /* The tabs of a cell, and the loose views that stand in them without being views of the project. */
 export function createDocumentTabsSlice({
     get,
-    commit
+    commit,
+    change
 }: DocumentKit): Pick<
     DocumentState,
     | 'showLoose'
@@ -86,11 +87,7 @@ export function createDocumentTabsSlice({
         },
 
         moveTab(viewId, delta) {
-            const state = get();
-            const next = state.layout === null ? null : moveTabBy(state.layout, viewId, delta);
-            if (next !== null && next !== state.layout) {
-                commit(next);
-            }
+            change((layout) => moveTabBy(layout, viewId, delta));
         },
 
         splitTabOff(viewId) {
@@ -104,11 +101,7 @@ export function createDocumentTabsSlice({
         },
 
         ungroupCell(at) {
-            const state = get();
-            const next = state.layout === null ? null : ungroup(state.layout, at);
-            if (next !== null && next !== state.layout) {
-                commit(next);
-            }
+            change((layout) => ungroup(layout, at));
         },
 
         closeLoose(key) {
@@ -120,11 +113,7 @@ export function createDocumentTabsSlice({
         },
 
         closeViewTab(viewId) {
-            const state = get();
-            const next = state.layout === null ? null : closeTab(state.layout, viewId);
-            if (next !== state.layout) {
-                commit(next);
-            }
+            change((layout) => closeTab(layout, viewId));
         },
 
         replaceViewKey(from, to) {
@@ -135,14 +124,7 @@ export function createDocumentTabsSlice({
         },
 
         activateTab(viewId) {
-            const state = get();
-            if (state.layout === null) {
-                return;
-            }
-            const next = activateTab(state.layout, viewId);
-            if (next !== state.layout) {
-                commit(next);
-            }
+            change((layout) => activateTab(layout, viewId));
         },
 
         stepTab(delta) {

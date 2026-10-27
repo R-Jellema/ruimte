@@ -28,14 +28,6 @@ const storedPreferences = storedJson<Preferences>(
     }))
 );
 
-function readPreferences(): Preferences {
-    return storedPreferences.read() ?? DEFAULTS;
-}
-
-function persist(preferences: Preferences): void {
-    storedPreferences.write(preferences);
-}
-
 /* What one machine said about its processes. */
 export interface ProcessesRow {
     /* Null until the machine answered the subscription; false on a platform without a sampler. */
@@ -67,18 +59,18 @@ export const useProcesses = create<ProcessesStore>((set, get) => {
         set({ byEndpoint: { ...get().byEndpoint, [endpointId]: { ...row, ...next(row) } } });
     };
     return {
-        ...readPreferences(),
+        ...(storedPreferences.read() ?? DEFAULTS),
         byEndpoint: {},
         setScope(scope) {
-            persist({ scope, sort: get().sort });
+            storedPreferences.write({ scope, sort: get().sort });
             set({ scope });
         },
         setSort(sort) {
-            persist({ scope: get().scope, sort });
+            storedPreferences.write({ scope: get().scope, sort });
             set({ sort });
         },
-        receive(endpointId, result) {
-            patch(endpointId, () => ({ supported: result.supported, fine: result.fine, coarse: result.coarse, sample: result.sample }));
+        receive(endpointId, { supported, fine, coarse, sample }) {
+            patch(endpointId, () => ({ supported, fine, coarse, sample }));
         },
         applySample(endpointId, sample, current) {
             patch(endpointId, (row) => ({

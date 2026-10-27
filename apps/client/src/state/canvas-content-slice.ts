@@ -3,6 +3,19 @@ import type { CanvasPatch } from '@/project/merge';
 import type { CanvasState } from '@/state/canvas';
 import { hiddenIn, patchSnapshot, snapshotOf, type CanvasGet, type CanvasNode, type CanvasSet } from '@/state/canvas-model';
 
+/* Spread over what the editor holds, so what only lives here (a browser's status) stays. */
+function mergedIn<T extends { id: string }>(held: Record<string, T>, removed: readonly string[], arrived: readonly T[]): Record<string, T> {
+    const next = { ...held };
+    for (const id of removed) {
+        delete next[id];
+    }
+    for (const item of arrived) {
+        const known = next[item.id];
+        next[item.id] = known ? { ...known, ...item } : item;
+    }
+    return next;
+}
+
 /* The content as a whole: a view loaded in, a change of another writer taken in, the content handed back, and undo. */
 export function createCanvasContentSlice(set: CanvasSet, get: CanvasGet): Pick<CanvasState, 'loadView' | 'applyExternal' | 'exportContent' | 'undo' | 'redo'> {
     return {
@@ -61,30 +74,9 @@ export function createCanvasContentSlice(set: CanvasSet, get: CanvasGet): Pick<C
                     arrived.nodes.length + arrived.texts.length + arrived.edges.length + (arrived.lines?.length ?? 0) > 0 ||
                     patch.removed.nodes.length + patch.removed.texts.length + patch.removed.edges.length + (patch.removed.lines?.length ?? 0) > 0;
                 const gone = new Set([...patch.removed.nodes, ...patch.removed.texts, ...patch.removed.edges, ...(patch.removed.lines ?? [])]);
-                const lines = { ...s.lines };
-                for (const id of patch.removed.lines ?? []) {
-                    delete lines[id];
-                }
-                for (const line of patch.lines ?? []) {
-                    lines[line.id] = { ...lines[line.id], ...line };
-                }
-                const nodes: Record<string, CanvasNode> = { ...s.nodes };
-                for (const id of patch.removed.nodes) {
-                    delete nodes[id];
-                }
-                // Spread over what the editor holds, so what only lives here (a browser's status) stays.
-                for (const node of patch.nodes) {
-                    const held = nodes[node.id];
-                    nodes[node.id] = held ? { ...held, ...node } : node;
-                }
-                const texts = { ...s.texts };
-                for (const id of patch.removed.texts) {
-                    delete texts[id];
-                }
-                for (const text of patch.texts) {
-                    const held = texts[text.id];
-                    texts[text.id] = held ? { ...held, ...text } : text;
-                }
+                const lines = mergedIn(s.lines, patch.removed.lines ?? [], patch.lines ?? []);
+                const nodes: Record<string, CanvasNode> = mergedIn(s.nodes, patch.removed.nodes, patch.nodes);
+                const texts = mergedIn(s.texts, patch.removed.texts, patch.texts);
                 const arriving = new Map(patch.edges.map((edge) => [edge.id, edge]));
                 const edges = s.edges
                     .filter((edge) => !gone.has(edge.id))
@@ -138,7 +130,7 @@ export function createCanvasContentSlice(set: CanvasSet, get: CanvasGet): Pick<C
             if (s.gapMove !== null) {
                 return;
             }
-            const previous = s.past[s.past.length - 1];
+            const previous = s.past.at(-1);
             if (!previous) {
                 return;
             }

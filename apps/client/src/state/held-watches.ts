@@ -93,16 +93,19 @@ export abstract class HeldWatches<A = unknown> {
     /* After the last reader of a path let go. */
     protected released(_endpointId: string, _path: string): void {}
 
-    /* Asks the daemon again for the paths held on one machine that `which` picks. */
-    protected askAgain(endpointId: string, which: (path: string) => boolean): Held<A>[] {
+    /* Asks the daemon again for the paths held on one machine that `which` picks, and has their readers read once it watches again. */
+    protected renew(endpointId: string, which: (path: string) => boolean): void {
         const link = this.linkFor(endpointId);
-        const asked = this.heldOn(endpointId).filter((held) => which(held.path));
-        for (const held of asked) {
+        for (const held of this.heldOn(endpointId).filter((entry) => which(entry.path))) {
             const next = this.request(link, held.path);
             held.ready = next.ready;
             held.answer = next.answer;
+            void held.ready.then(() => {
+                for (const reader of [...held.renewed]) {
+                    reader();
+                }
+            });
         }
-        return asked;
     }
 
     private heldOn(endpointId: string): Held<A>[] {
@@ -114,15 +117,8 @@ export abstract class HeldWatches<A = unknown> {
             return;
         }
         const off = link.subscribeStatus((status) => {
-            if (status !== 'open') {
-                return;
-            }
-            for (const held of this.askAgain(endpointId, () => true)) {
-                void held.ready.then(() => {
-                    for (const reader of [...held.renewed]) {
-                        reader();
-                    }
-                });
+            if (status === 'open') {
+                this.renew(endpointId, () => true);
             }
         });
         this.following.set(endpointId, off);

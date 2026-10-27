@@ -237,6 +237,8 @@ export interface DocumentKit {
     get: () => DocumentState;
     peers: DocumentPeers;
     commit(layout: SplitLayout | null): void;
+    /* Commits what `move` makes of the grid, when there is one and it moved. */
+    change(move: (layout: SplitLayout) => SplitLayout | null): void;
     write(views: ProjectView[] | null): void;
 }
 
@@ -255,6 +257,14 @@ export function createDocumentKit(set: DocumentKit['set'], get: DocumentKit['get
         openEditors(views, viewLocal, settled.layout === null ? [] : viewIdsIn(settled.layout), settled.activeViewId, peers);
     };
 
+    const change = (move: (layout: SplitLayout) => SplitLayout | null): void => {
+        const { layout } = get();
+        const next = layout === null ? layout : move(layout);
+        if (next !== layout) {
+            commit(next);
+        }
+    };
+
     /* What the pure operations in contracts hand back: a new list, or null for a call that asked
        for what is already there, which claims no edit and so does not make the project dirty. */
     const write = (views: ProjectView[] | null): void => {
@@ -263,5 +273,5 @@ export function createDocumentKit(set: DocumentKit['set'], get: DocumentKit['get
         }
     };
 
-    return { set, get, peers, commit, write };
+    return { set, get, peers, commit, change, write };
 }

@@ -63,7 +63,7 @@ export function describeUpdate(state: UpdateState): { headline: string; detail: 
 }
 
 function apply(state: UpdateState): void {
-    return useUpdates.setState({ ...state, supported: state.status !== 'unsupported' });
+    useUpdates.setState({ ...state, supported: state.status !== 'unsupported' });
 }
 
 /* Whether the shell downloads on its own. Pushed again whenever the setting changes. */

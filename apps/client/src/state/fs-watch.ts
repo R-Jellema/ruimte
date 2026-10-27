@@ -46,23 +46,13 @@ export class FolderWatches extends HeldWatches {
         return link.request('fs.unwatch', { path });
     }
 
+    /* An ancestor can replace the native stream of the folders below it, so those read again past the gap. */
     protected override opened(endpointId: string, path: string): void {
-        this.renewBelow(endpointId, path);
+        this.renew(endpointId, (other) => isUnderFolder(other, path));
     }
 
     protected override released(endpointId: string, path: string): void {
-        this.renewBelow(endpointId, path);
-    }
-
-    /* An ancestor can replace the native stream. Refresh after its new startup barrier to cover changes during the gap. */
-    private renewBelow(endpointId: string, path: string): void {
-        for (const held of this.askAgain(endpointId, (other) => isUnderFolder(other, path))) {
-            void held.ready.then(() => {
-                for (const reader of [...held.renewed]) {
-                    reader();
-                }
-            });
-        }
+        this.renew(endpointId, (other) => isUnderFolder(other, path));
     }
 }
 
