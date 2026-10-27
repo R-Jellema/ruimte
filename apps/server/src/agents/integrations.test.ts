@@ -11,8 +11,19 @@ let home: string;
 let env: Record<string, string>;
 let accountHomes: string[];
 
-function integrations(fixed = false): AgentIntegrations {
-    return new AgentIntegrations({ home, fixed, env, accountHomes: (kind) => (kind === 'claude' ? accountHomes : []) });
+async function loaded(fixed = false): Promise<AgentIntegrations> {
+    const subject = new AgentIntegrations({ home, fixed, env, accountHomes: (kind) => (kind === 'claude' ? accountHomes : []) });
+    await subject.load();
+    return subject;
+}
+
+/* Every provider of a fresh home in the order the summary lists them, with what the test sets apart. */
+function providers(states: Partial<Record<string, 'on' | 'off'>> = {}): ReturnType<AgentIntegrations['summary']>['providers'] {
+    return (['claude', 'codex', 'antigravity', 'copilot', 'grok'] as const).map((provider) => ({
+        provider,
+        state: states[provider] ?? 'unset',
+        reviewed: false
+    }));
 }
 
 /* Every file below a folder, relative, so a test can say nothing was written outside the home. */
@@ -41,19 +52,12 @@ afterEach(async () => {
 
 describe('AgentIntegrations', () => {
     test('a fresh home writes nothing outside the home, however often it starts', async () => {
-        const fresh = integrations();
-        await fresh.load();
+        const fresh = await loaded();
         await fresh.installDefaults();
         await fresh.installFolder('claude', join(root, 'account'));
 
         expect(fresh.summary()).toEqual({
-            providers: [
-                { provider: 'claude', state: 'unset', reviewed: false },
-                { provider: 'codex', state: 'unset', reviewed: false },
-                { provider: 'antigravity', state: 'unset', reviewed: false },
-                { provider: 'copilot', state: 'unset', reviewed: false },
-                { provider: 'grok', state: 'unset', reviewed: false }
-            ],
+            providers: providers(),
             fixed: false
         });
         expect(await tree(root)).toEqual(['/ruimte-home/agent-integrations.json']);
@@ -62,16 +66,9 @@ describe('AgentIntegrations', () => {
     test('a home that already has the hooks counts as on and has yet to be reviewed', async () => {
         await installHooks(settingsPath(), 'claude');
 
-        const migrated = integrations();
-        await migrated.load();
+        const migrated = await loaded();
 
-        expect(migrated.summary().providers).toEqual([
-            { provider: 'claude', state: 'on', reviewed: false },
-            { provider: 'codex', state: 'unset', reviewed: false },
-            { provider: 'antigravity', state: 'unset', reviewed: false },
-            { provider: 'copilot', state: 'unset', reviewed: false },
-            { provider: 'grok', state: 'unset', reviewed: false }
-        ]);
+        expect(migrated.summary().providers).toEqual(providers({ claude: 'on' }));
         expect(migrated.allows('claude')).toBe(true);
         expect(migrated.allows('codex')).toBe(false);
     });
@@ -80,16 +77,9 @@ describe('AgentIntegrations', () => {
         await installHooks(settingsPath(), 'claude');
         await writeFile(join(home, 'agent-integrations.json'), '{ not json');
 
-        const subject = integrations();
-        await subject.load();
+        const subject = await loaded();
 
-        expect(subject.summary().providers).toEqual([
-            { provider: 'claude', state: 'unset', reviewed: false },
-            { provider: 'codex', state: 'unset', reviewed: false },
-            { provider: 'antigravity', state: 'unset', reviewed: false },
-            { provider: 'copilot', state: 'unset', reviewed: false },
-            { provider: 'grok', state: 'unset', reviewed: false }
-        ]);
+        expect(subject.summary().providers).toEqual(providers());
         const files = await readdir(home);
         const aside = files.find((name) => name.startsWith('agent-integrations.json.corrupt-'));
         expect(aside).toBeDefined();
@@ -100,21 +90,18 @@ describe('AgentIntegrations', () => {
         await mkdir(join(env.CODEX_HOME!, 'rules'));
         await writeFile(join(env.CODEX_HOME!, 'rules', 'ruimte.rules'), CODEX_RULES);
 
-        const migrated = integrations();
-        await migrated.load();
+        const migrated = await loaded();
 
         expect(migrated.allows('codex')).toBe(true);
     });
 
     test('the choice survives a restart, and unknown keys are written back', async () => {
-        const first = integrations();
-        await first.load();
+        const first = await loaded();
         await first.set('claude', true);
         const file = JSON.parse(await readFile(join(home, 'agent-integrations.json'), 'utf8'));
         await writeFile(join(home, 'agent-integrations.json'), JSON.stringify({ ...file, future: { a: 1 } }));
 
-        const second = integrations();
-        await second.load();
+        const second = await loaded();
         await second.set('codex', false);
 
         expect(second.allows('claude')).toBe(true);
@@ -122,8 +109,7 @@ describe('AgentIntegrations', () => {
     });
 
     test('allowing writes the hooks and says so, and the startup install honors the choice', async () => {
-        const allowed = integrations();
-        await allowed.load();
+        const allowed = await loaded();
 
         const reports = await allowed.set('claude', true);
 
@@ -135,8 +121,7 @@ describe('AgentIntegrations', () => {
     test("turning off after an install into a file with a person's hook keeps theirs and removes Ruimte's", async () => {
         const theirs = { type: 'command', command: 'echo theirs' };
         await writeFile(settingsPath(), JSON.stringify({ model: 'opus', hooks: { Stop: [{ hooks: [theirs] }] } }));
-        const subject = integrations();
-        await subject.load();
+        const subject = await loaded();
         await subject.set('claude', true);
 
         const reports = await subject.set('claude', false);
@@ -149,8 +134,7 @@ describe('AgentIntegrations', () => {
     });
 
     test('an entry a person edited stays and is reported', async () => {
-        const subject = integrations();
-        await subject.load();
+        const subject = await loaded();
         await subject.set('claude', true);
         const config = JSON.parse(await readFile(settingsPath(), 'utf8'));
         for (const groups of Object.values(config.hooks) as { hooks: { timeout: number }[] }[][]) {
@@ -167,8 +151,7 @@ describe('AgentIntegrations', () => {
     });
 
     test('a file Ruimte created goes back to absent', async () => {
-        const subject = integrations();
-        await subject.load();
+        const subject = await loaded();
         await subject.set('claude', true);
 
         const reports = await subject.set('claude', false);
@@ -178,8 +161,7 @@ describe('AgentIntegrations', () => {
     });
 
     test('Codex hooks and rule go together, and an edited rules file is kept', async () => {
-        const subject = integrations();
-        await subject.load();
+        const subject = await loaded();
         await subject.set('codex', true);
         const rules = join(env.CODEX_HOME!, 'rules', 'ruimte.rules');
         expect(await readFile(rules, 'utf8')).toBe(CODEX_RULES);
@@ -198,8 +180,7 @@ describe('AgentIntegrations', () => {
         const settings = join(env.GEMINI_HOME!, 'antigravity-cli', 'settings.json');
         await mkdir(dirname(settings), { recursive: true });
         await writeFile(settings, JSON.stringify({ theme: 'dark', permissions: { allow: ['command(git)'], deny: ['command(sudo)'] } }));
-        const subject = integrations();
-        await subject.load();
+        const subject = await loaded();
 
         const on = await subject.set('antigravity', true);
         const again = await subject.set('antigravity', true);
@@ -234,8 +215,7 @@ describe('AgentIntegrations', () => {
 
     test('an Antigravity settings file Ruimte created goes back to absent', async () => {
         const settings = join(env.GEMINI_HOME!, 'antigravity-cli', 'settings.json');
-        const subject = integrations();
-        await subject.load();
+        const subject = await loaded();
 
         await subject.set('antigravity', true);
         expect(JSON.parse(await readFile(settings, 'utf8'))).toEqual({ permissions: { allow: [...ANTIGRAVITY_RULES] } });
@@ -253,8 +233,7 @@ describe('AgentIntegrations', () => {
         await mkdir(dirname(hooks), { recursive: true });
         const theirs = { PostToolUse: [{ matcher: 'run_command', hooks: [{ type: 'command', command: './lint.sh' }] }] };
         await writeFile(hooks, JSON.stringify({ lint: theirs }));
-        const subject = integrations();
-        await subject.load();
+        const subject = await loaded();
 
         await subject.set('antigravity', true);
         const written = JSON.parse(await readFile(hooks, 'utf8')) as Record<string, { Stop: Array<Record<string, unknown>> }>;
@@ -268,8 +247,7 @@ describe('AgentIntegrations', () => {
     });
 
     test("Grok and Copilot get a hooks file of Ruimte's own, which goes back to absent", async () => {
-        const subject = integrations();
-        await subject.load();
+        const subject = await loaded();
         const grok = join(env.HOME!, '.grok', 'hooks', 'ruimte.json');
         const copilot = join(env.HOME!, '.copilot', 'hooks', 'ruimte.json');
 
@@ -286,8 +264,7 @@ describe('AgentIntegrations', () => {
         env.GROK_HOME = join(root, 'grok');
         await installHooks(join(env.GROK_HOME, 'hooks', 'ruimte.json'), 'grok');
 
-        const migrated = integrations();
-        await migrated.load();
+        const migrated = await loaded();
 
         expect(migrated.allows('grok')).toBe(true);
         expect(migrated.allows('copilot')).toBe(false);
@@ -297,8 +274,7 @@ describe('AgentIntegrations', () => {
         const settings = join(env.GEMINI_HOME!, 'antigravity-cli', 'settings.json');
         await mkdir(dirname(settings), { recursive: true });
         await writeFile(settings, '{"permissions":{"allow":"command(*)"}}');
-        const subject = integrations();
-        await subject.load();
+        const subject = await loaded();
 
         const reports = await subject.set('antigravity', true);
 
@@ -329,8 +305,7 @@ describe('AgentIntegrations', () => {
     test('account homes are written and revoked with the provider', async () => {
         const account = join(root, 'account-claude');
         accountHomes = [account];
-        const subject = integrations();
-        await subject.load();
+        const subject = await loaded();
 
         const on = await subject.set('claude', true);
         const off = await subject.set('claude', false);
@@ -347,8 +322,7 @@ describe('AgentIntegrations', () => {
 
     test('an account folder is only written while the provider is allowed', async () => {
         const account = join(root, 'account-claude');
-        const subject = integrations();
-        await subject.load();
+        const subject = await loaded();
         await subject.installFolder('claude', account);
         expect(await fileExists(account)).toBe(false);
 
@@ -361,8 +335,7 @@ describe('AgentIntegrations', () => {
 
     test('a settings file that is not an object is refused and left alone', async () => {
         await writeFile(settingsPath(), '[]');
-        const subject = integrations();
-        await subject.load();
+        const subject = await loaded();
 
         const reports = await subject.set('claude', true);
 
@@ -373,8 +346,7 @@ describe('AgentIntegrations', () => {
     test('--no-hooks refuses a change in both directions and writes nothing', async () => {
         await installHooks(settingsPath(), 'claude');
         const before = await readFile(settingsPath(), 'utf8');
-        const subject = integrations(true);
-        await subject.load();
+        const subject = await loaded(true);
 
         await expect(subject.set('claude', true)).rejects.toBeInstanceOf(IntegrationsFixed);
         await expect(subject.set('claude', false)).rejects.toBeInstanceOf(IntegrationsFixed);
@@ -386,8 +358,7 @@ describe('AgentIntegrations', () => {
     });
 
     test("files lists what is there and what is Ruimte's", async () => {
-        const subject = integrations();
-        await subject.load();
+        const subject = await loaded();
         await subject.set('claude', true);
 
         const files = await subject.files();
@@ -397,8 +368,7 @@ describe('AgentIntegrations', () => {
     });
 
     test('listeners hear a change', async () => {
-        const subject = integrations();
-        await subject.load();
+        const subject = await loaded();
         let heard = 0;
         subject.onChanged(() => (heard += 1));
 

@@ -19,6 +19,16 @@ import {
 
 const other = { type: 'command', command: 'echo other' };
 
+let dir: string;
+
+beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), 'ruimte-install-'));
+});
+
+afterEach(async () => {
+    await rm(dir, { recursive: true, force: true });
+});
+
 describe('hookCommand', () => {
     test('posts to the kind, prints the daemon reply and nothing else, and never fails the CLI', () => {
         const command = hookCommand('claude');
@@ -90,16 +100,6 @@ describe('mergeHooks', () => {
 });
 
 describe('installHooks', () => {
-    let dir: string;
-
-    beforeEach(async () => {
-        dir = await mkdtemp(join(tmpdir(), 'ruimte-hooks-'));
-    });
-
-    afterEach(async () => {
-        await rm(dir, { recursive: true, force: true });
-    });
-
     test('creates the file, then leaves it untouched', async () => {
         const path = join(dir, 'nested', 'hooks.json');
         expect(await installHooks(path, 'codex')).toEqual({ result: 'written', createdFile: true, createdHooksKey: true });
@@ -164,16 +164,6 @@ describe('installHooks', () => {
 });
 
 describe('installCodexRules', () => {
-    let dir: string;
-
-    beforeEach(async () => {
-        dir = await mkdtemp(join(tmpdir(), 'ruimte-rules-'));
-    });
-
-    afterEach(async () => {
-        await rm(dir, { recursive: true, force: true });
-    });
-
     test('writes a file of its own beside the rules of a person, then leaves it untouched', async () => {
         const rules = join(dir, 'rules');
         const theirs = join(rules, 'default.rules');
@@ -198,16 +188,6 @@ describe('installCodexRules', () => {
 });
 
 describe('installInFolder', () => {
-    let dir: string;
-
-    beforeEach(async () => {
-        dir = await mkdtemp(join(tmpdir(), 'ruimte-folder-'));
-    });
-
-    afterEach(async () => {
-        await rm(dir, { recursive: true, force: true });
-    });
-
     test('puts the hooks of Claude Code in the settings of that folder', async () => {
         expect(await installInFolder('claude', dir)).toEqual([
             { path: join(dir, 'settings.json'), kind: 'hooks', result: 'written', createdFile: true, createdHooksKey: true }
