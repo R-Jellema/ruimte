@@ -80,10 +80,6 @@ afterEach(async () => {
     await rm(home, { recursive: true, force: true });
 });
 
-function idle() {
-    return recorder.info?.status === 'idle' && recorder.info.running && recorder.info.activeTurnId === null;
-}
-
 function needsYou() {
     return recorder.info?.status === 'needs-you';
 }
@@ -98,7 +94,7 @@ describe('ChatManager with Codex', () => {
     test.each(['Inspect these', ''])('sends actual image inputs with prompt %j and keeps originals in the thread', async (text) => {
         await open('chat-images');
         await manager.send('chat-images', text, {}, [png, { ...png, name: 'finder.PNG', mime: 'application/octet-stream' }]);
-        await recorder.until(idle);
+        await recorder.untilIdle();
         const saved = recorder.ofKind('user')[0]!.attachments!;
         expect(saved).toHaveLength(2);
         expect(saved.map((attachment) => attachment.mime)).toEqual(['image/png', 'image/png']);
@@ -117,7 +113,7 @@ describe('ChatManager with Codex', () => {
             { name: 'drawing.svg', mime: 'image/svg+xml', data: btoa('<svg/>') },
             { name: 'notes.txt', mime: 'text/plain', data: btoa('notes') }
         ]);
-        await recorder.until(idle);
+        await recorder.untilIdle();
         const saved = recorder.ofKind('user')[0]!.attachments!;
         expect(turnInputs()[0]!.filter((input) => input.type === 'localImage')).toEqual([{ type: 'localImage', path: saved[0]!.path }]);
         for (const attachment of saved) {
@@ -132,11 +128,11 @@ describe('ChatManager with Codex', () => {
         expect(await manager.send('chat-queued-image', '', { delivery: 'queue' }, [png])).toMatchObject({ queued: true });
         const queued = recorder.info!.queue![0]!.attachments![0]!;
         manager.cancel('chat-queued-image');
-        await recorder.until(idle);
+        await recorder.untilIdle();
         expect(turnInputs()).toHaveLength(1);
         expect(recorder.info?.queuePaused).toBe(true);
         manager.sendNow('chat-queued-image', recorder.info!.queue![0]!.id);
-        await recorder.until(() => turnInputs().length === 2 && recorder.ofKind('turn').at(-1)?.state === 'done' && idle());
+        await recorder.until(() => turnInputs().length === 2 && recorder.ofKind('turn').at(-1)?.state === 'done' && recorder.idle);
         expect(turnInputs()[1]!.at(-1)).toEqual({ type: 'localImage', path: queued.path });
         const threadId = recorder.info!.agentSessionId;
         await retire(manager);
@@ -148,7 +144,7 @@ describe('ChatManager with Codex', () => {
         expect(snapshot.items.find((item) => item.kind === 'user' && item.attachments?.length)).toMatchObject({ attachments: [queued] });
         expect(await Bun.file(queued.path).exists()).toBe(true);
         await manager.send('chat-queued-image', 'Another', {}, [png]);
-        await recorder.until(idle);
+        await recorder.untilIdle();
         expect(recorder.info!.agentSessionId).toBe(threadId);
         expect(turnInputs()[2]!.at(-1)?.type).toBe('localImage');
     });
@@ -160,7 +156,7 @@ describe('ChatManager with Codex', () => {
         await manager.send('chat-missing-image', 'Look', { delivery: 'queue' }, [png]);
         await rm(recorder.info!.queue![0]!.attachments![0]!.path);
         manager.cancel('chat-missing-image');
-        await recorder.until(idle);
+        await recorder.untilIdle();
         manager.sendNow('chat-missing-image', recorder.info!.queue![0]!.id);
         await recorder.until(() => recorder.ofKind('note').some((note) => note.text.includes('Could not read attached image')));
         expect(turnInputs()).toHaveLength(1);
@@ -173,7 +169,7 @@ describe('ChatManager with Codex', () => {
         await recorder.until(() => recorder.ofKind('note').some((note) => note.text.includes('does not support image input')));
         expect(turnInputs()).toHaveLength(0);
         await manager.send('chat-text-only', 'hello');
-        await recorder.until(idle);
+        await recorder.untilIdle();
         expect(turnInputs()).toHaveLength(1);
     });
 
@@ -189,7 +185,7 @@ describe('ChatManager with Codex', () => {
         modelPage = () => ({ data: [{ model: 'gpt-5.6-sol' }], nextCursor: null });
         manager.configure({ chatId: 'chat-paged', selection: { model: 'sol', options: {} } });
         await manager.send('chat-paged', 'Look', {}, [png]);
-        await recorder.until(idle);
+        await recorder.untilIdle();
         expect(turnInputs()[0]!.at(-1)?.type).toBe('localImage');
     });
 
@@ -217,7 +213,7 @@ describe('ChatManager with Codex', () => {
         // A send while a turn runs queues instead of failing, so the test unqueues it to reach idle.
         expect(await manager.send('chat-1', 'again')).toMatchObject({ queued: true });
         manager.unqueue('chat-1', manager.get('chat-1')!.info.queue![0]!.id);
-        await recorder.until(idle);
+        await recorder.untilIdle();
 
         expect(recorder.ofKind('user').map((item) => item.text)).toEqual(['hello there']);
         expect(recorder.deltas).toBe('echo: hello there (medium)');
@@ -247,13 +243,13 @@ describe('ChatManager with Codex', () => {
         });
         // The turn in flight is the wider model's, and the usage it reports is that thread's.
         manager.approve('chat-window', recorder.ofKind('approval')[0]!.requestId, 'allow');
-        await recorder.until(idle);
+        await recorder.untilIdle();
         expect(recorder.info?.usage.contextWindow).toBe(121600);
 
         // The restart runs on the new pick, so what it reports is the chat's own again.
         const turns = recorder.info!.usage.turns;
         await manager.send('chat-window', 'after');
-        await recorder.until(() => recorder.info?.usage.turns === turns + 1 && idle());
+        await recorder.until(() => recorder.info?.usage.turns === turns + 1 && recorder.idle);
         expect(recorder.info?.model).toContain('gpt-5.3-codex-spark');
         expect(recorder.info?.usage.contextWindow).toBe(121600);
     });
@@ -275,7 +271,7 @@ describe('ChatManager with Codex', () => {
 
         expect(() => manager.approve('chat-2', 'nope', 'allow')).toThrow('Nothing waits');
         manager.approve('chat-2', approval!.requestId, 'allow-always');
-        await recorder.until(idle);
+        await recorder.untilIdle();
         expect(recorder.ofKind('approval')[0]?.decision).toBe('allow-always');
         expect(recorder.ofKind('tool')[0]).toMatchObject({ state: 'done', output: 'ran: date\n' });
         expect(recorder.ofKind('assistant').map((item) => item.text)).toEqual(['done, remembered']);
@@ -286,7 +282,7 @@ describe('ChatManager with Codex', () => {
         await manager.send('chat-3', 'tool: rm -rf /');
         await recorder.until(needsYou);
         manager.approve('chat-3', recorder.ofKind('approval')[0]!.requestId, 'deny', 'not that');
-        await recorder.until(idle);
+        await recorder.untilIdle();
         expect(recorder.ofKind('tool')[0]).toMatchObject({ state: 'error' });
         expect(recorder.ofKind('assistant').map((item) => item.text)).toEqual(['denied']);
     });
@@ -297,7 +293,7 @@ describe('ChatManager with Codex', () => {
         await recorder.until(needsYou);
         expect(recorder.ofKind('approval')[0]).toMatchObject({ toolName: 'ApplyPatch', description: 'Write outside the sandbox', canAllowAlways: false });
         manager.approve('chat-e', recorder.ofKind('approval')[0]!.requestId, 'allow');
-        await recorder.until(idle);
+        await recorder.untilIdle();
         expect(recorder.ofKind('tool')[0]).toMatchObject({ name: 'ApplyPatch', state: 'done', output: '+++ hello.txt\n+hello\n' });
     });
 
@@ -311,7 +307,7 @@ describe('ChatManager with Codex', () => {
 
         expect(() => manager.answer('chat-q', 'nope', {})).toThrow('No question');
         manager.answer('chat-q', question!.requestId, { color: 'Blue' });
-        await recorder.until(idle);
+        await recorder.untilIdle();
         expect(recorder.ofKind('question')[0]).toMatchObject({ state: 'answered', answers: { color: 'Blue' } });
         expect(recorder.ofKind('assistant').map((item) => item.text)).toEqual(['you chose Blue']);
     });
@@ -323,7 +319,7 @@ describe('ChatManager with Codex', () => {
         const question = recorder.ofKind('question')[0];
         expect(question?.questions[0]).toMatchObject({ id: '0', question: 'Which color?' });
         manager.answer('chat-a', question!.requestId, { '0': 'Red' });
-        await recorder.until(idle);
+        await recorder.untilIdle();
         expect(recorder.ofKind('assistant').map((item) => item.text)).toEqual(['you chose Red']);
     });
 
@@ -354,7 +350,7 @@ describe('ChatManager with Codex', () => {
         await manager.send('chat-4', 'slow');
         await recorder.until(() => recorder.ofKind('assistant').length === 1);
         manager.cancel('chat-4');
-        await recorder.until(idle);
+        await recorder.untilIdle();
         expect(recorder.ofKind('turn')[0]?.state).toBe('aborted');
         expect(recorder.ofKind('assistant')[0]?.streaming).toBe(false);
     });
@@ -407,7 +403,7 @@ describe('ChatManager with Codex', () => {
         manager.subscribe('c1', recorder.sink());
         await open('chat-background-reply');
         await manager.send('chat-background-reply', 'first');
-        await recorder.until(idle);
+        await recorder.untilIdle();
         probe.started[0]!.runLater();
         await recorder.until(() => recorder.ofKind('assistant').some((item) => item.text === 'Background work finished'));
         expect(recorder.ofKind('turn').at(-1)).toMatchObject({ origin: 'agent', state: 'running' });
@@ -479,7 +475,7 @@ describe('ChatManager with Codex', () => {
         await manager.send('chat-4', 'slow');
         await sent.promise;
         manager.cancel('chat-4');
-        await recorder.until(idle);
+        await recorder.untilIdle();
         expect(recorder.ofKind('turn')[0]?.state).toBe('aborted');
         expect(requests.filter((request) => request.method === 'turn/interrupt')).toHaveLength(1);
     });
@@ -487,7 +483,7 @@ describe('ChatManager with Codex', () => {
     test('configure restarts the app-server with the new settings on the next send and resumes the thread', async () => {
         await open('chat-c');
         await manager.send('chat-c', 'first');
-        await recorder.until(idle);
+        await recorder.untilIdle();
         const threadId = recorder.info?.agentSessionId;
 
         const info = manager.configure({
@@ -499,7 +495,7 @@ describe('ChatManager with Codex', () => {
         expect(manager.configure({ chatId: 'chat-c', runtimeMode: 'supervised' })).toBe(info);
 
         await manager.send('chat-c', 'again');
-        await recorder.until(() => recorder.info?.usage.turns === 2 && idle());
+        await recorder.until(() => recorder.info?.usage.turns === 2 && recorder.idle);
         expect(recorder.info?.agentSessionId).toBe(threadId ?? null);
         expect(recorder.info?.model).toBe('gpt-6.1-sol untrusted read-only');
         expect(recorder.ofKind('assistant').map((item) => item.text)).toEqual(['echo: first (medium)', 'echo: again (xhigh)']);
@@ -510,7 +506,7 @@ describe('ChatManager with Codex', () => {
     test('a thread survives a new manager and the next send resumes the same Codex thread', async () => {
         await open('chat-5');
         await manager.send('chat-5', 'first');
-        await recorder.until(idle);
+        await recorder.untilIdle();
         const threadId = recorder.info?.agentSessionId;
         // Shutdown persists every thread, so the manager built next reads it back.
         await manager.shutdown();
@@ -532,7 +528,7 @@ describe('ChatManager with Codex', () => {
     test('after a clear the next send starts a new Codex thread instead of resuming', async () => {
         await open('chat-clear');
         await manager.send('chat-clear', 'first');
-        await recorder.until(idle);
+        await recorder.untilIdle();
         const threadId = recorder.info?.agentSessionId;
         expect(threadId?.startsWith('fake-')).toBe(true);
 
@@ -541,7 +537,7 @@ describe('ChatManager with Codex', () => {
         expect(manager.attach('chat-clear', 'c1').items).toEqual([]);
 
         await manager.send('chat-clear', 'second');
-        await recorder.until(() => recorder.info?.usage.turns === 2 && idle());
+        await recorder.until(() => recorder.info?.usage.turns === 2 && recorder.idle);
         // `thread/resume` hands the fake its old id back; `thread/start` makes a new one.
         expect(recorder.info?.agentSessionId?.startsWith('fake-')).toBe(true);
         expect(recorder.info?.agentSessionId).not.toBe(threadId);
@@ -568,7 +564,7 @@ describe('ChatManager with Codex', () => {
         await open('chat-mode', { selection: { model: 'gpt-6.1-sol', options: {} }, runtimeMode: 'supervised' });
         expect(manager.get('chat-mode')?.info.runtimeMode).toBe('full-access');
         await manager.send('chat-mode', 'hello');
-        await recorder.until(idle);
+        await recorder.untilIdle();
         expect(recorder.info?.model).toBe('gpt-6.1-sol never danger-full-access');
 
         manager.configure({ chatId: 'chat-mode', runtimeMode: 'supervised' });
@@ -584,7 +580,7 @@ describe('ChatManager with Codex', () => {
         manager.subscribe('c1', recorder.sink());
         await open('chat-view');
         await manager.send('chat-view', 'note?');
-        await recorder.until(idle);
+        await recorder.untilIdle();
         expect(recorder.ofKind('assistant')[0]?.text).toBe(verbsNote({ depth: 0, standalone: true }));
     });
 
@@ -594,10 +590,10 @@ describe('ChatManager with Codex', () => {
         manager.subscribe('c1', recorder.sink());
         await open('chat-note');
         await manager.send('chat-note', 'note?');
-        await recorder.until(idle);
+        await recorder.untilIdle();
         expect(recorder.ofKind('assistant').map((item) => item.text)).toEqual([verbsNote({ depth: 1 })]);
         await manager.send('chat-note', 'hi');
-        await recorder.until(() => recorder.info?.usage.turns === 2 && idle());
+        await recorder.until(() => recorder.info?.usage.turns === 2 && recorder.idle);
         expect(turnInputs().map((input) => input[0]!.text)).toEqual(['note?', 'hi']);
     });
 
@@ -607,7 +603,7 @@ describe('ChatManager with Codex', () => {
         manager.subscribe('c1', recorder.sink());
         await open('chat-linked-note');
         await manager.send('chat-linked-note', 'note?');
-        await recorder.until(idle);
+        await recorder.untilIdle();
         expect(recorder.ofKind('assistant').map((item) => item.text)).toEqual([chatPrompt({ sources: LINKED, depth: 2 })]);
         expect(recorder.ofKind('assistant')[0]?.text).toContain('"iPhone 18 Pro Max" (device)');
         // A start already carries the names, so nothing is pasted in front of the prompt as well.
@@ -617,7 +613,7 @@ describe('ChatManager with Codex', () => {
     test('a resumed thread whose note is unchanged keeps its instructions and hears about its links in front of the first prompt only', async () => {
         await open('chat-resumed-note');
         await manager.send('chat-resumed-note', 'first');
-        await recorder.until(idle);
+        await recorder.untilIdle();
         await retire(manager);
 
         const sources: ContextSource[] = [{ id: 'text-1', kind: 'text', title: 'Brief' }];
@@ -639,7 +635,7 @@ describe('ChatManager with Codex', () => {
     test('a resumed thread whose note changed takes the new one in as developer instructions, once', async () => {
         await open('chat-changed-note');
         await manager.send('chat-changed-note', 'first');
-        await recorder.until(idle);
+        await recorder.untilIdle();
         await retire(manager);
 
         // A linked device adds a line to the note, as a new release of Ruimte would change it.
@@ -662,7 +658,7 @@ describe('ChatManager with Codex', () => {
     test('a thread from before Ruimte kept a digest of its note hears the note once', async () => {
         await open('chat-old-thread', { resume: 'thread-old' });
         await manager.send('chat-old-thread', 'note?');
-        await recorder.until(idle);
+        await recorder.untilIdle();
         expect(recorder.ofKind('assistant').map((item) => item.text)).toEqual([chatNote({ sources: [], depth: 0 })]);
         expect(requests.filter((request) => request.method === 'thread/inject_items').map((request) => request.params.threadId)).toEqual(['thread-old']);
     });
@@ -670,7 +666,7 @@ describe('ChatManager with Codex', () => {
     test('a thread Codex no longer has starts fresh with a warning', async () => {
         await open('chat-g', { resume: 'gone' });
         await manager.send('chat-g', 'hi');
-        await recorder.until(idle);
+        await recorder.untilIdle();
         expect(recorder.ofKind('note')[0]).toMatchObject({ level: 'warning', text: expect.stringContaining('could not resume') });
         expect(recorder.info?.agentSessionId?.startsWith('fake-')).toBe(true);
         expect(recorder.ofKind('assistant').map((item) => item.text)).toEqual(['echo: hi (medium)']);
@@ -679,19 +675,19 @@ describe('ChatManager with Codex', () => {
     test('a turn over the usage limit or on an overloaded server ends in an error that names it', async () => {
         await open('chat-limit');
         await manager.send('chat-limit', 'limit:1789000000');
-        await recorder.until(idle);
+        await recorder.untilIdle();
         expect(recorder.ofKind('turn')[0]).toMatchObject({ state: 'error', limit: { kind: 'usage', resetsAt: 1_789_000_000_000 } });
         await manager.send('chat-limit', 'overloaded');
-        await recorder.until(() => recorder.info?.usage.turns === 2 && idle());
+        await recorder.until(() => recorder.info?.usage.turns === 2 && recorder.idle);
         expect(recorder.ofKind('turn')[1]).toMatchObject({ state: 'error', limit: { kind: 'overload' } });
     });
 
     test('compaction shows up as a marker in a turn of its own', async () => {
         await open('chat-k');
         await manager.send('chat-k', 'x');
-        await recorder.until(idle);
+        await recorder.untilIdle();
         manager.compact('chat-k');
-        await recorder.until(() => recorder.info?.usage.turns === 2 && idle());
+        await recorder.until(() => recorder.info?.usage.turns === 2 && recorder.idle);
         expect(recorder.ofKind('compaction')).toHaveLength(1);
         expect(recorder.ofKind('turn').map((turn) => turn.state)).toEqual(['done', 'done']);
     });
@@ -699,11 +695,11 @@ describe('ChatManager with Codex', () => {
     test('a failed turn leaves an error note and the chat can go on', async () => {
         await open('chat-f');
         await manager.send('chat-f', 'fail');
-        await recorder.until(idle);
+        await recorder.untilIdle();
         expect(recorder.ofKind('note')[0]).toMatchObject({ level: 'error', text: 'The model is overloaded' });
         expect(recorder.ofKind('turn')[0]?.state).toBe('error');
         await manager.send('chat-f', 'again');
-        await recorder.until(() => recorder.info?.usage.turns === 2 && idle());
+        await recorder.until(() => recorder.info?.usage.turns === 2 && recorder.idle);
         expect(recorder.ofKind('assistant').map((item) => item.text)).toEqual(['echo: again (medium)']);
     });
 
@@ -715,7 +711,7 @@ describe('ChatManager with Codex', () => {
         expect(recorder.ofKind('turn')[0]?.state).toBe('error');
 
         await manager.send('chat-6', 'again');
-        await recorder.until(idle);
+        await recorder.untilIdle();
         expect(recorder.ofKind('assistant').map((item) => item.text)).toEqual(['echo: again (medium)']);
     });
 
@@ -759,9 +755,9 @@ describe('ChatManager with Codex', () => {
             expect(asked).toEqual([{ prompt: 'hello there', answer: 'echo: hello there (medium)' }]);
 
             // The app-server was told the same name, which is what its thread list and a resume carry.
-            await recorder.until(idle);
+            await recorder.untilIdle();
             await manager.send('chat-name', 'name?');
-            await recorder.until(() => recorder.info?.usage.turns === 2 && idle());
+            await recorder.until(() => recorder.info?.usage.turns === 2 && recorder.idle);
             expect(recorder.ofKind('assistant').map((item) => item.text)).toContain('Greeting the fake');
             expect(asked).toHaveLength(1);
         });
@@ -771,11 +767,11 @@ describe('ChatManager with Codex', () => {
             const asked = withNamer(() => null);
             await open('chat-unnamed');
             await manager.send('chat-unnamed', 'first');
-            await recorder.until(idle);
+            await recorder.untilIdle();
             // The namer is asked in the same step that settles the turn, so it has been by now.
             expect(asked).toHaveLength(1);
             await manager.send('chat-unnamed', 'second');
-            await recorder.until(() => recorder.info?.usage.turns === 2 && idle());
+            await recorder.until(() => recorder.info?.usage.turns === 2 && recorder.idle);
             expect(asked).toHaveLength(1);
             expect(recorder.info?.suggestedTitle).toBeUndefined();
         });
@@ -785,7 +781,7 @@ describe('ChatManager with Codex', () => {
             const asked = withNamer(() => 'Not this one');
             await open('chat-named', { resume: 'named-1' });
             await manager.send('chat-named', 'hello again');
-            await recorder.until(idle);
+            await recorder.untilIdle();
             expect(recorder.info?.suggestedTitle).toBe('Named before');
             expect(asked).toEqual([]);
         });
@@ -795,7 +791,7 @@ describe('ChatManager with Codex', () => {
         const spawned = async (chatId: string): Promise<ChatSubagentItem> => {
             await open(chatId);
             await manager.send(chatId, 'spawn: survey the docs');
-            await recorder.until(() => idle() && recorder.ofKind('subagent')[0]?.native?.threadId !== undefined);
+            await recorder.until(() => recorder.idle && recorder.ofKind('subagent')[0]?.native?.threadId !== undefined);
             return recorder.ofKind('subagent')[0]!;
         };
 
@@ -843,7 +839,7 @@ describe('ChatManager with Codex', () => {
         test('a snapshot of the spawn that arrives after the agent finished does not run it again', async () => {
             await open('chat-snapshot');
             await manager.send('chat-snapshot', 'spawn and finish: survey the docs');
-            await recorder.until(() => idle() && recorder.ofKind('subagent')[0]?.status === 'done');
+            await recorder.until(() => recorder.idle && recorder.ofKind('subagent')[0]?.status === 'done');
             const finished = structuredClone(recorder.ofKind('subagent')[0]!);
             expect(typeof finished.finishedAt).toBe('number');
 
@@ -855,14 +851,14 @@ describe('ChatManager with Codex', () => {
             expect(recorder.ofKind('subagent')).toEqual([finished]);
             // Nor does it open a turn of the agent's own that nothing would ever end.
             expect(recorder.ofKind('turn')).toHaveLength(1);
-            expect(idle()).toBe(true);
+            expect(recorder.idle).toBe(true);
         });
 
         // The shape Codex 0.156.1 streams: activity items instead of a spawnAgent call, and the agent's own thread beside the chat's.
         test('an agent spawned through activity items stays running past the turn until its completed activity', async () => {
             await open('chat-activity');
             await manager.send('chat-activity', 'spawn agent: survey the docs');
-            await recorder.until(() => idle() && recorder.ofKind('subagent').length === 1);
+            await recorder.until(() => recorder.idle && recorder.ofKind('subagent').length === 1);
             const row = recorder.ofKind('subagent')[0]!;
             expect(row).toMatchObject({ description: 'survey', background: true, status: 'running' });
             expect(row.native?.threadId?.startsWith('child-')).toBe(true);
@@ -876,7 +872,7 @@ describe('ChatManager with Codex', () => {
             await recorder.until(() => recorder.ofKind('subagent')[0]?.status === 'done');
             expect(recorder.ofKind('subagent')[0]?.finishedAt).toEqual(expect.any(Number));
             expect(recorder.ofKind('turn')).toHaveLength(1);
-            expect(idle()).toBe(true);
+            expect(recorder.idle).toBe(true);
         });
 
         test('a row without a thread is refused by name', async () => {
@@ -890,7 +886,7 @@ describe('Codex generated image attachments', () => {
     test.each(['success', 'replay'])('generated image %s is readable, reloads without bytes in the log and survives a fork', async (scenario) => {
         await open('image-chat');
         await manager.send('image-chat', `image:${scenario}`);
-        await recorder.until(idle);
+        await recorder.untilIdle();
         const tool = recorder.ofKind('tool').find((item) => item.name === 'ImageGeneration')!;
         expect(tool.state).toBe('done');
         const attachment = generatedImageAttachment(tool)!;
@@ -921,7 +917,7 @@ describe('Codex generated image attachments', () => {
     test.each(['failed', 'empty', 'invalid', 'not-image', 'too-large'])('generated image %s shows an error and saves no attachment', async (scenario) => {
         await open('image-chat');
         await manager.send('image-chat', `image:${scenario}`);
-        await recorder.until(idle);
+        await recorder.untilIdle();
         const tool = recorder.ofKind('tool').find((item) => item.name === 'ImageGeneration')!;
         expect(tool.state).toBe('error');
         expect(generatedImageAttachment(tool)).toBeNull();
@@ -972,7 +968,7 @@ test('image storage failure remains a tool error and the turn still completes', 
     manager.subscribe('c1', recorder.sink());
     await open('broken-image');
     await manager.send('broken-image', 'image:success');
-    await recorder.until(idle);
+    await recorder.untilIdle();
     expect(recorder.ofKind('tool').find((item) => item.name === 'ImageGeneration')).toMatchObject({
         state: 'error',
         output: 'The image store is not writable'

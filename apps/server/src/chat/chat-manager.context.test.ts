@@ -19,9 +19,6 @@ let claude: ChatFixture['claude'];
 let manager: ChatFixture['manager'];
 let recorder: ChatFixture['recorder'];
 let makeManager: ChatFixture['makeManager'];
-function idle() {
-    return recorder.info?.status === 'idle' && recorder.info.running && recorder.info.activeTurnId === null;
-}
 beforeEach(async () => {
     ({ home, attachments, store, claude, manager, recorder, makeManager } = await makeChatFixture());
 });
@@ -37,7 +34,7 @@ test('a standalone chat passes its location to the Claude system prompt', async 
     await manager.create({ chatId: 'chat-view', cwd: home });
     manager.attach('chat-view', 'c1');
     await manager.send('chat-view', 'system?');
-    await recorder.until(idle);
+    await recorder.untilIdle();
     expect(recorder.ofKind('assistant')[0]?.text).toBe(verbsNote({ depth: 0, standalone: true }));
 });
 
@@ -49,7 +46,7 @@ test('the system prompt names visuals while the machine has them on, and never t
     await manager.create({ chatId: 'chat-shows', cwd: home });
     manager.attach('chat-shows', 'c1');
     await manager.send('chat-shows', 'system?');
-    await recorder.until(idle);
+    await recorder.untilIdle();
     expect(recorder.ofKind('assistant')[0]?.text).toBe(verbsNote({ depth: 0, visuals: true }));
     expect(claude.started[0]!.argv.filter((arg) => arg.startsWith('--add-dir='))).toEqual([`--add-dir=${visuals.workspacePath('chat-shows')}`]);
 
@@ -70,7 +67,7 @@ test('the system prompt names the verbs always and the linked sources by name wh
     await manager.create({ chatId: 'chat-sys', cwd: home });
     manager.attach('chat-sys', 'c1');
     await manager.send('chat-sys', 'system?');
-    await recorder.until(idle);
+    await recorder.untilIdle();
     expect(recorder.ofKind('assistant')[0]?.text).toBe(verbsNote({ depth: 0 }));
 
     await retire(manager);
@@ -95,12 +92,12 @@ test('a link made between turns is put in front of the next prompt, once, as a n
     manager.attach('chat-ctx', 'c1');
 
     await manager.send('chat-ctx', 'first');
-    await recorder.until(idle);
+    await recorder.untilIdle();
     sources = [{ id: 'term-1', kind: 'terminal', title: 'dev server' }];
     await manager.send('chat-ctx', 'second');
-    await recorder.until(() => recorder.info?.usage.turns === 2 && idle());
+    await recorder.until(() => recorder.info?.usage.turns === 2 && recorder.idle);
     await manager.send('chat-ctx', 'third');
-    await recorder.until(() => recorder.info?.usage.turns === 3 && idle());
+    await recorder.until(() => recorder.info?.usage.turns === 3 && recorder.idle);
 
     const notes = recorder.ofKind('note');
     expect(notes).toHaveLength(1);
@@ -127,7 +124,7 @@ test('a chat attached with @ and a view with # go to the CLI as the commands tha
 
     // A view in `chats` is no chat its chips could draw, so only `references` carries it.
     await manager.send('chat-ref', 'carry on from #Sketch', { chats: ['chat-earlier', 'chat-elsewhere', 'sketch'], references: ['sketch', 'gone'] });
-    await recorder.until(idle);
+    await recorder.untilIdle();
 
     expect(recorder.ofKind('user')[0]).toMatchObject({ text: 'carry on from #Sketch', chats: ['chat-earlier'], references: ['sketch'] });
     // The fake echoes its prompt, so the reply shows what the CLI was given.
@@ -346,7 +343,7 @@ describe('a message another node left', () => {
         await manager.create({ chatId: 'chat-msg', cwd: home });
         manager.attach('chat-msg', 'c1');
         await manager.send('chat-msg', 'first');
-        await recorder.until(idle);
+        await recorder.untilIdle();
 
         await notify('chat-msg', 'the build is green');
         await recorder.until(() => recorder.ofKind('note').length === 1);
@@ -354,9 +351,9 @@ describe('a message another node left', () => {
         expect(recorder.ofKind('note')[0]).toMatchObject({ level: 'info', turnId: null, text: read });
 
         await manager.send('chat-msg', 'second');
-        await recorder.until(() => recorder.info?.usage.turns === 2 && idle());
+        await recorder.until(() => recorder.info?.usage.turns === 2 && recorder.idle);
         await manager.send('chat-msg', 'third');
-        await recorder.until(() => recorder.info?.usage.turns === 3 && idle());
+        await recorder.until(() => recorder.info?.usage.turns === 3 && recorder.idle);
 
         expect(recorder.ofKind('assistant').map((item) => item.text)).toEqual(['echo: first', `echo: ${heard}\n\nsecond`, 'echo: third']);
         /* One line for a person, written when the message landed. The turn that carried it to the
@@ -373,7 +370,7 @@ describe('a message another node left', () => {
         expect(manager.attach('chat-cold', 'c1').items).toEqual([expect.objectContaining({ kind: 'note', level: 'info', turnId: null, text: read })]);
 
         await manager.send('chat-cold', 'what happened');
-        await recorder.until(idle);
+        await recorder.untilIdle();
         expect(recorder.ofKind('assistant')[0]?.text).toBe(`echo: ${heard}\n\nwhat happened`);
     });
 
@@ -394,7 +391,7 @@ describe('a message another node left', () => {
         expect(manager.attach('chat-again', 'c1').items.filter((item) => item.kind === 'note')).toEqual([expect.objectContaining({ text: read })]);
         // And the model, which had not heard it when the daemon went down, still hears it exactly once.
         await manager.send('chat-again', 'what happened');
-        await recorder.until(idle);
+        await recorder.untilIdle();
         expect(recorder.ofKind('assistant')[0]?.text).toBe(`echo: ${heard}\n\nwhat happened`);
     });
 });

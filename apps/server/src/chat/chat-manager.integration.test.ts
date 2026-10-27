@@ -44,10 +44,6 @@ afterEach(async () => {
     await rm(home, { recursive: true, force: true });
 });
 
-function idle() {
-    return recorder.info?.status === 'idle' && recorder.info.running && recorder.info.activeTurnId === null;
-}
-
 function crashed() {
     return recorder.info?.running === false && recorder.info.status === 'error';
 }
@@ -66,7 +62,7 @@ describe('ChatManager over real processes', () => {
         await manager.create({ chatId: 'chat-claude', cwd: home });
         manager.attach('chat-claude', 'c1');
         await manager.send('chat-claude', 'hello there');
-        await waitFor(idle, 'the Claude turn to end');
+        await waitFor(() => recorder.idle, 'the Claude turn to end');
         expect(recorder.ofKind('assistant').map((item) => item.text)).toEqual(['echo: hello there']);
         expect(manager.get('chat-claude')?.pid).toBeGreaterThan(0);
 
@@ -89,7 +85,7 @@ describe('ChatManager over real processes', () => {
         await manager.create({ chatId: 'chat-tree', cwd: home });
         manager.attach('chat-tree', 'c1');
         await manager.send('chat-tree', 'start a grandchild');
-        await waitFor(idle, 'the Claude turn to end');
+        await waitFor(() => recorder.idle, 'the Claude turn to end');
         const pid = Number(/^grandchild (\d+)$/.exec(recorder.ofKind('assistant')[0]?.text ?? '')?.[1]);
         expect(alive(pid)).toBe(true);
         try {
@@ -114,7 +110,7 @@ describe('ChatManager over real processes', () => {
         await manager.create({ chatId: 'chat-codex', provider: 'codex', cwd: home });
         manager.attach('chat-codex', 'c1');
         await manager.send('chat-codex', 'hello there');
-        await waitFor(idle, 'the Codex turn to end');
+        await waitFor(() => recorder.idle, 'the Codex turn to end');
         expect(recorder.ofKind('assistant').map((item) => item.text)).toEqual(['echo: hello there (medium)']);
         expect(manager.get('chat-codex')?.pid).toBeGreaterThan(0);
 

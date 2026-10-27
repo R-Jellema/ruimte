@@ -14,9 +14,6 @@ let store: ChatFixture['store'];
 let manager: ChatFixture['manager'];
 let recorder: ChatFixture['recorder'];
 let makeManager: ChatFixture['makeManager'];
-function idle() {
-    return recorder.info?.status === 'idle' && recorder.info.running && recorder.info.activeTurnId === null;
-}
 beforeEach(async () => {
     ({ home, store, manager, recorder, makeManager } = await makeChatFixture());
 });
@@ -44,7 +41,7 @@ test('a reply compiles UI blocks under the ruimte-ui fence that stored chats and
     await manager.create({ chatId: 'ui-chat', cwd: home });
     manager.attach('ui-chat', 'c1');
     await manager.send('ui-chat', 'Status\n```ruimte-ui\n<Summary>Ready</Summary>\n```');
-    await recorder.until(idle);
+    await recorder.untilIdle();
     const [reply] = recorder.ofKind('assistant');
     expect(reply?.ui).toHaveLength(1);
     expect(reply?.ui?.[0]?.complete).toBe(true);
@@ -78,7 +75,7 @@ describe('the address of a Place', () => {
         await manager.create({ chatId: 'map-chat', cwd: home });
         manager.attach('map-chat', 'c1');
         await manager.send('map-chat', reply);
-        await recorder.until(() => frozen() && idle());
+        await recorder.until(() => frozen() && recorder.idle);
         const blocks = Object.values(frozenBlocks());
         expect(blocks).toHaveLength(1);
         expect(Object.values(blocks[0]!.places ?? {})).toEqual([
@@ -86,7 +83,7 @@ describe('the address of a Place', () => {
         ]);
         expect(asked).toEqual(['Domplein 1, Utrecht']);
         await manager.send('map-chat', 'And now something else');
-        await recorder.until(() => recorder.info?.usage.turns === 2 && idle());
+        await recorder.until(() => recorder.info?.usage.turns === 2 && recorder.idle);
         expect(asked).toEqual(['Domplein 1, Utrecht']);
     });
 
@@ -104,7 +101,7 @@ describe('the address of a Place', () => {
         await manager.create({ chatId: 'map-chat', cwd: home });
         manager.attach('map-chat', 'c1');
         await manager.send('map-chat', reply);
-        await recorder.until(() => frozen() && idle());
+        await recorder.until(() => frozen() && recorder.idle);
         const places = Object.values(Object.values(frozenBlocks())[0]!.places ?? {});
         expect(places).toEqual([{ state: 'missing', address: 'Domplein 1, Utrecht', code: 'no-account', reason: 'This machine is on no account.' }]);
     });
@@ -124,9 +121,9 @@ describe('a chat an inline edit runs in', () => {
         await manager.create({ chatId: 'chat-inline', cwd: home });
         manager.attach('chat-inline', 'c1');
         await manager.send('chat-inline', 'make it shorter');
-        await recorder.until(idle);
+        await recorder.untilIdle();
         await manager.send('chat-inline', 'and rename it');
-        await recorder.until(() => recorder.info?.usage.turns === 2 && idle());
+        await recorder.until(() => recorder.info?.usage.turns === 2 && recorder.idle);
 
         expect(recorder.ofKind('assistant').map((item) => item.text)).toEqual([`echo: ${INLINE_EDIT_PREAMBLE}\n\nmake it shorter`, 'echo: and rename it']);
         expect(recorder.ofKind('user').map((item) => item.text)).toEqual(['make it shorter', 'and rename it']);
@@ -137,7 +134,7 @@ describe('a chat an inline edit runs in', () => {
         await manager.create({ chatId: 'chat-inline', cwd: home });
         manager.attach('chat-inline', 'c1');
         await manager.send('chat-inline', 'first');
-        await recorder.until(idle);
+        await recorder.untilIdle();
         await manager.clear('chat-inline');
         await manager.send('chat-inline', 'second');
         await recorder.until(() => recorder.ofKind('assistant').some((item) => item.text.endsWith('second')));
@@ -161,7 +158,7 @@ describe('a chat an inline edit runs in', () => {
         await manager.create({ chatId: 'chat-inline', cwd: home });
         manager.attach('chat-inline', 'c1');
         await manager.send('chat-inline', 'first');
-        await recorder.until(idle);
+        await recorder.untilIdle();
         await store.written('chat-inline', (record) => record.info.hidden === true);
 
         await retire(manager);
@@ -188,7 +185,7 @@ describe('bookmarks', () => {
         await manager.create({ chatId: 'chat-b', cwd: home });
         manager.attach('chat-b', 'c1');
         await manager.send('chat-b', 'hello  there');
-        await recorder.until(idle);
+        await recorder.untilIdle();
         manager.attach('chat-b', 'c2');
 
         const reply = recorder.ofKind('assistant')[0]!;

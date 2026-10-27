@@ -11,9 +11,6 @@ let claude: ChatFixture['claude'];
 let manager: ChatFixture['manager'];
 let recorder: ChatFixture['recorder'];
 let makeManager: ChatFixture['makeManager'];
-function idle() {
-    return recorder.info?.status === 'idle' && recorder.info.running && recorder.info.activeTurnId === null;
-}
 beforeEach(async () => {
     ({ home, store, claude, manager, recorder, makeManager } = await makeChatFixture());
 });
@@ -31,7 +28,7 @@ test('a CLI that dies mid-turn leaves an error note and the chat can go on', asy
     expect(recorder.ofKind('turn')[0]?.state).toBe('error');
 
     await manager.send('chat-6', 'again');
-    await recorder.until(idle);
+    await recorder.untilIdle();
     expect(recorder.ofKind('assistant').map((item) => item.text)).toEqual(['echo: again']);
     expect(claude.started).toHaveLength(2);
 });
@@ -42,20 +39,20 @@ test('a turn the plan refused ends in an error that names the limit and its rese
         await manager.create({ chatId: 'chat-limit', cwd: home });
         manager.attach('chat-limit', 'c1');
         await manager.send('chat-limit', 'limit:1789000000');
-        await recorder.until(idle);
+        await recorder.untilIdle();
         expect(recorder.ofKind('turn')[0]).toMatchObject({ state: 'error', limit: { kind: 'usage', resetsAt: 1_789_000_000_000 } });
         expect(recorder.ofKind('note').map((note) => note.text)).toContain("You've hit your session limit · resets 3pm");
         expect(recorder.info?.limit).toEqual({ kind: 'usage', resetsAt: 1_789_000_000_000 });
 
         await manager.send('chat-limit', 'overloaded');
-        await recorder.until(() => recorder.info?.usage.turns === 2 && idle());
+        await recorder.until(() => recorder.info?.usage.turns === 2 && recorder.idle);
         expect(recorder.ofKind('turn')[1]).toMatchObject({ state: 'error', limit: { kind: 'overload' } });
         expect(recorder.info?.limit).toEqual({ kind: 'overload' });
 
         // The next turn leaves the limit behind, as soon as it opens.
         await manager.send('chat-limit', 'fine');
         expect(recorder.info?.limit).toBeUndefined();
-        await recorder.until(() => recorder.info?.usage.turns === 3 && idle());
+        await recorder.until(() => recorder.info?.usage.turns === 3 && recorder.idle);
         expect(recorder.info?.limit).toBeUndefined();
     } finally {
         now.mockRestore();
@@ -82,7 +79,7 @@ test('what a crashed CLI left queued goes out before the next message, in the or
     expect(recorder.info?.queue?.map((message) => message.text)).toEqual(['B', 'C']);
 
     expect(await manager.send('chat-cq', 'D')).toMatchObject({ queued: true });
-    await recorder.until(() => recorder.ofKind('assistant').length === 3 && idle());
+    await recorder.until(() => recorder.ofKind('assistant').length === 3 && recorder.idle);
     expect(recorder.ofKind('user').map((item) => item.text)).toEqual(['slow', 'B', 'C', 'D']);
     expect(recorder.ofKind('assistant').map((item) => item.text)).toEqual(['echo: B', 'echo: C', 'echo: D']);
     expect(recorder.info?.queue).toEqual([]);
@@ -133,7 +130,7 @@ test('messages sent during a turn queue in order and go out when it settles', as
     expect(third).toMatchObject({ queued: true });
     expect(recorder.info?.queue?.map((message) => message.text)).toEqual(['second', 'third']);
 
-    await recorder.until(() => recorder.ofKind('user').length === 3 && idle());
+    await recorder.until(() => recorder.ofKind('user').length === 3 && recorder.idle);
     const messages = recorder.ofKind('user');
     expect(messages.map((item) => item.text)).toEqual(['first', 'second', 'third']);
     expect(messages.map((item) => item.turnId)).toEqual([first.turnId, second.turnId, third.turnId]);
@@ -202,7 +199,7 @@ describe('clearing a chat', () => {
         await manager.create({ chatId: 'chat-clear', cwd: home, selection: { model: 'opus', options: {} } });
         manager.attach('chat-clear', 'c1');
         await manager.send('chat-clear', 'first');
-        await recorder.until(idle);
+        await recorder.untilIdle();
         const first = recorder.info!;
 
         await manager.clear('chat-clear');
@@ -221,7 +218,7 @@ describe('clearing a chat', () => {
         expect(stored?.info).toMatchObject({ provider: 'claude', selection: first.selection, agentSessionId: null, queue: [] });
 
         await manager.send('chat-clear', 'second');
-        await recorder.until(() => recorder.info?.usage.turns === 2 && idle());
+        await recorder.until(() => recorder.info?.usage.turns === 2 && recorder.idle);
         expect(claude.started.at(-1)!.argv).not.toContain('--resume');
         expect(recorder.info?.agentSessionId?.startsWith('fake-')).toBe(true);
         expect(recorder.info?.agentSessionId).not.toBe(first.agentSessionId);

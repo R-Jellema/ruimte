@@ -13,9 +13,6 @@ let claude: ChatFixture['claude'];
 let manager: ChatFixture['manager'];
 let recorder: ChatFixture['recorder'];
 let makeManager: ChatFixture['makeManager'];
-function idle() {
-    return recorder.info?.status === 'idle' && recorder.info.running && recorder.info.activeTurnId === null;
-}
 let subagentWork: ChatFixture['subagentWork'];
 beforeEach(async () => {
     ({ home, store, claude, manager, recorder, makeManager, subagentWork } = await makeChatFixture());
@@ -29,10 +26,10 @@ test('an agent a background subagent opened hangs under it, and the turn it wake
     await manager.create({ chatId: 'chat-nested', cwd: home });
     manager.attach('chat-nested', 'c1');
     await manager.send('chat-nested', 'nested: the chain is done');
-    await recorder.until(idle);
+    await recorder.untilIdle();
 
     claude.started[0]!.runLater();
-    await recorder.until(() => recorder.ofKind('turn').length === 2 && idle());
+    await recorder.until(() => recorder.ofKind('turn').length === 2 && recorder.idle);
     const [middle, leaf] = recorder.ofKind('subagent');
     expect(middle).toMatchObject({ toolUseId: 'toolu_middle', status: 'done', background: true, result: 'the leaf said PONG' });
     expect(middle).not.toHaveProperty('parentToolUseId');
@@ -46,7 +43,7 @@ test("a workflow's row carries its phases and agents from the progress reports, 
     await manager.create({ chatId: 'chat-wf', cwd: home });
     manager.attach('chat-wf', 'c1');
     await manager.send('chat-wf', 'workflow: Write a file, then read it');
-    await recorder.until(idle);
+    await recorder.untilIdle();
     const phases = [
         { index: 1, title: 'Write' },
         { index: 2, title: 'Read' }
@@ -58,7 +55,7 @@ test("a workflow's row carries its phases and agents from the progress reports, 
     });
 
     claude.started[0]!.runLater();
-    await recorder.until(() => recorder.ofKind('turn').length === 2 && idle());
+    await recorder.until(() => recorder.ofKind('turn').length === 2 && recorder.idle);
     expect(recorder.ofKind('tool')[0]).toMatchObject({
         state: 'done',
         workflow: {
@@ -83,7 +80,7 @@ test("a background agent's approval outlives the turn, and a person allowing it 
 
     manager.approve('chat-ask', 'req-bg', 'allow');
     expect(recorder.items.get('approval-req-bg')).toMatchObject({ decision: 'allow' });
-    await recorder.until(() => recorder.ofKind('turn')[1]?.state === 'done' && idle());
+    await recorder.until(() => recorder.ofKind('turn')[1]?.state === 'done' && recorder.idle);
     expect(recorder.ofKind('turn')[1]).toMatchObject({ origin: 'agent' });
     expect(recorder.ofKind('subagent')[0]).toMatchObject({ toolUseId: 'toolu_bgask', status: 'done' });
     expect(subagentWork().find((item) => item.kind === 'tool')).toMatchObject({ output: 'ran: ls', state: 'done' });
@@ -93,7 +90,7 @@ test("a message after a background agent asked between turns settles on the CLI'
     await manager.create({ chatId: 'chat-late-ask', cwd: home });
     manager.attach('chat-late-ask', 'c1');
     await manager.send('chat-late-ask', 'background approval: ls\nlate');
-    await recorder.until(() => recorder.ofKind('turn')[0]?.state === 'done' && idle());
+    await recorder.until(() => recorder.ofKind('turn')[0]?.state === 'done' && recorder.idle);
 
     claude.started[0]!.runLater();
     await recorder.until(() => recorder.items.get('approval-req-bg') !== undefined);
@@ -120,7 +117,7 @@ test("stopping the turn cancels a background agent's approval and turns it down 
     await recorder.until(() => recorder.ofKind('turn')[0]?.state === 'aborted');
     expect(recorder.items.get('approval-req-bg')).toMatchObject({ decision: 'cancelled' });
     // The agent heard no, so it finishes instead of waiting on an answer nobody can give any more.
-    await recorder.until(() => recorder.ofKind('turn')[1]?.state === 'done' && idle());
+    await recorder.until(() => recorder.ofKind('turn')[1]?.state === 'done' && recorder.idle);
     expect(subagentWork().find((item) => item.kind === 'tool')).toMatchObject({ output: 'The user stopped the turn', state: 'error' });
 });
 
@@ -128,7 +125,7 @@ test('a background subagent that settles opens a turn of the agent, with the sum
     await manager.create({ chatId: 'chat-bg', cwd: home });
     manager.attach('chat-bg', 'c1');
     await manager.send('chat-bg', 'background: report written');
-    await recorder.until(idle);
+    await recorder.untilIdle();
     expect(recorder.ofKind('turn')).toHaveLength(1);
 
     // Nothing is sent from here, since the CLI wakes the agent itself once the task settles.
@@ -146,7 +143,7 @@ test('a background subagent that settles opens a turn of the agent, with the sum
     };
     await recorder.until(settled);
     expect(recorder.items.get(agentTurn.id)).toMatchObject({ state: 'done', endedAt: expect.any(Number) });
-    expect(idle()).toBe(true);
+    expect(recorder.idle).toBe(true);
     // The person wrote one message; the second turn has none and carries the agent's own answer.
     expect(recorder.ofKind('user')).toHaveLength(1);
     const answers = recorder.ofKind('assistant').filter((item) => !item.parentToolUseId);
@@ -175,7 +172,7 @@ test('a foreground subagent settles from its own call, without the footer the CL
     await manager.create({ chatId: 'chat-delegate', cwd: home });
     manager.attach('chat-delegate', 'c1');
     await manager.send('chat-delegate', 'delegate: read the readme');
-    await recorder.until(idle);
+    await recorder.untilIdle();
 
     const subagent = recorder.ofKind('subagent')[0]!;
     expect(subagent).toMatchObject({
@@ -199,7 +196,7 @@ test('a subagent whose work arrives before the CLI says it started keeps that wo
     await manager.create({ chatId: 'chat-early', cwd: home });
     manager.attach('chat-early', 'c1');
     await manager.send('chat-early', 'delegate late: read the readme');
-    await recorder.until(idle);
+    await recorder.untilIdle();
 
     expect(recorder.ofKind('subagent')).toHaveLength(1);
     expect(recorder.ofKind('subagent')[0]).toMatchObject({
@@ -232,11 +229,11 @@ test('a background subagent that works on after its turn ended writes on its own
     await manager.create({ chatId: 'chat-later', cwd: home });
     manager.attach('chat-later', 'c1');
     await manager.send('chat-later', 'background: report written');
-    await recorder.until(idle);
+    await recorder.untilIdle();
     const launched = recorder.ofKind('turn')[0]!;
     // The person goes on with the chat before the subagent is done.
     await manager.send('chat-later', 'next question');
-    await recorder.until(() => idle() && recorder.ofKind('turn').length === 2);
+    await recorder.until(() => recorder.idle && recorder.ofKind('turn').length === 2);
 
     claude.started[0]!.runLater();
     await recorder.until(() => recorder.ofKind('subagent')[0]?.result === 'the subagent says: report written');
@@ -248,7 +245,7 @@ test('a background subagent that works on after its turn ended writes on its own
         ['assistant', 'toolu_agent', launched.id]
     ]);
     expect(recorder.ofKind('turn')).toHaveLength(2);
-    expect(idle()).toBe(true);
+    expect(recorder.idle).toBe(true);
     expect(
         recorder
             .ofKind('assistant')
@@ -257,7 +254,7 @@ test('a background subagent that works on after its turn ended writes on its own
     ).toEqual(['I will report back', 'echo: next question']);
 
     claude.started[0]!.runLater();
-    await recorder.until(() => idle() && recorder.ofKind('turn').length === 3);
+    await recorder.until(() => recorder.idle && recorder.ofKind('turn').length === 3);
     expect(recorder.ofKind('subagent')[0]).toMatchObject({ status: 'done', turnId: launched.id });
     expect(recorder.ofKind('turn')[2]).toMatchObject({ origin: 'agent', label: 'report written', taskToolUseId: 'toolu_agent' });
 });
@@ -436,7 +433,7 @@ describe('a background subagent whose CLI is gone', () => {
         await manager.create({ chatId: 'chat-exit', cwd: '/work/demo', resume: SESSION });
         manager.attach('chat-exit', 'c1');
         await manager.send('chat-exit', 'background: report written');
-        await recorder.until(idle);
+        await recorder.untilIdle();
         expect(rowOf(manager, 'chat-exit', 'toolu_agent')).toMatchObject({ status: 'running' });
         manager.get('chat-exit')!.thread.upsert(runningRow('toolu_barrier'));
 

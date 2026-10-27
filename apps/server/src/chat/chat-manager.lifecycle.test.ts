@@ -12,9 +12,6 @@ let claude: ChatFixture['claude'];
 let manager: ChatFixture['manager'];
 let recorder: ChatFixture['recorder'];
 let makeManager: ChatFixture['makeManager'];
-function idle() {
-    return recorder.info?.status === 'idle' && recorder.info.running && recorder.info.activeTurnId === null;
-}
 beforeEach(async () => {
     ({ home, claude, manager, recorder, makeManager } = await makeChatFixture());
 });
@@ -46,7 +43,7 @@ test('create spawns nothing; the first send starts the CLI with the selection an
     // A send while a turn runs queues instead of failing, so the test unqueues it to reach idle.
     expect(await manager.send('chat-1', 'again')).toMatchObject({ queued: true });
     manager.unqueue('chat-1', manager.get('chat-1')!.info.queue![0]!.id);
-    await recorder.until(idle);
+    await recorder.untilIdle();
 
     expect(claude.started).toHaveLength(1);
     expect(recorder.ofKind('user').map((item) => item.text)).toEqual(['hello there']);
@@ -83,7 +80,7 @@ test('the name Claude Code wrote down for the session rides on the info once the
     manager.attach('chat-title', 'c1');
 
     await manager.send('chat-title', 'hello there');
-    await recorder.until(idle);
+    await recorder.untilIdle();
     await recorder.until(() => recorder.info?.suggestedTitle === 'Say hello');
     expect(new Set(asked)).toEqual(new Set([recorder.info!.agentSessionId!]));
 });
@@ -107,7 +104,7 @@ test('a permission request becomes an approval card, and allowing always sends t
 
     expect(() => manager.approve('chat-2', 'nope', 'allow')).toThrow('Nothing waits');
     manager.approve('chat-2', 'req-1', 'allow-always');
-    await recorder.until(idle);
+    await recorder.untilIdle();
     expect(recorder.ofKind('approval')[0]?.decision).toBe('allow-always');
     expect(recorder.ofKind('tool')[0]).toMatchObject({ state: 'done', output: 'ran: date' });
     expect(recorder.ofKind('assistant').map((item) => item.text)).toEqual(['done, remembered']);
@@ -172,7 +169,7 @@ test('a running tool carries the progress the CLI reports until its result arriv
     const now = Date.UTC(2026, 9, 1);
     setSystemTime(now);
     await manager.send('chat-2b', 'run: sleep 30');
-    await recorder.until(idle);
+    await recorder.untilIdle();
 
     const running = recorder.events.filter((event) => event.type === 'item' && event.item.kind === 'tool' && event.item.state === 'running');
     const withProgress = running.map((event) => (event.type === 'item' && event.item.kind === 'tool' ? event.item.progress : undefined)).filter(Boolean);
@@ -189,7 +186,7 @@ test('denying answers the CLI and the tool ends in error', async () => {
     await manager.send('chat-3', 'tool: rm -rf /');
     await recorder.until(() => recorder.info?.status === 'needs-you');
     manager.approve('chat-3', 'req-1', 'deny', 'not that');
-    await recorder.until(idle);
+    await recorder.untilIdle();
     expect(recorder.ofKind('tool')[0]).toMatchObject({ state: 'error', output: 'denied by user' });
 });
 
@@ -208,7 +205,7 @@ test('a question to the person is answered by id and reaches the CLI by text', a
 
     expect(() => manager.answer('chat-q', 'nope', {})).toThrow('No question');
     manager.answer('chat-q', 'req-q', { '0': 'Blue' });
-    await recorder.until(idle);
+    await recorder.untilIdle();
     expect(recorder.ofKind('question')[0]).toMatchObject({ state: 'answered', answers: { '0': 'Blue' } });
     expect(recorder.ofKind('assistant').map((item) => item.text)).toEqual(['you chose Blue']);
 });
@@ -234,7 +231,7 @@ test('cancel interrupts a running turn and marks it aborted', async () => {
     await manager.send('chat-4', 'slow');
     await received.promise;
     manager.cancel('chat-4');
-    await recorder.until(idle);
+    await recorder.untilIdle();
     expect(recorder.ofKind('assistant').map((item) => item.text)).toEqual(['[interrupted]']);
     expect(recorder.ofKind('turn')[0]?.state).toBe('aborted');
 });
@@ -243,7 +240,7 @@ test('configure restarts the CLI with new flags on the next send and keeps the s
     await manager.create({ chatId: 'chat-c', cwd: home });
     manager.attach('chat-c', 'c1');
     await manager.send('chat-c', 'first');
-    await recorder.until(idle);
+    await recorder.untilIdle();
     const sessionId = recorder.info?.agentSessionId;
 
     const info = manager.configure({
@@ -260,7 +257,7 @@ test('configure restarts the CLI with new flags on the next send and keeps the s
     expect(manager.configure({ chatId: 'chat-c', runtimeMode: 'supervised' })).toBe(info);
 
     await manager.send('chat-c', 'argv?');
-    await recorder.until(() => recorder.info?.usage.turns === 2 && idle());
+    await recorder.until(() => recorder.info?.usage.turns === 2 && recorder.idle);
     expect(recorder.info?.agentSessionId).toBe(sessionId ?? null);
     expect(claude.started).toHaveLength(2);
     expect(await claude.started[0]!.exited).toBe(0);
@@ -275,7 +272,7 @@ test('a restart ends the CLI between turns and the next send resumes the convers
     await manager.create({ chatId: 'chat-r', cwd: home });
     manager.attach('chat-r', 'c1');
     await manager.send('chat-r', 'first');
-    await recorder.until(idle);
+    await recorder.untilIdle();
     const sessionId = recorder.info?.agentSessionId;
 
     await manager.restart('chat-r');
@@ -283,7 +280,7 @@ test('a restart ends the CLI between turns and the next send resumes the convers
     await claude.started[0]!.exited;
 
     await manager.send('chat-r', 'again');
-    await recorder.until(() => recorder.info?.usage.turns === 2 && idle());
+    await recorder.until(() => recorder.info?.usage.turns === 2 && recorder.idle);
     expect(claude.started).toHaveLength(2);
     const argv = claude.started[1]!.argv;
     expect(argv[argv.indexOf('--resume') + 1]).toBe(sessionId!);
@@ -295,7 +292,7 @@ test('a restart is refused while a turn runs', async () => {
     manager.attach('chat-busy', 'c1');
     await manager.send('chat-busy', 'first');
     await expect(manager.restart('chat-busy')).rejects.toMatchObject({ code: 'chat-busy' });
-    await recorder.until(idle);
+    await recorder.untilIdle();
     expect(claude.started).toHaveLength(1);
 });
 
@@ -303,7 +300,7 @@ test('the meter reads the window the pick asked for, not the maximum the CLI rep
     await manager.create({ chatId: 'chat-w', cwd: home, selection: { model: 'opus', options: { contextWindow: '200k' } } });
     manager.attach('chat-w', 'c1');
     await manager.send('chat-w', 'hello');
-    await recorder.until(idle);
+    await recorder.untilIdle();
     // The CLI reports 1M whatever it was started on, and the turn it ends must not put that on the meter.
     const argv = claude.started[0]!.argv;
     expect(argv[argv.indexOf('--model') + 1]).toBe('claude-opus-5-5');
@@ -314,7 +311,7 @@ test('the meter reads the window the pick asked for, not the maximum the CLI rep
     });
     const turns = recorder.info!.usage.turns;
     await manager.send('chat-w', 'after');
-    await recorder.until(() => recorder.info?.usage.turns === turns + 1 && idle());
+    await recorder.until(() => recorder.info?.usage.turns === turns + 1 && recorder.idle);
     expect(recorder.info?.model).toBe('claude-opus-5-5[1m]');
     expect(recorder.info?.usage.contextWindow).toBe(1_000_000);
 });
@@ -323,7 +320,7 @@ test('a thread survives a new manager and the next send resumes the same CLI ses
     await manager.create({ chatId: 'chat-5', cwd: home });
     manager.attach('chat-5', 'c1');
     await manager.send('chat-5', 'first');
-    await recorder.until(idle);
+    await recorder.untilIdle();
     const sessionId = recorder.info?.agentSessionId;
     // Shutdown persists every thread, so the manager built next reads it back.
     await manager.shutdown();
@@ -346,7 +343,7 @@ test('compaction shows up as a marker', async () => {
     await manager.create({ chatId: 'chat-k', cwd: home });
     manager.attach('chat-k', 'c1');
     await manager.send('chat-k', 'compact');
-    await recorder.until(idle);
+    await recorder.untilIdle();
     expect(recorder.ofKind('compaction')[0]).toMatchObject({ preTokens: 5000 });
 });
 
@@ -360,7 +357,7 @@ test('a turn carries its checkpoint and the diff of what it changed', async () =
     await manager.create({ chatId: 'chat-diff', cwd: home });
     manager.attach('chat-diff', 'c1');
     await manager.send('chat-diff', 'write: made.txt hello');
-    await recorder.until(() => idle() && recorder.ofKind('turn')[0]?.checkpointDiff !== undefined);
+    await recorder.until(() => recorder.idle && recorder.ofKind('turn')[0]?.checkpointDiff !== undefined);
 
     expect(await readFile(join(home, 'made.txt'), 'utf8')).toBe('hello\n');
     const turn = recorder.ofKind('turn')[0];

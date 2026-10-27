@@ -43,10 +43,6 @@ function mirrorOf(result: ChatAttachResult): ChatThread {
     return new ChatThread(result.info, result.items);
 }
 
-function idle(recorder: ChatRecorder) {
-    return (): boolean => recorder.info?.status === 'idle' && recorder.info.activeTurnId === null && recorder.info.running;
-}
-
 beforeEach(async () => {
     home = await mkdtemp(join(tmpdir(), 'ruimte-chat-seq-'));
     attachments = new AttachmentStore(home);
@@ -71,9 +67,9 @@ describe('the stream of a chat', () => {
         const start = manager.attach('chat', 'watcher');
         expect(start.seq).toBe(0);
         await manager.send('chat', 'hello');
-        await recorder.until(idle(recorder));
+        await recorder.untilIdle();
         await manager.send('chat', 'run: ls');
-        await recorder.until(() => idle(recorder)() && recorder.ofKind('turn').length === 2);
+        await recorder.until(() => recorder.idle && recorder.ofKind('turn').length === 2);
 
         const fresh = manager.attach('chat', 'fresh');
         expect(fresh.seq).toBe(numbered.at(-1)!.seq);
@@ -99,11 +95,11 @@ describe('the stream of a chat', () => {
         await manager.create({ chatId: 'chat', cwd: home });
         manager.attach('chat', 'watcher');
         await manager.send('chat', 'hello');
-        await recorder.until(idle(recorder));
+        await recorder.untilIdle();
         const before = manager.attach('chat', 'client').seq!;
         await manager.clear('chat');
         await manager.send('chat', 'again');
-        await recorder.until(() => idle(recorder)() && recorder.ofKind('turn').length === 1);
+        await recorder.until(() => recorder.idle && recorder.ofKind('turn').length === 1);
 
         const back = manager.attach('chat', 'client', undefined, before);
         expect(back.events).toBeUndefined();
@@ -161,7 +157,7 @@ describe('the stream of a chat', () => {
         await first.manager.create({ chatId: 'chat', cwd: home });
         first.manager.attach('chat', 'watcher');
         await first.manager.send('chat', 'hello');
-        await first.recorder.until(idle(first.recorder));
+        await first.recorder.untilIdle();
         const last = first.manager.attach('chat', 'client').seq!;
         await first.manager.shutdown();
 
@@ -225,7 +221,7 @@ describe('the record of a chat', () => {
         first.manager.attach('chat', 'watcher');
         for (const prompt of ['one', 'two', 'three', 'four', 'five']) {
             await first.manager.send('chat', prompt);
-            await first.recorder.until(idle(first.recorder));
+            await first.recorder.untilIdle();
         }
         await first.manager.persisted('chat');
         expect(store.calls).toEqual(['write chat']);
@@ -246,7 +242,7 @@ describe('the record of a chat', () => {
         await manager.create({ chatId: 'chat', cwd: home });
         manager.attach('chat', 'watcher');
         await manager.send('chat', `output:${COMPACT_ABOVE_BYTES + 1024}`);
-        await recorder.until(idle(recorder));
+        await recorder.untilIdle();
         await manager.persisted('chat');
 
         expect(store.calls).toEqual(['write chat', 'write chat']);

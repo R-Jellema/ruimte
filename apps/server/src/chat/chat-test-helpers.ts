@@ -55,6 +55,15 @@ export class ChatRecorder {
         });
     }
 
+    /* Whether the CLI runs and waits for a prompt, with no turn open. */
+    get idle(): boolean {
+        return this.info?.status === 'idle' && this.info.running && this.info.activeTurnId === null;
+    }
+
+    untilIdle(): Promise<void> {
+        return this.until(() => this.idle);
+    }
+
     ofKind<K extends ChatItem['kind']>(kind: K): Array<Extract<ChatItem, { kind: K }>> {
         return [...this.items.values()].filter((item): item is Extract<ChatItem, { kind: K }> => item.kind === kind);
     }
