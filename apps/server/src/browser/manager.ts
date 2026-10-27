@@ -11,10 +11,10 @@ import {
     type LiveFrameHeader,
     type LiveStreamFrame
 } from '@ruimte/contracts';
-import { LiveStreamHub, type LiveFrameSource } from '../streams/live-stream.ts';
 import { CodedError } from '@adecore/agents';
-import { FrameFanout, streamKeyOf } from '../streams/frame-fanout.ts';
 import { LiveSinks, type LiveEvent, type LiveSink } from '../client-sinks.ts';
+import { FrameFanout, streamKeyOf } from '../streams/frame-fanout.ts';
+import { LiveStreamHub, type LiveFrameSource } from '../streams/live-stream.ts';
 
 interface NavigationHistory {
     currentIndex: number;
@@ -147,28 +147,15 @@ class BrowserSession implements LiveFrameSource {
                 return;
             }
             const reportedUrl = url === 'about:blank' && this.state.loading && this.state.url !== 'about:blank' ? this.state.url : url;
-            this.state = {
-                ...this.state,
-                url: reportedUrl,
-                title: title ?? page.title ?? '',
-                loading: false,
-                error: null
-            };
-            this.changed(this.info());
+            this.update({ url: reportedUrl, title: title ?? page.title ?? '', loading: false, error: null });
             queueMicrotask(() => {
                 void this.refreshPage(reportedUrl);
             });
         };
         page.onNavigationFailed = (error) => {
-            if (this.bootstrapping) {
-                return;
+            if (!this.bootstrapping) {
+                this.update({ loading: false, error: error.message });
             }
-            this.state = {
-                ...this.state,
-                loading: false,
-                error: error.message
-            };
-            this.changed(this.info());
         };
         page.addEventListener('Page.screencastFrame', (event) => {
             const frame = event.data;
@@ -225,33 +212,14 @@ class BrowserSession implements LiveFrameSource {
 
     async navigate(input: string): Promise<void> {
         const url = normalizeUrl(input);
-        this.state = {
-            ...this.state,
-            url,
-            loading: true,
-            error: null,
-            favicon: null
-        };
-        this.changed(this.info());
+        this.update({ url, loading: true, error: null, favicon: null });
         try {
             await this.enqueuePage(() => this.page.navigate(url));
-            this.state = {
-                ...this.state,
-                url: await this.currentUrl(url),
-                title: this.page.title ?? '',
-                loading: this.page.loading,
-                error: null
-            };
-            this.changed(this.info());
+            this.update({ url: await this.currentUrl(url), title: this.page.title ?? '', loading: this.page.loading, error: null });
             await this.refreshHistory();
         } catch (error) {
             if (this.state.loading) {
-                this.state = {
-                    ...this.state,
-                    loading: false,
-                    error: error instanceof Error ? error.message : 'Page failed to load'
-                };
-                this.changed(this.info());
+                this.update({ loading: false, error: error instanceof Error ? error.message : 'Page failed to load' });
             }
         }
     }
@@ -286,12 +254,7 @@ class BrowserSession implements LiveFrameSource {
     }
 
     async command(command: 'back' | 'forward' | 'reload' | 'stop', ignoreCache = false): Promise<void> {
-        this.state = {
-            ...this.state,
-            loading: command !== 'stop',
-            error: null
-        };
-        this.changed(this.info());
+        this.update({ loading: command !== 'stop', error: null });
         if (command === 'back') {
             await this.enqueuePage(() => this.page.back());
         } else if (command === 'forward') {
@@ -302,8 +265,7 @@ class BrowserSession implements LiveFrameSource {
             await this.enqueueCdp('Page.reload', { ignoreCache: true });
         } else {
             await this.enqueueCdp('Page.stopLoading');
-            this.state = { ...this.state, loading: false };
-            this.changed(this.info());
+            this.update({ loading: false });
         }
     }
 
@@ -421,19 +383,15 @@ class BrowserSession implements LiveFrameSource {
     private async refreshHistory(): Promise<void> {
         try {
             const history = await this.enqueueCdp<NavigationHistory>('Page.getNavigationHistory');
-            this.state = {
-                ...this.state,
-                canGoBack: history.currentIndex > 0,
-                canGoForward: history.currentIndex < history.entries.length - 1
-            };
-            this.changed(this.info());
+            this.update({ canGoBack: history.currentIndex > 0, canGoForward: history.currentIndex < history.entries.length - 1 });
         } catch {
-            this.state = {
-                ...this.state,
-                canGoBack: false,
-                canGoForward: false
-            };
+            this.state = { ...this.state, canGoBack: false, canGoForward: false };
         }
+    }
+
+    private update(patch: Partial<BrowserInfo>): void {
+        this.state = { ...this.state, ...patch };
+        this.changed(this.info());
     }
 
     private async currentUrl(fallback: string): Promise<string> {
@@ -449,13 +407,7 @@ class BrowserSession implements LiveFrameSource {
     }
 
     private async refreshPage(fallbackUrl: string): Promise<void> {
-        this.state = {
-            ...this.state,
-            url: await this.currentUrl(fallbackUrl),
-            title: this.page.title ?? '',
-            loading: this.page.loading
-        };
-        this.changed(this.info());
+        this.update({ url: await this.currentUrl(fallbackUrl), title: this.page.title ?? '', loading: this.page.loading });
         void this.refreshHistory();
         void this.refreshFavicon();
     }
@@ -466,8 +418,7 @@ class BrowserSession implements LiveFrameSource {
         if (this.state.url !== url || this.state.favicon === favicon) {
             return;
         }
-        this.state = { ...this.state, favicon };
-        this.changed(this.info());
+        this.update({ favicon });
     }
 }
 
@@ -529,14 +480,13 @@ export class BrowserManager {
             session.clients.add(clientId);
             await session.prepare();
             await session.navigate(url);
-            await session.resize(width, height, deviceScaleFactor);
         } else {
             session.clients.add(clientId);
             if (session.info().url === 'about:blank' && normalizeUrl(url) !== 'about:blank') {
                 await session.navigate(url);
             }
-            await session.resize(width, height, deviceScaleFactor);
         }
+        await session.resize(width, height, deviceScaleFactor);
         if (stream === 'events') {
             const events = (frame: LiveStreamFrame): LiveEvent =>
                 binary
@@ -554,8 +504,7 @@ export class BrowserManager {
      * Null when no client opened one here, which on a desktop is the usual answer: that shell draws the page itself.
      */
     async text(browserId: string): Promise<string | null> {
-        const session = this.sessionOf(browserId);
-        return session ? session.text() : null;
+        return (await this.sessionOf(browserId)?.text()) ?? null;
     }
 
     /*
@@ -580,8 +529,7 @@ export class BrowserManager {
 
     /* A png of the page this machine runs under that node; null when it runs none. */
     async capture(browserId: string): Promise<Uint8Array | null> {
-        const session = this.sessionOf(browserId);
-        return session ? session.capture() : null;
+        return (await this.sessionOf(browserId)?.capture()) ?? null;
     }
 
     /* Whichever client opened it, the page under one node is one page, so the first session answers. */
@@ -625,10 +573,9 @@ export class BrowserManager {
     kill(browserId: string, clientId: string): void {
         const key = sessionKey(browserId, clientId);
         const session = this.sessions.get(key);
-        if (!session) {
-            return;
+        if (session) {
+            this.destroy(key, session);
         }
-        this.destroy(key, session);
     }
 
     closeAll(): void {
@@ -647,10 +594,7 @@ export class BrowserManager {
 
     private broadcast(session: BrowserSession, info: BrowserInfo): void {
         for (const clientId of session.clients) {
-            this.sinks.to(clientId, {
-                event: 'browser.status',
-                payload: info
-            });
+            this.sinks.to(clientId, { event: 'browser.status', payload: info });
         }
     }
 
@@ -668,10 +612,5 @@ function sessionKey(browserId: string, clientId: string): string {
 }
 
 function frameHeader(browserId: string, frame: LiveStreamFrame): LiveFrameHeader<'browser.frame'> {
-    return {
-        browserId,
-        sequence: frame.sequence,
-        width: frame.width,
-        height: frame.height
-    };
+    return { browserId, sequence: frame.sequence, width: frame.width, height: frame.height };
 }

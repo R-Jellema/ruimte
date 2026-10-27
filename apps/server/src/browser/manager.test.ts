@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { BrowserFrame, BrowserInfo, LiveFrame, LiveFrameHeader } from '@ruimte/contracts';
-import { BrowserManager, type BrowserPage } from './manager.ts';
 import { LiveStreamHub } from '../streams/live-stream.ts';
+import { BrowserManager, type BrowserPage } from './manager.ts';
 
 class FakePage implements BrowserPage {
     url = 'about:blank';
@@ -108,17 +108,22 @@ async function until(reached: () => boolean): Promise<void> {
     }
 }
 
+function statusesOf(manager: BrowserManager): BrowserInfo[] {
+    const statuses: BrowserInfo[] = [];
+    manager.subscribe('client-1', (event) => {
+        if (event.event === 'browser.status') {
+            statuses.push(event.payload);
+        }
+    });
+    return statuses;
+}
+
 describe('BrowserManager', () => {
     test('keeps a page alive while control clients attach and streams only with a viewer', async () => {
         const page = new FakePage();
         const hub = new LiveStreamHub();
         const manager = new BrowserManager(hub, () => page);
-        const statuses: BrowserInfo[] = [];
-        manager.subscribe('client-1', (event) => {
-            if (event.event === 'browser.status') {
-                statuses.push(event.payload);
-            }
-        });
+        const statuses = statusesOf(manager);
 
         const opened = await manager.open('node-1', 'client-1', 'https://example.com', 800, 600);
         expect(opened.url).toBe('https://example.com');
@@ -261,12 +266,7 @@ describe('BrowserManager', () => {
         const page = new FakePage();
         page.favicon = 'data:image/png;base64,AQID';
         const manager = new BrowserManager(new LiveStreamHub(), () => page);
-        const statuses: BrowserInfo[] = [];
-        manager.subscribe('client-1', (event) => {
-            if (event.event === 'browser.status') {
-                statuses.push(event.payload);
-            }
-        });
+        const statuses = statusesOf(manager);
 
         await manager.open('node-1', 'client-1', 'http://localhost:3000', 800, 600, 'events');
         await Bun.sleep(0);
@@ -279,12 +279,7 @@ describe('BrowserManager', () => {
         const page = new FakePage();
         page.favicon = 'http://localhost/private.png';
         const manager = new BrowserManager(new LiveStreamHub(), () => page);
-        const statuses: BrowserInfo[] = [];
-        manager.subscribe('client-1', (event) => {
-            if (event.event === 'browser.status') {
-                statuses.push(event.payload);
-            }
-        });
+        const statuses = statusesOf(manager);
 
         await manager.open('node-1', 'client-1', 'http://localhost:3000', 800, 600);
         await Bun.sleep(0);
