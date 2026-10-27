@@ -11,7 +11,7 @@ describe('markerPath', () => {
         expect(markerPath('chevron', at, { x: 0, y: 0 })).toBe('');
     });
 
-    test('a dot is the circle of radius 5 the ends have always worn', () => {
+    test('a dot is a circle of radius 5', () => {
         expect(markerPath('dot', at, right)).toBe('M 95 50 A 5 5 0 1 0 105 50 A 5 5 0 1 0 95 50 Z');
     });
 

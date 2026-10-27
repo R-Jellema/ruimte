@@ -1,24 +1,16 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
-import type { ProjectCanvasView, ProjectNode, ProviderInfo } from '@ruimte/contracts';
+import type { ProjectCanvasView, ProjectNode } from '@ruimte/contracts';
 import { windowWorkspace } from '@/state/window';
 import { useUi } from '@/state/ui';
 import { useDocument } from '@/state/document';
 import { chatInfoOf } from '../../testing/chat-info';
 import { FakeMachine } from '../../testing/fake-machine';
-import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
-import { clickOn, mount, openSubmenu, pressKey, until, type Mounted } from '../../testing/dom';
+import { fakeProvider } from '../../testing/fake-provider';
+import { clickOn, openSubmenu, pressKey, until } from '../../testing/dom';
+import { menuItem, openCanvasPage, openContextMenu, savedNodes, type CanvasPage } from './canvas-page';
 
-const CLAUDE = {
-    kind: 'claude',
-    name: 'Claude Code',
-    installed: true,
-    version: '2.1.0',
-    models: [{ slug: 'model', name: 'Model', legacy: false, isDefault: true, options: [] }],
-    defaultModel: 'model',
-    capabilities: { chat: true, terminal: true },
-    resumeCommand: 'claude --resume {id}'
-} as unknown as ProviderInfo;
+const CLAUDE = fakeProvider('claude', 'Claude Code', { version: '2.1.0', resumeCommand: 'claude --resume {id}' });
 
 const CHAT: ProjectNode = { id: 'fresh-chat', kind: 'chat', provider: 'claude', x: 0, y: 0, w: 480, h: 520 } as ProjectNode;
 // A note from before Color covered notes: its old blue paper over an accent nothing painted.
@@ -37,28 +29,17 @@ const OLD_NOTE: ProjectNode = {
 const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [CHAT, OLD_NOTE], texts: [], edges: [], layouts: [] };
 const OTHER: ProjectCanvasView = { ...MAIN, id: 'other', name: 'Other', nodes: [{ ...CHAT, id: 'other-chat', title: 'Other chat' }] };
 
+const OTHER_ROW = '[data-sidebar-row$="node:other:other-chat"]';
+
 let machine: FakeMachine;
-let workspace: FakeWorkspace;
-let page: Mounted;
+let canvas: CanvasPage;
 
 async function openNodeMenu(id: string): Promise<void> {
-    const frame = page.host.querySelector(`[data-node-id="${id}"]`)!;
-    await act(async () => {
-        frame.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 40, button: 2 }));
-    });
-    await until(() => document.querySelector('[role="menu"]') !== null);
-}
-
-function menuItem(text: string): HTMLElement | null {
-    return ([...document.querySelectorAll('[role="menu"] [role^="menuitem"]')] as HTMLElement[]).find((item) => item.textContent?.includes(text)) ?? null;
+    await openContextMenu(frameOf(id));
 }
 
 function savedNode(id: string): ProjectNode | undefined {
-    const view = machine
-        .requests('project.save')
-        .at(-1)
-        ?.content.views.find((candidate) => candidate.id === MAIN.id);
-    return view?.kind === 'canvas' ? view.nodes?.find((node) => node.id === id) : undefined;
+    return savedNodes(machine).find((node) => node.id === id);
 }
 
 /* What crosses the wire, where a key set to undefined is gone. */
@@ -71,33 +52,23 @@ function savedChat(): ProjectNode | undefined {
 }
 
 function frameOf(id: string): HTMLElement {
-    return page.host.querySelector(`[data-node-id="${id}"]`)!;
+    return canvas.page.host.querySelector(`[data-node-id="${id}"]`)!;
 }
 
 beforeEach(async () => {
     machine = new FakeMachine();
-    machine.answer('project.save', ({ baseRev }) => ({ rev: baseRev + 1 }) as never);
     machine.answer('provider.list', () => ({ providers: [CLAUDE] }));
     machine.answer('chat.attach', ({ chatId }) => ({ info: chatInfoOf(chatId), items: [], seq: 0 }) as never);
-    workspace = await openFakeWorkspace(machine, { views: [MAIN, OTHER] }, { activeViewId: MAIN.id, views: {} });
-    useUi.getState().setSidebarExpanded([OTHER.id]);
-    page = mount();
-    await page.renderApp();
-    await until(() => page.host.querySelector(`[data-node-id="${CHAT.id}"]`) !== null);
+    canvas = await openCanvasPage(machine, [MAIN, OTHER], CHAT.id);
+    await act(async () => useUi.getState().setSidebarExpanded([OTHER.id]));
+    await until(() => canvas.page.host.querySelector(OTHER_ROW) !== null);
 });
 
-afterEach(async () => {
-    await page.unmount();
-    workspace.close();
-});
+afterEach(() => canvas.close());
 
 describe('the menu of a chat node', () => {
     test('renaming from an inactive canvas sidebar row keeps the active canvas', async () => {
-        const row = page.host.querySelector('[data-sidebar-row$="node:other:other-chat"]')!;
-        await act(async () => {
-            row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 40, button: 2 }));
-        });
-        await until(() => menuItem('Rename') !== null);
+        await openContextMenu(canvas.page.host.querySelector(OTHER_ROW)!);
         await clickOn(menuItem('Rename'));
         await until(() => document.activeElement instanceof HTMLInputElement);
         const input = document.activeElement as HTMLInputElement;
@@ -109,12 +80,7 @@ describe('the menu of a chat node', () => {
     });
 
     test('a sidebar row on another canvas offers the node menu and saves to that canvas', async () => {
-        const row = page.host.querySelector('[data-sidebar-row$="node:other:other-chat"]');
-        expect(row).not.toBeNull();
-        await act(async () => {
-            row!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 40, button: 2 }));
-        });
-        await until(() => menuItem('Rename') !== null);
+        await openContextMenu(canvas.page.host.querySelector(OTHER_ROW)!);
         expect(useDocument.getState().activeViewId).toBe(MAIN.id);
         await openSubmenu('Color');
         expect(useDocument.getState().activeViewId).toBe(MAIN.id);

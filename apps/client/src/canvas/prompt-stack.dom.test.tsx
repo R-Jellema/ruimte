@@ -4,8 +4,8 @@ import type { ChatApprovalItem, ChatInfo, ProjectCanvasView, ProjectNode } from 
 import { PROMPT_SAMPLES } from '@adecore/agents-react/testing';
 import { chatInfoOf } from '../../testing/chat-info';
 import { FakeMachine } from '../../testing/fake-machine';
-import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
-import { clickOn, mount, until, type Mounted } from '../../testing/dom';
+import { clickOn, until } from '../../testing/dom';
+import { openCanvasPage, type CanvasPage } from './canvas-page';
 
 const WRITER: ProjectNode = { id: 'writer', kind: 'chat', title: 'Writer', x: 40, y: 80, w: 480, h: 520 };
 const TEAM: ProjectNode = { id: 'team', kind: 'group', title: 'Team', x: 0, y: 0, w: 600, h: 700, memberIds: [WRITER.id] };
@@ -20,31 +20,23 @@ const WAITING: ChatInfo = chatInfoOf(WRITER.id, {
 });
 
 let machine: FakeMachine;
-let workspace: FakeWorkspace;
-let page: Mounted;
+let canvas: CanvasPage;
 
 function stackCard(): Element | null {
     return document.querySelector(`[data-prompt-stack="${MAIN.id}"] .prompt-card`);
 }
 
 function collapseButton(): HTMLElement | null {
-    return page.host.querySelector(`[data-node-id="${TEAM.id}"] button[aria-label="Collapse"]`);
+    return canvas.page.host.querySelector(`[data-node-id="${TEAM.id}"] button[aria-label="Collapse"]`);
 }
 
 beforeEach(async () => {
     machine = new FakeMachine();
-    machine.answer('project.save', ({ baseRev }) => ({ rev: baseRev + 1 }) as never);
     machine.answer('chat.attach', ({ chatId }) => ({ info: chatId === WRITER.id ? WAITING : chatInfoOf(chatId), items: chatId === WRITER.id ? [WRITE] : [] }));
-    workspace = await openFakeWorkspace(machine, { views: [MAIN] }, { activeViewId: MAIN.id, views: {} });
-    page = mount();
-    await page.renderApp();
-    await until(() => stackCard() !== null);
+    canvas = await openCanvasPage(machine, [MAIN], () => stackCard() !== null);
 });
 
-afterEach(async () => {
-    await page.unmount();
-    workspace.close();
-});
+afterEach(() => canvas.close());
 
 describe('the prompt stack of a canvas', () => {
     test('lets go of a request answered while its chat was out of view, though the thread it held still says it waits', async () => {

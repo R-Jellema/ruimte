@@ -3,48 +3,32 @@ import { act } from 'react';
 import type { ProjectCanvasView, ProjectNode } from '@ruimte/contracts';
 import { windowWorkspace } from '@/state/window';
 import { FakeMachine } from '../../testing/fake-machine';
-import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
-import { mount, pressKey, until, type Mounted } from '../../testing/dom';
+import { pressKey, until } from '../../testing/dom';
+import { openCanvasPage, savedNodes, type CanvasPage } from './canvas-page';
 
 // A key a newer Ruimte added: the types do not carry it, the file and the wire do.
 const PLAN = { id: 'plan', kind: 'note', title: 'Plan', body: 'Ship it', x: 0, y: 0, w: 400, h: 320, location: { line: 3 } } as ProjectNode;
 const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [PLAN], texts: [], edges: [], layouts: [] };
 
 let machine: FakeMachine;
-let workspace: FakeWorkspace;
-let page: Mounted;
-
-function savedNodes(): ProjectNode[] {
-    const view = machine
-        .requests('project.save')
-        .at(-1)
-        ?.content.views.find((candidate) => candidate.id === MAIN.id);
-    return view?.kind === 'canvas' ? view.nodes : [];
-}
+let canvas: CanvasPage;
 
 beforeEach(() => {
     machine = new FakeMachine();
-    machine.answer('project.save', ({ baseRev }) => ({ rev: baseRev + 1 }) as never);
 });
 
-afterEach(async () => {
-    await page.unmount();
-    workspace.close();
-});
+afterEach(() => canvas.close());
 
 describe('a node with a field this version does not know', () => {
     test('renaming it saves the new title and the field as it was', async () => {
-        workspace = await openFakeWorkspace(machine, { views: [MAIN] }, { activeViewId: MAIN.id, views: {} });
-        page = mount();
-        await page.renderApp();
-        await until(() => page.host.querySelector(`[data-node-id="${PLAN.id}"]`) !== null);
+        canvas = await openCanvasPage(machine, [MAIN], PLAN.id);
 
-        const title = [...page.host.querySelectorAll(`[data-node-id="${PLAN.id}"] header span`)].find((span) => span.textContent === 'Plan')!;
+        const title = [...canvas.page.host.querySelectorAll(`[data-node-id="${PLAN.id}"] header span`)].find((span) => span.textContent === 'Plan')!;
         await act(async () => {
             title.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
         });
-        await until(() => page.host.querySelector(`[data-node-id="${PLAN.id}"] input`) !== null);
-        const input = page.host.querySelector<HTMLInputElement>(`[data-node-id="${PLAN.id}"] input`)!;
+        await until(() => canvas.page.host.querySelector(`[data-node-id="${PLAN.id}"] input`) !== null);
+        const input = canvas.page.host.querySelector<HTMLInputElement>(`[data-node-id="${PLAN.id}"] input`)!;
         await act(async () => {
             input.focus();
             // React tracks the value it set, so the browser's own setter is what makes the change show.
@@ -55,6 +39,6 @@ describe('a node with a field this version does not know', () => {
         await act(async () => windowWorkspace()!.connection.projects.flush());
 
         await until(() => machine.requests('project.save').length > 0);
-        expect(savedNodes()[0]).toMatchObject({ id: 'plan', title: 'Roadmap', location: { line: 3 } });
+        expect(savedNodes(machine)[0]).toMatchObject({ id: 'plan', title: 'Roadmap', location: { line: 3 } });
     });
 });

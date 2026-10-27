@@ -53,6 +53,7 @@ function viewIds(): string[] {
 
 beforeEach(() => {
     jest.useFakeTimers();
+    useToasts.setState({ toasts: [] });
     ended = [];
     focusedCanvas().getState().setViewport({ w: 800, h: 600 });
     useDocument.getState().load(document, { activeViewId: 'board', views: {} });
@@ -63,9 +64,7 @@ afterEach(() => {
     stop?.();
     stop = null;
     useDocument.getState().purgeTrash();
-    for (const toast of useToasts.getState().toasts) {
-        useToasts.getState().dismiss(toast.id);
-    }
+    useToasts.setState({ toasts: [] });
     jest.useRealTimers();
 });
 

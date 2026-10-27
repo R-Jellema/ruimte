@@ -5,6 +5,7 @@ import { useProject } from '@/state/project';
 import { useProposals } from '@/state/proposals';
 import { useUi } from '@/state/ui';
 import { FakeMachine } from '../../testing/fake-machine';
+import { fakeProvider } from '../../testing/fake-provider';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { clickOn, mount, until, type Mounted } from '../../testing/dom';
 
@@ -43,16 +44,11 @@ const PROPOSAL: ProjectProposal = {
     expiresAt: 2
 };
 
-const CLAUDE = {
-    kind: 'claude',
-    name: 'Claude Code',
-    installed: true,
+const CLAUDE = fakeProvider('claude', 'Claude Code', {
     version: '2.1.0',
-    models: [{ slug: 'model', name: 'Model', legacy: false, isDefault: true, options: [] }],
-    defaultModel: 'model',
-    capabilities: { chat: true, terminal: true, hooks: true, attachments: true, mentions: true, slashCommands: true },
+    capabilities: { chat: true, terminal: true, hooks: true, attachments: true, mentions: true, slashCommands: true } as ProviderInfo['capabilities'],
     resumeCommand: 'claude --resume {id}'
-} as unknown as ProviderInfo;
+});
 
 function infoOf(chatId: string): ChatInfo {
     return {

@@ -12,6 +12,7 @@ import { useSnoozes } from '@/state/snooze';
 import { windowWorkspace } from '@/state/window';
 import { chatInfoOf } from '../../testing/chat-info';
 import { connectFakeMachine, FakeMachine } from '../../testing/fake-machine';
+import { fakeProvider } from '../../testing/fake-provider';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { useUi } from '@/state/ui';
 import { TransportError } from '@/transport/transport';
@@ -31,33 +32,22 @@ const MAIN: ProjectCanvasView = {
     layouts: []
 };
 
-const CLAUDE = {
-    kind: 'claude',
-    name: 'Claude Code',
-    installed: true,
+const CLAUDE = fakeProvider('claude', 'Claude Code', {
     version: '2.1.0',
-    models: [{ slug: 'model', name: 'Model', legacy: false, isDefault: true, options: [] }],
-    defaultModel: 'model',
     capabilities: {
         chat: true,
         terminal: true,
         hooks: true,
-        streamsToolOutput: false,
         diffs: 'before-after',
         attachments: true,
         mentions: true,
         denyReason: true,
         allowAlways: true,
-        asyncQuestions: false,
         compaction: 'none',
-        reportsCost: false,
-        reportsContextWindow: false,
-        reportsThinking: false,
-        slashCommands: true,
-        steer: false
-    },
+        slashCommands: true
+    } as ProviderInfo['capabilities'],
     resumeCommand: 'claude --resume {id}'
-} as unknown as ProviderInfo;
+});
 
 const APPROVAL = PROMPT_SAMPLES.find((sample) => sample.label === 'Permission · Command')!.items[0]! as ChatItem;
 

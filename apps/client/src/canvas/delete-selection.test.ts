@@ -26,27 +26,24 @@ beforeEach(() => {
 
 test('a node whose agents would end waits for the answer, and the delete takes what was picked then', async () => {
     const store = canvasWith(node('lead', 'chat', 0), node('note', 'note', 900));
-    const lead = 'lead';
-    const note = 'note';
-    store.getState().select([lead]);
-    await deleteSelectionAsking(store, machine({ [lead]: ['child-a', 'child-b'] }));
+    store.getState().select(['lead']);
+    await deleteSelectionAsking(store, machine({ lead: ['child-a', 'child-b'] }));
 
     expect(useEndingAgents.getState().pending).toMatchObject({ what: 'Lead', agents: 2 });
-    expect(store.getState().nodes[lead]).toBeDefined();
+    expect(store.getState().nodes.lead).toBeDefined();
     // The person clicks elsewhere before answering.
-    store.getState().select([note]);
+    store.getState().select(['note']);
     useEndingAgents.getState().pending!.run();
-    expect(store.getState().nodes[lead]).toBeUndefined();
-    expect(store.getState().nodes[note]).toBeDefined();
+    expect(store.getState().nodes.lead).toBeUndefined();
+    expect(store.getState().nodes.note).toBeDefined();
 });
 
 test('a node that opened nothing goes at once', async () => {
     const store = canvasWith(node('shell', 'terminal', 0));
-    const shell = 'shell';
-    store.getState().select([shell]);
+    store.getState().select(['shell']);
     await deleteSelectionAsking(store, machine({}));
     expect(useEndingAgents.getState().pending).toBeNull();
-    expect(store.getState().nodes[shell]).toBeUndefined();
+    expect(store.getState().nodes.shell).toBeUndefined();
 });
 
 test('a node that works in a worktree asks even when it opened nothing, and offers the worktrees nothing that stays works in', async () => {

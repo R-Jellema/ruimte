@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join, sep } from 'node:path';
 import { Glob } from 'bun';
@@ -55,6 +55,10 @@ function canvas(id: string, nodeIds: string[]): ProjectCanvasView {
         layouts: []
     };
 }
+
+beforeEach(() => {
+    defaultCanvases.keep([]);
+});
 
 afterEach(() => {
     defaultCanvases.keep([]);

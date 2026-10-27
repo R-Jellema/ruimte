@@ -13,8 +13,7 @@ describe('the camera on a node', () => {
         }
     });
 
-    /* The bug this answers: a camera worked out against a viewport of zero puts the node's middle at
-       screen (0, 0), which reads as centering that dumps the node in the top left corner. */
+    // Against a zero viewport the node's middle would land at screen (0, 0), the top left corner.
     test('is null while the viewport is unmeasured, rather than a camera at the origin', () => {
         expect(cameraCenteredOn(node, { w: 0, h: 0 }, 1)).toBeNull();
         expect(cameraCenteredOn(node, { w: 1200, h: 0 }, 1)).toBeNull();

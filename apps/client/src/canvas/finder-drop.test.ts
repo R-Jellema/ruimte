@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, test } from 'bun:test';
 import { finderPaths } from '@/canvas/finder-drop';
 import { useServers } from '@/state/server';
 import { useToasts } from '@/state/toasts';
@@ -30,17 +30,14 @@ function bridge(): void {
     globals.window = { ruimteDesktop: { platform: 'darwin', pathForFile: (file: { name: string }) => file.name } };
 }
 
-beforeEach(() => {
-    useToasts.setState({ toasts: [] });
-});
-
 afterEach(() => {
     globals.window = previousWindow;
     useServers.setState({ byEndpoint: {} });
+    useToasts.setState({ toasts: [] });
 });
 
 describe('finderPaths', () => {
-    test('a canvas leaves a folder out, as it always has', () => {
+    test('a canvas leaves a folder out', () => {
         bridge();
         serve('loopback');
 
