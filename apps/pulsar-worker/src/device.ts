@@ -27,7 +27,7 @@ import { verifySignature } from '@ruimte/pulsar/verify-web';
 import type { Env } from './env.ts';
 import { clientIp, failure, json, noContent, readBody } from './http.ts';
 import { storeMachine } from './machines.ts';
-import { LIMITS, overAnyLimit, sessionWithinLimits } from './rate-limit.ts';
+import { bodyWithinLimit, LIMITS, sessionWithinLimits } from './rate-limit.ts';
 import { accountDisplayNameSql, accountLoginSql, accountProviderSql, type SessionContext } from './sessions.ts';
 
 /*
@@ -74,12 +74,7 @@ function noSuchCode(): Response {
 
 // `POST /v1/device/start`, without a session.
 export async function startDeviceLink(request: Request, env: Env): Promise<Response> {
-    const ip = clientIp(request);
-    const limited = await overAnyLimit(env.DB, [[`ip:${ip}:device-start`, LIMITS.deviceStartIp]]);
-    if (limited) {
-        return limited;
-    }
-    const body = await readBody(request, DeviceLinkStartPayloadSchema);
+    const body = await bodyWithinLimit(request, env.DB, ['device-start', LIMITS.deviceStartIp], DeviceLinkStartPayloadSchema);
     if ('response' in body) {
         return body.response;
     }
@@ -109,7 +104,7 @@ export async function startDeviceLink(request: Request, env: Env): Promise<Respo
                 payload.icon ? JSON.stringify(payload.icon) : null,
                 payload.brokerUrl,
                 payload.publicKey,
-                ip,
+                clientIp(request),
                 now,
                 expiresAt
             )
@@ -209,17 +204,9 @@ async function linkOfDeviceCode(env: Env, deviceCode: string) {
         .first<LinkRow & { provider: ProviderId | null; login: string | null; display_name: string | null }>();
 }
 
-async function deviceCodeBody(request: Request, env: Env, bucket: string, limit: number) {
-    const limited = await overAnyLimit(env.DB, [[`ip:${clientIp(request)}:${bucket}`, limit]]);
-    if (limited) {
-        return { response: limited };
-    }
-    return readBody(request, DeviceCodePayloadSchema);
-}
-
 // `POST /v1/device/poll`
 export async function pollDeviceLink(request: Request, env: Env): Promise<Response> {
-    const body = await deviceCodeBody(request, env, 'device-poll', LIMITS.devicePollIp);
+    const body = await bodyWithinLimit(request, env.DB, ['device-poll', LIMITS.devicePollIp], DeviceCodePayloadSchema);
     if ('response' in body) {
         return body.response;
     }
@@ -244,11 +231,7 @@ export async function pollDeviceLink(request: Request, env: Env): Promise<Respon
  * requests race; one that fails after that is started again from the terminal.
  */
 export async function completeDeviceLink(request: Request, env: Env): Promise<Response> {
-    const limited = await overAnyLimit(env.DB, [[`ip:${clientIp(request)}:device-poll`, LIMITS.devicePollIp]]);
-    if (limited) {
-        return limited;
-    }
-    const body = await readBody(request, DeviceLinkCompletePayloadSchema);
+    const body = await bodyWithinLimit(request, env.DB, ['device-poll', LIMITS.devicePollIp], DeviceLinkCompletePayloadSchema);
     if ('response' in body) {
         return body.response;
     }
@@ -286,7 +269,7 @@ export async function completeDeviceLink(request: Request, env: Env): Promise<Re
 
 // `POST /v1/device/cancel`: the terminal stopped waiting, so the code stops working on the page too.
 export async function cancelDeviceLink(request: Request, env: Env): Promise<Response> {
-    const body = await deviceCodeBody(request, env, 'device-poll', LIMITS.devicePollIp);
+    const body = await bodyWithinLimit(request, env.DB, ['device-poll', LIMITS.devicePollIp], DeviceCodePayloadSchema);
     if ('response' in body) {
         return body.response;
     }

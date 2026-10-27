@@ -11,10 +11,10 @@ import {
 import { verifySignature } from '@ruimte/pulsar/verify-web';
 import type { Env } from './env.ts';
 import { countLogin } from './metrics.ts';
-import { clientIp, failure, json, noContent, readBody, signInAgain } from './http.ts';
+import { clientIp, failure, json, noContent, signInAgain } from './http.ts';
 import { resolveAccount, spendLinkToken, storeLinkCode } from './identities.ts';
 import type { OAuthProvider } from './providers.ts';
-import { LIMITS, overAnyLimit } from './rate-limit.ts';
+import { bodyWithinLimit, LIMITS, overAnyLimit } from './rate-limit.ts';
 import {
     accountDisplayNameSql,
     accountLoginSql,
@@ -234,11 +234,7 @@ export async function storeLoginCode(db: D1Database, accountId: string, appRedir
 
 // `POST /v1/session`: the app trades the code from the redirect for a session.
 export async function exchangeLoginCode(request: Request, env: Env): Promise<Response> {
-    const limited = await overAnyLimit(env.DB, [[`ip:${clientIp(request)}:session`, LIMITS.sessionIp]]);
-    if (limited) {
-        return limited;
-    }
-    const body = await readBody(request, SessionExchangePayloadSchema);
+    const body = await bodyWithinLimit(request, env.DB, ['session', LIMITS.sessionIp], SessionExchangePayloadSchema);
     if ('response' in body) {
         return body.response;
     }
@@ -277,11 +273,7 @@ export async function exchangeLoginCode(request: Request, env: Env): Promise<Res
 
 // `POST /v1/session/refresh`
 export async function refreshSession(request: Request, env: Env): Promise<Response> {
-    const limited = await overAnyLimit(env.DB, [[`ip:${clientIp(request)}:session`, LIMITS.sessionIp]]);
-    if (limited) {
-        return limited;
-    }
-    const body = await readBody(request, SessionRefreshPayloadSchema);
+    const body = await bodyWithinLimit(request, env.DB, ['session', LIMITS.sessionIp], SessionRefreshPayloadSchema);
     if ('response' in body) {
         return body.response;
     }

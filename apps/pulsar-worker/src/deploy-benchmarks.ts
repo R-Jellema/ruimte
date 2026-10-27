@@ -1,4 +1,4 @@
-import { toBase64Url } from '@ruimte/pulsar';
+import { sha256 } from '@ruimte/pulsar';
 import { refreshBenchmarks } from './benchmarks.ts';
 import type { Env } from './env.ts';
 import { failure, json } from './http.ts';
@@ -9,7 +9,7 @@ export async function refreshDeployedBenchmarks(request: Request, env: Env): Pro
     if (!token || !env.BENCHMARK_REFRESH_TOKEN_HASH || !Number.isSafeInteger(expiresAt) || expiresAt <= Date.now()) {
         return failure('unauthorized', 'A valid deployment token is required');
     }
-    const digest = toBase64Url(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token))));
+    const digest = await sha256(token);
     if (digest !== env.BENCHMARK_REFRESH_TOKEN_HASH) {
         return failure('unauthorized', 'A valid deployment token is required');
     }

@@ -1,4 +1,5 @@
-import { clientIp, failure, signInAgain } from './http.ts';
+import type { z } from 'zod';
+import { clientIp, failure, readBody, signInAgain } from './http.ts';
 import { retryAfterSeconds, windowStartOf } from './rate-window.ts';
 import { authenticate, type SessionContext } from './sessions.ts';
 
@@ -29,6 +30,17 @@ export async function overAnyLimit(db: D1Database, checks: ReadonlyArray<readonl
     const now = Date.now();
     const results = await Promise.all(checks.map(([bucket, limit]) => overLimit(db, bucket, limit, now)));
     return results.find((result) => result !== null) ?? null;
+}
+
+/* The body of a request from an address within a route's limit, or the answer that turns it down. */
+export async function bodyWithinLimit<T>(
+    request: Request,
+    db: D1Database,
+    ip: readonly [bucket: string, limit: number],
+    schema: z.ZodType<T>
+): Promise<{ value: T } | { response: Response }> {
+    const limited = await overAnyLimit(db, [[`ip:${clientIp(request)}:${ip[0]}`, ip[1]]]);
+    return limited ? { response: limited } : readBody(request, schema);
 }
 
 /* The session of a signed-in request within a route's limit for its account and for its address, or the answer that turns it down. */
