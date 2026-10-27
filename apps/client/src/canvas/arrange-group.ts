@@ -1,5 +1,5 @@
 import { arrangeRects, CANVAS_GRID, GROUP_HEADER, GROUP_PADDING, groupMemberIds, groupRect, type GroupItem } from '@ruimte/contracts';
-import type { Point, Rect } from '@/canvas/math';
+import { snapToGrid as snap, type Point, type Rect } from '@/canvas/math';
 import type { CanvasNode, TextElement } from '@/state/canvas';
 
 /* Whether the arrange command is offered for this selection; the menu and the palette share it. */
@@ -10,10 +10,6 @@ export function groupArrangeable(selected: CanvasNode | undefined, locks: { move
 export type ArrangeRefusal = 'collapsed' | 'empty' | 'locked' | 'membership';
 
 export type ArrangeResult = { moves: Record<string, Point>; frame: Rect } | { refused: ArrangeRefusal };
-
-function snap(value: number): number {
-    return Math.round(value / CANVAS_GRID) * CANVAS_GRID;
-}
 
 function snapUp(value: number): number {
     return Math.ceil(value / CANVAS_GRID) * CANVAS_GRID;

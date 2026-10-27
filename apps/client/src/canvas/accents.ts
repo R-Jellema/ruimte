@@ -33,8 +33,7 @@ const ACCENT_COLORS: Record<AccentId, string> = {
 
 export const NODE_ACCENTS: readonly { id: AccentId; color: string }[] = NODE_ACCENT_NAMES.map((id) => ({ id, color: ACCENT_COLORS[id] }));
 
-/* Asked for when a menu draws one, never held: this list is built before i18next has any words, so
-   a name taken at import would stay in whichever language loaded first. */
+/* Asked for at draw time: this module loads before i18next has words, so a name taken at import would keep the first language. */
 export function accentLabel(id: AccentId): string {
     return i18next.t(`canvas:accents.${id}`);
 }
@@ -98,7 +97,7 @@ const PAPER_CLASSES: Record<NotePaper, string> = {
     neutral: 'bg-paper-neutral'
 };
 
-/* A note without a color keeps the yellow sheet every note had before it could take one. */
+/* A note without a color is yellow. */
 export function notePaperClass(paper: NotePaper | null): string {
     return PAPER_CLASSES[paper ?? 'yellow'];
 }

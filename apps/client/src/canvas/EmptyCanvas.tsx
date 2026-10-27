@@ -1,10 +1,11 @@
 import { type ReactNode } from 'react';
-import { FileText, Globe, LayoutGrid, LayoutTemplate, MessageSquare, PenTool, StickyNote, Terminal, Type, Workflow } from 'lucide-react';
+import { LayoutTemplate, Type } from 'lucide-react';
 import { Trans, useTranslation } from 'react-i18next';
+import { centerWorld } from '@/actions/action-reach';
 import { applyLayoutAction, createNodeAction, createTextAction, showViewOnCanvasAction } from '@/actions/client-actions';
 import { ProviderRows } from '@/agents/ProviderRows';
 import { emptyCanvasSections, type EmptyCanvasTile } from '@/canvas/empty-canvas';
-import { toWorld } from '@/canvas/math';
+import { NODE_KIND_ICONS } from '@/canvas/node-icons';
 import { ADD_NODE_SHORTCUTS } from '@/canvas/shortcuts';
 import { APP_SHORTCUTS } from '@/shell/shortcuts';
 import { useCanvas, useCanvasStore } from '@/state/canvas';
@@ -24,15 +25,6 @@ interface TileLook {
     run(): void;
 }
 
-/* The mark of a node kind; its name is `kinds.<kind>` and what it does `empty.node.<kind>`. */
-const NODE_ICON = {
-    chat: MessageSquare,
-    terminal: Terminal,
-    browser: Globe,
-    note: StickyNote,
-    group: LayoutGrid
-} as const;
-
 /* The sections of the grid, in the order their tiles take in the tab order. */
 const SECTIONS = ['agents', 'place', 'project'] as const;
 
@@ -46,10 +38,7 @@ export function EmptyCanvas() {
     const providers = useProviders((s) => s.providers);
     const sections = emptyCanvasSections({ providers, hasFolder, layouts, views });
 
-    const center = (): { x: number; y: number } => {
-        const state = canvasStore.getState();
-        return toWorld(state.camera, { x: state.viewport.w / 2, y: state.viewport.h / 2 });
-    };
+    const center = () => centerWorld(canvasStore.getState());
 
     const lookOf = (tile: EmptyCanvasTile): TileLook => {
         switch (tile.kind) {
@@ -63,7 +52,7 @@ export function EmptyCanvas() {
             }
             case 'node':
                 return {
-                    icon: <Icon icon={NODE_ICON[tile.node]} size={16} />,
+                    icon: <Icon icon={NODE_KIND_ICONS[tile.node]} size={16} />,
                     title: t(`kinds.${tile.node}`),
                     description: t(`empty.node.${tile.node}`),
                     shortcut: ADD_NODE_SHORTCUTS[tile.node],
@@ -71,7 +60,7 @@ export function EmptyCanvas() {
                 };
             case 'file':
                 return {
-                    icon: <Icon icon={FileText} size={16} />,
+                    icon: <Icon icon={NODE_KIND_ICONS.file} size={16} />,
                     title: t('kinds.file'),
                     description: t('empty.file'),
                     run: () => useUi.getState().openFilePicker({ kind: 'node', at: center() })
@@ -92,7 +81,7 @@ export function EmptyCanvas() {
                 };
             case 'view':
                 return {
-                    icon: <Icon icon={tile.view === 'drawing' ? PenTool : Workflow} size={16} />,
+                    icon: <Icon icon={NODE_KIND_ICONS[tile.view]} size={16} />,
                     title: tile.name,
                     description: tile.view === 'drawing' ? t('empty.drawing') : t('empty.diagram'),
                     run: () => void showViewOnCanvasAction(tile.viewId)

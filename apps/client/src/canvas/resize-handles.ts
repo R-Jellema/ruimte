@@ -1,4 +1,4 @@
-import type { Point, Rect } from '@/canvas/math';
+import { containsPoint, type Point, type Rect } from '@/canvas/math';
 import { HINT_HOT, HINT_REACH } from '@/canvas/port-hints';
 
 /* Screen pixels: a handle keeps its size at every zoom, the way a port does. */
@@ -58,11 +58,11 @@ export interface CardResize {
  * own. The band of a selected node wins over any body: the person picked that node to work on.
  */
 export function resizeHandle(nodes: readonly ResizeCandidate[], point: Point, zoom: number): ResizeHandle | null {
-    const under = nodes.filter((node) => !node.group && contains(node, point));
+    const under = nodes.filter((node) => !node.group && containsPoint(node, point));
     const reach = HINT_REACH / zoom;
     let nearest: { node: ResizeCandidate; distance: number } | null = null;
     for (const node of nodes) {
-        if (contains(node, point) || (!node.selected && under.some((over) => over.stack > node.stack))) {
+        if (containsPoint(node, point) || (!node.selected && under.some((over) => over.stack > node.stack))) {
             continue;
         }
         const distance = distanceTo(node, point);
@@ -246,10 +246,6 @@ function cornerHandle(node: Rect & { id: string }, edge: ResizeEdge, strength: n
 
 function cornerOf(vertical: 'n' | 's', horizontal: 'w' | 'e'): ResizeEdge {
     return `${vertical}${horizontal}`;
-}
-
-function contains(rect: Rect, point: Point): boolean {
-    return point.x >= rect.x && point.x <= rect.x + rect.w && point.y >= rect.y && point.y <= rect.y + rect.h;
 }
 
 function distanceTo(rect: Rect, point: Point): number {

@@ -15,19 +15,15 @@ import {
     minimapScale,
     minimapWorld,
     rectOnMap,
-    waitingOnMap,
     worldOnMap,
     type MinimapScale
 } from '@/canvas/minimap-geometry';
-import { groupAttention } from '@/state/attention';
+import { waitingShown } from '@/canvas/use-group-waits';
 import { maximizedNodeOf, useCanvas, useCanvasStore, type CanvasNode, type CanvasState } from '@/state/canvas';
 import { useEndpointId } from '@/state/keys';
 import { useSessions } from '@/state/sessions';
 import { useSettings } from '@/state/settings';
 import { useSnoozes } from '@/state/snooze';
-
-// The snoozed nodes stay out of the dots the way they stay out of every count; nothing is unseen here.
-const NO_UNSEEN: Readonly<Record<string, true>> = {};
 
 interface MapDrag {
     pointerId: number;
@@ -48,8 +44,7 @@ function NeedsYouDots({ nodes, hidden }: { readonly nodes: Readonly<Record<strin
     const sessions = useSessions((s) => s.byKey);
     const chats = useChats((s) => s.statusByKey);
     const snoozes = useSnoozes((s) => s.byKey);
-    const waiting = groupAttention(Object.values(nodes), sessions, chats, endpointId, NO_UNSEEN, snoozes).needsYou;
-    return waitingOnMap(nodes, hidden, waiting).map((node) => (
+    return waitingShown(nodes, hidden, sessions, chats, endpointId, snoozes).map((node) => (
         /* A path of no length with a round cap draws a dot the size of its stroke, which keeps its
            screen size under the layer's scale where a circle's radius would not. */
         <path
@@ -210,35 +205,20 @@ export function Minimap() {
                 onLostPointerCapture={endDrag}
             >
                 <g ref={layerRef}>
-                    {mapped.map((node) =>
-                        node.kind === 'group' ? (
-                            <rect
-                                key={node.id}
-                                data-minimap-node={node.id}
-                                x={node.x}
-                                y={node.y}
-                                width={node.w}
-                                height={node.h}
-                                rx={16}
-                                fill="none"
-                                stroke={mapColor(node)}
-                                strokeWidth={1}
-                                vectorEffect="non-scaling-stroke"
-                            />
-                        ) : (
-                            <rect
-                                key={node.id}
-                                data-minimap-node={node.id}
-                                x={node.x}
-                                y={node.y}
-                                width={node.w}
-                                height={node.h}
-                                rx={16}
-                                fill={mapColor(node)}
-                                fillOpacity={0.5}
-                            />
-                        )
-                    )}
+                    {mapped.map((node) => (
+                        <rect
+                            key={node.id}
+                            data-minimap-node={node.id}
+                            x={node.x}
+                            y={node.y}
+                            width={node.w}
+                            height={node.h}
+                            rx={16}
+                            {...(node.kind === 'group'
+                                ? { fill: 'none', stroke: mapColor(node), strokeWidth: 1, vectorEffect: 'non-scaling-stroke' }
+                                : { fill: mapColor(node), fillOpacity: 0.5 })}
+                        />
+                    ))}
                     {/* A card beside a node is drawn as its node is, and the map only pans. */}
                     {cards.map((card) => (
                         <rect

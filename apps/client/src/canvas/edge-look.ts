@@ -27,12 +27,10 @@ export interface LineMeaning {
 
 /*
  * What a line means. The role written on it decides, from either direction of a pair, since a person
- * sees one line. A line without a role, or with a word a newer Ruimte wrote, is read the way every
- * line was read before the field existed: running into an agent it is the context that agent reads,
- * the way back of a pair included, since a line drawn both ways says the reading out loud. A line
- * between an agent and a device or a page is the one case where the direction says nothing: the
- * agent both reads that node and works in it, whichever way the line was drawn, so it is a target
- * line either way and its head stays at the node being worked on.
+ * sees one line. Without a role, or with a word a newer Ruimte wrote, a line into an agent is the
+ * context that agent reads, the way back of a pair included. Between an agent and a device or a page
+ * the direction says nothing: the agent reads that node and works in it, so it is a target line
+ * either way, with its head at the node being worked on.
  */
 function roleOf(line: EdgeLine, reads: (nodeId: string) => boolean, driven: (nodeId: string) => boolean): LineRole {
     const written = edgeRole(line.edge) ?? (line.back === null ? null : edgeRole(line.back));

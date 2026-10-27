@@ -172,10 +172,8 @@ export function Canvas() {
     const gesturing = useCanvas((s) => s.gesturing);
     const frames = gapFrames({ nodes, lines, hidden });
     const editable = gapEdit ?? (!altDown || activeGesture !== null || gesturing ? [] : editableGaps(Object.values(frames), selection));
-    /* The nodes are drawn in a fixed order and stacked with a z-index instead of being reordered in
-       the DOM: moving an element takes it out of the document for a moment, and a body that had the
-       keyboard loses it. Bringing a node to the front is a click in it, so that is exactly when it
-       may not happen. A note or a file far from sight is not drawn at all (`farNodeKey`). */
+    /* A fixed DOM order with a z-index, since moving an element takes the keyboard from a body a click
+       just landed in. A note or a file far from sight is not drawn at all (`farNodeKey`). */
     const far = useCanvas(farNodeKey);
     const farIds = new Set(far === '' ? [] : far.split('\n'));
     const drawIds = order.filter((id) => !farIds.has(id)).sort();
@@ -198,24 +196,11 @@ export function Canvas() {
         const excluded = new Set([...ids, ...(movingGroups ? carriedByGroups(state.nodes, state.texts, ids, state.lines) : [])]);
         const moving: Rect[] = [];
         const stationary: Rect[] = [];
-        for (const node of Object.values(state.nodes)) {
-            if (state.hidden.has(node.id)) {
-                continue;
-            }
-            if (active.has(node.id)) {
-                moving.push(node);
-            } else if (!excluded.has(node.id)) {
-                stationary.push(node);
-            }
-        }
-        for (const line of Object.values(state.lines)) {
-            if (state.hidden.has(line.id)) {
-                continue;
-            }
-            if (active.has(line.id)) {
-                moving.push(lineBounds(line));
-            } else if (!excluded.has(line.id)) {
-                stationary.push(lineBounds(line));
+        for (const [id, frame] of Object.entries(gapFrames(state))) {
+            if (active.has(id)) {
+                moving.push(frame);
+            } else if (!excluded.has(id)) {
+                stationary.push(frame);
             }
         }
         if (lineDraft !== null) {

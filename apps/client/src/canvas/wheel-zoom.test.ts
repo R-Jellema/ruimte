@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { createZoomGlide, NOTCH_FACTOR, wheelZoomOf, type FrameScheduler } from './wheel-zoom';
+import type { FrameClock } from './pan-batch';
+import { createZoomGlide, NOTCH_FACTOR, wheelZoomOf } from './wheel-zoom';
 
 describe('wheelZoomOf', () => {
     test('a notch of a mouse wheel is a step of ten percent, in or out', () => {
@@ -30,7 +31,7 @@ describe('wheelZoomOf', () => {
 });
 
 /* Frames that run only when the test says so. */
-function manualFrames(): FrameScheduler & { run(): void; pending(): number } {
+function manualFrames(): FrameClock & { run(): void; pending(): number } {
     let queue: Array<() => void> = [];
     return {
         request(run) {

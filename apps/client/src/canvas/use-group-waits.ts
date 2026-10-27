@@ -1,12 +1,25 @@
-import { useChats } from '@adecore/agents-react/state';
+import { useChats, type ChatStatuses } from '@adecore/agents-react/state';
 import { waitingOnMap } from '@/canvas/minimap-geometry';
 import { groupAttention } from '@/state/attention';
-import { useCanvas } from '@/state/canvas';
+import { useCanvas, type CanvasNode } from '@/state/canvas';
 import { useEndpointId } from '@/state/keys';
-import { useSessions } from '@/state/sessions';
-import { useSnoozes } from '@/state/snooze';
+import { useSessions, type SessionsByKey } from '@/state/sessions';
+import { useSnoozes, type Snoozes } from '@/state/snooze';
 
+// The snoozed nodes stay out of the dots the way they stay out of every count; nothing is unseen here.
 const NO_UNSEEN: Readonly<Record<string, true>> = {};
+
+/* The nodes that carry a dot for what waits on a person, a member of a collapsed group as the group it is shown as. */
+export function waitingShown(
+    nodes: Readonly<Record<string, CanvasNode>>,
+    hidden: ReadonlySet<string>,
+    sessions: SessionsByKey,
+    chats: ChatStatuses,
+    endpointId: string,
+    snoozes: Snoozes
+): CanvasNode[] {
+    return waitingOnMap(nodes, hidden, groupAttention(Object.values(nodes), sessions, chats, endpointId, NO_UNSEEN, snoozes).needsYou);
+}
 
 /*
  * Whether a node this collapsed group hides waits on a person, the same dot the map puts on it. Null
@@ -21,7 +34,6 @@ export function useHiddenNeedsYou(groupId: string | null): boolean {
         if (groupId === null || sessions === null || chats === null || snoozes === null) {
             return false;
         }
-        const waiting = groupAttention(Object.values(s.nodes), sessions, chats, endpointId, NO_UNSEEN, snoozes).needsYou;
-        return waitingOnMap(s.nodes, s.hidden, waiting).some((node) => node.id === groupId);
+        return waitingShown(s.nodes, s.hidden, sessions, chats, endpointId, snoozes).some((node) => node.id === groupId);
     });
 }

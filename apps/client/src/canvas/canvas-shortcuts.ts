@@ -194,14 +194,8 @@ function answerWindowKey(e: KeyboardEvent, s: CanvasState, is: Matches, command:
         return true;
     }
     // A surface with nothing to search lets the key go, so a browser tab still gets its own find.
-    if (command === 'find') {
-        if (!isInFloatingLayer(e.target) && !useUi.getState().settings.open && openFocusedFind()) {
-            e.preventDefault();
-        }
-        return true;
-    }
-    if (command === 'find-replace') {
-        if (!isInFloatingLayer(e.target) && !useUi.getState().settings.open && openFocusedFind({ replace: true })) {
+    if (command === 'find' || command === 'find-replace') {
+        if (!isInFloatingLayer(e.target) && !useUi.getState().settings.open && openFocusedFind(command === 'find' ? undefined : { replace: true })) {
             e.preventDefault();
         }
         return true;

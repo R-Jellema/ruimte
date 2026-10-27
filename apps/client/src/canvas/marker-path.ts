@@ -7,7 +7,6 @@ import type { Point } from '@/canvas/math';
  */
 export type MarkerShape = 'none' | 'dot' | 'chevron' | 'arrow' | 'diamond';
 
-/* The circle an end that points nowhere has always worn. */
 const DOT_RADIUS = 5;
 
 /* How far back along the line the arms of a chevron sit, and how far out to either side of it. */

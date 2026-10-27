@@ -1,6 +1,6 @@
 import type { NodeSide } from '@ruimte/contracts';
 import { centerOf } from '@adecore/drawing';
-import type { Point, Rect } from '@/canvas/math';
+import { containsPoint, type Point, type Rect } from '@/canvas/math';
 
 /* The edge of a node a connector leaves from or lands on. */
 export type Side = NodeSide;
@@ -138,7 +138,7 @@ export function routeDraft(a: Rect, point: Point, obstacles: readonly Obstacle[]
     return route(
         { rect: a, gap: NODE_GAP },
         { rect: { x: end.x, y: end.y, w: 0, h: 0 }, gap: 0 },
-        obstacles.filter((obstacle) => !contains(obstacle, end)),
+        obstacles.filter((obstacle) => !containsPoint(obstacle, end)),
         fixed
     );
 }
@@ -226,10 +226,10 @@ function fits(points: readonly Point[], [fromSide, toSide]: SidePair, closed: re
         return false;
     }
     const from = points[0]!;
-    const to = points[points.length - 1]!;
+    const to = points.at(-1)!;
     // Ends on the same axis meet in a channel, whose rail may sit in a gap narrower than two stubs but never behind a port.
     if (isVertical(fromSide) === isVertical(toSide)) {
-        return outFrom(from, fromSide, points[1]!) > 0 && outFrom(to, toSide, points[points.length - 2]!) > 0;
+        return outFrom(from, fromSide, points[1]!) > 0 && outFrom(to, toSide, points.at(-2)!) > 0;
     }
     return outFrom(from, fromSide, points[1]!) >= STUB && outFrom(to, toSide, points[1]!) >= STUB;
 }
@@ -237,10 +237,6 @@ function fits(points: readonly Point[], [fromSide, toSide]: SidePair, closed: re
 /* How far a point lies out from a port, along the way its side faces: negative is behind it. */
 function outFrom(port: Point, side: Side, point: Point): number {
     return (point.x - port.x) * SIDE_NORMAL[side].x + (point.y - port.y) * SIDE_NORMAL[side].y;
-}
-
-function contains(rect: Rect, point: Point): boolean {
-    return point.x >= rect.x && point.x <= rect.x + rect.w && point.y >= rect.y && point.y <= rect.y + rect.h;
 }
 
 /* Whether a route had to work for it: it turns more than a channel does, or it passes a node close by. */
@@ -387,7 +383,7 @@ function pathThrough(raw: readonly Point[], [fromSide, toSide]: SidePair): EdgeR
     return {
         d: roundedPath(points, CORNER),
         from: points[0]!,
-        to: points[points.length - 1]!,
+        to: points.at(-1)!,
         fromSide,
         toSide,
         mid: halfway(points)
@@ -679,11 +675,11 @@ function crosses(a: Point, b: Point, box: Bounds): boolean {
 function straighten(points: readonly Point[]): Point[] {
     const kept: Point[] = [];
     for (const point of points) {
-        const last = kept[kept.length - 1];
+        const last = kept.at(-1);
         if (last !== undefined && Math.hypot(point.x - last.x, point.y - last.y) <= 0.5) {
             continue;
         }
-        const before = kept[kept.length - 2];
+        const before = kept.at(-2);
         if (last !== undefined && before !== undefined && (before.x - last.x) * (point.y - last.y) === (before.y - last.y) * (point.x - last.x)) {
             kept.pop();
         }
@@ -715,7 +711,7 @@ function roundedPath(points: readonly Point[], radius: number): string {
         };
         path += ` L ${start.x} ${start.y} Q ${current.x} ${current.y} ${end.x} ${end.y}`;
     }
-    const last = points[points.length - 1]!;
+    const last = points.at(-1)!;
     return `${path} L ${last.x} ${last.y}`;
 }
 

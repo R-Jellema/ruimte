@@ -23,30 +23,22 @@ function LinePaint({ line, selected = false, zoom = 1 }: { line: ProjectCanvasLi
     const to = { x: line.endX, y: line.endY };
     const d = `M${from.x},${from.y} L${to.x},${to.y}`;
     const stroke = accentColor(line.stroke) ?? (line.stroke === 'accent' ? 'var(--accent)' : line.stroke === 'muted' ? 'var(--text-muted)' : 'var(--text)');
+    const arrow = (at: Point, away: Point) => (
+        <path
+            d={lineArrow(at, away, line.strokeWidth)}
+            fill="none"
+            stroke={stroke}
+            strokeWidth={line.strokeWidth}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        />
+    );
     return (
         <>
             {selected && <path d={d} fill="none" stroke="var(--accent)" strokeWidth={line.strokeWidth + 6 / zoom} opacity={0.22} />}
             <path d={d} fill="none" stroke={stroke} strokeWidth={line.strokeWidth} strokeDasharray={lineDash(line)} strokeLinecap="round" />
-            {line.arrowStart && (
-                <path
-                    d={lineArrow(from, to, line.strokeWidth)}
-                    fill="none"
-                    stroke={stroke}
-                    strokeWidth={line.strokeWidth}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                />
-            )}
-            {line.arrowEnd && (
-                <path
-                    d={lineArrow(to, from, line.strokeWidth)}
-                    fill="none"
-                    stroke={stroke}
-                    strokeWidth={line.strokeWidth}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                />
-            )}
+            {line.arrowStart && arrow(from, to)}
+            {line.arrowEnd && arrow(to, from)}
         </>
     );
 }
@@ -160,9 +152,7 @@ function CanvasLine({ id }: { id: string }) {
         event.stopPropagation();
         const state = store.getState();
         const at = worldPoint(event, event.currentTarget.closest('[data-canvas-surface]')!, state.camera);
-        const offset = snapPoint({ x: at.x - held.at.x, y: at.y - held.at.y }, LINE_GRID);
-        const dx = offset.x,
-            dy = offset.y;
+        const { x: dx, y: dy } = snapPoint({ x: at.x - held.at.x, y: at.y - held.at.y }, LINE_GRID);
         if (!held.moved && Math.hypot(dx, dy) * state.camera.zoom < 3) {
             return;
         }
@@ -282,6 +272,11 @@ export function CanvasLineTool({ onDraftChange }: { onDraftChange(line: ProjectC
         return null;
     }
     const point = (event: ReactPointerEvent<HTMLDivElement>): Point => worldPoint(event, event.currentTarget, store.getState().camera);
+    const show = (line: ProjectCanvasLine | null): void => {
+        draftRef.current = line;
+        setDraft(line);
+        onDraftChange(line);
+    };
     return (
         <div
             className="absolute inset-0 z-10 cursor-crosshair"
@@ -298,10 +293,7 @@ export function CanvasLineTool({ onDraftChange }: { onDraftChange(line: ProjectC
                 event.preventDefault();
                 event.stopPropagation();
                 const at = snapPoint(point(event), LINE_GRID);
-                const line = { ...DEFAULT_LINE_STYLE, id: 'draft', x: at.x, y: at.y, endX: at.x, endY: at.y };
-                draftRef.current = line;
-                setDraft(line);
-                onDraftChange(line);
+                show({ ...DEFAULT_LINE_STYLE, id: 'draft', x: at.x, y: at.y, endX: at.x, endY: at.y });
                 store.getState().setGesturing(true);
                 event.currentTarget.setPointerCapture(event.pointerId);
             }}
@@ -311,10 +303,7 @@ export function CanvasLineTool({ onDraftChange }: { onDraftChange(line: ProjectC
                 }
                 event.stopPropagation();
                 const end = constrainedLineEnd(draftRef.current, point(event), event.shiftKey);
-                const line = { ...draftRef.current, endX: end.x, endY: end.y };
-                draftRef.current = line;
-                setDraft(line);
-                onDraftChange(line);
+                show({ ...draftRef.current, endX: end.x, endY: end.y });
             }}
             onPointerUp={(event) => {
                 if (!draftRef.current) {
@@ -323,9 +312,7 @@ export function CanvasLineTool({ onDraftChange }: { onDraftChange(line: ProjectC
                 event.stopPropagation();
                 const end = constrainedLineEnd(draftRef.current, point(event), event.shiftKey);
                 const line = { ...draftRef.current, endX: end.x, endY: end.y };
-                draftRef.current = null;
-                setDraft(null);
-                onDraftChange(null);
+                show(null);
                 store.getState().setGesturing(false);
                 if (event.currentTarget.hasPointerCapture(event.pointerId)) {
                     event.currentTarget.releasePointerCapture(event.pointerId);
@@ -333,9 +320,7 @@ export function CanvasLineTool({ onDraftChange }: { onDraftChange(line: ProjectC
                 store.getState().addLine(line);
             }}
             onPointerCancel={() => {
-                draftRef.current = null;
-                setDraft(null);
-                onDraftChange(null);
+                show(null);
                 store.getState().setGesturing(false);
             }}
         >

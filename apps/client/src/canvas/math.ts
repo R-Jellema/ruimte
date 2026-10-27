@@ -49,6 +49,11 @@ export function snapPoint(point: Point, grid = GRID): Point {
     return { x: snapToGrid(point.x, grid), y: snapToGrid(point.y, grid) };
 }
 
+/* Edges included. */
+export function containsPoint(rect: Rect, point: Point): boolean {
+    return point.x >= rect.x && point.x <= rect.x + rect.w && point.y >= rect.y && point.y <= rect.y + rect.h;
+}
+
 /* A line can overlap a span at one coordinate; two positive spans must share some length. */
 export function overlapSpan(first: number, firstSize: number, second: number, secondSize: number): { low: number; high: number } | null {
     const low = Math.max(first, second);

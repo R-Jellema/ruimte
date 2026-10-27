@@ -3,33 +3,7 @@ import { notePaperOf, type CanvasNodeKind } from '@ruimte/contracts';
 import { memo, useState, type CSSProperties, type ReactNode } from 'react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
-import {
-    CalendarClock,
-    ChevronDown,
-    ChevronRight,
-    CirclePower,
-    CircleQuestionMark,
-    CircleX,
-    Crosshair,
-    Eye,
-    FileText,
-    CircleDot,
-    GitBranch,
-    Globe,
-    Hand,
-    LayoutGrid,
-    Link2,
-    MessageSquare,
-    Package,
-    PenTool,
-    Shrink,
-    Workflow,
-    StickyNote,
-    Smartphone,
-    Terminal,
-    X,
-    type LucideIcon
-} from 'lucide-react';
+import { ChevronDown, ChevronRight, CircleDot, CirclePower, CircleX, Crosshair, Eye, GitBranch, Hand, Link2, Shrink, X, type LucideIcon } from 'lucide-react';
 import { focusNodeAction, renameNodeAction } from '@/actions/client-actions';
 import { desktop } from '@/desktop/bridge';
 import { taskStatusWord, useSubagentTrail } from '@adecore/agents-react/chat';
@@ -41,6 +15,7 @@ import { useUnseen } from '@/state/attention';
 import { useHiddenNeedsYou } from '@/canvas/use-group-waits';
 import { deleteSelectionAsking } from '@/canvas/delete-selection';
 import { KindIcon } from '@/canvas/KindIcon';
+import { NODE_KIND_ICONS } from '@/canvas/node-icons';
 import { useWorkspace } from '@/transport/connections';
 import { markPeerLapsed, usePeerLapse } from '@/project/peer-lapse';
 import { linkToPeer } from '@/project/peer-linker';
@@ -112,22 +87,6 @@ import { AgentIcon } from '@adecore/agents-react/providers';
 const ArtifactNodeBody = lazyNamed(() => import('@/output/ArtifactNode'), 'ArtifactNodeBody');
 const RoutineNodeBody = lazyNamed(() => import('@/routines/RoutineNode'), 'RoutineNodeBody');
 
-const ICONS: Record<CanvasNodeKind, ReactNode> = {
-    terminal: <Icon icon={Terminal} size={14} />,
-    chat: <Icon icon={MessageSquare} size={14} />,
-    browser: <Icon icon={Globe} size={14} />,
-    device: <Icon icon={Smartphone} size={14} />,
-    group: <Icon icon={LayoutGrid} size={14} />,
-    note: <Icon icon={StickyNote} size={14} />,
-    drawing: <Icon icon={PenTool} size={14} />,
-    diagram: <Icon icon={Workflow} size={14} />,
-    // The floor under a file node that has no path yet; with one it wears the mark of its own name.
-    file: <Icon icon={FileText} size={14} />,
-    artifact: <Icon icon={Package} size={14} />,
-    routine: <Icon icon={CalendarClock} size={14} />,
-    unknown: <Icon icon={CircleQuestionMark} size={14} />
-};
-
 const STATUS_CLASS: Record<AgentStatus, string> = {
     running: 'bg-status-running',
     'needs-you': 'bg-status-needs-you',
@@ -148,8 +107,7 @@ const STATUS_MARK: Partial<Record<AgentStatus, { icon: LucideIcon; className: st
 const GROUP_FRAME =
     'border-dashed bg-[color-mix(in_srgb,var(--group-accent,var(--text-faint))_7%,transparent)] hover:bg-[color-mix(in_srgb,var(--group-accent,var(--text-faint))_10%,transparent)]';
 
-/* `plain` drops the tooltip: inside a control that already has a name of its own, a second tooltip
-   under the pointer only fights the first one. A screen reader still hears the status either way. */
+/* `plain` drops the tooltip, for a control that already has one of its own; a screen reader still hears the status. */
 export function StatusDot({ status, className, plain = false }: { status: AgentStatus; className?: string; plain?: boolean }) {
     const { t } = useTranslation('canvas');
     const label = t(`status.${status}`);
@@ -494,8 +452,8 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
             >
                 <header
                     className={clsx(
-                        'group/header flex h-[39px] shrink-0 items-center gap-2 pr-1 text-text-muted', // The collapse button carries 6px of optical padding inside its 28px square, so
-                        // 4px of header padding puts its glyph in the same column as a node's kind icon.
+                        'group/header flex h-[39px] shrink-0 items-center gap-2 pr-1 text-text-muted',
+                        // The collapse button carries 6px of optical padding, so 4px puts its glyph in the column of a node's kind icon.
                         isGroup ? 'pl-1' : 'pl-2.5',
                         isGroup
                             ? 'bg-transparent'
@@ -539,7 +497,7 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                         ) : node.kind === 'file' && node.path ? (
                             <FileIcon path={node.path} size={14} />
                         ) : (
-                            ICONS[node.kind]
+                            <Icon icon={NODE_KIND_ICONS[node.kind]} size={14} />
                         )}
                     </KindIcon>
                     <span className="flex min-w-0 grow items-center" onDoubleClick={() => setRenaming(!isUnknown)}>
@@ -587,8 +545,7 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                     )}
                     {status && !renaming && <StatusMark status={status} work={work} />}
                     {task && !renaming && (work === null || taskStatusWord(task) !== 'running') && <TaskMark task={task} />}
-                    {/* Up close this is already gone, since looking clears it. It is for the canvas
-                        zoomed out over everything and for the window standing beside another app. */}
+                    {/* Looking clears it, so this is for a canvas zoomed out and a window beside another app. */}
                     {unseen && !renaming && <UnseenMark />}
                     {!renaming && <ProcessAlertMark alerts={processAlerts} />}
                     {unsavedFile && (

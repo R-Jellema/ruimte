@@ -1,4 +1,5 @@
 import { clampZoom, type Point } from '@/canvas/math';
+import { windowFrames, type FrameClock } from '@/canvas/pan-batch';
 
 /* The zoom one notch of a mouse wheel takes: ten percent, so a few notches cross a node rather than the whole canvas. */
 export const NOTCH_FACTOR = 1.1;
@@ -33,8 +34,7 @@ function pixelsOf(deltaY: number, deltaMode: number): number {
 
 /*
  * What a wheel event with the zoom modifier asks for. A notch of a mouse wheel is a fixed step, glided
- * to; a pinch follows the fingers event by event. Before this a notch zoomed by e to the power one,
- * almost three times, which is what made Ctrl and the wheel unusable on Windows.
+ * to; a pinch follows the fingers event by event.
  */
 export function wheelZoomOf(event: { deltaY: number; deltaMode: number }): WheelZoom {
     const pixels = pixelsOf(event.deltaY, event.deltaMode);
@@ -45,16 +45,6 @@ export function wheelZoomOf(event: { deltaY: number; deltaMode: number }): Wheel
     const delta = Math.max(-PINCH_MAX_DELTA, Math.min(PINCH_MAX_DELTA, pixels));
     return { kind: 'pinch', factor: Math.exp(-delta * 0.01) };
 }
-
-export interface FrameScheduler {
-    request(run: () => void): number;
-    cancel(id: number): void;
-}
-
-const ANIMATION_FRAMES: FrameScheduler = {
-    request: (run) => window.requestAnimationFrame(run),
-    cancel: (id) => window.cancelAnimationFrame(id)
-};
 
 export interface ZoomGlideCamera {
     zoom(): number;
@@ -73,7 +63,7 @@ export interface ZoomGlide {
  * it moves add to the target rather than to the camera, so a quick turn of the wheel lands exactly as
  * far as its notches say. Once it arrives it hands the anchor on, for the zoom to settle on a whole percent.
  */
-export function createZoomGlide(camera: ZoomGlideCamera, onArrived: (anchor: Point) => void, frames: FrameScheduler = ANIMATION_FRAMES): ZoomGlide {
+export function createZoomGlide(camera: ZoomGlideCamera, onArrived: (anchor: Point) => void, frames: FrameClock = windowFrames): ZoomGlide {
     let target: number | null = null;
     let anchor: Point = { x: 0, y: 0 };
     let frame: number | null = null;
