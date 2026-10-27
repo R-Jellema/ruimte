@@ -55,6 +55,8 @@ import { ChatHostProvider, onLazyOpenError as onChatLazyOpenError } from '@adeco
 import '@/state/theme';
 import '@/state/settings';
 import '@fontsource-variable/geist';
+import '@fontsource-variable/ibm-plex-sans';
+import '@fontsource-variable/inter';
 import '@/styles.css';
 
 startTelemetry();

@@ -50,11 +50,12 @@ export const MONO_FONTS = [
 
 export type MonoFontId = (typeof MONO_FONTS)[number]['id'];
 
-/* Installed faces only: Geist is bundled for the wordmark alone. */
+/* Inter, IBM Plex Sans and Geist are bundled; a browser fetches a face only once a stack uses it. */
 export const INTERFACE_FONTS = [
     { id: 'system', label: 'System', stack: '-apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif' },
-    { id: 'inter', label: 'Inter', stack: '"Inter", "Inter Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' },
-    { id: 'plex', label: 'IBM Plex Sans', stack: '"IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' },
+    { id: 'inter', label: 'Inter', stack: '"Inter Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' },
+    { id: 'plex', label: 'IBM Plex Sans', stack: '"IBM Plex Sans Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' },
+    { id: 'geist', label: 'Geist', stack: '"Geist Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' },
     { id: 'helvetica', label: 'Helvetica Neue', stack: '"Helvetica Neue", Helvetica, Arial, sans-serif' }
 ] as const;
 
