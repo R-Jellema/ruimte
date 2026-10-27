@@ -4,6 +4,7 @@ import { EMPTY_TOTALS, type ProcessAlert, type ProcessesSampleEvent, type UsageS
 import { PERSON_ACTION_CALL, VOICE_ACTION_CALL } from './client-actions';
 import { machineActions, type MachineReach } from './machine-actions';
 import type { Transport } from '@/transport/transport';
+import { expectQuestion } from './action-support';
 
 const sample: ProcessesSampleEvent = {
     at: 100,
@@ -150,11 +151,9 @@ describe('machine actions', () => {
         const { registry, requests } = fake();
         await registry.execute('process.signal', { pid: 2, startTime: 2, name: 'node', signal: 'SIGTERM' }, PERSON_ACTION_CALL);
         const asked = await registry.execute('process.signal', { pid: 2, startTime: 2, name: 'node', signal: 'SIGKILL' }, PERSON_ACTION_CALL);
-        expect(asked.status).toBe('needs_confirmation');
+        expectQuestion(asked);
         expect(requests).toEqual([{ type: 'processes.signal', payload: { pid: 2, startTime: 2, signal: 'SIGTERM' } }]);
-        if (asked.status === 'needs_confirmation') {
-            await registry.confirm(asked.confirmationToken, true, PERSON_ACTION_CALL);
-        }
+        await registry.confirm(asked.confirmationToken, true, PERSON_ACTION_CALL);
         expect(requests.at(-1)).toEqual({ type: 'processes.signal', payload: { pid: 2, startTime: 2, signal: 'SIGKILL' } });
     });
 

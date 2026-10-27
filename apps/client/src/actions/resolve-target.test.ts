@@ -7,10 +7,12 @@ import { useDocument } from '@/state/document';
 import { useEndpoints } from '@/state/endpoints';
 import { useProjectList } from '@/state/project-list';
 
-const main: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [], texts: [], edges: [], layouts: [] };
-
 function document(views: ProjectDocument['views']): ProjectDocument {
     return { version: 3, rev: 1, name: 'Atlas', color: '#000', views };
+}
+
+function canvasView(id: string, name: string, nodes: ProjectNode[] = []): ProjectCanvasView {
+    return { kind: 'canvas', id, name, nodes, texts: [], edges: [], layouts: [] };
 }
 
 function canvasNode(id: string, title: string, kind: ProjectNode['kind'], x: number): ProjectNode {
@@ -30,10 +32,11 @@ function load(views: ProjectDocument['views']): void {
     defaultCanvases.focus('main');
 }
 
+const main = canvasView('main', 'Main');
 const endpoints = useEndpoints.getState().endpoints;
 
 beforeEach(() => {
-    load([main, { kind: 'canvas', id: 'release', name: 'Release', nodes: [], texts: [], edges: [], layouts: [] }]);
+    load([main, canvasView('release', 'Release')]);
 });
 
 afterEach(() => {
@@ -50,11 +53,7 @@ describe('resolveTarget', () => {
     });
 
     test('refuses equally named views instead of choosing the first one', () => {
-        load([
-            main,
-            { kind: 'canvas', id: 'release', name: 'Release', nodes: [], texts: [], edges: [], layouts: [] },
-            { kind: 'chat', id: 'release-chat', name: 'release', node: {} }
-        ]);
+        load([main, canvasView('release', 'Release'), { kind: 'chat', id: 'release-chat', name: 'release', node: {} }]);
         expect(resolve({ target: 'view', names: ['Release'] })).toMatchObject({
             found: [],
             ambiguous: [{ name: 'Release', candidates: [{ id: 'release' }, { id: 'release-chat' }] }]
@@ -62,11 +61,7 @@ describe('resolveTarget', () => {
     });
 
     test('returns every candidate for an ambiguous partial name, and an exact name wins', () => {
-        load([
-            main,
-            { kind: 'canvas', id: 'release-plan', name: 'Release Plan', nodes: [], texts: [], edges: [], layouts: [] },
-            { kind: 'chat', id: 'release-chat', name: 'Release Chat', node: {} }
-        ]);
+        load([main, canvasView('release-plan', 'Release Plan'), { kind: 'chat', id: 'release-chat', name: 'Release Chat', node: {} }]);
         expect(resolve({ target: 'view', names: ['Release', 'release plan', 'Nothing'] })).toMatchObject({
             found: [{ id: 'release-plan' }],
             ambiguous: [{ name: 'Release', candidates: [{ id: 'release-plan' }, { id: 'release-chat' }] }],
@@ -118,7 +113,7 @@ describe('resolveTarget', () => {
     test('an agent resolves by its name and view when the name alone is shared', () => {
         load([
             { ...main, nodes: [canvasNode('main-chat', 'Research', 'chat', 100)] },
-            { kind: 'canvas', id: 'release', name: 'Release', nodes: [canvasNode('release-chat', 'Research', 'chat', 100)], texts: [], edges: [], layouts: [] }
+            canvasView('release', 'Release', [canvasNode('release-chat', 'Research', 'chat', 100)])
         ]);
         expect(resolve({ target: 'agent', names: ['Research'] }).ambiguous).toHaveLength(1);
         expect(resolve({ target: 'agent', names: ['Research (Release)'] }).found).toMatchObject([{ id: 'release-chat', viewId: 'release' }]);

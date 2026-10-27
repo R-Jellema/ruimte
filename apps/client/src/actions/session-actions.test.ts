@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { ActionRegistry } from '@ruimte/actions';
-import type { ChatForkResult, ChatInfo, ChatItem, Plan, PlanPersonOp, ProviderInfo, RequestMap, RequestType } from '@ruimte/contracts';
+import type { ChatForkResult, ChatInfo, ChatItem, Plan, PlanPersonOp, RequestMap, RequestType } from '@ruimte/contracts';
 import { applyPlanOps } from '@adecore/plan';
 import { createClientActionRegistry, PERSON_ACTION_CALL, VOICE_ACTION_CALL } from './client-actions';
 import { sessionActions, type SessionMachine } from './session-actions';
@@ -8,6 +8,7 @@ import type { ChatState } from '@adecore/agents-react/state';
 import { useDocument } from '@/state/document';
 import type { SessionState } from '@/state/sessions';
 import { TransportError, type Transport } from '@/transport/transport';
+import { fakeProvider } from '../../testing/fake-provider';
 import { confirmed, questionOf } from './action-support';
 
 type Answers = { [Type in RequestType]?: (payload: RequestMap[Type]['payload']) => RequestMap[Type]['result'] | Promise<RequestMap[Type]['result']> };
@@ -44,6 +45,8 @@ const question: ChatItem = {
     answers: null,
     state: 'pending'
 };
+
+const POSTGRES = { questionId: 'db', answer: 'Postgres' };
 
 const thread: ChatItem[] = [
     { id: 'turn-1', kind: 'turn', createdAt: 0, turnId: 'turn-1', state: 'done', endedAt: 1, costUsd: 0 },
@@ -134,11 +137,7 @@ function plan(): Plan {
     };
 }
 
-const claude = {
-    kind: 'claude',
-    name: 'Claude Code',
-    installed: true,
-    capabilities: { chat: true, terminal: true },
+const claude = fakeProvider('claude', 'Claude Code', {
     models: [
         {
             slug: 'sonnet',
@@ -160,13 +159,8 @@ const claude = {
         },
         { slug: 'opus', name: 'Opus', legacy: false, isDefault: false, options: [] }
     ]
-} as unknown as ProviderInfo;
-const codex = {
-    ...claude,
-    kind: 'codex',
-    name: 'Codex',
-    models: [{ slug: 'gpt', name: 'GPT', legacy: false, isDefault: true, options: [] }]
-} as unknown as ProviderInfo;
+});
+const codex = fakeProvider('codex', 'Codex', { models: [{ slug: 'gpt', name: 'GPT', legacy: false, isDefault: true, options: [] }] });
 
 interface Fake {
     registry: ActionRegistry<void>;
@@ -429,10 +423,7 @@ describe('starting a terminal over', () => {
 describe('answering', () => {
     test('Voice repeats every answer in the confirmation before it is sent', async () => {
         const { registry, of } = fake();
-        const answers = [
-            { questionId: 'db', answer: 'Postgres' },
-            { questionId: 'name', answer: 'orders' }
-        ];
+        const answers = [POSTGRES, { questionId: 'name', answer: 'orders' }];
         const asked = await registry.execute('chat.answer', { chatId: 'chat', requestId: 'ask-1', answers }, VOICE_ACTION_CALL);
         expect(questionOf(asked)).toContain('Which database? Answer: “Postgres”.');
         expect(questionOf(asked)).toContain('What is the table called? Answer: “orders”.');
@@ -443,35 +434,23 @@ describe('answering', () => {
 
     test('Voice cannot leave a part unanswered, answer a part that does not exist or answer a chat nobody has open', async () => {
         const { registry } = fake();
-        expect(
-            await registry.execute(
-                'chat.answer',
-                { chatId: 'chat', requestId: 'ask-1', answers: [{ questionId: 'db', answer: 'Postgres' }] },
-                VOICE_ACTION_CALL
-            )
-        ).toMatchObject({ error: { code: 'unanswered' } });
+        expect(await registry.execute('chat.answer', { chatId: 'chat', requestId: 'ask-1', answers: [POSTGRES] }, VOICE_ACTION_CALL)).toMatchObject({
+            error: { code: 'unanswered' }
+        });
         expect(
             await registry.execute('chat.answer', { chatId: 'chat', requestId: 'ask-1', answers: [{ questionId: 'color', answer: 'Blue' }] }, VOICE_ACTION_CALL)
         ).toMatchObject({ error: { code: 'unknown-question' } });
         const closed = fake({}, { isOpen: () => false });
-        expect(
-            await closed.registry.execute(
-                'chat.answer',
-                { chatId: 'chat', requestId: 'ask-1', answers: [{ questionId: 'db', answer: 'Postgres' }] },
-                VOICE_ACTION_CALL
-            )
-        ).toMatchObject({ error: { code: 'chat-not-open' } });
+        expect(await closed.registry.execute('chat.answer', { chatId: 'chat', requestId: 'ask-1', answers: [POSTGRES] }, VOICE_ACTION_CALL)).toMatchObject({
+            error: { code: 'chat-not-open' }
+        });
     });
 
     test("a person's card sends at once", async () => {
         const { registry, of } = fake();
-        expect(
-            await registry.execute(
-                'chat.answer',
-                { chatId: 'chat', requestId: 'ask-1', answers: [{ questionId: 'db', answer: 'Postgres' }] },
-                PERSON_ACTION_CALL
-            )
-        ).toMatchObject({ status: 'completed' });
+        expect(await registry.execute('chat.answer', { chatId: 'chat', requestId: 'ask-1', answers: [POSTGRES] }, PERSON_ACTION_CALL)).toMatchObject({
+            status: 'completed'
+        });
         expect(of('chat.answer')).toEqual([{ chatId: 'chat', requestId: 'ask-1', answers: { db: 'Postgres' } }]);
     });
 

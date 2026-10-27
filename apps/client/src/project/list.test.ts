@@ -33,6 +33,8 @@ function summary(projectId: string, lastOpenedAt = 0, closedAt: number | null = 
     };
 }
 
+const endpoints = [lanEndpoint('local', 'This machine'), lanEndpoint('daemon-b', 'Work laptop')];
+
 beforeEach(() => {
     useProjectList.setState({ projects: [] });
 });
@@ -79,8 +81,6 @@ describe('the union of the machines that are known', () => {
 });
 
 describe('the recent list of the start screen', () => {
-    const endpoints = [lanEndpoint('local', 'This machine'), lanEndpoint('daemon-b', 'Work laptop')];
-
     test('open and closed projects in one list, on whichever came last: opening or closing', () => {
         const rows = [
             { endpointId: 'local', summary: summary('p1', 30) },
@@ -101,8 +101,6 @@ describe('the recent list of the start screen', () => {
 });
 
 describe('the switcher as one list', () => {
-    const endpoints = [lanEndpoint('local', 'This machine'), lanEndpoint('daemon-b', 'Work laptop')];
-
     test('every machine in one list, most recently opened first', () => {
         const rows = [
             { endpointId: 'daemon-b', summary: summary('q1', 10) },
@@ -143,7 +141,6 @@ describe('the switcher as one list', () => {
 });
 
 describe('the Chats project of a machine', () => {
-    const endpoints = [lanEndpoint('local', 'This machine'), lanEndpoint('daemon-b', 'Work laptop')];
     const chats = (closedAt: number | null = null): ProjectSummary => ({ ...summary('chats', 50, closedAt), scratch: true });
 
     test('stands in no list of projects, open or closed', () => {

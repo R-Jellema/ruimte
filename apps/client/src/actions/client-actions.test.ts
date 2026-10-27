@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { ActionRefusal, ActionRegistry, MAX_TITLE_LENGTH, type ActionInput } from '@ruimte/actions';
-import type { ProjectCanvasView, ProjectDocument, ProjectSummary, ProviderInfo } from '@ruimte/contracts';
+import type { ProjectCanvasView, ProjectDocument, ProjectSummary } from '@ruimte/contracts';
 import {
     clientActions,
     createClientActionRegistry,
@@ -21,7 +21,8 @@ import { useDocument } from '@/state/document';
 import { defaultDrawings } from '@/state/drawing';
 import { useFiles } from '@/state/files';
 import { useProject } from '@/state/project';
-import { confirmed, expectQuestion, expectUndoable } from './action-support';
+import { fakeProvider } from '../../testing/fake-provider';
+import { completed, confirmed, expectQuestion, expectUndoable } from './action-support';
 
 const PROJECT: ProjectSummary = {
     projectId: 'atlas',
@@ -37,19 +38,31 @@ const PROJECT: ProjectSummary = {
 
 const main: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [], texts: [], edges: [], layouts: [] };
 
-const claude = { kind: 'claude', name: 'Claude Code', installed: true, capabilities: { chat: true, terminal: true } } as unknown as ProviderInfo;
-const codex = { kind: 'codex', name: 'Codex', installed: false, capabilities: { chat: true, terminal: true } } as unknown as ProviderInfo;
+const claude = fakeProvider('claude', 'Claude Code');
+const codex = fakeProvider('codex', 'Codex', { installed: false });
 
-function createView(registry: ActionRegistry<void>, input: Partial<ActionInput<'view.create'>> & Pick<ActionInput<'view.create'>, 'kind'>) {
-    return registry.execute('view.create', { name: null, url: null, command: null, path: null, provider: null, ...input }, PERSON_ACTION_CALL);
+function createView(
+    registry: ActionRegistry<void>,
+    input: Partial<ActionInput<'view.create'>> & Pick<ActionInput<'view.create'>, 'kind'>,
+    call = PERSON_ACTION_CALL
+) {
+    return registry.execute('view.create', { name: null, url: null, command: null, path: null, provider: null, ...input }, call);
 }
 
-function createNode(registry: ActionRegistry<void>, input: Partial<ActionInput<'node.create'>> & Pick<ActionInput<'node.create'>, 'kind'>) {
+function createNode(
+    registry: ActionRegistry<void>,
+    input: Partial<ActionInput<'node.create'>> & Pick<ActionInput<'node.create'>, 'kind'>,
+    call = VOICE_ACTION_CALL
+) {
     return registry.execute(
         'node.create',
         { viewId: 'main', title: null, content: null, url: null, command: null, path: null, provider: null, at: null, ...input },
-        VOICE_ACTION_CALL
+        call
     );
+}
+
+function placeView(input: Partial<ActionInput<'split.placeView'>>, call = PERSON_ACTION_CALL) {
+    return clientActions.execute('split.placeView', { viewId: null, paths: null, cellViewId: null, zone: 'right', tabGap: null, ...input }, call);
 }
 
 function canvas() {
@@ -87,13 +100,10 @@ describe('client actions', () => {
             }
         });
         const requested = await registry.execute('chat.clear', { chatId }, VOICE_ACTION_CALL);
-        expect(requested.status).toBe('needs_confirmation');
+        expectQuestion(requested);
         expect(cleared).toEqual([]);
-        if (requested.status !== 'needs_confirmation') {
-            return;
-        }
         expect(requested.confirmation.consequences.join(' ')).toContain('current turn');
-        const result = await registry.confirm(requested.confirmationToken, true, VOICE_ACTION_CALL);
+        const result = await confirmed(registry, requested);
         expect(result).toMatchObject({ status: 'completed', output: { chatId, chat: 'Research' } });
         expect(cleared).toEqual([chatId]);
         expect(useDocument.getState().views.some((view) => view.id === chatId)).toBe(true);
@@ -124,7 +134,7 @@ describe('client actions', () => {
         const chatId = useDocument.getState().addStandaloneView({ kind: 'chat', name: 'Research', node: {} })!;
         const result = await registry.execute('chat.clear', { chatId }, VOICE_ACTION_CALL);
         expectQuestion(result);
-        expect((await registry.confirm(result.confirmationToken, true, VOICE_ACTION_CALL)).status).toBe('failed');
+        expect((await confirmed(registry, result)).status).toBe('failed');
     });
 
     test('the same focus action serves a person and Voice and carries its own undo', async () => {
@@ -166,7 +176,6 @@ describe('client actions', () => {
 
     test('rename undo refuses to overwrite a newer name', async () => {
         const result = await clientActions.execute('view.rename', { viewId: 'release', name: 'Launch' }, PERSON_ACTION_CALL);
-        expect(result.status).toBe('completed');
         expectUndoable(result);
         useDocument.getState().renameView('release', 'Shipped');
         expect(await clientActions.undo(result.undoToken, PERSON_ACTION_CALL)).toMatchObject({ status: 'failed', error: { code: 'stale-undo' } });
@@ -175,32 +184,22 @@ describe('client actions', () => {
 
     test('lists the actions a person can request in the client catalog', () => {
         const personal = clientActions.catalog(PERSON_ACTION_CALL).map((entry) => entry.name);
-        expect(personal).toContain('view.share');
-        expect(personal).toContain('view.move');
-        expect(personal).toContain('link.create');
-        expect(personal).toContain('drawing.export');
-        expect(personal).toContain('diagram.export');
-        expect(personal).toContain('project.create');
-        expect(personal).toContain('project.delete');
-        expect(personal).toContain('process.signal');
+        expect(personal).toEqual(
+            expect.arrayContaining([
+                'view.share',
+                'view.move',
+                'link.create',
+                'drawing.export',
+                'diagram.export',
+                'project.create',
+                'project.delete',
+                'process.signal'
+            ])
+        );
     });
 
     test('creates a note in free space and safely undoes that exact canvas step', async () => {
-        const result = await clientActions.execute(
-            'node.create',
-            {
-                viewId: 'main',
-                kind: 'note',
-                title: null,
-                content: 'Fleur morgen mijn iPhone laten zien',
-                url: null,
-                command: null,
-                path: null,
-                provider: null,
-                at: null
-            },
-            VOICE_ACTION_CALL
-        );
+        const result = await createNode(clientActions, { kind: 'note', content: 'Fleur morgen mijn iPhone laten zien' });
         expect(result).toMatchObject({
             status: 'completed',
             output: { viewId: 'main', kind: 'note', node: 'Fleur morgen mijn iPhone laten zien' }
@@ -212,21 +211,16 @@ describe('client actions', () => {
     });
 
     test('refuses a late canvas undo instead of undoing somebody else’s change', async () => {
-        const result = await clientActions.execute(
-            'node.create',
-            { viewId: 'main', kind: 'note', title: 'First', content: 'First', url: null, command: null, path: null, provider: null, at: null },
-            VOICE_ACTION_CALL
-        );
-        expect(result.status).toBe('completed');
+        const result = await createNode(clientActions, { kind: 'note', title: 'First', content: 'First' });
         expectUndoable(result);
         defaultCanvases.of('main').getState().addNode('note', { x: 500, y: 500 }, { title: 'Newer' });
         expect(await clientActions.undo(result.undoToken, VOICE_ACTION_CALL)).toMatchObject({ status: 'failed', error: { code: 'stale-undo' } });
         expect(Object.values(defaultCanvases.of('main').getState().nodes).map((node) => node.title)).toEqual(['First', 'Newer']);
     });
 
-    test('names a new view the way the view menu always has, and an explicit name still wins', async () => {
+    test('names a new view like the view menu does, and an explicit name wins', async () => {
         const create = async (kind: 'canvas' | 'drawing' | 'diagram' | 'terminal', name: string | null = null) => {
-            const result = await clientActions.execute('view.create', { kind, name, url: null, command: null, path: null, provider: null }, PERSON_ACTION_CALL);
+            const result = await createView(clientActions, { kind, name });
             return result.status === 'completed' ? result.output.view : null;
         };
         expect(await create('canvas')).toBe('Canvas');
@@ -452,10 +446,7 @@ describe('client actions', () => {
             expect(await createView(registry(), { kind: 'separator' })).toMatchObject({ status: 'completed', output: { kind: 'separator' } });
             expect(await createView(registry(), { kind: 'subheader' })).toMatchObject({ status: 'completed', output: { view: 'Section', kind: 'subheader' } });
             expect(useDocument.getState().activeViewId).toBe('main');
-            const file = await createView(registry(), { kind: 'file', path: 'docs/notes.md' });
-            if (file.status !== 'completed') {
-                throw new Error('Expected a file view');
-            }
+            const file = completed(await createView(registry(), { kind: 'file', path: 'docs/notes.md' }));
             expect(file.output.view).toBe('notes.md');
             expect(useDocument.getState().views.find((view) => view.id === file.output.viewId)).toMatchObject({ kind: 'file', path: 'docs/notes.md' });
             expect(useDocument.getState().activeViewId).toBe(file.output.viewId);
@@ -463,10 +454,9 @@ describe('client actions', () => {
         });
 
         test('a database view opens on its table, is named after it, and needs a connection, a schema and a table', async () => {
-            const made = await createView(registry(), { kind: 'database', connection: 'shop', schema: 'shop', table: 'orders', where: "status = 'open'" });
-            if (made.status !== 'completed') {
-                throw new Error('Expected a database view');
-            }
+            const made = completed(
+                await createView(registry(), { kind: 'database', connection: 'shop', schema: 'shop', table: 'orders', where: "status = 'open'" })
+            );
             expect(made.output.view).toBe("orders (status = 'open')");
             expect(useDocument.getState().views.find((view) => view.id === made.output.viewId)).toMatchObject({
                 kind: 'database',
@@ -484,10 +474,7 @@ describe('client actions', () => {
         });
 
         test('an agent view runs the CLI it names, and only one this machine has', async () => {
-            const chat = await createView(registry(), { kind: 'chat', provider: 'claude' });
-            if (chat.status !== 'completed') {
-                throw new Error('Expected an agent view');
-            }
+            const chat = completed(await createView(registry(), { kind: 'chat', provider: 'claude' }));
             expect(useDocument.getState().views.find((view) => view.id === chat.output.viewId)).toMatchObject({
                 kind: 'chat',
                 name: 'Claude Code',
@@ -512,49 +499,27 @@ describe('client actions', () => {
 
         test('a browser is named after its address and a device after itself when nobody names them', async () => {
             expect(await createView(registry(), { kind: 'browser', url: 'localhost:5173' })).toMatchObject({ output: { view: 'localhost:5173' } });
-            const device = await registry().execute(
-                'view.create',
-                {
-                    kind: 'device',
-                    name: null,
-                    url: null,
-                    command: null,
-                    path: null,
-                    provider: null,
-                    device: { platform: 'ios', kind: 'simulator', name: 'iPhone 17', runtime: 'iOS 27.0' }
-                },
-                PERSON_ACTION_CALL
+            const device = completed(
+                await createView(registry(), { kind: 'device', device: { platform: 'ios', kind: 'simulator', name: 'iPhone 17', runtime: 'iOS 27.0' } })
             );
-            if (device.status !== 'completed') {
-                throw new Error('Expected a device view');
-            }
             expect(useDocument.getState().views.find((view) => view.id === device.output.viewId)).toMatchObject({
                 kind: 'device',
                 name: 'iPhone 17',
                 device: { platform: 'ios', name: 'iPhone 17' }
             });
             expect(await createView(registry(), { kind: 'device' })).toMatchObject({ error: { code: 'missing-device' } });
-            expect(
-                await registry().execute('view.create', { kind: 'device', name: null, url: null, command: null, path: null, provider: null }, VOICE_ACTION_CALL)
-            ).toMatchObject({ error: { code: 'forbidden-field' } });
+            expect(await createView(registry(), { kind: 'device' }, VOICE_ACTION_CALL)).toMatchObject({ error: { code: 'forbidden-field' } });
         });
 
         test('a session handed on goes on in the CLI it ran in, where it worked, and only a person hands one on', async () => {
-            const terminal = await createView(registry(), { kind: 'terminal', provider: 'claude', resume: 'sess-1', cwd: '/work' });
-            if (terminal.status !== 'completed') {
-                throw new Error('Expected a terminal');
-            }
+            const terminal = completed(await createView(registry(), { kind: 'terminal', provider: 'claude', resume: 'sess-1', cwd: '/work' }));
             const made = useDocument.getState().views.find((view) => view.id === terminal.output.viewId);
             expect(made).toMatchObject({ kind: 'terminal', node: { provider: 'claude', resume: 'sess-1', cwd: '/work' } });
             expect(made?.kind === 'terminal' ? made.node.runtimeMode : 'not a terminal').toBeUndefined();
             expect(await createView(registry(), { kind: 'chat', resume: 'sess-1' })).toMatchObject({ error: { code: 'missing-provider' } });
-            expect(
-                await registry().execute(
-                    'view.create',
-                    { kind: 'chat', name: null, url: null, command: null, path: null, provider: 'claude', resume: 'sess-1' },
-                    VOICE_ACTION_CALL
-                )
-            ).toMatchObject({ error: { code: 'forbidden-field' } });
+            expect(await createView(registry(), { kind: 'chat', provider: 'claude', resume: 'sess-1' }, VOICE_ACTION_CALL)).toMatchObject({
+                error: { code: 'forbidden-field' }
+            });
         });
 
         test('a view moves right under another or to the top, and undo puts it back', async () => {
@@ -689,20 +654,14 @@ describe('client actions', () => {
         const registry = () => createClientActionRegistry(useDocument, { providers: () => [claude, codex] });
 
         test('a node lands where it was asked, an agent carries its CLI and a file its path', async () => {
-            const agent = await createNode(registry(), { kind: 'terminal', provider: 'claude', at: { x: 480, y: 320 } });
-            if (agent.status !== 'completed') {
-                throw new Error('Expected an agent terminal');
-            }
+            const agent = completed(await createNode(registry(), { kind: 'terminal', provider: 'claude', at: { x: 480, y: 320 } }));
             const node = canvas().nodes[agent.output.nodeId]!;
             expect(node).toMatchObject({ title: 'Claude Code', provider: 'claude' });
             expect(node.runtimeMode).toBeDefined();
             expect(Math.abs(node.x + node.w / 2 - 480)).toBeLessThanOrEqual(16);
             expect(Math.abs(node.y + node.h / 2 - 320)).toBeLessThanOrEqual(16);
 
-            const file = await createNode(registry(), { kind: 'file', path: 'src/main.ts' });
-            if (file.status !== 'completed') {
-                throw new Error('Expected a file node');
-            }
+            const file = completed(await createNode(registry(), { kind: 'file', path: 'src/main.ts' }));
             expect(canvas().nodes[file.output.nodeId]).toMatchObject({ kind: 'file', title: 'main.ts', path: 'src/main.ts' });
             expect(await createNode(registry(), { kind: 'file' })).toMatchObject({ error: { code: 'missing-path' } });
             expect(await createNode(registry(), { kind: 'note', provider: 'claude' })).toMatchObject({ error: { code: 'invalid-provider' } });
@@ -713,10 +672,7 @@ describe('client actions', () => {
             const camera = canvas().camera;
             const visible = visibleRect(camera, canvas().viewport);
             for (let i = 0; i < 3; i += 1) {
-                const made = await createNode(registry(), { kind: 'note' });
-                if (made.status !== 'completed') {
-                    throw new Error('Expected a note');
-                }
+                const made = completed(await createNode(registry(), { kind: 'note' }));
                 expect(liesWithin(visible, canvas().nodes[made.output.nodeId]!)).toBe(true);
             }
             expect(canvas().camera).toEqual(camera);
@@ -742,15 +698,10 @@ describe('client actions', () => {
         });
 
         test('a login runs its command in the shell of the account it signs in', async () => {
-            const login = { viewId: 'main', kind: 'terminal', title: 'Work login', content: null, url: null, path: null, at: null } as const;
-            const made = await registry().execute(
-                'node.create',
-                { ...login, provider: 'claude', account: 'claude_work', command: 'claude auth login' },
-                PERSON_ACTION_CALL
+            const login = { kind: 'terminal', title: 'Work login' } as const;
+            const made = completed(
+                await createNode(registry(), { ...login, provider: 'claude', account: 'claude_work', command: 'claude auth login' }, PERSON_ACTION_CALL)
             );
-            if (made.status !== 'completed') {
-                throw new Error('Expected a login terminal');
-            }
             expect(canvas().nodes[made.output.nodeId]).toMatchObject({
                 title: 'Work login',
                 provider: 'claude',
@@ -758,37 +709,18 @@ describe('client actions', () => {
                 command: 'claude auth login'
             });
             // Without an account the command would replace the CLI in nobody's shell in particular.
-            expect(await registry().execute('node.create', { ...login, provider: 'claude', command: 'claude auth login' }, PERSON_ACTION_CALL)).toMatchObject({
+            expect(await createNode(registry(), { ...login, provider: 'claude', command: 'claude auth login' }, PERSON_ACTION_CALL)).toMatchObject({
                 error: { code: 'invalid-provider' }
             });
-            expect(
-                await registry().execute('node.create', { ...login, provider: null, account: 'claude_work', command: null }, PERSON_ACTION_CALL)
-            ).toMatchObject({
+            expect(await createNode(registry(), { ...login, account: 'claude_work' }, PERSON_ACTION_CALL)).toMatchObject({
                 error: { code: 'missing-provider' }
             });
         });
 
         test('a session goes on in a node beside it, where it worked and in the mode it has', async () => {
-            const chat = await registry().execute(
-                'node.create',
-                {
-                    viewId: 'main',
-                    kind: 'chat',
-                    title: 'Release notes',
-                    content: null,
-                    url: null,
-                    command: null,
-                    path: null,
-                    provider: 'claude',
-                    at: null,
-                    resume: 'sess-9',
-                    cwd: '/work'
-                },
-                PERSON_ACTION_CALL
+            const chat = completed(
+                await createNode(registry(), { kind: 'chat', title: 'Release notes', provider: 'claude', resume: 'sess-9', cwd: '/work' }, PERSON_ACTION_CALL)
             );
-            if (chat.status !== 'completed') {
-                throw new Error('Expected a chat');
-            }
             expect(canvas().nodes[chat.output.nodeId]).toMatchObject({
                 kind: 'chat',
                 title: 'Release notes',
@@ -841,10 +773,7 @@ describe('client actions', () => {
         });
 
         test('an empty text opens for typing, the way a double-click starts one', async () => {
-            const result = await clientActions.execute('canvasText.create', { viewId: 'main', text: null, at: null }, PERSON_ACTION_CALL);
-            if (result.status !== 'completed') {
-                throw new Error('Expected text');
-            }
+            const result = completed(await clientActions.execute('canvasText.create', { viewId: 'main', text: null, at: null }, PERSON_ACTION_CALL));
             expect(canvas().editingTextId).toBe(result.output.textId);
         });
     });
@@ -1074,9 +1003,7 @@ describe('client actions', () => {
         });
 
         test('places a view against the edge of a named cell, and workspace.inspect names the cells', async () => {
-            expect(
-                await clientActions.execute('split.placeView', { viewId: 'release', paths: null, cellViewId: 'main', zone: 'down' }, VOICE_ACTION_CALL)
-            ).toMatchObject({
+            expect(await placeView({ viewId: 'release', cellViewId: 'main', zone: 'down' }, VOICE_ACTION_CALL)).toMatchObject({
                 status: 'completed',
                 output: { viewId: 'release', view: 'Release', cellViewId: 'main', zone: 'down', created: [] }
             });
@@ -1088,14 +1015,10 @@ describe('client actions', () => {
                     ]
                 }
             });
-            expect(
-                await clientActions.execute('split.placeView', { viewId: 'release', paths: null, cellViewId: 'release', zone: 'left' }, VOICE_ACTION_CALL)
-            ).toMatchObject({
+            expect(await placeView({ viewId: 'release', cellViewId: 'release', zone: 'left' }, VOICE_ACTION_CALL)).toMatchObject({
                 error: { code: 'no-room' }
             });
-            expect(
-                await clientActions.execute('split.placeView', { viewId: 'release', paths: null, cellViewId: 'gone', zone: 'left' }, VOICE_ACTION_CALL)
-            ).toMatchObject({
+            expect(await placeView({ viewId: 'release', cellViewId: 'gone', zone: 'left' }, VOICE_ACTION_CALL)).toMatchObject({
                 error: { code: 'view-not-shown' }
             });
         });
@@ -1103,22 +1026,11 @@ describe('client actions', () => {
         test('dropped files open loose cells; Voice stays inside the project folder', async () => {
             useProject.setState({ current: { ...PROJECT, folder: '/repo' } });
             try {
-                const outside = await clientActions.execute(
-                    'split.placeView',
-                    { viewId: null, paths: ['/elsewhere/notes.md'], cellViewId: null, zone: 'right' },
-                    VOICE_ACTION_CALL
-                );
+                const outside = await placeView({ paths: ['/elsewhere/notes.md'], zone: 'right' }, VOICE_ACTION_CALL);
                 expect(outside).toMatchObject({ error: { code: 'outside-project' } });
                 expect(useDocument.getState().views).toHaveLength(2);
                 expect(useFiles.getState().tabs).toEqual([]);
-                const placed = await clientActions.execute(
-                    'split.placeView',
-                    { viewId: null, paths: ['/repo/a.ts', '/elsewhere/b.ts'], cellViewId: null, zone: 'right' },
-                    PERSON_ACTION_CALL
-                );
-                if (placed.status !== 'completed') {
-                    throw new Error('Expected the files to be placed');
-                }
+                const placed = completed(await placeView({ paths: ['/repo/a.ts', '/elsewhere/b.ts'], zone: 'right' }));
                 expect(placed.output.created).toHaveLength(2);
                 expect(useFiles.getState().tabs.map((tab) => tab.key)).toEqual(['/repo/a.ts', '/elsewhere/b.ts']);
                 expect(useDocument.getState().views).toHaveLength(2);
@@ -1135,19 +1047,10 @@ describe('client actions', () => {
         });
 
         test('files from the panel join a plain view as tabs without first opening or replacing it', async () => {
-            expect(
-                await clientActions.execute(
-                    'split.placeView',
-                    {
-                        viewId: null,
-                        paths: ['/repo/a.ts', '/repo/b.ts'],
-                        cellViewId: 'main',
-                        zone: 'center',
-                        tabGap: null
-                    },
-                    PERSON_ACTION_CALL
-                )
-            ).toMatchObject({ status: 'completed', output: { created: ['/repo/a.ts', '/repo/b.ts'] } });
+            expect(await placeView({ paths: ['/repo/a.ts', '/repo/b.ts'], cellViewId: 'main', zone: 'center' })).toMatchObject({
+                status: 'completed',
+                output: { created: ['/repo/a.ts', '/repo/b.ts'] }
+            });
             expect(useDocument.getState().layout!.columns).toHaveLength(1);
             expect(useDocument.getState().layout!.columns[0]!.cells[0].tabs).toEqual(['main', '/repo/a.ts', '/repo/b.ts']);
             expect(useDocument.getState().views).toHaveLength(2);
@@ -1156,54 +1059,22 @@ describe('client actions', () => {
 
         test('files dropped on a gap keep their order and move existing tabs instead of duplicating them', async () => {
             useDocument.getState().dropViewAsTab('release', { column: 0, cell: 0 }, null);
-            await clientActions.execute(
-                'split.placeView',
-                {
-                    viewId: null,
-                    paths: ['/repo/a.ts', '/repo/b.ts'],
-                    cellViewId: 'main',
-                    zone: 'center',
-                    tabGap: 1
-                },
-                PERSON_ACTION_CALL
-            );
+            await placeView({ paths: ['/repo/a.ts', '/repo/b.ts'], cellViewId: 'main', zone: 'center', tabGap: 1 });
             expect(useDocument.getState().layout!.columns[0]!.cells[0].tabs).toEqual(['main', '/repo/a.ts', '/repo/b.ts', 'release']);
-            await clientActions.execute(
-                'split.placeView',
-                {
-                    viewId: null,
-                    paths: ['/repo/a.ts'],
-                    cellViewId: 'main',
-                    zone: 'center',
-                    tabGap: 4
-                },
-                PERSON_ACTION_CALL
-            );
+            await placeView({ paths: ['/repo/a.ts'], cellViewId: 'main', zone: 'center', tabGap: 4 });
             expect(useDocument.getState().layout!.columns[0]!.cells[0].tabs).toEqual(['main', '/repo/b.ts', 'release', '/repo/a.ts']);
             expect(useFiles.getState().tabs).toHaveLength(2);
         });
 
         test('a multi-file drop continues when its first file already fills the target', async () => {
             useFiles.getState().open('/repo/a.ts', 5);
-            await clientActions.execute(
-                'split.placeView',
-                {
-                    viewId: null,
-                    paths: ['/repo/a.ts', '/repo/b.ts'],
-                    cellViewId: '/repo/a.ts',
-                    zone: 'center',
-                    tabGap: null
-                },
-                PERSON_ACTION_CALL
-            );
+            await placeView({ paths: ['/repo/a.ts', '/repo/b.ts'], cellViewId: '/repo/a.ts', zone: 'center' });
             expect(useDocument.getState().layout!.columns[0]!.cells[0].tabs).toEqual(['/repo/a.ts', '/repo/b.ts']);
         });
 
         test('a loose file can move between cells and close without becoming a saved view', async () => {
             const id = useFiles.getState().dropFile('/repo/a.ts', 5, { column: 0, cell: 0 }, 'right')!;
-            expect(
-                await clientActions.execute('split.placeView', { viewId: id, paths: null, cellViewId: 'main', zone: 'down' }, PERSON_ACTION_CALL)
-            ).toMatchObject({
+            expect(await placeView({ viewId: id, cellViewId: 'main', zone: 'down' })).toMatchObject({
                 status: 'completed',
                 output: { viewId: id, view: 'a.ts', created: [] }
             });

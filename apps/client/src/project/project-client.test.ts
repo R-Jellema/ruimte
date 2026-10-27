@@ -50,6 +50,10 @@ function summary(projectId: string, folder: string = '/repo'): ProjectSummary {
     };
 }
 
+function noteNode(id: string, patch: Partial<ProjectCanvasView['nodes'][number]> = {}): ProjectCanvasView['nodes'][number] {
+    return { id, kind: 'note', title: id, x: 0, y: 0, w: 10, h: 10, ...patch };
+}
+
 function canvasView(id: string, nodes: ProjectCanvasView['nodes'] = []): ProjectCanvasView {
     return {
         kind: 'canvas',
@@ -84,6 +88,18 @@ class FakeTransport implements Transport {
     holdSave: Promise<void> | null = null;
     holdList: Promise<void> | null = null;
     saveError: TransportError | null = null;
+    /* Keeps the next saves on the wire until the returned function lets them go. */
+    holdSaves(): () => void {
+        let resolve!: () => void;
+        this.holdSave = new Promise<void>((done) => {
+            resolve = done;
+        });
+        return () => {
+            this.holdSave = null;
+            resolve();
+        };
+    }
+
     private readonly statusHandlers = new Set<(status: TransportStatus) => void>();
     private readonly eventHandlers = new Map<string, Set<(payload: unknown) => void>>();
 
@@ -211,6 +227,38 @@ function makeSink() {
     return { sink, state };
 }
 
+type SavedProject = { baseRev: number; shared: string[]; content: Omit<ProjectContent, 'views'> & { views: ProjectCanvasView[] } };
+
+function lastSave(transport: FakeTransport, index = -1): SavedProject {
+    return transport.of('project.save').at(index)!.payload as SavedProject;
+}
+
+function baseRevs(transport: FakeTransport): number[] {
+    return transport.of('project.save').map((call) => (call.payload as SavedProject).baseRev);
+}
+
+function lastLocal(transport: FakeTransport): { projectId: string; local: ProjectLocal } {
+    return transport.of('project.save-local').at(-1)!.payload as { projectId: string; local: ProjectLocal };
+}
+
+function storedLocals(storage: Map<string, string>): Record<string, { local: ProjectLocal }> {
+    return JSON.parse(storage.get('ruimte.local')!) as Record<string, { local: ProjectLocal }>;
+}
+
+function emitChanged(transport: FakeTransport, changed: ProjectDocument): void {
+    transport.emit('project.changed', { projectId: 'p1', document: changed });
+}
+
+/* A window that records its listeners, so a test can fire `pagehide` itself. */
+function pageHost() {
+    const listeners = new Map<string, () => void>();
+    const host = {
+        addEventListener: (type: string, listener: () => void) => void listeners.set(type, listener),
+        removeEventListener: (type: string) => void listeners.delete(type)
+    } as unknown as Pick<Window, 'addEventListener' | 'removeEventListener'>;
+    return { host, listeners };
+}
+
 // Fake timers leave setImmediate alone. Each step runs the timers due in that millisecond, then every promise they started.
 async function tick(ms = 5): Promise<void> {
     for (let i = 0; i < ms; i++) {
@@ -221,26 +269,6 @@ async function tick(ms = 5): Promise<void> {
 
 beforeEach(() => {
     jest.useFakeTimers();
-});
-
-test('a decorative line is saved automatically and deleting the last one persists an empty list', async () => {
-    const { dispose, transport } = setup();
-    try {
-        await tick();
-        const id = focusedCanvas()
-            .getState()
-            .addLine({ x: 10, y: 20, endX: 100, endY: 120, stroke: 'red', strokeWidth: 2, strokeStyle: 'dotted', arrowEnd: true })!;
-        await tick();
-        const written = transport.calls.filter((call) => call.type === 'project.save').at(-1)?.payload as { content: ProjectContent };
-        const view = written.content.views[0] as ProjectCanvasView;
-        expect(view.lines?.[0]).toMatchObject({ id, strokeStyle: 'dotted', arrowEnd: true });
-        focusedCanvas().getState().deleteSelected();
-        await tick();
-        const deleted = transport.calls.filter((call) => call.type === 'project.save').at(-1)?.payload as { content: ProjectContent };
-        expect((deleted.content.views[0] as ProjectCanvasView).lines).toEqual([]);
-    } finally {
-        dispose();
-    }
 });
 
 afterEach(() => {
@@ -330,7 +358,7 @@ describe('ProjectClient', () => {
         await tick();
         useDocument.getState().closeCellAt({ column: 0, cell: 0 });
         await tick(10);
-        const saved = first.transport.of('project.save-local').at(-1)?.payload as { local: ProjectLocal };
+        const saved = lastLocal(first.transport);
         expect(saved.local).toMatchObject({ activeViewId: null, emptyLayout: true });
         first.dispose();
 
@@ -341,7 +369,7 @@ describe('ProjectClient', () => {
         expect(useDocument.getState().views.map((view) => view.id)).toEqual(['main']);
         useDocument.getState().setActiveView('main');
         await tick(10);
-        const opened = reopened.transport.of('project.save-local').at(-1)?.payload as { local: ProjectLocal };
+        const opened = lastLocal(reopened.transport);
         expect(opened.local.emptyLayout).toBeUndefined();
         expect(opened.local.layout?.columns[0]!.cells[0]!.viewId).toBe('main');
         reopened.dispose();
@@ -387,10 +415,10 @@ describe('ProjectClient', () => {
 
         useUi.getState().togglePanel('files');
         await tick(10);
-        const written = JSON.parse(storage.get('ruimte.local')!) as Record<string, { local: ProjectLocal }>;
+        const written = storedLocals(storage);
         expect(written['daemon-a:p1']!.local.views.gone).toBeUndefined();
         expect(written['daemon-a:p1']!.local.panels?.favicons).toEqual({ 'browser-1': 'mine' });
-        const sent = transport.of('project.save-local').at(-1)?.payload as { local: ProjectLocal };
+        const sent = lastLocal(transport);
         expect(sent.local.panels?.favicons).toBeUndefined();
         dispose();
     });
@@ -407,18 +435,14 @@ describe('ProjectClient', () => {
         focusedCanvas().getState().setViewport({ w: 800, h: 600 });
         focusedCanvas().getState().panBy(10, 0);
         await tick(10);
-        const written = JSON.parse(storage.get('ruimte.local')!) as Record<string, { local: ProjectLocal }>;
+        const written = storedLocals(storage);
         expect(written['daemon-a:p1']!.local.views.main!.camera).toEqual({ center: { x: -5, y: 6 }, zoom: 1 });
         dispose();
     });
 
     test('a page on its way out writes where it stood before the pause runs out', async () => {
         const storage = new Map<string, string>();
-        const listeners = new Map<string, () => void>();
-        const host = {
-            addEventListener: (type: string, listener: () => void) => void listeners.set(type, listener),
-            removeEventListener: (type: string) => void listeners.delete(type)
-        } as unknown as Pick<Window, 'addEventListener' | 'removeEventListener'>;
+        const { host, listeners } = pageHost();
         const { transport, dispose } = setup({ storage, open: 'p1', window: host });
         await tick();
         // Synchronous from here on, so the pause of the local write cannot have run out.
@@ -426,7 +450,7 @@ describe('ProjectClient', () => {
         expect(storage.get('ruimte.local')).toBeUndefined();
 
         listeners.get('pagehide')!();
-        const written = JSON.parse(storage.get('ruimte.local')!) as Record<string, { local: ProjectLocal }>;
+        const written = storedLocals(storage);
         expect(written['daemon-a:p1']!.local.panels?.panel).toEqual({ open: true, kind: 'git' });
         expect(transport.of('project.save-local')).toHaveLength(1);
         dispose();
@@ -440,7 +464,7 @@ describe('ProjectClient', () => {
 
         setViewShared('main', true);
         await tick(10);
-        const save = transport.of('project.save')[0]?.payload as { shared: string[] };
+        const save = lastSave(transport, 0);
         expect(save.shared).toEqual(['main']);
         expect(useDocument.getState().shared).toEqual(['main']);
 
@@ -455,12 +479,12 @@ describe('ProjectClient', () => {
         await tick();
         useDocument.getState().setFlags(['main'], 'red');
         await tick(10);
-        expect((transport.of('project.save')[0]!.payload as { content: { flags?: unknown } }).content.flags).toEqual({ main: 'red' });
+        expect(lastSave(transport, 0).content.flags).toEqual({ main: 'red' });
 
         useDocument.getState().setFlags(['main'], null);
         await tick(10);
         // An empty map and not a missing one: the daemon keeps the flags of a save that names none.
-        expect((transport.of('project.save')[1]!.payload as { content: { flags?: unknown } }).content.flags).toEqual({});
+        expect(lastSave(transport, 1).content.flags).toEqual({});
         dispose();
     });
 
@@ -470,7 +494,7 @@ describe('ProjectClient', () => {
         focusedCanvas().getState().addNode('terminal', { x: 0, y: 0 });
         expect(state.dirty).toBe(true);
         await tick(10);
-        const save = transport.of('project.save')[0]?.payload as { baseRev: number; content: { views: ProjectCanvasView[] } };
+        const save = lastSave(transport, 0);
         expect(save.baseRev).toBe(3);
         expect(save.content.views[0]!.nodes).toHaveLength(1);
         expect(state.rev).toBe(4);
@@ -500,7 +524,7 @@ describe('ProjectClient', () => {
         // Adding one is an edit, and the save carries both views.
         useDocument.getState().addCanvasView('Third');
         await tick(10);
-        const save = transport.of('project.save').at(-1)?.payload as { content: { views: ProjectCanvasView[] } };
+        const save = lastSave(transport);
         expect(save.content.views.map((view) => view.name)).toEqual(['main', 'second', 'Third']);
         dispose();
     });
@@ -508,10 +532,7 @@ describe('ProjectClient', () => {
     test('a change from disk reaches a clean canvas, and a conflict waits behind the dialog when there are edits', async () => {
         const { transport, state, client, dispose } = setup();
         await tick();
-        transport.emit('project.changed', {
-            projectId: 'p1',
-            document: document(9, [canvasView('main', [{ id: 'n', kind: 'browser', title: 'b', x: 0, y: 0, w: 10, h: 10 }])])
-        });
+        emitChanged(transport, document(9, [canvasView('main', [{ id: 'n', kind: 'browser', title: 'b', x: 0, y: 0, w: 10, h: 10 }])]));
         expect(state.rev).toBe(9);
         expect(focusedCanvas().getState().order).toEqual(['n']);
         expect(state.conflict).toBeNull();
@@ -519,7 +540,7 @@ describe('ProjectClient', () => {
         transport.rev = 9;
         focusedCanvas().getState().addNode('chat', { x: 0, y: 0 });
         // A rename of the project is nothing a merge takes in.
-        transport.emit('project.changed', { projectId: 'p1', document: { ...document(10), name: 'renamed' } });
+        emitChanged(transport, { ...document(10), name: 'renamed' });
         expect(state.conflict?.rev).toBe(10);
         expect(focusedCanvas().getState().order).toHaveLength(2);
 
@@ -536,7 +557,7 @@ describe('ProjectClient', () => {
         focusedCanvas().getState().addNode('chat', { x: 0, y: 0 });
         transport.rev = 12;
         // A rename is nothing a merge can take in, so this is the dialog and not the additive path.
-        transport.emit('project.changed', { projectId: 'p1', document: { ...document(12), name: 'renamed' } });
+        emitChanged(transport, { ...document(12), name: 'renamed' });
         await tick(10);
         expect(state.conflict?.rev).toBe(12);
         await client.resolveConflict('mine');
@@ -551,16 +572,13 @@ describe('ProjectClient', () => {
         await tick();
         focusedCanvas().getState().addNode('chat', { x: 0, y: 0 });
         transport.rev = 12;
-        transport.emit('project.changed', { projectId: 'p1', document: { ...document(12), name: 'renamed' } });
+        emitChanged(transport, { ...document(12), name: 'renamed' });
         await tick(10);
         expect(state.conflict?.rev).toBe(12);
 
         // A node an agent added would merge cleanly, and a merge would move the rev under the dialog.
         transport.rev = 13;
-        transport.emit('project.changed', {
-            projectId: 'p1',
-            document: { ...document(13, [canvasView('main', [{ id: 'agent', kind: 'note', title: 'n', x: 0, y: 0, w: 10, h: 10 }])]), name: 'renamed' }
-        });
+        emitChanged(transport, { ...document(13, [canvasView('main', [noteNode('agent')])]), name: 'renamed' });
         expect(state.conflict?.rev).toBe(13);
         expect(state.rev).toBe(3);
         expect(focusedCanvas().getState().nodes.agent).toBeUndefined();
@@ -578,10 +596,7 @@ describe('ProjectClient', () => {
         const mine = focusedCanvas().getState().addNode('chat', { x: 0, y: 0 })!;
 
         transport.rev = 4;
-        transport.emit('project.changed', {
-            projectId: 'p1',
-            document: document(4, [canvasView('main', [{ id: 'agent', kind: 'note', title: 'from an agent', x: 0, y: 0, w: 10, h: 10 }]), canvasView('made')])
-        });
+        emitChanged(transport, document(4, [canvasView('main', [noteNode('agent')]), canvasView('made')]));
 
         expect(state.conflict).toBeNull();
         expect(client.mergeRefusal).toBeNull();
@@ -592,7 +607,7 @@ describe('ProjectClient', () => {
         expect(state.rev).toBe(4);
 
         await tick(10);
-        const save = transport.of('project.save').at(-1)?.payload as { baseRev: number; content: { views: ProjectCanvasView[] } };
+        const save = lastSave(transport);
         expect(save.baseRev).toBe(4);
         expect(save.content.views[0]!.nodes.map((node) => node.id)).toEqual([mine, 'agent']);
         expect(state.rev).toBe(5);
@@ -603,27 +618,19 @@ describe('ProjectClient', () => {
     test('a save the daemon refuses is made again against the document that came in behind it', async () => {
         const { transport, state, dispose } = setup();
         await tick();
-        let release = (): void => undefined;
-        transport.holdSave = new Promise<void>((resolve) => {
-            release = resolve;
-        });
+        const release = transport.holdSaves();
         const mine = focusedCanvas().getState().addNode('chat', { x: 0, y: 0 })!;
         await tick(10);
         expect(transport.of('project.save')).toHaveLength(1);
 
         // The agent's node reaches the file while this client's save is still on the wire.
         transport.rev = 4;
-        transport.emit('project.changed', {
-            projectId: 'p1',
-            document: document(4, [canvasView('main', [{ id: 'agent', kind: 'note', title: 'from an agent', x: 0, y: 0, w: 10, h: 10 }])])
-        });
+        emitChanged(transport, document(4, [canvasView('main', [noteNode('agent')])]));
         expect(state.conflict).toBeNull();
-
-        transport.holdSave = null;
         release();
         await tick(20);
 
-        const saves = transport.of('project.save').map((call) => (call.payload as { baseRev: number }).baseRev);
+        const saves = baseRevs(transport);
         expect(saves).toEqual([3, 4]);
         expect(state.conflict).toBeNull();
         expect(state.rev).toBe(5);
@@ -634,17 +641,7 @@ describe('ProjectClient', () => {
 
     test('a node moved and retitled in another client lands in the editor as a load, beside an edit here', async () => {
         const { transport, state, client, dispose } = setup();
-        const note = (id: string, patch: Partial<ProjectCanvasView['nodes'][number]> = {}): ProjectCanvasView['nodes'][number] => ({
-            id,
-            kind: 'note',
-            title: id,
-            x: 0,
-            y: 0,
-            w: 10,
-            h: 10,
-            ...patch
-        });
-        transport.views = [canvasView('main', [note('a'), note('b')])];
+        transport.views = [canvasView('main', [noteNode('a'), noteNode('b')])];
         await tick();
         const editor = focusedCanvas();
         editor.getState().select(['b']);
@@ -652,7 +649,7 @@ describe('ProjectClient', () => {
         const past = editor.getState().past;
         const camera = editor.getState().camera;
 
-        transport.emit('project.changed', { projectId: 'p1', document: document(4, [canvasView('main', [note('a', { x: 300, title: 'Moved' }), note('b')])]) });
+        emitChanged(transport, document(4, [canvasView('main', [noteNode('a', { x: 300, title: 'Moved' }), noteNode('b')])]));
 
         expect(state.conflict).toBeNull();
         expect(client.mergeRefusal).toBeNull();
@@ -665,7 +662,7 @@ describe('ProjectClient', () => {
         expect(state.rev).toBe(4);
 
         await tick(10);
-        const save = transport.of('project.save').at(-1)?.payload as { baseRev: number; content: { views: ProjectCanvasView[] } };
+        const save = lastSave(transport);
         expect(save.baseRev).toBe(4);
         expect(save.content.views[0]!.nodes.map((node) => [node.id, node.x])).toEqual([
             ['a', 300],
@@ -677,16 +674,15 @@ describe('ProjectClient', () => {
     test('changes that come within one frame are taken in once, as the newest, with nothing of the ones before lost', async () => {
         const frames: Array<() => void> = [];
         const { transport, state, dispose } = setup({ nextFrame: (run) => (frames.push(run), () => frames.splice(frames.indexOf(run), 1)) });
-        const note = (id: string): ProjectCanvasView['nodes'][number] => ({ id, kind: 'note', title: id, x: 0, y: 0, w: 10, h: 10 });
         await tick();
         let merges = 0;
         const off = useDocument.subscribe((next, previous) => {
             merges += next.merging && !previous.merging ? 1 : 0;
         });
 
-        transport.emit('project.changed', { projectId: 'p1', document: document(4, [canvasView('main', [note('a')])]) });
-        transport.emit('project.changed', { projectId: 'p1', document: document(5, [canvasView('main', [note('a'), note('b')])]) });
-        transport.emit('project.changed', { projectId: 'p1', document: document(6, [canvasView('main', [note('a'), note('b'), note('c')])]) });
+        emitChanged(transport, document(4, [canvasView('main', [noteNode('a')])]));
+        emitChanged(transport, document(5, [canvasView('main', [noteNode('a'), noteNode('b')])]));
+        emitChanged(transport, document(6, [canvasView('main', [noteNode('a'), noteNode('b'), noteNode('c')])]));
         expect(state.rev).toBe(3);
         expect(frames).toHaveLength(1);
 
@@ -703,14 +699,11 @@ describe('ProjectClient', () => {
         const { transport, state, client, dispose } = setup({ nextFrame: (run) => (frames.push(run), () => frames.splice(frames.indexOf(run), 1)) });
         await tick();
         transport.rev = 4;
-        transport.emit('project.changed', {
-            projectId: 'p1',
-            document: document(4, [canvasView('main', [{ id: 'theirs', kind: 'note', title: 't', x: 0, y: 0, w: 10, h: 10 }])])
-        });
+        emitChanged(transport, document(4, [canvasView('main', [noteNode('theirs')])]));
         focusedCanvas().getState().addNode('note', { x: 400, y: 0 });
 
         await client.flush();
-        const save = transport.of('project.save').at(-1)?.payload as { baseRev: number; content: { views: ProjectCanvasView[] } };
+        const save = lastSave(transport);
         expect(save.baseRev).toBe(4);
         expect(save.content.views[0]!.nodes.map((node) => node.id)).toContain('theirs');
         expect(state.conflict).toBeNull();
@@ -720,7 +713,7 @@ describe('ProjectClient', () => {
 
     test('a node deleted in another client leaves a clean screen without an undo step or a load', async () => {
         const { transport, state, dispose } = setup();
-        transport.views = [canvasView('main', [{ id: 'gone', kind: 'note', title: 'n', x: 0, y: 0, w: 10, h: 10 }])];
+        transport.views = [canvasView('main', [noteNode('gone')])];
         await tick();
         const editor = focusedCanvas();
         editor.getState().select(['gone']);
@@ -729,7 +722,7 @@ describe('ProjectClient', () => {
             loads += next.loading && !previous.loading ? 1 : 0;
         });
 
-        transport.emit('project.changed', { projectId: 'p1', document: document(4, [canvasView('main')]) });
+        emitChanged(transport, document(4, [canvasView('main')]));
 
         off();
         expect(loads).toBe(0);
@@ -747,7 +740,7 @@ describe('ProjectClient', () => {
         await tick();
         const editor = focusedCanvas();
 
-        transport.emit('project.changed', { projectId: 'p1', document: document(4, [canvasView('notes'), { ...canvasView('main'), name: 'Board' }]) });
+        emitChanged(transport, document(4, [canvasView('notes'), { ...canvasView('main'), name: 'Board' }]));
 
         expect(useDocument.getState().views.map((view) => [view.id, 'name' in view ? view.name : null])).toEqual([
             ['notes', 'notes'],
@@ -842,7 +835,7 @@ describe('ProjectClient', () => {
         useUi.getState().togglePanel('files');
         useFiles.getState().setExpandedDirs(['src/', 'src/state/']);
         await tick(10);
-        const local = transport.of('project.save-local').at(-1)?.payload as { projectId: string; local: ProjectLocal };
+        const local = lastLocal(transport);
         expect(local.projectId).toBe('p1');
         expect(local.local.panels?.panel).toEqual({ open: true, kind: 'files' });
         expect(local.local.panels?.expandedDirs).toEqual(['src/', 'src/state/']);
@@ -974,9 +967,29 @@ describe('ProjectClient', () => {
         expect(forgotten).toEqual([]);
         dispose();
     });
+
+    test('a decorative line is saved automatically and deleting the last one persists an empty list', async () => {
+        const { dispose, transport } = setup();
+        try {
+            await tick();
+            const id = focusedCanvas()
+                .getState()
+                .addLine({ x: 10, y: 20, endX: 100, endY: 120, stroke: 'red', strokeWidth: 2, strokeStyle: 'dotted', arrowEnd: true })!;
+            await tick();
+            const written = lastSave(transport);
+            const view = written.content.views[0] as ProjectCanvasView;
+            expect(view.lines?.[0]).toMatchObject({ id, strokeStyle: 'dotted', arrowEnd: true });
+            focusedCanvas().getState().deleteSelected();
+            await tick();
+            const deleted = lastSave(transport);
+            expect((deleted.content.views[0] as ProjectCanvasView).lines).toEqual([]);
+        } finally {
+            dispose();
+        }
+    });
 });
 
-describe('a project with a drawing view', () => {
+describe('the link to the machine', () => {
     test('a link that drops and comes back leaves the project, its editors and the grid where they were', async () => {
         const { transport, sink, state, stores, dispose } = setup();
         await tick();
@@ -1064,7 +1077,7 @@ describe('a project with a drawing view', () => {
 
         useDocument.getState().renameView('view-1', 'Plan');
         await tick(20);
-        const saved = transport.of('project.save').at(-1)?.payload as { content: { views: unknown[] } };
+        const saved = lastSave(transport);
         expect(saved.content.views.at(-1)).toMatchObject({ kind: 'drawing', id: 'view-1', name: 'Plan' });
         dispose();
     });
@@ -1117,7 +1130,7 @@ describe('the same project in two clients', () => {
                 const { rev } = result as { rev: number };
                 to.transport.rev = rev;
                 // The fake names the project apart from its summary, so only the views travel.
-                to.transport.emit('project.changed', { projectId: 'p1', document: document(rev, content.views) });
+                emitChanged(to.transport, document(rev, content.views));
             }
             return result;
         }) as FakeTransport['request'];
@@ -1175,10 +1188,7 @@ describe('the same project in two clients', () => {
 
     test('a rename that arrives while the other has a save on the wire merges, and that save does not write it away', async () => {
         const { a, b } = await twoClients();
-        let release = (): void => undefined;
-        b.transport.holdSave = new Promise<void>((resolve) => {
-            release = resolve;
-        });
+        const release = b.transport.holdSaves();
         const mine = canvasOf(b.stores).getState().addNode('chat', { x: 0, y: 0 })!;
         await tick(10);
 
@@ -1187,12 +1197,10 @@ describe('the same project in two clients', () => {
         await tick(10);
         expect(b.state.conflict).toBeNull();
         expect(namesIn(b)).toEqual(['Ideas', 'main']);
-
-        b.transport.holdSave = null;
         release();
         await tick(20);
 
-        const saved = b.transport.of('project.save').at(-1)?.payload as { baseRev: number; content: ProjectContent };
+        const saved = lastSave(b.transport);
         expect(saved.content.views.map((view) => ('name' in view ? (view.name ?? null) : null))).toEqual(['Ideas', 'main']);
         expect((saved.content.views[1] as ProjectCanvasView).nodes.map((node) => node.id)).toEqual([mine]);
         expect(b.state.conflict).toBeNull();
@@ -1206,7 +1214,7 @@ describe('the same project in two clients', () => {
         a.stores.document.getState().trashView('notes');
         a.stores.document.getState().renameView('main', 'Board');
         await tick(10);
-        const saved = a.transport.of('project.save').at(-1)?.payload as { content: ProjectContent };
+        const saved = lastSave(a.transport);
         expect(saved.content.views.map((view) => view.id)).toEqual(['main', 'notes']);
         expect(namesIn(b)).toEqual(['Board', 'notes']);
         expect(namesIn(a)).toEqual(['Board']);
@@ -1237,11 +1245,7 @@ describe('the same project in two clients', () => {
 
 describe('a deleted view waiting on its undo', () => {
     test('goes for good when the page goes, and the save is sent before it is gone', async () => {
-        const listeners = new Map<string, () => void>();
-        const host = {
-            addEventListener: (type: string, listener: () => void) => void listeners.set(type, listener),
-            removeEventListener: (type: string) => void listeners.delete(type)
-        } as unknown as Pick<Window, 'addEventListener' | 'removeEventListener'>;
+        const { host, listeners } = pageHost();
         const { transport, stores, dispose } = setup({ open: 'p1', window: host, stores: createWorkspaceStores() });
         transport.views = [canvasView('main'), canvasView('notes')];
         await tick();
@@ -1249,17 +1253,13 @@ describe('a deleted view waiting on its undo', () => {
 
         listeners.get('pagehide')!();
         expect(stores.document.getState().trashed).toEqual([]);
-        const saved = transport.of('project.save').at(-1)?.payload as { content: ProjectContent };
+        const saved = lastSave(transport);
         expect(saved.content.views.map((view) => view.id)).toEqual(['main']);
         dispose();
     });
 
     test('an edit still waiting on the save clock is sent when the page goes', async () => {
-        const listeners = new Map<string, () => void>();
-        const host = {
-            addEventListener: (type: string, listener: () => void) => void listeners.set(type, listener),
-            removeEventListener: (type: string) => void listeners.delete(type)
-        } as unknown as Pick<Window, 'addEventListener' | 'removeEventListener'>;
+        const { host, listeners } = pageHost();
         const { client, transport, dispose } = setup({ open: 'p1', window: host, stores: createWorkspaceStores() });
         await tick();
         const before = transport.of('project.save').length;
@@ -1274,11 +1274,7 @@ describe('a deleted view waiting on its undo', () => {
 
     test('a page that goes before its save lands finishes the deletion on the next open', async () => {
         const storage = new Map<string, string>();
-        const listeners = new Map<string, () => void>();
-        const host = {
-            addEventListener: (type: string, listener: () => void) => void listeners.set(type, listener),
-            removeEventListener: (type: string) => void listeners.delete(type)
-        } as unknown as Pick<Window, 'addEventListener' | 'removeEventListener'>;
+        const { host, listeners } = pageHost();
         const first = setup({ storage, open: 'p1', window: host, stores: createWorkspaceStores() });
         first.transport.views = [canvasView('main'), canvasView('notes')];
         await tick();
@@ -1292,7 +1288,7 @@ describe('a deleted view waiting on its undo', () => {
         second.transport.views = [canvasView('main'), canvasView('notes')];
         await tick(10);
         expect(second.stores.document.getState().views.map((view) => view.id)).toEqual(['main']);
-        const saved = second.transport.of('project.save').at(-1)?.payload as { content: ProjectContent };
+        const saved = lastSave(second.transport);
         expect(saved.content.views.map((view) => view.id)).toEqual(['main']);
         expect([...storage.keys()].some((key) => key.startsWith('ruimte.deletedViews.'))).toBe(false);
         second.dispose();
@@ -1318,7 +1314,7 @@ describe('a deleted view waiting on its undo', () => {
         stores.document.getState().trashView('notes');
 
         await client.leave();
-        const saved = transport.of('project.save').at(-1)?.payload as { content: ProjectContent };
+        const saved = lastSave(transport);
         expect(saved.content.views.map((view) => view.id)).toEqual(['main']);
         dispose();
     });
@@ -1366,7 +1362,7 @@ describe('fields this version does not know', () => {
     }
 
     function savedViews(transport: FakeTransport): ProjectView[] {
-        return (transport.of('project.save').at(-1)!.payload as { content: ProjectContent }).content.views;
+        return lastSave(transport).content.views;
     }
 
     function expectNewerFields(views: readonly ProjectView[], location: unknown = { line: 3 }): void {
@@ -1392,20 +1388,16 @@ describe('fields this version does not know', () => {
         const { transport, state, dispose } = setup();
         transport.views = newerViews();
         await tick();
-        let release = (): void => undefined;
-        transport.holdSave = new Promise<void>((resolve) => {
-            release = resolve;
-        });
+        const release = transport.holdSaves();
         focusedCanvas().getState().updateNode('other', { body: 'edited' });
         await tick(10);
 
         transport.rev = 4;
-        transport.emit('project.changed', { projectId: 'p1', document: newerDocument(4, { location: { line: 9 }, futureKey: 'added' }) });
-        transport.holdSave = null;
+        emitChanged(transport, newerDocument(4, { location: { line: 9 }, futureKey: 'added' }));
         release();
         await tick(20);
 
-        const saves = transport.of('project.save').map((call) => (call.payload as { baseRev: number }).baseRev);
+        const saves = baseRevs(transport);
         expect(saves).toEqual([3, 4]);
         expect(state.conflict).toBeNull();
         expectNewerFields(savedViews(transport), { line: 9 });
@@ -1420,7 +1412,7 @@ describe('fields this version does not know', () => {
         focusedCanvas().getState().updateNode('other', { body: 'edited' });
         transport.rev = 12;
         // A rename of the project is nothing a merge can take in, so this is the dialog.
-        transport.emit('project.changed', { projectId: 'p1', document: { ...newerDocument(12), name: 'renamed' } });
+        emitChanged(transport, { ...newerDocument(12), name: 'renamed' });
         await tick(10);
         expect(state.conflict?.rev).toBe(12);
 

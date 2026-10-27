@@ -76,6 +76,23 @@ afterEach(() => {
     defaultCanvases.focus(null);
 });
 
+/* A drawing style that changes only the fields given. */
+function styleOf(patch: Record<string, string | number>) {
+    return {
+        stroke: null,
+        fill: null,
+        fillColor: null,
+        noteColor: null,
+        strokeWidth: null,
+        strokeStyle: null,
+        roughness: null,
+        font: null,
+        textSize: null,
+        align: null,
+        ...patch
+    };
+}
+
 /* The drawing beside the canvas, in a cell of its own, holding two rectangles and a locked third. */
 function showDrawing() {
     useDocument.getState().splitFocused('right', drawingId);
@@ -305,18 +322,7 @@ describe('drawings', () => {
     test('a change restyles, moves and rewrites what it names, and leaves a locked element as it is', async () => {
         showDrawing();
         const { registry } = fakes();
-        const style = {
-            stroke: 'blue',
-            fill: null,
-            fillColor: null,
-            noteColor: null,
-            strokeWidth: 4,
-            strokeStyle: null,
-            roughness: null,
-            font: null,
-            textSize: null,
-            align: null
-        } as const;
+        const style = styleOf({ stroke: 'blue', strokeWidth: 4 });
         const changed = completed(
             await registry.execute('drawing.updateElements', { viewId: drawingId, elementIds: ['a', 'c'], style, text: null, dx: 5, dy: -5 }, VOICE_ACTION_CALL)
         );
@@ -331,18 +337,7 @@ describe('drawings', () => {
     test('a person’s style with nothing selected only sets what the next element is drawn with', async () => {
         showDrawing();
         const { registry } = fakes();
-        const style = {
-            stroke: 'red',
-            fill: null,
-            fillColor: null,
-            noteColor: null,
-            strokeWidth: null,
-            strokeStyle: null,
-            roughness: null,
-            font: null,
-            textSize: null,
-            align: null
-        } as const;
+        const style = styleOf({ stroke: 'red' });
         const result = completed(
             await registry.execute('drawing.updateElements', { viewId: drawingId, elementIds: null, style, text: null, dx: null, dy: null }, PERSON_ACTION_CALL)
         );

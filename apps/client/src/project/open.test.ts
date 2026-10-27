@@ -43,6 +43,14 @@ function spyDeps(start: Whereabouts | null, over: Partial<SwitchDeps> = {}): { d
     return { deps, steps, here: () => current };
 }
 
+/* The project opener of a cold start, writing down what it was asked to open. */
+function opener(opened: string[]) {
+    return async (endpointId: string, projectId: string): Promise<'done'> => {
+        opened.push(`${endpointId}:${projectId}`);
+        return 'done';
+    };
+}
+
 const HERE: Whereabouts = { endpointId: 'local', projectId: 'p0' };
 
 /* Runs the steps of a plan the way the switch does, with a signal nobody aborts unless the test passes one. */
@@ -245,18 +253,13 @@ describe('the cold start', () => {
         useWindow.setState({ content: { kind: 'start' }, booting: true, bootFailure: null, dormant: null });
     });
 
-    test('nothing remembered goes to the start screen at once', async () => {
-        expect(await bootWindow(fakeStorage(new Map()))).toBeNull();
-        expect(useWindow.getState().booting).toBe(false);
-    });
-
-    test('a machine that is no longer known goes to the start screen at once', async () => {
-        expect(await bootWindow(fakeStorage(stored({ last: { endpointId: 'daemon-gone', projectId: 'q1' } })))).toBeNull();
-        expect(useWindow.getState().booting).toBe(false);
-    });
-
-    test('a record from before there was a last says nothing about where the work was', async () => {
-        expect(await bootWindow(fakeStorage(stored({ 'daemon-b': 'q1' })))).toBeNull();
+    test.each([
+        ['nothing remembered', new Map<string, string>()],
+        ['a machine that is no longer known', stored({ last: { endpointId: 'daemon-gone', projectId: 'q1' } })],
+        // A record from before there was a `last` says nothing about where the work was.
+        ['a record without a last', stored({ 'daemon-b': 'q1' })]
+    ])('%s goes to the start screen at once', async (_case, storage) => {
+        expect(await bootWindow(fakeStorage(storage))).toBeNull();
         expect(useWindow.getState().booting).toBe(false);
     });
 
@@ -281,15 +284,11 @@ describe('the cold start', () => {
 
     test('a window the shell opened on a project opens that one, whatever was remembered', async () => {
         const opened: string[] = [];
-        await bootWindow(
-            fakeStorage(stored({ last: { endpointId: 'local', projectId: 'p1' } })),
-            async (endpointId, projectId) => {
-                opened.push(`${endpointId}:${projectId}`);
-                return 'done';
-            },
-            true,
-            { kind: 'project', endpointId: 'daemon-b', projectId: 'q1' }
-        );
+        await bootWindow(fakeStorage(stored({ last: { endpointId: 'local', projectId: 'p1' } })), opener(opened), true, {
+            kind: 'project',
+            endpointId: 'daemon-b',
+            projectId: 'q1'
+        });
         expect(opened).toEqual(['daemon-b:q1']);
     });
 
@@ -298,10 +297,7 @@ describe('the cold start', () => {
         const opened: string[] = [];
         const booted = bootWindow(
             fakeStorage(new Map()),
-            async (endpointId, projectId) => {
-                opened.push(`${endpointId}:${projectId}`);
-                return 'done';
-            },
+            opener(opened),
             true,
             { kind: 'project', endpointId: 'daemon-b', projectId: 'q1', dormant: true },
             () => new Promise((resolve) => (focus = resolve))
@@ -317,15 +313,7 @@ describe('the cold start', () => {
 
     test('a window the shell opened on the start screen opens nothing', async () => {
         const opened: string[] = [];
-        const outcome = await bootWindow(
-            fakeStorage(stored({ last: { endpointId: 'local', projectId: 'p1' } })),
-            async (endpointId, projectId) => {
-                opened.push(`${endpointId}:${projectId}`);
-                return 'done';
-            },
-            true,
-            { kind: 'start' }
-        );
+        const outcome = await bootWindow(fakeStorage(stored({ last: { endpointId: 'local', projectId: 'p1' } })), opener(opened), true, { kind: 'start' });
         expect(outcome).toBeNull();
         expect(opened).toEqual([]);
         expect(useWindow.getState().booting).toBe(false);
@@ -337,10 +325,7 @@ describe('the cold start', () => {
             let left = 0;
             const outcome = await bootWindow(
                 storage,
-                async (endpointId, projectId) => {
-                    opened.push(`${endpointId}:${projectId}`);
-                    return 'done';
-                },
+                opener(opened),
                 false,
                 target,
                 async () => undefined,
@@ -371,14 +356,7 @@ describe('the cold start', () => {
 
     test("the bare project id of the first versions was this machine's", async () => {
         const opened: string[] = [];
-        await bootWindow(
-            fakeStorage(new Map([['ruimte.lastProject', 'p7']])),
-            async (endpointId, projectId) => {
-                opened.push(`${endpointId}:${projectId}`);
-                return 'done';
-            },
-            true
-        );
+        await bootWindow(fakeStorage(new Map([['ruimte.lastProject', 'p7']])), opener(opened), true);
         expect(opened).toEqual(['local:p7']);
     });
 });

@@ -37,11 +37,15 @@ function content(views: ProjectView[], patch: Partial<ProjectContent> = {}): Pro
     };
 }
 
-function canvasOf(merge: ProjectMerge, id: string): ProjectCanvasView {
+function accepted(merge: ProjectMerge): Extract<ProjectMerge, { ok: true }> {
     if (!merge.ok) {
         throw new Error(`merge refused: ${merge.reason}`);
     }
-    return merge.content.views.find((view) => view.id === id) as ProjectCanvasView;
+    return merge;
+}
+
+function canvasOf(merge: ProjectMerge, id: string): ProjectCanvasView {
+    return accepted(merge).content.views.find((view) => view.id === id) as ProjectCanvasView;
 }
 
 describe('what is additive', () => {
@@ -51,10 +55,9 @@ describe('what is additive', () => {
         const theirs = content([canvas('main', { nodes: [node('a'), node('agent')] })]);
 
         const merge = mergeProject(base, mine, theirs);
-        expect(merge.ok).toBe(true);
         // The node this client moved keeps where the person left it, and the one it made stays put.
         expect(canvasOf(merge, 'main').nodes).toEqual([node('a', { x: 400 }), node('mine'), node('agent')]);
-        expect((merge as { changes: { canvases: Record<string, { nodes: ProjectNode[] }> } }).changes.canvases.main!.nodes).toEqual([node('agent')]);
+        expect(accepted(merge).changes.canvases.main!.nodes).toEqual([node('agent')]);
     });
 
     test('a text, an edge and a whole view all come over at once', () => {
@@ -69,14 +72,11 @@ describe('what is additive', () => {
             canvas('second')
         ]);
 
-        const merge = mergeProject(base, mine, theirs);
-        expect(merge.ok).toBe(true);
+        const merge = accepted(mergeProject(base, mine, theirs));
         expect(canvasOf(merge, 'main').texts).toHaveLength(1);
         expect(canvasOf(merge, 'main').edges).toEqual([{ id: 'e1', from: 'a', to: 'b' }]);
-        if (merge.ok) {
-            expect(merge.changes.views.map((view) => view.id)).toEqual(['second']);
-            expect(merge.content.views.map((view) => view.id)).toEqual(['main', 'second']);
-        }
+        expect(merge.changes.views.map((view) => view.id)).toEqual(['second']);
+        expect(merge.content.views.map((view) => view.id)).toEqual(['main', 'second']);
     });
 
     test('a view arrives where the daemon put it, without moving the views this client added itself', () => {
@@ -84,11 +84,7 @@ describe('what is additive', () => {
         const mine = content([canvas('main'), canvas('local'), canvas('last')]);
         const theirs = content([canvas('main'), canvas('agent'), canvas('last')]);
 
-        const merge = mergeProject(base, mine, theirs);
-        expect(merge.ok).toBe(true);
-        if (merge.ok) {
-            expect(merge.content.views.map((view) => view.id)).toEqual(['main', 'agent', 'local', 'last']);
-        }
+        expect(accepted(mergeProject(base, mine, theirs)).content.views.map((view) => view.id)).toEqual(['main', 'agent', 'local', 'last']);
     });
 
     test('an incoming document that changed nothing is taken as it is', () => {
@@ -96,11 +92,8 @@ describe('what is additive', () => {
         const mine = content([canvas('main', { nodes: [node('mine')] })]);
 
         const merge = mergeProject(base, mine, base);
-        expect(merge.ok).toBe(true);
         expect(canvasOf(merge, 'main').nodes).toEqual([node('mine')]);
-        if (merge.ok) {
-            expect(merge.changes.canvases).toEqual({});
-        }
+        expect(accepted(merge).changes.canvases).toEqual({});
     });
 
     test('a node this client already saved does not arrive twice', () => {
@@ -119,15 +112,11 @@ describe('what is additive', () => {
         const theirs = content([canvas('main', { nodes: [{ ...group, memberIds: ['a', 'agent'] }, node('a'), node('agent')] })]);
 
         const merge = mergeProject(base, mine, theirs);
-        expect(merge.ok).toBe(true);
-        const merged = canvasOf(merge, 'main').nodes;
-        expect(merged[0]).toEqual({ ...group, x: 900, memberIds: ['a', 'agent'] });
-        if (merge.ok) {
-            expect(merge.changes.canvases.main!.nodes.map((put) => [put.id, put.memberIds])).toEqual([
-                ['g', ['a', 'agent']],
-                ['agent', undefined]
-            ]);
-        }
+        expect(canvasOf(merge, 'main').nodes[0]).toEqual({ ...group, x: 900, memberIds: ['a', 'agent'] });
+        expect(accepted(merge).changes.canvases.main!.nodes.map((put) => [put.id, put.memberIds])).toEqual([
+            ['g', ['a', 'agent']],
+            ['agent', undefined]
+        ]);
     });
 
     test('a group folded both here and there around different members is a conflict', () => {
@@ -146,12 +135,8 @@ describe('flags', () => {
         const mine = content([canvas('main')], { flags: { a: 'red', b: 'pink', c: 'green', mine: 'lime' } });
         const theirs = content([canvas('main')], { flags: { b: 'sky', c: 'green', there: 'rose' } });
 
-        const merge = mergeProject(base, mine, theirs);
-        if (!merge.ok) {
-            throw new Error(merge.reason);
-        }
         // Gone there, and untouched here; changed on both sides, where this client's color stands.
-        expect(merge.content.flags).toEqual({ b: 'pink', c: 'green', mine: 'lime', there: 'rose' });
+        expect(accepted(mergeProject(base, mine, theirs)).content.flags).toEqual({ b: 'pink', c: 'green', mine: 'lime', there: 'rose' });
     });
 
     test('a document from a machine that keeps no flags reads as one without any', () => {
@@ -288,12 +273,7 @@ describe('what is a conflict', () => {
 });
 
 describe('what another client changed on a canvas', () => {
-    const patchOf = (merge: ProjectMerge, id: string): CanvasPatch => {
-        if (!merge.ok) {
-            throw new Error(`merge refused: ${merge.reason}`);
-        }
-        return merge.changes.canvases[id]!;
-    };
+    const patchOf = (merge: ProjectMerge, id: string): CanvasPatch => accepted(merge).changes.canvases[id]!;
 
     test('a moved node lands beside an edit here', () => {
         const base = content([canvas('main', { nodes: [node('a'), node('b')] })]);
@@ -400,12 +380,7 @@ describe('what another client changed on a canvas', () => {
 });
 
 describe('what another client changed about the list', () => {
-    const ids = (merge: ProjectMerge): string[] => {
-        if (!merge.ok) {
-            throw new Error(`merge refused: ${merge.reason}`);
-        }
-        return merge.content.views.map((view) => view.id);
-    };
+    const ids = (merge: ProjectMerge): string[] => accepted(merge).content.views.map((view) => view.id);
 
     test('a view renamed there lands beside a node added here', () => {
         const base = content([canvas('main'), canvas('notes')]);
@@ -469,8 +444,7 @@ describe('what went through JSON', () => {
         const base = content([canvas('main', { nodes: [{ ...node('a'), titleSource: undefined, accent: undefined }] })]);
         const theirs = content([canvas('main', { nodes: [node('a'), node('agent')] })]);
 
-        const merge = mergeProject(base, base, theirs);
-        expect(merge.ok).toBe(true);
+        accepted(mergeProject(base, base, theirs));
     });
 });
 
@@ -493,16 +467,13 @@ describe('what a newer Ruimte wrote', () => {
         const theirs = content([canvas('main', { nodes: [node('a'), hologram, node('agent')] }), timeline]);
 
         const merge = mergeProject(base, mine, theirs);
-        expect(merge.ok).toBe(true);
         expect(canvasOf(merge, 'main').nodes).toEqual([node('a', { x: 400 }), hologram, node('agent')]);
-        expect((merge as { content: ProjectContent }).content.views[1]).toEqual(timeline);
+        expect(accepted(merge).content.views[1]).toEqual(timeline);
     });
 
     test('an unknown view the daemon added arrives like any other view', () => {
         const base = content([canvas('main')]);
         const theirs = content([canvas('main'), timeline]);
-        const merge = mergeProject(base, base, theirs);
-        expect(merge.ok).toBe(true);
-        expect((merge as { changes: { views: ProjectView[] } }).changes.views).toEqual([timeline]);
+        expect(accepted(mergeProject(base, base, theirs)).changes.views).toEqual([timeline]);
     });
 });
