@@ -4,6 +4,7 @@ import { entryExists } from '@adecore/agents';
 import { ChatError as AgentChatError } from '@adecore/agents/chat';
 import type { AgentLineageStore } from '@adecore/agents/coordination';
 import {
+    DEFAULT_PROJECT_COLOR,
     initialIconOf,
     type ChatInfo,
     type ChatMovePayload,
@@ -22,8 +23,9 @@ import type { SnoozeStore } from '../push/snoozes.ts';
 import { movedNote } from './move-note.ts';
 import type { MoveJournal } from './move-journal.ts';
 import { moveOwnFiles } from './own-files.ts';
-import { DEFAULT_COLOR, type MutationApply } from './project-store.ts';
+import type { MutationApply } from './project-store.ts';
 
+/* The English sentence a refused move carries on its reply; the client writes its own words from the reason. */
 const REFUSAL_SENTENCES: Record<ChatMoveRefusal['reason'], string> = {
     'not-in-chats': 'Only a chat in Chats can move to a project',
     working: 'This chat is still working. Stop it or wait for it to finish, then try again',
@@ -33,11 +35,6 @@ const REFUSAL_SENTENCES: Record<ChatMoveRefusal['reason'], string> = {
     messages: 'Messages from other chats are waiting for this chat. It reads them in its next turn. Move it after that',
     'pr-watch': 'This chat watches a pull request. Stop watching it first'
 };
-
-/* The English sentence a refused move carries on its reply; the client writes its own words from the reason. */
-function moveRefusalSentence(refusal: ChatMoveRefusal): string {
-    return REFUSAL_SENTENCES[refusal.reason];
-}
 
 export interface MoveChatDeps {
     /* `recheck` asks again under the lock of the Chats write: the chat is placed by two projects then and busy by the move itself, so only what the write would end is asked. */
@@ -82,7 +79,7 @@ export interface MoveChatDeps {
 function refuse(deps: MoveChatDeps, chatId: string, recheck = false): void {
     const refusal = deps.refusal(chatId, recheck);
     if (refusal !== null) {
-        throw new ChatError('move-refused', moveRefusalSentence(refusal));
+        throw new ChatError('move-refused', REFUSAL_SENTENCES[refusal.reason]);
     }
 }
 
@@ -91,6 +88,20 @@ function movedView(view: ProjectChatView): ProjectChatView {
     const { cwd: _cwd, ...node } = view.node;
     const { empty: _empty, ...rest } = view;
     return { ...rest, node };
+}
+
+/* Puts the Claude conversation of a chat under the slug of `folder`; null for a chat that keeps none there. */
+export async function fileTranscript(
+    chats: Pick<MoveChatDeps['chats'], 'claudeProjectsDirOf'>,
+    info: ChatInfo,
+    folder: string,
+    move: typeof moveClaudeTranscript = moveClaudeTranscript
+): Promise<Awaited<ReturnType<typeof moveClaudeTranscript>> | null> {
+    const projectsDir = chats.claudeProjectsDirOf(info);
+    if (info.provider !== 'claude' || info.agentSessionId === null || projectsDir === '') {
+        return null;
+    }
+    return move({ projectsDir, sessionId: info.agentSessionId, fromCwd: info.cwd, toCwd: folder });
 }
 
 /* A catch handler that runs `undo` and lets the failure through. */
@@ -104,7 +115,7 @@ function failWith(undo: () => void): (e: unknown) => never {
 function chatViewOf(content: ProjectContent, chatId: string): ProjectChatView {
     const view = content.views.find((entry) => entry.id === chatId);
     if (view?.kind !== 'chat') {
-        throw new ChatError('move-refused', moveRefusalSentence({ reason: 'not-in-chats' }));
+        throw new ChatError('move-refused', REFUSAL_SENTENCES['not-in-chats']);
     }
     return view;
 }
@@ -157,14 +168,14 @@ export async function moveChat(payload: ChatMovePayload, deps: MoveChatDeps): Pr
 
     const chats = known.find((project) => project.folder === deps.scratchFolder);
     if (chats === undefined) {
-        throw new ChatError('move-refused', moveRefusalSentence({ reason: 'not-in-chats' }));
+        throw new ChatError('move-refused', REFUSAL_SENTENCES['not-in-chats']);
     }
     const info = await deps.chats.load(chatId);
     refuse(deps, chatId);
     // The last refusal: from here on the move makes things on disk.
     const putBack = deps.chats.claim(chatId);
     if (putBack === null) {
-        throw new ChatError('move-refused', moveRefusalSentence({ reason: 'working' }));
+        throw new ChatError('move-refused', REFUSAL_SENTENCES.working);
     }
     const target = chosen ?? known.find((project) => project.folder === folder) ?? (await makeProject(payload, folder, deps).catch(failWith(putBack)));
 
@@ -189,14 +200,8 @@ export async function moveChat(payload: ChatMovePayload, deps: MoveChatDeps): Pr
     const during = async (): Promise<void> => {
         try {
             await deps.journal?.begin({ chatId, to: target.projectId, folder });
-            const projectsDir = deps.chats.claudeProjectsDirOf(info);
-            if (info.provider === 'claude' && info.agentSessionId !== null && projectsDir !== '') {
-                const transcript = await (deps.moveTranscript ?? moveClaudeTranscript)({
-                    projectsDir,
-                    sessionId: info.agentSessionId,
-                    fromCwd: info.cwd,
-                    toCwd: folder
-                });
+            const transcript = await fileTranscript(deps.chats, info, folder, deps.moveTranscript);
+            if (transcript !== null) {
                 undo.push(() => transcript.undo());
             }
             // A task or a message that came while the CLI ended still refuses.
@@ -206,15 +211,13 @@ export async function moveChat(payload: ChatMovePayload, deps: MoveChatDeps): Pr
             const view = chatViewOf(leaving, chatId);
             const flag = leaving.flags?.[chatId];
             const adopted = (await deps.projects.overlayFieldsOf(chats.projectId)).filter((field) => Object.hasOwn(view.node, field));
-            await deps.projects.mutate(target.projectId, (content, context) => ({
-                content: {
-                    ...content,
-                    views: [movedView(view), ...content.views],
-                    ...(flag === undefined ? {} : { flags: { ...content.flags, [chatId]: flag } })
-                },
+            // The views with this one among them, its flag and the overlay fields it carries: in the target, or back in Chats.
+            const placing = (content: ProjectContent, overlayFields: readonly string[], views: ProjectContent['views']) => ({
+                content: { ...content, views, ...(flag === undefined ? {} : { flags: { ...content.flags, [chatId]: flag } }) },
                 result: undefined,
-                overlayFields: [...new Set([...context.overlayFields, ...adopted])]
-            }));
+                overlayFields: [...new Set([...overlayFields, ...adopted])]
+            });
+            await deps.projects.mutate(target.projectId, (content, context) => placing(content, context.overlayFields, [movedView(view), ...content.views]));
             undo.push(() =>
                 deps.projects.mutate(target.projectId, (content) => ({
                     content: { ...content, views: content.views.filter((entry) => entry.id !== chatId), flags: withoutFlag(content.flags, chatId) },
@@ -255,11 +258,7 @@ export async function moveChat(payload: ChatMovePayload, deps: MoveChatDeps): Pr
                 deps.projects.mutate(chats.projectId, (content, context) => {
                     const views = content.views.filter((entry) => entry.id !== chatId);
                     views.splice(Math.min(position, views.length), 0, view);
-                    return {
-                        content: { ...content, views, ...(flag === undefined ? {} : { flags: { ...content.flags, [chatId]: flag } }) },
-                        result: undefined,
-                        overlayFields: [...new Set([...context.overlayFields, ...adopted])]
-                    };
+                    return placing(content, context.overlayFields, views);
                 })
             );
 
@@ -292,7 +291,7 @@ export async function moveChat(payload: ChatMovePayload, deps: MoveChatDeps): Pr
         putBack();
         // The relocation throws the library's error, not Ruimte's subclass, and its sentence names the chat id.
         if (e instanceof AgentChatError && e.code === 'chat-busy') {
-            throw new ChatError('move-refused', moveRefusalSentence({ reason: 'working' }));
+            throw new ChatError('move-refused', REFUSAL_SENTENCES.working);
         }
         throw e;
     }
@@ -321,7 +320,7 @@ function summaryOf(target: { projectId: string; name: string }, folder: string):
     return {
         projectId: target.projectId,
         name: target.name,
-        color: DEFAULT_COLOR,
+        color: DEFAULT_PROJECT_COLOR,
         folder,
         lastOpenedAt: Date.now(),
         closedAt: null,

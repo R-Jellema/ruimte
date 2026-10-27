@@ -1,12 +1,12 @@
 import { resolve } from 'node:path';
-import type {
-    ChatCreatePayload,
-    ProjectChatView,
-    ProjectInlineChatTargetPayload,
-    ProjectNewInlineChatPayload,
-    ProjectNewInlineChatResult
+import {
+    isHiddenChatView,
+    type ChatCreatePayload,
+    type ProjectChatView,
+    type ProjectInlineChatTargetPayload,
+    type ProjectNewInlineChatPayload,
+    type ProjectNewInlineChatResult
 } from '@ruimte/contracts';
-import { isHiddenChatView } from '@ruimte/contracts';
 import { CodedError } from '@adecore/agents';
 import { isInside } from '../canvas/project-paths.ts';
 import type { ProjectStore } from './project-store.ts';

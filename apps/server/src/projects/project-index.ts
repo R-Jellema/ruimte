@@ -93,8 +93,8 @@ export class ProjectIndex {
 
     /* The content in its daemon-side form: cwds absolute, file paths still as stored. */
     set(projectId: string, folder: string, content: Pick<ProjectContent, 'views' | 'flags' | 'sql'>): void {
-        const places = placesOf(content.views);
-        this.projects.set(projectId, { folder, content, sources: flaggedSources(deriveProjectContextSources(content.views, folder), content.flags), places });
+        const sources = flaggedSources(deriveProjectContextSources(content.views, folder), content.flags);
+        this.projects.set(projectId, { folder, content, sources, places: placesOf(content.views) });
         this.changedPlaces(projectId);
     }
 
@@ -234,7 +234,7 @@ export class ProjectIndex {
 
     /* Whether a person finds this id in a project, as a node on a canvas or a view of its own. A task's hidden agent is not. */
     shows(id: string): boolean {
-        return [...this.projects.values()].some((project) => project.places.has(id)) && !this.isHiddenChat(id);
+        return this.placed(id) && !this.isHiddenChat(id);
     }
 
     /* Whether a view of this id is a chat an inline edit runs in. */

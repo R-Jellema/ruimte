@@ -41,13 +41,13 @@ export function targetFolder(target: ChatMoveTarget, projects: ReadonlyArray<{ p
     return 'projectId' in target ? (projects.find((project) => project.projectId === target.projectId)?.folder ?? null) : resolve(target.folder);
 }
 
-/* The own-file names that are already in the target folder. */
+/* The names among `names` (as `ownFileNames` lists them) that are already in the target folder. */
 export async function ownFileConflicts(names: readonly string[], folder: string | null, limit = MAX_NAMES): Promise<string[]> {
     const taken: string[] = [];
     if (folder === null) {
         return taken;
     }
-    for (const name of names.filter((entry) => !IGNORED_OWN_NAMES.includes(entry))) {
+    for (const name of names) {
         if (taken.length >= limit) {
             break;
         }

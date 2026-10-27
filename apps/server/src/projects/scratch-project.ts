@@ -24,10 +24,6 @@ export function newChatId(): string {
 /* Whether a person wrote in a chat yet, as its thread says; a chat this daemon has no thread of never had a message. */
 export type ChatWritten = (chatId: string) => Promise<boolean>;
 
-function notWritten(): Promise<boolean> {
-    return Promise.resolve(false);
-}
-
 function withoutEmptyMark(view: ProjectView): ProjectView {
     if (!isEmptyChatView(view)) {
         return view;
@@ -56,7 +52,11 @@ export function reusableChat(views: readonly ProjectView[], payload: ProjectNewC
  * A chat nobody wrote in yet is hidden from the list, so that one is shown again rather than another
  * made beside it, and every client asking gets the same one.
  */
-export async function newScratchChat(store: ProjectStore, payload: ProjectNewChatPayload, written: ChatWritten = notWritten): Promise<ProjectNewChatResult> {
+export async function newScratchChat(
+    store: ProjectStore,
+    payload: ProjectNewChatPayload,
+    written: ChatWritten = async () => false
+): Promise<ProjectNewChatResult> {
     await mkdir(store.home, { recursive: true, mode: 0o700 });
     /* A scratch project inside a checkout would put every chat's folder in someone's repository,
        and its project files in their commits. */

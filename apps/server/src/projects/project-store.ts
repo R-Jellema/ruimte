@@ -42,7 +42,6 @@ import {
     gitignorePathOf,
     fromPortable,
     parseSharedFile,
-    parsePrivateFile,
     privateDirOf,
     privatePathOf,
     readPrivateFile,
@@ -53,7 +52,8 @@ import {
     tooNewMessage,
     writeGitignoreIfMissing,
     writePrivateFile,
-    PROJECT_FILE
+    PROJECT_FILE,
+    WATCH_SETTLE_MS
 } from './project-files.ts';
 import { PROJECT_WRITE_IO, ProjectWriteRaced, ProjectWriteStuck, recoverProjectWrite, writeProjectFiles, type ProjectWriteIO } from './project-write.ts';
 import { ProjectHolds } from './project-holds.ts';
@@ -80,25 +80,22 @@ function asProjectError(e: unknown): unknown {
     return e instanceof ProjectWriteStuck ? new ProjectError('project-invalid', e.message) : e;
 }
 
-// Editors and git write in bursts; one event per burst is what the client wants.
-const WATCH_SETTLE_MS = 150;
-
-export const DEFAULT_COLOR = DEFAULT_PROJECT_COLOR;
-
 /* The overlay the private file holds now, whose entries a shared view of a kind this version does not know keeps. */
 async function keptOverlayOf(path: string): Promise<Record<string, ProjectNodeOverlay>> {
-    let text: string;
-    try {
-        text = await readFile(privatePathOf(path), 'utf8');
-    } catch {
-        return {};
-    }
-    const parsed = parsePrivateFile(text);
-    return parsed.kind === 'ok' ? parsed.document.overlay : {};
+    const read = await readPrivateFile(privatePathOf(path), { setAside: false }).catch(() => null);
+    return read?.kind === 'ok' ? read.document.overlay : {};
 }
 
 function newId(): string {
     return randomBytes(6).toString('base64url');
+}
+
+function documentOf(content: ProjectContent, rev: number, shared: string[]): ProjectDocument {
+    return { version: PROJECT_VERSION, rev, ...content, shared };
+}
+
+function identityChanged(entry: RegistryEntry, content: ProjectContent): boolean {
+    return content.name !== entry.name || content.color !== entry.color || !sameIcon(content.icon ?? null, entry.icon ?? null);
 }
 
 /*
@@ -249,9 +246,7 @@ function remember(
     state.current = null;
 }
 
-/*
- * Projects live in `<folder>/.ruimte/project.json`. Machine state stays out of the shared file.
- */
+/* Projects live in `<folder>/.ruimte/project.json`. Machine state stays out of the shared file. */
 export class ProjectStore {
     readonly home: string;
     readonly scratchFolder: string;
@@ -313,7 +308,12 @@ export class ProjectStore {
                 return split;
             }
         }
-        const outcome = readOnly ? await this.readPrivateWithoutRepair(privatePathOf(path)) : await readPrivateFile(privatePathOf(path));
+        const privatePath = privatePathOf(path);
+        // A read-only caller must not set a broken file aside, so it refuses instead.
+        const outcome = await readPrivateFile(privatePath, { setAside: !readOnly });
+        if (outcome.kind === 'unreadable') {
+            throw new ProjectError('project-invalid', `${privatePath} does not parse as a private project file`);
+        }
         if (outcome.kind === 'invalid' || outcome.kind === 'too-new') {
             const why = outcome.kind === 'invalid' ? outcome.message : tooNewMessage('private project file', outcome.version, PROJECT_PRIVATE_VERSION);
             throw new ProjectError('project-invalid', why);
@@ -335,7 +335,7 @@ export class ProjectStore {
      * here is not what counts.
      */
     private holderOfIds(projectId: string, views: readonly ProjectView[], entries: readonly RegistryEntry[]): RegistryEntry | null {
-        const open = entries.filter((candidate) => candidate.projectId !== projectId && (candidate.closedAt === null || candidate.closedAt === undefined));
+        const open = entries.filter((candidate) => candidate.projectId !== projectId && candidate.closedAt == null);
         for (const id of placesOf(views).keys()) {
             const placing = this.index.projectsPlacing(id);
             const holder = open.find((candidate) => placing.includes(candidate.projectId));
@@ -344,23 +344,6 @@ export class ProjectStore {
             }
         }
         return null;
-    }
-
-    private async readPrivateWithoutRepair(path: string) {
-        let text: string;
-        try {
-            text = await readFile(path, 'utf8');
-        } catch (error) {
-            if (isNotFound(error)) {
-                return { kind: 'missing' as const };
-            }
-            throw error;
-        }
-        const parsed = parsePrivateFile(text);
-        if (parsed.kind === 'unreadable') {
-            throw new ProjectError('project-invalid', `${path} does not parse as a private project file`);
-        }
-        return parsed.kind === 'ok' ? { ...parsed, text } : parsed;
     }
 
     /*
@@ -494,7 +477,7 @@ export class ProjectStore {
             entry = known ?? {
                 projectId: newId(),
                 name: payload.name ?? basename(folder),
-                color: payload.color ?? DEFAULT_COLOR,
+                color: payload.color ?? DEFAULT_PROJECT_COLOR,
                 folder,
                 lastOpenedAt: Date.now()
             };
@@ -551,7 +534,7 @@ export class ProjectStore {
             privateText = written.private;
         }
         await writeGitignoreIfMissing(path);
-        const document: ProjectDocument = { version: PROJECT_VERSION, rev: loaded.rev, ...content, shared: loaded.shared };
+        const document = documentOf(content, loaded.rev, loaded.shared);
 
         // Opening is what takes a project back out of Recent, wherever the open came from.
         const opened: RegistryEntry = {
@@ -568,7 +551,8 @@ export class ProjectStore {
         this.publish(entry);
 
         this.release(entry.projectId);
-        this.index.set(entry.projectId, entry.folder, this.fromDisk(entry.projectId, document, entry.folder));
+        const daemonSide = this.fromDisk(entry.projectId, document, entry.folder);
+        this.index.set(entry.projectId, entry.folder, daemonSide);
         const state: OpenProject = {
             entry,
             rev: document.rev,
@@ -590,7 +574,7 @@ export class ProjectStore {
         this.summaries.invalidate(entry.folder);
         return {
             summary: await this.summaries.summarize(entry),
-            document: this.onTheWire(entry.projectId, this.fromDisk(entry.projectId, document, entry.folder)),
+            document: this.onTheWire(entry.projectId, daemonSide),
             local: await this.readLocal(entry.projectId)
         };
     }
@@ -615,7 +599,7 @@ export class ProjectStore {
                 const entry: RegistryEntry = known ?? {
                     projectId,
                     name: seed.name,
-                    color: DEFAULT_COLOR,
+                    color: DEFAULT_PROJECT_COLOR,
                     folder,
                     lastOpenedAt: Date.now(),
                     closedAt: null,
@@ -697,11 +681,9 @@ export class ProjectStore {
             document,
             async (daemonSide) => {
                 await this.links.personSaved(state.entry.folder, before ?? daemonSide.views, daemonSide.views);
-                const icon = content.icon ?? null;
-                if (content.name !== state.entry.name || content.color !== state.entry.color || !sameIcon(icon, state.entry.icon ?? null)) {
-                    const renamed = { ...state.entry, name: content.name, color: content.color, icon };
-                    state.entry = renamed;
-                    await this.registry.update((entries) => entries.map((entry) => (entry.projectId === projectId ? renamed : entry)));
+                if (identityChanged(state.entry, content)) {
+                    state.entry = { ...state.entry, name: content.name, color: content.color, icon: content.icon ?? null };
+                    await this.replaceEntry(state.entry);
                     this.publish(state.entry);
                 }
             },
@@ -788,11 +770,10 @@ export class ProjectStore {
         const state = this.open.get(projectId);
         const written = await this.writeFiles(path, toPortable(mutation.content, entry.folder), shared, document.rev, [], overlayFields);
         await this.remote.prune(projectId, idsOf(mutation.content));
-        const icon = mutation.content.icon ?? null;
-        const identityChanged = mutation.content.name !== entry.name || mutation.content.color !== entry.color || !sameIcon(icon, entry.icon ?? null);
-        const nextEntry = identityChanged ? { ...entry, name: mutation.content.name, color: mutation.content.color, icon } : entry;
-        if (identityChanged) {
-            await this.registry.update((entries) => entries.map((candidate) => (candidate.projectId === projectId ? nextEntry : candidate)));
+        const renamed = identityChanged(entry, mutation.content);
+        const nextEntry = renamed ? { ...entry, name: mutation.content.name, color: mutation.content.color, icon: mutation.content.icon ?? null } : entry;
+        if (renamed) {
+            await this.replaceEntry(nextEntry);
         }
         if (state) {
             state.entry = nextEntry;
@@ -801,7 +782,7 @@ export class ProjectStore {
         // Every sink, open or not: a client that released the project may still have it on screen in another workspace.
         await this.afterWrite(nextEntry, before, document, async () => {
             await mutation.landed?.();
-            if (identityChanged) {
+            if (renamed) {
                 this.publish(nextEntry);
             }
         });
@@ -809,12 +790,10 @@ export class ProjectStore {
     }
 
     /*
-     * What every write of this daemon ends with, a person's save and an agent's change alike, whether
-     * the project is on screen or not. `before` holds the views the write replaced; `announce` runs
-     * once the files are settled and before `project.changed` goes out to every client but `origin`.
-     * The watcher reads the write as our own and stays quiet, so a second client hears of it here or
-     * not at all. Inside the lock, so a save that this write makes stale finds the document there
-     * before its refusal.
+     * What every write of this daemon ends with, a save and a verb alike. `announce` runs once the files
+     * are settled and before `project.changed` goes out to every client but `origin`. The watcher reads
+     * the write as our own and stays quiet, so a second client hears of it here or not at all. It runs
+     * inside the lock, so a save this write makes stale finds the new document before its refusal.
      */
     private async afterWrite(
         entry: RegistryEntry,
@@ -934,7 +913,13 @@ export class ProjectStore {
 
     /* Writes or removes the icon file of the project's folder, and tells every client. */
     setIcon(payload: ProjectSetIconPayload): Promise<ProjectSummary> {
-        return this.locked(payload.projectId, () => this.setIconUnlocked(payload));
+        return this.locked(payload.projectId, async () => {
+            const entry = await this.registry.entry(payload.projectId);
+            await this.summaries.setImage(entry.folder, payload.image);
+            const summary = await this.summaries.summarize(entry);
+            this.sinks.emit({ event: 'project.summary', payload: { summary } });
+            return summary;
+        });
     }
 
     setIdentity(payload: ProjectSetIdentityPayload): Promise<ProjectSummary> {
@@ -956,14 +941,6 @@ export class ProjectStore {
             });
             return this.summaries.summarize(await this.registry.entry(payload.projectId));
         });
-    }
-
-    private async setIconUnlocked(payload: ProjectSetIconPayload): Promise<ProjectSummary> {
-        const entry = await this.registry.entry(payload.projectId);
-        await this.summaries.setImage(entry.folder, payload.image);
-        const summary = await this.summaries.summarize(entry);
-        this.sinks.emit({ event: 'project.summary', payload: { summary } });
-        return summary;
     }
 
     /* The file behind `GET /projects/<id>/icon`, or null when the project shows no image. */
@@ -1029,9 +1006,8 @@ export class ProjectStore {
             }
             this.release(projectId);
             const closed = { ...(await this.registry.entry(projectId)), closedAt: Date.now() };
-            await this.registry.update((entries) => entries.map((candidate) => (candidate.projectId === projectId ? closed : candidate)));
-            // What a machine holds is the same for everyone on it, agents included; which projects a
-            // person keeps in their own menu is that client's business.
+            await this.replaceEntry(closed);
+            // Every client hears it: what a machine holds is the same for everyone on it, agents included.
             this.publish(closed);
             return false;
         });
@@ -1057,17 +1033,15 @@ export class ProjectStore {
         if (!removeFiles) {
             return;
         }
-        // Only the canvas file and the drawings and diagrams that belong to it; the rest of the folder
-        // is the person's project. Those go first, or the rmdir below finds `.ruimte` full.
-        await rm(drawingsDirOf(this.documentPath(entry)), { recursive: true, force: true });
-        await rm(diagramsDirOf(this.documentPath(entry)), { recursive: true, force: true });
-        // Everything of this project that never left the machine, the private views among it.
-        await rm(privateDirOf(this.documentPath(entry)), { recursive: true, force: true });
-        await rm(gitignorePathOf(this.documentPath(entry)), { force: true });
-        await rm(this.documentPath(entry), { force: true });
-        // `.ruimte` goes only when nothing else is in it: an icon or a file a person put there
-        // keeps it, and `rmdir` says so by failing.
-        await rmdir(dirname(this.documentPath(entry))).catch(() => undefined);
+        // Only Ruimte's own files go; the rest of the folder is the person's project.
+        const path = this.documentPath(entry);
+        for (const dir of [drawingsDirOf(path), diagramsDirOf(path), privateDirOf(path)]) {
+            await rm(dir, { recursive: true, force: true });
+        }
+        await rm(gitignorePathOf(path), { force: true });
+        await rm(path, { force: true });
+        // An icon or a file a person put in `.ruimte` keeps it, and `rmdir` says so by failing.
+        await rmdir(dirname(path)).catch(() => undefined);
     }
 
     /*
@@ -1090,9 +1064,7 @@ export class ProjectStore {
                 const parsed = parseSharedFile(text);
                 if (parsed.kind === 'ok' && !this.index.has(entry.projectId)) {
                     const loaded = await this.loadFiles(this.documentPath(entry), entry, parsed.document);
-                    const document: ProjectDocument = { version: PROJECT_VERSION, rev: loaded.rev, ...loaded.content, shared: loaded.shared };
-                    this.index.set(entry.projectId, entry.folder, this.fromDisk(entry.projectId, document, entry.folder));
-                    await this.remote.prune(entry.projectId, idsOf(loaded.content));
+                    await this.indexRead(entry, documentOf(loaded.content, loaded.rev, loaded.shared));
                 }
             })
         );
@@ -1107,6 +1079,10 @@ export class ProjectStore {
 
     private locked<T>(projectId: string, work: () => Promise<T>): Promise<T> {
         return this.projectLocks.run(projectId, work);
+    }
+
+    private replaceEntry(next: RegistryEntry): Promise<void> {
+        return this.registry.update((entries) => entries.map((entry) => (entry.projectId === next.projectId ? next : entry)));
     }
 
     /* Where the project file of an open project sits, which is where its drawings and diagrams sit beside it. */
@@ -1182,10 +1158,8 @@ export class ProjectStore {
         await this.recover(state.entry);
         if (state.iconTouched) {
             state.iconTouched = false;
-            if (state.entry.folder) {
-                this.summaries.invalidate(state.entry.folder);
-                this.publish(state.entry);
-            }
+            this.summaries.invalidate(state.entry.folder);
+            this.publish(state.entry);
         }
         let text: string;
         try {
@@ -1251,12 +1225,10 @@ export class ProjectStore {
         if (privateText !== state.lastPrivate) {
             await writePrivateFile(privatePathOf(path), privateFile);
         }
-        const document: ProjectDocument = { version: PROJECT_VERSION, rev, ...loaded.content, shared: loaded.shared };
+        const document = documentOf(loaded.content, rev, loaded.shared);
         remember(state, { text, private: privateText }, rev, loaded.shared, document.views, loaded.overlayFields);
         state.entry = { ...state.entry, name: document.name, color: document.color, icon: document.icon ?? null };
-        this.index.set(state.entry.projectId, state.entry.folder, this.fromDisk(state.entry.projectId, document, state.entry.folder));
-        await this.remote.prune(state.entry.projectId, idsOf(document));
-        await this.announceChange(state.entry, this.fromDisk(state.entry.projectId, document, state.entry.folder));
+        await this.announceChange(state.entry, await this.indexRead(state.entry, document));
         this.publish(state.entry);
     }
 
@@ -1273,16 +1245,21 @@ export class ProjectStore {
             throw new ProjectError('project-invalid', 'The recovered project file could not be read');
         }
         const loaded = await this.loadFiles(path, entry, parsed.document);
-        const document: ProjectDocument = { version: PROJECT_VERSION, rev: loaded.rev, ...loaded.content, shared: loaded.shared };
+        const document = documentOf(loaded.content, loaded.rev, loaded.shared);
         const state = this.open.get(entry.projectId);
         if (state) {
             remember(state, written, loaded.rev, loaded.shared, document.views, loaded.overlayFields);
         }
+        await this.announceChange(entry, await this.indexRead(entry, document));
+        return true;
+    }
+
+    /* Indexes a document read from disk and drops the bindings of nodes it no longer places; answers it in its daemon-side form. */
+    private async indexRead(entry: RegistryEntry, document: ProjectDocument): Promise<ProjectDocument> {
         const daemonSide = this.fromDisk(entry.projectId, document, entry.folder);
         this.index.set(entry.projectId, entry.folder, daemonSide);
         await this.remote.prune(entry.projectId, idsOf(document));
-        await this.announceChange(entry, daemonSide);
-        return true;
+        return daemonSide;
     }
 
     /* Tells every client what a project looks like now; too small a change to ship a document for. */

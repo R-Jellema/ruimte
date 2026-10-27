@@ -1,10 +1,11 @@
 import type { AgentLineageStore } from '@adecore/agents/coordination';
 import type { ChatInfo, ProjectView } from '@ruimte/contracts';
 import { isInside } from '../canvas/project-paths.ts';
-import { moveClaudeTranscript } from '../chat/claude-move.ts';
+import type { moveClaudeTranscript } from '../chat/claude-move.ts';
 import { ChatError } from '../chat/errors.ts';
 import { errorText } from '../error-text.ts';
 import type { SnoozeStore } from '../push/snoozes.ts';
+import { fileTranscript } from './move-chat.ts';
 import type { MoveJournal } from './move-journal.ts';
 import { ownFileNames } from './move-info.ts';
 import { movedNote } from './move-note.ts';
@@ -46,14 +47,6 @@ async function loadOrNull(deps: MoveRepairDeps, chatId: string): Promise<ChatInf
     }
 }
 
-/* Puts the conversation of a Claude chat under the slug of the folder the record names (or will name). */
-async function filedUnder(deps: MoveRepairDeps, info: ChatInfo, folder: string): Promise<void> {
-    const projectsDir = deps.chats.claudeProjectsDirOf(info);
-    if (info.provider === 'claude' && info.agentSessionId !== null && projectsDir !== '') {
-        await (deps.moveTranscript ?? moveClaudeTranscript)({ projectsDir, sessionId: info.agentSessionId, fromCwd: info.cwd, toCwd: folder });
-    }
-}
-
 async function repairOne(deps: MoveRepairDeps, chatsId: string, chatId: string, targetId: string): Promise<void> {
     const target = (await deps.projects.known()).find((project) => project.projectId === targetId);
     const placedByTarget = (deps.index.viewsOf(targetId) ?? []).some((view) => view.id === chatId);
@@ -61,7 +54,7 @@ async function repairOne(deps: MoveRepairDeps, chatsId: string, chatId: string, 
         // The target never took the chat, so the move stopped before its first write: only the conversation may have gone ahead.
         const info = await loadOrNull(deps, chatId);
         if (info !== null) {
-            await filedUnder(deps, info, info.cwd);
+            await fileTranscript(deps.chats, info, info.cwd, deps.moveTranscript);
         }
         return;
     }
@@ -82,7 +75,9 @@ async function repairOne(deps: MoveRepairDeps, chatsId: string, chatId: string, 
     const info = await loadOrNull(deps, chatId);
     // Anywhere else the record already took the new folder. The own files stay where they are.
     if (info !== null && isInside(deps.scratchFolder, info.cwd)) {
-        await deps.chats.relocate(chatId, target.folder, () => filedUnder(deps, info, target.folder));
+        await deps.chats.relocate(chatId, target.folder, async () => {
+            await fileTranscript(deps.chats, info, target.folder, deps.moveTranscript);
+        });
     }
     // The agent hears where it works now, once: the id is the one a move that ran through uses.
     const ownFolder = deps.ownFolder(chatId);

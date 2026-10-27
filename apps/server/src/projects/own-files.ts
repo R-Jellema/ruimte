@@ -25,6 +25,8 @@ export interface OwnFilesIO {
 
 type CopyTree = (from: string, to: string) => Promise<void>;
 
+const removeTree = (path: string): Promise<void> => rm(path, { recursive: true, force: true });
+
 const copyTree: CopyTree = (from, to) => cp(from, to, { recursive: true, errorOnExist: true, force: false, verbatimSymlinks: true, preserveTimestamps: true });
 
 /*
@@ -37,7 +39,7 @@ export async function copyWithoutReplacing(from: string, to: string, copy: CopyT
         await copy(from, temporary);
         await rename(temporary, to);
     } catch (e) {
-        await rm(temporary, { recursive: true, force: true }).catch(() => undefined);
+        await removeTree(temporary).catch(() => undefined);
         throw e;
     }
 }
@@ -73,7 +75,7 @@ async function moveBack(io: OwnFilesIO, from: string, to: string): Promise<void>
             throw e;
         }
         await io.copy(from, to);
-        await rm(from, { recursive: true, force: true });
+        await removeTree(from);
     }
 }
 
@@ -144,28 +146,28 @@ export async function moveOwnFiles(from: string, to: string, io: OwnFilesIO = SY
         }
     }
 
-    const copies = names.slice(crossing);
+    const remove = io.remove ?? removeTree;
     const copied: string[] = [];
-    for (const name of copies) {
+    for (const name of names.slice(crossing)) {
         try {
             await io.copy(join(from, name), join(to, name));
             copied.push(name);
         } catch (e) {
             // The copy that failed left nothing at its name; the ones before it are ours to take back.
             for (const made of copied) {
-                await rm(join(to, made), { recursive: true, force: true }).catch(() => undefined);
+                await removeTree(join(to, made)).catch(() => undefined);
             }
             return failed(e, name);
         }
     }
     for (const [i, name] of copied.entries()) {
         try {
-            await (io.remove ?? ((path: string) => rm(path, { recursive: true, force: true })))(join(from, name));
+            await remove(join(from, name));
         } catch (e) {
             // The originals before this one are gone and come back from their copies; those after it are still whole, and so is the copy of this one.
             arrived.push(...copied.slice(0, i));
             for (const later of copied.slice(i + 1)) {
-                await rm(join(to, later), { recursive: true, force: true }).catch(() => undefined);
+                await removeTree(join(to, later)).catch(() => undefined);
             }
             return failed(e, name, `. The whole copy is in ${join(to, name)}; the original in ${from} may be incomplete.`);
         }

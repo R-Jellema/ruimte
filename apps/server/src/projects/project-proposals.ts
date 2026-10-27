@@ -44,12 +44,11 @@ function holdKeyOf(proposalId: string): string {
 }
 
 /*
- * The cards in which an agent in Chats suggests that its chat becomes a project. One card per chat,
- * so an agent that suggests again joins the card that stands. It goes to every client; whoever
- * answers first settles it. Nothing is made here: the person reviews it in the dialog that moves a
- * chat, and a move of that chat takes the card down. A suggestion never waits for the person, since a
- * call that holds the turn open blocks the very move the card offers; a decline reaches the agent on its
- * next suggestion, once. A chat that moved suggests nothing more, so a move tells it nothing.
+ * The cards in which an agent in Chats suggests that its chat becomes a project, one per chat: a
+ * second suggestion joins the card that stands. Whoever answers first settles it, and nothing is made
+ * here; a move of the chat takes the card down. A suggestion never waits for the person, since a turn
+ * held open would block the very move the card offers, so a decline reaches the agent with its next
+ * suggestion, once.
  */
 export class ProjectProposals {
     private readonly chats: ProposalChats;
@@ -120,11 +119,7 @@ export class ProjectProposals {
 
     /* The chat left Chats for a project, however the person got there: it can suggest nothing more, so nothing is left to tell it. */
     moved(chatId: string): void {
-        const pending = this.pending.get(chatId);
-        if (pending !== undefined) {
-            this.settle(pending, null);
-        }
-        this.unheard.delete(chatId);
+        this.forget(chatId);
     }
 
     /* The chat stopped running or is gone: nobody is left to hear an answer. */
@@ -152,35 +147,20 @@ export class ProjectProposals {
 
     private raise(ask: ProposalAsk): Pending {
         const standing = this.pending.get(ask.chatId);
-        const expiresAt = this.now() + this.cardMs;
+        const now = this.now();
+        const words = { name: ask.name, ...(ask.folder === undefined ? {} : { folder: ask.folder }), reason: ask.reason };
+        const expiresAt = now + this.cardMs;
         if (standing !== undefined) {
             standing.cancelExpiry();
-            standing.proposal = {
-                ...standing.proposal,
-                name: ask.name,
-                reason: ask.reason,
-                ...(ask.folder === undefined ? { folder: undefined } : { folder: ask.folder }),
-                expiresAt
-            };
-            if (ask.folder === undefined) {
-                delete standing.proposal.folder;
-            }
+            const { proposalId, chatId, createdAt } = standing.proposal;
+            standing.proposal = { proposalId, chatId, ...words, createdAt, expiresAt };
             standing.cancelExpiry = this.expireLater(standing);
             this.publish();
             return standing;
         }
         this.unheard.delete(ask.chatId);
-        const now = this.now();
         const pending: Pending = {
-            proposal: {
-                proposalId: randomUUID(),
-                chatId: ask.chatId,
-                name: ask.name,
-                ...(ask.folder === undefined ? {} : { folder: ask.folder }),
-                reason: ask.reason,
-                createdAt: now,
-                expiresAt: now + this.cardMs
-            },
+            proposal: { proposalId: randomUUID(), chatId: ask.chatId, ...words, createdAt: now, expiresAt },
             cancelExpiry: () => undefined
         };
         pending.cancelExpiry = this.expireLater(pending);

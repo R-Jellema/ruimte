@@ -24,11 +24,9 @@ export class ProjectSummaries {
         this.scratchFolder = scratchFolder;
     }
 
-    /* A chosen icon wins; without one the folder is asked. */
     async summarize(entry: RegistryEntry): Promise<ProjectSummary> {
         const available = await fileExists(documentPathInFolder(entry.folder));
-        const derived = await this.identity.resolve(entry.folder);
-        const image = derived.icon ?? null;
+        const image = (await this.identity.resolve(entry.folder)).icon;
         const icon: ProjectIcon = entry.icon ?? (image ? imageIcon(image) : initialIconOf(entry.name));
         return {
             projectId: entry.projectId,
@@ -70,7 +68,7 @@ export class ProjectSummaries {
 
     /* The file behind `GET /projects/<id>/icon`, or null when the project shows no image. */
     async iconFile(entry: RegistryEntry | undefined, theme: 'light' | 'dark'): Promise<{ path: string; mime: string } | null> {
-        if (!entry?.folder || entry.icon) {
+        if (!entry || entry.icon) {
             return null;
         }
         const icon = (await this.identity.resolve(entry.folder)).icon;
@@ -82,11 +80,7 @@ function imageIcon(icon: DerivedIcon): ProjectIcon {
     return { kind: 'image', value: icon.from, version: icon.version };
 }
 
-/*
- * A name that still matches the folder's own is the folder's, not a decision; the client says so
- * under the icon picker. Renaming to exactly that string reads as the folder's too, which is the
- * honest answer: there is nothing on disk that says otherwise.
- */
+/* A name that still matches the folder's is the folder's, even one typed by hand: nothing on disk says otherwise. */
 function nameSourceOf(name: string, folder: string): ProjectNameSource {
     return name === basename(folder) ? 'folder' : 'chosen';
 }

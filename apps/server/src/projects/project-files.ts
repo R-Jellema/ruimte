@@ -36,7 +36,8 @@ export const PROJECT_FILE = 'project.json';
 /* The mirror of `.ruimte` that holds what belongs to one person. The `.gitignore` beside it names this one line. */
 export const PRIVATE_DIR = 'private';
 const GITIGNORE_FILE = '.gitignore';
-const OUTSIDE_EDIT_SETTLE_MS = 150;
+// Editors and git write in bursts; one event per burst is what a client wants.
+export const WATCH_SETTLE_MS = 150;
 // One file per drawing view, in a directory of their own: `.ruimte` is read by people and by git,
 // and its top level stays the two files the daemon documents.
 const DRAWINGS_DIR = 'drawings';
@@ -84,10 +85,9 @@ export interface JsonDocumentReadOptions {
 
 /*
  * How the project file, a drawing and a diagram are all read. A file that is not one of ours at all
- * is moved next to itself with a timestamp, so a bad merge or a crash never costs the person their
- * work and never gets written over by a fresh file. One that parses but breaks an invariant stays
- * where it is: only a person can decide which of the two things sharing an id was meant. One from a
- * newer Ruimte stays too, and untouched: a file a later release reads is not a file to move aside.
+ * is moved next to itself with a timestamp, so a fresh file never writes over the person's work. One
+ * that breaks an invariant stays where it is, since only a person can decide which of two things
+ * sharing an id was meant, and so does one from a newer Ruimte.
  */
 export async function readJsonDocument<T>(
     path: string,
@@ -240,7 +240,7 @@ export interface OutsideEdits {
 
 /* Watches both folders for the file and takes an edit in once its burst settled, in turn with the store's own writes. */
 export function watchOutsideEdits(edits: OutsideEdits): { settle: Settled; watchers: DirectoryWatcher[] } {
-    const settle = settled(edits.seams, OUTSIDE_EDIT_SETTLE_MS, () =>
+    const settle = settled(edits.seams, WATCH_SETTLE_MS, () =>
         edits.writes
             .run(async () => {
                 if (edits.current()) {
@@ -267,8 +267,10 @@ export function takeMovedFiles<State extends { rev: number; sharedText: string; 
     takeShared: (state: State, read: JsonDocumentRead<Shared>) => void,
     takePrivate: (state: State, read: JsonDocumentRead<Private>) => void
 ): boolean {
-    const sharedMoved = readTextOf(shared) !== null && readTextOf(shared) !== state.sharedText;
-    const privateMoved = readTextOf(own) !== null && readTextOf(own) !== state.privateText;
+    const sharedText = readTextOf(shared);
+    const privateText = readTextOf(own);
+    const sharedMoved = sharedText !== null && sharedText !== state.sharedText;
+    const privateMoved = privateText !== null && privateText !== state.privateText;
     if (!sharedMoved && !privateMoved) {
         return false;
     }
@@ -334,8 +336,8 @@ export function parsePrivateFile(text: string): JsonDocumentParse<ProjectPrivate
     return { kind: 'ok', document: { ...parsed.data, views: withoutCrossViewEdges(parsed.data.views) } };
 }
 
-export function readPrivateFile(path: string): Promise<JsonDocumentRead<ProjectPrivateFile>> {
-    return readJsonDocument(path, parsePrivateFile);
+export function readPrivateFile(path: string, options?: JsonDocumentReadOptions): Promise<JsonDocumentRead<ProjectPrivateFile>> {
+    return readJsonDocument(path, parsePrivateFile, options);
 }
 
 /*
@@ -516,15 +518,13 @@ export function viewIdOfFile(filename: string): string | null {
 }
 
 /*
- * The top level indented, every entry of a list on one line. `JSON.stringify(document, null, 2)`
- * would put every point of every stroke on a line of its own, and a diff of that says nothing.
+ * Every entry of a list on one line: `JSON.stringify(document, null, 2)` would put every point of
+ * every stroke on a line of its own, and a diff of that says nothing.
  */
-function oneItemPerLine(items: readonly unknown[]): string {
-    return items.length === 0 ? '[]' : `[\n${items.map((item) => `    ${JSON.stringify(item)}`).join(',\n')}\n  ]`;
-}
-
 export function serializeDrawing(document: DrawingDocument): string {
-    return ['{', `  "version": ${document.version},`, `  "rev": ${document.rev},`, `  "elements": ${oneItemPerLine(document.elements)}`, '}', ''].join('\n');
+    return ['{', `  "version": ${document.version},`, `  "rev": ${document.rev},`, `  "elements": ${itemsOnLines(document.elements, INDENT)}`, '}', ''].join(
+        '\n'
+    );
 }
 
 function parseDrawing(text: string): JsonDocumentParse<DrawingDocument> {
@@ -559,9 +559,9 @@ export function serializeDiagram(document: DiagramDocument): string {
         `  "version": ${document.version},`,
         `  "rev": ${document.rev},`,
         `  "meta": ${JSON.stringify(document.meta)},`,
-        `  "nodes": ${oneItemPerLine(document.nodes)},`,
-        `  "groups": ${oneItemPerLine(document.groups)},`,
-        `  "edges": ${oneItemPerLine(document.edges)}`,
+        `  "nodes": ${itemsOnLines(document.nodes, INDENT)},`,
+        `  "groups": ${itemsOnLines(document.groups, INDENT)},`,
+        `  "edges": ${itemsOnLines(document.edges, INDENT)}`,
         '}',
         ''
     ].join('\n');

@@ -1,8 +1,7 @@
-import { mkdir, readFile } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { z } from 'zod';
-import { isNotFound } from '@adecore/agents';
-import { PROJECT_WRITE_IO, type ProjectWriteIO } from './project-write.ts';
+import { PROJECT_WRITE_IO, textAt, writeChangedFiles, type ProjectWriteIO } from './project-write.ts';
 
 const IntentSchema = z.object({
     version: z.literal(1),
@@ -22,24 +21,8 @@ export class PairedWriteRaced extends Error {}
 /* An interrupted write that cannot finish without overwriting an edit made since. */
 export class PairedWriteStuck extends Error {}
 
-async function textAt(path: string): Promise<string | null> {
-    try {
-        return await readFile(path, 'utf8');
-    } catch (e) {
-        if (isNotFound(e)) {
-            return null;
-        }
-        throw e;
-    }
-}
-
 async function apply(intentPath: string, files: readonly PairedFile[], io: ProjectWriteIO): Promise<void> {
-    for (const file of files) {
-        if (file.after !== null && (await textAt(file.path)) !== file.after) {
-            await mkdir(dirname(file.path), { recursive: true });
-            await io.write(file.path, file.after, 0o644, { durable: true });
-        }
-    }
+    await writeChangedFiles(files, io);
     await io.remove(intentPath);
 }
 
