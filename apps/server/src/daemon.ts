@@ -27,6 +27,7 @@ import { serveDaemon } from './wiring/http.ts';
 import { wireLanguage } from './wiring/language.ts';
 import { wireLaunches } from './wiring/launches.ts';
 import { wireMachine } from './wiring/machine.ts';
+import { wireMaintenance } from './wiring/maintenance.ts';
 import { wireNetwork } from './wiring/network.ts';
 import { wirePower } from './wiring/power.ts';
 import { wireProjects } from './wiring/projects.ts';
@@ -131,6 +132,7 @@ export async function startDaemon(config: ServerConfig, launcher: Launcher = 'st
         projects: projects.store,
         shutdown: (reason) => shutdown(reason)
     });
+    const maintenance = wireMaintenance(home, processes);
     const canvasHost = wireCanvasHost({
         identity,
         stores,
@@ -308,6 +310,7 @@ export async function startDaemon(config: ServerConfig, launcher: Launcher = 'st
     await routines.routines.start().catch((e: unknown) => console.error('Scheduling routines failed:', errorText(e)));
     work.worker.start();
     work.endChildren.start();
+    maintenance.start();
     // Beside the daemon answering: a turn a restart interrupted is taken up again without waiting for a client.
     void chats.recoverInterrupted().catch((e) => console.error('Resuming interrupted turns failed:', errorText(e)));
 
@@ -347,6 +350,7 @@ export async function startDaemon(config: ServerConfig, launcher: Launcher = 'st
                 console.error(`${what} on shutdown failed:`, errorText(e));
             }
         };
+        await step('Stopping maintenance', () => maintenance.stop());
         // Before the sessions go: a Voice session left open at OpenAI keeps costing.
         await step('Ending Voice sessions', async () => voice.sessions.stopAll());
         await step('Settling tasks', () => work.tasks.coordinator.settled());

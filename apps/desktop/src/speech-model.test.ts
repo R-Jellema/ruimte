@@ -86,3 +86,19 @@ test('a start reads only the model files that changed since their last full chec
     expect((await start()).state).toMatchObject({ enabled: true, phase: 'ready' });
     expect(checked).toEqual(['tokenizer.model']);
 });
+test('a start and a removal take the old CoreML cache, a start keeps the current one', async () => {
+    const { directory, helper } = await fixture();
+    const legacy = join(directory, 'models', 'coreml-cache');
+    const current = join(directory, 'models', 'streaming-coreml-cache');
+    await mkdir(join(legacy, 'compiled'), { recursive: true });
+    await writeFile(join(legacy, 'compiled', 'weights.bin'), 'old');
+    await mkdir(current, { recursive: true });
+    await writeFile(join(current, 'weights.bin'), 'new');
+    const model = new SpeechModel(directory, helper, () => undefined);
+    await model.initialized;
+    expect(await Bun.file(join(legacy, 'compiled', 'weights.bin')).exists()).toBe(false);
+    expect(await Bun.file(join(current, 'weights.bin')).exists()).toBe(true);
+    await mkdir(legacy, { recursive: true });
+    await model.remove();
+    expect(await stat(legacy).catch(() => null)).toBeNull();
+});

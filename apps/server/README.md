@@ -236,7 +236,7 @@ $RUIMTE_HOME/
     settings.json                  whether computer use is on, and the language it speaks
     grants.json                    apps let in for always, and apps seen running shells
     overlay.json                   the words of the helper's cursor, session bar and menu
-    agent.sock, screenshots/       the helper's own (apps/computer-use/README.md)
+    agent.sock, screenshots/       the helper's own (apps/computer-use/README.md); the daemon sweeps a capture after an hour too
   browser/                         the profile of the pages the daemon runs for clients without a browser
   screenshots/                     pngs `browser shot` and `device shot` wrote, swept after a day
   device-captures/                 a person's screenshots and recordings of a device, read by the client over `bytes.read`, swept after a week
@@ -263,7 +263,9 @@ $RUIMTE_HOME/
   power/closed-lid-held            0700 folder, present while sleep is off for a closed lid
 ```
 
-The desktop shell and helpers write a few entries of their own in the same home: `speech.json` and the speech models under `models/`, and `apple-foundation/` for the Apple helper's sessions.
+The desktop shell and helpers write a few entries of their own in the same home: `speech.json` and the speech models under `models/`, and `apple-foundation/` for the Apple helper's sessions. The shell removes `models/coreml-cache`, a cache no release reads any more, when it starts.
+
+Disposable files go on the rule of the code that writes them: `screenshots/` after a day, `device-captures/` after a week (never `placed/`) and the computer use helper's captures after an hour. Each folder is swept when something new is written there, and by a maintenance pass when the daemon starts and every hour after while no terminal has work in it and no agent is in a turn (`src/maintenance`). A pass reads at most 5000 entries and removes at most 1000 files per folder, removes only regular files whose name or time says they expired, keeps any other, and stops between two files when the daemon shuts down.
 
 File names are the id passed through `encodeURIComponent`, so an id can never name a path outside its directory.
 

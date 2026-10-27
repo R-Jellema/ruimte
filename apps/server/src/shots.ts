@@ -1,5 +1,7 @@
-import { mkdir, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import type { Reclaimed } from './maintenance/maintenance.ts';
+import { sweepFolder } from './maintenance/sweep-folder.ts';
 
 /* A shot is read once, by the agent that asked for it; a day later it is only a file nobody opens. */
 const SHOT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
@@ -12,26 +14,40 @@ export const DEVICE_CAPTURES_FOLDER = 'device-captures';
 
 const PLACED_CAPTURES_FOLDER = 'placed';
 
+const SCREENSHOTS_FOLDER = 'screenshots';
+
 /* An id comes from the project file, so it never becomes a path of its own. */
 function fileSafe(id: string): string {
     return id.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64) || 'shot';
 }
 
-/* Files past their age, taken away as a new one is written, so nothing here grows without end. */
-async function sweep(folder: string, now: number, maxAgeMs: number): Promise<void> {
+/*
+ * Files past their age, by the time in their name; a name without one is not ours and stays. Swept as a
+ * new one is written and by the daemon's maintenance, so nothing here grows without end.
+ */
+function sweep(folder: string, now: number, maxAgeMs: number, signal?: AbortSignal): Promise<Reclaimed> {
     const oldest = now - maxAgeMs;
-    const names = await readdir(folder).catch(() => []);
-    for (const name of names) {
-        const taken = Number(/-(\d+)\.(png|mp4)$/.exec(name)?.[1]);
-        if (Number.isFinite(taken) && taken < oldest) {
-            await rm(join(folder, name)).catch(() => undefined);
-        }
-    }
+    return sweepFolder(folder, {
+        expired: (name) => {
+            const taken = Number(/-(\d+)\.(png|mp4)$/.exec(name)?.[1]);
+            return Number.isFinite(taken) && taken < oldest;
+        },
+        signal
+    });
+}
+
+export function sweepScreenshots(home: string, now: number, signal?: AbortSignal): Promise<Reclaimed> {
+    return sweep(join(home, SCREENSHOTS_FOLDER), now, SHOT_MAX_AGE_MS, signal);
+}
+
+/* Never reaches `placed`, which is a folder below this one. */
+export function sweepDeviceCaptures(home: string, now: number, signal?: AbortSignal): Promise<Reclaimed> {
+    return sweep(join(home, DEVICE_CAPTURES_FOLDER), now, CAPTURE_MAX_AGE_MS, signal);
 }
 
 /* Writes a png an agent asked for under the machine's own folder, outside any project, and answers its path. */
 export async function writeShot(home: string, id: string, image: Uint8Array): Promise<string> {
-    const folder = join(home, 'screenshots');
+    const folder = join(home, SCREENSHOTS_FOLDER);
     await mkdir(folder, { recursive: true });
     const now = Date.now();
     await sweep(folder, now, SHOT_MAX_AGE_MS);

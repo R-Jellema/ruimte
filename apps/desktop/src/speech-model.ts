@@ -45,6 +45,7 @@ interface CheckedFile {
 export class SpeechModel {
     readonly directory: string;
     readonly cacheDirectory: string;
+    readonly #legacyCache: string;
     readonly #settings: string;
     readonly #helper: string;
     readonly #fetch: typeof fetch;
@@ -64,6 +65,7 @@ export class SpeechModel {
     ) {
         this.directory = join(home, 'models', 'streaming');
         this.cacheDirectory = join(home, 'models', 'streaming-coreml-cache');
+        this.#legacyCache = join(home, 'models', 'coreml-cache');
         this.#settings = join(home, 'speech.json');
         this.#helper = helper;
         this.#fetch = fetcher;
@@ -125,6 +127,7 @@ export class SpeechModel {
     }
 
     async #initialize(): Promise<void> {
+        await this.#dropLegacyCache();
         try {
             if (!existsSync(this.#helper)) {
                 this.#update({ phase: 'unavailable' });
@@ -258,7 +261,13 @@ export class SpeechModel {
         await this.setEnabled(false);
         await rm(this.directory, { recursive: true, force: true });
         await rm(this.cacheDirectory, { recursive: true, force: true });
+        await this.#dropLegacyCache();
         return this.#update({ phase: 'missing', downloadedBytes: 0 });
+    }
+
+    /* No helper of a release ever compiled into the cache before `streaming-coreml-cache`, so nothing reads it any more. */
+    async #dropLegacyCache(): Promise<void> {
+        await rm(this.#legacyCache, { recursive: true, force: true }).catch(() => undefined);
     }
 
     dispose(): void {
