@@ -48,7 +48,7 @@ describe('the model catalogs', () => {
         const catalogs = await catalogsFor(db, 'v1');
         expect(Object.keys(catalogs)).toEqual(['claude', 'codex']);
         expect(ModelCatalogsResultSchema.safeParse({ catalogs }).success).toBe(true);
-        expect(await catalogsFor(db, 'v2')).toEqual(catalogs);
+        expect(Object.keys(await catalogsFor(db, 'v2'))).toEqual(['claude', 'codex', 'grok', 'copilot', 'antigravity']);
     });
 
     test('a seeded kind reads back as the catalog it came from, dated when it landed', async () => {
@@ -103,7 +103,7 @@ describe('the model catalogs', () => {
 
     test('a database that does not answer leaves the bundled manifests', async () => {
         const broken = { prepare: () => ({}), batch: () => Promise.reject(new Error('down')) } as unknown as D1Database;
-        expect(Object.keys(await catalogsFor(broken, 'v2'))).toEqual(['claude', 'codex']);
+        expect(await catalogsFor(broken, 'v2')).toEqual(BUNDLED_CATALOGS);
     });
 
     test('every bundled manifest passes the frozen schema of each route that serves it', () => {

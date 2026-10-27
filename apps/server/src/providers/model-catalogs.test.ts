@@ -3,11 +3,11 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { ModelCatalogData } from '@ruimte/contracts';
 import { ModelCatalog } from '@adecore/agents/providers';
-import type { ModelCatalogsResult } from '@ruimte/pulsar';
+import type { ModelCatalogsV2Result } from '@ruimte/pulsar';
 import { ModelCatalogFeed } from './model-catalogs.ts';
 import { tempHomes } from '../temp-home-test-helpers.ts';
 
-const HOUR = 60 * 60 * 1000;
+const MINUTE = 60 * 1000;
 
 function catalogOf(updatedAt: string, slugs: string[]): ModelCatalogData {
     return {
@@ -25,13 +25,13 @@ const newHome = tempHomes('ruimte-catalogs-');
 let home: string;
 let clock: number;
 let asked: number;
-let answer: () => Promise<ModelCatalogsResult>;
+let answer: () => Promise<ModelCatalogsV2Result>;
 
 function slugsOf(catalog: ModelCatalog): string[] {
     return catalog.list().map((model) => model.slug);
 }
 
-function feedOf(catalogs: { claude: ModelCatalog; codex?: ModelCatalog }, allowFetch = true): ModelCatalogFeed {
+function feedOf(catalogs: { claude: ModelCatalog; codex?: ModelCatalog; grok?: ModelCatalog }, allowFetch = true): ModelCatalogFeed {
     return new ModelCatalogFeed({
         home,
         allowFetch,
@@ -56,7 +56,7 @@ describe('ModelCatalogFeed', () => {
         const claude = new ModelCatalog(SHIPPED);
         await feedOf({ claude }).refresh();
         expect(slugsOf(claude)).toEqual(['model-a', 'model-b']);
-        const stored = JSON.parse(await readFile(join(home, 'models', 'catalogs.json'), 'utf8'));
+        const stored = JSON.parse(await readFile(join(home, 'models', 'catalogs-v2.json'), 'utf8'));
         expect(stored).toEqual({ fetchedAt: clock, catalogs: { claude: NEWER } });
 
         const restarted = new ModelCatalog(SHIPPED);
@@ -65,15 +65,48 @@ describe('ModelCatalogFeed', () => {
         expect(slugsOf(restarted)).toEqual(['model-a', 'model-b']);
     });
 
-    test('asks again only once the answer is six hours old', async () => {
+    test('asks again only once the answer is fifteen minutes old', async () => {
         const feed = feedOf({ claude: new ModelCatalog(SHIPPED) });
         await feed.refresh();
-        clock += 5 * HOUR;
+        clock += 14 * MINUTE;
         await feed.refresh();
         expect(asked).toBe(1);
-        clock += 2 * HOUR;
+        clock += 2 * MINUTE;
         await feed.refresh();
         expect(asked).toBe(2);
+    });
+
+    test('an ACP catalog keeps the models the agent reported and names them the way the catalog does', async () => {
+        const grok = new ModelCatalog(SHIPPED);
+        grok.adopt(
+            [
+                { slug: 'model-b', name: 'model-b' },
+                { slug: 'reported', name: 'Reported' }
+            ],
+            'reported'
+        );
+        answer = async () => ({ catalogs: { grok: { ...NEWER, models: NEWER.models.map((model) => ({ ...model, name: model.slug.toUpperCase() })) } } });
+        await feedOf({ claude: new ModelCatalog(SHIPPED), grok }).refresh();
+        expect(grok.list().map((model) => [model.slug, model.name])).toEqual([
+            ['model-b', 'MODEL-B'],
+            ['reported', 'Reported']
+        ]);
+    });
+
+    test('keeps the answer apart from the v1 file, and reads that file until the first answer', async () => {
+        await mkdir(join(home, 'models'), { recursive: true });
+        await writeFile(join(home, 'models', 'catalogs.json'), JSON.stringify({ fetchedAt: clock, catalogs: { claude: NEWER } }));
+        const claude = new ModelCatalog(SHIPPED);
+        await feedOf({ claude }).load();
+        expect(slugsOf(claude)).toEqual(['model-a', 'model-b']);
+
+        clock += 20 * MINUTE;
+        await feedOf({ claude }).refresh();
+        expect(JSON.parse(await readFile(join(home, 'models', 'catalogs.json'), 'utf8'))).toEqual({
+            fetchedAt: clock - 20 * MINUTE,
+            catalogs: { claude: NEWER }
+        });
+        expect(JSON.parse(await readFile(join(home, 'models', 'catalogs-v2.json'), 'utf8')).fetchedAt).toBe(clock);
     });
 
     test('a failed fetch keeps what it had and waits ten minutes before knocking again', async () => {
