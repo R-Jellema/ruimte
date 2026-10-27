@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { ChatAttachResult, ChatEvent, Task } from '@ruimte/contracts';
@@ -244,7 +244,8 @@ describe('the record of a chat', () => {
         await manager.persisted('chat');
 
         expect(store.calls).toEqual(['write chat', 'write chat']);
-        expect((await stat(join(home, 'chats', 'chat.json'))).size).toBeGreaterThan(COMPACT_ABOVE_BYTES);
+        // The output itself is kept apart from the record, which names it.
+        expect(await readdir(join(home, 'chats', 'chat.payloads'))).toHaveLength(1);
         // Gone when nothing came after the fold.
         expect((await readFile(store.logPath('chat'), 'utf8').catch(() => '')).length).toBeLessThan(16 * 1024);
     });

@@ -181,6 +181,7 @@
     "chat.compact",
     "chat.clear",
     "chat.turnDiff",
+    "chat.toolOutput",
     "chat.fork",
     "chat.continueOn",
     "chat.forkInfo",

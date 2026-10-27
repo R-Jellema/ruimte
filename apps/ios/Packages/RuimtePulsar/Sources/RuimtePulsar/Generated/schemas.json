@@ -15223,6 +15223,23 @@
                     "phases",
                     "agents"
                   ]
+                },
+                "outputRef": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "bytes": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "bytes"
+                  ]
                 }
               },
               "required": [
@@ -15767,6 +15784,23 @@
                   },
                   "required": [
                     "kind"
+                  ]
+                },
+                "checkpointDiffRef": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "bytes": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "bytes"
                   ]
                 }
               },
@@ -17586,6 +17620,23 @@
                     "phases",
                     "agents"
                   ]
+                },
+                "outputRef": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "bytes": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "bytes"
+                  ]
                 }
               },
               "required": [
@@ -18130,6 +18181,23 @@
                   },
                   "required": [
                     "kind"
+                  ]
+                },
+                "checkpointDiffRef": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "bytes": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "bytes"
                   ]
                 }
               },
@@ -19183,6 +19251,23 @@
                     "phases",
                     "agents"
                   ]
+                },
+                "outputRef": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "bytes": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "bytes"
+                  ]
                 }
               },
               "required": [
@@ -19727,6 +19812,23 @@
                   },
                   "required": [
                     "kind"
+                  ]
+                },
+                "checkpointDiffRef": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "bytes": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "bytes"
                   ]
                 }
               },
@@ -20774,6 +20876,23 @@
                             "phases",
                             "agents"
                           ]
+                        },
+                        "outputRef": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "bytes": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "bytes"
+                          ]
                         }
                       },
                       "required": [
@@ -21318,6 +21437,23 @@
                           },
                           "required": [
                             "kind"
+                          ]
+                        },
+                        "checkpointDiffRef": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "bytes": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "bytes"
                           ]
                         }
                       },
@@ -24097,6 +24233,23 @@
                               "phases",
                               "agents"
                             ]
+                          },
+                          "outputRef": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "bytes": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "bytes"
+                            ]
                           }
                         },
                         "required": [
@@ -24641,6 +24794,23 @@
                             },
                             "required": [
                               "kind"
+                            ]
+                          },
+                          "checkpointDiffRef": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "bytes": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "bytes"
                             ]
                           }
                         },
@@ -25942,6 +26112,23 @@
                     "phases",
                     "agents"
                   ]
+                },
+                "outputRef": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "bytes": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "bytes"
+                  ]
                 }
               },
               "required": [
@@ -26486,6 +26673,23 @@
                   },
                   "required": [
                     "kind"
+                  ]
+                },
+                "checkpointDiffRef": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "bytes": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "bytes"
                   ]
                 }
               },
@@ -28387,6 +28591,39 @@
     },
     "required": [
       "diff"
+    ]
+  },
+  "request.chat.toolOutput.payload": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "chatId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "itemId": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required": [
+      "chatId",
+      "itemId"
+    ]
+  },
+  "request.chat.toolOutput.result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "output": {
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    },
+    "required": [
+      "output"
     ]
   },
   "request.chat.fork.payload": {
@@ -31066,6 +31303,23 @@
                     "phases",
                     "agents"
                   ]
+                },
+                "outputRef": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "bytes": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "bytes"
+                  ]
                 }
               },
               "required": [
@@ -31610,6 +31864,23 @@
                   },
                   "required": [
                     "kind"
+                  ]
+                },
+                "checkpointDiffRef": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "bytes": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "bytes"
                   ]
                 }
               },
@@ -71092,6 +71363,23 @@
                           "phases",
                           "agents"
                         ]
+                      },
+                      "outputRef": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "bytes": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "bytes"
+                        ]
                       }
                     },
                     "required": [
@@ -71636,6 +71924,23 @@
                         },
                         "required": [
                           "kind"
+                        ]
+                      },
+                      "checkpointDiffRef": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "bytes": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "bytes"
                         ]
                       }
                     },
@@ -74415,6 +74720,23 @@
                             "phases",
                             "agents"
                           ]
+                        },
+                        "outputRef": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "bytes": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "bytes"
+                          ]
                         }
                       },
                       "required": [
@@ -74959,6 +75281,23 @@
                           },
                           "required": [
                             "kind"
+                          ]
+                        },
+                        "checkpointDiffRef": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "bytes": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "bytes"
                           ]
                         }
                       },

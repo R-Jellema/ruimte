@@ -5532,8 +5532,9 @@ public struct ChatToolItem: Codable, Sendable, Equatable {
     public let `progress`: ChatToolItemProgress?
     public let `changes`: [ChatToolItemChangesItem]?
     public let `workflow`: ChatToolItemWorkflow?
+    public let `outputRef`: ChatToolItemOutputRef?
 
-    public init(`id`: String, `createdAt`: Double, `turnId`: String?, `kind`: String = "tool", `toolUseId`: String, `name`: String, `input`: JSONValue, `output`: String?, `state`: ChatToolState, `parentToolUseId`: String?, `progress`: ChatToolItemProgress? = nil, `changes`: [ChatToolItemChangesItem]? = nil, `workflow`: ChatToolItemWorkflow? = nil) {
+    public init(`id`: String, `createdAt`: Double, `turnId`: String?, `kind`: String = "tool", `toolUseId`: String, `name`: String, `input`: JSONValue, `output`: String?, `state`: ChatToolState, `parentToolUseId`: String?, `progress`: ChatToolItemProgress? = nil, `changes`: [ChatToolItemChangesItem]? = nil, `workflow`: ChatToolItemWorkflow? = nil, `outputRef`: ChatToolItemOutputRef? = nil) {
         self.`id` = `id`
         self.`createdAt` = `createdAt`
         self.`turnId` = `turnId`
@@ -5547,6 +5548,7 @@ public struct ChatToolItem: Codable, Sendable, Equatable {
         self.`progress` = `progress`
         self.`changes` = `changes`
         self.`workflow` = `workflow`
+        self.`outputRef` = `outputRef`
     }
 
     public init(from decoder: Decoder) throws {
@@ -5564,6 +5566,7 @@ public struct ChatToolItem: Codable, Sendable, Equatable {
         `progress` = try container.decodeIfPresent(ChatToolItemProgress.self, forKey: .`progress`)
         `changes` = try container.decodeIfPresent([ChatToolItemChangesItem].self, forKey: .`changes`)
         `workflow` = try container.decodeIfPresent(ChatToolItemWorkflow.self, forKey: .`workflow`)
+        `outputRef` = try container.decodeIfPresent(ChatToolItemOutputRef.self, forKey: .`outputRef`)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -5581,6 +5584,7 @@ public struct ChatToolItem: Codable, Sendable, Equatable {
         try container.encodeIfPresent(`progress`, forKey: .`progress`)
         try container.encodeIfPresent(`changes`, forKey: .`changes`)
         try container.encodeIfPresent(`workflow`, forKey: .`workflow`)
+        try container.encodeIfPresent(`outputRef`, forKey: .`outputRef`)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -5597,6 +5601,7 @@ public struct ChatToolItem: Codable, Sendable, Equatable {
         case `progress` = "progress"
         case `changes` = "changes"
         case `workflow` = "workflow"
+        case `outputRef` = "outputRef"
     }
 }
 
@@ -5818,6 +5823,33 @@ public struct ChatToolItemWorkflowAgentsItem: Codable, Sendable, Equatable {
         case `promptPreview` = "promptPreview"
         case `resultPreview` = "resultPreview"
         case `error` = "error"
+    }
+}
+
+public struct ChatToolItemOutputRef: Codable, Sendable, Equatable {
+    public let `id`: String
+    public let `bytes`: Int64
+
+    public init(`id`: String, `bytes`: Int64) {
+        self.`id` = `id`
+        self.`bytes` = `bytes`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `id` = try container.decode(String.self, forKey: .`id`)
+        `bytes` = try container.decode(Int64.self, forKey: .`bytes`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`id`, forKey: .`id`)
+        try container.encode(`bytes`, forKey: .`bytes`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `id` = "id"
+        case `bytes` = "bytes"
     }
 }
 
@@ -6283,8 +6315,9 @@ public struct ChatTurnItem: Codable, Sendable, Equatable {
     public let `checkpointAfter`: String?
     public let `summaryFor`: String?
     public let `limit`: ChatTurnItemLimit?
+    public let `checkpointDiffRef`: ChatTurnItemCheckpointDiffRef?
 
-    public init(`id`: String, `createdAt`: Double, `turnId`: String?, `kind`: String = "turn", `state`: ChatTurnItemState, `origin`: ChatTurnItemOrigin? = nil, `label`: String? = nil, `taskToolUseId`: String? = nil, `endedAt`: Double?, `costUsd`: Double, `checkpoint`: String? = nil, `checkpointHead`: String? = nil, `checkpointHeadAfter`: String? = nil, `checkpointDiff`: ChatTurnItemCheckpointDiff? = nil, `attempt`: Int64? = nil, `resumePending`: Bool? = nil, `deliveryPending`: Bool? = nil, `taskIds`: [String]? = nil, `messageFrom`: [String]? = nil, `native`: ChatTurnItemNative? = nil, `checkpointAfter`: String? = nil, `summaryFor`: String? = nil, `limit`: ChatTurnItemLimit? = nil) {
+    public init(`id`: String, `createdAt`: Double, `turnId`: String?, `kind`: String = "turn", `state`: ChatTurnItemState, `origin`: ChatTurnItemOrigin? = nil, `label`: String? = nil, `taskToolUseId`: String? = nil, `endedAt`: Double?, `costUsd`: Double, `checkpoint`: String? = nil, `checkpointHead`: String? = nil, `checkpointHeadAfter`: String? = nil, `checkpointDiff`: ChatTurnItemCheckpointDiff? = nil, `attempt`: Int64? = nil, `resumePending`: Bool? = nil, `deliveryPending`: Bool? = nil, `taskIds`: [String]? = nil, `messageFrom`: [String]? = nil, `native`: ChatTurnItemNative? = nil, `checkpointAfter`: String? = nil, `summaryFor`: String? = nil, `limit`: ChatTurnItemLimit? = nil, `checkpointDiffRef`: ChatTurnItemCheckpointDiffRef? = nil) {
         self.`id` = `id`
         self.`createdAt` = `createdAt`
         self.`turnId` = `turnId`
@@ -6308,6 +6341,7 @@ public struct ChatTurnItem: Codable, Sendable, Equatable {
         self.`checkpointAfter` = `checkpointAfter`
         self.`summaryFor` = `summaryFor`
         self.`limit` = `limit`
+        self.`checkpointDiffRef` = `checkpointDiffRef`
     }
 
     public init(from decoder: Decoder) throws {
@@ -6335,6 +6369,7 @@ public struct ChatTurnItem: Codable, Sendable, Equatable {
         `checkpointAfter` = try container.decodeIfPresent(String.self, forKey: .`checkpointAfter`)
         `summaryFor` = try container.decodeIfPresent(String.self, forKey: .`summaryFor`)
         `limit` = try container.decodeIfPresent(ChatTurnItemLimit.self, forKey: .`limit`)
+        `checkpointDiffRef` = try container.decodeIfPresent(ChatTurnItemCheckpointDiffRef.self, forKey: .`checkpointDiffRef`)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -6362,6 +6397,7 @@ public struct ChatTurnItem: Codable, Sendable, Equatable {
         try container.encodeIfPresent(`checkpointAfter`, forKey: .`checkpointAfter`)
         try container.encodeIfPresent(`summaryFor`, forKey: .`summaryFor`)
         try container.encodeIfPresent(`limit`, forKey: .`limit`)
+        try container.encodeIfPresent(`checkpointDiffRef`, forKey: .`checkpointDiffRef`)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -6388,6 +6424,7 @@ public struct ChatTurnItem: Codable, Sendable, Equatable {
         case `checkpointAfter` = "checkpointAfter"
         case `summaryFor` = "summaryFor"
         case `limit` = "limit"
+        case `checkpointDiffRef` = "checkpointDiffRef"
     }
 }
 
@@ -6545,6 +6582,33 @@ public struct ChatTurnItemLimit: Codable, Sendable, Equatable {
 public enum ChatTurnItemLimitKind: String, CaseIterable, Codable, Sendable, Equatable {
     case `usage` = "usage"
     case `overload` = "overload"
+}
+
+public struct ChatTurnItemCheckpointDiffRef: Codable, Sendable, Equatable {
+    public let `id`: String
+    public let `bytes`: Int64
+
+    public init(`id`: String, `bytes`: Int64) {
+        self.`id` = `id`
+        self.`bytes` = `bytes`
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        `id` = try container.decode(String.self, forKey: .`id`)
+        `bytes` = try container.decode(Int64.self, forKey: .`bytes`)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(`id`, forKey: .`id`)
+        try container.encode(`bytes`, forKey: .`bytes`)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case `id` = "id"
+        case `bytes` = "bytes"
+    }
 }
 
 public struct ChatNoteItem: Codable, Sendable, Equatable {

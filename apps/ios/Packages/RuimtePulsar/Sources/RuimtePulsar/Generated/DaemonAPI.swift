@@ -89,6 +89,7 @@ public enum WireRequest: String, CaseIterable, Sendable {
     case `chatCompact` = "chat.compact"
     case `chatClear` = "chat.clear"
     case `chatTurnDiff` = "chat.turnDiff"
+    case `chatToolOutput` = "chat.toolOutput"
     case `chatFork` = "chat.fork"
     case `chatContinueOn` = "chat.continueOn"
     case `chatForkInfo` = "chat.forkInfo"

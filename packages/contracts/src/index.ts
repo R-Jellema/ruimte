@@ -644,6 +644,7 @@ export const REQUEST_SCHEMAS = {
     'chat.compact': AGENT_REQUEST_SCHEMAS['chat.compact'],
     'chat.clear': AGENT_REQUEST_SCHEMAS['chat.clear'],
     'chat.turnDiff': AGENT_REQUEST_SCHEMAS['chat.turnDiff'],
+    'chat.toolOutput': AGENT_REQUEST_SCHEMAS['chat.toolOutput'],
     'chat.fork': AGENT_REQUEST_SCHEMAS['chat.fork'],
     'chat.continueOn': AGENT_REQUEST_SCHEMAS['chat.continueOn'],
     'chat.forkInfo': AGENT_REQUEST_SCHEMAS['chat.forkInfo'],
