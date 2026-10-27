@@ -30,6 +30,14 @@ export function messageOf(e: unknown, fallback?: string): string {
     return e instanceof Error ? e.message : (fallback ?? String(e));
 }
 
+/* Closes a socket without its handlers firing, so a close this side chose is never reported as a loss. */
+export function closeQuietly(socket: WebSocket): void {
+    socket.onclose = null;
+    socket.onmessage = null;
+    socket.onopen = null;
+    socket.close();
+}
+
 /*
  * An offer with a statement for a machine that does not know this client's key yet, asked per offer
  * since the machine spends each one. Null once `fail` was told why there is none.
@@ -62,14 +70,10 @@ export function socketSignaling(url: string, createSocket: (url: string) => WebS
         let done = false;
 
         const detach = (): void => {
-            if (!socket) {
-                return;
+            if (socket) {
+                closeQuietly(socket);
+                socket = null;
             }
-            socket.onclose = null;
-            socket.onmessage = null;
-            socket.onopen = null;
-            socket.close();
-            socket = null;
         };
 
         const fail = (reason: string): void => {

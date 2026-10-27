@@ -6,16 +6,12 @@ export class HandlerTable<T> {
     private readonly byId = new Map<string, Set<(value: T) => void>>();
 
     listen(id: string, handler: (value: T) => void): () => void {
-        let handlers = this.byId.get(id);
-        if (handlers === undefined) {
-            handlers = new Set();
-            this.byId.set(id, handlers);
-        }
-        const set = handlers;
-        set.add(handler);
+        const handlers = this.byId.get(id) ?? new Set<(value: T) => void>();
+        this.byId.set(id, handlers);
+        handlers.add(handler);
         return () => {
-            set.delete(handler);
-            if (set.size === 0) {
+            handlers.delete(handler);
+            if (handlers.size === 0) {
                 this.byId.delete(id);
             }
         };

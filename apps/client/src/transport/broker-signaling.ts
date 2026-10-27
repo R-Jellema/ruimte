@@ -11,7 +11,7 @@ import {
     type SignalEnvelope
 } from '@ruimte/pulsar';
 import type { ClientKey } from '@/endpoint/client-key';
-import { messageOf, withAccess, type SignalingOpener } from './signaling';
+import { closeQuietly, messageOf, withAccess, type SignalingOpener } from './signaling';
 
 interface Member {
     ready(iceServers: IceServer[]): void;
@@ -166,10 +166,7 @@ export class BrokerSockets {
         if (this.open.get(id) === shared) {
             this.open.delete(id);
         }
-        shared.socket.onclose = null;
-        shared.socket.onmessage = null;
-        shared.socket.onopen = null;
-        shared.socket.close();
+        closeQuietly(shared.socket);
     }
 }
 

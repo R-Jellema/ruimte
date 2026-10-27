@@ -9,7 +9,7 @@ import {
     type SignalAccess
 } from '@ruimte/pulsar';
 import type { ClientKey } from '@/endpoint/client-key';
-import { messageOf, withAccess, type SignalingOpener } from './signaling';
+import { closeQuietly, messageOf, withAccess, type SignalingOpener } from './signaling';
 
 // 24 random bytes, comfortably above the 16 the door asks for.
 const NONCE_BYTES = 24;
@@ -44,14 +44,10 @@ export function lanSignaling(options: LanSignalingOptions): SignalingOpener {
         let closed = false;
 
         const detach = (): void => {
-            if (!socket) {
-                return;
+            if (socket) {
+                closeQuietly(socket);
+                socket = null;
             }
-            socket.onclose = null;
-            socket.onmessage = null;
-            socket.onopen = null;
-            socket.close();
-            socket = null;
         };
 
         const fail = (reason: string): void => {

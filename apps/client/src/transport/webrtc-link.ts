@@ -154,10 +154,8 @@ export function webRtcLink(options: WebRtcLinkOptions): LinkOpener {
             events.close(failure);
         };
 
-        const timer = setTimeout(
-            () => end(i18next.t('machines:direct.timedOut', { seconds: Math.round((options.timeoutMs ?? CONNECT_TIMEOUT_MS) / 1000) })),
-            options.timeoutMs ?? CONNECT_TIMEOUT_MS
-        );
+        const timeoutMs = options.timeoutMs ?? CONNECT_TIMEOUT_MS;
+        const timer = setTimeout(() => end(i18next.t('machines:direct.timedOut', { seconds: Math.round(timeoutMs / 1000) })), timeoutMs);
 
         const sendFrame = (data: string): void => {
             if (!channel || channel.readyState !== 'open') {
@@ -316,13 +314,16 @@ export function webRtcLink(options: WebRtcLinkOptions): LinkOpener {
             }
             // Every piece is a sign of life, so a connection busy with a large frame is never pinged.
             liveness?.heard();
-            if (data instanceof ArrayBuffer && isBinaryPiece(new Uint8Array(data))) {
-                onBinaryPiece(new Uint8Array(data));
-                return;
-            }
-            if (data instanceof ArrayBuffer && isDeflatedPiece(new Uint8Array(data))) {
-                onDeflatedPiece(new Uint8Array(data));
-                return;
+            if (data instanceof ArrayBuffer) {
+                const bytes = new Uint8Array(data);
+                if (isBinaryPiece(bytes)) {
+                    onBinaryPiece(bytes);
+                    return;
+                }
+                if (isDeflatedPiece(bytes)) {
+                    onDeflatedPiece(bytes);
+                    return;
+                }
             }
             const piece = typeof data === 'string' ? data : new TextDecoder().decode(data as ArrayBuffer);
             const result = assembler.push(piece, authenticated ? FRAME_CHARS : HANDSHAKE_FRAME_CHARS);

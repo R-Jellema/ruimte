@@ -1,4 +1,4 @@
-import { useMemo, type ReactElement, type ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { endpointIdIn, useEndpoints } from '@/state/endpoints';
 import { machineIn, type Connection } from './connections';
 import { ConnectionProvider } from './ConnectionProvider';
@@ -17,23 +17,20 @@ export function NodeMachineScope({ machine, children }: { machine: string | unde
     const endpointId = machine === undefined ? undefined : endpointIdIn(endpoints, machine);
     const own = endpointId === undefined || workspace === null || endpointId === workspace.endpointId;
     const remote = own ? null : machineIn(endpoints, endpointId);
-    const connection = useMemo<Connection | null>(
-        () =>
-            remote === null || workspace === null
-                ? null
-                : {
-                      endpointId: remote.endpointId,
-                      transport: remote.transport,
-                      sessions: remote.sessions,
-                      chats: remote.chats,
-                      browsers: remote.browsers,
-                      devices: remote.devices,
-                      projects: workspace.projects,
-                      drawings: workspace.drawings,
-                      diagrams: workspace.diagrams
-                  },
-        [remote, workspace]
-    );
+    const connection: Connection | null =
+        remote === null || workspace === null
+            ? null
+            : {
+                  endpointId: remote.endpointId,
+                  transport: remote.transport,
+                  sessions: remote.sessions,
+                  chats: remote.chats,
+                  browsers: remote.browsers,
+                  devices: remote.devices,
+                  projects: workspace.projects,
+                  drawings: workspace.drawings,
+                  diagrams: workspace.diagrams
+              };
     // A machine this client does not know has nothing to draw the node from. The frame says so in place of the body (`RemoteNodeOffline`), so nothing under it starts work on the wrong machine.
     return connection === null ? <>{children}</> : <ConnectionProvider connection={connection}>{children}</ConnectionProvider>;
 }

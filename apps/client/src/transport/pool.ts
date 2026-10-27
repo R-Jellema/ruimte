@@ -1,4 +1,5 @@
 import type { Endpoint } from '@/state/endpoints';
+import { HandlerTable } from './handler-table';
 import type { ConnectionState, Transport, TransportStatus } from './transport';
 import type { SocketAddress } from './link-transport';
 
@@ -45,7 +46,7 @@ export class TransportPool {
     private readonly idleMs: number;
     private readonly byId = new Map<string, Entry>();
     private readonly listeners = new Set<() => void>();
-    private readonly statusListeners = new Map<string, Set<(status: TransportStatus) => void>>();
+    private readonly statusListeners = new HandlerTable<TransportStatus>();
     private snapshot: string[] = [];
 
     constructor(options: TransportPoolOptions) {
@@ -130,18 +131,7 @@ export class TransportPool {
 
     /* One endpoint's status, for a row in a list of machines. */
     subscribeStatus(endpointId: string, handler: (status: TransportStatus) => void): () => void {
-        let handlers = this.statusListeners.get(endpointId);
-        if (!handlers) {
-            handlers = new Set();
-            this.statusListeners.set(endpointId, handlers);
-        }
-        handlers.add(handler);
-        return () => {
-            handlers.delete(handler);
-            if (handlers.size === 0) {
-                this.statusListeners.delete(endpointId);
-            }
-        };
+        return this.statusListeners.listen(endpointId, handler);
     }
 
     /* Any endpoint's status changed, or the pool gained or lost one. */
@@ -213,10 +203,7 @@ export class TransportPool {
     }
 
     private emit(endpointId: string): void {
-        const status = this.statusOf(endpointId).status;
-        for (const handler of [...(this.statusListeners.get(endpointId) ?? [])]) {
-            handler(status);
-        }
+        this.statusListeners.fanOut(endpointId, this.statusOf(endpointId).status);
         for (const handler of [...this.listeners]) {
             handler();
         }

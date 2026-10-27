@@ -148,11 +148,7 @@ export class BlobCache {
             return;
         }
         if (entry.url !== null) {
-            if (this.options.revokeUrl) {
-                this.options.revokeUrl(entry.url);
-            } else {
-                URL.revokeObjectURL(entry.url);
-            }
+            (this.options.revokeUrl ?? URL.revokeObjectURL)(entry.url);
             entry.url = null;
         }
         entry.lastUsed = ++this.clock;

@@ -112,18 +112,20 @@ function preferencesFor(endpointId: string): ReturnType<typeof chatPreferencesPa
 
 function buildMachine(endpoint: Endpoint): Machine {
     const transport = machineTransport(endpoint.id);
-    const stopNotifications = transport.on('push.notification', (alert) => notifyRequested(endpoint.id, alert));
-    const stopPushAttention = watchPushAttention(endpoint.id, transport);
-    const stopPresence = reportPresence(transport, () => machineAnswers(pool.statusOf(endpoint.id), 'presence.report'));
-    const stopSnoozes = watchSnoozes(endpoint.id, transport);
-    const stopPrWatches = watchPrWatches(endpoint.id, transport);
-    const stopAccounts = watchProviderAccounts(endpoint.id, transport);
-    const stopProviderList = transport.on('provider.changed', ({ providers }) => providerSinkFor(endpoint.id).setProviders(providers));
-    const stopFresh = transport.subscribeStatus((status) => {
-        if (status === 'open') {
-            clearedRows.delete(endpoint.id);
-        }
-    });
+    const stops = [
+        transport.on('push.notification', (alert) => notifyRequested(endpoint.id, alert)),
+        watchPushAttention(endpoint.id, transport),
+        reportPresence(transport, () => machineAnswers(pool.statusOf(endpoint.id), 'presence.report')),
+        watchSnoozes(endpoint.id, transport),
+        watchPrWatches(endpoint.id, transport),
+        watchProviderAccounts(endpoint.id, transport),
+        transport.on('provider.changed', ({ providers }) => providerSinkFor(endpoint.id).setProviders(providers)),
+        transport.subscribeStatus((status) => {
+            if (status === 'open') {
+                clearedRows.delete(endpoint.id);
+            }
+        })
+    ];
     const plans = new PlanSync(endpoint.id, transport);
     const sessions = new SessionClient(transport, sessionSinkFor(endpoint.id));
     const chats = new ChatClient(transport, chatSinkFor(endpoint.id), providerSinkFor(endpoint.id));
@@ -138,14 +140,9 @@ function buildMachine(endpoint: Endpoint): Machine {
         browsers,
         devices,
         dispose(): void {
-            stopNotifications();
-            stopPushAttention();
-            stopPresence();
-            stopSnoozes();
-            stopPrWatches();
-            stopAccounts();
-            stopProviderList();
-            stopFresh();
+            for (const stop of stops) {
+                stop();
+            }
             clearedRows.delete(endpoint.id);
             plans.dispose();
             sessions.dispose();
@@ -204,15 +201,14 @@ function connect(endpoint: Endpoint, onLoad: (connection: Connection, summary: P
     const endpointId = (): string => connection.endpointId;
     // Asked for rather than held: the machine's clients go when its row is forgotten, while this connection stays.
     const machine = (): Machine => machineOn(endpointById(connection.endpointId) ?? endpoint);
-    const drawings = new DrawingClient(transport, stores.drawings, stores.document, stores.project, {
-        flushProject: (): Promise<void> => projects.flush()
-    });
-    const diagrams = new DiagramClient(transport, stores.diagrams, stores.document, stores.project, {
-        flushProject: (): Promise<void> => projects.flush()
-    });
+    const selfId = (): string => endpointById(connection.endpointId)?.daemonId ?? connection.endpointId;
+    const transportOf = (machineId: string): Transport => machineTransport(endpointIdOfMachine(machineId));
+    const owner = { flushProject: (): Promise<void> => projects.flush() };
+    const drawings = new DrawingClient(transport, stores.drawings, stores.document, stores.project, owner);
+    const diagrams = new DiagramClient(transport, stores.diagrams, stores.document, stores.project, owner);
     const peerRenewal = new PeerRenewal({
-        selfId: () => endpointById(connection.endpointId)?.daemonId ?? connection.endpointId,
-        transportOf: (machineId) => machineTransport(endpointIdOfMachine(machineId)),
+        selfId,
+        transportOf,
         link: (machineId) => linkToPeer(machineId, transport),
         linkFailed: takeLinkFailure
     });
@@ -221,7 +217,7 @@ function connect(endpoint: Endpoint, onLoad: (connection: Connection, summary: P
             const { current, currentEndpointId, switching } = stores.project.getState();
             return current !== null && currentEndpointId === connection.endpointId && !switching ? current.projectId : null;
         },
-        selfId: () => endpointById(connection.endpointId)?.daemonId ?? connection.endpointId,
+        selfId,
         views: () => stores.document.getState().views,
         nodesOf: nodesOfView,
         // The project reaching its store is a change too: the document may have landed before the project did.
@@ -243,7 +239,7 @@ function connect(endpoint: Endpoint, onLoad: (connection: Connection, summary: P
         },
         links: async (projectId) =>
             machineAnswers(connection.transport.connection, 'remote.list') ? (await connection.transport.request('remote.list', { projectId })).links : [],
-        transportOf: (machineId) => machineTransport(endpointIdOfMachine(machineId)),
+        transportOf,
         renewPeer: (machineId) => peerRenewal.ensure(machineId)
     });
     const projects = new ProjectClient(transport, stores.canvases, stores.document, panelsPort, projectSink(endpointId), {
@@ -503,10 +499,9 @@ export function deviceClientFor(endpointId: string): DeviceClient | null {
 /* A machine this client no longer knows under that id (forgotten, or a row that moved onto its daemon id) keeps no clients. */
 function prune(): void {
     const known = new Set(useEndpoints.getState().endpoints.map((endpoint) => endpoint.id));
-    for (const [endpointId, machine] of [...machines]) {
+    for (const endpointId of [...machines.keys()]) {
         if (!known.has(endpointId)) {
-            machines.delete(endpointId);
-            machine.dispose();
+            dropMachine(endpointId);
         }
     }
 }
@@ -516,6 +511,14 @@ export function dropMachine(endpointId: string): void {
     const machine = machines.get(endpointId);
     machines.delete(endpointId);
     machine?.dispose();
+}
+
+function moveKey<V>(map: WeakMap<Connection, V>, from: Connection, to: Connection): void {
+    const value = map.get(from);
+    if (value !== undefined) {
+        map.delete(from);
+        map.set(to, value);
+    }
 }
 
 /*
@@ -535,16 +538,8 @@ function followRekey(): void {
     // The clients ask the old object for its name, so it moves first; the copy keeps its getters and is what React sees change.
     connection.endpointId = activeId;
     const renamed = Object.create(Object.getPrototypeOf(connection) as object, Object.getOwnPropertyDescriptors(connection)) as Connection;
-    const hold = connectionHolds.get(connection);
-    if (hold) {
-        connectionHolds.delete(connection);
-        connectionHolds.set(renamed, hold);
-    }
-    const mirror = connectionMirrors.get(connection);
-    if (mirror) {
-        connectionMirrors.delete(connection);
-        connectionMirrors.set(renamed, mirror);
-    }
+    moveKey(connectionHolds, connection, renamed);
+    moveKey(connectionMirrors, connection, renamed);
     stores.project.setState({ currentEndpointId: activeId });
     useWindow.getState().show({ kind: 'workspace', workspace: { connection: renamed } });
     // The shell knows the project by the machine's name for it, which just moved.

@@ -159,5 +159,5 @@ export function machineTransport(endpointId: string): Transport {
 
 /* Before `pool.rekey`, so the clients on the transport of a row that learned its daemon id keep their link. */
 export function rekeyMachineTransport(oldId: string, newId: string): void {
-    return machineTransports.rekey(oldId, newId);
+    machineTransports.rekey(oldId, newId);
 }

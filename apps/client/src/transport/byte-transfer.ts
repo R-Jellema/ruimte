@@ -19,15 +19,21 @@ export interface ReadResourceOptions {
  */
 const PIECES_IN_FLIGHT = 2;
 
+function pieceSizes(options: Pick<ReadResourceOptions, 'chunkBytes' | 'piecesInFlight'>): { chunkBytes: number; inFlight: number } {
+    return {
+        chunkBytes: Math.min(options.chunkBytes ?? BYTES_CHUNK_MAX, BYTES_CHUNK_MAX),
+        inFlight: Math.max(1, Math.min(options.piecesInFlight ?? PIECES_IN_FLIGHT, PIECES_IN_FLIGHT))
+    };
+}
+
 /*
  * A resource's bytes over the wire, a few pieces on their way at once so a slow link is not one
  * round trip per piece. The first piece is asked alone, since it says how large the resource is;
  * each piece is one frame that the channel splits further.
  */
 export async function readResource(read: ReadPiece, resource: ByteResource, options: ReadResourceOptions = {}): Promise<Blob> {
-    const chunkBytes = Math.min(options.chunkBytes ?? BYTES_CHUNK_MAX, BYTES_CHUNK_MAX);
+    const { chunkBytes, inFlight } = pieceSizes(options);
     const maxBytes = options.maxBytes ?? BYTES_READ_MAX_BYTES;
-    const inFlight = Math.max(1, Math.min(options.piecesInFlight ?? PIECES_IN_FLIGHT, PIECES_IN_FLIGHT));
     let restarts = options.restarts ?? 1;
 
     for (;;) {
@@ -58,8 +64,7 @@ export async function streamResource(
     accept: AcceptPiece,
     options: Pick<ReadResourceOptions, 'chunkBytes' | 'piecesInFlight'> = {}
 ): Promise<void> {
-    const chunkBytes = Math.min(options.chunkBytes ?? BYTES_CHUNK_MAX, BYTES_CHUNK_MAX);
-    const inFlight = Math.max(1, Math.min(options.piecesInFlight ?? PIECES_IN_FLIGHT, PIECES_IN_FLIGHT));
+    const { chunkBytes, inFlight } = pieceSizes(options);
     const first = await read({ resource, offset: 0, length: chunkBytes });
     if (!(await readPieces(read, resource, first, chunkBytes, inFlight, accept))) {
         throw new Error(i18next.t('machines:file.changed'));

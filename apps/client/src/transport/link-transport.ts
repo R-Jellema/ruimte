@@ -194,10 +194,7 @@ export class LinkTransport implements PooledTransport {
         }
         this.generation += 1;
         this.setConnection({ attempts: 0, retryAt: null, failure: null });
-        if (this.reconnectTimer) {
-            clearTimeout(this.reconnectTimer);
-            this.reconnectTimer = null;
-        }
+        this.stopReconnectTimer();
         const link = this.link;
         // Let go of the link before closing it, so the next attempt never waits on a close event the old link may not send.
         this.link = null;
@@ -219,27 +216,11 @@ export class LinkTransport implements PooledTransport {
     }
 
     on<E extends EventType>(event: E, handler: (payload: EventMap[E]) => void): () => void {
-        let handlers = this.eventHandlers.get(event);
-        if (!handlers) {
-            handlers = new Set();
-            this.eventHandlers.set(event, handlers);
-        }
-        handlers.add(handler);
-        return () => {
-            handlers.delete(handler);
-        };
+        return listenIn(this.eventHandlers, event, handler);
     }
 
     onLiveFrame<E extends LiveFrameEvent>(event: E, handler: LiveFrameHandler<E>): () => void {
-        let handlers = this.liveHandlers.get(event);
-        if (!handlers) {
-            handlers = new Set();
-            this.liveHandlers.set(event, handlers);
-        }
-        handlers.add(handler);
-        return () => {
-            handlers.delete(handler);
-        };
+        return listenIn(this.liveHandlers, event, handler);
     }
 
     request<T extends RequestType>(type: T, payload: RequestMap[T]['payload']): Promise<RequestMap[T]['result']> {
@@ -253,11 +234,15 @@ export class LinkTransport implements PooledTransport {
     dispose(): void {
         this.disposed = true;
         this.generation += 1;
+        this.stopReconnectTimer();
+        this.link?.close();
+    }
+
+    private stopReconnectTimer(): void {
         if (this.reconnectTimer) {
             clearTimeout(this.reconnectTimer);
             this.reconnectTimer = null;
         }
-        this.link?.close();
     }
 
     /* Every reconnect field moves in the same tick as the status it belongs to, so a subscriber
@@ -572,6 +557,15 @@ export class LinkTransport implements PooledTransport {
             (handler as (payload: unknown) => void)(parsed.data);
         }
     }
+}
+
+function listenIn<K, H>(map: Map<K, Set<H>>, key: K, handler: H): () => void {
+    const handlers = map.get(key) ?? new Set<H>();
+    map.set(key, handlers);
+    handlers.add(handler);
+    return () => {
+        handlers.delete(handler);
+    };
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
