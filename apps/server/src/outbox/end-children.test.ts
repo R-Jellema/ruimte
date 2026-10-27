@@ -71,11 +71,22 @@ async function leadWorking(daemon: TestDaemon): Promise<void> {
 async function twoRunningChildren(daemon: TestDaemon): Promise<{ chat: string; terminal: string }> {
     const [chatLine] = await runVerb(daemon, 'chat-lead', 'agent', ['claude', '--task', 'Slow', '--prompt', 'slow']);
     const [terminalLine] = await runVerb(daemon, 'chat-lead', 'agent', ['claude', '--terminal', '--task', 'Shell', '--prompt', 'work']);
-    const chat = chatLine!.split('\t')[0]!;
-    const terminal = terminalLine!.split('\t')[0]!;
+    const chat = idOf(chatLine);
+    const terminal = idOf(terminalLine);
     await daemon.worker.settled();
     await daemon.until(() => daemon.chats.get(chat)?.info.agentSessionId !== null && daemon.chats.get(chat)?.info.activeTurnId !== null);
     return { chat, terminal };
+}
+
+function idOf(line: string | undefined): string {
+    return line!.split('\t')[0]!;
+}
+
+/* The lead ends its own turn, which wakes it about nothing it gave. */
+async function stopLeadTurn(daemon: TestDaemon): Promise<void> {
+    daemon.chats.cancel('chat-lead');
+    await daemon.until(() => daemon.chats.get('chat-lead')?.info.activeTurnId === null);
+    await daemon.worker.settled();
 }
 
 function turnsOf(daemon: TestDaemon, chatId: string): ChatTurnItem[] {
@@ -148,9 +159,7 @@ describe('stopping or deleting a parent ends the agents it opened', () => {
             ['cancelled', 'none', ENDED_REASON]
         ]);
         // The lead ends its own turn; nothing it gave wakes it.
-        daemon.chats.cancel('chat-lead');
-        await daemon.until(() => daemon.chats.get('chat-lead')?.info.activeTurnId === null);
-        await daemon.worker.settled();
+        await stopLeadTurn(daemon);
         expect(turnsOf(daemon, 'chat-lead').filter((turn) => turn.taskIds !== undefined)).toEqual([]);
         expect(daemon.alerts).toEqual([]);
         expect(daemon.chats.get(chat)?.running).toBe(false);
@@ -191,7 +200,7 @@ describe('stopping or deleting a parent ends the agents it opened', () => {
         daemon.worker.start();
         await daemon.sessions.create({ sessionId: 'term-lead', cols: 80, rows: 24, cwd: folder, agent: { kind: 'claude', runtimeMode: 'full-access' } });
         const [line] = await runVerb(daemon, 'term-lead', 'agent', ['claude', '--terminal', '--prompt', 'work']);
-        const child = line!.split('\t')[0]!;
+        const child = idOf(line);
         await daemon.worker.settled();
 
         // The lead's shell ends on its own, and a person presses Restart, which kills the exited session.
@@ -229,7 +238,7 @@ describe('stopping or deleting a parent ends the agents it opened', () => {
         const [line] = await runVerb(daemon, 'chat-lead', 'agent', ['claude']);
         daemon.worker.start();
         await daemon.worker.settled();
-        expect(daemon.chats.get(line!.split('\t')[0]!)?.info.runtimeMode).toBe('supervised');
+        expect(daemon.chats.get(idOf(line))?.info.runtimeMode).toBe('supervised');
     });
 
     test('a terminal agent counts as the mode its hooks report, not the one it was launched in', async () => {
@@ -403,9 +412,7 @@ describe('stopping one task from the list of the chat that gave it', () => {
         expect(daemon.sessions.get(terminal)?.exited).toBe(false);
 
         // The lead ends its turn and is woken about nothing. The stopped task never wakes anyone.
-        daemon.chats.cancel('chat-lead');
-        await daemon.until(() => daemon.chats.get('chat-lead')?.info.activeTurnId === null);
-        await daemon.worker.settled();
+        await stopLeadTurn(daemon);
         expect(turnsOf(daemon, 'chat-lead').filter((turn) => turn.taskIds !== undefined)).toEqual([]);
     });
 });

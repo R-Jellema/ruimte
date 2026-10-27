@@ -51,6 +51,8 @@ interface Setup {
     /* Starts a turn the way the chat does: its tree is taken before the agent writes. */
     startTurn(turnId: string, prompt?: string): Promise<void>;
     tool(turnId: string, name: string, input: Record<string, unknown>, extra?: Partial<ChatToolItem>): void;
+    /* An Edit tool call on score.ts. */
+    edit(turnId: string, oldString: string, newString: string): void;
     endTurn(turnId: string, settled?: boolean): Promise<void>;
     write(name: string, text: string): Promise<void>;
 }
@@ -88,6 +90,21 @@ async function setup(options: { project?: boolean; git?: boolean } = {}): Promis
     const send = (item: ChatToolItem | ChatTurnItem): void =>
         service.consume({ event: 'chat.event', payload: { chatId: 'chat-a', event: { type: 'item', item } } } as AgentEvent);
     let toolIds = 0;
+    const tool: Setup['tool'] = (turnId, name, input, extra = {}) => {
+        send({
+            id: `tool-${toolIds}`,
+            createdAt: 1,
+            turnId,
+            kind: 'tool',
+            toolUseId: `tool-${toolIds++}`,
+            name,
+            input,
+            output: null,
+            state: 'done',
+            parentToolUseId: null,
+            ...extra
+        });
+    };
     return {
         home,
         repo,
@@ -102,20 +119,9 @@ async function setup(options: { project?: boolean; git?: boolean } = {}): Promis
                 trees.set(turnId, tree);
             }
         },
-        tool(turnId, name, input, extra = {}) {
-            send({
-                id: `tool-${toolIds}`,
-                createdAt: 1,
-                turnId,
-                kind: 'tool',
-                toolUseId: `tool-${toolIds++}`,
-                name,
-                input,
-                output: null,
-                state: 'done',
-                parentToolUseId: null,
-                ...extra
-            });
+        tool,
+        edit(turnId, oldString, newString) {
+            tool(turnId, 'Edit', { file_path: join(repo, 'score.ts'), old_string: oldString, new_string: newString });
         },
         async endTurn(turnId, settled = true) {
             const tree = trees.get(turnId);
@@ -216,7 +222,7 @@ describe('the recorder', () => {
             'score.ts',
             SCORE.replace('    return c.hits;', '    return c.hits * 2;').replace('export function rank(', '// sorted by score\nexport function rank(')
         );
-        t.tool('turn-1', 'Edit', { file_path: join(t.repo, 'score.ts'), old_string: '    return c.hits;', new_string: '    return c.hits * 2;' });
+        t.edit('turn-1', '    return c.hits;', '    return c.hits * 2;');
         await t.service.idle();
 
         expect(spans((await t.service.read('p1', join(t.repo, 'score.ts'))).runs)).toEqual([[2, 2]]);
@@ -227,10 +233,10 @@ describe('the recorder', () => {
         await t.startTurn('turn-1');
         const first = SCORE.replace('    return c.hits;', '    return c.hits * 2;');
         await t.write('score.ts', first);
-        t.tool('turn-1', 'Edit', { file_path: join(t.repo, 'score.ts'), old_string: '    return c.hits;', new_string: '    return c.hits * 2;' });
+        t.edit('turn-1', '    return c.hits;', '    return c.hits * 2;');
         const second = first.replace('    return list;', '    return list.slice();');
         await t.write('score.ts', second);
-        t.tool('turn-1', 'Edit', { file_path: join(t.repo, 'score.ts'), old_string: '    return list;', new_string: '    return list.slice();' });
+        t.edit('turn-1', '    return list;', '    return list.slice();');
         await t.service.idle();
 
         expect(spans((await t.service.read('p1', join(t.repo, 'score.ts'))).runs)).toEqual([
@@ -255,7 +261,7 @@ describe('the recorder', () => {
         const t = await setup();
         await t.startTurn('turn-1');
         await t.write('score.ts', SCORE.replace('    return c.hits;', '    return c.hits * 2;'));
-        t.tool('turn-1', 'Edit', { file_path: join(t.repo, 'score.ts'), old_string: '    return c.hits;', new_string: '    return c.hits * 2;' });
+        t.edit('turn-1', '    return c.hits;', '    return c.hits * 2;');
         await t.endTurn('turn-1');
         await t.service.idle();
 
@@ -267,7 +273,7 @@ describe('the recorder', () => {
         const t = await setup();
         await t.startTurn('turn-1');
         await t.write('score.ts', SCORE.replace('    return c.hits;', '    return c.hits * 2;'));
-        t.tool('turn-1', 'Edit', { file_path: join(t.repo, 'score.ts'), old_string: '    return c.hits;', new_string: '    return c.hits * 2;' });
+        t.edit('turn-1', '    return c.hits;', '    return c.hits * 2;');
         await t.endTurn('turn-1', false);
         await t.service.idle();
 
@@ -288,7 +294,7 @@ describe('the recorder', () => {
         const t = await setup({ project: false });
         await t.startTurn('turn-1');
         await t.write('score.ts', SCORE.replace('c.hits', 'c.hits * 2'));
-        t.tool('turn-1', 'Edit', { file_path: join(t.repo, 'score.ts'), old_string: 'c.hits', new_string: 'c.hits * 2' });
+        t.edit('turn-1', 'c.hits', 'c.hits * 2');
         await t.service.idle();
         expect(t.heard).toEqual([]);
 
@@ -307,11 +313,11 @@ describe('a folder without git', () => {
         await t.startTurn('turn-1');
         const first = SCORE.replace('    return c.hits;', '    return c.hits * 2;');
         await t.write('score.ts', first);
-        t.tool('turn-1', 'Edit', { file_path: join(t.repo, 'score.ts'), old_string: '    return c.hits;', new_string: '    return c.hits * 2;' });
+        t.edit('turn-1', '    return c.hits;', '    return c.hits * 2;');
         await t.service.idle();
         const second = first.replace('    return list;', '    return list.slice();').replace('rank(', 'rankAll(');
         await t.write('score.ts', second);
-        t.tool('turn-1', 'Edit', { file_path: join(t.repo, 'score.ts'), old_string: '    return list;', new_string: '    return list.slice();' });
+        t.edit('turn-1', '    return list;', '    return list.slice();');
         await t.service.idle();
 
         const runs = (await t.service.read('p1', join(t.repo, 'score.ts'))).runs;

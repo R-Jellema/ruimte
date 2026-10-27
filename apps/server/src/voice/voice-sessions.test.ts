@@ -5,7 +5,7 @@ import type { CanvasHost } from '../canvas/verb.ts';
 import type { ClientConnection } from '../dispatcher.ts';
 import { serverActions } from '../actions/server-actions.ts';
 import { LiveError } from './openai-live.ts';
-import { FakeChats, FakeClock, FakeLive, settle } from './voice-fakes.ts';
+import { FakeChats, FakeClock, FakeLive, settle, type FakeSocket } from './voice-fakes.ts';
 import { VOICE_CLOCK_MS, VOICE_CONTEXT_DEBOUNCE_MS, VOICE_START_DEADLINE_MS } from './voice-session.ts';
 import { MAX_VOICE_SESSIONS, VoiceSessions } from './voice-sessions.ts';
 
@@ -80,12 +80,25 @@ function startPayload(fields: Partial<VoiceStartPayload> = {}): VoiceStartPayloa
     } as VoiceStartPayload;
 }
 
-function functionCall(callId: string, args: Record<string, unknown>, delegation = 'delegation-1'): LiveEvent {
+function functionCall(callId: string, args: Record<string, unknown>, tool = 'communicate'): LiveEvent {
     return {
         type: 'response.event',
-        delegation_id: delegation,
-        event: { type: 'response.output_item.done', item: { type: 'function_call', call_id: callId, name: 'communicate', arguments: JSON.stringify(args) } }
+        delegation_id: 'delegation-1',
+        event: { type: 'response.output_item.done', item: { type: 'function_call', call_id: callId, name: tool, arguments: JSON.stringify(args) } }
     };
+}
+
+/* The output the daemon sent for a call. */
+function outputOf(attach: { socket: { sentOf(type: string): LiveEvent[] } }, callId: string): Record<string, unknown> {
+    const sent = attach.socket.sentOf('response.item.create').find((event) => (event.item as { call_id?: string }).call_id === callId);
+    return JSON.parse(String((sent!.item as { output: string }).output)) as Record<string, unknown>;
+}
+
+/* A stop the sideband answers with session.closed, as OpenAI does. */
+async function stopped(voice: VoiceSessions, owner: FakeClient, sessionId: string, attach: { socket: FakeSocket }): Promise<void> {
+    const stopping = voice.stop(owner, { sceneId: 'scene-1', sessionId });
+    attach.socket.receive({ type: 'session.closed' });
+    await stopping;
 }
 
 let clock: FakeClock;
@@ -420,10 +433,8 @@ describe('a running session', () => {
         attach.socket.receive({ type: 'response.event', delegation_id: 'delegation-1', event: { type: 'response.completed' } });
         await settle();
         await settle();
-        const outputs = attach.socket.sentOf('response.item.create');
-        expect(outputs).toHaveLength(1);
-        const output = JSON.parse(String((outputs[0]!.item as { output: string }).output));
-        expect(output).toMatchObject({ ok: true, chat: 'Builder', messages: [{ role: 'user', text: 'Build it' }] });
+        expect(attach.socket.sentOf('response.item.create')).toHaveLength(1);
+        expect(outputOf(attach, 'call-1')).toMatchObject({ ok: true, chat: 'Builder', messages: [{ role: 'user', text: 'Build it' }] });
         expect(attach.socket.sentOf('response.create')).toHaveLength(1);
         expect(eventsOf(owner, 'voice.activity').map((frame) => (frame.payload.entry as { status: string }).status)).toEqual(['running', 'completed']);
     });
@@ -433,8 +444,7 @@ describe('a running session', () => {
         const { attach } = await started(voice);
         attach.socket.receive(functionCall('call-1', { action: 'terminal.read', terminalId: 'term-1', lines: null }));
         await settle();
-        const output = JSON.parse(String((attach.socket.sentOf('response.item.create')[0]!.item as { output: string }).output));
-        expect(output).toMatchObject({ ok: false, code: 'not-offered' });
+        expect(outputOf(attach, 'call-1')).toMatchObject({ ok: false, code: 'not-offered' });
     });
 
     test('a clear asks first, and the phone sees the question on its line and answers it', async () => {
@@ -484,9 +494,7 @@ describe('a running session', () => {
         const { attach, owner, result } = await started(voice);
         attach.socket.receive(functionCall('call-1', { action: 'chat.read', chatId: 'chat-1', limit: null }));
         await settle();
-        const stopping = voice.stop(owner, { sceneId: 'scene-1', sessionId: result.sessionId });
-        attach.socket.receive({ type: 'session.closed' });
-        await stopping;
+        await stopped(voice, owner, result.sessionId, attach);
         release();
         await settle();
         await settle();
@@ -599,9 +607,7 @@ describe('what the model knows', () => {
         const times = thoughts(attach).slice(before);
         expect(times).toHaveLength(2);
         expect(times[0]).toStartWith('User local date and time:');
-        const stopping = voice.stop(owner, { sceneId: 'scene-1', sessionId: result.sessionId });
-        attach.socket.receive({ type: 'session.closed' });
-        await stopping;
+        await stopped(voice, owner, result.sessionId, attach);
         clock.advance(VOICE_CLOCK_MS);
         expect(thoughts(attach).slice(before)).toHaveLength(2);
         expect(clock.pending).toBe(0);
@@ -642,19 +648,6 @@ describe('the project Voice works in', () => {
         }
     }
 
-    function toolCall(callId: string, tool: string, args: Record<string, unknown>): LiveEvent {
-        return {
-            type: 'response.event',
-            delegation_id: 'delegation-1',
-            event: { type: 'response.output_item.done', item: { type: 'function_call', call_id: callId, name: tool, arguments: JSON.stringify(args) } }
-        };
-    }
-
-    function outputOf(attach: { socket: { sentOf(type: string): LiveEvent[] } }, callId: string): Record<string, unknown> {
-        const sent = attach.socket.sentOf('response.item.create').find((event) => (event.item as { call_id?: string }).call_id === callId);
-        return JSON.parse(String((sent!.item as { output: string }).output)) as Record<string, unknown>;
-    }
-
     function said(attach: { socket: { sentOf(type: string): LiveEvent[] } }): string {
         return attach.socket
             .sentOf('session.thinking.append')
@@ -693,19 +686,17 @@ describe('the project Voice works in', () => {
         expect(holds).toEqual([]);
         expect(result.status.project).toBeNull();
         expect(said(attach)).toContain('Voice works in no project now');
-        attach.socket.receive(toolCall('call-1', 'inspect_workspace', { action: 'workspace.inspect' }));
+        attach.socket.receive(functionCall('call-1', { action: 'workspace.inspect' }, 'inspect_workspace'));
         await settle();
         expect(outputOf(attach, 'call-1')).toMatchObject({ ok: false, code: 'no-project' });
-        const stopping = voice.stop(owner, { sceneId: 'scene-1', sessionId: result.sessionId });
-        attach.socket.receive({ type: 'session.closed' });
-        await stopping;
+        await stopped(voice, owner, result.sessionId, attach);
         expect(holds).toEqual([]);
     });
 
     test('lists the projects in use on this machine, the current one active, and resolves one by name', async () => {
         const { attach } = await started(sessions());
-        attach.socket.receive(toolCall('call-1', 'manage_projects', { action: 'project.list' }));
-        attach.socket.receive(toolCall('call-2', 'inspect_workspace', { action: 'target.resolve', target: 'project', names: ['site'] }));
+        attach.socket.receive(functionCall('call-1', { action: 'project.list' }, 'manage_projects'));
+        attach.socket.receive(functionCall('call-2', { action: 'target.resolve', target: 'project', names: ['site'] }, 'inspect_workspace'));
         await calm();
         expect(outputOf(attach, 'call-1')).toMatchObject({
             ok: true,
@@ -721,7 +712,7 @@ describe('the project Voice works in', () => {
         const voice = sessions();
         const { attach, owner, result } = await started(voice);
         await settle();
-        attach.socket.receive(toolCall('call-1', 'manage_projects', { action: 'project.switch', ...SWITCH }));
+        attach.socket.receive(functionCall('call-1', { action: 'project.switch', ...SWITCH }, 'manage_projects'));
         await calm();
         expect(outputOf(attach, 'call-1')).toMatchObject({ ok: true, project: 'Site', projectId: 'project-2' });
         expect(holds).toEqual(['hold voice:session-1 project-1', 'letGo voice:session-1 project-1', 'hold voice:session-1 project-2']);
@@ -735,18 +726,16 @@ describe('the project Voice works in', () => {
         expect(outputOf(attach, 'call-2')).toMatchObject({ ok: true, chat: 'Writer' });
         expect(outputOf(attach, 'call-3')).toMatchObject({ ok: false, code: 'not-in-project' });
         expect(placed).toEqual(['board', 'board']);
-        const stopping = voice.stop(owner, { sceneId: 'scene-1', sessionId: result.sessionId });
-        attach.socket.receive({ type: 'session.closed' });
-        await stopping;
+        await stopped(voice, owner, result.sessionId, attach);
         expect(holds.at(-1)).toBe('letGo voice:session-1 project-2');
     });
 
     test('a switch to a project not in use here, or on another machine, is refused and moves nothing', async () => {
         summaries = [summary('project-1', 'App', 200), summary('project-2', 'Site', 100, { closedAt: 150 })];
         const { attach, owner } = await started(sessions());
-        attach.socket.receive(toolCall('call-1', 'manage_projects', { action: 'project.switch', ...SWITCH }));
-        attach.socket.receive(toolCall('call-2', 'manage_projects', { action: 'project.switch', endpointId: 'machine-1', projectId: 'nowhere' }));
-        attach.socket.receive(toolCall('call-3', 'manage_projects', { action: 'project.switch', endpointId: 'machine-2', projectId: 'project-1' }));
+        attach.socket.receive(functionCall('call-1', { action: 'project.switch', ...SWITCH }, 'manage_projects'));
+        attach.socket.receive(functionCall('call-2', { action: 'project.switch', endpointId: 'machine-1', projectId: 'nowhere' }, 'manage_projects'));
+        attach.socket.receive(functionCall('call-3', { action: 'project.switch', endpointId: 'machine-2', projectId: 'project-1' }, 'manage_projects'));
         await calm();
         expect(outputOf(attach, 'call-1')).toMatchObject({ ok: false, code: 'unknown-project' });
         expect(outputOf(attach, 'call-2')).toMatchObject({ ok: false, code: 'unknown-project' });

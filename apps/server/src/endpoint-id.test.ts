@@ -174,48 +174,36 @@ describe('readOrCreateEndpointIdentity', () => {
         expect((await readOrCreateEndpointIdentity(home)).lanDoor).toBe(false);
     });
 
-    test('what an agent may delete is off on a fresh machine and survives a restart', async () => {
-        const identity = await readOrCreateEndpointIdentity(home, 'the-hostname');
-        expect(identity.agentsDeleteAnyView).toBe(false);
+    // A switch is stored only away from its default, and a rename leaves it where it stands.
+    test.each([
+        { key: 'agentsDeleteAnyView', fallback: false, change: true, set: 'setIdentity' },
+        { key: 'streamingAllowed', fallback: true, change: false, set: 'setIdentity' },
+        { key: 'resumeAtReset', fallback: false, change: true, set: 'setIdentity' },
+        { key: 'visualReplies', fallback: true, change: false, set: 'setIdentity' },
+        { key: 'usageStats', fallback: true, change: false, set: 'setSwitches' }
+    ] as const)(
+        '$key starts at $fallback, survives a restart once changed and writes nothing when back at the default',
+        async ({ key, fallback, change, set }) => {
+            const identity = await readOrCreateEndpointIdentity(home, 'the-hostname');
+            const apply = async (patch: Record<string, boolean>): Promise<void> => {
+                if (set === 'setSwitches') {
+                    await identity.setSwitches(patch);
+                } else {
+                    await identity.setIdentity(null, null, patch);
+                }
+            };
+            expect(identity[key]).toBe(fallback);
 
-        await identity.setIdentity('Studio', null, { agentsDeleteAnyView: true });
-        expect(identity.agentsDeleteAnyView).toBe(true);
-        expect((await readOrCreateEndpointIdentity(home, 'the-hostname')).agentsDeleteAnyView).toBe(true);
+            await apply({ [key]: change });
+            expect((await readOrCreateEndpointIdentity(home, 'the-hostname'))[key]).toBe(change);
+            expect((await readWritten())[key]).toBe(change);
+            await identity.setIdentity('Studio', null);
+            expect(identity[key]).toBe(change);
 
-        // Naming the machine is a different control, so it leaves this one where it stands.
-        await identity.setIdentity('Studio again', null);
-        expect(identity.agentsDeleteAnyView).toBe(true);
-
-        await identity.setIdentity('Studio again', null, { agentsDeleteAnyView: false });
-        const written = await readWritten();
-        expect(written.agentsDeleteAnyView).toBeUndefined();
-    });
-
-    test('streaming is on by default and only an explicit opt-out is stored', async () => {
-        const identity = await readOrCreateEndpointIdentity(home, 'the-hostname');
-        expect(identity.streamingAllowed).toBe(true);
-
-        await identity.setIdentity(null, null, { streamingAllowed: false });
-        expect((await readOrCreateEndpointIdentity(home, 'the-hostname')).streamingAllowed).toBe(false);
-        let written = await readWritten();
-        expect(written.streamingAllowed).toBe(false);
-
-        await identity.setIdentity(null, null, { streamingAllowed: true });
-        written = await readWritten();
-        expect(written.streamingAllowed).toBeUndefined();
-    });
-
-    test('resuming after a limit is off by default and survives a restart once a person turns it on', async () => {
-        const identity = await readOrCreateEndpointIdentity(home, 'the-hostname');
-        expect(identity.resumeAtReset).toBe(false);
-
-        await identity.setIdentity(null, null, { resumeAtReset: true });
-        expect((await readOrCreateEndpointIdentity(home, 'the-hostname')).resumeAtReset).toBe(true);
-
-        await identity.setIdentity(null, null, { resumeAtReset: false });
-        const written = await readWritten();
-        expect(written.resumeAtReset).toBeUndefined();
-    });
+            await apply({ [key]: fallback });
+            expect((await readWritten())[key]).toBeUndefined();
+        }
+    );
 
     test('a node size is stored only for a kind a person changed, survives a restart and resets to the built-in size', async () => {
         const identity = await readOrCreateEndpointIdentity(home, 'the-hostname');
@@ -246,38 +234,6 @@ describe('readOrCreateEndpointIdentity', () => {
         const again = await readOrCreateEndpointIdentity(home, 'the-hostname');
         expect(again.id).toBe(identity.id);
         expect(again.nodeSizes).toEqual({ terminal: { w: 640, h: 400 } });
-    });
-
-    test('visual replies are on by default and only a person turning them off is stored', async () => {
-        const identity = await readOrCreateEndpointIdentity(home, 'the-hostname');
-        expect(identity.visualReplies).toBe(true);
-
-        await identity.setIdentity(null, null, { visualReplies: false });
-        expect((await readOrCreateEndpointIdentity(home, 'the-hostname')).visualReplies).toBe(false);
-        let written = await readWritten();
-        expect(written.visualReplies).toBe(false);
-
-        // Naming the machine is a different control, so it leaves this one where it stands.
-        await identity.setIdentity('Studio', null);
-        expect(identity.visualReplies).toBe(false);
-
-        await identity.setIdentity('Studio', null, { visualReplies: true });
-        written = await readWritten();
-        expect(written.visualReplies).toBeUndefined();
-    });
-
-    test('usage statistics are on by default and only turning them off is stored', async () => {
-        const identity = await readOrCreateEndpointIdentity(home, 'the-hostname');
-        expect(identity.usageStats).toBe(true);
-
-        await identity.setSwitches({ usageStats: false });
-        expect((await readOrCreateEndpointIdentity(home, 'the-hostname')).usageStats).toBe(false);
-        let written = await readWritten();
-        expect(written.usageStats).toBe(false);
-
-        await identity.setSwitches({ usageStats: true });
-        written = await readWritten();
-        expect(written.usageStats).toBeUndefined();
     });
 
     test('keep awake is off by default, each part set on its own survives a restart, and off writes nothing', async () => {

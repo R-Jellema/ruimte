@@ -211,6 +211,9 @@ const START = {
     effort: null
 };
 
+/* Every field the action has, the way the executor hands them on. */
+const FULL_START = { ...Object.fromEntries(Object.keys(ACTION_DEFINITIONS['agent.start'].input.shape).map((field) => [field, null])), ...START };
+
 function turnsOf(chatId: string): ChatTurnItem[] {
     return (daemon.chats.get(chatId)?.thread.list() ?? []).filter((item): item is ChatTurnItem => item.kind === 'turn');
 }
@@ -263,12 +266,14 @@ describe('Voice starts a chat on the daemon', () => {
         // The same start once more, under the id the executor gave it, answers with the node the first made.
         const place = { projectId, folder, canvasId: 'main' };
         const caller = { sessionId: 'session-1', owner: { clientId: 'phone', sceneId: 'scene-1' }, projectId, timeZone: 'UTC' };
-        // Every field the action has, the way the executor hands them on.
-        const full = { ...Object.fromEntries(Object.keys(ACTION_DEFINITIONS['agent.start'].input.shape).map((field) => [field, null])), ...START };
-        const again = await serverActions.execute('agent.start', { ...full, requestId: 'voice:session-1:call-1' }, voiceActionCall(daemon.host, place, caller));
+        const again = await serverActions.execute(
+            'agent.start',
+            { ...FULL_START, requestId: 'voice:session-1:call-1' },
+            voiceActionCall(daemon.host, place, caller)
+        );
         expect(again).toMatchObject({ output: { nodeId: first.nodeId } });
         // What the model named as its id never counts: it was replaced, so this is another start.
-        const other = await serverActions.execute('agent.start', full, voiceActionCall(daemon.host, place, caller));
+        const other = await serverActions.execute('agent.start', FULL_START, voiceActionCall(daemon.host, place, caller));
         expect(other).toMatchObject({ status: 'running' });
         expect(other).not.toMatchObject({ output: { nodeId: first.nodeId } });
         expect(daemon.enqueued.filter((work) => work.kind === 'start-agent')).toHaveLength(2);
@@ -309,10 +314,9 @@ describe('Voice starts a chat on the daemon', () => {
                 return typeof value === 'function' ? value.bind(target) : value;
             }
         });
-        const full = { ...Object.fromEntries(Object.keys(ACTION_DEFINITIONS['agent.start'].input.shape).map((field) => [field, null])), ...START };
         const result = await serverActions.execute(
             'agent.start',
-            { ...full, requestId: 'voice:session-1:call-1' },
+            { ...FULL_START, requestId: 'voice:session-1:call-1' },
             voiceActionCall({ ...daemon.host, projects: failing }, place, caller)
         );
         expect(result).toMatchObject({ status: 'running', output: { kind: 'chat' } });

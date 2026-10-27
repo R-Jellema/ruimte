@@ -159,9 +159,9 @@ export class FakeLive implements OpenAiLive {
         return new Promise((resolve) => this.#mintWaiters.push({ count, resolve }));
     }
 
-    attach(_key: string, sessionId: string, handlers: SidebandHandlers, signal: AbortSignal): Promise<LiveSideband> {
+    attach(key: string, sessionId: string, handlers: SidebandHandlers, signal: AbortSignal): Promise<LiveSideband> {
         const pending = deferred<LiveSideband>();
-        const socket = new FakeSocket(`fake://${sessionId}`, _key);
+        const socket = new FakeSocket(`fake://${sessionId}`, key);
         const sideband = new LiveSideband(socket, this.clock, handlers);
         this.attaches.push({ sessionId, socket, sideband, handlers, pending, signal });
         signal.addEventListener('abort', () => pending.reject(new LiveError('voice-cancelled', 'The Voice start was stopped')), { once: true });

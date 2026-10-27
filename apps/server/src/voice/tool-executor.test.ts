@@ -45,7 +45,7 @@ class FakeRunner implements VoiceActionRunner<null> {
 
     async confirm(token: string, approved: boolean, call: ActionCall<null>): Promise<ActionResult> {
         this.confirmed.push({ token, approved, actor: call.actor.id });
-        return { status: 'completed', action: 'chat.send', output: { chatId: 'c1', chat: 'Builder', queued: false } };
+        return completedSend('c1', 'Builder');
     }
 }
 
@@ -59,6 +59,14 @@ function send(chatId: string): string {
 
 function completedRead(chatId: string): ActionResult {
     return { status: 'completed', action: 'chat.read', output: { chatId, chat: 'Builder', messages: [], truncated: false } };
+}
+
+function completedSend(chatId: string, chat: string): ActionResult {
+    return { status: 'completed', action: 'chat.send', output: { chatId, chat, queued: false } };
+}
+
+function needsConfirmation(): ActionResult {
+    return { status: 'needs_confirmation', action: 'chat.send', confirmationToken: 'token-1', confirmation: { title: 'Send?', consequences: [] } };
 }
 
 function executor(
@@ -112,7 +120,7 @@ describe('VoiceToolExecutor', () => {
         void tool.execute('communicate', send('c2'), 'send-2');
         await settle();
         expect(runner.ran.map((ran) => ran.input.chatId)).toEqual(['c1']);
-        runner.ran[0]!.resolve({ status: 'completed', action: 'chat.send', output: { chatId: 'c1', chat: 'A', queued: false } });
+        runner.ran[0]!.resolve(completedSend('c1', 'A'));
         await settle();
         expect(runner.ran.map((ran) => ran.input.chatId)).toEqual(['c1', 'c2']);
 
@@ -149,7 +157,7 @@ describe('VoiceToolExecutor', () => {
         const waiting = tool.execute('communicate', send('c2'), 'send-2');
         await settle();
         live = false;
-        runner.ran[0]!.resolve({ status: 'completed', action: 'chat.send', output: { chatId: 'c1', chat: 'A', queued: false } });
+        runner.ran[0]!.resolve(completedSend('c1', 'A'));
         expect(await waiting).toMatchObject({ ok: false, code: 'voice-ended' });
         expect(runner.ran).toHaveLength(1);
     });
@@ -204,12 +212,7 @@ describe('VoiceToolExecutor', () => {
         const { tool } = executor({ runner, policy });
         const asking = tool.execute('communicate', send('c1'), 'send-1');
         await settle();
-        runner.ran[0]!.resolve({
-            status: 'needs_confirmation',
-            action: 'chat.send',
-            confirmationToken: 'token-1',
-            confirmation: { title: 'Send?', consequences: [] }
-        });
+        runner.ran[0]!.resolve(needsConfirmation());
         expect(await asking).toMatchObject({ ok: false, needs_confirmation: true, confirmation_token: 'token-1' });
 
         const other = executor({ runner, sessionId: 'session-2' });
@@ -232,12 +235,7 @@ describe('VoiceToolExecutor', () => {
         const { tool, runner } = executor();
         const asking = tool.execute('communicate', send('c1'), 'send-1');
         await settle();
-        runner.ran[0]!.resolve({
-            status: 'needs_confirmation',
-            action: 'chat.send',
-            confirmationToken: 'token-1',
-            confirmation: { title: 'Send?', consequences: [] }
-        });
+        runner.ran[0]!.resolve(needsConfirmation());
         await asking;
         expect(await tool.confirm('token-1', true)).toMatchObject({ ok: true });
         expect(runner.confirmed).toEqual([{ token: 'token-1', approved: true, actor: 'voice:session-1' }]);
@@ -252,12 +250,7 @@ describe('VoiceToolExecutor', () => {
             const { tool, runner } = executor({ stateOf: async () => state });
             const asking = tool.execute('communicate', send('c1'), 'send-1');
             await settle();
-            runner.ran[0]!.resolve({
-                status: 'needs_confirmation',
-                action: 'chat.send',
-                confirmationToken: 'token-1',
-                confirmation: { title: 'Send?', consequences: [] }
-            });
+            runner.ran[0]!.resolve(needsConfirmation());
             await asking;
             state = then;
             expect(await tool.confirm('token-1', true)).toMatchObject({ ok: false, code: 'confirmation-stale' });
@@ -270,12 +263,7 @@ describe('VoiceToolExecutor', () => {
         const { tool, runner } = executor();
         const asking = tool.execute('communicate', send('c1'), 'send-1');
         await settle();
-        runner.ran[0]!.resolve({
-            status: 'needs_confirmation',
-            action: 'chat.send',
-            confirmationToken: 'token-1',
-            confirmation: { title: 'Send?', consequences: [] }
-        });
+        runner.ran[0]!.resolve(needsConfirmation());
         await asking;
         tool.forget();
         expect(runner.forgotten).toEqual(['voice:session-1']);

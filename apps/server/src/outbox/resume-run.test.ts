@@ -137,6 +137,10 @@ function turnOf(daemon: Daemon, turnId: string, chatId = 'chat-child'): ChatItem
     return daemon.chats.get(chatId)?.thread.get(turnId);
 }
 
+async function untilTurnDone(daemon: Daemon, turnId: string, chatId = 'chat-child'): Promise<void> {
+    await daemon.until(() => (turnOf(daemon, turnId, chatId) as { state?: string } | undefined)?.state === 'done');
+}
+
 describe('resume-run', () => {
     test('a child the daemon stopped in the middle of a turn goes on with --resume under the same turn, as its second attempt', async () => {
         const { turnId, agentSessionId } = await interruptChild();
@@ -144,7 +148,7 @@ describe('resume-run', () => {
         const daemon = await boot();
         daemon.worker.start();
         await daemon.chats.recoverInterrupted();
-        await daemon.until(() => turnOf(daemon, turnId)?.kind === 'turn' && (turnOf(daemon, turnId) as { state: string }).state === 'done');
+        await untilTurnDone(daemon, turnId);
         await daemon.worker.settled();
 
         const session = daemon.chats.get('chat-child')!;
@@ -171,7 +175,7 @@ describe('resume-run', () => {
         const daemon = await boot();
         daemon.worker.start();
         await daemon.chats.recoverInterrupted();
-        await daemon.until(() => turnOf(daemon, turnId)?.kind === 'turn' && (turnOf(daemon, turnId) as { state: string }).state === 'done');
+        await untilTurnDone(daemon, turnId);
 
         expect(turnOf(daemon, turnId)).toMatchObject({ state: 'done', attempt: 2 });
         // The fake hands a resumed thread its own id back and makes a new one for `thread/start`.
@@ -185,7 +189,7 @@ describe('resume-run', () => {
         const daemon = await boot();
         daemon.worker.start();
         await daemon.chats.recoverInterrupted();
-        await daemon.until(() => (turnOf(daemon, turnId, 'chat-view') as { state?: string } | undefined)?.state === 'done');
+        await untilTurnDone(daemon, turnId, 'chat-view');
         await daemon.worker.settled();
 
         expect(turnOf(daemon, turnId, 'chat-view')).toMatchObject({ state: 'done', attempt: 2 });
