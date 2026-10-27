@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdir, mkdtemp, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { deletePath, planDelete } from './delete.ts';
+import { planDelete } from './delete.ts';
+import { codeOf, projectBoundary } from './test-boundary.ts';
 import type { WriteBoundary } from './write.ts';
 
 let root: string;
@@ -11,15 +12,15 @@ let outside: string;
 let trashed: string[];
 
 function boundary(): WriteBoundary {
-    return {
-        folders: [project],
-        worktreesOf: async () => [],
-        worktreesRoot: join(root, 'home', 'worktrees')
-    };
+    return projectBoundary(root, project);
 }
 
 async function trash(path: string): Promise<void> {
     trashed.push(path);
+}
+
+async function deletePath(path: string, boundary: WriteBoundary, trashing: (path: string) => Promise<void>): Promise<void> {
+    await (await planDelete(path, boundary, trashing)).run();
 }
 
 const caseInsensitive = await (async (): Promise<boolean> => {
@@ -31,15 +32,6 @@ const caseInsensitive = await (async (): Promise<boolean> => {
         await rm(probe, { recursive: true, force: true });
     }
 })();
-
-async function codeOf(work: Promise<unknown>): Promise<string | undefined> {
-    try {
-        await work;
-        return undefined;
-    } catch (e) {
-        return (e as { code?: string }).code;
-    }
-}
 
 beforeEach(async () => {
     root = await realpath(await mkdtemp(join(tmpdir(), 'ruimte-fs-delete-')));
@@ -105,7 +97,6 @@ describe('fs.delete', () => {
 
         await deletePath(join(project, 'out'), boundary(), trash);
 
-        expect(trashed).toHaveLength(1);
         expect(trashed).toEqual([join(project, 'out')]);
     });
 

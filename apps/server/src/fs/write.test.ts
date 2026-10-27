@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { FS_READ_MAX_TEXT_BYTES } from '@ruimte/contracts';
 import { readFile as readForViewer } from './read.ts';
+import { codeOf, projectBoundary } from './test-boundary.ts';
 import { openForSave, writeTextFile, type WriteBoundary } from './write.ts';
 
 let root: string;
@@ -14,26 +15,12 @@ let outside: string;
 let worktreesRoot: string;
 
 function boundary(worktrees: string[] = []): WriteBoundary {
-    return {
-        folders: [project],
-        worktreesOf: async () => worktrees,
-        worktreesRoot
-    };
+    return projectBoundary(root, project, worktrees);
 }
 
 async function put(path: string, content: string | Buffer): Promise<{ path: string; mtime: number }> {
     await writeFile(path, content);
     return { path, mtime: Math.round((await stat(path)).mtimeMs) };
-}
-
-/* The code a failed write carries, which is what the wire hands the client. */
-async function codeOf(work: Promise<unknown>): Promise<string | undefined> {
-    try {
-        await work;
-        return undefined;
-    } catch (e) {
-        return (e as { code?: string }).code;
-    }
 }
 
 beforeEach(async () => {

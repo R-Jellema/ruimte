@@ -4,7 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileExists } from '@adecore/agents';
 import { renameNoReplace } from './no-replace-rename.ts';
-import { planRename, renamePath } from './rename.ts';
+import { planRename } from './rename.ts';
+import { codeOf, projectBoundary } from './test-boundary.ts';
 import type { WriteBoundary } from './write.ts';
 
 let root: string;
@@ -12,16 +13,11 @@ let project: string;
 let outside: string;
 
 function boundary(): WriteBoundary {
-    return { folders: [project], worktreesOf: async () => [], worktreesRoot: join(root, 'home', 'worktrees') };
+    return projectBoundary(root, project);
 }
 
-async function codeOf(work: Promise<unknown>): Promise<string | undefined> {
-    try {
-        await work;
-        return undefined;
-    } catch (e) {
-        return (e as { code?: string }).code;
-    }
+async function renamePath(path: string, to: string, boundary: WriteBoundary): Promise<void> {
+    await (await planRename(path, to, boundary)).run();
 }
 
 beforeEach(async () => {

@@ -1,17 +1,13 @@
-import { relative, sep } from 'node:path';
 import { CodedError } from '@adecore/agents';
-import { isInside } from '../canvas/project-paths.ts';
 import { trashPath } from './trash.ts';
-import { realEntryPath, realRoots, stateRefusal, type WriteBoundary } from './write.ts';
+import { assertOpenGround, realEntryPath, realRoots, rootOf, type WriteBoundary } from './write.ts';
 
-type DeleteErrorCode = 'not-found' | 'outside-project' | 'project-root' | 'git-state' | 'ruimte-state';
-
-class DeleteError extends CodedError<DeleteErrorCode> {}
+class DeleteError extends CodedError<'not-found' | 'project-root'> {}
 
 /*
  * Moves a file or folder of an open project to the trash, inside the same boundary a save keeps.
  * A symbolic link is trashed as the link and never followed, so a link out of the project cannot
- * take its target along. Nothing is trashed until `run`, so a caller can do what has to come before knowing it is allowed.
+ * take its target along. Nothing is trashed until `run`, so a caller can first do what has to come before.
  */
 export async function planDelete(path: string, boundary: WriteBoundary, trash: (path: string) => Promise<void> = trashPath): Promise<{ run(): Promise<void> }> {
     const real = await realEntryPath(path);
@@ -19,20 +15,10 @@ export async function planDelete(path: string, boundary: WriteBoundary, trash: (
         throw new DeleteError('not-found', 'That path is not there');
     }
     const roots = await realRoots(boundary);
-    const root = roots.find((candidate) => isInside(candidate, real));
-    if (root === undefined) {
-        throw new DeleteError('outside-project', `${path} is outside the projects open here and their worktrees`);
-    }
+    const root = rootOf(roots, real, path);
     if (roots.includes(real)) {
         throw new DeleteError('project-root', 'A project folder is removed by closing the project, not from here');
     }
-    const refused = stateRefusal(relative(root, real).split(sep), path, 'deleted');
-    if (refused !== null) {
-        throw new DeleteError(refused.code, refused.message);
-    }
+    assertOpenGround(root, real, path, 'deleted');
     return { run: () => trash(real) };
-}
-
-export async function deletePath(path: string, boundary: WriteBoundary, trash: (path: string) => Promise<void> = trashPath): Promise<void> {
-    await (await planDelete(path, boundary, trash)).run();
 }

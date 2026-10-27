@@ -1,13 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { lstat, mkdir, realpath, rmdir, stat } from 'node:fs/promises';
 import type { Stats } from 'node:fs';
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { CodedError } from '@adecore/agents';
 import { isInside } from '../canvas/project-paths.ts';
 import { retryingRename } from './busy-retry.ts';
+import { deepestEntry } from './create.ts';
 import { renameNoReplace } from './no-replace-rename.ts';
 import { trashPath } from './trash.ts';
-import { realEntryPath, realRoots, stateRefusal, type WriteBoundary } from './write.ts';
+import { assertOpenGround, realEntryPath, realRoots, rootOf, type WriteBoundary } from './write.ts';
 
 type RenameErrorCode =
     | 'bad-path'
@@ -15,10 +16,7 @@ type RenameErrorCode =
     | 'exists'
     | 'into-itself'
     | 'not-a-directory'
-    | 'outside-project'
     | 'project-root'
-    | 'git-state'
-    | 'ruimte-state'
     | 'not-writable'
     | 'other-volume'
     | 'unsupported';
@@ -35,24 +33,12 @@ async function realSource(path: string): Promise<string> {
 
 /* The real place the folder of a new path will have: the deepest folder that exists along it, with the names below it that do not yet. */
 async function realTarget(path: string): Promise<string> {
-    const missing: string[] = [];
-    let current = dirname(path);
-    for (;;) {
-        const entry = await lstat(current).catch(() => null);
-        if (entry !== null) {
-            const base = await realpath(current).catch(() => null);
-            if (base === null || !(await stat(base)).isDirectory()) {
-                throw new RenameError('not-a-directory', `${current} is not a folder`);
-            }
-            return join(base, ...missing, basename(path));
-        }
-        const parent = dirname(current);
-        if (parent === current) {
-            throw new RenameError('bad-path', `${path} has no folder to start from`);
-        }
-        missing.unshift(basename(current));
-        current = parent;
+    const { at, missing } = await deepestEntry(dirname(path), (place) => lstat(place).catch(() => null), path);
+    const base = await realpath(at).catch(() => null);
+    if (base === null || !(await stat(base)).isDirectory()) {
+        throw new RenameError('not-a-directory', `${at} is not a folder`);
     }
+    return join(base, ...missing, basename(path));
 }
 
 function failure(e: unknown, path: string, to: string): unknown {
@@ -76,13 +62,6 @@ function failure(e: unknown, path: string, to: string): unknown {
         return new RenameError('not-a-directory', `A part of ${path} is a file, not a folder`);
     }
     return e;
-}
-
-function assertOpenGround(segments: readonly string[], path: string): void {
-    const refused = stateRefusal(segments, path, 'moved');
-    if (refused !== null) {
-        throw new RenameError(refused.code, refused.message);
-    }
 }
 
 type Rename = (from: string, to: string) => Promise<void>;
@@ -119,18 +98,7 @@ async function throughSpareName(source: string, target: string, move: Rename): P
 
 /* The device of the deepest folder that exists along `path`, which is where a move to it lands. */
 async function deviceOfPlace(path: string): Promise<number> {
-    let current = dirname(path);
-    for (;;) {
-        const entry = await stat(current).catch(() => null);
-        if (entry !== null) {
-            return entry.dev;
-        }
-        const parent = dirname(current);
-        if (parent === current) {
-            throw new RenameError('bad-path', `${path} has no folder to start from`);
-        }
-        current = parent;
-    }
+    return (await deepestEntry(dirname(path), (place) => stat(place).catch(() => null), path)).entry.dev;
 }
 
 function trashReplaced(path: string, original: string): Promise<void> {
@@ -160,16 +128,13 @@ export async function planRename(
     const source = await realSource(resolve(path));
     const target = await realTarget(resolve(to));
     const roots = await realRoots(boundary);
-    const sourceRoot = roots.find((candidate) => isInside(candidate, source));
-    const targetRoot = roots.find((candidate) => isInside(candidate, target));
-    if (sourceRoot === undefined || targetRoot === undefined) {
-        throw new RenameError('outside-project', `${sourceRoot === undefined ? path : to} is outside the projects open here and their worktrees`);
-    }
+    const sourceRoot = rootOf(roots, source, path);
+    const targetRoot = rootOf(roots, target, to);
     if (roots.includes(source)) {
         throw new RenameError('project-root', 'A project folder is moved outside Ruimte, not from here');
     }
-    assertOpenGround(relative(sourceRoot, source).split(sep), path);
-    assertOpenGround(relative(targetRoot, target).split(sep), to);
+    assertOpenGround(sourceRoot, source, path, 'moved');
+    assertOpenGround(targetRoot, target, to, 'moved');
     // `relative` ignores case on Windows, so a case-only change answers '' there.
     if (relative(source, target) !== '' && isInside(source, target)) {
         throw new RenameError('into-itself', `${path} cannot be moved into itself`);
@@ -242,8 +207,4 @@ async function replace(source: string, target: string, trash: Trash, move: Renam
         // The replaced file stays in its hidden folder: losing it is worse than a leftover.
         console.warn(`Could not trash the file replaced at ${target}; it was left in ${holder}`, e);
     }
-}
-
-export async function renamePath(path: string, to: string, boundary: WriteBoundary): Promise<void> {
-    await (await planRename(path, to, boundary)).run();
 }

@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { FS_READ_MAX_TEXT_BYTES } from '@ruimte/contracts';
 import { createEntry, planCreate } from './create.ts';
+import { codeOf, projectBoundary } from './test-boundary.ts';
 import type { WriteBoundary } from './write.ts';
 
 let root: string;
@@ -11,20 +12,7 @@ let project: string;
 let outside: string;
 
 function boundary(): WriteBoundary {
-    return {
-        folders: [project],
-        worktreesOf: async () => [],
-        worktreesRoot: join(root, 'home', 'worktrees')
-    };
-}
-
-async function codeOf(work: Promise<unknown>): Promise<string | undefined> {
-    try {
-        await work;
-        return undefined;
-    } catch (e) {
-        return (e as { code?: string }).code;
-    }
+    return projectBoundary(root, project);
 }
 
 beforeEach(async () => {

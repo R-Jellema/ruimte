@@ -1,41 +1,50 @@
 import { constants } from 'node:fs';
 import { lstat, mkdir, open, realpath, stat } from 'node:fs/promises';
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { FS_READ_MAX_TEXT_BYTES, type FsCreatePayload, type FsCreateResult } from '@ruimte/contracts';
 import { CodedError } from '@adecore/agents';
-import { isInside } from '../canvas/project-paths.ts';
-import { realRoots, stateRefusal, type WriteBoundary } from './write.ts';
+import { assertOpenGround, realRoots, rootOf, type WriteBoundary } from './write.ts';
 
-type CreateErrorCode = 'bad-path' | 'exists' | 'not-a-directory' | 'outside-project' | 'git-state' | 'ruimte-state' | 'too-large' | 'not-writable';
+type CreateErrorCode = 'bad-path' | 'exists' | 'not-a-directory' | 'too-large' | 'not-writable';
 
 class CreateError extends CodedError<CreateErrorCode> {}
+
+/* The deepest place along `from` that `look` finds, and the names below it that it does not; `named` is how a refusal names the path. */
+export async function deepestEntry<T>(
+    from: string,
+    look: (path: string) => Promise<T | null>,
+    named = from
+): Promise<{ at: string; entry: T; missing: string[] }> {
+    const missing: string[] = [];
+    let current = from;
+    for (;;) {
+        const entry = await look(current);
+        if (entry !== null) {
+            return { at: current, entry, missing };
+        }
+        const parent = dirname(current);
+        if (parent === current) {
+            throw new CreateError('bad-path', `${named} has no folder to start from`);
+        }
+        missing.unshift(basename(current));
+        current = parent;
+    }
+}
 
 /*
  * The real path of the deepest folder that exists along `path`, and the names below it that do not.
  * A link along the way is followed, since that is where the new entry would really land.
  */
 export async function deepestExisting(path: string): Promise<{ base: string; missing: string[] }> {
-    const missing: string[] = [];
-    let current = path;
-    for (;;) {
-        const entry = await lstat(current).catch(() => null);
-        if (entry !== null) {
-            const base = await realpath(current).catch(() => null);
-            if (base === null) {
-                throw new CreateError('not-a-directory', `${current} is a link that leads nowhere`);
-            }
-            if (missing.length > 0 && !(await stat(base)).isDirectory()) {
-                throw new CreateError('not-a-directory', `${current} is a file, not a folder`);
-            }
-            return { base, missing };
-        }
-        const parent = dirname(current);
-        if (parent === current) {
-            throw new CreateError('bad-path', `${path} has no folder to start from`);
-        }
-        missing.unshift(basename(current));
-        current = parent;
+    const { at, missing } = await deepestEntry(path, (place) => lstat(place).catch(() => null));
+    const base = await realpath(at).catch(() => null);
+    if (base === null) {
+        throw new CreateError('not-a-directory', `${at} is a link that leads nowhere`);
     }
+    if (missing.length > 0 && !(await stat(base)).isDirectory()) {
+        throw new CreateError('not-a-directory', `${at} is a file, not a folder`);
+    }
+    return { base, missing };
 }
 
 function failure(e: unknown, path: string): unknown {
@@ -87,15 +96,7 @@ export async function planCreate(
     }
     const { base, missing } = await deepestExisting(target);
     const real = join(base, ...missing);
-    const roots = await realRoots(boundary);
-    const root = roots.find((candidate) => isInside(candidate, real));
-    if (root === undefined) {
-        throw new CreateError('outside-project', `${target} is outside the projects open here and their worktrees`);
-    }
-    const refused = stateRefusal(relative(root, real).split(sep), target, 'created');
-    if (refused !== null) {
-        throw new CreateError(refused.code, refused.message);
-    }
+    assertOpenGround(rootOf(await realRoots(boundary), real, target), real, target, 'created');
     const bytes = kind === 'file' ? new TextEncoder().encode(payload.text ?? '') : null;
     if (bytes !== null && bytes.length > FS_READ_MAX_TEXT_BYTES) {
         throw new CreateError('too-large', 'That text is too large to create from here');

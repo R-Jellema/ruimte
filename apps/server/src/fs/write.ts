@@ -2,14 +2,16 @@ import { constants } from 'node:fs';
 import { lstat, open, realpath, type FileHandle } from 'node:fs/promises';
 import { basename, dirname, join, relative, sep } from 'node:path';
 import { FS_READ_MAX_TEXT_BYTES, type FsWriteResult } from '@ruimte/contracts';
+import { CodedError, KeyedSerializer } from '@adecore/agents';
 import { isInside, realOrNull } from '../canvas/project-paths.ts';
 import { isRuimteState } from '../projects/project-files.ts';
-import { CodedError, KeyedSerializer } from '@adecore/agents';
 import { ReadError, UTF8_BOM, inspect } from './read.ts';
 
-type WriteErrorCode = 'stale' | 'too-large' | 'not-text' | 'outside-project' | 'ruimte-state' | 'not-writable';
+type WriteErrorCode = 'stale' | 'too-large' | 'not-text' | 'ruimte-state' | 'not-writable';
 
 class WriteError extends CodedError<WriteErrorCode> {}
+
+class BoundaryError extends CodedError<'outside-project' | 'git-state' | 'ruimte-state'> {}
 
 /* Keyed on dev and inode, so a hard link to a file shares the queue of the file itself. */
 const saves = new KeyedSerializer();
@@ -64,6 +66,23 @@ export function stateRefusal(segments: readonly string[], path: string, verb: st
     return null;
 }
 
+/* The root of the boundary a real path lies in; `path` is how the refusal names it. */
+export function rootOf(roots: readonly string[], real: string, path: string): string {
+    const root = roots.find((candidate) => isInside(candidate, real));
+    if (root === undefined) {
+        throw new BoundaryError('outside-project', `${path} is outside the projects open here and their worktrees`);
+    }
+    return root;
+}
+
+/* Throws the `stateRefusal` of a real path below `root`. */
+export function assertOpenGround(root: string, real: string, path: string, verb: string): void {
+    const refused = stateRefusal(relative(root, real).split(sep), path, verb);
+    if (refused !== null) {
+        throw new BoundaryError(refused.code, refused.message);
+    }
+}
+
 /* What opening the file for writing may run into after the checks passed, in the codes a read answers with. */
 function openError(e: unknown, path: string): unknown {
     const code = (e as NodeJS.ErrnoException).code;
@@ -107,9 +126,7 @@ export async function writeTextFile(path: string, text: string, expectedMtime: n
     }
     const real = join(folder, basename(file.path));
     const roots = await realRoots(boundary);
-    if (!roots.some((root) => isInside(root, real))) {
-        throw new WriteError('outside-project', `${file.path} is outside the projects open here and their worktrees`);
-    }
+    rootOf(roots, real, file.path);
     // The project files move only through `project.save` and its rev; a write here would slip past both.
     if (roots.some((root) => isInside(root, real) && isRuimteState(relative(root, real).split(sep)))) {
         throw new WriteError('ruimte-state', `${file.path} is Ruimte's own state and is not written from here`);
