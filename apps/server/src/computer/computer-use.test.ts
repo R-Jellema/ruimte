@@ -1,13 +1,13 @@
 import { describe, expect, test } from 'bun:test';
-import type { ComputerAppGrants } from '@ruimte/contracts';
 import { mkdir, mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { ComputerAppGrants } from '@ruimte/contracts';
 import type { SessionEvent } from '../sessions/manager.ts';
 import { APPROVAL_WAIT_MS, CARD_MS } from './approvals.ts';
 import { chatInfo, computerSetup, SHELL_APP, terminalStatus, TEXT_EDIT, turnEnded, until, type ComputerSetup } from './computer-test-helpers.ts';
-import { ComputerUseStore } from './store.ts';
 import { agentWords, findInstalledApp, resolveApp, SESSION_POLL_MS } from './computer-use.ts';
+import { ComputerUseStore } from './store.ts';
 
 // How long a call held by the person waits before it asks the helper again.
 const HOLD_MS = 500;
@@ -507,12 +507,10 @@ describe('naming an app', () => {
     });
 
     test('puts the helper words for its own command line in words for an agent', async () => {
-        const { computer, helper } = await computerSetup();
-        const call = computer.operate('chat-1', 'state', 'TextEdit', {});
-        await until(() => computer.pendingApprovals().length === 1);
+        const setup = await computerSetup();
+        const { computer, helper } = setup;
         // For always: a stop takes back what was allowed this time.
-        await computer.answer(computer.pendingApprovals()[0]!.requestId, 'always');
-        await call;
+        await letIn(setup);
         helper.error = 'element 3 is no longer at (1, 2); Run `cu state` again';
         expect(await codeOf(computer.operate('chat-1', 'click', 'TextEdit', { element: 3 }))).toBe('app-refused');
         helper.error = 'stopped by the user (Esc). Run `cu state <app>` to continue.';
@@ -523,11 +521,9 @@ describe('naming an app', () => {
     });
 
     test('passes on a call only the front can do as needs-front, and never goes to the front itself', async () => {
-        const { computer, helper } = await computerSetup();
-        const call = computer.operate('chat-1', 'state', 'TextEdit', {});
-        await until(() => computer.pendingApprovals().length === 1);
-        await computer.answer(computer.pendingApprovals()[0]!.requestId, 'always');
-        await call;
+        const setup = await computerSetup();
+        const { computer, helper } = setup;
+        await letIn(setup);
         helper.error = 'A drag needs the real pointer, and so the app in front. Call again with --front: that brings the app forward';
         helper.errorCode = 'needs-front';
         const refusal = await computer.operate('chat-1', 'drag', 'TextEdit', { element: 1, toElement: 2 }).catch((error: unknown) => error);
@@ -794,10 +790,7 @@ describe('a stop by the person', () => {
 
     test('takes back what was allowed this time', async () => {
         const { computer, timers } = await computerSetup();
-        const call = computer.operate('chat-1', 'state', 'TextEdit', {});
-        await until(() => computer.pendingApprovals().length === 1);
-        await computer.answer(computer.pendingApprovals()[0]!.requestId, 'once');
-        await call;
+        await allowOnce(computer, 'chat-1');
         await computer.control('stop');
         expect(await codeOf(computer.operate('chat-1', 'click', 'TextEdit', { element: 1 }))).toBe('stopped');
         const again = codeOf(computer.operate('chat-1', 'click', 'TextEdit', { element: 1 }));

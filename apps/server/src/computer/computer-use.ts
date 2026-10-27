@@ -1,6 +1,7 @@
-import { mkdir, readdir } from 'node:fs/promises';
+import { readdir } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
+import { CodedError } from '@adecore/agents';
 import type {
     ComputerAppGrants,
     ComputerApproval,
@@ -12,11 +13,10 @@ import type {
     ComputerUseStatus
 } from '@ruimte/contracts';
 import { ClientSinks } from '../client-sinks.ts';
-import { CodedError, writeAtomic } from '@adecore/agents';
 import { errorText } from '../error-text.ts';
 import type { SessionEvent, SessionSink } from '../sessions/manager.ts';
 import { APPROVAL_WAIT_MS, ComputerApprovals, MAX_HOLD_MS, realTimers, type AppRef, type CallerInfo, type Timers } from './approvals.ts';
-import { HelperFailure, helperDirectory, type ComputerHelper } from './helper.ts';
+import { HelperFailure, helperDirectory, messageOf, type ComputerHelper } from './helper.ts';
 import {
     ActionResultSchema,
     AppsResultSchema,
@@ -38,7 +38,7 @@ import {
 } from './helper-protocol.ts';
 import { overlayWords, presenceWords } from './overlay-words.ts';
 import { ComputerPresence, type LineOutcome, type PresenceShow } from './presence.ts';
-import type { ComputerUseStore } from './store.ts';
+import { writeHelperFile, type ComputerUseStore } from './store.ts';
 import { isKnownTerminal, readProcessTable, runsShells, type ProcessRow, type ProcessTable } from './terminal-apps.ts';
 import { diffTree, rememberTree, type RememberedTree, type TreeView } from './tree-diff.ts';
 
@@ -282,7 +282,7 @@ export class ComputerUse {
         this.timers = options.timers ?? realTimers;
         this.waitMs = options.waitMs ?? APPROVAL_WAIT_MS;
         this.log = options.log ?? console.warn;
-        this.current = { enabled: options.store.enabled, present: options.helper.present, running: false, accessibility: null, screenRecording: null };
+        this.current = this.notRunning();
         this.presence = new ComputerPresence({
             send: (show) => this.showPresence(show),
             words: () => presenceWords(this.store.language),
@@ -392,7 +392,7 @@ export class ComputerUse {
 
     /* Asks the helper how it stands. Only a machine with computer use on starts it for that. */
     async refreshStatus(): Promise<ComputerUseStatus> {
-        const notRunning = { enabled: this.store.enabled, present: this.helper.present, running: false, accessibility: null, screenRecording: null };
+        const notRunning = this.notRunning();
         if (!this.helper.present) {
             return this.setStatus(notRunning);
         }
@@ -401,8 +401,12 @@ export class ComputerUse {
             this.noteSession(doctor?.session ?? null);
             return this.setStatus(doctor === null ? notRunning : { ...runningStatus(doctor), enabled: this.store.enabled });
         } catch (error) {
-            return this.setStatus({ ...notRunning, problem: error instanceof Error ? error.message : String(error) });
+            return this.setStatus({ ...notRunning, problem: messageOf(error) });
         }
+    }
+
+    private notRunning(): ComputerUseStatus {
+        return { enabled: this.store.enabled, present: this.helper.present, running: false, accessibility: null, screenRecording: null };
     }
 
     async setEnabled(enabled: boolean, language: string | undefined): Promise<ComputerUseStatus> {
@@ -723,7 +727,7 @@ export class ComputerUse {
     }
 
     private heldCode(): HeldCode | null {
-        if (this.session === null || !this.session.active) {
+        if (this.session?.active !== true) {
             return null;
         }
         return this.session.mode === 'paused' ? 'paused' : this.session.mode === 'takenOver' ? 'taken-over' : null;
@@ -886,8 +890,6 @@ export class ComputerUse {
     }
 
     private async writeOverlay(): Promise<void> {
-        const directory = helperDirectory(this.home);
-        await mkdir(directory, { recursive: true, mode: 0o700 });
-        await writeAtomic(join(directory, 'overlay.json'), `${JSON.stringify(overlayWords(this.store.language))}\n`, 0o600);
+        await writeHelperFile(join(helperDirectory(this.home), 'overlay.json'), `${JSON.stringify(overlayWords(this.store.language))}\n`);
     }
 }

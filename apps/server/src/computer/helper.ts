@@ -1,9 +1,9 @@
 import { existsSync } from 'node:fs';
 import { connect } from 'node:net';
 import { dirname, join, resolve } from 'node:path';
+import { CodedError } from '@adecore/agents';
 import type { z } from 'zod';
 import { readLocalSecret } from '../auth/local-secret.ts';
-import { CodedError } from '@adecore/agents';
 import { HelperReplySchema, type HelperRequest } from './helper-protocol.ts';
 
 type HelperFailureCode = 'unavailable' | 'helper-unreachable' | 'helper-busy' | 'helper-error' | 'helper-invalid';
@@ -18,7 +18,7 @@ export class HelperFailure extends CodedError<HelperFailureCode> {
     }
 }
 
-function messageOf(error: unknown): string {
+export function messageOf(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
 }
 

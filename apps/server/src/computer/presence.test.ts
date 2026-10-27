@@ -27,6 +27,8 @@ interface Setup {
     holders: (string | null)[];
     // Makes every send wait until the test lets it go.
     gate: { held: boolean; release: () => void };
+    // Has the node act once and waits until its cursor thinks.
+    hold: (nodeId: string) => Promise<void>;
 }
 
 function setup(options: { language?: string; fail?: boolean } = {}): Setup {
@@ -61,7 +63,14 @@ function setup(options: { language?: string; fail?: boolean } = {}): Setup {
         onHolder: (nodeId) => holders.push(nodeId),
         log: (message) => logs.push(message)
     });
-    return { presence, shown, logs, alive, holders, gate };
+    const hold = async (nodeId: string): Promise<void> => {
+        presence.calling(nodeId);
+        presence.acting(nodeId);
+        presence.acted(nodeId);
+        await until(() => shown.at(-1) === 'think');
+    };
+
+    return { presence, shown, logs, alive, holders, gate, hold };
 }
 
 /* Lets the sends that are out land; a send never waits on a clock. */
@@ -189,13 +198,7 @@ describe('the presence of the agent that holds the session', () => {
     });
 
     test('shows why the session ends when the agent stops with an error', async () => {
-        const { presence, shown } = setup({ language: 'nl' });
-        const hold = async (nodeId: string): Promise<void> => {
-            presence.calling(nodeId);
-            presence.acting(nodeId);
-            presence.acted(nodeId);
-            await until(() => shown.at(-1) === 'think');
-        };
+        const { presence, shown, hold } = setup({ language: 'nl' });
         await hold('term-1');
         presence.status('term-1', 'error');
         await until(() => shown.length === 2);
@@ -208,13 +211,7 @@ describe('the presence of the agent that holds the session', () => {
     });
 
     test('ends the session when the turn is interrupted, the node closes or it goes without a word', async () => {
-        const { presence, shown, alive } = setup();
-        const hold = async (nodeId: string): Promise<void> => {
-            presence.calling(nodeId);
-            presence.acting(nodeId);
-            presence.acted(nodeId);
-            await until(() => shown.at(-1) === 'think');
-        };
+        const { presence, shown, alive, hold } = setup();
         await hold('chat-1');
         presence.turnEnded('chat-1', 'aborted');
         await until(() => shown.at(-1) === 'end');

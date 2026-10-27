@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test';
-import { MAX_KEY_COMBOS, MAX_TYPED_LENGTH } from '@ruimte/actions';
 import { mkdir, mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { MAX_KEY_COMBOS, MAX_TYPED_LENGTH } from '@ruimte/actions';
 import { FakeHelper, tempHome } from './computer-test-helpers.ts';
 import { answerWithinMs, ComputerHelper, HelperFailure, locateHelperApp } from './helper.ts';
 import { DoctorResultSchema, StateResultSchema } from './helper-protocol.ts';

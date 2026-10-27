@@ -1,8 +1,8 @@
 import { mkdir, readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { isNotFound, writeAtomic } from '@adecore/agents';
 import type { ComputerAppGrants } from '@ruimte/contracts';
 import { z } from 'zod';
-import { isNotFound, writeAtomic } from '@adecore/agents';
 import { helperDirectory } from './helper.ts';
 
 const SettingsSchema = z.object({
@@ -129,8 +129,13 @@ export class ComputerUseStore {
     }
 
     private async write(path: string, value: unknown): Promise<void> {
-        // The helper keeps its socket and screenshots here and expects the folder to be this user's alone.
-        await mkdir(this.directory, { recursive: true, mode: 0o700 });
-        await writeAtomic(path, `${JSON.stringify(value, null, 2)}\n`, 0o600);
+        await writeHelperFile(path, `${JSON.stringify(value, null, 2)}\n`);
     }
+}
+
+/* A file in the helper's folder, readable by this user alone. */
+export async function writeHelperFile(path: string, text: string): Promise<void> {
+    // The helper keeps its socket and screenshots here and expects the folder to be this user's alone.
+    await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+    await writeAtomic(path, text, 0o600);
 }

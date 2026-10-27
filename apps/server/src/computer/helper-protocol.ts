@@ -6,32 +6,9 @@ import { z } from 'zod';
  * The reply schemas keep only what the daemon reads; a field the helper adds later passes unseen.
  */
 
-const HELPER_COMMANDS = [
-    'doctor',
-    'apps',
-    'quit',
-    'presence',
-    'pause',
-    'resume',
-    'stop',
-    'clear-stop',
-    'state',
-    'click',
-    'scroll',
-    'type',
-    'key',
-    'set-value',
-    'open',
-    'menu',
-    'drag',
-    'read',
-    'wait'
-] as const;
-type HelperCommand = (typeof HELPER_COMMANDS)[number];
-
 /* The commands that read or operate one app, which is what a person has to let an agent into. */
-const APP_COMMANDS = ['state', 'click', 'scroll', 'type', 'key', 'set-value', 'open', 'menu', 'drag', 'read', 'wait'] as const;
-export type AppCommand = (typeof APP_COMMANDS)[number];
+export type AppCommand = 'state' | 'click' | 'scroll' | 'type' | 'key' | 'set-value' | 'open' | 'menu' | 'drag' | 'read' | 'wait';
+type HelperCommand = 'doctor' | 'apps' | 'quit' | 'presence' | 'pause' | 'resume' | 'stop' | 'clear-stop' | AppCommand;
 
 /* How the tree and the picture of a `state` are cut, for `state` itself and every action with `withState`. */
 interface StateOptions {
@@ -42,8 +19,7 @@ interface StateOptions {
 }
 
 /* What the daemon shows at the cursor between actions, which the helper cannot see for itself; `end` ends the session at once. */
-const PRESENCE_STATES = ['think', 'waiting', 'permission', 'error', 'done', 'end'] as const;
-export type PresenceState = (typeof PRESENCE_STATES)[number];
+export type PresenceState = 'think' | 'waiting' | 'permission' | 'error' | 'done' | 'end';
 
 export interface HelperRequest extends StateOptions {
     command: HelperCommand;
@@ -130,12 +106,13 @@ export type RunningApp = z.infer<typeof RunningAppSchema>;
 export const AppsResultSchema = z.object({ apps: z.array(RunningAppSchema) });
 
 const AppDescriptorSchema = z.object({ name: z.string(), pid: z.number().int(), bundleId: z.string().optional() });
+const FrameSchema = z.object({ x: z.number(), y: z.number(), width: z.number(), height: z.number() });
 
 export const StateResultSchema = z.object({
     app: AppDescriptorSchema,
     window: z.object({
         title: z.string(),
-        frame: z.object({ x: z.number(), y: z.number(), width: z.number(), height: z.number() }),
+        frame: FrameSchema,
         sheet: z.string().optional()
     }),
     screenshot: z.object({
@@ -194,7 +171,7 @@ export const ReadResultSchema = z.object({
     description: z.string().optional(),
     placeholder: z.string().optional(),
     identifier: z.string().optional(),
-    frame: z.object({ x: z.number(), y: z.number(), width: z.number(), height: z.number() }).optional()
+    frame: FrameSchema.optional()
 });
 export type ReadResult = z.infer<typeof ReadResultSchema>;
 
