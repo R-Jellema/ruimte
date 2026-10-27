@@ -80,7 +80,7 @@ export function percentiles(samples: readonly number[]): Percentiles {
     if (samples.length === 0) {
         return EMPTY;
     }
-    const sorted = [...samples].sort((a, b) => a - b);
+    const sorted = samples.toSorted((left, right) => left - right);
     const at = (percent: number): number => sorted[Math.min(sorted.length - 1, Math.max(0, Math.ceil((percent / 100) * sorted.length) - 1))]!;
     return { n: sorted.length, p50: at(50), p95: at(95), p99: at(99), max: sorted[sorted.length - 1]! };
 }

@@ -74,7 +74,7 @@ export function clockReads(path: string, text: string): ClockRead[] {
     return found
         .filter(({ start }) => !exempt.some(([from, to]) => start >= from && start < to))
         .map(({ start, what }) => ({ line: lineOf(start), what }))
-        .sort((a, b) => a.line - b.line);
+        .sort((left, right) => left.line - right.line);
 }
 
 function testFiles(): string[] {

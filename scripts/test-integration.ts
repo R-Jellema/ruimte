@@ -4,7 +4,8 @@ import { tmpdir } from 'node:os';
 import { join, sep } from 'node:path';
 import { parseArgs } from 'node:util';
 
-export type IntegrationSuite = 'default' | 'core' | 'package' | 'devices' | 'browser';
+const SUITES = ['default', 'core', 'package', 'devices', 'browser'] as const;
+export type IntegrationSuite = (typeof SUITES)[number];
 
 export function integrationFiles(root: string, suite: IntegrationSuite = 'default'): string[] {
     return (
@@ -41,7 +42,7 @@ async function main(): Promise<void> {
             throw new Error('--browser cannot be combined with another suite.');
         }
         const suite = values.browser ? 'browser' : (values.suite ?? 'default');
-        if (!['default', 'core', 'package', 'devices', 'browser'].includes(suite)) {
+        if (!(SUITES as readonly string[]).includes(suite)) {
             throw new Error(`Unknown integration suite: ${suite}`);
         }
         const browser = suite === 'browser';
