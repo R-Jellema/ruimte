@@ -30,10 +30,7 @@ export function functionSourceAt(text: string, startLine: number): string {
     if (start === undefined) {
         return '';
     }
-    const braced = lines
-        .slice(startLine, startLine + 3)
-        .join('\n')
-        .includes('{');
+    const braced = lines.slice(startLine, startLine + 3).some((line) => line.includes('{'));
     if (!braced && start.trimEnd().endsWith(':')) {
         const base = indentOf(start);
         const body: string[] = [start];
