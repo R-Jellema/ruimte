@@ -11,6 +11,7 @@ import { menuModel } from '@/shell/menu/model';
 import { searchSettings } from '@/shell/settings/search';
 import { useUi } from '@/state/ui';
 import { useWindow } from '@/state/window';
+import { removeDesktop } from '../../testing/dom-helpers';
 import { clickOn, mount, until, type Mounted } from '../../testing/dom';
 import { connectFakeMachine, FakeMachine } from '../../testing/fake-machine';
 
@@ -60,7 +61,7 @@ afterEach(async () => {
     usePulsarAccount.setState({ status: 'loading', account: null });
     usePulsarMachines.setState({ machines: null });
     useUi.setState({ paletteOpen: false, paletteBrowseFor: 'folder' });
-    delete scope.window.ruimteDesktop;
+    removeDesktop();
 });
 
 describe('the start screen of an app that runs no machine', () => {

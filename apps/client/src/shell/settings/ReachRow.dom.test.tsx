@@ -8,7 +8,7 @@ import { useWindow } from '@/state/window';
 import { adoptEndpointInfo } from '@/transport/server-info';
 import { clickOn, mount, until, type Mounted } from '../../../testing/dom';
 import { connectFakeMachine, FakeMachine } from '../../../testing/fake-machine';
-import { everything, installDesktop, removeDesktop } from './settings-dom';
+import { everything, installDesktop, removeDesktop } from '../../../testing/dom-helpers';
 
 const NOW = Date.UTC(2026, 9, 1);
 const MINUTE_MS = 60_000;

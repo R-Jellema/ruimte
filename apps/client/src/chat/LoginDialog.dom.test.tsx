@@ -1,23 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
-import type { ProjectCanvasView, ProviderInfo } from '@ruimte/contracts';
+import type { ProjectCanvasView } from '@ruimte/contracts';
 import { useUi } from '@/state/ui';
 import { FakeMachine } from '../../testing/fake-machine';
+import { fakeProvider } from '../../testing/fake-provider';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { mount, until, type Mounted } from '../../testing/dom';
-
-function providerOf(kind: string, name: string): ProviderInfo {
-    return {
-        kind,
-        name,
-        installed: true,
-        version: '1.0.0',
-        models: [{ slug: 'model', name: 'Model', legacy: false, isDefault: true, options: [] }],
-        defaultModel: 'model',
-        capabilities: { chat: true, terminal: true },
-        resumeCommand: null
-    } as unknown as ProviderInfo;
-}
 
 const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [], texts: [], edges: [], layouts: [] };
 
@@ -27,7 +15,7 @@ let page: Mounted;
 
 beforeEach(async () => {
     machine = new FakeMachine();
-    machine.answer('provider.list', () => ({ providers: [providerOf('claude', 'Claude Code'), providerOf('grok', 'Grok')] }));
+    machine.answer('provider.list', () => ({ providers: [fakeProvider('claude', 'Claude Code'), fakeProvider('grok', 'Grok')] }));
     machine.answer('accounts.list', () => ({
         accounts: { claude: { kind: 'claude' }, grok: { kind: 'grok' } },
         statuses: [],

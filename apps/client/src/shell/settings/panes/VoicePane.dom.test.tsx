@@ -5,7 +5,7 @@ import { useSettings } from '@/state/settings';
 import { clickOn, mount, until, type Mounted } from '../../../../testing/dom';
 import { connectFakeMachine, FakeMachine } from '../../../../testing/fake-machine';
 import { machineBridge } from '../../../../testing/machine-bridge';
-import { installDesktop, removeDesktop } from '../settings-dom';
+import { installDesktop, removeDesktop } from '../../../../testing/dom-helpers';
 import { VoicePane } from './VoicePane';
 
 let page: Mounted;

@@ -6,7 +6,6 @@ import {
     type ProjectCanvasView,
     type ProjectNode,
     type ProjectSummary,
-    type ProviderInfo,
     type RemoteLink,
     type RequestType
 } from '@ruimte/contracts';
@@ -21,23 +20,25 @@ import { linkPeer } from '@/pulsar/peer-link';
 import type { PeerStatement } from '@ruimte/pulsar';
 import { connectFakeMachine, FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
+import { menuItem } from '../../testing/dom-helpers';
 import { clickOn, mount, openSubmenu, until, type Mounted } from '../../testing/dom';
+import { claudeProvider } from '../../testing/fake-provider';
 
 const REMOTE = 'machine-b';
 const REQUEST_TYPES = Object.keys(REQUEST_SCHEMAS) as RequestType[];
 const SHELL: ProjectNode = { id: 'shell', kind: 'terminal', title: 'Shell here', x: 0, y: 0, w: 560, h: 360 };
 const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [SHELL], texts: [], edges: [], layouts: [] };
 
-const CLAUDE = {
-    kind: 'claude',
-    name: 'Claude Code',
-    installed: true,
-    version: '2.1.0',
-    models: [{ slug: 'model', name: 'Model', legacy: false, isDefault: true, options: [] }],
-    defaultModel: 'model',
-    capabilities: { chat: true, terminal: true, hooks: true, attachments: true, mentions: true, denyReason: true, allowAlways: true, slashCommands: true },
-    resumeCommand: 'claude --resume {id}'
-} as unknown as ProviderInfo;
+const CLAUDE = claudeProvider({
+    chat: true,
+    terminal: true,
+    hooks: true,
+    attachments: true,
+    mentions: true,
+    denyReason: true,
+    allowAlways: true,
+    slashCommands: true
+});
 
 function summary(projectId: string, name: string, folder: string): ProjectSummary {
     return {
@@ -420,10 +421,6 @@ describe('a new node on another machine', () => {
         expect(there.requests('peer.placeNodes')).toEqual([]);
     });
 });
-
-function menuItem(text: string): HTMLElement | null {
-    return ([...document.querySelectorAll('[role="menuitem"]')] as HTMLElement[]).find((item) => item.textContent?.includes(text)) ?? null;
-}
 
 async function openCanvasMenu(): Promise<void> {
     const surface = page.host.querySelector('[data-canvas-surface]')!;

@@ -1,13 +1,14 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
 import { EditorView } from '@codemirror/view';
-import type { EndpointInfo, ProjectView, ProviderInfo } from '@ruimte/contracts';
+import type { EndpointInfo, ProjectView } from '@ruimte/contracts';
 import { useServers } from '@/state/server';
 import { startServerInfo } from '@/transport/server-info';
 import { chatInfoOf } from '../../testing/chat-info';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { clickOn, layOutChat, mount, pressKey, until, type Mounted } from '../../testing/dom';
+import { claudeProvider } from '../../testing/fake-provider';
 
 const MACHINE = 'fake-machine';
 
@@ -16,16 +17,7 @@ const LEAD: ProjectView = { kind: 'chat', id: 'chat-refs-lead', name: 'Lead', no
 const PLANNER: ProjectView = { kind: 'chat', id: 'chat-refs-planner', name: 'Planner', node: { provider: 'claude' } };
 const SKETCH: ProjectView = { kind: 'drawing', id: 'drawing-schets', name: 'Schets' };
 
-const CLAUDE = {
-    kind: 'claude',
-    name: 'Claude Code',
-    installed: true,
-    version: '2.1.0',
-    models: [{ slug: 'model', name: 'Model', legacy: false, isDefault: true, options: [] }],
-    defaultModel: 'model',
-    capabilities: { chat: true, terminal: true, hooks: true, attachments: true, mentions: true, slashCommands: true },
-    resumeCommand: 'claude --resume {id}'
-} as unknown as ProviderInfo;
+const CLAUDE = claudeProvider({ chat: true, terminal: true, hooks: true, attachments: true, mentions: true, slashCommands: true });
 
 let machine: FakeMachine;
 let workspace: FakeWorkspace;

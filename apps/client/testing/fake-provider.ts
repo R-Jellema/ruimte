@@ -14,3 +14,8 @@ export function fakeProvider(kind: string, name: string, patch: Partial<Provider
         ...patch
     } as unknown as ProviderInfo;
 }
+
+/* Claude Code as the tests know it: installed, with the capabilities a test gives it. */
+export function claudeProvider(capabilities: Record<string, unknown> = { chat: true, terminal: true }): ProviderInfo {
+    return fakeProvider('claude', 'Claude Code', { version: '2.1.0', capabilities, resumeCommand: 'claude --resume {id}' } as Partial<ProviderInfo>);
+}

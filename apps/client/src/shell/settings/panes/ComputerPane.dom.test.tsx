@@ -9,7 +9,7 @@ import { useWindow } from '@/state/window';
 import { clickOn, mount, until, type Mounted } from '../../../../testing/dom';
 import { connectFakeMachine, FakeMachine } from '../../../../testing/fake-machine';
 import { machineBridge } from '../../../../testing/machine-bridge';
-import { button, everything, installDesktop, removeDesktop } from '../settings-dom';
+import { buttonWithText, everything, installDesktop, removeDesktop } from '../../../../testing/dom-helpers';
 
 const previousTimeZone = process.env.TZ;
 process.env.TZ = 'UTC';
@@ -91,9 +91,9 @@ describe('Settings > Computer Use of an app that runs no machine', () => {
         expect(switchControl).not.toBeNull();
         expect(switchControl?.getAttribute('aria-checked')).toBe('false');
         expect(switchControl?.hasAttribute('disabled') || switchControl?.getAttribute('aria-disabled') === 'true').toBe(true);
-        await clickOn(button('Set up a machine…'));
+        await clickOn(buttonWithText('Set up a machine…'));
         await until(() => everything().includes('Restart Ruimte to run a machine here?'));
-        await clickOn(button('Restart'));
+        await clickOn(buttonWithText('Restart'));
         expect(chosen).toEqual(['local']);
     });
 

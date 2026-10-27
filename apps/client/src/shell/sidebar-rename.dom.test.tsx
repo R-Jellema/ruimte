@@ -6,6 +6,7 @@ import { useSettings } from '@/state/settings';
 import { useUi } from '@/state/ui';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
+import { menuItem } from '../../testing/dom-helpers';
 import { clickOn, mount, pressKey, until, type Mounted } from '../../testing/dom';
 
 const BOREALIS: ProjectSummary = {
@@ -49,10 +50,6 @@ const previousScope = useSettings.getState().sidebarScope;
 let machine: FakeMachine;
 let workspace: FakeWorkspace;
 let page: Mounted;
-
-function menuItem(text: string): HTMLElement | null {
-    return ([...document.querySelectorAll('[role="menuitem"]')] as HTMLElement[]).find((item) => item.textContent?.trim().startsWith(text)) ?? null;
-}
 
 /* What a right-click does: the row takes the focus on the press, then the menu opens. */
 async function rightClick(target: HTMLElement): Promise<void> {

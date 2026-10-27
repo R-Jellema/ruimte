@@ -1,41 +1,33 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
 import { EditorView } from '@codemirror/view';
-import type { ChatInfo, ProviderInfo } from '@ruimte/contracts';
+import type { ChatInfo } from '@ruimte/contracts';
 import { useDocument } from '@/state/document';
 import { chatInfoOf } from '../../testing/chat-info';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { isApplePlatform } from '@/desktop/bridge';
 import { clickOn, mount, pressKey, until, type Mounted } from '../../testing/dom';
+import { claudeProvider } from '../../testing/fake-provider';
 
-const CLAUDE = {
-    kind: 'claude',
-    name: 'Claude Code',
-    installed: true,
-    version: '2.1.0',
-    models: [{ slug: 'model', name: 'Model', legacy: false, isDefault: true, options: [] }],
-    defaultModel: 'model',
-    capabilities: {
-        chat: true,
-        terminal: true,
-        hooks: true,
-        streamsToolOutput: false,
-        diffs: 'before-after',
-        attachments: true,
-        mentions: true,
-        denyReason: true,
-        allowAlways: true,
-        asyncQuestions: false,
-        compaction: 'none',
-        reportsCost: false,
-        reportsContextWindow: false,
-        reportsThinking: false,
-        slashCommands: true,
-        steer: false
-    },
-    resumeCommand: 'claude --resume {id}'
-} as unknown as ProviderInfo;
+const CLAUDE = claudeProvider({
+    chat: true,
+    terminal: true,
+    hooks: true,
+    streamsToolOutput: false,
+    diffs: 'before-after',
+    attachments: true,
+    mentions: true,
+    denyReason: true,
+    allowAlways: true,
+    asyncQuestions: false,
+    compaction: 'none',
+    reportsCost: false,
+    reportsContextWindow: false,
+    reportsThinking: false,
+    slashCommands: true,
+    steer: false
+});
 
 // Three chat views per test, named apart from the last test's, so no draft or row of one test is in the next.
 let views = 0;

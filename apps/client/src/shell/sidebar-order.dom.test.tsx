@@ -5,6 +5,7 @@ import { SIDEBAR_ORDER_STORAGE_KEY, SIDEBAR_SEPARATORS_STORAGE_KEY, useSidebarPr
 import { useSettings } from '@/state/settings';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
+import { menuItem } from '../../testing/dom-helpers';
 import { clickOn, mount, until, type Mounted } from '../../testing/dom';
 
 const BOREALIS: ProjectSummary = {
@@ -35,10 +36,6 @@ function heading(name: string): HTMLElement | null {
     return (
         [...page.host.querySelectorAll<HTMLElement>('[data-sidebar-row^="project:"]')].find((row) => row.getAttribute('aria-label')?.startsWith(name)) ?? null
     );
-}
-
-function menuItem(text: string): HTMLElement | null {
-    return ([...document.querySelectorAll('[role="menuitem"]')] as HTMLElement[]).find((item) => item.textContent?.trim().startsWith(text)) ?? null;
 }
 
 function openContextMenu(target: HTMLElement): Promise<void> {

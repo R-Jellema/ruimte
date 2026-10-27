@@ -5,10 +5,10 @@ import { TransportError } from '@/transport/transport';
 import { useDocument } from '@/state/document';
 import { useProject } from '@/state/project';
 import { useUi } from '@/state/ui';
-import type { DesktopBridge } from '@/desktop/bridge';
 import { chatInfoOf } from '../../testing/chat-info';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
+import { installDesktop, removeDesktop } from '../../testing/dom-helpers';
 import { clickOn, mount, until, type Mounted } from '../../testing/dom';
 
 const CHAT: ProjectView = { kind: 'chat', id: 'written', name: 'Vinyl notes', node: {} };
@@ -36,8 +36,6 @@ const INFO: ChatMoveInfoResult = {
     newFolderParent: '/work',
     refusal: null
 };
-
-const scope = globalThis as unknown as { window: { ruimteDesktop?: DesktopBridge } };
 
 let machine: FakeMachine;
 let workspace: FakeWorkspace;
@@ -115,7 +113,7 @@ beforeEach(() => {
 afterEach(async () => {
     await dismiss();
     await page.unmount();
-    delete scope.window.ruimteDesktop;
+    removeDesktop();
     workspace.close();
 });
 
@@ -206,16 +204,10 @@ describe('making a project of a chat, or moving it into one', () => {
 
     test('a project held by another window comes to the front with the chat, and this window stays in Chats', async () => {
         const heard: Array<[string, string | undefined]> = [];
-        scope.window.ruimteDesktop = {
-            platform: 'darwin',
-            pickFolder: async () => null,
-            openExternal: async () => undefined,
-            openGuestDevTools: () => undefined,
-            isFullscreen: async () => false,
-            onFullscreen: () => () => undefined,
+        installDesktop({
             claimWindow: async () => false,
             openWindow: (key: string, viewId?: string) => void heard.push([key, viewId])
-        } as unknown as DesktopBridge;
+        });
         await open();
         await ask('pick', VINYL.projectId);
         await until(() => machine.requests('chat.moveInfo').length > 0);

@@ -3,7 +3,7 @@ import { act } from 'react';
 import { AccentRow, PaletteRow } from '@/shell/settings/panes/ColorRows';
 import { useSettings } from '@/state/settings';
 import { clickOn, mount, until, type Mounted } from '../../../../testing/dom';
-import { button, everything } from '../settings-dom';
+import { buttonWithText, everything } from '../../../../testing/dom-helpers';
 
 let page: Mounted;
 
@@ -25,8 +25,8 @@ async function openWheel(): Promise<void> {
     // The row alone: the pane around it reads its languages through a bundler glob a test run has not.
     page = mount();
     await page.render(<PaletteRow />);
-    await until(() => button('Default') !== null);
-    await clickOn(button('Default'));
+    await until(() => buttonWithText('Default') !== null);
+    await clickOn(buttonWithText('Default'));
     await until(() => swatch('Teal') !== null);
 }
 
@@ -74,7 +74,7 @@ describe('Settings > Appearance > Palette', () => {
     test('a click picks the palette and keeps the app in it', async () => {
         await openWheel();
         await clickOn(swatch('Mauve'));
-        await until(() => button('Mauve') !== null);
+        await until(() => buttonWithText('Mauve') !== null);
         expect(useSettings.getState().palette).toBe('mauve');
         expect(wearsTint()).toBe(true);
     });
@@ -84,8 +84,8 @@ describe('Settings > Appearance > Accent', () => {
     async function openAccentWheel(): Promise<void> {
         page = mount();
         await page.render(<AccentRow />);
-        await until(() => button('Blue') !== null);
-        await clickOn(button('Blue'));
+        await until(() => buttonWithText('Blue') !== null);
+        await clickOn(buttonWithText('Blue'));
         await until(() => swatch('Orange', 'Accent') !== null);
     }
 
@@ -106,7 +106,7 @@ describe('Settings > Appearance > Accent', () => {
     test('a click picks the accent', async () => {
         await openAccentWheel();
         await clickOn(swatch('Pink', 'Accent'));
-        await until(() => button('Pink') !== null);
+        await until(() => buttonWithText('Pink') !== null);
         expect(useSettings.getState().accent).toBe('pink');
         expect(accentWorn()).toBe('#e60076');
     });

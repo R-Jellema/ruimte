@@ -6,7 +6,7 @@ import { useCliVersions, useRegistryCatalog } from '@/shell/settings/providers/u
 import { LOCAL_ENDPOINT_ID } from '@/state/endpoints';
 import { FakeMachine, connectFakeMachine } from '../../../../testing/fake-machine';
 import { clickOn, mount, until, type Mounted } from '../../../../testing/dom';
-import { button, everything, typeInto } from '../settings-dom';
+import { buttonWithText, everything, typeInto } from '../../../../testing/dom-helpers';
 
 const GOOSE: RegistryAgent = {
     id: 'goose',
@@ -80,13 +80,13 @@ describe('adding a provider from the ACP registry', () => {
 
     test('installs an agent on a press, asks for the providers again and opens it', async () => {
         await page.render(<Catalog />);
-        await until(() => button('Install') !== null);
+        await until(() => buttonWithText('Install') !== null);
         const listsBefore = machine.requests('provider.list').length;
-        await clickOn(button('Install'));
-        await until(() => button('Open') !== null);
+        await clickOn(buttonWithText('Install'));
+        await until(() => buttonWithText('Open') !== null);
         expect(machine.requests('provider.installAgent')).toEqual([{ id: 'goose' }]);
         expect(machine.requests('provider.list').length).toBeGreaterThan(listsBefore);
-        await clickOn(button('Open'));
+        await clickOn(buttonWithText('Open'));
         expect(opened).toEqual(['goose']);
     });
 
@@ -105,7 +105,7 @@ describe('adding a provider from the ACP registry', () => {
         await until(() => everything().includes('Could not load the agents'));
         expect(everything()).toContain('offline');
         machine.answer('provider.registry', () => ({ catalog: LIVE }));
-        await clickOn(button('Try again'));
+        await clickOn(buttonWithText('Try again'));
         await until(() => everything().includes('Kilo'));
         expect(machine.requests('provider.registry').at(-1)).toEqual({ refresh: true });
     });
@@ -146,10 +146,10 @@ describe('the version of a CLI in Settings, Providers', () => {
 
     test('says how it was installed and updates it through that route on a press', async () => {
         await page.render(<Version provider={COPILOT} />);
-        await until(() => button('Update to 1.0.110') !== null);
+        await until(() => buttonWithText('Update to 1.0.110') !== null);
         expect(everything()).toContain('Installed with npm (@github/copilot)');
         expect(everything()).toContain('Version 1.0.101. Version 1.0.110 is available.');
-        await clickOn(button('Update to 1.0.110'));
+        await clickOn(buttonWithText('Update to 1.0.110'));
         await until(() => everything().includes('Version 1.0.110. Up to date.'));
         expect(machine.requests('provider.update')).toEqual([{ provider: 'copilot' }]);
     });
@@ -163,9 +163,9 @@ describe('the version of a CLI in Settings, Providers', () => {
 
     test('an agent Ruimte installed can be removed again', async () => {
         await page.render(<Version provider={GOOSE_PROVIDER} />);
-        await until(() => button('Remove') !== null);
+        await until(() => buttonWithText('Remove') !== null);
         expect(everything()).toContain('Installed by Ruimte');
-        await clickOn(button('Remove'));
+        await clickOn(buttonWithText('Remove'));
         expect(machine.requests('provider.removeAgent')).toEqual([{ id: 'goose' }]);
     });
 });

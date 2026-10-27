@@ -1,14 +1,13 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { ProjectCanvasView } from '@ruimte/contracts';
-import type { DesktopBridge } from '@/desktop/bridge';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
+import { installDesktop, removeDesktop } from '../../testing/dom-helpers';
 import { clickOn, mount, until, type Mounted } from '../../testing/dom';
 
 const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [], texts: [], edges: [], layouts: [] };
 const VOICE_BUTTON = 'Voice Control: press to toggle, hold to talk';
 
-const scope = globalThis as unknown as { window: { ruimteDesktop?: DesktopBridge } };
 const matchMedia = window.matchMedia;
 
 let machine: FakeMachine;
@@ -42,20 +41,14 @@ beforeEach(async () => {
             dispatchEvent: () => false
         } satisfies MediaQueryList;
     };
-    scope.window.ruimteDesktop = {
-        platform: 'darwin',
-        pickFolder: async () => null,
-        openExternal: async () => undefined,
-        openGuestDevTools: () => undefined,
-        isFullscreen: async () => false,
-        onFullscreen: () => () => undefined,
+    installDesktop({
         openAi: {
             credentialStatus: async () => ({ configured: true, persistent: true }),
             saveApiKey: async () => ({ configured: true, persistent: true }),
             clearApiKey: async () => ({ configured: false, persistent: true }),
             createLiveSession: async () => ({ session: { id: 'session' }, transport: { type: 'webrtc', sdp: 'v=0' } })
         }
-    } as DesktopBridge;
+    });
     machine = new FakeMachine();
     workspace = await openFakeWorkspace(machine, { views: [MAIN] }, { activeViewId: MAIN.id, views: {} }, {}, { thisMachine: true });
     page = mount();
@@ -66,7 +59,7 @@ beforeEach(async () => {
 afterEach(async () => {
     await page.unmount();
     workspace.close();
-    delete scope.window.ruimteDesktop;
+    removeDesktop();
     window.matchMedia = matchMedia;
 });
 

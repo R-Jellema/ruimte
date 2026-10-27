@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
-import type { ArtifactSummary, ArtifactVersion, ChatInfo, ChatItem, ProviderInfo } from '@ruimte/contracts';
+import type { ArtifactSummary, ArtifactVersion, ChatInfo, ChatItem } from '@ruimte/contracts';
 import { WORKSPACE_CHAT_HOST } from '@/chat/workspace-host';
 import { useArtifactSelection } from '@/output/open';
 import { useFiles } from '@/state/files';
@@ -8,17 +8,9 @@ import { useProject } from '@/state/project';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { clickOn, layOutChat, mount, until, type Mounted } from '../../testing/dom';
+import { claudeProvider } from '../../testing/fake-provider';
 
-const CLAUDE = {
-    kind: 'claude',
-    name: 'Claude Code',
-    installed: true,
-    version: '2.1.0',
-    models: [{ slug: 'model', name: 'Model', legacy: false, isDefault: true, options: [] }],
-    defaultModel: 'model',
-    capabilities: { chat: true, terminal: true, hooks: true, diffs: 'before-after', slashCommands: true },
-    resumeCommand: 'claude --resume {id}'
-} as unknown as ProviderInfo;
+const CLAUDE = claudeProvider({ chat: true, terminal: true, hooks: true, diffs: 'before-after', slashCommands: true });
 
 const SHOT = '/work/atlas/screens/settings.png';
 

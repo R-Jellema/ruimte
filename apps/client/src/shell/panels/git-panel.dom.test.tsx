@@ -5,6 +5,7 @@ import { focusedCanvas } from '@/state/canvas';
 import { useUi } from '@/state/ui';
 import { FakeMachine } from '../../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../../testing/fake-workspace';
+import { buttonWithText, menuItem } from '../../../testing/dom-helpers';
 import { clickOn, mount, openSubmenu, until, type Mounted } from '../../../testing/dom';
 
 const FOLDER = '/work/atlas';
@@ -46,20 +47,12 @@ function status(branch: string, behind = 0): GitStatus {
     };
 }
 
-function buttonWithText(text: string, within: ParentNode = document.body): HTMLElement | null {
-    return [...within.querySelectorAll<HTMLElement>('button')].find((candidate) => candidate.textContent?.trim() === text) ?? null;
-}
-
 /* The chip at the start of the panel's header, which opens the picker. */
 function chip(startsWith: string): HTMLElement | null {
     return (
         [...document.body.querySelectorAll<HTMLElement>('button[aria-haspopup="menu"]')].find((candidate) => candidate.textContent?.startsWith(startsWith)) ??
         null
     );
-}
-
-function menuItem(text: string, role = 'menuitem'): HTMLElement | null {
-    return [...document.body.querySelectorAll<HTMLElement>(`[role="${role}"]`)].find((candidate) => candidate.textContent?.includes(text)) ?? null;
 }
 
 async function refreshPanel(): Promise<void> {

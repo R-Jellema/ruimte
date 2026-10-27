@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { act, useState } from 'react';
+import { useState } from 'react';
 import type { AgentKind, ModelInfo, ProviderInfo } from '@ruimte/contracts';
 import { ModelPicker } from '@adecore/agents-react/chat/ui';
+import { typeInto } from '../../testing/dom-helpers';
 import { clickOn, mount, until, type Mounted } from '../../testing/dom';
 
 let page: Mounted;
@@ -59,13 +60,6 @@ function groupRow(): HTMLElement | null {
 
 function search(): HTMLInputElement {
     return document.querySelector<HTMLInputElement>('input[placeholder="Search models"]')!;
-}
-
-async function typeInto(input: HTMLInputElement, text: string): Promise<void> {
-    await act(async () => {
-        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, text);
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-    });
 }
 
 beforeEach(() => {

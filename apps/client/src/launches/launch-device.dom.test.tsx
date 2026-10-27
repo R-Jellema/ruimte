@@ -5,6 +5,7 @@ import { useUi } from '@/state/ui';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { answerDevices, FAKE_SIMULATOR, type FakeDevices } from '../../testing/fake-devices';
+import { buttonWithText } from '../../testing/dom-helpers';
 import { clickOn, mount, until, type Mounted } from '../../testing/dom';
 
 const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [], texts: [], edges: [], layouts: [] };
@@ -13,10 +14,6 @@ let machine: FakeMachine;
 let devices: FakeDevices;
 let workspace: FakeWorkspace;
 let page: Mounted;
-
-function buttonWithText(text: string): HTMLElement | null {
-    return [...document.body.querySelectorAll<HTMLElement>('button')].find((candidate) => candidate.textContent?.trim() === text) ?? null;
-}
 
 beforeEach(async () => {
     machine = new FakeMachine();

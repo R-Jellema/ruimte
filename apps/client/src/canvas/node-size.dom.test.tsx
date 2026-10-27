@@ -8,6 +8,7 @@ import { windowWorkspace } from '@/state/window';
 import { pool } from '@/transport';
 import { startServerInfo } from '@/transport/server-info';
 import { FakeMachine } from '../../testing/fake-machine';
+import { typeInto } from '../../testing/dom-helpers';
 import { clickOn, openSubmenu, pressKey, until } from '../../testing/dom';
 import { menuItem, openCanvasPage, openContextMenu, savedNodes, type CanvasPage } from './canvas-page';
 
@@ -88,15 +89,6 @@ function sizeOf(kind: string): string[] {
 
 function resetButton(kind: string): HTMLButtonElement | null {
     return settingsSection()!.querySelector(`button[aria-label="Reset the size of ${kind} nodes on Fake machine"]`);
-}
-
-async function typeInto(input: HTMLInputElement, text: string): Promise<void> {
-    await act(async () => {
-        input.focus();
-        // React tracks the value it set, so the browser's own setter is what makes the change show.
-        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, text);
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-    });
 }
 
 beforeEach(() => {

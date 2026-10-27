@@ -7,7 +7,7 @@ import { useWindow } from '@/state/window';
 import { adoptEndpointInfo } from '@/transport/server-info';
 import { clickOn, mount, until, type Mounted } from '../../../testing/dom';
 import { connectFakeMachine, FakeMachine } from '../../../testing/fake-machine';
-import { everything, installDesktop, removeDesktop } from './settings-dom';
+import { everything, installDesktop, removeDesktop } from '../../../testing/dom-helpers';
 
 let page: Mounted;
 let release: () => void;

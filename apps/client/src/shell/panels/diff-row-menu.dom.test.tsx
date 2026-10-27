@@ -3,6 +3,7 @@ import { act } from 'react';
 import { useUi } from '@/state/ui';
 import { FakeMachine } from '../../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../../testing/fake-workspace';
+import { menuItem } from '../../../testing/dom-helpers';
 import { clickOn, mount, until, type Mounted } from '../../../testing/dom';
 
 /*
@@ -20,10 +21,6 @@ let page: Mounted;
 
 function entry(path: string): HTMLElement | null {
     return document.querySelector<HTMLElement>(`[data-conflict-path="${path}"]`);
-}
-
-function menuItem(text: string): HTMLElement | null {
-    return ([...document.querySelectorAll('[role="menuitem"]')] as HTMLElement[]).find((item) => item.textContent?.trim().startsWith(text)) ?? null;
 }
 
 async function rightClick(element: HTMLElement | null): Promise<void> {

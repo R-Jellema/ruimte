@@ -5,7 +5,7 @@ import { useUi } from '@/state/ui';
 import { clickOn, mount, until, type Mounted } from '../../../../testing/dom';
 import { FakeMachine } from '../../../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../../../testing/fake-workspace';
-import { button, everything, typeInto } from '../settings-dom';
+import { buttonWithText, everything, typeInto } from '../../../../testing/dom-helpers';
 
 const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [], texts: [], edges: [], layouts: [] };
 
@@ -123,10 +123,10 @@ describe.each([NANOGPT, CLAUDE_API])('The key of $name in Settings', (provider) 
     test('a saved key goes to the machine once and the field never shows it again', async () => {
         await open(provider);
         expect(everything()).toContain('No key saved on this machine.');
-        expect(button('Save')?.disabled).toBe(true);
+        expect(buttonWithText('Save')?.disabled).toBe(true);
 
         await typeInto(field('API key')!, '  secret-key  ');
-        await clickOn(button('Save')!);
+        await clickOn(buttonWithText('Save')!);
         await until(() => everything().includes(provider.ready(3)));
 
         expect(machine.requests(`${provider.area}.configure`)).toEqual([{ apiKey: 'secret-key' }]);
@@ -139,9 +139,9 @@ describe.each([NANOGPT, CLAUDE_API])('The key of $name in Settings', (provider) 
         await open(provider, true);
         await until(() => everything().includes(provider.ready(2)));
 
-        await clickOn(button('Refresh models')!);
+        await clickOn(buttonWithText('Refresh models')!);
         await until(() => everything().includes(provider.ready(3)));
-        await clickOn(button('Disconnect')!);
+        await clickOn(buttonWithText('Disconnect')!);
         await until(() => everything().includes('No key saved on this machine.'));
 
         expect(machine.requests(`${provider.area}.configure`)).toEqual([{}, { apiKey: '' }]);
@@ -153,7 +153,7 @@ describe.each([NANOGPT, CLAUDE_API])('The key of $name in Settings', (provider) 
             throw new Error(`${provider.vendor} rejected the API key.`);
         });
         await typeInto(field('API key')!, 'wrong-key');
-        await clickOn(button('Save')!);
+        await clickOn(buttonWithText('Save')!);
         await until(() => document.querySelector('[role="alert"]') !== null);
 
         expect(document.querySelector('[role="alert"]')!.textContent).toContain(`${provider.vendor} rejected the API key.`);

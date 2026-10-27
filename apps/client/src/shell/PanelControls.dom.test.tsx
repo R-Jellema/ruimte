@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
 import type { GitFile, GitRepo, GitStatus, ProjectCanvasView } from '@ruimte/contracts';
-import type { DesktopBridge } from '@/desktop/bridge';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
+import { installDesktop, removeDesktop } from '../../testing/dom-helpers';
 import { mount, until, type Mounted } from '../../testing/dom';
 
 const FOLDER = '/work/atlas';
@@ -42,7 +42,6 @@ function dotOn(button: HTMLButtonElement | null): boolean {
     return button?.querySelector('span[aria-hidden="true"].rounded-full') != null;
 }
 
-const scope = globalThis as unknown as { window: { ruimteDesktop?: DesktopBridge } };
 const ROOT: GitRepo = { path: FOLDER, label: 'atlas', kind: 'root' };
 
 let repos: GitRepo[];
@@ -63,14 +62,7 @@ async function settle(): Promise<void> {
 beforeEach(() => {
     localStorage.clear();
     repos = [ROOT];
-    scope.window.ruimteDesktop = {
-        platform: 'darwin',
-        pickFolder: async () => null,
-        openExternal: async () => undefined,
-        openGuestDevTools: () => undefined,
-        isFullscreen: async () => false,
-        onFullscreen: () => () => undefined
-    };
+    installDesktop();
     machine = new FakeMachine();
     machine.answer('git.repos', () => ({ repos, truncated: false }));
     machine.answer('git.watch', ({ cwd }) => ({ status: status(cwd === FOLDER ? [file('README.md', 'unstaged'), file('notes.md', 'untracked')] : []) }));
@@ -79,7 +71,7 @@ beforeEach(() => {
 afterEach(async () => {
     await page.unmount();
     workspace.close();
-    delete scope.window.ruimteDesktop;
+    removeDesktop();
 });
 
 describe('the git button in the toolbar', () => {

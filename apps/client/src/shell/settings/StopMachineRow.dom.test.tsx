@@ -6,7 +6,7 @@ import { useServers } from '@/state/server';
 import { clickOn, mount, until, type Mounted } from '../../../testing/dom';
 import { connectFakeMachine, FakeMachine } from '../../../testing/fake-machine';
 import { machineBridge } from '../../../testing/machine-bridge';
-import { button, everything, installDesktop, removeDesktop } from './settings-dom';
+import { buttonWithText, everything, installDesktop, removeDesktop } from '../../../testing/dom-helpers';
 import { StopMachineRow } from './StopMachineRow';
 
 const BUSY: MachineStopPreview = { work: { agents: 2, terminals: 0 }, home: '~/.ruimte', commandLine: false };
@@ -30,7 +30,7 @@ async function open(choose: () => Promise<void> = async () => void order.push('c
     installDesktop({ machine: machineBridge('local', { stopPreview: () => (previewFails ? Promise.reject(new Error('no answer')) : preview), choose }) });
     page = mount();
     await page.render(<StopMachineRow />);
-    await clickOn(button('Stop running…'));
+    await clickOn(buttonWithText('Stop running…'));
 }
 
 beforeEach(() => {
@@ -73,7 +73,7 @@ describe('stopping the machine this app runs', () => {
         await open();
         await until(() => everything().includes('2 agents end now.'));
         expect(everything()).toContain('stay in ~/.ruimte');
-        await clickOn(button('Stop and restart'));
+        await clickOn(buttonWithText('Stop and restart'));
         await until(() => order.length > 0);
         expect(order).toEqual(['choose']);
     });
@@ -84,10 +84,10 @@ describe('stopping the machine this app runs', () => {
         preview = new Promise((resolve) => (answer = resolve));
         await open();
         expect(everything()).toContain('Checking what is running…');
-        expect(button('Stop and restart')?.disabled).toBe(true);
+        expect(buttonWithText('Stop and restart')?.disabled).toBe(true);
         answer({ work: { agents: 0, terminals: 0 }, home: '~/.ruimte', commandLine: false });
         await until(() => everything().includes('No agents or terminals are running.'));
-        expect(button('Stop and restart')?.disabled).toBe(false);
+        expect(buttonWithText('Stop and restart')?.disabled).toBe(false);
     });
 
     test('takes the machine off the account first when asked', async () => {
@@ -96,7 +96,7 @@ describe('stopping the machine this app runs', () => {
         await until(() => box() !== null);
         expect(box()?.getAttribute('aria-checked')).toBe('false');
         await clickOn(boxLabel());
-        await clickOn(button('Stop and restart'));
+        await clickOn(buttonWithText('Stop and restart'));
         await until(() => order.length === 2);
         expect(order).toEqual(['leave', 'choose']);
     });
@@ -106,7 +106,7 @@ describe('stopping the machine this app runs', () => {
         await open();
         await until(() => box() !== null);
         await clickOn(boxLabel());
-        await clickOn(button('Stop and restart'));
+        await clickOn(buttonWithText('Stop and restart'));
         await until(() => everything().includes('the account refused'));
         expect(order).toEqual(['leave']);
         expect(everything()).toContain('Stop running a machine on this computer?');
@@ -134,14 +134,14 @@ describe('stopping the machine this app runs', () => {
         await open();
         await until(() => everything().includes('stay on this computer'));
         expect(everything()).not.toContain('~/.ruimte');
-        expect(button('Stop and restart')?.disabled).toBe(false);
+        expect(buttonWithText('Stop and restart')?.disabled).toBe(false);
     });
 
     test('a failure of the shell itself is told in our own words', async () => {
         connect();
         await open(() => Promise.reject(new Error("Error invoking remote method 'machine:choose': Error: EACCES")));
-        await until(() => button('Stop and restart') !== null);
-        await clickOn(button('Stop and restart'));
+        await until(() => buttonWithText('Stop and restart') !== null);
+        await clickOn(buttonWithText('Stop and restart'));
         await until(() => everything().includes('Ruimte could not restart without a machine. Try again.'));
         expect(everything()).not.toContain('Error invoking');
     });

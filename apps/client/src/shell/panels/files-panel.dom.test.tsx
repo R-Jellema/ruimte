@@ -5,6 +5,7 @@ import { useFilesRoot } from '@/state/files-root';
 import { useUi } from '@/state/ui';
 import { FakeMachine } from '../../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../../testing/fake-workspace';
+import { buttonWithText, menuItem } from '../../../testing/dom-helpers';
 import { clickOn, mount, until, type Mounted } from '../../../testing/dom';
 
 const FOLDER = '/work/atlas';
@@ -57,10 +58,6 @@ function row(path: string): HTMLElement | null {
     return (host?.shadowRoot ?? host)?.querySelector<HTMLElement>(`[data-item-path="${path}"]`) ?? null;
 }
 
-function buttonWithText(text: string): HTMLElement | null {
-    return [...document.body.querySelectorAll<HTMLElement>('button')].find((candidate) => candidate.textContent?.trim() === text) ?? null;
-}
-
 /* The row under a filter, whose text ends in its shortcut. */
 function findInFiles(): HTMLElement | null {
     return [...document.body.querySelectorAll<HTMLElement>('button')].find((candidate) => candidate.textContent?.startsWith('Find in files')) ?? null;
@@ -71,10 +68,6 @@ function chip(startsWith: string): HTMLElement | null {
         [...document.body.querySelectorAll<HTMLElement>('button[aria-haspopup="menu"]')].find((candidate) => candidate.textContent?.startsWith(startsWith)) ??
         null
     );
-}
-
-function menuItem(text: string): HTMLElement | null {
-    return [...document.body.querySelectorAll<HTMLElement>('[role="menuitem"]')].find((candidate) => candidate.textContent?.includes(text)) ?? null;
 }
 
 function filterField(): HTMLInputElement {

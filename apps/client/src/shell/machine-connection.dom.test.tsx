@@ -4,6 +4,7 @@ import { projectSwitch } from '@/project/open';
 import type { SwitchRun, SwitchTarget } from '@/project/project-switch';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
+import { buttonWithText } from '../../testing/dom-helpers';
 import { clickOn, mount, until, type Mounted } from '../../testing/dom';
 
 const MACHINE = 'fake-machine';
@@ -18,10 +19,6 @@ function screen(): HTMLElement | null {
             (status) => status.querySelector('img, svg') !== null && status.textContent?.includes('Try again') === true
         ) ?? null
     );
-}
-
-function buttonWithText(text: string): HTMLElement | null {
-    return [...document.body.querySelectorAll<HTMLElement>('button')].find((candidate) => candidate.textContent?.trim() === text) ?? null;
 }
 
 /* A switch whose steps fail at once: before the machine answered, or once it did. */

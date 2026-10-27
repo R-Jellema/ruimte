@@ -1,12 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
-import type { DesktopBridge } from '@/desktop/bridge';
 import { useSettings } from '@/state/settings';
 import { useWindow } from '@/state/window';
+import { installDesktop, removeDesktop } from '../../testing/dom-helpers';
 import { clickOn, mount, until, type Mounted } from '../../testing/dom';
 import { machineBridge } from '../../testing/machine-bridge';
-
-const scope = globalThis as unknown as { window: { ruimteDesktop?: DesktopBridge } };
 
 let page: Mounted;
 let chosen: string[];
@@ -25,15 +23,9 @@ function radio(label: string): HTMLElement | null {
 }
 
 async function open(): Promise<void> {
-    scope.window.ruimteDesktop = {
-        platform: 'darwin',
-        pickFolder: async () => null,
-        openExternal: async () => undefined,
-        openGuestDevTools: () => undefined,
-        isFullscreen: async () => false,
-        onFullscreen: () => () => undefined,
+    installDesktop({
         machine: machineBridge('ask', { choose: (mode) => choose(mode) })
-    };
+    });
     page = mount();
     await page.renderApp();
     await until(() => text().includes('Welcome to Ruimte'));
@@ -51,7 +43,7 @@ beforeEach(() => {
 afterEach(async () => {
     await page.unmount();
     useSettings.setState({ onboardingSkipWelcome: false });
-    delete scope.window.ruimteDesktop;
+    removeDesktop();
 });
 
 describe('the first start of a new install', () => {

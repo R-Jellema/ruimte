@@ -6,6 +6,7 @@ import { useDocument } from '@/state/document';
 import { useViewPins } from '@/state/view-pins';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
+import { menuItem } from '../../testing/dom-helpers';
 import { clickOn, mount, until, type Mounted } from '../../testing/dom';
 
 const CHAT: ProjectView = { kind: 'chat', id: 'chat-view', name: 'Notes chat', node: {} };
@@ -28,10 +29,6 @@ function tabIds(): string[] {
 /* A host left with one view of the project is a plain cell again, without a strip. */
 function chatCell(): Element | null {
     return page.host.querySelector(`[data-split-cell][data-view-id="${CHAT.id}"]`);
-}
-
-function menuItem(text: string): HTMLElement | null {
-    return ([...document.querySelectorAll('[role="menuitem"]')] as HTMLElement[]).find((item) => item.textContent?.trim().startsWith(text)) ?? null;
 }
 
 async function openMenuOf(element: HTMLElement | null): Promise<void> {

@@ -1,12 +1,13 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
 import { BYTES_CHUNK_MAX, BYTES_READ_MAX_BYTES, type ArtifactGetResult, type ArtifactVersion, type ProjectCanvasView } from '@ruimte/contracts';
-import type { DesktopBridge, SaveFileStreamBridge } from '@/desktop/bridge';
+import type { SaveFileStreamBridge } from '@/desktop/bridge';
 import { useFiles } from '@/state/files';
 import { useToasts } from '@/state/toasts';
 import { useUi } from '@/state/ui';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
+import { installDesktop, removeDesktop } from '../../testing/dom-helpers';
 import { clickOn, mount, until, type Mounted } from '../../testing/dom';
 
 const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [], texts: [], edges: [], layouts: [] };
@@ -28,8 +29,6 @@ const BUILD: ArtifactGetResult = {
     versions: [VERSION],
     chatPresent: false
 };
-
-const scope = globalThis as unknown as { window: { ruimteDesktop?: DesktopBridge } };
 
 let machine: FakeMachine;
 let workspace: FakeWorkspace;
@@ -112,15 +111,9 @@ async function openBuild(): Promise<void> {
 
 async function start(stream: FakeStream | null): Promise<void> {
     if (stream !== null) {
-        scope.window.ruimteDesktop = {
-            platform: 'darwin',
-            pickFolder: async () => null,
-            openExternal: async () => undefined,
-            openGuestDevTools: () => undefined,
-            isFullscreen: async () => false,
-            onFullscreen: () => () => undefined,
+        installDesktop({
             saveFileStream: stream.bridge
-        };
+        });
     }
     page = mount();
     await page.renderApp();
@@ -141,7 +134,7 @@ beforeEach(async () => {
 afterEach(async () => {
     await act(async () => useUi.getState().setPanel({ open: false, kind: 'files' }));
     await page.unmount();
-    delete scope.window.ruimteDesktop;
+    removeDesktop();
     workspace.close();
     useFiles.setState({ tabs: [] });
     useToasts.setState({ toasts: [] });

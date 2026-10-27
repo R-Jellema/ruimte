@@ -5,7 +5,7 @@ import { useUi } from '@/state/ui';
 import { clickOn, mount, until, type Mounted } from '../../../../testing/dom';
 import { FakeMachine } from '../../../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../../../testing/fake-workspace';
-import { button, everything } from '../settings-dom';
+import { buttonWithText, everything } from '../../../../testing/dom-helpers';
 
 const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [], texts: [], edges: [], layouts: [] };
 const MB = 1024 * 1024;
@@ -79,7 +79,7 @@ describe('the Storage pane', () => {
 
         await openStorage();
         await until(() => everything().includes('Show in Output'));
-        await clickOn(button('Show in Output'));
+        await clickOn(buttonWithText('Show in Output'));
         await until(() => !everything().includes('All projects'));
     });
 
@@ -87,11 +87,11 @@ describe('the Storage pane', () => {
         await openStorage();
         await until(() => everything().includes('Older versions of Morning summary'));
         expect(everything()).toContain('Frees 12 MB, 3 versions');
-        await clickOn(button('Review'));
+        await clickOn(buttonWithText('Review'));
         await until(() => document.querySelector('[role="dialog"] [role="checkbox"][aria-label="Version 2"]') !== null);
         await clickOn(document.querySelector('[role="checkbox"][aria-label="Version 2"]'));
-        await until(() => button('Remove 2 versions') !== null);
-        await clickOn(button('Remove 2 versions'));
+        await until(() => buttonWithText('Remove 2 versions') !== null);
+        await clickOn(buttonWithText('Remove 2 versions'));
         await until(() => machine.requests('artifact.cleanup').some((payload) => payload.mode === 'confirm'));
         expect(machine.requests('artifact.cleanup').find((payload) => payload.mode === 'confirm')).toEqual({
             mode: 'confirm',
@@ -106,7 +106,7 @@ describe('the Storage pane', () => {
     test('Not now puts a proposal away for this session', async () => {
         await openStorage();
         await until(() => everything().includes('Older versions of Morning summary'));
-        await clickOn(button('Not now'));
+        await clickOn(buttonWithText('Not now'));
         await until(() => everything().includes('Nothing to clean up'));
         expect(machine.requests('artifact.cleanup').every((payload) => payload.mode === 'preview')).toBe(true);
     });

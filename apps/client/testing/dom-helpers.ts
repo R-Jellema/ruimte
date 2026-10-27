@@ -24,8 +24,14 @@ export function everything(): string {
     return document.body.textContent ?? '';
 }
 
-export function button(label: string): HTMLButtonElement | null {
-    return [...document.querySelectorAll('button')].find((element) => element.textContent?.trim() === label) ?? null;
+/* The button whose text is `label`, in `within`. */
+export function buttonWithText(label: string, within: ParentNode = document): HTMLButtonElement | null {
+    return [...within.querySelectorAll<HTMLButtonElement>('button')].find((candidate) => candidate.textContent?.trim() === label) ?? null;
+}
+
+/* The menu row whose text holds `text`, in the `role` the menu gives its rows. */
+export function menuItem(text: string, role = 'menuitem'): HTMLElement | null {
+    return [...document.querySelectorAll<HTMLElement>(`[role="${role}"]`)].find((item) => item.textContent?.includes(text)) ?? null;
 }
 
 /* Types into a controlled input the way a browser does, which React only notices through the native setter. */

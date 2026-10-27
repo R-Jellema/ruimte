@@ -3,7 +3,7 @@ import type { BackgroundServiceState, DesktopBridge, MachineMode } from '@/deskt
 import { mount, until, type Mounted } from '../../../testing/dom';
 import { machineBridge } from '../../../testing/machine-bridge';
 import { BackgroundServiceSection } from './BackgroundServiceSection';
-import { everything, installDesktop, removeDesktop } from './settings-dom';
+import { everything, installDesktop, removeDesktop } from '../../../testing/dom-helpers';
 
 const STATE: BackgroundServiceState = { support: 'supported', keepRunning: true, owner: 'service', failure: null, linger: null };
 

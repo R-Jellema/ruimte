@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { act } from 'react';
 import type { ModelBenchmarksResult } from '@ruimte/pulsar';
+import { typeInto } from '../../../testing/dom-helpers';
 import { clickOn, mount, pressKey, until, type Mounted } from '../../../testing/dom';
 import { ModelsComparison } from './ModelsComparison';
 
@@ -212,10 +212,3 @@ describe('benchmark comparison', () => {
         expect(legend.textContent).toContain('No models found.');
     });
 });
-
-async function typeInto(input: HTMLInputElement, text: string): Promise<void> {
-    await act(async () => {
-        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, text);
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-}

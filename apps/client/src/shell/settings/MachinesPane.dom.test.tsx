@@ -6,7 +6,7 @@ import { useWindow } from '@/state/window';
 import { clickOn, mount, until, type Mounted } from '../../../testing/dom';
 import { connectFakeMachine, FakeMachine } from '../../../testing/fake-machine';
 import { machineBridge } from '../../../testing/machine-bridge';
-import { button, everything, installDesktop, removeDesktop } from './settings-dom';
+import { buttonWithText, everything, installDesktop, removeDesktop } from '../../../testing/dom-helpers';
 
 let page: Mounted;
 let release: (() => void) | null;
@@ -34,9 +34,9 @@ async function setUpRefused(failure: Error): Promise<void> {
     await open(machineBridge('none', { choose: (mode) => choose(mode) }));
     await until(() => row('This computer') !== null);
     await clickOn(row('This computer'));
-    await until(() => button('Set up') !== null);
-    await clickOn(button('Set up'));
-    await clickOn(button('Restart'));
+    await until(() => buttonWithText('Set up') !== null);
+    await clickOn(buttonWithText('Set up'));
+    await clickOn(buttonWithText('Restart'));
 }
 
 beforeEach(() => {
@@ -61,10 +61,10 @@ describe('Settings > Machines of an app that runs no machine', () => {
         await until(() => row('Only connects to your machines') !== null);
         await clickOn(row('This computer'));
         await until(() => everything().includes('Run a machine on this computer'));
-        await clickOn(button('Set up'));
+        await clickOn(buttonWithText('Set up'));
         await until(() => everything().includes('Restart Ruimte to run a machine here?'));
         expect(chosen).toEqual([]);
-        await clickOn(button('Restart'));
+        await clickOn(buttonWithText('Restart'));
         expect(chosen).toEqual(['local']);
     });
 

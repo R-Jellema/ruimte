@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, setSystemTime, test } from 'bun:test';
 import { act } from 'react';
 import { EditorView } from '@codemirror/view';
-import { REQUEST_SCHEMAS, zonedTime, type ProjectCanvasView, type ProviderInfo, type RequestType, type RoutineEntry, type RoutineRun } from '@ruimte/contracts';
+import { REQUEST_SCHEMAS, zonedTime, type ProjectCanvasView, type RequestType, type RoutineEntry, type RoutineRun } from '@ruimte/contracts';
 import { formatDateTime } from '@adecore/ui/format';
 import { isApplePlatform } from '@/desktop/bridge';
 import { showRoutine, useRoutinesStage } from '@/routines/stage';
@@ -10,7 +10,9 @@ import { useUi } from '@/state/ui';
 import { chatInfoOf } from '../../testing/chat-info';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
+import { buttonWithText } from '../../testing/dom-helpers';
 import { clickOn, layOutChat, mount, pressKey, until, type Mounted } from '../../testing/dom';
+import { claudeProvider } from '../../testing/fake-provider';
 
 const AMS = 'Europe/Amsterdam';
 const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [], texts: [], edges: [], layouts: [] };
@@ -73,16 +75,7 @@ const HELD: RoutineEntry = {
     }
 };
 
-const CLAUDE = {
-    kind: 'claude',
-    name: 'Claude Code',
-    installed: true,
-    version: '2.1.0',
-    models: [{ slug: 'model', name: 'Model', legacy: false, isDefault: true, options: [] }],
-    defaultModel: 'model',
-    capabilities: { chat: true, terminal: true, hooks: true, diffs: 'before-after', slashCommands: true },
-    resumeCommand: 'claude --resume {id}'
-} as unknown as ProviderInfo;
+const CLAUDE = claudeProvider({ chat: true, terminal: true, hooks: true, diffs: 'before-after', slashCommands: true });
 
 function text(): string {
     return page.host.textContent ?? '';
@@ -94,10 +87,6 @@ function stage(): HTMLElement | null {
 
 function clock(): HTMLElement | null {
     return page.host.querySelector<HTMLElement>('header button[aria-label^="Routines"]');
-}
-
-function buttonWithText(label: string, within: ParentNode = document): HTMLElement | null {
-    return ([...within.querySelectorAll('button')] as HTMLElement[]).find((button) => button.textContent?.trim() === label) ?? null;
 }
 
 /* The prompt of the routine form, an editor rather than a text field. */

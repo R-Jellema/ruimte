@@ -1,15 +1,14 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
 import type { ProjectSummary } from '@ruimte/contracts';
-import type { BackgroundServiceState, DesktopBridge } from '@/desktop/bridge';
+import type { BackgroundServiceState } from '@/desktop/bridge';
 import { LOCAL_ENDPOINT_ID, useEndpoints } from '@/state/endpoints';
 import { useProjectList } from '@/state/project-list';
 import { protocolRefusal } from '@/transport/protocol';
 import { dropMachine, enterWorkspace, showStart } from '@/transport/connections';
 import { FakeMachine, connectFakeMachine } from '../../testing/fake-machine';
+import { installDesktop, removeDesktop } from '../../testing/dom-helpers';
 import { clickOn, mount, until, type Mounted } from '../../testing/dom';
-
-const scope = globalThis as unknown as { window: { ruimteDesktop?: DesktopBridge } };
 
 const PROJECT: ProjectSummary = {
     projectId: 'project-atlas',
@@ -35,16 +34,10 @@ let restarts: number;
 /* The shell of the desktop app, with the restart of the service a person put off. */
 function installShell(state: BackgroundServiceState | null): void {
     if (state === null) {
-        delete scope.window.ruimteDesktop;
+        removeDesktop();
         return;
     }
-    scope.window.ruimteDesktop = {
-        platform: 'darwin',
-        pickFolder: async () => null,
-        openExternal: async () => undefined,
-        openGuestDevTools: () => undefined,
-        isFullscreen: async () => false,
-        onFullscreen: () => () => undefined,
+    installDesktop({
         claimWindow: async () => false,
         openWindow: () => undefined,
         backgroundService: {
@@ -58,7 +51,7 @@ function installShell(state: BackgroundServiceState | null): void {
                 return serviceState({ pendingRestart: null });
             }
         }
-    } as unknown as DesktopBridge;
+    });
 }
 
 async function openWorkspaceOnThisComputer(): Promise<void> {

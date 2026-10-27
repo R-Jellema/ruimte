@@ -6,6 +6,7 @@ import { startWindowTabs } from '@/project/window-tabs';
 import { useSettings } from '@/state/settings';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
+import { menuItem, removeDesktop } from '../../testing/dom-helpers';
 import { clickOn, mount, until, type Mounted } from '../../testing/dom';
 
 const SHOWN = 'fake-machine:project-atlas';
@@ -111,7 +112,7 @@ afterEach(async () => {
     stopTabs();
     useSettings.setState({ projectNavigation: previousNavigation });
     history.replaceState(null, '', location.pathname);
-    delete scope.window.ruimteDesktop;
+    removeDesktop();
     workspace.close();
 });
 
@@ -130,10 +131,6 @@ describe('tearing a project tab out of its window', () => {
 
 function tabOrder(): string[] {
     return [...page.host.querySelectorAll<HTMLElement>('[data-tab-key]')].map((element) => element.dataset.tabKey ?? '');
-}
-
-function menuItem(text: string): HTMLElement | null {
-    return ([...document.querySelectorAll('[role="menuitem"]')] as HTMLElement[]).find((item) => item.textContent?.trim().startsWith(text)) ?? null;
 }
 
 async function openTabMenu(key: string): Promise<void> {
