@@ -1,23 +1,18 @@
 import type { LanguageLogLine, LanguageServerKind, LanguageServerStatus } from '@ruimte/contracts';
 import type { Transport } from '@/transport/transport';
+import { SnapshotTracker, upsert } from './snapshot-tracker';
 
 /*
  * What a project knows about its language servers: a status per kind, which a person's Install and
- * Restart change and the daemon's events keep up to date. The snapshot is replaced on every change, so
- * a store can read it as one. Nothing here installs on its own: only `install` asks the daemon to.
+ * Restart change and the daemon's events keep up to date. Nothing here installs on its own: only
+ * `install` asks the daemon to.
  */
-export class LanguageStatusTracker {
-    private readonly transport: Transport;
+export class LanguageStatusTracker extends SnapshotTracker<readonly LanguageServerStatus[]> {
     private readonly projectId: string;
-    private readonly listeners = new Set<() => void>();
-    private readonly subscriptions: Array<() => void> = [];
-    private snapshot: readonly LanguageServerStatus[] = [];
-    private linkWasDown: boolean;
 
     constructor(transport: Transport, projectId: string) {
-        this.transport = transport;
+        super(transport, []);
         this.projectId = projectId;
-        this.linkWasDown = transport.status !== 'open';
         this.subscriptions.push(
             // A server of a person's own was saved or removed, so which servers a project has changed with it.
             transport.on('language.custom.changed', () => {
@@ -29,33 +24,12 @@ export class LanguageStatusTracker {
                 } else if (event.projectId === null) {
                     this.machineChanged(event.status);
                 }
-            }),
-            transport.subscribeStatus((status) => {
-                if (status !== 'open') {
-                    this.linkWasDown = true;
-                } else if (this.linkWasDown) {
-                    this.linkWasDown = false;
-                    void this.refresh().catch(() => undefined);
-                }
             })
         );
     }
 
-    getSnapshot(): readonly LanguageServerStatus[] {
-        return this.snapshot;
-    }
-
-    subscribe(listener: () => void): () => void {
-        this.listeners.add(listener);
-        return () => {
-            this.listeners.delete(listener);
-        };
-    }
-
     async refresh(): Promise<void> {
-        const { servers } = await this.transport.request('language.status', { projectId: this.projectId });
-        this.snapshot = servers;
-        this.emit();
+        this.replace((await this.transport.request('language.status', { projectId: this.projectId })).servers);
     }
 
     /* A person pressed Install. The answer is the kind installing; its end comes as an event. */
@@ -85,13 +59,6 @@ export class LanguageStatusTracker {
         return (await this.transport.request('language.log', { projectId: this.projectId, server })).lines;
     }
 
-    dispose(): void {
-        for (const unsubscribe of this.subscriptions.splice(0)) {
-            unsubscribe();
-        }
-        this.listeners.clear();
-    }
-
     /* An install began or ended on the machine. One that ended leaves the kind to the project, so its own state is asked for. */
     private machineChanged(status: LanguageServerStatus): void {
         if (status.state === 'installing' || status.state === 'not-installed') {
@@ -102,14 +69,6 @@ export class LanguageStatusTracker {
     }
 
     private set(status: LanguageServerStatus): void {
-        const known = this.snapshot.some((candidate) => candidate.server === status.server);
-        this.snapshot = known ? this.snapshot.map((candidate) => (candidate.server === status.server ? status : candidate)) : [...this.snapshot, status];
-        this.emit();
-    }
-
-    private emit(): void {
-        for (const listener of this.listeners) {
-            listener();
-        }
+        this.replace(upsert(this.snapshot, status, (candidate) => candidate.server === status.server));
     }
 }
