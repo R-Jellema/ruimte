@@ -14,20 +14,21 @@ function fakeAddress(initial: string): WindowAddress & { writes: string[] } {
     };
 }
 
+/* A shell that grants every claim and keeps the keys it was asked for. */
+function grantingShell(asked: (string | null)[]): { claimWindow(key: string | null): Promise<boolean> } {
+    return {
+        claimWindow: async (key) => {
+            asked.push(key);
+            return true;
+        }
+    };
+}
+
 describe('claimWindow', () => {
     test('asks the shell for the key of the project and follows it in the address', async () => {
         const asked: (string | null)[] = [];
         const address = fakeAddress('?start=1');
-        const granted = await claimWindow(
-            { endpointId: 'local', projectId: 'p1' },
-            {
-                claimWindow: async (key) => {
-                    asked.push(key);
-                    return true;
-                }
-            },
-            address
-        );
+        const granted = await claimWindow({ endpointId: 'local', projectId: 'p1' }, grantingShell(asked), address);
         expect(granted).toBe(true);
         expect(asked).toEqual(['local:p1']);
         expect(address.writes).toEqual(['?project=local%3Ap1']);
@@ -42,16 +43,7 @@ describe('claimWindow', () => {
     test('letting go asks for no key and puts the start screen in the address', async () => {
         const asked: (string | null)[] = [];
         const address = fakeAddress('?project=local%3Ap0');
-        await claimWindow(
-            null,
-            {
-                claimWindow: async (key) => {
-                    asked.push(key);
-                    return true;
-                }
-            },
-            address
-        );
+        await claimWindow(null, grantingShell(asked), address);
         expect(asked).toEqual([null]);
         expect(address.search()).toBe('?start=1');
     });

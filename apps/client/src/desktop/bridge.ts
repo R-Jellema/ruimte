@@ -3,33 +3,20 @@ import { isApplePlatform as isApplePlatformFromNavigator } from '@adecore/ui';
 
 export type {
     BrowserRouteBinding,
-    BrowserRouteBlocked,
-    AgentActivity,
     BackgroundServiceBridge,
     BackgroundServiceState,
     BrowserContextAction,
     BrowserContextParams,
-    BrowserShellAction,
     DaemonCrash,
-    DaemonOwner,
-    DatabaseSecretsBridge,
     DesktopBridge,
     KeepAwakeRequest,
     MachineMode,
-    MachineModeBridge,
     MachineStopPreview,
-    OpenAiBridge,
     OpenAiCredentialStatus,
     OpenAiLivePreferences,
-    OpenPathPurpose,
-    OpenPathRequest,
-    PendingRestart,
-    PulsarBridge,
     Release,
     ReleaseNotesState,
     SaveFileStreamBridge,
-    SavePathRequest,
-    ServiceSupport,
     SystemIdleState,
     UpdateState,
     WindowPoint
@@ -78,10 +65,7 @@ export const TRAFFIC_LIGHTS_INSET_PX = 84;
    backward-char and tmux's prefix, while Cmd+B is free. */
 export function isApplePlatform(): boolean {
     const bridge = desktop();
-    if (bridge) {
-        return bridge.platform === 'darwin';
-    }
-    return isApplePlatformFromNavigator();
+    return bridge ? bridge.platform === 'darwin' : isApplePlatformFromNavigator();
 }
 
 /* Windows and Linux draw the window controls over the top right of the window. */
