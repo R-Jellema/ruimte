@@ -111,6 +111,11 @@ export class ProjectIndex {
         return this.projects.get(projectId)?.folder ?? null;
     }
 
+    /* The folder of every project the daemon knows, open or not. */
+    folders(): string[] {
+        return [...this.projects.values()].map((project) => project.folder);
+    }
+
     viewsOf(projectId: string): readonly ProjectView[] | null {
         return this.projects.get(projectId)?.content.views ?? null;
     }

@@ -132,7 +132,7 @@ export async function startDaemon(config: ServerConfig, launcher: Launcher = 'st
         projects: projects.store,
         shutdown: (reason) => shutdown(reason)
     });
-    const maintenance = wireMaintenance(home, processes);
+    const maintenance = wireMaintenance(home, processes, { language: () => language.host, projects: () => projects.store.index });
     const canvasHost = wireCanvasHost({
         identity,
         stores,

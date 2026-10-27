@@ -95,4 +95,16 @@ describe('ProjectIndex', () => {
         expect(index.canvasOf('solo-chat')).toBeNull();
         expect(index.canvasOf('nobody')).toBeNull();
     });
+
+    test('lists the folder of every project it holds, until the project goes', () => {
+        const index = new ProjectIndex();
+        index.set('p1', '/repo', { views: views('x') });
+        index.set('p2', '/other', { views: views('x') });
+
+        expect(index.folders()).toEqual(['/repo', '/other']);
+
+        index.remove('p1');
+
+        expect(index.folders()).toEqual(['/other']);
+    });
 });
