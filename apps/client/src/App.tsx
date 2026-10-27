@@ -1,5 +1,5 @@
 import i18next from 'i18next';
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { desktop, machineMode } from '@/desktop/bridge';
 import { useProjectSwitch } from '@/project/open';
 import { useAppShortcuts } from '@/shell/app-shortcuts';
@@ -80,6 +80,8 @@ const ReleaseNotesDialog = lazyDialog(
     (s) => s.open
 );
 
+const BLANK = <div className="h-full w-full bg-bg" />;
+
 /* The start screen, or the blank frame before it while a cold start is still trying the last project. */
 function WindowContent() {
     const content = useWindow((s) => s.content);
@@ -98,7 +100,7 @@ function WindowContent() {
     if (machineMode() === 'ask') {
         return (
             <ErrorBoundary label={failed('firstRun')}>
-                <LazyBoundary fallback={<div className="h-full w-full bg-bg" />}>
+                <LazyBoundary fallback={BLANK}>
                     <FirstRunScreen />
                 </LazyBoundary>
             </ErrorBoundary>
@@ -106,7 +108,7 @@ function WindowContent() {
     }
     if (content.kind === 'workspace') {
         return (
-            <LazyBoundary fallback={<div className="h-full w-full bg-bg" />}>
+            <LazyBoundary fallback={BLANK}>
                 <WorkspaceShell workspace={content.workspace} />
             </LazyBoundary>
         );
@@ -127,6 +129,15 @@ function LinkRequestDialog() {
     return <LinkMachineDialog open={open} initialCode={code} onOpenChange={(next) => (next ? undefined : closeLinkRequest())} />;
 }
 
+/* A surface that floats over the window, so its failure is a card and the rest stays usable. */
+function Floating({ surface, children }: { surface: string; children: ReactNode }) {
+    return (
+        <ErrorBoundary label={failed(surface)} compact className={FLOATING_FAILURE}>
+            {children}
+        </ErrorBoundary>
+    );
+}
+
 export function App() {
     const name = useProject((s) => s.current?.name ?? null);
     useAppShortcuts();
@@ -140,8 +151,7 @@ export function App() {
     // Once, with the preference as it stands. The shell reads it again from About.
     useEffect(() => startUpdates(useSettings.getState().updatesAutoDownload) ?? undefined, []);
 
-    /* Every embedded page steps aside for as long as any drag lasts, so a drop target is wherever
-       it looks like it is and never behind a page that swallowed the drag. */
+    // Every embedded page steps aside while a drag lasts, so it never swallows a drop meant for the cell under it.
     useEffect(() => watchDrags(), []);
 
     // The macOS application menu names a pane, and switches to it when the dialog is already open.
@@ -161,39 +171,39 @@ export function App() {
                 parked browser pages as well, which is why everything below carries a boundary of its own. */}
                 <ErrorBoundary label={i18next.t('common:state.error')} className="fixed inset-0 bg-bg" reload>
                     <WindowContent />
-                    <ErrorBoundary label={failed('palette')} compact className={FLOATING_FAILURE}>
+                    <Floating surface="palette">
                         <CommandPalette />
-                    </ErrorBoundary>
-                    <ErrorBoundary label={failed('settings')} compact className={FLOATING_FAILURE}>
+                    </Floating>
+                    <Floating surface="settings">
                         <SettingsDialog />
-                    </ErrorBoundary>
+                    </Floating>
                     <UsageDialog />
                     <ModelsDialog />
-                    <ErrorBoundary label={failed('toasts')} compact className={FLOATING_FAILURE}>
+                    <Floating surface="toasts">
                         <Toasts />
-                    </ErrorBoundary>
+                    </Floating>
                     <ReleaseNotesDialog />
-                    <ErrorBoundary label={failed('machineUpdate')} compact className={FLOATING_FAILURE}>
+                    <Floating surface="machineUpdate">
                         <MachineUpdateDialog />
-                    </ErrorBoundary>
-                    <ErrorBoundary label={failed('link')} compact className={FLOATING_FAILURE}>
+                    </Floating>
+                    <Floating surface="link">
                         <LinkRequestDialog />
-                    </ErrorBoundary>
-                    <ErrorBoundary label={failed('onboarding')} compact className={FLOATING_FAILURE}>
+                    </Floating>
+                    <Floating surface="onboarding">
                         <OnboardingDialog />
-                    </ErrorBoundary>
-                    <ErrorBoundary label={failed('agentIntegrations')} compact className={FLOATING_FAILURE}>
+                    </Floating>
+                    <Floating surface="agentIntegrations">
                         <AgentIntegrationsDialog />
-                    </ErrorBoundary>
-                    <ErrorBoundary label={failed('login')} compact className={FLOATING_FAILURE}>
+                    </Floating>
+                    <Floating surface="login">
                         <LoginDialog />
-                    </ErrorBoundary>
-                    <ErrorBoundary label={failed('providerCommand')} compact className={FLOATING_FAILURE}>
+                    </Floating>
+                    <Floating surface="providerCommand">
                         <ProviderCommandDialog />
-                    </ErrorBoundary>
-                    <ErrorBoundary label={failed('shortcutHints')} compact className={FLOATING_FAILURE}>
+                    </Floating>
+                    <Floating surface="shortcutHints">
                         <ShortcutHints />
-                    </ErrorBoundary>
+                    </Floating>
                 </ErrorBoundary>
             </ChatScopeProvider>
         </UIProvider>
