@@ -100,6 +100,7 @@ describe('FolderWatches', () => {
             { endpointId: 'local', type: 'fs.watch', path: '/project/docs' }
         ]);
     });
+
     test('a link that comes back is asked for every folder still held, and their readers read again', async () => {
         const calls: Call[] = [];
         const pool = fakePool(calls);
@@ -209,21 +210,26 @@ describe('prepared folder watches', () => {
     });
 });
 
-test('a descendant refreshes only after the watch replacing its removed ancestor is ready', async () => {
+/* A link whose second watch of `/folder/src` is ready only once `finish` runs. */
+function slowRenewal(): { watches: FolderWatches; finish: () => void; asks: () => number } {
     let finish!: () => void;
     const replacement = new Promise<void>((resolve) => {
         finish = resolve;
     });
-    let childAsks = 0;
-    let refreshed = 0;
+    let asks = 0;
     const link = {
         status: 'open',
         request(type: string, payload: { path: string }) {
-            return type === 'fs.watch' && payload.path === '/folder/src' && ++childAsks > 1 ? replacement : Promise.resolve();
+            return type === 'fs.watch' && payload.path === '/folder/src' && ++asks > 1 ? replacement : Promise.resolve();
         },
         subscribeStatus: () => () => undefined
     } as unknown as Transport;
-    const watches = new FolderWatches(() => link);
+    return { watches: new FolderWatches(() => link), finish, asks: () => asks };
+}
+
+test('a descendant refreshes only after the watch replacing its removed ancestor is ready', async () => {
+    const { watches, finish } = slowRenewal();
+    let refreshed = 0;
     const root = watches.watch('machine', '/folder');
     const child = watches.watch('machine', '/folder/src', () => refreshed++);
     await child.ready;
@@ -238,24 +244,12 @@ test('a descendant refreshes only after the watch replacing its removed ancestor
 });
 
 test('a new ancestor renews existing descendants after its readiness barrier', async () => {
-    let finish!: () => void;
-    const replacement = new Promise<void>((resolve) => {
-        finish = resolve;
-    });
-    let asks = 0;
+    const { watches, finish, asks } = slowRenewal();
     let refreshed = 0;
-    const link = {
-        status: 'open',
-        request(type: string, payload: { path: string }) {
-            return type === 'fs.watch' && payload.path === '/folder/src' && ++asks > 1 ? replacement : Promise.resolve();
-        },
-        subscribeStatus: () => () => undefined
-    } as unknown as Transport;
-    const watches = new FolderWatches(() => link);
     const child = watches.watch('machine', '/folder/src', () => refreshed++);
     await child.ready;
     const root = watches.watch('machine', '/folder');
-    expect(asks).toBe(2);
+    expect(asks()).toBe(2);
     expect(refreshed).toBe(0);
     finish();
     await child.ready;

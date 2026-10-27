@@ -1,3 +1,4 @@
+import { chatInfoOf } from '../../testing/chat-info';
 import { describe, expect, test } from 'bun:test';
 import type { AgentInfo, AgentStatus } from '@ruimte/contracts';
 import { agentsWorking, nodeWork, nodeWorking } from '@/state/agent-work';
@@ -20,27 +21,7 @@ function session(agentInfo?: AgentInfo, attached = true): SessionState {
 }
 
 function chat(status: AgentStatus, delegating?: boolean): ChatState {
-    return {
-        info: {
-            chatId: 'c1',
-            provider: 'claude',
-            cwd: '/',
-            agentSessionId: null,
-            model: null,
-            selection: { model: 'claude-sonnet-5', options: {} },
-            runtimeMode: 'full-access',
-            status,
-            running: true,
-            activeTurnId: null,
-            slashCommands: [],
-            delegating,
-            usage: { contextTokens: 0, contextWindow: null, costUsd: 0, turns: 0 },
-            createdAt: 0
-        },
-        items: {},
-        structure: {},
-        order: []
-    };
+    return { info: chatInfoOf('c1', { status, delegating }), items: {}, structure: {}, order: [] };
 }
 
 describe('what counts as an agent working', () => {

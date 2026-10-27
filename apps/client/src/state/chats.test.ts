@@ -1,24 +1,11 @@
+import { chatInfoOf } from '../../testing/chat-info';
 import { afterEach, describe, expect, test } from 'bun:test';
 import { useChats, type ChatState } from '@adecore/agents-react/state';
 import type { AgentStatus } from '@ruimte/contracts';
 import { subscribeChatStatuses, subscribeChatThreads } from '@/state/chats';
 
 function info(status: AgentStatus): ChatState['info'] {
-    return {
-        chatId: 'c1',
-        provider: 'claude',
-        cwd: '/',
-        agentSessionId: null,
-        model: null,
-        selection: { model: 'claude-sonnet-5', options: {} },
-        runtimeMode: 'full-access',
-        status,
-        running: true,
-        activeTurnId: null,
-        slashCommands: [],
-        usage: { contextTokens: 0, contextWindow: null, costUsd: 0, turns: 0 },
-        createdAt: 0
-    };
+    return chatInfoOf('c1', { status, running: true });
 }
 
 /* A chat with a reply that is streaming, so a delta only grows its text. */

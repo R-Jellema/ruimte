@@ -1,3 +1,4 @@
+import { chatInfoOf } from '../../testing/chat-info';
 import { describe, expect, test } from 'bun:test';
 import type { AgentInfo, AgentStatus } from '@ruimte/contracts';
 import { groupAttention, isUnseen, nextUnseen, readableNodes, seenNodes, settledSince, visibleNodes, type AttentionPass } from '@/state/attention';
@@ -32,26 +33,7 @@ function session(agentInfo?: AgentInfo, attached = true): SessionState {
 }
 
 function chat(status: AgentStatus): ChatState {
-    return {
-        info: {
-            chatId: 'c1',
-            provider: 'claude',
-            cwd: '/',
-            agentSessionId: null,
-            model: null,
-            selection: { model: 'claude-sonnet-5', options: {} },
-            runtimeMode: 'full-access',
-            status,
-            running: true,
-            activeTurnId: null,
-            slashCommands: [],
-            usage: { contextTokens: 0, contextWindow: null, costUsd: 0, turns: 0 },
-            createdAt: 0
-        },
-        items: {},
-        structure: {},
-        order: []
-    };
+    return { info: chatInfoOf('c1', { status }), items: {}, structure: {}, order: [] };
 }
 
 function node(id: string, size = 200): { id: string; x: number; y: number; w: number; h: number } {

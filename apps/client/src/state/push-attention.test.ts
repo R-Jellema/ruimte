@@ -9,29 +9,35 @@ async function flush() {
     }
 }
 
-test('only readable nodes acknowledge results, including results received after focusing', async () => {
-    let receive = (_entry: PushAttentionEntry) => {};
+/* An open link that answers `push.attention` with `held`, notes every read, and hands an event to `receive`. */
+function machine(held: { entries: PushAttentionEntry[]; marksFrom?: number }) {
     const reads: unknown[] = [];
+    let receive = (_entry: PushAttentionEntry): void => undefined;
     const transport = {
         status: 'open',
         on: (_event: string, listener: typeof receive) => {
             receive = listener;
-            return () => {};
+            return () => undefined;
         },
-        subscribeStatus: () => () => {},
+        subscribeStatus: () => () => undefined,
         request: async (type: string, payload: unknown) => {
             if (type === 'push.attention') {
-                return {
-                    entries: [
-                        { nodeId: 'one', issuedAt: 100, readThrough: 0 },
-                        { nodeId: 'hidden', issuedAt: 101, readThrough: 0 }
-                    ]
-                };
+                return held;
             }
             reads.push(payload);
             return {};
         }
     } as unknown as Transport;
+    return { transport, reads, receive: (entry: PushAttentionEntry) => receive(entry) };
+}
+
+test('only readable nodes acknowledge results, including results received after focusing', async () => {
+    const { transport, reads, receive } = machine({
+        entries: [
+            { nodeId: 'one', issuedAt: 100, readThrough: 0 },
+            { nodeId: 'hidden', issuedAt: 101, readThrough: 0 }
+        ]
+    });
     const sync = new PushAttentionSync(transport);
     await flush();
     expect(reads).toEqual([]);
@@ -54,23 +60,15 @@ test('only readable nodes acknowledge results, including results received after 
 });
 
 test('what the machine holds unread is known the moment a socket opens, and a read takes it off', async () => {
-    const transport = {
-        status: 'open',
-        on: () => () => {},
-        subscribeStatus: () => () => {},
-        request: async (type: string) =>
-            type === 'push.attention'
-                ? {
-                      entries: [
-                          { nodeId: 'finished-while-away', issuedAt: 100, readThrough: 0 },
-                          { nodeId: 'already-seen', issuedAt: 90, readThrough: 90 },
-                          // Issued before the machine ran a version that marks nodes, so it never becomes a mark.
-                          { nodeId: 'before-the-update', issuedAt: 40, readThrough: 0 }
-                      ],
-                      marksFrom: 50
-                  }
-                : {}
-    } as unknown as Transport;
+    const { transport } = machine({
+        entries: [
+            { nodeId: 'finished-while-away', issuedAt: 100, readThrough: 0 },
+            { nodeId: 'already-seen', issuedAt: 90, readThrough: 90 },
+            // Issued before the machine ran a version that marks nodes, so it never becomes a mark.
+            { nodeId: 'before-the-update', issuedAt: 40, readThrough: 0 }
+        ],
+        marksFrom: 50
+    });
     const sync = new PushAttentionSync(transport);
     await flush();
     expect(sync.unread()).toEqual(['finished-while-away']);
@@ -80,13 +78,7 @@ test('what the machine holds unread is known the moment a socket opens, and a re
 });
 
 test('a machine that does not say when marks start gives none', async () => {
-    const transport = {
-        status: 'open',
-        on: () => () => {},
-        subscribeStatus: () => () => {},
-        request: async (type: string) => (type === 'push.attention' ? { entries: [{ nodeId: 'unread', issuedAt: 100, readThrough: 0 }] } : {})
-    } as unknown as Transport;
-    const sync = new PushAttentionSync(transport);
+    const sync = new PushAttentionSync(machine({ entries: [{ nodeId: 'unread', issuedAt: 100, readThrough: 0 }] }).transport);
     await flush();
     expect(sync.unread()).toEqual([]);
     sync.dispose();

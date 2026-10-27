@@ -170,20 +170,23 @@ describe('one row per daemon', () => {
     });
 });
 
+/* Bun has no Web Storage; the store writes through the global, so a small one stands in for it. */
+function storageOver(items: Map<string, string>): Storage {
+    return {
+        getItem: (key: string) => items.get(key) ?? null,
+        setItem: (key: string, value: string) => void items.set(key, value),
+        removeItem: (key: string) => void items.delete(key),
+        clear: () => items.clear(),
+        key: (index: number) => [...items.keys()][index] ?? null,
+        get length() {
+            return items.size;
+        }
+    };
+}
+
 describe('a direct connection per machine', () => {
     beforeEach(() => {
-        // Bun has no Web Storage; the store writes through the global, so a small one stands in for it.
-        const items = new Map<string, string>();
-        globalThis.localStorage = {
-            getItem: (key: string) => items.get(key) ?? null,
-            setItem: (key: string, value: string) => void items.set(key, value),
-            removeItem: (key: string) => void items.delete(key),
-            clear: () => items.clear(),
-            key: (index: number) => [...items.keys()][index] ?? null,
-            get length() {
-                return items.size;
-            }
-        };
+        globalThis.localStorage = storageOver(new Map());
         useEndpoints.setState({ endpoints: [row(LOCAL_ENDPOINT_ID, { daemonId: null }), row('daemon-a')], activeId: LOCAL_ENDPOINT_ID, mismatched: {} });
     });
 
@@ -241,16 +244,7 @@ describe('another window writing the list', () => {
 
     beforeEach(() => {
         items.clear();
-        globalThis.localStorage = {
-            getItem: (key: string) => items.get(key) ?? null,
-            setItem: (key: string, value: string) => void items.set(key, value),
-            removeItem: (key: string) => void items.delete(key),
-            clear: () => items.clear(),
-            key: (index: number) => [...items.keys()][index] ?? null,
-            get length() {
-                return items.size;
-            }
-        };
+        globalThis.localStorage = storageOver(items);
         useEndpoints.setState({
             endpoints: [row(LOCAL_ENDPOINT_ID, { daemonId: 'daemon-here' }), row('daemon-a')],
             activeId: 'daemon-a',
