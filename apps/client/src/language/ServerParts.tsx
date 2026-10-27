@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { LanguageLogLine } from '@ruimte/contracts';
-import { Dialog } from '@adecore/ui';
-import { useStatuses } from './server-status';
+import type { LanguageServerStatus } from '@ruimte/contracts';
+import { Button, Dialog } from '@adecore/ui';
+import { report, useStatuses } from './server-status';
 import type { LanguageStatusTracker } from './status';
-import { nameOf, type ServerTone } from './status-view';
+import { actionsOf, kindOf, nameOf, type ServerTone } from './status-view';
 
 const DOT_CLASSES: Record<ServerTone, string> = {
     ok: 'bg-status-idle',
@@ -46,5 +47,58 @@ export function LogDialog({ server, tracker, onClose }: { server: string | null;
                 </div>
             </Dialog.Popup>
         </Dialog.Root>
+    );
+}
+
+/* Install, update, step back, restart and show the log of one server, the buttons the status bar and the settings both draw. */
+export function ServerActionButtons({
+    status,
+    tracker,
+    size,
+    stepBack,
+    stepBackVariant,
+    onLog
+}: {
+    status: LanguageServerStatus;
+    tracker: LanguageStatusTracker;
+    size: 'xs' | 'sm';
+    /* Whether the step back to the previous version is offered; the status bar keeps it for a server that broke. */
+    stepBack: boolean;
+    stepBackVariant?: 'secondary';
+    onLog(): void;
+}) {
+    const { t } = useTranslation('panels');
+    const kind = kindOf(status.server);
+    const actions = actionsOf(status);
+    const fail = (error: unknown): void => report(error, t);
+
+    return (
+        <>
+            {kind !== null && actions.install && (
+                <Button size={size} variant="secondary" onClick={() => void tracker.install(kind).catch(fail)}>
+                    {t('language.install')}
+                </Button>
+            )}
+            {kind !== null && actions.update && status.update !== undefined && (
+                <Button size={size} variant="secondary" onClick={() => void tracker.install(kind).catch(fail)}>
+                    {status.update.rebuild === true ? t('language.rebuild') : t('language.update', { version: status.update.version })}
+                </Button>
+            )}
+            {kind !== null && stepBack && status.previous !== undefined && (
+                <Button size={size} variant={stepBackVariant} onClick={() => void tracker.rollback(kind).catch(fail)}>
+                    {t('language.rollback', { version: status.previous.version })}
+                </Button>
+            )}
+            {actions.restart && (
+                <Button size={size} variant="secondary" onClick={() => void tracker.restart(status.server).catch(fail)}>
+                    {t('language.restart')}
+                </Button>
+            )}
+            {actions.log && (
+                <Button size={size} onClick={onLog}>
+                    {t('language.showLog')}
+                </Button>
+            )}
+        </>
     );
 }

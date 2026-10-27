@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { LanguageServerStatus } from '@ruimte/contracts';
 import { Button, Popover, Spinner, Tooltip } from '@adecore/ui';
 import type { EditorLanguage } from './ruimte-editor-language';
-import { Dot, LogDialog } from './ServerParts';
+import { Dot, LogDialog, ServerActionButtons } from './ServerParts';
 import { report, serverDetail, sidecarDetails, useStatuses } from './server-status';
 import type { LanguageStatusTracker } from './status';
 import { actionsOf, alternativeTo, chipServer, kindOf, listedServers, nameOf, packageOf, toneOf } from './status-view';
@@ -81,7 +81,6 @@ function ServerRow({
     onLog(): void;
 }) {
     const { t } = useTranslation('panels');
-    const kind = kindOf(status.server);
     const actions = actionsOf(status);
     // Here the step back is for a server that broke; the settings offer it at any time.
     const rollback = actions.rollback && status.state === 'crashed';
@@ -107,31 +106,7 @@ function ServerRow({
             ))}
             {(actions.install || actions.update || rollback || actions.restart || actions.log || alternativeKind !== null) && (
                 <div className="flex flex-wrap gap-2 pl-4">
-                    {kind !== null && actions.install && (
-                        <Button size="xs" variant="secondary" onClick={() => void tracker.install(kind).catch(fail)}>
-                            {t('language.install')}
-                        </Button>
-                    )}
-                    {kind !== null && actions.update && status.update !== undefined && (
-                        <Button size="xs" variant="secondary" onClick={() => void tracker.install(kind).catch(fail)}>
-                            {status.update.rebuild === true ? t('language.rebuild') : t('language.update', { version: status.update.version })}
-                        </Button>
-                    )}
-                    {kind !== null && rollback && status.previous !== undefined && (
-                        <Button size="xs" variant="secondary" onClick={() => void tracker.rollback(kind).catch(fail)}>
-                            {t('language.rollback', { version: status.previous.version })}
-                        </Button>
-                    )}
-                    {actions.restart && (
-                        <Button size="xs" variant="secondary" onClick={() => void tracker.restart(status.server).catch(fail)}>
-                            {t('language.restart')}
-                        </Button>
-                    )}
-                    {actions.log && (
-                        <Button size="xs" onClick={onLog}>
-                            {t('language.showLog')}
-                        </Button>
-                    )}
+                    <ServerActionButtons status={status} tracker={tracker} size="xs" stepBack={rollback} stepBackVariant="secondary" onLog={onLog} />
                     {alternative !== null && alternativeKind !== null && (
                         <Button size="xs" onClick={() => void tracker.prefer(alternativeKind).catch(fail)}>
                             {t('language.useInstead', { name: nameOf(alternative.server, statuses) })}
