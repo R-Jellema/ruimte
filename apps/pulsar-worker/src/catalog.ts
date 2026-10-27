@@ -66,6 +66,7 @@ export async function storedCatalogs(db: D1Database): Promise<Map<string, unknow
             db.prepare('SELECT kind, name, options, context_window_tokens FROM model_catalog_profiles'),
             db.prepare('SELECT * FROM model_catalog_models ORDER BY kind, position, slug')
         ]);
+
         rows = [(catalogs?.results ?? []) as CatalogRow[], (profiles?.results ?? []) as ProfileRow[], (models?.results ?? []) as ModelRow[]];
     } catch (e) {
         console.warn('The model catalogs in D1 would not read; answering the bundled ones:', e);

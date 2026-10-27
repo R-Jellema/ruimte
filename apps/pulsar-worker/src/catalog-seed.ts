@@ -90,6 +90,7 @@ export function seedStatementsOf(kind: string, catalog: SeedCatalog): string[] {
         ]
             .map(literal)
             .join(', ');
+
         statements.push(
             `INSERT INTO model_catalog_models (kind, slug, position, name, profile, badge, vendor, aliases, legacy, min_cli_version, tools) VALUES (${values})`
         );

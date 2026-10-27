@@ -10,6 +10,7 @@ async function wrangler(command: string): Promise<unknown> {
         stdout: 'pipe',
         stderr: 'inherit'
     });
+
     const output = await new Response(child.stdout).text();
 
     if ((await child.exited) !== 0) {
@@ -30,7 +31,7 @@ async function seed(kind: string, file: string | undefined, force: boolean): Pro
         throw new Error(refusal);
     }
 
-    // A run that fails halfway says so; the Worker answers the bundled catalog for a kind that fails its schema, and `--force` writes it again.
+    // A run that fails halfway says so, the Worker answers the bundled catalog meanwhile, and `--force` writes it again.
     await wrangler(seedStatementsOf(kind, catalog as never).join(';\n'));
 
     return `Seeded the ${kind} catalog from ${path}.`;
