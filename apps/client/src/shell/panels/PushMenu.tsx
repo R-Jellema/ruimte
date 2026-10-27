@@ -31,8 +31,8 @@ export function PushMenu({ button, active, entries, busy, onPush, onPushAll }: P
 
     return (
         <SplitButton
-            size="sm"
-            variant="secondary"
+            size="xs"
+            variant="ghost"
             className="tabular-nums"
             tooltip={main.reason}
             aria-label={main.label}
@@ -65,7 +65,7 @@ export function PushMenu({ button, active, entries, busy, onPush, onPushAll }: P
                 main.label
             ) : (
                 <>
-                    <Icon icon={ArrowUp} size={14} />
+                    <Icon icon={ArrowUp} size={12} />
                     {formatNumber(ahead)}
                 </>
             )}

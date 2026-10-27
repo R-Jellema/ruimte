@@ -113,17 +113,22 @@ export function WorktreeRows({ worktrees, nodes, current, repo, busy, actions, o
                             {worktree.locked === true && <Icon icon={Lock} size={12} className="shrink-0 text-text-muted" />}
                             {agentWorking && <StatusDot status="running" />}
                         </span>
-                        <span className="flex min-w-0 items-center gap-1 text-xs text-text-faint">
-                            {repo !== null && <span className="shrink-0">{repo} ·</span>}
-                            {worktree.missing ? (
-                                <span className="truncate">{t('worktree.menu.folderMissing')}</span>
-                            ) : (
-                                <>
-                                    {names !== '' && <Icon icon={MessageSquare} size={12} className="shrink-0" />}
-                                    <span className="truncate">{names === '' ? t('worktree.menu.noChat') : names}</span>
-                                </>
-                            )}
-                        </span>
+                        {(repo !== null || worktree.missing === true || names !== '') && (
+                            <span className="flex min-w-0 items-center gap-1 text-xs text-text-faint">
+                                {repo !== null && <span className="shrink-0">{repo}</span>}
+                                {repo !== null && (worktree.missing === true || names !== '') && <span className="shrink-0">·</span>}
+                                {worktree.missing ? (
+                                    <span className="truncate">{t('worktree.menu.folderMissing')}</span>
+                                ) : (
+                                    names !== '' && (
+                                        <>
+                                            <Icon icon={MessageSquare} size={12} className="shrink-0" />
+                                            <span className="truncate">{names}</span>
+                                        </>
+                                    )
+                                )}
+                            </span>
+                        )}
                     </span>
                     <WorkCounts worktree={worktree} />
                     {worktree.path === current && <Menu.Check kind="radio" checked />}
@@ -205,13 +210,13 @@ function WorkCounts({ worktree }: { worktree: Worktree }) {
         return null;
     }
     if (!hasWork(work) && (work.behind ?? 0) === 0) {
-        return <span className="shrink-0 text-xs text-text-faint">{t('worktree.menu.clean')}</span>;
+        return <span className="shrink-0 self-start text-xs text-text-faint">{t('worktree.menu.clean')}</span>;
     }
     const files = work.changed + work.untracked;
     const label = workBadgesLabel(worktree, work);
     return (
         <Tooltip label={label}>
-            <span role="img" aria-label={label} className="flex shrink-0 items-center gap-2 text-xs text-text-muted tabular-nums">
+            <span role="img" aria-label={label} className="flex shrink-0 items-center gap-2 self-start text-xs text-text-muted tabular-nums">
                 {work.operation !== undefined && <Icon icon={CircleAlert} size={12} className="text-status-needs-you" />}
                 {work.ahead > 0 && (
                     <span className="flex items-center gap-0.5">

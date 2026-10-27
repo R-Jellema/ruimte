@@ -548,8 +548,7 @@
             "tooltip": "Huidige branch",
             "chipRepos_one": "{{count}} repo",
             "chipRepos_other": "{{count}} repo's",
-            "chipWorktrees_one": "{{count}} worktree",
-            "chipWorktrees_other": "{{count}} worktrees",
+            "repositories": "Repositories",
             "tooltipRepos_one": "{{count}} repository en zijn branches",
             "tooltipRepos_other": "{{count}} repositories en hun branches",
             "tooltipWorktree": "{{branch}}, in worktree {{worktree}}",
@@ -1136,7 +1135,6 @@
             "folderMissing": "map ontbreekt",
             "merge": "Worktree mergen…",
             "inspect": "Bekijken",
-            "noChat": "geen chat",
             "remove": "Worktree verwijderen…",
             "view": "Alle wijzigingen bekijken"
         },

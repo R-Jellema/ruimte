@@ -116,7 +116,6 @@ describe('the git panel over a folder of two repositories', () => {
         }));
         for (const approve of [false, true]) {
             await clickOn(chip('2 repos'));
-            await openSubmenu('Switch branch');
             await openSubmenu('api');
             await openSubmenu('Branch');
             await clickOn(menuItem('Rebase onto…'));
@@ -137,18 +136,16 @@ describe('the git panel over a folder of two repositories', () => {
     });
 
     test('the picker lists the worktrees, enters one and goes back to the project', async () => {
-        expect(chip('2 repos')!.textContent).toContain('1 worktree');
         await clickOn(chip('2 repos'));
         await until(() => menuItem('lexer') !== null);
-        expect(menuItem('api, web')).not.toBeNull();
-        expect(menuItem('lexer')!.textContent).toContain('no chat');
+        expect(menuItem('2 repos')).not.toBeNull();
         await clickOn(menuItem('lexer'));
         await until(() => chip('lexer') !== null);
         expect(chip('2 repos')).toBeNull();
         expect(worktreeRow()?.textContent).toContain('atlas');
         await clickOn(chip('lexer'));
-        await until(() => menuItem('api, web') !== null);
-        await clickOn(menuItem('api, web'));
+        await until(() => menuItem('2 repos') !== null);
+        await clickOn(menuItem('2 repos'));
         await until(() => chip('2 repos') !== null);
         expect(worktreeRow()).toBeNull();
     });
@@ -158,8 +155,8 @@ describe('the git panel over a folder of two repositories', () => {
         await until(() => chip('lexer') !== null);
         expect(worktreeRow()).not.toBeNull();
         await clickOn(chip('lexer'));
-        await until(() => menuItem('api, web') !== null);
-        await clickOn(menuItem('api, web'));
+        await until(() => menuItem('2 repos') !== null);
+        await clickOn(menuItem('2 repos'));
         await until(() => chip('2 repos') !== null);
     });
 

@@ -548,8 +548,7 @@
             "tooltip": "Current branch",
             "chipRepos_one": "{{count}} repo",
             "chipRepos_other": "{{count}} repos",
-            "chipWorktrees_one": "{{count}} worktree",
-            "chipWorktrees_other": "{{count}} worktrees",
+            "repositories": "Repositories",
             "tooltipRepos_one": "{{count}} repository and its branches",
             "tooltipRepos_other": "{{count}} repositories and their branches",
             "tooltipWorktree": "{{branch}}, in worktree {{worktree}}",
@@ -1136,7 +1135,6 @@
             "folderMissing": "folder missing",
             "merge": "Merge worktree…",
             "inspect": "Inspect",
-            "noChat": "no chat",
             "remove": "Remove worktree…",
             "view": "View all changes"
         },
