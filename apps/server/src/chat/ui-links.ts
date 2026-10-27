@@ -2,7 +2,7 @@ import { realpath, stat } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, relative, resolve } from 'node:path';
 import type { ChatInfo } from '@ruimte/contracts';
 import type { UiLinkResolution, UiLinkTarget } from '@adecore/intelligent-ui/links';
-import { fileExists } from '@adecore/agents';
+import { fileExists, isNotFound } from '@adecore/agents';
 import { ChatUiRefusal } from '@adecore/agents/chat';
 import { checkCwd, isInside } from '../canvas/project-paths.ts';
 import { locateFile } from '../fs/locate.ts';
@@ -107,7 +107,7 @@ async function resolvePath(
             real = await realpath(parent);
             break;
         } catch (error) {
-            if (target.type !== 'Diff' || (error as NodeJS.ErrnoException).code !== 'ENOENT' || dirname(parent) === parent) {
+            if (target.type !== 'Diff' || !isNotFound(error) || dirname(parent) === parent) {
                 throw new ChatUiRefusal('target-unavailable', 'This file is no longer available.');
             }
             missing.unshift(basename(parent));

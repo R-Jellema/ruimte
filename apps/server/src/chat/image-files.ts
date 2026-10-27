@@ -11,7 +11,7 @@ import {
     type ChatImageTargetResult,
     sniffImageMime
 } from '@ruimte/contracts';
-import { CodedError } from '@adecore/agents';
+import { CodedError, isNotFound } from '@adecore/agents';
 import { isInside } from '../canvas/project-paths.ts';
 import { isRuimteState } from '../projects/project-files.ts';
 
@@ -28,8 +28,8 @@ function revision(file: Stats): string {
 }
 
 async function existing(path: string): Promise<Stats | null> {
-    return lstat(path).catch((error: NodeJS.ErrnoException) => {
-        if (error.code === 'ENOENT') {
+    return lstat(path).catch((error: unknown) => {
+        if (isNotFound(error)) {
             return null;
         }
         throw error;
