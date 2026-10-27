@@ -162,6 +162,13 @@ describe('the style', () => {
         expect(style.sources.tilejson.url).toBe(5);
     });
 
+    test('sources that are not a map of sources are blanked like any other field', async () => {
+        const maps = harness();
+        maps.answers = [() => json({ version: 8, sources: [TILEJSON.replace(`?key=${KEY}`, '')] })];
+        const style = await (await maps.request('/v1/style?theme=light')).json();
+        expect(style).toEqual({ version: 8, sources: [''] });
+    });
+
     test('a body that still holds the key after the rewrite is not passed on', async () => {
         const maps = harness();
         maps.answers = [() => json({ version: 8, name: `made with ${KEY}` })];

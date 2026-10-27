@@ -105,20 +105,22 @@ export async function rewriteDocument(document: unknown, secret: string, key: st
             if ('url' in next) {
                 next.url = await address('json', next.url);
             }
-            for (const name of Object.keys(next)) {
-                if (name !== 'tiles' && name !== 'url') {
-                    next[name] = withoutTomTom(next[name]);
-                }
-            }
+            blankRest(next, ['tiles', 'url']);
             sources[id] = next;
         }
         out.sources = sources;
-    }
-    // Everything else is searched for TomTom, with the places that were rewritten already clear of it.
-    for (const name of Object.keys(out)) {
-        if (name !== 'sprite' && name !== 'glyphs' && name !== 'tiles' && name !== 'sources') {
-            out[name] = withoutTomTom(out[name]);
-        }
+        blankRest(out, ['sprite', 'glyphs', 'tiles', 'sources']);
+    } else {
+        blankRest(out, ['sprite', 'glyphs', 'tiles']);
     }
     return out;
+}
+
+/* Searches every field but the ones already rewritten for TomTom. */
+function blankRest(record: Record<string, unknown>, rewritten: readonly string[]): void {
+    for (const name of Object.keys(record)) {
+        if (!rewritten.includes(name)) {
+            record[name] = withoutTomTom(record[name]);
+        }
+    }
 }
