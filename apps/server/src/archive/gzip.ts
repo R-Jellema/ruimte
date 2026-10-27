@@ -8,6 +8,9 @@ import { counted, inflated } from './streams.ts';
 const FLAG_EXTRA = 0x04;
 const FLAG_NAME = 0x08;
 
+// The format names the name field ISO 8859-1.
+const LATIN1 = new TextDecoder('latin1');
+
 interface GzipHeader {
     /* The name of the file it was made from, when the header keeps one. */
     name: string | null;
@@ -32,8 +35,7 @@ export function parseGzipHeader(bytes: Uint8Array): GzipHeader | null {
     if ((flags & FLAG_NAME) !== 0) {
         const end = bytes.indexOf(0, at);
         if (end > at) {
-            // The format names the field ISO 8859-1.
-            name = new TextDecoder('latin1').decode(bytes.subarray(at, end));
+            name = LATIN1.decode(bytes.subarray(at, end));
         }
     }
     return { name, mtime: seconds === 0 ? null : seconds * 1000 };

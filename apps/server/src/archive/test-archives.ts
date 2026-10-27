@@ -115,8 +115,6 @@ interface TarFixtureEntry {
     mode?: number;
     /* Puts the leading folders in the ustar prefix field. */
     prefix?: string;
-    /* A size field that disagrees with the data, for a test that wants a header to lie. */
-    size?: number;
     badChecksum?: boolean;
 }
 
@@ -135,7 +133,7 @@ export function tarHeader(entry: TarFixtureEntry): Buffer {
     field(block, 100, 8, octal(entry.mode ?? 0o644, 8));
     field(block, 108, 8, octal(0, 8));
     field(block, 116, 8, octal(0, 8));
-    field(block, 124, 12, octal(entry.size ?? data.length, 12));
+    field(block, 124, 12, octal(data.length, 12));
     field(block, 136, 12, octal(entry.mtime ?? 1_700_000_000, 12));
     block.write(entry.type ?? '0', 156, 1, 'latin1');
     field(block, 157, 100, entry.linkName ?? '');

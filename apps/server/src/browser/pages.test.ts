@@ -15,11 +15,11 @@ function stateOf(browserId: string, url = 'https://example.com'): BrowserPageSta
     };
 }
 
-/* A client on its socket, with what it was told and a hand to answer with. */
-function clientOf(pages: BrowserPages, clientId: string): { events: SessionEvent[]; stop: () => void } {
+/* A client on its socket, and what it was told. */
+function clientOf(pages: BrowserPages, clientId: string): SessionEvent[] {
     const events: SessionEvent[] = [];
-    const stop = pages.subscribe(clientId, (event) => events.push(event));
-    return { events, stop };
+    pages.subscribe(clientId, (event) => events.push(event));
+    return events;
 }
 
 describe('BrowserPages', () => {
@@ -37,9 +37,9 @@ describe('BrowserPages', () => {
         pages.hold('client-2', stateOf('page-1'));
 
         const driving = pages.drive('page-1', { kind: 'go', url: 'https://example.com/two' });
-        const asked = first.events.at(-1);
+        const asked = first.at(-1);
         expect(asked).toMatchObject({ event: 'browser.drive', payload: { browserId: 'page-1', action: { kind: 'go', url: 'https://example.com/two' } } });
-        expect(second.events).toHaveLength(1);
+        expect(second).toHaveLength(1);
 
         const askId = (asked!.payload as { askId: string }).askId;
         pages.settle({ askId, state: stateOf('page-1', 'https://example.com/two') });
@@ -59,11 +59,11 @@ describe('BrowserPages', () => {
 
     test('a shot comes back as the bytes it was sent as', async () => {
         const pages = new BrowserPages();
-        const client = clientOf(pages, 'client-1');
+        const told = clientOf(pages, 'client-1');
         pages.hold('client-1', stateOf('page-1'));
 
         const driving = pages.drive('page-1', { kind: 'shot' });
-        const askId = (client.events.at(-1)!.payload as { askId: string }).askId;
+        const askId = (told.at(-1)!.payload as { askId: string }).askId;
         pages.settle({ askId, image: Buffer.from('png').toString('base64') });
         expect(Buffer.from((await driving)!.image!).toString()).toBe('png');
     });
