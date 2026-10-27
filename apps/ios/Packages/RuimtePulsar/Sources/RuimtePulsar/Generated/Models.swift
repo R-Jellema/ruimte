@@ -7714,8 +7714,9 @@ public struct ChatAttachResult: Codable, Sendable, Equatable {
     public let `bookmarks`: [ChatAttachResultBookmarksItem]?
     public let `visuals`: [ChatAttachResultVisualsItem]?
     public let `subagents`: [ChatSubagentItem]?
+    public let `outline`: [ChatItem]?
 
-    public init(`info`: ChatInfo, `items`: [ChatItem], `history`: ChatHistoryPage? = nil, `pending`: [ChatItem]? = nil, `seq`: Int64? = nil, `events`: [ChatEvent]? = nil, `bookmarks`: [ChatAttachResultBookmarksItem]? = nil, `visuals`: [ChatAttachResultVisualsItem]? = nil, `subagents`: [ChatSubagentItem]? = nil) {
+    public init(`info`: ChatInfo, `items`: [ChatItem], `history`: ChatHistoryPage? = nil, `pending`: [ChatItem]? = nil, `seq`: Int64? = nil, `events`: [ChatEvent]? = nil, `bookmarks`: [ChatAttachResultBookmarksItem]? = nil, `visuals`: [ChatAttachResultVisualsItem]? = nil, `subagents`: [ChatSubagentItem]? = nil, `outline`: [ChatItem]? = nil) {
         self.`info` = `info`
         self.`items` = `items`
         self.`history` = `history`
@@ -7725,6 +7726,7 @@ public struct ChatAttachResult: Codable, Sendable, Equatable {
         self.`bookmarks` = `bookmarks`
         self.`visuals` = `visuals`
         self.`subagents` = `subagents`
+        self.`outline` = `outline`
     }
 
     public init(from decoder: Decoder) throws {
@@ -7738,6 +7740,7 @@ public struct ChatAttachResult: Codable, Sendable, Equatable {
         `bookmarks` = try container.decodeIfPresent([ChatAttachResultBookmarksItem].self, forKey: .`bookmarks`)
         `visuals` = try container.decodeIfPresent([ChatAttachResultVisualsItem].self, forKey: .`visuals`)
         `subagents` = try container.decodeIfPresent([ChatSubagentItem].self, forKey: .`subagents`)
+        `outline` = try container.decodeIfPresent([ChatItem].self, forKey: .`outline`)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -7751,6 +7754,7 @@ public struct ChatAttachResult: Codable, Sendable, Equatable {
         try container.encodeIfPresent(`bookmarks`, forKey: .`bookmarks`)
         try container.encodeIfPresent(`visuals`, forKey: .`visuals`)
         try container.encodeIfPresent(`subagents`, forKey: .`subagents`)
+        try container.encodeIfPresent(`outline`, forKey: .`outline`)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -7763,6 +7767,7 @@ public struct ChatAttachResult: Codable, Sendable, Equatable {
         case `bookmarks` = "bookmarks"
         case `visuals` = "visuals"
         case `subagents` = "subagents"
+        case `outline` = "outline"
     }
 }
 
