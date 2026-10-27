@@ -28,7 +28,7 @@ export function scheduledTaskFile(home: string, env: HostEnvironment = process.e
 }
 
 /* The account the scheduled task starts for at logon, as `DOMAIN\name`. */
-function serviceUser(env: HostEnvironment = process.env): string {
+function serviceUser(env: HostEnvironment): string {
     const name = env.USERNAME || userInfo().username;
     return env.USERDOMAIN ? `${env.USERDOMAIN}\\${name}` : name;
 }
@@ -87,7 +87,7 @@ export function daemonServiceSpec(service: DaemonService): ServiceSpec {
         description: 'Ruimte machine',
         program: service.program,
         args: service.args,
-        // Service ownership controls daemon self-updates and must survive the package migration.
+        // RUIMTE_SERVICE tells the daemon a service starts it again, which decides how it updates itself.
         environment: { RUIMTE_HOME: service.ruimteHome, PATH: service.path, RUIMTE_SERVICE: '1' },
         workingDirectory: service.home,
         logFile: serviceLogFile(service.home, service.platform, env),

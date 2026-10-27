@@ -3,7 +3,7 @@ import { definitionRunsProgram, launchAgentPlist, scheduledTask, systemdUnit } f
 import { commandLineServiceProgram, daemonServiceSpec, platformServiceManager, scheduledTaskFile, serviceLogFile } from './host';
 
 describe('Ruimte service host', () => {
-    test('keeps installed identity, log paths and daemon ownership across the extraction', () => {
+    test('names the installed service, its log and its program, and marks the daemon as owned by it', () => {
         const spec = daemonServiceSpec({
             platform: 'darwin',
             program: '/Apps/Ruimte & Tools/ruimte',

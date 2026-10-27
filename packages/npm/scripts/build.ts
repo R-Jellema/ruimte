@@ -44,6 +44,24 @@ function writeJson(path: string, value: unknown): Promise<void> {
     return writeFile(path, `${JSON.stringify(value, null, 2)}\n`);
 }
 
+/* A helper the compiled daemon carries in `native/`, with the files that go beside it; nothing when this build has none. */
+async function copyNative(source: string, dir: string, name: string, beside: readonly string[] = [], executable = false): Promise<void> {
+    if (!existsSync(join(source, 'native', name))) {
+        return;
+    }
+
+    const native = join(dir, 'bin', 'native');
+    await mkdir(native, { recursive: true });
+
+    for (const file of [name, ...beside]) {
+        await copyFile(join(source, 'native', file), join(native, file));
+    }
+
+    if (executable) {
+        await chmod(join(native, name), 0o755);
+    }
+}
+
 await rm(out, { recursive: true, force: true });
 
 for (const target of targets) {
@@ -61,35 +79,16 @@ for (const target of targets) {
         await copyFile(join(source, name), join(dir, 'bin', name));
     }
     // The Android screen server and its license, which the daemon pushes onto a device from `bin/native`.
-    for (const name of ['scrcpy-server', 'scrcpy-server.LICENSE']) {
-        if (existsSync(join(source, 'native', name))) {
-            await mkdir(join(dir, 'bin', 'native'), { recursive: true });
-            await copyFile(join(source, 'native', name), join(dir, 'bin', 'native', name));
-        }
-    }
-    const foundationHelper = join(source, 'native', 'ruimte-foundation-models');
-    if (existsSync(foundationHelper)) {
-        await mkdir(join(dir, 'bin', 'native'), { recursive: true });
-        const targetHelper = join(dir, 'bin', 'native', 'ruimte-foundation-models');
-        await copyFile(foundationHelper, targetHelper);
-        await copyFile(`${foundationHelper}.NOTICES`, `${targetHelper}.NOTICES`);
-        await chmod(targetHelper, 0o755);
-    }
-    const databaseHelperName = target.os === 'win32' ? 'adecore-database.exe' : 'adecore-database';
-    const databaseHelper = join(source, 'native', databaseHelperName);
-    if (existsSync(databaseHelper)) {
-        await mkdir(join(dir, 'bin', 'native'), { recursive: true });
-        const targetHelper = join(dir, 'bin', 'native', databaseHelperName);
-        await copyFile(databaseHelper, targetHelper);
-        await copyFile(join(source, 'native', 'adecore-database.LICENSE'), join(dir, 'bin', 'native', 'adecore-database.LICENSE'));
-        await chmod(targetHelper, 0o755);
-    }
+    await copyNative(source, dir, 'scrcpy-server');
+    await copyNative(source, dir, 'scrcpy-server.LICENSE');
+    await copyNative(source, dir, 'ruimte-foundation-models', ['ruimte-foundation-models.NOTICES'], true);
+    await copyNative(source, dir, target.os === 'win32' ? 'adecore-database.exe' : 'adecore-database', ['adecore-database.LICENSE'], true);
+
     // An artifact download drops the mode, and npm packs the mode it finds.
-    await chmod(join(dir, 'bin', binary), 0o755);
-    await chmod(join(dir, 'bin', 'ruimte-context'), 0o755);
-    if (target.os === 'win32') {
-        await chmod(join(dir, 'bin', 'ruimte-context.exe'), 0o755);
+    for (const name of files.filter((file) => file !== 'ruimte.build')) {
+        await chmod(join(dir, 'bin', name), 0o755);
     }
+
     await writeJson(join(dir, 'package.json'), platformManifest(target, version));
     await copyFile(join(repoRoot, 'LICENSE'), join(dir, 'LICENSE'));
     console.log(`Laid out ${dir}`);
