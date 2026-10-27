@@ -1,8 +1,9 @@
-import { stat } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
+import { stat } from 'node:fs/promises';
 import { basename } from 'node:path';
 import { ARTIFACT_LIMITS } from '@ruimte/contracts';
 import { parseRefusalBody } from '@adecore/agents/context';
+import { takeAll } from './flags.ts';
 
 const HELP_LINE = 'detail\truimte-context help artifact publish';
 const USAGE_LINE = 'usage\tartifact publish\t--file <path> [--file <path> ...] [--title T] [--kind K] [--key K] [--request-id R]';
@@ -21,24 +22,6 @@ interface UploadState {
 
 function refusal(code: string, message: string, lines: string[] = [HELP_LINE]): PreparedPublish {
     return { refusal: { code, message, lines } };
-}
-
-/* Every value of a flag that may come more than once, and the words without it. */
-function takeAll(argv: readonly string[], name: string): { values: string[]; rest: string[] } {
-    const values: string[] = [];
-    const rest: string[] = [];
-    for (let i = 0; i < argv.length; i++) {
-        const word = argv[i]!;
-        if (word === `--${name}`) {
-            values.push(argv[i + 1] ?? '');
-            i++;
-        } else if (word.startsWith(`--${name}=`)) {
-            values.push(word.slice(name.length + 3));
-        } else {
-            rest.push(word);
-        }
-    }
-    return { values, rest };
 }
 
 class UploadFailed extends Error {}

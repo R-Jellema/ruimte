@@ -1,5 +1,6 @@
-import { escapeText } from '../canvas/text-escapes.ts';
 import { parseRefusalBody, refusalBody, type ParsedRefusal } from '@adecore/agents/context';
+import { escapeText } from '../canvas/text-escapes.ts';
+import { flagValue, stdinWords, takeAll } from './flags.ts';
 
 // Exit codes distinguish daemon failures, stale sessions and command refusals for callers that script this CLI.
 export async function runContext(args: string[], env: Environment = process.env, stdin: () => Promise<string> = () => Bun.stdin.text()): Promise<number> {
@@ -170,20 +171,6 @@ async function runVisualPage(
     return code;
 }
 
-/* The words of `chat attach` without its `--file` and `--name`, which this side reads. */
-function attachRest(argv: readonly string[]): string[] {
-    const rest: string[] = [];
-    for (let i = 0; i < argv.length; i++) {
-        const word = argv[i]!;
-        if (word === '--file' || word === '--name') {
-            i++;
-        } else if (!word.startsWith('--file=') && !word.startsWith('--name=')) {
-            rest.push(word);
-        }
-    }
-    return rest;
-}
-
 /*
  * `chat attach` reads its file here, like a page's local images, and sends the bytes: the daemon
  * never opens a path an agent names.
@@ -197,7 +184,8 @@ async function runChatAttach(canvasUrl: string, argv: string[], headers: Record<
         ]);
     }
     const { prepareAttachment } = await import('./chat-attach.ts');
-    const prepared = await prepareAttachment(file, flagValue(argv, 'name'), attachRest(argv));
+    // The file and the name are read here; every other word goes on to the daemon.
+    const prepared = await prepareAttachment(file, flagValue(argv, 'name'), takeAll(takeAll(argv, 'file').rest, 'name').rest);
     if ('refusal' in prepared) {
         return refuse(prepared.refusal.code, prepared.refusal.message, prepared.refusal.lines);
     }
@@ -241,9 +229,9 @@ async function withStdinFlag(argv: string[], flag: string, stdin: () => Promise<
  */
 async function withStdinPlan(argv: string[], stdin: () => Promise<string>): Promise<string[]> {
     for (let i = 0; i < argv.length; i++) {
-        const pair = argv[i] === '--markdown' && argv[i + 1] === '-';
-        if (pair || argv[i] === '--markdown=-') {
-            return [...argv.slice(0, i), `--markdown=${await stdin()}`, ...argv.slice(i + (pair ? 2 : 1))];
+        const taken = stdinWords(argv, i, '--markdown');
+        if (taken > 0) {
+            return [...argv.slice(0, i), `--markdown=${await stdin()}`, ...argv.slice(i + taken)];
         }
     }
     if (argv.some((word) => word.startsWith('--markdown') || word.startsWith('--document'))) {
@@ -262,16 +250,6 @@ interface ContextRow {
 
 const READ_USAGE = 'usage\tread\t<id> [--tail N] [--subagent T] [--view V] [--elements | --image] [--json]';
 const READ_HELP = 'detail\truimte-context help read';
-
-/* What follows `--name` or `--name=`: null when the flag is not there, empty when it has no value. */
-function flagValue(argv: readonly string[], name: string): string | null {
-    const index = argv.findIndex((word) => word === `--${name}` || word.startsWith(`--${name}=`));
-    if (index === -1) {
-        return null;
-    }
-    const word = argv[index]!;
-    return (word === `--${name}` ? argv[index + 1] : word.slice(`--${name}=`.length)) ?? '';
-}
 
 /*
  * The `--tail N` of a read: the number, null when it was not asked for, and 'bad' for anything that is
@@ -381,17 +359,13 @@ const STDIN_FLAGS = ['--text', '--result'];
 async function withStdinText(argv: string[], stdin: () => Promise<string>): Promise<string[]> {
     const words: string[] = [];
     for (let i = 0; i < argv.length; i++) {
-        const word = argv[i]!;
-        const flag = STDIN_FLAGS.find((candidate) => word === candidate || word === `${candidate}=-`);
-        const pair = flag !== undefined && word === flag && argv[i + 1] === '-';
-        if (flag === undefined || (!pair && word !== `${flag}=-`)) {
-            words.push(word);
+        const flag = STDIN_FLAGS.find((candidate) => stdinWords(argv, i, candidate) > 0);
+        if (flag === undefined) {
+            words.push(argv[i]!);
             continue;
         }
         words.push(`${flag}=${escapeText(await stdin())}`);
-        if (pair) {
-            i++;
-        }
+        i += stdinWords(argv, i, flag) - 1;
     }
     return words;
 }
@@ -400,13 +374,13 @@ async function withStdinText(argv: string[], stdin: () => Promise<string>): Prom
 async function withStdinJson(argv: string[], stdin: () => Promise<string>): Promise<string[]> {
     const words: string[] = [];
     for (let i = 0; i < argv.length; i++) {
-        const word = argv[i]!;
-        if (word === '--json=-' || (word === '--json' && argv[i + 1] === '-')) {
-            words.push(`--json=${await stdin()}`);
-            i += word === '--json' ? 1 : 0;
+        const taken = stdinWords(argv, i, '--json');
+        if (taken === 0) {
+            words.push(argv[i]!);
             continue;
         }
-        words.push(word);
+        words.push(`--json=${await stdin()}`);
+        i += taken - 1;
     }
     return withStdinText(words, stdin);
 }

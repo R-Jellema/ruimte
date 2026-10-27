@@ -1,6 +1,6 @@
 import { basename } from 'node:path';
 import { AGENT_IMAGE_BYTES, AGENT_MODEL_BYTES, agentAttachmentBytes, agentAttachmentType } from '../chat/attachment-type.ts';
-import { readAtMost } from './visual-images.ts';
+import { readAtMost, readDenied } from './visual-images.ts';
 
 const HELP_LINE = 'detail\truimte-context help chat attach';
 
@@ -23,8 +23,7 @@ export async function prepareAttachment(file: string, name: string | null, rest:
     try {
         length = await readAtMost(file, buffer);
     } catch (e) {
-        const code = e instanceof Error && 'code' in e && typeof e.code === 'string' ? e.code : null;
-        const why = code === 'EACCES' || code === 'EPERM' ? 'this process may not read it' : 'there is no regular file there';
+        const why = readDenied(e) ? 'this process may not read it' : 'there is no regular file there';
         return refusal('attach-unreadable', `${file} could not be attached: ${why}`);
     }
     if (length > AGENT_MODEL_BYTES) {

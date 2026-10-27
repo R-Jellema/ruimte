@@ -413,12 +413,22 @@ function mebibytes(bytes: number): string {
 const NO_FILE = 'no image file there';
 const NOT_AN_IMAGE = 'its bytes are not a PNG, JPEG, GIF, WebP, AVIF, HEIF, SVG, BMP or ICO image';
 
+function errnoOf(e: unknown): string | null {
+    return e instanceof Error && 'code' in e && typeof e.code === 'string' ? e.code : null;
+}
+
+/* Whether a read failed because this process may not read the file, which a sandbox causes too. */
+export function readDenied(e: unknown): boolean {
+    const code = errnoOf(e);
+    return code === 'EACCES' || code === 'EPERM';
+}
+
 function unreadable(e: unknown): string {
-    const code = e instanceof Error && 'code' in e && typeof e.code === 'string' ? e.code : null;
+    const code = errnoOf(e);
     if (e instanceof NotAFile || code === 'ENOENT' || code === 'ENOTDIR') {
         return NO_FILE;
     }
-    if (code === 'EACCES' || code === 'EPERM') {
+    if (readDenied(e)) {
         return 'this process may not read it';
     }
     return `it could not be read: ${e instanceof Error ? e.message : String(e)}`;
