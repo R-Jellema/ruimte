@@ -201,6 +201,11 @@ export function nodesInWorktree<T extends NodeLike>(nodes: readonly T[], worktre
     );
 }
 
+/* The nodes working in a worktree as a row names them, a node without a title by its kind. */
+export function nodeNames(nodes: readonly NodeLike[]): string {
+    return nodes.map((node) => node.title || node.kind).join(', ');
+}
+
 /* What a worktree's diffs measure from: the branch it was made from, or the commit when that was a detached HEAD. */
 export function worktreeBase(worktree: Worktree): string | undefined {
     return worktree.from?.branch ?? worktree.from?.commit;

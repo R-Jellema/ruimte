@@ -1,4 +1,5 @@
 import { messageOf } from '@adecore/ui';
+
 export type FileSearchResult = { kind: 'ready'; files: readonly string[] } | { kind: 'error'; message: string };
 
 export class FileSearch {

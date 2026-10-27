@@ -8,7 +8,7 @@ import { LanguageStatusItem } from '@/language/LanguageStatusItem';
 import { useProblemCounts } from '@adecore/editor-react';
 import { encodingLabelOf, languageNameOf, symbolBadgeOf } from '@/shell/panels/status-bar-model';
 import { useEditorCaret } from '@/shell/panels/use-editor-caret';
-import { useFileBranch } from '@/shell/panels/use-file-branch';
+import { useFileBranch } from '@/shell/panels/use-git-root';
 import { useUi } from '@/state/ui';
 
 const ITEM = 'inline-flex h-5 shrink-0 items-center gap-1.5 rounded-md px-1.5';

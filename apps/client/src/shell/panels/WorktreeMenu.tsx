@@ -18,7 +18,7 @@ import {
 import type { Worktree } from '@ruimte/contracts';
 import { StatusDot } from '@/canvas/NodeFrame';
 import type { Inspection } from '@/shell/panels/use-worktree-inspection';
-import { hasWork, nodesInWorktree, workBadgesLabel } from '@/shell/panels/worktree-rows';
+import { hasWork, nodeNames, nodesInWorktree, workBadgesLabel } from '@/shell/panels/worktree-rows';
 import { nodeWorking } from '@/state/agent-work';
 import { hasActiveCanvas, useDocument } from '@/state/document';
 import { useChats } from '@adecore/agents-react/state';
@@ -100,7 +100,7 @@ export function WorktreeRows({ worktrees, nodes, current, repo, busy, actions, o
 
     return worktrees.map((worktree) => {
         const working = nodesInWorktree(nodes, worktree);
-        const names = working.map((node) => node.title || node.kind).join(', ');
+        const names = nodeNames(working);
         const agentWorking = working.some((node) => nodeWorking(node, sessions, chats, endpointId));
         const reveal = working[0]?.id ?? null;
         return (

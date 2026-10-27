@@ -107,25 +107,15 @@ export function buildTreeInput(root: string, cache: EntryCache, showHidden: bool
 export const { ancestorDirsOf, withoutClosedBranches, newlyExpanded, mergeExpanded, compareRows } = FileTree;
 export type SortRow = Parameters<typeof FileTree.compareRows>[0];
 
+const TREE_STATUSES: Readonly<Record<string, GitStatus>> = { '?': 'untracked', A: 'added', D: 'deleted', R: 'renamed' };
+
 /*
  * A porcelain letter as the tree names the same thing. The tree knows five states and git writes
  * more than five letters, so a type change, a copy and a conflict all read as a modification: the
  * dot says the file differs from HEAD, and the git panel next to it says how.
  */
 export function treeGitStatus(status: string): GitStatus {
-    if (status.startsWith('?')) {
-        return 'untracked';
-    }
-    if (status.startsWith('A')) {
-        return 'added';
-    }
-    if (status.startsWith('D')) {
-        return 'deleted';
-    }
-    if (status.startsWith('R')) {
-        return 'renamed';
-    }
-    return 'modified';
+    return TREE_STATUSES[status.charAt(0)] ?? 'modified';
 }
 
 /*

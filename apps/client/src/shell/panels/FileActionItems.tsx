@@ -1,4 +1,3 @@
-import { revealFile } from './reveal-file';
 import { useTranslation } from 'react-i18next';
 import { Columns2, CornerUpRight, Folder, Frame, Globe, RefreshCw } from 'lucide-react';
 import { createNodeAction, createViewAction, ignoreRefusal, perform } from '@/actions/client-actions';
@@ -7,6 +6,7 @@ import { isHtmlName } from '@/shell/panels/file-kind';
 import { localFileUrl } from '@/shell/panels/file-url';
 import { FileCopyRow } from '@/shell/panels/FileCopyRow';
 import { basenameOf, relativeTo, revealableInFiles } from '@/shell/panels/files-tree';
+import { revealFile } from '@/shell/panels/reveal-file';
 import { hasActiveCanvas, useDocument } from '@/state/document';
 import { useProject } from '@/state/project';
 import { fileManagerName, useServer } from '@/state/server';
@@ -43,10 +43,6 @@ export function FileActionItems({ path, on, onRefresh, gone = false }: FileActio
     const offerView = on !== 'view';
     const name = basenameOf(path);
 
-    const openInBrowserNode = (): void => {
-        void createNodeAction('browser', { url: localFileUrl(path) });
-    };
-
     return (
         <>
             {offerShow && (
@@ -60,7 +56,7 @@ export function FileActionItems({ path, on, onRefresh, gone = false }: FileActio
                 </Menu.Item>
             )}
             {isHtmlName(name) && (
-                <Menu.Item disabled={gone} onClick={openInBrowserNode}>
+                <Menu.Item disabled={gone} onClick={() => void createNodeAction('browser', { url: localFileUrl(path) })}>
                     <Icon icon={Globe} size={14} /> {t('file.menu.openInBrowser')}
                 </Menu.Item>
             )}
@@ -69,12 +65,7 @@ export function FileActionItems({ path, on, onRefresh, gone = false }: FileActio
                     <Icon icon={Folder} size={14} /> {t('file.menu.revealInFiles')}
                 </Menu.Item>
             )}
-            <Menu.Item
-                disabled={gone}
-                onClick={() => {
-                    revealFile(transport, path);
-                }}
-            >
+            <Menu.Item disabled={gone} onClick={() => revealFile(transport, path)}>
                 <Icon icon={CornerUpRight} size={14} /> {t('file.revealIn', { app: fileManagerName(platform) })}
             </Menu.Item>
             <Menu.Separator />

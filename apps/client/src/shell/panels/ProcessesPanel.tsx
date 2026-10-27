@@ -228,18 +228,11 @@ export function ProcessesPanel() {
     const titles = new Map(nodes.map((node) => [node.id, node.title]));
     const groups = sample.groups;
     const series = chartSeries(row.fine, row.coarse);
+    const span = { points: series.points, windowMs: series.windowMs, end: now };
     const { machine } = sample;
     const diskMax = niceScale(Math.max(1, ...series.points.map((point) => point.disk ?? 0))).max;
     const isOpen = (group: ProcessGroup): boolean => (group.kind === 'other' ? !toggled.has(group.id) : toggled.has(group.id));
-    const toggle = (id: string): void => {
-        const next = new Set(toggled);
-        if (next.has(id)) {
-            next.delete(id);
-        } else {
-            next.add(id);
-        }
-        setToggled(next);
-    };
+    const toggle = (id: string): void => setToggled(toggled.has(id) ? new Set([...toggled].filter((entry) => entry !== id)) : new Set([...toggled, id]));
     const placed = new Map<string, ProcessAlert[]>();
     const loose: ProcessAlert[] = [];
     for (const alert of alerts) {
@@ -312,25 +305,21 @@ export function ProcessesPanel() {
                     label={t('processes.column.cpu')}
                     name={t('processes.chart', { measure: t('processes.column.cpu') })}
                     headline={formatPercent(machine.cpu)}
-                    points={series.points}
-                    windowMs={series.windowMs}
-                    end={now}
+                    {...span}
                     max={100}
                     machine={(point) => point.cpu}
                     ruimte={(point) => point.cpuRuimte}
-                    format={(value) => formatPercent(value)}
+                    format={formatPercent}
                 />
                 <ProcessChart
                     label={t('processes.column.memory')}
                     name={t('processes.chart', { measure: t('processes.column.memory') })}
                     headline={t('processes.memoryHeadline', { used: formatBytes(machine.memoryUsed), total: formatBytes(machine.memoryTotal) })}
-                    points={series.points}
-                    windowMs={series.windowMs}
-                    end={now}
+                    {...span}
                     max={machine.memoryTotal}
                     machine={(point) => point.memory}
                     ruimte={(point) => point.memoryRuimte}
-                    format={(value) => formatBytes(value)}
+                    format={formatBytes}
                 />
                 <ProcessChart
                     label={
@@ -342,13 +331,11 @@ export function ProcessesPanel() {
                     }
                     name={t('processes.chart', { measure: t('processes.column.disk') })}
                     headline={t('processes.diskHeadline', { read: formatRate(machine.diskRead), write: formatRate(machine.diskWrite) })}
-                    points={series.points}
-                    windowMs={series.windowMs}
-                    end={now}
+                    {...span}
                     max={diskMax}
                     machine={(point) => point.disk}
                     ruimte={(point) => point.diskRuimte}
-                    format={(value) => formatRate(value)}
+                    format={formatRate}
                 />
             </div>
             <div className="flex h-8 shrink-0 items-center gap-1.5 border-b border-border pr-3 pl-3">

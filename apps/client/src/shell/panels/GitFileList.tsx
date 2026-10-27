@@ -1,9 +1,6 @@
-import { revealFile } from './reveal-file';
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { FileTreeVisibleRow } from '@pierre/trees';
-import { FileTree, useFileTree, type FoldKeyOf } from '@adecore/ui';
-import { GitTreeMarks } from './GitTreeMarks';
 import {
     ChevronsDownUp,
     ChevronsUpDown,
@@ -33,8 +30,10 @@ import {
     entryParts,
     fileId,
     foldedBranches,
+    indexFile,
     itemsOfNodes,
     nodeOf,
+    rebuildTree,
     repoParts,
     shownFile,
     toggleItems,
@@ -43,6 +42,8 @@ import {
     type GitTreeLayout,
     type GitTreeNode
 } from '@/shell/panels/git-tree';
+import { GitTreeMarks } from '@/shell/panels/GitTreeMarks';
+import { revealFile } from '@/shell/panels/reveal-file';
 import { setDragging } from '@/shell/view-drag';
 import { useFiles } from '@/state/files';
 import { useGit } from '@/state/git';
@@ -50,9 +51,9 @@ import type { GitCheckout } from '@/state/git-repos';
 import { useProject } from '@/state/project';
 import { fileManagerName, useServer } from '@/state/server';
 import { useTransport } from '@/transport/context';
-import { Icon, PanelEmpty, ContextMenu } from '@adecore/ui';
+import { ContextMenu, FileTree, Icon, PanelEmpty, useFileTree, type FoldKeyOf } from '@adecore/ui';
 
-const { applyExpansion, directoryHandle, focusRow, menuTargetsOf, mergeCollapsedPaths, rowPathOf, selectOnly, visibleRows } = FileTree;
+const { applyExpansion, directoryHandle, menuTargetsOf, mergeCollapsedPaths, rowPathOf, selectOnly, visibleRows } = FileTree;
 
 const COUNT_COLOR = 'var(--text-faint)';
 
@@ -63,11 +64,6 @@ const GIT_TREE_CSS = `
 /* A file git no longer has on disk: opening it or revealing it would point at nothing. */
 function isGone(entry: GitEntry): boolean {
     return [entry.staged, entry.worktree].some((file) => file?.status.startsWith('D') === true);
-}
-
-/* What moving a new file to the trash names: the index side first, so it is taken out of the index too. */
-function newFileOf(entry: GitEntry): GitFile {
-    return (entry.staged ?? entry.worktree)!;
 }
 
 type FileNode = Extract<GitTreeNode, { kind: 'file' }>;
@@ -236,21 +232,7 @@ function GitTree({
             return;
         }
         builtRef.current = key;
-        const selected = model.getSelectedPaths();
-        const focused = model.getFocusedPath();
-        const typing = document.activeElement !== null && document.activeElement === model.getFileTreeContainer();
-        applyingRef.current = true;
-        model.resetPaths(layout.paths);
-        applyExpansion(model, collapsedRef.current, keyOf);
-        applyingRef.current = false;
-        for (const path of selected) {
-            model.getItem(path)?.select();
-        }
-        // A row that went (discarded, deleted) hands the keyboard to the one nearest to it.
-        const next = !typing || focused === null ? null : model.getItem(focused) !== null ? focused : model.focusNearestPath(focused);
-        if (next !== null) {
-            focusRow(model, next);
-        }
+        rebuildTree(model, layout.paths, () => applyExpansion(model, collapsedRef.current, keyOf), applyingRef);
     }, [keyOf, layout, model, t]);
 
     useEffect(() => {
@@ -461,7 +443,7 @@ function GitTree({
                             </ContextMenu.Item>
                         )}
                         {newFiles.length > 0 && (
-                            <ContextMenu.Item className="text-status-error" disabled={busy} onClick={() => onDelete(workOf(newFiles, newFileOf))}>
+                            <ContextMenu.Item className="text-status-error" disabled={busy} onClick={() => onDelete(workOf(newFiles, indexFile))}>
                                 <Icon icon={FileX} size={14} /> {t('git.list.deleteMany', { count: newFiles.length })}
                             </ContextMenu.Item>
                         )}
@@ -495,7 +477,7 @@ function GitTree({
                             </ContextMenu.Item>
                         )}
                         {single.group === 'unversioned' && (
-                            <ContextMenu.Item className="text-status-error" disabled={busy} onClick={() => onDelete(workOf([single.item], newFileOf))}>
+                            <ContextMenu.Item className="text-status-error" disabled={busy} onClick={() => onDelete(workOf([single.item], indexFile))}>
                                 <Icon icon={FileX} size={14} /> {t('git.list.deleteFile')}
                             </ContextMenu.Item>
                         )}
@@ -556,12 +538,7 @@ function RowPathItems({
             <ContextMenu.Item disabled={gone || !revealableInFiles(folder, absolute)} onClick={() => useFiles.getState().revealInFiles(absolute)}>
                 <Icon icon={Folder} size={14} /> {t('file.menu.revealInFiles')}
             </ContextMenu.Item>
-            <ContextMenu.Item
-                disabled={gone}
-                onClick={() => {
-                    revealFile(transport, absolute);
-                }}
-            >
+            <ContextMenu.Item disabled={gone} onClick={() => revealFile(transport, absolute)}>
                 <Icon icon={CornerUpRight} size={14} /> {t('file.revealIn', { app: fileManagerName(platform) })}
             </ContextMenu.Item>
             <ContextMenu.Separator />

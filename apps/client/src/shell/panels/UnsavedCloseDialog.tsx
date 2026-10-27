@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { closeWithoutSaving, dismissClose, retryClose, useUnsavedClose } from './unsaved-close';
-import { DraftBar } from './DraftBar';
-import { currentEndpointId } from '@/state/keys';
+import { DraftBar } from '@/shell/panels/DraftBar';
+import { closeWithoutSaving, dismissClose as close, retryClose, useUnsavedClose } from '@/shell/panels/unsaved-close';
 import { useFiles } from '@/state/files';
+import { currentEndpointId } from '@/state/keys';
 import { useSettings } from '@/state/settings';
 import { Button, Dialog } from '@adecore/ui';
 
@@ -11,7 +11,6 @@ export function UnsavedCloseDialog() {
     const { t } = useTranslation('panels');
     const pending = useUnsavedClose((s) => s.pending);
     const [busy, setBusy] = useState(false);
-    const close = dismissClose;
 
     return (
         <Dialog.Root

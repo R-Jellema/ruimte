@@ -1,13 +1,14 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { FileTreeVisibleRow } from '@pierre/trees';
-import { ContextMenu, FileTree, useFileTree } from '@adecore/ui';
 import { useTranslation } from 'react-i18next';
-import { GitTreeMarks } from './GitTreeMarks';
+import type { FileTreeVisibleRow } from '@pierre/trees';
 import type { GitDiffFile } from '@ruimte/contracts';
 import { diffFileParts, firstFile, folderParts } from '@/shell/panels/commit-tree';
 import { DiffRowMenuItems } from '@/shell/panels/DiffRowMenuItems';
-import type { DecorationPart } from '@/shell/panels/git-tree';
-const { applyExpansion, dirPathOf, focusRow, mergeCollapsedPaths, rowPathOf, selectOnly, visibleRows } = FileTree;
+import { rebuildTree, type DecorationPart } from '@/shell/panels/git-tree';
+import { GitTreeMarks } from '@/shell/panels/GitTreeMarks';
+import { ContextMenu, FileTree, useFileTree } from '@adecore/ui';
+
+const { applyExpansion, dirPathOf, mergeCollapsedPaths, rowPathOf, selectOnly, visibleRows } = FileTree;
 
 interface CommitFileTreeProps {
     files: readonly GitDiffFile[];
@@ -72,20 +73,7 @@ export function CommitFileTree({ files, shown, onPick, marks = diffFileParts, me
             return;
         }
         builtRef.current = key;
-        const selected = model.getSelectedPaths();
-        const focused = model.getFocusedPath();
-        const typing = document.activeElement !== null && document.activeElement === model.getFileTreeContainer();
-        applyingRef.current = true;
-        model.resetPaths(paths);
-        applyExpansion(model, new Set(foldedRef.current));
-        applyingRef.current = false;
-        for (const path of selected) {
-            model.getItem(path)?.select();
-        }
-        const next = !typing || focused === null ? null : model.getItem(focused) !== null ? focused : model.focusNearestPath(focused);
-        if (next !== null) {
-            focusRow(model, next);
-        }
+        rebuildTree(model, paths, () => applyExpansion(model, new Set(foldedRef.current)), applyingRef);
     }, [byPath, files, model]);
 
     useEffect(() => {

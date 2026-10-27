@@ -1,6 +1,6 @@
-import { revealFile } from './reveal-file';
 import { useTranslation } from 'react-i18next';
 import { CornerUpRight } from 'lucide-react';
+import { revealFile } from '@/shell/panels/reveal-file';
 import { fileManagerName, useServer } from '@/state/server';
 import { useTransport } from '@/transport/context';
 import { Button, Icon } from '@adecore/ui';

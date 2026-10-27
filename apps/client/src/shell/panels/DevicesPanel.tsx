@@ -33,13 +33,8 @@ import { EMPTY_DEVICE_LIST, useDevices } from '@/devices/state';
 import { ButtonGroup, Icon, IconButton, ListRow, PanelEmpty, Menu, ContextMenu } from '@adecore/ui';
 import { SignInMark } from '@/ui/SignInMark';
 
-function referenceOf(device: DeviceInfo): DeviceReference {
-    return {
-        platform: device.platform,
-        kind: device.kind,
-        name: device.name,
-        runtime: device.runtime
-    };
+function referenceOf({ platform, kind, name, runtime }: DeviceInfo): DeviceReference {
+    return { platform, kind, name, runtime };
 }
 
 function sameReference(left: DeviceReference, right: DeviceReference): boolean {
@@ -105,9 +100,7 @@ async function addDeviceToCanvas(device: DeviceInfo): Promise<void> {
     if (target === null) {
         return;
     }
-    const id = await createViewAction('device', {
-        device: referenceOf(device)
-    });
+    const id = await createViewAction('device', { device: referenceOf(device) });
     if (id !== null) {
         placeViewOnCanvasAction(id, target.id);
     }
@@ -367,19 +360,14 @@ export function DevicesPanel() {
     const streamingAllowed = useServer((state) => state.streamingAllowed);
     const machineName = useEndpoints((state) => state.endpoints.find((entry) => entry.id === endpointId)?.label ?? t('devices.thisMachine'));
     const row = useDevices((state) => state.byEndpoint[endpointId] ?? EMPTY_DEVICE_LIST);
-    const [selection, setSelection] = useState<{
-        endpointId: string;
-        device: DeviceReference;
-    } | null>(null);
+    const [selection, setSelection] = useState<{ endpointId: string; device: DeviceReference } | null>(null);
     const collapsedGroups = useDevices((state) => state.collapsedGroups);
     const selectedDevice =
         selection?.endpointId === endpointId ? (row.devices.find((device) => sameReference(referenceOf(device), selection.device)) ?? null) : null;
-    useEffect(() => {
-        if (connection.status === 'open' && streamingAllowed) {
-            return deviceClientFor(endpointId)?.watch();
-        }
-        return undefined;
-    }, [connection.status, endpointId, streamingAllowed]);
+    useEffect(
+        () => (connection.status === 'open' && streamingAllowed ? deviceClientFor(endpointId)?.watch() : undefined),
+        [connection.status, endpointId, streamingAllowed]
+    );
 
     const listHeader = (
         <PanelHeaderSlot>
@@ -465,12 +453,7 @@ export function DevicesPanel() {
                     devices={row.devices}
                     collapsed={collapsedGroups}
                     onCollapse={(key, collapsed) => useDevices.getState().collapseGroup(key, collapsed)}
-                    onOpen={(device) => {
-                        setSelection({
-                            endpointId,
-                            device: referenceOf(device)
-                        });
-                    }}
+                    onOpen={(device) => setSelection({ endpointId, device: referenceOf(device) })}
                 />
                 {row.unavailable.length > 0 && (
                     <p className="mt-5 px-1 text-xs text-text-muted">

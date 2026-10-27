@@ -1,19 +1,11 @@
 import type { GitDiffFile } from '@ruimte/contracts';
 import { changeParts, entriesUnder, type DecorationPart, type GitTreeRow } from '@/shell/panels/git-tree';
 
-type DiffKind = NonNullable<GitDiffFile['kind']>;
+const KIND_LETTERS: Record<NonNullable<GitDiffFile['kind']>, string> = { add: 'A', update: 'M', delete: 'D' };
 
-const KIND_LETTERS: Record<DiffKind, string> = { add: 'A', update: 'M', delete: 'D' };
-
-/* What a file of a commit went through, or null for a file whose answer carries no kind. */
-export function diffKindOf(file: GitDiffFile): DiffKind | null {
-    return file.kind ?? null;
-}
-
-/* A file's row after its name, the way a row of the git panel's changes reads. */
+/* A file's row after its name, the way a row of the git panel's changes reads; a file whose answer carries no kind has no letter. */
 export function diffFileParts(file: GitDiffFile): DecorationPart[] {
-    const kind = diffKindOf(file);
-    return changeParts(file.added, file.deleted, kind === null ? null : KIND_LETTERS[kind]);
+    return changeParts(file.added, file.deleted, file.kind === undefined ? null : KIND_LETTERS[file.kind]);
 }
 
 /* A folder's row after its name: how many files of the commit it holds, however deep. */

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import i18next from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { Archive, ChevronsDownUp, ChevronsUpDown, Folder, GitBranch, GitMerge, GitPullRequest, MoreHorizontal, RefreshCw } from 'lucide-react';
@@ -20,7 +20,7 @@ import { stageFiles } from '@/shell/panels/stage-files';
 import { useGitActions, type ActionOutcome, type ManyJob } from '@/shell/panels/use-git-actions';
 import { useWorktreeInspection } from '@/shell/panels/use-worktree-inspection';
 import { WorktreeBar, WorktreeInspectDialog, type WorktreeActions } from '@/shell/panels/WorktreeMenu';
-import { nodesInWorktree, worktreeBase, worktreeDiffTab } from '@/shell/panels/worktree-rows';
+import { nodeNames, nodesInWorktree, worktreeBase, worktreeDiffTab } from '@/shell/panels/worktree-rows';
 import { PanelHeaderActions, PanelHeaderLeadingSlot, PanelHeaderSlot, PanelHeaderTitleHidden } from '@/shell/PanelHeaderSlot';
 import { revealNode } from '@/project/views';
 import { useCanvas } from '@/state/canvas';
@@ -124,7 +124,7 @@ export function GitPanel() {
     /* The branches and stashes of every checkout a person walked into, read when its level opens: a
        folder of nine repositories is nine `git.refs` calls only for whoever asks for all nine. */
     const [refsRequests] = useState(() => new Map<string, number>());
-    const checkoutKey = useCallback((path: string) => endpointKey(endpointId, path), [endpointId]);
+    const checkoutKey = (path: string): string => endpointKey(endpointId, path);
     const [refsByCwd, setRefsByCwd] = useState<
         Record<string, { refs: readonly GitRef[]; stashes: readonly GitStash[]; loading: boolean; error: string | null }>
     >({});
@@ -148,48 +148,34 @@ export function GitPanel() {
     const run = useGitActions();
     const inspection = useWorktreeInspection(folder);
 
-    const loadRefs = useCallback(
-        (path: string): void => {
-            const key = checkoutKey(path);
-            const generation = (refsRequests.get(key) ?? 0) + 1;
-            refsRequests.set(key, generation);
-            setRefsByCwd((previous) => ({
-                ...previous,
-                [key]: { refs: previous[key]?.refs ?? [], stashes: previous[key]?.stashes ?? [], loading: true, error: null }
-            }));
-            perform('git.refs', { repository: path })
-                .then((answer) => {
-                    if (refsRequests.get(key) === generation) {
-                        setRefsByCwd((previous) => ({ ...previous, [key]: { refs: answer.refs, stashes: answer.stashes, loading: false, error: null } }));
-                    }
-                })
-                .catch((error: unknown) => {
-                    if (refsRequests.get(key) === generation) {
-                        setRefsByCwd((previous) => ({
-                            ...previous,
-                            [key]: {
-                                refs: previous[key]?.refs ?? [],
-                                stashes: previous[key]?.stashes ?? [],
-                                loading: false,
-                                error: messageOf(error)
-                            }
-                        }));
-                    }
-                });
-        },
-        [checkoutKey, refsRequests]
-    );
+    const loadRefs = (path: string): void => {
+        const key = checkoutKey(path);
+        const generation = (refsRequests.get(key) ?? 0) + 1;
+        refsRequests.set(key, generation);
+        // What was read before stays on screen while the new read is out, and after it failed.
+        const settle = (next: { loading: boolean; error: string | null; refs?: readonly GitRef[]; stashes?: readonly GitStash[] }): void => {
+            setRefsByCwd((previous) => ({ ...previous, [key]: { refs: previous[key]?.refs ?? [], stashes: previous[key]?.stashes ?? [], ...next } }));
+        };
+        settle({ loading: true, error: null });
+        perform('git.refs', { repository: path })
+            .then((answer) => {
+                if (refsRequests.get(key) === generation) {
+                    settle({ refs: answer.refs, stashes: answer.stashes, loading: false, error: null });
+                }
+            })
+            .catch((error: unknown) => {
+                if (refsRequests.get(key) === generation) {
+                    settle({ loading: false, error: messageOf(error) });
+                }
+            });
+    };
 
-    const refsOf = useCallback(
-        (path: string): CheckoutRefs => ({
-            refs: refsByCwd[checkoutKey(path)]?.refs ?? [],
-            loading: refsByCwd[checkoutKey(path)]?.loading ?? false,
-            error: refsByCwd[checkoutKey(path)]?.error ?? null,
-            retry: () => loadRefs(path),
-            branch: checkouts.find((checkout) => checkout.path === path)?.status?.branch ?? null
-        }),
-        [refsByCwd, checkouts, loadRefs, checkoutKey]
-    );
+    const branchOf = (path: string): string | null => checkouts.find((checkout) => checkout.path === path)?.status?.branch ?? null;
+
+    const refsOf = (path: string): CheckoutRefs => {
+        const held = refsByCwd[checkoutKey(path)];
+        return { refs: held?.refs ?? [], loading: held?.loading ?? false, error: held?.error ?? null, retry: () => loadRefs(path), branch: branchOf(path) };
+    };
 
     const probe = checkouts[0]?.path ?? null;
 
@@ -205,65 +191,57 @@ export function GitPanel() {
     }, [transport, probe]);
 
     /* One action on one checkout: it runs, it says how it went, and that checkout is read again after. */
-    const actOn = useCallback(
-        async (target: string, kind: GitActionKind, extra: Record<string, unknown> = {}, done?: Parameters<typeof run.run>[1]): Promise<ActionOutcome> => {
-            setBusy(true);
-            setDialog(null);
-            try {
-                const outcome = await run.run({ cwd: target, kind, ...extra }, done);
-                await refresh(target);
-                // A merge, a pull or a rebase that ended in conflicts opens where they are resolved.
-                if (outcome.ok && (outcome.result.conflicts?.length ?? 0) > 0) {
-                    useUi.getState().setConflicts({ cwd: target });
-                }
-                return outcome;
-            } finally {
-                setBusy(false);
+    const actOn = async (
+        target: string,
+        kind: GitActionKind,
+        extra: Record<string, unknown> = {},
+        done?: Parameters<typeof run.run>[1]
+    ): Promise<ActionOutcome> => {
+        setBusy(true);
+        setDialog(null);
+        try {
+            const outcome = await run.run({ cwd: target, kind, ...extra }, done);
+            await refresh(target);
+            // A merge, a pull or a rebase that ended in conflicts opens where they are resolved.
+            if (outcome.ok && (outcome.result.conflicts?.length ?? 0) > 0) {
+                useUi.getState().setConflicts({ cwd: target });
             }
-        },
-        [refresh, run]
-    );
+            return outcome;
+        } finally {
+            setBusy(false);
+        }
+    };
 
     /* An action on one repository, with the second question a failure can raise. */
-    const act = useCallback(
-        async (path: string, kind: GitActionKind, extra: Record<string, unknown> = {}, done?: Parameters<typeof run.run>[1]): Promise<boolean> => {
-            const outcome = await actOn(path, kind, extra, done);
-            if (outcome.ok) {
-                return true;
-            }
-            if (kind === 'delete-branch' && typeof extra.ref === 'string' && extra.force !== true && isUnmergedRefusal(outcome.message)) {
-                setDialog({ kind: 'confirm-delete', cwd: path, ref: extra.ref, force: true });
-            }
-            if (outcome.code === 'diverged') {
-                const branch = checkouts.find((checkout) => checkout.path === path)?.status?.branch ?? '';
-                setDialog({ kind: 'diverged', cwd: path, action: kind, branch });
-            }
-            return false;
-        },
-        [actOn, checkouts]
-    );
+    const act = async (path: string, kind: GitActionKind, extra: Record<string, unknown> = {}, done?: Parameters<typeof run.run>[1]): Promise<boolean> => {
+        const outcome = await actOn(path, kind, extra, done);
+        if (outcome.ok) {
+            return true;
+        }
+        if (kind === 'delete-branch' && typeof extra.ref === 'string' && extra.force !== true && isUnmergedRefusal(outcome.message)) {
+            setDialog({ kind: 'confirm-delete', cwd: path, ref: extra.ref, force: true });
+        }
+        if (outcome.code === 'diverged') {
+            setDialog({ kind: 'diverged', cwd: path, action: kind, branch: branchOf(path) ?? '' });
+        }
+        return false;
+    };
 
     /* Every repository at once, in order under one toast. Fetch, pull and push are the actions a
        folder of repositories is asked for as a whole; everything else names the one it acts on. */
-    const actAll = useCallback(
-        (kind: GitActionKind): void => {
-            const jobs = checkouts.map((checkout) => ({ cwd: checkout.path, kind, label: checkout.label }));
-            if (jobs.length === 0) {
-                return;
-            }
-            // A branch that moved on both sides is asked about from the summary, the way one repository asks at once.
-            const choose = (job: ManyJob): void => {
-                const branch = checkouts.find((checkout) => checkout.path === job.cwd)?.status?.branch ?? '';
-                setDialog({ kind: 'diverged', cwd: job.cwd, action: job.kind, branch });
-            };
-            setBusy(true);
-            void run
-                .runMany(jobs, { choose })
-                .then(() => refresh())
-                .finally(() => setBusy(false));
-        },
-        [checkouts, run, refresh]
-    );
+    const actAll = (kind: GitActionKind): void => {
+        const jobs = checkouts.map((checkout) => ({ cwd: checkout.path, kind, label: checkout.label }));
+        if (jobs.length === 0) {
+            return;
+        }
+        // A branch that moved on both sides is asked about from the summary, the way one repository asks at once.
+        const choose = (job: ManyJob): void => setDialog({ kind: 'diverged', cwd: job.cwd, action: job.kind, branch: branchOf(job.cwd) ?? '' });
+        setBusy(true);
+        void run
+            .runMany(jobs, { choose })
+            .then(() => refresh())
+            .finally(() => setBusy(false));
+    };
 
     const stage = (path: string, paths: string[], staged: boolean): void => {
         if (paths.length === 0) {
@@ -453,12 +431,7 @@ export function GitPanel() {
     /* The repository the worktrees were made from: the one the project folder itself is. */
     const folderRepo = repos.find((repo) => repo.path === folder)?.label ?? basenameOf(folder);
     const inside = worktree === null ? null : (worktrees.find((entry) => entry.path === worktree.cwd) ?? null);
-    const insideNames =
-        inside === null
-            ? ''
-            : nodesInWorktree(projectNodes, inside)
-                  .map((node) => node.title || node.kind)
-                  .join(', ');
+    const insideNames = inside === null ? '' : nodeNames(nodesInWorktree(projectNodes, inside));
 
     const refreshAll = (): void => {
         void refresh();
@@ -503,7 +476,7 @@ export function GitPanel() {
             busy={busy}
             canPullRequest={capabilities?.gh === true}
             stashes={refsByCwd[checkoutKey(path)]?.stashes ?? []}
-            branch={checkouts.find((checkout) => checkout.path === path)?.status?.branch ?? ''}
+            branch={branchOf(path) ?? ''}
             onAction={(kind, extra) => void act(path, kind, extra)}
             onDialog={setDialog}
             onPullRequest={() => openPullRequest(path)}

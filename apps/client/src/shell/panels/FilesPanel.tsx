@@ -1,10 +1,7 @@
-import { revealFile } from './reveal-file';
-import { isQuickLookKey, useQuickLook } from './quick-look';
-import { ActionRefusal } from '@ruimte/actions';
-import { perform } from '@/actions/client-actions';
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { FileTreeDropResult, FileTreeVisibleRow } from '@pierre/trees';
+import { ActionRefusal } from '@ruimte/actions';
 import type { Worktree } from '@ruimte/contracts';
 import { FileTree, useFileTree, messageOf } from '@adecore/ui';
 import { formatNumber } from '@adecore/ui/format';
@@ -27,15 +24,16 @@ import {
     Trash2,
     X
 } from 'lucide-react';
-import { PATHS_DRAG_TYPE } from '@/canvas/drop';
 import { writeMentionDrag } from '@adecore/agents-react/chat';
+import { perform } from '@/actions/client-actions';
+import { PATHS_DRAG_TYPE } from '@/canvas/drop';
 import { BranchMenu } from '@/shell/panels/BranchMenu';
 import { repoParts } from '@/shell/panels/git-tree';
 import { GitTreeMarks } from '@/shell/panels/GitTreeMarks';
 import { WorktreeBar } from '@/shell/panels/WorktreeMenu';
-import { nodesInWorktree, worktreeBase } from '@/shell/panels/worktree-rows';
+import { nodeNames, nodesInWorktree, worktreeBase } from '@/shell/panels/worktree-rows';
 import { PanelHeaderActions, PanelHeaderLeadingSlot, PanelHeaderSlot, PanelHeaderTitleHidden } from '@/shell/PanelHeaderSlot';
-import { FileSearch as FileSearchFlow, type FileSearchResult } from './file-search';
+import { FileSearch as FileSearchFlow, type FileSearchResult } from '@/shell/panels/file-search';
 import { FileActionItems } from '@/shell/panels/FileActionItems';
 import { FileCopyRow } from '@/shell/panels/FileCopyRow';
 import {
@@ -50,6 +48,8 @@ import {
 } from '@/shell/panels/file-create';
 import { dropMovesOf } from '@/shell/panels/file-rename';
 import { NewEntryRow } from '@/shell/panels/NewEntryRow';
+import { isQuickLookKey, useQuickLook } from '@/shell/panels/quick-look';
+import { revealFile } from '@/shell/panels/reveal-file';
 import type { CopyTarget } from '@/shell/panels/file-copy';
 import {
     LOADING_NAME,
@@ -760,12 +760,7 @@ export function FilesPanel() {
     const changes = checkouts.reduce((count, checkout) => count + (checkout.status?.files.length ?? 0), 0);
     const several = repos.length > 1;
     const folderRepo = repos.find((repo) => repo.path === folder)?.label ?? basenameOf(folder);
-    const insideNames =
-        worktree === null
-            ? ''
-            : nodesInWorktree(projectNodes, worktree)
-                  .map((node) => node.title || node.kind)
-                  .join(', ');
+    const insideNames = worktree === null ? '' : nodeNames(nodesInWorktree(projectNodes, worktree));
 
     /* A repository of the folder that is a row of its own says how far it is from its upstream and which branch it is on. */
     const repoOfRow = (row: FileTreeVisibleRow) => repoRows.get(isDirectoryPath(row.path) ? row.path : `${row.path}/`);
@@ -1018,11 +1013,7 @@ export function FilesPanel() {
                                             <ContextMenu.Separator />
                                             {isDirectoryPath(menuPath) ? (
                                                 <>
-                                                    <ContextMenu.Item
-                                                        onClick={onMenuPath((absolute) => {
-                                                            revealFile(transport, absolute);
-                                                        })}
-                                                    >
+                                                    <ContextMenu.Item onClick={onMenuPath((absolute) => revealFile(transport, absolute))}>
                                                         <Icon icon={CornerUpRight} size={14} /> {t('file.revealIn', { app: fileManagerName(platform) })}
                                                     </ContextMenu.Item>
                                                     <ContextMenu.Separator />

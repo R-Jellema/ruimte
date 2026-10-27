@@ -15,14 +15,15 @@ export function mergeStrategyLabel(value: WorktreeMergeStrategy): string {
 export function mergeStrategyLine(value: WorktreeMergeStrategy): string {
     return i18next.t(`panels:worktree.merge.strategy.${value}.line`);
 }
+
+function looseFiles(worktree: Worktree): number {
+    return (worktree.work?.changed ?? 0) + (worktree.work?.untracked ?? 0);
+}
+
 /* "2 commits and 3 uncommitted files", over one worktree or all of a group's; "nothing yet" when there is none. */
 export function mergeContents(worktrees: readonly Worktree[]): string {
-    let commits = 0;
-    let loose = 0;
-    for (const worktree of worktrees) {
-        commits += worktree.work?.ahead ?? 0;
-        loose += (worktree.work?.changed ?? 0) + (worktree.work?.untracked ?? 0);
-    }
+    const commits = worktrees.reduce((sum, worktree) => sum + (worktree.work?.ahead ?? 0), 0);
+    const loose = worktrees.reduce((sum, worktree) => sum + looseFiles(worktree), 0);
     const parts = [
         ...(commits > 0 ? [i18next.t('panels:worktree.merge.commits', { count: commits })] : []),
         ...(loose > 0 ? [i18next.t('panels:worktree.work.changed', { count: loose })] : [])
@@ -34,20 +35,18 @@ export function mergeContents(worktrees: readonly Worktree[]): string {
 }
 
 export function hasLooseWork(worktree: Worktree): boolean {
-    return (worktree.work?.changed ?? 0) + (worktree.work?.untracked ?? 0) > 0;
+    return looseFiles(worktree) > 0;
 }
 
 /* "lexer into main", or "3 worktrees into main" when they share a target, or "3 worktrees" when they do not. */
 export function mergeTitle(worktrees: readonly Worktree[]): string {
     const targets = new Set(worktrees.map((worktree) => worktree.from?.branch ?? null));
-    const into = targets.size === 1 ? [...targets][0] : null;
+    const into = targets.size === 1 ? ([...targets][0] ?? null) : null;
     const what =
         worktrees.length === 1
             ? (worktrees[0]?.branch ?? i18next.t('panels:worktree.merge.one'))
             : i18next.t('panels:worktree.merge.several', { count: worktrees.length });
-    return into === null || into === undefined
-        ? i18next.t('panels:worktree.merge.title', { what })
-        : i18next.t('panels:worktree.merge.titleInto', { what, into });
+    return into === null ? i18next.t('panels:worktree.merge.title', { what }) : i18next.t('panels:worktree.merge.titleInto', { what, into });
 }
 
 /* The message a commit of the worktree's own work gets: the node that did it, or the branch. It

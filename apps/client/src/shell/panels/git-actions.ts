@@ -107,12 +107,16 @@ export interface CommitCandidate {
     status: GitStatus | null;
 }
 
+function withStaged(checkouts: readonly CommitCandidate[]): CommitCandidate[] {
+    return checkouts.filter((checkout) => checkout.status?.files.some((file) => file.state === 'staged') === true);
+}
+
 /*
  * Where a commit would land: every repository with something staged. With nothing staged, a single
  * repository with changes is staged first; with more than one, there is nothing to commit yet.
  */
 export function commitTargets(checkouts: readonly CommitCandidate[]): { targets: CommitCandidate[]; stageAll: boolean } {
-    const staged = checkouts.filter((checkout) => checkout.status?.files.some((file) => file.state === 'staged') === true);
+    const staged = withStaged(checkouts);
     if (staged.length > 0) {
         return { targets: staged, stageAll: false };
     }
@@ -126,7 +130,7 @@ export function commitTargets(checkouts: readonly CommitCandidate[]): { targets:
  * rewording the last commit with nothing staged is half of what it is for.
  */
 export function amendTarget(checkouts: readonly CommitCandidate[]): CommitCandidate | null {
-    const staged = checkouts.filter((checkout) => checkout.status?.files.some((file) => file.state === 'staged') === true);
+    const staged = withStaged(checkouts);
     if (staged.length > 0) {
         return staged.length === 1 ? staged[0]! : null;
     }
@@ -134,7 +138,7 @@ export function amendTarget(checkouts: readonly CommitCandidate[]): CommitCandid
     return only?.status != null ? only : null;
 }
 
-/* The title of the toast while an action runs:where it is, in the words a person would use. */
+/* The title of the toast while an action runs: where it is, in the words a person would use. */
 export function phaseLabel(phase: GitActionPhase): string {
     return i18next.t(`panels:git.phase.${phase}`);
 }
