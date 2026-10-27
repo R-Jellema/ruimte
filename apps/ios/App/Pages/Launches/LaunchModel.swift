@@ -62,25 +62,21 @@ struct LaunchStatus: Equatable {
 }
 
 struct LaunchesDocument: Equatable {
-    var rev: Int
+    var rev = 0
     /// In the order of the menu.
-    var launches: [LaunchEntry]
+    var launches: [LaunchEntry] = []
     /// The launches a person on this machine approved as they stand now; a group is approved when all it starts is.
-    var approved: Set<String>
-
-    init(rev: Int = 0, launches: [LaunchEntry] = [], approved: Set<String> = []) {
-        self.rev = rev
-        self.launches = launches
-        self.approved = approved
-    }
-
-    init(json: JSONValue) {
-        rev = Int(json.number("rev"))
-        launches = json.list("launches").map(LaunchEntry.init(raw:))
-        approved = Set(json.list("approved").compactMap(\.stringValue))
-    }
+    var approved: Set<String> = []
 
     func launch(_ id: String) -> LaunchEntry? { launches.first { $0.id == id } }
+}
+
+extension LaunchesDocument {
+    init(json: JSONValue) {
+        self.init(
+            rev: Int(json.number("rev")), launches: json.list("launches").map(LaunchEntry.init(raw:)),
+            approved: Set(json.list("approved").compactMap(\.stringValue)))
+    }
 }
 
 /// What a launch looks like from here. A launch a person stopped, or a service that ended cleanly on its own, is at
@@ -116,16 +112,11 @@ struct LaunchView: Equatable {
 struct LaunchRepo: Equatable {
     var path: String
     var label: String
-    var name: String?
-    var kind: String
+    var name: String? = nil
+    var kind = "nested"
+}
 
-    init(path: String, label: String, name: String? = nil, kind: String = "nested") {
-        self.path = path
-        self.label = label
-        self.name = name
-        self.kind = kind
-    }
-
+extension LaunchRepo {
     init(json: JSONValue) {
         self.init(
             path: json.text("path"), label: json.text("label"), name: json["name"]?.stringValue,
@@ -289,8 +280,8 @@ enum LaunchLogic {
         return text
     }
 
-    /// What a row says after the name: how long it runs and where, or how it ended. `now` is in milliseconds.
-    /// The line under a launch's command in the list: its state, and the port it holds or when it ended.
+    /// The line under a launch's command in the list: its state, and the port it holds or when it ended. `now` is in
+    /// milliseconds.
     static func stateLine(_ view: LaunchView, now: Double) -> String {
         let ago = { (ended: Double) in Format.ago(milliseconds: now - ended) }
         switch view.phase {
@@ -310,26 +301,6 @@ enum LaunchLogic {
             return view.status?.endedAt.map {
                 String(localized: "Stopped \(ago($0))", comment: "%@ is a relative time, like 5 minutes ago")
             } ?? String(localized: "Not running")
-        }
-    }
-
-    static func detail(_ view: LaunchView, now: Double) -> String {
-        if view.phase == .held { return LaunchPhase.held.label }
-        guard let status = view.status else { return "" }
-        let ran = ProcessesText.duration((status.endedAt ?? now) - status.startedAt)
-        switch view.phase {
-        case .starting, .stopping:
-            return "\(view.phase.label) · \(ran)"
-        case .running:
-            return ([ran] + (view.port.map { [":\($0)"] } ?? [])).joined(separator: " · ")
-        case .passed:
-            return String(localized: "passed · \(ran)", comment: "%@ is how long the task ran")
-        case .failed:
-            let code = status.exitCode.map(String.init) ?? "?"
-            return String(localized: "exit \(code) · \(ran)", comment: "An exit code, then how long the process ran")
-        default:
-            guard let ended = status.endedAt else { return "" }
-            return String(localized: "stopped \(ProcessesText.duration(now - ended)) ago", comment: "%@ is a duration")
         }
     }
 }

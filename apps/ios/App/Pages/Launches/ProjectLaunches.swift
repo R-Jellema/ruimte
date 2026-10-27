@@ -85,8 +85,7 @@ enum LaunchesText {
 
     func load() async {
         do {
-            let answer = try await client.request(
-                WireRequest.launchesRead.rawValue, payload: .object(["projectId": .string(projectID)]))
+            let answer = try await client.request(.launchesRead, payload: .object(["projectId": .string(projectID)]))
             document = LaunchesDocument(json: answer)
         } catch is CancellationError {
             return
@@ -94,7 +93,7 @@ enum LaunchesText {
             problem = error.localizedDescription
             return
         }
-        if let list = try? await client.request(WireRequest.launchList.rawValue, payload: .object([:])) {
+        if let list = try? await client.request(.launchList) {
             let own = list.list("launches").map(LaunchStatus.init(json:)).filter { $0.projectID == projectID }
             statuses = Dictionary(own.map { ($0.launchID, $0) }, uniquingKeysWith: { _, last in last })
         }
@@ -111,8 +110,7 @@ enum LaunchesText {
         if approve { payload["approve"] = .bool(true) }
         if replace { payload["replace"] = .bool(true) }
         do {
-            let result = try await client.request(
-                (restart ? WireRequest.launchRestart : WireRequest.launchStart).rawValue, payload: .object(payload))
+            let result = try await client.request(restart ? .launchRestart : .launchStart, payload: .object(payload))
             problem = nil
             switch result.text("outcome") {
             case "held":
@@ -128,7 +126,7 @@ enum LaunchesText {
                 ask = nil
             }
         } catch {
-            problem = String(localized: "Could not launch \(name(launchID)): \(message(error))")
+            problem = String(localized: "Could not launch \(name(launchID)): \(error.localizedDescription)")
         }
     }
 
@@ -142,10 +140,10 @@ enum LaunchesText {
         var payload: [String: JSONValue] = ["projectId": .string(projectID), "launchId": .string(launchID)]
         if force { payload["force"] = .bool(true) }
         do {
-            _ = try await client.request(WireRequest.launchStop.rawValue, payload: .object(payload))
+            _ = try await client.request(.launchStop, payload: .object(payload))
             problem = nil
         } catch {
-            problem = String(localized: "Could not stop \(name(launchID)): \(message(error))")
+            problem = String(localized: "Could not stop \(name(launchID)): \(error.localizedDescription)")
         }
     }
 
@@ -162,11 +160,11 @@ enum LaunchesText {
         ]
         if !imported.isEmpty { payload["imported"] = .array(imported.map { .string($0) }) }
         do {
-            _ = try await client.request(WireRequest.launchesSave.rawValue, payload: .object(payload))
+            _ = try await client.request(.launchesSave, payload: .object(payload))
         } catch MachineClientError.server(let code, _) where code == "rev-conflict" {
             throw LaunchSaveFailure.conflict
         } catch {
-            throw LaunchSaveFailure.failed(message(error))
+            throw LaunchSaveFailure.failed(error.localizedDescription)
         }
     }
 
@@ -188,11 +186,9 @@ enum LaunchesText {
     func detect() async -> [LaunchSuggestion]? {
         guard
             let result = try? await client.request(
-                WireRequest.launchesDetect.rawValue,
+                .launchesDetect,
                 payload: .object(["projectId": .string(projectID), "sources": .array([.string("vscode-launch")])]))
         else { return nil }
         return result.list("suggestions").map(LaunchSuggestion.init(json:))
     }
-
-    private func message(_ error: any Error) -> String { LaunchesText.reason(error) }
 }

@@ -84,15 +84,7 @@ final class LaunchLogicTests: XCTestCase {
         XCTAssertFalse(LaunchLogic.runs(LaunchEntry(raw: launch("web")), statuses: statuses))
     }
 
-    func testARowSaysHowLongItRunsOrHowItEnded() {
-        let approved = ["web", "test", "api", "all"]
-        let running = views([status("web", state: "running", port: 3000)], approved: approved)["web"]!
-        XCTAssertEqual(LaunchLogic.detail(running, now: 66_000), "1m 5s · :3000")
-        let failed = views([status("web", state: "exited", exit: 1)], approved: approved)["web"]!
-        XCTAssertEqual(LaunchLogic.detail(failed, now: 70_000), "exit 1 · 5s")
-        let stopped = views([status("web", state: "exited", exit: 0, stopped: true)], approved: approved)["web"]!
-        XCTAssertEqual(LaunchLogic.detail(stopped, now: 126_000), "stopped 2m ago")
-        XCTAssertEqual(LaunchLogic.detail(views([], approved: [])["web"]!, now: 0), "needs approval")
+    func testAnAddressReadsWithoutItsSchemeOrTrailingSlash() {
         XCTAssertEqual(LaunchLogic.shortAddress("http://localhost:3000/"), "localhost:3000")
     }
 
