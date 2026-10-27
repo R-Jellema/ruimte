@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import { reloadOnStaleChunk } from '@/stale-chunks';
 
+type Watch = Parameters<typeof reloadOnStaleChunk>[0];
+
 function memoryStorage(): Pick<Storage, 'getItem' | 'setItem'> {
     const values = new Map<string, string>();
     return {
@@ -11,69 +13,16 @@ function memoryStorage(): Pick<Storage, 'getItem' | 'setItem'> {
     };
 }
 
-function preloadError(): Event {
-    return new Event('vite:preloadError', { cancelable: true });
+/* A page on build A that counts its reloads; `fail` is a chunk that did not load. */
+function page(options: Partial<Watch> = {}) {
+    const target = new EventTarget();
+    const counted = { reloads: 0 };
+    const stop = reloadOnStaleChunk({ target, storage: memoryStorage(), reload: () => counted.reloads++, build: '/assets/index-a.js', ...options });
+    const fail = (): void => {
+        target.dispatchEvent(new Event('vite:preloadError', { cancelable: true }));
+    };
+    return { counted, stop, fail };
 }
-
-describe('reloading on a stale chunk', () => {
-    test('reloads exactly once, however many chunks fail', () => {
-        const target = new EventTarget();
-        let reloads = 0;
-        reloadOnStaleChunk({ target, storage: memoryStorage(), reload: () => reloads++, build: '/assets/index-a.js' });
-        target.dispatchEvent(preloadError());
-        target.dispatchEvent(preloadError());
-        target.dispatchEvent(preloadError());
-        expect(reloads).toBe(1);
-    });
-
-    test('a page that came back on the same build does not reload again', () => {
-        const storage = memoryStorage();
-        let reloads = 0;
-        const before = new EventTarget();
-        reloadOnStaleChunk({ target: before, storage, reload: () => reloads++, build: '/assets/index-a.js' });
-        before.dispatchEvent(preloadError());
-        const after = new EventTarget();
-        reloadOnStaleChunk({ target: after, storage, reload: () => reloads++, build: '/assets/index-a.js' });
-        after.dispatchEvent(preloadError());
-        expect(reloads).toBe(1);
-    });
-
-    test('a page on a newer build may reload once after the next deploy', () => {
-        const storage = memoryStorage();
-        let reloads = 0;
-        const first = new EventTarget();
-        reloadOnStaleChunk({ target: first, storage, reload: () => reloads++, build: '/assets/index-a.js' });
-        first.dispatchEvent(preloadError());
-        const second = new EventTarget();
-        reloadOnStaleChunk({ target: second, storage, reload: () => reloads++, build: '/assets/index-b.js' });
-        second.dispatchEvent(preloadError());
-        second.dispatchEvent(preloadError());
-        expect(reloads).toBe(2);
-    });
-
-    test('never reloads when the flag cannot be kept', () => {
-        const target = new EventTarget();
-        let reloads = 0;
-        const storage = {
-            getItem: () => null,
-            setItem: () => {
-                throw new Error('storage is disabled');
-            }
-        };
-        reloadOnStaleChunk({ target, storage, reload: () => reloads++, build: '/assets/index-a.js' });
-        target.dispatchEvent(preloadError());
-        expect(reloads).toBe(0);
-    });
-
-    test('stops listening once disposed', () => {
-        const target = new EventTarget();
-        let reloads = 0;
-        const stop = reloadOnStaleChunk({ target, storage: memoryStorage(), reload: () => reloads++, build: '/assets/index-a.js' });
-        stop();
-        target.dispatchEvent(preloadError());
-        expect(reloads).toBe(0);
-    });
-});
 
 function failedOpens() {
     const listeners = new Set<() => void>();
@@ -93,52 +42,74 @@ function failedOpens() {
     };
 }
 
+describe('reloading on a stale chunk', () => {
+    test('reloads exactly once, however many chunks fail', () => {
+        const { counted, fail } = page();
+        fail();
+        fail();
+        fail();
+        expect(counted.reloads).toBe(1);
+    });
+
+    test('a page that came back on the same build does not reload again, one on a newer build may once more', () => {
+        const storage = memoryStorage();
+        const before = page({ storage });
+        before.fail();
+        const same = page({ storage });
+        same.fail();
+        const newer = page({ storage, build: '/assets/index-b.js' });
+        newer.fail();
+        newer.fail();
+        expect([before.counted.reloads, same.counted.reloads, newer.counted.reloads]).toEqual([1, 0, 1]);
+    });
+
+    test('never reloads when the flag cannot be kept', () => {
+        const storage = {
+            getItem: () => null,
+            setItem: () => {
+                throw new Error('storage is disabled');
+            }
+        };
+        const { counted, fail } = page({ storage });
+        fail();
+        expect(counted.reloads).toBe(0);
+    });
+
+    test('stops listening once disposed', () => {
+        const { counted, stop, fail } = page();
+        stop();
+        fail();
+        expect(counted.reloads).toBe(0);
+    });
+});
+
 describe('a failed open beside a prefetch', () => {
     test('a chunk only a prefetch asked for does not reload', () => {
-        const target = new EventTarget();
-        let reloads = 0;
-        reloadOnStaleChunk({ target, storage: memoryStorage(), reload: () => reloads++, build: '/assets/index-a.js', prefetching: () => true });
-        target.dispatchEvent(preloadError());
-        expect(reloads).toBe(0);
+        const { counted, fail } = page({ prefetching: () => true });
+        fail();
+        expect(counted.reloads).toBe(0);
     });
 
     test('a surface a person opened reloads, even while a prefetch runs', () => {
-        const target = new EventTarget();
         const opens = failedOpens();
-        let reloads = 0;
-        reloadOnStaleChunk({
-            target,
-            storage: memoryStorage(),
-            reload: () => reloads++,
-            build: '/assets/index-a.js',
-            prefetching: () => true,
-            failedOpens: [opens.subscribe]
-        });
-        target.dispatchEvent(preloadError());
+        const { counted, fail } = page({ prefetching: () => true, failedOpens: [opens.subscribe] });
+        fail();
         opens.fail();
-        expect(reloads).toBe(1);
+        expect(counted.reloads).toBe(1);
     });
 
     test('a failed open and its own preload error reload once', () => {
-        const target = new EventTarget();
         const opens = failedOpens();
-        let reloads = 0;
-        reloadOnStaleChunk({ target, storage: memoryStorage(), reload: () => reloads++, build: '/assets/index-a.js', failedOpens: [opens.subscribe] });
-        target.dispatchEvent(preloadError());
+        const { counted, fail } = page({ failedOpens: [opens.subscribe] });
+        fail();
         opens.fail();
-        expect(reloads).toBe(1);
+        expect(counted.reloads).toBe(1);
     });
 
     test('disposing stops listening to every source of failed opens', () => {
         const app = failedOpens();
         const chat = failedOpens();
-        const stop = reloadOnStaleChunk({
-            target: new EventTarget(),
-            storage: memoryStorage(),
-            reload: () => undefined,
-            build: '/assets/index-a.js',
-            failedOpens: [app.subscribe, chat.subscribe]
-        });
+        const { stop } = page({ failedOpens: [app.subscribe, chat.subscribe] });
         expect(app.listening() + chat.listening()).toBe(2);
         stop();
         expect(app.listening() + chat.listening()).toBe(0);

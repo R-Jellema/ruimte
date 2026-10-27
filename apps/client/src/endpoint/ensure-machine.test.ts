@@ -149,6 +149,7 @@ describe('ensuring a machine is reachable', () => {
         pool.set('studio', OPEN);
         expect(await second).toBe('studio');
     });
+
     test('a caller that stops waiting ends the attempt and lets go of the hold', async () => {
         const pool = fakePool({ rows: [row('studio')] });
         const controller = new AbortController();
