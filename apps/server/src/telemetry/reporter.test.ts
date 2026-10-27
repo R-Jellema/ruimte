@@ -4,7 +4,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileDedupeStore } from '@ruimte/telemetry/file-store';
 import {
+    allowedMoment,
+    clientKindOf,
     daemonBeforeSend,
+    daemonBeforeSendLog,
     dedupeStorePath,
     helperExitReportable,
     helperStderrOf,
@@ -33,6 +36,41 @@ describe('markInApp', () => {
         };
         const frames = markInApp(event).exception.values[0]!.stacktrace.frames;
         expect(frames.map((frame) => (frame as { in_app?: boolean }).in_app)).toEqual([false, true]);
+    });
+});
+
+describe('the daemon moments', () => {
+    test('only the fixed words of a known category go along', () => {
+        expect(allowedMoment({ category: 'daemon.boot', message: 'serving' })).toBe(true);
+        expect(allowedMoment({ category: 'daemon.client', message: 'account opened' })).toBe(true);
+        expect(allowedMoment({ category: 'daemon.boot', message: 'opened /Users/jane/Orion' })).toBe(false);
+        expect(allowedMoment({ category: 'console', message: 'serving' })).toBe(false);
+    });
+
+    test('a client is the app on this machine, a device of the account or another machine', () => {
+        expect(clientKindOf({ sessionId: null })).toBe('local');
+        expect(clientKindOf({ sessionId: 'session' })).toBe('account');
+        expect(clientKindOf({ sessionId: 'session', peer: { machineId: 'other' } })).toBe('machine');
+    });
+});
+
+describe('daemonBeforeSendLog', () => {
+    test('sends a warning line scrubbed like an error, its first line only', () => {
+        const settings: TelemetrySettings = {
+            dsn: 'https://key@ingest.test/3',
+            release: 'ruimte@0.0.0',
+            tags: {},
+            home: '/Users/jane',
+            username: 'jane',
+            hostname: 'janes-mac',
+            ruimteHome: '/Users/jane/.ruimte'
+        };
+        const scrub = daemonBeforeSendLog(settings, () => ['Orion']);
+        const log = scrub({ level: 'warn', message: 'Could not keep Orion in /Users/jane/Orion/.ruimte/project.json\nsecond line' });
+
+        expect(log?.message).not.toContain('Orion');
+        expect(log?.message).not.toContain('jane');
+        expect(log?.message).not.toContain('second line');
     });
 });
 

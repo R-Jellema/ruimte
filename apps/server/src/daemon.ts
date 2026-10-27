@@ -9,7 +9,7 @@ import { pruneHiddenChats } from './agents/prune-hidden-chats.ts';
 import { dropEmptyMark } from './projects/scratch-project.ts';
 import { probeCodexNoDaemon } from './providers/launch.ts';
 import { readMachineModel } from './machine-model.ts';
-import { noteShutdown, rememberSecret, stopTelemetry, watchProjects, type Launcher } from './telemetry/reporter.ts';
+import { noteMoment, noteShutdown, rememberSecret, stopTelemetry, watchProjects, type Launcher } from './telemetry/reporter.ts';
 import { COMPILED as compiled, VERSION } from './version.ts';
 import { loadAgentStores, wireAgents } from './wiring/agents.ts';
 import { wireArtifacts } from './wiring/artifacts.ts';
@@ -218,6 +218,7 @@ export async function startDaemon(config: ServerConfig, launcher: Launcher = 'st
     });
     const network = wireNetwork(config, compiled, machine, dispatcher, { clients: () => clients });
 
+    noteMoment('daemon.boot', 'wired');
     // Only from here on has the identity everything its announce describes; a CLI found sooner took the daemon down.
     providers.integrations.onChanged(() => identity.announce());
     void providers.integrations.refreshInstalled();
@@ -395,6 +396,7 @@ export async function startDaemon(config: ServerConfig, launcher: Launcher = 'st
     for (const line of greeting) {
         console.log(line);
     }
+    noteMoment('daemon.boot', 'serving');
     // After the greeting, so a person who just ran `npx ruimte` reads what runs before where it is reachable.
     if (network.lanDoorWanted()) {
         network.lanDoor.start();

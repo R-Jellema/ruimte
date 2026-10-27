@@ -29,8 +29,8 @@ export default function Privacy() {
                         request carried.
                     </li>
                     <li>
-                        On the iPhone, the last steps before the report: when the app came to the front or went to the background, and when a connection to a
-                        machine opened or closed.
+                        The last steps before the report: on the iPhone when the app came to the front or went to the background and when a connection to a
+                        machine opened or closed, on the machine when it started, served or stopped and when an app or another machine connected or left.
                     </li>
                 </ul>
                 <p>
@@ -45,7 +45,10 @@ export default function Privacy() {
                     and keys, the names and folders of your projects, your home folder, your username, the name of your computer, or IP addresses. Observatory
                     does not store the IP address a report arrives from.
                 </p>
-                <p>There are no breadcrumbs of what you clicked, no session recordings, no performance tracing and no log forwarding.</p>
+                <p>
+                    There are no breadcrumbs of what you clicked, no session recordings and no performance tracing. Of the logs only the warnings of the machine
+                    go along, scrubbed the same way as a report.
+                </p>
             </Section>
 
             <Section title="Crash reports are always on">
@@ -65,7 +68,9 @@ export default function Privacy() {
                     <li>
                         A few measurements of how quickly things work: how long a connection to a machine took to open or to fail and which way it went (this
                         computer, the local network, a direct connection or a relay), why a connection had to be opened again, how long a request to the machine
-                        waited for its answer by the kind of request, and how long a project took to appear after you opened it.
+                        waited for its answer by the kind of request, and how long a project took to appear after you opened it. The machine adds how long it
+                        took to handle a request by its kind, how far its work ran behind, how much memory it used and how many apps and machines were
+                        connected.
                     </li>
                 </ul>
             </Section>

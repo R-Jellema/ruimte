@@ -4,6 +4,7 @@ import { OutputGate, type OutputShare } from './backpressure.ts';
 import { sendEvent, type ClientAccess, type ClientConnection, type Dispatcher } from './dispatcher.ts';
 import { isLiveFrame, type LiveSink } from './client-sinks.ts';
 import type { SessionSink } from './sessions/manager.ts';
+import { clientClosed, clientKindOf, clientOpened } from './telemetry/reporter.ts';
 
 /* What a connected client needs from whatever carries its frames, a Bun WebSocket or a WebRTC DataChannel. */
 export interface ClientChannel {
@@ -213,6 +214,8 @@ export function connectionOpener(services: ConnectionServices): (channel: Client
             }
             sendEvent(client, event.event, event.payload);
         };
+        const kind = clientKindOf(access);
+        clientOpened(kind);
         // Events carry what other clients are doing here; another machine asks for what it needs and hears nothing else.
         const unsubscribes = access.peer !== undefined ? [] : subscribeClient(services, client, access, sink, gate);
 
@@ -226,6 +229,7 @@ export function connectionOpener(services: ConnectionServices): (channel: Client
                 return;
             }
             closed = true;
+            clientClosed(kind);
             // The sessions keep running; only this client's view of them goes.
             for (const source of [
                 services.sessions,

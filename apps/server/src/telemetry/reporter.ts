@@ -35,7 +35,11 @@ let sentry: Sentry | null = null;
 let projects: ProjectSource | null = null;
 let projectRedactions: readonly string[] = [];
 let stopping = false;
+let meters: ReturnType<typeof setInterval>[] = [];
 const secrets = new Set<string>();
+const MAX_MOMENTS = 30;
+const LAG_TICK_MS = 1000;
+const GAUGE_MS = 60_000;
 
 /*
  * Reports go out only from a release build: `scripts/compile.ts` stamps `RUIMTE_TELEMETRY` into the
@@ -66,18 +70,46 @@ export function dedupeStorePath(ruimteHome: string): string {
     return join(ruimteHome, 'telemetry', 'sent.json');
 }
 
+function daemonScrubber(current: TelemetrySettings, redactions: () => Iterable<string>): ReturnType<typeof createScrubber> {
+    return createScrubber({
+        home: current.home,
+        username: current.username,
+        hostname: current.hostname,
+        redactions,
+        tags: ['launcher', 'platform', 'arch', 'helper', 'language_server', 'hang'],
+        breadcrumbs: Object.keys(DAEMON_MOMENTS)
+    });
+}
+
+/*
+ * The breadcrumbs a report of the daemon may carry, by category: fixed words for its start and for clients by kind,
+ * never a request, a path or a name, so an error says what the daemon had just been through.
+ */
+export const DAEMON_MOMENTS = {
+    'daemon.boot': ['wired', 'serving', 'stopping'],
+    'daemon.client': ['local opened', 'local closed', 'account opened', 'account closed', 'machine opened', 'machine closed']
+} as const satisfies Record<string, readonly string[]>;
+
+export type MomentCategory = keyof typeof DAEMON_MOMENTS;
+
+export function allowedMoment(breadcrumb: { category?: string; message?: string }): boolean {
+    const words = (DAEMON_MOMENTS as Record<string, readonly string[]>)[breadcrumb.category ?? ''];
+    return words !== undefined && breadcrumb.message !== undefined && words.includes(breadcrumb.message);
+}
+
+/* A warning line on its way out: the same scrubber as an error, its first line only. */
+export function daemonBeforeSendLog(current: TelemetrySettings, redactions: () => Iterable<string> = () => []): LogScrub {
+    return daemonScrubber(current, redactions).scrubLog;
+}
+
+type LogScrub = ReturnType<typeof createScrubber>['scrubLog'];
+
 /*
  * What every report of the daemon goes through, the hang watchdog's included: the scrubber, then
  * the dedupe, which lets one error out once a day.
  */
 export function daemonBeforeSend(current: TelemetrySettings, redactions: () => Iterable<string> = () => []): <T extends object>(event: T) => T | null {
-    const scrubber = createScrubber({
-        home: current.home,
-        username: current.username,
-        hostname: current.hostname,
-        redactions,
-        tags: ['launcher', 'platform', 'arch', 'helper', 'language_server', 'hang']
-    });
+    const scrubber = daemonScrubber(current, redactions);
     const dedupe = createDailyDedupe({ store: fileDedupeStore(dedupeStorePath(current.ruimteHome)) });
     return (event) => {
         const scrubbed = scrubber.scrubEvent(markInApp(event));
@@ -107,9 +139,9 @@ export function nodeContext(loaded: Sentry): ReturnType<Sentry['nodeContextInteg
 }
 
 /*
- * What the serving daemon reports with: errors, and a session per run without a user, so a release's crash-free
- * runs are counted and nothing else. No tracing, no breadcrumbs, no logs. The hang watchdog passes its own
- * integrations, without the session.
+ * What the serving daemon reports with: errors, a session per run without a user, its warning lines, the fixed
+ * moments of `DAEMON_MOMENTS` and the metrics below. No tracing. The hang watchdog passes its own integrations,
+ * without the session and the warnings.
  */
 export function daemonClientOptions(
     loaded: Sentry,
@@ -120,8 +152,10 @@ export function daemonClientOptions(
         loaded.linkedErrorsIntegration(),
         loaded.dedupeIntegration(),
         nodeContext(loaded),
-        loaded.processSessionIntegration()
-    ]
+        loaded.processSessionIntegration(),
+        loaded.consoleLoggingIntegration({ levels: ['warn'] })
+    ],
+    scrubLog: LogScrub | null = null
 ): Parameters<Sentry['init']>[0] {
     return {
         dsn: current.dsn,
@@ -129,26 +163,80 @@ export function daemonClientOptions(
         environment: 'production',
         dataCollection: TELEMETRY_DATA_COLLECTION,
         attachStacktrace: false,
-        maxBreadcrumbs: 0,
+        maxBreadcrumbs: MAX_MOMENTS,
         sendClientReports: false,
         integrations,
         initialScope: { tags: { ...current.tags } },
         beforeSend: (event) => beforeSend(event),
-        beforeBreadcrumb: () => null
+        // Without a scrubber of its own, a log line is not sent at all.
+        beforeSendLog: (log) => (scrubLog === null ? null : scrubLog(log)),
+        beforeBreadcrumb: (breadcrumb) => (allowedMoment(breadcrumb) ? breadcrumb : null)
     };
+}
+
+/* A moment of `DAEMON_MOMENTS` for the next report; nothing in a build that reports nothing. */
+export function noteMoment<C extends MomentCategory>(category: C, message: (typeof DAEMON_MOMENTS)[C][number]): void {
+    sentry?.addBreadcrumb({ category, message, level: 'info' });
+}
+
+export type ClientKind = 'local' | 'account' | 'machine';
+
+/* Who a client is, as a kind: the app on this machine, a device of the account, or another machine of it. */
+export function clientKindOf(access: { sessionId: string | null; peer?: unknown } | undefined): ClientKind {
+    if (access?.peer !== undefined) {
+        return 'machine';
+    }
+    return access === undefined || access.sessionId === null ? 'local' : 'account';
+}
+
+const liveClients: Record<ClientKind, number> = { local: 0, account: 0, machine: 0 };
+
+export function clientOpened(kind: ClientKind): void {
+    liveClients[kind] += 1;
+    noteMoment('daemon.client', `${kind} opened`);
+}
+
+export function clientClosed(kind: ClientKind): void {
+    liveClients[kind] = Math.max(0, liveClients[kind] - 1);
+    noteMoment('daemon.client', `${kind} closed`);
+}
+
+/* How long a handler took, by the area of its request (`session`, `fs`, `chat`), never the request itself. */
+export function recordRequestDuration(type: string, ms: number): void {
+    sentry?.metrics.distribution('daemon.request.duration', Math.max(0, ms), { unit: 'millisecond', attributes: { area: type.split('.')[0] ?? 'other' } });
+}
+
+/*
+ * The event loop's lag, as how late a one-second tick fires, and once a minute the memory and the clients by kind.
+ * Both timers are unref'd, so they never keep a stopping daemon alive.
+ */
+function startMeters(active: Sentry): void {
+    let last = performance.now();
+    const tick = setInterval(() => {
+        const now = performance.now();
+        active.metrics.distribution('daemon.loop.lag', Math.max(0, now - last - LAG_TICK_MS), { unit: 'millisecond' });
+        last = now;
+    }, LAG_TICK_MS);
+    const gauges = setInterval(() => {
+        active.metrics.gauge('daemon.memory', Math.round(process.memoryUsage().rss / 1_048_576), { unit: 'megabyte' });
+        for (const kind of Object.keys(liveClients) as ClientKind[]) {
+            active.metrics.gauge('daemon.clients', liveClients[kind], { attributes: { kind } });
+        }
+    }, GAUGE_MS);
+    tick.unref();
+    gauges.unref();
+    meters = [tick, gauges];
 }
 
 /* Starts reporting for the serving daemon (`daemonClientOptions`). */
 export async function startTelemetry(current: TelemetrySettings): Promise<void> {
     const loaded = await import('@sentry/bun');
+    const redactions = (): string[] => [...secrets, ...projectRedactions];
     loaded.initWithoutDefaultIntegrations(
-        daemonClientOptions(
-            loaded,
-            current,
-            daemonBeforeSend(current, () => [...secrets, ...projectRedactions])
-        )
+        daemonClientOptions(loaded, current, daemonBeforeSend(current, redactions), undefined, daemonBeforeSendLog(current, redactions))
     );
     sentry = loaded;
+    startMeters(loaded);
 }
 
 /* A value no report may carry, such as the local secret. */
@@ -234,6 +322,7 @@ interface HelperExit {
 /* From here on a helper that ends goes down with the daemon, and none is reported. */
 export function noteShutdown(): void {
     stopping = true;
+    noteMoment('daemon.boot', 'stopping');
 }
 
 /* Whether a helper's end is worth a report: not one stopped by a signal a person or a service manager sends, and none while the daemon stops. */
@@ -276,6 +365,10 @@ export function helperStderrOf(lines: readonly string[]): string[] {
  * `beforeExit`, which a daemon that stops on a signal never reaches.
  */
 export async function stopTelemetry(): Promise<void> {
+    for (const meter of meters) {
+        clearInterval(meter);
+    }
+    meters = [];
     sentry?.endSession();
     await sentry?.close(FLUSH_MS);
 }
