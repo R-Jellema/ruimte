@@ -276,6 +276,7 @@ jobs:
       actions: write
     steps:
       - name: Publish the draft
+        id: published
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
@@ -283,15 +284,17 @@ jobs:
         # otherwise take it back, and the updater and /download would hand out that older build.
         run: |
           version="${GITHUB_REF_NAME#v}"
+          latest=false
           case "$version" in
             *-*) gh release edit "$GITHUB_REF_NAME" --draft=false --prerelease --latest=false ;;
             *)
               current=$(gh release view --json tagName --jq .tagName 2>/dev/null || true)
               newest=$(printf '%s\n%s\n' "${current#v}" "$version" | sort -V | tail -n 1)
-              if [ "$newest" = "$version" ]; then latest=true; else latest=false; fi
+              if [ "$newest" = "$version" ]; then latest=true; fi
               gh release edit "$GITHUB_REF_NAME" --draft=false --latest="$latest"
               ;;
           esac
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
       # A release published with GITHUB_TOKEN starts no workflow, so `release: published` never
       # reaches npm.yml from here; a dispatch is the one event that token may start. It publishes the
       # daemons this run compiled.
@@ -300,3 +303,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: gh workflow run npm.yml --ref main -f version="${GITHUB_REF_NAME#v}" -f release_run="$GITHUB_RUN_ID"
+      # The web clients follow Latest only, so an older tag that finishes later never takes them back.
+      - name: Start the station and bench deploys
+        if: ${{ steps.published.outputs.latest == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh workflow run station.yml --ref main -f version="${GITHUB_REF_NAME#v}"
+          gh workflow run bench.yml --ref main -f version="${GITHUB_REF_NAME#v}"

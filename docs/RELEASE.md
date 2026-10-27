@@ -232,8 +232,11 @@ client build into the page (`apps/client/README.md`).
 The client build of a release writes hidden source maps. `.github/actions/client-source-maps` gives
 the build debug ids, uploads the maps with the same token and deletes them,
 and electron-builder leaves out any `.map` that is still there. Without the token the maps are only
-deleted and the page's stack traces stay minified. The station deploy does the same under
-`ruimte@station-<commit>` and reports that deploy, and `.assetsignore` keeps a map out of its assets.
+deleted and the page's stack traces stay minified. The station and the bench ship with a release,
+never with a push: once `release.yml` published a release as Latest it dispatches `station.yml` and
+`bench.yml` for that tag (by hand: `gh workflow run station.yml -f version=0.2.0`). Each builds the
+tag, uploads its maps under the same `ruimte@<version>` and deploys, and `.assetsignore` keeps a map
+out of its assets. A pre-release deploys neither.
 
 A native crash of the shell arrives as a minidump in an envelope, without Electron's symbols: the
 module, the process and the crash reason say whether it is ours, and the shell has no native module of

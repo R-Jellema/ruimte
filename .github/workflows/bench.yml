@@ -1,16 +1,15 @@
 name: Bench
 
+# The bench ships with a release, never with a push: release.yml dispatches this once it published a
+# release as Latest. CI already passed on the tagged commit before that release was published.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'apps/bench/**'
-      - 'apps/client/**'
-      - 'packages/**'
-      - 'bun.lock'
-      - '.github/workflows/bench.yml'
-  # For a deploy after a commit that touched none of the above, such as a fix to a red CI.
+  release:
+    types: [published]
   workflow_dispatch:
+    inputs:
+      version:
+        description: The release to deploy, without the v (0.2.0); its tag has to exist
+        required: true
 
 # One deploy at a time, so an older build never lands after a newer one.
 concurrency:
@@ -19,28 +18,32 @@ concurrency:
 
 jobs:
   deploy:
+    # A pre-release is not what the bench shows; a dispatch names its release on purpose.
+    if: ${{ github.event_name != 'release' || !github.event.release.prerelease }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      actions: read
     env:
       CLOUDFLARE_ACCOUNT_ID: 5e565cf9fa55b0eae1f8131903da2ca9
+      RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || format('v{0}', inputs.version) }}
     defaults:
       run:
         working-directory: apps/bench
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.RELEASE_TAG }}
       - uses: ./.github/actions/install
       - run: bun run typecheck
       - run: bun test
       - run: bun test src/shell/models
         working-directory: apps/client
-      # A deploy is the bench's release: it reports its errors and sessions under the commit it ships.
+      # The bench reports its errors and sessions under the release it ships.
       - name: Build
         env:
           RUIMTE_TELEMETRY: '1'
         run: |
-          export RUIMTE_VERSION="bench-${GITHUB_SHA::12}"
+          export RUIMTE_VERSION="${RELEASE_TAG#v}"
           echo "RUIMTE_VERSION=$RUIMTE_VERSION" >> "$GITHUB_ENV"
           bun run build
       - uses: ./.github/actions/client-source-maps
@@ -48,18 +51,9 @@ jobs:
           dist: apps/bench/dist
           release: ruimte@${{ env.RUIMTE_VERSION }}
           token: ${{ secrets.OBSERVATORY_UPLOAD_TOKEN }}
-      - uses: ./.github/actions/wait-for-ci
       - run: bunx wrangler deploy
         env:
           # The token the station deploys with, which covers the Custom Domain `bench.ruimte.app` on the zone too.
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       # The page has to answer with its policy, or the deploy is not what this repository says it is.
       - run: curl --fail --silent --show-error --max-time 20 --head https://bench.ruimte.app/ | grep -i '^content-security-policy:.*frame-ancestors'
-      # The deploy only gives a release its commits, so a tracker that is down never fails it.
-      - name: Report the deploy
-        continue-on-error: true
-        uses: basmilius/observatory-action@dae861d69a193baacbe35c29b9b99754f2938f10 # v1
-        with:
-          url: https://ingest.bmnw.nl
-          token: ${{ secrets.OBSERVATORY_UPLOAD_TOKEN }}
-          version: ruimte@${{ env.RUIMTE_VERSION }}
