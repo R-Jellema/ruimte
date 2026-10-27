@@ -24,6 +24,18 @@ function route(context: ContextStore) {
     };
 }
 
+/* A store whose readers answer nothing, but for those a test hands it. */
+function storeWith(readers: Partial<ConstructorParameters<typeof ContextStore>[0]>): ContextStore {
+    return new ContextStore({
+        sources: () => [],
+        terminalText: async () => null,
+        chatItems: () => null,
+        drawingElements: async () => null,
+        diagramDocument: async () => null,
+        ...readers
+    });
+}
+
 const items: ChatItem[] = [
     { id: 'u', kind: 'user', createdAt: 1, turnId: 't', text: 'fix the bug' },
     {
@@ -257,13 +269,10 @@ describe('ContextStore', () => {
             meta: { title: 'Ship it', kind: 'steps', checks: 'anyone' },
             items: [{ type: 'step', id: 'build', title: 'Build', state: 'done', by: 'agent', at: '2026-09-16T13:41:00Z' }]
         };
-        const withPlans = new ContextStore({
+        const withPlans = storeWith({
             sources: () => [{ id: 'chat', kind: 'chat', title: 'Child' }],
-            terminalText: async () => null,
             chatItems: (id) => (id === 'chat' ? items : null),
-            chatPlans: async (id) => (id === 'chat' ? [plan] : []),
-            drawingElements: async () => null,
-            diagramDocument: async () => null
+            chatPlans: async (id) => (id === 'chat' ? [plan] : [])
         });
         const whole = await withPlans.read('agent', 'chat');
         expect(whole).toStartWith('Plan "Ship it" (plan-1, steps, rev 2): 1 of 1 done');
@@ -305,18 +314,15 @@ describe('a chat read with its usage', () => {
         selection: { model: 'opus', options: {} },
         usage: { contextTokens: 50_000, contextWindow: 200_000, costUsd: 0.4, turns: 3, cacheTtlMs: 300_000, cacheExpiresAt: NOW + 252_000 }
     };
-    const withUsage = new ContextStore({
+    const withUsage = storeWith({
         sources: () => [
             { id: 'chat', kind: 'chat', title: 'Child' },
             { id: 'note', kind: 'text', title: 'Sprint', text: 'ship it' }
         ],
-        terminalText: async () => null,
         chatItems: (id) => (id === 'chat' ? items : null),
         chatInfo: (id) => (id === 'chat' ? info : null),
         subagentItems: async () => items,
-        now: () => NOW,
-        drawingElements: async () => null,
-        diagramDocument: async () => null
+        now: () => NOW
     });
 
     test('starts with one line of model, context and prompt cache, and a tail keeps it', async () => {
@@ -519,12 +525,11 @@ describe('a request in a thread', () => {
 });
 
 describe('a subagent of a linked chat', () => {
-    const subagentStore = new ContextStore({
+    const subagentStore = storeWith({
         sources: () => [
             { id: 'chat', kind: 'chat', title: 'planner' },
             { id: 'note', kind: 'text', title: 'Sprint', text: 'ship it' }
         ],
-        terminalText: async () => null,
         chatItems: (id) => (id === 'chat' ? items : null),
         subagentItems: async (chatId, toolUseId) => {
             if (chatId !== 'chat' || toolUseId !== 'toolu_1') {
@@ -534,9 +539,7 @@ describe('a subagent of a linked chat', () => {
                 { id: 'p', kind: 'user', createdAt: 1, turnId: null, text: 'Survey the docs' },
                 { id: 'r', kind: 'assistant', createdAt: 2, turnId: null, text: 'A guide is missing.', streaming: false }
             ];
-        },
-        drawingElements: async () => null,
-        diagramDocument: async () => null
+        }
     });
 
     const ask = (path: string) => route(subagentStore)(path, 'tok');
@@ -676,12 +679,8 @@ describe('an artifact node read', () => {
         { id: 'latest', kind: 'artifact', title: 'Morning summary', artifact: { id: 'art-1' } },
         { id: 'pinned', kind: 'artifact', title: 'Morning summary', artifact: { id: 'art-1', version: 'ver-1' } }
     ];
-    const reading = new ContextStore({
+    const reading = storeWith({
         sources: () => sources,
-        terminalText: async () => null,
-        chatItems: () => null,
-        drawingElements: async () => null,
-        diagramDocument: async () => null,
         artifactReport: async (targetId, artifact) => (projectOf[targetId] ? artifactReport(output, projectOf[targetId], artifact) : null)
     });
 
@@ -699,12 +698,8 @@ describe('an artifact node read', () => {
 
 describe('a routine node read', () => {
     const sources: ContextSource[] = [{ id: 'morning-node', kind: 'routine', title: 'Morning summary', routine: 'morning' }];
-    const reading = new ContextStore({
+    const reading = storeWith({
         sources: () => sources,
-        terminalText: async () => null,
-        chatItems: () => null,
-        drawingElements: async () => null,
-        diagramDocument: async () => null,
         routineReport: async (targetId, routineId) => (targetId === 'agent' && routineId === 'morning' ? 'routine\tmorning\nrun\trun-1' : null)
     });
 

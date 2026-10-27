@@ -123,12 +123,13 @@ describe('verbsNote', () => {
     test('names computer use only while it is on for this machine', () => {
         for (const standalone of [false, true]) {
             expect(verbsNote({ depth: 0, standalone })).not.toContain('computer');
-            expect(verbsNote({ depth: 0, standalone, computer: true })).toContain('`ruimte-context computer`');
+            const note = verbsNote({ depth: 0, standalone, computer: true });
+            expect(note).toContain('`ruimte-context computer`');
             // A person who paused or stopped the agent is waited for, not called around.
-            expect(verbsNote({ depth: 0, standalone, computer: true })).toContain('pause you, take over or stop you');
-            expect(verbsNote({ depth: 0, standalone, computer: true })).toContain('instead of calling again in a loop');
-            expect(verbsNote({ depth: 0, standalone, computer: true })).toContain('You work in the background by default');
-            expect(verbsNote({ depth: 0, standalone, computer: true })).toContain('ask them before you use `--front`');
+            expect(note).toContain('pause you, take over or stop you');
+            expect(note).toContain('instead of calling again in a loop');
+            expect(note).toContain('You work in the background by default');
+            expect(note).toContain('ask them before you use `--front`');
         }
         expect(hookContext('SessionStart', [], { computer: true })).toContain('`ruimte-context computer`');
         expect(chatPrompt({ sources: [], depth: 0, computer: true })).toContain('`ruimte-context computer`');
