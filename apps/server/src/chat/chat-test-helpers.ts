@@ -23,6 +23,17 @@ export function processAlive(pid: number): boolean {
     }
 }
 
+/* Ends a process that may already be gone; any other failure to signal it is a real one. */
+export function killQuietly(pid: number): void {
+    try {
+        process.kill(pid, 'SIGKILL');
+    } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ESRCH') {
+            throw error;
+        }
+    }
+}
+
 /*
  * What one client of a chat has seen. `until` is checked again on every event instead of on a
  * clock, so a test waits exactly as long as the chat takes and a wait that never ends is a bug.
@@ -76,6 +87,11 @@ export class ChatRecorder {
     /* Whether the CLI runs and waits for a prompt, with no turn open. */
     get idle(): boolean {
         return this.info?.status === 'idle' && this.info.running && this.info.activeTurnId === null;
+    }
+
+    /* Whether the CLI went away and the chat says so. */
+    get crashed(): boolean {
+        return this.info?.running === false && this.info.status === 'error';
     }
 
     untilIdle(): Promise<void> {

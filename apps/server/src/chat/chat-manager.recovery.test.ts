@@ -11,8 +11,10 @@ let claude: ChatFixture['claude'];
 let manager: ChatFixture['manager'];
 let recorder: ChatFixture['recorder'];
 let makeManager: ChatFixture['makeManager'];
+let remake: ChatFixture['remake'];
+let open: ChatFixture['open'];
 beforeEach(async () => {
-    ({ home, store, claude, manager, recorder, makeManager } = await makeChatFixture());
+    ({ home, store, claude, manager, recorder, makeManager, open, remake } = await makeChatFixture());
 });
 afterEach(async () => {
     await retire(manager);
@@ -20,10 +22,9 @@ afterEach(async () => {
 });
 
 test('a CLI that dies mid-turn leaves an error note and the chat can go on', async () => {
-    await manager.create({ chatId: 'chat-6', cwd: home });
-    manager.attach('chat-6', 'c1');
+    await open(manager, 'chat-6');
     await manager.send('chat-6', 'crash');
-    await recorder.until(() => recorder.info?.running === false && recorder.info.status === 'error');
+    await recorder.until(() => recorder.crashed);
     expect(recorder.ofKind('note')[0]).toMatchObject({ level: 'error', text: 'Claude Code exited with code 1' });
     expect(recorder.ofKind('turn')[0]?.state).toBe('error');
 
@@ -36,8 +37,7 @@ test('a CLI that dies mid-turn leaves an error note and the chat can go on', asy
 test('a turn the plan refused ends in an error that names the limit and its reset, and the chat can go on', async () => {
     const now = jest.spyOn(Date, 'now').mockReturnValue(1000);
     try {
-        await manager.create({ chatId: 'chat-limit', cwd: home });
-        manager.attach('chat-limit', 'c1');
+        await open(manager, 'chat-limit');
         await manager.send('chat-limit', 'limit:1789000000');
         await recorder.untilIdle();
         expect(recorder.ofKind('turn')[0]).toMatchObject({ state: 'error', limit: { kind: 'usage', resetsAt: 1_789_000_000_000 } });
@@ -60,22 +60,20 @@ test('a turn the plan refused ends in an error that names the limit and its rese
 });
 
 test('a CLI that dies with something on stderr leaves the last lines of it in the note', async () => {
-    await manager.create({ chatId: 'chat-loud', cwd: home });
-    manager.attach('chat-loud', 'c1');
+    await open(manager, 'chat-loud');
     await manager.send('chat-loud', 'crash loudly');
-    await recorder.until(() => recorder.info?.running === false && recorder.info.status === 'error');
+    await recorder.until(() => recorder.crashed);
     const tail = [...Array<string>(8).fill('warming up'), 'Error: the fake lost its key', '    at handleUser (fake-claude.ts)'].join('\n');
     expect(recorder.ofKind('note')[0]).toMatchObject({ level: 'error', text: `Claude Code exited with code 1\n\n\`\`\`\n${tail}\n\`\`\`` });
 });
 
 test('what a crashed CLI left queued goes out before the next message, in the order it was sent', async () => {
-    await manager.create({ chatId: 'chat-cq', cwd: home });
-    manager.attach('chat-cq', 'c1');
+    await open(manager, 'chat-cq');
     await manager.send('chat-cq', 'slow');
     await manager.send('chat-cq', 'B');
     await manager.send('chat-cq', 'C');
     claude.started[0]!.crash(1);
-    await recorder.until(() => recorder.info?.running === false && recorder.info.status === 'error');
+    await recorder.until(() => recorder.crashed);
     expect(recorder.info?.queue?.map((message) => message.text)).toEqual(['B', 'C']);
 
     expect(await manager.send('chat-cq', 'D')).toMatchObject({ queued: true });
@@ -86,8 +84,7 @@ test('what a crashed CLI left queued goes out before the next message, in the or
 });
 
 test('the record holds a turn while it is still running', async () => {
-    await manager.create({ chatId: 'chat-open', cwd: home });
-    manager.attach('chat-open', 'c1');
+    await open(manager, 'chat-open');
     await manager.send('chat-open', 'slow');
     await store.written('chat-open', (record) => record.items.some((item) => item.kind === 'turn' && item.state === 'running'));
 
@@ -100,8 +97,7 @@ test('the record holds a turn while it is still running', async () => {
 });
 
 test('kill drops the thread and its record, after the write that was still out', async () => {
-    await manager.create({ chatId: 'chat-7', cwd: home });
-    manager.attach('chat-7', 'c1');
+    await open(manager, 'chat-7');
     // The first write of a chat is the whole record, later changes only go to its log.
     const held = store.holdNextWrite('chat-7');
     await manager.send('chat-7', 'x');
@@ -120,8 +116,7 @@ test('kill drops the thread and its record, after the write that was still out',
 });
 
 test('messages sent during a turn queue in order and go out when it settles', async () => {
-    await manager.create({ chatId: 'chat-q', cwd: home });
-    manager.attach('chat-q', 'c1');
+    await open(manager, 'chat-q');
     const first = await manager.send('chat-q', 'first');
     const second = await manager.send('chat-q', 'second');
     const third = await manager.send('chat-q', 'third');
@@ -138,8 +133,7 @@ test('messages sent during a turn queue in order and go out when it settles', as
 });
 
 test('a queued message can be dropped, and the queue survives a reload', async () => {
-    await manager.create({ chatId: 'chat-q2', cwd: home });
-    manager.attach('chat-q2', 'c1');
+    await open(manager, 'chat-q2');
     // A turn that waits for an interrupt keeps the queue from draining while the test looks at it.
     await manager.send('chat-q2', 'slow');
     await manager.send('chat-q2', 'dropped');
@@ -157,8 +151,7 @@ test('a queued message can be dropped, and the queue survives a reload', async (
 });
 
 test('a queued message taken back to edit comes back whole, and one that already went out comes back as nothing', async () => {
-    await manager.create({ chatId: 'chat-q4', cwd: home });
-    manager.attach('chat-q4', 'c1');
+    await open(manager, 'chat-q4');
     await manager.send('chat-q4', 'slow');
     const upload = { name: 'note.txt', mime: 'text/plain', data: Buffer.from('hello').toString('base64') };
     await manager.send('chat-q4', 'see @src/a.ts', { mentions: ['src/a.ts'], skills: ['review'] }, [upload]);
@@ -182,8 +175,7 @@ test('a queued message taken back to edit comes back whole, and one that already
 });
 
 test('send now stops the running turn and puts that message first', async () => {
-    await manager.create({ chatId: 'chat-q3', cwd: home });
-    manager.attach('chat-q3', 'c1');
+    await open(manager, 'chat-q3');
     await manager.send('chat-q3', 'slow');
     await manager.send('chat-q3', 'waiting');
     await manager.send('chat-q3', 'urgent');
@@ -196,8 +188,7 @@ test('send now stops the running turn and puts that message first', async () => 
 
 describe('clearing a chat', () => {
     test('empties the thread on disk and the next send starts the CLI without resuming', async () => {
-        await manager.create({ chatId: 'chat-clear', cwd: home, selection: { model: 'opus', options: {} } });
-        manager.attach('chat-clear', 'c1');
+        await open(manager, 'chat-clear', { selection: { model: 'opus', options: {} } });
         await manager.send('chat-clear', 'first');
         await recorder.untilIdle();
         const first = recorder.info!;
@@ -259,12 +250,9 @@ describe('clearing a chat', () => {
     test('a running turn is refused without force; with force the CLI goes and nothing of the turn comes back', async () => {
         const diff: ChatCheckpointDiff = { files: [{ path: 'seed.txt', kind: 'update', added: 1, deleted: 1, diff: '-seed\n+other\n' }], truncated: false };
         const checkpoints = new FakeCheckpoints('b'.repeat(40), diff);
-        await retire(manager);
-        manager = makeManager({ checkpoints });
-        manager.subscribe('c1', recorder.sink());
+        manager = await remake(manager, { checkpoints });
 
-        await manager.create({ chatId: 'chat-busy', cwd: home });
-        manager.attach('chat-busy', 'c1');
+        await open(manager, 'chat-busy');
         await manager.send('chat-busy', 'tool: date');
         await manager.send('chat-busy', 'queued');
         await recorder.until(() => recorder.info?.status === 'needs-you' && recorder.ofKind('turn')[0]?.checkpoint !== undefined);

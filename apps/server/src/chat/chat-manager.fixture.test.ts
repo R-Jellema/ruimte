@@ -37,12 +37,24 @@ export async function makeChatFixture() {
     const manager = makeManager();
     const recorder = new ChatRecorder();
     manager.subscribe('c1', recorder.sink());
+    // A restart: the old manager goes, a new one reads the same store and the first client listens again.
+    async function remake(current: ChatManager, extra: Parameters<typeof makeManager>[0] = {}): Promise<ChatManager> {
+        await retire(current);
+        const next = makeManager(extra);
+        next.subscribe('c1', recorder.sink());
+        return next;
+    }
+    async function open(target: ChatManager, chatId: string, request: Partial<Parameters<ChatManager['create']>[0]> = {}) {
+        const info = await target.create({ chatId, cwd: home, ...request });
+        target.attach(chatId, 'c1');
+        return info;
+    }
     function subagentWork(): Array<Extract<ChatItem, { kind: 'tool' | 'assistant' }>> {
         return [...recorder.items.values()].filter(
             (item): item is Extract<ChatItem, { kind: 'tool' | 'assistant' }> =>
                 (item.kind === 'tool' || item.kind === 'assistant') && Boolean(item.parentToolUseId)
         );
     }
-    return { home, attachments, store, claude, manager, recorder, makeManager, subagentWork };
+    return { home, attachments, store, claude, manager, recorder, makeManager, remake, open, subagentWork };
 }
 export { FIXTURE, LINKED };

@@ -7,7 +7,7 @@ import { ProviderRegistry } from '../providers/registry.ts';
 import { waitFor } from '../sessions/test-helpers.ts';
 import { AttachmentStore } from '@adecore/agents/chat';
 import { ChatManager } from './chat-manager.ts';
-import { ChatRecorder, processAlive } from './chat-test-helpers.ts';
+import { ChatRecorder, killQuietly, processAlive } from './chat-test-helpers.ts';
 import { retire } from './chat-manager.fixture.test.ts';
 
 /*
@@ -42,37 +42,35 @@ afterEach(async () => {
     await rm(home, { recursive: true, force: true });
 });
 
-function crashed() {
-    return recorder.info?.running === false && recorder.info.status === 'error';
+async function open(chatId: string, request: Partial<Parameters<ChatManager['create']>[0]> = {}): Promise<void> {
+    await manager.create({ chatId, cwd: home, ...request });
+    manager.attach(chatId, 'c1');
 }
 
 describe('ChatManager over real processes', () => {
     test('Claude Code answers over its pipes and a crash reports the exit code', async () => {
-        await manager.create({ chatId: 'chat-claude', cwd: home });
-        manager.attach('chat-claude', 'c1');
+        await open('chat-claude');
         await manager.send('chat-claude', 'hello there');
         await waitFor(() => recorder.idle, 'the Claude turn to end');
         expect(recorder.ofKind('assistant').map((item) => item.text)).toEqual(['echo: hello there']);
         expect(manager.get('chat-claude')?.pid).toBeGreaterThan(0);
 
         await manager.send('chat-claude', 'crash');
-        await waitFor(crashed, 'the Claude process to exit');
+        await waitFor(() => recorder.crashed, 'the Claude process to exit');
         expect(recorder.ofKind('note').at(-1)).toMatchObject({ level: 'error', text: 'Claude Code exited with code 1' });
     });
 
     test('a crash says what Claude Code wrote on stderr last, read to the end of the pipe', async () => {
-        await manager.create({ chatId: 'chat-loud', cwd: home });
-        manager.attach('chat-loud', 'c1');
+        await open('chat-loud');
         await manager.send('chat-loud', 'crash loudly');
-        await waitFor(crashed, 'the Claude process to exit');
+        await waitFor(() => recorder.crashed, 'the Claude process to exit');
         const note = recorder.ofKind('note').at(-1);
         expect(note?.text.startsWith('Claude Code exited with code 1\n\n```\n')).toBe(true);
         expect(note?.text.endsWith('Error: the fake lost its key\n    at handleUser (fake-claude.ts)\n```')).toBe(true);
     });
 
     test('a disposed chat takes along what its CLI started, not only the CLI', async () => {
-        await manager.create({ chatId: 'chat-tree', cwd: home });
-        manager.attach('chat-tree', 'c1');
+        await open('chat-tree');
         await manager.send('chat-tree', 'start a grandchild');
         await waitFor(() => recorder.idle, 'the Claude turn to end');
         const pid = Number(/^grandchild (\d+)$/.exec(recorder.ofKind('assistant')[0]?.text ?? '')?.[1]);
@@ -83,28 +81,20 @@ describe('ChatManager over real processes', () => {
             await waitFor(() => !processAlive(pid), 'the grandchild to go');
         } finally {
             if (pid > 0) {
-                try {
-                    process.kill(pid, 'SIGKILL');
-                } catch (error) {
-                    if ((error as NodeJS.ErrnoException).code !== 'ESRCH') {
-                        // eslint-disable-next-line no-unsafe-finally -- Unexpected cleanup errors must fail the test.
-                        throw error;
-                    }
-                }
+                killQuietly(pid);
             }
         }
     });
 
     test('Codex answers over its pipes and a crash reports the exit code', async () => {
-        await manager.create({ chatId: 'chat-codex', provider: 'codex', cwd: home });
-        manager.attach('chat-codex', 'c1');
+        await open('chat-codex', { provider: 'codex' });
         await manager.send('chat-codex', 'hello there');
         await waitFor(() => recorder.idle, 'the Codex turn to end');
         expect(recorder.ofKind('assistant').map((item) => item.text)).toEqual(['echo: hello there (medium)']);
         expect(manager.get('chat-codex')?.pid).toBeGreaterThan(0);
 
         await manager.send('chat-codex', 'crash');
-        await waitFor(crashed, 'the Codex process to exit');
+        await waitFor(() => recorder.crashed, 'the Codex process to exit');
         expect(recorder.ofKind('note').at(-1)).toMatchObject({ level: 'error', text: 'Codex exited with code 1' });
     });
 });

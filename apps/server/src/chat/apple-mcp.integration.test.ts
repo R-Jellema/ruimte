@@ -5,7 +5,9 @@ import { join } from 'node:path';
 import { waitFor, waitForAsync } from '../sessions/test-helpers.ts';
 import { connectAppleMcp, type AppleMcpConnection, type AppleMcpServer } from './apple-mcp.ts';
 import { AppleStdioTransport } from './apple-mcp-stdio.ts';
-import { processAlive } from './chat-test-helpers.ts';
+import { killQuietly, processAlive } from './chat-test-helpers.ts';
+
+const NEVER_ABORTED = new AbortController().signal;
 
 let cwd: string;
 const fixture = String.raw`
@@ -51,13 +53,7 @@ afterEach(async () => {
     for (const name of ['server.pid', 'descendant.pid']) {
         const pid = Number(await readFile(join(cwd, name), 'utf8').catch(() => '0'));
         if (pid > 0) {
-            try {
-                process.kill(pid, 'SIGKILL');
-            } catch (error) {
-                if ((error as NodeJS.ErrnoException).code !== 'ESRCH') {
-                    throw error;
-                }
-            }
+            killQuietly(pid);
         }
     }
     await rm(cwd, { recursive: true, force: true });
@@ -76,15 +72,15 @@ describe('Apple MCP real stdio connection', () => {
             server({ EXPLICIT_TOKEN: '${ACCOUNT_TOKEN}' }),
             cwd,
             { PATH: '/usr/bin:/bin', ACCOUNT_TOKEN: 'fixture-token', UNRELATED_SECRET: 'must-not-inherit' },
-            new AbortController().signal
+            NEVER_ABORTED
         );
         try {
-            expect((await connection.list(new AbortController().signal)).map((tool) => tool.name)).toEqual(['echo', 'fail', 'hang']);
-            const result = await connection.call('echo', { message: 'hello' }, new AbortController().signal);
+            expect((await connection.list(NEVER_ABORTED)).map((tool) => tool.name)).toEqual(['echo', 'fail', 'hang']);
+            const result = await connection.call('echo', { message: 'hello' }, NEVER_ABORTED);
             expect(result.isError).toBe(false);
             const text = result.content.find((block) => block.type === 'text');
             expect(text?.type === 'text' && JSON.parse(text.text)).toEqual({ message: 'hello', explicit: 'fixture-token' });
-            expect((await connection.call('fail', {}, new AbortController().signal)).isError).toBe(true);
+            expect((await connection.call('fail', {}, NEVER_ABORTED)).isError).toBe(true);
         } finally {
             await connection.close();
         }
@@ -95,7 +91,7 @@ describe('Apple MCP real stdio connection', () => {
     });
 
     test('aborts a pending tool request and leaves the connection closable', async () => {
-        const connection = await connectAppleMcp(server(), cwd, {}, new AbortController().signal);
+        const connection = await connectAppleMcp(server(), cwd, {}, NEVER_ABORTED);
         const controller = new AbortController();
         try {
             const pending = connection.call('hang', {}, controller.signal);
@@ -135,10 +131,7 @@ describe('Apple MCP real stdio connection', () => {
             cwd
         });
         let error: Error | undefined;
-        let settle!: () => void;
-        const closed = new Promise<void>((resolve) => {
-            settle = resolve;
-        });
+        const { promise: closed, resolve: settle } = Promise.withResolvers<void>();
         transport.onerror = (value) => {
             error = value;
         };
@@ -157,10 +150,7 @@ describe('Apple MCP configured HTTP connection', () => {
     test('negotiates, calls the configured local server with headers, and cancels a pending request', async () => {
         const requests: Array<{ method: string; authorization: string | null }> = [];
         let finishHang: (() => void) | undefined;
-        let startedHang!: () => void;
-        const hanging = new Promise<void>((resolve) => {
-            startedHang = resolve;
-        });
+        const { promise: hanging, resolve: startedHang } = Promise.withResolvers<void>();
         const http = Bun.serve({
             hostname: '127.0.0.1',
             port: 0,
@@ -214,10 +204,10 @@ describe('Apple MCP configured HTTP connection', () => {
                 { url: `http://127.0.0.1:${http.port}/mcp`, headers: { Authorization: 'Bearer ${ACCOUNT_TOKEN}' } },
                 cwd,
                 { ACCOUNT_TOKEN: 'configured-secret' },
-                new AbortController().signal
+                NEVER_ABORTED
             );
-            expect((await connection.list(new AbortController().signal)).map((tool) => tool.name)).toEqual(['echo', 'hang']);
-            const result = await connection.call('echo', { message: 'HTTP tool result' }, new AbortController().signal);
+            expect((await connection.list(NEVER_ABORTED)).map((tool) => tool.name)).toEqual(['echo', 'hang']);
+            const result = await connection.call('echo', { message: 'HTTP tool result' }, NEVER_ABORTED);
             expect(result.content).toEqual([{ type: 'text', text: 'HTTP tool result' }]);
             expect(requests.every((request) => request.authorization === 'Bearer configured-secret')).toBe(true);
             const controller = new AbortController();
@@ -233,10 +223,7 @@ describe('Apple MCP configured HTTP connection', () => {
     });
 
     test('aborts an HTTP discovery request before the handshake timeout', async () => {
-        let started!: () => void;
-        const received = new Promise<void>((resolve) => {
-            started = resolve;
-        });
+        const { promise: received, resolve: started } = Promise.withResolvers<void>();
         let finish!: () => void;
         const http = Bun.serve({
             hostname: '127.0.0.1',
@@ -294,12 +281,7 @@ describe('Apple MCP configured HTTP connection', () => {
         });
         try {
             await expect(
-                connectAppleMcp(
-                    { url: `http://127.0.0.1:${redirect.port}/mcp`, headers: { Authorization: 'Bearer must-not-forward' } },
-                    cwd,
-                    {},
-                    new AbortController().signal
-                )
+                connectAppleMcp({ url: `http://127.0.0.1:${redirect.port}/mcp`, headers: { Authorization: 'Bearer must-not-forward' } }, cwd, {}, NEVER_ABORTED)
             ).rejects.toThrow();
             expect(received).toBe(false);
         } finally {

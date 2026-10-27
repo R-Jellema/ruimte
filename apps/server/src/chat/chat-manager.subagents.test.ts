@@ -6,16 +6,42 @@ import { ChatManager } from './chat-manager.ts';
 import { FakeWatch } from '@adecore/agents/testing';
 import { makeChatFixture, retire, FIXTURE } from './chat-manager.fixture.test.ts';
 
+const SESSION = '5f1c2a9e-0b7d-4c1e-9a53-3e2f8d6b7a10';
+
+function subagentRow(toolUseId: string, overrides: Partial<ChatSubagentItem> = {}): ChatSubagentItem {
+    return {
+        id: `1:${toolUseId}`,
+        kind: 'subagent',
+        createdAt: 1,
+        turnId: null,
+        toolUseId,
+        description: 'Review the branch',
+        subagentType: 'general-purpose',
+        prompt: null,
+        background: true,
+        status: 'running',
+        startedAt: 1,
+        finishedAt: null,
+        summary: null,
+        result: null,
+        usage: null,
+        lastTool: null,
+        itemsTruncated: false,
+        ...overrides
+    };
+}
+
 type ChatFixture = Awaited<ReturnType<typeof makeChatFixture>>;
 let home: ChatFixture['home'];
 let store: ChatFixture['store'];
 let claude: ChatFixture['claude'];
 let manager: ChatFixture['manager'];
 let recorder: ChatFixture['recorder'];
-let makeManager: ChatFixture['makeManager'];
+let remake: ChatFixture['remake'];
+let open: ChatFixture['open'];
 let subagentWork: ChatFixture['subagentWork'];
 beforeEach(async () => {
-    ({ home, store, claude, manager, recorder, makeManager, subagentWork } = await makeChatFixture());
+    ({ home, store, claude, manager, recorder, open, remake, subagentWork } = await makeChatFixture());
 });
 afterEach(async () => {
     await retire(manager);
@@ -23,8 +49,7 @@ afterEach(async () => {
 });
 
 test('an agent a background subagent opened hangs under it, and the turn it wakes is about its parent', async () => {
-    await manager.create({ chatId: 'chat-nested', cwd: home });
-    manager.attach('chat-nested', 'c1');
+    await open(manager, 'chat-nested');
     await manager.send('chat-nested', 'nested: the chain is done');
     await recorder.untilIdle();
 
@@ -40,8 +65,7 @@ test('an agent a background subagent opened hangs under it, and the turn it wake
 });
 
 test("a workflow's row carries its phases and agents from the progress reports, and settles with its task", async () => {
-    await manager.create({ chatId: 'chat-wf', cwd: home });
-    manager.attach('chat-wf', 'c1');
+    await open(manager, 'chat-wf');
     await manager.send('chat-wf', 'workflow: Write a file, then read it');
     await recorder.untilIdle();
     const phases = [
@@ -70,8 +94,7 @@ test("a workflow's row carries its phases and agents from the progress reports, 
 });
 
 test("a background agent's approval outlives the turn, and a person allowing it later lets the agent finish", async () => {
-    await manager.create({ chatId: 'chat-ask', cwd: home });
-    manager.attach('chat-ask', 'c1');
+    await open(manager, 'chat-ask');
     await manager.send('chat-ask', 'background approval: ls');
     await recorder.until(() => recorder.ofKind('turn')[0]?.state === 'done');
 
@@ -87,8 +110,7 @@ test("a background agent's approval outlives the turn, and a person allowing it 
 });
 
 test("a message after a background agent asked between turns settles on the CLI's own result", async () => {
-    await manager.create({ chatId: 'chat-late-ask', cwd: home });
-    manager.attach('chat-late-ask', 'c1');
+    await open(manager, 'chat-late-ask');
     await manager.send('chat-late-ask', 'background approval: ls\nlate');
     await recorder.until(() => recorder.ofKind('turn')[0]?.state === 'done' && recorder.idle);
 
@@ -107,8 +129,7 @@ test("a message after a background agent asked between turns settles on the CLI'
 });
 
 test("stopping the turn cancels a background agent's approval and turns it down for the CLI", async () => {
-    await manager.create({ chatId: 'chat-stop-ask', cwd: home });
-    manager.attach('chat-stop-ask', 'c1');
+    await open(manager, 'chat-stop-ask');
     await manager.send('chat-stop-ask', 'background approval: ls\nslow');
     await recorder.until(() => recorder.items.get('approval-req-bg') !== undefined);
     expect(recorder.info?.status).toBe('needs-you');
@@ -122,8 +143,7 @@ test("stopping the turn cancels a background agent's approval and turns it down 
 });
 
 test('a background subagent that settles opens a turn of the agent, with the summary as its label', async () => {
-    await manager.create({ chatId: 'chat-bg', cwd: home });
-    manager.attach('chat-bg', 'c1');
+    await open(manager, 'chat-bg');
     await manager.send('chat-bg', 'background: report written');
     await recorder.untilIdle();
     expect(recorder.ofKind('turn')).toHaveLength(1);
@@ -169,8 +189,7 @@ test('a background subagent that settles opens a turn of the agent, with the sum
 });
 
 test('a foreground subagent settles from its own call, without the footer the CLI appends', async () => {
-    await manager.create({ chatId: 'chat-delegate', cwd: home });
-    manager.attach('chat-delegate', 'c1');
+    await open(manager, 'chat-delegate');
     await manager.send('chat-delegate', 'delegate: read the readme');
     await recorder.untilIdle();
 
@@ -193,8 +212,7 @@ test('a foreground subagent settles from its own call, without the footer the CL
 });
 
 test('a subagent whose work arrives before the CLI says it started keeps that work on its own row', async () => {
-    await manager.create({ chatId: 'chat-early', cwd: home });
-    manager.attach('chat-early', 'c1');
+    await open(manager, 'chat-early');
     await manager.send('chat-early', 'delegate late: read the readme');
     await recorder.untilIdle();
 
@@ -226,8 +244,7 @@ test('a subagent whose work arrives before the CLI says it started keeps that wo
 });
 
 test('a background subagent that works on after its turn ended writes on its own row and opens a turn only once it settles', async () => {
-    await manager.create({ chatId: 'chat-later', cwd: home });
-    manager.attach('chat-later', 'c1');
+    await open(manager, 'chat-later');
     await manager.send('chat-later', 'background: report written');
     await recorder.untilIdle();
     const launched = recorder.ofKind('turn')[0]!;
@@ -260,35 +277,12 @@ test('a background subagent that works on after its turn ended writes on its own
 });
 
 describe('the conversation of a Claude subagent', () => {
-    const SESSION = '5f1c2a9e-0b7d-4c1e-9a53-3e2f8d6b7a10';
-
     test('is read beside the session with no CLI running, notes its agent on the row, and lets go with the socket', async () => {
-        await retire(manager);
         const watch = new FakeWatch();
-        manager = makeManager({ subagents: { claudeProjectsDir: FIXTURE, seams: watch } });
-        manager.subscribe('c1', recorder.sink());
-        await manager.create({ chatId: 'chat-sub', cwd: '/work/demo', resume: SESSION });
-        manager.attach('chat-sub', 'c1');
+        manager = await remake(manager, { subagents: { claudeProjectsDir: FIXTURE, seams: watch } });
+        await open(manager, 'chat-sub', { cwd: '/work/demo', resume: SESSION });
         const session = manager.get('chat-sub')!;
-        session.thread.upsert({
-            id: '1:toolu_01ParentAgentCall',
-            kind: 'subagent',
-            createdAt: 1,
-            turnId: null,
-            toolUseId: 'toolu_01ParentAgentCall',
-            description: 'Survey the docs',
-            subagentType: 'general-purpose',
-            prompt: null,
-            background: false,
-            status: 'done',
-            startedAt: 1,
-            finishedAt: 2,
-            summary: null,
-            result: null,
-            usage: null,
-            lastTool: null,
-            itemsTruncated: false
-        });
+        session.thread.upsert(subagentRow('toolu_01ParentAgentCall', { description: 'Survey the docs', background: false, status: 'done', finishedAt: 2 }));
 
         const page = await manager.subagent('c1', { chatId: 'chat-sub', toolUseId: 'toolu_01ParentAgentCall', watch: true });
         expect(page).toMatchObject({ source: 'claude-transcript', live: false });
@@ -310,28 +304,10 @@ describe('the conversation of a Claude subagent', () => {
 });
 
 describe('a background subagent whose CLI is gone', () => {
-    const SESSION = '5f1c2a9e-0b7d-4c1e-9a53-3e2f8d6b7a10';
     const CALL = 'toolu_01ChildAgentCall';
 
-    const runningRow = (toolUseId: string, id = `1:${toolUseId}`): ChatSubagentItem => ({
-        id,
-        kind: 'subagent',
-        createdAt: 1,
-        turnId: 'turn-1',
-        toolUseId,
-        description: 'Count the headings',
-        subagentType: 'general-purpose',
-        prompt: null,
-        background: true,
-        status: 'running',
-        startedAt: 1,
-        finishedAt: null,
-        summary: 'Running grep',
-        result: null,
-        usage: null,
-        lastTool: 'Bash',
-        itemsTruncated: false
-    });
+    const runningRow = (toolUseId: string): ChatSubagentItem =>
+        subagentRow(toolUseId, { turnId: 'turn-1', description: 'Count the headings', summary: 'Running grep', lastTool: 'Bash' });
 
     const storedInfo = (chatId: string, provider: ChatInfo['provider']): ChatInfo => ({
         chatId,
@@ -361,8 +337,7 @@ describe('a background subagent whose CLI is gone', () => {
 
     test('settles as done on load when its transcript shows the end, which the next load keeps', async () => {
         await store.write('chat-stale', storedInfo('chat-stale', 'claude'), [runningRow(CALL)]);
-        await retire(manager);
-        manager = makeManager({ subagents: { claudeProjectsDir: projects, seams: new FakeWatch() } });
+        manager = await remake(manager, { subagents: { claudeProjectsDir: projects, seams: new FakeWatch() } });
 
         await manager.create({ chatId: 'chat-stale' });
         expect(rowOf(manager, 'chat-stale', CALL)).toMatchObject({
@@ -386,9 +361,7 @@ describe('a background subagent whose CLI is gone', () => {
         });
         await writeFile(transcript, `${[...lines, toolCall].join('\n')}\n`);
         await store.write('chat-working', storedInfo('chat-working', 'claude'), [runningRow(CALL)]);
-        await retire(manager);
-        manager = makeManager({ subagents: { claudeProjectsDir: projects, seams: new FakeWatch() } });
-        manager.subscribe('c1', recorder.sink());
+        manager = await remake(manager, { subagents: { claudeProjectsDir: projects, seams: new FakeWatch() } });
 
         await manager.create({ chatId: 'chat-working' });
         expect(rowOf(manager, 'chat-working', CALL)).toMatchObject({ status: 'failed', finishedAt: expect.any(Number) });
@@ -406,8 +379,7 @@ describe('a background subagent whose CLI is gone', () => {
 
     test('a Codex agent was running inside the app-server that went down, so a load settles it as failed', async () => {
         await store.write('chat-codex', storedInfo('chat-codex', 'codex'), [{ ...runningRow('collab_1'), native: { threadId: 'child-1' } }]);
-        await retire(manager);
-        manager = makeManager({ subagents: { claudeProjectsDir: projects, seams: new FakeWatch() } });
+        manager = await remake(manager, { subagents: { claudeProjectsDir: projects, seams: new FakeWatch() } });
 
         await manager.create({ chatId: 'chat-codex' });
         expect(rowOf(manager, 'chat-codex', 'collab_1')).toMatchObject({ status: 'failed', finishedAt: expect.any(Number) });
@@ -427,11 +399,8 @@ describe('a background subagent whose CLI is gone', () => {
                 `${JSON.stringify({ type: 'assistant', timestamp: '2026-09-16T09:00:00.000Z', message: { id: 'm', role: 'assistant', content: [{ type: 'text', text: 'All written.' }], stop_reason: stopReason } })}\n`
             );
         }
-        await retire(manager);
-        manager = makeManager({ subagents: { claudeProjectsDir: projects, seams: new FakeWatch() } });
-        manager.subscribe('c1', recorder.sink());
-        await manager.create({ chatId: 'chat-exit', cwd: '/work/demo', resume: SESSION });
-        manager.attach('chat-exit', 'c1');
+        manager = await remake(manager, { subagents: { claudeProjectsDir: projects, seams: new FakeWatch() } });
+        await open(manager, 'chat-exit', { cwd: '/work/demo', resume: SESSION });
         await manager.send('chat-exit', 'background: report written');
         await recorder.untilIdle();
         expect(rowOf(manager, 'chat-exit', 'toolu_agent')).toMatchObject({ status: 'running' });
@@ -452,28 +421,9 @@ describe('a background subagent whose CLI is gone', () => {
 
 describe("stopping a subagent of the CLI's own", () => {
     test('is refused while the turn that may wait on it runs, and marks the row stopped with a note once none runs', async () => {
-        await manager.create({ chatId: 'chat-stop', cwd: home });
-        manager.attach('chat-stop', 'c1');
+        await open(manager, 'chat-stop');
         const session = manager.get('chat-stop')!;
-        session.thread.upsert({
-            id: '1:toolu_bg',
-            kind: 'subagent',
-            createdAt: 1,
-            turnId: null,
-            toolUseId: 'toolu_bg',
-            description: 'Review the branch',
-            subagentType: 'general-purpose',
-            prompt: null,
-            background: true,
-            status: 'running',
-            startedAt: 1,
-            finishedAt: null,
-            summary: null,
-            result: null,
-            usage: null,
-            lastTool: null,
-            itemsTruncated: false
-        });
+        session.thread.upsert(subagentRow('toolu_bg'));
 
         void manager.send('chat-stop', 'slow');
         await recorder.until(() => recorder.info?.activeTurnId !== null);

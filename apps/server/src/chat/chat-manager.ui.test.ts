@@ -3,9 +3,7 @@ import { rm } from 'node:fs/promises';
 import type { ChatBookmark } from '@ruimte/contracts';
 import type { SessionEvent } from '../sessions/manager.ts';
 import { BookmarkStore } from '@adecore/agents/chat';
-import { ChatManager } from './chat-manager.ts';
 import { INLINE_EDIT_PREAMBLE } from './inline-edit.ts';
-import { ChatRecorder } from './chat-test-helpers.ts';
 import { makeChatFixture, retire } from './chat-manager.fixture.test.ts';
 
 type ChatFixture = Awaited<ReturnType<typeof makeChatFixture>>;
@@ -13,9 +11,10 @@ let home: ChatFixture['home'];
 let store: ChatFixture['store'];
 let manager: ChatFixture['manager'];
 let recorder: ChatFixture['recorder'];
-let makeManager: ChatFixture['makeManager'];
+let remake: ChatFixture['remake'];
+let open: ChatFixture['open'];
 beforeEach(async () => {
-    ({ home, store, manager, recorder, makeManager } = await makeChatFixture());
+    ({ home, store, manager, recorder, open, remake } = await makeChatFixture());
 });
 afterEach(async () => {
     await retire(manager);
@@ -24,10 +23,8 @@ afterEach(async () => {
 
 test('a UI block reads and links only for a client that holds the chat project', async () => {
     const holders = new Set<string>();
-    await retire(manager);
-    manager = makeManager({ holdsProject: async (_chatId, clientId) => holders.has(clientId) });
-    await manager.create({ chatId: 'ui-gate', cwd: home });
-    manager.attach('ui-gate', 'c1');
+    manager = await remake(manager, { holdsProject: async (_chatId, clientId) => holders.has(clientId) });
+    await open(manager, 'ui-gate');
     const query = { chatId: 'ui-gate', itemId: 'reply', blockId: 'block', revision: '1', query: 'status' };
     const link = { chatId: 'ui-gate', itemId: 'reply', blockId: 'block', revision: '1', nodeId: 'node' };
     await expect(manager.queryUi(query, 'c1')).rejects.toThrow("Open this chat's project");
@@ -38,8 +35,7 @@ test('a UI block reads and links only for a client that holds the chat project',
 });
 
 test('a reply compiles UI blocks under the ruimte-ui fence that stored chats and agents use', async () => {
-    await manager.create({ chatId: 'ui-chat', cwd: home });
-    manager.attach('ui-chat', 'c1');
+    await open(manager, 'ui-chat');
     await manager.send('ui-chat', 'Status\n```ruimte-ui\n<Summary>Ready</Summary>\n```');
     await recorder.untilIdle();
     const [reply] = recorder.ofKind('assistant');
@@ -59,8 +55,7 @@ describe('the address of a Place', () => {
 
     test('is looked up once when the reply settles and frozen beside the block, and a later settle does not ask again', async () => {
         const asked: string[] = [];
-        await retire(manager);
-        manager = makeManager({
+        manager = await remake(manager, {
             intelligentUi: {
                 capture: async () => ({}),
                 sources: {},
@@ -70,10 +65,7 @@ describe('the address of a Place', () => {
                 }
             }
         });
-        recorder = new ChatRecorder();
-        manager.subscribe('c1', recorder.sink());
-        await manager.create({ chatId: 'map-chat', cwd: home });
-        manager.attach('map-chat', 'c1');
+        await open(manager, 'map-chat');
         await manager.send('map-chat', reply);
         await recorder.until(() => frozen() && recorder.idle);
         const blocks = Object.values(frozenBlocks());
@@ -88,18 +80,14 @@ describe('the address of a Place', () => {
     });
 
     test('a lookup that found nothing is frozen as missing with its code', async () => {
-        await retire(manager);
-        manager = makeManager({
+        manager = await remake(manager, {
             intelligentUi: {
                 capture: async () => ({}),
                 sources: {},
                 place: async () => ({ state: 'missing', code: 'no-account', reason: 'This machine is on no account.' })
             }
         });
-        recorder = new ChatRecorder();
-        manager.subscribe('c1', recorder.sink());
-        await manager.create({ chatId: 'map-chat', cwd: home });
-        manager.attach('map-chat', 'c1');
+        await open(manager, 'map-chat');
         await manager.send('map-chat', reply);
         await recorder.until(() => frozen() && recorder.idle);
         const places = Object.values(Object.values(frozenBlocks())[0]!.places ?? {});
@@ -108,18 +96,12 @@ describe('the address of a Place', () => {
 });
 
 describe('a chat an inline edit runs in', () => {
-    const inline = (): ChatManager => makeManager({ inlineChat: (chatId) => chatId === 'chat-inline' });
-
     beforeEach(async () => {
-        await retire(manager);
-        manager = inline();
-        recorder = new ChatRecorder();
-        manager.subscribe('c1', recorder.sink());
+        manager = await remake(manager, { inlineChat: (chatId) => chatId === 'chat-inline' });
     });
 
     test('hears the answer format once in front of its first prompt, and none of it shows in the thread', async () => {
-        await manager.create({ chatId: 'chat-inline', cwd: home });
-        manager.attach('chat-inline', 'c1');
+        await open(manager, 'chat-inline');
         await manager.send('chat-inline', 'make it shorter');
         await recorder.untilIdle();
         await manager.send('chat-inline', 'and rename it');
@@ -131,8 +113,7 @@ describe('a chat an inline edit runs in', () => {
     });
 
     test('says so again after the chat started over', async () => {
-        await manager.create({ chatId: 'chat-inline', cwd: home });
-        manager.attach('chat-inline', 'c1');
+        await open(manager, 'chat-inline');
         await manager.send('chat-inline', 'first');
         await recorder.untilIdle();
         await manager.clear('chat-inline');
@@ -155,14 +136,12 @@ describe('a chat an inline edit runs in', () => {
     });
 
     test('is listed like any chat once its view is, and the record forgets it was hidden', async () => {
-        await manager.create({ chatId: 'chat-inline', cwd: home });
-        manager.attach('chat-inline', 'c1');
+        await open(manager, 'chat-inline');
         await manager.send('chat-inline', 'first');
         await recorder.untilIdle();
         await store.written('chat-inline', (record) => record.info.hidden === true);
 
-        await retire(manager);
-        manager = makeManager();
+        manager = await remake(manager);
         const info = await manager.create({ chatId: 'chat-inline', cwd: home });
 
         expect(info.hidden).toBeUndefined();
@@ -171,9 +150,7 @@ describe('a chat an inline edit runs in', () => {
 
 describe('bookmarks', () => {
     test('a bookmark goes to every client reading the chat, rides on the next attach and goes with a clear', async () => {
-        await retire(manager);
-        manager = makeManager({ bookmarks: new BookmarkStore(home) });
-        manager.subscribe('c1', recorder.sink());
+        manager = await remake(manager, { bookmarks: new BookmarkStore(home) });
         const heard: Array<{ clientId: string; bookmarks: ChatBookmark[] }> = [];
         for (const clientId of ['c2', 'c3']) {
             manager.subscribe(clientId, (event: SessionEvent) => {
@@ -182,8 +159,7 @@ describe('bookmarks', () => {
                 }
             });
         }
-        await manager.create({ chatId: 'chat-b', cwd: home });
-        manager.attach('chat-b', 'c1');
+        await open(manager, 'chat-b');
         await manager.send('chat-b', 'hello  there');
         await recorder.untilIdle();
         manager.attach('chat-b', 'c2');

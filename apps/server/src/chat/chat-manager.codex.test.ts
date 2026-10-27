@@ -77,6 +77,14 @@ function needsYou() {
     return recorder.info?.status === 'needs-you';
 }
 
+// A restart: the old manager goes, a new one reads the same store and a fresh client listens.
+async function remake(extra: Partial<ConstructorParameters<typeof ChatManager>[0]> = {}): Promise<void> {
+    await retire(manager);
+    manager = makeManager(extra);
+    recorder = new ChatRecorder();
+    manager.subscribe('c1', recorder.sink());
+}
+
 async function open(chatId: string, extra: Record<string, unknown> = {}): Promise<ChatInfo> {
     const info = await manager.create({ chatId, provider: 'codex', cwd: home, ...extra });
     manager.attach(chatId, 'c1');
@@ -128,10 +136,7 @@ describe('ChatManager with Codex', () => {
         await recorder.until(() => turnInputs().length === 2 && recorder.ofKind('turn').at(-1)?.state === 'done' && recorder.idle);
         expect(turnInputs()[1]!.at(-1)).toEqual({ type: 'localImage', path: queued.path });
         const threadId = recorder.info!.agentSessionId;
-        await retire(manager);
-        manager = makeManager();
-        recorder = new ChatRecorder();
-        manager.subscribe('c1', recorder.sink());
+        await remake();
         await manager.create({ chatId: 'chat-queued-image' });
         const snapshot = manager.attach('chat-queued-image', 'c1');
         expect(snapshot.items.find((item) => item.kind === 'user' && item.attachments?.length)).toMatchObject({ attachments: [queued] });
@@ -391,9 +396,7 @@ describe('ChatManager with Codex', () => {
                 }
             };
         });
-        await retire(manager);
-        manager = makeManager({ spawn: probe.spawn });
-        manager.subscribe('c1', recorder.sink());
+        await remake({ spawn: probe.spawn });
         await open('chat-background-reply');
         await manager.send('chat-background-reply', 'first');
         await recorder.untilIdle();
@@ -446,9 +449,7 @@ describe('ChatManager with Codex', () => {
                     }
                 };
             });
-            await retire(manager);
-            manager = makeManager({ spawn: probe.spawn });
-            manager.subscribe('c1', recorder.sink());
+            await remake({ spawn: probe.spawn });
             await open('chat-child-approval');
             await manager.send('chat-child-approval', 'probe');
             await recorder.until(() => recorder.ofKind('turn')[0]?.state === 'done' && recorder.ofKind('approval')[0]?.decision === 'pending');
@@ -538,22 +539,18 @@ describe('ChatManager with Codex', () => {
     });
 
     test('a client opening an agent before its outbox start keeps the requested model', async () => {
-        await retire(manager);
-        manager = makeManager({ openingAgent: (chatId) => ({ chatId, selection: { model: 'gpt-5.6-sol', options: {} } }) });
+        await remake({ openingAgent: (chatId) => ({ chatId, selection: { model: 'gpt-5.6-sol', options: {} } }) });
         const info = await manager.create({ chatId: 'chat-model', provider: 'codex', cwd: home, selection: { model: 'gpt-6-astra', options: {} } });
         expect(info.selection.model).toBe('gpt-5.6-sol');
         await manager.configure({ chatId: 'chat-model', selection: { model: 'gpt-5.6-luna', options: {} } });
-        await retire(manager);
-        manager = makeManager({ openingAgent: (chatId) => ({ chatId, selection: { model: 'gpt-5.6-sol', options: {} } }) });
+        await remake({ openingAgent: (chatId) => ({ chatId, selection: { model: 'gpt-5.6-sol', options: {} } }) });
         const restored = await manager.create({ chatId: 'chat-model', provider: 'codex', cwd: home });
         expect(restored.selection.model).toBe('gpt-5.6-luna');
     });
 
     test('a client opening an agent before its outbox start keeps the planned mode, while a later choice survives a reload', async () => {
-        await retire(manager);
         const openingAgent = (chatId: string) => ({ chatId, runtimeMode: 'full-access' as const });
-        manager = makeManager({ openingAgent });
-        manager.subscribe('c1', recorder.sink());
+        await remake({ openingAgent });
         await open('chat-mode', { selection: { model: 'gpt-6.1-sol', options: {} }, runtimeMode: 'supervised' });
         expect(manager.get('chat-mode')?.info.runtimeMode).toBe('full-access');
         await manager.send('chat-mode', 'hello');
@@ -561,16 +558,13 @@ describe('ChatManager with Codex', () => {
         expect(recorder.info?.model).toBe('gpt-6.1-sol never danger-full-access');
 
         manager.configure({ chatId: 'chat-mode', runtimeMode: 'supervised' });
-        await retire(manager);
-        manager = makeManager({ openingAgent });
+        await remake({ openingAgent });
         const restored = await manager.create({ chatId: 'chat-mode', provider: 'codex', cwd: home });
         expect(restored.runtimeMode).toBe('supervised');
     });
 
     test('a standalone chat passes its location to Codex developer instructions', async () => {
-        await retire(manager);
-        manager = makeManager({ standalone: (id) => id === 'chat-view' });
-        manager.subscribe('c1', recorder.sink());
+        await remake({ standalone: (id) => id === 'chat-view' });
         await open('chat-view');
         await manager.send('chat-view', 'note?');
         await recorder.untilIdle();
@@ -578,9 +572,7 @@ describe('ChatManager with Codex', () => {
     });
 
     test('a thread starts with the note about the verbs as developer instructions, and no prompt carries it', async () => {
-        await retire(manager);
-        manager = makeManager({ depthOf: () => 1 });
-        manager.subscribe('c1', recorder.sink());
+        await remake({ depthOf: () => 1 });
         await open('chat-note');
         await manager.send('chat-note', 'note?');
         await recorder.untilIdle();
@@ -591,9 +583,7 @@ describe('ChatManager with Codex', () => {
     });
 
     test('a thread with links names them in its developer instructions, the way Claude hears them', async () => {
-        await retire(manager);
-        manager = makeManager({ contextSources: () => LINKED, depthOf: () => 2 });
-        manager.subscribe('c1', recorder.sink());
+        await remake({ contextSources: () => LINKED, depthOf: () => 2 });
         await open('chat-linked-note');
         await manager.send('chat-linked-note', 'note?');
         await recorder.untilIdle();
@@ -699,7 +689,7 @@ describe('ChatManager with Codex', () => {
     test('an app-server that dies mid-turn leaves an error note and the chat can go on', async () => {
         await open('chat-6');
         await manager.send('chat-6', 'crash');
-        await recorder.until(() => recorder.info?.running === false && recorder.info.status === 'error');
+        await recorder.until(() => recorder.crashed);
         expect(recorder.ofKind('note')[0]).toMatchObject({ level: 'error', text: 'Codex exited with code 1' });
         expect(recorder.ofKind('turn')[0]?.state).toBe('error');
 
@@ -817,8 +807,7 @@ describe('ChatManager with Codex', () => {
 
         test('reads the same conversation with the CLI gone, from a process started for the question, after a restart', async () => {
             const row = await spawned('chat-dead');
-            await retire(manager);
-            manager = makeManager();
+            await remake();
             await manager.create({ chatId: 'chat-dead', provider: 'codex', cwd: home });
             expect(manager.get('chat-dead')?.running).toBe(false);
 

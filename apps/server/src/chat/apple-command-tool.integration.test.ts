@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { waitFor, waitForAsync } from '../sessions/test-helpers.ts';
 import { executeAppleCommand } from './apple-command-tool.ts';
-import { processAlive } from './chat-test-helpers.ts';
+import { killQuietly, processAlive } from './chat-test-helpers.ts';
 
 let cwd: string;
 beforeEach(async () => {
@@ -42,14 +42,7 @@ describe('Apple local command real process', () => {
             controller.abort();
             await pending.catch(() => undefined);
             if (childPid > 0) {
-                try {
-                    process.kill(childPid, 'SIGKILL');
-                } catch (error) {
-                    if ((error as NodeJS.ErrnoException).code !== 'ESRCH') {
-                        // eslint-disable-next-line no-unsafe-finally -- Unexpected cleanup errors must fail the test.
-                        throw error;
-                    }
-                }
+                killQuietly(childPid);
             }
         }
     });

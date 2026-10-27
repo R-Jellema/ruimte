@@ -12,8 +12,10 @@ let claude: ChatFixture['claude'];
 let manager: ChatFixture['manager'];
 let recorder: ChatFixture['recorder'];
 let makeManager: ChatFixture['makeManager'];
+let remake: ChatFixture['remake'];
+let open: ChatFixture['open'];
 beforeEach(async () => {
-    ({ home, claude, manager, recorder, makeManager } = await makeChatFixture());
+    ({ home, claude, manager, recorder, makeManager, open, remake } = await makeChatFixture());
 });
 afterEach(async () => {
     setSystemTime();
@@ -66,8 +68,7 @@ test('create spawns nothing; the first send starts the CLI with the selection an
 
 test('the name Claude Code wrote down for the session rides on the info once the turn ends', async () => {
     const asked: string[] = [];
-    await retire(manager);
-    manager = makeManager({
+    manager = await remake(manager, {
         claudeTitles: {
             forSession: async (agentSessionId) => {
                 asked.push(agentSessionId);
@@ -75,9 +76,7 @@ test('the name Claude Code wrote down for the session rides on the info once the
             }
         }
     });
-    manager.subscribe('c1', recorder.sink());
-    await manager.create({ chatId: 'chat-title', cwd: home });
-    manager.attach('chat-title', 'c1');
+    await open(manager, 'chat-title');
 
     await manager.send('chat-title', 'hello there');
     await recorder.untilIdle();
@@ -86,8 +85,7 @@ test('the name Claude Code wrote down for the session rides on the info once the
 });
 
 test('a permission request becomes an approval card, and allowing always sends the suggested rule', async () => {
-    await manager.create({ chatId: 'chat-2', cwd: home });
-    manager.attach('chat-2', 'c1');
+    await open(manager, 'chat-2');
     await manager.send('chat-2', 'tool: date');
     await recorder.until(() => recorder.info?.status === 'needs-you');
 
@@ -114,8 +112,7 @@ test('a client that never attached still hears what a chat is waiting on', async
     // The window has another view up, so nothing here reads the thread; the node still has to say it waits.
     const bystander = new ChatRecorder();
     manager.subscribe('c2', bystander.sink());
-    await manager.create({ chatId: 'chat-2a', cwd: home });
-    manager.attach('chat-2a', 'c1');
+    await open(manager, 'chat-2a');
 
     await manager.send('chat-2a', 'tool: date');
     await bystander.until(() => bystander.statuses.at(-1)?.status === 'needs-you');
@@ -131,8 +128,7 @@ test('a client that never attached still hears what a chat is waiting on', async
 test('what a chat waits on rides on its status, again whenever a request opens or settles', async () => {
     const bystander = new ChatRecorder();
     manager.subscribe('c2', bystander.sink());
-    await manager.create({ chatId: 'chat-2w', cwd: home });
-    manager.attach('chat-2w', 'c1');
+    await open(manager, 'chat-2w');
     const waitingOn = () => bystander.statuses.at(-1)?.requests?.map((request) => request.requestId) ?? [];
 
     await manager.send('chat-2w', 'background approval: ls');
@@ -164,8 +160,7 @@ test('what a chat waits on rides on its status, again whenever a request opens o
 });
 
 test('a running tool carries the progress the CLI reports until its result arrives', async () => {
-    await manager.create({ chatId: 'chat-2b', cwd: home });
-    manager.attach('chat-2b', 'c1');
+    await open(manager, 'chat-2b');
     const now = Date.UTC(2026, 9, 1);
     setSystemTime(now);
     await manager.send('chat-2b', 'run: sleep 30');
@@ -181,8 +176,7 @@ test('a running tool carries the progress the CLI reports until its result arriv
 });
 
 test('denying answers the CLI and the tool ends in error', async () => {
-    await manager.create({ chatId: 'chat-3', cwd: home });
-    manager.attach('chat-3', 'c1');
+    await open(manager, 'chat-3');
     await manager.send('chat-3', 'tool: rm -rf /');
     await recorder.until(() => recorder.info?.status === 'needs-you');
     manager.approve('chat-3', 'req-1', 'deny', 'not that');
@@ -191,8 +185,7 @@ test('denying answers the CLI and the tool ends in error', async () => {
 });
 
 test('a question to the person is answered by id and reaches the CLI by text', async () => {
-    await manager.create({ chatId: 'chat-q', cwd: home });
-    manager.attach('chat-q', 'c1');
+    await open(manager, 'chat-q');
     await manager.send('chat-q', 'ask: Which color?');
     await recorder.until(() => recorder.info?.status === 'needs-you');
     const question = recorder.ofKind('question')[0];
@@ -223,11 +216,8 @@ test('cancel interrupts a running turn and marks it aborted', async () => {
             }
         };
     });
-    await retire(manager);
-    manager = makeManager({ spawn: claude.spawn });
-    manager.subscribe('c1', recorder.sink());
-    await manager.create({ chatId: 'chat-4', cwd: home });
-    manager.attach('chat-4', 'c1');
+    manager = await remake(manager, { spawn: claude.spawn });
+    await open(manager, 'chat-4');
     await manager.send('chat-4', 'slow');
     await received.promise;
     manager.cancel('chat-4');
@@ -237,8 +227,7 @@ test('cancel interrupts a running turn and marks it aborted', async () => {
 });
 
 test('configure restarts the CLI with new flags on the next send and keeps the session', async () => {
-    await manager.create({ chatId: 'chat-c', cwd: home });
-    manager.attach('chat-c', 'c1');
+    await open(manager, 'chat-c');
     await manager.send('chat-c', 'first');
     await recorder.untilIdle();
     const sessionId = recorder.info?.agentSessionId;
@@ -269,8 +258,7 @@ test('configure restarts the CLI with new flags on the next send and keeps the s
 });
 
 test('a restart ends the CLI between turns and the next send resumes the conversation in a fresh one', async () => {
-    await manager.create({ chatId: 'chat-r', cwd: home });
-    manager.attach('chat-r', 'c1');
+    await open(manager, 'chat-r');
     await manager.send('chat-r', 'first');
     await recorder.untilIdle();
     const sessionId = recorder.info?.agentSessionId;
@@ -288,8 +276,7 @@ test('a restart ends the CLI between turns and the next send resumes the convers
 });
 
 test('a restart is refused while a turn runs', async () => {
-    await manager.create({ chatId: 'chat-busy', cwd: home });
-    manager.attach('chat-busy', 'c1');
+    await open(manager, 'chat-busy');
     await manager.send('chat-busy', 'first');
     await expect(manager.restart('chat-busy')).rejects.toMatchObject({ code: 'chat-busy' });
     await recorder.untilIdle();
@@ -297,8 +284,7 @@ test('a restart is refused while a turn runs', async () => {
 });
 
 test('the meter reads the window the pick asked for, not the maximum the CLI reports', async () => {
-    await manager.create({ chatId: 'chat-w', cwd: home, selection: { model: 'opus', options: { contextWindow: '200k' } } });
-    manager.attach('chat-w', 'c1');
+    await open(manager, 'chat-w', { selection: { model: 'opus', options: { contextWindow: '200k' } } });
     await manager.send('chat-w', 'hello');
     await recorder.untilIdle();
     // The CLI reports 1M whatever it was started on, and the turn it ends must not put that on the meter.
@@ -317,8 +303,7 @@ test('the meter reads the window the pick asked for, not the maximum the CLI rep
 });
 
 test('a thread survives a new manager and the next send resumes the same CLI session', async () => {
-    await manager.create({ chatId: 'chat-5', cwd: home });
-    manager.attach('chat-5', 'c1');
+    await open(manager, 'chat-5');
     await manager.send('chat-5', 'first');
     await recorder.untilIdle();
     const sessionId = recorder.info?.agentSessionId;
@@ -340,8 +325,7 @@ test('a thread survives a new manager and the next send resumes the same CLI ses
 });
 
 test('compaction shows up as a marker', async () => {
-    await manager.create({ chatId: 'chat-k', cwd: home });
-    manager.attach('chat-k', 'c1');
+    await open(manager, 'chat-k');
     await manager.send('chat-k', 'compact');
     await recorder.untilIdle();
     expect(recorder.ofKind('compaction')[0]).toMatchObject({ preTokens: 5000 });
@@ -350,12 +334,9 @@ test('compaction shows up as a marker', async () => {
 test('a turn carries its checkpoint and the diff of what it changed', async () => {
     const tree = 'a'.repeat(40);
     const diff: ChatCheckpointDiff = { files: [{ path: 'made.txt', kind: 'add', added: 1, deleted: 0, diff: '+hello\n' }], truncated: false };
-    await retire(manager);
-    manager = makeManager({ checkpoints: new FakeCheckpoints(tree, diff) });
-    manager.subscribe('c1', recorder.sink());
+    manager = await remake(manager, { checkpoints: new FakeCheckpoints(tree, diff) });
 
-    await manager.create({ chatId: 'chat-diff', cwd: home });
-    manager.attach('chat-diff', 'c1');
+    await open(manager, 'chat-diff');
     await manager.send('chat-diff', 'write: made.txt hello');
     await recorder.until(() => recorder.idle && recorder.ofKind('turn')[0]?.checkpointDiff !== undefined);
 

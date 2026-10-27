@@ -7,7 +7,7 @@ import { deliverNotice, MESSAGE_WORDS } from '../context/notices.ts';
 import { VisualStore } from '@adecore/agents/chat';
 import { referenceNote, type Reference } from '../context/references.ts';
 import type { FirstPrompt } from '../agents/pending-prompts.ts';
-import { BRIEF_TITLE, ChatManager } from './chat-manager.ts';
+import { BRIEF_TITLE } from './chat-manager.ts';
 import { ChatRecorder } from './chat-test-helpers.ts';
 import { makeChatFixture, retire, LINKED } from './chat-manager.fixture.test.ts';
 
@@ -19,8 +19,10 @@ let claude: ChatFixture['claude'];
 let manager: ChatFixture['manager'];
 let recorder: ChatFixture['recorder'];
 let makeManager: ChatFixture['makeManager'];
+let remake: ChatFixture['remake'];
+let open: ChatFixture['open'];
 beforeEach(async () => {
-    ({ home, attachments, store, claude, manager, recorder, makeManager } = await makeChatFixture());
+    ({ home, attachments, store, claude, manager, recorder, makeManager, open, remake } = await makeChatFixture());
 });
 afterEach(async () => {
     await retire(manager);
@@ -28,23 +30,17 @@ afterEach(async () => {
 });
 
 test('a standalone chat passes its location to the Claude system prompt', async () => {
-    await retire(manager);
-    manager = makeManager({ standalone: (id) => id === 'chat-view' });
-    manager.subscribe('c1', recorder.sink());
-    await manager.create({ chatId: 'chat-view', cwd: home });
-    manager.attach('chat-view', 'c1');
+    manager = await remake(manager, { standalone: (id) => id === 'chat-view' });
+    await open(manager, 'chat-view');
     await manager.send('chat-view', 'system?');
     await recorder.untilIdle();
     expect(recorder.ofKind('assistant')[0]?.text).toBe(verbsNote({ depth: 0, standalone: true }));
 });
 
 test('the system prompt names visuals while the machine has them on, and never to an inline edit', async () => {
-    await retire(manager);
     const visuals = new VisualStore(home, attachments);
-    manager = makeManager({ visuals, visualReplies: () => true, inlineChat: (chatId) => chatId === 'chat-inline' });
-    manager.subscribe('c1', recorder.sink());
-    await manager.create({ chatId: 'chat-shows', cwd: home });
-    manager.attach('chat-shows', 'c1');
+    manager = await remake(manager, { visuals, visualReplies: () => true, inlineChat: (chatId) => chatId === 'chat-inline' });
+    await open(manager, 'chat-shows');
     await manager.send('chat-shows', 'system?');
     await recorder.untilIdle();
     expect(recorder.ofKind('assistant')[0]?.text).toBe(verbsNote({ depth: 0, visuals: true }));
@@ -64,14 +60,12 @@ test('the system prompt names visuals while the machine has them on, and never t
 });
 
 test('the system prompt names the verbs always and the linked sources by name when there are some', async () => {
-    await manager.create({ chatId: 'chat-sys', cwd: home });
-    manager.attach('chat-sys', 'c1');
+    await open(manager, 'chat-sys');
     await manager.send('chat-sys', 'system?');
     await recorder.untilIdle();
     expect(recorder.ofKind('assistant')[0]?.text).toBe(verbsNote({ depth: 0 }));
 
-    await retire(manager);
-    manager = makeManager({ contextSources: () => LINKED, depthOf: () => 2 });
+    manager = await remake(manager, { contextSources: () => LINKED, depthOf: () => 2 });
     const linked = new ChatRecorder();
     manager.subscribe('c2', linked.sink());
     await manager.create({ chatId: 'chat-sys-2', cwd: home });
@@ -85,11 +79,8 @@ test('the system prompt names the verbs always and the linked sources by name wh
 
 test('a link made between turns is put in front of the next prompt, once, as a note', async () => {
     let sources: ContextSource[] = [];
-    await retire(manager);
-    manager = makeManager({ contextSources: () => sources });
-    manager.subscribe('c1', recorder.sink());
-    await manager.create({ chatId: 'chat-ctx', cwd: home });
-    manager.attach('chat-ctx', 'c1');
+    manager = await remake(manager, { contextSources: () => sources });
+    await open(manager, 'chat-ctx');
 
     await manager.send('chat-ctx', 'first');
     await recorder.untilIdle();
@@ -112,15 +103,12 @@ test('a link made between turns is put in front of the next prompt, once, as a n
 });
 
 test('a chat attached with @ and a view with # go to the CLI as the commands that read them, and to the thread as their ids', async () => {
-    await retire(manager);
     const known: Record<string, Reference> = {
         'chat-earlier': { id: 'chat-earlier', kind: 'chat', name: 'Auth rewrite', canvas: null, sources: [] },
         sketch: { id: 'sketch', kind: 'drawing', name: 'Sketch', canvas: null, sources: [] }
     };
-    manager = makeManager({ reference: (chatId, id) => (chatId === 'chat-ref' ? (known[id] ?? null) : null) });
-    manager.subscribe('c1', recorder.sink());
-    await manager.create({ chatId: 'chat-ref', cwd: home });
-    manager.attach('chat-ref', 'c1');
+    manager = await remake(manager, { reference: (chatId, id) => (chatId === 'chat-ref' ? (known[id] ?? null) : null) });
+    await open(manager, 'chat-ref');
 
     // A view in `chats` is no chat its chips could draw, so only `references` carries it.
     await manager.send('chat-ref', 'carry on from #Sketch', { chats: ['chat-earlier', 'chat-elsewhere', 'sketch'], references: ['sketch', 'gone'] });
@@ -136,15 +124,14 @@ test('a chat attached with @ and a view with # go to the CLI as the commands tha
 describe('the first prompt of an agent node', () => {
     const withPrompt = (prompt: string | null, brief?: string) => {
         let left: FirstPrompt | null = prompt === null ? null : { prompt, ...(brief === undefined ? {} : { brief }) };
-        const taken = () =>
-            makeManager({
-                firstPrompt: async () => {
-                    const value = left;
-                    left = null;
-                    return value;
-                }
-            });
-        return { taken, left: () => left };
+        const options = () => ({
+            firstPrompt: async () => {
+                const value = left;
+                left = null;
+                return value;
+            }
+        });
+        return { options, left: () => left };
     };
 
     const settledIn = (chatId: string) => (): boolean => manager.get(chatId)?.info.activeTurnId === null && manager.get(chatId)?.info.running === true;
@@ -153,9 +140,7 @@ describe('the first prompt of an agent node', () => {
 
     test('becomes the first message of the thread, so the person reads it as one', async () => {
         const held = withPrompt('start on the parser');
-        await retire(manager);
-        manager = held.taken();
-        manager.subscribe('c1', recorder.sink());
+        manager = await remake(manager, held.options());
 
         const info = await manager.create({ chatId: 'chat-p', cwd: home });
         // The prompt is in the thread before create answers, so an attach right after it shows the turn.
@@ -172,10 +157,9 @@ describe('the first prompt of an agent node', () => {
     });
 
     test('carries what a person picked in it, as a message sent with those chips would', async () => {
-        await retire(manager);
         const sketch: Reference = { id: 'sketch', kind: 'drawing', name: 'Sketch', canvas: null, sources: [] };
         let left: FirstPrompt | null = { prompt: 'use $report on #Sketch', picked: { skills: ['report'], references: ['sketch'] } };
-        manager = makeManager({
+        manager = await remake(manager, {
             reference: (chatId, id) => (chatId === 'chat-pick' && id === 'sketch' ? sketch : null),
             firstPrompt: async () => {
                 const value = left;
@@ -183,9 +167,7 @@ describe('the first prompt of an agent node', () => {
                 return value;
             }
         });
-        manager.subscribe('c1', recorder.sink());
-        await manager.create({ chatId: 'chat-pick', cwd: home });
-        manager.attach('chat-pick', 'c1');
+        await open(manager, 'chat-pick');
         await recorder.until(settledIn('chat-pick'));
 
         expect(threadOf('chat-pick').find((item) => item.kind === 'user')).toMatchObject({
@@ -196,11 +178,8 @@ describe('the first prompt of an agent node', () => {
     });
 
     test('its brief is heard on the first turn and folds in the thread under the title, never in the message', async () => {
-        await retire(manager);
-        manager = withPrompt('summarize main', 'publish it to Output').taken();
-        manager.subscribe('c1', recorder.sink());
-        await manager.create({ chatId: 'chat-b', cwd: home });
-        manager.attach('chat-b', 'c1');
+        manager = await remake(manager, withPrompt('summarize main', 'publish it to Output').options());
+        await open(manager, 'chat-b');
         await recorder.until(settledIn('chat-b'));
         await manager.send('chat-b', 'and again');
         await recorder.until(() => manager.get('chat-b')?.info.usage.turns === 2 && settledIn('chat-b')());
@@ -218,11 +197,8 @@ describe('the first prompt of an agent node', () => {
     });
 
     test('a wake with a brief hears it on that turn only, and a refused wake leaves it for nobody', async () => {
-        await retire(manager);
-        manager = withPrompt('start').taken();
-        manager.subscribe('c1', recorder.sink());
-        await manager.create({ chatId: 'chat-w', cwd: home });
-        manager.attach('chat-w', 'c1');
+        manager = await remake(manager, withPrompt('start').options());
+        await open(manager, 'chat-w');
         await recorder.until(settledIn('chat-w'));
         const session = manager.get('chat-w')!;
 
@@ -245,16 +221,13 @@ describe('the first prompt of an agent node', () => {
 
     test('a second create of the same chat sends nothing again', async () => {
         const held = withPrompt('only once');
-        await retire(manager);
-        manager = held.taken();
-        manager.subscribe('c1', recorder.sink());
+        manager = await remake(manager, held.options());
 
         const userTexts = () =>
             threadOf('chat-p')
                 .filter((item) => item.kind === 'user')
                 .map((item) => item.text);
-        await manager.create({ chatId: 'chat-p', cwd: home });
-        manager.attach('chat-p', 'c1');
+        await open(manager, 'chat-p');
         await recorder.until(settledIn('chat-p'));
         expect(userTexts()).toEqual(['only once']);
 
@@ -267,9 +240,7 @@ describe('the first prompt of an agent node', () => {
 
     test('two creates at once, the machine starting the node and a client mounting it, send it once to one chat', async () => {
         const held = withPrompt('only once');
-        await retire(manager);
-        manager = held.taken();
-        manager.subscribe('c1', recorder.sink());
+        manager = await remake(manager, held.options());
 
         const [started, mounted] = await Promise.all([manager.create({ chatId: 'chat-r', cwd: home }), manager.create({ chatId: 'chat-r', cwd: home })]);
         expect(mounted).toBe(started);
@@ -285,8 +256,7 @@ describe('the first prompt of an agent node', () => {
     });
 
     test('a kill that arrives while the chat is being made ends the chat that was made', async () => {
-        await retire(manager);
-        manager = withPrompt('go').taken();
+        manager = await remake(manager, withPrompt('go').options());
         const creating = manager.create({ chatId: 'chat-s', cwd: home });
         const killed = manager.kill('chat-s');
         await creating;
@@ -295,9 +265,7 @@ describe('the first prompt of an agent node', () => {
     });
 
     test('without a prompt, create still spawns nothing', async () => {
-        await retire(manager);
-        manager = withPrompt(null).taken();
-        manager.subscribe('c1', recorder.sink());
+        manager = await remake(manager, withPrompt(null).options());
         await manager.create({ chatId: 'chat-q', cwd: home });
         expect(manager.get('chat-q')?.running).toBe(false);
         expect(claude.started).toHaveLength(0);
@@ -307,11 +275,10 @@ describe('the first prompt of an agent node', () => {
 describe('a message another node left', () => {
     let notices: NoticeStore;
 
-    const withNotices = (): ChatManager =>
-        makeManager({
-            messageNotes: (chatId) => new NoticeNotes(notices, chatId, MESSAGE_WORDS),
-            unshownMessages: (chatId) => unshownNotes(notices, chatId, MESSAGE_WORDS)
-        });
+    const noticeOptions = () => ({
+        messageNotes: (chatId: string) => new NoticeNotes(notices, chatId, MESSAGE_WORDS),
+        unshownMessages: (chatId: string) => unshownNotes(notices, chatId, MESSAGE_WORDS)
+    });
 
     const notify = async (targetId: string, text: string): Promise<void> => {
         const notice: Omit<Notice, 'createdAt'> = { projectId: 'project-1', targetId, from: 'term-1', fromTitle: 'dev server', text };
@@ -332,16 +299,12 @@ describe('a message another node left', () => {
     const read = 'dev server sent a message: the build is green';
 
     beforeEach(async () => {
-        await retire(manager);
         notices = new NoticeStore(home);
-        manager = withNotices();
-        recorder = new ChatRecorder();
-        manager.subscribe('c1', recorder.sink());
+        manager = await remake(manager, noticeOptions());
     });
 
     test('lands in the thread of a running chat at once, and in front of its next prompt once', async () => {
-        await manager.create({ chatId: 'chat-msg', cwd: home });
-        manager.attach('chat-msg', 'c1');
+        await open(manager, 'chat-msg');
         await manager.send('chat-msg', 'first');
         await recorder.untilIdle();
 
@@ -375,15 +338,14 @@ describe('a message another node left', () => {
     });
 
     test('is in the thread once after a restart, whether or not the model heard it yet', async () => {
-        await manager.create({ chatId: 'chat-again', cwd: home });
-        manager.attach('chat-again', 'c1');
+        await open(manager, 'chat-again');
         await notify('chat-again', 'the build is green');
         await store.written('chat-again', (record) => record.items.some((item) => item.kind === 'note'));
 
         await retire(manager);
         notices = new NoticeStore(home);
         await notices.load();
-        manager = withNotices();
+        manager = makeManager(noticeOptions());
         recorder = new ChatRecorder();
         manager.subscribe('c1', recorder.sink());
 

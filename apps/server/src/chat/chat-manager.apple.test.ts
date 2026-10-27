@@ -10,6 +10,7 @@ import { AttachmentStore } from '@adecore/agents/chat';
 import { ChatManager } from './chat-manager.ts';
 import { ChatRecorder, RecordingStore } from './chat-test-helpers.ts';
 import { inProcess } from '@adecore/agents/testing';
+import { retire } from './chat-manager.fixture.test.ts';
 
 test('Apple chat projects approved directory and file tools across turns into its saved thread', async () => {
     const home = await mkdtemp(join(tmpdir(), 'ruimte-apple-chat-'));
@@ -61,7 +62,7 @@ test('Apple chat projects approved directory and file tools across turns into it
         await recorder.until(() => recorder.info?.status === 'needs-you');
         expect(recorder.ofKind('approval')).toHaveLength(1);
         manager.approve('apple-chat', `${nativeTurn}-tool-1`, 'allow');
-        await recorder.until(() => recorder.info?.status === 'idle' && recorder.info.activeTurnId === null);
+        await recorder.untilIdle();
         expect(recorder.ofKind('tool')[0]).toMatchObject({ name: 'ListFiles', state: 'done' });
         expect(recorder.ofKind('tool')[0]?.output).toContain('project-notes.txt');
         expect(recorder.ofKind('assistant')[0]?.text).toContain('project-notes.txt');
@@ -73,14 +74,13 @@ test('Apple chat projects approved directory and file tools across turns into it
         await recorder.until(() => recorder.info?.status === 'needs-you');
         expect(recorder.ofKind('approval')).toHaveLength(2);
         manager.approve('apple-chat', `${nativeTurn}-tool-1`, 'allow');
-        await recorder.until(() => recorder.info?.status === 'idle' && recorder.info.activeTurnId === null);
+        await recorder.untilIdle();
         expect(recorder.ofKind('tool')[1]?.output).toContain('ORCHID');
         expect(recorder.ofKind('assistant')[1]?.text).toContain('ORCHID');
         expect(recorder.ofKind('turn').map((item) => item.state)).toEqual(['done', 'done']);
         expect(recorder.ofKind('note').filter((item) => item.text.includes('conversation memory'))).toHaveLength(1);
     } finally {
-        await manager.shutdown();
-        await manager.get('apple-chat')?.dispose();
+        await retire(manager);
         await rm(home, { recursive: true, force: true });
     }
 });

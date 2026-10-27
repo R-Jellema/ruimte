@@ -21,7 +21,6 @@
     "apps/server/src/language/host.test.ts": 1801,
     "apps/server/src/git/checkpoints.test.ts": 1774,
     "apps/server/src/chat/ui-sources.test.ts": 1643,
-    "apps/server/src/canvas/worktree-roles.test.ts": 1631,
     "apps/server/src/outbox/start-agent.test.ts": 1592,
     "apps/server/src/git/stage.test.ts": 1591,
     "apps/server/src/projects/diagram-store.test.ts": 1389,
