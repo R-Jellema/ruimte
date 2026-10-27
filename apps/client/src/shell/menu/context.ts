@@ -95,16 +95,18 @@ export function activeViewFacts(): ActiveViewFacts | null {
     return { view, offers, shared, asChat, asTerminal, workingFolder, forkTurn, working };
 }
 
+/* The key of the project on screen in the launches store, or null outside a project. */
+function launchesKey(endpointId: string): string | null {
+    const projectId = useProject.getState().current?.projectId;
+    return projectId === undefined ? null : endpointKey(endpointId, projectId);
+}
+
 /* The launches of the project on screen, each with whether it runs. */
 function menuLaunches(endpointId: string): MenuLaunch[] {
-    const projectId = useProject.getState().current?.projectId;
-    if (projectId === undefined) {
-        return [];
-    }
-    const key = endpointKey(endpointId, projectId);
+    const key = launchesKey(endpointId);
     const { documents, statuses } = useLaunches.getState();
-    const document = documents[key];
-    if (document === undefined) {
+    const document = key === null ? undefined : documents[key];
+    if (key === null || document === undefined) {
         return [];
     }
     const views = launchViews(document, statuses[key] ?? {});
@@ -113,8 +115,8 @@ function menuLaunches(endpointId: string): MenuLaunch[] {
 
 /* The tasks of the project on screen that may run after a worktree chat settles, and the one that does. */
 function menuAfterSettle(endpointId: string): MenuContext['afterSettle'] {
-    const projectId = useProject.getState().current?.projectId;
-    const document = projectId === undefined ? undefined : useLaunches.getState().documents[endpointKey(endpointId, projectId)];
+    const key = launchesKey(endpointId);
+    const document = key === null ? undefined : useLaunches.getState().documents[key];
     if (document === undefined) {
         return { tasks: [], chosen: null };
     }

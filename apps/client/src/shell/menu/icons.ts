@@ -30,6 +30,7 @@ import {
     type LucideIcon
 } from 'lucide-react';
 import { COMMANDS, isCommandId } from '@/shell/command-table';
+import { AFTER_SETTLE_PREFIX, CHAT_MOVE_PREFIX, GO_VIEW_PREFIX, LAUNCH_CHOOSE_PREFIX } from '@/shell/menu/ids';
 
 /* What the web client draws in front of a row, so every label starts on the same line. The shell's native menu has none. */
 type MenuIcon = { icon: LucideIcon } | { agent: AgentKind };
@@ -66,10 +67,10 @@ const PREFIXES: [prefix: string, icon: LucideIcon][] = [
     ['layout-apply-', LayoutDashboard],
     ['layout-delete-', Trash],
     ['view-move-', ArrowRight],
-    ['go-view-', Layers],
-    ['chat-move-project-', Folder],
-    ['launch-choose-', Rocket],
-    ['launch-after-settle-', ListChecks]
+    [GO_VIEW_PREFIX, Layers],
+    [CHAT_MOVE_PREFIX, Folder],
+    [LAUNCH_CHOOSE_PREFIX, Rocket],
+    [AFTER_SETTLE_PREFIX, ListChecks]
 ];
 
 const AGENT_ROW = /^agent-(?:view-)?(?:chat|terminal)-(.+)$/;
