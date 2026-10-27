@@ -58,10 +58,11 @@ export async function handleContextRequest(request: Request, pathname: string, d
     const rest = pathname.slice(CONTEXT_PATH.length).replace(/^\//, '');
     if (rest === '') {
         const listed = await serverActions.execute('context.list', {}, call);
-        if (listed.status === 'completed') {
-            countVerb('list');
+        if (listed.status !== 'completed') {
+            return failed(listed);
         }
-        return listed.status === 'completed' ? Response.json({ sources: listed.output.sources }) : failed(listed);
+        countVerb('list');
+        return Response.json({ sources: listed.output.sources });
     }
     const query = new URL(request.url).searchParams;
     const asked = query.get('tail');

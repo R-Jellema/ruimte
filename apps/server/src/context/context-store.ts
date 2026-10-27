@@ -31,7 +31,10 @@ export const CONTEXT_PATH = '/context';
 // A screen is read live; this keeps a long scrollback from flooding an agent's context.
 export const MAX_SCREEN_LINES = 2000;
 
-function lastLines(text: string, count: number): string {
+function lastLines(text: string, count: number | null): string {
+    if (count === null) {
+        return text;
+    }
     const lines = text.split('\n');
     return lines.slice(Math.max(0, lines.length - count)).join('\n');
 }
@@ -252,13 +255,8 @@ export class ContextStore {
      * what a line of each kind is, and the wire then carries fifteen lines instead of two thousand.
      */
     async read(targetId: string, sourceId: string, tail: number | null = null, subagent: string | null = null): Promise<string | null> {
-        const source = this.findSource(targetId, sourceId);
-        return source ? this.readSource(targetId, source, tail, subagent) : null;
-    }
-
-    /* A source the caller may read for a reason of its own, such as a chat view naming the canvas it stands on. */
-    async readSource(targetId: string, source: ContextSource, tail: number | null = null, subagent: string | null = null): Promise<string | null> {
-        return (await this.reading(targetId, source, tail, subagent))?.text ?? null;
+        const source = this.sourceFor(targetId, sourceId);
+        return source ? ((await this.reading(targetId, source, tail, subagent))?.text ?? null) : null;
     }
 
     private async reading(targetId: string, source: ContextSource, tail: number | null, subagent: string | null): Promise<ContextReading | null> {
@@ -267,7 +265,7 @@ export class ContextStore {
         }
         switch (source.kind) {
             case 'text':
-                return asReading(tail === null ? (source.text ?? '') : lastLines(source.text ?? '', tail));
+                return asReading(lastLines(source.text ?? '', tail));
             case 'terminal': {
                 const text = await this.readers.terminalText(source.id);
                 // The screen cap stays the ceiling: a --tail past it cannot reach further back than the daemon keeps.
@@ -300,17 +298,17 @@ export class ContextStore {
             }
             /*
              * The path, never the bytes: an agent's own file tools read a fresher copy, and a large file
-             * cannot push the rest of its context out. A drawing is rendered here since nothing else reads it.
+             * cannot push the rest of its context out.
              */
             case 'file':
                 return asReading(source.text ? `This is a file on disk. Read it with your own tools.\n\n${source.text}` : null);
             case 'artifact': {
                 const text = source.artifact ? ((await this.readers.artifactReport?.(targetId, source.artifact).catch(() => null)) ?? null) : null;
-                return asReading(text === null ? null : tail === null ? text : lastLines(text, tail));
+                return asReading(text === null ? null : lastLines(text, tail));
             }
             case 'routine': {
                 const text = source.routine ? ((await this.readers.routineReport?.(targetId, source.routine).catch(() => null)) ?? null) : null;
-                return asReading(text === null ? null : tail === null ? text : lastLines(text, tail));
+                return asReading(text === null ? null : lastLines(text, tail));
             }
         }
     }
@@ -320,14 +318,15 @@ export class ContextStore {
         return this.readers.referenced?.(targetId) ?? [];
     }
 
+    // Only what is linked into the asker matches, so a node id opens nothing an edge, a person's reference or the asker's own lineage did not.
     sourceFor(targetId: string, sourceId: string): ContextSource | null {
-        return this.findSource(targetId, sourceId);
+        return (
+            this.reachable(targetId).find((entry) => entry.id === sourceId || entry.nodeId === sourceId) ?? this.readers.opened?.(targetId, sourceId) ?? null
+        );
     }
 
-    // Only what is linked into the asker matches, so a node id opens nothing an edge, a person's reference or the asker's own lineage did not.
-    private findSource(targetId: string, sourceId: string): ContextSource | null {
-        const linked = [...this.readers.sources(targetId), ...this.referenced(targetId).flatMap((reference) => reference.sources)];
-        return linked.find((entry) => entry.id === sourceId || entry.nodeId === sourceId) ?? this.readers.opened?.(targetId, sourceId) ?? null;
+    private reachable(targetId: string): ContextSource[] {
+        return [...this.readers.sources(targetId), ...this.referenced(targetId).flatMap((reference) => reference.sources)];
     }
 
     private async readChat(chatId: string, tail: number | null): Promise<ContextReading | null> {
@@ -335,8 +334,7 @@ export class ContextStore {
         if (!items) {
             return null;
         }
-        const transcript = renderTranscript(items);
-        const thread = tail === null ? transcript : lastLines(transcript, tail);
+        const thread = lastLines(renderTranscript(items), tail);
         // Above the thread, where a tail never cuts it off: how far a child got is what its parent reads for first.
         const plans = (await this.readers.chatPlans?.(chatId).catch(() => [])) ?? [];
         const text = plans.length === 0 ? thread : `${plans.map((plan) => renderPlanText(plan)).join('\n\n')}\n\n${thread}`;
@@ -363,8 +361,7 @@ export class ContextStore {
         } catch (e) {
             throw new SubagentUnreadable(e instanceof Error ? e.message : `No conversation for subagent ${toolUseId}`);
         }
-        const transcript = renderTranscript(items);
-        return tail === null ? transcript : lastLines(transcript, tail);
+        return lastLines(renderTranscript(items), tail);
     }
 
     /*
@@ -372,11 +369,10 @@ export class ContextStore {
      * id may be a node on, so a line drawn the other way round reads apart from an id nobody drew.
      */
     async answer(targetId: string, sourceId: string, tail: number | null, subagent: string | null): Promise<ContextReading> {
-        const source = this.findSource(targetId, sourceId);
+        const source = this.sourceFor(targetId, sourceId);
         const reading = source ? await this.reading(targetId, source, tail, subagent) : null;
         if (reading === null) {
-            const reachable = [...this.readers.sources(targetId), ...this.referenced(targetId).flatMap((reference) => reference.sources)];
-            const { code, message, lines } = readRefusal(targetId, sourceId, reachable, this.readers.canvasOf?.(targetId) ?? null);
+            const { code, message, lines } = readRefusal(targetId, sourceId, this.reachable(targetId), this.readers.canvasOf?.(targetId) ?? null);
             throw new ContextRefusal(code, message, lines);
         }
         return reading;
