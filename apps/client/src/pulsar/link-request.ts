@@ -35,9 +35,6 @@ export function rememberLink(storage: LoginStorage, code: string | null, now = D
 
 /* The request a page left for GitHub with, until no code it carries could still be waiting. */
 export function rememberedLink(storage: LoginStorage, now = Date.now()): PendingLink | null {
-    if (storage.getItem(PENDING_LINK_KEY) === null) {
-        return null;
-    }
     const pending = storedPendingLink.read(storage);
     if (pending === null || now - pending.openedAt > DEVICE_LINK_LIFETIME_MS) {
         storage.removeItem(PENDING_LINK_KEY);

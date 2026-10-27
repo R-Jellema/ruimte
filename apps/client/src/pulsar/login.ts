@@ -3,10 +3,7 @@ import type { IdentityLinkCompletePayload, ProviderId } from '@ruimte/pulsar';
 import { codeFromCallback, createLoginState, createPkce, loginStartUrl, type LoginCallback } from './pkce';
 import type { SessionKeeper, SessionView } from './session';
 
-/*
- * How a login leaves this client and comes back: a loopback listener in the desktop shell, a custom
- * scheme in the mobile app. The flow below does not care which.
- */
+/* How a login leaves this client and comes back, such as the desktop shell's loopback listener. */
 export interface LoginRedirect {
     listen(): Promise<{ redirectUri: string }>;
     /* Opens the start URL where the person can type a password: the system browser, not this page. */

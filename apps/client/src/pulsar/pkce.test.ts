@@ -3,10 +3,7 @@ import { LoginStartQuerySchema } from '@ruimte/pulsar';
 import { LoginError, codeFromCallback, createLoginState, createPkce, loginStartUrl } from './pkce';
 
 async function sha256(text: string): Promise<string> {
-    return btoa(String.fromCharCode(...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)))))
-        .replaceAll('+', '-')
-        .replaceAll('/', '_')
-        .replace(/=+$/, '');
+    return Buffer.from(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))).toString('base64url');
 }
 
 describe('PKCE and state', () => {

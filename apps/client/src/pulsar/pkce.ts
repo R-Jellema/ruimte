@@ -1,11 +1,7 @@
 import i18next from 'i18next';
 import { randomToken, sha256, type ProviderId } from '@ruimte/pulsar';
 
-/*
- * The pure half of signing in: a PKCE pair, the state, the start URL and what the redirect came back
- * with. Only WebCrypto and `URL`, which a browser, Bun and a phone's JavaScript all have, so the mobile
- * app runs the same login as the desktop app does.
- */
+/* The pure half of signing in, on WebCrypto and `URL` only, so the desktop app and the web client share it. */
 
 interface Pkce {
     verifier: string;

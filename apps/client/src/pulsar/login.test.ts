@@ -45,12 +45,8 @@ describe('signIn', () => {
         expect(start.pathname).toBe('/auth/github/start');
         const exchanged = route.exchanged[0]!;
         expect(exchanged).toMatchObject({ code: 'the-code', redirectUri: REDIRECT, label: 'Ruimte on macOS' });
-        const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(exchanged.codeVerifier)));
-        const challenge = btoa(String.fromCharCode(...digest))
-            .replaceAll('+', '-')
-            .replaceAll('/', '_')
-            .replace(/=+$/, '');
-        expect(start.searchParams.get('code_challenge')).toBe(challenge);
+        const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(exchanged.codeVerifier));
+        expect(start.searchParams.get('code_challenge')).toBe(Buffer.from(digest).toString('base64url'));
     });
 
     test('a redirect with another state trades nothing', async () => {

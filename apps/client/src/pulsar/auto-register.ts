@@ -1,5 +1,6 @@
 import { AddressBookRequestError, MachineIconSchema, type RegisterMachinePayload } from '@ruimte/pulsar';
 import type { Endpoint } from '@/state/endpoints';
+import { errorCodeOf } from './account-refusal';
 
 // The first wait after a failed registration, doubled with every failure after it up to the cap.
 export const REGISTER_RETRY_MIN_MS = 30_000;
@@ -51,11 +52,6 @@ export function announcedRecordOf(endpoint: Pick<Endpoint, 'brokerUrl' | 'daemon
 }
 
 type RegisterOutcome = 'registered' | 'removed' | 'refused' | 'skipped' | 'failed';
-
-// The code a failure carries: a transport error of the machine, or an address book error.
-function codeOf(error: unknown): string | null {
-    return error instanceof Error && 'code' in error && typeof error.code === 'string' ? error.code : null;
-}
 
 interface Failure {
     count: number;
@@ -148,7 +144,7 @@ export class AutoRegistrar {
                 registration = await this.deps.sign(endpointId, accountId);
             } catch (e) {
                 // Only the app on a machine puts it on an account, which a person did not ask this client to do.
-                if (this.accountId === accountId && codeOf(e) === 'forbidden') {
+                if (this.accountId === accountId && errorCodeOf(e) === 'forbidden') {
                     this.refused.add(machineId);
                     this.failures.delete(machineId);
                     return 'refused';
@@ -194,10 +190,6 @@ export class AutoRegistrar {
 
     /* When the earliest machine that failed may be asked again, for a timer; null when none is waiting. */
     nextRetryAt(): number | null {
-        let earliest: number | null = null;
-        for (const failure of this.failures.values()) {
-            earliest = earliest === null ? failure.retryAt : Math.min(earliest, failure.retryAt);
-        }
-        return earliest;
+        return this.failures.size === 0 ? null : Math.min(...[...this.failures.values()].map((failure) => failure.retryAt));
     }
 }

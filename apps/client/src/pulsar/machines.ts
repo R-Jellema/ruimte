@@ -71,10 +71,7 @@ async function withRefusalText<T>(work: () => Promise<T>): Promise<T> {
     }
 }
 
-/*
- * The machine behind a row signs itself onto the account, and this client posts that with its own
- * session. Only the app on the machine may have it sign, which a machine of before this rule did not know.
- */
+/* The machine behind a row signs itself onto the account, and this client posts that with its own session. */
 export async function addMachineToAccount(endpointId: string): Promise<void> {
     const account = usePulsarAccount.getState().account;
     const link = transportFor(endpointId);

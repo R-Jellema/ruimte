@@ -1,13 +1,16 @@
 import i18next from 'i18next';
 
+/* The code a failure carries: a transport error of the machine, or an address book error. */
+export function errorCodeOf(error: unknown): string | null {
+    return error instanceof Error && 'code' in error && typeof error.code === 'string' ? error.code : null;
+}
+
 /*
  * What a person reads when a machine or the address book will not put a machine on an account, in
- * place of the English sentence the refusal carries; null for any other failure. A machine is on one
- * account at a time, and only the app on it, or `ruimte login` there, puts it on one.
+ * place of the English sentence the refusal carries; null for any other failure.
  */
 export function accountRefusalText(error: unknown): string | null {
-    const code = error instanceof Error && 'code' in error && typeof error.code === 'string' ? error.code : null;
-    switch (code) {
+    switch (errorCodeOf(error)) {
         case 'forbidden':
             return i18next.t('machines:account.refusal.onlyOnMachine');
         case 'machine-has-account':

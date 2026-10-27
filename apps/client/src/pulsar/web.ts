@@ -65,6 +65,7 @@ export async function beginWebLogin(
 ): Promise<string> {
     const pkce = await createPkce();
     const state = createLoginState();
+    const provider = options.provider ?? 'github';
     const pending: PendingLogin = {
         verifier: pkce.verifier,
         state,
@@ -72,12 +73,12 @@ export async function beginWebLogin(
         startedAt: options.now ?? Date.now(),
         link: options.link !== undefined,
         confirm: options.confirm === true,
-        provider: options.provider ?? 'github'
+        provider
     };
     storage.setItem(PENDING_LOGIN_KEY, JSON.stringify(pending));
     return loginStartUrl({
         addressBookUrl: options.addressBookUrl,
-        provider: options.provider ?? 'github',
+        provider,
         redirectUri: options.redirectUri,
         state,
         challenge: pkce.challenge,

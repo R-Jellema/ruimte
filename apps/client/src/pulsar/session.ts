@@ -8,10 +8,7 @@ export type SessionView = z.infer<typeof SessionViewSchema>;
 export const RestoredSessionSchema = z.object({ account: AccountSchema, expiresAt: z.number() });
 type RestoredSession = z.infer<typeof RestoredSessionSchema>;
 
-/*
- * Whatever holds the refresh token for this client: the desktop shell today, a phone's keychain later.
- * The page asks it for access tokens and never sees what it keeps.
- */
+/* Whatever holds the refresh token for this client. The page asks it for access tokens and never sees what it keeps. */
 export interface SessionKeeper {
     exchange(payload: SessionLoginCode): Promise<SessionView>;
     /* A fresh access token, or null when there is no session any more. */
