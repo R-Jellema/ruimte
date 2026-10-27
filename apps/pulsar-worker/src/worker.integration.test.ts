@@ -1981,6 +1981,18 @@ describe('cors', () => {
     });
 });
 
+describe('model catalogs', () => {
+    test('both routes answer through the router and D1, and only v1 leaves the ACP agents out', async () => {
+        const v1 = await dispatch('/v1/models/catalog');
+        const v2 = await dispatch('/v2/models/catalog');
+
+        expect(v1.status).toBe(200);
+        expect(Object.keys(((await v1.json()) as { catalogs: object }).catalogs)).toEqual(['claude', 'codex']);
+        expect(v2.status).toBe(200);
+        expect(Object.keys(((await v2.json()) as { catalogs: object }).catalogs)).toEqual(expect.arrayContaining(['claude', 'codex']));
+    });
+});
+
 describe('usage', () => {
     test('a batch of finished days is taken in workerd, and nothing but a post is', async () => {
         const date = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);

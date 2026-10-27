@@ -151,7 +151,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
         }
         return failure('not-found', 'No such route');
     }
-    if (path.startsWith('/v1/')) {
+    if (path.startsWith('/v1/') || path.startsWith('/v2/')) {
         const cors = corsHeaders(allowedOrigin(request, env));
         if (request.method === 'OPTIONS') {
             return new Response(null, { status: 204, headers: cors });
