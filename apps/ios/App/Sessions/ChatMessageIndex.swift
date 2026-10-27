@@ -77,7 +77,6 @@ struct ChatMessageIndex: View {
             dismiss()
         } label: {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
-                // The reading position: messages on screen carry the accent, the rest a quiet mark.
                 Circle()
                     .fill(visible ? MobileStyle.accent : MobileStyle.border)
                     .frame(width: 8, height: 8)

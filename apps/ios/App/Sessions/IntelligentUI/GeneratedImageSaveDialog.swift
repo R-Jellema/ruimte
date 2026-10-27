@@ -158,8 +158,7 @@ struct GeneratedImageSaveDialog: View {
     }
 }
 
-/// The folder picker as flat rows, the project root first, so the expanded tree draws in one section and the order is
-/// testable without a view.
+/// The folder picker as flat rows, the project root first, so the expanded tree draws in one section.
 @MainActor enum ImageSaveFolderTree {
     struct Row: Identifiable, Equatable {
         enum Kind: Equatable {

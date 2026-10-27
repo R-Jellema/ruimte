@@ -3,8 +3,9 @@ import RuimtePulsar
 import SwiftUI
 import UIKit
 
-/// One block of a reply in a hatched band across the thread, its parts as tiles at the reading width. The model is the block's: the view only draws what it evaluated,
-/// changes inputs and sends a choice through it, and tells it when the card is on screen.
+/// One block of a reply in a hatched band across the thread, its parts as tiles at the reading width. The model is the
+/// block's: the view only draws what it evaluated, changes inputs and sends a choice through it, and tells it when the
+/// card is on screen.
 struct UiBlockView: View {
     let model: UiBlockModel
     /// Chat, item and block, which keys what a person opened here (a tab, a folded section).

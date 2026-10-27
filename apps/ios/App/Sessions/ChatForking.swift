@@ -43,12 +43,11 @@ struct ChatMessageMark: Identifiable, Equatable {
     let turnID: String?
 }
 
-/// The fork rules of the desktop client, kept apart from the views so they can be tested.
-///
-/// The desktop client reads the same English sentences as the refusals below from `fork.refusal.*`, `fork.point.*` and
-/// `fork.branch.*` in `apps/client/src/i18n/locales/en/chat.json`, and nothing holds the two together: a change to one
-/// of those keys has to be made here by hand.
+/// The fork rules of the desktop client. Its refusals read the same English as `fork.refusal.*`, `fork.point.*` and
+/// `fork.branch.*` in `apps/client/src/i18n/locales/en/chat.json`, kept in step with them by hand.
 enum ChatForking {
+    static let titleMax = 120
+
     /// Whether a machine can fork this CLI's conversation and go on with it in a fork. Every kind this app knows by name
     /// is answered here, so a CLI added to `KNOWN_AGENT_KINDS` is decided on before it is offered a fork.
     static func forkable(_ kind: AgentKind) -> Bool {
@@ -60,7 +59,6 @@ enum ChatForking {
 
     /// A CLI this app does not know is not forkable; only a machine that knows it can say what it can do.
     static func forkable(provider: String) -> Bool { AgentKind(rawValue: provider).map(forkable) ?? false }
-    static let titleMax = 120
 
     /// Why a chat cannot be forked after this turn right now, or nil when it can.
     static func refusal(info: ChatInfo?, turn: ChatItem?) -> String? {
