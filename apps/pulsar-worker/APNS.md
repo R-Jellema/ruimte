@@ -44,6 +44,11 @@ only the fixed machine-summary collapse ID, and a token registration must match 
 work round that started the activity, so a late one from an older round changes nothing.
 Live Activity requests append `.push-type.liveactivity` to the topic.
 
+Every isolate signs with one provider token per environment, kept in `apns_provider_tokens`
+for 50 minutes. APNs answers `429 TooManyProviderTokenUpdates` when the token changes more
+than once in 20 minutes, which a token per isolate did all day. While D1 does not answer, an
+isolate signs a token of its own so the push still goes out.
+
 ## Open
 
 Delivery to a production-signed app has never been tested. A sandbox test does not

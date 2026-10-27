@@ -387,6 +387,53 @@ test('APNs selects and caches each environment key independently, including rota
     expect((await deliverApns(apnsEnv, { token: 'ab'.repeat(32), environment: 'sandbox', startsActivity: false }, signed(), NOW, rotatedSend)).ok).toBe(true);
 });
 
+describe('the shared APNs provider token', () => {
+    const authorizationOf = async (apnsEnv: Env): Promise<string> => {
+        let authorization = '';
+        const send = (async (_url: string | URL | Request, init?: RequestInit) => {
+            authorization = new Headers(init?.headers).get('authorization')!;
+            return new Response(null, { status: 200 });
+        }) as typeof fetch;
+        await deliverApns(apnsEnv, { token: 'ab'.repeat(32), environment: 'sandbox', startsActivity: false }, signed(), NOW, send);
+        return authorization;
+    };
+    const withNewKey = (): Env => ({
+        ...env,
+        APNS_SANDBOX_KEY: generateKeyPairSync('ec', { namedCurve: 'prime256v1' }).privateKey.export({ type: 'pkcs8', format: 'pem' }).toString()
+    });
+    const insert = (issuedAt: number, token: string) =>
+        sqlite
+            .query('INSERT INTO apns_provider_tokens (environment, key_id, team_id, issued_at, token) VALUES (?, ?, ?, ?, ?)')
+            .run('sandbox', 'test', 'test', issuedAt, token);
+
+    test('an isolate takes the token another one issued, so the provider token does not change per isolate', async () => {
+        insert(NOW - 10 * 60_000, 'shared-token');
+
+        expect(await authorizationOf(withNewKey())).toBe('bearer shared-token');
+    });
+
+    test('a token that aged out is replaced once, and the next isolate takes the new one', async () => {
+        insert(NOW - 55 * 60_000, 'old-token');
+        const first = await authorizationOf(withNewKey());
+        const stored = sqlite.query('SELECT issued_at, token FROM apns_provider_tokens').get() as { issued_at: number; token: string };
+
+        expect(first).toStartWith('bearer ey');
+        expect(stored).toEqual({ issued_at: NOW, token: first.slice('bearer '.length) });
+        expect(await authorizationOf(withNewKey())).toBe(first);
+    });
+
+    test('a push still goes out on a token of its own while the database does not answer', async () => {
+        const broken = {
+            ...withNewKey(),
+            DB: {
+                prepare: () => ({ bind: () => ({ first: () => Promise.reject(new Error('D1 down')), run: () => Promise.reject(new Error('D1 down')) }) })
+            } as unknown as D1Database
+        };
+
+        expect(await authorizationOf(broken)).toStartWith('bearer ey');
+    });
+});
+
 describe('automatic activity routing', () => {
     const collapse = (machineId: string) => createHash('sha256').update(pushCollapseIdMessage(machineId, MACHINE_ACTIVITY_NODE)).digest('base64url');
     const activity = { title: 'Computer', phase: 'running' as const, startedAt: NOW, runningCount: 2, attentionCount: 0 };
