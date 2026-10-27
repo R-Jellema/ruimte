@@ -36,6 +36,7 @@ import {
     writeGitignoreIfMissing,
     writeJsonDocument,
     type JsonDocumentParse,
+    closeLoaded,
     type JsonDocumentRead
 } from '../projects/project-files.ts';
 import type { SessionSink } from '../sessions/manager.ts';
@@ -447,15 +448,7 @@ export class LaunchStore {
 
     /* Stops watching a project the last client closed; the next read loads it again. */
     closeProject(projectId: string): void {
-        const state = this.loaded.get(projectId);
-        if (!state) {
-            return;
-        }
-        for (const watcher of state.watchers) {
-            watcher.close();
-        }
-        state.settle?.stop();
-        this.loaded.delete(projectId);
+        closeLoaded(this.loaded, projectId);
     }
 
     closeAll(): void {

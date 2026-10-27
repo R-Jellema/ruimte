@@ -29,6 +29,7 @@ import {
     watchOutsideEdits,
     writeGitignoreIfMissing,
     type JsonDocumentParse,
+    closeLoaded,
     type JsonDocumentRead
 } from '../projects/project-files.ts';
 import { PairedWriteRaced, PairedWriteStuck, recoverPaired, writePaired, type PairedFile } from '../projects/paired-write.ts';
@@ -270,15 +271,7 @@ export class DatabaseConnectionStore {
 
     /* Stops watching a project nobody holds any more; the next read loads it again. */
     closeProject(projectId: string): void {
-        const state = this.loaded.get(projectId);
-        if (!state) {
-            return;
-        }
-        for (const watcher of state.watchers) {
-            watcher.close();
-        }
-        state.settle?.stop();
-        this.loaded.delete(projectId);
+        closeLoaded(this.loaded, projectId);
     }
 
     closeAll(): void {

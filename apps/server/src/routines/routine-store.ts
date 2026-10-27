@@ -27,6 +27,7 @@ import {
     writeGitignoreIfMissing,
     writeJsonDocument,
     type JsonDocumentParse,
+    closeLoaded,
     type JsonDocumentRead
 } from '../projects/project-files.ts';
 
@@ -194,15 +195,7 @@ export class RoutineStore {
 
     /* Stops watching a project the machine no longer knows; the next read loads it again. */
     forget(projectId: string): void {
-        const state = this.loaded.get(projectId);
-        if (!state) {
-            return;
-        }
-        for (const watcher of state.watchers) {
-            watcher.close();
-        }
-        state.settle?.stop();
-        this.loaded.delete(projectId);
+        closeLoaded(this.loaded, projectId);
     }
 
     closeAll(): void {

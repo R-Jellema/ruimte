@@ -259,6 +259,22 @@ export function watchOutsideEdits(edits: OutsideEdits): { settle: Settled; watch
     return { settle, watchers };
 }
 
+/* Stops watching a project's files and forgets it; the next read loads it again. */
+export function closeLoaded(loaded: Map<string, { watchers: DirectoryWatcher[]; settle?: Settled | null }>, projectId: string): void {
+    const state = loaded.get(projectId);
+
+    if (!state) {
+        return;
+    }
+
+    for (const watcher of state.watchers) {
+        watcher.close();
+    }
+
+    state.settle?.stop();
+    loaded.delete(projectId);
+}
+
 /* Takes in each file whose text moved since the store last read or wrote it; true when one did. */
 export function takeMovedFiles<State extends { rev: number; sharedText: string; privateText: string }, Shared, Private>(
     state: State,
