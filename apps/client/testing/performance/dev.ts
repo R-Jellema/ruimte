@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { realpathSync } from 'node:fs';
 import { createServer, type Plugin } from 'vite';
+import { measureDialogs } from './bench';
 
 const client = join(import.meta.dir, '../..');
 const directory = await mkdtemp(join(tmpdir(), 'ruimte-dev-bench-'));
@@ -107,7 +108,7 @@ try {
             const url = `http://127.0.0.1:${address.port}`;
             view = new Bun.WebView({ backend: { type: 'chrome', url: false }, headless: true, dataStore: { directory: join(directory, `profile-${run}`) } });
             const pages = [];
-            const dialogs: Record<string, number> = {};
+            let dialogs: Record<string, number> = {};
             for (let reload = 0; reload < 3; reload++) {
                 const navigationStarted = performance.now();
                 await view.navigate(`${url}/?bench=${reload}`);
@@ -127,29 +128,7 @@ try {
                 }
                 pages.push({ ...page, navigationMs: performance.now() - navigationStarted });
                 if (screens && reload === 0) {
-                    await view.evaluate(`(()=>{window.benchDialog=(key)=>new Promise((resolve,reject)=>{
-                        const start=performance.now();
-                        const timeout=setTimeout(()=>reject(new Error('Dialog did not open: '+key)),15000);
-                        const observer=new MutationObserver(()=>{if(document.querySelector('[role=dialog]')){
-                            observer.disconnect();clearTimeout(timeout);requestAnimationFrame(()=>resolve(performance.now()-start));
-                        }});
-                        observer.observe(document.body,{subtree:true,childList:true});
-                        const apple=navigator.platform.includes('Mac');
-                        window.dispatchEvent(new KeyboardEvent('keydown',{key,code:key===','?'Comma':'KeyK',metaKey:apple,ctrlKey:!apple,bubbles:true}));
-                    });window.benchClose=()=>new Promise((resolve,reject)=>{
-                        const timeout=setTimeout(()=>reject(new Error('Dialog did not close')),10000);
-                        const check=()=>{if(!document.querySelector('[role=dialog]')){clearTimeout(timeout);resolve()}else requestAnimationFrame(check)};
-                        document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',code:'Escape',bubbles:true}));check();
-                    });})()`);
-                    for (const [name, key] of [
-                        ['settings', ','],
-                        ['palette', 'k']
-                    ]) {
-                        dialogs[name!] = await view.evaluate<number>(`window.benchDialog(${JSON.stringify(key)})`);
-                        await view.evaluate('window.benchClose()');
-                        dialogs[`${name}Warm`] = await view.evaluate<number>(`window.benchDialog(${JSON.stringify(key)})`);
-                        await view.evaluate('window.benchClose()');
-                    }
+                    dialogs = await measureDialogs(view);
                 }
             }
             const hmrMs =

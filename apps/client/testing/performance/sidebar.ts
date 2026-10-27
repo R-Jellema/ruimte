@@ -1,6 +1,7 @@
 import { ProjectSidebarResultSchema, type EventMap, type EventType, type RequestMap, type RequestType, type SessionStatusEvent } from '@ruimte/contracts';
 import { SidebarWatch } from '../../src/shell/sidebar-watch';
 import type { Transport } from '../../src/transport/transport';
+import { median } from './bench';
 
 const projectCount = Number(process.env.BENCH_PROJECTS ?? 20);
 const viewsPerProject = Number(process.env.BENCH_VIEWS ?? 100);
@@ -105,7 +106,6 @@ try {
     watcher.dispose();
 }
 console.log(JSON.stringify({ benchmark: 'sidebar-status-updates', projectCount, viewsPerProject, updates, runs, cases }, null, 2));
-const ordered = cases[0]!.samples.toSorted((left, right) => left - right);
-if (ordered[Math.floor(ordered.length / 2)]! > Number(process.env.BENCH_MAX_STATUS_MS ?? Infinity)) {
+if (median(cases[0]!.samples) > Number(process.env.BENCH_MAX_STATUS_MS ?? Infinity)) {
     throw new Error('Sidebar updates exceeded their processing budget');
 }

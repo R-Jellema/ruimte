@@ -1,5 +1,6 @@
 import { modelsByVendor } from '../../node_modules/@adecore/agents-react/src/chat/logic/picker-entries';
 import { ModelInfoSchema } from '@ruimte/contracts';
+import { median } from './bench';
 
 const count = Number(process.env.BENCH_MODELS ?? 700);
 const runs = Number(process.env.BENCH_RUNS ?? 9);
@@ -43,7 +44,6 @@ for (let run = -1; run < runs; run++) {
     }
 }
 console.log(JSON.stringify({ benchmark: 'model-vendor-sort', count, runs, samples }, null, 2));
-const ordered = samples.toSorted((left, right) => left - right);
-if (ordered[Math.floor(runs / 2)]! > Number(process.env.BENCH_MAX_SORT_MS ?? Infinity)) {
+if (median(samples) > Number(process.env.BENCH_MAX_SORT_MS ?? Infinity)) {
     throw new Error('Model sorting exceeded its timing budget');
 }

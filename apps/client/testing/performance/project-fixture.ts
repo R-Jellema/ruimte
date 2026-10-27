@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { MACHINE_HEALTH_PATH } from '@ruimte/contracts';
 import { ProjectStore } from '../../../server/src/projects/project-store';
 import { projectLinks } from '../../../server/src/projects/project-file-test-helpers';
+import { reservedPort, spawnBenchDaemon, stopBenchDaemon } from './bench';
 
 interface ProjectFixture {
     daemonUrl: string;
@@ -21,7 +22,7 @@ export async function withProjectFixture<Result>(
     const home = join(root, 'home');
     const seed = new ProjectStore(home, projectLinks());
     let first = '';
-    let child: Bun.Subprocess<'ignore', 'pipe', 'pipe'> | undefined;
+    let child: ReturnType<typeof spawnBenchDaemon> | undefined;
     let stdout: Promise<string> | undefined;
     let stderr: Promise<string> | undefined;
     try {
@@ -55,28 +56,8 @@ export async function withProjectFixture<Result>(
             seed.release(opened.summary.projectId);
         }
         seed.closeAll();
-        const reservation = Bun.serve({ hostname: '127.0.0.1', port: 0, fetch: () => new Response() });
-        const port = reservation.port!;
-        await reservation.stop(true);
-        child = Bun.spawn(
-            [
-                process.execPath,
-                '--conditions=source',
-                ...(process.env.BENCH_DAEMON_PRELOAD ? ['--preload', process.env.BENCH_DAEMON_PRELOAD] : []),
-                'src/main.ts',
-                '--host',
-                '127.0.0.1',
-                '--port',
-                String(port),
-                '--no-hooks',
-                '--no-broker',
-                '--no-lan',
-                '--no-stun',
-                '--no-model-fetch',
-                '--no-price-fetch'
-            ],
-            { cwd: join(import.meta.dir, '../../../server'), env: { ...process.env, RUIMTE_HOME: home }, stdin: 'ignore', stdout: 'pipe', stderr: 'pipe' }
-        );
+        const port = await reservedPort();
+        child = spawnBenchDaemon(home, port);
         stdout = new Response(child.stdout).text();
         stderr = new Response(child.stderr).text();
         const daemonUrl = `http://127.0.0.1:${port}`;
@@ -103,10 +84,7 @@ export async function withProjectFixture<Result>(
     } finally {
         seed.closeAll();
         if (child) {
-            child.kill('SIGTERM');
-            const timeout = setTimeout(() => child!.kill('SIGKILL'), 5000);
-            await child.exited;
-            clearTimeout(timeout);
+            await stopBenchDaemon(child);
             await stdout;
             await stderr;
         }

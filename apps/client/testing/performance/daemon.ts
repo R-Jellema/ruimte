@@ -6,6 +6,7 @@ import { AuthTicketResultSchema, MACHINE_HEALTH_PATH } from '@ruimte/contracts';
 import { proveDaemon } from '../../../desktop/src/daemon-proof';
 import { LinkTransport } from '../../src/transport/link-transport';
 import { socketLink } from '../../src/transport/websocket-transport';
+import { median, reservedPort, spawnBenchDaemon, stopBenchDaemon } from './bench';
 import { measureRestore } from './restore';
 
 const runs = Number(process.env.BENCH_RUNS ?? 5);
@@ -19,33 +20,9 @@ const samples = [];
 try {
     for (let run = projects > 0 ? -1 : 0; run < runs; run++) {
         const home = process.env.BENCH_RESTORE === '1' ? join(root, `home-${run}`) : root;
-        const reservation = Bun.serve({ hostname: '127.0.0.1', port: 0, fetch: () => new Response() });
-        const port = reservation.port!;
-        await reservation.stop(true);
+        const port = await reservedPort();
         const started = performance.now();
-        const child = Bun.spawn(
-            [
-                ...(process.env.BENCH_DAEMON_BINARY
-                    ? [process.env.BENCH_DAEMON_BINARY]
-                    : [
-                          process.execPath,
-                          '--conditions=source',
-                          ...(process.env.BENCH_DAEMON_PRELOAD ? ['--preload', process.env.BENCH_DAEMON_PRELOAD] : []),
-                          'src/main.ts'
-                      ]),
-                '--host',
-                '127.0.0.1',
-                '--port',
-                String(port),
-                '--no-hooks',
-                '--no-broker',
-                '--no-lan',
-                '--no-stun',
-                '--no-model-fetch',
-                '--no-price-fetch'
-            ],
-            { cwd: join(import.meta.dir, '../../../server'), env: { ...process.env, RUIMTE_HOME: home }, stdout: 'pipe', stderr: 'pipe' }
-        );
+        const child = spawnBenchDaemon(home, port, process.env.BENCH_DAEMON_BINARY);
         const stdout = new Response(child.stdout).text();
         const stderr = new Response(child.stderr).text();
         let transport: LinkTransport | null = null;
@@ -107,10 +84,7 @@ try {
         } finally {
             clearTimeout(connectedTimer);
             transport?.dispose();
-            child.kill('SIGTERM');
-            const timeout = setTimeout(() => child.kill('SIGKILL'), 5000);
-            await child.exited;
-            clearTimeout(timeout);
+            await stopBenchDaemon(child);
             const output = await stdout;
             await stderr;
             const phases = output.split('\n').flatMap((line) => {
@@ -137,8 +111,7 @@ try {
             2
         )
     );
-    const ordered = samples.map((sample) => sample.projectsMs).toSorted((left, right) => left - right);
-    if (ordered[Math.floor(ordered.length / 2)]! > Number(process.env.BENCH_MAX_STARTUP_MS ?? Infinity)) {
+    if (median(samples.map((sample) => sample.projectsMs)) > Number(process.env.BENCH_MAX_STARTUP_MS ?? Infinity)) {
         throw new Error('Local daemon startup exceeded its timing budget');
     }
 } finally {

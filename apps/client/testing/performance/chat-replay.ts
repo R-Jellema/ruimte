@@ -1,5 +1,7 @@
 import { chatSink, useChats, type ChatSink } from '@adecore/agents-react/state';
 import { ChatInfoSchema, type ChatEvent, type ChatItem } from '@ruimte/contracts';
+import { chatInfoOf } from '../chat-info';
+import { median } from './bench';
 
 const count = Number(process.env.BENCH_ITEMS ?? 6000);
 const updates = Number(process.env.BENCH_UPDATES ?? 200);
@@ -8,21 +10,16 @@ const live = process.env.BENCH_LIVE === '1';
 if (![count, updates, runs].every((value) => Number.isInteger(value) && value > 0)) {
     throw new Error('BENCH_ITEMS, BENCH_UPDATES and BENCH_RUNS must be positive integers');
 }
-const info = ChatInfoSchema.parse({
-    chatId: 'replay',
-    provider: 'claude',
-    cwd: '/',
-    agentSessionId: null,
-    model: null,
-    selection: { model: 'claude-sonnet-5', options: {} },
-    runtimeMode: 'supervised',
-    status: 'running',
-    running: true,
-    activeTurnId: 'turn',
-    slashCommands: [],
-    usage: { contextTokens: 0, contextWindow: null, costUsd: 0, turns: 0 },
-    createdAt: 0
-});
+const info = ChatInfoSchema.parse(
+    chatInfoOf('replay', {
+        cwd: '/',
+        selection: { model: 'claude-sonnet-5', options: {} },
+        status: 'running',
+        running: true,
+        activeTurnId: 'turn',
+        usage: { contextTokens: 0, contextWindow: null, costUsd: 0, turns: 0 }
+    })
+);
 const items: ChatItem[] = Array.from({ length: count }, (_, index) => ({
     id: 'item-' + index,
     kind: 'user',
@@ -68,7 +65,6 @@ for (let run = -1; run < runs; run++) {
 }
 useChats.getState().forget(key);
 console.log(JSON.stringify({ benchmark: 'chat-client-replay', count, updates, runs, batch: Boolean(sink.replay) && !live, samples }, null, 2));
-const median = samples.map((sample) => sample.ms).toSorted((left, right) => left - right)[Math.floor(runs / 2)]!;
-if (median > Number(process.env.BENCH_MAX_REPLAY_MS ?? Infinity)) {
+if (median(samples.map((sample) => sample.ms)) > Number(process.env.BENCH_MAX_REPLAY_MS ?? Infinity)) {
     throw new Error('Chat replay exceeded its timing budget');
 }

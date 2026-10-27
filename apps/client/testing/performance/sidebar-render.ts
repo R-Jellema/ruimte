@@ -1,4 +1,6 @@
 import { ChatInfoSchema } from '@ruimte/contracts';
+import { chatInfoOf } from '../chat-info';
+import { cpuTaskMs } from './bench';
 import { measureRestore } from './restore';
 import { withProjectFixture } from './project-fixture';
 
@@ -8,21 +10,7 @@ const updates = Number(process.env.BENCH_UPDATES ?? 60);
 if (![count, views, updates].every((value) => Number.isInteger(value) && value > 0) || views < 2) {
     throw new Error('BENCH_PROJECTS, BENCH_VIEWS and BENCH_UPDATES must be positive integers, with at least two views');
 }
-const info = ChatInfoSchema.parse({
-    chatId: 'view-0-1',
-    provider: 'claude',
-    cwd: '/project',
-    agentSessionId: null,
-    model: null,
-    selection: { model: 'model', options: {} },
-    runtimeMode: 'supervised',
-    status: 'idle',
-    running: false,
-    activeTurnId: null,
-    slashCommands: [],
-    usage: { turns: 0, contextTokens: 0, contextWindow: null, costUsd: 0 },
-    createdAt: 0
-});
+const info = ChatInfoSchema.parse(chatInfoOf('view-0-1', { cwd: '/project', usage: { turns: 0, contextTokens: 0, contextWindow: null, costUsd: 0 } }));
 await withProjectFixture({ projects: count, views }, async (fixture) => {
     const result = await measureRestore({
         ...fixture,
@@ -52,11 +40,10 @@ await withProjectFixture({ projects: count, views }, async (fixture) => {
                 return {rows:document.querySelectorAll('[data-sidebar-row]').length,frames,errors:window.benchErrors};
             })()`);
             const after = (await view.cdp('Performance.getMetrics')) as typeof before;
-            const metric = (result: typeof before, name: string) => result.metrics.find((row) => row.name === name)?.value ?? 0;
             if (audit.errors.length > 0) {
                 throw new Error(audit.errors.join('\n'));
             }
-            const taskMs = 1000 * (metric(after, 'TaskDuration') - metric(before, 'TaskDuration'));
+            const taskMs = cpuTaskMs(before, after);
             if (taskMs > Number(process.env.BENCH_MAX_TASK_MS ?? Infinity)) {
                 throw new Error(`Sidebar status updates exceeded their CPU budget: ${taskMs} ms`);
             }

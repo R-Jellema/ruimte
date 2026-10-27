@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { realpathSync } from 'node:fs';
 import { withBrowserFixture, clientDirectory } from '../browser-fixture';
+import { cpuTaskMs, median } from './bench';
 
 const shared = realpathSync(join(clientDirectory, 'node_modules/@adecore/agents-react/src'));
 const css = [...new Bun.Glob('assets/{index,startup}-*.css').scanSync(join(clientDirectory, 'dist'))][0]!;
@@ -43,8 +44,7 @@ await withBrowserFixture(
                 throw new Error(`Invalid timeline: ${JSON.stringify(scrolling)}`);
             }
             const after = (await view.cdp('Performance.getMetrics')) as { metrics: { name: string; value: number }[] };
-            const metric = (result: typeof before, name: string) => result.metrics.find((row) => row.name === name)?.value ?? 0;
-            samples.push({ scrolling, taskMs: (metric(after, 'TaskDuration') - metric(before, 'TaskDuration')) * 1000 });
+            samples.push({ scrolling, taskMs: cpuTaskMs(before, after) });
         }
         const anchor = await view.evaluate<{ before: { id: string; offset: number }; after: { id: string; offset: number } }>(`(async()=>{
             const el=document.querySelector('.chat-scroll');
@@ -89,8 +89,7 @@ await withBrowserFixture(
             throw new Error(`Appending changed the scroll behavior: ${JSON.stringify(following)}`);
         }
         console.log(JSON.stringify({ benchmark: 'timeline-scroll', count, initial, samples, anchor, following }, null, 2));
-        const ordered = samples.map((sample) => sample.taskMs).toSorted((left, right) => left - right);
-        if (ordered[Math.floor(ordered.length / 2)]! > Number(process.env.BENCH_MAX_TASK_MS ?? Infinity)) {
+        if (median(samples.map((sample) => sample.taskMs)) > Number(process.env.BENCH_MAX_TASK_MS ?? Infinity)) {
             throw new Error('Timeline scrolling exceeded its CPU budget');
         }
     },

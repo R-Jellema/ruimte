@@ -1,5 +1,6 @@
 import { FsWritePayloadSchema } from '@ruimte/contracts';
 import { withProjectFixture } from './project-fixture';
+import { median } from './bench';
 import { measureRestore } from './restore';
 
 const content = process.env.BENCH_CONTENT ?? 'empty';
@@ -81,10 +82,8 @@ await withProjectFixture({ projects: 1, views: content === 'file' ? 2 : 0, loose
         }
     });
     console.log(JSON.stringify({ benchmark: 'workspace-load', content, assetDelayMs, result }, null, 2));
-    const measured = result.samples
-        .map((sample) => (content !== 'empty' ? (sample.probe as { contentMs: number }).contentMs : sample.readyMs))
-        .toSorted((left, right) => left - right);
-    if (measured[Math.floor(measured.length / 2)]! > Number(process.env.BENCH_MAX_LOAD_MS ?? Infinity)) {
+    const measured = result.samples.map((sample) => (content !== 'empty' ? (sample.probe as { contentMs: number }).contentMs : sample.readyMs));
+    if (median(measured) > Number(process.env.BENCH_MAX_LOAD_MS ?? Infinity)) {
         throw new Error('Workspace loading exceeded its timing budget');
     }
 });

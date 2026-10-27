@@ -1,6 +1,7 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
+import { measureDialogs } from './bench';
 
 const root = process.env.BENCH_CLIENT_DIST ?? join(import.meta.dir, '../../dist');
 const runs = Number(process.env.BENCH_RUNS ?? 9);
@@ -78,35 +79,7 @@ try {
             if (sample.language !== language) {
                 throw new Error(`Expected ${language}, got ${sample.language}`);
             }
-            const dialogs: Record<string, unknown> = {};
-            if (screens) {
-                await view.evaluate(`(()=>{window.benchDialog=(key)=>new Promise((resolve,reject)=>{
-                    const start=performance.now();
-                    const timeout=setTimeout(()=>reject(new Error('Dialog did not open: '+key)),10000);
-                    const observer=new MutationObserver(()=>{
-                        if(document.querySelector('[role=dialog]')){
-                            observer.disconnect();clearTimeout(timeout);
-                            requestAnimationFrame(()=>resolve(performance.now()-start));
-                        }
-                    });
-                    observer.observe(document.body,{subtree:true,childList:true});
-                    const apple=navigator.platform.includes('Mac');
-                    window.dispatchEvent(new KeyboardEvent('keydown',{key,code:key===','?'Comma':'KeyK',metaKey:apple,ctrlKey:!apple,bubbles:true}));
-                });window.benchClose=()=>new Promise((resolve,reject)=>{
-                    const timeout=setTimeout(()=>reject(new Error('Dialog did not close')),10000);
-                    const check=()=>{if(!document.querySelector('[role=dialog]')){clearTimeout(timeout);resolve()}else requestAnimationFrame(check)};
-                    document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',code:'Escape',bubbles:true}));check();
-                });})()`);
-                for (const [name, key] of [
-                    ['settings', ','],
-                    ['palette', 'k']
-                ]) {
-                    dialogs[name!] = await view.evaluate(`window.benchDialog(${JSON.stringify(key)})`);
-                    await view.evaluate('window.benchClose()');
-                    dialogs[`${name}Warm`] = await view.evaluate(`window.benchDialog(${JSON.stringify(key)})`);
-                    await view.evaluate('window.benchClose()');
-                }
-            }
+            const dialogs = screens ? await measureDialogs(view) : {};
             samples.push({
                 readyMs: sample.ready,
                 jsRequests: sample.resources.length,

@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import { realpathSync } from 'node:fs';
+import { median } from './bench';
 
 const client = join(import.meta.dir, '../..');
 const shared = realpathSync(join(client, 'node_modules/@adecore/agents-react/src'));
@@ -28,8 +29,7 @@ for (let pass = 0; pass < 11; pass++) {
 }
 console.log(JSON.stringify({ benchmark: 'revisit-chat-code', blocks: blocks.length, linesPerBlock: 80, tokenLines, samples }, null, 2));
 shiki.dispose();
-const warm = samples.slice(1).toSorted((left, right) => left - right);
 const maxWarm = Number(process.env.BENCH_MAX_WARM_MS ?? Infinity);
-if (warm[Math.floor(warm.length / 2)]! > maxWarm) {
+if (median(samples.slice(1)) > maxWarm) {
     throw new Error(`Repeated syntax work exceeded ${maxWarm} ms`);
 }

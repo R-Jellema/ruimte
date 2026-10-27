@@ -1,3 +1,4 @@
+import { cpuTaskMs } from './bench';
 import { withProjectFixture } from './project-fixture';
 import { measureRestore } from './restore';
 
@@ -73,7 +74,6 @@ await withProjectFixture({ projects: 1, views }, async (fixture) => {
                     }
                 }
                 const after = (await view.cdp('Performance.getMetrics')) as typeof before;
-                const metric = (sample: typeof before) => sample.metrics.find((row) => row.name === 'TaskDuration')!.value;
                 const audit = await view.evaluate<{
                     keys: { key: string; twoFrameMs: number }[];
                     events: unknown[];
@@ -91,7 +91,7 @@ await withProjectFixture({ projects: 1, views }, async (fixture) => {
                 if (name === 'palette' && process.env.BENCH_PROFILE) {
                     await Bun.write(process.env.BENCH_PROFILE, JSON.stringify(await view.cdp('Profiler.stop')));
                 }
-                phases.push({ name, openedMs: opened, taskMs: 1000 * (metric(after) - metric(before)), arrows: arrows.length, ...audit });
+                phases.push({ name, openedMs: opened, taskMs: cpuTaskMs(before, after), arrows: arrows.length, ...audit });
                 await view.cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', windowsVirtualKeyCode: 27 });
                 await view.cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', windowsVirtualKeyCode: 27 });
                 await view.evaluate(

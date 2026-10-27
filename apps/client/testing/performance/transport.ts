@@ -2,6 +2,7 @@ import { EVENT_SCHEMAS, PROTOCOL_VERSION, PROJECT_VERSION, REQUEST_SCHEMAS, type
 import { Dispatcher } from '../../../server/src/dispatcher';
 import { LinkTransport, type LinkEvents } from '../../src/transport/link-transport';
 import { socketLink } from '../../src/transport/websocket-transport';
+import { median } from './bench';
 
 const runs = Number(process.env.BENCH_RUNS ?? 7);
 const count = Number(process.env.BENCH_EVENTS ?? 1000);
@@ -149,7 +150,6 @@ try {
 }
 console.log(JSON.stringify({ benchmark: 'client-daemon-transport', runs, events, requests }, null, 2));
 const unused = events.find((row) => row.event === 'project.changed' && !row.observed)!;
-const sorted = unused.samples.toSorted((left, right) => left - right);
-if (sorted[Math.floor(sorted.length / 2)]! > Number(process.env.BENCH_MAX_UNUSED_MS ?? Infinity)) {
+if (median(unused.samples) > Number(process.env.BENCH_MAX_UNUSED_MS ?? Infinity)) {
     throw new Error('Unused event processing exceeded its timing budget');
 }
