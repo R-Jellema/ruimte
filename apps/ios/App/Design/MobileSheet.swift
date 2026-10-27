@@ -3,7 +3,10 @@ import SwiftUI
 extension Binding {
     /// Whether the optional holds a value, for a sheet or alert that shows while it does; dismissing clears it.
     func isPresent<Wrapped>() -> Binding<Bool> where Value == Wrapped? {
-        Binding<Bool>(get: { wrappedValue != nil }, set: { if !$0 { wrappedValue = nil } })
+        // SwiftUI calls both closures on the main actor, where the bindings this replaced lived too.
+        nonisolated(unsafe) let base = self
+
+        return Binding<Bool>(get: { base.wrappedValue != nil }, set: { if !$0 { base.wrappedValue = nil } })
     }
 }
 
