@@ -73,36 +73,23 @@ export const PushRoutingSchema = z.object({
 });
 export type PushRouting = z.infer<typeof PushRoutingSchema>;
 
+const signature = z.string().regex(/^[A-Za-z0-9_-]{86}$/);
+const encrypted = {
+    ephemeralKey: key,
+    nonce: z.string().regex(/^[A-Za-z0-9_-]{16}$/),
+    // Ciphertext followed by the 16-byte AES-GCM tag; the nonce travels separately.
+    ciphertext: z
+        .string()
+        .regex(/^[A-Za-z0-9_-]+$/)
+        .min(22)
+        .max(3200),
+    signature
+};
+
 export const PushEnvelopeSchema = z.discriminatedUnion('pushType', [
-    PushRoutingSchema.extend({
-        pushType: z.literal('alert'),
-        ephemeralKey: key,
-        nonce: z.string().regex(/^[A-Za-z0-9_-]{16}$/),
-        // Ciphertext followed by the 16-byte AES-GCM tag; the nonce travels separately.
-        ciphertext: z
-            .string()
-            .regex(/^[A-Za-z0-9_-]+$/)
-            .min(22)
-            .max(3200),
-        signature: z.string().regex(/^[A-Za-z0-9_-]{86}$/)
-    }),
-    PushRoutingSchema.extend({
-        pushType: z.literal('background'),
-        ephemeralKey: key,
-        nonce: z.string().regex(/^[A-Za-z0-9_-]{16}$/),
-        // Ciphertext followed by the 16-byte AES-GCM tag; the nonce travels separately.
-        ciphertext: z
-            .string()
-            .regex(/^[A-Za-z0-9_-]+$/)
-            .min(22)
-            .max(3200),
-        signature: z.string().regex(/^[A-Za-z0-9_-]{86}$/)
-    }),
-    PushRoutingSchema.extend({
-        pushType: z.literal('liveactivity'),
-        activity: PushActivityContentSchema,
-        signature: z.string().regex(/^[A-Za-z0-9_-]{86}$/)
-    })
+    PushRoutingSchema.extend({ pushType: z.literal('alert'), ...encrypted }),
+    PushRoutingSchema.extend({ pushType: z.literal('background'), ...encrypted }),
+    PushRoutingSchema.extend({ pushType: z.literal('liveactivity'), activity: PushActivityContentSchema, signature })
 ]);
 export type PushEnvelope = z.infer<typeof PushEnvelopeSchema>;
 

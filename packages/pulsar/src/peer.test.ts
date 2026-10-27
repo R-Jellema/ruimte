@@ -33,6 +33,12 @@ function setup(host = 'broker.example.com') {
     return { peer, sent, signed, log };
 }
 
+async function ready(peer: BrokerPeer): Promise<void> {
+    peer.start();
+    await peer.receive(JSON.stringify({ type: 'challenge', broker: 'broker.example.com', nonce }));
+    await peer.receive(JSON.stringify({ type: 'ready' }));
+}
+
 describe('BrokerPeer', () => {
     test('announces, answers the challenge over the broker host and signs every relay end to end', async () => {
         const { peer, sent, signed, log } = setup();
@@ -62,9 +68,7 @@ describe('BrokerPeer', () => {
 
     test('relays and refusals reach the events; something that is not JSON ends the peer', async () => {
         const { peer, log } = setup();
-        peer.start();
-        await peer.receive(JSON.stringify({ type: 'challenge', broker: 'broker.example.com', nonce }));
-        await peer.receive(JSON.stringify({ type: 'ready' }));
+        await ready(peer);
         const relayed = { type: 'relayed', from: otherKey, envelope: { connectionId: 'attempt-1', signal: { kind: 'answer', sdp: 'v=0' } }, signature };
         await peer.receive(JSON.stringify(relayed));
         await peer.receive(JSON.stringify({ type: 'error', code: 'not-connected', message: 'Nobody', id: 'relay-1' }));
@@ -79,9 +83,7 @@ describe('BrokerPeer', () => {
 
     test('a frame from a newer broker and an envelope this version cannot read are passed over, and the peer stays ready', async () => {
         const { peer, log } = setup();
-        peer.start();
-        await peer.receive(JSON.stringify({ type: 'challenge', broker: 'broker.example.com', nonce }));
-        await peer.receive(JSON.stringify({ type: 'ready' }));
+        await ready(peer);
 
         await peer.receive(JSON.stringify({ type: 'notice', text: 'maintenance' }));
         await peer.receive(

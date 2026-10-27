@@ -81,23 +81,14 @@ export const BrokerRelayedSchema = z.object({
 });
 export type BrokerRelayed = z.infer<typeof BrokerRelayedSchema>;
 
+const IceUrlSchema = z
+    .string()
+    .regex(/^(stun|stuns|turn|turns):/)
+    .max(512);
+
 /* What `RTCPeerConnection` takes as one of its `iceServers`, with the URL schemes ICE knows. */
 export const IceServerSchema = z.object({
-    urls: z.union([
-        z
-            .string()
-            .regex(/^(stun|stuns|turn|turns):/)
-            .max(512),
-        z
-            .array(
-                z
-                    .string()
-                    .regex(/^(stun|stuns|turn|turns):/)
-                    .max(512)
-            )
-            .min(1)
-            .max(8)
-    ]),
+    urls: z.union([IceUrlSchema, z.array(IceUrlSchema).min(1).max(8)]),
     username: z.string().max(256).optional(),
     credential: z.string().max(256).optional()
 });

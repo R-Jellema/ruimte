@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { AccountSchema, BrokerUrlSchema, MachineIconSchema, MachineSchema, TokenSchema } from './address-book.ts';
+import { fromBase64Url } from './base64url.ts';
 import { MachineIdSchema, PublicKeySchema, SignatureSchema } from './keys.ts';
 
 /*
@@ -61,11 +62,8 @@ export function normalizeUserCode(input: string): string | null {
  * terminal and a page, and 64 bits is more than anyone can grind a look-alike key for.
  */
 export function keyFingerprint(publicKey: string): string {
-    const binary = atob(publicKey.replaceAll('-', '+').replaceAll('_', '/') + '='.repeat((4 - (publicKey.length % 4)) % 4));
-    let hex = '';
-    for (let i = 0; i < Math.min(8, binary.length); i++) {
-        hex += binary.charCodeAt(i).toString(16).padStart(2, '0');
-    }
+    const hex = Array.from(fromBase64Url(publicKey).subarray(0, 8), (byte) => byte.toString(16).padStart(2, '0')).join('');
+
     return hex.match(/.{1,4}/g)?.join(' ') ?? '';
 }
 

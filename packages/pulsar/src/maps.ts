@@ -54,14 +54,14 @@ function secretOf(secret: string): Uint8Array<ArrayBuffer> {
  * of a known account id, and a key derived for this purpose alone, so it is no key of the mac.
  */
 export async function mapsTicketSubject(secret: string, accountId: string): Promise<string> {
-    const encoder = new TextEncoder();
-    const derived = await crypto.subtle.sign('HMAC', await hmacKey(secretOf(secret), 'sign'), encoder.encode(SUBJECT_KEY_PURPOSE));
-    const digest = await crypto.subtle.sign('HMAC', await hmacKey(new Uint8Array(derived), 'sign'), encoder.encode(`account:${accountId}`));
-    return toBase64Url(digest);
+    return toBase64Url(
+        await crypto.subtle.sign('HMAC', await derivedKey(secret, SUBJECT_KEY_PURPOSE, 'sign'), new TextEncoder().encode(`account:${accountId}`))
+    );
 }
 
 async function derivedKey(secret: string, purpose: string, usage: 'sign' | 'verify') {
     const derived = await crypto.subtle.sign('HMAC', await hmacKey(secretOf(secret), 'sign'), new TextEncoder().encode(purpose));
+
     return hmacKey(new Uint8Array(derived), usage);
 }
 

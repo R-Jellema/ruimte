@@ -168,7 +168,7 @@ export class AddressBookClient {
     }
 
     /* A ticket for the maps service, good for an hour, for the account this session belongs to. */
-    async mapsTicket(accessToken: string): Promise<MapsTicket> {
+    mapsTicket(accessToken: string): Promise<MapsTicket> {
         return this.call({ method: 'POST', path: '/v1/maps/ticket', token: accessToken, body: {}, schema: MapsTicketSchema });
     }
 
