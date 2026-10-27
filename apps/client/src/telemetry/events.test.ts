@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { createDailyDedupe, createScrubber } from '@ruimte/telemetry';
-import { CLIENT_TAGS, connectionEvent, storageDedupeStore } from './events';
+import { TransportError } from '@/transport/transport';
+import { CLIENT_TAGS, connectionEvent, isLostToDrop, storageDedupeStore } from './events';
 import { memoryStorage } from '../../testing/memory-storage';
 
 describe('connectionEvent', () => {
@@ -25,6 +26,14 @@ describe('connectionEvent', () => {
         const withUrl: { tags: Record<string, string> } = { ...event, tags: { ...event.tags, url: 'https://station.ruimte.app/x' } };
         const scrubbed = createScrubber({ tags: CLIENT_TAGS }).scrubEvent(withUrl);
         expect(scrubbed?.tags).toEqual(event.tags);
+    });
+});
+
+describe('isLostToDrop', () => {
+    test('only a request the closing link took down counts', () => {
+        expect(isLostToDrop(new TransportError('disconnected', 'The connection closed before the machine answered'))).toBe(true);
+        expect(isLostToDrop(new TransportError('timeout', 'No answer'))).toBe(false);
+        expect(isLostToDrop(new Error('disconnected'))).toBe(false);
     });
 });
 

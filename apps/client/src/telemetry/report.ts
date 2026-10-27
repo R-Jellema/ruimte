@@ -2,7 +2,7 @@ import type { ErrorInfo } from 'react';
 import { ErrorBoundary } from '@adecore/ui';
 import { desktop } from '@/desktop/bridge';
 import { IS_STATION } from '@/station';
-import type { ConnectionProblem } from './events';
+import { isLostToDrop, type ConnectionProblem } from './events';
 import type { PageMetric } from './metrics';
 
 type Reporter = typeof import('./sentry');
@@ -55,6 +55,10 @@ export function startTelemetry(target: Window = window): void {
         }
     });
     target.addEventListener('unhandledrejection', (event) => {
+        if (isLostToDrop(event.reason)) {
+            return;
+        }
+
         void reporter().then((module) => module?.reportError(event.reason, 'onunhandledrejection', false));
     });
     void reporter();
