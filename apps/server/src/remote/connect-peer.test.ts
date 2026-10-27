@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { OutboxWorker, type OutboxHandlers } from '@adecore/agents/coordination';
 import { ManualClock } from '@adecore/agents/testing';
 import { OutboxStore, type ConnectPeerEntry, type OutboxWork } from '../outbox/outbox.ts';
+import { refusingHandlers } from '../outbox/outbox-test-helpers.ts';
 import { RemoteLinkError } from './remote-connections.ts';
 import {
     ConnectPeer,
@@ -69,27 +70,7 @@ let gaveUp: string[];
 let random: number;
 
 function handlersWith(connectPeer: (entry: ConnectPeerEntry) => Promise<void>): OutboxHandlers<OutboxWork> {
-    const unexpected = () => Promise.reject(new Error('nothing but the reconnect runs in these tests'));
-    return {
-        'start-agent': unexpected,
-        'resume-run': unexpected,
-        'resume-limit': unexpected,
-        'background-limit': unexpected,
-        'wake-parent': unexpected,
-        'give-task': unexpected,
-        'deliver-message': unexpected,
-        'end-children': unexpected,
-        'deliver-summary': unexpected,
-        'deliver-waiting': unexpected,
-        'deliver-pr-watch': unexpected,
-        'run-after-settle': unexpected,
-        'connect-peer': connectPeer,
-        'deliver-remote-result': unexpected,
-        'start-remote-agent': unexpected,
-        'stop-remote-agent': unexpected,
-        'take-remote-result': unexpected,
-        'routine-run': unexpected
-    };
+    return refusingHandlers({ 'connect-peer': connectPeer });
 }
 
 beforeEach(async () => {

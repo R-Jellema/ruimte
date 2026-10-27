@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { rm } from 'node:fs/promises';
-import type { ChatItem, ChatTurnItem, ProjectContent } from '@ruimte/contracts';
+import type { ProjectContent } from '@ruimte/contracts';
 import { ManualClock } from '@adecore/agents/testing';
 import { NO_REPLY_NOTICE } from './notices.ts';
 import type { ProjectStore } from '../projects/project-store.ts';
-import { bootTestDaemon, releasedProject, runVerb, type TestDaemon } from '../tasks/test-daemon.ts';
+import { bootTestDaemon, itemsOf, releasedProject, runVerb, turnsOf, type TestDaemon } from '../tasks/test-daemon.ts';
 
 /* Two chats a person opened beside each other, plus a note nothing links to: a message travels only along a line. */
 function content(): ProjectContent {
@@ -55,14 +55,6 @@ async function boot(): Promise<TestDaemon> {
     daemon.worker.start();
     running.push(daemon);
     return daemon;
-}
-
-function itemsOf(daemon: TestDaemon, chatId: string): ChatItem[] {
-    return daemon.chats.get(chatId)?.thread.list() ?? [];
-}
-
-function turnsOf(daemon: TestDaemon, chatId: string): ChatTurnItem[] {
-    return itemsOf(daemon, chatId).filter((item): item is ChatTurnItem => item.kind === 'turn');
 }
 
 /* What the CLI answered, which is the prompt it was handed echoed back: the message is in there or it never reached it. */

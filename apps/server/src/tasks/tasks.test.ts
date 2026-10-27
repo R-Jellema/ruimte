@@ -8,7 +8,7 @@ import { taskFirstPrompt } from '../canvas/tasks.ts';
 import { START_LINE_ENV } from '../sessions/session.ts';
 import type { FakeCli } from '@adecore/agents/testing';
 import type { ProjectStore } from '../projects/project-store.ts';
-import { bootTestDaemon, releasedProject, runVerb, type TestDaemon } from './test-daemon.ts';
+import { bootTestDaemon, releasedProject, runVerb, turnsOf, type TestDaemon } from './test-daemon.ts';
 import { WAITING_GRACE_MS } from '@adecore/agents/coordination';
 
 type Daemon = TestDaemon;
@@ -119,10 +119,6 @@ async function leadIdle(daemon: Daemon): Promise<void> {
     await daemon.chats.create({ chatId: 'chat-lead', provider: 'claude', cwd: folder });
     await daemon.chats.send('chat-lead', 'plan the work');
     await daemon.until(() => turnsOf(daemon, 'chat-lead').some((turn) => turn.state === 'done'));
-}
-
-function turnsOf(daemon: Daemon, chatId: string): ChatTurnItem[] {
-    return (daemon.chats.get(chatId)?.thread.list() ?? []).filter((item): item is ChatTurnItem => item.kind === 'turn');
 }
 
 function wakeTurns(daemon: Daemon): ChatTurnItem[] {

@@ -2,12 +2,11 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { ChatTurnItem } from '@ruimte/contracts';
 import { ManualClock } from '@adecore/agents/testing';
 import { PeerLinks } from '../peering/links.ts';
 import { projectLinks } from '../projects/project-file-test-helpers.ts';
 import { ProjectStore } from '../projects/project-store.ts';
-import { bootTestDaemon, runVerb, type TestDaemon } from '../tasks/test-daemon.ts';
+import { bootTestDaemon, runVerb, turnsOf, type TestDaemon } from '../tasks/test-daemon.ts';
 
 let root: string;
 let folder: string;
@@ -53,9 +52,8 @@ afterEach(async () => {
 });
 
 async function say(chatId: string): Promise<void> {
-    const turns = (): ChatTurnItem[] => (daemon.chats.get(chatId)?.thread.list() ?? []).filter((item): item is ChatTurnItem => item.kind === 'turn');
     await daemon.chats.send(chatId, 'hello');
-    await daemon.until(() => daemon.chats.get(chatId)?.info.activeTurnId === null && turns().length === 1);
+    await daemon.until(() => daemon.chats.get(chatId)?.info.activeTurnId === null && turnsOf(daemon, chatId).length === 1);
 }
 
 describe('the configuration a chat CLI loads from its folder', () => {

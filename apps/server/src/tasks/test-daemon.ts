@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { NODE_SIZE, type AgentKind, type ProjectContent, type ServerFrame } from '@ruimte/contracts';
+import { NODE_SIZE, type AgentKind, type ChatItem, type ChatTurnItem, type ProjectContent, type ServerFrame } from '@ruimte/contracts';
 import { agentStates } from '../agents/agent-state.ts';
 import { chatRequests, AgentLineageStore, NoticeNotes, NoticeStore, restartBackgroundLimits, TaskStore } from '@adecore/agents/coordination';
 import { PendingPromptStore } from '../agents/pending-prompts.ts';
@@ -524,6 +524,16 @@ export async function releasedProject(
     await store.save(projectId, opened.document.rev, content);
     store.release(projectId);
     return { root, home, folder, store, projectId };
+}
+
+/* Everything in the thread of a chat, in order. */
+export function itemsOf(daemon: Pick<TestDaemon, 'chats'>, chatId: string): ChatItem[] {
+    return daemon.chats.get(chatId)?.thread.list() ?? [];
+}
+
+/* The turns in the thread of a chat. */
+export function turnsOf(daemon: Pick<TestDaemon, 'chats'>, chatId: string): ChatTurnItem[] {
+    return itemsOf(daemon, chatId).filter((item): item is ChatTurnItem => item.kind === 'turn');
 }
 
 /* A verb the node `caller` runs, the way `ruimte-context` posts it; the token is the caller's id. */

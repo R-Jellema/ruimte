@@ -1,7 +1,8 @@
-import { afterEach, describe, expect, spyOn, test } from 'bun:test';
+import { afterEach, describe, expect, test } from 'bun:test';
 import type { ChatItem, ProjectCanvasView, ProjectView } from '@ruimte/contracts';
 import type { CanvasHost } from '../canvas/verb.ts';
 import { runContext } from '../cli/context.ts';
+import { CONTEXT_ENV, routeContextCli } from '../cli/context-test-helpers.ts';
 import { ProjectIndex } from '../projects/project-index.ts';
 import fixture from '../../../ios/Tests/Fixtures/view-references.json';
 import { attachedReferences, referenceNote, referenced, referencedIds, resolveReferences } from './references.ts';
@@ -148,22 +149,13 @@ describe('reading what a message referenced', () => {
     const run = async (note: string): Promise<{ code: number; stdout: string }> => {
         const command = /`ruimte-context (read \S+)`/.exec(note)?.[1];
         expect(command).toBeDefined();
-        const requests = spyOn(globalThis, 'fetch').mockImplementation(((input: string | URL | Request, init?: RequestInit) => {
-            const request = new Request(input, init);
-            return handleContextRequest(request, new URL(request.url).pathname, { targetForToken: (token) => (token === 'tok' ? 'asker' : null), host });
-        }) as typeof fetch);
-        let stdout = '';
-        const out = spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-            stdout += String(chunk);
-            return true;
-        });
-        const log = spyOn(console, 'log').mockImplementation((...parts) => {
-            stdout += `${parts.join(' ')}\n`;
-        });
-        const quiet = spyOn(process.stderr, 'write').mockImplementation(() => true);
-        restore.push(...[requests, out, log, quiet].map((spy) => () => spy.mockRestore()));
-        const code = await runContext(command!.split(' '), { RUIMTE_CONTEXT_URL: 'http://daemon.test/context', RUIMTE_CONTEXT_TOKEN: 'tok' });
-        return { code, stdout };
+        const cli = routeContextCli((request, pathname) =>
+            handleContextRequest(request, pathname, { targetForToken: (token) => (token === 'tok' ? 'asker' : null), host })
+        );
+        restore.push(cli.restore);
+        const code = await runContext(command!.split(' '), CONTEXT_ENV);
+
+        return { code, stdout: cli.output.stdout };
     };
 
     test('the command in the note reads the conversation once the message is in the thread', async () => {

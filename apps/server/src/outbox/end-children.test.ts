@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { rm } from 'node:fs/promises';
-import type { ChatItem, ChatTurnItem, ProjectContent } from '@ruimte/contracts';
+import type { ChatItem, ProjectContent } from '@ruimte/contracts';
 import type { ProjectStore } from '../projects/project-store.ts';
-import { bootTestDaemon, releasedProject, runVerb, type TestDaemon } from '../tasks/test-daemon.ts';
+import { bootTestDaemon, releasedProject, runVerb, turnsOf, type TestDaemon } from '../tasks/test-daemon.ts';
 import { AgentLineageStore, TaskStore } from '@adecore/agents/coordination';
 import { STOPPED_TASK_REASON } from '../chat/chat-manager.ts';
 import { ENDED_REASON, wireEndChildren } from './end-children.ts';
@@ -87,10 +87,6 @@ async function stopLeadTurn(daemon: TestDaemon): Promise<void> {
     daemon.chats.cancel('chat-lead');
     await daemon.until(() => daemon.chats.get('chat-lead')?.info.activeTurnId === null);
     await daemon.worker.settled();
-}
-
-function turnsOf(daemon: TestDaemon, chatId: string): ChatTurnItem[] {
-    return (daemon.chats.get(chatId)?.thread.list() ?? []).filter((item): item is ChatTurnItem => item.kind === 'turn');
 }
 
 function notesOf(daemon: TestDaemon, chatId: string): string[] {

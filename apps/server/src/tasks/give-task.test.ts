@@ -5,7 +5,7 @@ import type { ChatSubagentItem, ChatTurnItem, ProjectContent, Task } from '@ruim
 import { nextLine } from '../canvas/task-verbs.ts';
 import { ManualClock } from '@adecore/agents/testing';
 import type { ProjectStore } from '../projects/project-store.ts';
-import { bootTestDaemon, releasedProject, runVerb, type TestDaemon } from './test-daemon.ts';
+import { bootTestDaemon, releasedProject, runVerb, turnsOf, type TestDaemon } from './test-daemon.ts';
 
 type Daemon = TestDaemon;
 
@@ -59,10 +59,6 @@ async function boot(): Promise<Daemon> {
     const daemon = await bootTestDaemon({ home, store, clock });
     running.push(daemon);
     return daemon;
-}
-
-function turnsOf(daemon: Daemon, chatId: string): ChatTurnItem[] {
-    return (daemon.chats.get(chatId)?.thread.list() ?? []).filter((item): item is ChatTurnItem => item.kind === 'turn');
 }
 
 /* The turns naming this task id, which is how a turn says what it is for. */

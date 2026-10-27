@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -9,6 +9,7 @@ import { DatabasePasswords } from '../database/agent-passwords.ts';
 import { DatabaseService } from '../database/database-service.ts';
 import { FakeHelper, type FakeAnswer } from '../database/fake-helper.ts';
 import { runContext } from '../cli/context.ts';
+import { CONTEXT_ENV, routeContextCli } from '../cli/context-test-helpers.ts';
 import { MachineHome } from '../fs/machine-home.ts';
 import { handleCanvasRequest } from './canvas-route.ts';
 import { SHOWN_LINE } from './visual-verb.ts';
@@ -383,35 +384,21 @@ describe('ruimte-context database', () => {
 
     test('the CLI sends a query on stdin through the canvas route and prints the rows, and a refusal on stderr', async () => {
         script = (method) => (method === 'page' ? { result: { ...PAGE, rows: PAGE.rows.slice(0, 2), hasMore: false } } : undefined);
-        let stdout = '';
-        let stderr = '';
-        const spies = [
-            spyOn(globalThis, 'fetch').mockImplementation(((input: string | URL | Request, init?: RequestInit) => {
-                const request = new Request(input, init);
-                return handleCanvasRequest(request, new URL(request.url).pathname, { targetForToken: (token) => (token === 'tok' ? 'chat-1' : null), host });
-            }) as typeof fetch),
-            spyOn(process.stdout, 'write').mockImplementation((chunk) => {
-                stdout += String(chunk);
-                return true;
-            }),
-            spyOn(process.stderr, 'write').mockImplementation((chunk) => {
-                stderr += String(chunk);
-                return true;
-            })
-        ];
+        const cli = routeContextCli((request, pathname) =>
+            handleCanvasRequest(request, pathname, { targetForToken: (token) => (token === 'tok' ? 'chat-1' : null), host })
+        );
+
         try {
-            const env = { RUIMTE_CONTEXT_URL: 'http://daemon.test/context', RUIMTE_CONTEXT_TOKEN: 'tok' };
+            const env = CONTEXT_ENV;
             expect(await runContext(['database', 'query', 'local'], env, async () => 'SELECT id, note, total\nFROM orders;\n')).toBe(0);
-            expect(stdout).toBe(
+            expect(cli.output.stdout).toBe(
                 ['columns\tid\tnote\ttotal', 'row\t1\t<script>alert(1)</script>\t1234.50', 'row\t2\tNULL\t99.00', 'rows\t2', 'elapsed\t1.3 ms', ''].join('\n')
             );
             expect(helper.written.find((message) => message.method === 'page')?.params.sql).toBe('SELECT id, note, total\nFROM orders;');
             expect(await runContext(['database', 'execute', 'local', '--sql', 'DELETE FROM orders'], env)).toBe(3);
-            expect(stderr).toStartWith('refused\tdatabase-write-off\t');
+            expect(cli.output.stderr).toStartWith('refused\tdatabase-write-off\t');
         } finally {
-            for (const spy of spies) {
-                spy.mockRestore();
-            }
+            cli.restore();
         }
     });
 
