@@ -73,17 +73,16 @@ export class ProvenanceStore {
         );
     }
 
+    /* How many records a project holds, without reading them. */
+    async count(projectId: string): Promise<number> {
+        return (await this.recordNames(projectId)).length;
+    }
+
     /* Every record of a project, for the sweep that drops the old and the gone. */
     async list(projectId: string): Promise<StoredFile[]> {
         const dir = this.dirOf(projectId);
-        const names = await readdir(dir).catch((e: unknown) => {
-            if (isNotFound(e)) {
-                return [];
-            }
-            throw e;
-        });
         const files: StoredFile[] = [];
-        for (const name of names.filter((entry) => entry.endsWith('.json'))) {
+        for (const name of await this.recordNames(projectId)) {
             const path = join(dir, name);
             const [text, info] = await Promise.all([readFile(path, 'utf8').catch(() => null), stat(path).catch(() => null)]);
             const record = this.parse(text);
@@ -95,6 +94,16 @@ export class ProvenanceStore {
             files.push({ name, record, writtenAt: info.mtimeMs });
         }
         return files;
+    }
+
+    private async recordNames(projectId: string): Promise<string[]> {
+        const names = await readdir(this.dirOf(projectId)).catch((e: unknown) => {
+            if (isNotFound(e)) {
+                return [];
+            }
+            throw e;
+        });
+        return names.filter((name) => name.endsWith('.json'));
     }
 
     private parse(text: string | null): FileRecord | null {

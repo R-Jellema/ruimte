@@ -1,6 +1,7 @@
 import { isAbsolute, resolve } from 'node:path';
 import { splitLines } from '@adecore/merge';
 import type { ChatToolItem } from '@ruimte/contracts';
+import { isRecord } from '../is-record.ts';
 import type { WriteSignature } from './runs.ts';
 
 /* A file a finished tool call wrote, and what the call says about the lines. */
@@ -14,7 +15,7 @@ function text(value: unknown): string | null {
 }
 
 function record(value: unknown): Record<string, unknown> {
-    return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+    return isRecord(value) ? value : {};
 }
 
 function absolute(cwd: string, path: string): string {

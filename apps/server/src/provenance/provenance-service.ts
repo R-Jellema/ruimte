@@ -15,6 +15,7 @@ import {
 } from '@ruimte/contracts';
 import { isInside } from '../canvas/project-paths.ts';
 import { ClientSinks } from '../client-sinks.ts';
+import { errorText } from '../error-text.ts';
 import type { SessionSink } from '../sessions/manager.ts';
 import { filesBetweenCommits, linesAtHead, linesInTree, MAX_TEXT_BYTES, repositoryOf } from './file-versions.ts';
 import { hashLines, sameLines } from './line-hash.ts';
@@ -218,7 +219,7 @@ export class ProvenanceService {
     }
 
     private fail(what: string, e: unknown): void {
-        console.error(`Noting ${what} failed:`, e instanceof Error ? e.message : e);
+        console.error(`Noting ${what} failed:`, errorText(e));
     }
 
     private announce(projectId: string, path: string, chatId: string, turnId: string, live: boolean): void {
@@ -274,9 +275,12 @@ export class ProvenanceService {
     /* The files the turn wrote stop being live; queued behind their writes, so the last event is the last word. */
     private endTurn(key: string): void {
         const turn = this.touched.get(key);
+        if (turn === undefined) {
+            return;
+        }
         this.touched.delete(key);
-        for (const path of turn?.paths ?? []) {
-            void this.queue(turn!.projectId, path, async () => this.announce(turn!.projectId, path, turn!.chatId, turn!.turnId, false));
+        for (const path of turn.paths) {
+            void this.queue(turn.projectId, path, async () => this.announce(turn.projectId, path, turn.chatId, turn.turnId, false));
         }
     }
 
@@ -446,12 +450,13 @@ export class ProvenanceService {
     /* Clears the records of files that are gone and of runs past their age, then the oldest records over the cap. */
     private async sweep(projectId: string): Promise<void> {
         const now = this.now();
-        const files = await this.store.list(projectId);
         const due = now - (this.lastSweep.get(projectId) ?? -Infinity) >= SWEEP_INTERVAL_MS;
-        if (!due && files.length <= MAX_FILES_PER_PROJECT) {
+        // Counting the names first spares reading every record of a project that is neither due nor over the cap.
+        if (!due && (await this.store.count(projectId)) <= MAX_FILES_PER_PROJECT) {
             return;
         }
         this.lastSweep.set(projectId, now);
+        const files = await this.store.list(projectId);
         const alive: typeof files = [];
         for (const file of files) {
             const gone = await stat(file.record.path).then(

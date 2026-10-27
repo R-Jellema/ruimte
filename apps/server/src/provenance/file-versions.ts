@@ -23,27 +23,25 @@ async function blobLines(top: string, sha: string): Promise<VersionLines> {
     return content === null || content.includes('\0') ? null : splitLines(content);
 }
 
-/* The file as a git tree held it, for the tree a turn started from; `path` is relative to the repository. */
-export async function linesInTree(top: string, tree: string, path: string): Promise<VersionLines> {
+/* The blob a tree holds at `path`: its sha, '' when the tree has no such file, null when git cannot tell. */
+async function blobIn(top: string, tree: string, path: string): Promise<string | null> {
     const listed = await runGit(['ls-tree', '-z', tree, '--', path], top);
     if (listed.code !== 0) {
         return null;
     }
-    if (listed.stdout === '') {
-        return [];
-    }
-    const sha = /^\d+ blob ([0-9a-f]+)\t/.exec(listed.stdout)?.[1];
-    return sha === undefined ? null : blobLines(top, sha);
+    return listed.stdout === '' ? '' : (/^\d+ blob ([0-9a-f]+)\t/.exec(listed.stdout)?.[1] ?? null);
+}
+
+/* The file as a git tree held it, for the tree a turn started from; `path` is relative to the repository. */
+export async function linesInTree(top: string, tree: string, path: string): Promise<VersionLines> {
+    const sha = await blobIn(top, tree, path);
+    return sha === '' ? [] : sha === null ? null : blobLines(top, sha);
 }
 
 /* The file at the head of its checkout: null when git does not hold it (untracked, or no commit yet). */
 export async function linesAtHead(top: string, path: string): Promise<VersionLines> {
-    const listed = await runGit(['ls-tree', '-z', 'HEAD', '--', path], top);
-    if (listed.code !== 0 || listed.stdout === '') {
-        return null;
-    }
-    const sha = /^\d+ blob ([0-9a-f]+)\t/.exec(listed.stdout)?.[1];
-    return sha === undefined ? null : blobLines(top, sha);
+    const sha = await blobIn(top, 'HEAD', path);
+    return sha ? blobLines(top, sha) : null;
 }
 
 /*

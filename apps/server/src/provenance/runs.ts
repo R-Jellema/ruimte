@@ -147,10 +147,14 @@ function isBlank(line: string): boolean {
     return line.trim() === '';
 }
 
+function range(start: number, end: number): number[] {
+    return Array.from({ length: Math.max(0, end - start) }, (_, offset) => start + offset);
+}
+
 /*
- * The hunks of `next` against `previous` that the signature explains. Blank lines are in nearly every
- * write, so a hunk that matches only on those counts when nothing else matched or when it touches
- * a hunk that did.
+ * The hunks of `next` against `previous` (the hashes of `nextLines` and `previousLines`) that the
+ * signature explains. Blank lines are in nearly every write, so a hunk that matches only on those
+ * counts when nothing else matched or when it touches a hunk that did.
  */
 export function writtenHunks(
     previous: readonly string[],
@@ -173,19 +177,15 @@ export function writtenHunks(
     const strong: Hunk[] = [];
     const weak: Hunk[] = [];
     for (const hunk of hunks) {
-        const writtenLines = nextLines.slice(hunk.start, hunk.end);
-        const replacedLines = previousLines === null ? [] : previousLines.slice(hunk.baseStart, hunk.baseEnd);
-        const matchesAdded = writtenLines.some((line) => added.has(hashLine(line)));
-        const matchesRemoved = replacedLines.some((line) => removed.has(hashLine(line)));
+        const written = range(hunk.start, hunk.end).filter((index) => added.has(next[index]!));
+        const replaced = previousLines === null ? [] : range(hunk.baseStart, hunk.baseEnd).filter((index) => removed.has(previous[index]!));
         // Without the old text a removal can only be told by its place, which only the added lines give.
         const matchesGone =
             previousLines === null && hunk.start === hunk.end && signature.blocks.some((block) => block.added.length === 0 && block.removed.length > 0);
-        if (!matchesAdded && !matchesRemoved && !matchesGone) {
+        if (written.length === 0 && replaced.length === 0 && !matchesGone) {
             continue;
         }
-        const solid =
-            writtenLines.some((line) => !isBlank(line) && added.has(hashLine(line))) ||
-            replacedLines.some((line) => !isBlank(line) && removed.has(hashLine(line)));
+        const solid = written.some((index) => !isBlank(nextLines[index]!)) || replaced.some((index) => !isBlank(previousLines?.[index] ?? ''));
         (solid ? strong : weak).push(hunk);
     }
     const accepted =
@@ -194,14 +194,14 @@ export function writtenHunks(
             : [...strong, ...weak.filter((hunk) => strong.some((other) => hunk.start <= other.end + 1 && other.start <= hunk.end + 1))].sort(
                   (left, right) => left.start - right.start
               );
-    return accepted.map((hunk) => trimmedTo(hunk, nextLines, added));
+    return accepted.map((hunk) => trimmedTo(hunk, next, added));
 }
 
 /* A change next to the tool's own lands in the same hunk; the lines at its ends that the tool did not write are not the tool's. */
-function trimmedTo(hunk: Hunk, nextLines: readonly string[], added: ReadonlySet<string>): Hunk {
-    const wrote = (index: number): boolean => added.has(hashLine(nextLines[index]!));
+function trimmedTo(hunk: Hunk, next: readonly string[], added: ReadonlySet<string>): Hunk {
+    const wrote = (index: number): boolean => added.has(next[index]!);
     let { start, end } = hunk;
-    if (!nextLines.slice(start, end).some((_, offset) => wrote(start + offset))) {
+    if (!range(start, end).some(wrote)) {
         return hunk;
     }
     while (!wrote(start)) {
