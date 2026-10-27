@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 import { Ban, Check, ChevronDown, ChevronUp, FileWarning, LoaderCircle, Sparkles, Wand2 } from 'lucide-react';
@@ -68,16 +68,13 @@ export function ConflictOverlay() {
 
     const answer = reading !== null && reading.cwd === cwd && 'answer' in reading ? reading.answer : null;
     const failure = reading !== null && reading.cwd === cwd && 'failure' in reading ? reading.failure : null;
-    const list = useMemo<readonly GitConflictFile[]>(() => answer?.files ?? [], [answer]);
+    const list: readonly GitConflictFile[] = answer?.files ?? [];
 
     /* The unmerged files as one word, so the list is read again when that changes and not on every keystroke. */
-    const signature = useMemo(() => {
-        if (status === null) {
-            return '';
-        }
-        const conflicted = status.files.filter((entry) => entry.state === 'conflicted').map((entry) => entry.path);
-        return [status.operation ?? '', ...conflicted].join('\u0000');
-    }, [status]);
+    const signature =
+        status === null
+            ? ''
+            : [status.operation ?? '', ...status.files.filter((entry) => entry.state === 'conflicted').map((entry) => entry.path)].join('\u0000');
 
     const errorText = useCallback((error: unknown): string => messageOf(error, t('failed')), [t]);
 
@@ -151,31 +148,28 @@ export function ConflictOverlay() {
     }, [transport, cwd, activeFile, errorText]);
 
     const file = held !== null && held.path === activeFile ? held.file : null;
-    const conflicts = useMemo(() => (file === null ? [] : conflictIndexes(file)), [file]);
+    const conflicts = file === null ? [] : conflictIndexes(file);
     const openHere = activeFile === null ? 0 : (open[activeFile] ?? conflicts.length);
     const block = file !== null && current !== null ? (file.blocks[current] ?? null) : null;
 
     /* What the editor last said about the file on screen: where the caret is, whether that block is
        answered, and how many conflicts the wand could still close. */
-    const onDraft = useCallback(
-        (next: ConflictDraft, at: number | null): void => {
-            if (activeFile === null) {
-                return;
-            }
-            drafts.current.set(activeFile, next);
-            const left = openInDraft(next);
-            setOpen((previous) => (previous[activeFile] === left.length ? previous : { ...previous, [activeFile]: left.length }));
-            const target = files.current.get(activeFile);
-            setWandable(target === undefined ? 0 : left.filter((index) => wandLines(target.blocks[index]!) !== null).length);
-            setCurrent(at);
-            setSettled(at !== null && (next.spans.find((span) => span.block === at)?.settled ?? false));
-        },
-        [activeFile]
-    );
+    const onDraft = (next: ConflictDraft, at: number | null): void => {
+        if (activeFile === null) {
+            return;
+        }
+        drafts.current.set(activeFile, next);
+        const left = openInDraft(next);
+        setOpen((previous) => (previous[activeFile] === left.length ? previous : { ...previous, [activeFile]: left.length }));
+        const target = files.current.get(activeFile);
+        setWandable(target === undefined ? 0 : left.filter((index) => wandLines(target.blocks[index]!) !== null).length);
+        setCurrent(at);
+        setSettled(at !== null && (next.spans.find((span) => span.block === at)?.settled ?? false));
+    };
 
-    const onReady = useCallback((handle: EditorHandle | null): void => {
+    const onReady = (handle: EditorHandle | null): void => {
         editor.current = handle;
-    }, []);
+    };
 
     const apply = (block: number, lines: readonly string[]): void => editor.current?.apply(block, lines);
 
