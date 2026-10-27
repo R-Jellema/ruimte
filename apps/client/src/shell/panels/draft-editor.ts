@@ -1,6 +1,7 @@
 import type { Editor, EditorEngine, EditorOptions } from '@adecore/editor';
 import { endpointKey } from '@/state/keys';
 import { blankLineEdits } from '@/shell/panels/blank-lines';
+import { useSettings } from '@/state/settings';
 import { type DiskText, type TextDrafts, useTextDrafts } from '@/state/text-drafts';
 
 /*
@@ -22,11 +23,18 @@ export function bindDraftEditor(editor: Editor, drafts: TextDrafts, endpointId: 
         if (edits.length > 0) {
             editor.applyEdits(edits);
         }
+        // Also with cleanup off, since it marks the text as saved, which is where "modified lines" counts from.
+        editor.cleanUpWhitespace?.({ trailingWhitespace: useSettings.getState().codeTrailingWhitespace, keepCaretLines: true });
     });
     const offDraft = useTextDrafts.subscribe((state, previous) => {
-        const text = state.rows[key]?.text;
+        const row = state.rows[key];
+        const text = row?.text;
         if (text !== undefined && text !== previous.rows[key]?.text && text !== editor.getText()) {
             editor.setText(text);
+            // A reload brought in what is on disk, which is where "modified lines" counts from again.
+            if (text === row?.disk) {
+                editor.markSaved?.();
+            }
         }
     });
     return () => {

@@ -41,6 +41,10 @@ const DEFAULT_SMART_KEYS: EditorSmartKeys = {
 
 export const FOLD_OUTLINES: readonly EditorFoldOutline[] = ['off', 'hover', 'always'];
 
+export const TRAILING_WHITESPACE_MODES = ['off', 'modified', 'all'] as const;
+
+export type TrailingWhitespaceMode = (typeof TRAILING_WHITESPACE_MODES)[number];
+
 export const MONO_FONTS = [
     { id: 'system', label: 'System', stack: 'ui-monospace, "SF Mono", Menlo, monospace' },
     { id: 'jetbrains', label: 'JetBrains Mono', stack: '"JetBrains Mono Variable", ui-monospace, Menlo, monospace' },
@@ -191,6 +195,10 @@ export interface Settings {
     codeLigatures: boolean;
     /* What the editor does by itself as you type. The defaults are the editor's own: all on, except the camel humps. */
     smartKeys: EditorSmartKeys;
+    /* The size, in px, every editor of this client draws its code at after a person zoomed; null follows `codeFontSize`. */
+    codeZoom: number | null;
+    /* Which lines lose their trailing spaces and tabs right before a save. */
+    codeTrailingWhitespace: TrailingWhitespaceMode;
     diffLayout: 'stacked' | 'split';
     /* Whether a diff counts and shows changes that are whitespace alone. */
     diffWhitespace: boolean;
@@ -302,6 +310,8 @@ const DEFAULT_SETTINGS: Settings = {
     aiGhostText: DEFAULT_GHOST_TEXT_MODE,
     codeLigatures: true,
     smartKeys: { ...DEFAULT_SMART_KEYS },
+    codeZoom: null,
+    codeTrailingWhitespace: 'off',
     diffLayout: 'stacked',
     diffWhitespace: true,
     worktreeMergeStrategy: 'squash',
@@ -393,6 +403,9 @@ export function settingsFrom(stored: Partial<Settings>): Settings {
         aiGhostText: ghostTextModeFrom(stored.aiGhostText),
         codeLigatures: stored.codeLigatures !== false,
         smartKeys: switchesFrom(stored.smartKeys, DEFAULT_SMART_KEYS),
+        // The editor keeps a size it is handed inside its own zoom range.
+        codeZoom: typeof stored.codeZoom === 'number' && Number.isFinite(stored.codeZoom) ? Math.round(stored.codeZoom) : null,
+        codeTrailingWhitespace: TRAILING_WHITESPACE_MODES.find((mode) => mode === stored.codeTrailingWhitespace) ?? DEFAULT_SETTINGS.codeTrailingWhitespace,
         // A client that stored null for the theme's own accent, or an id that has since gone, lands on the brand's.
         accent: NODE_ACCENTS.find((entry) => entry.id === stored.accent)?.id ?? DEFAULT_SETTINGS.accent,
         palette: palettePresetFrom(stored.palette),

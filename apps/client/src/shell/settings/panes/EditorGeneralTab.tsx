@@ -1,12 +1,12 @@
 import { useTranslation } from 'react-i18next';
-import { Stepper, Switch } from '@adecore/ui';
+import { Segmented, Stepper, Switch } from '@adecore/ui';
 import { SettingsRow } from '@adecore/ui/settings';
 import { RENDERED_DOC_COMMENTS } from '@/features';
 import { CodeThemePreview } from '@/shell/settings/panes/CodeSection';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
 import { SettingSwitchRow } from '@/shell/settings/SettingSwitchRow';
 import { useCodeTheme } from '@/state/code-theme';
-import { CODE_LINE_HEIGHT_RANGE, FONT_SIZE_RANGE, useSettings } from '@/state/settings';
+import { CODE_LINE_HEIGHT_RANGE, FONT_SIZE_RANGE, TRAILING_WHITESPACE_MODES, type TrailingWhitespaceMode, useSettings } from '@/state/settings';
 import { useTheme } from '@/state/theme';
 
 const CODE_SIZE_PREVIEW = ['export function greet(name: string): string {', '    return `Hello ${name}.`;', '}'].join('\n');
@@ -17,6 +17,7 @@ export function EditorGeneralTab() {
     const codeFontSize = useSettings((s) => s.codeFontSize);
     const codeLineHeight = useSettings((s) => s.codeLineHeight);
     const smartKeys = useSettings((s) => s.smartKeys);
+    const trailingWhitespace = useSettings((s) => s.codeTrailingWhitespace);
     const update = useSettings((s) => s.update);
     const codeTheme = useCodeTheme();
     const side = useTheme((s) => s.resolved);
@@ -36,7 +37,7 @@ export function EditorGeneralTab() {
                             step={FONT_SIZE_RANGE.step}
                             unit=" px"
                             label={t('editor.general.font.size.label')}
-                            onValueChange={(value) => update({ codeFontSize: value })}
+                            onValueChange={(value) => update({ codeFontSize: value, codeZoom: null })}
                         />
                     }
                 >
@@ -82,6 +83,21 @@ export function EditorGeneralTab() {
                             checked={smartKeys.camelHumps}
                             onCheckedChange={(checked) => update({ smartKeys: { ...smartKeys, camelHumps: checked } })}
                             label={t('editor.general.navigation.camelHumps.label')}
+                        />
+                    }
+                />
+            </SettingsSection>
+            <SettingsSection title={t('editor.general.saving.title')}>
+                <SettingsRow
+                    searchId="editor.general.saving.trailingWhitespace"
+                    label={t('editor.general.saving.trailingWhitespace.label')}
+                    description={t('editor.general.saving.trailingWhitespace.description')}
+                    control={
+                        <Segmented<TrailingWhitespaceMode>
+                            value={trailingWhitespace}
+                            options={TRAILING_WHITESPACE_MODES.map((id) => ({ id, label: t(`editor.general.saving.trailingWhitespace.options.${id}`) }))}
+                            label={t('editor.general.saving.trailingWhitespace.label')}
+                            onValueChange={(value) => update({ codeTrailingWhitespace: value })}
                         />
                     }
                 />

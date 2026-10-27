@@ -168,6 +168,18 @@
                     "description": "Moving by word also stops inside camelCase and snake_case words."
                 }
             },
+            "saving": {
+                "title": "Saving",
+                "trailingWhitespace": {
+                    "label": "Remove spaces at line ends",
+                    "description": "Right before a file saves. The line you are typing on keeps its spaces.",
+                    "options": {
+                        "off": "Off",
+                        "modified": "Changed lines",
+                        "all": "All lines"
+                    }
+                }
+            },
             "documentation": {
                 "title": "Documentation",
                 "render": {

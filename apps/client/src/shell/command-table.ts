@@ -108,7 +108,7 @@ import { matchesShortcut, type KeyLike, type Shortcut } from '@adecore/ui';
 import { SEND_AND_NEW_SHORTCUT } from '@adecore/agents-react/chat';
 import { ADD_NODE_SHORTCUTS, CANVAS_SHORTCUTS, FOCUS_SHORTCUTS, NODE_NAVIGATION_SHORTCUTS } from '@/canvas/shortcuts';
 import { LANGUAGE_COMMAND_IDS, LANGUAGE_COMMANDS, type LanguageCommandId } from '@/language/command-table';
-import { EDITOR_COMMAND_IDS, EDITOR_COMMANDS, type EditorCommandId } from '@/shell/editor-commands';
+import { EDITOR_COMMAND_IDS, EDITOR_COMMANDS, type EditorCommandGroup, type EditorCommandId } from '@/shell/editor-commands';
 import { editorShortcut } from '@/shell/editor-keymap';
 import type { MenuContext } from '@/shell/menu/model';
 import { APP_SHORTCUTS } from '@/shell/shortcuts';
@@ -1163,8 +1163,21 @@ function editorCommand(id: EditorCommandId): CommandSpec {
         icon: spec.icon,
         ...(spec.shortcut ? { shortcut: spec.shortcut } : {}),
         palette: true,
-        menu: spec.group === 'folding' ? { menu: 'folding', group: 'folding', order } : { menu: 'code', group: 'editor', order }
+        menu: editorMenuPlace(spec.group, order)
     };
+}
+
+function editorMenuPlace(group: EditorCommandGroup | undefined, order: number): MenuPlace {
+    switch (group) {
+        case 'folding':
+            return { menu: 'folding', group: 'folding', order };
+        case 'lines':
+            return { menu: 'edit', group: 'lines', order };
+        case 'zoom':
+            return { menu: 'view', group: 'code-zoom', order };
+        default:
+            return { menu: 'code', group: 'editor', order };
+    }
 }
 
 /* Every command a person is offered, in the order of the table; the language and editing commands come from their own tables. */

@@ -168,6 +168,18 @@
                     "description": "Woord voor woord bewegen stopt ook binnen camelCase- en snake_case-woorden."
                 }
             },
+            "saving": {
+                "title": "Opslaan",
+                "trailingWhitespace": {
+                    "label": "Spaties aan regeleinden verwijderen",
+                    "description": "Vlak voordat een bestand wordt opgeslagen. De regel waarop je typt houdt zijn spaties.",
+                    "options": {
+                        "off": "Uit",
+                        "modified": "Gewijzigde regels",
+                        "all": "Alle regels"
+                    }
+                }
+            },
             "documentation": {
                 "title": "Documentatie",
                 "render": {

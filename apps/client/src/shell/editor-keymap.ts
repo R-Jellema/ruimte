@@ -78,6 +78,19 @@ export const RUIMTE_EDITOR_KEYMAP = resolveKeymap({
             by: 'Focus the cell on the right'
         }
     },
+    // Mod with `.` and `,` folds and opens the settings, and Mod with Shift raises and lowers a composer's effort.
+    increaseFontSize: {
+        mac: 'Ctrl+Shift+.',
+        other: 'Alt+Shift+.'
+    },
+    decreaseFontSize: {
+        mac: 'Ctrl+Shift+,',
+        other: 'Alt+Shift+,'
+    },
+    resetFontSize: {
+        mac: 'Ctrl+Shift+0',
+        other: 'Alt+Shift+0'
+    },
     nextProblem: {
         mac: 'Alt+F2',
         other: 'Alt+F2',

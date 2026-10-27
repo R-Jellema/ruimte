@@ -22,7 +22,8 @@ type EditorSetter =
     | 'setWhitespace'
     | 'setStickyScroll'
     | 'setFoldOutline'
-    | 'setRightMargin';
+    | 'setRightMargin'
+    | 'setFontSize';
 
 /* Hands a value the editor mounted with to it again whenever it changes. */
 function useEditorSetting<Setter extends EditorSetter>(
@@ -95,6 +96,7 @@ export function FileEditor({
     const stickyScroll = useSettings((s) => s.codeStickyScroll);
     const folding = useSettings((s) => s.codeFolding);
     const foldOutline = useSettings((s) => s.codeFoldOutline);
+    const zoom = useSettings((s) => s.codeZoom);
     // What the editor mounts with; every later change reaches it through the effects below.
     const initial = useRef({
         disk,
@@ -111,7 +113,8 @@ export function FileEditor({
         theme,
         reveal,
         folding,
-        foldOutline
+        foldOutline,
+        zoom
     });
     const revealed = useRef<number | null>(null);
     const readOnly = readOnlyReason !== null;
@@ -142,6 +145,7 @@ export function FileEditor({
                 rightMargin: first.rightMargin,
                 smartKeys: first.smartKeys,
                 foldOutline: first.foldOutline,
+                ...(first.zoom === null ? {} : { fontSize: first.zoom }),
                 messages: { noMoreOccurrences: i18next.t('panels:file.edit.noMoreOccurrences') },
                 ...openingPlace(first.reveal, viewStates.get(key), placeholderScroll.current, foldRolesFor(first.language, first.folding))
             }
@@ -152,7 +156,10 @@ export function FileEditor({
             revealLocation(editor, first.reveal);
         }
         onEditor?.(editor);
+        // A zoom is the client's, so every editor it has open follows the one a person zoomed.
+        const offZoom = editor.onFontSizeChange?.((size) => useSettings.getState().update({ codeZoom: size }));
         return () => {
+            offZoom?.();
             const caret = editor.getCaret();
             viewStates.set(viewStateKey(key), {
                 scrollTop: editor.getScrollTop(),
@@ -176,6 +183,7 @@ export function FileEditor({
     useEditorSetting(editorRef, 'setStickyScroll', stickyScroll);
     useEditorSetting(editorRef, 'setFoldOutline', foldOutline);
     useEditorSetting(editorRef, 'setRightMargin', rightMargin);
+    useEditorSetting(editorRef, 'setFontSize', zoom);
 
     // The settings wrote the tokens on the root before the store told anyone, so the editor reads the new face.
     useEffect(() => {

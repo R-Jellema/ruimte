@@ -293,6 +293,7 @@ const LAYOUT: Record<MenuContainer, readonly MenuGroup[]> = {
         // The tabs of a host get a line of their own; without them maximizing follows splitting.
         { id: 'split', when: inWorkspace, extras: [{ order: 65, build: (context) => only(context.tabs.hosted, separator) }] },
         { id: 'zoom', when: inWorkspace },
+        { id: 'code-zoom', when: (context) => context.workspace && !context.settingsOpen },
         { id: 'theme' },
         {
             id: 'screen',
@@ -318,6 +319,7 @@ const LAYOUT: Record<MenuContainer, readonly MenuGroup[]> = {
         },
         { id: 'find', when: (context) => context.workspace && !context.settingsOpen },
         { id: 'problems', when: (context) => context.workspace && !context.settingsOpen },
+        { id: 'lines', when: (context) => context.workspace && !context.settingsOpen },
         { id: 'search' }
     ],
     code: [

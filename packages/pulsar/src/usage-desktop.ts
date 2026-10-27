@@ -221,7 +221,15 @@ export const USAGE_DESKTOP_COMMANDS = [
     'addCaretAbove',
     'addCaretBelow',
     'toggleColumnMode',
-    'addCaretPerSelectedLine'
+    'addCaretPerSelectedLine',
+    'sortLines',
+    'reverseLines',
+    'uniqueLines',
+    'convertIndentsToSpaces',
+    'convertIndentsToTabs',
+    'increaseFontSize',
+    'decreaseFontSize',
+    'resetFontSize'
 ] as const;
 
 export const USAGE_DESKTOP_GENERATED_COMMANDS = [

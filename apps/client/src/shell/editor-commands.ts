@@ -1,5 +1,8 @@
 import {
+    ArrowDownAZ,
     ArrowDownToLine,
+    ArrowDownUp,
+    ArrowRightToLine,
     ArrowUpToLine,
     Book,
     BookOpen,
@@ -17,12 +20,17 @@ import {
     ListChecks,
     ListCollapse,
     ListTree,
+    ListX,
     Merge,
+    RotateCcw,
     ScanSearch,
     Slash,
+    Space,
     Split,
     TextCursor,
     UnfoldVertical,
+    ZoomIn,
+    ZoomOut,
     type LucideIcon
 } from 'lucide-react';
 import i18next from 'i18next';
@@ -42,12 +50,15 @@ interface EditorCommandSpec {
     readonly icon: LucideIcon;
     readonly command: EditorRunCommand;
     readonly shortcut?: Shortcut;
-    /* A group the Code menu keeps its own submenu for. */
-    readonly group?: 'folding';
+    /* A group the Code menu keeps its own submenu for, or the group of another menu the command sits in instead. */
+    readonly group?: EditorCommandGroup;
 }
 
+/* `folding` is the Code menu's submenu, `lines` a group of the Edit menu and `zoom` one of the View menu. */
+export type EditorCommandGroup = 'folding' | 'lines' | 'zoom';
+
 /* A command named as its key in the editor's keymap. */
-function command(icon: LucideIcon, name: EditorRunCommand & KeymapId, group?: 'folding'): EditorCommandSpec {
+function command(icon: LucideIcon, name: EditorRunCommand & KeymapId, group?: EditorCommandGroup): EditorCommandSpec {
     return { icon, key: name, command: name, shortcut: editorShortcut(name), ...(group === undefined ? {} : { group }) };
 }
 
@@ -85,7 +96,15 @@ const TABLE = {
     'add-caret-above': command(ArrowUpToLine, 'addCaretAbove'),
     'add-caret-below': command(ArrowDownToLine, 'addCaretBelow'),
     'toggle-column-mode': command(Columns3, 'toggleColumnMode'),
-    'add-caret-per-selected-line': command(TextCursor, 'addCaretPerSelectedLine')
+    'add-caret-per-selected-line': command(TextCursor, 'addCaretPerSelectedLine'),
+    'sort-lines': command(ArrowDownAZ, 'sortLines', 'lines'),
+    'reverse-lines': command(ArrowDownUp, 'reverseLines', 'lines'),
+    'unique-lines': command(ListX, 'uniqueLines', 'lines'),
+    'convert-indents-to-spaces': command(Space, 'convertIndentsToSpaces', 'lines'),
+    'convert-indents-to-tabs': command(ArrowRightToLine, 'convertIndentsToTabs', 'lines'),
+    'increase-font-size': command(ZoomIn, 'increaseFontSize', 'zoom'),
+    'decrease-font-size': command(ZoomOut, 'decreaseFontSize', 'zoom'),
+    'reset-font-size': command(RotateCcw, 'resetFontSize', 'zoom')
 } satisfies Record<string, EditorCommandSpec>;
 
 export type EditorCommandId = keyof typeof TABLE;

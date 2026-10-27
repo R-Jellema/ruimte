@@ -93,6 +93,31 @@ describe('ghost text keys', () => {
     }
 });
 
+describe('the zoom keys of the code', () => {
+    for (const apple of [true, false]) {
+        const zoom = apple ? 'Ctrl+Shift' : 'Alt+Shift';
+
+        for (const [id, key] of [
+            ['increaseFontSize', '.'],
+            ['decreaseFontSize', ','],
+            ['resetFontSize', '0']
+        ] as const) {
+            test(`${id} is ${zoom}+${key} on ${apple ? 'macOS' : 'the other platforms'}, a key no other editor command and nothing of Ruimte's holds`, () => {
+                const mine = signature(shortcutFor(id, apple)!, apple);
+
+                expect(mine).toBe(signature(shortcut(`${zoom}+${key}`), apple));
+                expect(
+                    KEYMAP_IDS.filter(
+                        (other) => other !== id && [shortcutFor(other, apple)].some((found) => found !== undefined && signature(found, apple) === mine)
+                    )
+                ).toEqual([]);
+                expect(ownShortcuts(apple).some((candidate) => signature(candidate, apple) === mine)).toBe(false);
+                expect(Object.values(CANVAS_SHORTCUTS).some((candidate) => signature(candidate, apple) === mine)).toBe(false);
+            });
+        }
+    }
+});
+
 function eventOf(target: Shortcut, apple: boolean): Pick<KeyboardEvent, 'key' | 'code' | 'ctrlKey' | 'metaKey' | 'altKey' | 'shiftKey'> {
     const letter = /^[A-Z]$/.test(target.key);
     const code: Record<string, string> = { '[': 'BracketLeft', ']': 'BracketRight', '\\': 'Backslash' };

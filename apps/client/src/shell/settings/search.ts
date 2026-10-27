@@ -68,6 +68,7 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
     row('editor.general.display.stickyScroll'),
     row('editor.general.display.rightMargin'),
     row('editor.general.navigation.camelHumps'),
+    row('editor.general.saving.trailingWhitespace'),
     row('editor.general.documentation.render', () => RENDERED_DOC_COMMENTS),
     row('editor.general.codeVision.usages'),
     row('editor.general.codeVision.authors'),
