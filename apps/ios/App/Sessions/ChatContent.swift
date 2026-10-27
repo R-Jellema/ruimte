@@ -413,13 +413,18 @@ struct ChatInlineImage: View {
     var square = false
     @Environment(\.chatContent) private var context
     @Environment(\.chatImageGroup) private var group
-    @Namespace private var ownNamespace
+    @State private var ownSources = ChatLightboxSources()
     @State private var image: UIImage?
     @State private var failure = false
     @State private var lightbox: ChatLightboxStart?
 
     private var lightboxImage: ChatLightboxImage { ChatLightboxImage(resource: resource, name: name) }
-    private var namespace: Namespace.ID { group?.namespace ?? ownNamespace }
+
+    /// The group this thumbnail stands in, when its picture is one of the group's.
+    private var joined: ChatImageGroup? {
+        let id = lightboxImage.id
+        return group?.images.contains { $0.id == id } == true ? group : nil
+    }
 
     var body: some View {
         Group {
@@ -432,7 +437,7 @@ struct ChatInlineImage: View {
                         .overlay {
                             RoundedRectangle(cornerRadius: 10).strokeBorder(MobileStyle.hairline)
                         }
-                        .matchedTransitionSource(id: lightboxImage.id, in: namespace)
+                        .chatLightboxSource(lightboxImage.id, image: image, in: joined?.sources ?? ownSources)
                 }.buttonStyle(.plain).accessibilityLabel("Preview \(name)")
             } else if failure {
                 if square {
@@ -463,19 +468,17 @@ struct ChatInlineImage: View {
                 failure = image == nil
             } catch is CancellationError {} catch { failure = true }
         }
-        .fullScreenCover(item: $lightbox) { start in
-            if let context {
-                ChatLightbox(client: context.client, start: start, namespace: namespace)
-            }
-        }
+        .chatLightbox($lightbox, client: context?.client)
     }
 
     /// Opens the group this thumbnail stands in when it has one, at this picture, or this picture alone.
     private func open(placeholder: UIImage) {
         let own = lightboxImage
-        let images = group?.images.contains { $0.id == own.id } == true ? group?.images ?? [own] : [own]
-        let index = images.firstIndex { $0.id == own.id } ?? 0
-        lightbox = ChatLightboxStart(images: images, index: index, placeholder: placeholder)
+        let images = joined?.images ?? [own]
+        let start = ChatLightboxStart(
+            images: images, index: images.firstIndex { $0.id == own.id } ?? 0, placeholder: placeholder,
+            sources: joined?.sources ?? ownSources)
+        ChatLightboxStart.open(start, into: $lightbox)
     }
 
     @ViewBuilder private func picture(_ image: UIImage) -> some View {

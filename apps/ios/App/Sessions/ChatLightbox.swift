@@ -1,4 +1,5 @@
 import CoreTransferable
+import Observation
 import RuimtePulsar
 import RuimteTransport
 import SwiftUI
@@ -16,24 +17,58 @@ struct ChatLightboxImage: Identifiable {
     }
 }
 
-/// The images that open together, in the order a swipe walks them, and the namespace their thumbnails zoom from.
+/// Where the thumbnails of a lightbox stand on screen and what they show, so the picture flies out of the one it
+/// opened from and back into whichever one the person ended on.
+@Observable
+final class ChatLightboxSources {
+    /// The thumbnail the lightbox stands in for, hidden so the picture is in one place at a time.
+    var hidden: String?
+    @ObservationIgnored var frames: [String: CGRect] = [:]
+    @ObservationIgnored var thumbnails: [String: UIImage] = [:]
+}
+
+/// The images that open together, in the order a swipe walks them, and where their thumbnails are.
 struct ChatImageGroup {
     let images: [ChatLightboxImage]
-    let namespace: Namespace.ID
+    let sources: ChatLightboxSources
 }
 
 extension EnvironmentValues {
     @Entry var chatImageGroup: ChatImageGroup?
 }
 
-/// Thumbnails inside open one lightbox together, and closing it zooms back into whichever one the person ended on.
+/// Thumbnails inside open one lightbox together.
 struct ChatImageGroupScope<Content: View>: View {
     let images: [ChatLightboxImage]
     @ViewBuilder let content: Content
-    @Namespace private var namespace
+    @State private var sources = ChatLightboxSources()
 
     var body: some View {
-        content.environment(\.chatImageGroup, images.count > 1 ? ChatImageGroup(images: images, namespace: namespace) : nil)
+        content.environment(\.chatImageGroup, images.count > 1 ? ChatImageGroup(images: images, sources: sources) : nil)
+    }
+}
+
+extension View {
+    /// Marks a thumbnail as the place its picture flies from and back to.
+    func chatLightboxSource(_ id: String, image: UIImage?, in sources: ChatLightboxSources) -> some View {
+        onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { sources.frames[id] = $0 }
+            .onAppear { sources.thumbnails[id] = image }
+            .onChange(of: image) { _, image in sources.thumbnails[id] = image }
+            .opacity(sources.hidden == id ? 0 : 1)
+    }
+
+    /// The lightbox over everything, presented without the system's own animation so it can run its own.
+    func chatLightbox(_ start: Binding<ChatLightboxStart?>, client: (any MachineRequesting)?) -> some View {
+        fullScreenCover(item: start) { opened in
+            if let client {
+                ChatLightbox(client: client, start: opened) {
+                    var transaction = Transaction()
+                    transaction.disablesAnimations = true
+                    withTransaction(transaction) { start.wrappedValue = nil }
+                }
+                .presentationBackground(.clear)
+            }
+        }
     }
 }
 
@@ -41,62 +76,197 @@ struct ChatImageGroupScope<Content: View>: View {
 struct ChatLightboxStart: Identifiable {
     let images: [ChatLightboxImage]
     let index: Int
-    /// The picture the thumbnail already holds, so the zoom lands on it while the full bytes load.
-    let placeholder: UIImage?
+    /// The picture the thumbnail already holds, which flies out while the full bytes load.
+    let placeholder: UIImage
+    let sources: ChatLightboxSources
+    /// The corner of the thumbnails, which the picture rounds into on its way back.
+    var radius: CGFloat = 10
 
     var id: String { images[index].id }
+
+    /// Opens without the system's animation, which would slide the lightbox up before its own flight.
+    static func open(_ start: ChatLightboxStart, into binding: Binding<ChatLightboxStart?>) {
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) { binding.wrappedValue = start }
+    }
 }
 
-/// Images over the whole screen, the way Photos shows them: a pinch or a double tap zooms, a swipe sideways walks the
-/// group, a swipe down shrinks the picture back into its thumbnail, and a tap hides the controls.
+/// A drag of a picture at rest, from the page's own pan so it never fights the zoom or the paging.
+enum ChatLightboxDrag {
+    case changed(translation: CGSize)
+    case ended(translation: CGSize, velocity: CGSize)
+}
+
+private enum LightboxPhase {
+    /// The picture in flight or under a finger, drawn by the lightbox itself over the pages.
+    case flying
+    /// The pages show, with their own zoom and scrolling.
+    case shown
+}
+
+/// Images over the whole screen, the way Photos shows them: the picture flies out of its thumbnail, a pinch or a
+/// double tap zooms, a swipe sideways walks the group, a swipe up or down carries it back, and a tap hides the
+/// controls.
 struct ChatLightbox: View {
     let client: any MachineRequesting
     let start: ChatLightboxStart
-    let namespace: Namespace.ID
-    @Environment(\.dismiss) private var dismiss
+    let onClose: () -> Void
     @State private var selection: String
     @State private var chrome = true
+    @State private var phase = LightboxPhase.flying
+    @State private var started = false
+    @State private var closing = false
+    @State private var screen = CGSize.zero
+    @State private var flight = CGRect.zero
+    @State private var radius: CGFloat
+    @State private var backdrop = 0.0
+    @State private var flightOpacity = 1.0
+    @State private var loaded: [String: UIImage] = [:]
 
-    init(client: any MachineRequesting, start: ChatLightboxStart, namespace: Namespace.ID) {
+    private static let spring = Animation.spring(duration: 0.38, bounce: 0.12)
+
+    init(client: any MachineRequesting, start: ChatLightboxStart, onClose: @escaping () -> Void) {
         self.client = client
         self.start = start
-        self.namespace = namespace
+        self.onClose = onClose
         _selection = State(initialValue: start.id)
+        _radius = State(initialValue: start.radius)
+        _flight = State(initialValue: start.sources.frames[start.id] ?? .zero)
     }
 
     private var images: [ChatLightboxImage] { start.images }
     private var index: Int { images.firstIndex { $0.id == selection } ?? 0 }
     private var current: ChatLightboxImage { images[index] }
 
+    /// What the current page shows, which is also what flies.
+    private var picture: UIImage? {
+        loaded[selection] ?? (selection == start.id ? start.placeholder : start.sources.thumbnails[selection])
+    }
+
     var body: some View {
-        // The pages run under the bars and the notch; the controls over them keep to the safe area.
         ZStack {
-            Color.black.ignoresSafeArea()
+            Color.black.opacity(backdrop).ignoresSafeArea()
             TabView(selection: $selection) {
                 ForEach(images) { image in
                     ChatLightboxPage(
                         client: client, image: image,
-                        placeholder: image.id == start.id ? start.placeholder : nil,
+                        placeholder: image.id == start.id ? start.placeholder : start.sources.thumbnails[image.id],
                         active: image.id == selection,
-                        onTap: { withAnimation(.easeOut(duration: 0.2)) { chrome.toggle() } }
+                        onTap: { withAnimation(.easeOut(duration: 0.2)) { chrome.toggle() } },
+                        onLoaded: { loaded[image.id] = $0 },
+                        onDrag: drag
                     )
                     .tag(image.id)
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .ignoresSafeArea()
+            .opacity(phase == .shown ? 1 : 0)
+            .allowsHitTesting(!closing)
+            if phase == .flying, let picture {
+                Image(uiImage: picture).resizable().aspectRatio(contentMode: .fill)
+                    .frame(width: flight.width, height: flight.height)
+                    .clipShape(RoundedRectangle(cornerRadius: radius))
+                    .position(x: flight.midX, y: flight.midY)
+                    .opacity(flightOpacity)
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
         }
-        .overlay(alignment: .top) { if chrome { bar.transition(.opacity) } }
-        .overlay(alignment: .bottom) { if chrome { caption.transition(.opacity) } }
-        .statusBarHidden(!chrome)
+        .onGeometryChange(for: CGSize.self) { $0.size } action: { screen = $0 }
+        .overlay(alignment: .top) { if chrome && phase == .shown && !closing { bar.transition(.opacity) } }
+        .overlay(alignment: .bottom) { if chrome && phase == .shown && !closing { caption.transition(.opacity) } }
+        .statusBarHidden(!chrome || phase == .flying)
         .environment(\.colorScheme, .dark)
-        .navigationTransition(.zoom(sourceID: selection, in: namespace))
+        .accessibilityAction(.escape) { close() }
+        .onAppear(perform: open)
+        .onChange(of: screen) { open() }
+        .onChange(of: selection) { _, id in start.sources.hidden = id }
+    }
+
+    /// The whole screen the picture fits in, as the zooming page fits it: a small picture keeps one point per pixel.
+    private func fitted(_ image: UIImage?) -> CGRect {
+        guard let image, image.size.width > 0, image.size.height > 0, screen.width > 0 else {
+            return CGRect(origin: .zero, size: screen)
+        }
+        let scale = min(screen.width / image.size.width, screen.height / image.size.height, 1)
+        let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+        return CGRect(
+            x: (screen.width - size.width) / 2, y: (screen.height - size.height) / 2, width: size.width,
+            height: size.height)
+    }
+
+    /// The first frame is drawn at the thumbnail; the flight starts once the screen is measured.
+    private func open() {
+        guard !started, screen != .zero else { return }
+        started = true
+        start.sources.hidden = start.id
+        Task { @MainActor in
+            withAnimation(Self.spring) {
+                flight = fitted(picture)
+                radius = 0
+                backdrop = 1
+            } completion: {
+                phase = .shown
+            }
+        }
+    }
+
+    private func close() {
+        guard !closing else { return }
+        closing = true
+        if phase == .shown { flight = fitted(picture) }
+        phase = .flying
+        let bounds = CGRect(origin: .zero, size: screen)
+        let target = start.sources.frames[selection].flatMap { bounds.intersects($0) ? $0 : nil }
+        withAnimation(Self.spring) {
+            backdrop = 0
+            if let target {
+                flight = target
+                radius = start.radius
+            } else {
+                flightOpacity = 0
+            }
+        } completion: {
+            start.sources.hidden = nil
+            onClose()
+        }
+    }
+
+    /// A drag up or down on a picture at rest carries it, smaller as it goes, and lets go of it past a short way or a flick.
+    private func drag(_ state: ChatLightboxDrag) {
+        guard !closing else { return }
+        let rest = fitted(picture)
+        switch state {
+        case .changed(let translation):
+            phase = .flying
+            let distance = abs(translation.height)
+            let scale = max(0.5, 1 - distance / max(screen.height, 1) * 0.6)
+            flight = CGRect(
+                x: rest.midX + translation.width - rest.width * scale / 2,
+                y: rest.midY + translation.height - rest.height * scale / 2, width: rest.width * scale,
+                height: rest.height * scale)
+            backdrop = max(0, 1 - distance / 300)
+        case .ended(let translation, let velocity):
+            if abs(translation.height) > 100 || abs(velocity.height) > 800 {
+                close()
+                return
+            }
+            withAnimation(Self.spring) {
+                flight = rest
+                backdrop = 1
+            } completion: {
+                if !closing { phase = .shown }
+            }
+        }
     }
 
     private var bar: some View {
         HStack {
             Button {
-                dismiss()
+                close()
             } label: {
                 Image(lucide: "x", size: 16).frame(width: 44, height: 44)
             }
@@ -141,13 +311,15 @@ private struct ChatLightboxPage: View {
     let placeholder: UIImage?
     let active: Bool
     let onTap: () -> Void
+    let onLoaded: (UIImage) -> Void
+    let onDrag: (ChatLightboxDrag) -> Void
     @State private var full: UIImage?
     @State private var failure: String?
 
     var body: some View {
         ZStack {
             if let picture = full ?? placeholder {
-                FileImageView(image: picture, name: image.name, active: active, onTap: onTap)
+                FileImageView(image: picture, name: image.name, active: active, onTap: onTap, onDrag: onDrag)
             } else if let failure {
                 VStack(spacing: 8) {
                     Image(lucide: "image-off", size: 24).foregroundStyle(MobileStyle.faint)
@@ -172,6 +344,7 @@ private struct ChatLightboxPage: View {
                 try Task.checkCancellation()
                 if let decoded {
                     full = decoded.image
+                    onLoaded(decoded.image)
                 } else {
                     failure = String(localized: "The image is not available")
                 }

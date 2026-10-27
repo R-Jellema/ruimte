@@ -97,7 +97,7 @@ private struct GeneratedImageReady: View {
     /// does not hold every image whole.
     @State private var thumbnail: UIImage?
     @State private var missing: String?
-    @Namespace private var namespace
+    @State private var sources = ChatLightboxSources()
     @State private var lightbox: ChatLightboxStart?
     @State private var saving = false
     @State private var savedFlash = false
@@ -134,11 +134,7 @@ private struct GeneratedImageReady: View {
             }
             if let problem { Text(problem).font(.footnote).foregroundStyle(MobileStyle.statusError) }
         }
-        .fullScreenCover(item: $lightbox) { start in
-            if let chat {
-                ChatLightbox(client: chat.client, start: start, namespace: namespace)
-            }
-        }
+        .chatLightbox($lightbox, client: chat?.client)
         .task(id: attachment["id"]) { await load() }
     }
 
@@ -163,7 +159,7 @@ private struct GeneratedImageReady: View {
             .overlay {
                 RoundedRectangle(cornerRadius: 14).strokeBorder(MobileStyle.border)
             }
-            .matchedTransitionSource(id: lightboxImage.id, in: namespace)
+            .chatLightboxSource(lightboxImage.id, image: thumbnail, in: sources)
         }
         .buttonStyle(.plain)
         .disabled(thumbnail == nil)
@@ -258,7 +254,9 @@ private struct GeneratedImageReady: View {
 
     private func openLarge() {
         guard let thumbnail, chat != nil else { return }
-        lightbox = ChatLightboxStart(images: [lightboxImage], index: 0, placeholder: thumbnail)
+        let start = ChatLightboxStart(
+            images: [lightboxImage], index: 0, placeholder: thumbnail, sources: sources, radius: 14)
+        ChatLightboxStart.open(start, into: $lightbox)
     }
 
     private func save() {

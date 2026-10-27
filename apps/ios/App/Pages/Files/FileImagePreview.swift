@@ -45,6 +45,8 @@ struct FileImageView: UIViewRepresentable {
     var active = true
     /// A single tap, once it is clear it was not the first of a double tap.
     var onTap: (() -> Void)? = nil
+    /// A vertical drag while the picture is at rest, for a lightbox that carries it away; zoomed in, the drag pans.
+    var onDrag: ((ChatLightboxDrag) -> Void)? = nil
 
     func makeUIView(context: Context) -> ZoomingImageView { ZoomingImageView() }
 
@@ -52,15 +54,35 @@ struct FileImageView: UIViewRepresentable {
         view.show(image)
         view.imageView.accessibilityLabel = name
         view.onTap = onTap
+        view.onDrag = onDrag
         if !active { view.zoomOut() }
     }
+}
+
+/// Lets the drag that carries a picture start only vertically and at rest, beside the paging of the pages around it.
+private final class RestingDragDelegate: NSObject, UIGestureRecognizerDelegate {
+    weak var view: ZoomingImageView?
+
+    func gestureRecognizerShouldBegin(_ gesture: UIGestureRecognizer) -> Bool {
+        guard let view, view.onDrag != nil, view.zoomScale <= view.minimumZoomScale + 0.001,
+            let pan = gesture as? UIPanGestureRecognizer
+        else { return false }
+        let velocity = pan.velocity(in: view)
+        return abs(velocity.y) > abs(velocity.x)
+    }
+
+    func gestureRecognizer(
+        _ gesture: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
+    ) -> Bool { true }
 }
 
 final class ZoomingImageView: UIScrollView, UIScrollViewDelegate {
     let imageView = UIImageView()
     var onTap: (() -> Void)?
+    var onDrag: ((ChatLightboxDrag) -> Void)?
     private var shown: UIImage?
     private var fittedBounds = CGSize.zero
+    private let dragDelegate = RestingDragDelegate()
 
     init() {
         super.init(frame: .zero)
@@ -78,6 +100,10 @@ final class ZoomingImageView: UIScrollView, UIScrollViewDelegate {
         let tap = UITapGestureRecognizer(target: self, action: #selector(tapped))
         tap.require(toFail: doubleTap)
         addGestureRecognizer(tap)
+        let drag = UIPanGestureRecognizer(target: self, action: #selector(dragged(_:)))
+        dragDelegate.view = self
+        drag.delegate = dragDelegate
+        addGestureRecognizer(drag)
     }
 
     @available(*, unavailable)
@@ -127,6 +153,20 @@ final class ZoomingImageView: UIScrollView, UIScrollViewDelegate {
     }
 
     @objc private func tapped() { onTap?() }
+
+    @objc private func dragged(_ gesture: UIPanGestureRecognizer) {
+        let point = gesture.translation(in: self)
+        let translation = CGSize(width: point.x, height: point.y)
+        switch gesture.state {
+        case .changed:
+            onDrag?(.changed(translation: translation))
+        case .ended, .cancelled, .failed:
+            let speed = gesture.velocity(in: self)
+            onDrag?(.ended(translation: translation, velocity: CGSize(width: speed.x, height: speed.y)))
+        default:
+            break
+        }
+    }
 
     @objc private func toggleZoom(_ gesture: UITapGestureRecognizer) {
         if zoomScale > minimumZoomScale {
