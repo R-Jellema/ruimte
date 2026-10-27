@@ -3,6 +3,7 @@ import { join, relative, resolve, sep } from 'node:path';
 import { FS_SEARCH_MAX_RESULTS, type FsSearchResult } from '@ruimte/contracts';
 import { cachedRepos } from '../git/repo-cache.ts';
 import { NO_MACHINE_HOME, type MachineHomePolicy } from './machine-home.ts';
+import { firstInOrder, inOrder } from './ordered.ts';
 import { isUnder } from './path-segment.ts';
 import { isOpenName, isOpenPath, searchRoot } from './searchable.ts';
 import { classifyEntry } from './visibility.ts';
@@ -39,7 +40,11 @@ function isWordStart(path: string, index: number): boolean {
  * `app-alpha/src/greeting.ts` the way `alpha/greeting` does; the path scores their sum.
  */
 export function fuzzyScore(query: string, path: string): number | null {
-    return scorePath(query.toLowerCase().split(/\s+/).filter(Boolean), path);
+    return scorePath(wordsOf(query), path);
+}
+
+function wordsOf(query: string): string[] {
+    return query.toLowerCase().split(/\s+/).filter(Boolean);
 }
 
 function scorePath(words: readonly string[], path: string): number | null {
@@ -107,7 +112,7 @@ function compareFiles(first: ScoredFile, second: ScoredFile): number {
 
 function scoreFiles(files: string[], query: string, ignored: string[]): ScoredFile[] {
     const scored: ScoredFile[] = [];
-    const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+    const words = wordsOf(query);
     const add = (paths: string[], isIgnored: boolean): void => {
         for (const path of paths) {
             const score = scorePath(words, path);
@@ -121,60 +126,11 @@ function scoreFiles(files: string[], query: string, ignored: string[]): ScoredFi
     return scored;
 }
 
-function sinkFile(files: ScoredFile[], from: number): void {
-    const entry = files[from]!;
-    let index = from;
-    while (index * 2 + 1 < files.length) {
-        let child = index * 2 + 1;
-        if (child + 1 < files.length && compareFiles(files[child + 1]!, files[child]!) < 0) {
-            child++;
-        }
-        if (compareFiles(entry, files[child]!) <= 0) {
-            break;
-        }
-        files[index] = files[child]!;
-        index = child;
-    }
-    files[index] = entry;
-}
-
-// A rejected path must yield to the next match, without sorting every match for an eight-row picker.
-function* rankedFiles(files: string[], query: string, ignored: string[]): Generator<string> {
-    const heap = scoreFiles(files, query, ignored);
-    for (let index = Math.floor(heap.length / 2) - 1; index >= 0; index--) {
-        sinkFile(heap, index);
-    }
-    while (heap.length > 0) {
-        const best = heap[0]!;
-        const last = heap.pop()!;
-        if (heap.length > 0) {
-            heap[0] = last;
-            sinkFile(heap, 0);
-        }
-        yield best.path;
-    }
-}
-
 /* The best `limit` matches, best first; ties go to a file the repository keeps, then the shorter path, then alphabetical. */
 export function rankFiles(files: string[], query: string, limit: number, ignored: string[] = []): string[] {
-    if (!Number.isFinite(limit) || limit < 0) {
-        return scoreFiles(files, query, ignored)
-            .sort(compareFiles)
-            .slice(0, limit)
-            .map((entry) => entry.path);
-    }
-    const found: string[] = [];
-    const wanted = Math.trunc(limit);
-    if (wanted === 0) {
-        return found;
-    }
-    for (const path of rankedFiles(files, query, ignored)) {
-        found.push(path);
-        if (found.length === wanted) {
-            break;
-        }
-    }
-    return found;
+    const scored = scoreFiles(files, query, ignored);
+    const ranked = !Number.isFinite(limit) || limit < 0 ? scored.sort(compareFiles).slice(0, limit) : firstInOrder(scored, compareFiles, Math.trunc(limit));
+    return ranked.map((entry) => entry.path);
 }
 
 function toPosix(path: string): string {
@@ -330,7 +286,8 @@ export async function searchFiles(cwd: string, query: string, limit = 20, policy
     const open = (paths: string[]): string[] => paths.filter((path) => isOpenName(root, path));
     const files: string[] = [];
     const wanted = Math.min(limit, FS_SEARCH_MAX_RESULTS);
-    for (const path of rankedFiles(open(tracked.files), query.trim(), open(ignored.files))) {
+    // A path that no longer passes gives way to the next match, without sorting every match for an eight-row picker.
+    for (const { path } of inOrder(scoreFiles(open(tracked.files), query.trim(), open(ignored.files)), compareFiles)) {
         if (files.length >= wanted) {
             break;
         }

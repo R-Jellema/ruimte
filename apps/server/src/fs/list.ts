@@ -1,8 +1,9 @@
 import { lstat, readdir, stat } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { FS_LIST_MAX_ENTRIES, type FsEntry, type FsEntryKind, type FsListResult } from '@ruimte/contracts';
-import { ignoredPaths } from '../git/ignore.ts';
 import { CodedError } from '@adecore/agents';
+import { ignoredPaths } from '../git/ignore.ts';
+import { firstInOrder } from './ordered.ts';
 import { classifyEntry, isBuildOutput } from './visibility.ts';
 
 type ListErrorCode = 'not-found' | 'not-a-directory';
@@ -35,39 +36,6 @@ function compare(left: ListCandidate, right: ListCandidate): number {
     return rank(left) - rank(right) || nameCollator.compare(left.name, right.name) || left.index - right.index;
 }
 
-function sinkCandidate(heap: ListCandidate[], from: number): void {
-    const entry = heap[from]!;
-    let index = from;
-    while (index * 2 + 1 < heap.length) {
-        let child = index * 2 + 1;
-        if (child + 1 < heap.length && compare(heap[child + 1]!, heap[child]!) < 0) {
-            child++;
-        }
-        if (compare(entry, heap[child]!) <= 0) {
-            break;
-        }
-        heap[index] = heap[child]!;
-        index = child;
-    }
-    heap[index] = entry;
-}
-
-// A capped listing needs only its first entries in order; the rest never needs sorting.
-function* orderedCandidates(heap: ListCandidate[]): Generator<ListCandidate> {
-    for (let index = Math.floor(heap.length / 2) - 1; index >= 0; index--) {
-        sinkCandidate(heap, index);
-    }
-    while (heap.length > 0) {
-        const best = heap[0]!;
-        const last = heap.pop()!;
-        if (heap.length > 0) {
-            heap[0] = last;
-            sinkCandidate(heap, 0);
-        }
-        yield best;
-    }
-}
-
 /*
  * The checkout a directory sits in, or null outside one. A submodule and a repository sitting
  * beside the project have their own, and git must be asked there: the folder above answers about
@@ -96,22 +64,8 @@ async function readEntries(dir: string, includeHidden: boolean, inRepository: bo
         candidates.push({ name: dirent.name, kind: kindOf(dirent), hidden: visibility === 'shy', index: candidates.length });
     }
     const truncated = candidates.length > limit;
-    let retained = candidates;
-    if (truncated) {
-        retained = [];
-        if (limit > 0) {
-            for (const candidate of orderedCandidates(candidates)) {
-                retained.push(candidate);
-                if (retained.length === limit) {
-                    break;
-                }
-            }
-        }
-        candidates.length = 0;
-    } else {
-        retained.sort(compare);
-    }
-    // Names and kinds determine the retained rows; metadata for rows beyond the cap is never used.
+    // Only the rows within the cap are sorted and looked up; the rest are known by name alone.
+    const retained = truncated ? firstInOrder(candidates, compare, limit) : candidates.sort(compare);
     const entries = await Promise.all(
         retained.map(async (entry): Promise<FsEntry> => {
             const path = join(dir, entry.name);
@@ -174,7 +128,12 @@ export async function listDirectory(path: string, options: ListOptions = {}): Pr
             byDirectory.set(dir, read);
             levelEntries.push(...read);
             if (repository !== null) {
-                byRepository.set(repository, [...(byRepository.get(repository) ?? []), ...read]);
+                const listed = byRepository.get(repository);
+                if (listed === undefined) {
+                    byRepository.set(repository, [...read]);
+                } else {
+                    listed.push(...read);
+                }
             }
             if (truncated) {
                 break;
