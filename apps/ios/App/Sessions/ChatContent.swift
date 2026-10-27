@@ -486,7 +486,11 @@ struct ChatInlineImage: View {
             Color.clear.aspectRatio(1, contentMode: .fit)
                 .overlay { Image(uiImage: image).resizable().scaledToFill() }
         } else {
-            Image(uiImage: image).resizable().scaledToFit().frame(maxWidth: 320, maxHeight: 200)
+            // Exactly the picture's shape within 320 × 200, so the border and the flight to the lightbox hug the
+            // picture instead of the box it would otherwise fit into.
+            let aspect = image.size.width / max(image.size.height, 1)
+            let width = min(320, 200 * aspect)
+            Image(uiImage: image).resizable().frame(width: width, height: width / aspect)
         }
     }
 }
