@@ -243,12 +243,40 @@ the mac is HMAC-SHA256 over `mapsTicketBytes` with the secret's bytes. The maps 
 
 ## Model catalogs
 
-`GET /v1/models/catalog` is public and answers `@adecore/agents/providers/claude-models.json` and
-`codex-models.json` as they are in this deploy, under `catalogs.claude` and `catalogs.codex`, cacheable
-for five minutes. A daemon takes a catalog only when it passes `ModelCatalogDataSchema` and is not older
-than the one it shipped with, so adding a model is an edit to those files (with a newer `updatedAt`), a row
-in `src/benchmark-models.ts` and a push to main, which deploys this Worker. A change a daemon of today
-could not read goes on a new route, never on this one.
+`GET /v1/models/catalog` and `GET /v2/models/catalog` are public and answer `{ catalogs }`, keyed by agent
+kind, cacheable for five minutes. v1 answers `claude` and `codex`; v2 adds `grok`, `copilot` and `antigravity`.
+v1 never carries an ACP kind, since a daemon that reads it would replace the models the agent reported itself.
+
+D1 is where a catalog lives (`migrations/0019_model_catalogs.sql`): a row per kind in `model_catalogs`, a row
+per profile in `model_catalog_profiles` (its options and context windows as JSON) and a row per model in
+`model_catalog_models`, in the order of `position`. A person manages them with SQL in D1 itself:
+
+```sh
+bunx wrangler d1 execute ruimte-pulsar --remote --command "UPDATE model_catalog_models SET legacy = 1 WHERE kind = 'grok' AND slug = 'grok-4.5'"
+```
+
+Adding, renaming, marking as legacy or deleting a model is one statement and needs no deploy. Triggers set
+`updated_at` of the kind to the moment of every change, so a machine takes it the next time it asks, at most
+fifteen minutes later. A machine without a model any more falls back to the default for a chat that named it.
+
+Per kind the route answers D1 when the route's frozen schema takes what D1 holds (`src/catalog-schemas.ts`, the
+schema as the first release that read the route had it), and the manifest bundled into this deploy
+(`@adecore/agents/providers/<kind>-models.json`) for a kind D1 does not hold, one an edit left unreadable, or a
+D1 that does not answer. An edit that breaks a catalog therefore never reaches a machine; the Worker logs it.
+A daemon takes a catalog only when it passes its own schema and is not older than the one it shipped with.
+
+A kind gets into D1 once, from its manifest in the `../adecore` checkout or a file:
+
+```sh
+CLOUDFLARE_API_TOKEN=... bun scripts/seed-model-catalog.ts <kind> [file] [--force]
+```
+
+It checks the catalog against the frozen schema of every route that serves its kind and refuses a kind D1
+already holds, unless `--force` writes over it. No HTTP route writes a catalog. A catalog that needs a schema a
+released daemon cannot read goes on a new route with a frozen schema of its own. The manifests in ADE CORE are
+what a release starts with before its first answer; keep them up with D1 when a release goes out, or a daemon
+whose manifest is dated after an edit in D1 keeps its own until D1 changes again. A new model still needs a row
+in `src/benchmark-models.ts` and a deploy before it shows in the model comparison.
 
 ## Model benchmarks
 

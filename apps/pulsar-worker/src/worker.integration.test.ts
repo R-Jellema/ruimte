@@ -167,12 +167,32 @@ async function migrate(on: Miniflare, files?: (file: string) => boolean): Promis
             .split('\n')
             .filter((line) => !line.trim().startsWith('--'))
             .join('\n');
-        const statements = sql
-            .split(';')
-            .map((part) => part.trim())
-            .filter((statement) => statement.length > 0);
-        await database(on).batch(statements.map((statement): Statement => [statement]));
+        await database(on).batch(statementsOf(sql).map((statement): Statement => [statement]));
     }
+}
+
+// A trigger's body holds semicolons of its own, so a statement ends at a semicolon outside `BEGIN ... END`.
+function statementsOf(sql: string): string[] {
+    const statements: string[] = [];
+    let current = '';
+    let inBody = false;
+
+    for (const line of sql.split('\n')) {
+        current += `${line}\n`;
+
+        if (/\bBEGIN\s*$/i.test(line)) {
+            inBody = true;
+        } else if (inBody && /^\s*END;\s*$/i.test(line)) {
+            inBody = false;
+        }
+
+        if (!inBody && line.trimEnd().endsWith(';')) {
+            statements.push(current.trim().replace(/;$/, ''));
+            current = '';
+        }
+    }
+
+    return [...statements, current.trim()].filter((statement) => statement.length > 0);
 }
 
 // A code GitHub handed out, with the challenge the address book sent along, so the mock checks PKCE the way GitHub does.
