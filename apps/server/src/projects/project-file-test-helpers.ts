@@ -1,7 +1,11 @@
 import { readFile, writeFile } from 'node:fs/promises';
-import { PROJECT_VERSION, mergeFiles, migrateSharedFile, type ProjectDocument, type ProjectPrivateFile } from '@ruimte/contracts';
+import { PROJECT_VERSION, mergeFiles, migrateSharedFile, type ProjectChatView, type ProjectDocument, type ProjectPrivateFile } from '@ruimte/contracts';
 import { documentPathInFolder, parsePrivateFile, privatePathOf } from './project-files.ts';
-import type { ProjectLinks } from './project-store.ts';
+import type { ProjectLinks, ProjectStore } from './project-store.ts';
+
+export async function chatViewsOf(store: ProjectStore, projectId: string): Promise<ProjectChatView[]> {
+    return (await store.read(projectId)).views.filter((view): view is ProjectChatView => view.kind === 'chat');
+}
 
 /*
  * What a project holds on disk, which is both its files put back together. A test asking what was

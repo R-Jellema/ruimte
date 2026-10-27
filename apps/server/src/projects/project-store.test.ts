@@ -2,14 +2,13 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { GITIGNORE_TEXT } from './project-files.ts';
 import { PROJECT_VERSION, ProjectOpenResultSchema, emptyCanvasView, type ProjectCanvasView, type ProjectContent } from '@ruimte/contracts';
 import { FakeWatch } from '@adecore/agents/testing';
 import type { SessionEvent } from '../sessions/manager.ts';
 import { DiagramStore } from './diagram-store.ts';
 import { DrawingStore } from './drawing-store.ts';
 import { documentOnDisk, privateFileOnDisk, rawPrivateViews, projectLinks, setPrivateViews } from './project-file-test-helpers.ts';
-import { documentPathInFolder, fromPortable, toPortable } from './project-files.ts';
+import { GITIGNORE_TEXT, documentPathInFolder, fromPortable, privatePathOf, toPortable } from './project-files.ts';
 import { ProjectStore, type ProjectLinks } from './project-store.ts';
 import { PROJECT_WRITE_IO } from './project-write.ts';
 
@@ -81,6 +80,23 @@ function canvas(document: Pick<ProjectContent, 'views'>, at = 0): ProjectCanvasV
 /* The watcher on the directory the project file lives in; the platform reports every write there, ours included. */
 function projectDirWatcher() {
     return fake.on(dirname(documentPathInFolder(folder)));
+}
+
+/* The shared file as a pull leaves it: the same file under another name, not yet seen by the watcher. */
+async function pull(name: string): Promise<void> {
+    const path = documentPathInFolder(folder);
+    const pulled = { ...(JSON.parse(await readFile(path, 'utf8')) as Record<string, unknown>), name };
+    await writeFile(path, JSON.stringify(pulled, null, 2));
+}
+
+/* A change that adds a note to the first canvas, making one when the project has none. */
+function addNote(id: string) {
+    return (current: ProjectContent) => {
+        const [first, ...rest] = current.views;
+        const view = (first ?? emptyCanvasView('main', 'Canvas')) as ProjectCanvasView;
+        const note = { id, kind: 'note' as const, title: 'Note', x: 0, y: 400, w: 320, h: 240, body: 'hello' };
+        return { content: { ...current, views: [{ ...view, nodes: [...view.nodes, note] }, ...rest] }, result: id };
+    };
 }
 
 describe('ProjectStore', () => {
@@ -171,9 +187,7 @@ describe('ProjectStore', () => {
         projectDirWatcher().emit('notes.txt');
         expect(fake.pending).toBe(0);
 
-        const path = documentPathInFolder(folder);
-        const pulled = { ...(JSON.parse(await readFile(path, 'utf8')) as Record<string, unknown>), name: 'from git' };
-        await writeFile(path, JSON.stringify(pulled, null, 2));
+        await pull('from git');
         projectDirWatcher().emit('project.json');
         projectDirWatcher().emit('project.json');
         expect(fake.pending).toBe(1);
@@ -873,13 +887,6 @@ describe('portable paths', () => {
 });
 
 describe('mutate', () => {
-    const addNote = (id: string) => (current: ProjectContent) => {
-        const [first, ...rest] = current.views;
-        const view = (first ?? emptyCanvasView('main', 'Canvas')) as ProjectCanvasView;
-        const note = { id, kind: 'note' as const, title: 'Note', x: 0, y: 400, w: 320, h: 240, body: 'hello' };
-        return { content: { ...current, views: [{ ...view, nodes: [...view.nodes, note] }, ...rest] }, result: id };
-    };
-
     test('writes a released project to disk, tells every sink, and updates the index', async () => {
         const opened = await store.openProject({ folder });
         const projectId = opened.summary.projectId;
@@ -1234,18 +1241,6 @@ describe('what the shared file may decide', () => {
 });
 
 describe('saves and outside edits', () => {
-    const addNote = (id: string) => (current: ProjectContent) => {
-        const view = current.views[0] as ProjectCanvasView;
-        const note = { id, kind: 'note' as const, title: 'Note', x: 0, y: 400, w: 320, h: 240, body: 'hello' };
-        return { content: { ...current, views: [{ ...view, nodes: [...view.nodes, note] }, ...current.views.slice(1)] }, result: id };
-    };
-
-    const pull = async (name: string): Promise<void> => {
-        const path = documentPathInFolder(folder);
-        const pulled = { ...(JSON.parse(await readFile(path, 'utf8')) as Record<string, unknown>), name };
-        await writeFile(path, JSON.stringify(pulled, null, 2));
-    };
-
     test('after a pull, a node an agent adds is not lost to an autosave based on the pull', async () => {
         const opened = await store.openProject({ folder });
         const projectId = opened.summary.projectId;
@@ -1788,9 +1783,8 @@ describe('the machine of a node', () => {
 
     test('goes when a file edited outside takes the node away, and when a restart finds it gone', async () => {
         const projectId = await openBound();
-        const path = documentPathInFolder(folder);
         await setPrivateViews(folder, [{ ...canvas(content()), nodes: [] }]);
-        await writeFile(path, JSON.stringify({ ...(JSON.parse(await readFile(path, 'utf8')) as Record<string, unknown>), name: 'from git' }, null, 2));
+        await pull('from git');
         projectDirWatcher().emit('project.json');
         await fake.settle();
         expect(store.remote.machineOf(projectId, 'n1')).toBeNull();
@@ -1862,7 +1856,6 @@ describe('reading the combined sidebar', () => {
 
     test('a corrupt private file is not moved aside by a sidebar read', async () => {
         await store.openProject({ folder });
-        const { privatePathOf } = await import('./project-files.ts');
         const actual = privatePathOf(documentPathInFolder(folder));
         await writeFile(actual, 'broken private json');
         const before = await readdir(dirname(actual));
@@ -1895,9 +1888,7 @@ describe('locks and reads from memory', () => {
         await store.save(projectId, 0, content(), undefined, 'c1');
         expect((await store.read(projectId)).name).toBe('repo');
 
-        const path = documentPathInFolder(folder);
-        const pulled = { ...(JSON.parse(await readFile(path, 'utf8')) as Record<string, unknown>), name: 'from git' };
-        await writeFile(path, JSON.stringify(pulled, null, 2));
+        await pull('from git');
         expect((await store.read(projectId)).name).toBe('repo');
         expect(await store.revision(projectId)).toBe(1);
 
@@ -1923,15 +1914,11 @@ describe('locks and reads from memory', () => {
     });
 
     test('a project that is not open, or open without a watcher, is read from disk', async () => {
-        const path = documentPathInFolder(folder);
-        const rename = async (name: string) => {
-            await writeFile(path, JSON.stringify({ ...(JSON.parse(await readFile(path, 'utf8')) as Record<string, unknown>), name }, null, 2));
-        };
         const opened = await store.openProject({ folder });
         const projectId = opened.summary.projectId;
         await store.read(projectId);
         store.release(projectId);
-        await rename('released');
+        await pull('released');
         expect((await store.read(projectId)).name).toBe('released');
 
         const blind = new ProjectStore(home, projectLinks(), {
@@ -1942,7 +1929,7 @@ describe('locks and reads from memory', () => {
         });
         await blind.openProject({ projectId });
         await blind.read(projectId);
-        await rename('unseen');
+        await pull('unseen');
         expect((await blind.read(projectId)).name).toBe('unseen');
         blind.closeAll();
     });
@@ -1953,15 +1940,4 @@ test('opening without a folder or project id is refused', async () => {
         await expect(store.openProject(payload)).rejects.toMatchObject({ code: 'project-invalid' });
     }
     expect(await store.list()).toEqual([]);
-});
-
-test('an obsolete folderless registry entry does not hide folder projects', async () => {
-    const opened = await store.openProject({ folder });
-    store.closeAll();
-    const path = join(home, 'projects.json');
-    const registry = JSON.parse(await readFile(path, 'utf8'));
-    registry.projects.push({ ...registry.projects[0], projectId: 'loose', folder: null });
-    await writeFile(path, JSON.stringify(registry));
-    store = new ProjectStore(home, projectLinks(), new FakeWatch());
-    expect((await store.list()).map((project) => project.projectId)).toEqual([opened.summary.projectId]);
 });

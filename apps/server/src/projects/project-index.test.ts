@@ -35,15 +35,6 @@ function views(noteBody: string): ProjectView[] {
 }
 
 describe('ProjectIndex', () => {
-    test('knows which chat views are hidden, for the chat an inline edit runs in', () => {
-        const index = new ProjectIndex();
-        index.set('p1', '/repo', { views: [...views('x'), { kind: 'chat', id: 'inline-chat', name: 'Inline edit', node: {}, hidden: true }] });
-
-        expect(index.isHiddenChat('inline-chat')).toBe(true);
-        expect(index.isHiddenChat('solo-chat')).toBe(false);
-        expect(index.isHiddenChat('nothing')).toBe(false);
-    });
-
     test('derives what an agent may read from the document, with file paths resolved against the folder', () => {
         const index = new ProjectIndex();
         index.set('p1', '/repo', { views: views('ship it') });
@@ -80,6 +71,8 @@ describe('ProjectIndex', () => {
         expect(index.shows('solo-chat')).toBe(true);
         expect(index.shows('inline-chat')).toBe(false);
         expect(index.shows('removed')).toBe(false);
+        expect(index.isHiddenChat('inline-chat')).toBe(true);
+        expect(index.isHiddenChat('solo-chat')).toBe(false);
     });
 
     test('locates a node on its canvas and a session view as a place of its own', () => {

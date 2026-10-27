@@ -4,8 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { FakeWatch } from '@adecore/agents/testing';
 import { ProjectStore } from './project-store.ts';
-import { documentPathInFolder, viewFilePathOf } from './project-files.ts';
-import { writeDrawing } from './project-files.ts';
+import { documentPathInFolder, viewFilePathOf, writeDrawing } from './project-files.ts';
 import { projectLinks } from './project-file-test-helpers.ts';
 
 test('a process killed at each durable save boundary recovers on a fresh daemon', async () => {

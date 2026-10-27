@@ -99,6 +99,33 @@ describe('moving a chat from Chats into a project', () => {
 
     const viewIds = async (projectId: string): Promise<string[]> => (await store.read(projectId)).views.map((view) => view.id);
 
+    /* The project the moves below make in `vinyl`, which stays when a move fails. */
+    const vinylId = async (): Promise<string> => (await store.known()).find((project) => project.folder === join(root, 'vinyl'))!.projectId;
+
+    /* A move into `vinyl` whose own files cannot move: the last step fails, after the Chats write. */
+    const failingFiles = (extra: Partial<MoveChatDeps> = {}): Promise<unknown> =>
+        moveChat(
+            { chatId, to: make('vinyl'), ownFiles: 'move' },
+            deps(() => ({ moveOwnFiles: () => Promise.reject(FAILED), ...extra }))
+        );
+
+    /* A move into `vinyl` whose second project write, the one to Chats, fails. */
+    const failingChatsWrite = (): Promise<unknown> => {
+        let writes = 0;
+        return moveChat(
+            { chatId, to: make('vinyl'), ownFiles: 'move' },
+            deps((base) => ({
+                projects: {
+                    ...base.projects,
+                    mutate: (projectId, apply) => {
+                        writes += 1;
+                        return writes === 2 ? Promise.reject(FAILED) : base.projects.mutate(projectId, apply);
+                    }
+                }
+            }))
+        );
+    };
+
     /* What a failed move has to leave exactly as it was. */
     const expectUntouched = async (): Promise<void> => {
         expect(daemon.chats.get(chatId)!.info.cwd).toBe(ownFolder);
@@ -325,8 +352,7 @@ describe('moving a chat from Chats into a project', () => {
 
     test("a fork's lineage record survives with the project of the target", async () => {
         await daemon.lineage.put({ projectId: chatsId, nodeId: chatId, openedBy: 'chat-original', depth: 0, agent: true, relation: 'fork' });
-        const [stamp] = [daemon.lineage.projectOf(chatId)];
-        expect(stamp).toBe(chatsId);
+        expect(daemon.lineage.projectOf(chatId)).toBe(chatsId);
         const result = await moveChat({ chatId, to: make('vinyl'), ownFiles: 'move' }, deps());
         await daemon.pruned();
         expect(daemon.lineage.projectOf(chatId)).toBe(result.summary.projectId);
@@ -408,43 +434,14 @@ describe('moving a chat from Chats into a project', () => {
         });
 
         test('after the target was written, a Chats write that fails', async () => {
-            let writes = 0;
-            await expect(
-                moveChat(
-                    { chatId, to: make('vinyl'), ownFiles: 'move' },
-                    deps((base) => ({
-                        projects: {
-                            ...base.projects,
-                            mutate: (projectId, apply) => {
-                                writes += 1;
-                                return writes === 2 ? Promise.reject(FAILED) : base.projects.mutate(projectId, apply);
-                            }
-                        }
-                    }))
-                )
-            ).rejects.toBe(FAILED);
+            await expect(failingChatsWrite()).rejects.toBe(FAILED);
             await expectUntouched();
-            const target = (await store.known()).find((project) => project.folder === join(root, 'vinyl'))!;
-            expect(await viewIds(target.projectId)).toEqual([]);
+            expect(await viewIds(await vinylId())).toEqual([]);
         });
 
         test("after a fork's lineage moved, a Chats write that fails", async () => {
             await daemon.lineage.put({ projectId: chatsId, nodeId: chatId, openedBy: 'chat-original', depth: 0, agent: true, relation: 'fork' });
-            let writes = 0;
-            await expect(
-                moveChat(
-                    { chatId, to: make('vinyl'), ownFiles: 'move' },
-                    deps((base) => ({
-                        projects: {
-                            ...base.projects,
-                            mutate: (projectId, apply) => {
-                                writes += 1;
-                                return writes === 2 ? Promise.reject(FAILED) : base.projects.mutate(projectId, apply);
-                            }
-                        }
-                    }))
-                )
-            ).rejects.toBe(FAILED);
+            await expect(failingChatsWrite()).rejects.toBe(FAILED);
             expect(daemon.lineage.projectOf(chatId)).toBe(chatsId);
             expect(daemon.chats.get(chatId)!.info.cwd).toBe(ownFolder);
             expect(await viewIds(chatsId)).toContain(chatId);
@@ -452,28 +449,17 @@ describe('moving a chat from Chats into a project', () => {
 
         test('after the Chats write, the files that cannot move', async () => {
             await daemon.lineage.put({ projectId: chatsId, nodeId: chatId, openedBy: 'chat-original', depth: 0, agent: true, relation: 'fork' });
-            await expect(
-                moveChat(
-                    { chatId, to: make('vinyl'), ownFiles: 'move' },
-                    deps(() => ({ moveOwnFiles: () => Promise.reject(FAILED) }))
-                )
-            ).rejects.toBe(FAILED);
+            await expect(failingFiles()).rejects.toBe(FAILED);
             expect(daemon.lineage.projectOf(chatId)).toBe(chatsId);
             expect(daemon.chats.get(chatId)!.info.cwd).toBe(ownFolder);
             expect(await viewIds(chatsId)).toContain(chatId);
             expect(await readdir(transcriptDir())).toEqual(expect.arrayContaining([`${sessionId}.jsonl`, sessionId]));
             expect(await readFile(join(ownFolder, 'notes.md'), 'utf8')).toBe('notes');
-            const target = (await store.known()).find((project) => project.folder === join(root, 'vinyl'))!;
-            expect(await viewIds(target.projectId)).toEqual([]);
+            expect(await viewIds(await vinylId())).toEqual([]);
         });
 
         test('the chat keeps working in its old folder afterwards', async () => {
-            await expect(
-                moveChat(
-                    { chatId, to: make('vinyl'), ownFiles: 'move' },
-                    deps(() => ({ moveOwnFiles: () => Promise.reject(FAILED) }))
-                )
-            ).rejects.toBe(FAILED);
+            await expect(failingFiles()).rejects.toBe(FAILED);
             await say(chatId, 'write: marker.txt here');
             expect(await readFile(join(ownFolder, 'marker.txt'), 'utf8')).toBe('here\n');
         });
@@ -515,26 +501,15 @@ describe('moving a chat from Chats into a project', () => {
 
     test('a failed move leaves the flag in Chats and none in the target', async () => {
         await store.mutate(chatsId, (content) => ({ content: { ...content, flags: { [chatId]: 'red' } }, result: undefined }));
-        await expect(
-            moveChat(
-                { chatId, to: make('vinyl'), ownFiles: 'move' },
-                deps(() => ({ moveOwnFiles: () => Promise.reject(FAILED) }))
-            )
-        ).rejects.toBe(FAILED);
+        await expect(failingFiles()).rejects.toBe(FAILED);
         expect((await store.read(chatsId)).flags).toEqual({ [chatId]: 'red' });
-        const target = (await store.known()).find((project) => project.folder === join(root, 'vinyl'))!;
-        expect((await store.read(target.projectId)).flags ?? {}).toEqual({});
+        expect((await store.read(await vinylId())).flags ?? {}).toEqual({});
     });
 
     test('keeps the place of the chat among the others when a Chats write has to be undone', async () => {
         const second = (await newScratchChat(store, {})).viewId;
         const order = await viewIds(chatsId);
-        await expect(
-            moveChat(
-                { chatId, to: make('vinyl'), ownFiles: 'move' },
-                deps(() => ({ moveOwnFiles: () => Promise.reject(FAILED) }))
-            )
-        ).rejects.toBe(FAILED);
+        await expect(failingFiles()).rejects.toBe(FAILED);
         expect(await viewIds(chatsId)).toEqual(order);
         expect(order).toContain(second);
     });
@@ -560,12 +535,7 @@ describe('moving a chat from Chats into a project', () => {
 
         test('a move that failed before the chat was in its project tells nothing', async () => {
             const told: string[] = [];
-            await expect(
-                moveChat(
-                    { chatId, to: make('vinyl'), ownFiles: 'move' },
-                    deps(() => ({ moved: (id) => void told.push(id), moveOwnFiles: () => Promise.reject(FAILED) }))
-                )
-            ).rejects.toBe(FAILED);
+            await expect(failingFiles({ moved: (id) => void told.push(id) })).rejects.toBe(FAILED);
             expect(told).toEqual([]);
         });
 
@@ -587,10 +557,10 @@ describe('moving a chat from Chats into a project', () => {
                 )
             ).rejects.toMatchObject({ code: 'move-failed', message: expect.stringContaining('finishes the move the next time it starts') });
             expect(told).toEqual([chatId]);
-            const target = (await store.known()).find((project) => project.folder === join(root, 'vinyl'))!;
-            expect(await viewIds(target.projectId)).toEqual([chatId]);
+            const targetId = await vinylId();
+            expect(await viewIds(targetId)).toEqual([chatId]);
             expect(await viewIds(chatsId)).not.toContain(chatId);
-            expect(journal.pending()).toEqual([expect.objectContaining({ chatId, to: target.projectId })]);
+            expect(journal.pending()).toEqual([expect.objectContaining({ chatId, to: targetId })]);
         });
 
         test('a summary that cannot be read still answers with the project to follow the chat into', async () => {
@@ -599,7 +569,7 @@ describe('moving a chat from Chats into a project', () => {
                 deps((base) => ({ projects: { ...base.projects, summary: () => Promise.reject(FAILED) } }))
             );
             expect(result).toMatchObject({ viewId: chatId, summary: { name: 'vinyl', folder: join(root, 'vinyl') } });
-            expect(result.summary.projectId).toBe((await store.known()).find((project) => project.folder === join(root, 'vinyl'))!.projectId);
+            expect(result.summary.projectId).toBe(await vinylId());
         });
     });
 
@@ -642,12 +612,7 @@ describe('moving a chat from Chats into a project', () => {
         test('stays in Chats when the move is taken back', async () => {
             const store2 = snoozes();
             store2.set(chatsId, chatId, 10 ** 15);
-            await expect(
-                moveChat(
-                    { chatId, to: make('vinyl'), ownFiles: 'move' },
-                    deps(() => ({ snoozes: store2, moveOwnFiles: () => Promise.reject(FAILED) }))
-                )
-            ).rejects.toBe(FAILED);
+            await expect(failingFiles({ snoozes: store2 })).rejects.toBe(FAILED);
             expect(store2.list()).toEqual([{ projectId: chatsId, nodeId: chatId, until: 10 ** 15 }]);
         });
     });

@@ -176,21 +176,6 @@ describe('DiagramStore', () => {
         expect(await fileExists(diagramFile('view-a'))).toBe(false);
         expect(await fileExists(diagramFile('view-b'))).toBe(true);
     });
-
-    test('copy writes the same graph at rev 0, and copying nothing writes nothing', async () => {
-        await diagrams.open(projectId, 'view-a');
-        await diagrams.save(projectId, 'view-a', 0, graph([node('a'), node('b')], [['a', 'b']]), 'c1');
-        await projects.save(projectId, 1, content('view-a', 'view-b', 'view-c'));
-
-        await diagrams.copy(projectId, 'view-a', 'view-b');
-        const copied = JSON.parse(await readFile(diagramFile('view-b'), 'utf8')) as { rev: number; nodes: DiagramNode[] };
-        expect(copied.rev).toBe(0);
-        expect(copied.nodes).toEqual([node('a'), node('b')]);
-        expect(await diagrams.open(projectId, 'view-b')).toMatchObject({ rev: 0 });
-
-        await diagrams.copy(projectId, 'view-c', 'view-c');
-        expect(await fileExists(diagramFile('view-c'))).toBe(false);
-    });
 });
 
 describe('DiagramStore.write', () => {

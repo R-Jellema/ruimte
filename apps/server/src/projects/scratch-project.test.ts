@@ -7,7 +7,7 @@ import { FakeWatch } from '@adecore/agents/testing';
 import { initRepo } from '../git/test-repo.ts';
 import { ProjectStore } from './project-store.ts';
 import { dropEmptyMark, newScratchChat, reusableChat, scratchFolderOf } from './scratch-project.ts';
-import { projectLinks } from './project-file-test-helpers.ts';
+import { chatViewsOf, projectLinks } from './project-file-test-helpers.ts';
 
 let root: string;
 let store: ProjectStore;
@@ -16,8 +16,8 @@ async function isFolder(path: string): Promise<boolean> {
     return (await stat(path).catch(() => null))?.isDirectory() ?? false;
 }
 
-async function chatViews(projectId: string): Promise<ProjectChatView[]> {
-    return (await store.read(projectId)).views.filter((view): view is ProjectChatView => view.kind === 'chat');
+function chatViews(projectId: string): Promise<ProjectChatView[]> {
+    return chatViewsOf(store, projectId);
 }
 
 beforeEach(async () => {

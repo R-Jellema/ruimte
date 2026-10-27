@@ -2,11 +2,11 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdir, mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { type ChatCreatePayload, type ProjectChatView } from '@ruimte/contracts';
+import type { ChatCreatePayload, ProjectChatView } from '@ruimte/contracts';
 import { FakeWatch } from '@adecore/agents/testing';
 import { newInlineChat, removeInlineChat, showInlineChat, type InlineChatHost } from './inline-chat.ts';
 import { ProjectStore } from './project-store.ts';
-import { projectLinks } from './project-file-test-helpers.ts';
+import { chatViewsOf, projectLinks } from './project-file-test-helpers.ts';
 
 let root: string;
 let folder: string;
@@ -30,8 +30,8 @@ const host: InlineChatHost = {
     worktreePaths: async () => worktrees
 };
 
-async function chatViews(): Promise<ProjectChatView[]> {
-    return (await store.read(projectId)).views.filter((view): view is ProjectChatView => view.kind === 'chat');
+function chatViews(): Promise<ProjectChatView[]> {
+    return chatViewsOf(store, projectId);
 }
 
 beforeEach(async () => {
