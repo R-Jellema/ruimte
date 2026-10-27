@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { waitFor, waitForAsync } from '../sessions/test-helpers.ts';
 import { connectAppleMcp, type AppleMcpConnection, type AppleMcpServer } from './apple-mcp.ts';
 import { AppleStdioTransport } from './apple-mcp-stdio.ts';
-import { killQuietly, processAlive } from './chat-test-helpers.ts';
+import { killQuietly, processAlive } from '../process-test-helpers.ts';
 
 const NEVER_ABORTED = new AbortController().signal;
 

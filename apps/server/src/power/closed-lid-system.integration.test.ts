@@ -3,6 +3,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { killQuietly, processAlive } from '../process-test-helpers.ts';
 import { waitFor } from '../sessions/test-helpers.ts';
 import { PMSET, watchdogCommand, type PowerState } from './closed-lid.ts';
 import { spawnWatchdog, streamPower } from './closed-lid-system.ts';
@@ -23,23 +24,10 @@ beforeEach(async () => {
 
 afterEach(async () => {
     for (const pid of strays.splice(0)) {
-        try {
-            process.kill(pid, 'SIGKILL');
-        } catch {
-            // Already gone.
-        }
+        killQuietly(pid);
     }
     await rm(dir, { recursive: true, force: true });
 });
-
-function alive(pid: number): boolean {
-    try {
-        process.kill(pid, 0);
-        return true;
-    } catch {
-        return false;
-    }
-}
 
 /* Reads the first lines a process prints, as many as asked for. */
 async function firstLines(stream: ReadableStream<Uint8Array>, count: number): Promise<string[]> {
@@ -79,8 +67,8 @@ describe('the closed-lid watchdog', () => {
         daemon.kill('SIGKILL');
         await daemon.exited;
         await waitFor(() => existsSync(fired), 'the watchdog to run its command');
-        expect(alive(childPid!)).toBe(true);
-        await waitFor(() => !alive(watchdogPid!), 'the watchdog to end');
+        expect(processAlive(childPid!)).toBe(true);
+        await waitFor(() => !processAlive(watchdogPid!), 'the watchdog to end');
     });
 
     test('ignores the signals a terminal sends, and a dismissed one never runs its command', async () => {
@@ -92,7 +80,7 @@ describe('the closed-lid watchdog', () => {
             process.kill(watchdog.pid, signal);
         }
         await Bun.sleep(200);
-        expect(alive(watchdog.pid)).toBe(true);
+        expect(processAlive(watchdog.pid)).toBe(true);
         watchdog.dismiss();
         await watchdog.exited;
         expect(existsSync(fired)).toBe(false);

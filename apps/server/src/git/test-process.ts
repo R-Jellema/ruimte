@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { chmod, readFile, writeFile } from 'node:fs/promises';
 import { constants } from 'node:os';
 import { join } from 'node:path';
+import { killQuietly } from '../process-test-helpers.ts';
 import { waitFor } from '../sessions/test-helpers.ts';
 
 /* A pre-commit hook that writes its pid to `pidFile`, prints `ready` and waits on a pipe nobody writes to, the way a hung hook does. */
@@ -20,11 +21,7 @@ export async function killFromPidFile(pidFile: string): Promise<void> {
     if (!Number.isFinite(pid)) {
         return;
     }
-    try {
-        process.kill(pid, 'SIGKILL');
-    } catch {
-        // Gone already, which is what the test was for.
-    }
+    killQuietly(pid);
 }
 
 export async function expectProcessTerminated(pid: number, signal: 'SIGTERM' | 'SIGKILL'): Promise<void> {

@@ -7,7 +7,8 @@ import { ProviderRegistry } from '../providers/registry.ts';
 import { waitFor } from '../sessions/test-helpers.ts';
 import { AttachmentStore } from '@adecore/agents/chat';
 import { ChatManager } from './chat-manager.ts';
-import { ChatRecorder, killQuietly, processAlive } from './chat-test-helpers.ts';
+import { killQuietly, processAlive } from '../process-test-helpers.ts';
+import { ChatRecorder } from './chat-test-helpers.ts';
 import { retire } from './chat-manager.fixture.test.ts';
 
 /*

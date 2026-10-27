@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { GitActions } from './actions.ts';
 import { expectProcessTerminated, installHangingHook, killFromPidFile } from './test-process.ts';
+import { processAlive } from '../process-test-helpers.ts';
 import { gitIn, initRepo } from './test-repo.ts';
 
 let root: string;
@@ -37,7 +38,7 @@ test('cancel ends a commit a hook holds up, the hook included', async () => {
     await waiting;
     const pid = Number.parseInt(await readFile(pidFile, 'utf8'), 10);
     expect(Number.isSafeInteger(pid)).toBe(true);
-    process.kill(pid, 0);
+    expect(processAlive(pid)).toBe(true);
     actions.cancel('commit-1');
 
     await expect(committing).rejects.toThrow('The action was canceled.');

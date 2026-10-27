@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promi
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { GitIdentity } from '@ruimte/contracts';
+import { killQuietly, processAlive } from '../process-test-helpers.ts';
 import { IdentityReader } from './identity.ts';
 import { runGit } from './run.ts';
 import { expectProcessTerminated } from './test-process.ts';
@@ -132,7 +133,7 @@ test('a git that left a child holding its pipes is ended with the child, and say
         while (!Number.isSafeInteger(pid)) {
             pid = Number.parseInt(await readFile(pidFile, 'utf8').catch(() => ''), 10);
         }
-        process.kill(pid, 0);
+        expect(processAlive(pid)).toBe(true);
         jest.advanceTimersByTime(100);
         const result = await running;
         expect(result.timedOut).toBe(true);
@@ -143,11 +144,8 @@ test('a git that left a child holding its pipes is ended with the child, and say
     } finally {
         jest.useRealTimers();
         if (Number.isSafeInteger(pid)) {
-            try {
-                process.kill(pid, 'SIGKILL');
-            } catch {
-                // Containment when the group termination regresses.
-            }
+            // Containment when the group termination regresses.
+            killQuietly(pid);
         }
     }
 });

@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { waitFor, waitForAsync } from '../sessions/test-helpers.ts';
 import { executeAppleCommand } from './apple-command-tool.ts';
-import { killQuietly, processAlive } from './chat-test-helpers.ts';
+import { killQuietly, processAlive } from '../process-test-helpers.ts';
 import { tempHomes } from '../temp-home-test-helpers.ts';
 
 let cwd: string;

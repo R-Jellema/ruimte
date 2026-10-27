@@ -3,6 +3,7 @@ import { mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expectProcessTerminated, installHangingHook, killFromPidFile } from './test-process.ts';
+import { processAlive } from '../process-test-helpers.ts';
 import { gitIn, initRepo, NO_WORKTREE_AGENTS } from './test-repo.ts';
 import { STILL_WAITING, WorktreeMerge } from './worktree-merge.ts';
 import { Worktrees } from './worktrees.ts';
@@ -46,7 +47,7 @@ test('cancel ends a step a hook holds up, after the merge said it is still waiti
     await ready.promise;
     const pid = Number.parseInt(await readFile(pidFile, 'utf8'), 10);
     expect(Number.isSafeInteger(pid)).toBe(true);
-    process.kill(pid, 0);
+    expect(processAlive(pid)).toBe(true);
     merges.cancel('merge-1');
 
     await expect(merging).rejects.toThrow('The merge was canceled.');
