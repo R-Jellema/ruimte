@@ -39,7 +39,7 @@ let meters: ReturnType<typeof setInterval>[] = [];
 const secrets = new Set<string>();
 const MAX_MOMENTS = 30;
 const LAG_TICK_MS = 1000;
-const GAUGE_MS = 60_000;
+const GAUGE_MS = 15 * 60_000;
 
 /*
  * Reports go out only from a release build: `scripts/compile.ts` stamps `RUIMTE_TELEMETRY` into the
@@ -210,8 +210,8 @@ export function recordRequestDuration(type: string, ms: number): void {
 
 /*
  * The event loop's lag, as how late a one-second tick fires, and the memory and the clients by kind, all sent once
- * a minute. The SDK sends every value as an item of its own, five seconds after the first, so a lag sent per tick
- * would keep a request going out every five seconds all day; the minute's worst tick is what a hang shows in.
+ * a quarter of an hour. The SDK sends every value as an item of its own, five seconds after the first, so a lag sent
+ * per tick would keep a request going out every five seconds all day; the quarter's worst tick is what a hang shows in.
  * Both timers are unref'd, so they never keep a stopping daemon alive.
  */
 function startMeters(active: Sentry): void {
