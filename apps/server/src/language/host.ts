@@ -29,7 +29,7 @@ import type {
     LanguageEditAnswerPayload,
     LanguageRequestPayload
 } from '@ruimte/contracts';
-import { CodedError, fileExists } from '@adecore/agents';
+import { CodedError, fileExists, type WatchSeams } from '@adecore/agents';
 import {
     ErrorCodes,
     LspError,
@@ -49,18 +49,17 @@ import {
     type WorkspaceEditPlan,
     type WorkspaceEditSource
 } from '@adecore/lsp';
-import type { WatchSeams } from '@adecore/agents';
 import { ClientSinks } from '../client-sinks.ts';
 import { errorText } from '../error-text.ts';
 import { isDirectory } from '../fs/browse.ts';
-import { ProjectFileWatcher, type FileChange, type StatPath } from './file-watch.ts';
-import { CustomLanguageServers, customProfile } from './custom.ts';
 import type { SessionEvent, SessionSink } from '../sessions/manager.ts';
+import { pinnedItem, tagCallHierarchy } from './call-hierarchy.ts';
 import { LanguageChoices } from './choices.ts';
+import { CustomLanguageServers, customProfile } from './custom.ts';
+import { ProjectFileWatcher, type FileChange, type StatPath } from './file-watch.ts';
 import { LanguageInstaller, type CheckoutRevision } from './installer.ts';
 import { findManifests } from './manifests.ts';
 import type { Download, NativePolicy } from './native.ts';
-import { pinnedItem, tagCallHierarchy } from './call-hierarchy.ts';
 import { MERGED_METHODS, mergeAnswers, mergeProviders } from './merge.ts';
 import {
     activates,
@@ -477,10 +476,7 @@ export class LanguageHost {
         if (payload.version !== undefined && payload.version !== document.version) {
             throw new LanguageError(LANGUAGE_ERROR_CODES.staleDocument, `The document is at version ${document.version}, not ${payload.version}`);
         }
-        const servers = this.serversOf(project, document);
-        if (servers.length === 0) {
-            throw new LanguageError(LANGUAGE_ERROR_CODES.unavailable, `No language server serves ${document.languageId}`);
-        }
+        const servers = this.servingServers(project, document);
         const params = typeof payload.params === 'object' && payload.params !== null ? payload.params : {};
         const pinned = pinnedItem(payload.method, params);
         const pinnedServer = pinned !== null && servers.some((server) => server.hasComponent(pinned.server)) ? pinned.server : undefined;
@@ -558,10 +554,7 @@ export class LanguageHost {
     /* Runs a command of a server for a client, which may be asked to make edits while it runs. */
     async command(clientId: string, payload: LanguageCommandPayload): Promise<LanguageCommandResult> {
         const { project, document } = this.documentOf(payload);
-        const servers = this.serversOf(project, document);
-        if (servers.length === 0) {
-            throw new LanguageError(LANGUAGE_ERROR_CODES.unavailable, `No language server serves ${document.languageId}`);
-        }
+        const servers = this.servingServers(project, document);
         const server =
             (payload.server ? servers.find((candidate) => candidate.hasComponent(payload.server!)) : undefined) ??
             servers.find((candidate) => candidate.canAnswer(document, 'workspace/executeCommand')) ??
@@ -876,6 +869,15 @@ export class LanguageHost {
     /* The servers of the document that exist in the project, the one of its language first. */
     private serversOf(project: ProjectLanguage, document: SharedDocument): LanguageServer[] {
         return document.kinds.flatMap((kind) => project.servers.get(kind) ?? []);
+    }
+
+    /* The same, refused when there are none. */
+    private servingServers(project: ProjectLanguage, document: SharedDocument): LanguageServer[] {
+        const servers = this.serversOf(project, document);
+        if (servers.length === 0) {
+            throw new LanguageError(LANGUAGE_ERROR_CODES.unavailable, `No language server serves ${document.languageId}`);
+        }
+        return servers;
     }
 
     private providersOf(project: ProjectLanguage, document: SharedDocument): Record<string, unknown> {
@@ -1210,23 +1212,19 @@ export class LanguageHost {
                 const text = await this.readText(path);
                 return text === null ? null : { text, version: null, open: false };
             },
-            exists: async (uri) => {
-                const path = fileUriToPath(uri);
-                if (path === null) {
-                    return false;
-                }
-                await this.options.machineHome.refuse(path);
-                return this.exists(path);
-            },
-            isFolder: async (uri) => {
-                const path = fileUriToPath(uri);
-                if (path === null) {
-                    return false;
-                }
-                await this.options.machineHome.refuse(path);
-                return this.isFolder(path);
-            }
+            exists: (uri) => this.askOfPath(uri, this.exists),
+            isFolder: (uri) => this.askOfPath(uri, this.isFolder)
         };
+    }
+
+    /* What `ask` says of the file a uri names, after the line a file read stops at; false for a uri that names no file. */
+    private async askOfPath(uri: string, ask: (path: string) => Promise<boolean>): Promise<boolean> {
+        const path = fileUriToPath(uri);
+        if (path === null) {
+            return false;
+        }
+        await this.options.machineHome.refuse(path);
+        return ask(path);
     }
 
     private projectOf(document: SharedDocument): string | null {
@@ -1340,7 +1338,7 @@ export class LanguageHost {
         }
     }
 
-    /* Gives a document the servers it has now, which are not the ones it opened with when a server of a person's own was added or removed. */
+    /* Gives a document the servers it has now, after a server of a person's own came or went or the machine chose another. */
     private async reroute(project: ProjectLanguage, document: SharedDocument): Promise<void> {
         const next = await this.kindsFor(project, document.languageId, document.storedPath);
         const added = next.filter((kind) => !document.kinds.includes(kind));
