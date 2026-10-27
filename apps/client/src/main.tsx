@@ -54,9 +54,11 @@ import { onLazyOpenError, prefetcher } from '@adecore/ui';
 import { ChatHostProvider, onLazyOpenError as onChatLazyOpenError } from '@adecore/agents-react';
 import '@/state/theme';
 import '@/state/settings';
+import '@fontsource-variable/fira-code';
 import '@fontsource-variable/geist';
 import '@fontsource-variable/ibm-plex-sans';
 import '@fontsource-variable/inter';
+import '@fontsource-variable/jetbrains-mono';
 import '@/styles.css';
 
 startTelemetry();

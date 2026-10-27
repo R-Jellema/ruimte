@@ -43,8 +43,8 @@ export const FOLD_OUTLINES: readonly EditorFoldOutline[] = ['off', 'hover', 'alw
 
 export const MONO_FONTS = [
     { id: 'system', label: 'System', stack: 'ui-monospace, "SF Mono", Menlo, monospace' },
-    { id: 'jetbrains', label: 'JetBrains Mono', stack: '"JetBrains Mono", ui-monospace, Menlo, monospace' },
-    { id: 'fira', label: 'Fira Code', stack: '"Fira Code", ui-monospace, Menlo, monospace' },
+    { id: 'jetbrains', label: 'JetBrains Mono', stack: '"JetBrains Mono Variable", ui-monospace, Menlo, monospace' },
+    { id: 'fira', label: 'Fira Code', stack: '"Fira Code Variable", ui-monospace, Menlo, monospace' },
     { id: 'menlo', label: 'Menlo', stack: 'Menlo, ui-monospace, monospace' }
 ] as const;
 
@@ -468,6 +468,42 @@ export function previewColors(preview: { palette?: PalettePreset; accent?: Accen
 
 /* The few tokens a person may change are set over the theme's own values: the type on the root, the
    colors in the palette's stylesheet, which knows the two sides apart. */
+/* Counts the stacks that went on the root once their face arrived, for an editor that measures its face itself. */
+export const useLoadedFaces = create<{ count: number }>(() => ({ count: 0 }));
+
+const pendingStacks = new Map<string, string | null>();
+
+/* A terminal and the editor measure a face once, from a canvas, so a bundled face goes on the root only once
+   it has arrived; before that they would measure the fallback and keep its widths. */
+function setFontStack(property: string, stack: string | null): void {
+    const root = document.documentElement.style;
+    pendingStacks.set(property, stack);
+
+    if (stack === null) {
+        root.removeProperty(property);
+        return;
+    }
+
+    const probe = `16px ${stack.split(',')[0]}`;
+
+    if (!document.fonts || document.fonts.check(probe)) {
+        root.setProperty(property, stack);
+        return;
+    }
+
+    void document.fonts
+        .load(probe)
+        .catch(() => [])
+        .then(() => {
+            // A person who picked another face in the meantime keeps that one.
+            if (pendingStacks.get(property) !== stack) {
+                return;
+            }
+            root.setProperty(property, stack);
+            useLoadedFaces.setState((state) => ({ count: state.count + 1 }));
+        });
+}
+
 function apply(settings: Settings): void {
     // The tokens are written on the document, and a test that reads this module for its defaults has none.
     if (typeof document === 'undefined') {
@@ -480,17 +516,9 @@ function apply(settings: Settings): void {
     root.setProperty('--code-line-height', `${codeLineHeight(settings.codeFontSize, settings.codeLineHeight)}px`);
     applyColors(settings.palette, settings.accent);
     const interfaceFont = INTERFACE_FONTS.find((entry) => entry.id === settings.interfaceFont);
-    if (interfaceFont && interfaceFont.id !== 'system') {
-        root.setProperty('--font-sans', interfaceFont.stack);
-    } else {
-        root.removeProperty('--font-sans');
-    }
+    setFontStack('--font-sans', interfaceFont && interfaceFont.id !== 'system' ? interfaceFont.stack : null);
     const font = MONO_FONTS.find((entry) => entry.id === settings.font);
-    if (font && font.id !== 'system') {
-        root.setProperty('--font-mono', font.stack);
-    } else {
-        root.removeProperty('--font-mono');
-    }
+    setFontStack('--font-mono', font && font.id !== 'system' ? font.stack : null);
     if (settings.codeLigatures) {
         root.removeProperty('font-variant-ligatures');
     } else {

@@ -9,7 +9,7 @@ import { foldRolesFor } from '@/state/code-folding';
 import { useCodeTheme } from '@/state/code-theme';
 import type { RevealLineRequest } from '@/state/files';
 import { endpointKey } from '@/state/keys';
-import { useSettings } from '@/state/settings';
+import { useLoadedFaces, useSettings } from '@/state/settings';
 import { type DiskText, textDrafts } from '@/state/text-drafts';
 
 type EditorSetter =
@@ -88,6 +88,7 @@ export function FileEditor({
     const codeLineHeight = useSettings((s) => s.codeLineHeight);
     const font = useSettings((s) => s.font);
     const codeLigatures = useSettings((s) => s.codeLigatures);
+    const loadedFaces = useLoadedFaces((s) => s.count);
     const smartKeys = useSettings((s) => s.smartKeys);
     const guides = useSettings((s) => s.codeIndentGuides);
     const whitespace = useSettings((s) => s.codeWhitespace);
@@ -179,7 +180,7 @@ export function FileEditor({
     // The settings wrote the tokens on the root before the store told anyone, so the editor reads the new face.
     useEffect(() => {
         editorRef.current?.refreshFont();
-    }, [codeFontSize, codeLineHeight, font, codeLigatures]);
+    }, [codeFontSize, codeLineHeight, font, codeLigatures, loadedFaces]);
 
     useEffect(() => {
         editorRef.current?.setReadOnly(readOnly, readOnlyReason ?? undefined);
