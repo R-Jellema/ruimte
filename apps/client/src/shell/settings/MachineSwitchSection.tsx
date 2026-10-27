@@ -1,15 +1,12 @@
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SettingsRow } from '@adecore/ui/settings';
-import { Switch, messageOf } from '@adecore/ui';
-import { perform } from '@/actions/client-actions';
+import { Switch } from '@adecore/ui';
 import { MACHINE_SWITCHES, type MachineSwitch } from '@/shell/settings/machine-switches';
+import { useMachineSetting } from '@/shell/settings/machine-setting';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
 import { LOCAL_ENDPOINT_ID, useEndpoints, type Endpoint } from '@/state/endpoints';
 import { listedEndpoints } from '@/state/local-machine';
 import { useServers } from '@/state/server';
-import { useToasts } from '@/state/toasts';
-import { transportFor } from '@/transport';
 import { useEndpointConnection } from '@/transport/status';
 
 // The i18n group under `agents` each switch reads its words from.
@@ -20,27 +17,8 @@ function MachineSwitchRow({ endpoint, setting, searchId }: { endpoint: Endpoint;
     const info = useServers((s) => s.byEndpoint[endpoint.id]);
     const connection = useEndpointConnection(endpoint.id);
     const connected = connection.status === 'open';
-    const [busy, setBusy] = useState(false);
+    const { busy, save } = useMachineSetting(endpoint);
     const words = `agents.${WORDS[setting]}`;
-
-    const set = async (checked: boolean): Promise<void> => {
-        if (!transportFor(endpoint.id)) {
-            return;
-        }
-        setBusy(true);
-        try {
-            await perform('machine.setIdentity', { endpointId: endpoint.id, [setting]: checked });
-        } catch (e) {
-            useToasts.getState().show({
-                id: `endpoint-${setting}-${endpoint.id}`,
-                kind: 'error',
-                title: t('machine.toast.saveFailed', { machine: endpoint.label }),
-                description: messageOf(e, t('machine.toast.unchanged'))
-            });
-        } finally {
-            setBusy(false);
-        }
-    };
 
     return (
         <SettingsRow
@@ -50,7 +28,7 @@ function MachineSwitchRow({ endpoint, setting, searchId }: { endpoint: Endpoint;
             control={
                 <Switch
                     checked={info?.[setting] === true}
-                    onCheckedChange={(checked) => void set(checked)}
+                    onCheckedChange={(checked) => void save({ [setting]: checked })}
                     // The section names the machine, a screen reader reading the switch alone does not.
                     label={t(`${words}.rowLabel`, { machine: endpoint.label })}
                     disabled={busy || !connected}

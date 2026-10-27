@@ -55,6 +55,19 @@ export function BackgroundServiceSection() {
         }
     };
 
+    // The confirm dialog stays open with the failure the shell reported.
+    const settle = (next: BackgroundServiceState | undefined): void => {
+        if (!next) {
+            return;
+        }
+
+        setState(next);
+
+        if (next.failure) {
+            throw new Error(next.failure);
+        }
+    };
+
     return (
         <SettingsSection title={t('backgroundService.title')} scope="computer">
             <SettingsRow
@@ -125,15 +138,7 @@ export function BackgroundServiceSection() {
                 title={t('backgroundService.confirmRestart.title')}
                 description={t('backgroundService.confirmRestart.description')}
                 confirmLabel={t('backgroundService.confirmRestart.action')}
-                onConfirm={async () => {
-                    const next = await bridge.restartNow?.();
-                    if (next) {
-                        setState(next);
-                        if (next.failure) {
-                            throw new Error(next.failure);
-                        }
-                    }
-                }}
+                onConfirm={async () => settle(await bridge.restartNow?.())}
             />
             <ConfirmDialog
                 open={confirming === 'linger'}
@@ -141,13 +146,7 @@ export function BackgroundServiceSection() {
                 title={t('backgroundService.confirmLinger.title')}
                 description={t('backgroundService.confirmLinger.description')}
                 confirmLabel={t('backgroundService.confirmLinger.action')}
-                onConfirm={async () => {
-                    const next = await bridge.enableLinger();
-                    setState(next);
-                    if (next.failure) {
-                        throw new Error(next.failure);
-                    }
-                }}
+                onConfirm={async () => settle(await bridge.enableLinger())}
             />
         </SettingsSection>
     );

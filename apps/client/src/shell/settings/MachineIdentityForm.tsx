@@ -5,7 +5,8 @@ import { perform } from '@/actions/client-actions';
 import { PROJECT_ICON_KEYWORDS } from '@/project/project-icons';
 import { useProjectIconGroups } from '@/project/use-project-icon-groups';
 import { SettingsRow } from '@adecore/ui/settings';
-import { Button, useAsyncAction, Tooltip, IconPicker, FormError, Input } from '@adecore/ui';
+import { Button, useAsyncAction, IconPicker, FormError, Input } from '@adecore/ui';
+import { WithReason } from '@/shell/settings/MachineSettings';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
 import { useServers } from '@/state/server';
 import { transportFor } from '@/transport';
@@ -47,12 +48,6 @@ export function MachineIdentityForm({ endpointId, label, disabledReason, knownIc
             await perform('machine.setIdentity', { endpointId, name: name.trim() === '' ? null : name.trim(), icon });
         });
     };
-
-    const saveButton = (
-        <Button variant="primary" disabled={disabled || busy || !dirty} onClick={() => void save()}>
-            {t('common:action.save')}
-        </Button>
-    );
 
     return (
         <SettingsSection title={t('machineDialog.identity.title')} description={t('machineDialog.identity.description')}>
@@ -97,13 +92,11 @@ export function MachineIdentityForm({ endpointId, label, disabledReason, knownIc
             <div className="flex min-w-0 flex-col px-4.5 pb-3.5">
                 {failure && <FormError className="mt-3 break-words">{failure}</FormError>}
                 <div className="mt-3 flex justify-end">
-                    {disabled ? (
-                        <Tooltip label={disabledReason}>
-                            <span className="inline-flex">{saveButton}</span>
-                        </Tooltip>
-                    ) : (
-                        saveButton
-                    )}
+                    <WithReason reason={disabledReason}>
+                        <Button variant="primary" disabled={disabled || busy || !dirty} onClick={() => void save()}>
+                            {t('common:action.save')}
+                        </Button>
+                    </WithReason>
                 </div>
             </div>
         </SettingsSection>

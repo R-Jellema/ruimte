@@ -40,7 +40,7 @@ const ACTION_DEPS: MachineActionDeps = {
 /* Everything about one machine, beside its row in the Account pane. */
 export function MachineDetail({ entry }: { entry: MachineEntry }) {
     const { t } = useTranslation('settings');
-    // The detail is a person looking at this machine, the one place in the pane that connects to it. Its name, broker and clients with access are live.
+    // The one place in the pane that connects to the machine, so its name, broker and clients with access are live.
     useMachineHold(entry.endpoint);
     const connection = useEndpointConnection(entry.endpoint?.id ?? entry.id);
     const signedIn = usePulsarAccount((s) => s.status === 'signed-in');

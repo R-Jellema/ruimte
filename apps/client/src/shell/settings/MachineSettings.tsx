@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react';
-import i18next from 'i18next';
 import { Trash } from 'lucide-react';
 import { Trans, useTranslation } from 'react-i18next';
 import { brokerUrlProblem, type BrokerSetting } from '@ruimte/pulsar';
@@ -11,11 +10,11 @@ import { ConfirmDialog, SettingsRow } from '@adecore/ui/settings';
 import { perform } from '@/actions/client-actions';
 import { desktop } from '@/desktop/bridge';
 import { forgetEndpoint } from '@/endpoint';
+import { saveMachineSetting, useMachineSetting, type MachineSettingPatch } from '@/shell/settings/machine-setting';
 import { reachText } from '@/shell/settings/reach-text';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
 import { useEndpoints, type Endpoint } from '@/state/endpoints';
 import { useServers } from '@/state/server';
-import { useToasts } from '@/state/toasts';
 import { pool, transportFor, type Transport } from '@/transport';
 import { useMachineAnswers } from '@/transport/features';
 import { useEndpointConnection } from '@/transport/status';
@@ -34,69 +33,7 @@ export function WithReason({ reason, children }: { reason: string | null; childr
     );
 }
 
-function folderRefusal(e: unknown): string | null {
-    switch ((e as { code?: unknown } | null)?.code) {
-        case 'root-refused':
-            return i18next.t('settings:machine.worktreeFolder.refusedRoot');
-        case 'not-a-folder':
-            return i18next.t('settings:machine.worktreeFolder.notAFolder');
-        default:
-            return null;
-    }
-}
-
-interface MachineSettingPatch {
-    readonly broker?: BrokerSetting;
-    readonly lanDoor?: boolean;
-    readonly streamingAllowed?: boolean;
-    readonly worktreeRoot?: string;
-    readonly usageStats?: boolean;
-}
-
-async function saveMachineSetting(
-    endpoint: Endpoint,
-    patch: MachineSettingPatch,
-    /* A refused folder is the person's to fix in the field, so it is told there and not in a toast. */
-    onRefused?: (message: string) => void
-): Promise<boolean> {
-    if (!transportFor(endpoint.id)) {
-        return false;
-    }
-    try {
-        await perform('machine.setIdentity', { endpointId: endpoint.id, ...patch });
-        return true;
-    } catch (e) {
-        const refusal = folderRefusal(e);
-
-        if (onRefused !== undefined && refusal !== null) {
-            onRefused(refusal);
-            return false;
-        }
-
-        useToasts.getState().show({
-            id: `endpoint-setting-${endpoint.id}`,
-            kind: 'error',
-            title: i18next.t('settings:machine.toast.saveFailed', { machine: endpoint.label }),
-            description: refusal ?? messageOf(e, i18next.t('settings:machine.toast.unchanged'))
-        });
-        return false;
-    }
-}
-
-/* Saves one machine setting at a time; `busy` holds the control still until the machine answered. */
-function useMachineSetting(endpoint: Endpoint): { busy: boolean; save(patch: MachineSettingPatch): Promise<void> } {
-    const [busy, setBusy] = useState(false);
-
-    const save = async (patch: MachineSettingPatch): Promise<void> => {
-        setBusy(true);
-        await saveMachineSetting(endpoint, patch);
-        setBusy(false);
-    };
-
-    return { busy, save };
-}
-
-function MachineSwitch({
+function MachineSettingSwitch({
     endpoint,
     reason,
     checked,
@@ -282,7 +219,7 @@ export function LanDoorRow({ endpoint, reason }: { endpoint: Endpoint; reason: s
             label={t('machine.lanDoor.label')}
             description={description()}
             control={
-                <MachineSwitch
+                <MachineSettingSwitch
                     endpoint={endpoint}
                     reason={reason ?? (fixed ? t('machine.lanDoor.fixed') : null)}
                     checked={kept}
@@ -388,7 +325,7 @@ export function StreamingRow({ endpoint, reason }: { endpoint: Endpoint; reason:
             label={t('machine.streaming.label')}
             description={reason !== null ? t('machine.notAnswering') : t('machine.streaming.description')}
             control={
-                <MachineSwitch
+                <MachineSettingSwitch
                     endpoint={endpoint}
                     reason={reason}
                     checked={allowed}
@@ -435,7 +372,7 @@ export function UsageStatsRow({ endpoint, reason }: { endpoint: Endpoint; reason
                 )
             }
             control={
-                <MachineSwitch
+                <MachineSettingSwitch
                     endpoint={endpoint}
                     reason={reason}
                     checked={on}
