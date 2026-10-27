@@ -1,23 +1,32 @@
 import { describe, expect, test } from 'bun:test';
 import { voiceToolDefinitions } from '@ruimte/actions';
+import type { OpenAiLivePreferences } from '@ruimte/desktop-bridge';
 import { createOpenAiLiveSession, liveTools, parseOpenAiLivePreferences } from './openai-live';
+
+const ANSWER = { session: { id: 'live-1' }, transport: { type: 'webrtc', sdp: 'answer' } };
+
+/* Mints a session against a fake OpenAI and hands back what it was sent. */
+async function mint(preferences: OpenAiLivePreferences): Promise<{ answer: unknown; request: RequestInit }> {
+    let request: RequestInit = {};
+    const answer = await createOpenAiLiveSession(
+        async (_input, init) => {
+            request = init;
+            return Response.json(ANSWER);
+        },
+        'sk-private',
+        'offer',
+        preferences
+    );
+    return { answer, request };
+}
 
 describe('createOpenAiLiveSession', () => {
     test('exchanges an SDP offer without returning the API key', async () => {
-        const requests: RequestInit[] = [];
-        const answer = await createOpenAiLiveSession(
-            async (_input, init) => {
-                requests.push(init);
-                return Response.json({ session: { id: 'live-1' }, transport: { type: 'webrtc', sdp: 'answer' } });
-            },
-            'sk-private',
-            'offer',
-            { language: 'nl', voice: 'cedar' }
-        );
+        const { answer, request } = await mint({ language: 'nl', voice: 'cedar' });
 
-        expect(answer).toEqual({ session: { id: 'live-1' }, transport: { type: 'webrtc', sdp: 'answer' } });
-        expect(requests[0]?.headers).toEqual({ Authorization: 'Bearer sk-private', 'Content-Type': 'application/json' });
-        expect(JSON.parse(String(requests[0]?.body))).toMatchObject({
+        expect(answer).toEqual(ANSWER);
+        expect(request.headers).toEqual({ Authorization: 'Bearer sk-private', 'Content-Type': 'application/json' });
+        expect(JSON.parse(String(request.body))).toMatchObject({
             session: {
                 model: 'gpt-live-1',
                 instructions: expect.stringContaining('standard accent of a speaker from the Netherlands, never a Flemish or Belgian accent'),
@@ -41,20 +50,12 @@ describe('createOpenAiLiveSession', () => {
     });
 
     test('puts the spoken language first and has the backend write in it', async () => {
-        let body: { session: { instructions: string; delegation: { responses: { instructions: string } } } } | null = null;
-        await createOpenAiLiveSession(
-            async (_input, init) => {
-                body = JSON.parse(String(init.body));
-                return Response.json({ session: { id: 'live-1' }, transport: { type: 'webrtc', sdp: 'answer' } });
-            },
-            'sk-private',
-            'offer',
-            { language: 'nl', voice: 'marin' }
-        );
+        const { request } = await mint({ language: 'nl', voice: 'marin' });
+        const body = JSON.parse(String(request.body)) as { session: { instructions: string; delegation: { responses: { instructions: string } } } };
 
-        expect(body!.session.instructions.startsWith('Conduct the entire conversation in Dutch.')).toBe(true);
+        expect(body.session.instructions.startsWith('Conduct the entire conversation in Dutch.')).toBe(true);
         expect(
-            body!.session.delegation.responses.instructions.startsWith('Write every reply that the voice will say to the user in natural, idiomatic Dutch')
+            body.session.delegation.responses.instructions.startsWith('Write every reply that the voice will say to the user in natural, idiomatic Dutch')
         ).toBe(true);
     });
 
@@ -107,16 +108,7 @@ describe('the desktop GPT-Live session', () => {
     });
 
     test('mints with the same body, byte for byte', async () => {
-        let body = '';
-        await createOpenAiLiveSession(
-            async (_input, init) => {
-                body = String(init.body);
-                return Response.json({ session: { id: 'live-1' }, transport: { type: 'webrtc', sdp: 'answer' } });
-            },
-            'sk-private',
-            'offer',
-            { language: 'nl', voice: 'cedar', domains: ['workspace', 'agents'] }
-        );
-        expect(body).toMatchSnapshot();
+        const { request } = await mint({ language: 'nl', voice: 'cedar', domains: ['workspace', 'agents'] });
+        expect(String(request.body)).toMatchSnapshot();
     });
 });

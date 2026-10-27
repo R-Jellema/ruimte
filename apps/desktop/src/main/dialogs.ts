@@ -12,15 +12,24 @@ import type { AppIpc } from './ipc';
 
 const { app, clipboard, ClipboardItem, dialog, shell } = electron;
 
+function savedPath(result: Electron.SaveDialogReturnValue): string | null {
+    return result.canceled || !result.filePath ? null : result.filePath;
+}
+
+function openedPath(result: Electron.OpenDialogReturnValue): string | null {
+    return result.canceled ? null : (result.filePaths[0] ?? null);
+}
+
 /* The save dialog for a file the page names, filtered to its extension; null when the person cancels. */
 async function askSavePath(window: Electron.BrowserWindow, suggestedName: string, mime: string): Promise<string | null> {
     const extension = suggestedName.split('.').pop() ?? '';
-    const result = await dialog.showSaveDialog(window, {
-        defaultPath: suggestedName,
-        ...(extension ? { filters: [{ name: mime, extensions: [extension] }] } : {})
-    });
 
-    return result.canceled || !result.filePath ? null : result.filePath;
+    return savedPath(
+        await dialog.showSaveDialog(window, {
+            defaultPath: suggestedName,
+            ...(extension ? { filters: [{ name: mime, extensions: [extension] }] } : {})
+        })
+    );
 }
 
 /* The native dialogs, the system's own apps and the clipboard, for files a page names. */
@@ -30,11 +39,12 @@ export function installDialogs(ipc: AppIpc, language: () => string | undefined):
         if (!window) {
             return null;
         }
-        const result = await dialog.showOpenDialog(window, {
-            properties: ['openDirectory', 'createDirectory'],
-            ...(initialPath ? { defaultPath: initialPath } : {})
-        });
-        return result.canceled ? null : (result.filePaths[0] ?? null);
+        return openedPath(
+            await dialog.showOpenDialog(window, {
+                properties: ['openDirectory', 'createDirectory'],
+                ...(initialPath ? { defaultPath: initialPath } : {})
+            })
+        );
     });
 
     ipc.handle('dialog:save-file', async (event, suggestedName: string, bytes: Uint8Array, mime: string) => {
@@ -62,14 +72,15 @@ export function installDialogs(ipc: AppIpc, language: () => string | undefined):
         if (!window) {
             return null;
         }
-        const result = await dialog.showSaveDialog(window, {
-            defaultPath: suggestedName,
-            filters: [
-                { name: extension.toUpperCase(), extensions: [extension] },
-                { name: allFilesLabel(language()), extensions: ['*'] }
-            ]
-        });
-        return result.canceled || !result.filePath ? null : result.filePath;
+        return savedPath(
+            await dialog.showSaveDialog(window, {
+                defaultPath: suggestedName,
+                filters: [
+                    { name: extension.toUpperCase(), extensions: [extension] },
+                    { name: allFilesLabel(language()), extensions: ['*'] }
+                ]
+            })
+        );
     });
 
     /* A file to import, a SQLite database or an SSH key. Only the path comes back; nothing is read here. */
@@ -79,12 +90,13 @@ export function installDialogs(ipc: AppIpc, language: () => string | undefined):
         if (!window) {
             return null;
         }
-        const result = await dialog.showOpenDialog(window, {
-            properties: plan.showHiddenFiles ? ['openFile', 'showHiddenFiles'] : ['openFile'],
-            filters: plan.filters,
-            ...(plan.defaultPath === undefined ? {} : { defaultPath: plan.defaultPath })
-        });
-        return result.canceled ? null : (result.filePaths[0] ?? null);
+        return openedPath(
+            await dialog.showOpenDialog(window, {
+                properties: plan.showHiddenFiles ? ['openFile', 'showHiddenFiles'] : ['openFile'],
+                filters: plan.filters,
+                ...(plan.defaultPath === undefined ? {} : { defaultPath: plan.defaultPath })
+            })
+        );
     });
 
     ipc.handle('shell:open-external', async (_event, url: string) => {

@@ -1,16 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { createSecretGate, startApp, type StartupDeps } from './startup';
 
-function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void; reject: (error: unknown) => void } {
-    let resolve: (value: T) => void = () => undefined;
-    let reject: (error: unknown) => void = () => undefined;
-    const promise = new Promise<T>((done, fail) => {
-        resolve = done;
-        reject = fail;
-    });
-    return { promise, resolve, reject };
-}
-
 /* Lets every promise that can settle now settle. */
 function settle(): Promise<void> {
     return new Promise((resolve) => setImmediate(resolve));
@@ -18,8 +8,8 @@ function settle(): Promise<void> {
 
 function setup(options: { smoke?: boolean; localMachine?: boolean } = {}) {
     const events: string[] = [];
-    const machine = deferred<boolean>();
-    const storage = deferred<() => void>();
+    const machine = Promise.withResolvers<boolean>();
+    const storage = Promise.withResolvers<() => void>();
     const deps: StartupDeps = {
         localMachine: options.localMachine ?? true,
         startMachine: () => {

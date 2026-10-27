@@ -9,6 +9,12 @@ export interface DaemonPort {
     nonce(): string;
 }
 
+const JSON_HEADERS = { 'content-type': 'application/json' };
+
+function ask(daemon: DaemonPort, path: string, init: RequestInit = {}): Promise<Response> {
+    return daemon.fetch(`http://127.0.0.1:${daemon.port}${path}`, { ...init, signal: AbortSignal.timeout(2000) });
+}
+
 /*
  * The local secret, once whatever answers the port proved it holds it. Another account or a
  * container can take the port first and answer `/health` as a daemon does, so the shell sends the
@@ -21,13 +27,21 @@ async function provenSecret(daemon: DaemonPort): Promise<string | null> {
             return null;
         }
         const nonce = daemon.nonce();
-        const response = await daemon.fetch(`http://127.0.0.1:${daemon.port}${MACHINE_PROOF_PATH}`, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ nonce }),
-            signal: AbortSignal.timeout(2000)
-        });
+        const response = await ask(daemon, MACHINE_PROOF_PATH, { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ nonce }) });
         return response.ok && (await isLocalProof(await response.json(), secret, daemon.port, nonce)) ? secret : null;
+    } catch {
+        return null;
+    }
+}
+
+/* The answer to a request that carries the secret, once the daemon proved it holds it; null when it did not, or did not answer. */
+async function askWithSecret<T>(daemon: DaemonPort, path: string, init: RequestInit, read: (response: Response) => Promise<T>): Promise<T | null> {
+    const secret = await provenSecret(daemon);
+    if (secret === null) {
+        return null;
+    }
+    try {
+        return await read(await ask(daemon, path, { ...init, headers: { authorization: `Bearer ${secret}`, ...init.headers } }));
     } catch {
         return null;
     }
@@ -38,37 +52,17 @@ export async function proveDaemon(daemon: DaemonPort): Promise<boolean> {
 }
 
 /* What a restart would end; null for a daemon that cannot prove the secret, one from before the route, or one that does not answer. */
-export async function askDaemonWork(daemon: DaemonPort): Promise<MachineWork | null> {
-    const secret = await provenSecret(daemon);
-    if (secret === null) {
-        return null;
-    }
-    try {
-        const response = await daemon.fetch(`http://127.0.0.1:${daemon.port}${MACHINE_WORK_PATH}`, {
-            headers: { authorization: `Bearer ${secret}` },
-            signal: AbortSignal.timeout(2000)
-        });
-        return response.ok ? machineWorkOf(await response.json()) : null;
-    } catch {
-        return null;
-    }
+export function askDaemonWork(daemon: DaemonPort): Promise<MachineWork | null> {
+    return askWithSecret(daemon, MACHINE_WORK_PATH, {}, async (response) => (response.ok ? machineWorkOf(await response.json()) : null));
 }
 
 /* False when the daemon proved nothing or refused the key; the key then stays the shell's alone. */
 export async function handVoiceKey(daemon: DaemonPort, key: string): Promise<boolean> {
-    const secret = await provenSecret(daemon);
-    if (secret === null) {
-        return false;
-    }
-    try {
-        const response = await daemon.fetch(`http://127.0.0.1:${daemon.port}${MACHINE_VOICE_KEY_PATH}`, {
-            method: 'POST',
-            headers: { authorization: `Bearer ${secret}`, 'content-type': 'application/json' },
-            body: JSON.stringify({ key }),
-            signal: AbortSignal.timeout(2000)
-        });
-        return response.ok;
-    } catch {
-        return false;
-    }
+    const handed = await askWithSecret(
+        daemon,
+        MACHINE_VOICE_KEY_PATH,
+        { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ key }) },
+        async (response) => response.ok
+    );
+    return handed === true;
 }

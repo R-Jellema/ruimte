@@ -3,46 +3,42 @@
 const { existsSync } = require('node:fs');
 const { join } = require('node:path');
 
+const COMPILE_HINT = 'compile the server resources for this os and arch first';
+
+function expectFiles(paths, message) {
+    if (!paths.every((path) => existsSync(path))) {
+        throw new Error(message);
+    }
+}
+
 module.exports = async (context) => {
+    const platform = context.electronPlatformName;
     const resources =
-        context.electronPlatformName === 'darwin'
+        platform === 'darwin'
             ? join(context.appOutDir, `${context.packager.appInfo.productFilename}.app`, 'Contents', 'Resources')
             : join(context.appOutDir, 'resources');
-    const daemon = join(resources, 'bin', context.electronPlatformName === 'win32' ? 'ruimte.exe' : 'ruimte');
-    if (!existsSync(daemon)) {
-        throw new Error(`No daemon at ${daemon}; run \`bun run --cwd apps/server compile\` for this os and arch first`);
-    }
-    if (context.electronPlatformName === 'win32') {
+    const bin = join(resources, 'bin');
+    const native = join(bin, 'native');
+    const daemon = join(bin, platform === 'win32' ? 'ruimte.exe' : 'ruimte');
+    expectFiles([daemon], `No daemon at ${daemon}; run \`bun run --cwd apps/server compile\` for this os and arch first`);
+    if (platform === 'win32') {
         for (const name of ['ruimte-context.exe', join('native', 'adecore-database.exe')]) {
-            if (!existsSync(join(resources, 'bin', name))) {
-                throw new Error(`No ${name} in ${join(resources, 'bin')}; run \`bun run --cwd apps/server compile -- --os win --arch x64\` first`);
-            }
+            expectFiles([join(bin, name)], `No ${name} in ${bin}; run \`bun run --cwd apps/server compile -- --os win --arch x64\` first`);
         }
     }
-    // Speech to Text ships on macOS only; see `apps/speech-bridge/README.md`.
-    if (context.electronPlatformName === 'darwin' && !existsSync(join(resources, 'bin', 'native', 'speech-bridge'))) {
-        throw new Error('No speech helper; compile the server resources for this os and arch first');
+    if (platform === 'darwin') {
+        // Speech to Text ships on macOS only; see `apps/speech-bridge/README.md`.
+        expectFiles([join(native, 'speech-bridge')], `No speech helper; ${COMPILE_HINT}`);
+        expectFiles([join(native, 'serve-sim-duo-hid')], `No iPhone Duo guest helper; ${COMPILE_HINT}`);
+        expectFiles([join(native, 'serve-sim-camera-helper'), join(native, 'libSimCameraInjector.dylib')], `No simulator camera helper; ${COMPILE_HINT}`);
+        expectFiles(
+            [join(resources, '..', 'Helpers', 'Ruimte Computer Use.app', 'Contents', 'MacOS', 'RuimteComputerUse')],
+            `No computer use helper; ${COMPILE_HINT}`
+        );
+        // electron-builder uses builder-util's numeric Arch.arm64 (3) in packaging contexts.
+        if (context.arch === 3) {
+            expectFiles([join(native, 'ruimte-foundation-models')], 'No Apple Foundation Models helper; compile the server resources for macOS arm64 first');
+        }
     }
-    if (context.electronPlatformName === 'darwin' && !existsSync(join(resources, 'bin', 'native', 'serve-sim-duo-hid'))) {
-        throw new Error('No iPhone Duo guest helper; compile the server resources for this os and arch first');
-    }
-    if (
-        context.electronPlatformName === 'darwin' &&
-        !['serve-sim-camera-helper', 'libSimCameraInjector.dylib'].every((name) => existsSync(join(resources, 'bin', 'native', name)))
-    ) {
-        throw new Error('No simulator camera helper; compile the server resources for this os and arch first');
-    }
-    if (
-        context.electronPlatformName === 'darwin' &&
-        !existsSync(join(resources, '..', 'Helpers', 'Ruimte Computer Use.app', 'Contents', 'MacOS', 'RuimteComputerUse'))
-    ) {
-        throw new Error('No computer use helper; compile the server resources for this os and arch first');
-    }
-    // electron-builder uses builder-util's numeric Arch.arm64 (3) in packaging contexts.
-    if (context.electronPlatformName === 'darwin' && context.arch === 3 && !existsSync(join(resources, 'bin', 'native', 'ruimte-foundation-models'))) {
-        throw new Error('No Apple Foundation Models helper; compile the server resources for macOS arm64 first');
-    }
-    if (!existsSync(join(resources, 'client', 'index.html'))) {
-        throw new Error('No built client; run `bun run --cwd apps/client build` first');
-    }
+    expectFiles([join(resources, 'client', 'index.html')], 'No built client; run `bun run --cwd apps/client build` first');
 };

@@ -10,13 +10,17 @@ export interface ServiceIdentity {
 
 const HOME_VARIABLE = 'RUIMTE_HOME';
 
+function unescapeXml(text: string): string {
+    return text.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+}
+
 function plistHome(definition: string): string | null {
     const xml = definition.replace(/<!--[\s\S]*?-->/g, '');
     const found = [...xml.matchAll(/<key>RUIMTE_HOME<\/key>\s*<string>([^<]*)<\/string>/g)];
     if (found.length !== 1) {
         return null;
     }
-    return found[0]![1]!.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+    return unescapeXml(found[0]![1]!);
 }
 
 /* systemd reads every `Environment=` line of `[Service]` in order, the last assignment of a name wins and an empty one clears them all. */
@@ -57,7 +61,7 @@ function scheduledTaskHome(definition: string): string | null {
         return null;
     }
     const args = /<Arguments>([^<]*)<\/Arguments>/.exec(exec[0])?.[1];
-    const line = args === undefined ? undefined : /\/c "([\s\S]*)"$/.exec(args.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&'))?.[1];
+    const line = args === undefined ? undefined : /\/c "([\s\S]*)"$/.exec(unescapeXml(args))?.[1];
     if (line === undefined) {
         return null;
     }

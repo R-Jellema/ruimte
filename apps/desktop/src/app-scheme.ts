@@ -14,14 +14,20 @@ export function createDesktopAppScheme(root: string, pageUrl?: string): AppSchem
     });
 }
 
+/* The page the storage move writes through with executeJavaScript, without booting the client or its policy. */
+export function storageMovePage(): Response {
+    return new Response('<!doctype html><title>Ruimte</title>', { headers: { 'content-type': 'text/html; charset=utf-8' } });
+}
+
 export function answerAppRequest(scheme: AppScheme, request: Request): Promise<Response> | Response {
-    const url = new URL(request.url);
-    if (scheme.originOf(request.url) === DESKTOP_APP_ORIGIN && url.pathname === STORAGE_MOVE_PATH) {
-        // The storage move writes through executeJavaScript without booting the client or its policy.
-        return new Response('<!doctype html><title>Ruimte</title>', { headers: { 'content-type': 'text/html; charset=utf-8' } });
-    }
-    if (scheme.originOf(request.url) === DESKTOP_APP_ORIGIN && url.pathname === VISUAL_HOST_PATH) {
-        return new Response(VISUAL_HOST_PAGE, { headers: VISUAL_HOST_HEADERS });
+    if (scheme.originOf(request.url) === DESKTOP_APP_ORIGIN) {
+        const { pathname } = new URL(request.url);
+        if (pathname === STORAGE_MOVE_PATH) {
+            return storageMovePage();
+        }
+        if (pathname === VISUAL_HOST_PATH) {
+            return new Response(VISUAL_HOST_PAGE, { headers: VISUAL_HOST_HEADERS });
+        }
     }
     return scheme.handle(request);
 }

@@ -49,17 +49,7 @@ export async function startApp(deps: StartupDeps): Promise<void> {
         }
         return;
     }
-    const closeStorageMove = await deps.moveStorage();
-    if (!stopped) {
-        deps.restoreWindows();
-    }
-    // Only now: the last window closing quits the app on Linux.
-    closeStorageMove();
-    if (stopped) {
-        return;
-    }
-    deps.startUpdater();
-    if (await machine) {
+    if ((await openWindows(deps, () => stopped)) && (await machine)) {
         deps.machineReady();
     }
 }
@@ -70,11 +60,22 @@ async function startWithoutMachine(deps: StartupDeps): Promise<void> {
         deps.quit();
         return;
     }
+    await openWindows(deps, () => false);
+}
+
+/* False when the machine stopped the start while the storage moved. */
+async function openWindows(deps: StartupDeps, stopped: () => boolean): Promise<boolean> {
     const closeStorageMove = await deps.moveStorage();
-    deps.restoreWindows();
+    if (!stopped()) {
+        deps.restoreWindows();
+    }
     // Only now: the last window closing quits the app on Linux.
     closeStorageMove();
+    if (stopped()) {
+        return false;
+    }
     deps.startUpdater();
+    return true;
 }
 
 export interface SecretGate {
