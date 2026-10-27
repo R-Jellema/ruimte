@@ -1,5 +1,6 @@
 import { mkdir, readdir, rm } from 'node:fs/promises';
 import { basename } from 'node:path';
+import type { ProjectView } from '@ruimte/contracts';
 import { settled, SYSTEM_WATCH, type DirectoryWatcher, type Settled, type WatchSeams, Serializer } from '@adecore/agents';
 import type { SessionEvent, SessionSink } from '../sessions/manager.ts';
 import {
@@ -8,15 +9,14 @@ import {
     viewFilePathOf,
     viewIdOfFile,
     watchDirectories,
+    WATCH_SETTLE_MS,
     type JsonDocumentRead,
     type JsonDocumentReadOptions
 } from './project-files.ts';
+import { ProjectError } from './project-error.ts';
 import type { ProjectPlace, ProjectStore, ProjectViewFiles } from './project-store.ts';
 import { ClientSinks } from '../client-sinks.ts';
 import { errorText } from '../error-text.ts';
-
-// The same burst rule the project file follows: an editor or git writes more than once per save.
-const WATCH_SETTLE_MS = 150;
 
 interface OpenFile {
     rev: number;
@@ -32,13 +32,9 @@ interface OpenProjectFiles {
     open: Map<string, OpenFile>;
 }
 
-/*
- * Everything one kind of view file decides for itself: where it lives, how it is read and written,
- * what it refuses with and what an empty one is. A drawing and a diagram fill this in; the store
- * below does the rest, which is the same for both.
- */
+/* Everything one kind of view file decides for itself; the store below does the rest, the same for a drawing and a diagram. */
 export interface ViewFileKind<TDocument extends TContent & { rev: number }, TContent> {
-    /* The word a log line uses, which is what a person reading the console sees. */
+    /* Names the kind in messages and in the path of its files. */
     noun: 'drawing' | 'diagram';
     /* The version this Ruimte writes, so a file that says a higher one can be named in the refusal. */
     version: number;
@@ -51,7 +47,9 @@ export interface ViewFileKind<TDocument extends TContent & { rev: number }, TCon
     documentOf(content: TContent, rev: number): TDocument;
     /* What opening a view nobody ever saved answers. */
     empty: TDocument;
+    /* Whether a view is of this kind: by the open project's own record, and in a document read from disk. */
     isViewOf(projects: ProjectStore, projectId: string, viewId: string): boolean;
+    isView(view: ProjectView): boolean;
     /* What a save refuses before it writes, or null when the content is fine. */
     problemIn(content: TContent): string | null;
     changed(projectId: string, viewId: string, document: TDocument): SessionEvent;
@@ -168,6 +166,22 @@ export abstract class ProjectViewFileStore<TDocument extends TContent & { rev: n
         });
     }
 
+    /*
+     * What an agent reads: the document of a view, open or not, or null when the project has no view
+     * of this kind under that id or its file is not one. Unlike `open` it never sets a broken file aside.
+     */
+    async read(projectId: string, viewId: string): Promise<TDocument | null> {
+        const place = await this.projects.place(projectId).catch(() => null);
+        if (!place || !this.holds(place, viewId)) {
+            return null;
+        }
+        const outcome = await this.kind.read(this.pathIn(place, viewId), { setAside: false });
+        if (outcome.kind === 'missing') {
+            return this.kind.empty;
+        }
+        return outcome.kind === 'ok' ? outcome.document : null;
+    }
+
     close(projectId: string, viewId: string): void {
         this.states.get(projectId)?.open.delete(viewId);
     }
@@ -217,13 +231,34 @@ export abstract class ProjectViewFileStore<TDocument extends TContent & { rev: n
         }
     }
 
-    protected locked<T>(work: () => Promise<T>): Promise<T> {
-        return this.writes.run(work);
-    }
-
     /* Under the project's lock as well, which a save that shares or unshares the view moves its file under. */
     protected lockedInPlace<T>(projectId: string, work: (place: () => Promise<ProjectPlace>) => Promise<T>): Promise<T> {
         return this.writes.run(() => this.projects.viewFileWork(projectId, work));
+    }
+
+    /* The place of a view of this kind, refused under this kind's codes when the project or the view is not there. */
+    protected async viewPlace(placeOf: () => Promise<ProjectPlace>, projectId: string, viewId: string): Promise<ProjectPlace> {
+        let place: ProjectPlace;
+        try {
+            place = await placeOf();
+        } catch (e) {
+            if (e instanceof ProjectError && (e.code === 'project-not-found' || e.code === 'project-missing')) {
+                throw this.kind.projectNotFound(e.message);
+            }
+            throw e;
+        }
+        if (!this.holds(place, viewId)) {
+            throw this.kind.notFound(`${viewId} is not a ${this.kind.noun} of project ${projectId}`);
+        }
+        return place;
+    }
+
+    protected pathIn(place: ProjectPlace, viewId: string): string {
+        return viewFilePathOf(place.documentPath, this.kind.noun, viewId, place.shared);
+    }
+
+    private holds(place: ProjectPlace, viewId: string): boolean {
+        return place.views.some((view) => view.id === viewId && this.kind.isView(view));
     }
 
     /* A view that is open here saves against this rev from now on, and its watcher stays quiet. */
@@ -283,9 +318,11 @@ export abstract class ProjectViewFileStore<TDocument extends TContent & { rev: n
         }
         // Under the lock, so a save never reads the file between someone else's write and this reload.
         const settle = settled(this.seams, WATCH_SETTLE_MS, () =>
-            this.locked(() => this.reload(projectId, state, viewId)).catch((e: unknown) => {
-                console.warn(`An outside edit to the ${this.kind.noun} ${viewId} could not be taken in:`, errorText(e));
-            })
+            this.writes
+                .run(() => this.reload(projectId, state, viewId))
+                .catch((e: unknown) => {
+                    console.warn(`An outside edit to the ${this.kind.noun} ${viewId} could not be taken in:`, errorText(e));
+                })
         );
         state.settles.set(viewId, settle);
         return settle;

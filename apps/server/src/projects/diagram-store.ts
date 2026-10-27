@@ -1,10 +1,8 @@
 import { DIAGRAM_VERSION, EMPTY_DIAGRAM, diagramProblemIn, isDiagramView, type DiagramContent, type DiagramDocument } from '@ruimte/contracts';
-import type { WatchSeams } from '@adecore/agents';
-import { diagramsDirOf, privateDiagramsDirOf, readDiagram, tooNewMessage, viewFilePathOf, writeDiagram } from './project-files.ts';
-import { ProjectError } from './project-error.ts';
-import type { ProjectPlace, ProjectStore } from './project-store.ts';
+import { CodedError, type WatchSeams } from '@adecore/agents';
+import { diagramsDirOf, privateDiagramsDirOf, readDiagram, tooNewMessage, writeDiagram } from './project-files.ts';
+import type { ProjectStore } from './project-store.ts';
 import { ProjectViewFileStore, type ViewFileKind } from './view-file-store.ts';
-import { CodedError } from '@adecore/agents';
 
 type DiagramErrorCode = 'project-not-found' | 'diagram-not-found' | 'diagram-invalid' | 'rev-conflict';
 
@@ -20,6 +18,7 @@ const DIAGRAM_FILES: ViewFileKind<DiagramDocument, DiagramContent> = {
     documentOf: (content, rev) => ({ version: DIAGRAM_VERSION, rev, meta: content.meta, nodes: content.nodes, groups: content.groups, edges: content.edges }),
     empty: EMPTY_DIAGRAM,
     isViewOf: (projects, projectId, viewId) => projects.isDiagramView(projectId, viewId),
+    isView: isDiagramView,
     problemIn: diagramProblemIn,
     changed: (projectId, viewId, document) => ({ event: 'diagram.changed', payload: { projectId, viewId, document } }),
     projectNotFound: (message) => new DiagramError('project-not-found', message),
@@ -29,10 +28,9 @@ const DIAGRAM_FILES: ViewFileKind<DiagramDocument, DiagramContent> = {
 };
 
 /*
- * The diagrams of every project, one file per diagram view under `.ruimte/diagrams`. It differs from
- * a drawing in one place. `write` lands a whole diagram in a project nobody has open, because an
- * agent keeps working after the person switched away and `project.release` let go of the project
- * then: it finds the project on disk, writes under the store's lock and keeps nothing open afterwards.
+ * The diagrams of every project, one file per diagram view under `.ruimte/diagrams`. Unlike a
+ * drawing, `write` lands a whole diagram in a project nobody has open, because an agent keeps working
+ * after the person switched away: it writes under the store's lock and keeps nothing open afterwards.
  */
 export class DiagramStore extends ProjectViewFileStore<DiagramDocument, DiagramContent> {
     constructor(projects: ProjectStore, seams?: WatchSeams) {
@@ -41,9 +39,9 @@ export class DiagramStore extends ProjectViewFileStore<DiagramDocument, DiagramC
 
     /*
      * Replaces the whole diagram of a view, open or not, and tells every client. There is no base
-     * rev: whoever writes this way rewrote the diagram on purpose, so the file on disk is the rev it
-     * builds on, and a client with unsaved edits gets the conflict banner rather than a silent loss.
-     * A file under the name that is not a diagram is refused, never written over.
+     * rev: whoever writes this way rewrote the diagram on purpose, so it builds on the file on disk,
+     * and a client with unsaved edits gets the conflict banner rather than a silent loss. A file under
+     * the name that is not a diagram is refused, never written over.
      */
     write(projectId: string, viewId: string, content: DiagramContent): Promise<number> {
         return this.lockedInPlace(projectId, async (placeOf) => {
@@ -51,19 +49,7 @@ export class DiagramStore extends ProjectViewFileStore<DiagramDocument, DiagramC
             if (problem) {
                 throw new DiagramError('diagram-invalid', problem);
             }
-            let place: ProjectPlace;
-            try {
-                place = await placeOf();
-            } catch (e) {
-                if (e instanceof ProjectError && (e.code === 'project-not-found' || e.code === 'project-missing')) {
-                    throw new DiagramError('project-not-found', e.message);
-                }
-                throw e;
-            }
-            if (!place.views.some((view) => view.id === viewId && isDiagramView(view))) {
-                throw new DiagramError('diagram-not-found', `${viewId} is not a diagram of project ${projectId}`);
-            }
-            const path = viewFilePathOf(place.documentPath, 'diagram', viewId, place.shared);
+            const path = this.pathIn(await this.viewPlace(placeOf, projectId, viewId), viewId);
             const outcome = await readDiagram(path);
             if (outcome.kind === 'invalid') {
                 throw new DiagramError('diagram-invalid', `The file of ${viewId} is not a diagram Ruimte will write over: ${outcome.message}`);
@@ -77,21 +63,5 @@ export class DiagramStore extends ProjectViewFileStore<DiagramDocument, DiagramC
             this.emit(DIAGRAM_FILES.changed(projectId, viewId, document));
             return document.rev;
         });
-    }
-
-    /*
-     * What an agent reads: the diagram of a view, open or not, or null when the project has no
-     * diagram under that id or its file is not one. Unlike `open` it never sets a broken file aside.
-     */
-    async read(projectId: string, viewId: string): Promise<DiagramDocument | null> {
-        const place = await this.projects.place(projectId).catch(() => null);
-        if (!place || !place.views.some((view) => view.id === viewId && isDiagramView(view))) {
-            return null;
-        }
-        const outcome = await readDiagram(viewFilePathOf(place.documentPath, 'diagram', viewId, place.shared), { setAside: false });
-        if (outcome.kind === 'missing') {
-            return EMPTY_DIAGRAM;
-        }
-        return outcome.kind === 'ok' ? outcome.document : null;
     }
 }

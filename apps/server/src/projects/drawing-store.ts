@@ -8,14 +8,12 @@ import {
     type DrawingElement
 } from '@ruimte/contracts';
 import { applyDrawingEdit, type DrawingEdit, type DrawingEditMint, type DrawingEditProblem } from '@adecore/drawing';
+import { CodedError, type WatchSeams } from '@adecore/agents';
 import type { SessionEvent } from '../sessions/manager.ts';
-import type { WatchSeams } from '@adecore/agents';
 import { ElementChanges } from './element-changes.ts';
-import { drawingsDirOf, privateDrawingsDirOf, readDrawing, tooNewMessage, viewFilePathOf, writeDrawing } from './project-files.ts';
-import { ProjectError } from './project-error.ts';
-import type { ProjectPlace, ProjectStore } from './project-store.ts';
+import { drawingsDirOf, privateDrawingsDirOf, readDrawing, tooNewMessage, writeDrawing } from './project-files.ts';
+import type { ProjectStore } from './project-store.ts';
 import { ProjectViewFileStore, type ViewFileKind } from './view-file-store.ts';
-import { CodedError } from '@adecore/agents';
 
 type DrawingErrorCode = 'project-not-found' | 'drawing-not-found' | 'drawing-invalid' | 'rev-conflict' | 'bad-edit';
 
@@ -31,6 +29,7 @@ const DRAWING_FILES: ViewFileKind<DrawingDocument, DrawingContent> = {
     documentOf: (content, rev) => ({ version: DRAWING_VERSION, rev, elements: content.elements }),
     empty: EMPTY_DRAWING,
     isViewOf: (projects, projectId, viewId) => projects.isDrawingView(projectId, viewId),
+    isView: isDrawingView,
     // The read refuses a file with two elements under one id, so a save must never write one.
     problemIn: (content) => {
         const duplicate = duplicateElementIdIn(content.elements);
@@ -60,8 +59,7 @@ export class DrawingStore extends ProjectViewFileStore<DrawingDocument, DrawingC
             if (!this.projects.isDrawingView(projectId, viewId)) {
                 continue;
             }
-            const place = await this.projects.place(projectId);
-            const outcome = await readDrawing(viewFilePathOf(place.documentPath, 'drawing', viewId, place.shared), { setAside: false });
+            const outcome = await readDrawing(this.pathIn(await this.projects.place(projectId), viewId), { setAside: false });
             if (outcome.kind === 'ok') {
                 return outcome.document.elements;
             }
@@ -86,21 +84,13 @@ export class DrawingStore extends ProjectViewFileStore<DrawingDocument, DrawingC
         return document;
     }
 
-    /* What an agent reads: the drawing of a view, open or not, or null when the project has no drawing under that id or its file is not one. */
-    async read(projectId: string, viewId: string): Promise<DrawingDocument | null> {
-        const place = await this.projects.place(projectId).catch(() => null);
-        if (!place || !place.views.some((view) => view.id === viewId && isDrawingView(view))) {
-            return null;
+    override async read(projectId: string, viewId: string): Promise<DrawingDocument | null> {
+        const document = await super.read(projectId, viewId);
+        // The empty drawing stands for a missing file, which says nothing about what changed.
+        if (document !== null && document !== EMPTY_DRAWING) {
+            this.changes.note(changeKey(projectId, viewId), document);
         }
-        const outcome = await readDrawing(viewFilePathOf(place.documentPath, 'drawing', viewId, place.shared), { setAside: false });
-        if (outcome.kind === 'missing') {
-            return EMPTY_DRAWING;
-        }
-        if (outcome.kind !== 'ok') {
-            return null;
-        }
-        this.changes.note(changeKey(projectId, viewId), outcome.document);
-        return outcome.document;
+        return document;
     }
 
     /*
@@ -110,8 +100,7 @@ export class DrawingStore extends ProjectViewFileStore<DrawingDocument, DrawingC
      */
     edit(projectId: string, viewId: string, revision: number, edit: DrawingEdit, options: { dryRun: boolean; mint: DrawingEditMint }): Promise<DrawingEdited> {
         return this.lockedInPlace(projectId, async (placeOf) => {
-            const place = await drawingPlace(placeOf, projectId, viewId);
-            const path = viewFilePathOf(place.documentPath, 'drawing', viewId, place.shared);
+            const path = this.pathIn(await this.viewPlace(placeOf, projectId, viewId), viewId);
             const outcome = await readDrawing(path, { setAside: false });
             if (outcome.kind === 'invalid' || outcome.kind === 'too-new') {
                 const why = outcome.kind === 'invalid' ? outcome.message : tooNewMessage('drawing', outcome.version, DRAWING_VERSION);
@@ -176,22 +165,6 @@ interface DrawingEdited {
 
 function changeKey(projectId: string, viewId: string): string {
     return `${projectId}\u0000${viewId}`;
-}
-
-async function drawingPlace(placeOf: () => Promise<ProjectPlace>, projectId: string, viewId: string): Promise<ProjectPlace> {
-    let place: ProjectPlace;
-    try {
-        place = await placeOf();
-    } catch (e) {
-        if (e instanceof ProjectError && (e.code === 'project-not-found' || e.code === 'project-missing')) {
-            throw new DrawingError('project-not-found', e.message);
-        }
-        throw e;
-    }
-    if (!place.views.some((view) => view.id === viewId && isDrawingView(view))) {
-        throw new DrawingError('drawing-not-found', `${viewId} is not a drawing of project ${projectId}`);
-    }
-    return place;
 }
 
 function pathText(problem: DrawingEditProblem): string {
