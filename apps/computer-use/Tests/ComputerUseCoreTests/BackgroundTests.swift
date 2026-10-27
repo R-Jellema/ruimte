@@ -85,8 +85,7 @@ struct BackgroundWordsTests {
 
 @MainActor
 struct KeysBehindTests {
-    /// A terminal sends a key on and clears its field, so its value never changes; it used to get the first character
-    /// twice and then a needs-front refusal.
+    /// A terminal sends a key on and clears its field, so its value never changes.
     @Test func aFieldThatKeepsItsValueGetsEveryCharacterOnceAndNoRefusal() async throws {
         var sent: [Character] = []
         let note = try await KeysBehind.type("ls\r\n", before: "", send: { sent.append($0) }, after: { "" })
