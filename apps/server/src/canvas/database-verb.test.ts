@@ -356,7 +356,7 @@ describe('ruimte-context database', () => {
     });
 
     test('describes a table with its columns, keys, indexes and foreign keys', async () => {
-        script = (method) => (method === 'structure' ? { result: STRUCTURE } : method === 'open' ? undefined : undefined);
+        script = (method) => (method === 'structure' ? { result: STRUCTURE } : undefined);
         expect(await run(['describe', 'local', 'orders'])).toEqual([
             'table\tshop\torders\ttable',
             'column\tid\tbigint\tnot-null\t-\tprimary-key,auto-increment',
