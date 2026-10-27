@@ -1,3 +1,4 @@
+import { sweepStaleChatWrites } from '../chat/stale-writes.ts';
 import { sweepComputerScreenshots } from '../computer/screenshots.ts';
 import { Maintenance, type Sweeper } from '../maintenance/maintenance.ts';
 import { sweepDeviceCaptures, sweepScreenshots } from '../shots.ts';
@@ -8,7 +9,8 @@ function sweepersOf(home: string): Sweeper[] {
     return [
         { name: 'screenshots', sweep: (now, signal) => sweepScreenshots(home, now, signal) },
         { name: 'device captures', sweep: (now, signal) => sweepDeviceCaptures(home, now, signal) },
-        { name: 'computer use captures', sweep: (now, signal) => sweepComputerScreenshots(home, now, signal) }
+        { name: 'computer use captures', sweep: (now, signal) => sweepComputerScreenshots(home, now, signal) },
+        { name: 'stale chat writes', sweep: (now, signal) => sweepStaleChatWrites(home, now, signal) }
     ];
 }
 
