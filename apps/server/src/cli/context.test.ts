@@ -15,6 +15,19 @@ let seen: { verb: string; argv: unknown; authorization: string | null }[];
 let sources: { id: string; kind: string; title: string; flag?: string; snoozedUntil?: string }[];
 let tails: string[];
 let fetched: string[];
+let folder: string;
+
+const png = Buffer.concat([Buffer.from('\x89PNG\r\n\x1a\n', 'latin1'), Buffer.from([0, 0, 0, 13]), Buffer.from('IHDR'), Buffer.alloc(17)]);
+
+async function unreadStdin(): Promise<string> {
+    throw new Error('stdin was read');
+}
+
+async function file(name: string, bytes: Uint8Array | string): Promise<string> {
+    const path = join(folder, name);
+    await writeFile(path, bytes);
+    return path;
+}
 
 /* The daemon's side of `/context` and `/canvas`, answered in the process instead of on a port. */
 const daemon = {
@@ -364,10 +377,7 @@ describe('runContext', () => {
     });
 
     test('a --text that is not a dash is passed on untouched, and stdin is never read', async () => {
-        const stdin = async (): Promise<string> => {
-            throw new Error('stdin was read');
-        };
-        expect(await runContext(['node', 'new', 'note', '--text', 'a\\nb', '--title', '-'], env, stdin)).toBe(0);
+        expect(await runContext(['node', 'new', 'note', '--text', 'a\\nb', '--title', '-'], env, unreadStdin)).toBe(0);
         expect(seen[0]!.argv).toEqual(['new', 'note', '--text', 'a\\nb', '--title', '-']);
     });
 
@@ -376,10 +386,7 @@ describe('runContext', () => {
         expect(await runContext(['view', 'diagram', 'flow-1'], env, async () => document)).toBe(0);
         expect(seen[0]!.argv).toEqual(['diagram', 'flow-1', `--document=${document}`]);
         expect(stdout).toBe('flow-1\t1\t0\t0\t0\n');
-        const stdin = async (): Promise<string> => {
-            throw new Error('stdin was read');
-        };
-        expect(await runContext(['view', 'diagram', 'flow-1', '--document', '{}'], env, stdin)).toBe(0);
+        expect(await runContext(['view', 'diagram', 'flow-1', '--document', '{}'], env, unreadStdin)).toBe(0);
         expect(seen[1]!.argv).toEqual(['diagram', 'flow-1', '--document', '{}']);
     });
 
@@ -398,18 +405,15 @@ describe('runContext', () => {
         const page = '<!doctype html>\n<p title="a\\nb">Ten\tcases</p>\n';
         await runContext(['visual', 'show', '--title', 'Cases', '--height', '200'], env, async () => page);
         expect(seen[0]!.argv).toEqual(['show', '--title', 'Cases', '--height', '200', `--html=${page}`]);
-        const stdin = async (): Promise<string> => {
-            throw new Error('stdin was read');
-        };
-        await runContext(['visual', 'show', '--title', 'Cases', '--html=<p>x</p>'], env, stdin);
+        await runContext(['visual', 'show', '--title', 'Cases', '--html=<p>x</p>'], env, unreadStdin);
         expect(seen[1]!.argv).toEqual(['show', '--title', 'Cases', '--html=<p>x</p>']);
-        await runContext(['visual', 'list'], env, stdin);
+        await runContext(['visual', 'list'], env, unreadStdin);
         expect(seen[2]!.argv).toEqual(['list']);
         await runContext(['visual', 'preview', '--width', '400'], env, async () => page);
         expect(seen[3]!.argv).toEqual(['preview', '--width', '400', `--html=${page}`]);
         await runContext(['visual', 'write', '--name', 'cases.html'], env, async () => page);
         expect(seen[4]!.argv).toEqual(['write', '--name', 'cases.html', `--html=${page}`]);
-        await runContext(['visual', 'write', '--name', 'cases.html', '--html=<p>Updated</p>'], env, stdin);
+        await runContext(['visual', 'write', '--name', 'cases.html', '--html=<p>Updated</p>'], env, unreadStdin);
         expect(seen[5]!.argv).toEqual(['write', '--name', 'cases.html', '--html=<p>Updated</p>']);
     });
 
@@ -431,9 +435,7 @@ describe('runContext', () => {
 });
 
 describe('local images of a visual', () => {
-    const png = Buffer.concat([Buffer.from('\x89PNG\r\n\x1a\n', 'latin1'), Buffer.from([0, 0, 0, 13]), Buffer.from('IHDR'), Buffer.alloc(17)]);
     const notAnImage = 'its bytes are not a PNG, JPEG, GIF, WebP, AVIF, HEIF, SVG, BMP or ICO image';
-    let folder: string;
 
     beforeEach(async () => {
         folder = await mkdtemp(join(tmpdir(), 'ruimte-context-visual-'));
@@ -442,12 +444,6 @@ describe('local images of a visual', () => {
     afterEach(async () => {
         await rm(folder, { recursive: true, force: true });
     });
-
-    async function file(name: string, bytes: Uint8Array | string): Promise<string> {
-        const path = join(folder, name);
-        await writeFile(path, bytes);
-        return path;
-    }
 
     function embedded(bytes: Uint8Array): string {
         return `data:image/png;base64,${Buffer.from(bytes).toString('base64')}`;
@@ -528,9 +524,6 @@ describe('local images of a visual', () => {
 });
 
 describe('chat attach', () => {
-    const png = Buffer.concat([Buffer.from('\x89PNG\r\n\x1a\n', 'latin1'), Buffer.from([0, 0, 0, 13]), Buffer.from('IHDR'), Buffer.alloc(17)]);
-    let folder: string;
-
     beforeEach(async () => {
         folder = await mkdtemp(join(tmpdir(), 'ruimte-context-attach-'));
     });
@@ -538,12 +531,6 @@ describe('chat attach', () => {
     afterEach(async () => {
         await rm(folder, { recursive: true, force: true });
     });
-
-    async function file(name: string, bytes: Uint8Array | string): Promise<string> {
-        const path = join(folder, name);
-        await writeFile(path, bytes);
-        return path;
-    }
 
     test('reads the file in its own process and sends the name and the bytes, never the path', async () => {
         const shot = await file('shot.png', png);

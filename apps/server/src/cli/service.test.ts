@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -38,6 +38,14 @@ const LINUX: ServiceFacts = {
     executable: '/home/bas/.npm/_npx/1a2b/node_modules/@ruimte/linux-x64/bin/ruimte',
     path: '/home/bas/.local/bin:/usr/bin:/bin'
 };
+
+function planOf(facts: ServiceFacts) {
+    const plan = servicePlan(facts);
+    if (typeof plan === 'string') {
+        throw new Error(plan);
+    }
+    return plan;
+}
 
 /* A manager over an in-memory file, recording the steps it was asked to take. */
 function fakeManager(files: ServiceFiles, linger?: boolean): ServiceManager & { steps: string[] } {
@@ -114,10 +122,7 @@ describe('servicePath', () => {
 
 describe('servicePlan', () => {
     test('a LaunchAgent that runs the copy under the home, never the npx cache', () => {
-        const plan = servicePlan({ ...MAC, flags: ['--port', '4300'] });
-        if (typeof plan === 'string') {
-            throw new Error(plan);
-        }
+        const plan = planOf({ ...MAC, flags: ['--port', '4300'] });
         expect(plan.kind).toBe('launchd');
         expect(plan.program).toBe('/Users/bas/.ruimte/bin/ruimte');
         expect(plan.definition).not.toContain('_npx');
@@ -127,20 +132,14 @@ describe('servicePlan', () => {
     });
 
     test('a systemd user unit on Linux', () => {
-        const plan = servicePlan(LINUX);
-        if (typeof plan === 'string') {
-            throw new Error(plan);
-        }
+        const plan = planOf(LINUX);
         expect(plan.kind).toBe('systemd');
         expect(plan.definition).toContain('ExecStart="/home/bas/.ruimte/bin/ruimte"\n');
         expect(plan.definition).toContain('Environment="RUIMTE_HOME=/home/bas/.ruimte"');
     });
 
     test('a scheduled task on Windows that runs the copy under the home', () => {
-        const plan = servicePlan(WINDOWS);
-        if (typeof plan === 'string') {
-            throw new Error(plan);
-        }
+        const plan = planOf(WINDOWS);
         expect(plan.kind).toBe('task-scheduler');
         expect(plan.binDir).toBe('C:\\Users\\bas\\.ruimte\\bin');
         expect(plan.program).toBe('C:\\Users\\bas\\.ruimte\\bin\\ruimte.exe');
@@ -165,10 +164,7 @@ describe('runServiceAction', () => {
     });
 
     test('install again with other flags restarts, since the job only reads its definition when it starts', async () => {
-        const first = servicePlan(MAC);
-        if (typeof first === 'string') {
-            throw new Error(first);
-        }
+        const first = planOf(MAC);
         const { deps, manager } = setup({ existing: first.definition });
         expect(await runServiceAction('install', { ...MAC, flags: ['--no-broker'] }, deps)).toBe(0);
         expect(manager.steps).toEqual(['install', 'restart']);
@@ -181,10 +177,7 @@ describe('runServiceAction', () => {
     });
 
     test('install refuses to take over the service of the desktop app', async () => {
-        const app = servicePlan({ ...MAC, ruimteHome: '/Applications/Ruimte.app/Contents/Resources' });
-        if (typeof app === 'string') {
-            throw new Error(app);
-        }
+        const app = planOf({ ...MAC, ruimteHome: '/Applications/Ruimte.app/Contents/Resources' });
         const { deps, manager, err, copies } = setup({ existing: app.definition });
         expect(await runServiceAction('install', MAC, deps)).toBe(1);
         expect(err[0]).toContain('runs another Ruimte');
@@ -212,10 +205,7 @@ describe('runServiceAction', () => {
     });
 
     test('uninstall stops the service and removes the definition and the copy', async () => {
-        const plan = servicePlan(MAC);
-        if (typeof plan === 'string') {
-            throw new Error(plan);
-        }
+        const plan = planOf(MAC);
         const { deps, manager, disk, removed } = setup({ existing: plan.definition });
         expect(await runServiceAction('uninstall', MAC, deps)).toBe(0);
         expect(manager.steps).toEqual(['stop', 'uninstall']);
@@ -230,10 +220,7 @@ describe('runServiceAction', () => {
     });
 
     test('status reports the definition, the build and whether it answers', async () => {
-        const plan = servicePlan(LINUX);
-        if (typeof plan === 'string') {
-            throw new Error(plan);
-        }
+        const plan = planOf(LINUX);
         const { deps, out } = setup({ existing: plan.definition, health: { version: '0.2.0', build: 'b' }, build: 'b', linger: false });
         expect(await runServiceAction('status', LINUX, deps)).toBe(0);
         expect(out).toEqual([
@@ -267,13 +254,16 @@ describe('runServiceAction', () => {
 });
 
 describe('the copy the service runs', () => {
-    let dir: string | null = null;
+    let dir: string;
+    let binDir: string;
+
+    beforeEach(() => {
+        dir = mkdtempSync(join(tmpdir(), 'ruimte-service-bin-'));
+        binDir = join(dir, 'home', 'bin');
+    });
 
     afterEach(() => {
-        if (dir) {
-            rmSync(dir, { recursive: true, force: true });
-        }
-        dir = null;
+        rmSync(dir, { recursive: true, force: true });
     });
 
     const packageBin = (root: string, build: string, helpers: string[], executables = ['ruimte', 'ruimte-context']): string => {
@@ -290,8 +280,6 @@ describe('the copy the service runs', () => {
     };
 
     test('takes the native helpers along, and an update drops the ones its package no longer has', () => {
-        dir = mkdtempSync(join(tmpdir(), 'ruimte-service-bin-'));
-        const binDir = join(dir, 'home', 'bin');
         copyServiceBinaries(packageBin(join(dir, 'first'), 'one', ['scrcpy-server', 'ruimte-foundation-models']), binDir, 'darwin');
         expect(readFileSync(join(binDir, 'native', 'scrcpy-server'), 'utf8')).toBe('scrcpy-server');
         if (process.platform !== 'win32') {
@@ -308,8 +296,6 @@ describe('the copy the service runs', () => {
     });
 
     test('on Windows the running executable is renamed out of the way, and removed by the next copy', () => {
-        dir = mkdtempSync(join(tmpdir(), 'ruimte-service-bin-'));
-        const binDir = join(dir, 'home', 'bin');
         const executables = ['ruimte.exe', 'ruimte-context', 'ruimte-context.exe'];
         copyServiceBinaries(packageBin(join(dir, 'first'), 'one', [], executables), binDir, 'win32');
         expect(readdirSync(binDir).filter((name) => name.endsWith('.retired'))).toEqual([]);
@@ -328,8 +314,6 @@ describe('the copy the service runs', () => {
     });
 
     test('on Windows the ruimte-context.cmd of an earlier release goes, so cmd and PowerShell find the executable', () => {
-        dir = mkdtempSync(join(tmpdir(), 'ruimte-service-bin-'));
-        const binDir = join(dir, 'home', 'bin');
         mkdirSync(binDir, { recursive: true });
         writeFileSync(join(binDir, 'ruimte-context.cmd'), '@echo off');
         copyServiceBinaries(packageBin(join(dir, 'first'), 'one', [], ['ruimte.exe', 'ruimte-context', 'ruimte-context.exe']), binDir, 'win32');
