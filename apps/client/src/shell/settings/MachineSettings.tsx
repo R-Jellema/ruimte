@@ -16,7 +16,7 @@ import { SettingsSection } from '@/shell/settings/SettingsSection';
 import { useEndpoints, type Endpoint } from '@/state/endpoints';
 import { useServers } from '@/state/server';
 import { useToasts } from '@/state/toasts';
-import { pool, transportFor } from '@/transport';
+import { pool, transportFor, type Transport } from '@/transport';
 import { useMachineAnswers } from '@/transport/features';
 import { useEndpointConnection } from '@/transport/status';
 
@@ -34,25 +34,28 @@ export function WithReason({ reason, children }: { reason: string | null; childr
     );
 }
 
-function isRefusedFolder(e: unknown): boolean {
-    const code = (e as { code?: unknown } | null)?.code;
-    return code === 'root-refused' || code === 'not-a-folder';
-}
-
-function settingFailure(e: unknown): string {
+function folderRefusal(e: unknown): string | null {
     switch ((e as { code?: unknown } | null)?.code) {
         case 'root-refused':
             return i18next.t('settings:machine.worktreeFolder.refusedRoot');
         case 'not-a-folder':
             return i18next.t('settings:machine.worktreeFolder.notAFolder');
         default:
-            return messageOf(e, i18next.t('settings:machine.toast.unchanged'));
+            return null;
     }
+}
+
+interface MachineSettingPatch {
+    readonly broker?: BrokerSetting;
+    readonly lanDoor?: boolean;
+    readonly streamingAllowed?: boolean;
+    readonly worktreeRoot?: string;
+    readonly usageStats?: boolean;
 }
 
 async function saveMachineSetting(
     endpoint: Endpoint,
-    patch: { broker?: BrokerSetting; lanDoor?: boolean; streamingAllowed?: boolean; resumeAtReset?: boolean; worktreeRoot?: string; usageStats?: boolean },
+    patch: MachineSettingPatch,
     /* A refused folder is the person's to fix in the field, so it is told there and not in a toast. */
     onRefused?: (message: string) => void
 ): Promise<boolean> {
@@ -63,18 +66,56 @@ async function saveMachineSetting(
         await perform('machine.setIdentity', { endpointId: endpoint.id, ...patch });
         return true;
     } catch (e) {
-        if (onRefused !== undefined && isRefusedFolder(e)) {
-            onRefused(settingFailure(e));
+        const refusal = folderRefusal(e);
+
+        if (onRefused !== undefined && refusal !== null) {
+            onRefused(refusal);
             return false;
         }
+
         useToasts.getState().show({
             id: `endpoint-setting-${endpoint.id}`,
             kind: 'error',
             title: i18next.t('settings:machine.toast.saveFailed', { machine: endpoint.label }),
-            description: settingFailure(e)
+            description: refusal ?? messageOf(e, i18next.t('settings:machine.toast.unchanged'))
         });
         return false;
     }
+}
+
+/* Saves one machine setting at a time; `busy` holds the control still until the machine answered. */
+function useMachineSetting(endpoint: Endpoint): { busy: boolean; save(patch: MachineSettingPatch): Promise<void> } {
+    const [busy, setBusy] = useState(false);
+
+    const save = async (patch: MachineSettingPatch): Promise<void> => {
+        setBusy(true);
+        await saveMachineSetting(endpoint, patch);
+        setBusy(false);
+    };
+
+    return { busy, save };
+}
+
+function MachineSwitch({
+    endpoint,
+    reason,
+    checked,
+    label,
+    patch
+}: {
+    endpoint: Endpoint;
+    reason: string | null;
+    checked: boolean;
+    label: string;
+    patch(checked: boolean): MachineSettingPatch;
+}) {
+    const { busy, save } = useMachineSetting(endpoint);
+
+    return (
+        <WithReason reason={reason}>
+            <Switch checked={checked} onCheckedChange={(next) => void save(patch(next))} label={label} disabled={busy || reason !== null} />
+        </WithReason>
+    );
 }
 
 /*
@@ -122,7 +163,7 @@ export function BrokerRow({ endpoint, reason }: { endpoint: Endpoint; reason: st
     const [mode, setMode] = useState<BrokerMode>(setting?.mode ?? 'default');
     const [draft, setDraft] = useState(setting?.mode === 'custom' ? setting.url : '');
     const [problem, setProblem] = useState<string | null>(null);
-    const [busy, setBusy] = useState(false);
+    const { busy, save } = useMachineSetting(endpoint);
     const [shown, setShown] = useState(setting);
 
     // Another client may change it while the detail is open; the row follows the machine during render rather than a render later.
@@ -133,18 +174,12 @@ export function BrokerRow({ endpoint, reason }: { endpoint: Endpoint; reason: st
         setProblem(null);
     }
 
-    const save = async (next: BrokerSetting): Promise<void> => {
-        setBusy(true);
-        await saveMachineSetting(endpoint, { broker: next });
-        setBusy(false);
-    };
-
     const pick = (next: BrokerMode): void => {
         setMode(next);
         setProblem(null);
         // A custom broker needs its URL first; the field below saves it.
         if (next !== 'custom') {
-            void save({ mode: next });
+            void save({ broker: { mode: next } });
         }
     };
 
@@ -153,7 +188,7 @@ export function BrokerRow({ endpoint, reason }: { endpoint: Endpoint; reason: st
         const found = brokerUrlProblem(url);
         setProblem(found);
         if (found === null) {
-            void save({ mode: 'custom', url });
+            void save({ broker: { mode: 'custom', url } });
         }
     };
 
@@ -228,14 +263,6 @@ export function LanDoorRow({ endpoint, reason }: { endpoint: Endpoint; reason: s
     const { t } = useTranslation('settings');
     const kept = useServers((s) => s.byEndpoint[endpoint.id]?.lanDoor ?? true);
     const fixed = useServers((s) => s.byEndpoint[endpoint.id]?.lanDoorFixed === true);
-    const [busy, setBusy] = useState(false);
-    const unavailable = reason ?? (fixed ? t('machine.lanDoor.fixed') : null);
-
-    const set = async (checked: boolean): Promise<void> => {
-        setBusy(true);
-        await saveMachineSetting(endpoint, { lanDoor: checked });
-        setBusy(false);
-    };
 
     const description = (): string => {
         if (reason !== null) {
@@ -255,14 +282,13 @@ export function LanDoorRow({ endpoint, reason }: { endpoint: Endpoint; reason: s
             label={t('machine.lanDoor.label')}
             description={description()}
             control={
-                <WithReason reason={unavailable}>
-                    <Switch
-                        checked={kept}
-                        onCheckedChange={(checked) => void set(checked)}
-                        label={t('machine.lanDoor.toggle', { machine: endpoint.label })}
-                        disabled={busy || unavailable !== null}
-                    />
-                </WithReason>
+                <MachineSwitch
+                    endpoint={endpoint}
+                    reason={reason ?? (fixed ? t('machine.lanDoor.fixed') : null)}
+                    checked={kept}
+                    label={t('machine.lanDoor.toggle', { machine: endpoint.label })}
+                    patch={(lanDoor) => ({ lanDoor })}
+                />
             }
         />
     );
@@ -301,7 +327,7 @@ export function ReachRow({ endpoint, reason }: { endpoint: Endpoint; reason: str
         return null;
     }
     const shown = reach.state === 'done' ? reach.check : reach.state === 'checking' ? reach.last : null;
-    const text = shown === null ? null : reachText(shown);
+
     const description = (): ReactNode => {
         if (reason !== null) {
             return t('machine.notAnswering');
@@ -313,9 +339,10 @@ export function ReachRow({ endpoint, reason }: { endpoint: Endpoint; reason: str
                 </span>
             );
         }
-        if (text === null || shown === null) {
+        if (shown === null) {
             return reach.state === 'checking' ? t('machine.reach.checking') : null;
         }
+        const text = reachText(shown);
         const sentence = [text.problem, text.fix, t('machine.reach.checkedAt', { when: ago(shown.checkedAt, now) })].filter((part) => part !== null).join(' ');
         return shown.severity === 'unreachable' ? (
             <span className="text-status-error" role="alert">
@@ -354,13 +381,6 @@ export function ReachRow({ endpoint, reason }: { endpoint: Endpoint; reason: str
 export function StreamingRow({ endpoint, reason }: { endpoint: Endpoint; reason: string | null }) {
     const { t } = useTranslation('settings');
     const allowed = useServers((s) => s.byEndpoint[endpoint.id]?.streamingAllowed ?? true);
-    const [busy, setBusy] = useState(false);
-
-    const set = async (checked: boolean): Promise<void> => {
-        setBusy(true);
-        await saveMachineSetting(endpoint, { streamingAllowed: checked });
-        setBusy(false);
-    };
 
     return (
         <SettingsRow
@@ -368,14 +388,13 @@ export function StreamingRow({ endpoint, reason }: { endpoint: Endpoint; reason:
             label={t('machine.streaming.label')}
             description={reason !== null ? t('machine.notAnswering') : t('machine.streaming.description')}
             control={
-                <WithReason reason={reason}>
-                    <Switch
-                        checked={allowed}
-                        onCheckedChange={(checked) => void set(checked)}
-                        label={t('machine.streaming.toggle', { machine: endpoint.label })}
-                        disabled={busy || reason !== null}
-                    />
-                </WithReason>
+                <MachineSwitch
+                    endpoint={endpoint}
+                    reason={reason}
+                    checked={allowed}
+                    label={t('machine.streaming.toggle', { machine: endpoint.label })}
+                    patch={(streamingAllowed) => ({ streamingAllowed })}
+                />
             }
         />
     );
@@ -399,13 +418,6 @@ function openPrivacy(): void {
 export function UsageStatsRow({ endpoint, reason }: { endpoint: Endpoint; reason: string | null }) {
     const { t } = useTranslation('settings');
     const on = useServers((s) => s.byEndpoint[endpoint.id]?.usageStats ?? true);
-    const [busy, setBusy] = useState(false);
-
-    const set = async (checked: boolean): Promise<void> => {
-        setBusy(true);
-        await saveMachineSetting(endpoint, { usageStats: checked });
-        setBusy(false);
-    };
 
     return (
         <SettingsRow
@@ -423,14 +435,13 @@ export function UsageStatsRow({ endpoint, reason }: { endpoint: Endpoint; reason
                 )
             }
             control={
-                <WithReason reason={reason}>
-                    <Switch
-                        checked={on}
-                        onCheckedChange={(checked) => void set(checked)}
-                        label={t('machine.usageStats.toggle', { machine: endpoint.label })}
-                        disabled={busy || reason !== null}
-                    />
-                </WithReason>
+                <MachineSwitch
+                    endpoint={endpoint}
+                    reason={reason}
+                    checked={on}
+                    label={t('machine.usageStats.toggle', { machine: endpoint.label })}
+                    patch={(usageStats) => ({ usageStats })}
+                />
             }
         />
     );
@@ -440,37 +451,92 @@ function ago(timestamp: number, now: number): string {
     return formatAgo(now - timestamp);
 }
 
+type ListWords = 'machine.access' | 'machine.links';
+
+/* A list the machine behind the socket keeps, so it loads again on every reconnect. */
+function useMachineList<Item>(endpointId: string, enabled: boolean, read: (transport: Transport) => Promise<Item[]>, words: ListWords) {
+    const { t } = useTranslation('settings');
+    const status = useEndpointConnection(endpointId).status;
+    const [items, setItems] = useState<Item[] | null>(null);
+    const [failure, setFailure] = useState<string | null>(null);
+
+    const load = (): void => {
+        const transport = transportFor(endpointId);
+
+        if (!transport) {
+            return;
+        }
+
+        read(transport)
+            .then((next) => {
+                setItems(next);
+                setFailure(null);
+            })
+            .catch((e: unknown) => setFailure(messageOf(e, t(`${words}.listFailed`))));
+    };
+
+    useEffect(() => {
+        if (status === 'open' && enabled) {
+            load();
+        }
+        // oxlint-disable-next-line react-hooks/exhaustive-deps
+    }, [status, enabled, endpointId]);
+
+    return { open: status === 'open', items, failure, setFailure, load };
+}
+
+/* The section around such a list, with what it shows while the machine is silent, loading, empty or failed. */
+function MachineListSection({
+    words,
+    open,
+    items,
+    failure,
+    children
+}: {
+    words: ListWords;
+    open: boolean;
+    items: readonly unknown[] | null;
+    failure: string | null;
+    children: ReactNode;
+}) {
+    const { t } = useTranslation('settings');
+    const waiting = items === null && failure === null;
+
+    return (
+        <SettingsSection title={t(`${words}.title`)} description={t(`${words}.description`)}>
+            {!open && waiting && <SettingsRow muted label={t(`${words}.silent.label`)} description={t(`${words}.silent.description`)} />}
+            {open && waiting && <SettingsRow label={<Skeleton className="w-40" />} control={<Skeleton className="w-8" />} />}
+            {items?.length === 0 && <SettingsRow muted label={t(`${words}.empty`)} />}
+            {children}
+            {failure && (
+                <SettingsRow
+                    muted
+                    label={
+                        <span className="break-words text-status-error" role="alert">
+                            {failure}
+                        </span>
+                    }
+                />
+            )}
+        </SettingsSection>
+    );
+}
+
+async function readSessions(transport: Transport): Promise<AuthSession[]> {
+    return (await transport.request('auth.sessions', {})).sessions;
+}
+
+async function readLinks(transport: Transport): Promise<PeerLink[]> {
+    return (await transport.request('peer.list', {})).links;
+}
+
 /* The browsers and apps one machine let in, each with a way to cut it off. */
 export function MachineAccess({ endpoint }: { endpoint: Endpoint }) {
     const { t } = useTranslation('settings');
     const reachability = useServers((s) => s.byEndpoint[endpoint.id]?.reachability ?? endpoint.reachability);
-    const status = useEndpointConnection(endpoint.id).status;
-    const [sessions, setSessions] = useState<AuthSession[] | null>(null);
-    const [failure, setFailure] = useState<string | null>(null);
+    const { open, items: sessions, failure, load } = useMachineList(endpoint.id, true, readSessions, 'machine.access');
     const [target, setTarget] = useState<AuthSession | null>(null);
     const now = useNow(MINUTE_MS);
-
-    const load = (): void => {
-        const transport = transportFor(endpoint.id);
-        if (!transport) {
-            return;
-        }
-        transport
-            .request('auth.sessions', {})
-            .then((answer) => {
-                setSessions(answer.sessions);
-                setFailure(null);
-            })
-            .catch((e: unknown) => setFailure(messageOf(e, t('machine.access.listFailed'))));
-    };
-
-    // The list belongs to the machine behind the socket, so it loads again on every reconnect.
-    useEffect(() => {
-        if (status === 'open') {
-            load();
-        }
-        // oxlint-disable-next-line react-hooks/exhaustive-deps
-    }, [status, endpoint.id]);
 
     const revoke = async (): Promise<void> => {
         const session = target;
@@ -493,14 +559,7 @@ export function MachineAccess({ endpoint }: { endpoint: Endpoint }) {
     const listed = reachability === 'loopback' ? (sessions?.filter((session) => !session.current) ?? null) : sessions;
 
     return (
-        <SettingsSection title={t('machine.access.title')} description={t('machine.access.description')}>
-            {status !== 'open' && sessions === null && failure === null && (
-                <SettingsRow muted label={t('machine.access.silent.label')} description={t('machine.access.silent.description')} />
-            )}
-            {status === 'open' && listed === null && failure === null && (
-                <SettingsRow label={<Skeleton className="w-40" />} control={<Skeleton className="w-8" />} />
-            )}
-            {listed?.length === 0 && <SettingsRow muted label={t('machine.access.empty')} />}
+        <MachineListSection words="machine.access" open={open} items={listed} failure={failure}>
             {listed?.map((session) => (
                 <SettingsRow
                     key={session.id}
@@ -531,19 +590,9 @@ export function MachineAccess({ endpoint }: { endpoint: Endpoint }) {
                     }
                 />
             ))}
-            {failure && (
-                <SettingsRow
-                    muted
-                    label={
-                        <span className="break-words text-status-error" role="alert">
-                            {failure}
-                        </span>
-                    }
-                />
-            )}
             <ConfirmDialog
                 open={target !== null}
-                onOpenChange={(open) => (open ? undefined : setTarget(null))}
+                onOpenChange={(next) => (next ? undefined : setTarget(null))}
                 title={t('machine.access.confirm.title', { label: target?.label ?? t('machine.access.thisClient') })}
                 description={
                     target?.current
@@ -557,40 +606,17 @@ export function MachineAccess({ endpoint }: { endpoint: Endpoint }) {
                 confirmLabel={t('machine.access.confirm.action')}
                 onConfirm={revoke}
             />
-        </SettingsSection>
+        </MachineListSection>
     );
 }
 
 /* The projects on this machine that another machine of the account works in, each with the widest mode its agents may start in and a way to cut the link. */
 export function MachineLinks({ endpoint }: { endpoint: Endpoint }) {
     const { t } = useTranslation('settings');
-    const status = useEndpointConnection(endpoint.id).status;
     const answers = useMachineAnswers(endpoint.id, 'peer.list');
-    const [links, setLinks] = useState<PeerLink[] | null>(null);
-    const [failure, setFailure] = useState<string | null>(null);
+    const { open, items: links, failure, setFailure, load } = useMachineList(endpoint.id, answers, readLinks, 'machine.links');
     const [target, setTarget] = useState<PeerLink | null>(null);
     const now = useNow(MINUTE_MS);
-
-    const load = (): void => {
-        const transport = transportFor(endpoint.id);
-        if (!transport) {
-            return;
-        }
-        transport
-            .request('peer.list', {})
-            .then((answer) => {
-                setLinks(answer.links);
-                setFailure(null);
-            })
-            .catch((e: unknown) => setFailure(messageOf(e, t('machine.links.listFailed'))));
-    };
-
-    useEffect(() => {
-        if (status === 'open' && answers) {
-            load();
-        }
-        // oxlint-disable-next-line react-hooks/exhaustive-deps
-    }, [status, answers, endpoint.id]);
 
     useEffect(() => {
         if (!answers) {
@@ -600,45 +626,40 @@ export function MachineLinks({ endpoint }: { endpoint: Endpoint }) {
         // oxlint-disable-next-line react-hooks/exhaustive-deps
     }, [answers, endpoint.id]);
 
-    const setCeiling = async (link: PeerLink, ceiling: RuntimeMode): Promise<void> => {
+    const change = async (request: Promise<unknown> | undefined, failedKey: string): Promise<void> => {
         try {
-            await transportFor(endpoint.id)?.request('peer.setCeiling', { machineId: link.machineId, projectId: link.projectId, ceiling });
+            await request;
             setFailure(null);
         } catch (e) {
-            setFailure(messageOf(e, t('machine.links.changeFailed')));
+            setFailure(messageOf(e, t(failedKey)));
         }
+
         load();
     };
+
+    const setCeiling = (link: PeerLink, ceiling: RuntimeMode): Promise<void> =>
+        change(
+            transportFor(endpoint.id)?.request('peer.setCeiling', { machineId: link.machineId, projectId: link.projectId, ceiling }),
+            'machine.links.changeFailed'
+        );
 
     const unlink = async (): Promise<void> => {
-        const link = target;
-        if (!link) {
-            return;
+        if (target) {
+            await change(
+                transportFor(endpoint.id)?.request('peer.unbind', { machineId: target.machineId, projectId: target.projectId }),
+                'machine.links.unlinkFailed'
+            );
         }
-        try {
-            await transportFor(endpoint.id)?.request('peer.unbind', { machineId: link.machineId, projectId: link.projectId });
-            setFailure(null);
-        } catch (e) {
-            setFailure(messageOf(e, t('machine.links.unlinkFailed')));
-        }
-        load();
     };
 
-    if (!answers && status === 'open') {
+    if (!answers && open) {
         return null;
     }
 
     const modes = RUNTIME_MODES.map((mode) => ({ value: mode, label: runtimeModeLabel(mode) }));
 
     return (
-        <SettingsSection title={t('machine.links.title')} description={t('machine.links.description')}>
-            {status !== 'open' && links === null && failure === null && (
-                <SettingsRow muted label={t('machine.links.silent.label')} description={t('machine.links.silent.description')} />
-            )}
-            {status === 'open' && links === null && failure === null && (
-                <SettingsRow label={<Skeleton className="w-40" />} control={<Skeleton className="w-8" />} />
-            )}
-            {links?.length === 0 && <SettingsRow muted label={t('machine.links.empty')} />}
+        <MachineListSection words="machine.links" open={open} items={links} failure={failure}>
             {links?.map((link) => (
                 <SettingsRow
                     key={`${link.machineId}/${link.projectId}`}
@@ -675,25 +696,15 @@ export function MachineLinks({ endpoint }: { endpoint: Endpoint }) {
                     }
                 />
             ))}
-            {failure && (
-                <SettingsRow
-                    muted
-                    label={
-                        <span className="break-words text-status-error" role="alert">
-                            {failure}
-                        </span>
-                    }
-                />
-            )}
             <ConfirmDialog
                 open={target !== null}
-                onOpenChange={(open) => (open ? undefined : setTarget(null))}
+                onOpenChange={(next) => (next ? undefined : setTarget(null))}
                 title={t('machine.links.confirm.title', { project: target?.projectName ?? '', machine: target?.label ?? '' })}
                 description={t('machine.links.confirm.text', { machine: target?.label ?? '' })}
                 confirmLabel={t('machine.links.confirm.action')}
                 onConfirm={unlink}
             />
-        </SettingsSection>
+        </MachineListSection>
     );
 }
 
