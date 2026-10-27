@@ -816,14 +816,17 @@ function ignoreMissing(error: unknown): string[] {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
         return [];
     }
+
     throw error;
 }
 
 /* A `node_modules` that is missing or a real folder is no link; any other failure stops the caller. */
 function ignoreNotALink(error: unknown): null {
     const code = (error as NodeJS.ErrnoException).code;
+
     if (code === 'ENOENT' || code === 'EINVAL') {
         return null;
     }
+
     throw error;
 }

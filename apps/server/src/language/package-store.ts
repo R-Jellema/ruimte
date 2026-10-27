@@ -11,6 +11,7 @@ const SET_FILE = 'set.json';
 const SET_NAME = 'ruimte-language-packages';
 const JOURNAL = '.journal';
 const ASIDE = '.adopting';
+
 /* A set id is 16 hex digits; anything else in the folder is not Ruimte's to remove. */
 const SET_ID = /^[0-9a-f]{16}$/;
 
@@ -127,7 +128,6 @@ export class PackageStore {
             }
 
             const removed: string[] = [];
-
             const present = (await readdir(this.directory).catch(() => [] as string[])).sort();
 
             for (const setId of present) {
@@ -302,8 +302,9 @@ export class PackageStore {
     }
 
     private lease(setId: string): Lease {
-        this.leases.set(setId, (this.leases.get(setId) ?? 0) + 1);
         let released = false;
+
+        this.leases.set(setId, (this.leases.get(setId) ?? 0) + 1);
 
         return {
             setId,
@@ -313,8 +314,9 @@ export class PackageStore {
                     return;
                 }
 
-                released = true;
                 const left = (this.leases.get(setId) ?? 1) - 1;
+
+                released = true;
 
                 if (left <= 0) {
                     this.leases.delete(setId);
@@ -327,6 +329,7 @@ export class PackageStore {
 
     private exclusive<T>(work: () => Promise<T>): Promise<T> {
         const result = this.tail.then(work, work);
+
         this.tail = result.catch(() => undefined);
 
         return result;
@@ -348,6 +351,7 @@ export class PackageStore {
         try {
             await mkdir(staging, { recursive: true });
             await writeFile(join(staging, 'package.json'), `${JSON.stringify({ name: SET_NAME, private: true, dependencies }, null, 2)}\n`);
+
             log(
                 `Installing ${Object.entries(dependencies)
                     .map(([name, version]) => `${name}@${version}`)
@@ -355,6 +359,7 @@ export class PackageStore {
             );
 
             const { runtime } = this.options;
+
             const code = await this.options.run(
                 { command: runtime.command, args: [...runtime.args, 'install', '--ignore-scripts'], cwd: staging, env: runtime.env },
                 log
