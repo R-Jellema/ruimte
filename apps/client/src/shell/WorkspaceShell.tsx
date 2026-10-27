@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ComponentType } from 'react';
 import { refreshPrRepos } from '@/state/pr-repos';
 import { shownFolderOf, useProject } from '@/state/project';
 import i18next from 'i18next';
@@ -146,6 +146,34 @@ const ConflictOverlay = lazyDialog(
     (s) => s.conflicts !== null
 );
 
+/* In the order they mount, each in a boundary of its own; the fork dialog brings its own. */
+const DIALOGS: readonly (readonly [surface: string | null, dialog: ComponentType])[] = [
+    ['dialog', LayoutDialog],
+    ['dialog', ChatChooserMenu],
+    ['dialog', ViewDialogs],
+    ['dialog', EndChildrenDialog],
+    ['dialog', UnsavedCloseDialog],
+    ['dialog', DiscardEditsDialog],
+    ['dialog', LeaveConflictDialog],
+    ['dialog', WorktreeDialog],
+    ['dialog', RemoveWorktreeDialog],
+    ['dialog', MergeWorktreeDialog],
+    ['conflicts', ConflictOverlay],
+    ['dialog', LaunchDialogs],
+    ['dialog', DatabaseConnectionsDialog],
+    [null, ForkDialog],
+    ['dialog', MoveChatDialog],
+    ['dialog', RemoteNodeDialog],
+    ['dialog', AddToMachineDialog],
+    ['dialog', EraseDeviceDialog],
+    ['dialog', NewWorktreeChatDialog],
+    ['dialog', IssueStartDialog],
+    ['dialog', PullRequestDialog],
+    ['dialog', FileChoiceDialog],
+    ['dialog', RoutineFormDialog],
+    ['dialog', ImageSaveHost]
+];
+
 /*
  * The project on screen, with the daemon it lives on under it. Everything inside reads its machine
  * from here instead of from "the active endpoint", which a switch moves before the project follows.
@@ -240,72 +268,15 @@ export function WorkspaceShell({ workspace }: { workspace: Workspace }) {
                 </ErrorBoundary>
                 <VoiceOverlay />
                 {/* About the project that is open, so they belong to its workspace and not to the shell. */}
-                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                    <LayoutDialog />
-                </ErrorBoundary>
-                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                    <ChatChooserMenu />
-                </ErrorBoundary>
-                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                    <ViewDialogs />
-                </ErrorBoundary>
-                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                    <EndChildrenDialog />
-                </ErrorBoundary>
-                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                    <UnsavedCloseDialog />
-                </ErrorBoundary>
-                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                    <DiscardEditsDialog />
-                </ErrorBoundary>
-                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                    <LeaveConflictDialog />
-                </ErrorBoundary>
-                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                    <WorktreeDialog />
-                </ErrorBoundary>
-                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                    <RemoveWorktreeDialog />
-                </ErrorBoundary>
-                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                    <MergeWorktreeDialog />
-                </ErrorBoundary>
-                <ErrorBoundary label={failed('conflicts')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                    <ConflictOverlay />
-                </ErrorBoundary>
-                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                    <LaunchDialogs />
-                </ErrorBoundary>
-                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                    <DatabaseConnectionsDialog />
-                </ErrorBoundary>
-                <ForkDialog />
-                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                    <MoveChatDialog />
-                </ErrorBoundary>
-                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                    <RemoteNodeDialog />
-                    <AddToMachineDialog />
-                    <EraseDeviceDialog />
-                </ErrorBoundary>
-                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                    <NewWorktreeChatDialog />
-                </ErrorBoundary>
-                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                    <IssueStartDialog />
-                </ErrorBoundary>
-                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                    <PullRequestDialog />
-                </ErrorBoundary>
-                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                    <FileChoiceDialog />
-                </ErrorBoundary>
-                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                    <RoutineFormDialog />
-                </ErrorBoundary>
-                <ErrorBoundary label={failed('dialog')} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
-                    <ImageSaveHost />
-                </ErrorBoundary>
+                {DIALOGS.map(([surface, Dialog], index) =>
+                    surface === null ? (
+                        <Dialog key={index} />
+                    ) : (
+                        <ErrorBoundary key={index} label={failed(surface)} resetKeys={[workspace]} compact className={FLOATING_FAILURE}>
+                            <Dialog />
+                        </ErrorBoundary>
+                    )
+                )}
             </ConnectionProvider>
         </ChatHostProvider>
     );
