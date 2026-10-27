@@ -6,14 +6,13 @@ import { join } from 'node:path';
 import { NODE_SIZE, type ChatInfo, type ChatItem, type ChatTurnItem, type ChatVisual, type ProjectCanvasView, type ProjectContent } from '@ruimte/contracts';
 import { AgentLineageStore } from '@adecore/agents/coordination';
 import { ManualClock, inProcess, fakeCodex, fakeCodexForks } from '@adecore/agents/testing';
-import { ProjectStore } from '../projects/project-store.ts';
+import type { ProjectStore } from '../projects/project-store.ts';
 import { ProviderRegistry } from '../providers/registry.ts';
-import { bootTestDaemon, type TestDaemon } from '../tasks/test-daemon.ts';
+import { bootTestDaemon, releasedProject, type TestDaemon } from '../tasks/test-daemon.ts';
 import { AttachmentStore, ChatStore, claudeProjectSlug } from '@adecore/agents/chat';
 import { ChatManager } from './chat-manager.ts';
 import { verbsNote } from '../context/context-note.ts';
 import { chatForkDeps, forkChat, itemsThrough, type ChatForkDeps } from './fork.ts';
-import { projectLinks } from '../projects/project-file-test-helpers.ts';
 
 function content(): ProjectContent {
     return {
@@ -50,15 +49,7 @@ describe('forking a Claude chat', () => {
     let daemon: TestDaemon;
 
     beforeEach(async () => {
-        root = await mkdtemp(join(tmpdir(), 'ruimte-fork-'));
-        home = join(root, 'home');
-        folder = join(root, 'repo');
-        await mkdir(folder, { recursive: true });
-        store = new ProjectStore(home, projectLinks());
-        const opened = await store.openProject({ folder });
-        projectId = opened.summary.projectId;
-        await store.save(projectId, opened.document.rev, content());
-        store.release(projectId);
+        ({ root, home, folder, store, projectId } = await releasedProject('ruimte-fork-', content()));
         daemon = await bootTestDaemon({ home, store, clock: new ManualClock(), installed: ['claude', 'codex'] });
         daemon.worker.start();
     });

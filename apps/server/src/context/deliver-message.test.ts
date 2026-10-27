@@ -1,13 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { rm } from 'node:fs/promises';
 import type { ChatItem, ChatTurnItem, ProjectContent } from '@ruimte/contracts';
 import { ManualClock } from '@adecore/agents/testing';
 import { NO_REPLY_NOTICE } from './notices.ts';
-import { ProjectStore } from '../projects/project-store.ts';
-import { bootTestDaemon, runVerb, type TestDaemon } from '../tasks/test-daemon.ts';
-import { projectLinks } from '../projects/project-file-test-helpers.ts';
+import type { ProjectStore } from '../projects/project-store.ts';
+import { bootTestDaemon, releasedProject, runVerb, type TestDaemon } from '../tasks/test-daemon.ts';
 
 /* Two chats a person opened beside each other, plus a note nothing links to: a message travels only along a line. */
 function content(): ProjectContent {
@@ -36,20 +33,11 @@ let root: string;
 let home: string;
 let folder: string;
 let store: ProjectStore;
-let projectId: string;
 let clock: ManualClock;
 let running: TestDaemon[];
 
 beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'ruimte-message-'));
-    home = join(root, 'home');
-    folder = join(root, 'repo');
-    await mkdir(folder, { recursive: true });
-    store = new ProjectStore(home, projectLinks());
-    const opened = await store.openProject({ folder });
-    projectId = opened.summary.projectId;
-    await store.save(projectId, opened.document.rev, content());
-    store.release(projectId);
+    ({ root, home, folder, store } = await releasedProject('ruimte-message-', content()));
     clock = new ManualClock();
     running = [];
 });

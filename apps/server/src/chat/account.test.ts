@@ -1,16 +1,14 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { existsSync } from 'node:fs';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { ChatInfo, ChatTurnItem, ProjectCanvasView, ProjectContent } from '@ruimte/contracts';
 import { ManualClock, testAccounts } from '@adecore/agents/testing';
-import { ProjectStore } from '../projects/project-store.ts';
+import type { ProjectStore } from '../projects/project-store.ts';
 import type { ProviderAccountsService } from '@adecore/agents/providers';
 import type { LimitsUpdate } from '@adecore/agents/usage';
-import { bootTestDaemon, runVerb, type TestDaemon } from '../tasks/test-daemon.ts';
+import { bootTestDaemon, releasedProject, runVerb, type TestDaemon } from '../tasks/test-daemon.ts';
 import { ChatStore, claudeProjectSlug } from '@adecore/agents/chat';
-import { projectLinks } from '../projects/project-file-test-helpers.ts';
 
 function content(): ProjectContent {
     return {
@@ -47,16 +45,8 @@ let machine: { resumeAtReset: boolean };
 let clock: ManualClock;
 
 beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'ruimte-chat-account-'));
-    home = join(root, 'home');
-    folder = join(root, 'repo');
+    ({ root, home, folder, store, projectId } = await releasedProject('ruimte-chat-account-', content()));
     personal = join(root, 'claude_personal');
-    await mkdir(folder, { recursive: true });
-    store = new ProjectStore(home, projectLinks());
-    const opened = await store.openProject({ folder });
-    projectId = opened.summary.projectId;
-    await store.save(projectId, opened.document.rev, content());
-    store.release(projectId);
     const env = { PATH: process.env.PATH, HOME: home, USERPROFILE: home, ANTHROPIC_API_KEY: 'sk-inherited' };
     folders = new Set([personal, join(home, '.codex'), join(root, 'codex_work')]);
     limitUpdates = [];

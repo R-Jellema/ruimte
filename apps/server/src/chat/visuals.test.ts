@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileExists } from '@adecore/agents';
 import { VISUAL_LIMITS, type ChatItem, type ChatVisual, type ProjectContent } from '@ruimte/contracts';
@@ -10,11 +9,10 @@ import { readBytes } from '../bytes/read-bytes.ts';
 import type { VisualHost } from '../canvas/verb.ts';
 import { IMAGES_LINE, SHOWN_LINE } from '../canvas/visual-verb.ts';
 import { VisualRenderError, type VisualPreview } from '../visuals/renderer.ts';
-import { ProjectStore } from '../projects/project-store.ts';
+import type { ProjectStore } from '../projects/project-store.ts';
 import type { SessionEvent } from '../sessions/manager.ts';
-import { bootTestDaemon, runVerb, type TestDaemon } from '../tasks/test-daemon.ts';
+import { bootTestDaemon, releasedProject, runVerb, type TestDaemon } from '../tasks/test-daemon.ts';
 import { ATTACHMENTS_PATH, handleAttachmentRequest } from './attachment-route.ts';
-import { projectLinks } from '../projects/project-file-test-helpers.ts';
 
 function content(): ProjectContent {
     return {
@@ -47,14 +45,7 @@ let clock: ManualClock;
 let running: TestDaemon[];
 
 beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'ruimte-visuals-'));
-    home = join(root, 'home');
-    folder = join(root, 'repo');
-    await mkdir(folder, { recursive: true });
-    store = new ProjectStore(home, projectLinks());
-    const opened = await store.openProject({ folder });
-    await store.save(opened.summary.projectId, opened.document.rev, content());
-    store.release(opened.summary.projectId);
+    ({ root, home, folder, store } = await releasedProject('ruimte-visuals-', content()));
     clock = new ManualClock();
     running = [];
 });

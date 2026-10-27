@@ -1,16 +1,14 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { ChatItem, ChatNoteItem, ChatTurnItem, ProjectCanvasView, ProjectContent } from '@ruimte/contracts';
 import { ManualClock } from '@adecore/agents/testing';
-import { ProjectStore } from '../projects/project-store.ts';
-import { bootTestDaemon, type TestDaemon } from '../tasks/test-daemon.ts';
+import type { ProjectStore } from '../projects/project-store.ts';
+import { bootTestDaemon, releasedProject, type TestDaemon } from '../tasks/test-daemon.ts';
 import { claudeProjectSlug } from '@adecore/agents/chat';
 import { compileUi } from '@adecore/intelligent-ui';
 import { answerOf, SUMMARY_MAX_BYTES, summaryNoteId, summaryPrompt, summaryTexts } from './summary.ts';
 import { RUIMTE_UI_FENCE } from './ui-fence.ts';
-import { projectLinks } from '../projects/project-file-test-helpers.ts';
 
 function content(): ProjectContent {
     return {
@@ -53,15 +51,7 @@ describe('a fork summarizing for its original', () => {
     };
 
     beforeEach(async () => {
-        root = await mkdtemp(join(tmpdir(), 'ruimte-summary-'));
-        home = join(root, 'home');
-        folder = join(root, 'repo');
-        await mkdir(folder, { recursive: true });
-        store = new ProjectStore(home, projectLinks());
-        const opened = await store.openProject({ folder });
-        projectId = opened.summary.projectId;
-        await store.save(projectId, opened.document.rev, content());
-        store.release(projectId);
+        ({ root, home, folder, store, projectId } = await releasedProject('ruimte-summary-', content()));
         await boot();
     });
 
