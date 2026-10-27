@@ -35,6 +35,7 @@ import { SettingsRow } from '@adecore/ui/settings';
 import { Button, FormError, Switch, Select, type SelectItem, messageOf } from '@adecore/ui';
 import { formatPercent } from '@adecore/ui/format';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
+import { SettingSwitchRow } from '@/shell/settings/SettingSwitchRow';
 import { useSettings } from '@/state/settings';
 import { useUi } from '@/state/ui';
 
@@ -43,12 +44,6 @@ import { useUi } from '@/state/ui';
 function runtimeModeItems(): SelectItem<RuntimeMode>[] {
     return RUNTIME_MODES.map((mode) => ({ value: mode, label: runtimeModeLabel(mode), description: runtimeModeHint(mode) }));
 }
-
-const KEEP_AWAKE_DESCRIPTIONS = {
-    off: null,
-    working: 'agents.keepAwake.mode.working.description',
-    always: 'agents.keepAwake.mode.always.description'
-} as const;
 
 const STREAMING_MODES = ['words', 'blocks', 'whole'] as const;
 
@@ -118,10 +113,7 @@ function AgentDefaultsSection() {
 
 function ChatsSection() {
     const { t } = useTranslation('settings');
-    const agentsShowViews = useSettings((s) => s.agentsShowViews);
-    const chatMapTiles = useSettings((s) => s.chatMapTiles);
     const chatStreaming = useSettings((s) => s.chatStreaming);
-    const chatSteerByDefault = useSettings((s) => s.chatSteerByDefault);
     const update = useSettings((s) => s.update);
     const readingWidth = useChatPreferences((preferences) => preferences.readingWidth);
     const sendKey = useChatPreferences((preferences) => preferences.sendKey);
@@ -142,18 +134,7 @@ function ChatsSection() {
                     />
                 }
             />
-            <SettingsRow
-                searchId="agents.chats.steerByDefault"
-                label={t('agents.chats.steerByDefault.label')}
-                description={t('agents.chats.steerByDefault.description')}
-                control={
-                    <Switch
-                        checked={chatSteerByDefault}
-                        onCheckedChange={(checked) => update({ chatSteerByDefault: checked })}
-                        label={t('agents.chats.steerByDefault.label')}
-                    />
-                }
-            />
+            <SettingSwitchRow id="agents.chats.steerByDefault" setting="chatSteerByDefault" />
             <SettingsRow
                 searchId="agents.chats.streaming"
                 label={t('agents.chats.streaming.label')}
@@ -186,26 +167,8 @@ function ChatsSection() {
                     />
                 }
             />
-            <SettingsRow
-                searchId="agents.chats.showViews"
-                label={t('agents.chats.showViews.label')}
-                description={t('agents.chats.showViews.description')}
-                control={
-                    <Switch
-                        checked={agentsShowViews}
-                        onCheckedChange={(checked) => update({ agentsShowViews: checked })}
-                        label={t('agents.chats.showViews.label')}
-                    />
-                }
-            />
-            <SettingsRow
-                searchId="agents.chats.mapTiles"
-                label={t('agents.chats.mapTiles.label')}
-                description={t('agents.chats.mapTiles.description')}
-                control={
-                    <Switch checked={chatMapTiles} onCheckedChange={(checked) => update({ chatMapTiles: checked })} label={t('agents.chats.mapTiles.label')} />
-                }
-            />
+            <SettingSwitchRow id="agents.chats.showViews" setting="agentsShowViews" />
+            <SettingSwitchRow id="agents.chats.mapTiles" setting="chatMapTiles" />
         </SettingsSection>
     );
 }
@@ -213,32 +176,18 @@ function ChatsSection() {
 function WorkingSection() {
     const { t } = useTranslation('settings');
     const { keepAwake, keepAwakeOnBattery, keepAwakeDisplay } = useKeepAwakeChoice();
-    const agentsTurnSound = useSettings((s) => s.agentsTurnSound);
-    const update = useSettings((s) => s.update);
     // A browser cannot keep anything awake, so it is told nothing about a choice it has no way to honor.
     const awake = useKeepAwakeAvailable();
     // The machine holds the display only with battery allowed; the shell from before weighed the power source itself.
     const displayNeedsBattery = useMachineKeepsAwake() && !keepAwakeOnBattery;
-    const keepAwakeDescription = KEEP_AWAKE_DESCRIPTIONS[keepAwake];
     return (
         <SettingsSection title={t('agents.working.title')} description={awake ? t('agents.working.description') : undefined} scope="computer">
-            <SettingsRow
-                searchId="agents.working.sound"
-                label={t('agents.working.sound.label')}
-                description={t('agents.working.sound.description')}
-                control={
-                    <Switch
-                        checked={agentsTurnSound}
-                        onCheckedChange={(checked) => update({ agentsTurnSound: checked })}
-                        label={t('agents.working.sound.label')}
-                    />
-                }
-            />
+            <SettingSwitchRow id="agents.working.sound" setting="agentsTurnSound" />
             {awake && (
                 <SettingsRow
                     searchId="agents.keepAwake.mode"
                     label={t('agents.keepAwake.mode.label')}
-                    description={keepAwakeDescription === null ? undefined : t(keepAwakeDescription)}
+                    description={keepAwake === 'off' ? undefined : t(`agents.keepAwake.mode.${keepAwake}.description`)}
                     control={
                         <Select
                             value={keepAwake}

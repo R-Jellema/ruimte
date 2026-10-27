@@ -1,12 +1,13 @@
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { formatDayClock, useFormatLocale, formatMoney, FORMAT_LANGUAGE, FORMAT_REGION_CHOICES, FORMAT_SYSTEM, regionName } from '@adecore/ui/format';
-import { Switch, Select } from '@adecore/ui';
+import { Select } from '@adecore/ui';
 import { SettingsRow } from '@adecore/ui/settings';
 import { chooseLanguage, chooseRegion } from '@/i18n';
 import { APP_LANGUAGES, LANGUAGE_LABELS, LANGUAGE_SYSTEM } from '@/i18n/languages';
 import { FontSection } from '@/shell/settings/panes/FontSection';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
+import { SettingSwitchRow } from '@/shell/settings/SettingSwitchRow';
 import { useSettings } from '@/state/settings';
 import { AccentRow, PaletteRow } from '@/shell/settings/panes/ColorRows';
 import { useTheme, type Theme } from '@/state/theme';
@@ -145,9 +146,6 @@ export function AppearancePane() {
     const panelLayout = useSettings((s) => s.panelLayout);
     const projectNavigation = useSettings((s) => s.projectNavigation);
     const sidebarScope = useSettings((s) => s.sidebarScope);
-    const needsYouAllProjects = useSettings((s) => s.needsYouAllProjects);
-    const projectGlow = useSettings((s) => s.projectGlow);
-    const dockAutoHide = useSettings((s) => s.dockAutoHide);
     const update = useSettings((s) => s.update);
 
     return (
@@ -198,18 +196,7 @@ export function AppearancePane() {
                         />
                     }
                 />
-                <SettingsRow
-                    searchId="appearance.interface.dock"
-                    label={t('appearance.interface.dock.label')}
-                    description={t('appearance.interface.dock.description')}
-                    control={
-                        <Switch
-                            checked={dockAutoHide}
-                            onCheckedChange={(checked) => update({ dockAutoHide: checked })}
-                            label={t('appearance.interface.dock.label')}
-                        />
-                    }
-                />
+                <SettingSwitchRow id="appearance.interface.dock" setting="dockAutoHide" />
                 <SettingsRow
                     searchId="appearance.sidebar"
                     label={t('appearance.sidebar.label')}
@@ -224,32 +211,8 @@ export function AppearancePane() {
                         />
                     }
                 />
-                <SettingsRow
-                    searchId="appearance.projectGlow"
-                    label={t('appearance.projectGlow.label')}
-                    description={t('appearance.projectGlow.description')}
-                    control={
-                        <Switch
-                            checked={projectGlow}
-                            onCheckedChange={(checked) => update({ projectGlow: checked })}
-                            label={t('appearance.projectGlow.label')}
-                        />
-                    }
-                />
-                {sidebarScope === 'current' && (
-                    <SettingsRow
-                        searchId="appearance.needsYou"
-                        label={t('appearance.needsYou.label')}
-                        description={t('appearance.needsYou.description')}
-                        control={
-                            <Switch
-                                checked={needsYouAllProjects}
-                                onCheckedChange={(checked) => update({ needsYouAllProjects: checked })}
-                                label={t('appearance.needsYou.label')}
-                            />
-                        }
-                    />
-                )}
+                <SettingSwitchRow id="appearance.projectGlow" setting="projectGlow" />
+                {sidebarScope === 'current' && <SettingSwitchRow id="appearance.needsYou" setting="needsYouAllProjects" />}
             </SettingsSection>
             <SettingsSection title={t('appearance.languageRegion.title')}>
                 <LanguageRow />

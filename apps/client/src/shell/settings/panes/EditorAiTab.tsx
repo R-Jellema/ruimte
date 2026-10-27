@@ -3,6 +3,7 @@ import { formatShortcut, Segmented, Switch } from '@adecore/ui';
 import { SettingsRow } from '@adecore/ui/settings';
 import { InlineAgentPicker } from '@/editor-ai/InlineAgentPicker';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
+import { SettingSwitchRow } from '@/shell/settings/SettingSwitchRow';
 import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
 import { isApplePlatform } from '@/desktop/bridge';
 import { useOnDeviceAvailability } from '@/ondevice/use-availability';
@@ -14,7 +15,6 @@ export function EditorAiTab() {
     const { t } = useTranslation('settings');
     const inline = useSettings((s) => s.aiInlineAgent);
     const changes = useSettings((s) => s.aiAgentChanges);
-    const attribution = useSettings((s) => s.aiAttribution);
     const onDeviceHelp = useSettings((s) => s.aiOnDeviceHelp);
     const ghostText = useSettings((s) => s.aiGhostText);
     const update = useSettings((s) => s.update);
@@ -60,18 +60,7 @@ export function EditorAiTab() {
                         />
                     }
                 />
-                <SettingsRow
-                    searchId="editor.ai.attribution"
-                    label={t('editor.ai.attribution.label')}
-                    description={t('editor.ai.attribution.description')}
-                    control={
-                        <Switch
-                            checked={attribution}
-                            onCheckedChange={(checked) => update({ aiAttribution: checked })}
-                            label={t('editor.ai.attribution.label')}
-                        />
-                    }
-                />
+                <SettingSwitchRow id="editor.ai.attribution" setting="aiAttribution" />
             </SettingsSection>
             <SettingsSection title={t('editor.ai.onDevice.title')}>
                 <SettingsRow

@@ -4,6 +4,7 @@ import { SettingsRow } from '@adecore/ui/settings';
 import { RENDERED_DOC_COMMENTS } from '@/features';
 import { CodeThemePreview } from '@/shell/settings/panes/CodeSection';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
+import { SettingSwitchRow } from '@/shell/settings/SettingSwitchRow';
 import { useCodeTheme } from '@/state/code-theme';
 import { CODE_LINE_HEIGHT_RANGE, FONT_SIZE_RANGE, useSettings } from '@/state/settings';
 import { useTheme } from '@/state/theme';
@@ -15,15 +16,7 @@ export function EditorGeneralTab() {
     const { t } = useTranslation('settings');
     const codeFontSize = useSettings((s) => s.codeFontSize);
     const codeLineHeight = useSettings((s) => s.codeLineHeight);
-    const codeLigatures = useSettings((s) => s.codeLigatures);
-    const codeWrap = useSettings((s) => s.codeWrap);
-    const codeIndentGuides = useSettings((s) => s.codeIndentGuides);
-    const codeWhitespace = useSettings((s) => s.codeWhitespace);
-    const codeStickyScroll = useSettings((s) => s.codeStickyScroll);
     const smartKeys = useSettings((s) => s.smartKeys);
-    const codeRenderDocs = useSettings((s) => s.codeRenderDocs);
-    const codeVisionUsages = useSettings((s) => s.codeVisionUsages);
-    const codeVisionAuthors = useSettings((s) => s.codeVisionAuthors);
     const update = useSettings((s) => s.update);
     const codeTheme = useCodeTheme();
     const side = useTheme((s) => s.resolved);
@@ -65,68 +58,13 @@ export function EditorGeneralTab() {
                         />
                     }
                 />
-                <SettingsRow
-                    searchId="editor.general.font.ligatures"
-                    label={t('editor.general.font.ligatures.label')}
-                    description={t('editor.general.font.ligatures.description')}
-                    control={
-                        <Switch
-                            checked={codeLigatures}
-                            onCheckedChange={(checked) => update({ codeLigatures: checked })}
-                            label={t('editor.general.font.ligatures.label')}
-                        />
-                    }
-                />
+                <SettingSwitchRow id="editor.general.font.ligatures" setting="codeLigatures" />
             </SettingsSection>
             <SettingsSection title={t('editor.general.display.title')}>
-                <SettingsRow
-                    searchId="editor.general.display.wrap"
-                    label={t('editor.general.display.wrap.label')}
-                    description={t('editor.general.display.wrap.description')}
-                    control={
-                        <Switch
-                            checked={codeWrap}
-                            onCheckedChange={(checked) => update({ codeWrap: checked })}
-                            label={t('editor.general.display.wrap.label')}
-                        />
-                    }
-                />
-                <SettingsRow
-                    searchId="editor.general.display.indentGuides"
-                    label={t('editor.general.display.indentGuides.label')}
-                    description={t('editor.general.display.indentGuides.description')}
-                    control={
-                        <Switch
-                            checked={codeIndentGuides}
-                            onCheckedChange={(checked) => update({ codeIndentGuides: checked })}
-                            label={t('editor.general.display.indentGuides.label')}
-                        />
-                    }
-                />
-                <SettingsRow
-                    searchId="editor.general.display.whitespace"
-                    label={t('editor.general.display.whitespace.label')}
-                    description={t('editor.general.display.whitespace.description')}
-                    control={
-                        <Switch
-                            checked={codeWhitespace}
-                            onCheckedChange={(checked) => update({ codeWhitespace: checked })}
-                            label={t('editor.general.display.whitespace.label')}
-                        />
-                    }
-                />
-                <SettingsRow
-                    searchId="editor.general.display.stickyScroll"
-                    label={t('editor.general.display.stickyScroll.label')}
-                    description={t('editor.general.display.stickyScroll.description')}
-                    control={
-                        <Switch
-                            checked={codeStickyScroll}
-                            onCheckedChange={(checked) => update({ codeStickyScroll: checked })}
-                            label={t('editor.general.display.stickyScroll.label')}
-                        />
-                    }
-                />
+                <SettingSwitchRow id="editor.general.display.wrap" setting="codeWrap" />
+                <SettingSwitchRow id="editor.general.display.indentGuides" setting="codeIndentGuides" />
+                <SettingSwitchRow id="editor.general.display.whitespace" setting="codeWhitespace" />
+                <SettingSwitchRow id="editor.general.display.stickyScroll" setting="codeStickyScroll" />
                 <SettingsRow
                     muted
                     searchId="editor.general.display.rightMargin"
@@ -150,45 +88,12 @@ export function EditorGeneralTab() {
             </SettingsSection>
             {RENDERED_DOC_COMMENTS && (
                 <SettingsSection title={t('editor.general.documentation.title')}>
-                    <SettingsRow
-                        searchId="editor.general.documentation.render"
-                        label={t('editor.general.documentation.render.label')}
-                        description={t('editor.general.documentation.render.description')}
-                        control={
-                            <Switch
-                                checked={codeRenderDocs}
-                                onCheckedChange={(checked) => update({ codeRenderDocs: checked })}
-                                label={t('editor.general.documentation.render.label')}
-                            />
-                        }
-                    />
+                    <SettingSwitchRow id="editor.general.documentation.render" setting="codeRenderDocs" />
                 </SettingsSection>
             )}
             <SettingsSection title={t('editor.general.codeVision.title')}>
-                <SettingsRow
-                    searchId="editor.general.codeVision.usages"
-                    label={t('editor.general.codeVision.usages.label')}
-                    description={t('editor.general.codeVision.usages.description')}
-                    control={
-                        <Switch
-                            checked={codeVisionUsages}
-                            onCheckedChange={(checked) => update({ codeVisionUsages: checked })}
-                            label={t('editor.general.codeVision.usages.label')}
-                        />
-                    }
-                />
-                <SettingsRow
-                    searchId="editor.general.codeVision.authors"
-                    label={t('editor.general.codeVision.authors.label')}
-                    description={t('editor.general.codeVision.authors.description')}
-                    control={
-                        <Switch
-                            checked={codeVisionAuthors}
-                            onCheckedChange={(checked) => update({ codeVisionAuthors: checked })}
-                            label={t('editor.general.codeVision.authors.label')}
-                        />
-                    }
-                />
+                <SettingSwitchRow id="editor.general.codeVision.usages" setting="codeVisionUsages" />
+                <SettingSwitchRow id="editor.general.codeVision.authors" setting="codeVisionAuthors" />
             </SettingsSection>
         </>
     );

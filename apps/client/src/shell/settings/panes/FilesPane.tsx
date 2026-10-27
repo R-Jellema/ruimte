@@ -1,18 +1,17 @@
 import { Folder, GitBranch } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { SettingsRow } from '@adecore/ui/settings';
-import { Input, Segmented, Stepper, Switch } from '@adecore/ui';
+import { Input, Segmented, Stepper } from '@adecore/ui';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
+import { SettingSwitchRow } from '@/shell/settings/SettingSwitchRow';
 import { FILES_TAB_LIMIT_RANGE, useSettings } from '@/state/settings';
 
 /* The two panels beside the canvas, what the Files panel shows and keeps open, and how the Git panel lists what changed. */
 export function FilesPane() {
     const { t } = useTranslation('settings');
     const filesTabLimit = useSettings((s) => s.filesTabLimit);
-    const filesShowHidden = useSettings((s) => s.filesShowHidden);
     const browseStartFolder = useSettings((s) => s.browseStartFolder);
     const diffLayout = useSettings((s) => s.diffLayout);
-    const diffWhitespace = useSettings((s) => s.diffWhitespace);
     const update = useSettings((s) => s.update);
 
     return (
@@ -33,18 +32,7 @@ export function FilesPane() {
                         />
                     }
                 />
-                <SettingsRow
-                    searchId="files.files.hidden"
-                    label={t('files.files.hidden.label')}
-                    description={t('files.files.hidden.description')}
-                    control={
-                        <Switch
-                            checked={filesShowHidden}
-                            onCheckedChange={(checked) => update({ filesShowHidden: checked })}
-                            label={t('files.files.hidden.label')}
-                        />
-                    }
-                />
+                <SettingSwitchRow id="files.files.hidden" setting="filesShowHidden" />
                 <SettingsRow
                     searchId="files.files.browseStart"
                     label={t('files.files.browseStart.label')}
@@ -78,18 +66,7 @@ export function FilesPane() {
                         />
                     }
                 />
-                <SettingsRow
-                    searchId="files.git.whitespace"
-                    label={t('files.git.whitespace.label')}
-                    description={t('files.git.whitespace.description')}
-                    control={
-                        <Switch
-                            checked={diffWhitespace}
-                            onCheckedChange={(checked) => update({ diffWhitespace: checked })}
-                            label={t('files.git.whitespace.label')}
-                        />
-                    }
-                />
+                <SettingSwitchRow id="files.git.whitespace" setting="diffWhitespace" />
             </SettingsSection>
         </>
     );
