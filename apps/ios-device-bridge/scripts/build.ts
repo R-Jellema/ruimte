@@ -1,4 +1,5 @@
-import { access, chmod, copyFile, mkdir } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { chmod, copyFile, mkdir } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
@@ -23,14 +24,7 @@ if (process.platform !== 'darwin') {
 
 const root = resolve(import.meta.dir, '..');
 const cargoFallback = join(homedir(), '.cargo', 'bin', 'cargo');
-const cargo =
-    process.env.CARGO ||
-    Bun.which('cargo') ||
-    ((await access(cargoFallback)
-        .then(() => true)
-        .catch(() => false))
-        ? cargoFallback
-        : null);
+const cargo = process.env.CARGO || Bun.which('cargo') || (existsSync(cargoFallback) ? cargoFallback : null);
 if (!cargo) {
     console.error('Cargo is required to build the iOS device bridge.');
     process.exit(1);
