@@ -1,4 +1,4 @@
-import { lstat, open } from 'node:fs/promises';
+import { lstat, open, type FileHandle } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { Numstat } from './diff.ts';
 
@@ -28,7 +28,7 @@ export async function untrackedNumstat(root: string, path: string): Promise<Nums
     if (size > BIG_FILE_BYTES) {
         return { path, added: 0, deleted: 0, binary: true };
     }
-    let handle: Awaited<ReturnType<typeof open>>;
+    let handle: FileHandle;
     try {
         handle = await open(absolute, 'r');
     } catch {

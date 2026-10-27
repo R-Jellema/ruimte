@@ -36,7 +36,7 @@ export class RepoListCache {
     /* With `fresh` the folder is listed again whatever the cache holds, and the new list takes its place. */
     get(folder: string, fresh = false): Promise<GitReposResult> {
         const key = resolve(folder);
-        for (const [cachedKey, cached] of [...this.folders]) {
+        for (const [cachedKey, cached] of this.folders) {
             if (this.now() - cached.at >= REPO_CACHE_TTL_MS) {
                 this.folders.delete(cachedKey);
             }
@@ -72,7 +72,7 @@ export class RepoListCache {
             return;
         }
         const paths = changed.map((path) => resolve(path));
-        for (const [key, entry] of [...this.folders]) {
+        for (const [key, entry] of this.folders) {
             const settled = entry.settled;
             const touched =
                 settled === null

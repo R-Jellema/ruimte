@@ -1,6 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises';
-import { fileExists } from '@adecore/agents';
 import { join, posix, win32 } from 'node:path';
+import { fileExists } from '@adecore/agents';
 import type { GitRepo, GitReposResult } from '@ruimte/contracts';
 import { isBelow } from '../fs/path-segment.ts';
 import { parseSharedFile, PROJECT_DIR, PROJECT_FILE } from '../projects/project-files.ts';

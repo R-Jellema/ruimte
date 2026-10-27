@@ -42,12 +42,7 @@ async function checkIgnore(paths: readonly string[], cwd: string): Promise<Set<s
             queries = new Map();
             for (const path of paths) {
                 const query = nativePath(relativeIgnorePath(path, cwd));
-                const originals = queries.get(query);
-                if (originals) {
-                    originals.push(nativePath(path));
-                } else {
-                    queries.set(query, [nativePath(path)]);
-                }
+                queries.set(query, [...(queries.get(query) ?? []), nativePath(path)]);
             }
         }
     }

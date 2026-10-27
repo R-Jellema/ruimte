@@ -111,12 +111,10 @@ function byPath(output: string | null): Map<string, Numstat> {
 async function untrackedCounts(root: string, paths: string[]): Promise<Map<string, Numstat>> {
     const counts = new Map<string, Numstat>();
     for (let i = 0; i < paths.length; i += COUNT_CONCURRENCY) {
-        const batch = paths.slice(i, i + COUNT_CONCURRENCY);
-        const results = await Promise.all(batch.map((path) => untrackedNumstat(root, path)));
-        for (let index = 0; index < batch.length; index += 1) {
-            const stat = results[index];
-            if (stat) {
-                counts.set(batch[index]!, stat);
+        const results = await Promise.all(paths.slice(i, i + COUNT_CONCURRENCY).map((path) => untrackedNumstat(root, path)));
+        for (const stat of results) {
+            if (stat !== null) {
+                counts.set(stat.path, stat);
             }
         }
     }
@@ -152,10 +150,13 @@ export async function resolveBase(root: string, now: number = Date.now()): Promi
     return base;
 }
 
+async function mergeBaseAgainst(cwd: string, base: string | null): Promise<string | null> {
+    return base === null ? null : (await git(['merge-base', base, 'HEAD'], cwd))?.trim() || null;
+}
+
 /* Where this branch left the base branch, which is what the base scope of a diff starts from. */
 export async function mergeBaseOf(cwd: string): Promise<string | null> {
-    const base = await resolveBase(cwd);
-    return base === null ? null : (await git(['merge-base', base, 'HEAD'], cwd))?.trim() || null;
+    return await mergeBaseAgainst(cwd, await resolveBase(cwd));
 }
 
 /*
@@ -222,13 +223,11 @@ export async function readStatusAt(root: string): Promise<GitStatus> {
         resolveBase(root),
         operationOf(root)
     ]);
-    const untracked = await untrackedCounts(
-        root,
-        entries
-            .filter((entry) => entry.untracked)
-            .slice(0, MAX_UNTRACKED_COUNTS)
-            .map((entry) => entry.path)
-    );
+    const untrackedPaths = entries
+        .filter((entry) => entry.untracked)
+        .slice(0, MAX_UNTRACKED_COUNTS)
+        .map((entry) => entry.path);
+    const [untracked, mergeBase] = await Promise.all([untrackedCounts(root, untrackedPaths), mergeBaseAgainst(root, base)]);
     const files: GitFile[] = [];
     for (const entry of entries) {
         if (entry.untracked) {
@@ -244,7 +243,6 @@ export async function readStatusAt(root: string): Promise<GitStatus> {
             }
         }
     }
-    const mergeBase = base === null ? null : (await git(['merge-base', base, 'HEAD'], root))?.trim() || null;
 
     return {
         repo: true,
