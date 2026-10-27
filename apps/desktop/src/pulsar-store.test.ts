@@ -3,16 +3,8 @@ import { createPublicKey, verify } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileSessionKey, fileSessionStore, type StringCipher } from './pulsar-store';
-
-/* A stand-in for the keychain: reversible, and nothing like the plain text. */
-function fakeCipher(available = true): StringCipher {
-    return {
-        isEncryptionAvailable: () => available,
-        encryptString: (plain) => Buffer.from(Buffer.from(plain, 'utf8').map((byte) => byte ^ 0x5a)),
-        decryptString: (encrypted) => Buffer.from(encrypted.map((byte) => byte ^ 0x5a)).toString('utf8')
-    };
-}
+import { fakeCipher, refusingCipher } from '../testing/fake-cipher';
+import { fileSessionKey, fileSessionStore } from './pulsar-store';
 
 const session = {
     refreshToken: 'r'.repeat(43),
@@ -110,13 +102,7 @@ describe('fileSessionKey', () => {
     test('a keychain that refuses to decrypt leaves the key file alone and signs with a key in memory', async () => {
         const first = await fileSessionKey(path, fakeCipher())();
         const onDisk = readFileSync(path);
-        const refusing: StringCipher = {
-            ...fakeCipher(),
-            decryptString: () => {
-                throw new Error('The user name or passphrase you entered is not correct.');
-            }
-        };
-        const load = fileSessionKey(path, refusing);
+        const load = fileSessionKey(path, refusingCipher());
         const inMemory = await load();
         expect(inMemory.publicKey).not.toBe(first.publicKey);
         expect((await load()).publicKey).toBe(inMemory.publicKey);

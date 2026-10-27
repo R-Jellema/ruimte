@@ -2,15 +2,8 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fakeCipher, refusingCipher } from '../testing/fake-cipher';
 import { fileSecretStore, type StringCipher } from './secret-store';
-
-function fakeCipher(available = true): StringCipher {
-    return {
-        isEncryptionAvailable: () => available,
-        encryptString: (plain) => Buffer.from(Buffer.from(plain, 'utf8').map((byte) => byte ^ 0x5a)),
-        decryptString: (encrypted) => Buffer.from(encrypted.map((byte) => byte ^ 0x5a)).toString('utf8')
-    };
-}
 
 describe('fileSecretStore', () => {
     let folder: string;
@@ -59,22 +52,11 @@ describe('fileSecretStore', () => {
     test('treats an unreadable encrypted file as unset', async () => {
         await fileSecretStore(path, fakeCipher()).write('sk-test-secret');
         writeFileSync(path, 'not encrypted');
-        const unavailableCipher: StringCipher = {
-            ...fakeCipher(),
-            decryptString: () => {
-                throw new Error('Keychain rejected the file');
-            }
-        };
-        expect(await fileSecretStore(path, unavailableCipher).read()).toBeNull();
+        expect(await fileSecretStore(path, refusingCipher()).read()).toBeNull();
     });
 
     test('says why a secret on disk cannot be read when asked to, and still takes a missing one for unset', async () => {
-        const rejecting: StringCipher = {
-            ...fakeCipher(),
-            decryptString: () => {
-                throw new Error('Keychain rejected the file');
-            }
-        };
+        const rejecting = refusingCipher();
         expect(await fileSecretStore(path, rejecting, { reportUnreadable: true }).read()).toBeNull();
         await fileSecretStore(path, fakeCipher()).write('hunter2');
         await expect(fileSecretStore(path, rejecting, { reportUnreadable: true }).read()).rejects.toThrow('Keychain rejected the file');

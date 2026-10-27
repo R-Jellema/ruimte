@@ -1,6 +1,7 @@
 import { mkdir, open, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
+/* The part of Electron's `safeStorage` the stores need, so a test can hand in its own. */
 export interface StringCipher {
     isEncryptionAvailable(): boolean;
     encryptString(plain: string): Buffer;
@@ -52,6 +53,19 @@ async function syncFolder(path: string): Promise<void> {
     }
 }
 
+/* Through a temporary file beside `path`, readable by this user only, so a failed write never leaves half a file under its name. */
+export async function writeEncrypted(path: string, cipher: StringCipher, plain: string): Promise<void> {
+    await mkdir(dirname(path), { recursive: true });
+    const temporary = `${path}.${process.pid}-${temporaryCounter++}.tmp`;
+    try {
+        await writeFile(temporary, cipher.encryptString(plain), { mode: 0o600 });
+        await rename(temporary, path);
+    } catch (error: unknown) {
+        await rm(temporary, { force: true });
+        throw error;
+    }
+}
+
 /* A secret is only persisted when Electron can encrypt it through the operating system's keychain. */
 export function fileSecretStore(path: string, cipher: StringCipher, { reportUnreadable = false }: SecretStoreOptions = {}): SecretStore {
     let memory: string | null = null;
@@ -88,15 +102,7 @@ export function fileSecretStore(path: string, cipher: StringCipher, { reportUnre
                     });
                     return;
                 }
-                await mkdir(dirname(path), { recursive: true });
-                const temporary = `${path}.${process.pid}-${temporaryCounter++}.tmp`;
-                try {
-                    await writeFile(temporary, cipher.encryptString(secret), { mode: 0o600 });
-                    await rename(temporary, path);
-                } catch (error: unknown) {
-                    await rm(temporary, { force: true });
-                    throw error;
-                }
+                await writeEncrypted(path, cipher, secret);
             });
         }
     };

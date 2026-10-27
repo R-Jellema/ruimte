@@ -1,15 +1,8 @@
 import { createPrivateKey, createPublicKey, generateKeyPairSync, sign, type KeyObject } from 'node:crypto';
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { readFile, rm } from 'node:fs/promises';
 import { AccountSchema, type SessionSigner, type SessionStore, type StoredSession } from '@ruimte/pulsar';
 import { z } from 'zod';
-
-/* The part of Electron's `safeStorage` this needs, so a test can hand in its own. */
-export interface StringCipher {
-    isEncryptionAvailable(): boolean;
-    encryptString(plain: string): Buffer;
-    decryptString(encrypted: Buffer): string;
-}
+import { writeEncrypted, type StringCipher } from './secret-store';
 
 const StoredSessionSchema = z.object({
     refreshToken: z.string().min(1),
@@ -23,13 +16,6 @@ const StoredSessionSchema = z.object({
  * token either. Without encryption (a Linux desktop with no keyring) nothing is written: the session
  * lasts until the app quits, rather than a refresh token sitting in a plain file.
  */
-async function writeEncrypted(path: string, cipher: StringCipher, plain: string): Promise<void> {
-    await mkdir(dirname(path), { recursive: true });
-    const temporary = `${path}.${process.pid}.tmp`;
-    await writeFile(temporary, cipher.encryptString(plain), { mode: 0o600 });
-    await rename(temporary, path);
-}
-
 export function fileSessionStore(path: string, cipher: StringCipher): SessionStore {
     let memory: StoredSession | null = null;
 
