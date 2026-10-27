@@ -7,8 +7,9 @@ import WidgetKit
 /// The views of one project with their state, each opening that view. Large, so the views of a project fit.
 struct ProjectWidget: Widget {
     var body: some WidgetConfiguration {
-        AppIntentConfiguration(kind: ProjectWidgetStore.kind, intent: ProjectWidgetIntent.self, provider: ProjectTimeline())
-        { entry in
+        AppIntentConfiguration(
+            kind: ProjectWidgetStore.kind, intent: ProjectWidgetIntent.self, provider: ProjectTimeline()
+        ) { entry in
             ProjectWidgetContent(entry: entry)
         }
         .configurationDisplayName("Project")
@@ -71,7 +72,8 @@ struct ProjectEntry: TimelineEntry {
             project: ProjectWidgetProject(
                 machineID: "sample", projectID: "recipes", name: "Recept Maker", machineName: "MacBook Pro",
                 views: [
-                    ProjectWidgetView(id: "a", title: "Refactor reconnect loop", icon: "message-square", state: .needsYou),
+                    ProjectWidgetView(
+                        id: "a", title: "Refactor reconnect loop", icon: "message-square", state: .needsYou),
                     ProjectWidgetView(id: "b", title: "Shopping list", icon: "message-square", state: .working),
                     ProjectWidgetView(id: "c", title: "bun dev", icon: "terminal", state: .working),
                     ProjectWidgetView(id: "d", title: "Main canvas", icon: "layout-grid", state: .idle),
@@ -155,9 +157,7 @@ private struct ProjectWidgetContent: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
-    private func color(_ token: RuimteColorToken) -> Color {
-        RuimteColorToken.color(scheme == .dark ? token.dark : token.light)
-    }
+    private func color(_ token: RuimteColorToken) -> Color { token.color(in: scheme) }
 
     private static let names: [String: LucideIconName] = Dictionary(
         LucideIconName.allCases.map { ($0.rawValue.lowercased(), $0) }, uniquingKeysWith: { first, _ in first })

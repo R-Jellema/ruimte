@@ -46,17 +46,10 @@ private struct ActivityCompactIndicator: View {
     let presentation: ActivityPresentation
 
     var body: some View {
-        Group {
-            if let agent = presentation.singleAgent {
-                LucideIcon(agent.target == .chat ? .sparkles : .terminal, size: 16)
-                    .foregroundStyle(presentation.color)
-            } else {
-                LucideIcon(presentation.statusIcon, size: 16)
-                    .foregroundStyle(presentation.color)
-            }
-        }
-        .frame(width: 18, height: 18)
-        .accessibilityLabel(presentation.singleAgent?.title ?? presentation.title)
+        LucideIcon(presentation.singleAgent?.icon ?? presentation.statusIcon, size: 16)
+            .foregroundStyle(presentation.color)
+            .frame(width: 18, height: 18)
+            .accessibilityLabel(presentation.singleAgent?.title ?? presentation.title)
     }
 }
 
@@ -99,6 +92,10 @@ private struct ActivityCard: View {
     }
 }
 
+extension PushActivityAgent {
+    fileprivate var icon: LucideIconName { target == .chat ? .sparkles : .terminal }
+}
+
 private struct ActivityAgentRow: View {
     let agent: PushActivityAgent
 
@@ -106,7 +103,7 @@ private struct ActivityAgentRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            LucideIcon(agent.target == .chat ? .sparkles : .terminal, size: 19)
+            LucideIcon(agent.icon, size: 19)
                 .foregroundStyle(needsYou ? Color.activityNeedsYou : .white.opacity(0.9))
                 .frame(width: 22)
             VStack(alignment: .leading, spacing: 3) {

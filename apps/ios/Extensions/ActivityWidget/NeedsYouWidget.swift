@@ -65,11 +65,10 @@ struct NeedsYouTimeline: TimelineProvider {
 private struct NeedsYouColors {
     let scheme: ColorScheme
 
-    func color(_ token: RuimteColorToken) -> Color { RuimteColorToken.color(scheme == .dark ? token.dark : token.light) }
-    var needsYou: Color { color(RuimteColors.statusNeedsYou) }
-    var working: Color { color(RuimteColors.statusRunning) }
-    var muted: Color { color(RuimteColors.muted) }
-    var ground: Color { color(RuimteColors.surface) }
+    var needsYou: Color { RuimteColors.statusNeedsYou.color(in: scheme) }
+    var working: Color { RuimteColors.statusRunning.color(in: scheme) }
+    var muted: Color { RuimteColors.muted.color(in: scheme) }
+    var ground: Color { RuimteColors.surface.color(in: scheme) }
 }
 
 private struct NeedsYouCountView: View {

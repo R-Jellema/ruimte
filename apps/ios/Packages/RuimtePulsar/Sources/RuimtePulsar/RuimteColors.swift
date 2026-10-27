@@ -15,6 +15,8 @@ public struct RuimteColorToken: Sendable, Equatable {
     /// its own tint and never follows the appearance around it.
     public var onDark: Color { Self.color(dark) }
 
+    public func color(in scheme: ColorScheme) -> Color { Self.color(scheme == .dark ? dark : light) }
+
     public static func color(_ hex: UInt32) -> Color {
         Color(
             .sRGB, red: Double((hex >> 16) & 0xff) / 255, green: Double((hex >> 8) & 0xff) / 255,
