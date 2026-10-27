@@ -160,13 +160,15 @@ function OwnRow({ server, status, tracker, searchId, onLog, onEdit, onRemove }: 
     const fail = (error: unknown): void => report(error, tPanels);
     const serves = [...server.languages, ...server.patterns].join(', ');
     const command = [server.command, ...server.args].join(' ');
-    const detail = status === undefined || status.message === undefined ? '' : status.message;
+    const detail = status?.message ?? '';
 
     return (
         <SettingsRow
             searchId={searchId}
             leading={
-                <span className="flex h-5.5 shrink-0 items-center">{status === undefined ? <Dot tone="idle" /> : <Dot tone={toneOf(status.state)} />}</span>
+                <span className="flex h-5.5 shrink-0 items-center">
+                    <Dot tone={status === undefined ? 'idle' : toneOf(status.state)} />
+                </span>
             }
             label={server.name}
             description={

@@ -162,20 +162,12 @@ function MachineStorage({ endpoint, picker }: { endpoint: Endpoint; picker: Reac
     );
 
     if (reading.status !== 'ready') {
-        const line =
-            reading.status === 'loading'
-                ? t('storage.state.loading', { machine })
-                : reading.status === 'unreachable'
-                  ? t('storage.state.unreachable', { machine })
-                  : reading.status === 'tooOld'
-                    ? t('storage.state.tooOld', { machine })
-                    : t('storage.state.failed', { machine });
         return outputSection(
             <SettingsRow
                 searchId="storage.output"
                 muted
                 leading={reading.status === 'loading' ? undefined : <TopIcon icon={CircleAlert} className="text-text-faint" />}
-                label={line}
+                label={t(`storage.state.${reading.status}`, { machine })}
                 control={
                     reading.status === 'failed' && (
                         <Button variant="secondary" onClick={() => setAttempt(attempt + 1)}>
@@ -242,27 +234,25 @@ function Proposals({
             {shown.length === 0 ? (
                 <SettingsRow searchId="storage.cleanup" muted label={t('storage.cleanup.nothing')} />
             ) : (
-                shown.map((proposal, index) => {
-                    return (
-                        <SettingsRow
-                            key={proposal.id}
-                            searchId={index === 0 ? 'storage.cleanup' : undefined}
-                            leading={<TopIcon icon={Trash2} className="text-text-faint" />}
-                            label={t('storage.cleanup.proposal', { title: proposal.title })}
-                            description={t('storage.cleanup.frees', { count: proposal.versions.length, size: formatBytes(proposal.bytes) })}
-                            control={
-                                <span className="flex items-center gap-2">
-                                    <Button variant="ghost" onClick={() => deferProposal(endpointKey(endpointId, proposal.id))}>
-                                        {t('storage.cleanup.notNow')}
-                                    </Button>
-                                    <Button variant="secondary" onClick={() => setReview({ proposal, open: true, round: (review?.round ?? 0) + 1 })}>
-                                        {t('storage.cleanup.review')}
-                                    </Button>
-                                </span>
-                            }
-                        />
-                    );
-                })
+                shown.map((proposal, index) => (
+                    <SettingsRow
+                        key={proposal.id}
+                        searchId={index === 0 ? 'storage.cleanup' : undefined}
+                        leading={<TopIcon icon={Trash2} className="text-text-faint" />}
+                        label={t('storage.cleanup.proposal', { title: proposal.title })}
+                        description={t('storage.cleanup.frees', { count: proposal.versions.length, size: formatBytes(proposal.bytes) })}
+                        control={
+                            <span className="flex items-center gap-2">
+                                <Button variant="ghost" onClick={() => deferProposal(endpointKey(endpointId, proposal.id))}>
+                                    {t('storage.cleanup.notNow')}
+                                </Button>
+                                <Button variant="secondary" onClick={() => setReview({ proposal, open: true, round: (review?.round ?? 0) + 1 })}>
+                                    {t('storage.cleanup.review')}
+                                </Button>
+                            </span>
+                        }
+                    />
+                ))
             )}
             <CleanupReviewDialog
                 endpointId={endpointId}
