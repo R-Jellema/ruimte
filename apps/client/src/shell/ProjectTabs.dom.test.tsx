@@ -71,9 +71,13 @@ function tab(key: string): HTMLElement | null {
     return page.host.querySelector<HTMLElement>(`[data-tab-key="${key}"]`);
 }
 
+function pointer(type: string, x: number, y: number): PointerEvent {
+    return new PointerEvent(type, { pointerId: 1, button: 0, clientX: x, clientY: y, bubbles: true, cancelable: true });
+}
+
 /* A press on a tab carried down and out of the strip, the way a person tears a tab off. */
 async function dragOut(element: HTMLElement): Promise<void> {
-    const at = (type: string, y: number) => new PointerEvent(type, { pointerId: 1, button: 0, clientX: 10, clientY: y, bubbles: true, cancelable: true });
+    const at = (type: string, y: number) => pointer(type, 10, y);
     await act(async () => {
         element.dispatchEvent(at('pointerdown', 0));
     });
@@ -216,7 +220,7 @@ describe('reordering project tabs', () => {
     test('a dragged tab shows where it lands and moves only when it is let go', async () => {
         layOut();
         const element = tab(BEHIND)!;
-        const at = (type: string, x: number) => new PointerEvent(type, { pointerId: 1, button: 0, clientX: x, clientY: 10, bubbles: true, cancelable: true });
+        const at = (type: string, x: number) => pointer(type, x, 10);
         await act(async () => {
             element.dispatchEvent(at('pointerdown', 50));
         });
@@ -240,7 +244,7 @@ describe('reordering project tabs', () => {
     test('a cancelled drag leaves the order as it was', async () => {
         layOut();
         const element = tab(BEHIND)!;
-        const at = (type: string, x: number) => new PointerEvent(type, { pointerId: 1, button: 0, clientX: x, clientY: 10, bubbles: true, cancelable: true });
+        const at = (type: string, x: number) => pointer(type, x, 10);
         await act(async () => {
             element.dispatchEvent(at('pointerdown', 50));
         });

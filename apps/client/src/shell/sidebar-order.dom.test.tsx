@@ -83,9 +83,7 @@ afterEach(async () => {
 describe('the order of all open projects', () => {
     test('Move up puts a project above the one before it, and this client keeps that order', async () => {
         const [first, second] = headings();
-        await act(async () => {
-            heading(second!)!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 10, button: 2 }));
-        });
+        await openContextMenu(heading(second!)!);
         await until(() => menuItem('Move up') !== null);
         expect(menuItem('Move up')!.getAttribute('aria-disabled')).not.toBe('true');
         await clickOn(menuItem('Move up'));
