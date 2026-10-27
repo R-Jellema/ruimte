@@ -1,23 +1,15 @@
-import {
-    isCanvasView,
-    type ChatInfo,
-    type ChatItem,
-    type ChatSummarizeResult,
-    type ChatTurnItem,
-    type ProjectContent,
-    type ProjectEdge
-} from '@ruimte/contracts';
+import { isCanvasView, type ChatInfo, type ChatItem, type ChatSummarizeResult, type ProjectContent, type ProjectEdge } from '@ruimte/contracts';
+import { readableAssistantText } from '@adecore/agents/chat';
+import type { OutboxOutcome } from '@adecore/agents/coordination';
 import { newId } from '../canvas/nodes.ts';
 import type { ProjectHost } from '../canvas/verb.ts';
 import { errorText } from '../error-text.ts';
 import type { DeliverSummaryEntry, OutboxEntry, OutboxWork } from '../outbox/outbox.ts';
-import type { OutboxOutcome } from '@adecore/agents/coordination';
 import type { IndexedPlace } from '../projects/project-index.ts';
 import type { ProjectMutation } from '../projects/project-store.ts';
 import type { SessionEvent } from '../sessions/manager.ts';
 import type { ChatManager } from './chat-manager.ts';
 import { ChatError } from './errors.ts';
-import { readableAssistantText } from '@adecore/agents/chat';
 
 /* What the original reads of a summary; the fork itself is one read away for the rest. */
 export const SUMMARY_MAX_BYTES = 8 * 1024;
@@ -25,13 +17,9 @@ export const SUMMARY_MAX_BYTES = 8 * 1024;
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
-function turnsOf(items: readonly ChatItem[]): ChatTurnItem[] {
-    return items.filter((item): item is ChatTurnItem => item.kind === 'turn');
-}
-
 /* The number a turn has in a thread, counted from one; null for a turn that is not in it. */
 function turnNumber(items: readonly ChatItem[], turnId: string): number | null {
-    const index = turnsOf(items).findIndex((turn) => turn.id === turnId);
+    const index = items.filter((item) => item.kind === 'turn').findIndex((turn) => turn.id === turnId);
     return index === -1 ? null : index + 1;
 }
 

@@ -12,12 +12,13 @@ const HANDOFF_WINDOW_SHARE = 0.025;
 // A rough average for English text and code; the budget only needs the order of magnitude.
 const BYTES_PER_TOKEN = 4;
 
-/* The handoff budget for a model with this context window in tokens; null when its window is unknown. */
+/* The handoff budget for a model with this context window in tokens; the floor when its window is unknown. */
 export function handoffBudget(contextWindow: number | null | undefined): number {
-    if (contextWindow === null || contextWindow === undefined || !Number.isFinite(contextWindow) || contextWindow <= 0) {
+    const tokens = contextWindow ?? 0;
+    if (!Number.isFinite(tokens) || tokens <= 0) {
         return HANDOFF_FLOOR_BYTES;
     }
-    const share = Math.floor(contextWindow * HANDOFF_WINDOW_SHARE * BYTES_PER_TOKEN);
+    const share = Math.floor(tokens * HANDOFF_WINDOW_SHARE * BYTES_PER_TOKEN);
     return Math.min(HANDOFF_CEILING_BYTES, Math.max(HANDOFF_FLOOR_BYTES, share));
 }
 
@@ -46,21 +47,19 @@ function moment(at: number): string {
 
 /* The copied items per turn, oldest first; what belongs to no turn is left out, since the daemon wrote it. */
 function turnsOf(items: readonly ChatItem[]): ChatItem[][] {
-    const order: string[] = [];
     const byTurn = new Map<string, ChatItem[]>();
     for (const item of items) {
         if (item.turnId === null) {
             continue;
         }
-        let group = byTurn.get(item.turnId);
-        if (!group) {
-            group = [];
-            byTurn.set(item.turnId, group);
-            order.push(item.turnId);
+        const group = byTurn.get(item.turnId);
+        if (group) {
+            group.push(item);
+        } else {
+            byTurn.set(item.turnId, [item]);
         }
-        group.push(item);
     }
-    return order.map((turnId) => byTurn.get(turnId)!);
+    return [...byTurn.values()];
 }
 
 /*

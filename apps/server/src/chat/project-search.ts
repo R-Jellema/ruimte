@@ -85,10 +85,8 @@ export class ProjectChatSearch {
             const result: ChatSearchResult = { hits: [], chats: [], searched: 0, failed: [], truncated: false, cancelled: false };
             // The chats a session of the daemon holds now come first: they are the ones in use.
             const chats = this.deps.chatsOf(projectId);
-            const ordered = [
-                ...chats.filter((chat) => this.deps.loadedItems(chat.chatId) !== null),
-                ...chats.filter((chat) => this.deps.loadedItems(chat.chatId) === null)
-            ];
+            const loaded = new Set(chats.filter((chat) => this.deps.loadedItems(chat.chatId) !== null));
+            const ordered = [...loaded, ...chats.filter((chat) => !loaded.has(chat))];
             for (const chat of ordered) {
                 if (this.cancelled.has(key)) {
                     result.cancelled = true;
@@ -111,17 +109,7 @@ export class ProjectChatSearch {
                 result.truncated = result.truncated || all.length > room;
                 if (found.length > 0) {
                     result.chats.push({ chatId: chat.chatId, title: chat.title });
-                    result.hits.push(
-                        ...found.map(({ itemId, author, snippet, matchStart, matchLength, createdAt }): ChatSearchHit => ({
-                            chatId: chat.chatId,
-                            itemId,
-                            author,
-                            snippet,
-                            matchStart,
-                            matchLength,
-                            createdAt
-                        }))
-                    );
+                    result.hits.push(...found.map(({ turnId: _turnId, ...hit }): ChatSearchHit => ({ chatId: chat.chatId, ...hit })));
                 }
             }
             return result;

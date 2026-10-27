@@ -8,3 +8,4 @@ export const UiSourceAccessSchema = z.object({
     roots: z.array(z.string()),
     databases: z.array(z.object({ id: z.string(), target: z.string(), access: DatabaseAgentAccessSchema }))
 });
+export type UiSourceAccess = z.infer<typeof UiSourceAccessSchema>;

@@ -1,6 +1,7 @@
 import { dirname, join, parse, relative, resolve, sep } from 'node:path';
 import type { ChatItem } from '@ruimte/contracts';
 import { isInside } from '../canvas/project-paths.ts';
+import { isRecord } from '../is-record.ts';
 import { toolWrites } from '../provenance/tool-writes.ts';
 
 interface WorkedFolder {
@@ -19,7 +20,6 @@ export interface WorkedFolderOptions {
 }
 
 // Tools of the CLIs that name a path they only look at; Claude's names, which the Apple backend shares.
-// `folder` fields name a folder, the others a file.
 const READ_PATH_FIELDS: Record<string, ReadonlyArray<{ field: string; folder: boolean }>> = {
     Read: [{ field: 'file_path', folder: false }],
     Glob: [{ field: 'path', folder: true }],
@@ -43,7 +43,7 @@ function resolveIn(cwd: string, home: string, path: string): string {
 }
 
 function readPaths(item: Extract<ChatItem, { kind: 'tool' }>, cwd: string, home: string): Touched[] {
-    const input = typeof item.input === 'object' && item.input !== null ? (item.input as Record<string, unknown>) : {};
+    const input = isRecord(item.input) ? item.input : {};
     return (READ_PATH_FIELDS[item.name] ?? []).flatMap(({ field, folder }) => {
         const value = input[field];
         return typeof value === 'string' && value !== '' ? [{ path: resolveIn(cwd, home, value), folder }] : [];
@@ -108,14 +108,7 @@ export async function workedFolders(items: readonly ChatItem[], options: WorkedF
                 checkouts.push(root);
             }
         }
-        let folder: string | null;
-        if (root !== null) {
-            folder = root;
-        } else if (isInside(home, path)) {
-            folder = topUnderHome(home, touched);
-        } else {
-            folder = directory;
-        }
+        const folder = root ?? (isInside(home, path) ? topUnderHome(home, touched) : directory);
         if (folder === null || folder === home || folder === parse(folder).root || isInside(ruimteHome, folder)) {
             continue;
         }

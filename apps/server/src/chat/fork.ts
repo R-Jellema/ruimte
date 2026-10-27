@@ -23,26 +23,25 @@ import {
     type ProjectEdge,
     type Worktree
 } from '@ruimte/contracts';
+import { forkThreadOnce, ChatError as AgentChatError } from '@adecore/agents/chat';
+import type { AgentLineageStore } from '@adecore/agents/coordination';
+import { narrowerMode, AccountError, storedAccount, codexServiceTier, codexThreadOptions } from '@adecore/agents/providers';
+import type { HiddenAgent, HiddenAgentStore } from '../agents/hidden-agents.ts';
 import { agentNode, nameOf } from '../canvas/agents.ts';
 import { MAX_CANVAS_NODES, newId } from '../canvas/nodes.ts';
 import { placeFree } from '../canvas/placement.ts';
-import { narrowerMode, AccountError, storedAccount, codexServiceTier, codexThreadOptions } from '@adecore/agents/providers';
-import type { WorktreeWant } from '../canvas/verb.ts';
+import type { CanvasHost, MachineHost, ProjectHost, WorktreeWant } from '../canvas/verb.ts';
 import { branchSlug } from '../canvas/worktree.ts';
+import { errorText } from '../error-text.ts';
 import type { Checkpoints } from '../git/checkpoints.ts';
 import { git } from '../git/run.ts';
 import { freeBranch, type Worktrees } from '../git/worktrees.ts';
-import type { CanvasHost, MachineHost, ProjectHost } from '../canvas/verb.ts';
 import type { IndexedPlace } from '../projects/project-index.ts';
 import type { ProjectMutation } from '../projects/project-store.ts';
-import type { AgentLineageStore } from '@adecore/agents/coordination';
-import type { HiddenAgent, HiddenAgentStore } from '../agents/hidden-agents.ts';
 import type { ChatManager } from './chat-manager.ts';
 import { forkClaudeTranscript, type TranscriptCutPoint } from './claude-fork.ts';
-import { forkThreadOnce, ChatError as AgentChatError } from '@adecore/agents/chat';
 import { ChatError } from './errors.ts';
 import { handoffBudget, handoffText } from './handoff.ts';
-import { errorText } from '../error-text.ts';
 
 /* Where a Codex fork goes on after (the turn Codex named, the n-th turn when it named none, or all of it). */
 type ThreadCutPoint = { turnId: string } | { turns: number } | null;
@@ -211,7 +210,6 @@ function switchNote(cut: Cut, original: { title: string }, files: ForkFiles, han
     return `Forked from ${original.title} after ${cutPlace(cut)} and continued with ${handoff.to}. ${filesLine(cut, files)} The agent got ${read} as text and can read the rest of ${original.title} through ruimte-context.`;
 }
 
-// What the CLI's own thread code refuses with is a chat error of the package's, whose code carries over as it is.
 function cliRefusal(error: unknown): ChatError {
     return error instanceof AgentChatError ? new ChatError(error.code, error.message) : new ChatError('fork-failed', errorText(error));
 }
@@ -262,16 +260,11 @@ export async function readForkInfo(deps: ChatForkDeps, payload: ChatForkInfoPayl
 /* What a chat on another machine reads first when it takes over this conversation up to a turn. */
 export async function readHandoff(deps: ChatForkDeps, payload: ChatHandoffPayload): Promise<ChatHandoffResult> {
     const { info, items, turns, index, turn } = await forkSource(deps, payload.chatId, payload.turnId);
-    const place = deps.locate(payload.chatId);
-    const {
-        text,
-        turns: kept,
-        all
-    } = handoffText(itemsThrough(items, turn.id), {
+    return handoffText(itemsThrough(items, turn.id), {
         fromName: nameOf(info.provider),
         originalId: payload.chatId,
         originalTitle: deps.titleFor(payload.chatId) ?? nameOf(info.provider),
-        view: place?.canvasId === null,
+        view: deps.locate(payload.chatId)?.canvasId === null,
         turnNumber: index + 1,
         totalTurns: turns.length,
         at: deps.now(),
@@ -279,7 +272,6 @@ export async function readHandoff(deps: ChatForkDeps, payload: ChatHandoffPayloa
         worktree: null,
         remote: { machine: payload.remote.machine }
     });
-    return { text, turns: kept, all };
 }
 
 /* Steps taken back in reverse when a later one is refused. */

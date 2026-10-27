@@ -1,8 +1,18 @@
 import { realpath } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { z } from 'zod';
-import type { ChatInfo, GitFileState, GitLogResult, GitStatus, Task } from '@ruimte/contracts';
-import { GitFileSchema, GitFileStateSchema, GitLogResultSchema, GitOperationSchema, TaskSchema } from '@ruimte/contracts';
+import {
+    GitFileSchema,
+    GitFileStateSchema,
+    GitLogResultSchema,
+    GitOperationSchema,
+    TaskSchema,
+    type ChatInfo,
+    type GitFileState,
+    type GitLogResult,
+    type GitStatus,
+    type Task
+} from '@ruimte/contracts';
 import { ChatUiRefusal, type ChatUiHost, type ChatUiSource } from '@adecore/agents/chat';
 import { checkCwd, isInside } from '../canvas/project-paths.ts';
 import type { LaunchReading } from '../canvas/verb.ts';
@@ -94,26 +104,24 @@ export function ruimteUiSources(host: UiSourceHosts): ChatUiHost {
         }
         return cwd;
     };
+    const authorizeOnly = async (info: ChatInfo, input: unknown) => {
+        await authorize(info, input);
+    };
+    const authorizeRepository = async (info: ChatInfo, input: unknown, args: Record<string, unknown>) => {
+        await repository(info, input, args);
+    };
     const sources = {
         'git.status': {
             args: UI_SOURCE_ARGS['git.status'],
             result: UiGitStatusSchema,
-            authorize: async (info, access, args) => {
-                await repository(info, access, args);
-            },
-            read: async (info, args, _signal, access) => {
-                return uiGitStatus(await host.gitStatus(await repository(info, access, args)));
-            }
+            authorize: authorizeRepository,
+            read: async (info, args, _signal, access) => uiGitStatus(await host.gitStatus(await repository(info, access, args)))
         },
         'git.log': {
             args: UI_SOURCE_ARGS['git.log'],
             result: GitLogResultSchema,
-            authorize: async (info, access, args) => {
-                await repository(info, access, args);
-            },
-            read: async (info, args, _signal, access) => {
-                return host.gitLog(await repository(info, access, args), Number(args.limit));
-            }
+            authorize: authorizeRepository,
+            read: async (info, args, _signal, access) => host.gitLog(await repository(info, access, args), Number(args.limit))
         },
         'launch.status': {
             args: UI_SOURCE_ARGS['launch.status'],
@@ -125,9 +133,7 @@ export function ruimteUiSources(host: UiSourceHosts): ChatUiHost {
                 url: z.string().nullable(),
                 exitCode: z.number().int().nullable()
             }),
-            authorize: async (info, access) => {
-                await authorize(info, access);
-            },
+            authorize: authorizeOnly,
             read: async (info, args) => {
                 const launches = await host.launches(place(info).projectId);
                 const exact = launches.find((launch) => launch.launchId === args.name);
@@ -149,9 +155,7 @@ export function ruimteUiSources(host: UiSourceHosts): ChatUiHost {
         'chat.tasks': {
             args: UI_SOURCE_ARGS['chat.tasks'],
             result: z.array(TaskSchema.pick({ id: true, childId: true, title: true, status: true, createdAt: true, settledAt: true })).max(100),
-            authorize: async (info, access) => {
-                await authorize(info, access);
-            },
+            authorize: authorizeOnly,
             read: async (info) =>
                 host
                     .tasks(info.chatId)

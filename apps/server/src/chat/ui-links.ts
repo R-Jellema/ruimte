@@ -8,7 +8,7 @@ import { checkCwd, isInside } from '../canvas/project-paths.ts';
 import { locateFile } from '../fs/locate.ts';
 import { cachedRepos } from '../git/repo-cache.ts';
 import { git, toplevel } from '../git/run.ts';
-import { UiSourceAccessSchema } from './ui-access.ts';
+import { UiSourceAccessSchema, type UiSourceAccess } from './ui-access.ts';
 import type { UiSourceHosts } from './ui-sources.ts';
 
 /* The real path of the repository a directory is in; null outside one. */
@@ -19,8 +19,6 @@ async function repositoryOf(directory: string): Promise<string | null> {
         return null;
     }
 }
-
-type UiAccess = ReturnType<typeof UiSourceAccessSchema.parse>;
 
 interface LinkPlace {
     projectId: string;
@@ -53,7 +51,7 @@ export async function resolveUiProjectLink(host: UiSourceHosts, info: ChatInfo, 
     return resolvePath(host, place, access, cwd, target);
 }
 
-async function resolveCommit(host: UiSourceHosts, place: LinkPlace, access: UiAccess, cwd: string, wanted: string): Promise<UiLinkResolution> {
+async function resolveCommit(host: UiSourceHosts, place: LinkPlace, access: UiSourceAccess, cwd: string, wanted: string): Promise<UiLinkResolution> {
     // The agent's own repository first, then every other checkout of the project folder (submodules, repositories beside it).
     const candidates = new Set<string>();
     for (const directory of [cwd, ...(await cachedRepos(place.folder)).repos.map((repo) => repo.path)]) {
@@ -82,7 +80,7 @@ async function resolveCommit(host: UiSourceHosts, place: LinkPlace, access: UiAc
 }
 
 /* Where the agent's own folder has no such file, the first of the other folders `fs.locate` tries that holds it. */
-async function locatedPath(place: LinkPlace, access: UiAccess, wanted: string): Promise<string> {
+async function locatedPath(place: LinkPlace, access: UiSourceAccess, wanted: string): Promise<string> {
     const own = resolve(access.cwd, wanted);
     if (isAbsolute(wanted) || (await fileExists(own))) {
         return own;
@@ -94,7 +92,7 @@ async function locatedPath(place: LinkPlace, access: UiAccess, wanted: string): 
 async function resolvePath(
     host: UiSourceHosts,
     place: LinkPlace,
-    access: UiAccess,
+    access: UiSourceAccess,
     cwd: string,
     target: Extract<UiLinkTarget, { type: 'File' | 'Diff' }>
 ): Promise<UiLinkResolution> {
