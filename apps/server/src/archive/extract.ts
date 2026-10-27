@@ -1,10 +1,10 @@
 import { constants } from 'node:fs';
 import { lstat, mkdir, open, unlink } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { CodedError } from '@adecore/agents';
 import { ARCHIVE_SKIPPED_MAX, type ArchiveExtractResult, type ArchiveSkipped } from '@ruimte/contracts';
-import { isInside } from '../canvas/project-paths.ts';
 import { deepestExisting } from '../fs/create.ts';
-import { realRoots, stateRefusal, type WriteBoundary } from '../fs/write.ts';
+import { assertOpenGround, realRoots, rootOf, stateRefusal, type WriteBoundary } from '../fs/write.ts';
 import { openArchive, walkArchive, type WalkedEntry } from './archive.ts';
 import { safeEntryPath, selects } from './entry-path.ts';
 import { ARCHIVE_EXTRACT_MAX_BYTES, ArchiveError } from './limits.ts';
@@ -42,14 +42,15 @@ export async function planExtract(request: ExtractRequest, boundary: WriteBounda
     const { base, missing } = await deepestExisting(target);
     const realTo = join(base, ...missing);
     const roots = await realRoots(boundary);
-    const root = roots.find((candidate) => isInside(candidate, realTo));
-    if (root === undefined) {
-        throw new ArchiveError('outside-project', `${target} is outside the projects open here and their worktrees`);
+    let root: string;
+
+    try {
+        root = rootOf(roots, realTo, target);
+        assertOpenGround(root, realTo, target, 'written');
+    } catch (e) {
+        throw e instanceof CodedError ? new ArchiveError(e.code, e.message) : e;
     }
-    const refused = stateRefusal(relative(root, realTo).split(sep), target, 'written');
-    if (refused !== null) {
-        throw new ArchiveError(refused.code, refused.message);
-    }
+
     const selection = request.entries?.map((entry) => {
         const safe = safeEntryPath(entry);
         if (safe === null) {

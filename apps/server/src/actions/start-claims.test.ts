@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ActionRefusal } from '@ruimte/actions';
 import { VerbRefusal } from '../canvas/verb.ts';
+import { codeOf } from '../fs/test-boundary.ts';
 import { StartClaims, startInputHash, type StartClaim } from './start-claims.ts';
 
 let home: string;
@@ -23,15 +24,6 @@ async function loaded(): Promise<StartClaims> {
     const fresh = claims();
     await fresh.load();
     return fresh;
-}
-
-async function codeOf(work: Promise<unknown>): Promise<string | undefined> {
-    try {
-        await work;
-        return undefined;
-    } catch (e) {
-        return (e as { code?: string }).code;
-    }
 }
 
 beforeEach(async () => {

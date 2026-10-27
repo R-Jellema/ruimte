@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { ComputerAppGrants } from '@ruimte/contracts';
+import { codeOf } from '../fs/test-boundary.ts';
 import type { SessionEvent } from '../sessions/manager.ts';
 import { APPROVAL_WAIT_MS, CARD_MS } from './approvals.ts';
 import { chatInfo, computerSetup, SHELL_APP, terminalStatus, TEXT_EDIT, turnEnded, until, type ComputerSetup } from './computer-test-helpers.ts';
@@ -11,15 +12,6 @@ import { ComputerUseStore } from './store.ts';
 
 // How long a call held by the person waits before it asks the helper again.
 const HOLD_MS = 500;
-
-async function codeOf(work: Promise<unknown>): Promise<string> {
-    try {
-        await work;
-    } catch (error) {
-        return (error as { code?: string }).code ?? 'no-code';
-    }
-    return 'no-refusal';
-}
 
 describe('computer use', () => {
     test('refuses every call while it is off, and never starts the helper for one', async () => {
