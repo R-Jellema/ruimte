@@ -34,6 +34,7 @@ let restoreLayout: () => void;
 function infoOf(id: string): ChatInfo {
     return {
         chatId: id,
+        createdAt: 0,
         provider: 'claude',
         cwd: '/work/atlas',
         agentSessionId: null,
@@ -140,6 +141,39 @@ describe('what a chat saved to Output', () => {
     test('has no card while the chat made nothing', async () => {
         await until(() => machine.requests('artifact.list').some((payload) => payload.chatId === chatId));
         expect(cards()).toHaveLength(0);
+    });
+
+    test('a cleared thread loses its saved cards, including after a new message and reopening', async () => {
+        saved = [artifact('shot', 'settings.png', 'image')];
+        await act(async () => machine.emit('artifact.changed', { artifactId: 'shot', projectId: 'project-atlas' }));
+        await until(() => cards().length === 1);
+        await act(async () => machine.emit('chat.event', { chatId, event: { type: 'reset', info: infoOf(chatId), items: [] }, seq: 2 }));
+        expect(page.host.querySelector('[data-find-item="read-shot"]')).toBeNull();
+        expect(cards()).toHaveLength(0);
+
+        const next = { ...readShot(), id: 'next-shot', createdAt: saved[0]!.latest.createdAt + 1 };
+        await act(async () => machine.emit('chat.event', { chatId, event: { type: 'item', item: next }, seq: 3 }));
+        expect(cards()).toHaveLength(0);
+
+        machine.answer('chat.attach', () => ({ info: infoOf(chatId), items: [next], seq: 3 }) as never);
+        await page.unmount();
+        workspace.close();
+        workspace = await openFakeWorkspace(machine, { views: [{ kind: 'chat', id: chatId, name: 'Agent', node: { provider: 'claude' } }] } as never, {
+            activeViewId: chatId,
+            views: {}
+        });
+        page = mount();
+        await page.renderApp();
+        await until(() => page.host.querySelector('[data-find-item="next-shot"]') !== null);
+        expect(cards()).toHaveLength(0);
+        expect(saved).toHaveLength(1);
+
+        saved = [{ ...saved[0]!, latest: version(2, next.createdAt + 1), versionCount: 2 }];
+        const renewed = saved[0]!;
+        machine.answer('artifact.get', () => ({ artifact: renewed, versions: [renewed.latest, version(1, renewed.createdAt)], chatPresent: true }));
+        await act(async () => machine.emit('artifact.changed', { artifactId: 'shot', projectId: 'project-atlas' }));
+        await until(() => cards().length === 1);
+        expect(cards()[0]!.textContent).toContain('Version 2 saved to Output');
     });
 
     test('a screenshot a tool read saves to Output and then stands as a card in the thread', async () => {

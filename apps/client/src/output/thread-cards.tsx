@@ -23,10 +23,13 @@ export function useOutputThreadCards(scopeId: string, chatId: string): readonly 
     const artifacts = list?.status === 'ready' ? list.artifacts : NO_ARTIFACTS;
     const read = useReadVersions(scopeId, artifacts);
     const structure = useChatRow(chatId, (row) => row?.structure);
+    const itemTimes = structure === undefined ? [] : Object.values(structure).map((item) => item.createdAt);
+    // Output survives a clear; only versions from the conversation still in this thread belong here.
+    const from = itemTimes.length === 0 ? Number.POSITIVE_INFINITY : Math.min(...itemTimes);
     const saved = artifacts
         .flatMap((summary) => read[summary.artifactId] ?? [{ artifact: summary, version: summary.latest, latest: true }])
-        .filter((entry) => entry.version.provenance.chatId === chatId);
-    const groups = groupsBetweenItems(saved, structure === undefined ? [] : Object.values(structure).map((item) => item.createdAt));
+        .filter((entry) => entry.version.provenance.chatId === chatId && entry.version.createdAt >= from);
+    const groups = groupsBetweenItems(saved, itemTimes);
     const shape = `${scopeId}\n\n${groups
         .map((group) => group.map((entry) => `${entry.version.versionId}:${entry.latest}:${entry.artifact.title}:${entry.artifact.kind}`).join('\n'))
         .join('\n\n')}`;
