@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'bun:test';
 import { lstat, mkdir, readdir, readFile, readlink, rename, rm, symlink, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import type { LanguageServerKind } from '@ruimte/contracts';
 import { LanguageInstaller } from './installer.ts';
 import { PackageStore } from './package-store.ts';
@@ -719,30 +719,35 @@ describe('shared package sets', () => {
     it('installs css, html and json from one set and runs bun install once', async () => {
         const calls: string[] = [];
         const installer = sharing(calls);
+
         for (const kind of SHARED) {
             await installer.install(kind);
             expect(await installer.state(kind)).toBe('installed');
         }
-        expect(calls).toHaveLength(1);
+
         const sets = await Promise.all(SHARED.map(async (kind) => setOf(await currentFolder(kind))));
+        const folders = await Promise.all(SHARED.map(currentFolder));
+
+        expect(calls).toHaveLength(1);
         expect(new Set(sets).size).toBe(1);
         expect((await readdir(join(root, 'packages'))).filter((name) => !name.startsWith('.'))).toEqual(sets.slice(0, 1));
-        // Each kind keeps its own folder and marker.
-        const folders = await Promise.all(SHARED.map(currentFolder));
         expect(new Set(folders).size).toBe(3);
     });
 
-    it('removes an install folder by unlinking, so the set stays whole for the others', async () => {
+    it('removes a stale install folder by unlinking, so the set stays whole for the others', async () => {
         const installer = sharing();
+
         await installer.install('css');
         await installer.install('html');
+
         const stale = join(root, 'json', 'versions', 'stale');
-        await mkdir(join(root, 'json', 'versions'), { recursive: true });
-        await mkdir(stale);
         const setId = await setOf(await currentFolder('css'));
+
+        await mkdir(stale, { recursive: true });
         await symlink(join('..', '..', '..', 'packages', setId, 'node_modules'), join(stale, 'node_modules'), 'dir');
-        // Another install triggers the prune of the kind with the stale folder.
+        // The install of json prunes its versions folder, stale one included.
         await installer.install('json');
+
         expect(await readdir(join(root, 'json', 'versions'))).not.toContain('stale');
         expect(await installer.state('css')).toBe('installed');
         expect(await installer.state('html')).toBe('installed');
@@ -750,34 +755,38 @@ describe('shared package sets', () => {
 
     it('collects a set no install links to and keeps the one another kind uses', async () => {
         const installer = sharing();
+
         await installer.install('css');
-        const orphan = join(root, 'packages', 'fedcba9876543210');
-        await mkdir(join(orphan, 'node_modules'), { recursive: true });
+        await mkdir(join(root, 'packages', 'fedcba9876543210', 'node_modules'), { recursive: true });
         await installer.install('html');
+
         expect(await readdir(join(root, 'packages'))).not.toContain('fedcba9876543210');
         expect(await installer.state('css')).toBe('installed');
     });
 
     it('collects nothing when an install folder cannot be read', async () => {
         const installer = sharing();
+
         await installer.install('css');
-        const orphan = join(root, 'packages', 'fedcba9876543210');
-        await mkdir(join(orphan, 'node_modules'), { recursive: true });
-        // A file where the versions folder should be makes the walk fail with something other than ENOENT.
+        await mkdir(join(root, 'packages', 'fedcba9876543210', 'node_modules'), { recursive: true });
+        // A file where the folder of a kind should be makes the walk fail with something other than ENOENT.
         await writeFile(join(root, 'html'), '');
         await installer.install('json');
+
         expect(await readdir(join(root, 'packages'))).toContain('fedcba9876543210');
     });
 
     it('reads a kind with a dangling link as missing, and Install repairs it', async () => {
         const calls: string[] = [];
         const installer = sharing(calls);
+
         await installer.install('css');
-        const folder = await currentFolder('css');
-        const setId = await setOf(folder);
-        await rm(join(root, 'packages', setId), { recursive: true });
+        await rm(join(root, 'packages', await setOf(await currentFolder('css'))), { recursive: true });
+
         expect(await installer.state('css')).toBe('missing');
+
         await installer.install('css');
+
         expect(await installer.state('css')).toBe('installed');
         expect(calls).toHaveLength(2);
         expect((await lstat(join(await currentFolder('css'), 'node_modules'))).isSymbolicLink()).toBe(true);
@@ -785,27 +794,30 @@ describe('shared package sets', () => {
 
     it('clears an interrupted build from staging when it loads', async () => {
         await mkdir(join(root, 'packages', '.staging', 'left-over'), { recursive: true });
-        const installer = sharing();
-        await installer.load();
+        await sharing().load();
+
         expect(await readdir(join(root, 'packages')).catch(() => [])).toEqual([]);
     });
 
-    it('goes back and forward between installs with a link and logs how long it took', async () => {
+    it('goes back to a linked install and logs how long it took', async () => {
         const installer = sharing();
+
         await installer.install('css');
+
         const first = await currentFolder('css');
-        // An install of older versions, linked like the new ones.
         const setId = await setOf(first);
         const older = join(root, 'css', 'versions', 'older');
+
         await mkdir(older);
         await symlink(join('..', '..', '..', 'packages', setId, 'node_modules'), join(older, 'node_modules'), 'dir');
         await writeFile(
             join(older, 'installed.json'),
             JSON.stringify({ versions: { 'vscode-langservers-extracted': '4.0.0' }, version: '4.0.0', packages: setId })
         );
-        await writeFile(join(root, 'css', 'current.json'), JSON.stringify({ current: first.split('/').at(-1), previous: 'older' }));
+        await writeFile(join(root, 'css', 'current.json'), JSON.stringify({ current: basename(first), previous: 'older' }));
         await installer.load();
         await installer.rollback('css');
+
         expect(installer.versionOf('css')).toBe('4.0.0');
         expect(logTexts(installer, 'css').at(-1)).toMatch(/^Went back to 4\.0\.0 from .* in \d+ ms$/);
     });

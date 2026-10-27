@@ -561,16 +561,21 @@ export class LanguageInstaller {
 
     private async performPackages(kind: NpmKind, target: string, log: LanguageLog): Promise<void> {
         const dependencies = pinnedVersionsOf(kind);
+
         await writeFile(join(target, 'package.json'), `${JSON.stringify({ name: `ruimte-language-server-${kind}`, private: true, dependencies }, null, 2)}\n`);
+
         // Windows does not link folders without a privilege, so there an install holds its own packages.
         if (process.platform === 'win32') {
             await this.installOwnPackages(kind, target, dependencies, log);
             await this.verifyPrograms(kind, target, log);
             await this.writeMarker(target, { versions: dependencies, version: versionOf(kind) });
+
             return;
         }
+
         const entries = KIND_PROFILES[kind].components.map((component) => component.entry);
         const lease = await this.store.ensure(dependencies, entries, (line) => log.push('install', line));
+
         try {
             // Relative, so the whole language-servers folder can move and a link never points outside it.
             await symlink(relative(target, join(lease.folder, 'node_modules')), join(target, 'node_modules'), 'dir');
@@ -582,51 +587,58 @@ export class LanguageInstaller {
     }
 
     private async installOwnPackages(kind: NpmKind, target: string, dependencies: Record<string, string>, log: LanguageLog): Promise<void> {
+        const { runtime } = this.options;
+
         log.push(
             'install',
             `Installing ${Object.entries(dependencies)
                 .map(([name, version]) => `${name}@${version}`)
                 .join(', ')}`
         );
-        const { runtime } = this.options;
+
         const code = await this.run(
             { command: runtime.command, args: [...runtime.args, 'install', '--ignore-scripts'], cwd: target, env: runtime.env },
             (line) => log.push('install', line)
         );
+
         if (code !== 0) {
             throw new Error(`The installer exited with code ${code}`);
         }
+
         for (const component of KIND_PROFILES[kind].components) {
             const entry = join(target, 'node_modules', component.entry);
+
             if (!(await fileExists(entry))) {
                 throw new Error(`The install did not leave ${entry}`);
             }
         }
     }
 
-    /*
-     * Gives the installs from before package sets (a real `node_modules`) to the store, for the install a kind
-     * runs and the one before it. Awaited by \`load\`, before any server starts. A later start finds links and
-     * costs one \`lstat\` per install.
-     */
+    /* Awaited by `load` before any server starts, so a server never runs from a tree that is being moved. */
     private async adoptInstalls(): Promise<void> {
         if (process.platform === 'win32') {
             return;
         }
+
         const started = this.now();
         let first: LanguageServerKind | null = null;
         let adopted = 0;
+
         for (const kind of LanguageServerKindSchema.options) {
             if (isNativeKind(kind) || isToolchainKind(kind)) {
                 continue;
             }
+
             const selection = await this.readSelection(kind);
+
             for (const id of [selection?.current, selection?.previous]) {
                 if (id === undefined || id === LEGACY) {
                     continue;
                 }
+
                 try {
                     const adoption = await this.store.adopt(this.folderOf(kind, id));
+
                     if (adoption !== null) {
                         first ??= kind;
                         adopted++;
@@ -638,43 +650,53 @@ export class LanguageInstaller {
                 }
             }
         }
+
         if (first !== null) {
             this.logOf(first).push('install', `Shared the packages of ${adopted} installs in ${this.now() - started} ms`);
         }
     }
 
-    /* Removes the folder of an install. Its `node_modules` may be a link to a shared set, which is unlinked first so no removal can follow it into the set. */
+    /* The link is removed first, so no `rm` can follow it into the shared set. */
     private async removeInstallFolder(folder: string): Promise<void> {
         const modules = join(folder, 'node_modules');
         const stat = await lstat(modules).catch(() => null);
+
         if (stat?.isSymbolicLink()) {
             await unlink(modules);
         }
+
         await rm(folder, { recursive: true, force: true });
     }
 
-    /* The ids of the package sets the installs on disk link to or name, or null when the disk could not be read in full. */
+    /* The ids of the sets the installs on disk link to or name, or null when the disk could not be read in full. */
     private async referencedSets(): Promise<Set<string> | null> {
         const used = new Set<string>();
+
         try {
             for (const kind of LanguageServerKindSchema.options) {
                 if (isNativeKind(kind) || isToolchainKind(kind)) {
                     continue;
                 }
+
                 const folders = [this.directoryOf(kind)];
+
                 for (const id of await readdir(join(this.directoryOf(kind), VERSIONS)).catch(ignoreMissing)) {
                     folders.push(join(this.directoryOf(kind), VERSIONS, id));
                 }
+
                 for (const folder of folders) {
                     const link = await readlink(join(folder, 'node_modules')).catch(ignoreNotALink);
+
                     if (link !== null) {
-                        // The set is the folder above the `node_modules` the link points at.
                         const set = dirname(resolve(folder, link));
+
                         if (dirname(set) === this.store.directory) {
                             used.add(basename(set));
                         }
                     }
+
                     const marker = await this.readMarker(folder);
+
                     if (marker?.packages !== undefined) {
                         used.add(marker.packages);
                     }
@@ -683,6 +705,7 @@ export class LanguageInstaller {
         } catch {
             return null;
         }
+
         return used;
     }
 
