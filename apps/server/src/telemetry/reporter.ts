@@ -10,6 +10,7 @@ import {
     telemetryRelease,
     type DedupeStore
 } from '@ruimte/telemetry';
+import { isRecord } from '../is-record.ts';
 import { COMPILED, VERSION } from '../version.ts';
 
 type Sentry = typeof import('@sentry/bun');
@@ -78,7 +79,7 @@ export function fileDedupeStore(path: string): DedupeStore {
     return {
         read: () => {
             const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'));
-            return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? (parsed as Record<string, number>) : {};
+            return isRecord(parsed) ? (parsed as Record<string, number>) : {};
         },
         write: (entries) => {
             mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
@@ -122,14 +123,27 @@ export function markInApp<T extends object>(event: T): T {
     return event;
 }
 
+/* The machine's context a report carries: its platform and runtime, nothing of the person. */
+export function nodeContext(loaded: Sentry): ReturnType<Sentry['nodeContextIntegration']> {
+    return loaded.nodeContextIntegration({ app: false, cloudResource: false, culture: false, device: { cpu: false, memory: false } });
+}
+
 /*
  * What the serving daemon reports with: errors, and a session per run without a user, so a release's crash-free
- * runs are counted and nothing else. No tracing, no breadcrumbs, no logs.
+ * runs are counted and nothing else. No tracing, no breadcrumbs, no logs. The hang watchdog passes its own
+ * integrations, without the session.
  */
 export function daemonClientOptions(
     loaded: Sentry,
     current: TelemetrySettings,
-    beforeSend: <T extends object>(event: T) => T | null
+    beforeSend: <T extends object>(event: T) => T | null,
+    integrations = [
+        loaded.functionToStringIntegration(),
+        loaded.linkedErrorsIntegration(),
+        loaded.dedupeIntegration(),
+        nodeContext(loaded),
+        loaded.processSessionIntegration()
+    ]
 ): Parameters<Sentry['init']>[0] {
     return {
         dsn: current.dsn,
@@ -139,13 +153,7 @@ export function daemonClientOptions(
         attachStacktrace: false,
         maxBreadcrumbs: 0,
         sendClientReports: false,
-        integrations: [
-            loaded.functionToStringIntegration(),
-            loaded.linkedErrorsIntegration(),
-            loaded.dedupeIntegration(),
-            loaded.nodeContextIntegration({ app: false, cloudResource: false, culture: false, device: { cpu: false, memory: false } }),
-            loaded.processSessionIntegration()
-        ],
+        integrations,
         initialScope: { tags: { ...current.tags } },
         beforeSend: (event) => beforeSend(event),
         beforeBreadcrumb: () => null

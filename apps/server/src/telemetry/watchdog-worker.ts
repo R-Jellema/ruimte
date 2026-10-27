@@ -1,6 +1,5 @@
 import { HEARTBEAT_MS, LoopWatch } from './loop-watch.ts';
-import { TELEMETRY_DATA_COLLECTION } from '@ruimte/telemetry';
-import { daemonBeforeSend, type TelemetrySettings } from './reporter.ts';
+import { daemonBeforeSend, daemonClientOptions, nodeContext, type TelemetrySettings } from './reporter.ts';
 
 declare const self: Worker;
 
@@ -48,20 +47,7 @@ function check(): void {
 /* Its own client: the main thread cannot send while it is the one that hangs. Without a stack, which Bun cannot take of another thread. */
 async function startReporting(settings: TelemetrySettings): Promise<void> {
     const loaded = await import('@sentry/bun');
-    const beforeSend = daemonBeforeSend(settings);
-    loaded.initWithoutDefaultIntegrations({
-        dsn: settings.dsn,
-        release: settings.release,
-        environment: 'production',
-        dataCollection: TELEMETRY_DATA_COLLECTION,
-        attachStacktrace: false,
-        maxBreadcrumbs: 0,
-        sendClientReports: false,
-        integrations: [loaded.nodeContextIntegration({ app: false, cloudResource: false, culture: false, device: { cpu: false, memory: false } })],
-        initialScope: { tags: { ...settings.tags } },
-        beforeSend: (event) => beforeSend(event),
-        beforeBreadcrumb: () => null
-    });
+    loaded.initWithoutDefaultIntegrations(daemonClientOptions(loaded, settings, daemonBeforeSend(settings), [nodeContext(loaded)]));
     sentry = loaded;
 }
 
