@@ -238,7 +238,7 @@ struct ChatRunSettings: View {
                                 selection["options"]?[ChatContextUsage.windowOption]?.stringValue
                                     ?? windowOption.text("defaultChoice")
                             },
-                            set: { updateOption(ChatContextUsage.windowOption, value: .string($0)) })
+                            set: { model.chooseOption(ChatContextUsage.windowOption, value: .string($0)) })
                     ) {
                         ForEach(Array(windowOption.list("choices").enumerated()), id: \.offset) { _, choice in
                             Text(choice.text("label")).tag(choice.text("id"))
@@ -279,7 +279,7 @@ struct ChatRunSettings: View {
             Toggle(
                 isOn: Binding(
                     get: { selection["options"]?[id]?.boolValue ?? option["defaultValue"]?.boolValue ?? false },
-                    set: { updateOption(id, value: .bool($0)) })
+                    set: { model.chooseOption(id, value: .bool($0)) })
             ) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
@@ -293,7 +293,7 @@ struct ChatRunSettings: View {
                 title,
                 selection: Binding(
                     get: { selection["options"]?[id]?.stringValue ?? option.text("defaultChoice") },
-                    set: { updateOption(id, value: .string($0)) })
+                    set: { model.chooseOption(id, value: .string($0)) })
             ) {
                 ForEach(Array(option.list("choices").enumerated()), id: \.offset) { _, choice in
                     Text(choice.text("label")).tag(choice.text("id"))
@@ -301,8 +301,6 @@ struct ChatRunSettings: View {
             }
         }
     }
-
-    private func updateOption(_ id: String, value: JSONValue) { model.chooseOption(id, value: value) }
 
     /// A session window warns as it fills, as the desktop's account rows do.
     static func tone(_ used: Double) -> Color {

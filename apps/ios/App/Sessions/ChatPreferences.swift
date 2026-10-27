@@ -27,8 +27,9 @@ final class ChatPreferences {
             return
         }
         if let mode = stored["runtimeMode"]?.stringValue, Self.runtimeModes.contains(mode) { runtimeMode = mode }
-        for (provider, selection) in stored["selections"]?.objectValue ?? [:] where Self.isSelection(selection) {
-            if Self.providers.contains(provider) { selections[provider] = selection }
+        for (provider, selection) in stored["selections"]?.objectValue ?? [:]
+        where Self.providers.contains(provider) && Self.isSelection(selection) {
+            selections[provider] = selection
         }
         for (machine, picks) in stored["accountByMachine"]?.objectValue ?? [:] {
             let valid = (picks.objectValue ?? [:]).compactMapValues(\.stringValue).filter {
@@ -124,8 +125,8 @@ final class ChatPreferences {
     }
 
     private static func isSelection(_ value: JSONValue) -> Bool {
-        guard let model = value["model"]?.stringValue, !model.isEmpty else { return false }
-        return (value["options"]?.objectValue ?? [:]).values.allSatisfy { $0.stringValue != nil || $0.boolValue != nil }
-            && value["options"]?.objectValue != nil
+        guard let model = value["model"]?.stringValue, !model.isEmpty, let options = value["options"]?.objectValue
+        else { return false }
+        return options.values.allSatisfy { $0.stringValue != nil || $0.boolValue != nil }
     }
 }

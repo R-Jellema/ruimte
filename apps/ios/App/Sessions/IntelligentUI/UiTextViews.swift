@@ -1,3 +1,4 @@
+import RuimtePulsar
 import SwiftUI
 
 enum UiToneStyle {
@@ -140,7 +141,7 @@ struct UiProgressView: View {
         let limit = node.number("max") ?? 100
         let reading = value.map { value in
             limit == 100
-                ? UiFormat.percent(value)
+                ? Format.percent(value)
                 : String(localized: "\(UiFormat.number(value)) of \(UiFormat.number(limit))")
         }
         let label = node.label

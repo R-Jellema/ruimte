@@ -54,7 +54,7 @@ struct ChatElapsed: View {
     var body: some View {
         TimelineView(.animation(minimumInterval: 1, paused: !visible || scenePhase != .active)) { context in
             let elapsed = max(0, context.date.timeIntervalSince1970 * 1000 - startedAt)
-            let value = clock ? Format.clockDuration(milliseconds: elapsed) : ChatToolPresentation.elapsed(elapsed)
+            let value = clock ? Format.clockDuration(milliseconds: elapsed) : Format.elapsedShort(milliseconds: elapsed)
             Text(Self.label(value, runningFor: runningFor)).monospacedDigit()
         }
         .onAppear { visible = true }
@@ -111,7 +111,8 @@ struct ChatThinkingRow: View {
                         let live = streamingMode == .whole ? "" : ChatThought.line(item.text)
                         ChatLiveLabel(text: live.isEmpty ? String(localized: "Thinking…") : live).lineLimit(1)
                     } else {
-                        let duration = ChatToolPresentation.elapsed((item.endedAt ?? item.createdAt) - item.createdAt)
+                        let duration = Format.elapsedShort(
+                            milliseconds: (item.endedAt ?? item.createdAt) - item.createdAt)
                         let preview = ChatThought.preview(item.text)
                         if preview.isEmpty {
                             Text("Thought for \(duration)").lineLimit(1)
@@ -165,7 +166,6 @@ struct ChatToolRow: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var expanded = false
     private var running: Bool { item.state == .running }
-    private var failed: Bool { item.state == .error }
 
     var body: some View {
         let opens = ChatToolBody.opens(item)

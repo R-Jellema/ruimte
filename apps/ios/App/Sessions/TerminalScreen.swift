@@ -25,8 +25,6 @@ struct TerminalScreen: View {
         self.held = held
     }
 
-    private var usable: Bool { model.connected && !model.loading && !model.exited }
-
     var body: some View {
         VStack(spacing: 0) {
             if let error = model.error { SessionErrorBanner(message: error) { model.attach() } }
@@ -56,7 +54,7 @@ struct TerminalScreen: View {
                         TerminalHeldPrompt(held: held)
                     }
                     TerminalKeyBar(model: model, keyboardShown: keyboardShown)
-                        .disabled(!usable)
+                        .disabled(!model.usable)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
@@ -81,7 +79,7 @@ struct TerminalScreen: View {
                         Button(String(localized: "Reload screen"), lucideIcon: "refresh-cw") { model.attach() }
                         Button(String(localized: "Clear scrollback"), lucideIcon: "eraser") { clearing = true }
                             .keyboardShortcut("k", modifiers: .command)
-                            .disabled(!usable)
+                            .disabled(!model.usable)
                     }
                 } label: {
                     Image(lucide: "ellipsis")
@@ -137,7 +135,7 @@ private struct NativeTerminal: UIViewRepresentable {
         bind(container)
         container.configure(fontSize: fontSize, theme: theme)
         container.setDimensions(cols: model.cols, rows: model.rows)
-        container.terminal.isUserInteractionEnabled = model.connected && !model.loading && !model.exited
+        container.terminal.isUserInteractionEnabled = model.usable
     }
 
     static func dismantleUIView(_ container: TerminalContainer, coordinator: Coordinator) {

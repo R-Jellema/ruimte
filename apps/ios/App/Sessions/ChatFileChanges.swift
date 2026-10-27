@@ -67,8 +67,8 @@ enum ChatFileChanges {
     private static func counted(path: String, diff: String) -> ChatFileChange {
         let lines = diff.components(separatedBy: "\n")
         return ChatFileChange(
-            path: path, diff: diff, added: lines.filter { $0.hasPrefix("+") && !$0.hasPrefix("+++") }.count,
-            deleted: lines.filter { $0.hasPrefix("-") && !$0.hasPrefix("---") }.count)
+            path: path, diff: diff, added: lines.count { $0.hasPrefix("+") && !$0.hasPrefix("+++") },
+            deleted: lines.count { $0.hasPrefix("-") && !$0.hasPrefix("---") })
     }
 
     static func grouped(_ changes: [ChatFileChange]) -> [ChatFileChange] {

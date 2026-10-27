@@ -12,15 +12,13 @@ struct MarkdownMessage: View {
     @Environment(\.markdownReferences) private var inheritedReferences
 
     var body: some View {
+        let references = MarkdownInline.references(text)
         VStack(alignment: .leading, spacing: 14) {
             if blocks.isEmpty && !text.isEmpty { Text(text).hidden().accessibilityHidden(true) }
             MarkdownBlocksView(blocks: blocks, streaming: streaming)
         }
         .lineSpacing(4).textSelection(.enabled)
-        .environment(
-            \.markdownReferences,
-            MarkdownInline.references(text).isEmpty ? inheritedReferences : MarkdownInline.references(text)
-        )
+        .environment(\.markdownReferences, references.isEmpty ? inheritedReferences : references)
         .task(id: text) {
             let parsed = await parser.parse(text)
             guard !Task.isCancelled else { return }

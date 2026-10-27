@@ -43,8 +43,8 @@ struct ChatScreen: View {
     let isPrepared: Bool
     /// The project the chat stands in, which is what a fork's way back and a summary's way to the fork need.
     let workspace: MobileWorkspace?
-    /// Passed in rather than read from the environment: a pushed navigation destination does not inherit the
-    /// environment of the view that declared it, so a chat opened from a project lost its plans and sub-agents.
+    /// Passed in rather than read from the environment, which a pushed navigation destination does not inherit from
+    /// the view that declared it.
     let machineSession: SharedMachineSession?
     /// Under the title, such as the run of a routine this chat is.
     let subtitle: String?
@@ -195,11 +195,9 @@ struct ChatScreen: View {
             item: Binding(
                 get: { model.presentation.forkRequest }, set: { model.presentation.forkRequest = $0 })
         ) { request in
+            let origin = workspace.flatMap { ChatForking.origin(in: $0.views, chatID: model.chatID) }
             ChatForkSheet(
-                model: model, turnID: request.turnID,
-                originalTitle: workspace.flatMap { ChatForking.origin(in: $0.views, chatID: model.chatID)?.title }
-                    ?? title,
-                origin: workspace.flatMap { ChatForking.origin(in: $0.views, chatID: model.chatID)?.shape },
+                model: model, turnID: request.turnID, originalTitle: origin?.title ?? title, origin: origin?.shape,
                 forked: openFork)
         }
         .navigationDestination(
@@ -394,7 +392,7 @@ struct ChatScreen: View {
                 }
                 .accessibilityIdentifier("chat.messages")
             }
-            if hasBookmarks {
+            if !model.presentation.bookmarks.isEmpty {
                 Button {
                     showingBookmarks = true
                 } label: {
@@ -403,7 +401,7 @@ struct ChatScreen: View {
                 }
                 .accessibilityIdentifier("chat.bookmarks")
             }
-            if hasSubagents && model.activitySubagents.isEmpty {
+            if model.hasSubagentRows && model.activitySubagents.isEmpty {
                 Button(String(localized: "Sub-agents"), lucideIcon: "bot") {
                     subagentList = SubagentListRoute(chatID: model.chatID)
                 }
@@ -490,7 +488,7 @@ struct ChatScreen: View {
             let refusal = ChatForking.summaryRefusal(
                 info: model.info, originalPresent: workspace == nil || originalTitle != nil)
             Button {
-                summarize()
+                Task { await model.perform("chat.summarize") }
             } label: {
                 Label(String(localized: "Summarize for the original"), lucideIcon: "message-square-share")
                 Text(refusal ?? originalTitle ?? "")
@@ -503,18 +501,6 @@ struct ChatScreen: View {
         }
     }
 
-    private func summarize() {
-        let model = model
-        Task {
-            do {
-                _ = try await model.client.request("chat.summarize", payload: model.target())
-                model.error = nil
-            } catch {
-                model.error = error.localizedDescription
-            }
-        }
-    }
-
     /// Opens the fork once the machine has written it into the project, as the desktop reveals it.
     private func openFork(_ id: String) {
         let model = model
@@ -524,8 +510,6 @@ struct ChatScreen: View {
             model.presentation.openRequest = id
         }
     }
-
-    private var hasBookmarks: Bool { !model.presentation.bookmarks.isEmpty }
 
     private func handle(_ request: ChatBookmarkRequest) {
         switch request.action {
@@ -549,11 +533,6 @@ struct ChatScreen: View {
 
     private func regular(_ binding: Binding<Bool>) -> Binding<Bool> {
         sizeClass == .regular ? binding : .constant(false)
-    }
-
-    /// The toolbar offers the list only once the chat has a sub-agent to open.
-    private var hasSubagents: Bool {
-        model.hasSubagentRows
     }
 
     private var hasDraft: Bool {
@@ -685,7 +664,8 @@ struct ChatScreen: View {
     private func send() {
         guard model.canSend else { return }
         let snapshot = model.draft
-        switch snapshot.trimmingCharacters(in: .whitespacesAndNewlines) {
+        let command = snapshot.trimmingCharacters(in: .whitespacesAndNewlines)
+        switch command {
         case "/model":
             composerFocused = false
             composerSheets.settings = true
@@ -697,14 +677,12 @@ struct ChatScreen: View {
             Task {
                 model.sending = true
                 defer { model.sending = false }
-                let action =
-                    snapshot.trimmingCharacters(in: .whitespacesAndNewlines) == "/stop" ? "chat.cancel" : "chat.compact"
+                let action = command == "/stop" ? "chat.cancel" : "chat.compact"
                 if await model.perform(action), model.draft == snapshot { model.draft = "" }
             }
         default: Task { await model.send() }
         }
     }
-
 }
 
 struct SessionErrorBanner: View {

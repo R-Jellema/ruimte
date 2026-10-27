@@ -186,7 +186,9 @@ struct ChatForkSheet: View {
                 }
             } footer: {
                 if !inWorktree {
-                    if point?.last == false { Text(sharedFolderNote) }
+                    if point?.last == false {
+                        Text("The files stay as they are now. The agent knows they changed after this turn.")
+                    }
                 } else if !canRestoreFiles {
                     Text("The files of this turn are no longer in the repository, so the worktree starts from the latest commit.")
                 } else if filesAfterTurn {
@@ -196,10 +198,6 @@ struct ChatForkSheet: View {
                 }
             }
         }
-    }
-
-    private var sharedFolderNote: String {
-        String(localized: "The files stay as they are now. The agent knows they changed after this turn.")
     }
 
     /// The newest pick for a CLI when that model is still offered, else what the machine calls its default.

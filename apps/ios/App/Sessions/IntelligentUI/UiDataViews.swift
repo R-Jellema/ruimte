@@ -46,7 +46,7 @@ struct UiStatView: View {
         let words =
             previous == 0
             ? String(localized: "from \(from)")
-            : String(localized: "\(UiFormat.percent(abs(difference / previous * 100))) from \(from)")
+            : String(localized: "\(Format.percent(abs(difference / previous * 100))) from \(from)")
         return HStack(spacing: 4) {
             Image(lucide: difference == 0 ? "arrow-right" : difference > 0 ? "arrow-up" : "arrow-down", size: 12)
                 .accessibilityHidden(true)
@@ -237,7 +237,7 @@ struct UiTableView: View {
         case .number(let value, let kind):
             switch kind {
             case .bytes: Format.bytes(value)
-            case .duration: UiFormat.duration(milliseconds: value)
+            case .duration: Format.duration(milliseconds: value)
             default: UiFormat.withUnit(UiFormat.number(value), column.unit)
             }
         case .date(let at): Format.moment(UiFormat.moment(milliseconds: at))

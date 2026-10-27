@@ -19,12 +19,12 @@ final class TerminalModel {
     @ObservationIgnored var resizeDisplay: ((Int, Int) -> Void)?
     @ObservationIgnored var applicationCursor: (() -> Bool)?
     @ObservationIgnored var toggleKeyboard: (() -> Void)?
-    // The terminal view flushes output from its update, so a tracked buffer would invalidate that update with every
-    // flush and SwiftUI would run it again without end.
     @ObservationIgnored private var unsubscribe: [() -> Void] = []
     @ObservationIgnored private var attachTask: Task<Void, Never>?
     @ObservationIgnored private var writeTask: Task<Void, Never>?
     @ObservationIgnored private var queuedInput: [String] = []
+    // The terminal view flushes output from its update, so a tracked buffer would invalidate that update with every
+    // flush and SwiftUI would run it again without end.
     @ObservationIgnored private var pendingOutput: [(String, Bool)] = []
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var attachment: MachineAttachment?
@@ -33,6 +33,9 @@ final class TerminalModel {
         self.client = client
         self.sessionID = sessionID
     }
+
+    /// Whether the session takes keys now.
+    var usable: Bool { connected && !loading && !exited }
 
     func start() {
         guard unsubscribe.isEmpty else { return }
@@ -58,10 +61,7 @@ final class TerminalModel {
                 if available {
                     attach()
                 } else {
-                    generation += 1
-                    attachTask?.cancel()
-                    writeTask?.cancel()
-                    queuedInput.removeAll()
+                    cancelWork()
                     loading = false
                     error = nil
                 }
@@ -69,10 +69,7 @@ final class TerminalModel {
     }
 
     func stop() {
-        generation += 1
-        attachTask?.cancel()
-        writeTask?.cancel()
-        queuedInput.removeAll()
+        cancelWork()
         unsubscribe.forEach { $0() }
         unsubscribe.removeAll()
         render = nil
@@ -82,6 +79,13 @@ final class TerminalModel {
         let held = attachment
         attachment = nil
         Task { await held?.release() }
+    }
+
+    private func cancelWork() {
+        generation += 1
+        attachTask?.cancel()
+        writeTask?.cancel()
+        queuedInput.removeAll()
     }
 
     func target(_ values: [String: JSONValue] = [:]) -> JSONValue {
@@ -152,7 +156,7 @@ final class TerminalModel {
     }
 
     func write(_ text: String) {
-        guard connected, !loading, !exited else { return }
+        guard usable else { return }
         queuedInput.append(text)
         guard writeTask == nil else { return }
         writeTask = Task {

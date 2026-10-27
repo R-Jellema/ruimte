@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// What the keys of the bar under a terminal send, apart from the view so it can be tested.
+/// What the keys of the bar under a terminal send.
 enum TerminalKeys {
     static let escape = "\u{1b}"
     static let tab = "\t"
@@ -24,7 +24,7 @@ enum TerminalKeys {
     /// An arrow key, in the form the program on the other end asked for: application mode (vim, less, a REPL's
     /// history) reads `ESC O`, a plain shell `ESC [`.
     static func arrow(up: Bool, applicationCursor: Bool) -> String {
-        "\u{1b}" + (applicationCursor ? "O" : "[") + (up ? "A" : "B")
+        escape + (applicationCursor ? "O" : "[") + (up ? "A" : "B")
     }
 }
 

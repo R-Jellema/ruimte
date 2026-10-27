@@ -250,10 +250,7 @@ final class ChatPresentation {
             if records[record.id] == nil { order.append(record.id) }
             records[record.id] = record
         }
-        self.info = info
-        if let info { cwd = info.cwd }
-        refreshActivity()
-        rebuild()
+        setInfo(info)
     }
 
     func prepend(_ values: [ChatItem]) {
@@ -629,7 +626,7 @@ final class ChatPresentation {
 
     /// The notes of the turn tell a turn a person stopped from one the machine ended after a restart.
     static func turnLabel(_ turn: ChatTurnItem, items: [ChatItem] = []) -> String {
-        let duration = ChatToolPresentation.elapsed((turn.endedAt ?? turn.createdAt) - turn.createdAt)
+        let duration = Format.elapsedShort(milliseconds: (turn.endedAt ?? turn.createdAt) - turn.createdAt)
         switch turn.state {
         case .error: return String(localized: "Failed after \(duration)")
         case .aborted:
@@ -670,7 +667,6 @@ final class ChatPresentation {
         return label.isEmpty
             ? String(localized: "Continued on its own") : String(localized: "Sub-agent finished: \(label)")
     }
-
 }
 
 enum ChatToolPresentation {
@@ -732,8 +728,6 @@ enum ChatToolPresentation {
     static func mark(_ tool: ChatToolItem) -> ChatToolMark {
         RuimteCommandLook.run(of: tool) == nil ? .lucide(icon(tool.name)) : .ruimte
     }
-
-    static func elapsed(_ milliseconds: Double) -> String { Format.elapsedShort(milliseconds: milliseconds) }
 
     /// The last twelve lines of a running call's output, in the colors set before them. Only the last 32,000
     /// characters are read, so a long run stays cheap to draw on every update.

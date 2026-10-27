@@ -24,7 +24,6 @@ enum ChatReveal {
         }
         return end - cut > 32 ? end : cut
     }
-
 }
 
 enum ChatStreamingMode: String, CaseIterable {
@@ -92,9 +91,7 @@ struct ChatStreamingMessage: View {
         }
         .task(id: scenePhase == .active && !reduceMotion && mode == .words && (live || shown != source)) {
             guard !reduceMotion, scenePhase == .active, mode == .words else {
-                shown = source
-                shownCount = characters.count
-                position = Double(characters.count)
+                showWhole()
                 return
             }
             var previous = Date.now
@@ -120,19 +117,17 @@ struct ChatStreamingMessage: View {
         .onChange(of: text) { old, new in
             source = new
             characters = Array(new)
-            if reduceMotion || !new.hasPrefix(old) {
-                shown = new
-                shownCount = characters.count
-                position = Double(characters.count)
-            }
+            if reduceMotion || !new.hasPrefix(old) { showWhole() }
         }
         .onChange(of: reduceMotion) { _, reduced in
-            if reduced {
-                shown = text
-                shownCount = characters.count
-                position = Double(characters.count)
-            }
+            if reduced { showWhole() }
         }
+    }
+
+    private func showWhole() {
+        shown = source
+        shownCount = characters.count
+        position = Double(characters.count)
     }
 }
 
@@ -214,9 +209,12 @@ struct ChatFadingText: View {
     init(text: AttributedString, streaming: Bool) {
         self.text = text
         self.streaming = streaming
-        _previousCount = State(
-            initialValue: text.characters.reduce(0) { $0 + ($1.isWhitespace ? 1 : 0) }
-                + (text.characters.last?.isWhitespace == false ? 1 : 0))
+        _previousCount = State(initialValue: Self.wordCount(text))
+    }
+
+    /// The words of `text`, the last one counted while it is still being written.
+    private static func wordCount(_ text: AttributedString) -> Int {
+        text.characters.count(where: \.isWhitespace) + (text.characters.last?.isWhitespace == false ? 1 : 0)
     }
 
     private var rendered: Text {
@@ -276,9 +274,7 @@ struct ChatFadingText: View {
             content.textRenderer(ChatWordRenderer(time: context.date.timeIntervalSinceReferenceDate))
         }
         .task(id: text) {
-            let count =
-                text.characters.reduce(0) { $0 + ($1.isWhitespace ? 1 : 0) }
-                + (text.characters.last?.isWhitespace == false ? 1 : 0)
+            let count = Self.wordCount(text)
             if streaming && !reduceMotion {
                 let now = Date.now.timeIntervalSinceReferenceDate
                 if count < previousCount { arrivals = [:] }

@@ -11,11 +11,6 @@ enum UiFormat {
         return unit == "%" ? text + unit : "\(text) \(unit)"
     }
 
-    /// `value` in percent, so 25 reads as 25%.
-    static func percent(_ value: Double) -> String { Format.percent(value) }
-
-    static func duration(milliseconds: Double) -> String { Format.duration(milliseconds: milliseconds) }
-
     static func moment(milliseconds: Double) -> Date { Date(timeIntervalSince1970: milliseconds / 1000) }
 
     static func domain(_ address: String) -> String {
@@ -64,11 +59,11 @@ struct UiEventTime: Equatable {
             #"^(?:([0-9]{2}):([0-9]{2})(?::([0-9]{2})(?:\.[0-9]{1,9})?)?|([0-9]{4})-([0-9]{2})-([0-9]{2})(?:T([0-9]{2}):([0-9]{2})(?::([0-9]{2})(?:\.[0-9]{1,9})?)?(Z|[+-][0-9]{2}:[0-9]{2})?)?)\z"#
     )
 
-    private static var utc: Calendar {
+    private static let utc: Calendar = {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "UTC")!
         return calendar
-    }
+    }()
 
     /// Nil when `at` is no `HH:MM[:SS]`, `YYYY-MM-DD` or date-time with an optional offset, or names a day or a time
     /// that does not exist.
