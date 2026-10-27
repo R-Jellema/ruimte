@@ -3,6 +3,8 @@ import Testing
 
 @testable import RuimteVoice
 
+private func parse(_ text: String) -> LiveServiceEvent { LiveServiceEvent.parse(Data(text.utf8)) }
+
 @Suite struct VoiceCaptionsTests {
     private static func delta(_ type: String, _ delta: String, start: Double = 0, end: Double = 0) -> String {
         #"{"type":"\#(type)","delta":"\#(delta)","start_ms":\#(start),"end_ms":\#(end)}"#
@@ -10,29 +12,30 @@ import Testing
 
     @Test func aTranscriptDeltaIsACaptionOfItsSpeaker() {
         #expect(
-            LiveServiceEvent.parse(Self.delta("session.input_transcript.delta", "Open the", start: 10, end: 400))
+            parse(Self.delta("session.input_transcript.delta", "Open the", start: 10, end: 400))
                 == .caption(LiveCaption(speaker: .person, delta: "Open the", startMs: 10, endMs: 400)))
         #expect(
-            LiveServiceEvent.parse(Self.delta("session.output_transcript.delta", "Sure"))
+            parse(Self.delta("session.output_transcript.delta", "Sure"))
                 == .caption(LiveCaption(speaker: .model, delta: "Sure", startMs: 0, endMs: 0)))
     }
 
     @Test func aFunctionCallIsTheMachinesAndNeverReachesTheApp() {
-        let call = #"{"type":"response.event","event":{"type":"response.function_call_arguments.done","call_id":"c1","name":"chat_read","arguments":"{}"}}"#
-        #expect(LiveServiceEvent.parse(call) == .ignored)
-        #expect(LiveServiceEvent.parse(#"{"type":"response.function_call_arguments.delta","delta":"{"}"#) == .ignored)
+        let call =
+            #"{"type":"response.event","event":{"type":"response.function_call_arguments.done","call_id":"c1","name":"chat_read","arguments":"{}"}}"#
+        #expect(parse(call) == .ignored)
+        #expect(parse(#"{"type":"response.function_call_arguments.delta","delta":"{"}"#) == .ignored)
     }
 
     @Test func theStartAndAFailureOfTheSessionAreTheirOwnEvents() {
-        #expect(LiveServiceEvent.parse(#"{"type":"session.started"}"#) == .started)
-        #expect(LiveServiceEvent.parse(#"{"type":"session.error","error":{"message":"no"}}"#) == .failed)
+        #expect(parse(#"{"type":"session.started"}"#) == .started)
+        #expect(parse(#"{"type":"session.error","error":{"message":"no"}}"#) == .failed)
     }
 
     @Test func whatIsNoEventOfTheServiceIsIgnored() {
-        #expect(LiveServiceEvent.parse("not json") == .ignored)
-        #expect(LiveServiceEvent.parse(#"{"delta":"no type"}"#) == .ignored)
-        #expect(LiveServiceEvent.parse(Self.delta("session.output_transcript.delta", "")) == .ignored)
-        #expect(LiveServiceEvent.parse(#"{"type":"session.output_transcript.delta","delta":7}"#) == .ignored)
+        #expect(parse("not json") == .ignored)
+        #expect(parse(#"{"delta":"no type"}"#) == .ignored)
+        #expect(parse(Self.delta("session.output_transcript.delta", "")) == .ignored)
+        #expect(parse(#"{"type":"session.output_transcript.delta","delta":7}"#) == .ignored)
     }
 
     @Test func deltasOfOneSpeakerMakeOneLine() {

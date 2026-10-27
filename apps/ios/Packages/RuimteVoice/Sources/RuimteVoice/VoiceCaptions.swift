@@ -31,10 +31,6 @@ public enum LiveServiceEvent: Sendable, Equatable {
     case failed
     case ignored
 
-    public static func parse(_ text: String) -> LiveServiceEvent {
-        parse(Data(text.utf8))
-    }
-
     public static func parse(_ data: Data) -> LiveServiceEvent {
         guard let event = try? JSONValue.decode(data), let type = event["type"]?.stringValue else { return .ignored }
         switch type {

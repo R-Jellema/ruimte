@@ -56,23 +56,21 @@ public enum VoiceMediaFailure: Error, LocalizedError, Sendable, Equatable {
 
     public func offer() async throws -> String {
         guard !ended, peer == nil else {
-            throw Self.failure(String(localized: "Voice already has a connection.", bundle: .module))
+            throw VoiceMediaFailure.unavailable(String(localized: "Voice already has a connection.", bundle: .module))
         }
         let configuration = LKRTCConfiguration()
         configuration.sdpSemantics = .unifiedPlan
         configuration.bundlePolicy = .maxBundle
         let constraints = LKRTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil)
         guard let peer = Self.factory.peerConnection(with: configuration, constraints: constraints, delegate: self)
-        else {
-            throw Self.failure(String(localized: "Could not connect Voice. Try again.", bundle: .module))
-        }
+        else { throw Self.couldNotConnect }
         self.peer = peer
         let source = Self.factory.audioSource(with: constraints)
         let microphone = Self.factory.audioTrack(with: source, trackId: "voice-microphone")
         microphone.isEnabled = !muted
         self.microphone = microphone
         guard let sender = peer.add(microphone, streamIds: ["voice"]) else {
-            throw Self.failure(String(localized: "Voice could not use the microphone.", bundle: .module))
+            throw VoiceMediaFailure.unavailable(String(localized: "Voice could not use the microphone.", bundle: .module))
         }
         Self.microphoneSamples.clear()
         // The microphone's transceiver also receives, and its track is the reply.
@@ -83,7 +81,7 @@ public enum VoiceMediaFailure: Error, LocalizedError, Sendable, Equatable {
         let channelConfiguration = LKRTCDataChannelConfiguration()
         channelConfiguration.isOrdered = true
         guard let channel = peer.dataChannel(forLabel: "oai-events", configuration: channelConfiguration) else {
-            throw Self.failure(String(localized: "Could not connect Voice. Try again.", bundle: .module))
+            throw Self.couldNotConnect
         }
         channel.delegate = self
         self.channel = channel
@@ -93,14 +91,14 @@ public enum VoiceMediaFailure: Error, LocalizedError, Sendable, Equatable {
         try checkOpen()
         await gatherCandidates()
         try checkOpen()
-        guard let sdp = peer.localDescription?.sdp else {
-            throw Self.failure(String(localized: "Could not connect Voice. Try again.", bundle: .module))
-        }
+        guard let sdp = peer.localDescription?.sdp else { throw Self.couldNotConnect }
         return sdp
     }
 
     public func accept(answer: String) async throws {
-        guard let peer else { throw Self.failure(String(localized: "The Voice connection closed.", bundle: .module)) }
+        guard let peer else {
+            throw VoiceMediaFailure.unavailable(String(localized: "The Voice connection closed.", bundle: .module))
+        }
         try await peer.setRemoteDescription(LKRTCSessionDescription(type: .answer, sdp: answer))
         try checkOpen()
     }
@@ -170,7 +168,9 @@ public enum VoiceMediaFailure: Error, LocalizedError, Sendable, Equatable {
         }
     }
 
-    private static func failure(_ message: String) -> VoiceMediaFailure { .unavailable(message) }
+    private static var couldNotConnect: VoiceMediaFailure {
+        .unavailable(String(localized: "Could not connect Voice. Try again.", bundle: .module))
+    }
 }
 
 extension VoiceMediaPeer: LKRTCPeerConnectionDelegate, LKRTCDataChannelDelegate {
