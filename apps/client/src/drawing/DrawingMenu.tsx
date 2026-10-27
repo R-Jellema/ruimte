@@ -21,11 +21,7 @@ import { DRAWING_SHORTCUTS } from '@/drawing/shortcuts';
 import { useDrawing, useDrawingStore } from '@/state/drawing';
 import { Icon, Kbd, ContextMenu } from '@adecore/ui';
 
-/*
- * A right-click on the drawing surface. Every item here is a key `use-drawing-keys.ts` already
- * binds, so the menu adds no power; it makes the bare-letter surface readable for a person who
- * never learned the keys, the way the canvas and the diagram already do.
- */
+/* Every item here is a key `use-drawing-keys.ts` binds; the menu shows them to a person who never learned the keys. */
 export function DrawingMenuPopup() {
     const { t } = useTranslation('drawing');
     const store = useDrawingStore();
@@ -34,7 +30,6 @@ export function DrawingMenuPopup() {
     const elements = useDrawing((s) => s.elements.length);
     const canUndo = useDrawing((s) => s.past.length > 0);
     const canRedo = useDrawing((s) => s.future.length > 0);
-    /* An element locked in place is one a person has to unlock again, so the item says which way it goes. */
     const locked = useDrawing((s) => s.selection.length > 0 && s.elements.filter((el) => s.selection.includes(el.id)).every((el) => el.locked === true));
     const has = selection > 0;
 

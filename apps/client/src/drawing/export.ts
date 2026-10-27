@@ -13,11 +13,7 @@ const PNG_SCALE = 2;
 /* What the clipboard carries between two drawings of this app; anything else pastes as nothing. */
 export const CLIPBOARD_TYPE = 'application/x-ruimte-drawing';
 
-/*
- * Which drawing an export is about. Every one of these takes the store rather than reaching for the
- * focused one: the dock that offers them is drawn inside a cell, and in a split that cell is not
- * always the one with the focus.
- */
+/* The cell's store rather than the focused one: in a split the dock's cell may not have the focus. */
 type DrawingSource = StoreApi<DrawingState>;
 
 /* The selection if there is one, else the whole drawing: what every export acts on. */

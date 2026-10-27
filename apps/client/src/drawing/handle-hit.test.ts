@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 import { nearestHandle } from './handle-hit';
 
-test('resize handles keep a larger target without stealing their neighbours on small shapes', () => {
+test('resize handles keep a larger target without stealing their neighbors on small shapes', () => {
     const handles = [
         { kind: 'nw', x: 0, y: 0 },
         { kind: 'n', x: 8, y: 0 },

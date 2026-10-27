@@ -3,8 +3,6 @@ import { ignoreRefusal, perform } from '@/actions/client-actions';
 import { diagramJsonPath } from '@/diagram/export';
 import type { DiagramState } from '@/state/diagram';
 
-/* What the diagram's dock, menus and palette rows do, as a person's actions on the diagram a store holds. */
-
 type DiagramStore = Pick<StoreApi<DiagramState>, 'getState'>;
 
 export function copyDiagram(store: DiagramStore, format: 'png' | 'svg' | 'json'): void {

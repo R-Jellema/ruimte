@@ -5,10 +5,7 @@ import { readDrawingElements } from '@/drawing/export';
 import type { DrawingState, DrawingStyle } from '@/state/drawing';
 import { readClipboardText } from '@adecore/ui';
 
-/*
- * What the drawing's keys, menu, dock and palette do to the drawing a store holds, as a person's
- * actions. The store is the cell's own, never the focused one, so a split acts where it was asked.
- */
+/* The store is the cell's own, never the focused one, so a split acts where it was asked. */
 
 type DrawingStore = StoreApi<DrawingState>;
 
@@ -68,7 +65,7 @@ export function unlockEverything(store: DrawingStore): void {
     }
 }
 
-/* Paints the selection and becomes what the next element is drawn with, the way the dock always did. */
+/* Paints the selection and becomes what the next element is drawn with. */
 export function styleSelection(store: DrawingStore, patch: Partial<DrawingStyle>): void {
     const viewId = viewOf(store);
     if (viewId !== null) {

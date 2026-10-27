@@ -16,12 +16,6 @@ function scratchContext(): CanvasRenderingContext2D | null {
     return scratch;
 }
 
-/* The box a text needs, measured off screen: what a text element takes as its width and height. */
-export function textSize(element: WrittenElement, fonts: Record<DrawingFont, string>): { w: number; h: number } {
-    const ctx = scratchContext();
-    return ctx ? measureText(ctx, element, fonts) : { w: element.w, h: element.h };
-}
-
 /* A line measure in the element's font, for wrapping the way the screen paints it; null without a DOM. */
 export function measureLineIn(element: WrittenElement, fonts: Record<DrawingFont, string>): MeasureLine | null {
     const ctx = scratchContext();
@@ -36,8 +30,7 @@ export function linesOn(ctx: CanvasRenderingContext2D, element: WrittenElement):
     return linesOf(element, (line) => ctx.measureText(line).width);
 }
 
-/* The box a text needs for the size it is set in; the caller decides what to do with it. */
-export function measureText(ctx: CanvasRenderingContext2D, element: WrittenElement, fonts: Record<DrawingFont, string>): { w: number; h: number } {
+function measureText(ctx: CanvasRenderingContext2D, element: WrittenElement, fonts: Record<DrawingFont, string>): { w: number; h: number } {
     ctx.save();
     ctx.font = fontOfElement(element, fonts);
     const lines = linesOn(ctx, element);
@@ -48,14 +41,14 @@ export function measureText(ctx: CanvasRenderingContext2D, element: WrittenEleme
 
 /*
  * The box a text takes for what it says: the glyphs' own box until the person dragged one, and
- * from then on that width, with the height the wrapped lines come to. Without a DOM (the store's
- * tests) the box stays as it is.
+ * from then on that width, with the height the wrapped lines come to. Without a DOM the box stays.
  */
 export function fitTextBox(element: WrittenElement, text = element.text): { w: number; h: number } {
-    if (typeof document === 'undefined') {
+    const ctx = scratchContext();
+    if (!ctx) {
         return { w: element.w, h: element.h };
     }
-    const fitted = textSize({ ...element, text }, readFontStacks());
+    const fitted = measureText(ctx, { ...element, text }, readFontStacks());
     if (element.kind === 'note') {
         // A note keeps the paper it was given and grows downwards for what does not fit on it.
         return { w: element.w, h: Math.max(element.h, fitted.h + NOTE_PADDING * 2) };

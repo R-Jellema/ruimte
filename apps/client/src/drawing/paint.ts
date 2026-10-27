@@ -68,7 +68,7 @@ export function clearPathCache(): void {
 function paintText(ctx: CanvasRenderingContext2D, element: WrittenElement, options: PaintOptions): void {
     ctx.font = fontOfElement(element, options.fonts);
     ctx.fillStyle = options.palette[element.stroke];
-    ctx.textAlign = element.align === 'center' ? 'center' : element.align === 'right' ? 'right' : 'left';
+    ctx.textAlign = element.align ?? 'left';
     ctx.textBaseline = 'alphabetic';
     const frame = writingFrameOf(element);
     const dx = frame.x + (element.align === 'center' ? frame.w / 2 : element.align === 'right' ? frame.w : 0);

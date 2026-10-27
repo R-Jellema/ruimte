@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Bot, Braces, FileJson, MoreHorizontal, Pencil, RotateCcw, Sparkles } from 'lucide-react';
@@ -14,6 +14,7 @@ import { ignoreRefusal, perform } from '@/actions/client-actions';
 import { copyDiagram, openDiagramJson } from '@/diagram/diagram-actions';
 import { askAgentAboutDiagram } from '@/project/views';
 import { Swatches } from '@/drawing/DrawingDock';
+import { useViewportSize } from '@/drawing/use-viewport-size';
 import { useFileToolbarSlot } from '@/shell/panels/file-toolbar-slot';
 import { useDiagram, useDiagramStore } from '@/state/diagram';
 import { useProject } from '@/state/project';
@@ -39,11 +40,7 @@ interface NodeDrag {
     moved: boolean;
 }
 
-/*
- * What a diagram can be asked from the bar above it: the way to its JSON file. The zoom and the
- * exports are in the dock. Portaled into the bar of the view or the cell, so it reads the store of
- * the cell it belongs to.
- */
+/* Portaled into the bar of the view or the cell, so it reads the store of the cell it belongs to. */
 function DiagramControls({ viewId }: { viewId: string }) {
     const { t } = useTranslation('drawing');
     const store = useDiagramStore();
@@ -213,18 +210,7 @@ export function DiagramView({ id }: { id: string }) {
     const viewId = useDiagram((s) => s.viewId);
     const { host } = useFileToolbarSlot();
 
-    useLayoutEffect(() => {
-        const root = rootRef.current;
-        if (!root) {
-            return;
-        }
-        const observer = new ResizeObserver(([entry]) => {
-            store.getState().setViewport({ w: entry!.contentRect.width, h: entry!.contentRect.height });
-        });
-        observer.observe(root);
-        return () => observer.disconnect();
-    }, [store]);
-
+    useViewportSize(rootRef, store);
     useWheelCamera(rootRef, store);
 
     const onPointerDown = (e: React.PointerEvent<HTMLDivElement>): void => {

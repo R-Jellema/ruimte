@@ -7,10 +7,7 @@ import { useDiagram, useDiagramStore } from '@/state/diagram';
 import { Separator, DockShell, ZoomControls } from '@adecore/ui';
 import { useSettings } from '@/state/settings';
 
-/*
- * The diagram's dock: the zoom, the exports and the way back in the same place and the same shape as
- * a drawing has them. The way to the JSON file stays in the bar above the view, since it is about the file.
- */
+/* Shaped like a drawing's dock. The JSON file's menu stays in the bar above the view, since it is about the file. */
 export function DiagramDock() {
     const { t } = useTranslation('drawing');
     const store = useDiagramStore();

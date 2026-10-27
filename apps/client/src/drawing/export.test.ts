@@ -13,6 +13,7 @@ describe('the clipboard', () => {
 
 describe('the SVG of a drawing', () => {
     const scope = globalThis as Record<string, unknown>;
+    const store = { getState: () => ({ exportBackground: false }) } as unknown as Parameters<typeof drawingSvg>[0];
 
     /* A page whose every token resolves to its own name, so the SVG says which token it read. */
     beforeEach(() => {
@@ -40,7 +41,6 @@ describe('the SVG of a drawing', () => {
             text: 'buy milk',
             size: 20
         };
-        const store = { getState: () => ({ exportBackground: false }) } as unknown as Parameters<typeof drawingSvg>[0];
         expect(drawingSvg(store, [note])).toContain('stroke="var(--draw-edge-yellow)"');
     });
 
@@ -58,7 +58,6 @@ describe('the SVG of a drawing', () => {
             roughness: 0,
             seed: 1
         };
-        const store = { getState: () => ({ exportBackground: false }) } as unknown as Parameters<typeof drawingSvg>[0];
         expect(drawingSvg(store, [element])).toContain('transform="translate(120 80) rotate(90 50 20)"');
     });
 });

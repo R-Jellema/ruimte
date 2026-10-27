@@ -22,7 +22,7 @@ function paper(tone: DrawingColor): string {
     return `var(--draw-paper-${tone})`;
 }
 
-/* The graph as elements: the same layout and paths as the export, with the colors left to CSS. `interactive` is the view, where a node is dragged. */
+/* The same layout and paths as the export, with the colors left to CSS. `interactive` is the view, where a node is dragged. */
 export function DiagramScene({ content, layout, interactive = false }: { content: DiagramContent; layout: DiagramLayout; interactive?: boolean }) {
     const nodes = new Map(content.nodes.map((node) => [node.id, node]));
     const groups = new Map(content.groups.map((group) => [group.id, group]));

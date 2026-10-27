@@ -1,5 +1,5 @@
 import { Trans, useTranslation } from 'react-i18next';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import type { DrawingElement } from '@ruimte/contracts';
 import { boundsOfElements, elementAt, rectFromPoints, resizeRect, scaleElement, type Point, type Rect, type ResizeHandle } from '@adecore/drawing';
@@ -28,6 +28,7 @@ import {
 import { fitTextBox } from '@/drawing/measure';
 import { applyCamera, clearPathCache, paintElements, paintOptions } from '@/drawing/paint';
 import { useDrawingKeys } from '@/drawing/use-drawing-keys';
+import { useViewportSize } from '@/drawing/use-viewport-size';
 import { useDocument } from '@/state/document';
 import { nextId } from '@/state/canvas';
 import { isWritten, newSeed, useDrawing, useDrawingStore } from '@/state/drawing';
@@ -37,9 +38,8 @@ import { isInFloatingLayer, Kbd, isModHeld, ContextMenu } from '@adecore/ui';
 import { isApplePlatform } from '@/desktop/bridge';
 
 /*
- * The dock sits over the surface and its menus portal out to <body>, where React still routes their
- * events through the surface. A press on either is a button, never the start of a gesture: without
- * this the marquee below clears the selection and captures the pointer, so the click never lands.
+ * The dock's menus portal out to <body>, where React still routes their events through the surface.
+ * A press on the dock or a menu is never a gesture, or the marquee would capture the pointer and eat the click.
  */
 function isChrome(target: EventTarget | null): boolean {
     return isInFloatingLayer(target) || (target instanceof Element && target.closest('[data-drawing-chrome]') !== null);
@@ -48,10 +48,7 @@ function isChrome(target: EventTarget | null): boolean {
 /* How far from a line or an outline a click still lands on it, before the zoom is taken out. */
 const HIT_TOLERANCE = 10;
 
-/*
- * What one press started. Everything a drag can be lives here rather than in the store: it is over
- * when the pointer lets go, and nothing outside this view has any use for it.
- */
+/* What one press started. Not in the store: it ends with the pointer and nothing outside this view reads it. */
 type Gesture =
     | { kind: 'pan'; last: Point }
     | { kind: 'draft'; start: Point }
@@ -107,8 +104,7 @@ function EmptyDrawing({ id }: { id: string }) {
  * DOM layer above them for the handles and the text editor, which stay whole pixels at any zoom.
  */
 export function DrawingView({ id }: { id: string }) {
-    /* The editor of this cell. Two drawings can stand side by side and only one of them has the
-       focus, so every read, write and subscription below a render goes through this store. */
+    /* The editor of this cell, never the focused one: two drawings can stand side by side. */
     const drawingStore = useDrawingStore();
     const rootRef = useRef<HTMLDivElement>(null);
     const sceneRef = useRef<HTMLCanvasElement>(null);
@@ -142,17 +138,7 @@ export function DrawingView({ id }: { id: string }) {
 
     useEffect(() => clearPathCache, [id]);
 
-    useLayoutEffect(() => {
-        const root = rootRef.current;
-        if (!root) {
-            return;
-        }
-        const observer = new ResizeObserver(([entry]) => {
-            drawingStore.getState().setViewport({ w: entry!.contentRect.width, h: entry!.contentRect.height });
-        });
-        observer.observe(root);
-        return () => observer.disconnect();
-    }, [drawingStore]);
+    useViewportSize(rootRef, drawingStore);
 
     /* Paints on every change of what is drawn, of the camera or of the theme, once per frame. */
     useEffect(() => {
@@ -228,13 +214,10 @@ export function DrawingView({ id }: { id: string }) {
     /* The setting says whether a drawing snaps; Cmd (Ctrl off macOS) turns it around for as long as it is held. */
     const snapping = (e: { metaKey: boolean; ctrlKey: boolean }): boolean => snapSetting !== isModHeld(e, isApplePlatform());
 
-    /* A right-click acts on what it lands on, the way a press does: an element nobody picked yet
-       becomes the selection, and the paper clears it, so the menu above always speaks about what
-       is under the pointer. */
+    /* A right-click selects what it lands on, or clears the selection on the paper, so the menu speaks about what is under the pointer. */
     const onContextMenu = (e: React.MouseEvent): void => {
         const state = drawingStore.getState();
-        // A text being typed keeps the keys and the menu its own field offers; the drawing's menu
-        // would act on the element behind it, which is not what the press was about.
+        // A text being typed keeps its own field's menu; the drawing's would act on the element behind it.
         if (isChrome(e.target) || state.editingTextId !== null) {
             e.preventDefault();
             e.stopPropagation();
@@ -257,10 +240,7 @@ export function DrawingView({ id }: { id: string }) {
     };
 
     const onPointerDown = (e: React.PointerEvent): void => {
-        if (e.button !== 0 && e.button !== 1) {
-            return;
-        }
-        if (isChrome(e.target)) {
+        if ((e.button !== 0 && e.button !== 1) || isChrome(e.target)) {
             return;
         }
         const state = drawingStore.getState();
