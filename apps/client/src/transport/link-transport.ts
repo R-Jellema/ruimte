@@ -32,6 +32,8 @@ const GATE_TIMEOUT_MS = 20_000;
 
 // A request with no answer by then fails, so a handler that hangs is an error and not a spinner forever.
 const REQUEST_TIMEOUT_MS = 60_000;
+// A drop the reconnect mends within this time (a daemon restart, a Mac waking) is only a metric, not a report.
+const DROP_GRACE_MS = 30_000;
 
 // Requests whose answer waits on a network, a model, a database or a large transfer, and that a caller ends itself.
 const UNBOUNDED_REQUESTS: ReadonlySet<RequestType> = new Set<RequestType>([
@@ -86,11 +88,12 @@ export interface LinkTransportOptions {
     addressTimeoutMs?: number;
     gateTimeoutMs?: number;
     requestTimeoutMs?: number;
+    dropGraceMs?: number;
     // Spreads the reconnects of many clients after a daemon restart; a test passes a fixed one.
     random?: () => number;
     now?: () => number;
     log?: Pick<Console, 'info' | 'warn'>;
-    /* A link that dropped while open, a request without an answer in time, a machine refused at the check: for a crash report. */
+    /* A link that dropped while open and stayed down, a request without an answer in time, a machine refused at the check: for a crash report. */
     report?: (problem: LinkProblem) => void;
     meter?: LinkMeter;
 }
@@ -135,6 +138,8 @@ export class LinkTransport implements PooledTransport {
     private readonly addressTimeoutMs: number;
     private readonly gateTimeoutMs: number;
     private readonly requestTimeoutMs: number;
+    private readonly dropGraceMs: number;
+    private dropTimer: ReturnType<typeof setTimeout> | null = null;
     private readonly log: Pick<Console, 'info' | 'warn'>;
     private readonly report: (problem: LinkProblem) => void;
     private readonly meter: LinkMeter;
@@ -154,6 +159,7 @@ export class LinkTransport implements PooledTransport {
         this.addressTimeoutMs = options.addressTimeoutMs ?? ADDRESS_TIMEOUT_MS;
         this.gateTimeoutMs = options.gateTimeoutMs ?? GATE_TIMEOUT_MS;
         this.requestTimeoutMs = options.requestTimeoutMs ?? REQUEST_TIMEOUT_MS;
+        this.dropGraceMs = options.dropGraceMs ?? DROP_GRACE_MS;
         this.log = options.log ?? console;
         this.report = options.report ?? (() => undefined);
         this.meter = options.meter ?? NO_METER;
@@ -236,7 +242,28 @@ export class LinkTransport implements PooledTransport {
         this.disposed = true;
         this.generation += 1;
         this.stopReconnectTimer();
+        this.stopDropTimer();
         this.link?.close();
+    }
+
+    /* The first drop of a run of failed reconnects is the one reported, once the grace passed without a link. */
+    private reportDropUnlessMended(code: number | null): void {
+        if (this.dropTimer !== null) {
+            return;
+        }
+        this.dropTimer = setTimeout(() => {
+            this.dropTimer = null;
+            if (!this.disposed && this.currentConnection.status !== 'open') {
+                this.report({ kind: 'dropped', code });
+            }
+        }, this.dropGraceMs);
+    }
+
+    private stopDropTimer(): void {
+        if (this.dropTimer !== null) {
+            clearTimeout(this.dropTimer);
+            this.dropTimer = null;
+        }
     }
 
     private stopReconnectTimer(): void {
@@ -315,6 +342,7 @@ export class LinkTransport implements PooledTransport {
             open: (features) => {
                 stopGateTimer();
                 if (this.linkToken === token) {
+                    this.stopDropTimer();
                     this.meter.connected({ relayed, signaled }, 'ok', this.now() - this.attemptStartedAt);
                     this.setConnection({ status: 'open', attempts: 0, retryAt: null, failure: null, relayed, signaled, features });
                 }
@@ -360,7 +388,7 @@ export class LinkTransport implements PooledTransport {
                 // A link this transport let go of reports no more, so whatever closes here closed on its own.
                 const wasOpen = this.currentConnection.status === 'open';
                 if (wasOpen && !this.disposed) {
-                    this.report({ kind: 'dropped', code: code ?? null });
+                    this.reportDropUnlessMended(code ?? null);
                 }
                 if (!this.disposed) {
                     if (!wasOpen) {

@@ -91,6 +91,8 @@ public enum LinkRoute: Equatable, Sendable {
         var generation = 0
         var retry: (() -> Void)?
         var idleCleanup: (() -> Void)?
+        /// A drop waits this long for the reconnect to mend it before it is reported.
+        var dropReport: (() -> Void)?
         var attempt = 0
         var connected = false
         var route: LinkRoute?
@@ -111,6 +113,7 @@ public enum LinkRoute: Equatable, Sendable {
             for member in Array(members.values) { deliver(member) }
         }
     }
+    static let dropGraceMs: Double = 30_000
     private var machines: [String: Entry] = [:]
     private var foregroundScenes = Set<String>()
     private let scheduler: any TransportScheduling
@@ -237,6 +240,8 @@ public enum LinkRoute: Equatable, Sendable {
         entry.retry = nil
         entry.idleCleanup?()
         entry.idleCleanup = nil
+        entry.dropReport?()
+        entry.dropReport = nil
         let wasConnected = entry.connected
         if let link = entry.detach() {
             LinkProblems.note(.released)
@@ -257,6 +262,8 @@ public enum LinkRoute: Equatable, Sendable {
             opened: { [weak entry] in
                 guard valid(), let entry else { return }
                 LinkProblems.note(.opened)
+                entry.dropReport?()
+                entry.dropReport = nil
                 entry.connected = true
                 entry.attempt = 0
                 entry.each { $0.opened() }
@@ -273,7 +280,14 @@ public enum LinkRoute: Equatable, Sendable {
                 guard valid(), let self, let entry else { return }
                 LinkProblems.note(.closed)
                 // A link this pool let go of is no longer valid here, so whatever closes an open one closed on its own.
-                if entry.connected { LinkProblems.report(.dropped) }
+                // One the reconnect mends within the grace (a machine restarting, a network switch) is no report.
+                if entry.connected, entry.dropReport == nil {
+                    entry.dropReport = self.scheduler.after(milliseconds: Self.dropGraceMs) { [weak self, weak entry] in
+                        guard let self, let entry, self.machines[id] === entry else { return }
+                        entry.dropReport = nil
+                        if !entry.connected { LinkProblems.report(.dropped) }
+                    }
+                }
                 entry.detach()
                 entry.each { $0.closed(error) }
                 guard !self.foregroundScenes.isEmpty, !entry.members.isEmpty else { return }

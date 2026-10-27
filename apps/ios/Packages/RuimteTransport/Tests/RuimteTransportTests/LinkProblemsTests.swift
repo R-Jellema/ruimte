@@ -24,9 +24,10 @@ private final class Heard: Sendable {
 }
 
 @MainActor struct LinkProblemsTests {
-    @Test func anOpenLinkThatClosesOnItsOwnIsADrop() {
+    @Test func anOpenLinkThatClosesOnItsOwnAndStaysDownIsADrop() {
         let links = FakeLinks()
-        let pool = MachineConnections(scheduler: FakeScheduler(), monitorPaths: false)
+        let clock = FakeScheduler()
+        let pool = MachineConnections(scheduler: clock, monitorPaths: false)
         pool.setScene("scene", foreground: true)
         let lease = pool.hold(machineID: "machine", open: links.open, events: .ignored)
         defer {
@@ -38,8 +39,32 @@ private final class Heard: Sendable {
         #expect(beforeOpening.isEmpty)
         pool.reconnect(machineID: "machine")
         links.last.events.opened()
-        let whileOpen = problems { links.last.events.closed(lost) }
+        let whileOpen = problems {
+            links.last.events.closed(lost)
+            clock.advance()
+        }
         #expect(whileOpen == [.dropped])
+        #expect(clock.delays.contains(MachineConnections.dropGraceMs))
+    }
+
+    @Test func aDropTheReconnectMendsIsNoReport() {
+        let links = FakeLinks()
+        let clock = FakeScheduler()
+        let pool = MachineConnections(scheduler: clock, monitorPaths: false)
+        pool.setScene("scene", foreground: true)
+        let lease = pool.hold(machineID: "machine", open: links.open, events: .ignored)
+        defer {
+            lease.release()
+            pool.shutdown()
+        }
+        links.last.events.opened()
+        let heard = problems {
+            links.last.events.closed(TransportFailure.invalid("The direct connection closed."))
+            pool.reconnect(machineID: "machine")
+            links.last.events.opened()
+            clock.advance()
+        }
+        #expect(heard.isEmpty)
     }
 
     @Test func aLinkThisPhoneLetsGoIsNoDrop() {

@@ -549,25 +549,49 @@ describe('LinkTransport', () => {
                     links.push(link);
                     return link;
                 },
-                { ...options, report: (problem) => problems.push(problem), log: { info: () => undefined, warn: () => undefined } }
+                { dropGraceMs: 1_000, ...options, report: (problem) => problems.push(problem), log: { info: () => undefined, warn: () => undefined } }
             );
             return { transport, links, problems };
         }
 
-        test('a link that drops while open, with its close code, and not one this transport closed itself', async () => {
+        test('a link that drops while open and stays down, with its close code, and not one this transport closed itself', async () => {
             const { transport, links, problems } = reported();
             await tick();
             open(links[0]!);
             links[0]!.events.close(null, 1006);
+            await tick(999);
+            expect(problems).toEqual([]);
+            await tick(1);
             expect(problems).toEqual([{ kind: 'dropped', code: 1006 }]);
-            await tick(600);
-            open(links[1]!);
+            open(links.at(-1)!);
             transport.reconnect();
             await tick();
-            open(links[2]!);
+            open(links.at(-1)!);
             transport.dispose();
             await tick();
             expect(problems).toEqual([{ kind: 'dropped', code: 1006 }]);
+        });
+
+        test('a drop the reconnect mends within the grace is no report', async () => {
+            const { transport, links, problems } = reported();
+            await tick();
+            open(links[0]!);
+            links[0]!.events.close(null, 1006);
+            await tick(600);
+            open(links[1]!);
+            await tick(1_000);
+            expect(problems).toEqual([]);
+            transport.dispose();
+        });
+
+        test('a drop is not reported once nobody holds the transport any more', async () => {
+            const { transport, links, problems } = reported();
+            await tick();
+            open(links[0]!);
+            links[0]!.events.close(null, 1006);
+            transport.dispose();
+            await tick(1_000);
+            expect(problems).toEqual([]);
         });
 
         test('an attempt that fails before it opened is no drop', async () => {
