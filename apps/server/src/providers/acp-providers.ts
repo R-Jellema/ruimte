@@ -14,9 +14,6 @@ import {
     type ChatProvider,
     type ProviderHome
 } from '@adecore/agents/providers';
-import antigravityModels from '@adecore/agents/providers/antigravity-models.json' with { type: 'json' };
-import copilotModels from '@adecore/agents/providers/copilot-models.json' with { type: 'json' };
-import grokModels from '@adecore/agents/providers/grok-models.json' with { type: 'json' };
 import antigravityRelease from './antigravity-acp-release.json' with { type: 'json' };
 import { parseAcpServerRelease, type AcpServerLaunch } from './acp-server.ts';
 
@@ -32,15 +29,6 @@ export function agentDefaultCatalog(): ModelCatalog {
         profiles: { agent: { options: [], contextWindowTokens: {} } },
         models: [{ slug: AGENT_DEFAULT_MODEL, name: 'Default', profile: 'agent' }]
     });
-}
-
-/*
- * The models a built-in ACP agent offered when its manifest was written, under `AGENT_DEFAULT_MODEL`, until the agent
- * reports its own. The address book may hand a newer copy; what the agent reports lies over either.
- */
-export function shippedAgentCatalog(kind: 'grok' | 'copilot' | 'antigravity'): ModelCatalog {
-    // A JSON import widens the option types to string; the manifests pass the schema in ADE CORE's tests.
-    return new ModelCatalog({ grok: grokModels, copilot: copilotModels, antigravity: antigravityModels }[kind] as never);
 }
 
 export function agentModel(selection: { model: string }): string | null {
@@ -98,7 +86,7 @@ const GROK_SPEC: AcpProviderSpec = {
     command: 'grok',
     // A chat must not wait on an update check; the flag belongs before the subcommand.
     args: ['--no-auto-update', 'agent', 'stdio'],
-    catalog: shippedAgentCatalog('grok'),
+    catalog: agentDefaultCatalog(),
     model: agentModel,
     modes: GROK_MODES,
     loginHint: 'Run `grok login` in a terminal, or set `XAI_API_KEY`.',
@@ -253,7 +241,7 @@ function copyCapabilities(target: ChatProvider, source: ChatProvider): void {
  * Both share the catalog and the store, and what either learns is laid over the listed one and told to its listeners.
  */
 export function createGrokProvider(catalogStore?: AcpCatalogStore): ChatProvider {
-    const catalog = shippedAgentCatalog('grok');
+    const catalog = agentDefaultCatalog();
     const listeners = new Set<() => void>();
     const byLogin = new Map<string, ChatProvider>();
     const notify = (): void => {
@@ -307,7 +295,7 @@ const COPILOT_SPEC: AcpProviderSpec = {
     name: 'GitHub Copilot',
     command: 'copilot',
     args: ['--acp', '--stdio', '--no-auto-update', COPILOT_ALLOW_CONTEXT],
-    catalog: shippedAgentCatalog('copilot'),
+    catalog: agentDefaultCatalog(),
     model: agentModel,
     modes: COPILOT_MODES,
     loginHint: 'Run `copilot login` in a terminal.',
@@ -338,12 +326,7 @@ export function copilotUsageDirectory(home: string): string {
 }
 
 export function createCopilotProvider(catalogStore?: AcpCatalogStore, usageLog?: string): ChatProvider {
-    return createAcpProvider({
-        ...COPILOT_SPEC,
-        catalog: shippedAgentCatalog('copilot'),
-        ...storing(catalogStore),
-        ...(usageLog === undefined ? {} : { usageLog })
-    });
+    return createAcpProvider({ ...COPILOT_SPEC, catalog: agentDefaultCatalog(), ...storing(catalogStore), ...(usageLog === undefined ? {} : { usageLog }) });
 }
 
 export const copilotProvider: ChatProvider = createCopilotProvider();
@@ -374,7 +357,7 @@ const ANTIGRAVITY_SPEC: AcpProviderSpec = {
     name: 'Antigravity',
     // Only stands in until the server is installed; the terminal starts `agy` (`TERMINAL_EXECUTABLES` in `launch.ts`).
     command: ANTIGRAVITY_CLI,
-    catalog: shippedAgentCatalog('antigravity'),
+    catalog: agentDefaultCatalog(),
     model: agentModel,
     modes: ANTIGRAVITY_MODES,
     // The server runs the browser sign-in itself, on a callback server of its own.
@@ -414,7 +397,7 @@ export function antigravityOneShotArgs(prompt: string): string[] {
  * installed apart from it, so without one it offers no chat and starts none.
  */
 export function createAntigravityProvider(server: AcpServerLaunch | null, catalogStore?: AcpCatalogStore): ChatProvider {
-    const base = createAcpProvider({ ...ANTIGRAVITY_SPEC, catalog: shippedAgentCatalog('antigravity'), ...storing(catalogStore) });
+    const base = createAcpProvider({ ...ANTIGRAVITY_SPEC, catalog: agentDefaultCatalog(), ...storing(catalogStore) });
     return {
         ...base,
         get command() {

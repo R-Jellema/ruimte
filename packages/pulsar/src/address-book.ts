@@ -309,15 +309,6 @@ export const ModelCatalogsResultSchema = z.object({
 });
 export type ModelCatalogsResult = z.infer<typeof ModelCatalogsResultSchema>;
 
-/*
- * `GET /v2/models/catalog`: the same, with the ACP agents too. Each catalog is left for the reader to check on its
- * own, so one this version cannot read costs only that one.
- */
-export const ModelCatalogsV2ResultSchema = z.object({
-    catalogs: z.record(z.string().max(32), z.unknown())
-});
-export type ModelCatalogsV2Result = z.infer<typeof ModelCatalogsV2ResultSchema>;
-
 // `POST /v1/account/link`: a signed-in client asks to add another provider to its account.
 export const IdentityLinkStartPayloadSchema = z.object({
     provider: ProviderIdSchema

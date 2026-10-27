@@ -49,7 +49,7 @@ describe('the model catalogs', () => {
 
         expect(Object.keys(catalogs)).toEqual(['claude', 'codex']);
         expect(ModelCatalogsResultSchema.safeParse({ catalogs }).success).toBe(true);
-        expect(Object.keys(await catalogsFor(db, 'v2'))).toEqual(['claude', 'codex', 'grok', 'copilot', 'antigravity']);
+        expect(await catalogsFor(db, 'v2')).toEqual(catalogs);
     });
 
     test('a seeded kind reads back as the catalog it came from, dated when it landed', async () => {

@@ -3,12 +3,12 @@ import { dirname, join } from 'node:path';
 import { ModelCatalogDataSchema, type AgentKind } from '@ruimte/contracts';
 import type { ModelCatalog } from '@adecore/agents/providers';
 import { isNotFound, writeAtomic } from '@adecore/agents';
-import { AddressBookClient, type ModelCatalogsV2Result } from '@ruimte/pulsar';
+import { AddressBookClient, type ModelCatalogsResult } from '@ruimte/pulsar';
 import { z } from 'zod';
 import { errorText } from '../error-text.ts';
 
-// A model changed in the address book reaches a machine a person looks at within a quarter of an hour.
-const TTL_MS = 15 * 60 * 1000;
+// A new model reaches a machine within hours of a deploy of the address book, which is soon enough.
+const TTL_MS = 6 * 60 * 60 * 1000;
 // Asked on every `provider.list`, so an address book that is down is only knocked on this often.
 const RETRY_MS = 10 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 10_000;
@@ -21,12 +21,12 @@ interface ModelCatalogFeedOptions {
     catalogs: Partial<Record<AgentKind, ModelCatalog>>;
     // Off keeps every catalog on what the app shipped with and what is on disk.
     allowFetch: boolean;
-    fetchCatalogs?: () => Promise<ModelCatalogsV2Result>;
+    fetchCatalogs?: () => Promise<ModelCatalogsResult>;
     now?: () => number;
 }
 
-function fromAddressBook(): Promise<ModelCatalogsV2Result> {
-    return new AddressBookClient({ fetch: (input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) }) }).modelCatalogsV2();
+function fromAddressBook(): Promise<ModelCatalogsResult> {
+    return new AddressBookClient({ fetch: (input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) }) }).modelCatalogs();
 }
 
 /*
@@ -36,7 +36,7 @@ function fromAddressBook(): Promise<ModelCatalogsV2Result> {
  */
 export class ModelCatalogFeed {
     private readonly options: ModelCatalogFeedOptions;
-    private readonly fetchCatalogs: () => Promise<ModelCatalogsV2Result>;
+    private readonly fetchCatalogs: () => Promise<ModelCatalogsResult>;
     private readonly now: () => number;
     private fetchedAt: number | null = null;
     private attemptedAt: number | null = null;
@@ -52,7 +52,7 @@ export class ModelCatalogFeed {
     async load(): Promise<void> {
         let raw: unknown;
         try {
-            raw = JSON.parse(await this.readStored());
+            raw = JSON.parse(await readFile(this.file, 'utf8'));
         } catch (e) {
             if (!isNotFound(e)) {
                 console.warn('The stored model catalogs would not read; using the shipped ones:', errorText(e));
@@ -76,24 +76,8 @@ export class ModelCatalogFeed {
         return this.inFlight;
     }
 
-    /*
-     * The v2 answer has a file of its own: an older daemon reads `catalogs.json` and would lay an ACP catalog over the models
-     * its agent reported, so after a downgrade it reads only what it wrote itself.
-     */
     private get file(): string {
-        return join(this.options.home, 'models', 'catalogs-v2.json');
-    }
-
-    // Until the first v2 answer, the last v1 one keeps a chat on a model only that copy knows.
-    private async readStored(): Promise<string> {
-        try {
-            return await readFile(this.file, 'utf8');
-        } catch (e) {
-            if (!isNotFound(e)) {
-                throw e;
-            }
-            return readFile(join(this.options.home, 'models', 'catalogs.json'), 'utf8');
-        }
+        return join(this.options.home, 'models', 'catalogs.json');
     }
 
     private async fetch(): Promise<void> {
