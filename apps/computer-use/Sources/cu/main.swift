@@ -326,13 +326,11 @@ func send(_ request: Request, home: Home) -> [String: Any] {
     guard let body = try? JSONEncoder().encode(request) else {
         fail("could not encode the request")
     }
-    UnixSocket.setReadTimeout(descriptor, seconds: 120)
     guard UnixSocket.writeAll(descriptor, body) else {
         fail("could not send the request to the agent")
     }
     shutdown(descriptor, SHUT_WR)
-    let reply = UnixSocket.readAll(descriptor)
-    guard !reply.isEmpty else {
+    guard case .complete(let reply) = UnixSocket.readAll(descriptor, maxBytes: .max, until: .now + .seconds(120)), !reply.isEmpty else {
         fail("the agent closed the connection without an answer (it may have crashed or timed out)")
     }
     guard let object = try? JSONSerialization.jsonObject(with: reply) as? [String: Any] else {
@@ -412,9 +410,9 @@ func render(_ arguments: Arguments) {
             }
             let url = directory.appendingPathComponent("\(name)-\(theme.rawValue)@\(Int(scale))x.png")
             do {
-                try PhantomSnapshot.writePNG(image, to: url)
+                try PNG.write(image, to: url)
             } catch {
-                fail("could not write \(url.path): \(error)")
+                fail((error as? AgentError)?.message ?? "could not write \(url.path)")
             }
             files.append(url.path)
         }

@@ -51,23 +51,6 @@ public enum UnixSocket {
         return descriptor
     }
 
-    public static func readAll(_ descriptor: Int32) -> Data {
-        var data = Data()
-        var buffer = [UInt8](repeating: 0, count: 64 * 1024)
-        while true {
-            let count = read(descriptor, &buffer, buffer.count)
-            if count > 0 {
-                data.append(buffer, count: count)
-                continue
-            }
-            if count < 0 && errno == EINTR {
-                continue
-            }
-            break
-        }
-        return data
-    }
-
     public enum ReadOutcome: Equatable, Sendable {
         case complete(Data)
         case tooLarge
@@ -102,14 +85,9 @@ public enum UnixSocket {
         }
     }
 
-    @discardableResult
-    public static func writeAll(_ descriptor: Int32, _ data: Data) -> Bool {
-        writeAll(descriptor, data, until: nil)
-    }
-
     /// Writes everything, or gives up once `deadline` passes on a peer that stopped reading.
     @discardableResult
-    public static func writeAll(_ descriptor: Int32, _ data: Data, until deadline: ContinuousClock.Instant?) -> Bool {
+    public static func writeAll(_ descriptor: Int32, _ data: Data, until deadline: ContinuousClock.Instant? = nil) -> Bool {
         data.withUnsafeBytes { raw in
             guard let base = raw.baseAddress else {
                 return true
@@ -142,11 +120,6 @@ public enum UnixSocket {
         let microseconds = max(left.components.seconds * 1_000_000 + left.components.attoseconds / 1_000_000_000_000, 1_000)
         var timeout = timeval(tv_sec: Int(microseconds / 1_000_000), tv_usec: Int32(microseconds % 1_000_000))
         return setsockopt(descriptor, SOL_SOCKET, option, &timeout, socklen_t(MemoryLayout<timeval>.size)) == 0
-    }
-
-    public static func setReadTimeout(_ descriptor: Int32, seconds: Int) {
-        var timeout = timeval(tv_sec: seconds, tv_usec: 0)
-        setsockopt(descriptor, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
     }
 
     public static func disableSigpipe(_ descriptor: Int32) {

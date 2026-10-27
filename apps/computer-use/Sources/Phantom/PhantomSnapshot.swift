@@ -1,7 +1,6 @@
 import AppKit
 import ComputerUseCore
 import QuartzCore
-import UniformTypeIdentifiers
 
 /// Draws the overlay offscreen, for development: a state, the session bar or a sheet of everything, at 1×, 2× or 3×.
 /// Loops stand still at the moment asked for, so a render shows what the screen shows at that time.
@@ -87,11 +86,7 @@ public enum PhantomSnapshot {
         let style = OverlayStyle.MenuBar.self
         return render(size: style.mark, scale: scale) { stage in
             let cursor = PhantomCursor()
-            var scene = PhantomScene()
-            scene.theme = theme
-            scene.accent = accent
-            scene.effects = false
-            cursor.show(PhantomLook.markState(state), scene: scene, motion: FrozenMotion(time: 0, reduceMotion: true), animated: false)
+            cursor.show(PhantomLook.markState(state), scene: .mark(theme: theme, accent: accent), motion: FrozenMotion(time: 0, reduceMotion: true), animated: false)
             cursor.layer.position = style.markHotspot
             cursor.layer.transform = CATransform3DMakeScale(style.markScale, style.markScale, 1)
             stage.addSublayer(cursor.layer)
@@ -230,15 +225,5 @@ public enum PhantomSnapshot {
         }
         root.render(in: context)
         return context.makeImage()
-    }
-
-    public static func writePNG(_ image: CGImage, to url: URL) throws {
-        guard let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else {
-            throw CocoaError(.fileWriteUnknown)
-        }
-        CGImageDestinationAddImage(destination, image, nil)
-        guard CGImageDestinationFinalize(destination) else {
-            throw CocoaError(.fileWriteUnknown)
-        }
     }
 }

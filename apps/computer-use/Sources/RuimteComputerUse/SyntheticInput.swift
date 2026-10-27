@@ -14,13 +14,22 @@ enum SyntheticInput {
         ProcessInfo.processInfo.systemUptime - lastPost < echo
     }
 
-    private static func post(_ event: CGEvent?) {
+    /// The app drops characters posted to its process faster than this, since it reads them as it gets to them.
+    static let characterGap: Duration = .milliseconds(40)
+
+    /// Posts to the system's event stream, or with `pid` to that process alone: then it never passes the focus, so
+    /// keys reach an app behind the person's work. Wheel events posted to a process do not scroll, measured on macOS 27.
+    private static func post(_ event: CGEvent?, to pid: pid_t? = nil) {
         guard let event else {
             return
         }
-        lastPost = ProcessInfo.processInfo.systemUptime
         event.setIntegerValueField(.eventSourceUserData, value: marker)
-        event.post(tap: .cghidEventTap)
+        guard let pid else {
+            lastPost = ProcessInfo.processInfo.systemUptime
+            event.post(tap: .cghidEventTap)
+            return
+        }
+        event.postToPid(pid)
     }
 
     private static var source: CGEventSource? {
@@ -81,7 +90,7 @@ enum SyntheticInput {
         for point in DragPath.points(from: start, to: end, steps: steps) where !Task.isCancelled {
             post(event(.leftMouseDragged, point))
             reached = point
-            try? await Task.sleep(for: .milliseconds(Int(duration * 1000) / max(1, steps)))
+            try? await Task.sleep(for: .seconds(duration / Double(max(1, steps))))
         }
         post(event(.leftMouseUp, reached))
         try? await Task.sleep(for: .milliseconds(80))
@@ -161,55 +170,28 @@ enum SyntheticInput {
         }
     }
 
-    static func press(_ combo: KeyCombo) async throws {
+    static func press(_ combo: KeyCombo, to pid: pid_t? = nil) async {
         let events = keyEvents(combo)
-        post(events[0])
+        post(events[0], to: pid)
         try? await Task.sleep(for: .milliseconds(25))
-        post(events[1])
+        post(events[1], to: pid)
+    }
+
+    static func type(_ character: Character, to pid: pid_t? = nil) async {
+        if let combo = key(for: character) {
+            await press(combo, to: pid)
+        } else {
+            for event in textEvents(character) {
+                post(event, to: pid)
+            }
+        }
     }
 
     static func type(_ text: String) async throws {
         for character in text.replacingOccurrences(of: "\r\n", with: "\n") {
             try Task.checkCancellation()
-            if let combo = key(for: character) {
-                try await press(combo)
-            } else {
-                textEvents(character).forEach(post)
-            }
+            await type(character)
             try await Task.sleep(for: .milliseconds(12))
-        }
-    }
-
-    /// Keys for an app behind the person's work: posted to its process alone, so they never pass the system's event
-    /// stream or the focus. Wheel events posted this way do not scroll, measured on macOS 27.
-    @MainActor
-    enum ToProcess {
-        /// The app drops characters that come faster, since it reads them as it gets to them.
-        static let characterGap: Duration = .milliseconds(40)
-
-        private static func post(_ event: CGEvent?, to pid: pid_t) {
-            guard let event else {
-                return
-            }
-            event.setIntegerValueField(.eventSourceUserData, value: marker)
-            event.postToPid(pid)
-        }
-
-        static func press(_ combo: KeyCombo, to pid: pid_t) async throws {
-            let events = keyEvents(combo)
-            post(events[0], to: pid)
-            try? await Task.sleep(for: .milliseconds(25))
-            post(events[1], to: pid)
-        }
-
-        static func type(_ character: Character, to pid: pid_t) async throws {
-            if let combo = key(for: character) {
-                try await press(combo, to: pid)
-            } else {
-                for event in textEvents(character) {
-                    post(event, to: pid)
-                }
-            }
         }
     }
 }

@@ -14,12 +14,8 @@ public enum LocalSecret {
 
     /// Compares in constant time; hashing first keeps a length difference from ending the compare early.
     public static func matches(_ presented: String, _ secret: String) -> Bool {
-        let left = Array(SHA256.hash(data: Data(presented.utf8)))
-        let right = Array(SHA256.hash(data: Data(secret.utf8)))
-        var difference: UInt8 = 0
-        for i in 0..<left.count {
-            difference |= left[i] ^ right[i]
-        }
-        return difference == 0
+        let left = SHA256.hash(data: Data(presented.utf8))
+        let right = SHA256.hash(data: Data(secret.utf8))
+        return zip(left, right).reduce(0) { $0 | ($1.0 ^ $1.1) } == 0
     }
 }

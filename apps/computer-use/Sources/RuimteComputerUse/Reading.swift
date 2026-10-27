@@ -54,7 +54,7 @@ extension Agent {
         overlay.show(ActionLook(state: .look, target: Targets.name(app), frame: window))
         let clock = ContinuousClock()
         let started = clock.now
-        let deadline = started + .milliseconds(Int(timeout * 1000))
+        let deadline = started + .seconds(timeout)
         var met = false
         while true {
             try checkStopped()

@@ -58,11 +58,15 @@ public enum Layers {
     static func text(_ text: String, font: NSFont, color: CGColor, origin: CGPoint, lineHeight: CGFloat, width: CGFloat? = nil) -> CATextLayer {
         let layer = CATextLayer()
         layer.string = NSAttributedString(string: text, attributes: [.font: font, .foregroundColor: NSColor(cgColor: color) ?? .labelColor])
-        let glyphHeight = ceil(font.ascender - font.descender + font.leading)
-        layer.frame = CGRect(x: origin.x, y: origin.y + floor((lineHeight - glyphHeight) / 2), width: width ?? textWidth(text, font: font), height: glyphHeight)
+        layer.frame = textFrame(text, font: font, origin: origin, lineHeight: lineHeight, width: width)
         layer.truncationMode = .none
         layer.isWrapped = false
         return layer
+    }
+
+    static func textFrame(_ text: String, font: NSFont, origin: CGPoint, lineHeight: CGFloat, width: CGFloat? = nil) -> CGRect {
+        let glyphHeight = ceil(font.ascender - font.descender + font.leading)
+        return CGRect(x: origin.x, y: origin.y + floor((lineHeight - glyphHeight) / 2), width: width ?? textWidth(text, font: font), height: glyphHeight)
     }
 
     /// A floating surface: the layered shadow of the design, the fill and an alpha border over it.

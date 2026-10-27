@@ -60,4 +60,13 @@ public enum ScrollDirection: String, Sendable {
     case down
     case left
     case right
+
+    public var isVertical: Bool {
+        self == .up || self == .down
+    }
+
+    /// 1 toward content further down or right, -1 back.
+    public var sign: Double {
+        self == .down || self == .right ? 1 : -1
+    }
 }

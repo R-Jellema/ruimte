@@ -85,6 +85,7 @@ public enum OverlayStyle {
 
     public enum Bar {
         public static let height: CGFloat = 36
+        public static let lineHeight: CGFloat = 20
         public static let cornerRadius: CGFloat = 10
         public static let leadingPadding: CGFloat = 10
         public static let trailingPadding: CGFloat = 4

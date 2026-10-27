@@ -1,9 +1,7 @@
 import ComputerUseCore
 import CoreGraphics
 import Foundation
-import ImageIO
 @preconcurrency import ScreenCaptureKit
-import UniformTypeIdentifiers
 
 enum WindowCapture {
     /// A capture and the window it was taken of, for asking the window server about that window afterwards.
@@ -122,13 +120,7 @@ enum WindowCapture {
         let safeLabel = label.map { $0.isLetter || $0.isNumber || $0 == "." || $0 == "-" ? $0 : "-" }
         let stamp = Int(Date().timeIntervalSince1970 * 1000)
         let url = directory.appendingPathComponent("\(String(safeLabel))-\(stamp).png")
-        guard let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else {
-            throw AgentError("could not create \(url.path)")
-        }
-        CGImageDestinationAddImage(destination, image, nil)
-        guard CGImageDestinationFinalize(destination) else {
-            throw AgentError("could not write \(url.path)")
-        }
+        try PNG.write(image, to: url)
         return url.path
     }
 

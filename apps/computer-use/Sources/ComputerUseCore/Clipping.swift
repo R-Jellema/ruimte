@@ -38,7 +38,7 @@ public enum Clipping {
         case .left: { $0.maxX <= container.minX + tolerance }
         }
         let hidden: (CGRect?) -> Bool = { frame in frame.map(past) ?? false }
-        return direction == .down || direction == .right ? frames.firstIndex(where: hidden) : frames.lastIndex(where: hidden)
+        return direction.sign > 0 ? frames.firstIndex(where: hidden) : frames.lastIndex(where: hidden)
     }
 
     /// The element to bring into view to scroll one step, looking inside each of `containers` in turn (positions in

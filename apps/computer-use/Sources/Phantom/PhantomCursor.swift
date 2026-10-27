@@ -23,6 +23,15 @@ public struct PhantomScene {
 
     public init() {}
 
+    /// The scene of a mini cursor, which draws nothing around its form.
+    static func mark(theme: PhantomTheme, accent: CGColor?) -> PhantomScene {
+        var scene = PhantomScene()
+        scene.theme = theme
+        scene.accent = accent
+        scene.effects = false
+        return scene
+    }
+
     var loops: Double {
         calm ? OverlayStyle.Motion.calmLoops : 1
     }

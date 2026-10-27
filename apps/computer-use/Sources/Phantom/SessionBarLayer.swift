@@ -110,24 +110,20 @@ public final class SessionBarLayer {
         mark.layer.transform = CATransform3DMakeScale(style.markScale, style.markScale, 1)
         let shownMark = PhantomLook.markState(content.state)
         if shownMark != markState || content.theme != markTheme {
-            var scene = PhantomScene()
-            scene.theme = content.theme
-            scene.accent = accent
-            scene.effects = false
-            mark.show(shownMark, scene: scene, motion: motion, animated: markState != nil)
+            mark.show(shownMark, scene: .mark(theme: content.theme, accent: accent), motion: motion, animated: markState != nil)
             markState = shownMark
             markTheme = content.theme
         }
         x += style.mark + style.gap
 
-        let lineY = (style.height - 20) / 2
+        let lineY = (style.height - style.lineHeight) / 2
         let ink = ink(content.theme, palette: palette)
         title.string = NSAttributedString(string: content.title, attributes: [.font: font, .foregroundColor: NSColor(cgColor: ink.title) ?? .labelColor])
-        title.frame = Layers.text(content.title, font: font, color: ink.title, origin: CGPoint(x: x, y: lineY), lineHeight: 20).frame
+        title.frame = Layers.textFrame(content.title, font: font, origin: CGPoint(x: x, y: lineY), lineHeight: style.lineHeight, width: titleWidth)
         x += titleWidth + style.gap
 
         time.string = NSAttributedString(string: content.time, attributes: [.font: timeFont, .foregroundColor: NSColor(cgColor: ink.time) ?? .tertiaryLabelColor])
-        time.frame = Layers.text(content.time, font: timeFont, color: ink.time, origin: CGPoint(x: x, y: lineY), lineHeight: 20, width: timeWidth).frame
+        time.frame = Layers.textFrame(content.time, font: timeFont, origin: CGPoint(x: x, y: lineY), lineHeight: style.lineHeight, width: timeWidth)
         x += timeWidth + style.gap
 
         let buttonY = (style.height - style.button) / 2

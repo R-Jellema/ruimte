@@ -1,5 +1,19 @@
 import CoreGraphics
 import Foundation
+import ImageIO
+import UniformTypeIdentifiers
+
+public enum PNG {
+    public static func write(_ image: CGImage, to url: URL) throws {
+        guard let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else {
+            throw AgentError("could not create \(url.path)")
+        }
+        CGImageDestinationAddImage(destination, image, nil)
+        guard CGImageDestinationFinalize(destination) else {
+            throw AgentError("could not write \(url.path)")
+        }
+    }
+}
 
 public struct CaptureResult: Sendable {
     public let path: String

@@ -218,7 +218,7 @@ final class Overlay {
         }, on: cursor.layer)
         CATransaction.commit()
         if motion.moves && hypot(target.x - start.x, target.y - start.y) > 1 {
-            try await Task.sleep(for: .milliseconds(Int(timing.duration * 1000)))
+            try await Task.sleep(for: .seconds(timing.duration))
         }
     }
 
@@ -249,7 +249,7 @@ final class Overlay {
             hold += OverlayStyle.Motion.typedLetter * Double(min(text.count, OverlayStyle.Label.maxTypedCharacters))
         }
         holdTask = Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(Int(hold * 1000)))
+            try? await Task.sleep(for: .seconds(hold))
             guard !Task.isCancelled, let self, self.control.isActive, self.control.agentState.isAction else {
                 return
             }
@@ -297,7 +297,7 @@ final class Overlay {
             endTask?.cancel()
             let linger = state == .done ? OverlayStyle.Motion.doneFadeDelay + OverlayStyle.Motion.doneFade.duration : Self.endingLinger
             endTask = Task { [weak self] in
-                try? await Task.sleep(for: .milliseconds(Int(linger * 1000)))
+                try? await Task.sleep(for: .seconds(linger))
                 guard !Task.isCancelled, let self, self.control.agentState == state else {
                     return
                 }

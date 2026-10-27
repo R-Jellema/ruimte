@@ -76,7 +76,7 @@ final class StatusMenu: NSObject, NSMenuDelegate {
             return
         }
         let title = NSMenuItem(title: content.title, action: nil, keyEquivalent: "")
-        title.attributedTitle = NSAttributedString(string: content.title, attributes: [.font: NSFont.menuFont(ofSize: 0).withWeight(.medium)])
+        title.attributedTitle = NSAttributedString(string: content.title, attributes: [.font: NSFont.systemFont(ofSize: NSFont.menuFont(ofSize: 0).pointSize, weight: .medium)])
         title.isEnabled = false
         menu.addItem(title)
         let step = NSMenuItem(title: content.step, action: nil, keyEquivalent: "")
@@ -119,11 +119,5 @@ final class StatusMenu: NSObject, NSMenuDelegate {
 
     @objc private func stop() {
         onStop?()
-    }
-}
-
-private extension NSFont {
-    func withWeight(_ weight: NSFont.Weight) -> NSFont {
-        NSFont.systemFont(ofSize: pointSize, weight: weight)
     }
 }

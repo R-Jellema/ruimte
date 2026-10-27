@@ -114,16 +114,13 @@ enum AX {
 
     /// An element and what sits inside it, in tree order, with their frames, read one round trip per element.
     static func layout(of root: AXUIElement, limit: Int) -> [(element: AXUIElement, laid: Clipping.Laid)] {
-        let names = [kAXPositionAttribute, kAXSizeAttribute, kAXChildrenAttribute] as CFArray
+        let names = [kAXPositionAttribute, kAXSizeAttribute, kAXChildrenAttribute]
         var result: [(element: AXUIElement, laid: Clipping.Laid)] = []
         var pending: [(element: AXUIElement, depth: Int)] = [(root, 0)]
         while let (node, depth) = pending.popLast(), result.count < limit {
-            var raw: CFArray?
-            let values = AXUIElementCopyMultipleAttributeValues(node, names, AXCopyMultipleAttributeOptions(rawValue: 0), &raw) == .success
-                ? raw as? [AnyObject] ?? [] : []
-            let value: (Int) -> CFTypeRef? = { index in values.indices.contains(index) ? values[index] : nil }
-            result.append((node, Clipping.Laid(depth: depth, frame: frame(position: value(0), size: value(1)))))
-            let children = value(2) as? [AXUIElement] ?? []
+            let read = values(node, names) ?? [nil, nil, nil]
+            result.append((node, Clipping.Laid(depth: depth, frame: frame(position: read[0], size: read[1]))))
+            let children = read[2] as? [AXUIElement] ?? []
             pending.append(contentsOf: children.reversed().map { ($0, depth + 1) })
         }
         return result

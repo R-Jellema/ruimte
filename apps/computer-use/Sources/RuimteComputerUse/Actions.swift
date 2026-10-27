@@ -150,22 +150,20 @@ extension Agent {
     }
 
     func scroll(_ app: NSRunningApplication, _ request: Request) async throws -> [String: Any] {
-        let direction = request.direction ?? ""
-        let signs: [String: (x: Double, y: Double)] = ["up": (0, -1), "down": (0, 1), "left": (-1, 0), "right": (1, 0)]
-        guard let sign = signs[direction] else {
+        guard let direction = ScrollDirection(rawValue: request.direction ?? "") else {
             throw AgentError("--direction is up, down, left or right")
         }
         let pages = request.pages ?? 1
         guard pages > 0, pages <= 50 else {
             throw AgentError("--pages must be above 0 and at most 50")
         }
-        let vertical = sign.y != 0
+        let vertical = direction.isVertical
         let snapshot = try snapshot(for: app)
         if request.front != true && request.element == nil {
             throw AgentError.needsFront("A scroll by pixel needs the real pointer, and so the app in front; scroll an element instead")
         }
 
-        var point: CGPoint
+        let point: CGPoint
         var expected: AXUIElement?
         var pageLength: CGFloat?
         if let index = request.element {
@@ -178,11 +176,8 @@ extension Agent {
             point = try screenPoint(snapshot, request)
         }
         let index = request.element
-        let look = ActionLook(state: .scroll, target: targetName(expected, app), direction: ScrollDirection(rawValue: direction) ?? .down)
-        if request.front != true {
-            guard let expected, let index else {
-                throw AgentError("scroll needs --element N")
-            }
+        let look = ActionLook(state: .scroll, target: targetName(expected, app), direction: direction)
+        if request.front != true, let expected, let index {
             return try await act(app, request, at: point, as: look) {
                 var answer = try await Self.scrollBehind(expected, direction: direction, pages: pages)
                 answer["element"] = index
@@ -199,8 +194,9 @@ extension Agent {
             let length = pageLength ?? Self.scrollAreaLength(around: hit, vertical: vertical) ?? AX.frame(snapshot.window).map { vertical ? $0.height : $0.width } ?? 400
             // Most of a page, so a line of context stays in view as it does with Page Down.
             let distance = Double(length) * 0.9 * pages
-            try await SyntheticInput.scroll(at: point, deltaX: sign.x * distance, deltaY: sign.y * distance)
-            var answer: [String: Any] = ["method": "wheel", "direction": direction, "pages": pages, "points": distance.rounded(), "target": target]
+            let delta = distance * direction.sign
+            try await SyntheticInput.scroll(at: point, deltaX: vertical ? 0 : delta, deltaY: vertical ? delta : 0)
+            var answer: [String: Any] = ["method": "wheel", "direction": direction.rawValue, "pages": pages, "points": distance.rounded(), "target": target]
             if let index {
                 answer["element"] = index
             }
@@ -306,31 +302,26 @@ extension Agent {
         }
         let window = snapshots[app.processIdentifier]?.window
         let look = ActionLook(state: .type, target: targetName(focusedElement(app), app), text: combos.map(\.name).joined(separator: " "))
-        if request.front != true {
-            if let edit = combos.first(where: \.editsFocusedText) {
-                throw AgentError.needsFront("\(edit.name) edits the focused text through the key window, which an app behind the person's work does not have, so it does nothing there; set-value replaces a text in the background")
-            }
-            let keys = try keyTarget(app)
-            return try await act(app, request, at: focusPoint(app), as: look, reportPoint: false) {
-                let target = AX.summary(keys.focused ?? keys.window)
-                Self.aimKeys(keys, main: true)
-                for combo in combos {
-                    try self.checkStopped()
-                    try await SyntheticInput.ToProcess.press(combo, to: app.processIdentifier)
-                    try await Task.sleep(for: .milliseconds(60))
-                }
-                return ["pressed": combos.map(\.name), "method": "keys to the app", "target": target]
-            }
+        if request.front != true, let edit = combos.first(where: \.editsFocusedText) {
+            throw AgentError.needsFront("\(edit.name) edits the focused text through the key window, which an app behind the person's work does not have, so it does nothing there; set-value replaces a text in the background")
         }
+        let keys = request.front == true ? nil : try keyTarget(app)
         return try await act(app, request, at: focusPoint(app), as: look, reportPoint: false) {
-            try await Targets.activate(app, window: window)
-            let target = AX.summary(self.focusedElement(app))
+            var answer: [String: Any] = ["pressed": combos.map(\.name)]
+            if let keys {
+                answer["target"] = AX.summary(keys.focused ?? keys.window)
+                answer["method"] = "keys to the app"
+                Self.aimKeys(keys, main: true)
+            } else {
+                try await Targets.activate(app, window: window)
+                answer["target"] = AX.summary(self.focusedElement(app))
+            }
             for combo in combos {
                 try self.checkStopped()
-                try await SyntheticInput.press(combo)
+                await SyntheticInput.press(combo, to: keys == nil ? nil : app.processIdentifier)
                 try await Task.sleep(for: .milliseconds(60))
             }
-            return ["pressed": combos.map(\.name), "target": target]
+            return answer
         }
     }
 
@@ -547,8 +538,8 @@ extension Agent {
         Self.aimKeys(keys, main: true)
         return try await KeysBehind.type(text, before: before, send: { character in
             try self.checkStopped()
-            try await SyntheticInput.ToProcess.type(character, to: pid)
-            try await Task.sleep(for: SyntheticInput.ToProcess.characterGap)
+            await SyntheticInput.type(character, to: pid)
+            try await Task.sleep(for: SyntheticInput.characterGap)
         }, after: {
             try? await Task.sleep(for: .milliseconds(150))
             return valueNow()
@@ -558,9 +549,10 @@ extension Agent {
     /// Scrolls through accessibility, since wheel events posted to an app behind the person's work never scroll:
     /// the page actions of the element or what it sits in, the value of a scroll area's scroll bar, or else what
     /// Chromium offers for any element it scrolls, bringing an element into view.
-    private static func scrollBehind(_ element: AXUIElement, direction: String, pages: Double) async throws -> [String: Any] {
+    private static func scrollBehind(_ element: AXUIElement, direction: ScrollDirection, pages: Double) async throws -> [String: Any] {
         let chain = [element] + AX.ancestors(of: element)
-        let pageAction = "AXScroll\(direction.prefix(1).uppercased() + direction.dropFirst())ByPage"
+        let name = direction.rawValue
+        let pageAction = "AXScroll\(name.prefix(1).uppercased() + name.dropFirst())ByPage"
         let times = max(1, Int(pages.rounded()))
         // Some apps list the page actions and refuse them; the scroll bar is tried next.
         if let scrollable = chain.first(where: { AX.actions($0).contains(pageAction) }),
@@ -568,9 +560,9 @@ extension Agent {
             for _ in 1..<times {
                 AXUIElementPerformAction(scrollable, pageAction as CFString)
             }
-            return ["method": pageAction, "direction": direction, "pages": times]
+            return ["method": pageAction, "direction": name, "pages": times]
         }
-        let vertical = direction == "up" || direction == "down"
+        let vertical = direction.isVertical
         let barAttribute = vertical ? kAXVerticalScrollBarAttribute : kAXHorizontalScrollBarAttribute
         for area in chain where AX.role(area) == kAXScrollAreaRole {
             guard let bar = AX.element(area, barAttribute), AX.isSettable(bar, kAXValueAttribute),
@@ -582,18 +574,17 @@ extension Agent {
             let seen = vertical ? visible.height : visible.width
             let whole = vertical ? content.height : content.width
             guard whole > seen else {
-                return ["method": "AXValue of the scroll bar", "direction": direction, "moved": false, "note": "the area shows all it holds; there is nothing to scroll"]
+                return ["method": "AXValue of the scroll bar", "direction": name, "moved": false, "note": "the area shows all it holds; there is nothing to scroll"]
             }
-            let sign: Double = direction == "down" || direction == "right" ? 1 : -1
-            let target = min(1, max(0, now + sign * Double(seen) * 0.9 * pages / Double(whole - seen)))
+            let target = min(1, max(0, now + direction.sign * Double(seen) * 0.9 * pages / Double(whole - seen)))
             let result = AXUIElementSetAttributeValue(bar, kAXValueAttribute as CFString, NSNumber(value: target))
             guard result == .success else {
                 throw AgentError.needsFront("The app refused to move its scroll bar (AXError \(result.rawValue)), so scrolling needs the wheel, and so the app in front")
             }
-            return ["method": "AXValue of the scroll bar", "direction": direction, "pages": pages, "moved": target != now]
+            return ["method": "AXValue of the scroll bar", "direction": name, "pages": pages, "moved": target != now]
         }
-        if let scrollDirection = ScrollDirection(rawValue: direction), chain.contains(where: { AX.actions($0).contains(scrollToVisible) }) {
-            return try await revealBehind(element, chain: chain, direction: scrollDirection, steps: times)
+        if chain.contains(where: { AX.actions($0).contains(scrollToVisible) }) {
+            return try await revealBehind(element, chain: chain, direction: direction, steps: times)
         }
         throw AgentError.needsFront("Nothing around this element scrolls through accessibility, so scrolling it needs the wheel, and so the app in front")
     }
