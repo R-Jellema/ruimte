@@ -28,8 +28,10 @@ import {
     type SessionResult
 } from '@ruimte/pulsar';
 import { Miniflare, type WorkerOptions } from 'miniflare';
-import { BENCHMARK_LABS, BENCHMARK_MODELS } from './benchmark-models.ts';
+import { BENCHMARK_LABS } from './benchmark-labs.ts';
 import { MAX_PAGES } from './benchmarks.ts';
+import { BUNDLED_CATALOGS } from './catalog.ts';
+import { seedStatementsOf } from './catalog-seed.ts';
 import { LIMITS, WINDOW_MS } from './rate-window.ts';
 import { ROTATION_GRACE_MS } from './sessions.ts';
 
@@ -169,6 +171,15 @@ async function migrate(on: Miniflare, files?: (file: string) => boolean): Promis
             .join('\n');
         await database(on).batch(statementsOf(sql).map((statement): Statement => [statement]));
     }
+}
+
+// The catalogs as production has them before `0020`, so the migration maps the models of the comparison.
+async function migrateWithCatalogs(on: Miniflare): Promise<void> {
+    await migrate(on, (file) => file < '0020');
+    await database(on).batch(
+        ['claude', 'codex', 'grok', 'antigravity'].flatMap((kind) => seedStatementsOf(kind, BUNDLED_CATALOGS[kind] as never).map((sql): Statement => [sql]))
+    );
+    await migrate(on, (file) => file >= '0020');
 }
 
 // A trigger's body holds semicolons of its own, so a statement ends at a semicolon outside `BEGIN ... END`.
@@ -2068,8 +2079,10 @@ describe('model benchmarks', () => {
     const BENCHMARKS_CRON = '17 */3 * * *';
     const API_KEY = 'aa-test-key';
     const DEPLOY_TOKEN = 'ab'.repeat(32);
+    // What `0020` mapped, by `<slug>/<effort>`.
+    const mapped = new Map<string, string | null>();
     const measuredId = (slug: string, effort: string): string => {
-        const id = BENCHMARK_MODELS.find((model) => model.slug === slug)?.efforts.find((entry) => entry.effort === effort)?.id;
+        const id = mapped.get(`${slug}/${effort}`);
         if (!id) {
             throw new Error(`${slug} ${effort} has no id in the table`);
         }
@@ -2131,7 +2144,13 @@ describe('model benchmarks', () => {
             },
             outboundService: artificialAnalysis
         });
-        await migrate(on);
+        await migrateWithCatalogs(on);
+        const rows = await database(on).all<{ slug: string; effort: string; source_id: string | null }>(
+            'SELECT slug, effort, source_id FROM model_catalog_benchmarks'
+        );
+        for (const row of rows) {
+            mapped.set(`${row.slug}/${row.effort}`, row.source_id);
+        }
     }, 30_000);
 
     afterAll(async () => {
@@ -2158,7 +2177,7 @@ describe('model benchmarks', () => {
                 }
             ];
             await database(upgrade).run('INSERT INTO model_benchmarks (id, fetched_at, models) VALUES (1, ?, ?)', 123, JSON.stringify(models));
-            await migrate(upgrade, (file) => file === '0015_benchmark_measurements.sql');
+            await migrate(upgrade, (file) => file >= '0015_benchmark_measurements.sql');
             const response = await dispatch('/v1/models/benchmarks', { on: upgrade });
             expect(response.status).toBe(200);
             expect(await response.json()).toEqual({ fetchedAt: 123, models, labs: BENCHMARK_LABS });
@@ -2182,6 +2201,10 @@ describe('model benchmarks', () => {
             { page: '1', key: API_KEY },
             { page: '2', key: API_KEY }
         ]);
+        // Kept under its own name though no model of Ruimte maps it yet, so a person finds its id in D1.
+        expect(await database(on).first<{ name: string }>("SELECT name FROM benchmark_measurements WHERE source_id = 'not-a-model-of-ruimte'")).toEqual({
+            name: 'Model not-a-model-of-ruimte'
+        });
 
         const response = await read();
         expect(response.status).toBe(200);
@@ -2202,7 +2225,11 @@ describe('model benchmarks', () => {
             cacheReadPrice: 0,
             cacheWritePrice: 1.25
         });
-        expect(result.models.map((model) => model.id)).toEqual(BENCHMARK_MODELS.map((model) => model.slug));
+        // Every model the migration mapped, grouped in the order of the labs.
+        expect(new Set(result.models.map((model) => model.id))).toEqual(new Set([...mapped.keys()].map((key) => key.split('/')[0])));
+        expect(result.models.length).toBe(24);
+        const labOrder = result.models.map((model) => BENCHMARK_LABS.findIndex((lab) => lab.id === model.provider));
+        expect(labOrder).toEqual([...labOrder].sort((first, second) => first - second));
         for (const model of result.models) {
             expect(Object.keys(model).sort()).toEqual(['id', 'legacy', 'name', 'points', 'provider']);
             for (const point of model.points) {
@@ -2226,7 +2253,34 @@ describe('model benchmarks', () => {
         expect(JSON.stringify(result)).not.toContain('Model ');
     });
 
-    test('a failed page, an unreadable one or one without a known model leaves the row that is there', async () => {
+    test('a model mapped after a refresh shows at once, and one removed from the catalog leaves the comparison', async () => {
+        pages = [page(1, false, [measured(measuredId('claude-opus-5-5', 'low'), 43.2, 0.65), measured('aa-next', 61, 1.5)])];
+        await refresh();
+        const db = database(on);
+        await db.run(
+            "INSERT INTO model_catalog_models (kind, slug, position, name, profile, legacy) VALUES ('claude', 'claude-next', 99, 'Claude Next', 'opus', 0)"
+        );
+        await db.run(
+            "INSERT INTO model_catalog_benchmarks (kind, slug, effort, position, source_id, source_name) VALUES ('claude', 'claude-next', 'high', 0, 'aa-next', 'Claude Next (High)')"
+        );
+        const added = (await (await read()).json()) as ModelBenchmarksResult;
+        expect(added.models.find((model) => model.id === 'claude-next')).toEqual({
+            id: 'claude-next',
+            name: 'Claude Next',
+            provider: 'claude',
+            legacy: false,
+            points: [{ effort: 'high', intelligence: 61, costPerTask: 1.5 }]
+        });
+
+        await db.run("UPDATE model_catalog_models SET legacy = 1 WHERE kind = 'claude' AND slug = 'claude-next'");
+        expect(((await (await read()).json()) as ModelBenchmarksResult).models.find((model) => model.id === 'claude-next')?.legacy).toBe(true);
+
+        await db.run("DELETE FROM model_catalog_models WHERE kind = 'claude' AND slug = 'claude-next'");
+        expect(((await (await read()).json()) as ModelBenchmarksResult).models.some((model) => model.id === 'claude-next')).toBe(false);
+        expect(await db.first("SELECT 1 FROM model_catalog_benchmarks WHERE slug = 'claude-next'")).toBeNull();
+    });
+
+    test('a failed page or an unreadable one leaves the measurements that are there', async () => {
         pages = [page(1, false, [measured(measuredId('claude-opus-5-5', 'low'), 43.2, 0.65)])];
         await refresh();
         const response = await read();
@@ -2237,7 +2291,7 @@ describe('model benchmarks', () => {
         for (const broken of [
             [page(1, true, [measured(measuredId('claude-opus-5-5', 'low'), 1, 1)]), 500],
             [page(1, false, [measured(measuredId('claude-opus-5-5', 'low'), 1, 1)]).data],
-            [page(1, false, [measured('not-a-model-of-ruimte', 70, 1)])],
+            [page(1, false, [{ id: 'broken', evaluations: 'nope' }])],
             [429],
             [page(1, true, [measured(measuredId('claude-opus-5-5', 'low'), 1, 1)]), { ...page(2, false, []), intelligence_index_version: 8 }]
         ]) {

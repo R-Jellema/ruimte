@@ -1,11 +1,23 @@
 import { describe, expect, test } from 'bun:test';
 import { BenchmarkPointSchema, ModelBenchmarksResultSchema } from '@ruimte/pulsar';
-import { BENCHMARK_MODELS } from './benchmark-models.ts';
-import { benchmarksFrom, measurementsOf } from './benchmarks.ts';
+import { benchmarkSources, benchmarksFrom, measurementsOf, type BenchmarkSource } from './benchmarks.ts';
+import { seedStatementsOf } from './catalog-seed.ts';
+import { d1, migratedDatabase } from './test/sqlite-d1.ts';
 
-const MODEL = BENCHMARK_MODELS.find((model) => model.slug === 'claude-haiku-5-5')!;
-const LOW = MODEL.efforts.find((entry) => entry.effort === 'low')!.id!;
-const HIGH = MODEL.efforts.find((entry) => entry.effort === 'high')!.id!;
+const LOW = 'aa-haiku-low';
+const HIGH = 'aa-haiku-high';
+
+const MODEL: BenchmarkSource = {
+    slug: 'claude-haiku-5-5',
+    name: 'Claude Haiku 5.5',
+    provider: 'claude',
+    legacy: false,
+    efforts: [
+        { effort: 'low', id: LOW, name: 'Claude Haiku 5.5 (Low)' },
+        { effort: 'high', id: HIGH, name: 'Claude Haiku 5.5 (High)' }
+    ]
+};
+const SOURCES = [MODEL];
 
 function page(data: unknown[]) {
     return { intelligence_index_version: 4.3, pagination: { has_more: false }, data };
@@ -56,7 +68,7 @@ describe('benchmark measurements', () => {
                 }
             ])
         )!;
-        const result = benchmarksFrom(parsed.measurements, 123)!;
+        const result = benchmarksFrom(SOURCES, parsed.measurements, 123);
         expect(result.measurements).toEqual([
             {
                 modelId: MODEL.slug,
@@ -87,13 +99,14 @@ describe('benchmark measurements', () => {
 
     test('delivers partial Haiku measurements while preserving the original client contract', () => {
         const result = benchmarksFrom(
+            SOURCES,
             new Map([
                 [LOW, { intelligence: 30, coding: 25, outputSpeed: 120 }],
                 [HIGH, { intelligence: 40, costPerTask: 0.12, totalCost: 230, agentic: 42 }]
             ]),
             123,
             4.3
-        )!;
+        );
         expect(result.models.find((model) => model.id === MODEL.slug)?.points).toEqual([{ effort: 'high', intelligence: 40, costPerTask: 0.12 }]);
         expect(result.measurements?.find((point) => point.modelId === MODEL.slug && point.effort === 'low')).toEqual({
             modelId: MODEL.slug,
@@ -107,14 +120,82 @@ describe('benchmark measurements', () => {
     });
 
     test('a zero cost is retained for linear charts but excluded from old logarithmic charts', () => {
-        const result = benchmarksFrom(new Map([[LOW, { intelligence: 0, costPerTask: 0 }]]), 123)!;
+        const result = benchmarksFrom(SOURCES, new Map([[LOW, { intelligence: 0, costPerTask: 0 }]]), 123);
         expect(result.models.find((model) => model.id === MODEL.slug)?.points).toEqual([]);
         expect(result.measurements?.[0]?.costPerTask).toBe(0);
     });
 
     test('accepts old cached responses without the additional metrics', () => {
         expect(ModelBenchmarksResultSchema.safeParse({ fetchedAt: 123, models: [] }).success).toBe(true);
-        expect(benchmarksFrom(new Map([['unknown', { intelligence: 40 }]]), 123)).toBeNull();
+        expect(benchmarksFrom(SOURCES, new Map([['unknown', { intelligence: 40 }]]), 123).measurements).toEqual([]);
         expect(measurementsOf({ data: [] })).toBeNull();
+    });
+});
+
+describe('the models of the comparison', () => {
+    function databaseWith(...kinds: Array<[string, unknown]>): D1Database {
+        const database = migratedDatabase();
+        database.transaction(() => {
+            for (const [kind, catalog] of kinds) {
+                for (const statement of seedStatementsOf(kind, catalog as never)) {
+                    database.exec(statement);
+                }
+            }
+        })();
+        return d1(database);
+    }
+
+    const catalogOf = (slugs: Array<[string, boolean]>) => ({
+        defaultModel: slugs[0]![0],
+        profiles: { plain: { options: [], contextWindowTokens: {} } },
+        models: slugs.map(([slug, legacy]) => ({ slug, name: slug.toUpperCase(), profile: 'plain', ...(legacy ? { legacy } : {}) }))
+    });
+
+    test('take name and legacy from the catalog, keep the order of the efforts, and group by lab', async () => {
+        const db = databaseWith(
+            ['grok', catalogOf([['grok-a', false]])],
+            [
+                'claude',
+                catalogOf([
+                    ['claude-a', false],
+                    ['claude-b', true]
+                ])
+            ],
+            ['copilot', catalogOf([['copilot-a', false]])]
+        );
+        const insert = (kind: string, slug: string, effort: string, position: number, id: string | null) =>
+            db
+                .prepare('INSERT INTO model_catalog_benchmarks (kind, slug, effort, position, source_id, source_name) VALUES (?, ?, ?, ?, ?, ?)')
+                .bind(kind, slug, effort, position, id, id === null ? null : `${id} name`)
+                .run();
+        await insert('grok', 'grok-a', 'high', 0, 'aa-grok');
+        await insert('claude', 'claude-b', 'max', 1, 'aa-b-max');
+        await insert('claude', 'claude-b', 'low', 0, null);
+        await insert('claude', 'claude-a', 'high', 0, 'aa-a');
+        await insert('copilot', 'copilot-a', 'high', 0, 'aa-copilot');
+
+        expect(await benchmarkSources(db)).toEqual([
+            { slug: 'claude-a', name: 'CLAUDE-A', provider: 'claude', legacy: false, efforts: [{ effort: 'high', id: 'aa-a', name: 'aa-a name' }] },
+            {
+                slug: 'claude-b',
+                name: 'CLAUDE-B',
+                provider: 'claude',
+                legacy: true,
+                efforts: [
+                    { effort: 'low', id: null, name: null },
+                    { effort: 'max', id: 'aa-b-max', name: 'aa-b-max name' }
+                ]
+            },
+            { slug: 'grok-a', name: 'GROK-A', provider: 'xai', legacy: false, efforts: [{ effort: 'high', id: 'aa-grok', name: 'aa-grok name' }] }
+        ]);
+    });
+
+    test('an effort names both the id and the name of its measurement, or neither', async () => {
+        const db = databaseWith(['claude', catalogOf([['claude-a', false]])]);
+        const insert = db.prepare(
+            "INSERT INTO model_catalog_benchmarks (kind, slug, effort, position, source_id, source_name) VALUES ('claude', 'claude-a', 'high', 0, 'aa-a', NULL)"
+        );
+
+        await expect(insert.run()).rejects.toThrow();
     });
 });

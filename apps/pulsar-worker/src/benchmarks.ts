@@ -1,6 +1,6 @@
 import type { BenchmarkMeasurement, BenchmarkModel, ModelBenchmarksResult } from '@ruimte/pulsar';
 import { z } from 'zod';
-import { BENCHMARK_LABS, BENCHMARK_MODELS } from './benchmark-models.ts';
+import { BENCHMARK_LABS, LAB_OF_KIND, type BenchmarkProvider } from './benchmark-labs.ts';
 import type { Env } from './env.ts';
 import { failure, json } from './http.ts';
 
@@ -10,6 +10,7 @@ export const MAX_PAGES = 10;
 
 const MeasuredModelSchema = z.object({
     id: z.string(),
+    name: z.string().optional(),
     evaluations: z
         .object({
             artificial_analysis_intelligence_index: z.number().nullish(),
@@ -49,6 +50,8 @@ const ModelsPageSchema = z.object({
 type Measurement = Omit<BenchmarkMeasurement, 'modelId' | 'effort'>;
 interface Measurements {
     measurements: Map<string, Measurement>;
+    // What Artificial Analysis calls each measured model, so a person finds the id of a new one in D1.
+    names: Map<string, string>;
     intelligenceIndexVersion?: number;
 }
 
@@ -58,6 +61,7 @@ export function measurementsOf(raw: unknown): (Measurements & { hasMore: boolean
         return null;
     }
     const measurements = new Map<string, Measurement>();
+    const names = new Map<string, string>();
     for (const entry of page.data.data) {
         const model = MeasuredModelSchema.safeParse(entry);
         if (!model.success) {
@@ -95,14 +99,18 @@ export function measurementsOf(raw: unknown): (Measurements & { hasMore: boolean
         }
         if (Object.keys(values).length > 0) {
             measurements.set(model.data.id, values);
+            if (model.data.name !== undefined) {
+                names.set(model.data.id, model.data.name);
+            }
         }
     }
-    return { measurements, hasMore: page.data.pagination.has_more, intelligenceIndexVersion: page.data.intelligence_index_version };
+    return { measurements, names, hasMore: page.data.pagination.has_more, intelligenceIndexVersion: page.data.intelligence_index_version };
 }
 
 /* A failed or truncated refresh must not replace the complete cached snapshot. */
 async function fetchMeasurements(apiKey: string): Promise<Measurements | null> {
     const measurements = new Map<string, Measurement>();
+    const names = new Map<string, string>();
     let intelligenceIndexVersion: number | undefined;
     for (let page = 1; page <= MAX_PAGES; page++) {
         const response = await fetch(`${MODELS_URL}?page=${page}`, {
@@ -122,20 +130,75 @@ async function fetchMeasurements(apiKey: string): Promise<Measurements | null> {
         for (const [id, measurement] of parsed.measurements) {
             measurements.set(id, measurement);
         }
+        for (const [id, name] of parsed.names) {
+            names.set(id, name);
+        }
         if (!parsed.hasMore) {
-            return { measurements, intelligenceIndexVersion };
+            return { measurements, names, intelligenceIndexVersion };
         }
     }
     return null;
 }
 
+export type BenchmarkEffort = { effort: string } & ({ id: string; name: string } | { id: null; name: null });
+
+export interface BenchmarkSource {
+    slug: string;
+    name: string;
+    provider: BenchmarkProvider;
+    legacy: boolean;
+    // In the order the line runs through them, cheapest first.
+    efforts: BenchmarkEffort[];
+}
+
+interface SourceRow {
+    kind: string;
+    slug: string;
+    effort: string;
+    source_id: string | null;
+    source_name: string | null;
+    name: string;
+    legacy: number;
+}
+
+/*
+ * The models of the comparison from the catalog, with the Artificial Analysis model of each effort. There an effort
+ * is a model of its own; ultrathink and ultra have no counterpart above max, and a switch such as Haiku's thinking
+ * is two efforts, `off` and the id of the switch. In the order of the labs, then of the picker.
+ */
+export async function benchmarkSources(db: D1Database): Promise<BenchmarkSource[]> {
+    const { results } = await db
+        .prepare(
+            'SELECT benchmark.kind, benchmark.slug, benchmark.effort, benchmark.source_id, benchmark.source_name, model.name, model.legacy FROM model_catalog_benchmarks AS benchmark JOIN model_catalog_models AS model USING (kind, slug) ORDER BY model.position, benchmark.position'
+        )
+        .all<SourceRow>();
+    const labOrder = BENCHMARK_LABS.map((lab) => lab.id);
+    const sources = new Map<string, BenchmarkSource>();
+    for (const row of results) {
+        const provider = LAB_OF_KIND[row.kind];
+        if (provider === undefined) {
+            continue;
+        }
+        const key = `${row.kind}/${row.slug}`;
+        const source = sources.get(key) ?? { slug: row.slug, name: row.name, provider, legacy: row.legacy === 1, efforts: [] };
+        sources.set(key, source);
+        source.efforts.push(
+            row.source_id === null || row.source_name === null
+                ? { effort: row.effort, id: null, name: null }
+                : { effort: row.effort, id: row.source_id, name: row.source_name }
+        );
+    }
+    return [...sources.values()].sort((first, second) => labOrder.indexOf(first.provider) - labOrder.indexOf(second.provider));
+}
+
 export function benchmarksFrom(
+    sources: readonly BenchmarkSource[],
     measurements: ReadonlyMap<string, Measurement>,
     fetchedAt: number,
     intelligenceIndexVersion?: number
-): ModelBenchmarksResult | null {
+): ModelBenchmarksResult {
     const details: BenchmarkMeasurement[] = [];
-    const models: BenchmarkModel[] = BENCHMARK_MODELS.map((model) => ({
+    const models: BenchmarkModel[] = sources.map((model) => ({
         id: model.slug,
         name: model.name,
         provider: model.provider,
@@ -152,49 +215,74 @@ export function benchmarksFrom(
                 : [{ effort: entry.effort, intelligence: measured.intelligence, costPerTask: measured.costPerTask }];
         })
     }));
-    return details.length > 0
-        ? { fetchedAt, models, measurements: details, ...(intelligenceIndexVersion === undefined ? {} : { intelligenceIndexVersion }) }
-        : null;
+    return { fetchedAt, models, measurements: details, ...(intelligenceIndexVersion === undefined ? {} : { intelligenceIndexVersion }) };
 }
 
-export async function refreshBenchmarks(env: Env): Promise<ModelBenchmarksResult | null> {
+export interface BenchmarkRefresh {
+    fetchedAt: number;
+    // How many models Artificial Analysis measured, mapped or not.
+    measured: number;
+}
+
+/* Keeps every model the whole fetch measured, so a mapping added later shows without waiting for the next refresh. */
+export async function refreshBenchmarks(env: Env): Promise<BenchmarkRefresh | null> {
     if (!env.ARTIFICIAL_ANALYSIS_API_KEY) {
         return null;
     }
     const snapshot = await fetchMeasurements(env.ARTIFICIAL_ANALYSIS_API_KEY);
-    const result = snapshot === null ? null : benchmarksFrom(snapshot.measurements, Date.now(), snapshot.intelligenceIndexVersion);
-    if (result === null) {
+    if (snapshot === null || snapshot.measurements.size === 0) {
         return null;
     }
-    await env.DB.prepare(
-        'INSERT INTO model_benchmarks (id, fetched_at, models, details) VALUES (1, ?1, ?2, ?3) ON CONFLICT (id) DO UPDATE SET fetched_at = excluded.fetched_at, models = excluded.models, details = excluded.details'
-    )
-        .bind(
-            result.fetchedAt,
-            JSON.stringify(result.models),
-            JSON.stringify({ measurements: result.measurements, intelligenceIndexVersion: result.intelligenceIndexVersion })
-        )
-        .run();
-    return result;
+    const fetchedAt = Date.now();
+    const measured = JSON.stringify(
+        Object.fromEntries([...snapshot.measurements].map(([id, measurement]) => [id, { name: snapshot.names.get(id) ?? null, measurement }]))
+    );
+    // One batch is one transaction, so a read sees the whole refresh or the one before it.
+    await env.DB.batch([
+        env.DB.prepare('DELETE FROM benchmark_measurements WHERE source_id NOT IN (SELECT key FROM json_each(?1))').bind(measured),
+        env.DB.prepare(
+            "INSERT INTO benchmark_measurements (source_id, name, measurement) SELECT key, json_extract(value, '$.name'), json_extract(value, '$.measurement') FROM json_each(?1) WHERE true ON CONFLICT (source_id) DO UPDATE SET name = excluded.name, measurement = excluded.measurement"
+        ).bind(measured),
+        env.DB.prepare(
+            'INSERT INTO benchmark_refreshes (id, fetched_at, intelligence_index_version) VALUES (1, ?1, ?2) ON CONFLICT (id) DO UPDATE SET fetched_at = excluded.fetched_at, intelligence_index_version = excluded.intelligence_index_version'
+        ).bind(fetchedAt, snapshot.intelligenceIndexVersion ?? null)
+    ]);
+    return { fetchedAt, measured: snapshot.measurements.size };
+}
+
+// The snapshot from before `benchmark_measurements`, for an address book that has not refreshed since. Goes with `model_benchmarks`.
+async function previousSnapshot(db: D1Database): Promise<Omit<ModelBenchmarksResult, 'labs'> | null> {
+    const row = await db.prepare('SELECT fetched_at, models, details FROM model_benchmarks WHERE id = 1').first<{
+        fetched_at: number;
+        models: string;
+        details: string | null;
+    }>();
+    return row === null
+        ? null
+        : { fetchedAt: row.fetched_at, models: JSON.parse(row.models) as BenchmarkModel[], ...(row.details === null ? {} : JSON.parse(row.details)) };
 }
 
 export async function readBenchmarks(env: Env): Promise<Response> {
     if (!env.ARTIFICIAL_ANALYSIS_API_KEY) {
         return failure('not-configured', 'Model benchmarks are not configured on this address book yet');
     }
-    const row = await env.DB.prepare('SELECT fetched_at, models, details FROM model_benchmarks WHERE id = 1').first<{
+    const refresh = await env.DB.prepare('SELECT fetched_at, intelligence_index_version FROM benchmark_refreshes WHERE id = 1').first<{
         fetched_at: number;
-        models: string;
-        details: string | null;
+        intelligence_index_version: number | null;
     }>();
-    if (!row) {
-        return failure('no-benchmarks', 'The address book has not fetched any model benchmarks yet');
+    // From the code rather than the snapshot, so a new lab shows with the deploy instead of the next refresh.
+    const labs = [...BENCHMARK_LABS];
+    if (!refresh) {
+        const previous = await previousSnapshot(env.DB);
+        return previous === null
+            ? failure('no-benchmarks', 'The address book has not fetched any model benchmarks yet')
+            : json({ ...previous, labs } satisfies ModelBenchmarksResult);
     }
-    return json({
-        fetchedAt: row.fetched_at,
-        models: JSON.parse(row.models) as BenchmarkModel[],
-        ...(row.details === null ? {} : JSON.parse(row.details)),
-        // From the code rather than the snapshot, so a new lab shows with the deploy instead of the next refresh.
-        labs: [...BENCHMARK_LABS]
-    } satisfies ModelBenchmarksResult);
+    const sources = await benchmarkSources(env.DB);
+    const { results } = await env.DB.prepare(
+        'SELECT source_id, measurement FROM benchmark_measurements WHERE source_id IN (SELECT source_id FROM model_catalog_benchmarks)'
+    ).all<{ source_id: string; measurement: string }>();
+    const measurements = new Map(results.map((row) => [row.source_id, JSON.parse(row.measurement) as Measurement]));
+    const result = benchmarksFrom(sources, measurements, refresh.fetched_at, refresh.intelligence_index_version ?? undefined);
+    return json({ ...result, labs } satisfies ModelBenchmarksResult);
 }

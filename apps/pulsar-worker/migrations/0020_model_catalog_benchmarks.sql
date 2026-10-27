@@ -1,0 +1,141 @@
+-- Which Artificial Analysis model stands for each effort of a model in the catalog, so a model joins the comparison
+-- with SQL in D1 and no deploy. `source_id` and `source_name` are Artificial Analysis's own; both null means the
+-- effort waits on a measurement. A model leaves the comparison with its row in `model_catalog_models`.
+CREATE TABLE model_catalog_benchmarks (
+    kind TEXT NOT NULL,
+    slug TEXT NOT NULL,
+    effort TEXT NOT NULL,
+    -- In the order the line runs through them, cheapest first.
+    position INTEGER NOT NULL,
+    source_id TEXT,
+    source_name TEXT,
+    PRIMARY KEY (kind, slug, effort),
+    FOREIGN KEY (kind, slug) REFERENCES model_catalog_models (kind, slug) ON DELETE CASCADE,
+    CHECK ((source_id IS NULL) = (source_name IS NULL))
+);
+
+-- What the last whole refresh measured, for every model Artificial Analysis lists, so a new mapping shows at once.
+CREATE TABLE benchmark_measurements (
+    source_id TEXT PRIMARY KEY,
+    -- Artificial Analysis's name for it, so the id of a new model is one query away.
+    name TEXT,
+    -- JSON, the fields of `BenchmarkMeasurement` that were measured.
+    measurement TEXT NOT NULL
+);
+
+-- When that refresh ran. One row.
+CREATE TABLE benchmark_refreshes (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    fetched_at INTEGER NOT NULL,
+    intelligence_index_version REAL
+);
+
+-- The table `src/benchmark-models.ts` held until now, for the models D1 already has. A database without them gets none.
+INSERT INTO model_catalog_benchmarks (kind, slug, effort, position, source_id, source_name)
+SELECT mapped.column1, mapped.column2, mapped.column3, mapped.column4, mapped.column5, mapped.column6
+FROM (VALUES
+    ('claude', 'claude-fable-5-1', 'low', 0, '05776db7-f5c0-40f7-b824-079160f8cfa8', 'Claude Fable 5.1 (Adaptive Reasoning, Low Effort, Default Fallback)'),
+    ('claude', 'claude-fable-5-1', 'medium', 1, '3b7de71c-e034-4591-8ca6-6b6be2fa471f', 'Claude Fable 5.1 (Adaptive Reasoning, Medium Effort, Default Fallback)'),
+    ('claude', 'claude-fable-5-1', 'high', 2, '9d7d72cd-d95d-45a0-b109-4ad292c9aabd', 'Claude Fable 5.1 (Adaptive Reasoning, High Effort, Default Fallback)'),
+    ('claude', 'claude-fable-5-1', 'xhigh', 3, '9b166bf3-42db-4f63-8338-1c4a1244ffe8', 'Claude Fable 5.1 (Adaptive Reasoning, Xhigh Effort, Default Fallback)'),
+    ('claude', 'claude-fable-5-1', 'max', 4, '3e87c73e-a257-495e-9730-367a66229811', 'Claude Fable 5.1 (Adaptive Reasoning, Max Effort, Default Fallback)'),
+    ('claude', 'claude-opus-5-5', 'low', 0, '4416ca93-fde6-4b7b-abbc-3a6be109cc3d', 'Claude Opus 5.5 (Adaptive Reasoning, Low Effort, Default Fallback)'),
+    ('claude', 'claude-opus-5-5', 'medium', 1, 'ea9e0da6-169f-43c6-92f5-730a10d6ff8d', 'Claude Opus 5.5 (Adaptive Reasoning, Medium Effort, Default Fallback)'),
+    ('claude', 'claude-opus-5-5', 'high', 2, 'f314eade-2232-44bf-a3ab-9b326bc67de6', 'Claude Opus 5.5 (Adaptive Reasoning, High Effort, Default Fallback)'),
+    ('claude', 'claude-opus-5-5', 'xhigh', 3, 'df5bf99d-d228-4715-b41b-19ca86118777', 'Claude Opus 5.5 (Adaptive Reasoning, Xhigh Effort, Default Fallback)'),
+    ('claude', 'claude-opus-5-5', 'max', 4, '2f3c4dc9-a450-4303-8697-0237257cf08f', 'Claude Opus 5.5 (Adaptive Reasoning, Max Effort, Default Fallback)'),
+    ('claude', 'claude-opus-5', 'low', 0, '20928ba9-3a3f-415f-9519-b84ff64ecf34', 'Claude Opus 5 (Adaptive Reasoning, Low Effort)'),
+    ('claude', 'claude-opus-5', 'medium', 1, 'ff51be8f-e362-4a7e-9043-687ba15de207', 'Claude Opus 5 (Adaptive Reasoning, Medium Effort)'),
+    ('claude', 'claude-opus-5', 'high', 2, '712be54a-77ae-41b2-9a58-21181479d6ee', 'Claude Opus 5 (Adaptive Reasoning, High Effort)'),
+    ('claude', 'claude-opus-5', 'xhigh', 3, '1305c921-7aaa-4d6d-99b5-99b3acf15e19', 'Claude Opus 5 (Adaptive Reasoning, Xhigh Effort)'),
+    ('claude', 'claude-opus-5', 'max', 4, 'b8fc61f7-5e9a-49e6-8547-6ac56db24627', 'Claude Opus 5 (Adaptive Reasoning, Max Effort)'),
+    ('claude', 'claude-sonnet-5-5', 'low', 0, 'bbc2ffea-cf6b-43be-8c41-1769347e234d', 'Claude Sonnet 5.5 (Adaptive Reasoning, Low Effort, Default Fallback)'),
+    ('claude', 'claude-sonnet-5-5', 'medium', 1, '042e8a37-fcd0-40f4-8f41-99215fb68eda', 'Claude Sonnet 5.5 (Adaptive Reasoning, Medium Effort, Default Fallback)'),
+    ('claude', 'claude-sonnet-5-5', 'high', 2, '268525e2-f873-4178-bc07-e6a0ee1f002d', 'Claude Sonnet 5.5 (Adaptive Reasoning, High Effort, Default Fallback)'),
+    ('claude', 'claude-sonnet-5-5', 'xhigh', 3, '975aeaef-50bd-4a65-9c73-f1015adcd4d4', 'Claude Sonnet 5.5 (Adaptive Reasoning, Xhigh Effort, Default Fallback)'),
+    ('claude', 'claude-sonnet-5-5', 'max', 4, 'b171d979-5ec1-45de-b8b9-db1ee65e77ec', 'Claude Sonnet 5.5 (Adaptive Reasoning, Max Effort, Default Fallback)'),
+    ('claude', 'claude-sonnet-5', 'low', 0, '142b93bf-09c4-42dc-9c3a-50b1a222cbd4', 'Claude Sonnet 5 (Adaptive Reasoning, Low Effort)'),
+    ('claude', 'claude-sonnet-5', 'medium', 1, 'effcd151-7c31-4437-af3d-e88daeae9385', 'Claude Sonnet 5 (Adaptive Reasoning, Medium Effort)'),
+    ('claude', 'claude-sonnet-5', 'high', 2, 'ba0224cf-0351-4f56-8508-b3f1a740ae4a', 'Claude Sonnet 5 (Adaptive Reasoning, High Effort)'),
+    ('claude', 'claude-sonnet-5', 'xhigh', 3, '99f376bf-cbcb-4124-bf3e-6b0a4e6e9bea', 'Claude Sonnet 5 (Adaptive Reasoning, Xhigh Effort)'),
+    ('claude', 'claude-sonnet-5', 'max', 4, '23c86e4a-c769-43c0-a056-79e3cd15834f', 'Claude Sonnet 5 (Adaptive Reasoning, Max Effort)'),
+    ('claude', 'claude-haiku-5-5', 'low', 0, '42908ae3-d3bd-4934-be19-fbff93d3fde8', 'Claude Haiku 5.5 (Low, Default Fallback)'),
+    ('claude', 'claude-haiku-5-5', 'medium', 1, 'af26fff4-8120-41be-a5f0-86aaea023f20', 'Claude Haiku 5.5 (Medium, Default Fallback)'),
+    ('claude', 'claude-haiku-5-5', 'high', 2, '20829974-af06-497e-9f42-77fb958d43b9', 'Claude Haiku 5.5 (High, Default Fallback)'),
+    ('claude', 'claude-haiku-5-5', 'xhigh', 3, '41b5bf5e-daf6-42d9-b8d1-60e340a3028d', 'Claude Haiku 5.5 (Xhigh, Default Fallback)'),
+    ('claude', 'claude-haiku-5-5', 'max', 4, '7d064a11-6e78-4030-b535-cdf940615041', 'Claude Haiku 5.5 (Max, Default Fallback)'),
+    ('claude', 'claude-haiku-4-5', 'off', 0, 'c2b1e769-7aee-4669-8076-73918bdebf6c', 'Claude 4.5 Haiku (Non-reasoning)'),
+    ('claude', 'claude-haiku-4-5', 'thinking', 1, 'a6340098-d7ae-462d-b372-0a0a67fc44b4', 'Claude 4.5 Haiku (Reasoning)'),
+    ('claude', 'claude-opus-4-6', 'low', 0, NULL, NULL),
+    ('claude', 'claude-opus-4-6', 'medium', 1, NULL, NULL),
+    ('claude', 'claude-opus-4-6', 'high', 2, NULL, NULL),
+    ('claude', 'claude-opus-4-6', 'xhigh', 3, NULL, NULL),
+    ('claude', 'claude-opus-4-6', 'max', 4, '53c98840-47af-49aa-94e6-469fb17e9a1b', 'Claude Opus 4.6 (Adaptive Reasoning, Max Effort)'),
+    ('claude', 'claude-sonnet-4-6', 'low', 0, NULL, NULL),
+    ('claude', 'claude-sonnet-4-6', 'medium', 1, NULL, NULL),
+    ('claude', 'claude-sonnet-4-6', 'high', 2, NULL, NULL),
+    ('claude', 'claude-sonnet-4-6', 'xhigh', 3, NULL, NULL),
+    ('claude', 'claude-sonnet-4-6', 'max', 4, 'df8d14e0-3997-4e4d-b4ad-9c047acc9c69', 'Claude Sonnet 4.6 (Adaptive Reasoning, Max Effort)'),
+    ('codex', 'gpt-6-astra', 'low', 0, 'a3f8100d-e38f-408b-b0fa-0085dae18dc1', 'GPT-6 Astra (low)'),
+    ('codex', 'gpt-6-astra', 'medium', 1, 'e97a4ef5-e817-480e-9595-12f81dc4974f', 'GPT-6 Astra (medium)'),
+    ('codex', 'gpt-6-astra', 'high', 2, 'e05a4828-0536-4876-870d-a235023f992b', 'GPT-6 Astra (high)'),
+    ('codex', 'gpt-6-astra', 'xhigh', 3, '1f541ef3-913f-4eb2-9d07-0e93c7a9a5e3', 'GPT-6 Astra (xhigh)'),
+    ('codex', 'gpt-6-astra', 'max', 4, '2f339a97-9a0d-499a-9cb5-e0db665bfa25', 'GPT-6 Astra (max)'),
+    ('codex', 'gpt-6.1-sol', 'low', 0, 'e76e0fe5-93ca-4272-9359-2eb1740467d1', 'GPT-6.1 Sol (Low)'),
+    ('codex', 'gpt-6.1-sol', 'medium', 1, 'a2e51d62-ea4e-4f15-8be0-be9dc1fb489d', 'GPT-6.1 Sol (Medium)'),
+    ('codex', 'gpt-6.1-sol', 'high', 2, '3b84fee3-b70a-41bc-819e-5fbdef9a0042', 'GPT-6.1 Sol (High)'),
+    ('codex', 'gpt-6.1-sol', 'xhigh', 3, '092a3b0e-c5c8-45dc-bf1b-53673c8ff352', 'GPT-6.1 Sol (Xhigh)'),
+    ('codex', 'gpt-6.1-sol', 'max', 4, 'b25ac058-1e33-4c31-bbc9-a20c3ad0717a', 'GPT-6.1 Sol (Max)'),
+    ('codex', 'gpt-6.1-terra', 'low', 0, 'c955b262-a17f-4f1a-b097-6860b866295b', 'GPT-6.1 Terra (Low)'),
+    ('codex', 'gpt-6.1-terra', 'medium', 1, 'c441e158-a87d-4116-911b-93325e4b4f1c', 'GPT-6.1 Terra (Medium)'),
+    ('codex', 'gpt-6.1-terra', 'high', 2, 'ea3e1f50-f62d-41d2-849a-9af0413e4d37', 'GPT-6.1 Terra (High)'),
+    ('codex', 'gpt-6.1-terra', 'xhigh', 3, 'e8d443ba-8aca-4830-a186-ae869bb9c6fe', 'GPT-6.1 Terra (Xhigh)'),
+    ('codex', 'gpt-6.1-terra', 'max', 4, 'b0c462cf-f2d0-4126-9434-28db9502219f', 'GPT-6.1 Terra (Max)'),
+    ('codex', 'gpt-6-sol', 'low', 0, '01459872-433a-4ab2-8e99-7083162172eb', 'GPT-6 Sol (low)'),
+    ('codex', 'gpt-6-sol', 'medium', 1, '780a4a85-17ff-4175-a8dd-ebca4823e61b', 'GPT-6 Sol (medium)'),
+    ('codex', 'gpt-6-sol', 'high', 2, '52eebe3e-6ede-4e46-92db-c5dea49fc410', 'GPT-6 Sol (high)'),
+    ('codex', 'gpt-6-sol', 'xhigh', 3, 'da2642fe-9f73-4788-b5af-24edcd55b37e', 'GPT-6 Sol (xhigh)'),
+    ('codex', 'gpt-6-sol', 'max', 4, 'c50ea08c-88c0-4eb7-85b8-27f2bbf6d527', 'GPT-6 Sol (max)'),
+    ('codex', 'gpt-6-luna', 'low', 0, 'bf9708d8-933d-44f6-affa-b696a7a650c9', 'GPT-6 Luna (low)'),
+    ('codex', 'gpt-6-luna', 'medium', 1, '36667da0-9222-4967-adbb-f7efa15ad213', 'GPT-6 Luna (medium)'),
+    ('codex', 'gpt-6-luna', 'high', 2, '7d1229bc-deea-4717-ba5b-f59a35d991e3', 'GPT-6 Luna (high)'),
+    ('codex', 'gpt-6-luna', 'xhigh', 3, '19813eb2-460a-475c-af65-810bb8660fec', 'GPT-6 Luna (xhigh)'),
+    ('codex', 'gpt-6-luna', 'max', 4, '6fb13851-40ce-4bda-ad3f-6b38e0c5daa7', 'GPT-6 Luna (max)'),
+    ('codex', 'gpt-5.6-sol', 'low', 0, '0904b596-8932-43bd-9b21-324f128e1723', 'GPT-5.6 Sol (low)'),
+    ('codex', 'gpt-5.6-sol', 'medium', 1, '6f174934-5b7d-4333-86cb-f5ebf4a862e3', 'GPT-5.6 Sol (medium)'),
+    ('codex', 'gpt-5.6-sol', 'high', 2, '8afc250d-b538-45a2-812a-4605f4ffd87e', 'GPT-5.6 Sol (high)'),
+    ('codex', 'gpt-5.6-sol', 'xhigh', 3, 'd998db47-9b67-4727-a2bb-2e1261020ac0', 'GPT-5.6 Sol (xhigh)'),
+    ('codex', 'gpt-5.6-sol', 'max', 4, 'd93edfe8-bf35-49ad-b56e-b18116142a1c', 'GPT-5.6 Sol (max)'),
+    ('codex', 'gpt-5.6-terra', 'low', 0, 'cc4a20cd-09fe-4962-a430-119c815e85fa', 'GPT-5.6 Terra (low)'),
+    ('codex', 'gpt-5.6-terra', 'medium', 1, '26e0f83a-ca98-4f34-94ac-7c5e251ee410', 'GPT-5.6 Terra (medium)'),
+    ('codex', 'gpt-5.6-terra', 'high', 2, '81972fba-1219-477e-bbfb-18c656a63ff7', 'GPT-5.6 Terra (high)'),
+    ('codex', 'gpt-5.6-terra', 'xhigh', 3, '9e30696f-16fa-4b4f-ba53-161895a85fed', 'GPT-5.6 Terra (xhigh)'),
+    ('codex', 'gpt-5.6-terra', 'max', 4, 'bcf8db0a-3bb6-4d82-9516-0f57370c85a6', 'GPT-5.6 Terra (max)'),
+    ('codex', 'gpt-5.6-luna', 'low', 0, '050c61cd-cddc-463a-a30a-a82aaa37be59', 'GPT-5.6 Luna (low)'),
+    ('codex', 'gpt-5.6-luna', 'medium', 1, '58b812bf-8498-46db-b834-f43ccc614b61', 'GPT-5.6 Luna (medium)'),
+    ('codex', 'gpt-5.6-luna', 'high', 2, 'aa55297e-8fbf-4372-b4ab-9b068dc6396c', 'GPT-5.6 Luna (high)'),
+    ('codex', 'gpt-5.6-luna', 'xhigh', 3, '87110ff0-1f79-41b4-9976-eda250597317', 'GPT-5.6 Luna (xhigh)'),
+    ('codex', 'gpt-5.6-luna', 'max', 4, '426d24c8-49ae-482a-b4a8-20f1c53f21c1', 'GPT-5.6 Luna (max)'),
+    ('codex', 'gpt-5.5', 'low', 0, 'c77cfe51-f4a0-4692-9dee-5061ef667f23', 'GPT-5.5 (low)'),
+    ('codex', 'gpt-5.5', 'medium', 1, '6b79f899-e3c0-45f6-923c-243faccdb2fc', 'GPT-5.5 (medium)'),
+    ('codex', 'gpt-5.5', 'high', 2, 'b13c1257-d746-4027-8fc8-4892dc14701c', 'GPT-5.5 (high)'),
+    ('codex', 'gpt-5.5', 'xhigh', 3, '1f054429-397e-4fdb-9e71-67bc92c1735e', 'GPT-5.5 (xhigh)'),
+    ('codex', 'gpt-5.3-codex-spark', 'low', 0, NULL, NULL),
+    ('codex', 'gpt-5.3-codex-spark', 'medium', 1, NULL, NULL),
+    ('codex', 'gpt-5.3-codex-spark', 'high', 2, NULL, NULL),
+    ('codex', 'gpt-5.3-codex-spark', 'xhigh', 3, NULL, NULL),
+    ('antigravity', 'gemini-4-argon', 'high', 0, 'd366dfa1-d940-4788-aa73-d298c45699b3', 'Gemini 4 Argon (High)'),
+    ('antigravity', 'gemini-3.8-flash', 'low', 0, 'f6db039b-0f3b-485c-9d7f-982988e44f26', 'Gemini 3.8 Flash (Low)'),
+    ('antigravity', 'gemini-3.8-flash', 'medium', 1, '744fa3c1-42a7-4995-b138-fb6be11f463c', 'Gemini 3.8 Flash (Medium)'),
+    ('antigravity', 'gemini-3.8-flash', 'high', 2, '8a999846-4c1d-4ce7-a8b7-1310a7166fd7', 'Gemini 3.8 Flash (High)'),
+    ('grok', 'grok-4.7', 'low', 0, '208c16f0-8c5b-4524-ac8a-ac74c02e80a9', 'Grok 4.7 (Low)'),
+    ('grok', 'grok-4.7', 'medium', 1, NULL, NULL),
+    ('grok', 'grok-4.7', 'high', 2, '272f5f03-aea9-4675-a244-2b753b618cdf', 'Grok 4.7 (High)'),
+    ('grok', 'grok-4.7', 'xhigh', 3, '59627802-1546-422c-9a65-65b61c022d36', 'Grok 4.7 (Xhigh)'),
+    ('grok', 'grok-4.6', 'low', 0, 'c07e65e6-32fc-451e-938d-7477a1c3ffcc', 'Grok 4.6 (Low)'),
+    ('grok', 'grok-4.6', 'medium', 1, '26614164-6840-4e17-a65a-2deb2fe7e87b', 'Grok 4.6 (Medium)'),
+    ('grok', 'grok-4.6', 'high', 2, 'c8adc5cf-fd5a-407b-af51-dc3bede3e49c', 'Grok 4.6 (High)'),
+    ('grok', 'grok-4.6', 'xhigh', 3, 'd6f43d0a-e8c4-447c-9ff7-5cf0a9d59aa3', 'Grok 4.6 (Xhigh)'),
+    ('grok', 'grok-4.5', 'high', 0, '794f69b5-cede-482b-b1cc-d769478497cd', 'Grok 4.5 (High)')
+) AS mapped
+JOIN model_catalog_models AS model ON model.kind = mapped.column1 AND model.slug = mapped.column2;

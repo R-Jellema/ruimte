@@ -30,5 +30,5 @@ export async function refreshDeployedBenchmarks(request: Request, env: Env): Pro
     if (result === null) {
         return json({ refreshed: false, error: 'Benchmark refresh failed; the previous snapshot was kept' }, 502);
     }
-    return json({ refreshed: true, fetchedAt: result.fetchedAt, measurements: result.measurements?.length ?? 0 });
+    return json({ refreshed: true, fetchedAt: result.fetchedAt, measurements: result.measured });
 }

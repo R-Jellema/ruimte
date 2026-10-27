@@ -275,21 +275,33 @@ It checks the catalog against the frozen schema of every route that serves its k
 already holds, unless `--force` writes over it. No HTTP route writes a catalog. A catalog that needs a schema a
 released daemon cannot read goes on a new route with a frozen schema of its own. The manifests in ADE CORE are
 what a release starts with before its first answer; keep them up with D1 when a release goes out, or a daemon
-whose manifest is dated after an edit in D1 keeps its own until D1 changes again. A new model still needs a row
-in `src/benchmark-models.ts` and a deploy before it shows in the model comparison.
+whose manifest is dated after an edit in D1 keeps its own until D1 changes again. `--force` deletes the models of
+the kind first, and with them their rows in `model_catalog_benchmarks`.
 
 ## Model benchmarks
 
 `GET /v1/models/benchmarks` is public and feeds the model comparison. Every three hours the Worker reads the
 free Data API of Artificial Analysis (`GET /api/v2/language/models/free`, 200 models a page, at most ten pages),
-so four pages cost 32 of the 100 requests a day. It keeps one snapshot in D1. Missing values stay absent and are
-never inferred, and a failed, malformed, truncated or mixed-version fetch keeps the previous snapshot. Without
-the key the route answers `503` with `not-configured`, and before the first refresh with `no-benchmarks`.
+so four pages cost 32 of the 100 requests a day. It keeps what every model it lists measured in
+`benchmark_measurements`, mapped to a Ruimte model or not, and the time and index version in `benchmark_refreshes`,
+both replaced in one batch. Missing values stay absent and are never inferred, and a failed, malformed, truncated
+or mixed-version fetch keeps the previous measurements. Without the key the route answers `503` with
+`not-configured`, and before the first refresh with `no-benchmarks`.
 
-Which Artificial Analysis model stands for which Ruimte model and effort is `src/benchmark-models.ts`, so a new
-model is a row there and a deploy of this Worker, not a release of the app. The labs the chart groups models
-by (name, mark as one SVG path, a color per model and theme) are `BENCHMARK_LABS` beside them and go out with
-every answer, so a new lab is a deploy too. A client draws only the models whose lab is in that list.
+Which Artificial Analysis model stands for which effort of a Ruimte model is `model_catalog_benchmarks` in D1: a
+row per effort, in the order the line runs through them (`position`, cheapest first), with Artificial Analysis's
+`source_id` and `source_name`, or both null for an effort they have not measured. A row belongs to its model in
+`model_catalog_models` and goes with it. The route puts the answer together when it is asked, so a model joins
+the comparison with an `INSERT` and no deploy, and takes its name and legacy flag from the catalog:
+
+```sh
+bunx wrangler d1 execute ruimte-pulsar --remote --command "INSERT INTO model_catalog_benchmarks (kind, slug, effort, position, source_id, source_name) VALUES ('claude', 'claude-opus-6', 'high', 2, '<id>', '<name>')"
+```
+
+The lab of a model follows from its kind (`LAB_OF_KIND` in `src/benchmark-labs.ts`: Grok is xAI, Antigravity is
+Google, Copilot has none). The labs the chart groups models by (name, mark as one SVG path, a color per model and
+theme) are `BENCHMARK_LABS` beside it and go out with every answer, so a new lab is a deploy. A client draws only
+the models whose lab is in that list.
 
 ### Refresh after deployment
 
