@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
-import type { GitIgnoredFilesResult, ProjectSummary } from '@ruimte/contracts';
+import type { GitIgnoredFilesResult } from '@ruimte/contracts';
 import { LOCAL_ENDPOINT_ID, useEndpoints } from '@/state/endpoints';
 import { useUi } from '@/state/ui';
 import { connectFakeMachine, FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { clickOn, mount, until, type Mounted } from '../../testing/dom';
+import { projectSummary } from '../../testing/project-fixtures';
 
 const REMOTE = 'machine-b';
 
@@ -20,20 +21,6 @@ const IGNORED: GitIgnoredFilesResult = {
         { path: 'current', size: 4, link: true }
     ]
 };
-
-function summary(projectId: string, folder: string): ProjectSummary {
-    return {
-        projectId,
-        name: 'atlas',
-        color: '#000',
-        folder,
-        lastOpenedAt: 0,
-        closedAt: null,
-        available: true,
-        icon: { kind: 'initial', value: 'a' },
-        nameSource: 'chosen'
-    };
-}
 
 let here: FakeMachine;
 let there: FakeMachine;
@@ -74,7 +61,7 @@ beforeEach(async () => {
         }
         return { path, output: '' };
     });
-    there.answer('project.open', ({ folder }) => ({ summary: summary('atlas-b', folder ?? '') }) as never);
+    there.answer('project.open', ({ folder }) => ({ summary: projectSummary('atlas-b', 'atlas', folder ?? '') }) as never);
     there.answer('fs.create', () => ({ size: 1, mtime: 1 }) as never);
     useEndpoints.getState().add({
         id: REMOTE,

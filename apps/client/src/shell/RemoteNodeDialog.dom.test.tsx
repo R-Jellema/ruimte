@@ -1,14 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
-import {
-    REQUEST_SCHEMAS,
-    type GitIdentity,
-    type ProjectCanvasView,
-    type ProjectNode,
-    type ProjectSummary,
-    type RemoteLink,
-    type RequestType
-} from '@ruimte/contracts';
+import { REQUEST_SCHEMAS, type ProjectCanvasView, type ProjectNode, type RemoteLink, type RequestType } from '@ruimte/contracts';
 import { LOCAL_ENDPOINT_ID, useEndpoints } from '@/state/endpoints';
 import { defaultCanvases } from '@/state/canvas';
 import { useDocument } from '@/state/document';
@@ -23,6 +15,7 @@ import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-worksp
 import { menuItem } from '../../testing/dom-helpers';
 import { clickOn, mount, openSubmenu, until, type Mounted } from '../../testing/dom';
 import { claudeProvider } from '../../testing/fake-provider';
+import { gitIdentity, projectSummary } from '../../testing/project-fixtures';
 
 const REMOTE = 'machine-b';
 const REQUEST_TYPES = Object.keys(REQUEST_SCHEMAS) as RequestType[];
@@ -39,24 +32,6 @@ const CLAUDE = claudeProvider({
     allowAlways: true,
     slashCommands: true
 });
-
-function summary(projectId: string, name: string, folder: string): ProjectSummary {
-    return {
-        projectId,
-        name,
-        color: '#000',
-        folder,
-        lastOpenedAt: 0,
-        closedAt: null,
-        available: true,
-        icon: { kind: 'initial', value: name[0]! },
-        nameSource: 'chosen'
-    };
-}
-
-function identity(path: string, rootCommits: string[], branch = 'main'): GitIdentity {
-    return { path, rootCommits, branch, heads: [] };
-}
 
 let here: FakeMachine;
 let there: FakeMachine;
@@ -134,7 +109,7 @@ beforeEach(async () => {
         order.push('project.save');
         return { rev: baseRev + 1 } as never;
     });
-    here.answer('git.identity', () => ({ identities: [identity('/work/atlas', ['root-a'])] }));
+    here.answer('git.identity', () => ({ identities: [gitIdentity('/work/atlas', ['root-a'])] }));
     here.answer('remote.list', () => ({ links }));
     here.answer('remote.link', (payload) => {
         order.push('remote.link');
@@ -144,9 +119,11 @@ beforeEach(async () => {
     });
     there = new FakeMachine();
     there.answer('provider.list', () => ({ providers: [CLAUDE] }));
-    there.answer('project.list', () => ({ projects: [summary('notes', 'notes', '/Users/b/notes'), summary('ruimte', 'ruimte', '/Users/b/ruimte')] }));
+    there.answer('project.list', () => ({
+        projects: [projectSummary('notes', 'notes', '/Users/b/notes'), projectSummary('ruimte', 'ruimte', '/Users/b/ruimte')]
+    }));
     there.answer('git.identity', ({ paths }) => ({
-        identities: paths.map((path) => (path.endsWith('ruimte') ? identity(path, ['root-a']) : identity(path, ['root-z'])))
+        identities: paths.map((path) => (path.endsWith('ruimte') ? gitIdentity(path, ['root-a']) : gitIdentity(path, ['root-z'])))
     }));
     there.answer('peer.bind', (payload) => {
         order.push('peer.bind');
@@ -218,7 +195,7 @@ describe('a new node on another machine', () => {
         await openDialog();
         await until(() => dialog()?.textContent?.includes('MacBook Pro is not answering.') === true);
 
-        there.answer('project.list', () => ({ projects: [summary('ruimte', 'ruimte', '/Users/b/ruimte')] }));
+        there.answer('project.list', () => ({ projects: [projectSummary('ruimte', 'ruimte', '/Users/b/ruimte')] }));
         await clickOn(button('Try again'));
         await until(() => dialog()?.textContent?.includes('/Users/b/ruimte') === true);
     });
@@ -365,7 +342,7 @@ describe('a new node on another machine', () => {
 
     test('omits the origin branch when the remote checkout has no origin, while keeping HEAD for a clean local checkout', async () => {
         here.answer('git.status', () => ({ repo: true, branch: 'main', detached: false, upstream: null, files: [] }) as never);
-        here.answer('git.identity', () => ({ identities: [{ ...identity('/work/atlas', ['root-a']), remoteUrl: 'git@host:atlas.git' }] }));
+        here.answer('git.identity', () => ({ identities: [{ ...gitIdentity('/work/atlas', ['root-a']), remoteUrl: 'git@host:atlas.git' }] }));
         await openDialog();
         await until(() => dialog()?.textContent?.includes('/Users/b/ruimte') === true);
         await until(() => dialog()?.textContent?.includes('As it is on MacBook Pro') === true);
@@ -379,9 +356,9 @@ describe('a new node on another machine', () => {
 
     test('a branch on origin is pushed here, fetched there, and the worktree starts on it', async () => {
         here.answer('git.status', () => ({ repo: true, branch: 'main', detached: false, upstream: 'origin/main', files: [] }) as never);
-        here.answer('git.identity', () => ({ identities: [{ ...identity('/work/atlas', ['root-a']), remoteUrl: 'git@host:atlas.git' }] }));
+        here.answer('git.identity', () => ({ identities: [{ ...gitIdentity('/work/atlas', ['root-a']), remoteUrl: 'git@host:atlas.git' }] }));
         there.answer('git.identity', ({ paths }) => ({
-            identities: paths.map((path) => ({ ...identity(path, [path.endsWith('ruimte') ? 'root-a' : 'root-z']), remoteUrl: 'git@host:atlas.git' }))
+            identities: paths.map((path) => ({ ...gitIdentity(path, [path.endsWith('ruimte') ? 'root-a' : 'root-z']), remoteUrl: 'git@host:atlas.git' }))
         }));
         here.answer('git.action', ({ kind }) => {
             order.push(`here ${kind}`);

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
-import type { ChatInfo, GitIdentity, ProjectCanvasView, ProjectNode, ProjectSummary, ProviderInfo, RemoteLink } from '@ruimte/contracts';
+import type { ProjectCanvasView, ProjectNode, RemoteLink } from '@ruimte/contracts';
 import { readDraft } from '@adecore/agents-react/chat';
 import { useChats } from '@adecore/agents-react/state';
 import { LOCAL_ENDPOINT_ID, useEndpoints } from '@/state/endpoints';
@@ -8,55 +8,23 @@ import { useUi } from '@/state/ui';
 import { connectFakeMachine, FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { clickOn, mount, until, type Mounted } from '../../testing/dom';
+import { claudeProvider } from '../../testing/fake-provider';
+import { gitIdentity, idleChatInfo, projectSummary } from '../../testing/project-fixtures';
 
 const REMOTE = 'machine-b';
 const LEAD: ProjectNode = { id: 'chat-lead', kind: 'chat', title: 'Lexer', x: 0, y: 0, w: 560, h: 640, provider: 'claude' };
 const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [LEAD], texts: [], edges: [], layouts: [] };
 
-const CLAUDE = {
-    kind: 'claude',
-    name: 'Claude Code',
-    installed: true,
-    version: '2.1.0',
-    models: [{ slug: 'model', name: 'Model', legacy: false, isDefault: true, options: [] }],
-    defaultModel: 'model',
-    capabilities: { chat: true, terminal: true, hooks: true, attachments: true, mentions: true, denyReason: true, allowAlways: true, slashCommands: true },
-    resumeCommand: 'claude --resume {id}'
-} as unknown as ProviderInfo;
-
-function summary(projectId: string, name: string, folder: string): ProjectSummary {
-    return {
-        projectId,
-        name,
-        color: '#000',
-        folder,
-        lastOpenedAt: 0,
-        closedAt: null,
-        available: true,
-        icon: { kind: 'initial', value: name[0]! },
-        nameSource: 'chosen'
-    };
-}
-
-function identity(path: string, rootCommits: string[]): GitIdentity {
-    return { path, rootCommits, branch: 'main', heads: [] };
-}
-
-const INFO = {
-    chatId: LEAD.id,
-    provider: 'claude',
-    cwd: '/work/atlas',
-    agentSessionId: 'session-1',
-    model: null,
-    selection: { model: 'model', options: {} },
-    runtimeMode: 'supervised',
-    status: 'idle',
-    running: false,
-    activeTurnId: null,
-    slashCommands: [],
-    usage: { turns: 1, contextTokens: 0, contextWindow: 200_000, costUsd: 0 },
-    background: []
-} as unknown as ChatInfo;
+const CLAUDE = claudeProvider({
+    chat: true,
+    terminal: true,
+    hooks: true,
+    attachments: true,
+    mentions: true,
+    denyReason: true,
+    allowAlways: true,
+    slashCommands: true
+});
 
 let here: FakeMachine;
 let there: FakeMachine;
@@ -83,7 +51,7 @@ beforeEach(async () => {
         'chat.attach',
         () =>
             ({
-                info: INFO,
+                info: idleChatInfo(LEAD.id),
                 items: [
                     { id: 'turn-1', kind: 'turn', createdAt: 1, turnId: 'turn-1', state: 'done', endedAt: 2, costUsd: 0 },
                     { id: 'user-1', kind: 'user', createdAt: 1, turnId: 'turn-1', text: 'Write the lexer' }
@@ -91,10 +59,10 @@ beforeEach(async () => {
                 seq: 1
             }) as never
     );
-    here.answer('git.identity', () => ({ identities: [identity('/work/atlas', ['root-a'])] }));
+    here.answer('git.identity', () => ({ identities: [gitIdentity('/work/atlas', ['root-a'])] }));
     here.answer('chat.forkInfo', () => ({ repository: true, branches: ['main'], branch: 'alternative', filesAfterTurn: false }));
     here.answer('chat.fork', () => ({
-        info: { ...INFO, chatId: 'forked' },
+        info: { ...idleChatInfo(LEAD.id), chatId: 'forked' },
         nodeId: 'forked',
         viewId: MAIN.id,
         edgeId: null,
@@ -116,8 +84,8 @@ beforeEach(async () => {
     });
     there = new FakeMachine();
     there.answer('provider.list', () => ({ providers: [CLAUDE] }));
-    there.answer('project.list', () => ({ projects: [summary('ruimte', 'ruimte', '/Users/b/ruimte')] }));
-    there.answer('git.identity', ({ paths }) => ({ identities: paths.map((path) => identity(path, ['root-a'])) }));
+    there.answer('project.list', () => ({ projects: [projectSummary('ruimte', 'ruimte', '/Users/b/ruimte')] }));
+    there.answer('git.identity', ({ paths }) => ({ identities: paths.map((path) => gitIdentity(path, ['root-a'])) }));
     there.answer('peer.bind', (payload) => ({ ...payload, projectName: 'ruimte', ceiling: 'supervised' as const, createdAt: 1 }));
     there.answer('peer.placeNodes', () => {
         order.push('peer.placeNodes');
