@@ -31,13 +31,14 @@ export const TextElementView = memo(function TextElementView({ id }: { id: strin
 
     useEffect(() => {
         if (editing && ref.current) {
+            ref.current.textContent = canvasStore.getState().texts[id]?.text ?? '';
             ref.current.focus();
             const range = document.createRange();
             range.selectNodeContents(ref.current);
             window.getSelection()?.removeAllRanges();
             window.getSelection()?.addRange(range);
         }
-    }, [editing]);
+    }, [editing, canvasStore, id]);
 
     if (!text || hidden) {
         return null;
@@ -45,6 +46,10 @@ export const TextElementView = memo(function TextElementView({ id }: { id: strin
 
     const commit = (): void => {
         const value = ref.current?.innerText.trim() ?? '';
+        /* The typed text lives in nodes the browser made; React adds its own once editing ends, so they go first. */
+        if (ref.current) {
+            ref.current.textContent = '';
+        }
         canvasStore.getState().updateText(id, value);
         canvasStore.getState().setEditingText(null);
         if (value === '') {
@@ -98,7 +103,7 @@ export const TextElementView = memo(function TextElementView({ id }: { id: strin
                     }
                 }}
             >
-                {text.text}
+                {!editing && text.text}
                 {!editing &&
                     !resizeLocked &&
                     (['left', 'right'] as const).map((side) => (
