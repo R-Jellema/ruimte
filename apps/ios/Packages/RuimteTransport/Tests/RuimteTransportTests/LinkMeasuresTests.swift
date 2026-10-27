@@ -95,7 +95,7 @@ private final class Measured: Sendable {
         #expect(resumed.isEmpty)
     }
 
-    @Test func aReplyIsMeasuredByTheAreaOfItsRequest() async {
+    @Test func aReplyIsMeasuredByThePathOfItsLink() async {
         let stopwatch = Stopwatch()
         var client: MachineClient?
         client = MachineClient(
@@ -104,8 +104,27 @@ private final class Measured: Sendable {
                 stopwatch.milliseconds += 35
                 client?.receive(#"{"id":"\#(id)","ok":false,"error":{"code":"x","message":"No."}}"#)
             }, connected: true, now: { stopwatch.milliseconds })
-        let measured = await measuresAwaiting { _ = try? await client?.request("server.ping") }
-        #expect(measured == [.answered(area: "server", milliseconds: 35)])
+        let direct = await measuresAwaiting { _ = try? await client?.request("server.ping") }
+        client?.setRoute(.localNetwork)
+        let lan = await measuresAwaiting { _ = try? await client?.request("server.ping") }
+
+        #expect(direct == [.answered(path: .direct, milliseconds: 35)])
+        #expect(lan == [.answered(path: .lan, milliseconds: 35)])
+    }
+
+    @Test func aMutationAndAPieceOfBytesAreNotMeasured() async {
+        var client: MachineClient?
+        client = MachineClient(
+            send: { text in
+                let id = (try? JSONValue.decode(Data(text.utf8)))?["id"]?.stringValue ?? ""
+                client?.receive(#"{"id":"\#(id)","ok":false,"error":{"code":"x","message":"No."}}"#)
+            }, connected: true)
+        let measured = await measuresAwaiting {
+            _ = try? await client?.request("fs.write")
+            _ = try? await client?.request("bytes.read")
+        }
+
+        #expect(measured.isEmpty)
     }
 
     @Test func aRequestWithoutAReplyIsNotMeasured() async {
@@ -113,12 +132,5 @@ private final class Measured: Sendable {
         let client = MachineClient(send: { _ in clock.advance() }, scheduler: clock, connected: true)
         let measured = await measuresAwaiting { _ = try? await client.request("server.ping") }
         #expect(measured.isEmpty)
-    }
-
-    @Test func theAreaIsThePartBeforeTheDotOfARequestTheWireHas() {
-        #expect(LinkMeasure.area(of: "chat.attach") == "chat")
-        #expect(LinkMeasure.area(of: "newarea.thing") == "other")
-        #expect(LinkMeasure.area(of: "") == "other")
-        #expect(LinkMeasure.areas.isSuperset(of: ["chat", "session", "project", "fs", "git", "endpoint"]))
     }
 }

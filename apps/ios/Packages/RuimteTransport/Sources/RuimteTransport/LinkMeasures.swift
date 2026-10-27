@@ -39,21 +39,9 @@ public enum LinkMeasure: Equatable, Sendable {
     /// From the start of an attempt until the protocol check passed, or until the attempt failed.
     case connected(path: LinkPath, outcome: LinkOutcome, milliseconds: Double)
     case reconnecting(LinkReconnectReason)
-    /// From sending a request until its reply, an error included; a request without one is never measured.
-    case answered(area: String, milliseconds: Double)
-
-    /// Every part before the dot of a request this app knows, which is the client's `REQUEST_AREAS`.
-    static let areas = Set(WireRequest.allCases.map { area(in: $0.rawValue) })
-
-    private static func area(in type: String) -> String {
-        String(type.prefix { $0 != "." })
-    }
-
-    /// The part of a request type before its dot, or `other` for one the wire does not have.
-    public static func area(of type: String) -> String {
-        let area = area(in: type)
-        return areas.contains(area) ? area : "other"
-    }
+    /// From sending a request until its reply, an error included, by the path of the link it went over; a request
+    /// without a reply is never measured. The machine measures the handling per area itself.
+    case answered(path: LinkPath, milliseconds: Double)
 }
 
 /// Where the transport hands its measurements. The package measures for nobody itself; the app sets the meter once.

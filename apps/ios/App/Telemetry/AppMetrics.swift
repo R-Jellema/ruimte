@@ -26,8 +26,9 @@ struct AppMetric: Equatable, Sendable {
                 attributes: ["path": path.rawValue, "outcome": outcome.rawValue])
         case .reconnecting(let reason):
             self.init(kind: .count, name: "link.reconnect", value: 1, attributes: ["reason": reason.rawValue])
-        case .answered(let area, let milliseconds):
-            self.init(kind: .distribution, name: "request.duration", value: milliseconds, attributes: ["area": area])
+        case .answered(let path, let milliseconds):
+            self.init(
+                kind: .distribution, name: "request.duration", value: milliseconds, attributes: ["path": path.rawValue])
         }
     }
 
@@ -148,7 +149,7 @@ enum AppMetrics {
     /// The attributes a metric may carry: its own and what the SDK adds to describe the build and the device. The
     /// SDK also names the install as `user.id`, which never goes along.
     static let attributes: Set<String> = [
-        "path", "outcome", "reason", "area", "surface", "sentry.sdk.name", "sentry.sdk.version", "sentry.environment",
+        "path", "outcome", "reason", "surface", "sentry.sdk.name", "sentry.sdk.version", "sentry.environment",
         "sentry.release", "os.name", "os.version", "device.brand", "device.model", "device.family",
     ]
 

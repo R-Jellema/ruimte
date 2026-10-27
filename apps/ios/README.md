@@ -435,8 +435,8 @@ arrives with addresses only.
 The same builds send the desktop client's four metrics, with its names, units and attribute values
 (`apps/client/src/telemetry/metrics.ts`), so the Connections dashboard draws the phone beside the desktop:
 `link.connect` (milliseconds, `path` of `lan`, `direct` or `turn` and `outcome` of `ok` or `failed`), `link.reconnect`
-(a count, `reason` of `dropped`, `failed`, `refused`, `timeout` or `switch`), `request.duration` (milliseconds, `area`,
-the part of the request type before its dot) and `workspace.load` (milliseconds from opening a project to the first
+(a count, `reason` of `dropped`, `failed`, `refused`, `timeout` or `switch`), `request.duration` (milliseconds, `path`
+of the link it went over, only for a read and never for `bytes.read`; the machine measures the handling per area) and `workspace.load` (milliseconds from opening a project to the first
 frame of its page once it is there). The transport measures the first three in `MachineConnections` and
 `MachineClient` and hands them to `LinkMeasures`, which reports nowhere until the app sets the meter. A scene that
 comes back from the background resumes its links and is no reconnect. `AppMetrics` gathers every measurement for a

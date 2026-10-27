@@ -68,10 +68,10 @@ export default function Privacy() {
                     <li>
                         A few measurements of how quickly things work: how long a connection to a machine took to open or to fail and which way it went (this
                         computer, the local network, a direct connection or a relay), why a connection had to be opened again, how long a request to the machine
-                        waited for its answer by the kind of request, and how long a project took to appear after you opened it. The machine adds how long it
-                        took to handle a request by its kind, how far its work ran behind, how much memory it used and how many apps and machines were
-                        connected. The iPhone app sends the same connection, request and project measurements, but gathers them for a quarter of an hour first.
-                        Of each kind it then sends a count, or for a duration the median and the slowest one.
+                        waited for its answer by the way it went, and how long a project took to appear after you opened it. The machine adds how long it took
+                        to handle a request by its kind, how far its work ran behind, how much memory it used and how many apps and machines were connected. The
+                        apps gather these measurements for a quarter of an hour and send what that quarter came to. Of each kind it then sends a count, or for a
+                        duration the median and the slowest one.
                     </li>
                 </ul>
             </Section>

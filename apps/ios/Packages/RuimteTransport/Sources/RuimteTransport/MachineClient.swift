@@ -184,6 +184,7 @@ public enum MachineClientError: Error, LocalizedError, Sendable, Equatable {
     // From `linkOpened` until `connected`; nil while no link is opening.
     private var held: [HeldFrame]?
     private var features: Set<String> = []
+    private var route: LinkRoute?
     public private(set) var isConnected: Bool
     public var pendingRequestCount: Int { pending.count }
 
@@ -209,6 +210,11 @@ public enum MachineClientError: Error, LocalizedError, Sendable, Equatable {
     /// The requests the machine names in `endpoint.info`, which `linkOpened` follows.
     public func setFeatures(_ features: [String]) {
         self.features = Set(features)
+    }
+
+    /// The route the link last said, for the path a request's wait is measured under.
+    public func setRoute(_ route: LinkRoute?) {
+        self.route = route
     }
 
     /// Whether the machine behind the link names this request. False while no link is open. Check any request newer
@@ -521,11 +527,11 @@ public enum MachineClientError: Error, LocalizedError, Sendable, Equatable {
         for handler in Array(subscribers[name]?.values ?? [:].values) { handler(payload) }
     }
 
-    /// Only a reply comes here; a request that timed out or lost its link is never measured.
+    /// Only a reply comes here; a request that timed out or lost its link is never measured. Only a read says how
+    /// quick the link is: a mutation may wait on a hook, and `bytes.read` comes as pieces, dozens a second for a video.
     private func measure(_ request: Pending) {
-        LinkMeasures.record(
-            .answered(
-                area: LinkMeasure.area(of: request.type.rawValue), milliseconds: max(0, now() - request.sentAt)))
+        guard Self.timedRequests.contains(request.type), request.type != .bytesRead else { return }
+        LinkMeasures.record(.answered(path: LinkPath(route), milliseconds: max(0, now() - request.sentAt)))
     }
 
     private func finish(_ id: String, result: Result<JSONValue, Error>) {
