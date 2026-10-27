@@ -252,6 +252,7 @@ $RUIMTE_HOME/
     choices.json                   which PHP server this machine uses
     custom.json                    a person's own language servers
     <kind>/                        one folder per installed kind (see "Language servers")
+    packages/<setId>/              shared, immutable npm package sets the installs link to
   usage/                           0700
     scan-state.json                a cache of where the scanner left each transcript
     history.jsonl                  the usage of every transcript ever read, which cannot be rebuilt (see "Usage")
@@ -533,6 +534,12 @@ Completion negotiation advertises snippets, both insertion modes (as-is and adju
 The pinned npm versions are in `src/language/versions.ts`. A kind is installed only when a person presses Install (`language.install`); no verb, agent or daemon start installs anything.
 
 Each install has its own folder, `$RUIMTE_HOME/language-servers/<kind>/versions/<id>`, and `<kind>/current.json` names the one in use and the one before it. An npm kind gets a `package.json` with exact versions and `bun install --ignore-scripts`, run by the daemon's own executable acting as bun (`BUN_BE_BUN=1` in a compiled daemon). JavaScript servers run the same way, so a person needs no Node. When a pin moves with an update of Ruimte, the kind keeps running what it has and offers Update. `language.rollback` switches back to the previous install. A kind keeps at most two installs.
+
+The packages of an npm install are a shared package set (`src/language/package-store.ts`). A set is one `bun install` result in `$RUIMTE_HOME/language-servers/packages/<setId>/` (`package.json`, `bun.lock`, `node_modules`, `set.json`), and `setId` is a hash of the pinned dependencies plus platform and architecture, so `css`, `html`, `json` and `eslint`, which pin the same package, install it once. A set is built in `packages/.staging`, published with one rename and never written after that. The install folder stays a real folder with its own `installed.json` and `package.json` (the marker names the set in `packages`), and its `node_modules` is a relative symlink to the set's. Mutable storage, such as Intelephense's `storage`, stays in the install's folder and never goes into a set. A set freezes the transitive versions of its first install for every kind that reuses it. Windows does not link folders without a privilege, so there an install keeps its own packages.
+
+Removing an install unlinks `node_modules` before `rm -r`, so the removal never follows the link into a set. After a prune the store removes the sets that no install on disk links to or names and that no running install holds; a disk it cannot read in full removes nothing. Rolling back to the previous version only switches `current.json`, as before.
+
+The first start with this version adopts the current and the previous npm install of each kind that still holds a real `node_modules` (`load`, awaited before any server starts, logged with its duration). When no set exists for its dependencies, the folder moves into `packages` with one rename and a journal in `packages/.journal`, so a crash is finished or undone at the next start. When the set exists, the install's packages are compared with it (paths, types, modes, link targets, SHA-256 of every file) and replaced by the link only if identical; a different tree stays as it is and the next Update shares it. An older Ruimte follows the links and its `rm` of an install does not touch the set; the installs it makes are real folders that are adopted at the next start. `bun apps/server/scripts/measure-language-storage.ts [folder]` prints logical bytes, allocated bytes (each inode once) and entry counts per folder, without changing anything. A dev home measured 631.8 MiB and 38,482 entries before and 478.4 MiB and 27,887 after, with allocated bytes from `st_blocks`; APFS clones from bun's cache are not visible in that number, so the physical saving on macOS is smaller than the logical one.
 
 The native servers install differently (`src/language/native.ts`, `installer.ts`):
 

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { LanguageServerKind, LanguageRequestResult } from '@ruimte/contracts';
@@ -248,6 +248,7 @@ describe('TypeScript, on the native server of TypeScript 7', () => {
         await waitReady('typescript', 'p3');
         const spec = specs.find((candidate) => candidate.cwd === tailwindProject && candidate.args.includes('--lsp'))!;
         expect(spec.command).toContain(join(await installFolder('typescript'), 'node_modules'));
+        expect((await lstat(join(await installFolder('typescript'), 'node_modules'))).isSymbolicLink()).toBe(true);
         await host.closeDocument('c1', { projectId: 'p3', path: 'src/a.js' });
     }, 180_000);
 
@@ -402,6 +403,8 @@ describe('TypeScript, on the native server of TypeScript 7', () => {
 describe('Vue', () => {
     test('pairs the Vue server with TypeScript and routes by where the caret is', async () => {
         await install('vue');
+        // Its packages are a set it links to, and the servers run through the link.
+        expect((await lstat(join(await installFolder('vue'), 'node_modules'))).isSymbolicLink()).toBe(true);
         const text = FILES['Counter.vue'];
         await host.open('c1', { projectId: 'p1', path: 'Counter.vue', languageId: 'vue', text });
         await waitReady('vue');
@@ -595,6 +598,63 @@ describe('CSS, HTML and JSON, from one package of extracted servers', () => {
         );
         expect(JSON.stringify(hover).toLowerCase()).toContain('strict');
     }, 180_000);
+});
+
+describe('package sets', () => {
+    const SHARED = ['css', 'html', 'json'] as const;
+
+    test('CSS, HTML and JSON link to one set, and each of the three still starts from it', async () => {
+        for (const kind of SHARED) {
+            await install(kind);
+        }
+
+        const packages = await realpath(join(base, 'home', 'language-servers', 'packages'));
+        const targets = await Promise.all(SHARED.map(async (kind) => realpath(join(await installFolder(kind), 'node_modules'))));
+
+        expect(new Set(targets).size).toBe(1);
+        expect(targets[0]).toStartWith(packages);
+
+        for (const kind of SHARED) {
+            expect((await host.status('p1')).find((status) => status.server === kind)?.state).not.toBe('not-installed');
+        }
+    }, 180_000);
+
+    test('removing a folder that holds a directory link leaves the target intact, under the daemon runtime as well', async () => {
+        const root = await mkdtemp(join(tmpdir(), 'ruimte-link-rm-'));
+
+        const linked = async (name: string): Promise<{ folder: string; target: string }> => {
+            const target = join(root, `${name}-set`, 'node_modules');
+            const folder = join(root, `${name}-install`);
+
+            await mkdir(join(target, 'pkg'), { recursive: true });
+            await writeFile(join(target, 'pkg', 'index.js'), 'x');
+            await mkdir(folder);
+            await writeFile(join(folder, 'installed.json'), '{}');
+            await symlink(join('..', `${name}-set`, 'node_modules'), join(folder, 'node_modules'), 'dir');
+
+            return { folder, target };
+        };
+
+        try {
+            const inProcess = await linked('process');
+
+            await rm(inProcess.folder, { recursive: true, force: true });
+
+            expect(await readFile(join(inProcess.target, 'pkg', 'index.js'), 'utf8')).toBe('x');
+            expect(await lstat(inProcess.folder).catch(() => null)).toBeNull();
+
+            // A Ruimte from before package sets removes an install with the runtime it ships, which is the bundled bun.
+            const bundled = await linked('bundled');
+            const script = "import { rm } from 'node:fs/promises'; await rm(process.argv[1], { recursive: true, force: true });";
+            const child = Bun.spawnSync([runtime.command, '-e', script, bundled.folder], { env: { PATH: process.env.PATH ?? '', ...runtime.env } });
+
+            expect(child.exitCode).toBe(0);
+            expect(await readFile(join(bundled.target, 'pkg', 'index.js'), 'utf8')).toBe('x');
+            expect(await lstat(bundled.folder).catch(() => null)).toBeNull();
+        } finally {
+            await rm(root, { recursive: true, force: true });
+        }
+    });
 });
 
 describe('YAML', () => {
