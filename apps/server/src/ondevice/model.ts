@@ -1,7 +1,13 @@
-import type { AppleFoundationEvent, AppleFoundationRequest, OnDeviceGenerateResult, OnDevicePurpose, OnDeviceStatusResult } from '@ruimte/contracts';
-import { AppleFoundationEventSchema } from '@ruimte/contracts';
 import { CodedError } from '@adecore/agents';
-import { ChatChild, type SpawnChatProcess } from '@adecore/agents/chat';
+import { ChatChild, LineSplitter, type SpawnChatProcess } from '@adecore/agents/chat';
+import {
+    AppleFoundationEventSchema,
+    type AppleFoundationEvent,
+    type AppleFoundationRequest,
+    type OnDeviceGenerateResult,
+    type OnDevicePurpose,
+    type OnDeviceStatusResult
+} from '@ruimte/contracts';
 import { appleSiliconMac, helperCommand, probeAppleHelper } from '../providers/apple-helper.ts';
 import { reportHelperExit } from '../telemetry/reporter.ts';
 import { PURPOSES } from './instructions.ts';
@@ -196,16 +202,13 @@ export class OnDeviceModel {
 
     private async read(stream: ReadableStream<Uint8Array>): Promise<void> {
         const decoder = new TextDecoder();
-        let buffer = '';
+        const lines = new LineSplitter(
+            (line) => this.receive(AppleFoundationEventSchema.parse(JSON.parse(line))),
+            () => undefined
+        );
         try {
             for await (const chunk of stream) {
-                buffer += decoder.decode(chunk, { stream: true });
-                let end: number;
-                while ((end = buffer.indexOf('\n')) >= 0) {
-                    const line = buffer.slice(0, end);
-                    buffer = buffer.slice(end + 1);
-                    this.receive(AppleFoundationEventSchema.parse(JSON.parse(line)));
-                }
+                lines.push(decoder.decode(chunk, { stream: true }));
             }
         } catch {
             this.lose(new CodedError('failed', 'The on-device helper sent something unreadable.'));
