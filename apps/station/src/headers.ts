@@ -1,9 +1,9 @@
 import { cspString, TELEMETRY_INGEST, VISUAL_HOST_HEADERS, VISUAL_HOST_PATH, withHeaders } from '@ruimte/csp';
 
 /*
- * The client's policy, tightened for a page on the public web. A daemon serves a paired host that
- * can be any address, which is why it allows plain `http:` and `ws:` and lets a page be framed;
- * nothing reaches the station over anything but TLS, and nothing may frame it or post out of it.
+ * The client's policy, tightened for a page on the public web. The client allows plain `http:` and
+ * `ws:` because a machine can be at any address; nothing reaches the station over anything but TLS,
+ * and nothing may frame it or post out of it.
  */
 export const CONTENT_SECURITY_POLICY = cspString({
     'base-uri': ["'none'"],

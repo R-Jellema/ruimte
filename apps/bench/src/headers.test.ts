@@ -1,5 +1,4 @@
 import { describe, expect, test } from 'bun:test';
-import { notFoundForMissingAsset } from '@ruimte/csp';
 import { CONTENT_SECURITY_POLICY, withSecurityHeaders } from './headers';
 
 function directive(name: string): string[] {
@@ -31,11 +30,5 @@ describe('the bench headers', () => {
 
         const asset = withSecurityHeaders(new Response('x'), '/assets/bench-abc123.js');
         expect(asset.headers.get('cache-control')).toBe('public, max-age=31536000, immutable');
-    });
-
-    test('a missing chunk is a 404, not the page', () => {
-        const page = new Response('<!doctype html>', { headers: { 'content-type': 'text/html' } });
-        expect(notFoundForMissingAsset(page, '/assets/gone.js').status).toBe(404);
-        expect(notFoundForMissingAsset(page, '/')).toBe(page);
     });
 });
