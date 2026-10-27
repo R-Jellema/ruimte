@@ -11,10 +11,6 @@ import { useEndpointId } from '@/state/keys';
 import { chatClientFor } from '@/transport/connections';
 import { useTransportStatus } from '@/transport/status';
 
-/*
- * The chat of one run, drawn the way a chat view draws one. A run's chat is a hidden chat of the
- * project, so this only observes it: it never opens one, and a person still answers its questions here.
- */
 const RETRY_FIRST_MS = 2000;
 const RETRY_MAX_MS = 30_000;
 
@@ -23,6 +19,10 @@ function keepProvider(): Promise<void> {
     return Promise.resolve();
 }
 
+/*
+ * The chat of one run, drawn the way a chat view draws one. A run's chat is a hidden chat of the
+ * project, so this only observes it: it never opens one, and a person still answers its questions here.
+ */
 export function RoutineRunChat({
     chatId,
     revision = '',

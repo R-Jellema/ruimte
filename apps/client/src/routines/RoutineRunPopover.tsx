@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { LayoutGrid, Pencil, Play, SquareArrowOutUpRight } from 'lucide-react';
 import type { RoutineEntry, RoutineRun } from '@ruimte/contracts';
 import { Button, Icon, Popover } from '@adecore/ui';
-import { formatClock, formatDateTime } from '@adecore/ui/format';
+import { formatClock } from '@adecore/ui/format';
 import { useArtifactText } from '@/output/artifact-bytes';
 import { isTextMime } from '@/output/artifact-list';
 import { useArtifact } from '@/output/use-artifact';
@@ -13,7 +13,7 @@ import { openRoutineForm } from '@/routines/form-state';
 import { LookIcon } from '@/routines/look';
 import { runRoutineNow } from '@/routines/routine-commands';
 import { showRoutine } from '@/routines/stage';
-import { runWords } from '@/routines/words';
+import { dayWords, runWords } from '@/routines/words';
 import { useDocument } from '@/state/document';
 import { useProject } from '@/state/project';
 import { useMachineAnswers } from '@/transport/features';
@@ -96,12 +96,7 @@ function RunCard({
             <div className="flex min-w-0 flex-col gap-0.5">
                 <Popover.Title className="flex min-w-0 items-center gap-2 text-sm font-medium text-text">
                     <LookIcon look={lookOfRun(run)} size={14} />
-                    <span className="truncate">
-                        {t('popover.title', {
-                            title: entry.routine.title,
-                            date: formatDateTime(run.due, { weekday: 'short', day: 'numeric', month: 'short', timeZone })
-                        })}
-                    </span>
+                    <span className="truncate">{t('popover.title', { title: entry.routine.title, date: dayWords(run.due, timeZone) })}</span>
                 </Popover.Title>
                 <span className="truncate text-xs text-text-faint">{meta.join(' · ')}</span>
             </div>

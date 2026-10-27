@@ -5,7 +5,7 @@ import { nextDue, parseCron, type Routine, type RoutineKind, type RoutinePerRun,
 import { ModelPicker, PromptEditor } from '@adecore/agents-react/chat/ui';
 import { RUNTIME_MODES, runtimeModeLabel, type Referables } from '@adecore/agents-react/chat';
 import { Button, Checkbox, Field, FieldHint, FormError, Icon, Input, Segmented, Select, messageOf } from '@adecore/ui';
-import { formatDateTime, localTimeZone } from '@adecore/ui/format';
+import { localTimeZone } from '@adecore/ui/format';
 import { useReferables } from '@/chat/referables';
 import { useLaunches } from '@/launches/state';
 import { firstLine, useAgentPick, type AgentPick } from '@/routines/agent-pick';
@@ -15,7 +15,7 @@ import { promptDraftOf, routinePicked } from '@/routines/prompt-picks';
 import { useRoutineSkills } from '@/routines/prompt-skills';
 import { useRoutineLists } from '@/routines/routine-list';
 import { routineIdsTaken, saveRoutine } from '@/routines/routine-save';
-import { cronProblemWords, everyWords, weekdayWords } from '@/routines/words';
+import { cronProblemWords, dayClockWords, everyWords, weekdayWords } from '@/routines/words';
 import { endpointKey } from '@/state/keys';
 import { useProject } from '@/state/project';
 import { useProjectList } from '@/state/project-list';
@@ -354,16 +354,7 @@ export function RoutineForm({
                             <p className="text-xs text-text-muted tabular-nums" data-cron-next>
                                 {t('form.cronNext', {
                                     times: nextTimes(expression, openedAt, timeZone)
-                                        .map((at) =>
-                                            formatDateTime(at, {
-                                                weekday: 'short',
-                                                day: 'numeric',
-                                                month: 'short',
-                                                hour: '2-digit',
-                                                minute: '2-digit',
-                                                timeZone
-                                            })
-                                        )
+                                        .map((at) => dayClockWords(at, timeZone))
                                         .join(', ')
                                 })}
                             </p>

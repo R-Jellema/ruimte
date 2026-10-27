@@ -4,7 +4,7 @@ import clsx from 'clsx';
 import { Archive, ChevronRight, History, Package, SquareArrowOutUpRight } from 'lucide-react';
 import { nodeColorOf, type RoutineRun } from '@ruimte/contracts';
 import { EmptyState, Icon, IconButton, Pill } from '@adecore/ui';
-import { formatClock, formatDateTime, formatElapsedShort } from '@adecore/ui/format';
+import { formatClock, formatElapsedShort } from '@adecore/ui/format';
 import { accentColor, accentHeaderStyle, accentShades } from '@/canvas/accents';
 import { DerivedSet, type DerivedCard } from '@/canvas/DerivedSet';
 import { KindIcon } from '@/canvas/KindIcon';
@@ -17,7 +17,7 @@ import { OutputShownBesideContext } from '@/output/chat-scope';
 import { RoutineRunChat } from '@/routines/RoutineRunChat';
 import { useRoutineList } from '@/routines/routine-list';
 import { showRoutine } from '@/routines/stage';
-import { runWords } from '@/routines/words';
+import { dayWords, runWords } from '@/routines/words';
 import { OUTPUT_MIN, RUNS_MIN_W, storedOutputSize, storedRunsWidth, type CardSize } from '@/routines/output-size';
 import { useRunsHidden } from '@/routines/runs-hidden';
 import { useCanvas } from '@/state/canvas';
@@ -124,7 +124,7 @@ export function RoutineBeside({ id, z }: { id: string; z: number }) {
                     ? null
                     : fallback.run === null
                       ? t('beside.noVersion')
-                      : t('beside.noVersionShowing', { date: runDay(fallback.run, timeZone) });
+                      : t('beside.noVersionShowing', { date: dayWords(fallback.run.due, timeZone) });
             return {
                 label: t('beside.output'),
                 // With the runs shown the open run is the picker; hidden, a person picks any version on the card.
@@ -141,7 +141,7 @@ export function RoutineBeside({ id, z }: { id: string; z: number }) {
                 )
             };
         }
-        const label = t('beside.runTitle', { title: entry.routine.title, date: runDay(card.run, timeZone) });
+        const label = t('beside.runTitle', { title: entry.routine.title, date: dayWords(card.run.due, timeZone) });
         return {
             label,
             body: card.open ? (
@@ -174,10 +174,6 @@ export function RoutineBeside({ id, z }: { id: string; z: number }) {
     });
 
     return <DerivedSet owner={id} z={z} cards={cards} lineDown={HEADER_MIDDLE} {...(accent === undefined ? {} : { stroke: accentShades(accent).line })} />;
-}
-
-function runDay(run: RoutineRun, timeZone: string): string {
-    return formatDateTime(run.due, { weekday: 'short', day: 'numeric', month: 'short', timeZone });
 }
 
 /* What a run says beside its time: how long it took when it simply ran, and what became of it otherwise. */
@@ -227,7 +223,7 @@ function RunLine({ run, timeZone, accent, onOpen }: { run: RoutineRun; timeZone:
                 <Icon icon={ChevronRight} size={14} className="absolute opacity-0 transition-opacity group-hover/header:opacity-100" />
             </span>
             <span className="min-w-0 grow truncate">
-                {runDay(run, timeZone)} <span className="text-text-muted">· {formatClock(run.at, timeZone)}</span>
+                {dayWords(run.due, timeZone)} <span className="text-text-muted">· {formatClock(run.at, timeZone)}</span>
             </span>
             <RunMark run={run} />
             <StateDot run={run} />

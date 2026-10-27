@@ -17,7 +17,7 @@ import { useRoutineApproval } from '@/routines/routine-approval';
 import { useRoutineWhat } from '@/routines/routine-what';
 import { RoutinePrompt } from '@/routines/RoutinePrompt';
 import { leaveRoutines, showRoutine } from '@/routines/stage';
-import { runWords, scheduleWords, weekdayClock } from '@/routines/words';
+import { dayClockWords, dayWords, runWords, scheduleWords, weekdayClock } from '@/routines/words';
 import { useEndpoints } from '@/state/endpoints';
 import { isThisMachine } from '@/state/local-machine';
 
@@ -128,9 +128,7 @@ function RunTimeline({ entry, picked, timeZone }: { entry: RoutineEntry; picked:
                 <div className="flex items-start gap-2 rounded-md px-2 py-1.5">
                     <LookIcon look="next" />
                     <span className="flex min-w-0 grow flex-col">
-                        <span className="text-sm text-text">
-                            {formatDateTime(entry.next, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone })}
-                        </span>
+                        <span className="text-sm text-text">{dayClockWords(entry.next, timeZone)}</span>
                         <span className="text-xs text-text-muted">{entry.local.pausedAt === undefined ? t('detail.nextRun') : t('row.paused')}</span>
                     </span>
                     <Pill>{t('looks.next')}</Pill>
@@ -150,7 +148,7 @@ function RunTimeline({ entry, picked, timeZone }: { entry: RoutineEntry; picked:
                     </span>
                     <span className="flex min-w-0 grow flex-col">
                         <span className="text-sm text-text">
-                            {formatDateTime(run.due, { weekday: 'short', day: 'numeric', month: 'short', timeZone })}{' '}
+                            {dayWords(run.due, timeZone)}{' '}
                             <span className="text-text-faint">{formatDateTime(run.at, { hour: '2-digit', minute: '2-digit', timeZone })}</span>
                         </span>
                         <span className="text-xs break-words text-text-muted">{runWords(run, timeZone)}</span>
@@ -189,11 +187,7 @@ function RunPane({ entry, run, timeZone }: { entry: RoutineEntry; run: RoutineRu
     return (
         <div className="flex min-h-0 grow flex-col">
             <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border-soft px-3 text-xs text-text-muted">
-                <span className="min-w-0 truncate">
-                    {t('detail.runAt', {
-                        time: formatDateTime(run.at, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone })
-                    })}
-                </span>
+                <span className="min-w-0 truncate">{t('detail.runAt', { time: dayClockWords(run.at, timeZone) })}</span>
                 <span className="grow" />
                 {version !== null && shown === 'output' && <span ref={setSlot} className="flex shrink-0 items-center gap-1" />}
                 {version !== null && run.chatId !== undefined && (

@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
-import { CalendarClock, CircleAlert, CirclePause, Clock, Folder, Hand, Package, Play, Rocket, WifiOff } from 'lucide-react';
+import { CalendarClock, CircleAlert, CirclePause, Clock, Folder, Hand, Play, Rocket, WifiOff, type LucideIcon } from 'lucide-react';
 import type { RoutineEntry, RoutineRun } from '@ruimte/contracts';
 import { ButtonGroup, EmptyState, Icon, IconButton, Pill, Separator, Switch, Tooltip, useNow } from '@adecore/ui';
 import { formatCountdown, formatDateTime } from '@adecore/ui/format';
@@ -15,7 +15,7 @@ import { runRoutineNow, setRoutinePaused } from '@/routines/routine-commands';
 import { useRoutineList } from '@/routines/routine-list';
 import { useRoutineWhat } from '@/routines/routine-what';
 import { showRoutine } from '@/routines/stage';
-import { rowStatus, runWords, scheduleWords, weekdayClock } from '@/routines/words';
+import { dayWords, rowStatus, runWords, scheduleWords, weekdayClock } from '@/routines/words';
 import { useFileToolbarSlot } from '@/shell/panels/file-toolbar-slot';
 import { useCanvas } from '@/state/canvas';
 import { useEndpointId } from '@/state/keys';
@@ -57,7 +57,7 @@ export function RoutineNodeBody({ id }: { id: string }) {
     return <RoutineOnCanvas endpointId={endpointId} entry={entry} timeZone={list.result.timeZone} />;
 }
 
-function Plate({ icon, busy, children }: { icon?: typeof Package; busy?: boolean; children: ReactNode }) {
+function Plate({ icon, busy, children }: { icon?: LucideIcon; busy?: boolean; children: ReactNode }) {
     return (
         <div className="grid h-full w-full place-items-center px-4">
             <EmptyState icon={icon} busy={busy}>
@@ -139,13 +139,13 @@ function RoutineOnCanvas({ endpointId, entry, timeZone }: { endpointId: string; 
 }
 
 function runSentence(run: RoutineRun, timeZone: string): string {
-    return `${formatDateTime(run.due, { weekday: 'short', day: 'numeric', month: 'short', timeZone })}: ${runWords(run, timeZone)}`;
+    return `${dayWords(run.due, timeZone)}: ${runWords(run, timeZone)}`;
 }
 
 function RunBlock({ run, picked, timeZone, onOpen }: { run: RoutineRun; picked: boolean; timeZone: string; onOpen: (runId: string) => void }) {
     const { t } = useTranslation('routines');
     const look = lookOfRun(run);
-    const label = `${formatDateTime(run.due, { weekday: 'short', day: 'numeric', month: 'short', timeZone })}, ${t(`looks.${look}`)}`;
+    const label = `${dayWords(run.due, timeZone)}, ${t(`looks.${look}`)}`;
     return (
         <Tooltip label={label}>
             <button
@@ -227,11 +227,13 @@ function StripCounts({ runs }: { runs: readonly RoutineRun[] }) {
     const { t } = useTranslation('routines');
     const looks = runs.map(lookOfRun);
     const count = (...wanted: BlockLook[]): number => looks.filter((look) => wanted.includes(look)).length;
-    const parts = [
-        count('done', 'waited', 'caught-up') > 0 ? t('node.countDone', { count: count('done', 'waited', 'caught-up') }) : null,
-        count('waited') > 0 ? t('node.countWaited', { count: count('waited') }) : null,
-        count('failed', 'limit') > 0 ? t('node.countFailed', { count: count('failed', 'limit') }) : null
-    ].filter((part) => part !== null);
+    const parts = (
+        [
+            ['node.countDone', count('done', 'waited', 'caught-up')],
+            ['node.countWaited', count('waited')],
+            ['node.countFailed', count('failed', 'limit')]
+        ] as const
+    ).flatMap(([key, counted]) => (counted > 0 ? [t(key, { count: counted })] : []));
     return (
         <p className="flex items-center justify-between gap-2 text-xs text-text-faint">
             <span>{t('node.lastRuns', { count: runs.length })}</span>

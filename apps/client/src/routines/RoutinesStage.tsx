@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, CircleAlert, Clock, Info, LayoutGrid, MoreHo
 import { isCanvasView, type RoutineEntry, type RoutineListResult } from '@ruimte/contracts';
 import { Button, ButtonGroup, EmptyState, Icon, IconButton, Menu, PromptDialog, Segmented, Select, Separator, useNow } from '@adecore/ui';
 import { formatDateTime } from '@adecore/ui/format';
-import { weekOf, type AgendaWeek } from '@/routines/agenda';
+import { NOON_MS, weekOf, type AgendaWeek } from '@/routines/agenda';
 import { openRoutineForm } from '@/routines/form-state';
 import { AgendaLegend, RoutineAgenda, RoutineWeekList, type AgendaGroup } from '@/routines/RoutineAgenda';
 import { RoutineDetail } from '@/routines/RoutineDetail';
@@ -21,8 +21,6 @@ import { useProject } from '@/state/project';
 import { machineTransport } from '@/transport';
 
 const MINUTE_MS = 60_000;
-// A day's noon, so a date written from its midnight never slips to the day before around a clock change.
-const NOON_MS = 12 * 60 * 60 * 1000;
 
 /* Routines over the whole view stage: the week of the project's routines, or one routine opened inside it. */
 export function RoutinesStage() {

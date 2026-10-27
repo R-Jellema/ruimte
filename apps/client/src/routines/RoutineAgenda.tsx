@@ -6,20 +6,18 @@ import type { RoutineEntry, RoutineKind } from '@ruimte/contracts';
 import { EmptyState, Icon, Popover, Switch } from '@adecore/ui';
 import { formatClock, formatDateTime } from '@adecore/ui/format';
 import { OutputProjectGlyph } from '@/output/look';
-import { blocksOf, cellItems, LEGEND, pausedBand, skippedWhilePaused, type AgendaBlock, type AgendaWeek, type CellItem } from '@/routines/agenda';
+import { blocksOf, cellItems, LEGEND, NOON_MS, pausedBand, skippedWhilePaused, type AgendaBlock, type AgendaWeek, type CellItem } from '@/routines/agenda';
 import { LookIcon } from '@/routines/look';
 import { blockClass, HATCH } from '@/routines/look-class';
 import { setRoutinePaused } from '@/routines/routine-commands';
 import { useRoutineWhat } from '@/routines/routine-what';
 import { RoutineRunPopover, type PickedRun } from '@/routines/RoutineRunPopover';
 import { showRoutine } from '@/routines/stage';
-import { blockWords, foldWords, rowStatus, scheduleWords } from '@/routines/words';
+import { blockWords, dayWords, foldWords, rowStatus, scheduleWords } from '@/routines/words';
 
 const NAME_COLUMN = 248;
 // A day never narrower than a block that says "09:00 · 3m"; a narrow stage scrolls sideways instead.
 const GRID = 'grid grid-cols-[248px_repeat(7,minmax(100px,1fr))]';
-// A day's noon, so a date written from its midnight never slips to the day before around a clock change.
-const NOON_MS = 12 * 60 * 60 * 1000;
 
 const KIND_ICONS: Record<RoutineKind, LucideIcon> = {
     agent: Bot,
@@ -133,7 +131,7 @@ export function RoutineAgenda({ endpointId, groups, week, now, timeZone, empty =
 }
 
 /* The week as a list: the runs and coming times of every day that has any, in the order they come. */
-export function RoutineWeekList({ endpointId, groups, week, now, timeZone }: Omit<AgendaProps, 'projectId' | 'grouped'>) {
+export function RoutineWeekList({ endpointId, groups, week, now, timeZone }: Omit<AgendaProps, 'empty'>) {
     const { t } = useTranslation('routines');
     const [picked, setPicked] = useState<PickedRun | null>(null);
     const today = todayIndex(week, now);
@@ -141,6 +139,7 @@ export function RoutineWeekList({ endpointId, groups, week, now, timeZone }: Omi
     const days = week.days.map((day, index) => ({
         day,
         index,
+        name: formatDateTime(day.start + NOON_MS, { weekday: 'long', day: 'numeric', month: 'long', timeZone }),
         items: items.filter((item) => item.block.day === index).sort((left, right) => left.block.at - right.block.at)
     }));
     const shown = days.filter((day) => day.items.length > 0);
@@ -153,15 +152,11 @@ export function RoutineWeekList({ endpointId, groups, week, now, timeZone }: Omi
                 </div>
             ) : (
                 <div className="flex flex-col gap-4 p-4" aria-label={t('agenda.label')}>
-                    {shown.map(({ day, index, items: dayItems }) => (
-                        <section
-                            key={day.date}
-                            className="flex flex-col gap-1"
-                            aria-label={formatDateTime(day.start + NOON_MS, { weekday: 'long', day: 'numeric', month: 'long', timeZone })}
-                        >
+                    {shown.map(({ day, index, name, items: dayItems }) => (
+                        <section key={day.date} className="flex flex-col gap-1" aria-label={name}>
                             <h3 className="flex items-center gap-2 px-1 pb-1 text-xs">
                                 <span className={clsx('rounded-md px-1.5 py-0.5 font-medium', index === today ? 'bg-surface-hover text-text' : 'text-text')}>
-                                    {formatDateTime(day.start + NOON_MS, { weekday: 'long', day: 'numeric', month: 'long', timeZone })}
+                                    {name}
                                 </span>
                             </h3>
                             {dayItems.map(({ entry, block }) => (
@@ -298,7 +293,7 @@ function AgendaRow({
 /* What is left of the week for a paused routine, in one hatched band rather than a block per time it skips. */
 function PausedBand({ endpointId, entry, timeZone }: { endpointId: string; entry: RoutineEntry; timeZone: string }) {
     const { t } = useTranslation('routines');
-    const since = formatDateTime(entry.local.pausedAt!, { weekday: 'short', day: 'numeric', month: 'short', timeZone });
+    const since = dayWords(entry.local.pausedAt!, timeZone);
     const skipped = skippedWhilePaused(entry);
     return (
         <div

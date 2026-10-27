@@ -1,7 +1,7 @@
 import i18next from 'i18next';
 import type { CronProblem, RoutineEntry, RoutineRun, RoutineSchedule } from '@ruimte/contracts';
 import { formatClock, formatDateTime, formatDay, formatDuration, formatElapsedShort } from '@adecore/ui/format';
-import type { AgendaBlock, CellItem } from '@/routines/agenda';
+import { awaitsApproval, type AgendaBlock, type CellItem } from '@/routines/agenda';
 
 /* A time of a schedule, `HH:MM` on the machine's clock, written the way the region writes a clock. */
 export function clockWords(time: string): string {
@@ -25,6 +25,22 @@ function sameDays(days: readonly number[], expected: readonly number[]): boolean
     return days.length === expected.length && expected.every((day) => days.includes(day));
 }
 
+/* A schedule's days without repeats, Monday first. */
+function sortedDays(days: readonly number[]): number[] {
+    return [...new Set(days)].sort((left, right) => left - right);
+}
+
+/* The word a set of days has of its own, or null for any other set. */
+function daysGroup(days: readonly number[]): 'daily' | 'weekdays' | 'weekends' | null {
+    if (days.length === 7) {
+        return 'daily';
+    }
+    if (sameDays(days, WEEKDAYS)) {
+        return 'weekdays';
+    }
+    return sameDays(days, WEEKEND) ? 'weekends' : null;
+}
+
 /* `every 15 minutes`, `every hour`, `every 2 hours`. */
 export function everyWords(minutes: number): string {
     if (minutes === 60) {
@@ -35,14 +51,9 @@ export function everyWords(minutes: number): string {
 
 /* The days of a repeat within a day: `Daily`, `Weekdays`, `Monday`, `Mon, Wed`. */
 function intervalDayWords(days: readonly number[]): string {
-    if (days.length === 7) {
-        return i18next.t('routines:repeatDays.daily');
-    }
-    if (sameDays(days, WEEKDAYS)) {
-        return i18next.t('routines:repeatDays.weekdays');
-    }
-    if (sameDays(days, WEEKEND)) {
-        return i18next.t('routines:repeatDays.weekends');
+    const group = daysGroup(days);
+    if (group !== null) {
+        return i18next.t(`routines:repeatDays.${group}`);
     }
     return days.length === 1 ? weekdayWords(days[0]!, 'long') : days.map((day) => weekdayWords(day)).join(', ');
 }
@@ -54,7 +65,7 @@ export function scheduleWords(schedule: RoutineSchedule): string {
     }
     if (schedule.kind === 'interval') {
         return i18next.t('routines:repeat.interval', {
-            days: intervalDayWords([...new Set(schedule.days)].sort((left, right) => left - right)),
+            days: intervalDayWords(sortedDays(schedule.days)),
             every: everyWords(schedule.every),
             from: clockWords(schedule.from),
             to: clockWords(schedule.to)
@@ -65,15 +76,10 @@ export function scheduleWords(schedule: RoutineSchedule): string {
         const [year, month, day] = schedule.date.split('-').map(Number);
         return i18next.t('routines:repeat.once', { date: formatDay(Date.UTC(year!, month! - 1, day!, 12), 'UTC'), time });
     }
-    const days = [...new Set(schedule.days)].sort((left, right) => left - right);
-    if (days.length === 7) {
-        return i18next.t('routines:repeat.daily', { time });
-    }
-    if (sameDays(days, WEEKDAYS)) {
-        return i18next.t('routines:repeat.weekdays', { time });
-    }
-    if (sameDays(days, WEEKEND)) {
-        return i18next.t('routines:repeat.weekends', { time });
+    const days = sortedDays(schedule.days);
+    const group = daysGroup(days);
+    if (group !== null) {
+        return i18next.t(`routines:repeat.${group}`, { time });
     }
     if (days.length === 1) {
         return i18next.t('routines:repeat.every', { day: weekdayWords(days[0]!, 'long'), time });
@@ -139,13 +145,23 @@ export function weekdayClock(at: number, timeZone: string): string {
     return formatDateTime(at, { weekday: 'short', hour: '2-digit', minute: '2-digit', timeZone });
 }
 
+/* The day of a moment on the machine's clock: `Mon 26 Oct`. */
+export function dayWords(at: number, timeZone: string): string {
+    return formatDateTime(at, { weekday: 'short', day: 'numeric', month: 'short', timeZone });
+}
+
+/* The day and time of a moment on the machine's clock: `Mon 26 Oct, 09:00`. */
+export function dayClockWords(at: number, timeZone: string): string {
+    return formatDateTime(at, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone });
+}
+
 /* What a row says under its title: when it runs next, that it is paused, or that it waits for you. */
 export function rowStatus(entry: RoutineEntry, timeZone: string): { tone: 'needs' | 'muted'; text: string } {
     const waiting = entry.runs.find((run) => run.state === 'needs-you');
     if (waiting !== undefined) {
         return { tone: 'needs', text: i18next.t('routines:row.waits', { time: weekdayClock(waiting.at, timeZone) }) };
     }
-    if (entry.held !== undefined && entry.local.declined !== entry.digest) {
+    if (awaitsApproval(entry)) {
         return { tone: 'needs', text: i18next.t('routines:row.held') };
     }
     if (entry.local.declined === entry.digest) {

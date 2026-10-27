@@ -2,6 +2,9 @@ import { dueTimesBetween, wallTimeOf, zonedTime, type RoutineEntry, type Routine
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+// A day's noon, so a date written from its midnight never slips to the day before around a clock change.
+export const NOON_MS = DAY_MS / 2;
+
 // Every quarter hour of a week, the most a schedule can be due in one.
 const WEEK_TIMES_MAX = 7 * 24 * 4;
 
@@ -201,9 +204,13 @@ export function skippedWhilePaused(entry: RoutineEntry): number {
     return entry.runs.filter((run) => run.state === 'skipped' && run.skipped === 'paused' && run.due >= since).length;
 }
 
-/* The routines waiting on a person's approval here: held, and not already said no to as they stand. */
+/* Whether a routine waits on a person's approval here: held, and not already said no to as it stands. */
+export function awaitsApproval(entry: RoutineEntry): boolean {
+    return entry.held !== undefined && entry.local.declined !== entry.digest;
+}
+
 export function awaitingApproval(entries: readonly RoutineEntry[]): RoutineEntry[] {
-    return entries.filter((entry) => entry.held !== undefined && entry.local.declined !== entry.digest);
+    return entries.filter(awaitsApproval);
 }
 
 /* The runs that wait on a person now, newest first. */

@@ -36,11 +36,7 @@ export function RoutineSide({
         <aside className="flex w-[248px] shrink-0 flex-col overflow-y-auto border-l border-border" aria-label={t('side.label')}>
             {held.length > 0 && (
                 <section className="flex flex-col gap-2 border-b border-border p-3" aria-label={t('side.approvals')}>
-                    <SectionLabel render={<h3 />} className="flex items-center gap-2">
-                        <span aria-hidden="true" className="size-1.5 rounded-full bg-status-needs-you" />
-                        {t('side.approvals')}
-                        <span className="ml-auto tabular-nums">{held.length}</span>
-                    </SectionLabel>
+                    <SideHeading label={t('side.approvals')} count={held.length} />
                     {held.map((entry) => (
                         <ApprovalCard
                             key={`${entry.projectId}:${entry.routine.id}`}
@@ -53,11 +49,7 @@ export function RoutineSide({
             )}
             {waiting.length > 0 && (
                 <section className="flex flex-col gap-2 border-b border-border p-3" aria-label={t('side.needsYou')}>
-                    <SectionLabel render={<h3 />} className="flex items-center gap-2">
-                        <span aria-hidden="true" className="size-1.5 rounded-full bg-status-needs-you" />
-                        {t('side.needsYou')}
-                        <span className="ml-auto tabular-nums">{waiting.length}</span>
-                    </SectionLabel>
+                    <SideHeading label={t('side.needsYou')} count={waiting.length} />
                     {waiting.map(({ entry, run }) => (
                         <button
                             key={run.runId}
@@ -75,6 +67,16 @@ export function RoutineSide({
                 </section>
             )}
         </aside>
+    );
+}
+
+function SideHeading({ label, count }: { label: string; count: number }) {
+    return (
+        <SectionLabel render={<h3 />} className="flex items-center gap-2">
+            <span aria-hidden="true" className="size-1.5 rounded-full bg-status-needs-you" />
+            {label}
+            <span className="ml-auto tabular-nums">{count}</span>
+        </SectionLabel>
     );
 }
 
