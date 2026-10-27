@@ -185,7 +185,7 @@ export function createServiceController(deps: ServiceControllerDeps): ServiceCon
         }
     };
 
-    /* The service did not come up: it is stopped so it cannot fight the app for the port, and the app runs its own daemon as before. */
+    /* The service did not come up: it is stopped so it cannot fight the app for the port, and the app runs its own daemon. */
     const fallBack = async (service: ServiceManager, step: 'start' | 'restart', e: unknown): Promise<void> => {
         failure = messageOf(e);
         deps.report?.({ kind: 'service-fallback', step, reason: failure });
