@@ -160,8 +160,7 @@ export function keepAwakeToMove(info: ServerInfo, settings: KeepAwakeSettings): 
     if (!machineKeepsAwake(info) || isOff(settings)) {
         return null;
     }
-    const onMachine = { keepAwake: info.keepAwake, keepAwakeOnBattery: info.keepAwakeOnBattery, keepAwakeDisplay: info.keepAwakeDisplay };
-    return isOff(onMachine) ? settings : OFF;
+    return isOff(keepAwakeChoice(info)) ? settings : OFF;
 }
 
 /* Moves the old setting over as soon as this computer's machine says it holds keep awake. Returns the unsubscribe. */

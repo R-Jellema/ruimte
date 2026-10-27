@@ -15,6 +15,7 @@ import type {
 import type { Point, Rect } from '@/canvas/math';
 import type { CanvasPatch } from '@/project/merge';
 import type { CanvasState } from '@/state/canvas';
+import { textRect } from '@/canvas/edge-lines';
 import { lineBounds } from '@/canvas/line-geometry';
 
 export type CanvasSet = StoreApi<CanvasState>['setState'];
@@ -177,6 +178,22 @@ export function carriedByGroups(
         visit(id);
     }
     return carried;
+}
+
+/* The frame of a node, a text or a line on the canvas; none for an id that is none of those. */
+export function boundsOfElement(
+    id: string,
+    nodes: Record<string, CanvasNode>,
+    texts: Record<string, TextElement>,
+    lines: Record<string, ProjectCanvasLine>
+): Rect[] {
+    if (nodes[id]) {
+        return [nodes[id]];
+    }
+    if (texts[id]) {
+        return [textRect(texts[id])];
+    }
+    return lines[id] ? [lineBounds(lines[id])] : [];
 }
 
 export function hiddenIn(nodes: Record<string, CanvasNode>): Set<string> {

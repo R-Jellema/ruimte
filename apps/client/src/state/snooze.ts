@@ -12,7 +12,7 @@ import { isConnectionError, readOnEveryOpen, type Transport } from '@/transport/
  * the clock below takes each out as it runs out, so a render reads presence and never the time.
  */
 
-// Snoozes used to be kept in this client for a machine that could not keep them; the key is cleared once so it does not sit in storage.
+// The key snoozes were kept under before the machine kept them, cleared so it does not sit in storage.
 storedJson('ruimte.snoozes', z.unknown()).remove();
 
 /* Keyed with `endpointKey`, each the moment the snooze runs out, epoch ms. */
@@ -148,7 +148,7 @@ export class SnoozeSync {
         const key = endpointKey(this.endpointId, nodeId);
         this.unsentClears.delete(nodeId);
         if (this.transport.status !== 'open') {
-            this.hold(key);
+            unsent.add(key);
             return;
         }
         void this.transport
@@ -156,7 +156,13 @@ export class SnoozeSync {
             .then(() => {
                 unsent.delete(key);
             })
-            .catch((e: unknown) => (isConnectionError(e) ? this.hold(key) : this.refresh()));
+            .catch((e: unknown) => {
+                if (isConnectionError(e)) {
+                    unsent.add(key);
+                } else {
+                    void this.refresh();
+                }
+            });
     }
 
     clear(nodeId: string): void {
@@ -177,10 +183,6 @@ export class SnoozeSync {
     dispose(): void {
         this.generation++;
         this.off.forEach((off) => off());
-    }
-
-    private hold(key: string): void {
-        unsent.add(key);
     }
 
     private async refresh(): Promise<void> {

@@ -16,6 +16,7 @@ import { createCanvasEdgesSlice } from '@/state/canvas-edges-slice';
 import { createCanvasGestureSlice } from '@/state/canvas-gesture-slice';
 import { createCanvasLayoutsSlice } from '@/state/canvas-layouts-slice';
 import {
+    boundsOfElement,
     maximizedNodeOf,
     type AddNodeOptions,
     type CanvasNode,
@@ -143,8 +144,8 @@ export interface CanvasState extends CameraSlice {
     bringToFront(id: string): void;
     /* One of the accents or none; a note takes its paper from it. One undo step. */
     setNodeColor(id: string, accent: NodeAccent | null): void;
-    /* A rename is a person's unless the session that named itself says otherwise. */
-    /* A null source unnames the node, since nothing named it, so its own source may name it again. */
+    /* A rename is a person's unless the session that named itself says otherwise. A null source
+       unnames the node, so its own source may name it again. */
     renameNode(id: string, title: string, source?: NodeTitleSource | null): void;
     /* Changes what a node carries (its page, its folder) without touching its placement. */
     updateNode(id: string, patch: Partial<Pick<CanvasNode, 'url' | 'cwd' | 'command' | 'resume' | 'body' | 'provider' | 'artifact'>>, undoable?: boolean): void;
@@ -211,18 +212,7 @@ export function createCanvasStore(): StoreApi<CanvasState> {
         const slice = createCameraSlice<CanvasState>(set, get, {
             boundsOfAll: (state) =>
                 unionOf([...Object.values(state.nodes), ...Object.values(state.texts).map(textRect), ...Object.values(state.lines).map(lineBounds)]),
-            boundsOfSelection: (state) =>
-                unionOf(
-                    state.selection.flatMap((id) =>
-                        state.nodes[id]
-                            ? [state.nodes[id]]
-                            : state.texts[id]
-                              ? [textRect(state.texts[id])]
-                              : state.lines[id]
-                                ? [lineBounds(state.lines[id])]
-                                : []
-                    )
-                ),
+            boundsOfSelection: (state) => unionOf(state.selection.flatMap((id) => boundsOfElement(id, state.nodes, state.texts, state.lines))),
             resume: (state, request) => {
                 if (request.kind === 'node') {
                     state.goToNode(request.id);

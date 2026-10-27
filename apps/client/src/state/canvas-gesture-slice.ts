@@ -1,11 +1,10 @@
 import { groupFrame, type ProjectCanvasLine } from '@ruimte/contracts';
-import { textRect } from '@/canvas/edge-lines';
 import { parentGroupOf } from '@/canvas/editable-gaps';
 import { gapFrames } from '@/canvas/element-frames';
-import { lineBounds, snapLine } from '@/canvas/line-geometry';
+import { snapLine } from '@/canvas/line-geometry';
 import { snapToGrid, unionOf, type Point } from '@/canvas/math';
 import type { CanvasState } from '@/state/canvas';
-import { carriedByGroups, HISTORY_LIMIT, membersOf, remember, snapshotOf, type CanvasGet, type CanvasSet } from '@/state/canvas-model';
+import { boundsOfElement, carriedByGroups, HISTORY_LIMIT, membersOf, remember, snapshotOf, type CanvasGet, type CanvasSet } from '@/state/canvas-model';
 
 /* What is selected, and what its groups carry, each put where `place` and `line` say. */
 function movedSelection(
@@ -192,11 +191,7 @@ export function createCanvasGestureSlice(
                     if (!group || group.collapsed) {
                         continue;
                     }
-                    const frame = groupFrame(
-                        parent.members.flatMap((id) =>
-                            nodes[id] ? [nodes[id]!] : texts[id] ? [textRect(texts[id]!)] : lines[id] ? [lineBounds(lines[id])] : []
-                        )
-                    );
+                    const frame = groupFrame(parent.members.flatMap((id) => boundsOfElement(id, nodes, texts, lines)));
                     const rect = frame === null ? null : unionOf([group, frame]);
                     if (rect !== null) {
                         nodes[parent.id] = { ...group, ...rect };

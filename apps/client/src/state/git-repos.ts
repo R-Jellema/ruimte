@@ -96,6 +96,10 @@ const NOTHING: Record<string, Entry> = {};
 const lastRepos = new Map<string, { repos: readonly GitRepo[]; truncated: boolean }>();
 const lastEntries = new Map<string, Entry>();
 
+function knownEntry(entries: Record<string, Entry>, endpointId: string, cwd: string): Entry | undefined {
+    return entries[cwd] ?? lastEntries.get(endpointKey(endpointId, cwd));
+}
+
 /* The repositories the panel draws: the ones a person hid are out, by the label they were hidden under. */
 export function visibleRepos(repos: readonly GitRepo[], hidden: readonly string[]): GitRepo[] {
     const away = new Set(hidden);
@@ -265,7 +269,7 @@ export function useGitCheckouts(refs: readonly GitCheckoutRef[]): GitCheckouts {
         (cwd: string, status: GitStatus): void => {
             setHeld((previous) => {
                 const entries = previous.endpointId === endpointId ? previous.entries : {};
-                const before = entries[cwd] ?? lastEntries.get(endpointKey(endpointId, cwd)) ?? BLANK;
+                const before = knownEntry(entries, endpointId, cwd) ?? BLANK;
                 const revision = before.revision + (headMoved(before.status, status) ? 1 : 0);
                 return { endpointId, entries: { ...entries, [cwd]: { status, failure: null, revision } } };
             });
@@ -284,7 +288,7 @@ export function useGitCheckouts(refs: readonly GitCheckoutRef[]): GitCheckouts {
                     const entries = previous.endpointId === endpointId ? previous.entries : {};
                     return {
                         endpointId,
-                        entries: { ...entries, [cwd]: { ...(entries[cwd] ?? lastEntries.get(endpointKey(endpointId, cwd)) ?? BLANK), failure: message } }
+                        entries: { ...entries, [cwd]: { ...(knownEntry(entries, endpointId, cwd) ?? BLANK), failure: message } }
                     };
                 });
             }
@@ -361,32 +365,23 @@ export function useGitCheckouts(refs: readonly GitCheckoutRef[]): GitCheckouts {
         }
     }, [entries, endpointId]);
 
-    const checkouts = useMemo(
-        () => refs.map((ref) => ({ ...ref, ...(entries[ref.path] ?? lastEntries.get(endpointKey(endpointId, ref.path)) ?? BLANK) })),
-        [refs, entries, endpointId]
-    );
+    const checkouts = refs.map((ref) => ({ ...ref, ...(knownEntry(entries, endpointId, ref.path) ?? BLANK) }));
 
-    const refresh = useCallback(
-        async (cwd?: string): Promise<void> => {
-            const targets = cwd === undefined ? paths.split('\n').filter((path) => path !== '') : [cwd];
-            await Promise.all(targets.map((path) => read(path)));
-        },
-        [read, paths]
-    );
+    const refresh = async (cwd?: string): Promise<void> => {
+        const targets = cwd === undefined ? paths.split('\n').filter((path) => path !== '') : [cwd];
+        await Promise.all(targets.map((path) => read(path)));
+    };
 
-    const assume = useCallback(
-        (cwd: string, next: (status: GitStatus) => GitStatus): void => {
-            setHeld((previous) => {
-                const entries = previous.endpointId === endpointId ? previous.entries : {};
-                const entry = entries[cwd] ?? lastEntries.get(endpointKey(endpointId, cwd));
-                if (entry === undefined || entry.status === null) {
-                    return previous;
-                }
-                return { endpointId, entries: { ...entries, [cwd]: { ...entry, status: next(entry.status) } } };
-            });
-        },
-        [endpointId]
-    );
+    const assume = (cwd: string, next: (status: GitStatus) => GitStatus): void => {
+        setHeld((previous) => {
+            const entries = previous.endpointId === endpointId ? previous.entries : {};
+            const entry = knownEntry(entries, endpointId, cwd);
+            if (entry === undefined || entry.status === null) {
+                return previous;
+            }
+            return { endpointId, entries: { ...entries, [cwd]: { ...entry, status: next(entry.status) } } };
+        });
+    };
 
     return { checkouts, refresh, assume };
 }
