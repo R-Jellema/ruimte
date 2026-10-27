@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import type { RoutineListResult } from '@ruimte/contracts';
 import { machineTransport, pool } from '@/transport';
 import { machineAnswers, useMachineAnswers } from '@/transport/features';
+import { startMachineWatch } from '@/transport/machine-watch';
 
 /*
  * Every routine on a machine, as the toolbar's dot and the stage ask for it. One `routine.watch` per
@@ -50,31 +51,14 @@ export function refreshRoutines(endpointId: string): void {
 }
 
 function startHold(endpointId: string): MachineHold {
-    const transport = machineTransport(endpointId);
-    const watch = (): void => {
-        if (transport.status === 'open' && machineAnswers(pool.statusOf(endpointId), 'routine.watch')) {
-            transport.request('routine.watch', {}).catch(() => undefined);
-        }
-    };
-    const offChanged = transport.on('routine.changed', () => refreshRoutines(endpointId));
-    const offStatus = transport.subscribeStatus((status) => {
-        if (status === 'open') {
-            watch();
-            refreshRoutines(endpointId);
-        }
+    const stop = startMachineWatch(endpointId, {
+        watch: 'routine.watch',
+        unwatch: 'routine.unwatch',
+        refresh: () => refreshRoutines(endpointId),
+        listen: (transport) => [transport.on('routine.changed', () => refreshRoutines(endpointId))]
     });
-    watch();
-    return {
-        users: 0,
-        generation: 0,
-        stop(): void {
-            offChanged();
-            offStatus();
-            if (transport.status === 'open' && machineAnswers(pool.statusOf(endpointId), 'routine.unwatch')) {
-                transport.request('routine.unwatch', {}).catch(() => undefined);
-            }
-        }
-    };
+
+    return { users: 0, generation: 0, stop };
 }
 
 function holdRoutines(endpointId: string): () => void {

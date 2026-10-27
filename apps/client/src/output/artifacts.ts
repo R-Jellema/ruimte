@@ -4,6 +4,7 @@ import type { ArtifactListPayload, ArtifactSummary } from '@ruimte/contracts';
 import { endpointKey } from '@/state/keys';
 import { machineTransport, pool } from '@/transport';
 import { machineAnswers } from '@/transport/features';
+import { startMachineWatch } from '@/transport/machine-watch';
 import type { Transport } from '@/transport/transport';
 
 /*
@@ -67,41 +68,28 @@ function refreshQuery(endpointId: string, transport: Transport, queryKey: string
 }
 
 function startWatch(endpointId: string): MachineWatch {
-    const transport = machineTransport(endpointId);
     const queries: MachineWatch['queries'] = new Map();
     const refreshAll = (): void => {
+        const transport = machineTransport(endpointId);
+
         for (const queryKey of queries.keys()) {
             refreshQuery(endpointId, transport, queryKey);
         }
     };
-    const watch = (): void => {
-        if (transport.status === 'open' && machineAnswers(pool.statusOf(endpointId), 'artifact.watch')) {
-            transport.request('artifact.watch', {}).catch(() => undefined);
-        }
-    };
-    const offChanged = transport.on('artifact.changed', ({ artifactId }) => {
-        const key = endpointKey(endpointId, artifactId);
-        useArtifacts.setState((state) => ({ revisions: { ...state.revisions, [key]: (state.revisions[key] ?? 0) + 1 } }));
-        refreshAll();
+    const stop = startMachineWatch(endpointId, {
+        watch: 'artifact.watch',
+        unwatch: 'artifact.unwatch',
+        refresh: refreshAll,
+        listen: (transport) => [
+            transport.on('artifact.changed', ({ artifactId }) => {
+                const key = endpointKey(endpointId, artifactId);
+                useArtifacts.setState((state) => ({ revisions: { ...state.revisions, [key]: (state.revisions[key] ?? 0) + 1 } }));
+                refreshAll();
+            })
+        ]
     });
-    const offStatus = transport.subscribeStatus((status) => {
-        if (status === 'open') {
-            watch();
-            refreshAll();
-        }
-    });
-    watch();
-    return {
-        users: 0,
-        queries,
-        stop(): void {
-            offChanged();
-            offStatus();
-            if (transport.status === 'open' && machineAnswers(pool.statusOf(endpointId), 'artifact.unwatch')) {
-                transport.request('artifact.unwatch', {}).catch(() => undefined);
-            }
-        }
-    };
+
+    return { users: 0, queries, stop };
 }
 
 /* Holds the machine's watch, and a list when `payload` names one, until the returned function lets go. */
