@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
 import i18next from 'i18next';
-import type { ProjectCanvasView } from '@ruimte/contracts';
 import { forgetMemoizedWords } from '@/compiler-runtime';
 import { chooseLanguage } from '@/i18n';
 import { useSettings } from '@/state/settings';
@@ -9,8 +8,9 @@ import { useUi } from '@/state/ui';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { clickOn, mount, until, type Mounted } from '../../testing/dom';
+import { emptyCanvas } from '../../testing/project-fixtures';
 
-const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [], texts: [], edges: [], layouts: [] };
+const MAIN = emptyCanvas();
 
 let machine: FakeMachine;
 let workspace: FakeWorkspace;

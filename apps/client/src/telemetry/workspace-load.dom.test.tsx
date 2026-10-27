@@ -1,12 +1,12 @@
 import { afterEach, expect, test } from 'bun:test';
-import type { ProjectCanvasView } from '@ruimte/contracts';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { mount, until, type Mounted } from '../../testing/dom';
 import type { PageMetric } from './metrics';
 import { measureWorkspaceLoadWith } from './workspace-load';
+import { emptyCanvas } from '../../testing/project-fixtures';
 
-const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [], texts: [], edges: [], layouts: [] };
+const MAIN = emptyCanvas();
 
 let workspace: FakeWorkspace;
 let page: Mounted;

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, setSystemTime, test } from 'bun:test';
 import { act } from 'react';
 import { EditorView } from '@codemirror/view';
-import { REQUEST_SCHEMAS, zonedTime, type ProjectCanvasView, type RequestType, type RoutineEntry, type RoutineRun } from '@ruimte/contracts';
+import { REQUEST_SCHEMAS, zonedTime, type RequestType, type RoutineEntry, type RoutineRun } from '@ruimte/contracts';
 import { formatDateTime } from '@adecore/ui/format';
 import { isApplePlatform } from '@/desktop/bridge';
 import { showRoutine, useRoutinesStage } from '@/routines/stage';
@@ -13,9 +13,10 @@ import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-worksp
 import { buttonWithText } from '../../testing/dom-helpers';
 import { clickOn, layOutChat, mount, pressKey, until, type Mounted } from '../../testing/dom';
 import { claudeProvider } from '../../testing/fake-provider';
+import { emptyCanvas } from '../../testing/project-fixtures';
 
 const AMS = 'Europe/Amsterdam';
-const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [], texts: [], edges: [], layouts: [] };
+const MAIN = emptyCanvas();
 // Sunday 25 October 2026, 14:20 on the machine's clock.
 const NOW = zonedTime(2026, 10, 25, 14, 20, AMS);
 

@@ -1,12 +1,13 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
-import type { GitPullRequest, ProjectCanvasView } from '@ruimte/contracts';
+import type { GitPullRequest } from '@ruimte/contracts';
 import { useUi } from '@/state/ui';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { mount, until, type Mounted } from '../../testing/dom';
+import { emptyCanvas } from '../../testing/project-fixtures';
 
-const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [], texts: [], edges: [], layouts: [] };
+const MAIN = emptyCanvas();
 
 const PR: GitPullRequest = {
     repo: 'o/r',

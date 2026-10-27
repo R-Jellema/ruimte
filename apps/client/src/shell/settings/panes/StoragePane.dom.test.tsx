@@ -1,13 +1,14 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
-import { REQUEST_SCHEMAS, type ArtifactCleanupProposal, type ArtifactStorageResult, type ProjectCanvasView, type RequestType } from '@ruimte/contracts';
+import { REQUEST_SCHEMAS, type ArtifactCleanupProposal, type ArtifactStorageResult, type RequestType } from '@ruimte/contracts';
 import { useUi } from '@/state/ui';
 import { clickOn, mount, until, type Mounted } from '../../../../testing/dom';
 import { FakeMachine } from '../../../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../../../testing/fake-workspace';
 import { buttonWithText, everything } from '../../../../testing/dom-helpers';
+import { emptyCanvas } from '../../../../testing/project-fixtures';
 
-const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [], texts: [], edges: [], layouts: [] };
+const MAIN = emptyCanvas();
 const MB = 1024 * 1024;
 const DAY = 24 * 60 * 60 * 1000;
 const START = Date.UTC(2026, 6, 24, 7);

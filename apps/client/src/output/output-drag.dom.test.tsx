@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, setSystemTime, test } from 'bun:test';
 import { act } from 'react';
-import type { ArtifactGetResult, ArtifactSummary, ArtifactVersion, ProjectCanvasView } from '@ruimte/contracts';
+import type { ArtifactGetResult, ArtifactSummary, ArtifactVersion } from '@ruimte/contracts';
 import { useDocument } from '@/state/document';
 import { artifactTabKey, useFiles } from '@/state/files';
 import { useUi } from '@/state/ui';
@@ -8,8 +8,9 @@ import { windowWorkspace } from '@/state/window';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { mount, until, type Mounted } from '../../testing/dom';
+import { emptyCanvas } from '../../testing/project-fixtures';
 
-const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [], texts: [], edges: [], layouts: [] };
+const MAIN = emptyCanvas();
 const NOW = new Date(2026, 9, 25, 12, 0).getTime();
 const VERSION: ArtifactVersion = {
     versionId: 'v-new',

@@ -1,13 +1,14 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
-import type { GitFile, GitRepo, GitStatus, ProjectCanvasView } from '@ruimte/contracts';
+import type { GitFile, GitRepo, GitStatus } from '@ruimte/contracts';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { installDesktop, removeDesktop } from '../../testing/dom-helpers';
 import { mount, until, type Mounted } from '../../testing/dom';
+import { emptyCanvas } from '../../testing/project-fixtures';
 
 const FOLDER = '/work/atlas';
-const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [], texts: [], edges: [], layouts: [] };
+const MAIN = emptyCanvas();
 
 let machine: FakeMachine;
 let workspace: FakeWorkspace;

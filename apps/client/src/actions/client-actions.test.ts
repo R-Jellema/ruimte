@@ -23,6 +23,7 @@ import { useFiles } from '@/state/files';
 import { useProject } from '@/state/project';
 import { fakeProvider } from '../../testing/fake-provider';
 import { completed, confirmed, expectQuestion, expectUndoable } from './action-support';
+import { emptyCanvas } from '../../testing/project-fixtures';
 
 const PROJECT: ProjectSummary = {
     projectId: 'atlas',
@@ -36,7 +37,7 @@ const PROJECT: ProjectSummary = {
     nameSource: 'chosen'
 };
 
-const main: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [], texts: [], edges: [], layouts: [] };
+const main = emptyCanvas();
 
 const claude = fakeProvider('claude', 'Claude Code');
 const codex = fakeProvider('codex', 'Codex', { installed: false });

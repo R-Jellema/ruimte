@@ -1,13 +1,14 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
-import type { ChatInfo, ProjectCanvasView, ProjectView } from '@ruimte/contracts';
+import type { ChatInfo, ProjectView } from '@ruimte/contracts';
 import { isApplePlatform } from '@/desktop/bridge';
 import { chatInfoOf } from '../../testing/chat-info';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { mount, pressKey, until, type Mounted } from '../../testing/dom';
+import { emptyCanvas } from '../../testing/project-fixtures';
 
-const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [], texts: [], edges: [], layouts: [] };
+const MAIN = emptyCanvas();
 const NEWER: ProjectView = { kind: 'chat', id: 'chat-newer', name: 'Release notes', node: {} };
 const OLDER: ProjectView = { kind: 'chat', id: 'chat-older', name: 'Flaky test', node: {} };
 const IDLE: ProjectView = { kind: 'chat', id: 'chat-idle', name: 'Idle chat', node: {} };

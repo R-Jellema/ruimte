@@ -1,4 +1,4 @@
-import type { ChatInfo, GitIdentity, ProjectSummary } from '@ruimte/contracts';
+import type { ChatInfo, GitIdentity, ProjectCanvasView, ProjectSummary } from '@ruimte/contracts';
 
 export function projectSummary(projectId: string, name: string, folder: string): ProjectSummary {
     return {
@@ -35,4 +35,9 @@ export function idleChatInfo(chatId: string): ChatInfo {
         usage: { turns: 1, contextTokens: 0, contextWindow: 200_000, costUsd: 0 },
         background: []
     } as unknown as ChatInfo;
+}
+
+/* A canvas view with nothing on it. */
+export function emptyCanvas(id = 'main', name = 'Main'): ProjectCanvasView {
+    return { kind: 'canvas', id, name, nodes: [], texts: [], edges: [], layouts: [] };
 }

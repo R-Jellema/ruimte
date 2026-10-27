@@ -1,13 +1,14 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
-import type { ClaudeApiSettings, NanoGptSettings, ProjectCanvasView, ProviderInfo } from '@ruimte/contracts';
+import type { ClaudeApiSettings, NanoGptSettings, ProviderInfo } from '@ruimte/contracts';
 import { useUi } from '@/state/ui';
 import { clickOn, mount, until, type Mounted } from '../../../../testing/dom';
 import { FakeMachine } from '../../../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../../../testing/fake-workspace';
 import { buttonWithText, everything, typeInto } from '../../../../testing/dom-helpers';
+import { emptyCanvas } from '../../../../testing/project-fixtures';
 
-const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [], texts: [], edges: [], layouts: [] };
+const MAIN = emptyCanvas();
 
 interface Provider {
     readonly kind: 'nanogpt' | 'anthropic-claude-api';

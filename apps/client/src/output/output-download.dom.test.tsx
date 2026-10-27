@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
-import { BYTES_CHUNK_MAX, BYTES_READ_MAX_BYTES, type ArtifactGetResult, type ArtifactVersion, type ProjectCanvasView } from '@ruimte/contracts';
+import { BYTES_CHUNK_MAX, BYTES_READ_MAX_BYTES, type ArtifactGetResult, type ArtifactVersion } from '@ruimte/contracts';
 import type { SaveFileStreamBridge } from '@/desktop/bridge';
 import { useFiles } from '@/state/files';
 import { useToasts } from '@/state/toasts';
@@ -9,8 +9,9 @@ import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { installDesktop, removeDesktop } from '../../testing/dom-helpers';
 import { clickOn, mount, until, type Mounted } from '../../testing/dom';
+import { emptyCanvas } from '../../testing/project-fixtures';
 
-const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [], texts: [], edges: [], layouts: [] };
+const MAIN = emptyCanvas();
 const SIZE = BYTES_READ_MAX_BYTES + 1000;
 const PIECES = Math.ceil(SIZE / BYTES_CHUNK_MAX);
 

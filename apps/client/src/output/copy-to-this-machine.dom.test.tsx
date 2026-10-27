@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, setSystemTime, test } from 'bun:test';
 import { act } from 'react';
-import type { ArtifactGetResult, ArtifactSummary, ArtifactVersion, ProjectCanvasView, RemoteLink } from '@ruimte/contracts';
+import type { ArtifactGetResult, ArtifactSummary, ArtifactVersion, RemoteLink } from '@ruimte/contracts';
 import { openArtifact } from '@/output/open';
 import { LOCAL_ENDPOINT_ID, useEndpoints } from '@/state/endpoints';
 import { useFiles } from '@/state/files';
@@ -10,8 +10,9 @@ import { TransportError } from '@/transport/transport';
 import { connectFakeMachine, FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { clickOn, mount, openSubmenu, pressKey, until, type Mounted } from '../../testing/dom';
+import { emptyCanvas } from '../../testing/project-fixtures';
 
-const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [], texts: [], edges: [], layouts: [] };
+const MAIN = emptyCanvas();
 const REMOTE = 'machine-b';
 const NOW = new Date(2026, 9, 25, 12, 0).getTime();
 const LINK: RemoteLink = { machineId: REMOTE, remoteProjectId: 'remote-atlas', label: 'MacBook Pro', rootCommit: 'root' };

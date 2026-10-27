@@ -1,14 +1,6 @@
 import { afterEach, beforeEach, describe, expect, setSystemTime, test } from 'bun:test';
 import { act } from 'react';
-import {
-    REQUEST_SCHEMAS,
-    type ArtifactFile,
-    type ArtifactGetResult,
-    type ArtifactSummary,
-    type ArtifactVersion,
-    type ProjectCanvasView,
-    type RequestType
-} from '@ruimte/contracts';
+import { REQUEST_SCHEMAS, type ArtifactFile, type ArtifactGetResult, type ArtifactSummary, type ArtifactVersion, type RequestType } from '@ruimte/contracts';
 import { visibleRect } from '@/canvas/math';
 import { liveCanvas } from '@/state/canvas';
 import { useProvidersStore } from '@adecore/agents-react/state';
@@ -19,8 +11,9 @@ import { TransportError } from '@/transport/transport';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { clickOn, mount, openSubmenu, pressKey, until, type Mounted } from '../../testing/dom';
+import { emptyCanvas } from '../../testing/project-fixtures';
 
-const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [], texts: [], edges: [], layouts: [] };
+const MAIN = emptyCanvas();
 // The panel groups by the day it is now, so the clock stands still on a known one.
 const NOW = new Date(2026, 9, 25, 12, 0).getTime();
 const DAY = 24 * 60 * 60 * 1000;

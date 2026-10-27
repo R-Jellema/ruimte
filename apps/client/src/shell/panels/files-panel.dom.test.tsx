@@ -1,18 +1,19 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
-import type { FsEntry, GitStatus, ProjectCanvasView } from '@ruimte/contracts';
+import type { FsEntry, GitStatus } from '@ruimte/contracts';
 import { useFilesRoot } from '@/state/files-root';
 import { useUi } from '@/state/ui';
 import { FakeMachine } from '../../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../../testing/fake-workspace';
 import { buttonWithText, menuItem } from '../../../testing/dom-helpers';
 import { clickOn, mount, until, type Mounted } from '../../../testing/dom';
+import { emptyCanvas } from '../../../testing/project-fixtures';
 
 const FOLDER = '/work/atlas';
 const API = `${FOLDER}/api`;
 const WEB = `${FOLDER}/web`;
 const WORKTREE = '/home/bas/.ruimte/worktrees/atlas/lexer';
-const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [], texts: [], edges: [], layouts: [] };
+const MAIN = emptyCanvas();
 
 const LISTINGS: Record<string, FsEntry[]> = {
     [FOLDER]: [directory(API), directory(WEB), file(`${FOLDER}/Makefile`)],

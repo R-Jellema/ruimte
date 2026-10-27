@@ -3,7 +3,7 @@ import { useProject } from '@/state/project';
 import type { ProjectSummary } from '@ruimte/contracts';
 import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
 import { VOICE_TOOL_ACTIONS, voiceToolDefinitions } from '@ruimte/actions';
-import type { ProjectCanvasView, ProjectDocument, ProjectNode } from '@ruimte/contracts';
+import type { ProjectDocument, ProjectNode } from '@ruimte/contracts';
 import { clientActions, VOICE_ACTION_CALL } from '@/actions/client-actions';
 import { defaultCanvases } from '@/state/canvas';
 import { useChats } from '@adecore/agents-react/state';
@@ -11,8 +11,9 @@ import { useDocument } from '@/state/document';
 import { currentEndpointId, endpointKey } from '@/state/keys';
 import { useSettings } from '@/state/settings';
 import { bypassesQueue, executeVoiceTool } from '@/voice/tools';
+import { emptyCanvas } from '../../testing/project-fixtures';
 
-const main: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [], texts: [], edges: [], layouts: [] };
+const main = emptyCanvas();
 
 const document: ProjectDocument = {
     version: 3,
