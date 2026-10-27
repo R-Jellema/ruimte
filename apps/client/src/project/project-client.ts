@@ -490,9 +490,7 @@ export class ProjectClient {
             const result = await this.transport.request('project.open', payload);
             const draft = readProjectDraft(this.storage, this.endpointId(), result.summary.projectId);
             forgetClosedProject(this.endpointId(), result.summary.projectId, this.storage);
-            this.base = contentOf(draft?.base ?? result.document);
-            this.baseRev = draft?.base.rev ?? result.document.rev;
-            this.baseShared = [...(draft?.base.shared ?? result.document.shared ?? [])];
+            this.setBase(draft?.base ?? result.document);
             this.locallyDrafted = draft !== null;
             const local = overlayLocal(result.local, readClientLocal(this.storage, this.endpointId(), result.summary.projectId));
             this.onLoad(result.summary);
@@ -501,7 +499,7 @@ export class ProjectClient {
             // In the same tick as the canvas, so the panels never paint the project that just left.
             this.panels.load(result.summary.projectId, local.panels);
             this.sink.setChosenIcon(draft?.document.icon ?? result.document.icon ?? null);
-            this.sink.setCurrent(result.summary, draft?.base.rev ?? result.document.rev);
+            this.sink.setCurrent(result.summary, this.baseRev);
             if (draft) {
                 this.sink.setSummary({ ...result.summary, name: draft.document.name, color: draft.document.color });
                 this.sink.setDirty(true);

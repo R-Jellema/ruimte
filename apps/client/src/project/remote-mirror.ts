@@ -166,9 +166,7 @@ export class RemoteMirror {
         const before = this.links?.byMachine.get(machine);
         const transport = this.host.transportOf(machine);
         if (before !== undefined && before.remoteProjectId !== remoteProjectId && this.sent.has(machine) && transport?.status === 'open') {
-            const projectId = before.remoteProjectId;
-            await transport.request('peer.placeNodes', { machineId: this.host.selfId(), projectId, nodes: [], edges: [] }).catch(() => undefined);
-            await transport.request('project.release', { projectId }).catch(() => undefined);
+            await this.letGo(transport, before.remoteProjectId);
         }
         this.links = null;
         this.resend(machine);
@@ -188,14 +186,14 @@ export class RemoteMirror {
      * The project itself stays open there, since its own canvases and sessions are not this window's to end.
      */
     async close(): Promise<void> {
-        await Promise.all(
-            this.eachHeld(async (transport, link) => {
-                const projectId = link.remoteProjectId;
-                await transport.request('peer.placeNodes', { machineId: this.host.selfId(), projectId, nodes: [], edges: [] }).catch(() => undefined);
-                await transport.request('project.release', { projectId }).catch(() => undefined);
-            })
-        );
+        await Promise.all(this.eachHeld((transport, link) => this.letGo(transport, link.remoteProjectId)));
         this.sent.clear();
+    }
+
+    /* The project there ends this machine's nodes and is let go of. */
+    private async letGo(transport: Requester, projectId: string): Promise<void> {
+        await transport.request('peer.placeNodes', { machineId: this.host.selfId(), projectId, nodes: [], edges: [] }).catch(() => undefined);
+        await transport.request('project.release', { projectId }).catch(() => undefined);
     }
 
     /* The project is left or the window goes: the holds go, and the projects stay open there. */

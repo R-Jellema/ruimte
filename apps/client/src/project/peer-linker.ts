@@ -12,6 +12,9 @@ let linker = throughAccount;
 // One attempt per machine at a time: a second caller (the mirror's renewal, a pill clicked meanwhile) joins it, so one failure costs one round trip to the address book.
 const running = new Map<string, Promise<void>>();
 
+// Machines whose link just failed at the place a person made it; the renewal that follows would only ask the address book the same thing again.
+const failed = new Set<string>();
+
 /* Lets this machine work in `machineId`, with the account of this window vouching for it. */
 export function linkToPeer(machineId: string, self: Requester): Promise<void> {
     const joined = running.get(machineId);
@@ -39,9 +42,6 @@ export async function linkToPeerOrMark(machineId: string, self: Requester): Prom
         return false;
     }
 }
-
-// Machines whose link just failed at the place a person made it; the renewal that follows would only ask the address book the same thing again.
-const failed = new Set<string>();
 
 /* Whether the last link made along the way failed, said once: the renewal leaves that machine to the pill, which offers the way back. */
 export function takeLinkFailure(machineId: string): boolean {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AtSign, Folder, FolderInput, FolderOpen, FolderPlus, TriangleAlert, type LucideIcon } from 'lucide-react';
 import type { ChatMoveInfoResult, ChatMoveRefusal, ProjectSummary } from '@ruimte/contracts';
@@ -179,7 +179,8 @@ function MoveChatForm({ request, onDone }: { request: MoveChatRequest; onDone():
     const ownCount = info?.ownFiles.count ?? 0;
     const effectiveFiles: OwnFiles = conflicts.length > 0 || info === null ? 'leave' : (ownFiles ?? defaultOwnFiles(form));
     const nameMissing = making && form.name.trim() === '';
-    const ready = refusal === null && !loading && target !== null && !nameMissing && !busy;
+    const locked = refusal !== null || busy;
+    const ready = !locked && !loading && target !== null && !nameMissing;
     const pickFolder = endpointId === LOCAL_ENDPOINT_ID ? desktop()?.pickFolder : undefined;
 
     const submit = async (): Promise<void> => {
@@ -199,6 +200,13 @@ function MoveChatForm({ request, onDone }: { request: MoveChatRequest; onDone():
             setFailure(messageOf(e, t('moveChat.failed')));
         } finally {
             setBusy(false);
+        }
+    };
+
+    const submitOnEnter = (e: KeyboardEvent): void => {
+        e.stopPropagation();
+        if (e.key === 'Enter') {
+            void submit();
         }
     };
 
@@ -258,7 +266,7 @@ function MoveChatForm({ request, onDone }: { request: MoveChatRequest; onDone():
                         variant="outlined"
                         value={form.destination}
                         placeholder={t('moveChat.chooseProject')}
-                        disabled={refusal !== null || busy}
+                        disabled={locked}
                         onValueChange={(value) => update({ destination: value })}
                         searchable={8}
                         items={[
@@ -284,15 +292,10 @@ function MoveChatForm({ request, onDone }: { request: MoveChatRequest; onDone():
                         className="mt-1"
                         value={form.name}
                         spellCheck={false}
-                        disabled={refusal !== null || busy}
+                        disabled={locked}
                         onChange={(e) => update({ name: e.target.value })}
                         onBlur={() => form.folder === 'new' && setQueryPath(folderText)}
-                        onKeyDown={(e) => {
-                            e.stopPropagation();
-                            if (e.key === 'Enter') {
-                                void submit();
-                            }
-                        }}
+                        onKeyDown={submitOnEnter}
                     />
                 </>
             )}
@@ -317,7 +320,7 @@ function MoveChatForm({ request, onDone }: { request: MoveChatRequest; onDone():
                         value={form.folder}
                         onValueChange={onFolder}
                         choices={choices}
-                        disabled={refusal !== null || busy}
+                        disabled={locked}
                         detail={
                             form.folder === 'new' ? (
                                 <div className="grid gap-2 px-1">
@@ -326,25 +329,20 @@ function MoveChatForm({ request, onDone }: { request: MoveChatRequest; onDone():
                                         aria-label={t('moveChat.folderPath')}
                                         value={folderText}
                                         spellCheck={false}
-                                        disabled={refusal !== null || busy}
+                                        disabled={locked}
                                         onChange={(e) => {
                                             setPathEdited(true);
                                             update({ newPath: e.target.value });
                                         }}
                                         onBlur={() => setQueryPath(folderText)}
-                                        onKeyDown={(e) => {
-                                            e.stopPropagation();
-                                            if (e.key === 'Enter') {
-                                                void submit();
-                                            }
-                                        }}
+                                        onKeyDown={submitOnEnter}
                                     />
                                     <div className="flex items-center justify-between gap-3">
                                         <span className="text-sm text-text">{t('moveChat.initGit')}</span>
                                         <Switch
                                             label={t('moveChat.initGit')}
                                             checked={form.initGit}
-                                            disabled={refusal !== null || busy}
+                                            disabled={locked}
                                             onCheckedChange={(initGit) => update({ initGit })}
                                         />
                                     </div>
@@ -357,20 +355,15 @@ function MoveChatForm({ request, onDone }: { request: MoveChatRequest; onDone():
                                             aria-label={t('moveChat.folderPath')}
                                             value={form.chosenPath}
                                             spellCheck={false}
-                                            disabled={refusal !== null || busy}
+                                            disabled={locked}
                                             onChange={(e) => update({ chosenPath: e.target.value })}
                                             onBlur={() => setQueryPath(form.chosenPath)}
-                                            onKeyDown={(e) => {
-                                                e.stopPropagation();
-                                                if (e.key === 'Enter') {
-                                                    void submit();
-                                                }
-                                            }}
+                                            onKeyDown={submitOnEnter}
                                         />
                                     </div>
                                 ) : (
                                     <div className="px-1">
-                                        <Button disabled={refusal !== null || busy} onClick={() => void chooseFolder()}>
+                                        <Button disabled={locked} onClick={() => void chooseFolder()}>
                                             {t('moveChat.chooseFolder')}
                                         </Button>
                                     </div>
@@ -389,7 +382,7 @@ function MoveChatForm({ request, onDone }: { request: MoveChatRequest; onDone():
                         label={t('moveChat.ownFiles')}
                         value={effectiveFiles}
                         onValueChange={setOwnFiles}
-                        disabled={refusal !== null || busy || conflicts.length > 0}
+                        disabled={locked || conflicts.length > 0}
                         options={[
                             { id: 'move', label: t('moveChat.ownFilesMove') },
                             { id: 'leave', label: t('moveChat.ownFilesLeave') }

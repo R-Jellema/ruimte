@@ -1,5 +1,6 @@
-import { isFileView, isSessionView, resolveStoredPath, sessionNodesOfView, type ProjectNode, type ProjectView } from '@ruimte/contracts';
+import { isFileView, resolveStoredPath, sessionNodesOfView, type ProjectNode, type ProjectView } from '@ruimte/contracts';
 import { agentsEndedBy } from '@/agents/end-children';
+import { callerName } from '@/project/show-view';
 import { nodeWorking } from '@/state/agent-work';
 import { useChats } from '@adecore/agents-react/state';
 import { nodeRefsOfView, nodesOfView } from '@/project/view-nodes';
@@ -54,19 +55,6 @@ export interface ViewDeletionFacts {
     ending: (string | null)[];
 }
 
-function titleOfNode(views: readonly ProjectView[], nodeId: string): string | null {
-    for (const view of views) {
-        if (view.id === nodeId && isSessionView(view)) {
-            return view.name;
-        }
-        const node = nodesOfView(view).find((candidate) => candidate.id === nodeId);
-        if (node) {
-            return node.title;
-        }
-    }
-    return null;
-}
-
 function unsavedOf(files: readonly string[], machine: ViewDeletionMachine): string[] {
     return [...new Set(files)].filter((path) => machine.isUnsaved(path));
 }
@@ -83,7 +71,7 @@ async function deletionFacts(
     return {
         unsaved: unsavedOf(files, machine),
         working: nodes.filter((node) => machine.working(node)).map((node) => node.title),
-        ending: ending.map((nodeId) => titleOfNode(views, nodeId))
+        ending: ending.map((nodeId) => callerName(views, nodesOfView, nodeId))
     };
 }
 

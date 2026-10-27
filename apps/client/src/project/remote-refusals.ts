@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { withMark } from '@/project/peer-lapse';
 
 /*
  * What a machine said to the copy of this project's nodes that it cannot be told otherwise: it no
@@ -8,15 +9,7 @@ export const useRemoteRefusals = create<{ unlinked: Readonly<Record<string, true
 
 export function markUnlinked(machineId: string, unlinked: boolean): void {
     useRemoteRefusals.setState((state) => {
-        if ((state.unlinked[machineId] === true) === unlinked) {
-            return state;
-        }
-        const next = { ...state.unlinked };
-        if (unlinked) {
-            next[machineId] = true;
-        } else {
-            delete next[machineId];
-        }
-        return { unlinked: next };
+        const next = withMark(state.unlinked, machineId, unlinked);
+        return next === state.unlinked ? state : { unlinked: next };
     });
 }

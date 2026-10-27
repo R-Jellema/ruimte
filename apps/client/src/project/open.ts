@@ -203,7 +203,6 @@ async function putAway(): Promise<void> {
     showStart();
 }
 
-/* Puts the open project away and goes back to the start screen. The machine ends its sessions only once no other client has it open. */
 /*
  * Closes the project the window shows, when nothing else is left in it. A window with nothing to show
  * closes as well while another window is open; the last window goes to the start screen.
@@ -224,6 +223,7 @@ async function closeShownProject(): Promise<void> {
     }
 }
 
+/* Puts the open project away and goes back to the start screen. The machine ends its sessions only once no other client has it open. */
 export async function closeProject(): Promise<void> {
     if (windowWorkspace() && (await confirmLeavingConflict())) {
         await putAway();

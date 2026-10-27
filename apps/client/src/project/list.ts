@@ -1,6 +1,7 @@
 import { isRecentProject, type ProjectSummary } from '@ruimte/contracts';
 import { z } from 'zod';
 import { useEndpoints, type Endpoint } from '@/state/endpoints';
+import { endpointKey } from '@/state/keys';
 import { useProjectList, type ProjectRow } from '@/state/project-list';
 import { browserStorage, storedJson, type KeyValueStorage, type StoredValue } from '@/state/stored-json';
 import { pool, transportFor, type ConnectionState } from '@/transport';
@@ -162,7 +163,7 @@ export function recentProjects(rows: ProjectRow[], endpoints: Endpoint[], connec
 /* The rows worth offering. A project whose file its machine no longer finds cannot be opened. The
    one that is open keeps its row, or its settings and the way to close it would go with it. */
 export function openableRows(rows: readonly ProjectMenuRow[], currentKey: string | null = null): ProjectMenuRow[] {
-    return rows.filter((row) => row.summary.available || `${row.endpointId}:${row.summary.projectId}` === currentKey);
+    return rows.filter((row) => row.summary.available || endpointKey(row.endpointId, row.summary.projectId) === currentKey);
 }
 
 /* What the list reads of the pool, so a test can hand it one of its own. */
