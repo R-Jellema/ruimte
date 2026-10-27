@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileExists } from '@adecore/agents';
-import { VISUAL_LIMITS, type ChatItem, type ChatVisual, type ProjectContent } from '@ruimte/contracts';
+import { VISUAL_LIMITS, type ChatVisual, type ProjectContent } from '@ruimte/contracts';
 import { visualFileName } from '@adecore/agents/chat';
 import { ManualClock } from '@adecore/agents/testing';
 import { readBytes } from '../bytes/read-bytes.ts';
@@ -13,6 +13,8 @@ import type { ProjectStore } from '../projects/project-store.ts';
 import type { SessionEvent } from '../sessions/manager.ts';
 import { bootTestDaemon, releasedProject, runVerb, type TestDaemon } from '../tasks/test-daemon.ts';
 import { ATTACHMENTS_PATH, handleAttachmentRequest } from './attachment-route.ts';
+import { refusalCode } from '../canvas/verb-test-helpers.ts';
+import { turnsOf } from './chat-test-helpers.ts';
 
 function content(): ProjectContent {
     return {
@@ -100,10 +102,6 @@ async function shown(daemon: TestDaemon, title: string, page = PAGE): Promise<st
     const [kind, id] = lines[0]!.split('\t');
     expect(kind).toBe('visual');
     return id!;
-}
-
-function refusalCode(lines: string[]): string | undefined {
-    return lines[0]!.startsWith('refused\t') ? lines[0]!.split('\t')[1] : undefined;
 }
 
 function pagePath(chatId: string, visualId: string): string {
@@ -410,8 +408,6 @@ describe('visuals and the chat they belong to', () => {
         const off = await bootWithChat({ visualReplies: false });
         expect(refusalCode(await runVerb(off, 'chat-lead', 'visual', ['write', '--name', 'other.html', `--html=${PAGE}`]))).toBe('visuals-off');
     });
-
-    const turnsOf = (items: readonly ChatItem[]) => items.filter((item) => item.kind === 'turn');
 
     const say = async (daemon: TestDaemon, chatId: string, text: string): Promise<void> => {
         const before = turnsOf(daemon.chats.get(chatId)?.thread.list() ?? []).length;

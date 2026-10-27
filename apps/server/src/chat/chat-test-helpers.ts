@@ -1,9 +1,17 @@
-import type { ChatCheckpointDiff, ChatEvent, ChatInfo, ChatItem } from '@ruimte/contracts';
+import type { ChatCheckpointDiff, ChatEvent, ChatInfo, ChatItem, ChatTurnItem } from '@ruimte/contracts';
 import type { CheckpointService } from '../git/checkpoints.ts';
 import type { SessionEvent } from '../sessions/manager.ts';
 import { ChatStore } from '@adecore/agents/chat';
 
 type Check = () => boolean;
+
+export function turnsOf(items: readonly ChatItem[]): ChatTurnItem[] {
+    return items.filter((item): item is ChatTurnItem => item.kind === 'turn');
+}
+
+export function assistantTexts(items: readonly ChatItem[]): string[] {
+    return items.flatMap((item) => (item.kind === 'assistant' ? [item.text] : []));
+}
 
 /* Whether a process with this id still runs. */
 export function processAlive(pid: number): boolean {

@@ -7,6 +7,7 @@ import { ManualClock } from '@adecore/agents/testing';
 import type { ProjectStore } from '../projects/project-store.ts';
 import { bootTestDaemon, releasedProject, runVerb, type TestDaemon } from '../tasks/test-daemon.ts';
 import { AGENT_ATTACHMENT_LIMIT } from './agent-images.ts';
+import { refusalCode } from '../canvas/verb-test-helpers.ts';
 
 function content(): ProjectContent {
     return {
@@ -91,10 +92,6 @@ async function bootWithChat(): Promise<TestDaemon> {
 
 function attach(daemon: TestDaemon, caller: string, bytes: Uint8Array, name = 'shot.png'): Promise<string[]> {
     return runVerb(daemon, caller, 'chat', ['attach', '--name', name, `--data=${Buffer.from(bytes).toString('base64')}`]);
-}
-
-function refusalCode(lines: string[]): string | undefined {
-    return lines[0]!.startsWith('refused\t') ? lines[0]!.split('\t')[1] : undefined;
 }
 
 describe('chat attach', () => {

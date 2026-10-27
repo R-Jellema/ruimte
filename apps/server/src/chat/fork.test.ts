@@ -13,6 +13,7 @@ import { AttachmentStore, ChatStore, claudeProjectSlug } from '@adecore/agents/c
 import { ChatManager } from './chat-manager.ts';
 import { verbsNote } from '../context/context-note.ts';
 import { chatForkDeps, forkChat, itemsThrough, type ChatForkDeps } from './fork.ts';
+import { assistantTexts, turnsOf } from './chat-test-helpers.ts';
 
 function content(): ProjectContent {
     return {
@@ -30,14 +31,6 @@ function content(): ProjectContent {
             }
         ]
     };
-}
-
-function turnsOf(items: readonly ChatItem[]): ChatTurnItem[] {
-    return items.filter((item): item is ChatTurnItem => item.kind === 'turn');
-}
-
-function assistantTexts(items: readonly ChatItem[]): string[] {
-    return items.flatMap((item) => (item.kind === 'assistant' ? [item.text] : []));
 }
 
 describe('forking a Claude chat', () => {

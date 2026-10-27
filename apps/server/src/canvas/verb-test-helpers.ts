@@ -6,6 +6,11 @@ export function launchReading(launchId: string, overrides: Partial<LaunchReading
     return { launchId, name: launchId, kind: 'service', approved: true, url: null, port: null, members: [], status: null, ...overrides };
 }
 
+/* The code of a refusal, or undefined for an answer. */
+export function refusalCode(lines: string[]): string | undefined {
+    return lines[0]!.startsWith('refused\t') ? lines[0]!.split('\t')[1] : undefined;
+}
+
 /* What the CLI prints: the lines of an answer, or the refusal with its advice. */
 export async function printed(entry: Verb | Noun, argv: string[], call: VerbCall): Promise<string[]> {
     try {

@@ -9,6 +9,7 @@ import { claudeProjectSlug } from '@adecore/agents/chat';
 import { compileUi } from '@adecore/intelligent-ui';
 import { answerOf, SUMMARY_MAX_BYTES, summaryNoteId, summaryPrompt, summaryTexts } from './summary.ts';
 import { RUIMTE_UI_FENCE } from './ui-fence.ts';
+import { assistantTexts, turnsOf } from './chat-test-helpers.ts';
 
 function content(): ProjectContent {
     return {
@@ -28,14 +29,8 @@ function content(): ProjectContent {
     };
 }
 
-function turnsOf(items: readonly ChatItem[]): ChatTurnItem[] {
-    return items.filter((item): item is ChatTurnItem => item.kind === 'turn');
-}
 function summaryNotes(items: readonly ChatItem[]): ChatNoteItem[] {
     return items.filter((item): item is ChatNoteItem => item.kind === 'note' && item.from !== undefined);
-}
-function assistantTexts(items: readonly ChatItem[]): string[] {
-    return items.flatMap((item) => (item.kind === 'assistant' ? [item.text] : []));
 }
 
 describe('a fork summarizing for its original', () => {
