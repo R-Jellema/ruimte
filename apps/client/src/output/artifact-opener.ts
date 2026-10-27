@@ -7,6 +7,7 @@ type OpenArtifact = (artifactId: string, title: string, versionId: string | null
 /* A surface that shows Output itself, such as a routine's run, opens a version there rather than leaving for the Output view. */
 export const ArtifactOpenerContext = createContext<OpenArtifact | null>(null);
 
+// Not `openArtifact` itself, whose fourth parameter names a machine rather than the version clicked.
 function openInOutput(artifactId: string, title: string, versionId: string | null): void {
     openArtifact(artifactId, title, versionId);
 }

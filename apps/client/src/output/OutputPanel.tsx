@@ -125,27 +125,15 @@ export function OutputPanel() {
         </PanelHeaderSlot>
     );
 
-    if (list === null) {
+    if (list === null || list.status !== 'ready') {
         return (
             <>
                 {header}
-                <PanelEmpty icon={CircleAlert}>{t('panel.tooOld')}</PanelEmpty>
-            </>
-        );
-    }
-    if (list.status === 'loading') {
-        return (
-            <>
-                {header}
-                <PanelEmpty busy>{t('panel.loading')}</PanelEmpty>
-            </>
-        );
-    }
-    if (list.status === 'failed') {
-        return (
-            <>
-                {header}
-                <PanelEmpty icon={CircleAlert}>{t('panel.failed')}</PanelEmpty>
+                {list?.status === 'loading' ? (
+                    <PanelEmpty busy>{t('panel.loading')}</PanelEmpty>
+                ) : (
+                    <PanelEmpty icon={CircleAlert}>{list === null ? t('panel.tooOld') : t('panel.failed')}</PanelEmpty>
+                )}
             </>
         );
     }
@@ -543,7 +531,7 @@ function FilterSubmenu({
     title: string;
     label: string;
     value: string;
-    options: readonly { value: string; label: string; hint?: string }[];
+    options: readonly { value: string; label: string }[];
     onChange(value: string): void;
 }) {
     return (
@@ -557,7 +545,6 @@ function FilterSubmenu({
                     {options.map((option) => (
                         <Menu.RadioItem key={option.value} value={option.value}>
                             <span className="grow truncate">{option.label}</span>
-                            {option.hint !== undefined && <Menu.Hint>{option.hint}</Menu.Hint>}
                         </Menu.RadioItem>
                     ))}
                 </Menu.RadioGroup>

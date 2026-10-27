@@ -1,14 +1,12 @@
-import type { ReactNode } from 'react';
-import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, CircleAlert, Maximize2, Package, WifiOff } from 'lucide-react';
 import type { ArtifactGetResult } from '@ruimte/contracts';
-import { Button, EmptyState, ErrorBoundary, Icon, IconButton, Menu, Pill } from '@adecore/ui';
+import { Button, ErrorBoundary, Icon, IconButton, Menu, Pill } from '@adecore/ui';
 import { formatDayClock } from '@adecore/ui/format';
+import { NodeHeaderControls, NodePlate } from '@/nodes/node-chrome';
 import { VersionBody } from '@/output/ArtifactView';
 import { openArtifact } from '@/output/open';
 import { useArtifact } from '@/output/use-artifact';
-import { useFileToolbarSlot } from '@/shell/panels/file-toolbar-slot';
 import { useCanvas, useCanvasStore } from '@/state/canvas';
 import { useEndpointId } from '@/state/keys';
 import { useMachineAnswers } from '@/transport/features';
@@ -27,10 +25,10 @@ export function ArtifactNodeBody({ id }: { id: string }) {
     const reference = useCanvas((s) => s.nodes[id]?.artifact);
     if (reference === undefined) {
         return (
-            <Plate icon={Package}>
+            <NodePlate icon={Package}>
                 <span className="text-text">{t('node.notHere')}</span>
                 <span>{t('node.notHereDetail')}</span>
-            </Plate>
+            </NodePlate>
         );
     }
     const pin = (versionId: string | null): void => {
@@ -51,16 +49,6 @@ interface ArtifactOnCanvasProps {
     note?: string | null;
 }
 
-function Plate({ icon, busy, children }: { icon?: typeof Package; busy?: boolean; children: ReactNode }) {
-    return (
-        <div className="grid h-full w-full place-items-center px-4">
-            <EmptyState icon={icon} busy={busy}>
-                <span className="flex flex-col gap-1">{children}</span>
-            </EmptyState>
-        </div>
-    );
-}
-
 /*
  * An artifact the way a node on the canvas draws it: its version, with the controls in the header slot
  * of the surface around it (`useFileToolbarSlot`). A routine's Output beside its node draws the same.
@@ -71,13 +59,13 @@ export function ArtifactOnCanvas(props: ArtifactOnCanvasProps) {
     const answers = useMachineAnswers(endpointId, 'artifact.get');
     const state = useArtifact(endpointId, props.artifactId, answers);
     if (!answers) {
-        return <Plate icon={CircleAlert}>{t('panel.tooOld')}</Plate>;
+        return <NodePlate icon={CircleAlert}>{t('panel.tooOld')}</NodePlate>;
     }
     if (state.status === 'loading') {
-        return <Plate busy>{t('view.loading')}</Plate>;
+        return <NodePlate busy>{t('view.loading')}</NodePlate>;
     }
     if (state.status === 'unreachable') {
-        return <Plate icon={WifiOff}>{t('view.unreachable')}</Plate>;
+        return <NodePlate icon={WifiOff}>{t('view.unreachable')}</NodePlate>;
     }
     if (state.status === 'gone') {
         return <Removed />;
@@ -88,10 +76,10 @@ export function ArtifactOnCanvas(props: ArtifactOnCanvasProps) {
 function Removed() {
     const { t } = useTranslation('output');
     return (
-        <Plate icon={Package}>
+        <NodePlate icon={Package}>
             <span className="text-text">{t('node.removed')}</span>
             <span>{t('node.removedDetail')}</span>
-        </Plate>
+        </NodePlate>
     );
 }
 
@@ -138,7 +126,7 @@ function ArtifactVersionOnCanvas({
     );
     return (
         <div className="flex h-full min-h-0 w-full flex-col">
-            <HeaderControls>{controls}</HeaderControls>
+            <NodeHeaderControls>{controls}</NodeHeaderControls>
             {note !== null && <p className="shrink-0 border-b border-border bg-surface-sunken px-3 py-1.5 text-xs text-text-muted">{note}</p>}
             {version === undefined ? (
                 <Removed />
@@ -167,10 +155,4 @@ function ArtifactVersionOnCanvas({
             )}
         </div>
     );
-}
-
-/* The node's header carries the version and the way to the full view, the way a file node's carries its controls. */
-function HeaderControls({ children }: { children: ReactNode }) {
-    const { host } = useFileToolbarSlot();
-    return host === null ? null : createPortal(children, host);
 }

@@ -1,12 +1,12 @@
-import { useState, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
-import { CalendarClock, CircleAlert, CirclePause, Clock, Folder, Hand, Play, Rocket, WifiOff, type LucideIcon } from 'lucide-react';
+import { CalendarClock, CircleAlert, CirclePause, Clock, Folder, Hand, Play, Rocket, WifiOff } from 'lucide-react';
 import type { RoutineEntry, RoutineRun } from '@ruimte/contracts';
-import { ButtonGroup, EmptyState, Icon, IconButton, Pill, Separator, Switch, Tooltip, useNow } from '@adecore/ui';
+import { ButtonGroup, Icon, IconButton, Pill, Separator, Switch, Tooltip, useNow } from '@adecore/ui';
 import { formatCountdown, formatDateTime } from '@adecore/ui/format';
 import { runtimeModeLabel } from '@adecore/agents-react/chat';
+import { NodeHeaderControls, NodePlate } from '@/nodes/node-chrome';
 import { lookOfRun, type BlockLook } from '@/routines/agenda';
 import { blockClass } from '@/routines/look-class';
 import { AgentModelLabel } from '@adecore/agents-react/providers';
@@ -16,7 +16,6 @@ import { useRoutineList } from '@/routines/routine-list';
 import { useRoutineWhat } from '@/routines/routine-what';
 import { showRoutine } from '@/routines/stage';
 import { dayWords, rowStatus, runWords, scheduleWords, weekdayClock } from '@/routines/words';
-import { useFileToolbarSlot } from '@/shell/panels/file-toolbar-slot';
 import { useCanvas } from '@/state/canvas';
 import { useEndpointId } from '@/state/keys';
 import { useProject } from '@/state/project';
@@ -37,34 +36,24 @@ export function RoutineNodeBody({ id }: { id: string }) {
     const endpointId = useEndpointId();
     const list = useRoutineList(endpointId);
     if (list === null) {
-        return <Plate icon={CircleAlert}>{t('node.noRoutines')}</Plate>;
+        return <NodePlate icon={CircleAlert}>{t('node.noRoutines')}</NodePlate>;
     }
     if (list.status === 'loading') {
-        return <Plate busy>{t('stage.loading')}</Plate>;
+        return <NodePlate busy>{t('stage.loading')}</NodePlate>;
     }
     if (list.status === 'failed') {
-        return <Plate icon={WifiOff}>{t('stage.failed')}</Plate>;
+        return <NodePlate icon={WifiOff}>{t('stage.failed')}</NodePlate>;
     }
     const entry = list.result.routines.find((candidate) => candidate.projectId === projectId && candidate.routine.id === routineId);
     if (entry === undefined) {
         return (
-            <Plate icon={CalendarClock}>
+            <NodePlate icon={CalendarClock}>
                 <span className="text-text">{t('node.notHere')}</span>
                 <span>{t('node.notHereDetail')}</span>
-            </Plate>
+            </NodePlate>
         );
     }
     return <RoutineOnCanvas endpointId={endpointId} entry={entry} timeZone={list.result.timeZone} />;
-}
-
-function Plate({ icon, busy, children }: { icon?: LucideIcon; busy?: boolean; children: ReactNode }) {
-    return (
-        <div className="grid h-full w-full place-items-center px-4">
-            <EmptyState icon={icon} busy={busy}>
-                <span className="flex flex-col gap-1">{children}</span>
-            </EmptyState>
-        </div>
-    );
 }
 
 function RoutineOnCanvas({ endpointId, entry, timeZone }: { endpointId: string; entry: RoutineEntry; timeZone: string }) {
@@ -83,7 +72,7 @@ function RoutineOnCanvas({ endpointId, entry, timeZone }: { endpointId: string; 
     return (
         // The node scrolls as a whole, so no part of it is squeezed to fit its height.
         <div className={clsx('flex h-full min-h-0 w-full flex-col gap-3 overflow-y-auto p-3 *:shrink-0', paused && 'opacity-70')}>
-            <HeaderControls>
+            <NodeHeaderControls>
                 <Switch
                     checked={!paused && entry.local.declined !== entry.digest}
                     label={paused ? t('node.resume') : t('node.pause')}
@@ -101,7 +90,7 @@ function RoutineOnCanvas({ endpointId, entry, timeZone }: { endpointId: string; 
                     <IconButton icon={Clock} size="sm" label={t('node.openInRoutines')} onClick={() => showRoutine(target)} />
                 </ButtonGroup>
                 <Separator />
-            </HeaderControls>
+            </NodeHeaderControls>
             <p className="text-lg font-semibold text-text">{scheduleWords(routine.schedule)}</p>
             {routine.kind === 'agent' && (
                 <div className="line-clamp-4 rounded-lg border border-border bg-surface-sunken bg-clip-padding px-3 py-2 text-text">
@@ -240,10 +229,4 @@ function StripCounts({ runs }: { runs: readonly RoutineRun[] }) {
             <span className="truncate">{parts.join(' · ')}</span>
         </p>
     );
-}
-
-/* The next time, the pause switch and the way into Routines ride in the node's header, as a file node's controls do. */
-function HeaderControls({ children }: { children: ReactNode }) {
-    const { host } = useFileToolbarSlot();
-    return host === null ? null : createPortal(children, host);
 }

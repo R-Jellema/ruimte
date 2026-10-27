@@ -16,7 +16,8 @@ import {
     Package,
     Pin,
     Trash2,
-    WifiOff
+    WifiOff,
+    type LucideIcon
 } from 'lucide-react';
 import { patchOf } from '@adecore/merge';
 import { AgentModelLabel } from '@adecore/agents-react/providers';
@@ -109,7 +110,7 @@ interface ArtifactPin {
     set(version: string | null): void;
 }
 
-function Centered({ icon, busy, children }: { icon?: typeof Package; busy?: boolean; children: ReactNode }) {
+function Centered({ icon, busy, children }: { icon?: LucideIcon; busy?: boolean; children: ReactNode }) {
     return (
         <div className="grid min-h-0 grow place-items-center">
             <EmptyState icon={icon} busy={busy}>
@@ -402,7 +403,8 @@ function ActionsMenu({
         <Menu.Root>
             <IconButton icon={MoreHorizontal} size="sm" label={t('common:action.more')} render={<Menu.Trigger />} />
             <Menu.Popup align="end" className="min-w-52">
-                {machineId === undefined ? (
+                {/* Only another machine's artifact has a copy here, so the menu is that copy or this machine's actions. */}
+                {machineCopy === null ? (
                     <>
                         <Menu.Item onClick={onCopy}>
                             <Icon icon={FilePlus} size={14} /> {t('menu.copyToProject')}
@@ -432,8 +434,8 @@ function ActionsMenu({
                         )}
                     </>
                 ) : (
-                    <Menu.Item disabled={machineCopy!.copying} onClick={() => machineCopy!.copy(version)}>
-                        <Icon icon={MonitorDown} size={14} /> {machineCopy!.copying ? t('copyHere.copying') : t('copyHere.action')}
+                    <Menu.Item disabled={machineCopy.copying} onClick={() => machineCopy.copy(version)}>
+                        <Icon icon={MonitorDown} size={14} /> {machineCopy.copying ? t('copyHere.copying') : t('copyHere.action')}
                     </Menu.Item>
                 )}
             </Menu.Popup>
