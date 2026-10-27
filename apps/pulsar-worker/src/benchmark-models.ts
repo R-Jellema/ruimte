@@ -107,7 +107,7 @@ export const BENCHMARK_MODELS: readonly BenchmarkSource[] = [
         slug: 'claude-opus-5',
         name: 'Claude Opus 5',
         provider: 'claude',
-        legacy: false,
+        legacy: true,
         efforts: [
             { effort: 'low', id: '20928ba9-3a3f-415f-9519-b84ff64ecf34', name: 'Claude Opus 5 (Adaptive Reasoning, Low Effort)' },
             { effort: 'medium', id: 'ff51be8f-e362-4a7e-9043-687ba15de207', name: 'Claude Opus 5 (Adaptive Reasoning, Medium Effort)' },
@@ -133,7 +133,7 @@ export const BENCHMARK_MODELS: readonly BenchmarkSource[] = [
         slug: 'claude-sonnet-5',
         name: 'Claude Sonnet 5',
         provider: 'claude',
-        legacy: false,
+        legacy: true,
         efforts: [
             { effort: 'low', id: '142b93bf-09c4-42dc-9c3a-50b1a222cbd4', name: 'Claude Sonnet 5 (Adaptive Reasoning, Low Effort)' },
             { effort: 'medium', id: 'effcd151-7c31-4437-af3d-e88daeae9385', name: 'Claude Sonnet 5 (Adaptive Reasoning, Medium Effort)' },
