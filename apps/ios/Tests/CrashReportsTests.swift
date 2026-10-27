@@ -146,6 +146,23 @@ final class CrashReportsTests: XCTestCase {
         XCTAssertEqual(frame.function, "ChatView.body")
     }
 
+    func testOnlyTheFixedBreadcrumbsOfTheAppAndItsLinksStayWithoutTheirData() {
+        let event = Event(level: .error)
+        let woke = Breadcrumb(level: .info, category: "app")
+        woke.message = "active"
+        woke.data = ["scene": "Orion"]
+        let closing = Breadcrumb(level: .info, category: "link")
+        closing.message = "closing-peer"
+        let other = Breadcrumb(level: .info, category: "link")
+        other.message = "opened Orion"
+        event.breadcrumbs = [woke, Breadcrumb(level: .info, category: "ui.click"), closing, other]
+
+        XCTAssertTrue(CrashReports.scrub(event, with: CrashScrubber(home: home)))
+        let kept = event.breadcrumbs?.map { "\($0.category) \($0.message ?? "")" }
+        XCTAssertEqual(kept, ["app active", "link closing-peer"])
+        XCTAssertNil(event.breadcrumbs?.first?.data)
+    }
+
     func testTransactionsAreNotErrorReports() {
         let event = Event(level: .info)
         event.type = "transaction"

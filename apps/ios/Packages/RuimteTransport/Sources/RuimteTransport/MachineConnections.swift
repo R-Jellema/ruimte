@@ -238,13 +238,17 @@ public enum LinkRoute: Equatable, Sendable {
         entry.idleCleanup?()
         entry.idleCleanup = nil
         let wasConnected = entry.connected
-        entry.detach()?.close()
+        if let link = entry.detach() {
+            LinkProblems.note(.released)
+            link.close()
+        }
         if wasConnected { entry.each { $0.closed(nil) } }
     }
 
     private func connect(_ id: String, entry: Entry) {
         entry.generation += 1
         let generation = entry.generation
+        LinkProblems.note(.connecting)
         let valid = { [weak self, weak entry] () -> Bool in
             guard let self, let entry else { return false }
             return self.machines[id] === entry && entry.generation == generation
@@ -252,6 +256,7 @@ public enum LinkRoute: Equatable, Sendable {
         let events = LinkEvents(
             opened: { [weak entry] in
                 guard valid(), let entry else { return }
+                LinkProblems.note(.opened)
                 entry.connected = true
                 entry.attempt = 0
                 entry.each { $0.opened() }
@@ -266,6 +271,7 @@ public enum LinkRoute: Equatable, Sendable {
             },
             closed: { [weak self, weak entry] error in
                 guard valid(), let self, let entry else { return }
+                LinkProblems.note(.closed)
                 // A link this pool let go of is no longer valid here, so whatever closes an open one closed on its own.
                 if entry.connected { LinkProblems.report(.dropped) }
                 entry.detach()

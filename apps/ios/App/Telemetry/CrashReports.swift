@@ -2,9 +2,10 @@ import Foundation
 import RuimteTransport
 import Sentry
 import Synchronization
+import UIKit
 
 /// Crashes, hangs and connection problems of a build that ships, with a session per run, and nothing else: no tracing,
-/// no breadcrumbs, no screenshots, no logs. Only the DSN and the start name the service, so the DSN can point at any
+/// no breadcrumbs beyond `breadcrumbs`, no screenshots, no logs. Only the DSN and the start name the service, so the DSN can point at any
 /// ingest that takes the same envelopes. `apps/ios/README.md` ("Crash reports") has what goes out.
 enum CrashReports {
     // A DSN only lets a client send, so it is no secret.
@@ -12,6 +13,13 @@ enum CrashReports {
         "https://48ef3786734e40099009e3cf2bf9ffae@ingest.bmnw.nl/6"
     /// The tags a report may carry; every other one is dropped.
     static let tags: Set<String> = ["surface", "problem", "machine", "link", "request", "mismatch"]
+    /// The breadcrumbs a report may carry, by category: fixed words for the app's life and its links, never
+    /// a screen, a tap or a payload, so a hang says whether it came right after the app woke or a link closed.
+    static let breadcrumbs: [String: Set<String>] = [
+        "app": ["active", "inactive", "background", "foreground"],
+        "link": Set(
+            [LinkMoment.connecting, .opened, .closed, .released, .closingPeer].map(\.rawValue)),
+    ]
     /// What a report keeps of each context, as `scrub.ts` does.
     static let contexts: [String: Set<String>] = [
         "os": ["name", "version", "build", "kernel_version"],
@@ -61,7 +69,7 @@ enum CrashReports {
             options.enableCaptureFailedRequests = false
             options.enableSwizzling = false
             options.enableAutoBreadcrumbTracking = false
-            options.maxBreadcrumbs = 0
+            options.maxBreadcrumbs = 30
             options.attachScreenshot = false
             options.attachViewHierarchy = false
             options.attachStacktrace = false
@@ -71,7 +79,7 @@ enum CrashReports {
             options.sendClientReports = false
             options.sessionReplay.sessionSampleRate = 0
             options.sessionReplay.onErrorSampleRate = 0
-            options.beforeBreadcrumb = { _ in nil }
+            options.beforeBreadcrumb = { crumb in allowed(crumb) ? crumb : nil }
             options.beforeSend = { event in
                 guard scrub(event, with: CrashScrubber(redactions: CrashRedactions.all)) else { return nil }
                 return dedupe.admit(event.signature.key) ? event : nil
@@ -79,6 +87,29 @@ enum CrashReports {
         }
         SentrySDK.configureScope { scope in scope.setTag(value: "ios", key: "surface") }
         LinkProblems.setReporter { report($0) }
+        LinkProblems.setTrail { note(category: "link", $0.rawValue) }
+        let lifecycle: [(Notification.Name, String)] = [
+            (UIApplication.didBecomeActiveNotification, "active"),
+            (UIApplication.willResignActiveNotification, "inactive"),
+            (UIApplication.didEnterBackgroundNotification, "background"),
+            (UIApplication.willEnterForegroundNotification, "foreground"),
+        ]
+        for (name, moment) in lifecycle {
+            NotificationCenter.default.addObserver(forName: name, object: nil, queue: nil) { _ in
+                note(category: "app", moment)
+            }
+        }
+    }
+
+    private static func note(category: String, _ message: String) {
+        let crumb = Breadcrumb(level: .info, category: category)
+        crumb.message = message
+        SentrySDK.addBreadcrumb(crumb)
+    }
+
+    static func allowed(_ crumb: Breadcrumb) -> Bool {
+        guard let message = crumb.message else { return false }
+        return breadcrumbs[crumb.category]?.contains(message) == true
     }
 
     static func report(_ problem: LinkProblem) {
@@ -103,7 +134,13 @@ enum CrashReports {
         event.user = nil
         event.request = nil
         event.modules = nil
-        event.breadcrumbs = nil
+        let crumbs = (event.breadcrumbs ?? []).filter(allowed)
+        for crumb in crumbs {
+            crumb.data = nil
+            crumb.type = nil
+            crumb.origin = nil
+        }
+        event.breadcrumbs = crumbs.isEmpty ? nil : crumbs
         event.extra = nil
         if let message = event.message {
             event.message = SentryMessage(formatted: scrubber.scrubMessage(message.formatted))

@@ -524,9 +524,13 @@ import RuimtePulsar
         if closingChannel?.readyState == .open {
             // SCTP stream reset must reach the machine before tearing down DTLS.
             closingChannel?.close()
-            scheduler.after(milliseconds: 2_000) { closingPeer?.close() }
+            scheduler.after(milliseconds: 2_000) {
+                if closingPeer != nil { LinkProblems.note(.closingPeer) }
+                closingPeer?.close()
+            }
         } else {
             closingChannel?.close()
+            if closingPeer != nil { LinkProblems.note(.closingPeer) }
             closingPeer?.close()
         }
         events.closed(error)

@@ -417,7 +417,9 @@ a machine: a link that drops while open, a read without an answer in time and a 
 check. The transport hands those to `LinkProblems`, and the app passes them on. Each run is a session, for the share
 of runs that crashed. The SDK names the install in it (`did`), and the app in Observatory has "Count users" off, so the
 ingest drops that before it stores anything. There is no tracing, no profiling, no logs, no replay, no screenshot or
-view hierarchy and no breadcrumbs. Only the DSN and the start in `CrashReports` name the service.
+view hierarchy. The only breadcrumbs are fixed words in `CrashReports.breadcrumbs`: the app becoming active, inactive,
+background or foreground, and a link connecting, opening, closing, being let go or closing its peer connection
+(`LinkMoment`), so a hang shows what came just before it. Only the DSN and the start in `CrashReports` name the service.
 
 Every report is rebuilt as the desktop's are (`packages/telemetry`): the stack frames without source lines or
 variables, the error's type and the first line of its message, a fixed set of tags and the `os`, `device` (model and

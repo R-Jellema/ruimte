@@ -28,6 +28,10 @@ export default function Privacy() {
                         For a connection problem, whether it was this computer or another one, how they were connected, and the type of request. Never what the
                         request carried.
                     </li>
+                    <li>
+                        On the iPhone, the last steps before the report: when the app came to the front or went to the background, and when a connection to a
+                        machine opened or closed.
+                    </li>
                 </ul>
                 <p>
                     Before a report leaves your computer, Ruimte strips paths, names, addresses and anything that looks like a secret from every line of text in
