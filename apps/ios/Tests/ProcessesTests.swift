@@ -50,8 +50,6 @@ final class ProcessesTests: XCTestCase {
         XCTAssertEqual(ProcessesText.rate(nil), "-")
         XCTAssertNil(ProcessesText.disk(read: nil, write: nil))
         XCTAssertEqual(ProcessesText.disk(read: 2, write: nil), 2)
-        XCTAssertEqual(ProcessesText.duration(3_725_000), "1h 2m")
-        XCTAssertEqual(ProcessesText.duration(65_000), "1m 5s")
     }
 
     func testAWarningReadsAsOneSentenceWithTheButtonThatFits() {

@@ -10,8 +10,8 @@ import SwiftUI
     let draftID: String
     private(set) var drafts: [LaunchDraft]
     private(set) var baseRev: Int
-    var root: String
-    var sub: String
+    var root = ""
+    var sub = ""
     private(set) var tried = false
     private(set) var busy = false
     private(set) var failure: String?
@@ -32,10 +32,7 @@ import SwiftUI
         draftID = editing
         self.drafts = drafts
         baseRev = document.rev
-        let cwd = drafts.first { $0.id == editing }?.cwd ?? ""
-        let place = LaunchEditing.splitFolder(cwd, roots: LaunchEditing.folderRoots(store.repos))
-        root = place.root
-        sub = place.sub
+        placeFolder()
     }
 
     var draft: LaunchDraft {
@@ -86,10 +83,8 @@ import SwiftUI
                 saved, baseRev: baseRev,
                 imported: LaunchEditing.importedIDs(saved, existing: store.document?.launches ?? []))
             return true
-        } catch LaunchSaveFailure.conflict {
-            conflict = true
-            failure = LaunchesText.reason(LaunchSaveFailure.conflict)
         } catch {
+            conflict = error as? LaunchSaveFailure == .conflict
             failure = LaunchesText.reason(error)
         }
         return false
@@ -103,12 +98,14 @@ import SwiftUI
         if isNew { fresh.append(draft) }
         drafts = fresh
         baseRev = document.rev
-        let place = LaunchEditing.splitFolder(draft.cwd, roots: LaunchEditing.folderRoots(store.repos))
-        root = place.root
-        sub = place.sub
+        placeFolder()
         failure = nil
         conflict = false
         tried = false
+    }
+
+    private func placeFolder() {
+        (root, sub) = LaunchEditing.splitFolder(draft.cwd, roots: LaunchEditing.folderRoots(store.repos))
     }
 }
 

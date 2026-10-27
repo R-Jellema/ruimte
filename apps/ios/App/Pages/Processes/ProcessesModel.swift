@@ -70,7 +70,6 @@ struct ProcessGroup: Equatable, Identifiable {
     }
 }
 
-/// One point of the three charts: the machine as a line, the share of Ruimte as the area under it.
 /// The groups of one project, or of none.
 struct ProcessSection: Equatable, Identifiable {
     /// The project's id; empty for the groups of no project.
@@ -79,6 +78,7 @@ struct ProcessSection: Equatable, Identifiable {
     var groups: [ProcessGroup]
 }
 
+/// One point of the three charts: the machine as a line, the share of Ruimte as the area under it.
 struct ProcessPoint: Equatable {
     var at: Double
     var cpu: Double?
@@ -159,7 +159,6 @@ struct ProcessAlert: Equatable, Identifiable {
     }
 }
 
-/// The process a signal goes to, by the pid and start time the row showed.
 /// One process as a row of the iPad's table, with the node or task it belongs to and where that stands. Unreadable
 /// numbers sort below every reading.
 struct ProcessTableRow: Equatable, Identifiable {
@@ -192,19 +191,16 @@ struct ProcessTableRow: Equatable, Identifiable {
     }
 }
 
+/// The process a signal goes to, by the pid and start time the row showed.
 struct ProcessTarget: Equatable, Identifiable {
     var pid: Int
     var startTime: Double
     var name: String
 
     var id: String { "\(pid):\(startTime)" }
+}
 
-    init(pid: Int, startTime: Double, name: String) {
-        self.pid = pid
-        self.startTime = startTime
-        self.name = name
-    }
-
+extension ProcessTarget {
     init(_ row: ProcessRow) {
         self.init(pid: row.pid, startTime: row.startTime, name: row.name)
     }
@@ -254,8 +250,6 @@ enum ProcessesText {
         read == nil && write == nil ? nil : (read ?? 0) + (write ?? 0)
     }
 
-    static func duration(_ milliseconds: Double) -> String { Format.elapsedShort(milliseconds: milliseconds) }
-
     static func agentName(_ kind: String) -> String {
         switch kind {
         case "claude": "Claude Code"
@@ -270,9 +264,10 @@ enum ProcessesText {
     /// The warning in one sentence a person reads without knowing what a hook is.
     static func alert(_ alert: ProcessAlert, now: Double) -> String {
         let name = alert.name ?? String(localized: "A process")
+        let duration = Format.elapsedShort(milliseconds: now - alert.since)
         switch alert.kind {
         case "silent":
-            return String(localized: "Working, but silent for \(duration(now - alert.since))", comment: "%@ is a duration")
+            return String(localized: "Working, but silent for \(duration)", comment: "%@ is a duration")
         case "busy-after-turn":
             return String(localized: "\(name) still uses \(percent(alert.value)) of a core after its turn")
         case "memory": return String(localized: "\(name) uses \(bytes(alert.value))", comment: "%@ is a process name, then an amount of memory")
@@ -281,7 +276,7 @@ enum ProcessesText {
             return String(localized: "\(agent) exited but shows as running")
         case "orphan": return String(localized: "\(name) is still running after its terminal closed")
         case "probe-hung":
-            return String(localized: "\(name), started by Ruimte, has run for \(duration(now - alert.since))")
+            return String(localized: "\(name), started by Ruimte, has run for \(duration)")
         default: return name
         }
     }
@@ -429,14 +424,13 @@ enum ProcessesText {
         subscriptions.forEach { $0() }
         subscriptions.removeAll()
         let client = client
-        Task { _ = try? await client.request(WireRequest.processesUnsubscribe.rawValue, payload: .object([:])) }
+        Task { _ = try? await client.request(.processesUnsubscribe) }
     }
 
     func subscribe() async {
         do {
             let result = try await client.request(
-                WireRequest.processesSubscribe.rawValue,
-                payload: .object(["scope": .string(scope), "sort": .string(sort)]))
+                .processesSubscribe, payload: .object(["scope": .string(scope), "sort": .string(sort)]))
             receive(result)
             problem = nil
         } catch is CancellationError {
@@ -445,7 +439,7 @@ enum ProcessesText {
             problem = error.localizedDescription
             return
         }
-        if let result = try? await client.request(WireRequest.processesListAlerts.rawValue, payload: .object([:])) {
+        if let result = try? await client.request(.processesListAlerts) {
             alerts = result.list("alerts").map(ProcessAlert.init(json:))
         }
     }
@@ -483,7 +477,7 @@ enum ProcessesText {
     func signal(_ target: ProcessTarget, _ signal: ProcessSignal) async {
         do {
             _ = try await client.request(
-                WireRequest.processesSignal.rawValue,
+                .processesSignal,
                 payload: .object([
                     "pid": .number(Double(target.pid)), "startTime": .number(target.startTime),
                     "signal": .string(signal.rawValue),
@@ -495,7 +489,7 @@ enum ProcessesText {
     }
 
     func dismiss(_ alert: ProcessAlert) async {
-        _ = try? await client.request(WireRequest.processesDismiss.rawValue, payload: .object(["id": .string(alert.id)]))
+        _ = try? await client.request(.processesDismiss, payload: .object(["id": .string(alert.id)]))
     }
 
     func act(_ alert: ProcessAlert, _ action: ProcessAlertAction) async {
@@ -514,7 +508,7 @@ enum ProcessesText {
         case .resume:
             guard let node = alert.nodeID else { return }
             do {
-                _ = try await client.request(WireRequest.agentResume.rawValue, payload: .object(["sessionId": .string(node)]))
+                _ = try await client.request(.agentResume, payload: .object(["sessionId": .string(node)]))
                 problem = nil
             } catch {
                 problem = String(localized: "Could not resume the agent: \(error.localizedDescription)")
@@ -525,7 +519,7 @@ enum ProcessesText {
                 groups.contains(where: { $0.kind == "chat" && $0.nodeID == node })
             {
                 do {
-                    _ = try await client.request(WireRequest.chatCancel.rawValue, payload: .object(["chatId": .string(node)]))
+                    _ = try await client.request(.chatCancel, payload: .object(["chatId": .string(node)]))
                     problem = nil
                 } catch {
                     problem = String(localized: "Could not interrupt the turn: \(error.localizedDescription)")

@@ -49,12 +49,7 @@ struct ProcessesPage: View {
     private var form: some View {
         List {
             Group {
-                Picker("Which processes", selection: $model.scope) {
-                    Text("Ruimte").tag("ruimte")
-                    Text("All processes").tag("all")
-                }
-                .pickerStyle(.segmented)
-                .padding(.bottom, MobileSpacing.small)
+                scopePicker.padding(.bottom, MobileSpacing.small)
                 if let problem = model.problem {
                     Label(problem, lucideIcon: "triangle-alert").font(.subheadline)
                         .foregroundStyle(MobileStyle.statusError)
@@ -88,30 +83,14 @@ struct ProcessesPage: View {
     /// The tiles and warnings over a table of every process, sorted by any column, with the signals in a row's menu.
     private var table: some View {
         VStack(spacing: 12) {
-            Picker("Which processes", selection: $model.scope) {
-                Text("Ruimte").tag("ruimte")
-                Text("All processes").tag("all")
-            }
-            .pickerStyle(.segmented)
-            .frame(maxWidth: 360)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            scopePicker
+                .frame(maxWidth: 360)
+                .frame(maxWidth: .infinity, alignment: .leading)
             if let problem = model.problem {
                 Label(problem, lucideIcon: "triangle-alert").foregroundStyle(MobileStyle.statusError)
             }
             if let sample = model.sample, model.connected, model.supported != false {
-                let series = ProcessesText.series(
-                    fine: model.fine, coarse: model.coarse, fineInterval: model.fineInterval,
-                    coarseInterval: model.coarseInterval)
-                HStack(spacing: 8) {
-                    ProcessChart(
-                        label: String(localized: "CPU"), headline: ProcessesText.percent(sample.machine.cpu), points: series.points,
-                        window: series.window, end: sample.at, maximum: 100, machine: \.cpu, ruimte: \.cpuRuimte)
-                    ProcessChart(
-                        label: String(localized: "Memory"), headline: ProcessesText.bytes(sample.machine.memoryUsed),
-                        points: series.points, window: series.window, end: sample.at,
-                        maximum: sample.machine.memoryTotal, machine: \.memory, ruimte: \.memoryRuimte)
-                }
-                .frame(maxHeight: 150)
+                chartPair(sample, series: series).frame(maxHeight: 150)
                 ForEach(model.alerts) { alert in
                     alertRow(alert, now: sample.at)
                 }
@@ -183,21 +162,40 @@ struct ProcessesPage: View {
         }
     }
 
-    @ViewBuilder private func charts(_ sample: ProcessSample) -> some View {
-        let series = ProcessesText.series(
+    private var scopePicker: some View {
+        Picker("Which processes", selection: $model.scope) {
+            Text("Ruimte").tag("ruimte")
+            Text("All processes").tag("all")
+        }
+        .pickerStyle(.segmented)
+    }
+
+    private var series: (points: [ProcessPoint], window: Double, fine: Bool) {
+        ProcessesText.series(
             fine: model.fine, coarse: model.coarse, fineInterval: model.fineInterval,
             coarseInterval: model.coarseInterval)
+    }
+
+    private func chartPair(_ sample: ProcessSample, series: (points: [ProcessPoint], window: Double, fine: Bool))
+        -> some View
+    {
+        let machine = sample.machine
+        return HStack(spacing: 8) {
+            ProcessChart(
+                label: String(localized: "CPU"), headline: ProcessesText.percent(machine.cpu), points: series.points,
+                window: series.window, end: sample.at, maximum: 100, machine: \.cpu, ruimte: \.cpuRuimte)
+            ProcessChart(
+                label: String(localized: "Memory"), headline: ProcessesText.bytes(machine.memoryUsed),
+                points: series.points, window: series.window, end: sample.at, maximum: machine.memoryTotal,
+                machine: \.memory, ruimte: \.memoryRuimte)
+        }
+    }
+
+    @ViewBuilder private func charts(_ sample: ProcessSample) -> some View {
+        let series = series
         let machine = sample.machine
         Section {
-            HStack(spacing: 8) {
-                ProcessChart(
-                    label: String(localized: "CPU"), headline: ProcessesText.percent(machine.cpu), points: series.points,
-                    window: series.window, end: sample.at, maximum: 100, machine: \.cpu, ruimte: \.cpuRuimte)
-                ProcessChart(
-                    label: String(localized: "Memory"), headline: ProcessesText.bytes(machine.memoryUsed), points: series.points,
-                    window: series.window, end: sample.at, maximum: machine.memoryTotal, machine: \.memory,
-                    ruimte: \.memoryRuimte)
-            }
+            chartPair(sample, series: series)
             HStack(spacing: 6) {
                 RoundedRectangle(cornerRadius: 2).fill(MobileStyle.muted).frame(width: 8, height: 8)
                 Text("Machine")

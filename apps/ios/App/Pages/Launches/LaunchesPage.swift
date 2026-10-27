@@ -126,9 +126,10 @@ struct LaunchesPage: View {
 
     /// What the machine finds in the project that is no launch yet, so the next ones need no typing.
     @ViewBuilder private var foundSection: some View {
-        if let found, !LaunchEditing.foundRows(found).isEmpty {
+        let rows = found.map(LaunchEditing.foundRows) ?? []
+        if !rows.isEmpty {
             Section("Found in project") {
-                ForEach(LaunchEditing.foundRows(found), id: \.id) { row in
+                ForEach(rows, id: \.id) { row in
                     Button {
                         sheet = .importing
                     } label: {
