@@ -1,11 +1,11 @@
 import phpRelease from './php-native-release.json' with { type: 'json' };
 import sqlRelease from './sql-native-release.json' with { type: 'json' };
-import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { access, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import type { LanguageServerKind } from '@ruimte/contracts';
+import { sha256 } from '../artifacts/artifact-fs.ts';
 import { extractEntries, readArchive, type ArchiveFormat } from './archive.ts';
 
 /* A kind whose server is a program of its own, downloaded or built once, and not an npm package. */
@@ -190,7 +190,7 @@ function nativeCheckout(
     kind: NativeKind,
     compiled: boolean,
     sourcePath: string | null = process.env[NATIVE_SPECS[kind].sourceVariable] ?? null,
-    ruimteRoot = RUIMTE_ROOT
+    ruimteRoot: string = RUIMTE_ROOT
 ): NativeCheckout | null {
     if (compiled) {
         return null;
@@ -214,19 +214,12 @@ function nativeCheckout(
     }
 }
 
-export function phpLanguageServerCheckout(
-    compiled: boolean,
-    sourcePath: string | null = process.env.RUIMTE_PHP_LANGUAGE_SERVER_SOURCE ?? null,
-    ruimteRoot = RUIMTE_ROOT
-): NativeCheckout | null {
+/* Absent, `sourcePath` is the kind's variable; null leaves the variable out. */
+export function phpLanguageServerCheckout(compiled: boolean, sourcePath?: string | null, ruimteRoot?: string): NativeCheckout | null {
     return nativeCheckout('php-native', compiled, sourcePath, ruimteRoot);
 }
 
-export function sqlLanguageServerCheckout(
-    compiled: boolean,
-    sourcePath: string | null = process.env.RUIMTE_SQL_LANGUAGE_SERVER_SOURCE ?? null,
-    ruimteRoot = RUIMTE_ROOT
-): NativeCheckout | null {
+export function sqlLanguageServerCheckout(compiled: boolean, sourcePath?: string | null, ruimteRoot?: string): NativeCheckout | null {
     return nativeCheckout('sql-native', compiled, sourcePath, ruimteRoot);
 }
 
@@ -317,12 +310,6 @@ export const download: Download = async (url, destination) => {
     await writeFile(destination, new Uint8Array(await response.arrayBuffer()));
 };
 
-export async function sha256Of(path: string): Promise<string> {
-    return createHash('sha256')
-        .update(await readFile(path))
-        .digest('hex');
-}
-
 /* Downloads the archive into a temporary folder, hands its path to `handle` and removes the folder after, whatever `handle` does. */
 async function withDownload<T>(url: string, name: string, get: Download, handle: (file: string) => Promise<T>): Promise<T> {
     const folder = await mkdtemp(join(tmpdir(), 'ruimte-download-'));
@@ -339,7 +326,7 @@ async function withDownload<T>(url: string, name: string, get: Download, handle:
 export async function installRelease(asset: NativeAsset, directory: string, get: Download, log: (line: string) => void): Promise<void> {
     await withDownload(asset.url, `release.${asset.format}`, get, async (file) => {
         log(`Downloaded ${asset.url}`);
-        const actual = await sha256Of(file);
+        const actual = sha256(await readFile(file));
         if (actual !== asset.sha256.toLowerCase()) {
             throw new Error('The download is damaged. Try again.');
         }

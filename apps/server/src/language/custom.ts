@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { mkdir, readFile } from 'node:fs/promises';
 import { dirname, isAbsolute } from 'node:path';
 import {
@@ -13,6 +13,7 @@ import {
 } from '@ruimte/contracts';
 import { CodedError, isNotFound, writeAtomic } from '@adecore/agents';
 import { z } from 'zod';
+import { sha256 } from '../artifacts/artifact-fs.ts';
 import type { KindProfile } from './profiles.ts';
 
 class CustomServerError extends CodedError<LanguageErrorCode> {}
@@ -33,9 +34,7 @@ export const resolveCommandOnPath: ResolveCommand = (command) => {
 
 /* What saving approves: the command, its arguments and its environment, and nothing the person can change without a new save. */
 function approvalOf(server: Pick<CustomLanguageServer, 'command' | 'args' | 'env'>): string {
-    return createHash('sha256')
-        .update(JSON.stringify([server.command, server.args, Object.entries(server.env).sort(([left], [right]) => left.localeCompare(right))]))
-        .digest('hex');
+    return sha256(JSON.stringify([server.command, server.args, Object.entries(server.env).sort(([left], [right]) => left.localeCompare(right))]));
 }
 
 /*

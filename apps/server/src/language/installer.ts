@@ -1,9 +1,9 @@
-import { createHash } from 'node:crypto';
 import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
 import { LanguageServerKindSchema, type LanguageServerKind } from '@ruimte/contracts';
 import { fileExists } from '@adecore/agents';
+import { sha256 } from '../artifacts/artifact-fs.ts';
 import { errorText } from '../error-text.ts';
 import { LanguageLog } from './log.ts';
 import {
@@ -128,7 +128,7 @@ const gitRevision: CheckoutRevision = async (folder) => {
     if (head === null || status === null) {
         return null;
     }
-    const changed = status.trim() === '' ? '' : `+${createHash('sha256').update(status).digest('hex').slice(0, 12)}`;
+    const changed = status.trim() === '' ? '' : `+${sha256(status).slice(0, 12)}`;
     return `${head.trim()}${changed}`;
 };
 
@@ -361,7 +361,7 @@ export class LanguageInstaller {
             return plan === null ? null : plan.source === 'dev' ? DEV : plan.version;
         }
         const pins = Object.entries(pinnedVersionsOf(kind)).sort(([left], [right]) => left.localeCompare(right));
-        return `${versionOf(kind)}-${createHash('sha256').update(JSON.stringify(pins)).digest('hex').slice(0, 8)}`;
+        return `${versionOf(kind)}-${sha256(JSON.stringify(pins)).slice(0, 8)}`;
     }
 
     private async readSelection(kind: LanguageServerKind): Promise<Selection | null> {
