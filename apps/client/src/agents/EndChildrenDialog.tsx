@@ -2,8 +2,17 @@ import { useState } from 'react';
 import i18next from 'i18next';
 import { Eraser, Square, Trash } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import type { Worktree } from '@ruimte/contracts';
 import { perform } from '@/actions/client-actions';
-import { endingTitle, endsAgentsWarning, stopsSubagentsWarning, stopsTaskWarning, useEndingAgents, type PendingEnd } from '@/agents/end-children';
+import {
+    clearsWarning,
+    endingTitle,
+    endsAgentsWarning,
+    stopsSubagentsWarning,
+    stopsTaskWarning,
+    useEndingAgents,
+    type PendingEnd
+} from '@/agents/end-children';
 import { hasWork, leftBehindLine, removedToast } from '@/shell/panels/worktree-rows';
 import { Switch, Button, Icon, Dialog, messageOf } from '@adecore/ui';
 import { useEndpointId } from '@/state/keys';
@@ -19,7 +28,7 @@ function warningOf(pending: PendingEnd | null): string | null {
         return stopsSubagentsWarning(agents);
     }
     if (pending?.action === 'clear') {
-        return `${i18next.t('agents:ending.clears')}${agents === 0 ? '' : ` ${endsAgentsWarning(agents)}`}`;
+        return clearsWarning(agents);
     }
     return agents === 0 ? null : endsAgentsWarning(agents);
 }
@@ -89,7 +98,7 @@ export function EndChildrenDialog() {
 }
 
 /* Without force, so a worktree that gained work since the question was asked is refused by the machine and stays. */
-async function removeClean(worktrees: readonly PendingEndWorktree[]): Promise<void> {
+async function removeClean(worktrees: readonly Worktree[]): Promise<void> {
     for (const worktree of worktrees) {
         try {
             const result = await perform('worktree.remove', { branch: worktree.branch, force: false });
@@ -106,5 +115,3 @@ async function removeClean(worktrees: readonly PendingEndWorktree[]): Promise<vo
         }
     }
 }
-
-type PendingEndWorktree = NonNullable<PendingEnd['worktrees']>['worktrees'][number];

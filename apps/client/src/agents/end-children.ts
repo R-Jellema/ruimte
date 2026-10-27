@@ -29,8 +29,16 @@ export function endsAgentsWarning(agents: number): string {
     return i18next.t('agents:ending.alsoEnds', { count: agents });
 }
 
+function withEndedAgents(text: string, agents: number): string {
+    return agents === 0 ? text : `${text} ${endsAgentsWarning(agents)}`;
+}
+
 export function stopsTaskWarning(agents: number): string {
-    return `${i18next.t('agents:ending.stopsTask')}${agents === 0 ? '' : ` ${endsAgentsWarning(agents)}`}`;
+    return withEndedAgents(i18next.t('agents:ending.stopsTask'), agents);
+}
+
+export function clearsWarning(agents: number): string {
+    return withEndedAgents(i18next.t('agents:ending.clears'), agents);
 }
 
 export function stopsSubagentsWarning(agents: number): string {
@@ -42,11 +50,7 @@ type Requester = Pick<Transport, 'request'>;
 /* The machine to ask: one for every node, or the one each node runs on, which a canvas holding nodes of another machine needs. */
 export type Asked = Requester | null | ((nodeId: string) => Requester | null);
 
-/*
- * The live agents these nodes opened, each once however many of them opened it. A machine that
- * does not know the question (or cannot be asked) names none, which is how deleting worked before
- * it ended anything.
- */
+/* The live agents these nodes opened, each once however many of them opened it. A machine that cannot be asked names none. */
 export async function agentsEndedBy(transport: Asked, nodeIds: readonly string[]): Promise<string[]> {
     if (transport === null || nodeIds.length === 0) {
         return [];
@@ -92,12 +96,12 @@ export async function askBeforeEndingAgents(
 }
 
 // Stopping a task always removes its node, so this confirmation cannot use the delete shortcut above.
-export async function askBeforeStoppingTask(transport: Pick<Transport, 'request'> | null, childId: string, what: string, run: () => void): Promise<void> {
+export async function askBeforeStoppingTask(transport: Requester | null, childId: string, what: string, run: () => void): Promise<void> {
     const agents = await agentsEndedWith(transport, [childId]);
     useEndingAgents.setState({ pending: { what, agents, action: 'stop', run } });
 }
 
-export async function askBeforeStoppingSubagents(transport: Pick<Transport, 'request'> | null, chatId: string, run: () => void): Promise<void> {
+export async function askBeforeStoppingSubagents(transport: Requester | null, chatId: string, run: () => void): Promise<void> {
     const agents = await agentsEndedWith(transport, [chatId]);
     if (agents === 0) {
         run();
@@ -110,7 +114,7 @@ export async function askBeforeStoppingSubagents(transport: Pick<Transport, 'req
  * A menu row sits one click from Delete, the history cannot come back and a clear ends the chat's
  * children, so unlike the composer's `/clear` this always asks.
  */
-export async function askBeforeClearingChat(transport: Pick<Transport, 'request'> | null, chatId: string, what: string, run: () => void): Promise<void> {
+export async function askBeforeClearingChat(transport: Requester | null, chatId: string, what: string, run: () => void): Promise<void> {
     const agents = await agentsEndedWith(transport, [chatId]);
     useEndingAgents.setState({ pending: { what, agents, action: 'clear', run } });
 }

@@ -42,14 +42,13 @@ interface ChainProps {
 }
 
 /*
- * The rows of one CLI, then those of the CLIs after it. Each CLI's account choice is a hook,
- * and a separator and the empty state depend on the choices of the others, so every CLI hands what it
- * drew on to the next one rather than the menu working the choices out again beside the rows.
+ * The rows of one CLI, then those of the CLIs after it. Each CLI's account choice is a hook, and the
+ * separators and the empty state depend on the choices of the others, so each CLI hands what it drew
+ * on to the next.
  *
- * A CLI with a choice of accounts is a group under its own name, so a person starts on the account they
- * mean instead of switching in the composer afterwards; the composer still switches. A known account
- * always goes along, also the CLI's own: absent would mean the account picked for new agents, which may
- * be one that is turned off.
+ * A CLI with several accounts is a group under its own name, so a person starts on the account they
+ * mean. A known account always goes along, also the CLI's own: absent would mean the account picked
+ * for new agents, which may be turned off.
  */
 function ProviderChain({ target, provider, rest, hint, onPick, drawn, previous, waiting }: ChainProps) {
     const { t } = useTranslation('agents');
@@ -141,9 +140,8 @@ function NoAgentRow({ connecting }: { connecting: boolean }) {
 
 /*
  * The agent rows of one submenu, straight from the daemon's catalog so the dock, the canvas menu
- * and the palette can never drift apart. A CLI the daemon did not find is left out entirely: the
- * Agents settings pane is where "where did Copilot go" gets answered, not a disabled row here.
- * So is a CLI whose accounts are all turned off.
+ * and the palette never drift apart. A CLI the daemon did not find, or whose accounts are all turned
+ * off, is left out: the Agents settings pane answers where it went, not a disabled row here.
  */
 function AgentRows({ target, onPick }: { target: AgentTarget; onPick: PickAgent }) {
     const providers = useProviders((s) => s.providers);

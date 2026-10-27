@@ -3,21 +3,9 @@ import { act } from 'react';
 import type { ProjectCanvasView, ProviderInfo } from '@ruimte/contracts';
 import { startProviderDetection } from '@/transport/provider-detection';
 import { FakeMachine } from '../../testing/fake-machine';
+import { fakeProvider } from '../../testing/fake-provider';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { clickOn, mount, openSubmenu, until, type Mounted } from '../../testing/dom';
-
-function providerOf(kind: string, name: string, installed: boolean): ProviderInfo {
-    return {
-        kind,
-        name,
-        installed,
-        version: installed ? '1.0.0' : null,
-        models: [{ slug: 'model', name: 'Model', legacy: false, isDefault: true, options: [] }],
-        defaultModel: 'model',
-        capabilities: { chat: true, terminal: true },
-        resumeCommand: null
-    } as unknown as ProviderInfo;
-}
 
 // A canvas with something on it, since an empty one offers the agents itself and would ask before the test does.
 const MAIN: ProjectCanvasView = {
@@ -41,7 +29,7 @@ function menuLabels(): string[] {
 }
 
 function providers(): ProviderInfo[] {
-    return [providerOf('claude', 'Claude Code', true), providerOf('grok', 'Grok', grokInstalled)];
+    return [fakeProvider('claude', 'Claude Code'), fakeProvider('grok', 'Grok', grokInstalled ? {} : { installed: false, version: null })];
 }
 
 beforeEach(async () => {

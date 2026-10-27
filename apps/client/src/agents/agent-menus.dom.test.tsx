@@ -1,24 +1,12 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
-import type { EventMap, ProjectCanvasView, ProjectNode, ProviderInfo } from '@ruimte/contracts';
+import type { EventMap, ProjectCanvasView, ProjectNode } from '@ruimte/contracts';
 import { useProviderAccountsStore } from '@adecore/agents-react/state';
 import { windowWorkspace } from '@/state/window';
 import { FakeMachine } from '../../testing/fake-machine';
+import { fakeProvider } from '../../testing/fake-provider';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { clickOn, mount, openSubmenu, until, type Mounted } from '../../testing/dom';
-
-function providerOf(kind: string, name: string): ProviderInfo {
-    return {
-        kind,
-        name,
-        installed: true,
-        version: '1.0.0',
-        models: [{ slug: 'model', name: 'Model', legacy: false, isDefault: true, options: [] }],
-        defaultModel: 'model',
-        capabilities: { chat: true, terminal: true },
-        resumeCommand: null
-    } as unknown as ProviderInfo;
-}
 
 // The endpoint `openFakeWorkspace` puts the machine behind.
 const FAKE_MACHINE = 'fake-machine';
@@ -36,7 +24,7 @@ const ACCOUNTS: Accounts = {
     codex: { kind: 'codex' }
 };
 
-// Claude Code's own account turned off in Providers and two others on, where the menu used to offer the one that is off.
+// Claude Code's own account turned off in Providers and two others on.
 const DEFAULT_OFF: Accounts = {
     claude: { kind: 'claude', label: 'Personal', enabled: false },
     claude_work: { kind: 'claude', label: 'Work', home: '~/.claude-work' },
@@ -122,10 +110,6 @@ async function openAgentMenu(target: 'Agent (Chat)' | 'Agent (Terminal)', from: 
     await openSubmenu(target);
 }
 
-async function openAgentChatMenu(): Promise<void> {
-    await openAgentMenu('Agent (Chat)');
-}
-
 /* Picks a row and waits for the node it made to be saved. */
 async function pick(label: string, kind: 'chat' | 'terminal'): Promise<ProjectNode | undefined> {
     await clickOn(menuItem(label));
@@ -141,7 +125,7 @@ beforeEach(() => {
     machine = new FakeMachine();
     machine.answer('project.save', ({ baseRev }) => ({ rev: baseRev + 1 }) as never);
     machine.answer('provider.list', () => ({
-        providers: [providerOf('claude', 'Claude Code'), providerOf('codex', 'Codex'), { ...providerOf('grok', 'Grok'), installed: false, version: null }]
+        providers: [fakeProvider('claude', 'Claude Code'), fakeProvider('codex', 'Codex'), fakeProvider('grok', 'Grok', { installed: false, version: null })]
     }));
     workspace = null;
     page = null;
@@ -157,7 +141,7 @@ afterEach(async () => {
 describe('the agent submenu', () => {
     test('a CLI with several accounts offers each one that is on, and a CLI with one stays a row', async () => {
         await start();
-        await openAgentChatMenu();
+        await openAgentMenu('Agent (Chat)');
         await until(() => menuItem('Work') !== null);
         const labels = menuItems().map((item) => item.textContent?.trim());
         expect(labels).toContain('Personal');
@@ -171,16 +155,16 @@ describe('the agent submenu', () => {
     test('lists the frontier labs, the other CLIs and the API providers by name, a line between groups, whatever order the machine sends', async () => {
         machine.answer('provider.list', () => ({
             providers: [
-                providerOf('nanogpt', 'NanoGPT'),
-                providerOf('grok', 'Grok'),
-                providerOf('codex', 'Codex'),
-                providerOf('anthropic-claude-api', 'Claude API'),
-                providerOf('antigravity', 'Antigravity'),
-                providerOf('claude', 'Claude Code')
+                fakeProvider('nanogpt', 'NanoGPT'),
+                fakeProvider('grok', 'Grok'),
+                fakeProvider('codex', 'Codex'),
+                fakeProvider('anthropic-claude-api', 'Claude API'),
+                fakeProvider('antigravity', 'Antigravity'),
+                fakeProvider('claude', 'Claude Code')
             ]
         }));
         await start(() => ({ accounts: { claude: { kind: 'claude' }, codex: { kind: 'codex' } }, statuses: [] }));
-        await openAgentChatMenu();
+        await openAgentMenu('Agent (Chat)');
         await until(() => menuItem('Grok') !== null);
         const menu = [...document.querySelectorAll('[role="menu"]')].at(-1)!;
         const rows = [...menu.querySelectorAll('[role="menuitem"], [role="separator"]')].map((node) =>
@@ -191,19 +175,16 @@ describe('the agent submenu', () => {
 
     test('a CLI that is not installed is not offered', async () => {
         await start();
-        await openAgentChatMenu();
+        await openAgentMenu('Agent (Chat)');
         await until(() => menuItem('Codex') !== null);
         expect(menuItems().map((item) => item.textContent?.trim())).not.toContain('Grok');
     });
 
     test('picking an account starts the chat on it', async () => {
         await start();
-        await openAgentChatMenu();
+        await openAgentMenu('Agent (Chat)');
         await until(() => menuItem('Work') !== null);
-        await clickOn(menuItem('Work'));
-        await until(() => machine.requests('chat.create').length > 0);
-        await act(async () => windowWorkspace()!.connection.projects.flush());
-        expect(savedNodes().find((node) => node.kind === 'chat')).toMatchObject({ provider: 'claude', account: 'claude_work' });
+        expect(await pick('Work', 'chat')).toMatchObject({ provider: 'claude', account: 'claude_work' });
     });
 });
 
@@ -243,7 +224,7 @@ describe('a turned-off default account', () => {
 describe('the number of accounts that are on', () => {
     test('with one other account left, the CLI is one row that names it and starts on it', async () => {
         await start(() => ({ accounts: { ...DEFAULT_OFF, claude_side: { ...DEFAULT_OFF.claude_side!, enabled: false } }, statuses: [] }));
-        await openAgentChatMenu();
+        await openAgentMenu('Agent (Chat)');
         await until(() => menuItem('Claude Code (Work)') !== null);
         expect(groupRows('Claude Code')).toEqual([]);
         expect(submenuLabels()).toEqual(['Claude Code (Work)', 'Codex']);
@@ -253,7 +234,7 @@ describe('the number of accounts that are on', () => {
 
     test('with only the default account on, the CLI is one row under its own name that still names the account', async () => {
         await start();
-        await openAgentChatMenu();
+        await openAgentMenu('Agent (Chat)');
         await until(() => menuItem('Codex') !== null);
         expect(await pick('Codex', 'chat')).toMatchObject({ provider: 'codex', account: 'codex' });
     });
@@ -263,7 +244,7 @@ describe('the number of accounts that are on', () => {
             Object.entries(DEFAULT_OFF).map(([id, account]) => [id, account.kind === 'claude' ? { ...account, enabled: false } : account])
         );
         await start(() => ({ accounts: off, statuses: [] }));
-        await openAgentChatMenu();
+        await openAgentMenu('Agent (Chat)');
         await until(() => menuItem('Codex') !== null);
         expect(submenuLabels()).toEqual(['Codex']);
         expect(submenuSeparators()).toBe(0);
@@ -272,14 +253,14 @@ describe('the number of accounts that are on', () => {
     test('with no CLI left, the menu offers to set up agents', async () => {
         const off = Object.fromEntries(Object.entries(DEFAULT_OFF).map(([id, account]) => [id, { ...account, enabled: false }]));
         await start(() => ({ accounts: off, statuses: [] }));
-        await openAgentChatMenu();
+        await openAgentMenu('Agent (Chat)');
         await until(() => submenuLabels().includes('Set up agents'));
         expect(submenuLabels()).toEqual(['Set up agents']);
     });
 
     test('a machine that keeps no accounts starts each CLI under its own login', async () => {
         await start(() => ({ accounts: {}, statuses: [] }));
-        await openAgentChatMenu();
+        await openAgentMenu('Agent (Chat)');
         await until(() => menuItem('Codex') !== null);
         expect(submenuLabels()).toEqual(['Claude Code', 'Codex']);
         await clickOn(menuItem('Claude Code'));
@@ -292,7 +273,7 @@ describe('while the accounts load', () => {
     test('the menu says it is connecting and offers no start until they are in', async () => {
         let answer: (accounts: ProviderAccounts) => void = () => {};
         await start(() => new Promise((resolve) => (answer = resolve)));
-        await openAgentChatMenu();
+        await openAgentMenu('Agent (Chat)');
         await until(() => submenuLabels().includes('Connecting…'));
         expect(submenuLabels()).toEqual(['Connecting…']);
         expect(submenuRows()[0]?.getAttribute('aria-disabled')).toBe('true');
@@ -307,7 +288,7 @@ describe('while the accounts load', () => {
 describe('turning an account off while the menu is open', () => {
     test('the rows follow', async () => {
         await start(() => ({ accounts: DEFAULT_OFF, statuses: [] }));
-        await openAgentChatMenu();
+        await openAgentMenu('Agent (Chat)');
         await until(() => groupRows('Claude Code').length === 2);
 
         await accountsChange({ ...DEFAULT_OFF, claude_side: { ...DEFAULT_OFF.claude_side!, enabled: false } });
