@@ -153,7 +153,9 @@ struct ChatLightbox: View {
 
     var body: some View {
         ZStack {
+            // Measured past the safe area, as the pages and the flight are, so the picture lands where its page centers it.
             Color.black.opacity(backdrop).ignoresSafeArea()
+                .onGeometryChange(for: CGSize.self) { $0.size } action: { screen = $0 }
             TabView(selection: $selection) {
                 ForEach(images) { image in
                     ChatLightboxPage(
@@ -182,7 +184,6 @@ struct ChatLightbox: View {
                     .accessibilityHidden(true)
             }
         }
-        .onGeometryChange(for: CGSize.self) { $0.size } action: { screen = $0 }
         .overlay(alignment: .top) {
             bar.opacity(controlsShown ? 1 : 0).offset(y: controlsShown ? 0 : -8).allowsHitTesting(controlsShown)
         }
