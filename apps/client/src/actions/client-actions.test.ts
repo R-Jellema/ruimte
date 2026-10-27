@@ -1303,6 +1303,38 @@ describe('client actions', () => {
         });
     });
 
+    const deletionCrew: ProjectCanvasView = {
+        kind: 'canvas',
+        id: 'crew',
+        name: 'Crew',
+        nodes: [{ id: 'helper', kind: 'chat', title: 'Helper', x: 0, y: 0, w: 400, h: 300 }],
+        texts: [],
+        edges: [],
+        layouts: []
+    };
+
+    /* A machine where the notes have unsaved changes, Research is in a turn and opened Helper. */
+    const machineWith = (saves: boolean) => {
+        const unsaved = new Set(['/repo/docs/notes.md']);
+        const saved: string[] = [];
+        const registry = createClientActionRegistry(useDocument, {
+            viewDeletion: {
+                folder: () => '/repo',
+                isUnsaved: (path) => unsaved.has(path),
+                save: async (path) => {
+                    saved.push(path);
+                    if (saves) {
+                        unsaved.delete(path);
+                    }
+                    return saves;
+                },
+                working: (node) => node.id === 'research',
+                endedBy: async (nodeIds) => (nodeIds.includes('research') ? ['helper', 'gone'] : [])
+            }
+        });
+        return { registry, saved };
+    };
+
     describe('deleting nodes', () => {
         const board: ProjectCanvasView = {
             ...main,
@@ -1311,39 +1343,8 @@ describe('client actions', () => {
                 { id: 'research', kind: 'chat', title: 'Research', x: 500, y: 0, w: 400, h: 300 }
             ]
         };
-        const crew: ProjectCanvasView = {
-            kind: 'canvas',
-            id: 'crew',
-            name: 'Crew',
-            nodes: [{ id: 'helper', kind: 'chat', title: 'Helper', x: 0, y: 0, w: 400, h: 300 }],
-            texts: [],
-            edges: [],
-            layouts: []
-        };
-
-        const machineWith = (saves: boolean) => {
-            const unsaved = new Set(['/repo/docs/notes.md']);
-            const saved: string[] = [];
-            const registry = createClientActionRegistry(useDocument, {
-                viewDeletion: {
-                    folder: () => '/repo',
-                    isUnsaved: (path) => unsaved.has(path),
-                    save: async (path) => {
-                        saved.push(path);
-                        if (saves) {
-                            unsaved.delete(path);
-                        }
-                        return saves;
-                    },
-                    working: (node) => node.id === 'research',
-                    endedBy: async (nodeIds) => (nodeIds.includes('research') ? ['helper', 'gone'] : [])
-                }
-            });
-            return { registry, saved };
-        };
-
         beforeEach(() => {
-            useDocument.getState().load({ ...document, views: [board, crew] }, { activeViewId: 'main', views: {} });
+            useDocument.getState().load({ ...document, views: [board, deletionCrew] }, { activeViewId: 'main', views: {} });
             canvas().loadView(board, null);
             defaultCanvases.focus('main');
         });
@@ -1393,42 +1394,11 @@ describe('client actions', () => {
             edges: [],
             layouts: []
         };
-        const crew: ProjectCanvasView = {
-            kind: 'canvas',
-            id: 'crew',
-            name: 'Crew',
-            nodes: [{ id: 'helper', kind: 'chat', title: 'Helper', x: 0, y: 0, w: 400, h: 300 }],
-            texts: [],
-            edges: [],
-            layouts: []
-        };
-
-        /* A machine where the notes have unsaved changes, Research is in a turn and opened Helper. */
-        const machineWith = (saves: boolean) => {
-            const unsaved = new Set(['/repo/docs/notes.md']);
-            const saved: string[] = [];
-            const registry = createClientActionRegistry(useDocument, {
-                viewDeletion: {
-                    folder: () => '/repo',
-                    isUnsaved: (path) => unsaved.has(path),
-                    save: async (path) => {
-                        saved.push(path);
-                        if (saves) {
-                            unsaved.delete(path);
-                        }
-                        return saves;
-                    },
-                    working: (node) => node.id === 'research',
-                    endedBy: async (nodeIds) => (nodeIds.includes('research') ? ['helper', 'gone'] : [])
-                }
-            });
-            return { registry, saved };
-        };
 
         const hasBoard = (): boolean => useDocument.getState().views.some((view) => view.id === 'board');
 
         beforeEach(() => {
-            useDocument.getState().load({ ...document, views: [main, board, crew] }, { activeViewId: 'main', views: {} });
+            useDocument.getState().load({ ...document, views: [main, board, deletionCrew] }, { activeViewId: 'main', views: {} });
         });
 
         test('names the files it saves and the agents it ends, and saves before it deletes', async () => {
