@@ -1,6 +1,7 @@
-import type { AgentKind, GitSuggestMessageResult } from '@ruimte/contracts';
+import type { GitSuggestMessageResult } from '@ruimte/contracts';
 import type { ProviderRegistry } from '../providers/registry.ts';
-import { git, streamWithTimeout, toplevel, GitError } from './run.ts';
+import { jsonObjectIn, oneShotProvider, runOneShot, type OneShotOptions } from './one-shot.ts';
+import { git, toplevel, GitError } from './run.ts';
 
 // Enough of the change for a subject line; a patch past this says nothing the first pages did not.
 const MAX_PATCH_BYTES = 24 * 1024;
@@ -32,24 +33,12 @@ export function buildMessagePrompt(nameStatus: string, patch: string): string {
     ].join('\n');
 }
 
-/*
- * The JSON out of whatever the CLI wrote around it: a print-mode run still prints a line about the
- * session, and a model still opens with a word now and then. The last object in the output is the
- * answer; a run that holds none at all falls back to its first line as the subject.
- */
+/* The message the CLI answered; output without one falls back to its first line as the subject. */
 export function parseSuggestion(output: string): GitSuggestMessageResult | null {
-    const start = output.indexOf('{');
-    const end = output.lastIndexOf('}');
-    if (start >= 0 && end > start) {
-        try {
-            const parsed: unknown = JSON.parse(output.slice(start, end + 1));
-            if (typeof parsed === 'object' && parsed !== null && 'subject' in parsed && typeof parsed.subject === 'string') {
-                const body = 'body' in parsed && typeof parsed.body === 'string' ? parsed.body : '';
-                return { subject: parsed.subject.trim(), body: body.trim() };
-            }
-        } catch {
-            // Not JSON after all, which the line below still makes something of.
-        }
+    const parsed = jsonObjectIn(output);
+    if (typeof parsed === 'object' && parsed !== null && 'subject' in parsed && typeof parsed.subject === 'string') {
+        const body = 'body' in parsed && typeof parsed.body === 'string' ? parsed.body : '';
+        return { subject: parsed.subject.trim(), body: body.trim() };
     }
     const first = output
         .split('\n')
@@ -70,33 +59,15 @@ async function stagedInput(top: string): Promise<{ nameStatus: string; patch: st
     return null;
 }
 
-interface SuggestOptions {
-    provider?: AgentKind;
-    /* The process, so `git.cancel` can end a CLI that is taking its time. */
-    onSpawn?(kill: () => void): void;
-    /* Where the CLI runs for a checkout; the checkout itself unless it is not to be trusted with the CLI's configuration. */
-    cwdFor?(folder: string): Promise<string>;
-}
-
-/*
- * A commit message written by the agent CLI the machine already has, in its own one-shot print
- * mode: no chat, no session, no SDK, one process that reads a prompt and prints an answer.
- */
-export async function suggestMessage(cwd: string, registry: ProviderRegistry, options: SuggestOptions = {}): Promise<GitSuggestMessageResult> {
+/* A commit message for what is staged, written by the machine's own agent CLI. */
+export async function suggestMessage(cwd: string, registry: ProviderRegistry, options: OneShotOptions = {}): Promise<GitSuggestMessageResult> {
     const top = await toplevel(cwd);
     const input = await stagedInput(top);
     if (input === null) {
         throw new GitError('git-failed', 'There are no staged changes to describe.');
     }
-    const provider = await registry.oneShotProvider(options.provider);
-    if (provider === null) {
-        throw new GitError('git-failed', 'No agent CLI on this machine can write a commit message.');
-    }
-    const args = provider.oneShotArgs?.(buildMessagePrompt(input.nameStatus, input.patch)) ?? null;
-    if (args === null) {
-        throw new GitError('git-failed', `${provider.name} cannot answer a single prompt.`);
-    }
-    const result = await streamWithTimeout(provider.command[0]!, args, (await options.cwdFor?.(top)) ?? top, TIMEOUT_MS, { onSpawn: options.onSpawn });
+    const provider = await oneShotProvider(registry, options, 'write a commit message');
+    const result = await runOneShot(provider, top, buildMessagePrompt(input.nameStatus, input.patch), TIMEOUT_MS, options);
     const suggestion = result.code === 0 ? parseSuggestion(result.stdout) : null;
     if (suggestion === null || suggestion.subject === '') {
         throw new GitError('git-failed', `${provider.name} wrote no message: ${result.stderr.trim() || 'no output'}`);

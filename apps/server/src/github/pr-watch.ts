@@ -352,11 +352,12 @@ export class PrWatchStore {
             return;
         }
         // Read only once the checks finished, and kept per head, so a poll in between asks GitHub nothing more.
-        const split = terminalKey(poll.pr) === null ? null : await this.splits.of(record.cwd, poll.pr);
+        const key = terminalKey(poll.pr);
+        const split = key === null ? null : await this.splits.of(record.cwd, poll.pr);
         if (!this.records.has(id)) {
             return;
         }
-        const wakes = this.newsOf(record, poll, split);
+        const wakes = this.newsOf(record, poll, key, split);
         const changed = wakes.length > 0 || record.head !== poll.pr.headSha || record.checkState !== poll.pr.checkState;
         record.head = poll.pr.headSha;
         record.checkState = poll.pr.checkState;
@@ -377,9 +378,8 @@ export class PrWatchStore {
         }
     }
 
-    private newsOf(record: WatchRecord, poll: PrPoll, split: ChangeSplit | null): Array<{ key: string; text: string; label: string }> {
+    private newsOf(record: WatchRecord, poll: PrPoll, key: string | null, split: ChangeSplit | null): Array<{ key: string; text: string; label: string }> {
         const news: Array<{ key: string; text: string; label: string }> = [];
-        const key = terminalKey(poll.pr);
         if (key !== null && !record.notified.includes(key)) {
             // Seen once is a candidate; a second poll that agrees makes it final.
             if (record.candidate === key) {
@@ -437,5 +437,5 @@ export class PrWatchStore {
 
 function newestReview(reviews: readonly PrReview[]): string | null {
     const times = reviews.filter((review) => review.state !== 'PENDING' && review.submittedAt !== '').map((review) => review.submittedAt);
-    return times.length === 0 ? null : times.reduce((a, b) => (a > b ? a : b));
+    return times.length === 0 ? null : times.reduce((newest, time) => (time > newest ? time : newest));
 }

@@ -1,5 +1,6 @@
 import type { GitActionPayload, GitActionPhase, GitActionResult } from '@ruimte/contracts';
 import { conflictedFiles } from './conflict.ts';
+import { stashStamp } from './stage.ts';
 import { READ_ONLY_GIT, git, runGit, streamCommand, toplevel, verifyRev, GitError } from './run.ts';
 
 // A push over a slow link is allowed to take this long before the daemon gives up on it.
@@ -53,8 +54,8 @@ function textOf(stdout: string, stderr: string): string {
 }
 
 function summaryOf(output: string, fallback: string): string {
-    const lines = output.split('\n').filter((line) => line.trim() !== '');
-    return lines[lines.length - 1]?.trim() || fallback;
+    const last = output.split('\n').findLast((line) => line.trim() !== '');
+    return last?.trim() || fallback;
 }
 
 /*
@@ -157,8 +158,12 @@ export class GitActions {
         };
         const steps: Steps = { step, attempt, joining, done };
 
-        const branch = (await git(['rev-parse', '--abbrev-ref', 'HEAD'], top))?.trim() ?? '';
-        const upstream = (await git(['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}'], top))?.trim() || null;
+        const [head, tracking] = await Promise.all([
+            git(['rev-parse', '--abbrev-ref', 'HEAD'], top),
+            git(['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}'], top)
+        ]);
+        const branch = head?.trim() ?? '';
+        const upstream = tracking?.trim() || null;
 
         switch (payload.kind) {
             case 'fetch': {
@@ -187,7 +192,7 @@ export class GitActions {
             case 'checkout': {
                 const ref = operand(payload.ref, 'a branch to check out');
                 if (payload.stash === true) {
-                    await step('stash', ['stash', 'push', '--include-untracked', '--message', `ruimte-switch-${stamp()}`]);
+                    await step('stash', ['stash', 'push', '--include-untracked', '--message', `ruimte-switch-${stashStamp()}`]);
                 }
                 await step('branch', await checkoutArgs(top, ref));
                 return done(`Now on ${ref}.`);
@@ -323,10 +328,6 @@ function operand(value: string | undefined, what: string): string {
         throw new GitError('git-failed', `A branch or ref never starts with a dash: ${text}`);
     }
     return text;
-}
-
-function stamp(): string {
-    return new Date().toISOString().replace(/[:.]/g, '-').replace(/Z$/, '');
 }
 
 /*

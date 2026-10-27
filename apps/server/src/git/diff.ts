@@ -76,8 +76,10 @@ function kindsByPath(output: string): Map<string, ChatCheckpointFile['kind']> {
 export async function diffTrees(top: string, from: string, to: string, prefix = ''): Promise<ChatCheckpointDiff | null> {
     // A folder inside the repository narrows the lists to what lies under it; the patches follow the list.
     const under = prefix === '' ? [] : ['--', `:(literal)${prefix}`];
-    const numstat = await git(['diff', '--numstat', '-z', '--no-renames', from, to, ...under], top);
-    const status = await git(['diff', '--name-status', '-z', '--no-renames', from, to, ...under], top);
+    const [numstat, status] = await Promise.all([
+        git(['diff', '--numstat', '-z', '--no-renames', from, to, ...under], top),
+        git(['diff', '--name-status', '-z', '--no-renames', from, to, ...under], top)
+    ]);
     if (numstat === null || status === null) {
         return null;
     }
@@ -171,10 +173,6 @@ function sidesOf(path: string, options: DiffOptions, mergeBase: string | null): 
     return options.staged ? [{ blob: `HEAD:${path}` }, { blob: `:0:${path}` }] : [{ blob: `:0:${path}` }, { file: path }];
 }
 
-function hasNul(bytes: Uint8Array): boolean {
-    return bytes.includes(0);
-}
-
 // A patch shows a byte order mark as part of the first line, so a text keeps it too.
 const KEEP_BOM = new TextDecoder('utf-8', { ignoreBOM: true });
 
@@ -185,7 +183,7 @@ async function readBlob(top: string, name: string): Promise<string | null> {
         return null;
     }
     const blob = await runGitBytes(['cat-file', 'blob', name], top);
-    return blob.code !== 0 || hasNul(blob.stdout) ? null : KEEP_BOM.decode(blob.stdout);
+    return blob.code !== 0 || blob.stdout.includes(0) ? null : KEEP_BOM.decode(blob.stdout);
 }
 
 /*
@@ -228,7 +226,7 @@ async function readWorktree(top: string, path: string): Promise<string | null> {
             return null;
         }
         const bytes = await readFile(file);
-        return hasNul(bytes) ? null : KEEP_BOM.decode(bytes);
+        return bytes.includes(0) ? null : KEEP_BOM.decode(bytes);
     } catch {
         return null;
     }
@@ -316,8 +314,7 @@ export async function diffCommit(cwd: string, commit: string): Promise<GitDiffRe
     if (hash === null) {
         throw new GitError('git-failed', `${commit} is not a commit in this repository.`);
     }
-    const diff = await diffTrees(top, await parentOf(top, hash), hash);
-    const meta = await readCommit(top, hash);
+    const [diff, meta] = await Promise.all([parentOf(top, hash).then((parent) => diffTrees(top, parent, hash)), readCommit(top, hash)]);
     return { ...filesResult(diff), ...(meta ? { commit: meta } : {}) };
 }
 

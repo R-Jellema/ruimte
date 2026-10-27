@@ -67,7 +67,8 @@ export async function listIgnoredFiles(cwd: string): Promise<GitIgnoredFilesResu
     const entries = listed.stdout.split('\0').filter((path) => path !== '');
     const folders = entries.filter((path) => path.endsWith('/'));
     const whole = await ignoredWhole(root, folders);
-    const inWhole = (path: string): boolean => [...whole].some((folder) => path.startsWith(folder));
+    const wholeFolders = [...whole];
+    const inWhole = (path: string): boolean => wholeFolders.some((folder) => path.startsWith(folder));
     const paths = new Set(entries.filter((path) => !path.endsWith('/') && !inWhole(path) && !RUIMTE_STATE.test(path)));
     // Git lists a folder whose every file is ignored as the folder alone, whether or not a rule names it.
     for (const folder of folders.filter((path) => !inWhole(path) && !RUIMTE_STATE.test(path))) {

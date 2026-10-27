@@ -6,9 +6,9 @@ function literal(paths: readonly string[]): string[] {
     return paths.map((path) => `:(literal)${path}`);
 }
 
-/* A stash that says where it came from, so `git stash list` reads as a list of undos. */
-function discardStashName(at: Date = new Date()): string {
-    return `ruimte-discard-${at.toISOString().replace(/[:.]/g, '-').replace(/Z$/, '')}`;
+/* The moment a stash of ours was made, in a form a stash message and a ref both take. */
+export function stashStamp(at: Date = new Date()): string {
+    return at.toISOString().replace(/[:.]/g, '-').replace(/Z$/, '');
 }
 
 /* Puts the paths in the index, deletions included: `git add` records a file that is gone. */
@@ -33,7 +33,8 @@ export async function unstagePaths(cwd: string, paths: readonly string[]): Promi
  */
 export async function discardPaths(cwd: string, paths: readonly string[]): Promise<GitDiscardResult> {
     const top = await toplevel(cwd);
-    const name = discardStashName();
+    // A stash that says where it came from, so `git stash list` reads as a list of undos.
+    const name = `ruimte-discard-${stashStamp()}`;
     await gitOrThrow(['stash', 'push', '--include-untracked', '--message', name, '--', ...literal(paths)], top);
     const latest = (await git(['stash', 'list', '--format=%gs', '-1'], top))?.trim() ?? '';
     return { stash: latest.includes(name) ? name : null };

@@ -1,9 +1,9 @@
-import type { AgentKind, GitResolveAiResult, GitResolveBlock } from '@ruimte/contracts';
+import type { GitResolveAiResult, GitResolveBlock } from '@ruimte/contracts';
 import { fingerprint, splitBlocks, splitLines, type MergeBlock } from '@adecore/merge';
-import type { ChatProvider } from '@adecore/agents/providers';
 import type { ProviderRegistry } from '../providers/registry.ts';
 import { readConflict } from './conflict.ts';
-import { streamWithTimeout, toplevel, GitError } from './run.ts';
+import { jsonObjectIn, oneShotProvider, runOneShot, type OneShotOptions } from './one-shot.ts';
+import { toplevel, GitError } from './run.ts';
 
 // Lines of the file kept around a conflict, so a model reads what the stretch sits in.
 const CONTEXT_LINES = 6;
@@ -82,28 +82,9 @@ export function buildResolvePrompt(path: string, blocks: readonly MergeBlock[], 
     return { prompt: parts.join('\n'), asked, skipped };
 }
 
-/* How a one-shot CLI gets its prompt: on stdin where it reads it there, since an argument is capped and shows in the process list. */
-export function oneShotRun(provider: ChatProvider, prompt: string): { args: string[]; stdin?: string } | null {
-    if (provider.oneShotStdinArgs) {
-        return { args: [...provider.oneShotStdinArgs], stdin: prompt };
-    }
-    const args = provider.oneShotArgs?.(prompt) ?? null;
-    return args === null ? null : { args };
-}
-
 /* The blocks out of whatever the CLI wrote around them; anything that is not a stretch of lines is dropped. */
 export function parseResolution(output: string): { index: number; lines: string[] }[] {
-    const start = output.indexOf('{');
-    const end = output.lastIndexOf('}');
-    if (start < 0 || end <= start) {
-        return [];
-    }
-    let parsed: unknown;
-    try {
-        parsed = JSON.parse(output.slice(start, end + 1));
-    } catch {
-        return [];
-    }
+    const parsed = jsonObjectIn(output);
     if (typeof parsed !== 'object' || parsed === null || !('blocks' in parsed) || !Array.isArray(parsed.blocks)) {
         return [];
     }
@@ -124,25 +105,17 @@ export function parseResolution(output: string): { index: number; lines: string[
     return answers;
 }
 
-interface ResolveOptions {
-    provider?: AgentKind;
-    /* The process, so `git.cancel` can end a CLI that is taking its time. */
-    onSpawn?(kill: () => void): void;
-    /* Where the CLI runs for a checkout; the checkout itself unless it is not to be trusted with the CLI's configuration. */
-    cwdFor?(folder: string): Promise<string>;
-}
-
 /*
- * A conflict answered by the agent CLI the machine already has, in its own one-shot print mode: no
- * chat, no session, no SDK. What comes back is a proposal per stretch, checked against the stretch it
- * was written for; nothing is written to the file here, since a person accepts the answer, not this.
+ * A conflict answered by the machine's own agent CLI. What comes back is a proposal per stretch, checked
+ * against the stretch it was written for; nothing is written to the file here, since a person accepts
+ * the answer, not this.
  */
 export async function resolveWithAgent(
     cwd: string,
     path: string,
     sides: { ours: string; theirs: string },
     registry: ProviderRegistry,
-    options: ResolveOptions = {}
+    options: OneShotOptions = {}
 ): Promise<GitResolveAiResult> {
     const top = await toplevel(cwd);
     const conflict = await readConflict(top, path);
@@ -154,23 +127,13 @@ export async function resolveWithAgent(
     if (open.length === 0) {
         return { blocks: [] };
     }
-    const provider = await registry.oneShotProvider(options.provider);
-    if (provider === null) {
-        throw new GitError('git-failed', 'No agent CLI on this machine can resolve a conflict.');
-    }
+    const provider = await oneShotProvider(registry, options, 'resolve a conflict');
     const built = buildResolvePrompt(path, blocks, sides.ours, sides.theirs);
     const tooLarge = built.skipped.length === 0 ? '' : `${built.skipped.length} of ${open.length} conflicts are too large to hand to ${provider.name}. `;
     if (built.asked.length === 0) {
         return { blocks: [], note: `${tooLarge}They are left for you.` };
     }
-    const run = oneShotRun(provider, built.prompt);
-    if (run === null) {
-        throw new GitError('git-failed', `${provider.name} cannot answer a single prompt.`);
-    }
-    const result = await streamWithTimeout(provider.command[0]!, run.args, (await options.cwdFor?.(top)) ?? top, TIMEOUT_MS, {
-        onSpawn: options.onSpawn,
-        stdin: run.stdin
-    });
+    const result = await runOneShot(provider, top, built.prompt, TIMEOUT_MS, options);
     if (result.code !== 0) {
         throw new GitError('git-failed', `${provider.name} stopped: ${result.stderr.trim() || 'no output'}`);
     }
