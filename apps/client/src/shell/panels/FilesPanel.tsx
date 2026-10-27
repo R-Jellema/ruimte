@@ -77,7 +77,7 @@ import { useFiles } from '@/state/files';
 import { filesRootOf, useFilesRoot } from '@/state/files-root';
 import { folderWatches } from '@/state/fs-watch';
 import { useGit } from '@/state/git';
-import { soleRepo, useGitCheckouts, useProjectRepos, withoutNestedRepos, type GitCheckoutRef } from '@/state/git-repos';
+import { soleRepo, useGitCheckouts, useProjectRepos, withoutNestedCheckouts, type GitCheckoutRef } from '@/state/git-repos';
 import { gitTargets, type GitTarget } from '@/state/git-target';
 import { endpointKey, useEndpointId } from '@/state/keys';
 import { useProject } from '@/state/project';
@@ -154,10 +154,7 @@ export function FilesPanel() {
         [worktree, repos, folder]
     );
     const read = useGitCheckouts(refs);
-    const checkouts = useMemo(() => {
-        const roots = read.checkouts.map((checkout) => checkout.path);
-        return read.checkouts.map((checkout) => ({ ...checkout, status: withoutNestedRepos(checkout.status, checkout.path, roots) }));
-    }, [read.checkouts]);
+    const checkouts = useMemo(() => withoutNestedCheckouts(read.checkouts), [read.checkouts]);
     // Inside a worktree the tree is one checkout, whose branch the chip already names.
     const repoRows = useMemo(() => repoRowsOf(root ?? '', root === null || worktree !== null ? [] : checkouts), [root, worktree, checkouts]);
 

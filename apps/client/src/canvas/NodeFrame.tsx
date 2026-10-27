@@ -5,7 +5,7 @@ import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronRight, CircleDot, CirclePower, CircleX, Crosshair, Eye, GitBranch, Hand, Link2, Shrink, X, type LucideIcon } from 'lucide-react';
 import { focusNodeAction, renameNodeAction } from '@/actions/client-actions';
-import { desktop } from '@/desktop/bridge';
+import { openInSystemBrowser } from '@/desktop/bridge';
 import { taskStatusWord, useSubagentTrail } from '@adecore/agents-react/chat';
 import { UnseenMark } from '@/attention/UnseenMark';
 import { WorkingMark } from '@/attention/WorkingMark';
@@ -214,12 +214,7 @@ function IssuePill({ issue }: { issue: { repo: string; number: number; url: stri
         if (!/^https:\/\//.test(issue.url)) {
             return;
         }
-        const bridge = desktop();
-        if (bridge) {
-            void bridge.openExternal(issue.url);
-        } else {
-            window.open(issue.url, '_blank', 'noopener,noreferrer');
-        }
+        openInSystemBrowser(issue.url);
     };
     return (
         <Tooltip label={t('node.issuePill', { issue: `${issue.repo}#${issue.number}` })}>

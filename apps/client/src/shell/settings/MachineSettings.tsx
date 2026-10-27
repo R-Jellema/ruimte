@@ -8,7 +8,7 @@ import { messageOf, Segmented, Select, Skeleton, Switch, Button, IconButton, Too
 import { formatNumericDate, formatAgo } from '@adecore/ui/format';
 import { ConfirmDialog, SettingsRow } from '@adecore/ui/settings';
 import { perform } from '@/actions/client-actions';
-import { desktop } from '@/desktop/bridge';
+import { desktop, openInSystemBrowser } from '@/desktop/bridge';
 import { forgetEndpoint } from '@/endpoint';
 import { saveMachineSetting, useMachineSetting, type MachineSettingPatch } from '@/shell/settings/machine-setting';
 import { reachText } from '@/shell/settings/reach-text';
@@ -340,12 +340,7 @@ export function StreamingRow({ endpoint, reason }: { endpoint: Endpoint; reason:
 const PRIVACY_URL = 'https://ruimte.app/privacy';
 
 function openPrivacy(): void {
-    const bridge = desktop();
-    if (bridge) {
-        void bridge.openExternal(PRIVACY_URL);
-    } else {
-        window.open(PRIVACY_URL, '_blank', 'noopener,noreferrer');
-    }
+    openInSystemBrowser(PRIVACY_URL);
 }
 
 /*

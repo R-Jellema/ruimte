@@ -1,51 +1,16 @@
 import type { Editor } from '@adecore/editor';
 import { cellElement } from '@/shell/cell-rects';
 import { useDocument } from '@/state/document';
+import { createFocusRegistry } from './focus-registry';
 
-interface Entry {
-    editor: Editor;
-    surface: HTMLElement;
-}
-
-const entries = new Set<Entry>();
-let recent: Entry | null = null;
+const editors = createFocusRegistry<Editor>();
 
 /* An editor and the element it draws in, so a command from the palette or the menu finds the editor that has the keyboard. */
-export function registerFocusedEditor(editor: Editor, surface: HTMLElement): () => void {
-    const entry = { editor, surface };
-    const remember = (): void => {
-        recent = entry;
-    };
-    entries.add(entry);
-    surface.addEventListener('focusin', remember);
-    return () => {
-        entries.delete(entry);
-        surface.removeEventListener('focusin', remember);
-        if (recent === entry) {
-            recent = null;
-        }
-    };
-}
+export const registerFocusedEditor = editors.register;
 
-/* The editor the keyboard is in, or null when it is anywhere else. The innermost wins when one sits inside another's surface. */
-export function focusedEditor(): Editor | null {
-    const active = document.activeElement;
-    if (active === null) {
-        return null;
-    }
-    let found: Entry | null = null;
-    for (const entry of entries) {
-        if (entry.surface.contains(active) && (found === null || found.surface.contains(entry.surface))) {
-            found = entry;
-        }
-    }
-    return found?.editor ?? null;
-}
+export const focusedEditor = editors.focused;
 
-/* The editor that last had the keyboard, when it sits in `cell`; null for a cell that never held one. */
-export function recentEditorIn(cell: Element | null): Editor | null {
-    return cell !== null && recent !== null && entries.has(recent) && cell.contains(recent.surface) ? recent.editor : null;
-}
+export const recentEditorIn = editors.recentIn;
 
 /*
  * The editor a menu or palette command means: the one with the keyboard, else the one the active view
@@ -53,11 +18,15 @@ export function recentEditorIn(cell: Element | null): Editor | null {
  */
 export function editorForCommand(): Editor | null {
     const focused = focusedEditor();
+
     if (focused !== null) {
         return focused;
     }
-    const editor = activeViewEditor();
+
+    const state = useDocument.getState();
+    const editor = state.activeViewId === null ? null : recentEditorIn(cellElement(state.activeViewId));
     editor?.focus();
+
     return editor;
 }
 
@@ -65,10 +34,6 @@ export function editorForCommand(): Editor | null {
 export function activeViewEditorFor(surface: Element): Editor | null {
     const state = useDocument.getState();
     const cell = state.activeViewId === null ? null : cellElement(state.activeViewId);
-    return cell !== null && cell.contains(surface) ? recentEditorIn(cell) : null;
-}
 
-function activeViewEditor(): Editor | null {
-    const state = useDocument.getState();
-    return state.activeViewId === null ? null : recentEditorIn(cellElement(state.activeViewId));
+    return cell !== null && cell.contains(surface) ? recentEditorIn(cell) : null;
 }

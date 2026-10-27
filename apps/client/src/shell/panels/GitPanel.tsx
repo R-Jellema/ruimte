@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Archive, ChevronsDownUp, ChevronsUpDown, Folder, GitBranch, GitMerge, GitPullRequest, MoreHorizontal, RefreshCw } from 'lucide-react';
 import { type GitActionKind, type GitCapabilitiesResult, type GitFile, type GitRef, type GitStash, type Worktree } from '@ruimte/contracts';
 import { ignoreRefusal, perform } from '@/actions/client-actions';
-import { desktop } from '@/desktop/bridge';
+import { openInSystemBrowser } from '@/desktop/bridge';
 import { startDiffDrag, type DraggedDiff } from '@/shell/diff-drag';
 import { BranchMenu, type CheckoutRefs } from '@/shell/panels/BranchMenu';
 import { CommitBox } from '@/shell/panels/CommitBox';
@@ -27,7 +27,7 @@ import { useCanvas } from '@/state/canvas';
 import { useDocument } from '@/state/document';
 import { fileTabOf, useFiles } from '@/state/files';
 import { useGit } from '@/state/git';
-import { assumeStaged, useGitCheckouts, useProjectRepos, visibleRepos, withoutNestedRepos, type GitCheckoutRef } from '@/state/git-repos';
+import { assumeStaged, useGitCheckouts, useProjectRepos, visibleRepos, withoutNestedCheckouts, type GitCheckoutRef } from '@/state/git-repos';
 import { gitPlace, gitTarget, gitTargets, type GitPick, type GitTarget } from '@/state/git-target';
 import { endpointKey, useEndpointId } from '@/state/keys';
 import { useProject } from '@/state/project';
@@ -95,10 +95,7 @@ export function GitPanel() {
     );
     const read = useGitCheckouts(refs);
     /* A repository this panel draws is not also an untracked folder in the one above it. */
-    const checkouts = useMemo(() => {
-        const roots = read.checkouts.map((checkout) => checkout.path);
-        return read.checkouts.map((checkout) => ({ ...checkout, status: withoutNestedRepos(checkout.status, checkout.path, roots) }));
-    }, [read.checkouts]);
+    const checkouts = useMemo(() => withoutNestedCheckouts(read.checkouts), [read.checkouts]);
     const refresh = read.refresh;
 
     /* A folder with one repository names none: in the list, in the log and in the commit box, and its
@@ -805,7 +802,7 @@ export function GitPanel() {
                             { subject, body },
                             {
                                 done: (result) =>
-                                    result.url === undefined ? undefined : { label: t('common:action.open'), run: () => openUrl(result.url ?? '') }
+                                    result.url === undefined ? undefined : { label: t('common:action.open'), run: () => openInSystemBrowser(result.url ?? '') }
                             }
                         );
                     }
@@ -893,16 +890,6 @@ function pickableBranches(dialog: Dialog | null, state: CheckoutRefs | null): Ch
     return source
         .filter((ref) => !ref.current && ref.name !== state.branch)
         .map((ref) => ({ value: ref.name, label: ref.name, ...(ref.isDefault ? { hint: i18next.t('panels:git.branchMenu.default') } : {}) }));
-}
-
-/* The pull request opens where every other link does: the system browser, not a node on the canvas. */
-function openUrl(url: string): void {
-    const bridge = desktop();
-    if (bridge) {
-        void bridge.openExternal(url);
-    } else {
-        window.open(url, '_blank', 'noreferrer');
-    }
 }
 
 interface ActionsMenuProps {

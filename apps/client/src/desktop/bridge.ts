@@ -36,6 +36,17 @@ export function isDesktop(): boolean {
     return desktop() !== null;
 }
 
+/* The system browser in the desktop app, a new tab elsewhere. */
+export function openInSystemBrowser(url: string): void {
+    const bridge = desktop();
+
+    if (bridge) {
+        void bridge.openExternal(url);
+    } else {
+        window.open(url, '_blank', 'noopener,noreferrer');
+    }
+}
+
 /* Null outside the desktop app. A shell from before the mode ran a machine, so it reads `local`. */
 export function machineMode(): MachineMode | null {
     const bridge = desktop();

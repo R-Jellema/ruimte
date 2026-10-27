@@ -1,7 +1,7 @@
 import i18next from 'i18next';
 import type { ChatUiLinkReading } from '@ruimte/contracts';
 import { ignoreRefusal, perform } from '@/actions/client-actions';
-import { desktop } from '@/desktop/bridge';
+import { openInSystemBrowser } from '@/desktop/bridge';
 import { useFiles } from '@/state/files';
 import { currentEndpointId } from '@/state/keys';
 import { useProject } from '@/state/project';
@@ -56,10 +56,5 @@ export function openUiUrl(endpointId: string, input: string): void {
         refuse('invalidUrl');
         return;
     }
-    const bridge = desktop();
-    if (bridge) {
-        void bridge.openExternal(url.href);
-    } else {
-        window.open(url.href, '_blank', 'noopener,noreferrer');
-    }
+    openInSystemBrowser(url.href);
 }

@@ -29,7 +29,7 @@ import { lastScreenOf, registerTerminal } from '@/terminal/registry';
 import { hasControlCharacter, shellQuotedPaths } from '@/terminal/drop-path';
 import { CLEAR_SHORTCUT, platformShortcut } from '@/terminal/keymap';
 import { useTerminalFind } from '@/terminal/use-terminal-find';
-import { bindTerminalKeys, fittedGrid } from '@/terminal/xterm';
+import { bindTerminalKeys, drawSession, fittedGrid } from '@/terminal/xterm';
 import { sessionClientFor } from '@/transport/connections';
 import { useTransportStatus } from '@/transport/status';
 import { isApplePlatform } from '@/desktop/bridge';
@@ -353,13 +353,8 @@ function TerminalSession({ id, endpointId, viewRef, onFileLinkHover, onFailure }
 
         let cancelled = false;
         const unregister = registerTerminal(endpointId, id, term);
-        const offOutput = sessions.onOutput(id, (data) => view.write(data));
         // A client elsewhere that types into the same terminal sizes the PTY; this one draws that grid until a resize here claims it back.
-        const offSize = sessions.onSize(id, (size) => view.followGrid(size));
-        const offScreen = sessions.onScreen(id, ({ screen }) => {
-            view.reset();
-            view.write(screen);
-        });
+        const stopDrawing = drawSession(sessions, id, view);
 
         // An agent says which CLI and how; the daemon turns that into the line the shell gets.
         const agent = spec?.provider ? { kind: spec.provider, runtimeMode: spec.runtimeMode, resume: spec.resume, account: spec.account } : undefined;
@@ -389,9 +384,7 @@ function TerminalSession({ id, endpointId, viewRef, onFileLinkHover, onFailure }
         return () => {
             cancelled = true;
             element?.removeEventListener('pointerup', copySelection);
-            offOutput();
-            offSize();
-            offScreen();
+            stopDrawing();
             unregister();
             void sessions.detach(id);
         };

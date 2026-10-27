@@ -6,6 +6,7 @@ import { compileFind, type FindQuery } from '@adecore/editor-react/models';
 import { openFocusedFind } from '@/find/hosts';
 import { lastFindQuery, type FindSeed, type FindState } from '@/find/use-find';
 import { requiredShortcut } from '@/shell/editor-keymap';
+import { escapeRegExp } from '@/shell/panels/editor-config';
 import { editorForCommand } from '@/shell/panels/focused-editor';
 import { isApplePlatform } from '@/desktop/bridge';
 import { matchesShortcut } from '@adecore/ui';
@@ -44,11 +45,6 @@ interface EditorFind {
     selectAll(): void;
 }
 
-/* A regular expression finds the text it was given, not a pattern made of it. */
-function escapePattern(text: string): string {
-    return text.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
-}
-
 /*
  * What the bar opens on in an editor: the text that is selected, and for a replace over several lines
  * the selection as the place to search, with the search text left as it was.
@@ -65,7 +61,7 @@ export function seedFromSelection(editor: Editor, replace: boolean, query: FindQ
     if (replace && text.includes('\n')) {
         return { inSelection: true, ...(query.text.includes('\n') ? { text: '' } : {}) };
     }
-    return { text: query.regex ? escapePattern(text) : text, inSelection: false };
+    return { text: query.regex ? escapeRegExp(text) : text, inSelection: false };
 }
 
 /* The seed a file's find bar takes from its editor. */

@@ -125,6 +125,13 @@ export function withoutNestedRepos(status: GitStatus | null, root: string, other
     return files.length === status.files.length ? status : { ...status, files };
 }
 
+/* Every checkout of a list without the repositories that stand inside another one of it. */
+export function withoutNestedCheckouts(checkouts: readonly GitCheckout[]): GitCheckout[] {
+    const roots = checkouts.map((checkout) => checkout.path);
+
+    return checkouts.map((checkout) => ({ ...checkout, status: withoutNestedRepos(checkout.status, checkout.path, roots) }));
+}
+
 /* The project folder as the only repository. */
 export function soleRepo(folder: string): GitRepo[] {
     return [{ path: folder, label: basenameOf(folder), kind: 'root' }];

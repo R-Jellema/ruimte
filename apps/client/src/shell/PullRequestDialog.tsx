@@ -21,7 +21,7 @@ import {
 } from '@adecore/ui';
 import { useChooserSections } from '@/chat/chat-chooser';
 import { sendToChat } from '@/chat/selection-to-chat';
-import { desktop } from '@/desktop/bridge';
+import { openInSystemBrowser } from '@/desktop/bridge';
 import { groupChecks, mergeStateKey, threadBlock, visibleThreads } from '@/shell/pr-view';
 import { stopPrWatch } from '@/shell/pr-watch-actions';
 import { endpointKey, isOfEndpoint, useEndpointId } from '@/state/keys';
@@ -57,12 +57,7 @@ function openLink(url: string): void {
     if (!/^https:\/\//.test(url)) {
         return;
     }
-    const bridge = desktop();
-    if (bridge) {
-        void bridge.openExternal(url);
-    } else {
-        window.open(url, '_blank', 'noopener,noreferrer');
-    }
+    openInSystemBrowser(url);
 }
 
 type Reading = ({ pr: PullRequest | null } | { error: string }) & { attempt: number };
