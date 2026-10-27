@@ -13,7 +13,7 @@ import {
     sha256,
     type PushEnvelope
 } from '@ruimte/pulsar';
-import { apnsConfigured, invalidApnsToken, deliverApns, type ApnsResult } from './apns.ts';
+import { apnsConfigured, invalidApnsToken, deliverApns, type ApnsResult, type ApnsTarget } from './apns.ts';
 import { verifySignature } from '@ruimte/pulsar/verify-web';
 import type { Env } from './env.ts';
 import { clientIp, failure, json, noContent, readBody, signInAgain } from './http.ts';
@@ -60,16 +60,55 @@ async function selectsActivity(device: ActivitySelection, machineId: string, col
     return device.start_machine_id === machineId && device.start_collapse_id === collapseId;
 }
 
-interface DeliveryTarget {
-    token: string;
-    environment: 'sandbox' | 'production';
-    startsActivity: boolean;
-}
 export interface PushDeliverySeams {
     now(): number;
-    send(env: Env, target: DeliveryTarget, push: PushEnvelope, now: number): Promise<ApnsResult>;
+    send(env: Env, target: ApnsTarget, push: PushEnvelope, now: number): Promise<ApnsResult>;
 }
+
 const SYSTEM_PUSH: PushDeliverySeams = { now: Date.now, send: deliverApns };
+
+type LiveActivityPush = Extract<PushEnvelope, { pushType: 'liveactivity' }>;
+
+/* One conversation's activity on one device. */
+interface ActivityKey {
+    handle: string;
+    machineId: string;
+    collapseId: string;
+}
+
+async function deliver(seams: PushDeliverySeams, env: Env, target: ApnsTarget, push: PushEnvelope, now: number): Promise<ApnsResult> {
+    try {
+        return await seams.send(env, target, push, now);
+    } catch {
+        return { ok: false, status: 502 };
+    }
+}
+
+/* False when the activity no longer had this token. */
+async function forgetActivityToken(env: Env, activity: ActivityKey, token: string): Promise<boolean> {
+    const removed = await env.DB.prepare('DELETE FROM push_activity WHERE handle = ?1 AND machine_id = ?2 AND collapse_id = ?3 AND token = ?4')
+        .bind(activity.handle, activity.machineId, activity.collapseId, token)
+        .run();
+    return removed.meta.changes > 0;
+}
+
+/* The start of this round of the activity, whether or not it began. */
+async function releaseStart(env: Env, push: LiveActivityPush): Promise<void> {
+    await env.DB.prepare(
+        'DELETE FROM push_activity_start WHERE handle = ?1 AND collapse_id = ?2 AND machine_id = ?3 AND (started_at IS NULL OR started_at = ?4)'
+    )
+        .bind(push.handle, push.collapseId, push.machineId, push.activity.startedAt)
+        .run();
+}
+
+/* Kept for the registration that brings the activity's update token. */
+async function holdForToken(env: Env, push: LiveActivityPush): Promise<void> {
+    await env.DB.prepare(
+        'UPDATE push_activity_start SET pending_push = ?4 WHERE handle = ?1 AND collapse_id = ?2 AND machine_id = ?3 AND (started_at IS NULL OR started_at = ?5)'
+    )
+        .bind(push.handle, push.collapseId, push.machineId, JSON.stringify(push), push.activity.startedAt)
+        .run();
+}
 
 export async function changePushDevice(
     request: Request,
@@ -188,9 +227,11 @@ export async function changePushDevice(
                     );
                     if (result.ok) {
                         if (parsed.data.activity.phase === 'done') {
-                            await env.DB.prepare('DELETE FROM push_activity WHERE handle = ?1 AND machine_id = ?2 AND collapse_id = ?3 AND token = ?4')
-                                .bind(handle, body.value.machineId, body.value.collapseId, body.value.token.toLowerCase())
-                                .run();
+                            await forgetActivityToken(
+                                env,
+                                { handle, machineId: body.value.machineId, collapseId: body.value.collapseId },
+                                body.value.token.toLowerCase()
+                            );
                             await env.DB.prepare(
                                 'DELETE FROM push_activity_start WHERE handle = ?1 AND machine_id = ?2 AND collapse_id = ?3 AND pending_push = ?4'
                             )
@@ -315,70 +356,33 @@ export async function sendPush(request: Request, env: Env, seams: PushDeliverySe
     if (receipt.meta.changes === 0) {
         return failure('bad-request', 'This notification was already submitted');
     }
-    if (endsUnregisteredActivity && push.pushType === 'liveactivity') {
-        await env.DB.prepare(
-            'UPDATE push_activity_start SET pending_push = ?4 WHERE handle = ?1 AND collapse_id = ?2 AND machine_id = ?3 AND (started_at IS NULL OR started_at = ?5)'
-        )
-            .bind(push.handle, push.collapseId, push.machineId, JSON.stringify(push), push.activity.startedAt)
-            .run();
-        return noContent();
-    }
-    if (startsActivity && push.pushType === 'liveactivity') {
-        if (!(await claimActivityStart(env, push, now, device.activity_scope === 'machines'))) {
-            await env.DB.prepare(
-                'UPDATE push_activity_start SET pending_push = ?4 WHERE handle = ?1 AND collapse_id = ?2 AND machine_id = ?3 AND (started_at IS NULL OR started_at = ?5)'
-            )
-                .bind(push.handle, push.collapseId, push.machineId, JSON.stringify(push), push.activity.startedAt)
-                .run();
+    if (push.pushType === 'liveactivity') {
+        const waitsForToken = endsUnregisteredActivity || (startsActivity && !(await claimActivityStart(env, push, now, device.activity_scope === 'machines')));
+        if (waitsForToken) {
+            await holdForToken(env, push);
             return noContent();
         }
     }
-    let result: ApnsResult;
-    try {
-        result = await seams.send(env, { token, environment: device.environment, startsActivity }, push, now);
-    } catch {
-        result = { ok: false, status: 502 };
-    }
+    let result = await deliver(seams, env, { token, environment: device.environment, startsActivity }, push, now);
     if (!startsActivity && push.pushType === 'liveactivity' && invalidApnsToken(result)) {
-        const removed = await env.DB.prepare('DELETE FROM push_activity WHERE handle = ?1 AND machine_id = ?2 AND collapse_id = ?3 AND token = ?4')
-            .bind(push.handle, push.machineId, push.collapseId, token)
-            .run();
-        if (removed.meta.changes > 0) {
-            await env.DB.prepare(
-                'DELETE FROM push_activity_start WHERE handle = ?1 AND machine_id = ?2 AND collapse_id = ?3 AND (started_at IS NULL OR started_at = ?4)'
-            )
-                .bind(push.handle, push.machineId, push.collapseId, push.activity.startedAt)
-                .run();
+        if (await forgetActivityToken(env, push, token)) {
+            await releaseStart(env, push);
             if (push.activity.phase === 'done') {
                 return noContent();
             }
             if (device.start_token && (await claimActivityStart(env, push, now, device.activity_scope === 'machines'))) {
                 token = device.start_token;
                 startsActivity = true;
-                try {
-                    result = await seams.send(env, { token, environment: device.environment, startsActivity }, push, now);
-                } catch {
-                    result = { ok: false, status: 502 };
-                }
+                result = await deliver(seams, env, { token, environment: device.environment, startsActivity }, push, now);
             }
         }
     }
     if (startsActivity && !result.ok && push.pushType === 'liveactivity') {
-        await env.DB.prepare(
-            'DELETE FROM push_activity_start WHERE handle = ?1 AND collapse_id = ?2 AND machine_id = ?3 AND (started_at IS NULL OR started_at = ?4)'
-        )
-            .bind(push.handle, push.collapseId, push.machineId, push.activity.startedAt)
-            .run();
+        await releaseStart(env, push);
     }
     if (result.ok && push.pushType === 'liveactivity' && push.activity.phase === 'done') {
-        await env.DB.prepare('DELETE FROM push_activity WHERE handle = ?1 AND collapse_id = ?2 AND token = ?3 AND machine_id = ?4')
-            .bind(push.handle, push.collapseId, token, push.machineId)
-            .run();
-        await env.DB.prepare(
-            'DELETE FROM push_activity_start WHERE handle = ?1 AND collapse_id = ?2 AND machine_id = ?3 AND (started_at IS NULL OR started_at = ?4)'
-        )
-            .bind(push.handle, push.collapseId, push.machineId, push.activity.startedAt)
-            .run();
+        await forgetActivityToken(env, push, token);
+        await releaseStart(env, push);
     }
     if (invalidApnsToken(result)) {
         if (push.pushType !== 'liveactivity') {
@@ -386,9 +390,7 @@ export async function sendPush(request: Request, env: Env, seams: PushDeliverySe
         } else if (startsActivity) {
             await env.DB.prepare('UPDATE push_device SET start_token = NULL WHERE handle = ?1 AND start_token = ?2').bind(push.handle, token).run();
         } else {
-            await env.DB.prepare('DELETE FROM push_activity WHERE handle = ?1 AND collapse_id = ?2 AND token = ?3 AND machine_id = ?4')
-                .bind(push.handle, push.collapseId, token, push.machineId)
-                .run();
+            await forgetActivityToken(env, push, token);
         }
     }
     if (!result.ok) {

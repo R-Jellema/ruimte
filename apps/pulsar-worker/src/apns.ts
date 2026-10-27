@@ -5,11 +5,12 @@ import { countPush, pushOutcomeOf } from './metrics.ts';
 
 type ApnsEnvironment = 'sandbox' | 'production';
 
-interface ApnsTarget {
+export interface ApnsTarget {
     token: string;
     environment: ApnsEnvironment;
     startsActivity: boolean;
 }
+
 export interface ApnsResult {
     ok: boolean;
     status: number;
@@ -68,14 +69,15 @@ export function apnsPayload(push: PushEnvelope, startsActivity: boolean, deliver
         return { aps: { alert: { title: 'Ruimte', body: 'An agent has an update for you.' }, 'mutable-content': 1, sound: 'default' }, ruimte: push };
     }
     const done = push.activity.phase === 'done';
+    const quarterHourOn = Math.floor(deliveredAt / 1000) + 15 * 60;
     return {
         aps: {
             timestamp: Math.floor(push.issuedAt / 1000),
             event: done ? 'end' : startsActivity ? 'start' : 'update',
             'content-state': push.activity,
-            'stale-date': Math.floor(deliveredAt / 1000) + 15 * 60,
+            'stale-date': quarterHourOn,
             'relevance-score': push.activity.phase === 'needs-you' ? 100 : 50,
-            ...(done ? { 'dismissal-date': Math.floor(deliveredAt / 1000) + 15 * 60 } : {}),
+            ...(done ? { 'dismissal-date': quarterHourOn } : {}),
             ...(startsActivity && !done
                 ? {
                       'attributes-type': 'RuimteActivityAttributes',
