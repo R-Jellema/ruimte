@@ -12,10 +12,10 @@ describe a model, and a change touches each that applies:
 | --- | --- | --- |
 | D1 `ruimte-pulsar`, tables `model_catalogs`, `model_catalog_profiles`, `model_catalog_models` | The source of truth that `/v1` and `/v2/models/catalog` answer | SQL with wrangler, no deploy |
 | `../adecore/packages/agents/src/providers/<kind>-models.json` | What a release starts with before its first answer, and the Worker's fallback | An edit and a commit in ADE CORE, released when Bas asks |
-| `apps/pulsar-worker/src/benchmark-models.ts` | The model comparison (bench.ruimte.app and the app) | An edit, a push to main, which deploys the Worker |
+| D1 table `model_catalog_benchmarks` | The model comparison (bench.ruimte.app and the app): which Artificial Analysis model stands for each effort | SQL with wrangler, no deploy |
 
-`apps/pulsar-worker/README.md` ("Model catalogs") holds the rules of the tables; read it once before the first
-edit. Kinds: `claude` and `codex` (served on v1 and v2), `grok`, `copilot` and `antigravity` (v2 only).
+`apps/pulsar-worker/README.md` ("Model catalogs" and "Model benchmarks") holds the rules of the tables; read it
+once before the first edit. Kinds: `claude` and `codex` (served on v1 and v2), `grok`, `copilot` and `antigravity` (v2 only).
 
 ## Steps
 
@@ -70,14 +70,21 @@ edit. Kinds: `claude` and `codex` (served on v1 and v2), `grok`, `copilot` and `
    `bun --conditions=source test packages/agents/src/providers` there, commit as
    `feat(agents): ...` and push. Do not release ADE CORE unless Bas asks.
 
-7. **The model comparison.** Every model of `claude` and `codex` the picker shows has a row in
-   `BENCHMARK_MODELS`, and so does a Grok or Gemini model Bas wants compared. Give it the same slug and name,
-   the same `legacy` as in D1, the provider of its lab, and one effort per choice of its effort option, cheapest
-   first. The ids and names of the efforts are Artificial Analysis's own model ids. Take them only from their
-   Data API or their site. A model they have not measured yet gets `{ effort, id: null, name: null }` per effort
-   (see GPT-6.1 Terra in the history). Mark a model legacy here in the same change as in D1. Run
-   `bun test src/benchmark-models.test.ts` in `apps/pulsar-worker`, then `bun run check`, commit as
-   `feat(pulsar-worker): ...` and push; the push deploys the Worker.
+7. **The model comparison.** Every model of `claude` and `codex` the picker shows has rows in
+   `model_catalog_benchmarks`, and so does a Grok or Gemini model (kinds `grok` and `antigravity`) Bas wants
+   compared. Copilot has no lab and is never compared. One row per choice of the model's effort option, with
+   `position` cheapest first. Name and legacy come from the catalog row, so they need nothing here, and a
+   deleted model takes its rows along. `source_id` and `source_name` are Artificial Analysis's own id and name
+   of that effort. Find them among what the last refresh measured, which needs no key:
+
+   ```sh
+   bunx wrangler d1 execute ruimte-pulsar --remote --json --command "SELECT source_id, name FROM benchmark_measurements WHERE name LIKE '%Opus 6%' ORDER BY name"
+   ```
+
+   Take an id only when the name names that model and effort without doubt. A model they have not measured yet
+   gets its rows with both columns null (see GPT-6.1 Terra), and an `UPDATE` once it shows up. Check the answer of
+   `GET https://pulsar.ruimte.app/v1/models/benchmarks`: the model is in `models`, with a point per measured
+   effort.
 
 8. **Report** what changed per place, every legacy or default decision with its reason, and what you could not
    confirm.
