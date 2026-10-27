@@ -1,4 +1,4 @@
-import type { ProjectView } from '@ruimte/contracts';
+import { viewIconOf, type AgentKind, type ProjectIconChoice, type ProjectView } from '@ruimte/contracts';
 import type { Tab } from '@/state/files';
 
 /*
@@ -19,4 +19,21 @@ export type CellView = ProjectView | LooseCellView;
 
 export function isLooseView(view: CellView | null | undefined): view is LooseCellView {
     return view?.kind === 'loose';
+}
+
+/* What a view says about its own mark, as `ViewGlyph` takes it. */
+export function viewGlyphOf(view: ProjectView): {
+    id: string;
+    kind: ProjectView['kind'];
+    icon: ProjectIconChoice | null;
+    provider: AgentKind | null;
+    path: string | null;
+} {
+    return {
+        id: view.id,
+        kind: view.kind,
+        icon: viewIconOf(view),
+        provider: view.kind === 'chat' || view.kind === 'terminal' ? (view.node.provider ?? null) : null,
+        path: view.kind === 'file' ? view.path : null
+    };
 }

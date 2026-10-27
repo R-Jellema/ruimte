@@ -2,10 +2,9 @@ import { useEffect, useRef, useState, type ReactElement } from 'react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { MoreHorizontal, Ungroup } from 'lucide-react';
-import { viewIconOf } from '@ruimte/contracts';
 import { closeCellAction } from '@/actions/client-actions';
 import { ViewGlyph } from '@/project/ViewGlyph';
-import { isLooseView, type CellView } from '@/shell/cell-view';
+import { isLooseView, viewGlyphOf, type CellView } from '@/shell/cell-view';
 import { FileToolbarSlotProvider } from '@/shell/panels/file-toolbar-slot';
 import { FileMenuItems } from '@/shell/panels/FileMenuItems';
 import { LooseGlyph } from '@/shell/panels/LooseGlyph';
@@ -192,18 +191,12 @@ export function CellToolbar({ at, view, focused, children }: { at: CellAt; view:
                                    title would only take its room. */
                                 <Tooltip label={visibleTitle}>
                                     <span className="inline-flex shrink-0">
-                                        <ViewGlyph id={view.id} kind={view.kind} icon={viewIconOf(view)} provider={null} path={null} />
+                                        <ViewGlyph {...viewGlyphOf(view)} />
                                     </span>
                                 </Tooltip>
                             ) : (
                                 <>
-                                    <ViewGlyph
-                                        id={view.id}
-                                        kind={view.kind}
-                                        icon={viewIconOf(view)}
-                                        provider={view.kind === 'chat' || view.kind === 'terminal' ? view.node.provider : null}
-                                        path={view.kind === 'file' ? view.path : null}
-                                    />
+                                    <ViewGlyph {...viewGlyphOf(view)} />
                                     <SubagentTitleCrumb chatId={view.id} className="text-text-muted hover:text-text">
                                         <span className="min-w-0 truncate font-medium">{visibleTitle}</span>
                                     </SubagentTitleCrumb>

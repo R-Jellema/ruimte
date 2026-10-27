@@ -3,7 +3,7 @@ import { ArrowDown, ArrowUp, ChartNoAxesColumn, Plus, Settings } from 'lucide-re
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { usePanelGap } from '@/shell/panel-layout';
-import { isSessionView, isUnlistedView, type AgentKind, viewIconOf } from '@ruimte/contracts';
+import { isSessionView, isUnlistedView, type AgentKind } from '@ruimte/contracts';
 import { useShallow } from 'zustand/react/shallow';
 import { moveViewAction } from '@/actions/client-actions';
 import { useDrafts } from '@adecore/agents-react/chat';
@@ -22,8 +22,22 @@ import { useUi } from '@/state/ui';
 import { useEndpointId, endpointOfNodeIn } from '@/state/keys';
 import { useEndpoints } from '@/state/endpoints';
 import { snoozeOf, useSnoozes } from '@/state/snooze';
-import { buildSidebar, gapIndex, isSessionKind, rowAfterArrow, rowOrder, type SidebarNode, type SidebarProject } from '@/shell/sidebar-rows';
+import {
+    buildCombinedSidebar,
+    buildSidebar,
+    buildSidebarEverywhere,
+    gapIndex,
+    isSessionKind,
+    rowAfterArrow,
+    rowOrder,
+    type SidebarGroup,
+    type SidebarNode,
+    type SidebarProject,
+    type SidebarRow,
+    type SidebarSection
+} from '@/shell/sidebar-rows';
 import { useSidebarSource } from '@/shell/sidebar-source';
+import { viewGlyphOf } from '@/shell/cell-view';
 import { childTask, useTasks } from '@/state/tasks';
 import { StatusDot } from '@/canvas/NodeFrame';
 import { Brand } from '@/ui/Brand';
@@ -43,7 +57,6 @@ import { newChat } from '@/project/new-chat';
 import { NewViewItems } from '@/shell/NewViewMenu';
 import { useSidebarGroups } from './sidebar-groups';
 import { openSidebarTarget } from './sidebar-navigation';
-import { buildCombinedSidebar, buildSidebarEverywhere, type SidebarGroup, type SidebarRow, type SidebarSection } from './sidebar-rows';
 import { NeedsYouCard } from './NeedsYouCard';
 import {
     BackgroundRow,
@@ -154,7 +167,7 @@ export function Sidebar() {
                     snoozedUntil: snoozeOf(snoozes, machine, node.id)
                 };
             };
-            const provider = view.kind === 'chat' || view.kind === 'terminal' ? view.node.provider : undefined;
+            const { icon, provider, path } = viewGlyphOf(view);
             return {
                 id: view.id,
                 name: view.name ?? '',
@@ -162,12 +175,14 @@ export function Sidebar() {
                 kind: view.kind,
                 shared: shared.includes(view.id),
                 flag: flags[view.id],
-                icon: viewIconOf(view),
-                provider: provider ?? null,
-                path: view.kind === 'file' ? view.path : null,
+                icon,
+                provider,
+                path,
                 nodes: live.filter((node) => isSessionKind(node.kind)).map(asRow),
                 // Only a session view is a node of its own; a divider and a drawing have no status.
-                self: isSessionView(view) ? asRow({ id: view.id, kind: view.kind, title: view.name, titleSource: view.titleSource, provider }) : null,
+                self: isSessionView(view)
+                    ? asRow({ id: view.id, kind: view.kind, title: view.name, titleSource: view.titleSource, provider: provider ?? undefined })
+                    : null,
                 hidden: isUnlistedView(view)
             };
         })
@@ -217,8 +232,8 @@ export function Sidebar() {
             setInsertAt(null);
             return;
         }
-        transfer?.setData(VIEW_DRAG_TYPE, drag.viewId);
         if (transfer) {
+            transfer.setData(VIEW_DRAG_TYPE, drag.viewId);
             transfer.effectAllowed = 'move';
         }
     };
@@ -342,8 +357,6 @@ export function Sidebar() {
         );
     };
 
-    const newViewRow = (group: SidebarGroup, rowId: string): ReactNode => <NewViewRow group={group} rowId={rowId} tabbable={roving === rowId} />;
-
     /* The group of another project a row stands for, which then draws as a background row. */
     const ownerOf = (row: SidebarRow): SidebarGroup | undefined => {
         const target = row.target;
@@ -445,8 +458,8 @@ export function Sidebar() {
                             // A reorder lands only in the list the row came out of.
                             const reorderable = takesDrop && dragging?.sectionId === section.id;
                             const group = section.group;
-                            const movableGroup = group !== undefined && group !== null && group.summary.scratch !== true ? group : null;
-                            const viewDragOver: ((e: React.DragEvent<HTMLDivElement>) => void) | undefined = takesDrop
+                            const movableGroup = group !== undefined && group.summary.scratch !== true ? group : null;
+                            const viewDragOver: (e: React.DragEvent<HTMLDivElement>) => void = takesDrop
                                 ? (e) => {
                                       // Only a file or a table promotes: a diff, a commit or a designer has no row to become, and a whole host is no tab.
                                       const loose = useFiles.getState().tabs.find((entry) => entry.key === draggedView());
@@ -506,7 +519,7 @@ export function Sidebar() {
                                                     }
                                                     return;
                                                 }
-                                                viewDragOver?.(e);
+                                                viewDragOver(e);
                                             }}
                                             onDragLeave={(e) => {
                                                 if (movableGroup !== null && !e.currentTarget.contains(e.relatedTarget as Node | null)) {
@@ -617,7 +630,11 @@ export function Sidebar() {
                                             {section.group && newViewIn(section) && (
                                                 <>
                                                     {section.rows.length > 0 && <div role="separator" className="my-1 h-px shrink-0 bg-border-soft" />}
-                                                    {newViewRow(section.group, `new-view:${section.id}`)}
+                                                    <NewViewRow
+                                                        group={section.group}
+                                                        rowId={`new-view:${section.id}`}
+                                                        tabbable={roving === `new-view:${section.id}`}
+                                                    />
                                                 </>
                                             )}
                                             {movableGroup !== null && projectInsert?.key === movableGroup.key && projectInsert.after && (

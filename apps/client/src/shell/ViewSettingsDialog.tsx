@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MAX_TITLE_LENGTH } from '@ruimte/actions';
-import { type ProjectIconChoice, type ProjectView, viewIconOf } from '@ruimte/contracts';
+import type { ProjectIconChoice, ProjectView } from '@ruimte/contracts';
 import { renameViewAction, setViewIconAction } from '@/actions/client-actions';
 import { ViewGlyph } from '@/project/ViewGlyph';
 import { resetTitle } from '@/nodes/node-host';
 import { PROJECT_ICON_KEYWORDS } from '@/project/project-icons';
 import { useProjectIconGroups } from '@/project/use-project-icon-groups';
+import { viewGlyphOf } from '@/shell/cell-view';
 import { submitOnEnter } from '@/shell/submit-on-enter';
 import { Button, Dialog, Field, IconPicker, Input, SectionLabel } from '@adecore/ui';
 
@@ -17,8 +18,8 @@ import { Button, Dialog, Field, IconPicker, Input, SectionLabel } from '@adecore
  */
 export function ViewSettingsDialog({ view, onClose }: { view: ProjectView; onClose(): void }) {
     const { t } = useTranslation(['shell', 'common']);
-    const chosen = viewIconOf(view);
-    const provider = view.kind === 'chat' || view.kind === 'terminal' ? view.node.provider : null;
+    const glyph = viewGlyphOf(view);
+    const chosen = glyph.icon;
     const given = view.name ?? '';
     const [name, setName] = useState(given);
     const iconGroups = useProjectIconGroups();
@@ -57,7 +58,7 @@ export function ViewSettingsDialog({ view, onClose }: { view: ProjectView; onClo
                 {t('common:icon.label')}
             </SectionLabel>
             <div className="flex items-center gap-3">
-                <ViewGlyph id={view.id} kind={view.kind} icon={chosen} provider={provider} path={view.kind === 'file' ? view.path : null} size={20} />
+                <ViewGlyph {...glyph} size={20} />
                 <div className="flex min-w-0 flex-col">
                     <span className="truncate text-sm text-text">{name.trim() === '' ? given : name}</span>
                     <span className="truncate text-sm text-text-faint">{chosen ? t('viewIcon.pickedHere') : t('viewIcon.defaultForKind')}</span>

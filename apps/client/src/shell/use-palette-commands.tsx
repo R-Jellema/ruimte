@@ -1,26 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { shallow } from 'zustand/shallow';
-import {
-    CalendarClock,
-    CircleQuestionMark,
-    FileText,
-    Globe,
-    LayoutGrid,
-    MessageSquare,
-    Package,
-    PenTool,
-    SlidersHorizontal,
-    Smartphone,
-    StickyNote,
-    Terminal,
-    Workflow,
-    Zap
-} from 'lucide-react';
-import { isCanvasView, isOpenableView, viewIconOf, type CanvasNodeKind } from '@ruimte/contracts';
+import { SlidersHorizontal, Zap } from 'lucide-react';
+import { isCanvasView, isOpenableView } from '@ruimte/contracts';
 import { Icon } from '@adecore/ui';
 import { openProjectAction } from '@/actions/client-actions';
 import { useBrowser } from '@/browser/registry';
+import { NODE_KIND_ICONS } from '@/canvas/node-icons';
 import { viewShortcut } from '@/canvas/shortcuts';
 import { isApplePlatform } from '@/desktop/bridge';
 import { ProjectGlyph } from '@/project/ProjectGlyph';
@@ -28,6 +14,7 @@ import { ViewGlyph } from '@/project/ViewGlyph';
 import { useViewNodes } from '@/project/view-nodes';
 import { revealNode, showView } from '@/project/views';
 import { openInNewWindow, wantsNewWindow } from '@/project/windows';
+import { viewGlyphOf } from '@/shell/cell-view';
 import { appCommands, OPENING_COMMAND_IDS, type Command } from '@/shell/commands';
 import { PaletteEntryItem } from '@/shell/PaletteEntryItem';
 import { entryMatches, groupBySection, pageKeywords, type Entry, type PaletteContext, type PaletteModeView } from '@/shell/palette-entries';
@@ -42,21 +29,6 @@ import { useProject } from '@/state/project';
 import { useProjectList } from '@/state/project-list';
 import { useOpenEndpoints } from '@/transport/status';
 import { AgentIcon } from '@adecore/agents-react/providers';
-
-const KIND_ICON: Record<CanvasNodeKind, React.ReactNode> = {
-    terminal: <Icon icon={Terminal} size={14} />,
-    chat: <Icon icon={MessageSquare} size={14} />,
-    browser: <Icon icon={Globe} size={14} />,
-    device: <Icon icon={Smartphone} size={14} />,
-    group: <Icon icon={LayoutGrid} size={14} />,
-    note: <Icon icon={StickyNote} size={14} />,
-    drawing: <Icon icon={PenTool} size={14} />,
-    diagram: <Icon icon={Workflow} size={14} />,
-    file: <Icon icon={FileText} size={14} />,
-    artifact: <Icon icon={Package} size={14} />,
-    routine: <Icon icon={CalendarClock} size={14} />,
-    unknown: <Icon icon={CircleQuestionMark} size={14} />
-};
 
 // What an empty palette shows of the two lists that have no natural end.
 const OPENING_RECENTS = 5;
@@ -107,7 +79,7 @@ export function usePaletteCommands(context: PaletteContext, files: readonly Entr
                     id: `node-${node.id}`,
                     label: node.title,
                     hint: here ? t(`nodeKinds.${node.kind}`) : t('palette.kindInView', { kind: t(`nodeKinds.${node.kind}`), view: view.name }),
-                    icon: KIND_ICON[node.kind],
+                    icon: <Icon icon={NODE_KIND_ICONS[node.kind]} size={14} />,
                     ...(node.kind === 'browser' ? { keywords: pageOf(node.id, node.url) } : {}),
                     here,
                     section: 'jump' as const,
@@ -118,15 +90,7 @@ export function usePaletteCommands(context: PaletteContext, files: readonly Entr
             id: `view-${view.id}`,
             label: view.name ?? '',
             shortcut: viewShortcut(at),
-            icon: (
-                <ViewGlyph
-                    id={view.id}
-                    kind={view.kind}
-                    icon={viewIconOf(view)}
-                    provider={view.kind === 'chat' || view.kind === 'terminal' ? view.node.provider : null}
-                    path={view.kind === 'file' ? view.path : null}
-                />
-            ),
+            icon: <ViewGlyph {...viewGlyphOf(view)} />,
             ...(view.kind === 'browser' ? { keywords: pageOf(view.id, view.url) } : {}),
             section: 'views' as const,
             run: () => showView(view.id)
@@ -196,14 +160,8 @@ export function usePaletteCommands(context: PaletteContext, files: readonly Entr
     })();
 
     const run = (entry: Entry, newWindow: boolean): void => {
-        // Jumping to a node, a file, a view or a project is not a command; only what "Actions" lists comes back.
-        if (
-            entry.section !== 'jump' &&
-            entry.section !== 'files' &&
-            entry.section !== 'views' &&
-            entry.section !== 'projects' &&
-            entry.section !== 'settings'
-        ) {
+        // Only a command comes back among the recents; a jump, a file, a view, a project or a setting does not.
+        if (entry.section === 'actions' || entry.section === 'recent') {
             setRecents(rememberRecent(entry.id));
         }
         close();

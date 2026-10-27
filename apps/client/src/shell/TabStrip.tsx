@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { AgentStatus } from '@ruimte/contracts';
-import { viewIconOf, type ProjectView } from '@ruimte/contracts';
+import type { AgentStatus, ProjectView } from '@ruimte/contracts';
 import { StatusDot } from '@/canvas/NodeFrame';
 import { PATHS_DRAG_TYPE } from '@/canvas/drop';
 import { writeMentionDrag } from '@adecore/agents-react/chat';
@@ -10,7 +9,7 @@ import { useDatabaseConnectionList } from '@/database/connections';
 import { databaseTabTitle } from '@/database/tab-look';
 import { ViewGlyph } from '@/project/ViewGlyph';
 import { closeTabAction } from '@/actions/client-actions';
-import { isLooseView, type LooseCellView } from '@/shell/cell-view';
+import { isLooseView, viewGlyphOf, type LooseCellView } from '@/shell/cell-view';
 import { FileMenuItems } from '@/shell/panels/FileMenuItems';
 import { LooseGlyph } from '@/shell/panels/LooseGlyph';
 import { basenameOf } from '@/shell/panels/files-tree';
@@ -86,6 +85,11 @@ function TabShell({ id, label, hint, glyph, detail, unsavedLabel, pinned = false
     );
 }
 
+/* A loose tab pins on a double click and closes out of the pool. */
+function looseControls(key: string, pinned: boolean): Pick<TabShellProps, 'pinned' | 'onDoubleClick' | 'onClose'> {
+    return { pinned, onDoubleClick: () => useFiles.getState().setPinned(key, !pinned), onClose: () => useFiles.getState().close(key) };
+}
+
 /* A changed side that changed nothing has no number: `+0` is noise, and both at zero is a diff with nothing in it to count. */
 function LineCount({ tabKey }: { tabKey: string }) {
     const count = useGit((s) => s.counts[tabKey]);
@@ -126,7 +130,7 @@ function FileTabItem({ tab, tabKey, label }: { tab: FileTab; tabKey: string; lab
             glyph={<LooseGlyph tab={tab} />}
             detail={tab.view ? <LineCount tabKey={tabKey} /> : undefined}
             unsavedLabel={unsaved ? t('file.unsaved.mark') : undefined}
-            pinned={tab.pinned}
+            {...looseControls(tabKey, tab.pinned)}
             /* A diff is a tab about a comparison, so there is nothing for a canvas or a composer to take from it. */
             onDragData={
                 tab.view === undefined
@@ -136,8 +140,6 @@ function FileTabItem({ tab, tabKey, label }: { tab: FileTab; tabKey: string; lab
                       }
                     : undefined
             }
-            onDoubleClick={() => useFiles.getState().setPinned(tabKey, !tab.pinned)}
-            onClose={() => useFiles.getState().close(tabKey)}
             menu={<FileMenuItems tabKey={tabKey} />}
         />
     );
@@ -156,27 +158,14 @@ function DatabaseTabItem({ tab }: { tab: DatabaseTab }) {
             hint={connection === '' ? tab.schema : t('tab.hint', { schema: tab.schema, connection })}
             glyph={<LooseGlyph tab={tab} />}
             unsavedLabel={unsubmitted ? t('tab.unsubmitted') : undefined}
-            pinned={tab.pinned}
-            onDoubleClick={() => useFiles.getState().setPinned(tab.key, !tab.pinned)}
-            onClose={() => useFiles.getState().close(tab.key)}
+            {...looseControls(tab.key, tab.pinned)}
             menu={<FileMenuItems tabKey={tab.key} />}
         />
     );
 }
 
 function ArtifactTabItem({ tab, label }: { tab: ArtifactTab; label: string }) {
-    return (
-        <TabShell
-            id={tab.key}
-            label={label}
-            hint={label}
-            glyph={<LooseGlyph tab={tab} />}
-            pinned={tab.pinned}
-            onDoubleClick={() => useFiles.getState().setPinned(tab.key, !tab.pinned)}
-            onClose={() => useFiles.getState().close(tab.key)}
-            menu={null}
-        />
-    );
+    return <TabShell id={tab.key} label={label} hint={label} glyph={<LooseGlyph tab={tab} />} {...looseControls(tab.key, tab.pinned)} menu={null} />;
 }
 
 function LooseTabItem({ view }: { view: LooseCellView }) {
@@ -212,15 +201,7 @@ function ProjectTabItem({ view }: { view: ProjectView }) {
             label={label}
             hint={label}
             unsavedLabel={unsubmitted ? td('tab.unsubmitted') : undefined}
-            glyph={
-                <ViewGlyph
-                    id={view.id}
-                    kind={view.kind}
-                    icon={viewIconOf(view)}
-                    provider={view.kind === 'chat' || view.kind === 'terminal' ? view.node.provider : null}
-                    path={view.kind === 'file' ? view.path : null}
-                />
-            }
+            glyph={<ViewGlyph {...viewGlyphOf(view)} />}
             attention={view.kind === 'chat' ? <ChatAttention id={view.id} /> : view.kind === 'terminal' ? <TerminalAttention id={view.id} /> : undefined}
             pinned={pinned}
             onDoubleClick={() => setTabPinned(view.id, !pinned)}
