@@ -39,7 +39,7 @@ const uiSource = realpathSync(fileURLToPath(new URL('./node_modules/@adecore/ui/
 const reactCompiledSources = REACT_COMPILED_PACKAGES.map((name) => fileURLToPath(new URL(`./node_modules/${name}`, import.meta.url)))
     .filter(existsSync)
     .map((path) => `${realpathSync(path)}/src`)
-    .flatMap((source) => [`${source}/**/*.{ts,tsx}`, `!${source}/**/*.test.{ts,tsx}`, `!${source}/testing/**`]);
+    .flatMap((source) => [`${source}/**/*.{ts,tsx}`, `!${source}/**/*.test.{ts,tsx}`, `!${source}/testing/**`, `!${source}/**/test-support.ts`]);
 
 /*
  * The web client at `station.ruimte.app` (`vite build --mode station`). It is the same page, plus what

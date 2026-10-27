@@ -19,6 +19,8 @@ export async function withDevServer(config: InlineConfig, run: (server: ViteDevS
         configFile: fileURLToPath(new URL('../vite.config.ts', import.meta.url)),
         cacheDir: join(temporary, 'cache'),
         logLevel: 'silent',
+        // Bundled dev serves only what the app's entries reach, and a probe module is imported on its own.
+        experimental: { bundledDev: false },
         ...config,
         server: { port: 0, warmup: { clientFiles: [] } }
     });

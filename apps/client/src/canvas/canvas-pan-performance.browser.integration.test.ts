@@ -1,5 +1,4 @@
 import { expect, test } from 'bun:test';
-import { Glob } from 'bun';
 import { join } from 'node:path';
 import { clientDirectory, frame, withBrowserFixture } from '../../testing/browser-fixture';
 
@@ -86,8 +85,14 @@ function canvasView(notes: number) {
 
 async function builtStyles(): Promise<string> {
     // The stylesheet the client ships, built by `test:browser` before the suite, so layout and paint cost what they cost in the app.
-    for (const file of new Glob('dist/assets/index-*.css').scanSync({ cwd: clientDirectory })) {
-        return (await Bun.file(join(clientDirectory, file)).text()).replaceAll('</style', '');
+    // The page names its own stylesheets, so the file is found by what index.html links and not by a chunk name.
+    const page = await Bun.file(join(clientDirectory, 'dist/index.html'))
+        .text()
+        .catch(() => '');
+    const hrefs = [...page.matchAll(/<link[^>]*rel="stylesheet"[^>]*href="\/?([^"]+)"/g)].map((match) => match[1]!);
+    if (hrefs.length > 0) {
+        const sheets = await Promise.all(hrefs.map((href) => Bun.file(join(clientDirectory, 'dist', href)).text()));
+        return sheets.join('\n').replaceAll('</style', '');
     }
     throw new Error('Build the client first (`bun run --cwd apps/client build`), which `bun run test:browser` does.');
 }
