@@ -4,13 +4,14 @@ import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { LanguageRequestResult } from '@ruimte/contracts';
-import type { Diagnostic, Position } from '@adecore/lsp';
+import type { Diagnostic } from '@adecore/lsp';
 import { MachineHome } from '../fs/machine-home.ts';
 import type { SessionEvent } from '../sessions/manager.ts';
 import { LanguageHost } from './host.ts';
 import { cargoCommand, NativePolicy, phpLanguageServerCheckout, type Download } from './native.ts';
 import { spawnLanguageProcess } from './runtime.ts';
 import { tarGz } from './test-archives.ts';
+import { eventually, positionOf } from './test-integration.ts';
 
 /*
  * The standalone PHP server, built from its checkout with Cargo as Install does in development
@@ -74,30 +75,6 @@ let project = '';
 let host: LanguageHost;
 const events: SessionEvent[] = [];
 const exits: Promise<unknown>[] = [];
-
-async function eventually<T>(what: string, run: () => Promise<T> | T, accept: (value: T) => boolean = Boolean, timeoutMs = 60_000): Promise<T> {
-    const deadline = Date.now() + timeoutMs;
-    let last: unknown;
-    while (Date.now() < deadline) {
-        try {
-            const value = await run();
-            if (accept(value)) {
-                return value;
-            }
-            last = value;
-        } catch (error) {
-            last = error;
-        }
-        await Bun.sleep(100);
-    }
-    throw new Error(`${what} never happened (last: ${last instanceof Error ? last.message : JSON.stringify(last)?.slice(0, 300)})`);
-}
-
-function positionOf(text: string, needle: string, offset = 0): Position {
-    const index = text.indexOf(needle) + offset;
-    const before = text.slice(0, index).split('\n');
-    return { line: before.length - 1, character: before[before.length - 1]!.length };
-}
 
 const ask = (path: string, method: string, params: unknown): Promise<LanguageRequestResult> =>
     host.request({ projectId: 'p1', path, method: method as never, params });

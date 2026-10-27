@@ -10,6 +10,7 @@ import type { SessionEvent } from '../sessions/manager.ts';
 import { LanguageHost } from './host.ts';
 import { NativePolicy, phpLanguageServerCheckout } from './native.ts';
 import { spawnLanguageProcess } from './runtime.ts';
+import { eventually, positionOf } from './test-integration.ts';
 
 /*
  * The refactors of the standalone PHP server through the Ruimte host, on a small project written to a temporary folder. It runs the
@@ -111,30 +112,6 @@ const events: SessionEvent[] = [];
 const exits: Promise<unknown>[] = [];
 const texts = new Map<string, string>();
 const versions = new Map<string, number>();
-
-async function eventually<T>(what: string, run: () => Promise<T> | T, accept: (value: T) => boolean = Boolean, timeoutMs = 60_000): Promise<T> {
-    const deadline = Date.now() + timeoutMs;
-    let last: unknown;
-    while (Date.now() < deadline) {
-        try {
-            const value = await run();
-            if (accept(value)) {
-                return value;
-            }
-            last = value;
-        } catch (error) {
-            last = error;
-        }
-        await Bun.sleep(100);
-    }
-    throw new Error(`${what} never happened (last: ${last instanceof Error ? last.message : JSON.stringify(last)?.slice(0, 300)})`);
-}
-
-function positionOf(text: string, needle: string, offset = 0): Position {
-    const index = text.indexOf(needle) + offset;
-    const before = text.slice(0, index).split('\n');
-    return { line: before.length - 1, character: before[before.length - 1]!.length };
-}
 
 const uriOf = (path: string): string => `file://${join(project, path)}`;
 

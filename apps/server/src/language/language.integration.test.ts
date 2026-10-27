@@ -8,6 +8,7 @@ import { MachineHome } from '../fs/machine-home.ts';
 import type { SessionEvent } from '../sessions/manager.ts';
 import { LanguageHost } from './host.ts';
 import { runCommand, spawnLanguageProcess, type LanguageExit, type LanguageProcessSpec, type LanguageRuntime } from './runtime.ts';
+import { eventually as settles, positionOf } from './test-integration.ts';
 
 /*
  * Real installs and real servers, run the way the compiled daemon runs them: a `bun build --compile`
@@ -88,28 +89,8 @@ const events: SessionEvent[] = [];
 const exits: Promise<LanguageExit>[] = [];
 const specs: LanguageProcessSpec[] = [];
 
-async function eventually<T>(what: string, run: () => Promise<T> | T, accept: (value: T) => boolean = Boolean, timeoutMs = 90_000): Promise<T> {
-    const deadline = Date.now() + timeoutMs;
-    let last: unknown;
-    while (Date.now() < deadline) {
-        try {
-            const value = await run();
-            if (accept(value)) {
-                return value;
-            }
-            last = value;
-        } catch (error) {
-            last = error;
-        }
-        await Bun.sleep(100);
-    }
-    throw new Error(`${what} never happened (last: ${last instanceof Error ? last.message : JSON.stringify(last)?.slice(0, 300)})`);
-}
-
-function positionOf(text: string, needle: string, offset = 0): Position {
-    const index = text.indexOf(needle) + offset;
-    const before = text.slice(0, index).split('\n');
-    return { line: before.length - 1, character: before[before.length - 1].length };
+function eventually<T>(what: string, run: () => Promise<T> | T, accept: (value: T) => boolean = Boolean, timeoutMs = 90_000): Promise<T> {
+    return settles(what, run, accept, timeoutMs);
 }
 
 async function ask(path: string, method: string, params: unknown, projectId = 'p1'): Promise<LanguageRequestResult> {
