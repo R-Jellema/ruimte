@@ -10,4 +10,6 @@ export interface Deps {
     now(): number;
     /* Work that may finish after the answer, such as filling the cache. */
     defer(work: Promise<unknown>): void;
+    /* An error the handler answered with `internal`, for the crash reports. */
+    report?(error: unknown): void;
 }

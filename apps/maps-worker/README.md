@@ -1,8 +1,10 @@
 # Map service
 
 `ruimte-maps` at `maps.ruimte.app`: a Cloudflare Worker that puts TomTom's Orbis map display behind a
-ticket from the address book. It holds the TomTom key and nothing else of value, stores nothing, has no database and logs
-nothing (`observability` is off in `wrangler.jsonc`, since Workers Logs would record which area was looked at).
+ticket from the address book. It holds the TomTom key and nothing else of value, stores nothing and has no database.
+`observability` is off in `wrangler.jsonc`, since Workers Logs would record which area was looked at. What goes to
+Observatory (`src/telemetry.ts`, app Maps) is an error the service answered with `internal` and a warning when TomTom
+failed, by what went wrong and whether it was the style or an asset, without the request, a path, a tile or a ticket.
 
 ## Routes
 

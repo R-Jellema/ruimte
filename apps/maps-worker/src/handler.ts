@@ -72,7 +72,10 @@ export async function handle(request: Request, env: Env, deps: Deps): Promise<Re
     const response =
         request.method === 'OPTIONS'
             ? new Response(null, { status: 204 })
-            : await api(request, env, deps).catch(() => failure('internal', 'Something went wrong in the maps service'));
+            : await api(request, env, deps).catch((e: unknown) => {
+                  deps.report?.(e);
+                  return failure('internal', 'Something went wrong in the maps service');
+              });
     const headers = new Headers(response.headers);
     for (const [name, value] of Object.entries(cors)) {
         headers.set(name, value);

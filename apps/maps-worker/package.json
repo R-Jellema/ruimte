@@ -10,6 +10,8 @@
     },
     "dependencies": {
         "@ruimte/pulsar": "workspace:*",
+        "@ruimte/telemetry": "workspace:*",
+        "@sentry/cloudflare": "11.8.0",
         "zod": "^4.6.5"
     },
     "devDependencies": {

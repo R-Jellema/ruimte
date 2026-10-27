@@ -9,10 +9,13 @@
   "routes": [{ "pattern": "maps.ruimte.app", "custom_domain": true }],
   "vars": {
     "PUBLIC_ORIGIN": "https://maps.ruimte.app",
-    "ALLOWED_ORIGINS": "https://station.ruimte.app"
+    "ALLOWED_ORIGINS": "https://station.ruimte.app",
+    // A DSN only lets the SDK send, so it is no secret. The deploy adds OBSERVATORY_RELEASE.
+    "OBSERVATORY_DSN": "https://6519c142a98b418cbaa7fb0a02f18c07@ingest.bmnw.nl/9"
   },
   // Per ticket subject, so one account cannot spend the monthly tile allowance; a map view loads a few dozen tiles.
   "ratelimits": [{ "name": "TICKET_LIMIT", "namespace_id": "1001", "simple": { "limit": 600, "period": 60 } }],
-  // Workers Logs would record every tile request, which is where someone looked. This service logs nothing.
+  // Workers Logs would record every tile request, which is where someone looked. Only its own errors and warnings
+  // go to Observatory (`src/telemetry.ts`), and none of them names a path.
   "observability": { "enabled": false }
 }

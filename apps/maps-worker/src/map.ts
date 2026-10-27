@@ -26,6 +26,11 @@ export interface Resource {
     query: readonly (readonly [string, string])[];
 }
 
+/* A failure of TomTom for the crash reports, by what went wrong and whether it was the style; never the path, which is where someone looked. */
+function warnUpstream(what: string, style: boolean): void {
+    console.warn(`The map provider failed: ${what}`, { resource: style ? 'style' : 'asset' });
+}
+
 /*
  * One GET of a map resource through TomTom. A response is kept at the edge for no longer than TomTom's own
  * Cache-Control allows. A JSON body is rewritten so that it names this service only, and checked for the key
@@ -50,6 +55,7 @@ export async function fetchMapResource(deps: Deps, env: Env, resource: Resource,
     try {
         upstream = await deps.fetch(upstreamUrl(resource.path, resource.query, key), { method: 'GET', headers: UPSTREAM_HEADERS, redirect: 'manual' });
     } catch {
+        warnUpstream('no answer', trusted);
         return failure('upstream', 'The map provider did not answer');
     }
     const refuse = async (refusal: Response): Promise<Response> => {
@@ -61,16 +67,19 @@ export async function fetchMapResource(deps: Deps, env: Env, resource: Resource,
         return refuse(failure('not-found', 'No such map resource'));
     }
     if (upstream.status === 429) {
+        warnUpstream('rate limited', trusted);
         return refuse(failure('rate-limited', 'The map provider is limiting this service, try again later', { 'retry-after': '60' }));
     }
     if (!upstream.ok) {
         // Whatever TomTom said may echo the key, so the client gets only that it failed.
+        warnUpstream(`status ${upstream.status}`, trusted);
         return refuse(failure('upstream', `The map provider refused the request (${upstream.status})`));
     }
     const seconds = cacheSeconds(upstream.headers);
     const contentType = upstream.headers.get('content-type');
     const kind = bodyKind(contentType);
     if (kind === 'refused') {
+        warnUpstream('unknown body type', trusted);
         return refuse(failure('upstream', 'The map provider sent a kind of body this service does not pass on'));
     }
     let body: BodyInit | null = upstream.body;
@@ -79,9 +88,11 @@ export async function fetchMapResource(deps: Deps, env: Env, resource: Resource,
         try {
             text = JSON.stringify(await rewriteDocument(JSON.parse(await upstream.text()), secret, key, env.PUBLIC_ORIGIN));
         } catch {
+            warnUpstream('unreadable body', trusted);
             return failure('upstream', 'The map provider sent a body this service cannot read');
         }
         if (text.includes(key)) {
+            warnUpstream('body with the key', trusted);
             return failure('upstream', 'The map provider sent a body this service will not pass on');
         }
         body = text;

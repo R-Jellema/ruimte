@@ -13,4 +13,7 @@ export interface Env {
     // The secret the address book signs map tickets with; at least 32 bytes in base64url.
     MAP_TICKET_SECRET?: string;
     TICKET_LIMIT?: RateLimitBinding;
+    // The service's app in Observatory, for its errors and warnings (`src/telemetry.ts`), and the release the deploy names.
+    OBSERVATORY_DSN?: string;
+    OBSERVATORY_RELEASE?: string;
 }
