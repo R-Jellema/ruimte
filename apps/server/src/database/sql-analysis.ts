@@ -69,15 +69,14 @@ function databaseOf(binding: SqlBinding, connection: DatabaseConnection): string
 /* What a file's SQL is read against. `path` is absolute. */
 export function choiceFor(folder: string, sql: ProjectSql | undefined, connections: readonly DatabaseConnection[], path: string): SqlChoice {
     const byId = (id: string): DatabaseConnection | undefined => connections.find((connection) => connection.id === id);
+    const own = sql?.files?.[storedPathOf(folder, path)];
     const console = consoleConnectionOf(folder, path);
     if (console !== null) {
         const connection = byId(console);
-        const binding = sql?.files?.[storedPathOf(folder, path)];
         return connection === undefined
             ? { source: 'none' }
-            : { source: 'console', connection, database: binding?.connectionId === console ? databaseOf(binding, connection) : startDatabaseOf(connection) };
+            : { source: 'console', connection, database: own?.connectionId === console ? databaseOf(own, connection) : startDatabaseOf(connection) };
     }
-    const own = sql?.files?.[storedPathOf(folder, path)];
     if (own !== undefined) {
         if (own.connectionId === null) {
             return { source: 'unbound' };
@@ -105,6 +104,10 @@ export function boundTargets(sql: ProjectSql | undefined, connections: readonly 
         }
     }
     return [...targets.values()];
+}
+
+function sameTarget(a: SnapshotTarget, b: SnapshotTarget): boolean {
+    return a.connectionId === b.connectionId && a.database === b.database;
 }
 
 /* The dialect a connection is read in before a snapshot said which product answered. */
@@ -136,7 +139,7 @@ interface SqlSettingsInput {
 export function sqlSettingsOf(input: SqlSettingsInput): ProjectSqlSettings {
     const { folder, sql, connections, snapshots } = input;
     const snapshotOf = (connectionId: string, database: string | null): SnapshotFacts | undefined =>
-        snapshots.find((snapshot) => snapshot.connectionId === connectionId && snapshot.database === database);
+        snapshots.find((snapshot) => sameTarget(snapshot, { connectionId, database }));
     const byId = (id: string | null): DatabaseConnection | undefined => connections.find((connection) => connection.id === id);
     const settingsFor = (binding: SqlBinding): Record<string, unknown> | null => {
         const connection = byId(binding.connectionId);
@@ -313,11 +316,7 @@ export class SqlAnalysis {
         if (folder === null) {
             return null;
         }
-        const [content, connections, snapshots] = await Promise.all([
-            this.options.projects.read(projectId),
-            this.options.connections.connectionsOf(projectId).catch(() => [] as DatabaseConnection[]),
-            this.options.snapshots.list(projectId)
-        ]);
+        const { content, connections, snapshots } = await this.inputsOf(projectId);
         return sqlSettingsOf({ folder, sql: content.sql, connections, snapshots });
     }
 
@@ -327,17 +326,23 @@ export class SqlAnalysis {
         if (folder === null) {
             throw new SqlAnalysisError('project-not-found', `No project ${projectId} on this machine`);
         }
+        const { content, connections, snapshots } = await this.inputsOf(projectId);
+        const choice = choiceFor(folder, content.sql, connections, resolve(path));
+        if (choice.source === 'none' || choice.source === 'unbound') {
+            return { choice, snapshot: null, access: 'read' };
+        }
+        const snapshot = snapshots.find((candidate) => sameTarget(candidate, { connectionId: choice.connection.id, database: choice.database })) ?? null;
+        return { choice, snapshot, access: await this.options.access.levelOf(projectId, choice.connection) };
+    }
+
+    /* The choices, the connections and the snapshots of a project; a project whose connections will not read has none. */
+    private async inputsOf(projectId: string): Promise<{ content: ProjectContent; connections: DatabaseConnection[]; snapshots: SnapshotFacts[] }> {
         const [content, connections, snapshots] = await Promise.all([
             this.options.projects.read(projectId),
             this.options.connections.connectionsOf(projectId).catch(() => [] as DatabaseConnection[]),
             this.options.snapshots.list(projectId)
         ]);
-        const choice = choiceFor(folder, content.sql, connections, resolve(path));
-        if (choice.source === 'none' || choice.source === 'unbound') {
-            return { choice, snapshot: null, access: 'read' };
-        }
-        const snapshot = snapshots.find((candidate) => candidate.connectionId === choice.connection.id && candidate.database === choice.database) ?? null;
-        return { choice, snapshot, access: await this.options.access.levelOf(projectId, choice.connection) };
+        return { content, connections, snapshots };
     }
 
     private requireHolder(projectId: string, clientId: string): string {
@@ -380,9 +385,7 @@ export class SqlAnalysis {
                 this.options.projects.read(projectId),
                 this.options.snapshots.list(projectId)
             ]);
-            const missing = boundTargets(content.sql, connections).filter(
-                (target) => !existing.some((snapshot) => snapshot.connectionId === target.connectionId && snapshot.database === target.database)
-            );
+            const missing = boundTargets(content.sql, connections).filter((target) => !existing.some((snapshot) => sameTarget(snapshot, target)));
             if (missing.length > 0) {
                 await this.takeAll(projectId, connections, missing, existing);
             }

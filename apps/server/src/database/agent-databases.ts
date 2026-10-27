@@ -2,14 +2,15 @@ import { createHash, randomUUID } from 'node:crypto';
 import { realpath } from 'node:fs/promises';
 import { relative } from 'node:path';
 import type { DatabaseAgentAccess, DatabaseConnection } from '@ruimte/contracts';
-import type { DatabaseError, DatabaseResponse, RowsResult, SchemaInfo, StatementResult, TableInfo, TableStructure } from '@adecore/database/protocol';
+import type { DatabaseError, RowsResult, SchemaInfo, StatementResult, TableInfo, TableStructure } from '@adecore/database/protocol';
 import { CodedError } from '@adecore/agents';
 import { field } from '@adecore/agents/context';
+import { ClientSinks } from '../client-sinks.ts';
 import { climbsOut } from '../fs/path-segment.ts';
 import type { SessionEvent, SessionSink } from '../sessions/manager.ts';
-import { ClientSinks } from '../client-sinks.ts';
 import type { DatabaseAccessStore } from './agent-access.ts';
 import type { DatabasePasswords } from './agent-passwords.ts';
+import { inOwnedSession, type DatabaseCalls, type SessionCall } from './owned-session.ts';
 
 /* How long one verb may keep its session; past it the call is cancelled and its session closed. */
 export const AGENT_DATABASE_LIMIT_MS = 120_000;
@@ -68,7 +69,7 @@ interface AgentExecution {
 export type DatabaseAgentHost = Pick<AgentDatabases, 'list' | 'tables' | 'describe' | 'query' | 'execute' | 'tableOf'>;
 
 interface AgentDatabasesOptions {
-    service: { handle(request: unknown, owner: string): Promise<DatabaseResponse>; release(owner: string): Promise<void> };
+    service: DatabaseCalls;
     connections: { connectionsOf(projectId: string): Promise<DatabaseConnection[]> };
     projects: { holdersOf(projectId: string): string[] };
     access: DatabaseAccessStore;
@@ -120,20 +121,29 @@ function connectionLines(connections: readonly AgentConnection[]): string[] {
     return connections.map((connection) => `connection\t${field(connection.id)}\t${field(connection.name)}`);
 }
 
+const FAILURE_DETAILS: Partial<Record<string, string>> = {
+    unsupported: 'database query reads one statement that starts with SELECT or WITH; ruimte-context help database query',
+    'read-only': 'A query runs on a read-only session; database execute writes, on a connection a person allowed to write'
+};
+
 /* A failure of the package, under its own code and the server's words, so an agent can fix its SQL. */
 function failure(error: DatabaseError): never {
     const state = error.sqlState === undefined ? '' : ` (SQLSTATE ${error.sqlState})`;
-    if (error.code === 'unsupported') {
-        refuse('unsupported', `${error.message}${state}`, [
-            'detail\tdatabase query reads one statement that starts with SELECT or WITH; ruimte-context help database query'
-        ]);
+    const detail = FAILURE_DETAILS[error.code];
+    refuse(error.code, `${error.message}${state}`, detail === undefined ? [] : [`detail\t${detail}`]);
+}
+
+/*
+ * The stored config a session opens, without the password, `readOnly` and `create` a file may hold,
+ * and with the password a client handed over for exactly where the connection points now.
+ */
+export function openConfig(connection: DatabaseConnection, passwordOf: (target: string) => string | null): Record<string, unknown> {
+    const { password: _password, readOnly: _readOnly, create: _create, ...stored } = connection.config as Record<string, unknown>;
+    if (connection.config.engine === 'sqlite') {
+        return stored;
     }
-    if (error.code === 'read-only') {
-        refuse('read-only', `${error.message}${state}`, [
-            'detail\tA query runs on a read-only session; database execute writes, on a connection a person allowed to write'
-        ]);
-    }
-    refuse(error.code, `${error.message}${state}`);
+    const password = passwordOf(connectionTarget(connection.config));
+    return password === null ? stored : { ...stored, password };
 }
 
 /*
@@ -261,8 +271,8 @@ export class AgentDatabases {
         return this.withSession(place, caller, wanted, 'read', async ({ connection, call }) => {
             const { schemas } = await call<{ schemas: SchemaInfo[] }>('schemas', {});
             const own = schemas.filter((candidate) => !candidate.system).map((candidate) => candidate.name);
-            const database = connection.config.engine === 'mysql' ? (connection.config as MysqlConfig).database : undefined;
-            const listed = schema !== null ? [schema] : typeof database === 'string' && database !== '' ? [database] : own;
+            const start = connection.config.engine === 'mysql' ? startDatabaseOf(connection) : null;
+            const listed = schema !== null ? [schema] : start !== null ? [start] : own;
             const tables: AgentTables['tables'] = [];
             for (const name of listed) {
                 const found = await call<{ tables: TableInfo[] }>('tables', { schema: name });
@@ -439,7 +449,7 @@ export class AgentDatabases {
         }
     }
 
-    private async schemaOf(connection: DatabaseConnection, call: <T>(method: string, params: Record<string, unknown>) => Promise<T>): Promise<string> {
+    private async schemaOf(connection: DatabaseConnection, call: SessionCall): Promise<string> {
         const fallback = startDatabaseOf(connection);
         if (fallback !== null) {
             return fallback;
@@ -458,7 +468,7 @@ export class AgentDatabases {
         connection: DatabaseConnection,
         mode: 'read' | 'write'
     ): Promise<{ config: Record<string, unknown>; password: boolean }> {
-        const { password: _password, readOnly: _readOnly, create: _create, ...stored } = connection.config as Record<string, unknown>;
+        const stored = openConfig(connection, (target) => this.options.passwords.passwordOf(place.projectId, connection.id, target));
         const readOnly = mode === 'read' ? { readOnly: true } : {};
         if (connection.config.engine === 'sqlite') {
             const file = await this.insideFile(place, connection.config.path);
@@ -470,8 +480,7 @@ export class AgentDatabases {
             }
             return { config: { ...stored, path: file, ...readOnly }, password: false };
         }
-        const password = this.options.passwords.passwordOf(place.projectId, connection.id, connectionTarget(connection.config));
-        return { config: { ...stored, ...(password === null ? {} : { password }), ...readOnly }, password: password !== null };
+        return { config: { ...stored, ...readOnly }, password: 'password' in stored };
     }
 
     private async withSession<T>(
@@ -479,7 +488,7 @@ export class AgentDatabases {
         caller: string,
         wanted: string,
         mode: 'read' | 'write',
-        work: (session: { connection: DatabaseConnection; call: <R>(method: string, params: Record<string, unknown>) => Promise<R> }) => Promise<T>,
+        work: (session: { connection: DatabaseConnection; call: SessionCall }) => Promise<T>,
         signal?: AbortSignal,
         uiAccess?: readonly UiDatabaseGrant[]
     ): Promise<T> {
@@ -501,43 +510,27 @@ export class AgentDatabases {
             await this.checkUiGrant(place, connection, uiAccess);
         }
         const { config, password } = await this.configFor(place, connection, mode);
-        const owner = `agent:${caller}:${randomUUID()}`;
-        const abort = () => {
-            void this.options.service.release(owner);
-        };
-        signal?.addEventListener('abort', abort, { once: true });
-        let requests = 0;
-        let timedOut = false;
-        const timer = setTimeout(() => {
-            timedOut = true;
-            void this.options.service.release(owner);
-        }, this.limitMs);
-        const send = async <R>(method: string, params: Record<string, unknown>): Promise<R> => {
-            if (signal?.aborted) {
-                refuse('database-timeout', 'This UI query was stopped.');
-            }
-            const answer = await this.options.service.handle({ id: `a${++requests}`, method, params }, owner);
-            if (answer.ok) {
-                return answer.result as R;
-            }
-            if (timedOut) {
-                refuse('database-timeout', `The call took longer than ${this.limitMs / 1000} s and was stopped; narrow the query or add a LIMIT`);
-            }
-            if (method === 'open' && answer.error.code === 'auth-failed' && connection.config.engine === 'mysql' && !password) {
-                refuse(
-                    'database-locked',
-                    `${connection.name} needs a password this machine does not have; the person opens this project in the Ruimte app on a desktop that has it saved, which hands it to the machine`
-                );
-            }
-            return failure(answer.error);
-        };
-        try {
-            const { session } = await send<{ session: string }>('open', { connection: config });
-            return await work({ connection, call: (method, params) => send(method, { session, ...params }) });
-        } finally {
-            clearTimeout(timer);
-            signal?.removeEventListener('abort', abort);
-            await this.options.service.release(owner);
-        }
+        return inOwnedSession(
+            {
+                service: this.options.service,
+                owner: `agent:${caller}:${randomUUID()}`,
+                connection: config,
+                limitMs: this.limitMs,
+                fail: (method, error, timedOut) => {
+                    if (timedOut) {
+                        refuse('database-timeout', `The call took longer than ${this.limitMs / 1000} s and was stopped; narrow the query or add a LIMIT`);
+                    }
+                    if (method === 'open' && error.code === 'auth-failed' && connection.config.engine === 'mysql' && !password) {
+                        refuse(
+                            'database-locked',
+                            `${connection.name} needs a password this machine does not have; the person opens this project in the Ruimte app on a desktop that has it saved, which hands it to the machine`
+                        );
+                    }
+                    return failure(error);
+                },
+                ...(signal === undefined ? {} : { abort: { signal, stopped: () => refuse('database-timeout', 'This UI query was stopped.') } })
+            },
+            (call) => work({ connection, call })
+        );
     }
 }

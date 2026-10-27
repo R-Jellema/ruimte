@@ -2,19 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { DatabaseConnection, SqlSnapshotInfo } from '@ruimte/contracts';
-import type {
-    CheckInfo,
-    ColumnInfo,
-    DatabaseResponse,
-    SchemaInfo,
-    ServerInfo,
-    StatementResult,
-    TableInfo,
-    TableStructure,
-    TriggerInfo
-} from '@adecore/database/protocol';
+import type { CheckInfo, ColumnInfo, SchemaInfo, ServerInfo, StatementResult, TableInfo, TableStructure, TriggerInfo } from '@adecore/database/protocol';
 import { errorText } from '../error-text.ts';
-import { connectionTarget } from './agent-databases.ts';
+import { openConfig } from './agent-databases.ts';
+import { inOwnedSession, type DatabaseCalls, type SessionCall } from './owned-session.ts';
 
 /* The snapshot format of the SQL language server this daemon writes (`docs/snapshot-format.md` there). */
 const SNAPSHOT_FORMAT_VERSION = 1;
@@ -39,7 +30,7 @@ export interface SnapshotFacts extends SqlSnapshotInfo {
 interface SchemaSnapshotsOptions {
     /* `$RUIMTE_HOME/database-snapshots`. */
     root: string;
-    service: { handle(request: unknown, owner: string): Promise<DatabaseResponse>; release(owner: string): Promise<void> };
+    service: DatabaseCalls;
     /* The password a client handed over for a connection as it points now; null without one. */
     passwordOf(projectId: string, connectionId: string, target: string): string | null;
     now?: () => Date;
@@ -48,8 +39,6 @@ interface SchemaSnapshotsOptions {
 
 /* Why a snapshot could not be taken, in words a person or an agent reads. */
 class SnapshotError extends Error {}
-
-type Call = <R>(method: string, params: Record<string, unknown>) => Promise<R>;
 
 /* A name as one segment of a path that a glob reads as itself: what `encodeURIComponent` leaves of a glob's own characters is encoded as well. */
 function segmentOf(name: string): string {
@@ -290,50 +279,35 @@ export class SchemaSnapshots {
 
     /* What a connection holds, read on a read-only session that is closed before this answers. */
     private async read(projectId: string, connection: DatabaseConnection, database: string | null): Promise<Record<string, unknown>> {
-        const owner = `snapshot:${projectId}:${randomUUID()}`;
-        let requests = 0;
-        let timedOut = false;
         const limit = this.options.limitMs ?? SNAPSHOT_LIMIT_MS;
-        const timer = setTimeout(() => {
-            timedOut = true;
-            void this.options.service.release(owner);
-        }, limit);
-        const call: Call = async <R>(method: string, params: Record<string, unknown>): Promise<R> => {
-            const answer = await this.options.service.handle({ id: `s${++requests}`, method, params }, owner);
-            if (answer.ok) {
-                return answer.result as R;
-            }
-            if (timedOut) {
-                throw new SnapshotError(`Reading the schema of ${connection.name} took longer than ${limit / 1000} s and was stopped`);
-            }
-            if (method === 'open' && answer.error.code === 'auth-failed') {
-                throw new SnapshotError(`${connection.name} needs a password this machine does not have; open the connection in the app, which hands it over`);
-            }
-            throw new SnapshotError(`${connection.name}: ${answer.error.message}`);
-        };
+        const config = openConfig(connection, (target) => this.options.passwordOf(projectId, connection.id, target));
         try {
-            const opened = await call<{ session: string; server: ServerInfo }>('open', { connection: this.configFor(projectId, connection) });
-            const session = (method: string, params: Record<string, unknown>) => call(method, { session: opened.session, ...params });
-            return await this.snapshotOf(connection, database, opened.server, session as Call);
+            return await inOwnedSession(
+                {
+                    service: this.options.service,
+                    owner: `snapshot:${projectId}:${randomUUID()}`,
+                    connection: { ...config, readOnly: true },
+                    limitMs: limit,
+                    fail: (method, error, timedOut) => {
+                        if (timedOut) {
+                            throw new SnapshotError(`Reading the schema of ${connection.name} took longer than ${limit / 1000} s and was stopped`);
+                        }
+                        if (method === 'open' && error.code === 'auth-failed') {
+                            throw new SnapshotError(
+                                `${connection.name} needs a password this machine does not have; open the connection in the app, which hands it over`
+                            );
+                        }
+                        throw new SnapshotError(`${connection.name}: ${error.message}`);
+                    }
+                },
+                (call, server) => this.snapshotOf(connection, database, server, call)
+            );
         } catch (error) {
             throw error instanceof SnapshotError ? error : new SnapshotError(errorText(error));
-        } finally {
-            clearTimeout(timer);
-            await this.options.service.release(owner);
         }
     }
 
-    /* The stored config, with the password handed over for exactly where it points now, opened read only. */
-    private configFor(projectId: string, connection: DatabaseConnection): Record<string, unknown> {
-        const { password: _password, readOnly: _readOnly, create: _create, ...stored } = connection.config as Record<string, unknown>;
-        if (connection.config.engine === 'sqlite') {
-            return { ...stored, readOnly: true };
-        }
-        const password = this.options.passwordOf(projectId, connection.id, connectionTarget(connection.config));
-        return { ...stored, ...(password === null ? {} : { password }), readOnly: true };
-    }
-
-    private async snapshotOf(connection: DatabaseConnection, database: string | null, server: ServerInfo, call: Call): Promise<Record<string, unknown>> {
+    private async snapshotOf(connection: DatabaseConnection, database: string | null, server: ServerInfo, call: SessionCall): Promise<Record<string, unknown>> {
         const { schemas } = await call<{ schemas: SchemaInfo[] }>('schemas', {});
         const names = database === null ? schemas.filter((schema) => !schema.system).map((schema) => schema.name) : [database];
         if (database !== null && !schemas.some((schema) => schema.name === database)) {
@@ -368,7 +342,7 @@ export class SchemaSnapshots {
     }
 
     /* `@@sql_mode` and `@@lower_case_table_names` of MySQL and MariaDB, which some inspections follow; nothing when the server does not say. */
-    private async serverSettings(call: Call): Promise<Record<string, unknown>> {
+    private async serverSettings(call: SessionCall): Promise<Record<string, unknown>> {
         try {
             const { results } = await call<{ results: StatementResult[] }>('execute', {
                 sql: 'SELECT @@sql_mode AS sql_mode, @@lower_case_table_names AS lower_case_table_names',

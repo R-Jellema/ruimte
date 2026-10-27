@@ -39,8 +39,6 @@ const DATABASES_FILE = 'databases.json';
 
 const PENDING_FILE = 'pending-databases.json';
 
-// The burst rule of the other project files: git and editors write more than once per save.
-
 type DatabaseConnectionErrorCode = 'project-not-found' | 'connections-invalid' | 'rev-conflict' | 'path-outside-project';
 
 class DatabaseConnectionError extends CodedError<DatabaseConnectionErrorCode> {}
@@ -456,11 +454,9 @@ function documentOf(state: LoadedConnections): DatabaseConnections {
         return true;
     });
     const rank = new Map(state.order.map((id, index) => [id, index]));
-    const connections = all
-        .map((connection, index) => ({ connection, index }))
-        .sort((a, b) => (rank.get(a.connection.id) ?? state.order.length + a.index) - (rank.get(b.connection.id) ?? state.order.length + b.index))
-        .map(({ connection }) => connection);
-    return { rev: state.rev, connections };
+    const rankOf = (id: string): number => rank.get(id) ?? state.order.length;
+    // A stable sort, so the connections the order does not name keep their place among themselves.
+    return { rev: state.rev, connections: all.sort((a, b) => rankOf(a.id) - rankOf(b.id)) };
 }
 
 /* The first rule a list of connections breaks, or null. */
