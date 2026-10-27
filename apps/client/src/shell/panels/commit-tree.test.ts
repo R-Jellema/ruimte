@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { GitDiffFile } from '@ruimte/contracts';
-import { diffFileParts, diffKindOf, firstFile, folderParts, pickedFile } from './commit-tree.ts';
+import { diffFileParts, firstFile, folderParts, pickedFile } from './commit-tree.ts';
 import type { GitTreeRow } from './git-tree.ts';
 
 function file(path: string, extra: Partial<GitDiffFile> = {}): GitDiffFile {
@@ -13,12 +13,11 @@ function patch(header: string): string {
 
 describe('what a file of a commit went through', () => {
     test('the daemon says so', () => {
-        expect(diffKindOf(file('a.ts', { kind: 'delete', omitted: 'binary' }))).toBe('delete');
+        expect(diffFileParts(file('a.ts', { kind: 'delete', omitted: 'binary' })).map((part) => part.text)).toEqual(['D']);
     });
 
     test('a file with no kind has no letter, whatever its patch says', () => {
-        expect(diffKindOf(file('a.ts', { diff: patch('new file mode 100644\n--- /dev/null\n+++ b/x') }))).toBeNull();
-        expect(diffKindOf(file('a.png', { omitted: 'binary' }))).toBeNull();
+        expect(diffFileParts(file('a.ts', { diff: patch('new file mode 100644\n--- /dev/null\n+++ b/x'), added: 1 })).map((part) => part.text)).toEqual(['+1']);
         expect(diffFileParts(file('a.png', { omitted: 'binary', added: 2 })).map((part) => part.text)).toEqual(['+2']);
     });
 });

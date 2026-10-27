@@ -1,12 +1,25 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
-import { githubPicture, groupCommits, shownRefs, type LogRow } from './commit-log';
-
-function commitAt(local: string): LogRow {
-    return { hash: local, shortHash: local, subject: local, author: 'a', at: new Date(local).getTime() / 1000, refs: [], cwd: '/repo', repo: '' };
-}
+import type { GitCommit } from '@ruimte/contracts';
+import { githubPicture, groupCommits, mergeLogs, shownRefs, type LoadedLog, type LogRow } from './commit-log';
 
 function seconds(local: string): number {
     return new Date(local).getTime() / 1000;
+}
+
+function commit(at: number, hash: string): GitCommit {
+    return { hash, shortHash: hash.slice(0, 7), subject: hash, author: 'Ada', at, refs: [] };
+}
+
+function row(at: number, hash: string): LogRow {
+    return { ...commit(at, hash), cwd: '/repo', repo: '' };
+}
+
+function commitAt(local: string): LogRow {
+    return row(seconds(local), local);
+}
+
+function log(repo: string, ats: number[], cursor: string | null): LoadedLog {
+    return { cwd: `/work/${repo}`, repo, commits: ats.map((at) => commit(at, `${repo}-${at}`)), cursor };
 }
 
 describe('groupCommits', () => {
@@ -36,6 +49,48 @@ describe('groupCommits', () => {
     test('the day after the clocks went back still has a Yesterday', () => {
         const sections = groupCommits([commitAt('2026-10-25T12:00:00')], seconds('2026-10-26T10:00:00'));
         expect(sections.map((section) => section.label)).toEqual(['Yesterday']);
+    });
+
+    test('commits fall under the day they were written on, in the order they came in', () => {
+        const midnight = seconds('2026-09-10T00:00:00');
+        const sections = groupCommits([row(midnight + 3600, 'a'), row(midnight - 3600, 'b'), row(midnight - 5 * 86400, 'c')], midnight + 12 * 3600);
+        expect(sections.map((section) => section.label)).toEqual(['Today', 'Yesterday', expect.any(String)]);
+        expect(sections.map((section) => section.commits.map((entry) => entry.hash))).toEqual([['a'], ['b'], ['c']]);
+        expect(groupCommits([], midnight)).toEqual([]);
+    });
+});
+
+describe('mergeLogs', () => {
+    test('the logs of several repositories read as one history, newest first', () => {
+        const { rows, more } = mergeLogs([log('one', [500, 400], null), log('two', [450, 300], null)]);
+        expect(rows.map((entry) => entry.at)).toEqual([500, 450, 400, 300]);
+        expect(rows.map((entry) => entry.repo)).toEqual(['one', 'two', 'one', 'two']);
+        expect(more).toBe(false);
+    });
+
+    test('rows a later page could still slip above wait for that page', () => {
+        // `one` has more to give below 400, so nothing older than 400 can be placed yet.
+        const { rows, more } = mergeLogs([log('one', [500, 400], '2'), log('two', [450, 300], null)]);
+        expect(rows.map((entry) => entry.at)).toEqual([500, 450, 400]);
+        expect(more).toBe(true);
+    });
+
+    test('a commit rebased onto the top of its log stays on top, whatever its author date', () => {
+        // A pull with rebase writes the commit again today, but keeps the date it was first written.
+        const now = 1_800_000_000;
+        const rebased = { ...commit(now - 21 * 86400, 'rebased'), committedAt: now };
+        const older = [1, 2, 7].map((days) => ({ ...commit(now - days * 86400, `old-${days}`), committedAt: now - days * 86400 }));
+        const { rows } = mergeLogs([{ cwd: '/work/one', repo: '', commits: [rebased, ...older], cursor: '4' }]);
+        expect(rows.map((entry) => entry.hash)).toEqual(['rebased', 'old-1', 'old-2', 'old-7']);
+    });
+
+    test('several logs merge on the commit date and keep the order of git within each', () => {
+        const stamped = (hash: string, at: number, committedAt: number): GitCommit => ({ ...commit(at, hash), committedAt });
+        const { rows } = mergeLogs([
+            { cwd: '/work/one', repo: 'one', commits: [stamped('one-a', 100, 500), stamped('one-b', 400, 400)], cursor: null },
+            { cwd: '/work/two', repo: 'two', commits: [stamped('two-a', 450, 450), stamped('two-b', 480, 300)], cursor: null }
+        ]);
+        expect(rows.map((entry) => entry.hash)).toEqual(['one-a', 'two-a', 'one-b', 'two-b']);
     });
 });
 

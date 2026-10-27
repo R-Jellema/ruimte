@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import type { GitCommit, GitFile, GitStatus } from '@ruimte/contracts';
-import { groupCommits, mergeLogs, type LoadedLog } from './commit-log';
+import type { GitFile, GitStatus } from '@ruimte/contracts';
 import {
     actionTitle,
     amendTarget,
@@ -35,28 +34,7 @@ function status(patch: Partial<GitStatus> = {}): GitStatus {
 }
 
 function checkout(label: string, patch: Partial<GitStatus> | null): { path: string; label: string; status: GitStatus | null } {
-    return {
-        path: `/work/${label}`,
-        label,
-        status: patch === null ? null : status(patch)
-    };
-}
-
-function commit(at: number, hash: string): GitCommit {
-    return { hash, shortHash: hash.slice(0, 7), subject: hash, author: 'Ada', at, refs: [] };
-}
-
-function row(at: number, hash: string) {
-    return { ...commit(at, hash), cwd: '/work/one', repo: '' };
-}
-
-function log(repo: string, ats: number[], cursor: string | null): LoadedLog {
-    return {
-        cwd: `/work/${repo}`,
-        repo,
-        commits: ats.map((at) => commit(at, `${repo}-${at}`)),
-        cursor
-    };
+    return { path: `/work/${label}`, label, status: patch === null ? null : status(patch) };
 }
 
 describe('pushing a folder of repositories', () => {
@@ -95,13 +73,16 @@ describe('pushing a folder of repositories', () => {
     });
 });
 
-describe('where a commit lands', () => {
-    const repo = (label: string, states: GitFile['state'][]) => ({
+/* A repository with a file in each of these states. */
+function repo(label: string, states: GitFile['state'][]): { path: string; label: string; status: GitStatus } {
+    return {
         path: `/work/${label}`,
         label,
         status: status({ files: states.map((state, index) => ({ path: `${index}.ts`, state, status: 'M', added: 1, deleted: 0, binary: false })) })
-    });
+    };
+}
 
+describe('where a commit lands', () => {
     test('every repository with something staged takes the commit', () => {
         const { targets, stageAll } = commitTargets([repo('one', ['staged']), repo('two', ['unstaged']), repo('three', ['staged', 'unstaged'])]);
         expect(targets.map((target) => target.label)).toEqual(['one', 'three']);
@@ -125,12 +106,6 @@ describe('where a commit lands', () => {
 });
 
 describe('which commit an amend rewrites', () => {
-    const repo = (label: string, states: GitFile['state'][]) => ({
-        path: `/work/${label}`,
-        label,
-        status: status({ files: states.map((state, index) => ({ path: `${index}.ts`, state, status: 'M', added: 1, deleted: 0, binary: false })) })
-    });
-
     test('the one repository with something staged', () => {
         expect(amendTarget([repo('one', ['unstaged']), repo('two', ['staged'])])?.label).toBe('two');
     });
@@ -211,53 +186,5 @@ describe('the commit message', () => {
         expect(splitMessage('feat: a thing\n\nBecause of this.\nAnd that.')).toEqual({ subject: 'feat: a thing', body: 'Because of this.\nAnd that.' });
         expect(splitMessage('  fix: trim me  ')).toEqual({ subject: 'fix: trim me', body: '' });
         expect(splitMessage('')).toEqual({ subject: '', body: '' });
-    });
-});
-
-describe('the log', () => {
-    const now = Math.floor(new Date('2026-09-10T12:00:00Z').getTime() / 1000);
-
-    test('commits fall under the day they were written on, in the order they came in', () => {
-        const midnight = Math.floor(new Date('2026-09-10T00:00:00').getTime() / 1000);
-        const sections = groupCommits([row(midnight + 3600, 'a'), row(midnight - 3600, 'b'), row(midnight - 5 * 86400, 'c')], now);
-
-        expect(sections.map((section) => section.label)).toEqual(['Today', 'Yesterday', expect.any(String)]);
-        expect(sections[0]?.commits.map((entry) => entry.hash)).toEqual(['a']);
-        expect(sections[1]?.commits.map((entry) => entry.hash)).toEqual(['b']);
-    });
-
-    test('the logs of several repositories read as one history, newest first', () => {
-        const { rows, more } = mergeLogs([log('one', [500, 400], null), log('two', [450, 300], null)]);
-        expect(rows.map((entry) => entry.at)).toEqual([500, 450, 400, 300]);
-        expect(rows.map((entry) => entry.repo)).toEqual(['one', 'two', 'one', 'two']);
-        expect(more).toBe(false);
-    });
-
-    test('rows a later page could still slip above wait for that page', () => {
-        // `one` has more to give below 400, so nothing older than 400 can be placed yet.
-        const { rows, more } = mergeLogs([log('one', [500, 400], '2'), log('two', [450, 300], null)]);
-        expect(rows.map((entry) => entry.at)).toEqual([500, 450, 400]);
-        expect(more).toBe(true);
-    });
-
-    test('a commit rebased onto the top of its log stays on top, whatever its author date', () => {
-        // A pull with rebase writes the commit again today, but keeps the date it was first written.
-        const rebased = { ...commit(now - 21 * 86400, 'rebased'), committedAt: now };
-        const older = [1, 2, 7].map((days) => ({ ...commit(now - days * 86400, `old-${days}`), committedAt: now - days * 86400 }));
-        const { rows } = mergeLogs([{ cwd: '/work/one', repo: '', commits: [rebased, ...older], cursor: '4' }]);
-        expect(rows.map((entry) => entry.hash)).toEqual(['rebased', 'old-1', 'old-2', 'old-7']);
-    });
-
-    test('several logs merge on the commit date and keep the order of git within each', () => {
-        const stamped = (hash: string, at: number, committedAt: number): GitCommit => ({ ...commit(at, hash), committedAt });
-        const { rows } = mergeLogs([
-            { cwd: '/work/one', repo: 'one', commits: [stamped('one-a', 100, 500), stamped('one-b', 400, 400)], cursor: null },
-            { cwd: '/work/two', repo: 'two', commits: [stamped('two-a', 450, 450), stamped('two-b', 480, 300)], cursor: null }
-        ]);
-        expect(rows.map((entry) => entry.hash)).toEqual(['one-a', 'two-a', 'one-b', 'two-b']);
-    });
-
-    test('an empty log has no sections', () => {
-        expect(groupCommits([], now)).toEqual([]);
     });
 });

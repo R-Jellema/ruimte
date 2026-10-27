@@ -30,11 +30,16 @@ function fakeSeams(): PaceSeams & { advance: (ms: number) => void } {
     };
 }
 
+/* A pace of three seconds on the fake clock, and what it handed on so far. */
+function pacing() {
+    const seams = fakeSeams();
+    const seen: string[] = [];
+    return { seams, seen, pace: paced(3000, (value: string) => seen.push(value), seams) };
+}
+
 describe('paced', () => {
     test('keeps only the newest value of a window and hands it on at the end', () => {
-        const seams = fakeSeams();
-        const seen: string[] = [];
-        const pace = paced(3000, (value: string) => seen.push(value), seams);
+        const { seams, seen, pace } = pacing();
 
         pace.offer('a');
         expect(seen).toEqual(['a']);
@@ -49,9 +54,7 @@ describe('paced', () => {
     });
 
     test('opens a new window for the value it just handed on', () => {
-        const seams = fakeSeams();
-        const seen: string[] = [];
-        const pace = paced(3000, (value: string) => seen.push(value), seams);
+        const { seams, seen, pace } = pacing();
 
         pace.offer('a');
         seams.advance(3000);
@@ -65,9 +68,7 @@ describe('paced', () => {
     });
 
     test('a read of the caller drops what was waiting and starts a window', () => {
-        const seams = fakeSeams();
-        const seen: string[] = [];
-        const pace = paced(3000, (value: string) => seen.push(value), seams);
+        const { seams, seen, pace } = pacing();
 
         pace.offer('a');
         seams.advance(500);
@@ -79,9 +80,7 @@ describe('paced', () => {
     });
 
     test('stops without handing on what was waiting', () => {
-        const seams = fakeSeams();
-        const seen: string[] = [];
-        const pace = paced(3000, (value: string) => seen.push(value), seams);
+        const { seams, seen, pace } = pacing();
 
         pace.offer('a');
         pace.offer('b');
