@@ -239,11 +239,18 @@ async function connectOwner(): Promise<RemoteClient> {
     return RemoteClient.connect(await inContainer(['cat', `${HOME}/local.key`]));
 }
 
-/* A statement v2 as the address book signs one, with this run's key in place of the address book's. */
-function statementFor(machine: Machine, clientPublicKey: string, overrides: Partial<AccessStatement> = {}): AccessStatement {
+/* This run's key, which signs in place of the address book's. */
+function statementKey(): string {
     if (STATEMENT_PRIVATE_KEY === null) {
         throw new Error('No statement key to sign with; run the suite with `bun run --cwd apps/server docker:test`, which makes one');
     }
+
+    return STATEMENT_PRIVATE_KEY;
+}
+
+/* A statement v2 as the address book signs one. */
+function statementFor(machine: Machine, clientPublicKey: string, overrides: Partial<AccessStatement> = {}): AccessStatement {
+    const key = statementKey();
     const issuedAt = Date.now();
     const base = {
         machineId: machine.id,
@@ -257,19 +264,17 @@ function statementFor(machine: Machine, clientPublicKey: string, overrides: Part
     };
     return {
         ...base,
-        signature: signMessage(STATEMENT_PRIVATE_KEY, accessStatementMessage(base.machineId, base.clientPublicKey, base.nonce, base.issuedAt, base.expiresAt)),
+        signature: signMessage(key, accessStatementMessage(base.machineId, base.clientPublicKey, base.nonce, base.issuedAt, base.expiresAt)),
         accountSignature: signMessage(
-            STATEMENT_PRIVATE_KEY,
+            key,
             accessStatementV2Message(base.machineId, base.machinePublicKey, base.accountId, base.clientPublicKey, base.nonce, base.issuedAt, base.expiresAt)
         )
     };
 }
 
-/* A peer statement for another machine of the account to work in the container, signed with this run's key. */
+/* A peer statement for another machine of the account to work in the container. */
 function peerStatementFor(machine: Machine, peerPublicKey: string, overrides: Partial<PeerStatement> = {}): PeerStatement {
-    if (STATEMENT_PRIVATE_KEY === null) {
-        throw new Error('No statement key to sign with; run the suite with `bun run --cwd apps/server docker:test`, which makes one');
-    }
+    const key = statementKey();
     const issuedAt = Date.now();
     const base = {
         machineId: machine.id,
@@ -286,7 +291,7 @@ function peerStatementFor(machine: Machine, peerPublicKey: string, overrides: Pa
     return {
         ...base,
         signature: signMessage(
-            STATEMENT_PRIVATE_KEY,
+            key,
             peerStatementMessage(
                 base.machineId,
                 base.machinePublicKey,
@@ -498,6 +503,49 @@ async function remoteSocket(key?: KeyPair): Promise<LetIn & { client: RemoteClie
     const letIn = await throughDoor(key ? { key } : {});
     letIn.channel.close();
     return { ...letIn, client: await RemoteClient.connect(letIn.ticket) };
+}
+
+/* Everything the sessions of a channel wrote so far, as the frames arrive. */
+function outputOf(channel: DirectClient): () => string {
+    let output = '';
+    channel.onFrame((raw) => {
+        const frame = JSON.parse(raw) as { event?: string; payload?: { data?: string } };
+        if (frame.event === 'session.output') {
+            output += frame.payload?.data ?? '';
+        }
+    });
+
+    return () => output;
+}
+
+/* A plain daemon on this machine beside the container. Its own home and no hooks, so it leaves this machine's state and CLI settings alone. */
+async function startLocalDaemon(port: number, homePrefix: string): Promise<{ daemon: Subprocess; home: string }> {
+    const home = await mkdtemp(join(tmpdir(), homePrefix));
+    const daemon = Bun.spawn(
+        [
+            'bun',
+            join(import.meta.dir, '../main.ts'),
+            '--host',
+            '127.0.0.1',
+            '--port',
+            String(port),
+            '--no-hooks',
+            '--no-price-fetch',
+            '--no-model-fetch',
+            '--no-lan'
+        ],
+        { env: { ...process.env, RUIMTE_HOME: home }, stdout: 'ignore', stderr: 'inherit' }
+    );
+    const url = `http://127.0.0.1:${port}`;
+    await waitUntil(`a second daemon on ${url}`, () => answers(url));
+
+    return { daemon, home };
+}
+
+async function stopLocalDaemon(daemon: Subprocess | null, home: string): Promise<void> {
+    daemon?.kill();
+    await daemon?.exited;
+    await rm(home, { recursive: true, force: true });
 }
 
 describe.skipIf(!ENABLED)('the daemon in the Linux container', () => {
@@ -917,19 +965,13 @@ describe.skipIf(!ENABLED)('a direct connection through the door', () => {
         const { channel: client } = await throughDoor();
         expect((await client.request<EndpointInfo>('endpoint.info', {})).authenticated).toBe(true);
 
-        let output = '';
-        client.onFrame((raw) => {
-            const frame = JSON.parse(raw) as { event?: string; payload?: { data?: string } };
-            if (frame.event === 'session.output') {
-                output += frame.payload?.data ?? '';
-            }
-        });
+        const output = outputOf(client);
         const sessionId = `docker-direct-${Date.now()}`;
         await client.request<SessionInfo>('session.create', { sessionId, cwd: REPO, cols: 80, rows: 24 });
         try {
             await client.request<SessionAttachResult>('session.attach', { sessionId, cols: 80, rows: 24 });
             await client.request('session.write', { sessionId, data: 'echo direct-$((6*7)) && uname -s\n' });
-            await waitUntil('the shell to answer over the channel', () => output.includes('direct-42') && output.includes('Linux'));
+            await waitUntil('the shell to answer over the channel', () => output().includes('direct-42') && output().includes('Linux'));
         } finally {
             await client.request('session.kill', { sessionId }).catch(() => undefined);
         }
@@ -1095,8 +1137,7 @@ describe.skipIf(!ENABLED)('another machine of the account as a peer', () => {
  */
 describe.skipIf(!ENABLED)('two daemons at the same time', () => {
     const LOCAL_PORT = Number(process.env.RUIMTE_LOCAL_PORT ?? 4311);
-    const LOCAL_URL = `http://127.0.0.1:${LOCAL_PORT}`;
-    let daemon: ReturnType<typeof Bun.spawn> | null = null;
+    let daemon: Subprocess | null = null;
     let home = '';
     let here: RemoteClient;
     let there: RemoteClient;
@@ -1104,24 +1145,7 @@ describe.skipIf(!ENABLED)('two daemons at the same time', () => {
     const startedSessions: string[] = [];
 
     beforeAll(async () => {
-        home = await mkdtemp(join(tmpdir(), 'ruimte-pool-'));
-        // Its own home and no hooks. A test daemon must leave this machine's state and CLI settings alone.
-        daemon = Bun.spawn(
-            [
-                'bun',
-                join(import.meta.dir, '../main.ts'),
-                '--host',
-                '127.0.0.1',
-                '--port',
-                String(LOCAL_PORT),
-                '--no-hooks',
-                '--no-price-fetch',
-                '--no-model-fetch',
-                '--no-lan'
-            ],
-            { env: { ...process.env, RUIMTE_HOME: home }, stdout: 'ignore', stderr: 'inherit' }
-        );
-        await waitUntil(`a second daemon on ${LOCAL_URL}`, () => answers(LOCAL_URL));
+        ({ daemon, home } = await startLocalDaemon(LOCAL_PORT, 'ruimte-pool-'));
         await waitUntil(`the container on ${BASE_URL}`, () => answers(BASE_URL), 5_000);
         // Being on this machine is not enough for the daemon here either. The secret of its home is what gets in.
         await expect(RemoteClient.connect(null, LOCAL_PORT)).rejects.toThrow();
@@ -1137,9 +1161,7 @@ describe.skipIf(!ENABLED)('two daemons at the same time', () => {
         }
         here?.close();
         there?.close();
-        daemon?.kill();
-        await daemon?.exited;
-        await rm(home, { recursive: true, force: true });
+        await stopLocalDaemon(daemon, home);
     });
 
     test('both machines answer at once, each about itself', async () => {
@@ -1239,10 +1261,9 @@ describe.skipIf(!ENABLED)('two daemons at the same time', () => {
  */
 describe.skipIf(!ENABLED)('one id on two machines', () => {
     const LOCAL_PORT = Number(process.env.RUIMTE_LOCAL_PORT ?? 4312);
-    const LOCAL_URL = `http://127.0.0.1:${LOCAL_PORT}`;
     /* A path that exists on both machines, so a key on the path alone would hold one checkout for two. */
     const SHARED = '/tmp/ruimte-two-machines';
-    let daemon: ReturnType<typeof Bun.spawn> | null = null;
+    let daemon: Subprocess | null = null;
     let home = '';
     let here: RemoteClient;
     let there: RemoteClient;
@@ -1259,23 +1280,7 @@ describe.skipIf(!ENABLED)('one id on two machines', () => {
     };
 
     beforeAll(async () => {
-        home = await mkdtemp(join(tmpdir(), 'ruimte-scope-'));
-        daemon = Bun.spawn(
-            [
-                'bun',
-                join(import.meta.dir, '../main.ts'),
-                '--host',
-                '127.0.0.1',
-                '--port',
-                String(LOCAL_PORT),
-                '--no-hooks',
-                '--no-price-fetch',
-                '--no-model-fetch',
-                '--no-lan'
-            ],
-            { env: { ...process.env, RUIMTE_HOME: home }, stdout: 'ignore', stderr: 'inherit' }
-        );
-        await waitUntil(`a second daemon on ${LOCAL_URL}`, () => answers(LOCAL_URL));
+        ({ daemon, home } = await startLocalDaemon(LOCAL_PORT, 'ruimte-scope-'));
         await waitUntil(`the container on ${BASE_URL}`, () => answers(BASE_URL), 5_000);
         here = await RemoteClient.connect(await readLocalSecret(home), LOCAL_PORT);
         there = (await remoteSocket()).client;
@@ -1290,9 +1295,7 @@ describe.skipIf(!ENABLED)('one id on two machines', () => {
         }
         here?.close();
         there?.close();
-        daemon?.kill();
-        await daemon?.exited;
-        await rm(home, { recursive: true, force: true });
+        await stopLocalDaemon(daemon, home);
         await rm(SHARED, { recursive: true, force: true });
         await inContainer(['rm', '-rf', SHARED]).catch(() => undefined);
     });
@@ -1445,7 +1448,7 @@ describe.skipIf(!ENABLED)('one id on two machines', () => {
 describe.skipIf(!ENABLED)('two projects side by side', () => {
     const LOCAL_PORT = Number(process.env.RUIMTE_SIDE_PORT ?? 4313);
     const LOCAL_URL = `http://127.0.0.1:${LOCAL_PORT}`;
-    let daemon: ReturnType<typeof Bun.spawn> | null = null;
+    let daemon: Subprocess | null = null;
     let home = '';
     let folder = '';
     let here: RemoteClient;
@@ -1470,24 +1473,8 @@ describe.skipIf(!ENABLED)('two projects side by side', () => {
     ];
 
     beforeAll(async () => {
-        home = await mkdtemp(join(tmpdir(), 'ruimte-side-'));
         folder = await mkdtemp(join(tmpdir(), 'ruimte-side-project-'));
-        daemon = Bun.spawn(
-            [
-                'bun',
-                join(import.meta.dir, '../main.ts'),
-                '--host',
-                '127.0.0.1',
-                '--port',
-                String(LOCAL_PORT),
-                '--no-hooks',
-                '--no-price-fetch',
-                '--no-model-fetch',
-                '--no-lan'
-            ],
-            { env: { ...process.env, RUIMTE_HOME: home }, stdout: 'ignore', stderr: 'inherit' }
-        );
-        await waitUntil(`a second daemon on ${LOCAL_URL}`, () => answers(LOCAL_URL));
+        ({ daemon, home } = await startLocalDaemon(LOCAL_PORT, 'ruimte-side-'));
         await waitUntil(`the container on ${BASE_URL}`, () => answers(BASE_URL), 5_000);
         here = await RemoteClient.connect(await readLocalSecret(home), LOCAL_PORT);
         const remote = await remoteSocket();
@@ -1513,9 +1500,7 @@ describe.skipIf(!ENABLED)('two projects side by side', () => {
         await inContainer(['rm', '-rf', `${REPO}/.ruimte`]).catch(() => undefined);
         here?.close();
         there?.close();
-        daemon?.kill();
-        await daemon?.exited;
-        await rm(home, { recursive: true, force: true });
+        await stopLocalDaemon(daemon, home);
         await rm(folder, { recursive: true, force: true });
     });
 
@@ -1553,16 +1538,16 @@ describe.skipIf(!ENABLED)('two projects side by side', () => {
     test('the bytes a viewer draws come from the daemon of its own workspace', async () => {
         /* A one pixel GIF, because the route serves images and video and nothing else. The two
            differ in one byte of the palette, which is what tells the answers apart. */
-        const here_gif = 'R0lGODlhAQABAIABAP8AAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
-        const there_gif = 'R0lGODlhAQABAIABAAD/AAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
-        await Bun.write(join(folder, 'here.gif'), Buffer.from(here_gif, 'base64'));
-        await inContainer(['sh', '-c', `echo ${there_gif} | base64 -d > ${REPO}/there.gif`]);
+        const hereGif = 'R0lGODlhAQABAIABAP8AAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+        const thereGif = 'R0lGODlhAQABAIABAAD/AAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+        await Bun.write(join(folder, 'here.gif'), Buffer.from(hereGif, 'base64'));
+        await inContainer(['sh', '-c', `echo ${thereGif} | base64 -d > ${REPO}/there.gif`]);
 
         const localSecret = encodeURIComponent((await readLocalSecret(home)) ?? '');
         const mineBytes = await fetch(`${LOCAL_URL}/fs/file?path=${encodeURIComponent(join(folder, 'here.gif'))}&v=1-1&token=${localSecret}`);
-        expect(Buffer.from(await mineBytes.arrayBuffer()).toString('base64')).toBe(here_gif);
+        expect(Buffer.from(await mineBytes.arrayBuffer()).toString('base64')).toBe(hereGif);
         const theirsBytes = await fetch(`${BASE_URL}/fs/file?path=${encodeURIComponent(`${REPO}/there.gif`)}&v=1-1&token=${encodeURIComponent(ticket)}`);
-        expect(Buffer.from(await theirsBytes.arrayBuffer()).toString('base64')).toBe(there_gif);
+        expect(Buffer.from(await theirsBytes.arrayBuffer()).toString('base64')).toBe(thereGif);
 
         // The same URL without the container's ticket. A workspace only reaches the daemon that let it in.
         const withoutTicket = await fetch(`${BASE_URL}/fs/file?path=${encodeURIComponent(`${REPO}/there.gif`)}&v=1-1`);
@@ -1691,25 +1676,19 @@ describe.skipIf(!ENABLED)('a direct connection signaled through the broker', () 
         expect((await client.request<EndpointInfo>('endpoint.info', {})).authenticated).toBe(true);
         console.log(`direct channel through the broker: open after ${client.timings.channelOpenMs} ms, signed in after ${client.timings.authenticatedMs} ms`);
 
-        let output = '';
-        client.onFrame((raw) => {
-            const frame = JSON.parse(raw) as { event?: string; payload?: { data?: string } };
-            if (frame.event === 'session.output') {
-                output += frame.payload?.data ?? '';
-            }
-        });
+        const output = outputOf(client);
         const sessionId = `docker-broker-${Date.now()}`;
         await client.request<SessionInfo>('session.create', { sessionId, cwd: REPO, cols: 80, rows: 24 });
         try {
             await client.request<SessionAttachResult>('session.attach', { sessionId, cols: 80, rows: 24 });
             await client.request('session.write', { sessionId, data: 'echo brokered-$((6*7)) && uname -s\n' });
-            await waitUntil('the shell to answer over the channel', () => output.includes('brokered-42') && output.includes('Linux'));
+            await waitUntil('the shell to answer over the channel', () => output().includes('brokered-42') && output().includes('Linux'));
 
             broker!.kill();
             await broker!.exited;
             expect(await fetch(BROKER_HEALTH).catch(() => null)).toBeNull();
             await client.request('session.write', { sessionId, data: 'echo without-broker-$((6*7))\n' });
-            await waitUntil('the shell to answer with the broker gone', () => output.includes('without-broker-42'));
+            await waitUntil('the shell to answer with the broker gone', () => output().includes('without-broker-42'));
             expect(client.isOpen).toBe(true);
         } finally {
             await client.request('session.kill', { sessionId }).catch(() => undefined);
@@ -1746,19 +1725,13 @@ describe.skipIf(!ENABLED)('a machine opened on a statement through the broker', 
         const { sessions } = await client.request<AuthSessionsResult>('auth.sessions', {});
         expect(sessions.find((session) => session.current)).toMatchObject({ label: CLIENT_LABEL, origin: 'statement' });
 
-        let output = '';
-        client.onFrame((raw) => {
-            const frame = JSON.parse(raw) as { event?: string; payload?: { data?: string } };
-            if (frame.event === 'session.output') {
-                output += frame.payload?.data ?? '';
-            }
-        });
+        const output = outputOf(client);
         const sessionId = `docker-statement-${Date.now()}`;
         await client.request<SessionInfo>('session.create', { sessionId, cwd: REPO, cols: 80, rows: 24 });
         try {
             await client.request<SessionAttachResult>('session.attach', { sessionId, cols: 80, rows: 24 });
             await client.request('session.write', { sessionId, data: 'echo statement-$((6*7)) && uname -s\n' });
-            await waitUntil('the shell to answer over the channel', () => output.includes('statement-42') && output.includes('Linux'));
+            await waitUntil('the shell to answer over the channel', () => output().includes('statement-42') && output().includes('Linux'));
         } finally {
             await client.request('session.kill', { sessionId }).catch(() => undefined);
         }
