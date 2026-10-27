@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { refusalBody } from '@adecore/agents/context';
 import type { CliVersion, RegistryAgent, UsageLimitsSnapshot } from '@ruimte/contracts';
-import { VerbRefusal, type CanvasHost, type NodeAccount, type Noun } from './verb.ts';
+import { type CanvasHost, type NodeAccount, type Noun } from './verb.ts';
+import { printed } from './verb-test-helpers.ts';
 import { verbNamed } from './verbs.ts';
 
 const noun = verbNamed('provider') as Noun;
@@ -103,15 +103,8 @@ beforeEach(() => {
     } as unknown as CanvasHost;
 });
 
-async function run(argv: string[]): Promise<string[]> {
-    try {
-        return await noun.run(argv, { caller: 'chat-1', host });
-    } catch (error) {
-        if (error instanceof VerbRefusal) {
-            return refusalBody(error.code, error.message, error.lines).split('\n');
-        }
-        throw error;
-    }
+function run(argv: string[]): Promise<string[]> {
+    return printed(noun, argv, { caller: 'chat-1', host });
 }
 
 const PERSON = expect.stringMatching(/^person\tInstalling, updating and removing stay a person's/);

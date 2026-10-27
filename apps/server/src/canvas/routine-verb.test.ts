@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { narrowerMode } from '@adecore/agents/providers';
 import type { Routine, RoutineEntry, RoutineMadeBy, RoutineRunNowResult, RuntimeMode } from '@ruimte/contracts';
-import { refusalBody } from '@adecore/agents/context';
 import { agentRoutines } from '../routines/agent-host.ts';
 import type { Routines } from '../routines/routines.ts';
 import { parseSchedule, scheduleText } from './routine-verb.ts';
-import { VerbRefusal, type CanvasHost, type LaunchReading, type Noun } from './verb.ts';
+import { type CanvasHost, type LaunchReading, type Noun } from './verb.ts';
+import { printed } from './verb-test-helpers.ts';
 import { verbNamed } from './verbs.ts';
 
 const noun = verbNamed('routine') as Noun;
@@ -112,15 +112,8 @@ beforeEach(() => {
     } as unknown as CanvasHost;
 });
 
-async function run(argv: string[]): Promise<string[]> {
-    try {
-        return await noun.run(argv, { caller: 'chat-1', host });
-    } catch (error) {
-        if (error instanceof VerbRefusal) {
-            return refusalBody(error.code, error.message, error.lines).split('\n');
-        }
-        throw error;
-    }
+function run(argv: string[]): Promise<string[]> {
+    return printed(noun, argv, { caller: 'chat-1', host });
 }
 
 describe('the schedule --at takes', () => {

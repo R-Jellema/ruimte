@@ -8,8 +8,8 @@ import { DeviceDriver } from '../devices/agent-driver.ts';
 import { DeviceControl } from '../devices/control.ts';
 import { ReadingBackend, RecordingBackend, SIMULATOR, pngOf } from '../devices/device-test-helpers.ts';
 import { DeviceManager } from '../devices/manager.ts';
-import { refusalBody } from '@adecore/agents/context';
-import { VerbRefusal, type CanvasHost, type Noun } from './verb.ts';
+import { type CanvasHost, type Noun } from './verb.ts';
+import { printed } from './verb-test-helpers.ts';
 import { verbNamed } from './verbs.ts';
 
 const noun = verbNamed('device') as Noun;
@@ -80,16 +80,8 @@ afterEach(async () => {
     await rm(home, { recursive: true, force: true });
 });
 
-/* What the CLI prints: the lines of an answer, or the refusal with its advice. */
-async function run(argv: string[]): Promise<string[]> {
-    try {
-        return await noun.run(argv, { caller: 'chat-1', host });
-    } catch (error) {
-        if (error instanceof VerbRefusal) {
-            return refusalBody(error.code, error.message, error.lines).split('\n');
-        }
-        throw error;
-    }
+function run(argv: string[]): Promise<string[]> {
+    return printed(noun, argv, { caller: 'chat-1', host });
 }
 
 describe('ruimte-context device', () => {

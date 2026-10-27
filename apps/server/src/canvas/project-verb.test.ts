@@ -2,10 +2,10 @@ import { beforeEach, describe, expect, test } from 'bun:test';
 import { mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { refusalBody } from '@adecore/agents/context';
 import { initRepo } from '../git/test-repo.ts';
 import type { ProposalAnswer, ProposalAsk } from '../projects/project-proposals.ts';
-import { VerbRefusal, type CanvasHost, type Noun, type Verb } from './verb.ts';
+import { type CanvasHost, type Noun, type Verb } from './verb.ts';
+import { printed } from './verb-test-helpers.ts';
 import { verbNamed } from './verbs.ts';
 
 const noun = verbNamed('project') as Noun;
@@ -32,15 +32,8 @@ beforeEach(() => {
     } as unknown as CanvasHost;
 });
 
-async function run(argv: string[], caller = 'chat-1'): Promise<string[]> {
-    try {
-        return await noun.run(argv, { caller, host });
-    } catch (error) {
-        if (error instanceof VerbRefusal) {
-            return refusalBody(error.code, error.message, error.lines).split('\n');
-        }
-        throw error;
-    }
+function run(argv: string[], caller = 'chat-1'): Promise<string[]> {
+    return printed(noun, argv, { caller, host });
 }
 
 const PROPOSE = ['propose', '--name', 'Vinyl shelf', '--reason', 'The notes became a codebase'];

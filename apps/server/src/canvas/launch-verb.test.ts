@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { LAUNCH_SECRET_REFERENCE, type LaunchConfig, type LaunchConfigEntry, type LaunchStartResult, type LaunchStatus } from '@ruimte/contracts';
-import { refusalBody } from '@adecore/agents/context';
 import { agentLaunches } from '../launches/agent-host.ts';
 import type { LaunchStartOptions } from '../launches/runner.ts';
 import type { ResolvedLaunch } from '../launches/store.ts';
-import { VerbRefusal, type CanvasHost, type LaunchHost, type LaunchReading, type Noun } from './verb.ts';
+import { type CanvasHost, type LaunchHost, type LaunchReading, type Noun } from './verb.ts';
+import { printed } from './verb-test-helpers.ts';
 import { verbNamed } from './verbs.ts';
 
 const noun = verbNamed('launches') as Noun;
@@ -90,15 +90,8 @@ beforeEach(() => {
     } as unknown as CanvasHost;
 });
 
-async function run(argv: string[]): Promise<string[]> {
-    try {
-        return await noun.run(argv, { caller: 'chat-1', host });
-    } catch (error) {
-        if (error instanceof VerbRefusal) {
-            return refusalBody(error.code, error.message, error.lines).split('\n');
-        }
-        throw error;
-    }
+function run(argv: string[]): Promise<string[]> {
+    return printed(noun, argv, { caller: 'chat-1', host });
 }
 
 describe('ruimte-context launches', () => {

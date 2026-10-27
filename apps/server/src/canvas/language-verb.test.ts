@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { refusalBody } from '@adecore/agents/context';
 import type { LanguageAgentHost } from './verb.ts';
-import { VerbRefusal, type CanvasHost, type Noun, type Verb } from './verb.ts';
+import { printed } from './verb-test-helpers.ts';
+import { type CanvasHost, type Noun, type Verb } from './verb.ts';
 import { verbNamed } from './verbs.ts';
 
 const noun = verbNamed('language') as Noun;
@@ -94,15 +94,8 @@ afterEach(async () => {
     await rm(root, { recursive: true, force: true });
 });
 
-async function run(argv: string[]): Promise<string[]> {
-    try {
-        return await noun.run(argv, { caller: 'chat-1', host });
-    } catch (error) {
-        if (error instanceof VerbRefusal) {
-            return refusalBody(error.code, error.message, error.lines).split('\n');
-        }
-        throw error;
-    }
+function run(argv: string[]): Promise<string[]> {
+    return printed(noun, argv, { caller: 'chat-1', host });
 }
 
 describe('ruimte-context language', () => {

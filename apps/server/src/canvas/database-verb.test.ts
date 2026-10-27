@@ -3,7 +3,6 @@ import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { DatabaseConnection, ProjectContent, RuntimeMode } from '@ruimte/contracts';
-import { refusalBody } from '@adecore/agents/context';
 import { DatabaseAccessStore } from '../database/agent-access.ts';
 import { AgentDatabases, connectionTarget } from '../database/agent-databases.ts';
 import { DatabasePasswords } from '../database/agent-passwords.ts';
@@ -13,7 +12,8 @@ import { runContext } from '../cli/context.ts';
 import { MachineHome } from '../fs/machine-home.ts';
 import { handleCanvasRequest } from './canvas-route.ts';
 import { SHOWN_LINE } from './visual-verb.ts';
-import { VerbRefusal, type CanvasHost, type Noun, type Verb } from './verb.ts';
+import { type CanvasHost, type Noun, type Verb } from './verb.ts';
+import { printed } from './verb-test-helpers.ts';
 import { verbNamed } from './verbs.ts';
 
 const noun = verbNamed('database') as Noun;
@@ -151,15 +151,8 @@ afterEach(async () => {
     await rm(root, { recursive: true, force: true });
 });
 
-async function run(argv: string[], caller = 'chat-1'): Promise<string[]> {
-    try {
-        return await noun.run(argv, { caller, host });
-    } catch (error) {
-        if (error instanceof VerbRefusal) {
-            return refusalBody(error.code, error.message, error.lines).split('\n');
-        }
-        throw error;
-    }
+function run(argv: string[], caller = 'chat-1'): Promise<string[]> {
+    return printed(noun, argv, { caller, host });
 }
 
 function opened(): Record<string, unknown>[] {

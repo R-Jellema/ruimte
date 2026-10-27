@@ -2,8 +2,8 @@ import { describe, expect, test } from 'bun:test';
 import { MAX_KEY_COMBOS, MAX_TYPED_LENGTH } from '@ruimte/actions';
 import { READ_MAX_CHARS } from '../actions/computer-actions.ts';
 import { computerSetup, SAMPLE_STATE, turnEnded, until, type ComputerSetup } from '../computer/computer-test-helpers.ts';
-import { refusalBody } from '@adecore/agents/context';
-import { VerbRefusal, type CanvasHost, type Noun } from './verb.ts';
+import { type CanvasHost, type Noun } from './verb.ts';
+import { printed } from './verb-test-helpers.ts';
 import { verbNamed } from './verbs.ts';
 
 const noun = verbNamed('computer') as Noun;
@@ -16,16 +16,8 @@ function hostFor(setup: ComputerSetup): CanvasHost {
     } as unknown as CanvasHost;
 }
 
-/* What the CLI prints: the lines of an answer, or the refusal with its advice. */
-async function run(setup: ComputerSetup, argv: string[], caller = 'chat-1'): Promise<string[]> {
-    try {
-        return await noun.run(argv, { caller, host: hostFor(setup) });
-    } catch (error) {
-        if (error instanceof VerbRefusal) {
-            return refusalBody(error.code, error.message, error.lines).split('\n');
-        }
-        throw error;
-    }
+function run(setup: ComputerSetup, argv: string[], caller = 'chat-1'): Promise<string[]> {
+    return printed(noun, argv, { caller, host: hostFor(setup) });
 }
 
 /* Lets the agent in for this time, so what follows is about the answer and not about asking. */

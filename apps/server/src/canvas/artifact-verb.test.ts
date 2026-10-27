@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { refusalBody } from '@adecore/agents/context';
 import { ArtifactStore } from '../artifacts/artifact-store.ts';
 import { Artifacts } from '../artifacts/artifacts.ts';
 import { MemoryArtifactFs } from '../artifacts/memory-artifact-fs.ts';
-import { VerbRefusal, type CanvasHost, type Noun } from './verb.ts';
+import { type CanvasHost, type Noun } from './verb.ts';
+import { printed } from './verb-test-helpers.ts';
 import { verbNamed } from './verbs.ts';
 
 const noun = verbNamed('artifact') as Noun;
@@ -37,15 +37,8 @@ beforeEach(async () => {
     } as unknown as CanvasHost;
 });
 
-async function run(argv: string[], caller = 'chat-1'): Promise<string[]> {
-    try {
-        return await noun.run(argv, { caller, host });
-    } catch (error) {
-        if (error instanceof VerbRefusal) {
-            return refusalBody(error.code, error.message, error.lines).split('\n');
-        }
-        throw error;
-    }
+function run(argv: string[], caller = 'chat-1'): Promise<string[]> {
+    return printed(noun, argv, { caller, host });
 }
 
 async function upload(caller: string, id: string, text: string): Promise<void> {

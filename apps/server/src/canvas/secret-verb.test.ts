@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { refusalBody } from '@adecore/agents/context';
 import type { SecretAsk, SecretOutcome } from '../secrets/secret-requests.ts';
-import { VerbRefusal, type CanvasHost, type LaunchReading, type Noun, type Verb } from './verb.ts';
+import { type CanvasHost, type LaunchReading, type Noun, type Verb } from './verb.ts';
+import { printed } from './verb-test-helpers.ts';
 import { verbNamed } from './verbs.ts';
 
 const noun = verbNamed('secret') as Noun;
@@ -48,15 +48,8 @@ beforeEach(() => {
     } as unknown as CanvasHost;
 });
 
-async function run(argv: string[], caller = 'chat-1'): Promise<string[]> {
-    try {
-        return await noun.run(argv, { caller, host });
-    } catch (error) {
-        if (error instanceof VerbRefusal) {
-            return refusalBody(error.code, error.message, error.lines).split('\n');
-        }
-        throw error;
-    }
+function run(argv: string[], caller = 'chat-1'): Promise<string[]> {
+    return printed(noun, argv, { caller, host });
 }
 
 const REQUEST = ['request', '--launch', 'API', '--variable', 'API_KEY', '--label', 'Stripe test key', '--reason', 'Checkout calls Stripe'];
