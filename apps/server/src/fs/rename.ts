@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { lstat, mkdir, realpath, rmdir, stat } from 'node:fs/promises';
+import { lstat, mkdir, rmdir, stat } from 'node:fs/promises';
 import type { Stats } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { CodedError } from '@adecore/agents';
@@ -9,6 +9,7 @@ import { deepestEntry } from './create.ts';
 import { renameNoReplace } from './no-replace-rename.ts';
 import { trashPath } from './trash.ts';
 import { assertOpenGround, realEntryPath, realRoots, rootOf, type WriteBoundary } from './write.ts';
+import { realOrNull } from './real-path.ts';
 
 type RenameErrorCode =
     | 'bad-path'
@@ -34,7 +35,7 @@ async function realSource(path: string): Promise<string> {
 /* The real place the folder of a new path will have: the deepest folder that exists along it, with the names below it that do not yet. */
 async function realTarget(path: string): Promise<string> {
     const { at, missing } = await deepestEntry(dirname(path), (place) => lstat(place).catch(() => null), path);
-    const base = await realpath(at).catch(() => null);
+    const base = await realOrNull(at);
     if (base === null || !(await stat(base)).isDirectory()) {
         throw new RenameError('not-a-directory', `${at} is not a folder`);
     }

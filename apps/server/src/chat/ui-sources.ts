@@ -20,6 +20,7 @@ import type { AgentDatabases, DatabasePlace } from '../database/agent-databases.
 import { UiSourceAccessSchema } from './ui-access.ts';
 import { UI_SOURCE_ARGS } from './ui-source-args.ts';
 import { resolveUiProjectLink } from './ui-links.ts';
+import { realOrNull } from '../fs/real-path.ts';
 
 export interface UiSourceHosts {
     place(chatId: string): DatabasePlace | null;
@@ -198,7 +199,7 @@ export function ruimteUiSources(host: UiSourceHosts): ChatUiHost {
     } satisfies Record<string, ChatUiSource>;
     const capturePlace = async (info: ChatInfo, current: DatabasePlace) => {
         const [folder, cwd, trees] = await Promise.all([realpath(current.folder), realpath(info.cwd), host.worktreePaths(current.folder)]);
-        const roots = [folder, ...(await Promise.all(trees.map((tree) => realpath(tree).catch(() => null)))).filter((tree): tree is string => tree !== null)];
+        const roots = [folder, ...(await Promise.all(trees.map(realOrNull))).filter((tree): tree is string => tree !== null)];
         if (!roots.some((root) => isInside(root, cwd))) {
             throw new ChatUiRefusal('outside-project', "The agent's chat is outside its project.");
         }

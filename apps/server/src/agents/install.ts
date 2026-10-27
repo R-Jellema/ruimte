@@ -1,4 +1,4 @@
-import { mkdir, readFile, realpath, stat } from 'node:fs/promises';
+import { mkdir, readFile, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import type { AgentKind } from '@ruimte/contracts';
@@ -13,6 +13,7 @@ import {
 import { HOOK_EVENTS } from './hooks.ts';
 import { errorText } from '../error-text.ts';
 import { isRecord } from '../is-record.ts';
+import { realOrSelf } from '../fs/real-path.ts';
 
 // The one string the installer recognizes its own hook by, across versions of the command.
 export const HOOK_MARKER = 'RUIMTE_HOOK_URL';
@@ -247,11 +248,6 @@ export const HOOK_FILE_RETRIES = 3;
 /* The one place a hook settings file is edited: the install and the revoke queue behind each other here. */
 export function editingHookFile<T>(path: string, work: () => Promise<T>): Promise<T> {
     return hookFiles.run(path, work);
-}
-
-/* Where a symlink points, since a rename over the link itself would cut a dotfiles checkout loose. */
-export async function realOrSelf(path: string): Promise<string> {
-    return await realpath(path).catch(() => path);
 }
 
 /* Writes a settings file in the mode it had, so a person's 0600 stays 0600. */

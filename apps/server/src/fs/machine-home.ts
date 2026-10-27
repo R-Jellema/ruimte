@@ -1,8 +1,8 @@
-import { realpath } from 'node:fs/promises';
 import { join, relative, resolve, sep } from 'node:path';
 import { CodedError } from '@adecore/agents';
 import { isInside } from '../canvas/project-paths.ts';
 import { DEVICE_CAPTURES_FOLDER } from '../shots.ts';
+import { realOrSelf } from './real-path.ts';
 
 export class MachineHomeError extends CodedError<'machine-state'> {}
 
@@ -60,14 +60,14 @@ export class MachineHome {
     }
 
     async policy(): Promise<MachineHomePolicy> {
-        this.realHome ??= realpath(this.home).catch(() => this.home);
+        this.realHome ??= realOrSelf(this.home);
         const realHome = await this.realHome;
         return { homes: realHome === this.home ? [this.home] : [this.home, realHome] };
     }
 
     async refuse(path: string): Promise<void> {
         const lexical = resolve(path);
-        const [policy, real] = await Promise.all([this.policy(), realpath(lexical).catch(() => lexical)]);
+        const [policy, real] = await Promise.all([this.policy(), realOrSelf(lexical)]);
         if (isMachineStatePath(policy, lexical) || isMachineStatePath(policy, real)) {
             throw new MachineHomeError('machine-state', `${path} belongs to this machine's own state and is not handed out`);
         }

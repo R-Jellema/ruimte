@@ -1,8 +1,8 @@
-import { realpath } from 'node:fs/promises';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { climbsOut } from '../fs/path-segment.ts';
 import { nativePath } from './native-path.ts';
 import { runGit } from './run.ts';
+import { realOrNull } from '../fs/real-path.ts';
 
 function relativeIgnorePath(path: string, cwd: string): string {
     if (!isAbsolute(path)) {
@@ -36,7 +36,7 @@ export async function isTrackedPath(path: string): Promise<boolean> {
 async function checkIgnore(paths: readonly string[], cwd: string): Promise<Set<string>> {
     let queries: Map<string, string[]> | undefined;
     if (paths.some((path) => isAbsolute(path))) {
-        const canonical = await realpath(cwd).catch(() => null);
+        const canonical = await realOrNull(cwd);
         // With an aliased cwd, Git canonicalizes every absolute path again; relative input avoids it.
         if (canonical !== null && canonical !== resolve(cwd)) {
             queries = new Map();

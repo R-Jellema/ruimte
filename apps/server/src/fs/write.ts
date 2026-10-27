@@ -3,7 +3,8 @@ import { lstat, open, realpath, type FileHandle } from 'node:fs/promises';
 import { basename, dirname, join, relative, sep } from 'node:path';
 import { FS_READ_MAX_TEXT_BYTES, type FsWriteResult } from '@ruimte/contracts';
 import { CodedError, KeyedSerializer } from '@adecore/agents';
-import { isInside, realOrNull } from '../canvas/project-paths.ts';
+import { isInside } from '../canvas/project-paths.ts';
+import { realOrNull } from './real-path.ts';
 import { isRuimteState } from '../projects/project-files.ts';
 import { ReadError, UTF8_BOM, inspect } from './read.ts';
 

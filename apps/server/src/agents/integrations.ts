@@ -5,6 +5,7 @@ import type { AgentIntegrationFile, AgentIntegrationReport, AgentIntegrationsSum
 import { fileExists, isNotFound, writeAtomic, Serializer } from '@adecore/agents';
 import { errorText } from '../error-text.ts';
 import { isRecord } from '../is-record.ts';
+import { realOrSelf } from '../fs/real-path.ts';
 import {
     CODEX_RULES,
     HookFileRefused,
@@ -15,7 +16,6 @@ import {
     holdsOurHook,
     hookPathIn,
     installInFolder,
-    realOrSelf,
     type FolderInstall
 } from './install.ts';
 import { revokeAntigravityRules, revokeCodexRules, revokeHooks, type LedgerEntry } from './revoke.ts';

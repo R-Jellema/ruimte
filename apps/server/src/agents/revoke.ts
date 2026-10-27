@@ -3,6 +3,7 @@ import type { AgentIntegrationReport, AgentKind } from '@ruimte/contracts';
 import { isNotFound } from '@adecore/agents';
 import { errorText } from '../error-text.ts';
 import { isRecord } from '../is-record.ts';
+import { realOrSelf } from '../fs/real-path.ts';
 import {
     CODEX_RULES,
     HOOK_FILE_RETRIES,
@@ -12,7 +13,6 @@ import {
     isOurs,
     isOursNamed,
     mergeHooks,
-    realOrSelf,
     removeAntigravityRules,
     sameEntry,
     shapeOf,

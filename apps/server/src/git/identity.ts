@@ -1,7 +1,7 @@
-import { realpath } from 'node:fs/promises';
 import type { GitIdentity, GitIdentityMiss, GitIdentityResult } from '@ruimte/contracts';
 import { nativePath } from './native-path.ts';
 import { READ_ONLY_GIT, runGit } from './run.ts';
+import { realOrSelf } from '../fs/real-path.ts';
 
 // The same cap the contract holds the lists to.
 const MAX_LISTED = 50;
@@ -56,10 +56,6 @@ async function read(args: string[], cwd: string): Promise<string | null> {
     return result.code === 0 ? result.stdout : null;
 }
 
-async function real(path: string): Promise<string> {
-    return realpath(path).catch(() => path);
-}
-
 /* What a checkout is, read without taking a lock: the history it starts from, where it came from and where its branches stand. */
 export class IdentityReader {
     private readonly roots = new Map<string, string[]>();
@@ -92,7 +88,7 @@ export class IdentityReader {
     private async readIdentity(path: string): Promise<GitIdentity | null> {
         const where = linesOf(await read(['rev-parse', '--show-toplevel', '--absolute-git-dir'], path)).map((line) => nativePath(line));
         // A folder inside a repository is not a checkout of it: a dotfiles repository at the home folder would otherwise claim every project below it.
-        if (where.length < 2 || (await real(where[0]!)) !== (await real(path))) {
+        if (where.length < 2 || (await realOrSelf(where[0]!)) !== (await realOrSelf(path))) {
             return null;
         }
         const gitDir = where[1]!;

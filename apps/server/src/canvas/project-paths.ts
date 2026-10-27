@@ -1,14 +1,11 @@
-import { lstat, readdir, realpath, stat } from 'node:fs/promises';
+import { lstat, readdir, stat } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 import { climbsOut } from '../fs/path-segment.ts';
 import { VerbRefusal } from './verb.ts';
+import { realOrNull } from '../fs/real-path.ts';
 
 export function isInside(root: string, path: string): boolean {
     return !climbsOut(relative(root, path));
-}
-
-export function realOrNull(path: string): Promise<string | null> {
-    return realpath(path).catch(() => null);
 }
 
 interface InsideRule {

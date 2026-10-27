@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path';
 import { isInside } from '../canvas/project-paths.ts';
 import { MAX_FILE_BYTES } from './grep-lines.ts';
 import { isMachineStatePath, type MachineHomePolicy } from './machine-home.ts';
+import { realOrNull, realOrSelf } from './real-path.ts';
 
 // Windows has neither flag; there the check on the opened file below is all the guard.
 const OPEN_FLAGS = constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0);
@@ -17,7 +18,7 @@ export interface SearchRoot {
 
 export async function searchRoot(cwd: string, policy: MachineHomePolicy): Promise<SearchRoot> {
     const lexical = resolve(cwd);
-    return { cwd: lexical, realCwd: await realpath(lexical).catch(() => lexical), policy };
+    return { cwd: lexical, realCwd: await realOrSelf(lexical), policy };
 }
 
 /* Whether a listed name may be named at all, judged before anything under it is read. */
@@ -33,7 +34,7 @@ export async function isOpenPath(root: SearchRoot, path: string): Promise<boolea
     if (!isOpenName(root, path)) {
         return false;
     }
-    const real = await realpath(join(root.cwd, path)).catch(() => null);
+    const real = await realOrNull(join(root.cwd, path));
     return real !== null && !isMachineStatePath(root.policy, real);
 }
 

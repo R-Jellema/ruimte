@@ -1,14 +1,11 @@
 import { constants } from 'node:fs';
-import { access, realpath, stat } from 'node:fs/promises';
+import { access, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { isUnder } from '../fs/path-segment.ts';
+import { realOrSelf } from '../fs/real-path.ts';
 
 type WorktreeRootCheck = { root: string } | { refusal: 'root-refused' | 'not-a-folder'; message: string };
-
-async function realOrSelf(path: string): Promise<string> {
-    return await realpath(path).catch(() => path);
-}
 
 /* The nearest folder that exists on the way up from a path, with whether it is a folder this process may create in. */
 async function nearestFolder(path: string): Promise<{ path: string; writable: boolean } | null> {

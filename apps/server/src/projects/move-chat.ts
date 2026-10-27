@@ -1,4 +1,3 @@
-import { realpath } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 import { entryExists } from '@adecore/agents';
 import { ChatError as AgentChatError } from '@adecore/agents/chat';
@@ -24,6 +23,7 @@ import { movedNote } from './move-note.ts';
 import type { MoveJournal } from './move-journal.ts';
 import { moveOwnFiles } from './own-files.ts';
 import type { MutationApply } from './project-store.ts';
+import { realOrNull } from '../fs/real-path.ts';
 
 /* The English sentence a refused move carries on its reply; the client writes its own words from the reason. */
 const REFUSAL_SENTENCES: Record<ChatMoveRefusal['reason'], string> = {
@@ -332,7 +332,7 @@ function summaryOf(target: { projectId: string; name: string }, folder: string):
 
 /* The path with every link in its existing part followed, for a folder that is not made yet. */
 async function resolvedPath(path: string): Promise<string> {
-    const real = await realpath(path).catch(() => null);
+    const real = await realOrNull(path);
     if (real !== null) {
         return real;
     }

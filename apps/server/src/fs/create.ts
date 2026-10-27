@@ -1,9 +1,10 @@
 import { constants } from 'node:fs';
-import { lstat, mkdir, open, realpath, stat } from 'node:fs/promises';
+import { lstat, mkdir, open, stat } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { FS_READ_MAX_TEXT_BYTES, type FsCreatePayload, type FsCreateResult } from '@ruimte/contracts';
 import { CodedError } from '@adecore/agents';
 import { assertOpenGround, realRoots, rootOf, type WriteBoundary } from './write.ts';
+import { realOrNull } from './real-path.ts';
 
 type CreateErrorCode = 'bad-path' | 'exists' | 'not-a-directory' | 'too-large' | 'not-writable';
 
@@ -37,7 +38,7 @@ export async function deepestEntry<T>(
  */
 export async function deepestExisting(path: string): Promise<{ base: string; missing: string[] }> {
     const { at, missing } = await deepestEntry(path, (place) => lstat(place).catch(() => null));
-    const base = await realpath(at).catch(() => null);
+    const base = await realOrNull(at);
     if (base === null) {
         throw new CreateError('not-a-directory', `${at} is a link that leads nowhere`);
     }

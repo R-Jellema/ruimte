@@ -14,6 +14,7 @@ import {
 import { CodedError, isNotFound } from '@adecore/agents';
 import { isInside } from '../canvas/project-paths.ts';
 import { isRuimteState } from '../projects/project-files.ts';
+import { realOrNull } from '../fs/real-path.ts';
 
 class ImageFileError extends CodedError {}
 
@@ -42,7 +43,7 @@ async function destination(folder: string, path: string): Promise<string> {
     }
     const root = await realpath(folder);
     const target = resolve(folder, path);
-    const parent = await realpath(dirname(target)).catch(() => null);
+    const parent = await realOrNull(dirname(target));
     if (parent === null) {
         throw new ImageFileError('not-a-directory', 'The destination folder is not there');
     }

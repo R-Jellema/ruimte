@@ -34,6 +34,7 @@ import { cleanupProposals, NO_PINS, removable, type PinnedVersions } from './art
 import { copyVersionInto } from './artifact-copy.ts';
 import { ArtifactError, isTextMime, SNIFF_HEAD_BYTES } from './artifact-names.ts';
 import { versionTooLarge, type ArtifactStore, type CommitResult } from './artifact-store.ts';
+import { realOrNull } from '../fs/real-path.ts';
 
 // One agent with this many publishes half sent holds them all; the next waits until one is done.
 export const MAX_OPEN_UPLOADS = 8;
@@ -504,7 +505,7 @@ export class Artifacts {
             throw new ArtifactError(info?.isSymbolicLink() === true ? 'symlink' : 'not-found', 'That picture is not a file this machine saves');
         }
         const real = await realpath(resolved);
-        const roots = await Promise.all([folder, ...shotFolders(this.deps.home)].map((root) => realpath(root).catch(() => null)));
+        const roots = await Promise.all([folder, ...shotFolders(this.deps.home)].map(realOrNull));
         if (!roots.some((root) => root !== null && isInside(root, real))) {
             throw new ArtifactError('outside-project', 'Only a picture inside the project folder or one the machine took for a chat is saved');
         }

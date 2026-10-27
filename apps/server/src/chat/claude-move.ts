@@ -1,4 +1,4 @@
-import { mkdir, realpath, rmdir } from 'node:fs/promises';
+import { mkdir, rmdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { claudeProjectSlug, findClaudeSession } from '@adecore/agents/chat';
 import { isDirectory } from '../fs/browse.ts';
@@ -6,6 +6,7 @@ import { renameNoReplace } from '../fs/no-replace-rename.ts';
 import { isPathSegment } from '../fs/path-segment.ts';
 import { errorText } from '../error-text.ts';
 import { ChatError } from './errors.ts';
+import { realOrSelf } from '../fs/real-path.ts';
 
 interface MovedTranscript {
     /* Puts back what moved, last first; a second call does nothing. */
@@ -34,7 +35,7 @@ export async function moveClaudeTranscript(options: MoveTranscriptOptions): Prom
     }
     const found = await findClaudeSession(projectsDir, sessionId, fromCwd);
     // Claude Code runs in the resolved folder (its working directory is never a symlink), so that is what it slugs.
-    const targetDir = join(projectsDir, claudeProjectSlug(await realpath(toCwd).catch(() => toCwd)));
+    const targetDir = join(projectsDir, claudeProjectSlug(await realOrSelf(toCwd)));
     // No file: a chat nobody wrote in, or a CLI that keeps none here. Already there: the folders share a slug.
     if (found === null || dirname(found) === targetDir) {
         return { undo: () => Promise.resolve() };

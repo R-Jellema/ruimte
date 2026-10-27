@@ -11,6 +11,7 @@ import type { SessionEvent, SessionSink } from '../sessions/manager.ts';
 import type { DatabaseAccessStore } from './agent-access.ts';
 import type { DatabasePasswords } from './agent-passwords.ts';
 import { inOwnedSession, type DatabaseCalls, type SessionCall } from './owned-session.ts';
+import { realOrSelf } from '../fs/real-path.ts';
 
 /* How long one verb may keep its session; past it the call is cancelled and its session closed. */
 export const AGENT_DATABASE_LIMIT_MS = 120_000;
@@ -421,7 +422,7 @@ export class AgentDatabases {
             return this.uiTarget(connection);
         }
         const { path } = connection.config;
-        const file = await realpath(path).catch(() => path);
+        const file = await realOrSelf(path);
         return this.uiTarget({ ...connection, config: { ...connection.config, path: file } });
     }
 
