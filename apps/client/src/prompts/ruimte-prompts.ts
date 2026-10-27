@@ -5,9 +5,9 @@ import type { ProposalAnswers } from '@/proposals/answer';
 import type { SecretAnswers } from '@/secrets/answer';
 
 /*
- * What Ruimte asks beside a chat's own prompts: the machine's approval for an agent to operate an app
- * an agent's ask for a launch's secret and an agent's suggestion to make its chat a project, which
- * the machine asks and not the CLI, and a terminal whose TUI waits, which only the TUI answers.
+ * What Ruimte asks beside a chat's own prompts. The machine asks, and not the CLI, for an agent to
+ * operate an app, for a launch's secret and about an agent's suggestion to make its chat a project.
+ * A terminal whose TUI waits is answered only in that TUI.
  */
 type RuimtePromptData =
     | { kind: 'computer-approval'; request: ComputerApproval }
@@ -71,9 +71,10 @@ export function waitingPrompt(nodeId: string, since: number, request?: AgentRequ
     };
 }
 
+const RUIMTE_KINDS: ReadonlySet<unknown> = new Set<RuimtePromptData['kind']>(['computer-approval', 'secret-request', 'project-proposal', 'terminal-waiting']);
+
 export function isRuimtePrompt(prompt: HostPrompt): prompt is RuimtePrompt {
-    const data = prompt.data as Partial<RuimtePromptData> | null;
-    return data?.kind === 'computer-approval' || data?.kind === 'secret-request' || data?.kind === 'project-proposal' || data?.kind === 'terminal-waiting';
+    return RUIMTE_KINDS.has((prompt.data as Partial<RuimtePromptData> | null)?.kind);
 }
 
 /* Terminal status snapshots rebuild requests, so equal content must still keep the stack steady. */
@@ -118,36 +119,23 @@ export async function answerRuimtePrompt(
     if (!isRuimtePrompt(prompt) || prompt.data.kind === 'terminal-waiting') {
         throw new Error(i18next.t('prompts:error.terminalOnly'));
     }
-    if (prompt.data.kind === 'project-proposal') {
-        const { endpointId, proposal } = prompt.data;
+    const { data } = prompt;
+    const declined = action.kind === 'choose' && action.choiceId === SECRET_DECLINE;
+    let accepted = false;
+    if (data.kind === 'project-proposal') {
         // Review opens the dialog from the card itself; only a no reaches the machine from here.
-        if (
-            action.kind !== 'choose' ||
-            action.choiceId !== SECRET_DECLINE ||
-            proposals === undefined ||
-            !(await proposals.decline(endpointId, proposal.proposalId))
-        ) {
-            throw new Error(i18next.t('prompts:error.expired'));
-        }
-        return;
-    }
-    if (prompt.data.kind === 'secret-request') {
-        const { endpointId, request } = prompt.data;
+        accepted = declined && proposals !== undefined && (await proposals.decline(data.endpointId, data.proposal.proposalId));
+    } else if (data.kind === 'secret-request') {
         const value = action.kind === 'answer' ? action.answers[SECRET_ANSWER_FIELD] : undefined;
-        let accepted: boolean;
         if (value !== undefined && value !== '') {
-            accepted = await secrets.save(endpointId, request.requestId, value);
-        } else if (action.kind === 'choose' && action.choiceId === SECRET_DECLINE) {
-            accepted = await secrets.decline(endpointId, request.requestId);
-        } else {
-            throw new Error(i18next.t('prompts:error.expired'));
+            accepted = await secrets.save(data.endpointId, data.request.requestId, value);
+        } else if (declined) {
+            accepted = await secrets.decline(data.endpointId, data.request.requestId);
         }
-        if (!accepted) {
-            throw new Error(i18next.t('prompts:error.expired'));
-        }
-        return;
+    } else if (action.kind === 'choose' && isComputerChoice(action.choiceId)) {
+        accepted = await answerComputer(data.request.requestId, action.choiceId);
     }
-    if (action.kind !== 'choose' || !isComputerChoice(action.choiceId) || !(await answerComputer(prompt.data.request.requestId, action.choiceId))) {
+    if (!accepted) {
         throw new Error(i18next.t('prompts:error.expired'));
     }
 }

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button, Input } from '@adecore/ui';
 import type { PromptViewProps } from '@adecore/agents-react/prompts';
@@ -75,7 +75,7 @@ export function RuimtePromptView({ prompt, props }: { prompt: RuimtePrompt; prop
  */
 function SecretCard({ request, props }: { request: SecretRequest; props: PromptViewProps }) {
     const { t } = useTranslation('prompts');
-    const { onAction, disabled, sending, error, top } = props;
+    const { onAction, disabled, sending } = props;
     const [value, setValue] = useState('');
     const locked = sending || disabled;
     const words = { launch: request.launchName, variable: request.variable };
@@ -91,24 +91,11 @@ function SecretCard({ request, props }: { request: SecretRequest; props: PromptV
     };
 
     return (
-        <PromptCard
-            kind="question"
+        <QuestionCard
+            props={props}
             heading={request.label}
-            top={top}
-            busy={sending}
-            notice={disabled ? t('error.notConnected') : null}
-            error={error}
-            actions={
-                <>
-                    <Button size="sm" disabled={locked} onClick={() => onAction({ kind: 'choose', choiceId: SECRET_DECLINE })}>
-                        {t('secret.decline')}
-                    </Button>
-                    <span className="grow" />
-                    <PromptPrimary disabled={locked || value === ''} onClick={() => save()}>
-                        {t('secret.save')}
-                    </PromptPrimary>
-                </>
-            }
+            decline={t('secret.decline')}
+            primary={{ label: t('secret.save'), disabled: value === '', onClick: () => save() }}
         >
             <p className="text-sm text-text">{t('secret.body', words)}</p>
             <p className="whitespace-pre-wrap break-words text-sm text-text-muted">{request.reason}</p>
@@ -129,15 +116,13 @@ function SecretCard({ request, props }: { request: SecretRequest; props: PromptV
             <p className="text-xs text-text-muted">{t('secret.variable', words)}</p>
             {request.replaces && <p className="text-xs text-text-muted">{t('secret.replaces', words)}</p>}
             <p className="text-xs text-text-muted">{t('secret.approval')}</p>
-        </PromptCard>
+        </QuestionCard>
     );
 }
 
 /* An agent in Chats thinks its chat has become a project. The card only asks; the dialog that moves a chat does the rest. */
 function ProposalCard({ proposal, props }: { proposal: ProjectProposal; props: PromptViewProps }) {
     const { t } = useTranslation('prompts');
-    const { onAction, disabled, sending, error, top } = props;
-    const locked = sending || disabled;
 
     const review = (): void => {
         useUi.getState().setMoveChatDialog({
@@ -149,9 +134,36 @@ function ProposalCard({ proposal, props }: { proposal: ProjectProposal; props: P
     };
 
     return (
+        <QuestionCard
+            props={props}
+            heading={t('projectProposal.title')}
+            decline={t('projectProposal.decline')}
+            primary={{ label: t('projectProposal.review'), disabled: false, onClick: review }}
+        >
+            <p className="break-words text-sm text-text">{proposal.name}</p>
+            {proposal.folder !== undefined && <p className="break-all font-mono text-xs text-text-muted select-text">{proposal.folder}</p>}
+            <p className="whitespace-pre-wrap break-words text-sm text-text-muted">{proposal.reason}</p>
+        </QuestionCard>
+    );
+}
+
+interface QuestionCardProps {
+    props: PromptViewProps;
+    heading: string;
+    decline: string;
+    primary: { label: string; disabled: boolean; onClick(): void };
+    children: ReactNode;
+}
+
+/* A question of Ruimte's own: Decline goes to the machine, the primary is the card's own answer. */
+function QuestionCard({ props, heading, decline, primary, children }: QuestionCardProps) {
+    const { t } = useTranslation('prompts');
+    const { onAction, disabled, sending, error, top } = props;
+    const locked = sending || disabled;
+    return (
         <PromptCard
             kind="question"
-            heading={t('projectProposal.title')}
+            heading={heading}
             top={top}
             busy={sending}
             notice={disabled ? t('error.notConnected') : null}
@@ -159,18 +171,16 @@ function ProposalCard({ proposal, props }: { proposal: ProjectProposal; props: P
             actions={
                 <>
                     <Button size="sm" disabled={locked} onClick={() => onAction({ kind: 'choose', choiceId: SECRET_DECLINE })}>
-                        {t('projectProposal.decline')}
+                        {decline}
                     </Button>
                     <span className="grow" />
-                    <PromptPrimary disabled={locked} onClick={review}>
-                        {t('projectProposal.review')}
+                    <PromptPrimary disabled={locked || primary.disabled} onClick={primary.onClick}>
+                        {primary.label}
                     </PromptPrimary>
                 </>
             }
         >
-            <p className="break-words text-sm text-text">{proposal.name}</p>
-            {proposal.folder !== undefined && <p className="break-all font-mono text-xs text-text-muted select-text">{proposal.folder}</p>}
-            <p className="whitespace-pre-wrap break-words text-sm text-text-muted">{proposal.reason}</p>
+            {children}
         </PromptCard>
     );
 }
