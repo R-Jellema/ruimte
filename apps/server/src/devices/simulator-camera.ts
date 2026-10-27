@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { isVideo, requireMedia } from './device-paths.ts';
 import { DeviceError } from './manager.ts';
 import { besideDaemon, serveSimFolder } from './serve-sim.ts';
-import { realTimer, type Timer } from './timer.ts';
+import { cancellableTimeout, type Timer } from '../timers.ts';
 
 /* A running camera helper, as far as this daemon needs it. */
 interface CameraHelperProcess {
@@ -64,7 +64,7 @@ export class SimulatorCamera {
     private readonly timer: Timer;
     private readonly feeds = new Map<string, Feed>();
 
-    constructor(home: string, host: CameraHost, simctl: SimctlEnvRunner, timer: Timer = realTimer) {
+    constructor(home: string, host: CameraHost, simctl: SimctlEnvRunner, timer: Timer = cancellableTimeout) {
         this.home = home;
         this.host = host;
         this.simctl = simctl;

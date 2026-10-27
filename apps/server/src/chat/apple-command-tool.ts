@@ -1,5 +1,6 @@
 import { clipText } from '@ruimte/contracts';
 import type { AppleToolResult } from './apple-tools.ts';
+import { cancellableTimeout } from '../timers.ts';
 
 interface AppleCommandProcess {
     stdout: ReadableStream<Uint8Array>;
@@ -30,10 +31,7 @@ const defaults: AppleCommandDependencies = {
             }
         };
     },
-    scheduleTimeout: (callback, milliseconds) => {
-        const timer = setTimeout(callback, milliseconds);
-        return () => clearTimeout(timer);
-    }
+    scheduleTimeout: (callback, milliseconds) => cancellableTimeout(milliseconds, callback)
 };
 
 export async function executeAppleCommand(

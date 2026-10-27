@@ -7,6 +7,7 @@ import { ANTHROPIC_URL, anthropicHeaders, anthropicHttpError, type AnthropicClau
 import { ApiTools, CONTINUE_MESSAGE, INTERRUPTED, apiInstructions, endTurn, readThread, writeThread, type ToolRounds } from './api-chat.ts';
 import { executeNanoTool, NANOGPT_TOOLS, nanoEffectiveMode } from './nanogpt-tools.ts';
 import { readAnthropicStream, type AnthropicToolUse, type AnthropicUsage, type AnthropicTurn } from './anthropic-claude-api-stream.ts';
+import { cancellableTimeout, type Timer } from '../timers.ts';
 
 const BlockSchema = z.union([
     z.object({ type: z.literal('thinking'), thinking: z.string(), signature: z.string() }),
@@ -30,12 +31,7 @@ const NAME = 'The Claude API';
 export const STREAM_IDLE_MS = 120_000;
 
 /* Runs `run` after `ms` unless the function it hands back cancels it first. */
-export type IdleTimer = (ms: number, run: () => void) => () => void;
-
-const realIdleTimer: IdleTimer = (ms, run) => {
-    const handle = setTimeout(run, ms);
-    return () => clearTimeout(handle);
-};
+export type IdleTimer = Timer;
 
 interface AnthropicClaudeApiBackendOptions {
     executeTool?: typeof executeNanoTool;
@@ -83,7 +79,7 @@ export class AnthropicClaudeApiBackend implements ChatBackend {
         this.host = host;
         this.service = service;
         this.limitsOverride = options.limits;
-        this.idleTimer = options.idleTimer ?? realIdleTimer;
+        this.idleTimer = options.idleTimer ?? cancellableTimeout;
         // A change of mode restarts the backend, so the mode it started with holds for its whole life.
         this.mode = nanoEffectiveMode(launch.runtimeMode);
         this.tools = new ApiTools({

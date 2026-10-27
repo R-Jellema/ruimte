@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { realTimers, type Timers } from '../computer/approvals.ts';
+import { realTimers, type Timers } from '../timers.ts';
 import { SimulatorTreeReplySchema, type SimulatorTreeReply } from './device-tree.ts';
 import { DeviceError } from './manager.ts';
 

@@ -23,7 +23,7 @@ import {
 } from '@ruimte/contracts';
 import type { AuthStore } from '../auth/auth-store.ts';
 import type { SessionEvent } from '../sessions/manager.ts';
-import { unrefTimeout } from '../unref-timeout.ts';
+import { unrefTimeout } from '../timers.ts';
 import { PushAttention } from './attention.ts';
 import type { SnoozeChange } from './snoozes.ts';
 import { encryptPush } from './encrypt.ts';

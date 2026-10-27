@@ -15,6 +15,7 @@ import {
 } from './apple-tools.ts';
 import type { ApprovalDecision, BackendHost, BackendLaunch, ChatBackend, TurnInput } from '@adecore/agents/chat';
 import { ChatChild } from '@adecore/agents/chat';
+import { cancellableTimeout } from '../timers.ts';
 
 export interface AppleBackendOptions {
     enabled?: () => boolean;
@@ -510,8 +511,7 @@ export class AppleBackend implements ChatBackend {
         if (this.options.schedule) {
             return this.options.schedule(callback, milliseconds);
         }
-        const timer = setTimeout(callback, milliseconds);
-        return () => clearTimeout(timer);
+        return cancellableTimeout(milliseconds, callback);
     }
 
     private clearDeadline(): void {

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { AgentStatus, ComputerApproval, ComputerApprovalChoice, ComputerThisTimeGrant } from '@ruimte/contracts';
+import { realTimers, type Timers } from '../timers.ts';
 
 /*
  * How long a verb holds its call while the card is up, unless the agent asks for longer with `--wait`.
@@ -42,17 +43,6 @@ interface GrantBook {
     alwaysAllowed(bundleId: string): boolean;
     allowAlways(bundleId: string, name: string): Promise<void>;
 }
-
-export interface Timers {
-    set(run: () => void, ms: number): () => void;
-}
-
-export const realTimers: Timers = {
-    set: (run, ms) => {
-        const timer = setTimeout(run, ms);
-        return () => clearTimeout(timer);
-    }
-};
 
 interface Pending {
     request: ComputerApproval;

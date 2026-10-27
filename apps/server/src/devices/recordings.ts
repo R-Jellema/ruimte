@@ -1,5 +1,5 @@
 import { DeviceError } from './manager.ts';
-import { realTimer, type Timer } from './timer.ts';
+import { cancellableTimeout, type Timer } from '../timers.ts';
 
 /* A recorder running on the machine, which writes its file whole only once it was interrupted and exited. */
 export interface RecordingProcess {
@@ -39,7 +39,7 @@ export class DeviceRecordings {
     private readonly timer: Timer;
     private readonly running = new Map<string, Recording>();
 
-    constructor(launch: RecordingLauncher = spawnRecording, timer: Timer = realTimer) {
+    constructor(launch: RecordingLauncher = spawnRecording, timer: Timer = cancellableTimeout) {
         this.launch = launch;
         this.timer = timer;
     }

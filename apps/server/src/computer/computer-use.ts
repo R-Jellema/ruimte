@@ -15,7 +15,8 @@ import type {
 import { ClientSinks } from '../client-sinks.ts';
 import { errorText } from '../error-text.ts';
 import type { SessionEvent, SessionSink } from '../sessions/manager.ts';
-import { APPROVAL_WAIT_MS, ComputerApprovals, MAX_HOLD_MS, realTimers, type AppRef, type CallerInfo, type Timers } from './approvals.ts';
+import { APPROVAL_WAIT_MS, ComputerApprovals, MAX_HOLD_MS, type AppRef, type CallerInfo } from './approvals.ts';
+import { realTimers, type Timers } from '../timers.ts';
 import { HelperFailure, helperDirectory, messageOf, type ComputerHelper } from './helper.ts';
 import {
     ActionResultSchema,

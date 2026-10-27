@@ -9,7 +9,7 @@ import {
     type DeviceReference,
     type DeviceTool
 } from '@ruimte/contracts';
-import { realTimers, type Timers } from '../computer/approvals.ts';
+import { realTimers, type Timers } from '../timers.ts';
 import { captureFile, pngSize, writeShot } from '../shots.ts';
 import { centerOf, findElements, flattenTree, type DeviceElement } from './device-tree.ts';
 import type { DeviceManager } from './manager.ts';

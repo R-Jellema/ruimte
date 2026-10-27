@@ -1,7 +1,7 @@
 import { hevcKeyFrame, type DeviceInput, type LiveStreamFrame } from '@ruimte/contracts';
 import type { LiveFrameSource } from '../streams/live-stream.ts';
 import { DEVICE_HELPER_MAGIC, DeviceHelperDecoder, encodeDeviceHelperMessage, type DeviceHelperCall, type DeviceHelperMessage } from './helper-protocol.ts';
-import { realTimer, type Timer } from './timer.ts';
+import { cancellableTimeout, type Timer } from '../timers.ts';
 
 export interface DeviceHelperProcess {
     readonly stdin: {
@@ -67,7 +67,7 @@ export class DeviceHelperSource implements LiveFrameSource {
     /* The calls waiting for their reply, by id; the helper answers each in the order it was sent. */
     private readonly calls = new Map<number, { resolve: (value: boolean | undefined) => void; reject: (error: unknown) => void; cancel: () => void }>();
 
-    constructor(deviceId: string, launch: DeviceHelperLauncher, stopGraceMs = 500, format: 'jpeg' | 'hevc' = 'jpeg', timer: Timer = realTimer) {
+    constructor(deviceId: string, launch: DeviceHelperLauncher, stopGraceMs = 500, format: 'jpeg' | 'hevc' = 'jpeg', timer: Timer = cancellableTimeout) {
         this.deviceId = deviceId;
         this.launch = launch;
         this.stopGraceMs = stopGraceMs;

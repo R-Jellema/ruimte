@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { AgentStatus } from '@ruimte/contracts';
 import type { SessionEvent } from '../sessions/manager.ts';
-import type { Timers } from './approvals.ts';
+import type { Timers } from '../timers.ts';
 import { ComputerUse, type ComputerUseOptions } from './computer-use.ts';
 import { ComputerHelper, HelperUnreachable, type HelperTransport } from './helper.ts';
 import type { HelperRequest, HelperSession, RunningApp } from './helper-protocol.ts';

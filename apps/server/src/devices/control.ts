@@ -1,6 +1,6 @@
 import type { DeviceAgentStep, DeviceControlMode, DeviceInfo, DeviceOperated } from '@ruimte/contracts';
 import { ClientSinks } from '../client-sinks.ts';
-import { realTimers, type Timers } from '../computer/approvals.ts';
+import { realTimers, type Timers } from '../timers.ts';
 import type { SessionSink } from '../sessions/manager.ts';
 import { AGENT_HOLD_IDLE_MS, deviceKey, type AgentStep, type DeviceGate } from './agent-driver.ts';
 

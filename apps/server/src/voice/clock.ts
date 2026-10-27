@@ -1,3 +1,4 @@
+import { cancellableTimeout } from '../timers.ts';
 /* Time for Voice run by the daemon, injected so a test runs every deadline without waiting on the wall clock. */
 export interface VoiceClock {
     now(): number;
@@ -7,8 +8,5 @@ export interface VoiceClock {
 
 export const SYSTEM_CLOCK: VoiceClock = {
     now: () => Date.now(),
-    after: (ms, run) => {
-        const timer = setTimeout(run, ms);
-        return () => clearTimeout(timer);
-    }
+    after: cancellableTimeout
 };

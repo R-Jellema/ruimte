@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { ProjectProposal } from '@ruimte/contracts';
 import { ClientSinks } from '../client-sinks.ts';
-import { realTimers, type Timers } from '../computer/approvals.ts';
+import { realTimers, type Timers } from '../timers.ts';
 import type { SessionEvent, SessionSink } from '../sessions/manager.ts';
 
 /* A card is a suggestion to think over, so it outlasts the turn that raised it; a day without a new ask takes it down. */

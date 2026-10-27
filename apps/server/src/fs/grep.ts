@@ -5,6 +5,7 @@ import { contextOf, lineReader, MAX_FILE_BYTES, MAX_LINE_LENGTH, type GrepWorker
 import { holdsMachineHome, NO_MACHINE_HOME, type MachineHomePolicy } from './machine-home.ts';
 import { listSearchableFiles } from './search.ts';
 import { isOpenName, readSearchable, searchRoot, type SearchRoot } from './searchable.ts';
+import { cancellableTimeout } from '../timers.ts';
 
 // Past this the search without ripgrep answers with what it found so far.
 const JS_BUDGET_MS = 10_000;
@@ -231,8 +232,7 @@ async function confirmed(root: SearchRoot, files: CollectedFile[]): Promise<FsGr
 }
 
 function startBudget(stop: () => void): () => void {
-    const timer = setTimeout(stop, JS_BUDGET_MS);
-    return () => clearTimeout(timer);
+    return cancellableTimeout(JS_BUDGET_MS, stop);
 }
 
 /* The same search without ripgrep: over the file list `fs.search` already keeps, on a worker that

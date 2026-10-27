@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { SecretRequest } from '@ruimte/contracts';
-import { realTimers, type Timers } from '../computer/approvals.ts';
+import { realTimers, type Timers } from '../timers.ts';
 import type { SecretSlot } from './secret-store.ts';
 
 /*

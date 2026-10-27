@@ -50,6 +50,7 @@ import {
     type ProjectSqlSettings
 } from './profiles.ts';
 import type { LanguageChild, LanguageExit, LanguageRuntime, SpawnLanguageProcess } from './runtime.ts';
+import { realTimers } from '../timers.ts';
 
 const SHIPPED_COMPONENTS = new Set(Object.values(KIND_PROFILES).flatMap((kind) => kind.components.map((component) => component.name)));
 
@@ -78,12 +79,7 @@ export interface LanguageClock {
     set(run: () => void, ms: number): () => void;
 }
 
-export const realLanguageClock: LanguageClock = {
-    set: (run, ms) => {
-        const timer = setTimeout(run, ms);
-        return () => clearTimeout(timer);
-    }
-};
+export const realLanguageClock: LanguageClock = realTimers;
 
 /* One file as the daemon holds it, shared by every client that has it open. The daemon owns the version. */
 export interface SharedDocument {

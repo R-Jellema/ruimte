@@ -6,6 +6,7 @@ import { errorText } from '../error-text.ts';
 import type { SessionSink } from '../sessions/manager.ts';
 import { LaunchError, type LaunchStore, type ResolvedLaunch } from './store.ts';
 import { countUsage } from '../stats/usage-stats.ts';
+import { realTimers } from '../timers.ts';
 
 // How long a stop waits after the interrupt before it sends SIGTERM.
 export const STOP_GRACE_MS = 5_000;
@@ -30,13 +31,7 @@ interface LaunchClock {
     set(run: () => void, ms: number): () => void;
 }
 
-const realClock: LaunchClock = {
-    now: () => Date.now(),
-    set: (run, ms) => {
-        const timer = setTimeout(run, ms);
-        return () => clearTimeout(timer);
-    }
-};
+const realClock: LaunchClock = { now: () => Date.now(), ...realTimers };
 
 /* Whether something takes a connection on this port. */
 type LaunchProbe = (host: string, port: number) => Promise<boolean>;

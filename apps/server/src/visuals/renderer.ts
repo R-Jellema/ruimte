@@ -6,6 +6,7 @@ import { CodedError } from '@adecore/agents';
 import { errorText } from '../error-text.ts';
 import type { ConsoleEntry } from './page-console.ts';
 import { RENDER_COMMAND, RenderAnswerSchema, type RenderAnswer, type RenderRequest } from './render-protocol.ts';
+import { cancellableTimeout } from '../timers.ts';
 
 /*
  * Renders an agent's page in a child process with a Chrome of its own (`render-child.ts`), for a
@@ -146,11 +147,6 @@ export interface VisualRendererOptions {
     now?: () => number;
 }
 
-function systemSchedule(ms: number, run: () => void): () => void {
-    const timer = setTimeout(run, ms);
-    return () => clearTimeout(timer);
-}
-
 export class VisualRenderer {
     private readonly launch: RenderLauncher;
     private readonly slots: number;
@@ -170,7 +166,7 @@ export class VisualRenderer {
         this.previewLimitMs = options.previewLimitMs ?? PREVIEW_LIMIT_MS;
         this.measureLimitMs = options.measureLimitMs ?? MEASURE_LIMIT_MS;
         this.warn = options.warn ?? ((line) => console.warn(line));
-        this.schedule = options.schedule ?? systemSchedule;
+        this.schedule = options.schedule ?? cancellableTimeout;
         this.now = options.now ?? Date.now;
     }
 

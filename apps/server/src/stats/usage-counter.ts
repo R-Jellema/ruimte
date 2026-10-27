@@ -15,7 +15,7 @@ import {
 import { z } from 'zod';
 import { errorText } from '../error-text.ts';
 import type { Launcher } from '../telemetry/reporter.ts';
-import { unrefTimeout } from '../unref-timeout.ts';
+import { unrefTimeout } from '../timers.ts';
 
 const DAY_MS = 86_400_000;
 // Today and every finished day a batch may still carry.
