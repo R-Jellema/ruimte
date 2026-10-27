@@ -14,6 +14,7 @@ import { openLogin } from '@/chat/login';
 import { openForkDialog } from '@/chat/open-fork';
 import { useMachinePlatform } from '@/chat/machine-platform';
 import { gitStatusConcernsChat } from '@/chat/ui-refresh';
+import { readToolOutput } from '@/chat/tool-output';
 import { useMapSource } from '@/chat/use-map-source';
 import { visualHostFor } from '@/chat/visuals';
 import { desktop, isApplePlatform } from '@/desktop/bridge';
@@ -22,6 +23,7 @@ import { ProjectGlyph } from '@/project/ProjectGlyph';
 import { CODE_THEMES } from '@/shell/panels/code-themes';
 import { useEndpoints } from '@/state/endpoints';
 import { currentEndpointId, endpointKey } from '@/state/keys';
+import { endpointOfNodeId } from '@/state/node-endpoint';
 import { isScratchProject, useProject } from '@/state/project';
 import { useProjectList } from '@/state/project-list';
 import { useServers } from '@/state/server';
@@ -62,6 +64,8 @@ const PERSON_CHAT_ACTIONS: ChatActions = {
         await perform('chat.continueOn', { chatId, account });
     },
     turnDiff: async (chatId, turnId) => (await perform('chat.turnDiff', { chatId, turnId })).diff,
+    // Only the thread reads this, so it asks the chat's machine directly rather than through the registry.
+    toolOutput: (chatId, itemId) => readToolOutput(transportFor(endpointOfNodeId(chatId)), chatId, itemId),
     stopSubagent: async (chatId, toolUseId) => {
         await perform('chat.stopSubagent', { chatId, toolUseId });
     },

@@ -72,6 +72,7 @@
         "refused": "De terminal nam het commando niet aan. Open het voorbeeld opnieuw."
     },
     "offline": "De machine van deze chat is niet verbonden.",
+    "fullOutputOlder": "De machine van deze chat draait een oudere Ruimte en kan de volledige output niet laten zien.",
     "uiLink": {
         "elsewhere": "Linkt naar een project dat niet in dit venster open is.",
         "invalidUrl": "Ruimte kan deze link niet openen."

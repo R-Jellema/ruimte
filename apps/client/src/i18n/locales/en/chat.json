@@ -72,6 +72,7 @@
         "refused": "The terminal did not accept the command. Open the preview again."
     },
     "offline": "This chat's machine is not connected.",
+    "fullOutputOlder": "This chat's machine runs an older Ruimte and cannot show the full output.",
     "uiLink": {
         "elsewhere": "Links to a project not open in this window.",
         "invalidUrl": "Ruimte cannot open this link."

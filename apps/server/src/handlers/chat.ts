@@ -62,7 +62,7 @@ export function registerChatHandlers(
         ...shared
     } = chatHandlers(manager, providers);
     const unlessBound =
-        <T extends 'chat.create' | 'chat.attach'>(handler: AgentHandler<T>): AgentHandler<T> =>
+        <T extends 'chat.create' | 'chat.attach' | 'chat.toolOutput'>(handler: AgentHandler<T>): AgentHandler<T> =>
         (payload, clientId) => {
             refuseBoundNode(machineOf, payload.chatId);
             return handler(payload, clientId);
@@ -78,7 +78,8 @@ export function registerChatHandlers(
     registerAgentHandlers(dispatcher, {
         ...shared,
         'chat.create': unlessBound(unlessStarting(shared['chat.create'])),
-        'chat.attach': unlessBound(shared['chat.attach'])
+        'chat.attach': unlessBound(shared['chat.attach']),
+        'chat.toolOutput': unlessBound(shared['chat.toolOutput'])
     });
 
     dispatcher.register('chat.stopSubagent', async (payload) => {
