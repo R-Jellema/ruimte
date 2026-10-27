@@ -75,22 +75,11 @@ export function servicePath(path: string | undefined, platform: NodeJS.Platform 
 
 const UNSUPPORTED_PLATFORM = 'The background service runs on macOS, Linux and Windows only.';
 
-function serviceKindOf(platform: NodeJS.Platform): ServicePlan['kind'] | null {
-    if (platform === 'darwin') {
-        return 'launchd';
-    }
-    if (platform === 'linux') {
-        return 'systemd';
-    }
-    if (platform === 'win32') {
-        return 'task-scheduler';
-    }
-    return null;
-}
+const SERVICE_KINDS: Partial<Record<NodeJS.Platform, ServicePlan['kind']>> = { darwin: 'launchd', linux: 'systemd', win32: 'task-scheduler' };
 
 export function servicePlan(facts: ServiceFacts): ServicePlan | string {
-    const kind = serviceKindOf(facts.platform);
-    if (kind === null) {
+    const kind = SERVICE_KINDS[facts.platform];
+    if (kind === undefined) {
         return UNSUPPORTED_PLATFORM;
     }
     const program = commandLineServiceProgram(facts.ruimteHome, facts.platform);
@@ -250,8 +239,7 @@ export function copyServiceBinaries(from: string, to: string, platform: NodeJS.P
         cpSync(join(from, NATIVE_DIR), temporary, { recursive: true });
         replaceSync(temporary, native);
     }
-    removeRetired(to);
-    removeFormer(to);
+    removeLeftovers(to);
     for (const name of binaryFiles(platform)) {
         const target = join(to, name);
         const temporary = tempNameFor(target);
@@ -264,21 +252,13 @@ export function copyServiceBinaries(from: string, to: string, platform: NodeJS.P
     }
 }
 
-/* Only a cleanup: a former file another process holds open never stops an install or an uninstall. */
-function removeFormer(dir: string): void {
-    for (const name of FORMER_FILES) {
-        try {
-            rmSync(join(dir, name), { force: true });
-        } catch {
-            continue;
-        }
-    }
-}
-
-/* Best effort: a retired executable that still runs stays until a later copy or removal. */
-function removeRetired(dir: string): void {
-    const names = existsSync(dir) ? readdirSync(dir) : [];
-    for (const name of names.filter((entry) => entry.endsWith(RETIRED_SUFFIX))) {
+/*
+ * Former files and retired executables, best effort: one another process holds open, such as a retired
+ * executable that still runs, stays until a later copy or removal and never stops an install or an uninstall.
+ */
+function removeLeftovers(dir: string): void {
+    const retired = existsSync(dir) ? readdirSync(dir).filter((entry) => entry.endsWith(RETIRED_SUFFIX)) : [];
+    for (const name of [...FORMER_FILES, ...retired]) {
         try {
             rmSync(join(dir, name), { force: true });
         } catch {
@@ -291,9 +271,8 @@ export function removeServiceBinaries(dir: string, platform: NodeJS.Platform = p
     for (const name of binaryFiles(platform)) {
         rmSync(join(dir, name), { force: true });
     }
-    removeFormer(dir);
     rmSync(join(dir, NATIVE_DIR), { recursive: true, force: true });
-    removeRetired(dir);
+    removeLeftovers(dir);
 }
 
 async function health(port: number): Promise<BuildIdentity | null> {
@@ -305,11 +284,11 @@ async function health(port: number): Promise<BuildIdentity | null> {
     }
 }
 
-export function runService(args: string[], options: { port: number; ruimteHome: string; compiled: boolean }): Promise<number> {
+export async function runService(args: string[], options: { port: number; ruimteHome: string; compiled: boolean }): Promise<number> {
     const manager = platformServiceManager(process.platform);
     if (manager === null) {
         console.error(UNSUPPORTED_PLATFORM);
-        return Promise.resolve(1);
+        return 1;
     }
     return runServiceAction(
         args[0] ?? '',

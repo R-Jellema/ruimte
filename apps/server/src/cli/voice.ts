@@ -1,3 +1,4 @@
+import { text } from 'node:stream/consumers';
 import { VoiceKeyStore } from '../voice/key-store.ts';
 
 export interface VoiceCliOptions {
@@ -81,15 +82,7 @@ function readHidden(stdin: NodeJS.ReadStream, prompt: (text: string) => void): P
     });
 }
 
-async function readAll(stdin: NodeJS.ReadStream): Promise<string> {
-    const chunks: Buffer[] = [];
-    for await (const chunk of stdin) {
-        chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : (chunk as Buffer));
-    }
-    return Buffer.concat(chunks).toString('utf8');
-}
-
 /* The reader `main.ts` hands in: the terminal when a person sits at one, stdin otherwise (`pbpaste | ruimte voice key set`). */
 export function processKeyReader(stdin: NodeJS.ReadStream, prompt: (text: string) => void): (interactive: boolean) => Promise<string> {
-    return (interactive) => (interactive ? readHidden(stdin, prompt) : readAll(stdin));
+    return (interactive) => (interactive ? readHidden(stdin, prompt) : text(stdin));
 }
