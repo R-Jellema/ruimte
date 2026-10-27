@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import type { ConnectionState, TransportStatus } from '../transport/transport';
 import type { ProjectSummary } from '@ruimte/contracts';
-import { useEndpoints, type Endpoint } from '../state/endpoints';
+import { useEndpoints } from '../state/endpoints';
 import { useProjectList } from '../state/project-list';
 import { pool } from '../transport';
 import {
@@ -17,7 +17,7 @@ import {
     writeCachedList,
     type OpenListSource
 } from './list';
-import { fakeStorage } from './fake-storage';
+import { fakeStorage, lanEndpoint } from './fixtures';
 
 function summary(projectId: string, lastOpenedAt = 0, closedAt: number | null = null): ProjectSummary {
     return {
@@ -33,19 +33,6 @@ function summary(projectId: string, lastOpenedAt = 0, closedAt: number | null = 
     };
 }
 
-function endpoint(id: string, label: string): Endpoint {
-    return {
-        id,
-        label,
-        httpBaseUrl: `http://${id}`,
-        wsBaseUrl: `ws://${id}`,
-        reachability: 'lan',
-        daemonId: id,
-        daemonPublicKey: null
-    };
-}
-
-/* The three calls the list makes on the storage it is given, over a map a test can read. */
 beforeEach(() => {
     useProjectList.setState({ projects: [] });
 });
@@ -92,7 +79,7 @@ describe('the union of the machines that are known', () => {
 });
 
 describe('the recent list of the start screen', () => {
-    const endpoints = [endpoint('local', 'This machine'), endpoint('daemon-b', 'Work laptop')];
+    const endpoints = [lanEndpoint('local', 'This machine'), lanEndpoint('daemon-b', 'Work laptop')];
 
     test('open and closed projects in one list, on whichever came last: opening or closing', () => {
         const rows = [
@@ -114,7 +101,7 @@ describe('the recent list of the start screen', () => {
 });
 
 describe('the switcher as one list', () => {
-    const endpoints = [endpoint('local', 'This machine'), endpoint('daemon-b', 'Work laptop')];
+    const endpoints = [lanEndpoint('local', 'This machine'), lanEndpoint('daemon-b', 'Work laptop')];
 
     test('every machine in one list, most recently opened first', () => {
         const rows = [
@@ -156,7 +143,7 @@ describe('the switcher as one list', () => {
 });
 
 describe('the Chats project of a machine', () => {
-    const endpoints = [endpoint('local', 'This machine'), endpoint('daemon-b', 'Work laptop')];
+    const endpoints = [lanEndpoint('local', 'This machine'), lanEndpoint('daemon-b', 'Work laptop')];
     const chats = (closedAt: number | null = null): ProjectSummary => ({ ...summary('chats', 50, closedAt), scratch: true });
 
     test('stands in no list of projects, open or closed', () => {
@@ -182,7 +169,7 @@ describe('the Chats project of a machine', () => {
 });
 
 describe('the rows worth offering', () => {
-    const endpoints = [endpoint('local', 'This machine')];
+    const endpoints = [lanEndpoint('local', 'This machine')];
     const gone = (projectId: string): ProjectSummary => ({ ...summary(projectId, 10), available: false });
 
     test('a project whose file its machine no longer finds is left out', () => {
@@ -223,7 +210,7 @@ describe('the list a machine is remembered by', () => {
         const storage = new Map<string, string>();
         writeCachedList('daemon-a', [summary('p1')], fakeStorage(storage));
         writeCachedList('daemon-b', [summary('q1')], fakeStorage(storage));
-        useEndpoints.setState({ endpoints: [endpoint('daemon-a', 'A'), endpoint('daemon-b', 'B')], activeId: 'daemon-a' });
+        useEndpoints.setState({ endpoints: [lanEndpoint('daemon-a', 'A'), lanEndpoint('daemon-b', 'B')], activeId: 'daemon-a' });
         useProjectList.getState().setProjects('daemon-a', [summary('p2')]);
 
         primeCachedLists(fakeStorage(storage));
@@ -264,7 +251,7 @@ describe('the list and the links', () => {
         useProjectList.getState().setProjects('offline-vps', [summary('p1'), summary('p2')]);
         useProjectList.getState().setProjects('other', [summary('p1')]);
         closeListedProjectLocally('offline-vps', summary('p1'));
-        const endpoints = [endpoint('offline-vps', 'VPS'), endpoint('other', 'Other')];
+        const endpoints = [lanEndpoint('offline-vps', 'VPS'), lanEndpoint('other', 'Other')];
         const lists = menuProjects(useProjectList.getState().projects, endpoints, []);
         expect(lists.open.map((row) => `${row.endpointId}:${row.summary.projectId}`)).toEqual(['offline-vps:p2', 'other:p1']);
         expect(lists.recent.map((row) => `${row.endpointId}:${row.summary.projectId}`)).toEqual(['offline-vps:p1']);
@@ -272,7 +259,7 @@ describe('the list and the links', () => {
     });
 
     test('listing a machine without a link asks nothing and opens no link', async () => {
-        useEndpoints.setState({ endpoints: [endpoint('daemon-idle', 'Idle')], activeId: 'daemon-idle' });
+        useEndpoints.setState({ endpoints: [lanEndpoint('daemon-idle', 'Idle')], activeId: 'daemon-idle' });
         expect(await listProjects('daemon-idle')).toEqual([]);
         expect(pool.peek('daemon-idle')).toBeNull();
         expect(pool.ids()).not.toContain('daemon-idle');

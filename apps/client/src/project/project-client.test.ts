@@ -27,7 +27,7 @@ import { setViewShared } from './views';
 import { ProjectClient, type ProjectSink } from './project-client';
 import { sessionNodesOf } from './project-sessions';
 import { withClientClosedProject } from './closed-projects';
-import { fakeStorage } from './fake-storage';
+import { fakeStorage } from './fixtures';
 
 type Call = { type: RequestType; payload: unknown };
 
@@ -247,7 +247,6 @@ afterEach(() => {
     jest.useRealTimers();
 });
 
-/* The three calls `ProjectClient` makes on the storage it is given, over a map a test can read. */
 /*
  * `open` is the project the client is built to open, the way a workspace is. A test that says nothing
  * gets the first project listed, so a test about saving or panels has a canvas without saying so.

@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
 import type { ProjectSummary } from '@ruimte/contracts';
+import { fakeStorage } from './fixtures';
 import { forgetClosedProject, rememberClosedProject, withClientClosedProject } from './closed-projects';
 
 const summary: ProjectSummary = {
@@ -15,16 +16,7 @@ const summary: ProjectSummary = {
 };
 
 test('an offline close survives fresh daemon lists until this client opens the project again', () => {
-    const values = new Map<string, string>();
-    const storage = {
-        getItem: (key: string) => values.get(key) ?? null,
-        setItem: (key: string, value: string) => {
-            values.set(key, value);
-        },
-        removeItem: (key: string) => {
-            values.delete(key);
-        }
-    };
+    const storage = fakeStorage(new Map());
     rememberClosedProject('vps', 'project', storage, 20);
     expect(withClientClosedProject('vps', summary, storage).closedAt).toBe(20);
     expect(withClientClosedProject('other', summary, storage).closedAt).toBeNull();

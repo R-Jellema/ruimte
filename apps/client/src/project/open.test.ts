@@ -1,21 +1,9 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { useEndpoints, type Endpoint } from '../state/endpoints';
+import { useEndpoints } from '../state/endpoints';
 import { useWindow } from '../state/window';
 import type { OpenRequest } from '../transport/connections';
 import { bootWindow, switchRun, type SwitchDeps, type SwitchPlan, type Whereabouts } from './open';
-import { fakeStorage } from './fake-storage';
-
-function endpoint(id: string): Endpoint {
-    return {
-        id,
-        label: id,
-        httpBaseUrl: `http://${id}`,
-        wsBaseUrl: `ws://${id}`,
-        reachability: 'lan',
-        daemonId: id,
-        daemonPublicKey: null
-    };
-}
+import { fakeStorage, lanEndpoint } from './fixtures';
 
 function stored(value: unknown): Map<string, string> {
     return new Map([['ruimte.lastProject', JSON.stringify(value)]]);
@@ -253,7 +241,7 @@ describe('one project in one window', () => {
 
 describe('the cold start', () => {
     beforeEach(() => {
-        useEndpoints.setState({ endpoints: [endpoint('local'), endpoint('daemon-b')], activeId: 'local' });
+        useEndpoints.setState({ endpoints: [lanEndpoint('local'), lanEndpoint('daemon-b')], activeId: 'local' });
         useWindow.setState({ content: { kind: 'start' }, booting: true, bootFailure: null, dormant: null });
     });
 

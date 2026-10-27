@@ -1,16 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { ProjectDocumentSchema, type ProjectCanvasView } from '@ruimte/contracts';
-import type { LastProjectStorage } from './last-project';
+import { fakeStorage } from './fixtures';
 import { readProjectDraft, writeProjectDraft } from './project-draft';
-
-function memoryStorage(): LastProjectStorage {
-    const entries = new Map<string, string>();
-    return {
-        getItem: (key) => entries.get(key) ?? null,
-        setItem: (key, value) => void entries.set(key, value),
-        removeItem: (key) => void entries.delete(key)
-    };
-}
 
 // The way a newer machine sends it: keys on a node, a view and a text that this version has no field for.
 const NEWER = ProjectDocumentSchema.parse({
@@ -34,7 +25,7 @@ const NEWER = ProjectDocumentSchema.parse({
 
 describe('a local draft', () => {
     test('restores the fields this version does not know', () => {
-        const storage = memoryStorage();
+        const storage = fakeStorage(new Map());
         writeProjectDraft(storage, 'daemon-a', 'p1', NEWER, NEWER);
 
         const draft = readProjectDraft(storage, 'daemon-a', 'p1')!;

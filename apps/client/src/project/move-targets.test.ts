@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { ProjectSummary } from '@ruimte/contracts';
-import type { Endpoint } from '../state/endpoints';
 import type { ProjectRow } from '../state/project-list';
+import { lanEndpoint } from './fixtures';
 import { moveTargetsOf } from './move-targets';
 
 function summary(projectId: string, patch: Partial<ProjectSummary> = {}): ProjectSummary {
@@ -19,11 +19,7 @@ function summary(projectId: string, patch: Partial<ProjectSummary> = {}): Projec
     };
 }
 
-function endpoint(id: string): Endpoint {
-    return { id, label: id, httpBaseUrl: `http://${id}`, wsBaseUrl: `ws://${id}`, reachability: 'lan', daemonId: id, daemonPublicKey: null };
-}
-
-const endpoints = [endpoint('a'), endpoint('b')];
+const endpoints = [lanEndpoint('a'), lanEndpoint('b')];
 
 function rows(endpointId: string, ...summaries: ProjectSummary[]): ProjectRow[] {
     return summaries.map((entry) => ({ endpointId, summary: entry }));
